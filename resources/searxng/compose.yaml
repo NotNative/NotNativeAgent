@@ -1,0 +1,14 @@
+# NNA-managed, loopback-only SearXNG deployment.
+services:
+  searxng:
+    image: docker.io/searxng/searxng@sha256:d0aaeb14880e6e92bde1518fcc7261e995783367d63d95203383607bef9c6516
+    container_name: nna-searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8080"
+    environment:
+      SEARXNG_BASE_URL: http://127.0.0.1:8888/
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+    volumes:
+      - ./config:/etc/searxng
+      - ./data:/var/cache/searxng

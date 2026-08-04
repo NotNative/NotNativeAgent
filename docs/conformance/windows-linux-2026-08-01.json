@@ -1,0 +1,43 @@
+{
+  "measured_at": "2026-08-01",
+  "release": "20260801-4",
+  "suite_tests": 67,
+  "results": [
+    {
+      "environment": "windows-host",
+      "release": "20260801-4",
+      "os": "Microsoft Windows NT 10.0.26200.0",
+      "arch": "x64",
+      "node": "v24.13.0",
+      "powershell": "5.1.26100.8875",
+      "runtime_tests": "passed",
+      "quality_gates": "passed",
+      "installer_lifecycle": "passed",
+      "installer_entrypoint": "root install.ps1 and uninstall.ps1",
+      "bare_launch_onboarding": "passed with persisted default manifest tests",
+      "reinstall_replacement": "stale installed payload removed; runtime, transitory, and user data preserved",
+      "missing_node_bootstrap": "passed with verified node-v24.18.1-win-x64.zip"
+    },
+    {
+      "environment": "linux-container",
+      "release": "20260801-4",
+      "image": "node:24-bookworm-slim",
+      "image_digest": "sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7",
+      "kernel": "Linux 6.18.33.2-microsoft-standard-WSL2",
+      "userland": "Debian GNU/Linux",
+      "arch": "x86_64",
+      "node": "v24.18.1",
+      "runtime_tests": "passed",
+      "quality_gates": "passed",
+      "installer_lifecycle": "passed",
+      "installer_entrypoint": "root install.sh and uninstall.sh",
+      "bare_launch_onboarding": "passed with persisted default manifest tests",
+      "reinstall_replacement": "stale installed payload removed; runtime, transitory, and user data preserved",
+      "missing_node_bootstrap": "passed with apt utility bootstrap and verified node-v24.18.1-linux-x64.tar.xz"
+    }
+  ],
+  "limitations": [
+    "Linux evidence is containerized and does not replace native interactive-terminal review.",
+    "Hosted Ubuntu CI must be green for publication."
+  ]
+}

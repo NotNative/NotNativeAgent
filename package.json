@@ -1,0 +1,46 @@
+{
+  "name": "not-native-agent",
+  "version": "20260804.0.31",
+  "nna_version": "20260804-31",
+  "description": "Local-first agent runtime and terminal interface",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "bin": {
+    "nna": "./src/cli.js"
+  },
+  "files": [
+    "src/",
+    "resources/",
+    "docs/",
+    "!docs/planning/",
+    "scripts/",
+    "test/",
+    "install.ps1",
+    "install.sh",
+    "uninstall.ps1",
+    "uninstall.sh",
+    "VERSION",
+    "NOTICE",
+    "SECURITY.md",
+    "SUPPORT.md",
+    "THIRD_PARTY_NOTICES.md",
+    "SBOM.spdx.json",
+    "RELEASE_MANIFEST.sha256",
+    "RELEASE_VERSIONS.json"
+  ],
+  "scripts": {
+    "check": "node scripts/quality-gates.js && node --test",
+    "test": "node --test",
+    "headless": "node src/cli.js headless",
+    "tui": "node src/cli.js tui",
+    "platform:test": "node --test test/productization.test.js",
+    "performance:lab": "node scripts/performance-lab.js",
+    "provider:conformance": "node scripts/provider-conformance.js",
+    "recovery:force-kill": "node scripts/forced-termination-lab.js",
+    "version:bump": "node scripts/bump-version.js",
+    "release:check": "node scripts/release-gates.js"
+  }
+}

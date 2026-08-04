@@ -1,0 +1,235 @@
+// SPDX-License-Identifier: Apache-2.0
+import { ContractError } from './ids.js';
+import { FairScheduler } from './fair-scheduler.js';
+
+export class ProviderRunner {
+  constructor(options) {
+    Object.assign(this, options);
+    this.scheduler ??= new FairScheduler();
+    this.queueStatus ??= () => undefined;
+  }
+
+  async run(provider, request, deadlines, active) {
+    for (let attempt = 0; attempt < active.recovery.localLimit; attempt += 1) {
+      const lifecycle = this.lifecycles.start('provider_attempt', active.stepId);
+      active.attemptId = lifecycle.id;
+      this.state.transition('invoking_model', { trigger: 'provider_attempt', turnId: active.turnId });
+      await this.publish('provider_attempt.started', 'provider_attempt', 'active', active);
+      const release = await this.scheduler.acquire(
+        active.providerResource, active.sessionId, active.controller.signal,
+        (position) => this.queueStatus(active, position),
+        active.runtimeModel?.parallelCapacity ?? null,
+      );
+      let retryDelay = null;
+      const requestSpan = `provider-request:${active.attemptId}`;
+      const requestStarted = process.hrtime.bigint();
+      this.telemetry?.record('provider.request', 'started', {
+        request, model: active.modelName, provider_profile: active.providerResource,
+      }, providerCorrelation(active, requestSpan));
+      try {
+        await this.#invoke(provider, request, deadlines, active);
+        this.telemetry?.record('provider.request', 'succeeded', {
+          model: active.modelName, provider_profile: active.providerResource,
+          finish_reason: active.finishReason, usage: active.usage,
+          response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
+        }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), outcome: 'completed' });
+        this.dialects?.observe({ profile: { id: active.providerResource }, model: active.modelName }, { status: 'succeeded' });
+        return;
+      } catch (error) {
+        this.telemetry?.record('provider.request', active.cancelled ? 'cancelled' : 'failed', {
+          model: active.modelName, provider_profile: active.providerResource,
+          finish_reason: active.finishReason, usage: active.usage,
+          partial_response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
+          failure: { code: error?.code ?? 'provider_failed', retryable: error?.retryable === true },
+        }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), reasonCode: error?.code });
+        this.dialects?.observe(
+          { profile: { id: active.providerResource }, model: active.modelName },
+          { status: active.cancelled ? 'cancelled' : 'failed', code: error?.code ?? 'provider_failed' },
+        );
+        const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
+        const plan = error.retryable ? active.recovery.providerRetry(error.code, attempt, partial) : { retry: false };
+        if (!plan.retry || active.cancelled) throw error;
+        await this.settleAttempt(active, 'failed');
+        this.state.transition('recovering', { trigger: error.code, turnId: active.turnId });
+        await this.recordRecovery(plan.action, active);
+        retryDelay = plan.delayMs;
+      } finally {
+        release();
+      }
+      await cancellableDelay(retryDelay, active.controller.signal);
+    }
+  }
+
+  async runRoutes(router, candidates, requestFactory, deadlines, active) {
+    const bounded = candidates.slice(0, candidates[0]?.budget ?? 1);
+    let lastError;
+    for (const [index, route] of bounded.entries()) {
+      active.logicalRequestId = route.logicalRequestId;
+      active.modelName = route.model;
+      active.providerResource = route.profile.id;
+      if (this.runtimeResolver) active.runtimeModel = await this.runtimeResolver(route, active.controller.signal);
+      try {
+        await this.run(router.provider(route), requestFactory(route), { ...deadlines, overallMs: route.deadlineMs }, active);
+        return route;
+      } catch (error) {
+        lastError = error;
+        const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
+        if (index === bounded.length - 1 || partial || !fallbackEligible(error)) throw error;
+        await this.settleAttempt(active, 'failed');
+        this.state.transition('recovering', { trigger: 'route_fallback', turnId: active.turnId });
+        await this.recordRecovery({
+          category: error.code, action: 'route_fallback', count: index + 1,
+          logicalRequestId: route.logicalRequestId, from: route.profile.id,
+          to: bounded[index + 1].profile.id, partial: false,
+        }, active);
+      }
+    }
+    throw lastError ?? new ContractError('route_unavailable', 'no route candidate was attempted');
+  }
+
+  async #invoke(provider, request, deadlines, active) {
+    const controller = new AbortController();
+    let timedOut = false;
+    const cancel = () => controller.abort();
+    active.controller.signal.addEventListener('abort', cancel, { once: true });
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, deadlines.overallMs);
+    try {
+      await this.#consume(provider, request, active, controller.signal, deadlines);
+    } catch (error) {
+      if (active.cancelled) throw new ContractError('provider_cancelled', 'provider was cancelled');
+      if (timedOut) throw new ContractError('provider_timeout', 'provider attempt timed out', true);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      active.controller.signal.removeEventListener('abort', cancel);
+      controller.abort();
+    }
+  }
+
+  async #consume(provider, request, active, signal, deadlines) {
+    let opened = false;
+    let attemptUsage = null;
+    const iterator = provider.stream(request, signal)[Symbol.asyncIterator]();
+    try {
+      while (true) {
+        const boundary = opened ? 'provider_idle_timeout' : 'provider_first_token_timeout';
+        const duration = opened ? deadlines.idleMs : deadlines.firstTokenMs;
+        const next = await boundedNext(iterator, duration, boundary);
+        if (next.done) break;
+        const item = next.value;
+        if (active.controller.signal.aborted) throw new ContractError('provider_cancelled', 'provider was cancelled');
+        assertProviderEvent(item, active.providerTerminal);
+        if (!opened) {
+          this.state.transition('streaming_model', { trigger: 'stream_opened', turnId: active.turnId });
+          opened = true;
+        }
+        if (item.type === 'text') await this.acceptText(item.text, active);
+        else if (item.type === 'reasoning') active.reasoningBytes += Buffer.byteLength(item.text, 'utf8');
+        else if (item.type === 'tool_fragment') active.toolAssembler.add(item.fragments);
+        else if (item.type === 'usage') attemptUsage = validatedUsage(item.usage);
+        else if (item.type === 'metadata') active.finishReason = item.finishReason;
+        else if (item.type === 'terminal') {
+          active.providerTerminal = true;
+          active.finishReason = item.finishReason ?? active.finishReason;
+          if (item.usage != null) attemptUsage = validatedUsage(item.usage);
+        }
+      }
+      if (!opened) throw new ContractError('provider_empty_stream', 'provider produced no stream items', true);
+      if (!active.providerTerminal) throw new ContractError('provider_missing_terminal', 'provider did not terminate cleanly');
+      active.usage = mergeUsage(active.usage, attemptUsage);
+    } finally { await closeIterator(iterator); }
+  }
+}
+
+function mergeUsage(current, update) {
+  if (!update) return current;
+  const result = { ...(current ?? {}) };
+  for (const [key, value] of Object.entries(update)) result[key] = (result[key] ?? 0) + value;
+  return Object.freeze(result);
+}
+
+function providerCorrelation(active, spanId) {
+  return {
+    spanId, parentSpanId: active.attemptId, turnId: active.turnId,
+    stepId: active.stepId, attemptId: active.attemptId,
+    providerRequestId: active.logicalRequestId,
+  };
+}
+
+function elapsedMs(started) {
+  return Number(process.hrtime.bigint() - started) / 1_000_000;
+}
+
+function validatedUsage(usage) {
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) {
+    throw new ContractError('provider_usage_invalid', 'provider emitted invalid usage metadata');
+  }
+  for (const value of Object.values(usage)) {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new ContractError('provider_usage_invalid', 'provider emitted invalid usage metadata');
+    }
+  }
+  return Object.freeze({ ...usage });
+}
+
+function assertProviderEvent(item, terminalSeen) {
+  if (!item || typeof item !== 'object') {
+    throw new ContractError('provider_event_invalid', 'provider emitted an invalid event');
+  }
+  if (terminalSeen) {
+    throw new ContractError('provider_conflicting_terminal', 'provider emitted data after its terminal event');
+  }
+  if (item.type === 'text' && typeof item.text === 'string' && item.text.length > 0) return;
+  if (item.type === 'reasoning' && typeof item.text === 'string' && item.text.length > 0) return;
+  if (item.type === 'tool_fragment' && Array.isArray(item.fragments)) return;
+  if (item.type === 'usage' && item.usage && typeof item.usage === 'object') return;
+  if (item.type === 'metadata' && typeof item.finishReason === 'string') return;
+  if (item.type === 'terminal') return;
+  throw new ContractError('provider_event_invalid', 'provider emitted an unsupported event');
+}
+
+async function closeIterator(iterator) {
+  if (typeof iterator.return !== 'function') return;
+  let timer;
+  const deadline = new Promise((resolve) => { timer = setTimeout(resolve, 25); });
+  try { await Promise.race([iterator.return().catch(() => undefined), deadline]); }
+  finally { clearTimeout(timer); }
+}
+
+function fallbackEligible(error) {
+  return new Set([
+    'provider_transient', 'provider_timeout', 'provider_connect_timeout',
+    'provider_first_token_timeout', 'provider_idle_timeout', 'provider_empty_stream',
+    'provider_missing_terminal',
+  ]).has(error?.code);
+}
+
+async function boundedNext(iterator, milliseconds, code) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({ timeout: true }), milliseconds);
+  });
+  const operation = iterator.next().then(
+    (value) => ({ value }),
+    (error) => ({ error }),
+  );
+  try {
+    const settled = await Promise.race([operation, timeout]);
+    if (settled.timeout) throw new ContractError(code, 'provider stream deadline expired', true);
+    if (settled.error) throw settled.error;
+    return settled.value;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function cancellableDelay(milliseconds, signal) {
+  if (signal.aborted) throw new ContractError('provider_cancelled', 'provider was cancelled');
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, milliseconds);
+    signal.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(new ContractError('provider_cancelled', 'provider was cancelled'));
+    }, { once: true });
+  });
+}

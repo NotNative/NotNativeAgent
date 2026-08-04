@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: Apache-2.0
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { validateCommand } from '../src/contracts.js';
+import { PreauthorizationRegistry } from '../src/preauthorization.js';
+
+const context = Object.freeze({ definition: Object.freeze({ sideEffect: 'reversible' }) });
+
+test('AC-AUTH-05 conversation preauthorization is scoped, drift-sensitive, inspectable, and revocable', () => {
+  const registry = new PreauthorizationRegistry();
+  const first = request('one', 'a.txt');
+  const exact = registry.grant('allow_session', first, context, 'operator');
+  assert.equal(registry.match(request('two', 'a.txt'), context)?.id, exact.id);
+  assert.equal(registry.match({ ...request('later-turn', 'a.txt'), authorityVersion: 2 }, context)?.id, exact.id);
+  assert.equal(registry.match(request('three', 'b.txt'), context), null);
+  assert.equal(registry.match({ ...request('four', 'a.txt'), policyVersion: 2 }, context), null);
+  assert.equal(registry.match({ ...request('restricted', 'a.txt'), authorityRestrictionVersion: 1 }, context), null);
+  assert.deepEqual(Object.keys(registry.snapshot()[0]).sort(), [
+    'effect', 'expires_at', 'id', 'restriction_version', 'scope', 'target_fingerprint', 'tool',
+  ]);
+  assert.equal(registry.revoke(exact.id, 'operator').revoked, true);
+  assert.equal(registry.match(request('five', 'a.txt'), context), null);
+
+  const workspace = registry.grant('allow_workspace', request('six', 'a.txt'), context, 'operator');
+  assert.equal(registry.match(request('seven', 'b.txt'), context)?.id, workspace.id);
+  assert.equal(registry.match({ ...request('eight', 'b.txt'), workspaceRoot: 'D:/other' }, context), null);
+});
+
+test('preauthorization choices exist only on the authenticated interactive contract', () => {
+  const command = {
+    version: '1.0', type: 'permission_decision', request_id: 'decision-1',
+    permission_token: 'permission-1', tool_request_id: 'tool-1', choice: 'allow_workspace',
+  };
+  assert.equal(validateCommand(command, { interactive: true }).choice, 'allow_workspace');
+  assert.throws(() => validateCommand(command), { code: 'unknown_control' });
+});
+
+test('operation preauthorization binds every transfer target and exact process argv', () => {
+  const registry = new PreauthorizationRegistry();
+  const transfer = compoundRequest('copy-one', 'fs.copy_file', {
+    source: { path: 'D:/work/a.txt' }, destination: { path: 'D:/work/b.txt' },
+  });
+  const copyGrant = registry.grant('allow_session', transfer, context, 'operator');
+  assert.equal(registry.match(compoundRequest('copy-two', 'fs.copy_file', {
+    source: { path: 'D:/work/a.txt' }, destination: { path: 'D:/work/b.txt' },
+  }), context)?.id, copyGrant.id);
+  assert.equal(registry.match(compoundRequest('copy-drift', 'fs.copy_file', {
+    source: { path: 'D:/work/a.txt' }, destination: { path: 'D:/work/c.txt' },
+  }), context), null);
+
+  const process = compoundRequest('process-one', 'process.run', {
+    path: 'D:/work', executable: 'git', argv: ['status'],
+  });
+  const processGrant = registry.grant('allow_session', process, { definition: { sideEffect: 'unknown' } }, 'operator');
+  assert.equal(registry.match(compoundRequest('process-drift', 'process.run', {
+    path: 'D:/work', executable: 'git', argv: ['push'],
+  }), { definition: { sideEffect: 'unknown' } }), null);
+  assert.equal(registry.match(compoundRequest('process-two', 'process.run', {
+    path: 'D:/work', executable: 'git', argv: ['status'],
+  }), { definition: { sideEffect: 'unknown' } })?.id, processGrant.id);
+});
+
+function request(id, path) {
+  return Object.freeze({
+    id: `tool-${id}`, toolName: 'fs.write_text', args: { path }, resolved: { path: `D:/work/${path}` },
+    authorityId: 'authority-1', authorityVersion: 1, policyVersion: 1, definitionVersion: 1,
+    authorityRestrictionVersion: 0,
+    workspaceRoot: 'D:/work', expiresAt: Date.now() + 60_000,
+  });
+}
+
+function compoundRequest(id, toolName, resolved) {
+  return Object.freeze({
+    ...request(id, 'unused'), toolName, resolved,
+  });
+}

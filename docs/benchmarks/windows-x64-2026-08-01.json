@@ -1,0 +1,18 @@
+{
+  "measured_at": "2026-08-01T05:21:31.801Z",
+  "node": "v24.13.0",
+  "platform": "win32",
+  "arch": "x64",
+  "cpus": 32,
+  "cpu_model": "AMD Ryzen 9 9950X 16-Core Processor",
+  "memory_bytes": 100518039552,
+  "samples": 30,
+  "help_ms": {
+    "p50": 69.5102,
+    "p95": 74.6388,
+    "p99": 76.8191
+  },
+  "projection_100k_ms": 157.0984,
+  "projection_retained_records": 512,
+  "scope": "CLI help startup and bounded in-memory interface projection only; provider inference excluded"
+}

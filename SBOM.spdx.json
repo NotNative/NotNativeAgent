@@ -1,0 +1,87 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "NotNativeAgent-20260804-31",
+  "documentNamespace": "https://example.invalid/not-native-agent/sbom/20260804-31",
+  "creationInfo": {
+    "created": "2026-08-01T00:00:00Z",
+    "creators": [
+      "Tool: NotNativeAgent-release-gate"
+    ]
+  },
+  "packages": [
+    {
+      "name": "not-native-agent",
+      "SPDXID": "SPDXRef-Package-NNA",
+      "versionInfo": "20260804-31",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": []
+    },
+    {
+      "name": "Node.js",
+      "SPDXID": "SPDXRef-Package-NodeJS",
+      "versionInfo": ">=24 (installer fallback resolves latest 24.x LTS)",
+      "downloadLocation": "https://nodejs.org/dist/latest-v24.x/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": []
+    },
+    {
+      "name": "SearXNG",
+      "SPDXID": "SPDXRef-Package-SearXNG",
+      "versionInfo": "2026.7.26-b060c780d (optional managed container)",
+      "downloadLocation": "https://hub.docker.com/r/searxng/searxng/tags?name=2026.7.26-b060c780d",
+      "filesAnalyzed": false,
+      "licenseConcluded": "AGPL-3.0-or-later",
+      "licenseDeclared": "AGPL-3.0-or-later",
+      "copyrightText": "NOASSERTION",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d0aaeb14880e6e92bde1518fcc7261e995783367d63d95203383607bef9c6516"
+        }
+      ],
+      "externalRefs": []
+    },
+    {
+      "name": "ripgrep",
+      "SPDXID": "SPDXRef-Package-ripgrep",
+      "versionInfo": "operator package-manager selection (optional search accelerator)",
+      "downloadLocation": "https://github.com/BurntSushi/ripgrep",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Unlicense",
+      "licenseDeclared": "MIT OR Unlicense",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": []
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-NNA"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-NNA",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-NodeJS"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-SearXNG",
+      "relationshipType": "OPTIONAL_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-NNA"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-ripgrep",
+      "relationshipType": "OPTIONAL_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-NNA"
+    }
+  ]
+}

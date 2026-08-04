@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: Apache-2.0
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { compactTranscript } from '../src/compaction.js';
+import { buildContext } from '../src/context.js';
+import { ContinuationCompactor } from '../src/continuation-compactor.js';
+import { FairScheduler } from '../src/fair-scheduler.js';
+
+const config = {
+  workspaceRoot: 'D:\\workspace', applicationPolicy: null,
+  limits: { maxContextBytes: 200_000 },
+};
+
+test('compaction creates a bounded fingerprinted continuation artifact with operational state', () => {
+  const transcript = [
+    message('user', 'Build the feature safely.'),
+    ...Array.from({ length: 40 }, (_, index) => message('assistant', `Old detail ${index} ${'x'.repeat(500)}`)),
+    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs.edit_text', args: { path: 'src/a.js', old_text: 'secret-shaped content', new_text: 'x' } },
+    { type: 'tool_result', providerCallId: 'call-1', status: 'succeeded', content: 'done' },
+    message('user', 'Keep the existing terminal UX.'),
+  ];
+  const compacted = compactTranscript(transcript, 12_000);
+  assert.equal(compacted.fact.version, 2);
+  assert.equal(compacted.fact.continuation.schema, 'nna.continuation.v1');
+  assert.equal(compacted.fact.continuation.objective, 'Keep the existing terminal UX.');
+  assert.deepEqual(compacted.fact.continuation.recentDirectives, ['Build the feature safely.']);
+  assert.deepEqual(compacted.fact.continuation.changedFiles, [{ path: 'src/a.js', operation: 'fs.edit_text', status: 'succeeded' }]);
+  assert.deepEqual(compacted.fact.continuation.verifiedFacts, []);
+  assert.ok(compacted.fact.omitted < transcript.length);
+  assert.ok(compacted.records.length > 0);
+  assert.equal(compacted.records.at(-1).content, 'Keep the existing terminal UX.');
+  assert.doesNotMatch(compacted.fact.summary, /secret-shaped content/u);
+  assert.match(compacted.fact.sourceFingerprint, /^[a-f0-9]{64}$/u);
+});
+
+test('compaction preserves the active turn and paired calls while bounding oversized tool output', () => {
+  const transcript = [
+    message('user', 'Earlier design discussion'), message('assistant', 'Earlier answer'),
+    message('user', 'Verify the current Node release and continue this conversation.'),
+    message('assistant', 'I will verify it.'),
+    { type: 'tool_request', providerCallId: 'fetch-1', toolName: 'web.fetch', args: { url: 'https://example.test' } },
+    { type: 'tool_result', providerCallId: 'fetch-1', status: 'succeeded', content: 'x'.repeat(550_000) },
+  ];
+  const compacted = compactTranscript(transcript, 65_536);
+  const context = buildContext({ ...config, limits: { maxContextBytes: 65_536 } }, [compacted.fact], 'Continue.');
+  const providerText = context.map((item) => typeof item.content === 'string' ? item.content : '').join('\n');
+  assert.match(providerText, /Verify the current Node release/u);
+  assert.match(providerText, /Tool output truncated by context compaction/u);
+  assert.equal(context.filter((item) => item.tool_calls?.[0]?.id === 'fetch-1').length, 1);
+  assert.equal(context.filter((item) => item.tool_call_id === 'fetch-1').length, 1);
+  assert.ok(Buffer.byteLength(JSON.stringify(context), 'utf8') < 65_536);
+});
+
+test('future model context begins at the latest continuation while full history remains intact', () => {
+  const transcript = [
+    message('user', 'Very old request'), message('assistant', 'Very old answer'),
+    { type: 'compaction', version: 2, summary: 'Validated continuation', omitted: 2, retainedRecords: [] },
+    message('user', 'Newest request'),
+  ];
+  const context = buildContext(config, transcript, 'Continue');
+  const text = context.map((item) => item.content).filter((item) => typeof item === 'string').join('\n');
+  assert.doesNotMatch(text, /Very old request/u);
+  assert.match(text, /Validated continuation/u);
+  assert.match(text, /Newest request/u);
+  assert.equal(transcript.length, 4);
+});
+
+test('legacy summary-only checkpoints recover durable history for one-time migration', () => {
+  const transcript = [
+    message('user', 'Durable request before the old checkpoint'),
+    message('assistant', 'Durable answer before the old checkpoint'),
+    { type: 'compaction', version: 2, summary: 'Legacy continuation', omitted: 2 },
+  ];
+  const context = buildContext(config, transcript, 'Resume it.');
+  const text = context.map((item) => item.content).filter((item) => typeof item === 'string').join('\n');
+  assert.match(text, /Durable request before the old checkpoint/u);
+  assert.match(text, /Legacy continuation/u);
+});
+
+test('semantic continuation enrichment is schema validated and failure falls back deterministically', async () => {
+  const base = compactTranscript([
+    message('user', 'Finish the task'),
+    ...Array.from({ length: 20 }, (_, index) => message('assistant', `detail ${index} ${'x'.repeat(300)}`)),
+  ], 6_000).fact;
+  const route = { profile: { id: 'local' }, model: 'fixture', maxOutputTokens: 4096, deadlineMs: 1000 };
+  const compactor = new ContinuationCompactor({ scheduler: new FairScheduler(), timeoutMs: 1000 });
+  const provider = (text) => ({
+    runtimeSnapshot: async () => ({}),
+    async *stream() { yield { type: 'text', text }; yield { type: 'terminal' }; },
+  });
+  const enriched = await compactor.refine(base, { provider: () => provider(JSON.stringify({
+    completed_work: ['Implemented parser'], open_questions: [], next_actions: ['Run full suite'],
+  })) }, route, null, new AbortController().signal);
+  assert.deepEqual(enriched.continuation.nextActions, ['Run full suite']);
+  assert.deepEqual(enriched.continuation.verifiedFacts, []);
+
+  const fallback = await compactor.refine(base, { provider: () => provider('{bad') }, route, null, new AbortController().signal);
+  assert.equal(fallback, base);
+});
+
+function message(role, content) {
+  return { type: 'message', role, content, trust: role === 'user' ? 'operator' : 'model' };
+}

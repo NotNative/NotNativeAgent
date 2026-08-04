@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: Apache-2.0
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
+
+export function pinnedHttpRequest(url, address, options = {}) {
+  return new Promise((resolve, reject) => {
+    const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)({
+      protocol: url.protocol, hostname: address, port: url.port || undefined,
+      method: options.method ?? 'GET', path: `${url.pathname}${url.search}`,
+      servername: url.hostname, headers: { ...options.headers, host: url.host },
+    }, (response) => resolve(responseView(response)));
+    const abort = () => request.destroy(options.signal?.reason ?? new Error('aborted'));
+    if (options.signal?.aborted) abort();
+    else options.signal?.addEventListener('abort', abort, { once: true });
+    request.once('error', reject);
+    request.once('close', () => options.signal?.removeEventListener('abort', abort));
+    request.end();
+  });
+}
+
+function responseView(response) {
+  const status = response.statusCode ?? 0;
+  return Object.freeze({
+    status, ok: status >= 200 && status < 300, body: response,
+    headers: Object.freeze({ get: (name) => headerValue(response.headers[name.toLowerCase()]) }),
+  });
+}
+
+function headerValue(value) {
+  if (Array.isArray(value)) return value.join(', ');
+  return value === undefined ? null : String(value);
+}

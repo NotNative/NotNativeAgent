@@ -1,0 +1,211 @@
+// SPDX-License-Identifier: Apache-2.0
+import { ContractError } from './ids.js';
+import { requestDigest } from './reviewer-ledger.js';
+
+export class ToolGovernor {
+  #pending = new Map();
+
+  constructor(options) {
+    this.events = options.events;
+    this.reviewer = options.reviewer;
+    this.registry = options.registry;
+    this.permissionBroker = options.permissionBroker ?? null;
+    this.events.register({
+      id: 'kernel.mandatory-reviewer', category: 'permission', phase: 'pre',
+      blocking: true, mandatory: true, priority: -10_000,
+      timeoutMs: options.reviewTimeoutMs ?? 20_000, failurePolicy: 'deny',
+      cancellation: 'propagate', origin: 'kernel:mandatory-reviewer', trust: 'kernel',
+      inputContract: 'nna.permission-review/1.0', outputContract: 'nna.review-decision/1.0',
+      resourceBounds: Object.freeze({ maxOutputBytes: 65_536, maxConcurrent: 1 }),
+    }, (event) => this.#reviewSubscription(event));
+  }
+
+  async review(request, context, event) {
+    this.#pending.set(request.id, { request, context });
+    try {
+      const dispatch = await this.events.dispatch(event, context.signal);
+      const result = dispatch.results?.find((item) => item?.review)?.review;
+      if (dispatch.decision === 'deny' && result?.outcome === 'approve') {
+        await this.reviewer.ledger.executionStarted(request.id, result.id);
+        await this.reviewer.ledger.settle(request.id, {
+          status: 'cancelled', effect_certainty: 'none',
+          result_fingerprint: 'additional_policy_denial', elapsed_ms: 0,
+        });
+        return Object.freeze({
+          outcome: 'deny_with_guidance', reasonCode: 'additional_policy_denial',
+          guidance: 'An additional policy restriction denied execution.', requestId: request.id,
+        });
+      }
+      if (result?.outcome === 'escalate_to_operator') {
+        if (context.reviewPosture === 'unattended') {
+          return Object.freeze({
+            outcome: 'deny_with_guidance', reasonCode: 'unattended_escalation_denied',
+            guidance: 'Unattended posture cannot pause for operator approval; choose a safer or explicitly authorized approach.',
+            requestId: request.id,
+          });
+        }
+        if (!this.permissionBroker || context.surface !== 'interactive_tui') {
+          return Object.freeze({
+            outcome: 'deny_with_guidance', reasonCode: 'interactive_escalation_unavailable',
+            guidance: 'This operation requires an authenticated interactive decision.', requestId: request.id,
+          });
+        }
+        const operator = await this.permissionBroker.request(request, result, context, context.signal);
+        return this.reviewer.ledger.commitOperatorDecision(request.id, operator);
+      }
+      if (result) return result;
+      return Object.freeze({
+        outcome: 'deny_with_guidance', reasonCode: 'mandatory_review_failed',
+        guidance: 'Mandatory review could not be completed.', requestId: request.id,
+      });
+    } finally {
+      this.#pending.delete(request.id);
+    }
+  }
+
+  async beginExecution(request, decision, current) {
+    this.#revalidate(request, decision, current);
+    await this.reviewer.ledger.executionStarted(request.id, decision.id);
+  }
+
+  async executePrepared(request, signal) {
+    const definition = this.registry.definition(request.toolName, request.definitionVersion);
+    const started = performance.now();
+    try {
+      const raw = await executeBounded(definition, request, signal);
+      return normalizeResult(request, 'succeeded', raw.content, raw.metadata, started, definition.maxOutputBytes);
+    } catch (error) {
+      return normalizeFailure(request, definition, error, started);
+    }
+  }
+
+  async settle(result) {
+    return this.reviewer.ledger.settle(result.request_id, {
+      status: result.status, effect_certainty: result.effect_certainty,
+      result_fingerprint: fingerprintResult(result), elapsed_ms: result.elapsed_ms,
+    });
+  }
+
+  #revalidate(request, decision, current) {
+    const valid = decision.outcome === 'approve'
+      && decision.requestId === request.id
+      && decision.requestDigest === requestDigest(request)
+      && decision.authorityId === current.authority.id
+      && decision.authorityVersion === current.authority.version
+      && decision.authorityRestrictionVersion === (current.authority.restrictionVersion ?? 0)
+      && decision.policyVersion === current.policyVersion
+      && request.workspaceRoot === current.workspaceRoot
+      && decision.expiresAt >= Date.now();
+    if (!valid) throw new ContractError('tool_revalidation_drift', 'approval is missing, stale, expired, or drifted');
+  }
+
+  async #reviewSubscription(event) {
+    const pending = this.#pending.get(event.payload.request_id);
+    if (!pending) return { decision: 'deny', code: 'review_request_missing' };
+    const review = await this.reviewer.review(pending.request, pending.context);
+    const continuing = review.outcome === 'approve' || review.outcome === 'escalate_to_operator';
+    return { decision: continuing ? 'continue' : 'deny', review };
+  }
+}
+
+export function denialResult(request, decision) {
+  return Object.freeze({
+    request_id: request.id, provider_call_id: request.providerCallId,
+    tool_name: request.toolName, status: decision.outcome,
+    content: decision.guidance ?? decision.reasonCode, truncated: false,
+    elapsed_ms: 0, effect_certainty: 'none', untrusted: true,
+    reason_code: decision.reasonCode,
+  });
+}
+
+export function invalidResult(call, error) {
+  return Object.freeze({
+    request_id: null, provider_call_id: call.providerCallId ?? null,
+    tool_name: call.name ?? null, status: 'invalid_request',
+    content: error instanceof ContractError ? error.message : 'invalid tool request',
+    truncated: false, elapsed_ms: 0, effect_certainty: 'none',
+    untrusted: true, reason_code: error.code ?? 'tool_invalid',
+  });
+}
+
+export function blockedResult(request, error) {
+  return Object.freeze({
+    request_id: request.id, provider_call_id: request.providerCallId,
+    tool_name: request.toolName, status: 'failed',
+    content: error instanceof ContractError ? error.message : 'execution-boundary revalidation failed',
+    truncated: false, elapsed_ms: 0, effect_certainty: 'none',
+    untrusted: true, reason_code: error.code ?? 'tool_revalidation_failed',
+    ledger_started: false,
+  });
+}
+
+async function executeBounded(definition, request, parentSignal) {
+  if (parentSignal.aborted) throw new ContractError('tool_cancelled', 'tool execution was cancelled');
+  const controller = new AbortController();
+  let timeoutId;
+  let parentAbort;
+  const abort = () => controller.abort();
+  parentSignal.addEventListener('abort', abort, { once: true });
+  const timeout = new Promise((resolve) => {
+    timeoutId = setTimeout(() => { controller.abort(); resolve({ boundary: 'timeout' }); }, definition.timeoutMs);
+  });
+  const cancelled = new Promise((resolve) => {
+    parentAbort = () => resolve({ boundary: 'cancelled' });
+    parentSignal.addEventListener('abort', parentAbort, { once: true });
+  });
+  const operation = Promise.resolve()
+    .then(() => definition.executor(request, controller.signal))
+    .then((value) => ({ value }), (error) => ({ error }));
+  try {
+    const settled = await Promise.race([operation, timeout, cancelled]);
+    if (settled.boundary === 'timeout') throw new ContractError('tool_timeout', 'tool execution timed out');
+    if (settled.boundary === 'cancelled') throw new ContractError('tool_cancelled', 'tool execution was cancelled');
+    if (settled.error) throw settled.error;
+    return settled.value;
+  } finally {
+    clearTimeout(timeoutId);
+    parentSignal.removeEventListener('abort', abort);
+    parentSignal.removeEventListener('abort', parentAbort);
+  }
+}
+
+function normalizeResult(request, status, content, metadata, started, maxOutputBytes) {
+  const source = String(content);
+  const bounded = truncateUtf8(source, maxOutputBytes);
+  return Object.freeze({
+    request_id: request.id, provider_call_id: request.providerCallId,
+    tool_name: request.toolName, status, content: bounded,
+    truncated: Buffer.byteLength(bounded) !== Buffer.byteLength(source),
+    elapsed_ms: Math.max(0, performance.now() - started),
+    effect_certainty: 'completed', untrusted: true, metadata, ledger_started: true,
+  });
+}
+
+function truncateUtf8(value, maximum) {
+  const bytes = Buffer.from(value, 'utf8');
+  if (bytes.length <= maximum) return value;
+  return bytes.subarray(0, maximum).toString('utf8').replace(/\uFFFD$/u, '');
+}
+
+function normalizeFailure(request, definition, error, started) {
+  const cancelled = error.code === 'tool_cancelled';
+  const timeout = error.code === 'tool_timeout';
+  return Object.freeze({
+    request_id: request.id, provider_call_id: request.providerCallId,
+    tool_name: request.toolName, status: timeout ? 'timed_out' : cancelled ? 'cancelled' : 'failed',
+    content: error instanceof ContractError ? error.message : 'tool execution failed',
+    truncated: false, elapsed_ms: Math.max(0, performance.now() - started),
+    effect_certainty: effectCertainty(definition, error),
+    untrusted: true, reason_code: error.code ?? 'executor_failure', ledger_started: true,
+  });
+}
+
+function effectCertainty(definition, error) {
+  if (definition?.sideEffect === 'read_only') return 'none';
+  if (error.code === 'tool_revalidation_drift') return 'none';
+  return 'unknown';
+}
+
+function fingerprintResult(result) {
+  return `${result.status}:${result.content.length}:${result.truncated}`;
+}

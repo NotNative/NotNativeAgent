@@ -1,0 +1,75 @@
+// SPDX-License-Identifier: Apache-2.0
+import { readdir, readFile } from 'node:fs/promises';
+import { extname, join, relative } from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+const root = new URL('..', import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/u, (value) => value.slice(1));
+const productionRoot = join(root, 'src');
+const files = await collect(productionRoot, 2000);
+const errors = [];
+
+for (const path of files) {
+  if (extname(path) !== '.js') continue;
+  const source = await readFile(path, 'utf8');
+  const lines = source.split(/\r?\n/u);
+  if (lines.length > 500) errors.push(`${relative(root, path)} has ${lines.length} lines (max 500)`);
+  for (const span of functionSpans(lines)) {
+    if (span.length > 60) errors.push(`${relative(root, path)}:${span.start} function has ${span.length} lines (max 60)`);
+  }
+  if (lines.some((line) => /[ \t]+$/u.test(line))) errors.push(`${relative(root, path)} has trailing whitespace`);
+  if (!source.includes('SPDX-License-Identifier: Apache-2.0')) errors.push(`${relative(root, path)} lacks SPDX identifier`);
+  const checked = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
+  if (checked.status !== 0) errors.push(`${relative(root, path)} fails node --check: ${checked.stderr.trim()}`);
+}
+
+const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+if (Object.keys(packageJson.dependencies ?? {}).length > 0) {
+  errors.push('runtime dependencies exist without an updated dependency review');
+}
+
+if (errors.length > 0) {
+  process.stderr.write(`${errors.join('\n')}\n`);
+  process.exitCode = 1;
+} else {
+  process.stdout.write(`quality gates passed for ${files.length} production files\n`);
+}
+
+async function collect(directory, maxFiles) {
+  const pending = [directory];
+  const result = [];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    for (const entry of await readdir(current, { withFileTypes: true })) {
+      const path = join(current, entry.name);
+      if (entry.isDirectory()) pending.push(path);
+      else result.push(path);
+      if (result.length > maxFiles) throw new Error(`source file count exceeds ${maxFiles}`);
+    }
+  }
+  return result;
+}
+
+function functionSpans(lines) {
+  const spans = [];
+  const starts = /^\s*(?:(?:export\s+)?(?:async\s+)?function\b|(?:async\s+)?\*?#?[A-Za-z_$][\w$]*\s*\([^;]*\)\s*\{|(?:const|let)\s+\w+\s*=.*=>\s*\{)/u;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!starts.test(lines[index])) continue;
+    const length = blockLength(lines, index);
+    if (length > 0) spans.push({ start: index + 1, length });
+  }
+  return spans;
+}
+
+function blockLength(lines, start) {
+  let depth = 0;
+  let opened = false;
+  for (let index = start; index < lines.length; index += 1) {
+    const safe = lines[index].replace(/(['"`])(?:\\.|(?!\1).)*\1/gu, '');
+    for (const character of safe) {
+      if (character === '{') { depth += 1; opened = true; }
+      if (character === '}') depth -= 1;
+    }
+    if (opened && depth === 0) return index - start + 1;
+  }
+  return 0;
+}
