@@ -5,7 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
-export const VERSION = '20260805-19';
+export const VERSION = '20260805-20';
 
 export function userDataPaths(options = {}) {
   const environment = options.environment ?? process.env;

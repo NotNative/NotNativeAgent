@@ -4,7 +4,6 @@ import { TerminalInputDecoder, TerminalMode, sanitizeTerminal, terminalCapabilit
 import { headerTargetAt, TuiRenderer } from './tui-renderer.js';
 import { validateKeyBindings } from './tui-model.js';
 import { RetainedTerminalScreen } from './terminal-screen.js';
-import { DiagnosticBundle } from './diagnostic-bundle.js';
 import { commandDefinition } from './tui-commands.js';
 import {
   auditOverlay, configOverlay, contextOverlay, gatewayOverlay, healthOverlay,
@@ -30,6 +29,7 @@ import { beginProviderManagementSelection, handleProviderRoleNavigation, handleP
 import { beginMcpManagementSelection, handleMcpSetupAction } from './tui-mcp-setup.js';
 import { DestructiveKeyGuard, handleDestructiveCancel, handleDestructiveEscape } from './destructive-key-guard.js';
 import { openRuntimeInspection } from './tui-runtime-inspection.js';
+import { handleSupportCommand } from './tui-support-command.js';
 export async function runTui(input, output, diagnostics, options) {
   const { capabilities, bindings } = prepareTui(input, output, options);
   const terminal = new TerminalMode(input, output, capabilities), renderer = options.renderer ?? new TuiRenderer();
@@ -355,7 +355,9 @@ async function command(value, workspace, stop) {
   else if (name === '/health') workspace.projection.openOverlay(healthOverlay(await workspace.activeEngine().health()));
   else if (name === '/trace') await traceCommand(argument, workspace);
   else if (name === '/dream') workspace.projection.openOverlay(valueOverlay('dream', 'Idle maintenance', await workspace.dreamCommand(argument)));
-  else if (['/hooks', '/extensions', '/stats', '/files', '/project', '/sessions', '/agents'].includes(name)) await openRuntimeInspection(name.slice(1), workspace);
+  else if (['/hooks', '/extensions', '/stats', '/status', '/files', '/project', '/sessions', '/agents'].includes(name)) {
+    await openRuntimeInspection(name === '/status' ? 'stats' : name.slice(1), workspace);
+  }
   else if (name === '/provider') await handleProviderCommand(argument, workspace, { routeNotice, strictInteger });
   else if (name === '/model') await handleModelCommand(argument, workspace, { modelNotice });
   else if (name === '/mcp') await handleMcpCommand(argument, workspace);
@@ -377,7 +379,7 @@ async function command(value, workspace, stop) {
   else if (name === '/clear' && argument === 'conversation') requestConversationClear(workspace);
   else if (name === '/help') workspace.projection.help = !workspace.projection.help;
   else if (name === '/steer' && argument) await workspace.steerActive(argument);
-  else if (name === '/support' || name === '/bundle') await supportCommand(name, argument, workspace);
+  else if (name === '/support' || name === '/bundle') await handleSupportCommand(name, argument, workspace);
   else if (name === '/quit') await stop();
   else throw new ContractError('tui_command_invalid', `invalid usage for ${name}`);
 }
@@ -482,18 +484,4 @@ function routeNotice(workspace) {
 function moveOrNavigate(editor, direction) {
   if (editor.text.includes('\n')) editor.moveVertical(direction);
   else editor.navigateHistory(direction);
-}
-
-async function supportCommand(name, argument, workspace) { const bundle = new DiagnosticBundle({ engine: workspace.activeEngine(), logger: workspace.options.logger,
-    maintenance: () => workspace.dream?.status() ?? null });
-  const legacyPath = name === '/bundle' && argument.startsWith('create ') ? argument.slice(7).trim() : null;
-  if (argument === 'preview') {
-    workspace.projection.openOverlay(valueOverlay('support', 'Support bundle preview', await bundle.preview()));
-    return;
-  }
-  if (name === '/bundle' && argument && !legacyPath) {
-    throw new ContractError('bundle_command_invalid', 'use /support, /support preview, or /support PATH.zip');
-  }
-  const result = await bundle.create(legacyPath || argument || null);
-  workspace.projection.openOverlay(valueOverlay('support', 'Support bundle ready to send', result));
 }

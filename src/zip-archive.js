@@ -7,8 +7,8 @@ const DEFLATE = 8;
 const MAX_ARCHIVE_INPUT = 16_777_216;
 
 export function createZip(entries, date = new Date()) {
-  if (!Array.isArray(entries) || entries.length === 0 || entries.length > 32) {
-    throw new ContractError('zip_entries_invalid', 'support archive requires one to thirty-two files');
+  if (!Array.isArray(entries) || entries.length === 0 || entries.length > 128) {
+    throw new ContractError('zip_entries_invalid', 'support archive requires one to one hundred twenty-eight files');
   }
   const prepared = entries.map((entry) => prepareEntry(entry, date));
   const total = prepared.reduce((sum, entry) => sum + entry.content.length, 0);
@@ -27,7 +27,7 @@ export function createZip(entries, date = new Date()) {
 }
 
 function prepareEntry(entry, date) {
-  if (!entry || typeof entry.name !== 'string' || !/^[A-Za-z0-9._-]{1,128}$/u.test(entry.name)) {
+  if (!entry || typeof entry.name !== 'string' || !validEntryName(entry.name)) {
     throw new ContractError('zip_entry_invalid', 'support archive file name is invalid');
   }
   const name = Buffer.from(entry.name, 'utf8');
@@ -35,6 +35,12 @@ function prepareEntry(entry, date) {
   const compressed = deflateRawSync(content, { level: 9 });
   const { time, day } = dosDate(date);
   return { name, content, compressed, crc: crc32(content), time, day };
+}
+
+function validEntryName(value) {
+  if (value.length < 1 || value.length > 256 || value.startsWith('/') || value.endsWith('/')) return false;
+  const segments = value.split('/');
+  return segments.every((segment) => /^[A-Za-z0-9._-]{1,128}$/u.test(segment) && segment !== '.' && segment !== '..');
 }
 
 function localHeader(entry) {

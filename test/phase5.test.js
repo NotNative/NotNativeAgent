@@ -20,7 +20,7 @@ import { headerTargetAt, TuiRenderer } from '../src/tui-renderer.js';
 import { displayWidth } from '../src/terminal-markdown.js';
 import { runPlainText } from '../src/plain-text.js';
 import { createRenderLoop, finalizeTui, handleActions, runTui, shouldExitOnCancel, submitEditor } from '../src/tui.js';
-import { commandSuggestions, TUI_COMMANDS } from '../src/tui-commands.js';
+import { commandDefinition, commandSuggestions, TUI_COMMANDS } from '../src/tui-commands.js';
 import { VERSION } from '../src/product.js';
 import { resolveConfiguration } from '../src/configuration-sources.js';
 import { SessionDataManager } from '../src/session-data.js';
@@ -1230,6 +1230,7 @@ test('command registry exposes origin, capability, effective binding, and action
   assert.match(frame, /\/memory save.*unavailable: memory adapter unavailable/u);
   assert.ok(TUI_COMMANDS.every((item) => item.origin === 'core' && item.availability === 'runtime'
     && typeof item.requiredCapability === 'string'));
+  assert.equal(commandDefinition('/status').description.includes('active conversation'), true);
 });
 
 test('editor selection and multiline navigation preserve one authoritative buffer', () => {
@@ -1327,7 +1328,7 @@ test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content
     host_contract_version: '2.0', capabilities: ['future'], permissions: [],
     configuration_schema: {}, lifecycle: {},
   }, () => ({}));
-  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider, extensionRegistry: extensions });
+  const engine = new SessionEngine({ config: config(root), sessionId: 's', providerFactory: () => provider, extensionRegistry: extensions });
   await engine.initialize();
   const before = engine.transcript.length;
   const health = await engine.health();
@@ -1358,21 +1359,25 @@ test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content
   });
   const result = await diagnosticBundle.create(path);
   const archive = await readFile(result.path);
-  const entry = firstZipEntry(archive);
+  const entries = zipEntries(archive);
+  const entry = entries[0];
   const decoded = JSON.parse(entry.content.toString('utf8'));
-  assert.equal(entry.name, 'diagnostics.json');
+  const sessionFolder = decoded.sessions[0].folder;
+  const sessionEntry = entries.find((item) => item.name === `${sessionFolder}/diagnostics.json`);
+  const sessionDecoded = JSON.parse(sessionEntry.content.toString('utf8'));
+  assert.equal(entry.name, 'manifest.json');
   assert.equal(archive.readUInt32LE(0), 0x04034b50);
   assert.doesNotMatch(JSON.stringify(decoded), /top-secret-value/u);
   assert.equal(decoded.uploaded, false);
   assert.equal(decoded.product.version, VERSION);
-  assert.equal(decoded.health.installation.version, VERSION);
-  assert.equal(decoded.logs.product.version, VERSION);
-  assert.equal(decoded.logs.records[0].product_version, VERSION);
-  assert.equal(decoded.idle_maintenance.status, 'waiting');
-  assert.equal(decoded.idle_maintenance.watermark.turn_sequence, 42);
-  assert.equal(decoded.idle_maintenance.runs.completed, 2);
-  assert.equal(decoded.idle_maintenance.recent[0].result_code, 'harvest_complete');
-  assert.doesNotMatch(JSON.stringify(decoded.idle_maintenance), /private-/u);
+  assert.equal(sessionDecoded.health.installation.version, VERSION);
+  assert.equal(sessionDecoded.logs.product.version, VERSION);
+  assert.equal(sessionDecoded.logs.records[0].product_version, VERSION);
+  assert.equal(sessionDecoded.idle_maintenance.status, 'waiting');
+  assert.equal(sessionDecoded.idle_maintenance.watermark.turn_sequence, 42);
+  assert.equal(sessionDecoded.idle_maintenance.runs.completed, 2);
+  assert.equal(sessionDecoded.idle_maintenance.recent[0].result_code, 'harvest_complete');
+  assert.doesNotMatch(JSON.stringify(sessionDecoded.idle_maintenance), /private-/u);
   await assert.rejects(diagnosticBundle.create(path), { code: 'bundle_exists' });
   assert.deepEqual(await readFile(path), archive);
 });
@@ -1393,6 +1398,34 @@ test('AC-OBS-01 provider failure degrades health instead of breaking diagnostics
   await engine.shutdown({ request_id: 'health-provider-failure-shutdown' });
 });
 
+test('support bundle isolates attached conversations in separate session folders', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-support-sessions-'));
+  const logger = new StructuredLog();
+  const provider = { async capabilities() { return { models: ['fixture'] }; }, async *stream() { yield { type: 'terminal' }; } };
+  const first = new SessionEngine({ config: config(root), sessionId: 'session-alpha', providerFactory: () => provider });
+  const second = new SessionEngine({ config: config(root), sessionId: 'session-beta', providerFactory: () => provider });
+  await first.initialize(); await second.initialize();
+  logger.record({ type: 'turn_result', outcome: 'completed' }, { sessionId: 'session-alpha' });
+  logger.record({ type: 'turn_result', outcome: 'failed' }, { sessionId: 'session-beta' });
+  const result = await new DiagnosticBundle({
+    engine: first, logger, sessions: [{ id: 'session-alpha', engine: first }, { id: 'session-beta', engine: second }],
+    activeSessionId: 'session-beta', supportRoot: root,
+  }).create(join(root, 'multi-session.zip'));
+  const entries = zipEntries(await readFile(result.path));
+  const manifest = JSON.parse(entries.find((item) => item.name === 'manifest.json').content.toString('utf8'));
+  assert.equal(manifest.sessions.length, 2);
+  assert.equal(manifest.sessions.find((item) => item.session_id === 'session-beta').active, true);
+  for (const item of manifest.sessions) {
+    const diagnostic = JSON.parse(entries.find((entry) => entry.name === `${item.folder}/diagnostics.json`).content.toString('utf8'));
+    assert.equal(diagnostic.session_id, item.session_id);
+    assert.equal(diagnostic.logs.records.length, 1);
+    assert.equal(diagnostic.logs.records[0].session_id, item.session_id);
+    assert.ok(entries.some((entry) => entry.name === `${item.folder}/forensic-trace.json`));
+  }
+  await first.shutdown({ request_id: 'support-first-shutdown' });
+  await second.shutdown({ request_id: 'support-second-shutdown' });
+});
+
 test('AC-OBS-01 health remains bounded when provider discovery ignores cancellation', async () => {
   const engine = new SessionEngine({
     config: config(process.cwd()),
@@ -1405,16 +1438,22 @@ test('AC-OBS-01 health remains bounded when provider discovery ignores cancellat
   await engine.shutdown({ request_id: 'bounded-health-shutdown' });
 });
 
-function firstZipEntry(archive) {
-  assert.equal(archive.readUInt32LE(0), 0x04034b50);
-  const method = archive.readUInt16LE(8);
-  const compressedSize = archive.readUInt32LE(18);
-  const nameLength = archive.readUInt16LE(26);
-  const extraLength = archive.readUInt16LE(28);
-  const name = archive.subarray(30, 30 + nameLength).toString('utf8');
-  const start = 30 + nameLength + extraLength;
-  const compressed = archive.subarray(start, start + compressedSize);
-  return { name, content: method === 8 ? inflateRawSync(compressed) : compressed };
+function zipEntries(archive) {
+  const entries = [];
+  let offset = 0;
+  while (offset + 30 <= archive.length && archive.readUInt32LE(offset) === 0x04034b50) {
+    const method = archive.readUInt16LE(offset + 8);
+    const compressedSize = archive.readUInt32LE(offset + 18);
+    const nameLength = archive.readUInt16LE(offset + 26);
+    const extraLength = archive.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    const name = archive.subarray(nameStart, nameStart + nameLength).toString('utf8');
+    const contentStart = nameStart + nameLength + extraLength;
+    const compressed = archive.subarray(contentStart, contentStart + compressedSize);
+    entries.push({ name, content: method === 8 ? inflateRawSync(compressed) : compressed });
+    offset = contentStart + compressedSize;
+  }
+  return entries;
 }
 
 test('AC-HEAD-08/AC-PROD-04/AC-OBS-02 plain text uses canonical semantics and local metadata logging', async () => {

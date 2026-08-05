@@ -100,9 +100,9 @@ Key actions:
   permission views without requiring a configuration-file edit.
 
 Commands include `/new NAME`, `/switch ID-OR-NAME`, `/sessions`, `/rename NAME`, `/close`,
-`/confirm close`, `/health`, `/hooks`, `/extensions`, `/stats`, `/files`, `/project`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/dream`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
+`/confirm close`, `/health`, `/hooks`, `/extensions`, `/stats` (or `/status`), `/files`, `/project`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/dream`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
 `/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP that can be sent
-to maintainers for troubleshooting; it never uploads the archive and refuses to overwrite an existing path. Closing active work requires the explicit confirmation
+to maintainers for troubleshooting; it never uploads the archive and refuses to overwrite an existing path. Its manifest lists the included attached conversations, and each conversation has an isolated `sessions/<session-id>/` folder containing its redacted diagnostics, repair statistics, and forensic trace. Closing active work requires the explicit confirmation
 command. Conversation editors and transcript projections remain isolated when switching.
 The archive includes a content-free idle-maintenance summary (scheduler state, stage,
 bounded result codes, and run counts) so cancelled or failing dream cycles can be diagnosed

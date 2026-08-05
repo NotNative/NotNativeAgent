@@ -11,6 +11,7 @@ export function sessionStats(session) {
   const turns = records.filter((record) => record.type === 'turn_result');
   const tools = records.filter((record) => record.type === 'tool_status' && record.status !== 'running');
   const reviews = records.filter((record) => record.type === 'review_status');
+  const repair = repairStats(turns);
   const usage = session?.usage ?? {};
   return Object.freeze({
     state: session?.state ?? 'unknown',
@@ -30,6 +31,7 @@ export function sessionStats(session) {
       total: reviews.length,
       denied: reviews.filter((record) => record.outcome && record.outcome !== 'approve').length,
     }),
+    repair,
     tokens: Object.freeze({
       input: number(usage.prompt_tokens ?? usage.input_tokens),
       output: number(usage.completion_tokens ?? usage.output_tokens),
@@ -43,6 +45,43 @@ export function sessionStats(session) {
       source: session?.contextSource ?? 'unavailable',
     }),
   });
+}
+
+function repairStats(turns) {
+  const affected = turns.filter((turn) => Array.isArray(turn.recovery) && turn.recovery.length > 0);
+  const actions = affected.flatMap((turn, index) => turn.recovery.map((item) => ({
+    kind: repairKind(item), terminal_outcome: turn.outcome, turn: turn.turn_id ?? `turn-${index}`,
+  })));
+  const recovered = affected.filter((turn) => !['failed', 'incomplete', 'limit_reached'].includes(turn.outcome)).length;
+  const kinds = {};
+  for (const action of actions) {
+    const entry = kinds[action.kind] ?? { attempts: 0, recovered: new Set(), exhausted: new Set() };
+    entry.attempts += 1;
+    if (['failed', 'incomplete', 'limit_reached'].includes(action.terminal_outcome)) entry.exhausted.add(action.turn);
+    else entry.recovered.add(action.turn);
+    kinds[action.kind] = entry;
+  }
+  const byKind = Object.fromEntries(Object.entries(kinds).map(([kind, value]) => [kind, Object.freeze({
+    attempts: value.attempts, recovered_turns: value.recovered.size, exhausted_turns: value.exhausted.size,
+  })]));
+  const firstPass = turns.length - affected.length;
+  return Object.freeze({
+    first_pass_turns: firstPass,
+    first_pass_rate: turns.length > 0 ? `${Math.round((firstPass / turns.length) * 1000) / 10}%` : 'n/a',
+    affected_turns: affected.length,
+    attempts: actions.length,
+    recovered_turns: recovered,
+    exhausted_turns: affected.length - recovered,
+    rescue_rate: affected.length > 0 ? `${Math.round((recovered / affected.length) * 1000) / 10}%` : 'n/a',
+    by_kind: Object.freeze(byKind),
+  });
+}
+
+function repairKind(action) {
+  const category = String(action?.category ?? '').trim();
+  if (category) return category;
+  const name = String(action?.action ?? '').trim();
+  return name || 'unclassified_repair';
 }
 
 function sum(records, key) {

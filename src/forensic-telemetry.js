@@ -119,8 +119,9 @@ export class ForensicTelemetry {
   }
 
   async supportSnapshot(options = {}) {
-    const rows = await this.query({ sessionId: options.sessionId ?? this.sessionId, limit: options.limit ?? 2000 });
-    const open = await this.openSpans(200);
+    const sessionId = options.sessionId ?? this.sessionId;
+    const rows = await this.query({ sessionId, limit: options.limit ?? 2000 });
+    const open = (await this.openSpans(200)).filter((row) => row.session_id === sessionId);
     return Object.freeze({
       format: 1, local_source: this.dbPath, rows: Object.freeze(rows.map(supportTelemetryProjection)),
       open_spans: Object.freeze(open.map(supportTelemetryProjection)),
