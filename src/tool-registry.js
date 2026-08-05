@@ -20,6 +20,7 @@ import { FileChangeLedger } from './file-change-ledger.js';
 import { selfDiagnosticsDefinitions } from './self-diagnostics-tool.js';
 import { mcpControlDefinitions } from './mcp-control-tools.js';
 import { subagentDefinition } from './subagent-tool.js';
+import { gitInspectionDefinition } from './git-inspection-tool.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const ALWAYS_EXPOSED = new Set([
   'tool.search', 'fs.list_directory', 'fs.glob', 'fs.search_text', 'fs.metadata', 'fs.read_text', 'fs.read_lines',
@@ -70,6 +71,7 @@ export class ToolRegistry {
     this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath }));
     this.#install(toolSearchDefinition(this));
     this.#install(processRunDefinition(this.paths));
+    this.#install(gitInspectionDefinition(this.paths));
     this.#install(lspDiagnosticsDefinition(this.paths, { configPath: this.lspConfigPath, spawnProcess: this.lspSpawnProcess }));
     if (this.skills) for (const definition of skillToolDefinitions(this.skills)) this.#install(definition);
     if (this.subagentControl && !this.hosted) this.#install(subagentDefinition(this.subagentControl));
@@ -182,7 +184,6 @@ function schemaValidator(schema) {
     return { args: structuredClone(args), resolved: { source: 'external' } };
   };
 }
-
 function validateValue(value, rule, depth) {
   if (!rule?.type) return;
   if (depth > 12) throw new ContractError('tool_schema_invalid', 'tool argument nesting exceeds bound');

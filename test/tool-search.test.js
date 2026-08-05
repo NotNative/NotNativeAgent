@@ -23,12 +23,6 @@ test('tool catalog keeps core tools visible and selects bounded relevant capabil
 test('tool.search exposes bounded matches for subsequent model steps', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  registry.installExternal({
-    name: 'git.inspect', version: 1, purpose: 'Inspect Git repository history and status',
-    sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 1000,
-    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-    executor: async () => ({ content: 'unused' }),
-  });
   const search = registry.definition('tool.search');
   const normalized = await search.validate({ query: 'inspect git history' });
   const result = await search.executor({ args: normalized.args }, new AbortController().signal);
