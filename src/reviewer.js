@@ -86,6 +86,7 @@ export class MandatoryReviewer {
     }
     const input = Object.freeze({
       request: safeReviewRequest(request), classification: classify(request, context.definition),
+      toolDefinition: safeReviewDefinition(context.definition),
       authenticatedIntent: context.authority.intent,
       mission: context.authority.mission, justification: context.justification ?? '',
       justificationTrust: 'untrusted_model', ledgerSummary: this.ledger.summary(request),
@@ -211,7 +212,12 @@ async function boundedReview(component, input, timeoutMs, externalSignal, correl
 
 function normalizeCandidate(value, request, surface) {
   if (!validSemanticDecision(value)) {
-    return deny('semantic_review_unavailable', 'Review-required operation could not be safely authorized.', request);
+    return deny(
+      'semantic_review_unavailable',
+      'The semantic reviewer could not complete its check, so NNA denied this operation fail-closed. '
+        + 'This is a reviewer availability or compatibility failure, not a finding that the user withheld authorization.',
+      request,
+    );
   }
   if (value.confidence < 0.7) {
     return deny('semantic_confidence_low', 'Reviewer confidence was insufficient.', request);
@@ -268,6 +274,16 @@ function safeReviewRequest(request) {
     id: request.id, toolName: request.toolName, args: safeArguments(request.args),
     resolvedTarget: request.resolved.path ?? request.resolved.source?.path ?? request.resolved.destination?.path ?? 'external',
     scope: resolvedOutsideWorkspace(request) ? 'host' : (request.resolved.path || request.resolved.source?.path ? 'workspace' : 'external'), caller: request.caller,
+  });
+}
+
+function safeReviewDefinition(definition) {
+  return Object.freeze({
+    name: definition.name,
+    purpose: typeof definition.purpose === 'string' ? definition.purpose.slice(0, 4096) : '',
+    sideEffect: definition.sideEffect,
+    scope: definition.scope,
+    source: typeof definition.source === 'string' ? definition.source : 'built_in',
   });
 }
 

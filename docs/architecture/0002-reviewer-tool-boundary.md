@@ -38,8 +38,8 @@ The reviewer is mandatory kernel policy registered on the permission `pre`
 phase. Ordinary callers cannot remove that subscription. It classifies bounded
 workspace reads as safe, treats writes as review-required, and rejects unknown
 or out-of-scope operations before semantic review. Review-required work uses a
-tool-less `reviewer` model route with a generic OpenAI-compatible JSON Schema
-response constraint, bounded time, and a
+tool-less `reviewer` model route with a portable structural JSON Schema response
+constraint, strict local decision validation, bounded time, and a
 fail-closed default. Mutation approval additionally requires authenticated
 intent to name the mutation class and target.
 

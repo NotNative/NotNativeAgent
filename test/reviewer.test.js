@@ -140,6 +140,32 @@ test('configured MCP status and connection tests are deterministic read-only ins
   }
 });
 
+test('an MCP memory lookup carries user intent and remote tool purpose into semantic review', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'mcp-memory-query' });
+  let captured;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    captured = input;
+    return { outcome: 'approve', confidence: 1, reason_code: 'memory_lookup_matches_intent' };
+  } } });
+  const result = await reviewer.review({
+    ...readRequest('memory-fact-query'), toolName: 'mcp.memory.memory_fact_query',
+    args: { subject: 'fixture-host' }, resolved: { source: 'external' },
+  }, {
+    ...context,
+    authority: { id: 'authority-1', intent: [{ content: 'Try to SSH into the machine named fixture-host', sequence: 1 }], mission: null },
+    definition: {
+      name: 'mcp.memory.memory_fact_query',
+      purpose: 'Look up current or historical facts about an entity before acting.',
+      sideEffect: 'unknown', scope: 'external', source: 'mcp:memory',
+    },
+  });
+  assert.equal(result.outcome, 'approve');
+  assert.equal(result.reasonCode, 'semantic_intent_match');
+  assert.equal(captured.request.args.subject, 'fixture-host');
+  assert.equal(captured.toolDefinition.purpose, 'Look up current or historical facts about an entity before acting.');
+  assert.match(captured.authenticatedIntent[0].content, /fixture-host/u);
+});
+
 test('runtime diagnostics with no filesystem target are deterministically approved', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'runtime-diagnostics' });
   let semanticCalls = 0;
@@ -220,6 +246,10 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
   assert.equal(captured.responseFormat.type, 'json_schema');
   assert.equal(captured.responseFormat.json_schema.strict, true);
   assert.deepEqual(captured.responseFormat.json_schema.schema.required, ['outcome', 'confidence', 'reason_code']);
+  assert.deepEqual(captured.responseFormat.json_schema.schema.properties, {
+    outcome: { type: 'string' }, confidence: { type: 'number' },
+    reason_code: { type: 'string' }, guidance: { type: 'string' },
+  });
   assert.deepEqual(scheduled, [
     { resource: 'shared-primary', owner: 'session-reviewer' }, { released: true },
   ]);
@@ -287,6 +317,36 @@ test('AC-REV-08/AC-TOOL-02 opaque process requests require authenticated user in
   });
   assert.equal(authorized.outcome, 'approve');
   assert.equal(semanticCalls, 1);
+});
+
+test('explicit SSH intent and target reach semantic review with the tool definition packet', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'ssh-intent' });
+  let captured;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    captured = input;
+    return { outcome: 'approve', confidence: 1, reason_code: 'explicit_remote_access' };
+  } } });
+  const request = {
+    ...readRequest('ssh-fixture-host'), toolName: 'process.run',
+    args: { executable: 'ssh', args: ['fixture-host', 'echo', 'connected'] },
+    resolved: { path: 'D:/workspace', executable: 'ssh', argv: ['fixture-host', 'echo', 'connected'], reviewComplexity: 'simple_argv' },
+  };
+  const decision = await reviewer.review(request, {
+    ...context,
+    authority: { id: 'authority-1', intent: [{ content: 'Please try to SSH into a machine named fixture-host', sequence: 1 }], mission: null },
+    definition: {
+      name: 'process.run', purpose: 'Execute one bounded argv command without a shell.',
+      sideEffect: 'unknown', scope: 'workspace', source: 'built_in',
+    },
+  });
+  assert.equal(decision.outcome, 'approve');
+  assert.equal(decision.reasonCode, 'semantic_intent_match');
+  assert.deepEqual(captured.request.args, request.args);
+  assert.deepEqual(captured.authenticatedIntent, [{ content: 'Please try to SSH into a machine named fixture-host', sequence: 1 }]);
+  assert.deepEqual(captured.toolDefinition, {
+    name: 'process.run', purpose: 'Execute one bounded argv command without a shell.',
+    sideEffect: 'unknown', scope: 'workspace', source: 'built_in',
+  });
 });
 
 test('AC-REV-01 mandatory review applies deterministic safe, prohibited, and semantic paths independently', async () => {
