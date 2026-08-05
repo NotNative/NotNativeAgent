@@ -19,6 +19,7 @@ export function validateNestedManifestKeys(manifest) {
   inspectRoutes(manifest.routes, warnings);
   inspectObject(manifest.attachments, 'attachments', ['enabled', 'max_bytes', 'retain'], warnings);
   inspectObject(manifest.memory, 'memory', ['enabled', 'required', 'timeout_ms', 'max_items', 'max_bytes'], warnings);
+  inspectObject(manifest.dream, 'dream', ['enabled', 'idle_ms', 'inter_stage_ms', 'inference_idle_ms', 'hygiene_idle_ms', 'retention_days'], warnings);
   inspectObject(manifest.tui, 'tui', ['reduced_motion', 'color', 'key_bindings'], warnings);
   inspectObject(manifest.telemetry, 'telemetry', ['enabled', 'destination', 'retention'], warnings);
   inspectObject(manifest.reviewer_ledger, 'reviewer_ledger', ['retention_entries'], warnings);

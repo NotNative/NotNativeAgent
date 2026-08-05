@@ -48,6 +48,7 @@ export function manifestFromConfig(config) {
       enabled: config.memory.enabled, required: config.memory.required, timeout_ms: config.memory.timeoutMs,
       max_items: config.memory.maxItems, max_bytes: config.memory.maxBytes,
     },
+    dream: dreamManifest(config.dream),
     mcp_servers: config.mcpServers.map(mcpManifest),
     tui: {
       reduced_motion: config.tui.reducedMotion, color: config.tui.color, key_bindings: config.tui.keyBindings,
@@ -59,6 +60,14 @@ export function manifestFromConfig(config) {
       local_retry_limit: config.recovery.localLimit, ladder: config.recovery.ladder,
     },
   });
+}
+
+function dreamManifest(dream) {
+  return {
+    enabled: dream.enabled, idle_ms: dream.idleMs, inter_stage_ms: dream.interStageMs,
+    inference_idle_ms: dream.inferenceIdleMs, hygiene_idle_ms: dream.hygieneIdleMs,
+    retention_days: dream.retentionDays,
+  };
 }
 
 export function withPrimaryRoute(config, providerId, model) {

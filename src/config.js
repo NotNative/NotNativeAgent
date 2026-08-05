@@ -9,6 +9,7 @@ import { boundedInteger, boundedNumber, providerTimeouts, telemetryDestination }
 import { validateAllowedTools, validateHostIdentity } from './execution-policy.js';
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
 import { migrateRoutingInheritance } from './manifest-migration.js';
+import { validateDream } from './dream-config.js';
 const TRUST_ZONES = new Set(['loopback', 'private_network', 'public_network']);
 const ROUTE_CAPABILITIES = new Set(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']);
 const MISSION_EFFECTS = new Set(['read_only', 'reversible', 'irreversible', 'unknown']);
@@ -22,7 +23,7 @@ const KNOWN_KEYS = new Set([
   'provider_connect_timeout_ms', 'semantic_review_timeout_ms', 'approval_timeout_ms',
   'provider_concurrency', 'provider_queue_limit', 'tool_concurrency',
   'persistence_flush_timeout_ms', 'shutdown_timeout_ms',
-  'context_limit_bytes', 'context_compaction_threshold', 'attachments', 'memory', 'mcp_servers', 'tui', 'telemetry',
+  'context_limit_bytes', 'context_compaction_threshold', 'attachments', 'memory', 'dream', 'mcp_servers', 'tui', 'telemetry',
   'allowed_capabilities', 'allowed_tools', 'disconnect_policy', 'skills',
   'reviewer_ledger', 'recovery',
 ]);
@@ -54,6 +55,7 @@ export function resolveManifest(manifest = {}, options = {}) {
   const executionManifest = validateExecutionManifest(manifest, options, routes, profiles, skills);
   const attachments = validateAttachments(manifest.attachments);
   const memory = validateMemory(manifest.memory);
+  const dream = validateDream(manifest.dream, executionManifest);
   const mcpServers = validateMcpServers(manifest.mcp_servers);
   const recovery = validateRecovery(manifest.recovery);
   return deepFreeze({
@@ -67,6 +69,7 @@ export function resolveManifest(manifest = {}, options = {}) {
     workspaceRoot: resolve(optionalString(manifest.workspace_root) ?? process.cwd()),
     attachments: capabilityConfig(attachments, executionManifest, 'attachments'),
     memory: capabilityConfig(memory, executionManifest, 'memory'),
+    dream,
     mcpServers: executionManifest && !executionManifest.allowedCapabilities.includes('mcp')
       ? mcpServers.map((server) => ({ ...server, enabled: false })) : mcpServers,
     limits: {
@@ -226,7 +229,6 @@ function validateTui(value) {
   validateKeyBindings(bindings);
   return { reducedMotion: input.reduced_motion === true, color: input.color !== false, keyBindings: bindings };
 }
-
 function validateTelemetry(value) {
   const input = isRecord(value) ? value : {};
   const enabled = input.enabled === true;

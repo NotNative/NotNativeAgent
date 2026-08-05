@@ -375,3 +375,11 @@ the user must explicitly configure the relevant endpoint or adapter. In the Cons
 `/memory` inspects project-scoped records and adapter health, `/memory save TEXT` performs
 an explicit secret-screened save, and `/memory delete ID [EXPECTED_VERSION]` performs a
 guarded deletion.
+
+Standalone configurations also prepare the local idle-maintenance boundary by default.
+The `dream` object accepts `enabled`, `idle_ms`, `inter_stage_ms`, `inference_idle_ms`,
+`hygiene_idle_ms`, and `retention_days`. An authenticated host execution manifest always
+forces this boundary off: NNO-hosted and other parent-controlled sessions cannot start
+root maintenance, regardless of configuration input. Idle maintenance state is local,
+restart-safe SQLite metadata and contains fingerprints and lifecycle evidence rather than
+full transcript or secret content. Explicit `dream.enabled: false` disables scheduling.
