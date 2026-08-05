@@ -51,6 +51,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/skills', 'Browse registered user, project, and host-contributed skills', 'workflows'),
   command('/skill ID [REQUEST]', 'Invoke one user-accessible skill for this turn', 'workflows'),
   command('/devteam [REQUEST]', 'Plan, implement, test, and independently review a software change', 'workflows'),
+  command('/agents', 'Inspect the sub-agent route and current scheduler capacity', 'workflows'),
   command('/troubleshoot [DESCRIPTION]', 'Diagnose an NNA turn from bounded runtime evidence', 'diagnostics'),
   command('/new NAME', 'Create and select a conversation', 'sessions'),
   command('/quit', 'Exit NNA and restore the terminal', 'console'),

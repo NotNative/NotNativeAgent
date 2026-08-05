@@ -8,6 +8,7 @@ import { subagentDefinition } from '../src/subagent-tool.js';
 import { subagentConfig, subagentParallelLimit } from '../src/subagent-runtime.js';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
+import { subagentStatus } from '../src/tui-runtime-inspection.js';
 
 test('agent.run validates a bounded specialist request and returns its terminal result', async () => {
   let received;
@@ -92,6 +93,36 @@ test('missing advertised parallel capacity preserves sequential subagent executi
     scheduler: { setDiscoveredLimit(_resource, limit) { this.limit = limit; } },
   };
   assert.equal(await subagentParallelLimit(engine, 'subagent', new AbortController().signal), 1);
+});
+
+test('sub-agent status exposes routing and capacity without leaking profile labels', () => {
+  const engine = {
+    config: { executionManifest: null, limits: { providerConcurrency: 3 } },
+    router: { resolve: () => ({ profile: { id: 'private-profile-label', endpoint: 'http://worker:1234/v1' }, model: 'worker-model' }) },
+    tools: { definition: (name) => name === 'agent.run' ? {} : undefined },
+    scheduler: { snapshot: () => [{ resource: 'private-profile-label', running: 1, limit: 2, discoveredLimit: 2, queued: [{}] }] },
+  };
+  const status = subagentStatus(engine);
+  assert.equal(status.available, true);
+  assert.equal(status.endpoint, 'http://worker:1234/v1');
+  assert.equal(status.model, 'worker-model');
+  assert.deepEqual(status.scheduler, {
+    running: 1, queued: 1, active_limit: 2, discovered_capacity: 2,
+    capacity_note: 'Capacity reported by the loaded worker-model runtime.',
+  });
+  assert.doesNotMatch(JSON.stringify(status), /private-profile-label/u);
+});
+
+test('sub-agent status reports hosted authority as unavailable', () => {
+  const engine = {
+    config: { executionManifest: { id: 'hosted' }, limits: { providerConcurrency: 4 } },
+    router: { resolve: () => ({ profile: { id: 'worker', endpoint: 'http://worker/v1' }, model: 'worker' }) },
+    tools: { definition: () => undefined }, scheduler: { snapshot: () => [] },
+  };
+  const status = subagentStatus(engine);
+  assert.equal(status.available, false);
+  assert.equal(status.scheduler.discovered_capacity, null);
+  assert.match(status.scheduler.capacity_note, /first use/u);
 });
 
 function toolFragment(index, id, args) {

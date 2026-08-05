@@ -41,6 +41,10 @@ the Sub-agents route and registered with the shared provider scheduler. If the p
 advertise a valid parallel capacity, NNA safely executes one sub-agent at a time. Devteam itself
 remains sequential because each delivery stage consumes the preceding stage's artifacts.
 
+Use `/agents` to inspect the endpoint and model assigned to the Sub-agents route, whether root
+sub-agent execution is available, and the scheduler's running, queued, and discovered-capacity
+state. The view is read-only and never probes or starts a provider.
+
 ## Authenticated hosts and NNO modules
 
 An authenticated headless host can provide exact inline skill descriptors in
