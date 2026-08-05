@@ -74,7 +74,7 @@ export class HookRuntime {
       const unregister = this.events.register({
         id: `hook.${scope}.${bundle.name}.${index}`, category, phase,
         blocking: subscription.blocking, priority: subscription.priority,
-        timeoutMs: subscription.timeoutMs + 250, failurePolicy: 'continue',
+        timeoutMs: Math.min(subscription.timeoutMs + 250, 300_000), failurePolicy: 'continue',
         cancellation: subscription.blocking ? 'propagate' : 'detach',
         origin: `hook:${scope}:${bundle.name}`, trust: 'operator_configured',
         inputContract: 'nna.hook-event/1.0', outputContract: 'nna.hook-result/1.0',

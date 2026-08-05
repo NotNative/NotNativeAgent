@@ -97,6 +97,20 @@ test('hook discovery rejects excessive subscription concurrency', async () => {
   assert.equal(result.diagnostics[0].code, 'invalid_hook_limit');
 });
 
+test('maximum valid hook timeout remains registerable with runtime grace', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-hook-timeout-ceiling-'));
+  const hooks = join(root, 'hooks');
+  await createBundle(hooks, [{
+    event: 'turn', phase: 'post', command: nodeCommand(), blocking: false, timeout_ms: 300_000,
+  }], '');
+  const engine = new SessionEngine({
+    config: config(root), hookRoot: hooks, providerFactory: () => new ScriptlessProvider(),
+  });
+  await engine.initialize();
+  assert.equal(engine.hooks.health().bundles[0].status, 'loaded');
+  await engine.shutdown({ request_id: 'hook-timeout-stop' });
+});
+
 test('hook command parser permits argv but rejects shell composition', () => {
   assert.deepEqual(parseCommand('python "some script.py" --flag'), {
     command: 'python', args: ['some script.py', '--flag'],
