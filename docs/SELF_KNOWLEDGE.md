@@ -10,6 +10,14 @@ documentation, call `nna.search_guidance`, read the relevant document with
 `nna.read_guidance`, and ground the answer in those results. If the installed guidance
 does not cover the question, NNA must state that limitation rather than invent behavior.
 
+Private NNA runtime configuration is not stored in the active project workspace. The model
+must not search project files or source code to discover configured providers or MCP
+servers. In the root Console, `nna.mcp_status` reports configured servers and whether each
+belongs to the current conversation snapshot. `nna.mcp_test` independently negotiates a
+configured server and returns its discovered MCP tool names without invoking them. Tools
+added after a conversation began become invocable in a newly created conversation; an
+application restart is not required.
+
 For a failed, stalled, unexpectedly compacted, or otherwise surprising turn, NNA must use
 `nna.diagnose_turn` before inferring a cause from the visible transcript. With no argument,
 the tool examines the active turn or most recent durable turn. A correlated `turn_id` may be

@@ -24,6 +24,10 @@ export async function testConfiguredMcpServer(options, id) {
   try {
     const [result] = await manager.initialize();
     const status = manager.status()[0];
-    return { ...result, protocolVersion: status.protocolVersion, capabilities: status.capabilities };
+    if (result.status !== 'ready') {
+      throw new ContractError(status.lastError ?? 'mcp_connection_failed', 'MCP server connection test failed', true);
+    }
+    const tools = registry.snapshot().filter((item) => item.source === `mcp:${id}`).map((item) => item.name);
+    return { ...result, protocolVersion: status.protocolVersion, capabilities: status.capabilities, tools };
   } finally { await manager.close(); }
 }

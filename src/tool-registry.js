@@ -18,11 +18,12 @@ import { filesystemDiscoveryDefinitions } from './filesystem-discovery-tools.js'
 import { skillToolDefinitions } from './skill-registry.js';
 import { FileChangeLedger } from './file-change-ledger.js';
 import { selfDiagnosticsDefinition } from './self-diagnostics-tool.js';
+import { mcpControlDefinitions } from './mcp-control-tools.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const ALWAYS_EXPOSED = new Set([
   'tool.search', 'fs.list_directory', 'fs.glob', 'fs.search_text', 'fs.metadata', 'fs.read_text', 'fs.read_lines',
   'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file',
-  'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn', 'web.search', 'web.fetch',
+  'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn', 'nna.mcp_status', 'nna.mcp_test', 'web.search', 'web.fetch',
   'skill.search', 'skill.load',
 ]);
 export class ToolRegistry {
@@ -45,6 +46,7 @@ export class ToolRegistry {
     this.lspSpawnProcess = options.lspSpawnProcess;
     this.skills = options.skillRegistry;
     this.diagnosticContext = options.diagnosticContext;
+    this.mcpControl = options.mcpControl;
   }
   async initialize() {
     await this.paths.initialize();
@@ -59,6 +61,7 @@ export class ToolRegistry {
     for (const definition of filesystemExtraDefinitions(this.paths, this.#changes)) this.#install(definition);
     for (const definition of guidanceDefinitions(this.guidance)) this.#install(definition);
     this.#install(selfDiagnosticsDefinition(this.diagnosticContext));
+    for (const definition of mcpControlDefinitions(this.mcpControl)) this.#install(definition);
     this.#install(webSearchDefinition({ configPath: this.webSearchConfigPath, client: this.webSearchClient }));
     this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath }));
     this.#install(toolSearchDefinition(this));
@@ -78,7 +81,6 @@ export class ToolRegistry {
     this.#ageExposed();
     return definitions;
   }
-
   search(query, limit = 12) {
     return rankToolDefinitions(this.snapshot(), query, limit);
   }
@@ -123,7 +125,6 @@ export class ToolRegistry {
   definition(name, version = null) {
     return version === null ? this.#definitions.get(name) : this.#history.get(`${name}@${version}`);
   }
-
   installExternal(definition) {
     if (!definition || typeof definition.executor !== 'function') {
       throw new ContractError('invalid_external_tool', 'external tool requires an executor');
@@ -154,7 +155,6 @@ export class ToolRegistry {
     return true;
   }
 }
-
 function schemaValidator(schema) {
   if (!schema || schema.type !== 'object' || (schema.properties && typeof schema.properties !== 'object')) {
     throw new ContractError('invalid_external_schema', 'external tool input schema must describe an object');

@@ -98,6 +98,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       activeTurnId: engine.active?.turnId ?? null,
       state: engine.state.state,
     }),
+    mcpControl: options.mcpControl,
   });
   engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter);
   engine.attachments = new AttachmentManager({

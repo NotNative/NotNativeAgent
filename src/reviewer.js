@@ -136,6 +136,10 @@ function classify(request, definition) {
     && definition.name === 'nna.diagnose_turn') {
     return Object.freeze({ risk: 'safe', reason: 'redacted_runtime_diagnostics', effect: 'read_only', scope: 'runtime_diagnostics', complexity: 'simple' });
   }
+  if (definition.sideEffect === 'read_only' && definition.scope === 'mcp_control'
+    && ['nna.mcp_status', 'nna.mcp_test'].includes(definition.name)) {
+    return Object.freeze({ risk: 'safe', reason: 'configured_mcp_inspection', effect: 'read_only', scope: 'mcp_control', complexity: 'simple' });
+  }
   if (definition.sideEffect === 'read_only' && definition.scope === 'web_search' && definition.name === 'web.search') {
     return Object.freeze({ risk: 'safe', reason: 'configured_web_search', effect: 'read_only', scope: 'web_search', complexity: 'simple' });
   }

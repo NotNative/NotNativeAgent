@@ -121,6 +121,25 @@ test('validated public web.fetch is deterministic safe and does not invoke seman
   assert.equal(semanticCalls, 0);
 });
 
+test('configured MCP status and connection tests are deterministic read-only inspection', async () => {
+  for (const toolName of ['nna.mcp_status', 'nna.mcp_test']) {
+    const ledger = new ReviewerLedger({ durable: false, sessionId: toolName });
+    let semanticCalls = 0;
+    const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
+    const result = await reviewer.review({
+      ...readRequest(toolName), toolName, args: toolName.endsWith('test') ? { id: 'memory' } : {},
+      resolved: { source: 'configured_mcp_server' },
+    }, {
+      ...context,
+      authority: { id: 'authority-1', intent: [{ content: 'Inspect and test my configured MCP server' }], mission: null },
+      definition: { name: toolName, sideEffect: 'read_only', scope: 'mcp_control' },
+    });
+    assert.equal(result.outcome, 'approve');
+    assert.equal(result.reasonCode, 'deterministic_safe');
+    assert.equal(semanticCalls, 0);
+  }
+});
+
 test('operator-trusted private web.fetch is deterministic safe only after destination validation', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'private-fetch' });
   let semanticCalls = 0;

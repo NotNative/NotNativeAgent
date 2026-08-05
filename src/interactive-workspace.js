@@ -86,6 +86,10 @@ export class InteractiveWorkspace {
       skillRoots: options.skillRoots ?? this.options.skillRoots,
       scheduler: this.scheduler,
       webSearchConfigPath: this.webSearchConfigPath, webSearchClient: this.webSearchClient,
+      mcpControl: {
+        status: () => ({ configured: this.config.mcpServers, active: sessionConfig.mcpServers }),
+        test: (id) => this.testMcpServer(id),
+      },
     });
     await engine.initialize();
     const ingress = new CanonicalIngress(engine, { interactive: true });
@@ -168,14 +172,12 @@ export class InteractiveWorkspace {
     this.onChange();
     return projected.reviewPosture;
   }
-
   switch(idOrName) {
     const session = [...this.sessions.values()].find((item) => item.id === idOrName || item.name === idOrName);
     if (!session) throw new ContractError('session_missing', 'conversation was not found');
     this.projection.activate(session.id);
     this.onChange();
   }
-
   renameActive(name) {
     if (!name || name.length > 128) throw new ContractError('session_name_invalid', 'conversation name is invalid');
     const session = this.#active();
@@ -184,7 +186,6 @@ export class InteractiveWorkspace {
     this.tabPersistence.observe(this.#savePool(), this.#tasks);
     this.onChange();
   }
-
   async closeActive(confirm = false) {
     const session = this.#active();
     const projected = this.projection.active();
@@ -232,7 +233,6 @@ export class InteractiveWorkspace {
     if (!profile) throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
     return this.selectProviderForRole('primary', providerId);
   }
-
   async selectModel(model) {
     if (!model || model.length > 256) throw new ContractError('invalid_model', 'model name is required and bounded');
     const route = this.activeConfig().routes.primary;

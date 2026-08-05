@@ -26,7 +26,7 @@ test('Main manages durable MCP topology and marks it for new-session activation'
     protocolVersion: '2026-07-28', async open() {}, async close() {},
     async request(method) {
       if (method === 'initialize') return { protocolVersion: '2026-07-28', capabilities: { tools: {} } };
-      if (method === 'tools/list') return { tools: [] };
+      if (method === 'tools/list') return { tools: [{ name: 'memory.search', description: 'Search memory', inputSchema: { type: 'object', properties: {} } }] };
       throw new Error(`unexpected ${method}`);
     },
   });
@@ -44,6 +44,7 @@ test('Main manages durable MCP topology and marks it for new-session activation'
   assert.equal(JSON.parse(await readFile(configPath, 'utf8')).mcp_servers[0].credential_env, 'NNM_MCP_TOKEN');
   const tested = await workspace.testMcpServer('memory');
   assert.equal(tested.status, 'ready');
+  assert.deepEqual(tested.tools, ['mcp.memory.memory.search']);
   await workspace.editMcpServer('memory', {
     id: 'memory', transport: 'streamable_http', endpoint: 'http://127.0.0.1:8899/mcp',
   });
@@ -69,6 +70,22 @@ test('MCP overlay exposes configured state and explicit restart semantics', () =
     id: 'memory', enabled: true, transport: 'streamable_http', endpoint: 'http://127.0.0.1/mcp', runtime: 'restart_required',
   }], { canManage: true });
   assert.equal(managed.items.at(-1).id, 'action:add');
+});
+
+test('MCP connection testing fails truthfully when initialization cannot complete', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-mcp-test-failure-'));
+  const workspace = new InteractiveWorkspace({
+    config: configuration(root), configPath: join(root, 'settings.json'),
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
+    mcpTransportFactory: () => ({
+      async open() { throw Object.assign(new Error('unavailable'), { code: 'mcp_unreachable', retryable: true }); },
+      async close() {},
+    }),
+  });
+  await workspace.create('Main', 'main');
+  await workspace.addMcpServer({ id: 'offline', transport: 'streamable_http', endpoint: 'http://127.0.0.1:7788/mcp' });
+  await assert.rejects(workspace.testMcpServer('offline'), { code: 'mcp_unreachable' });
+  await workspace.shutdown();
 });
 
 test('MCP management uses guided menus for add, edit, and authentication', async () => {

@@ -40,6 +40,12 @@ native tool. Server failures and reconnects revoke that server's next-step capab
 an unknown-effect call is never replayed. A `tools/list_changed` notification refreshes
 the registry under a bounded call: an already-built model-step snapshot remains immutable,
 while the next step sees a new generation and prior approved definitions remain versioned.
+The root Console exposes `nna.mcp_status` for inspecting the global MCP registry and
+`nna.mcp_test` for negotiating one configured server and listing the tool names it
+discovers. These controls replace filesystem searches for private NNA configuration.
+An MCP server saved after a conversation began is usable from a newly created conversation;
+restarting NNA is unnecessary. A connection test reports discovered tools but does not add
+them to the immutable tool snapshot of an older conversation or invoke any remote tool.
 Stdio framing enforces its byte limit on each complete line before JSON parsing as well as
 on an unterminated buffer. Overflow or malformed framing makes that transport terminal,
 settles owned requests, and closes the subprocess. Remote-controlled error messages never

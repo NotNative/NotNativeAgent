@@ -211,6 +211,10 @@ existing environment variable. Directly entered tokens are saved in NNA's restri
 MCP credential file; only a generated reference is written to the MCP configuration. Because an MCP topology changes
 the callable tool catalog, saved changes apply to new conversations and after restart;
 the manager reports this explicitly instead of pretending to hot-load the active engine.
+The agent can call `nna.mcp_status` to inspect this global registry and `nna.mcp_test` to
+validate a server and list discovered tool names. It must not search the active workspace
+for NNA's private configuration. Opening a new conversation is sufficient to make newly
+discovered tools invocable; the application does not need to be restarted.
 Connected servers expose bounded, attributed untrusted content through `/mcp resources ID`,
 `/mcp read ID URI`, `/mcp prompts ID`, and `/mcp prompt ID NAME [JSON]`. These views do
 not add resource or prompt content to authority or silently submit it to the conversation.
