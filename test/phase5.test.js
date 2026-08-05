@@ -1228,6 +1228,8 @@ test('command registry exposes origin, capability, effective binding, and action
   assert.match(frame, /\/help · Ctrl\+G.*requires Console/u);
   assert.match(frame, /\/provider add.*unavailable: manage this from Main/u);
   assert.match(frame, /\/memory save.*unavailable: memory adapter unavailable/u);
+  projection.apply('standard', { type: 'mcp_status', id: 'memory', status: 'ready' });
+  assert.equal(projection.active().commandCapabilities.mcpReady, true);
   assert.ok(TUI_COMMANDS.every((item) => item.origin === 'core' && item.availability === 'runtime'
     && typeof item.requiredCapability === 'string'));
   assert.equal(commandDefinition('/status').description.includes('active conversation'), true);

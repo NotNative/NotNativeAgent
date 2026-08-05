@@ -94,7 +94,7 @@ export class InteractiveWorkspace {
         test: (id) => this.testMcpServer(id),
       },
     });
-    await engine.initialize();
+    await engine.initialize({ deferMcp: true });
     const ingress = new CanonicalIngress(engine, { interactive: true });
     const role = options.role ?? (this.sessions.size === 0 ? 'primary' : 'standard');
     const meaningful = options.meaningful ?? engine.transcript.some((item) => item.type === 'message' && item.role === 'user');

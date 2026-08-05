@@ -361,6 +361,49 @@ test('AC-MCP-05 one failed MCP server is isolated from a ready peer', async () =
   assert.deepEqual(statuses.map((item) => [item.id, item.status]), [['bad', 'degraded'], ['good', 'ready']]);
 });
 
+test('interactive startup defers unavailable MCP discovery and shutdown cancels it', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-mcp-deferred-startup-'));
+  let requestStarted = false;
+  let requestCancelled = false;
+  const transport = {
+    protocolVersion: MCP_CURRENT_VERSION,
+    async open() {},
+    async request(_method, _params, signal) {
+      requestStarted = true;
+      return new Promise((_resolve, reject) => {
+        const cancel = () => {
+          requestCancelled = true;
+          reject(new ContractError('mcp_cancelled', 'cancelled'));
+        };
+        if (signal.aborted) cancel();
+        else signal.addEventListener('abort', cancel, { once: true });
+      });
+    },
+    async close() {},
+    async notify() {},
+  };
+  const engine = new SessionEngine({
+    config: base(root, { mcp_servers: [{
+      id: 'offline', transport: 'streamable_http', endpoint: 'http://127.0.0.1:9/mcp',
+      enabled: true, connect_timeout_ms: 5_000, list_timeout_ms: 5_000,
+    }] }),
+    mcpTransportFactory: () => transport,
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal', finishReason: 'stop' }; } }),
+  });
+
+  const started = performance.now();
+  await engine.initialize({ deferMcp: true });
+  assert.ok(performance.now() - started < 500);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(requestStarted, true);
+  assert.equal(engine.mcp.status()[0].state, 'connecting');
+
+  await engine.shutdown({ request_id: 'deferred-mcp-shutdown' });
+  await engine.mcpInitialization;
+  assert.equal(requestCancelled, true);
+  assert.equal(engine.mcp.status()[0].state, 'closed');
+});
+
 test('AC-MCP-06 current Streamable HTTP mirrors stateless routing metadata', async (t) => {
   let captured;
   const server = createServer(async (request, response) => {

@@ -11,14 +11,22 @@ export class McpManager {
     this.configs = options.configs;
     this.transportFactory = options.transportFactory ?? createTransport;
     this.connections = new Map();
+    this.lifecycle = new AbortController();
+    this.initialization = null;
+    this.closed = false;
   }
 
   async initialize() {
-    const results = await Promise.allSettled(this.configs.map((config) => this.#connect(config)));
-    return results.map((_result, index) => ({
-      id: this.configs[index].id,
-      status: this.connections.get(this.configs[index].id).state,
-    }));
+    if (this.initialization) return this.initialization;
+    this.initialization = Promise.allSettled(this.configs.map((config) => this.#connect(config, this.lifecycle.signal)))
+      .then((results) => results.map((_result, index) => {
+        const connection = this.connections.get(this.configs[index].id);
+        return {
+          id: this.configs[index].id, status: connection.state,
+          ...(connection.lastError ? { reason: connection.lastError } : {}),
+        };
+      }));
+    return this.initialization;
   }
 
   status() {
@@ -77,6 +85,8 @@ export class McpManager {
   }
 
   async close() {
+    this.closed = true;
+    this.lifecycle.abort();
     await Promise.allSettled([...this.connections.values()].map(async (connection) => {
       connection.state = 'closed';
       this.registry.revokeSource(`mcp:${connection.config.id}`);
@@ -86,7 +96,7 @@ export class McpManager {
     }));
   }
 
-  async #connect(config) {
+  async #connect(config, parentSignal) {
     const connection = { config, state: config.enabled ? 'connecting' : 'disabled', capabilities: {} };
     this.connections.set(config.id, connection);
     if (!config.enabled) return;
@@ -101,18 +111,20 @@ export class McpManager {
         });
         return connection.refresh;
       });
-      await bounded((signal) => connection.transport.open(signal), config.connectTimeoutMs);
+      await bounded((signal) => connection.transport.open(signal), config.connectTimeoutMs, parentSignal);
       if (config.credentialEnv || Object.keys(config.headerEnv).length > 0) connection.state = 'authenticating';
       connection.protocolVersion = connection.transport.protocolVersion ?? MCP_CURRENT_VERSION;
-      await negotiate(connection, config.listTimeoutMs);
-      const tools = await discoverTools(connection, config.listTimeoutMs);
+      await negotiate(connection, config.listTimeoutMs, parentSignal);
+      const tools = await discoverTools(connection, config.listTimeoutMs, parentSignal);
+      if (this.closed) throw new ContractError('mcp_cancelled', 'MCP startup was cancelled');
       connection.capabilities = { ...connection.capabilities, tools: tools.length > 0 };
       this.#installTools(connection, tools);
       connection.state = 'ready';
     } catch (error) {
       this.registry.revokeSource(`mcp:${config.id}`);
       connection.lastError = error.code ?? 'mcp_failure';
-      connection.state = error.retryable === true ? 'degraded' : 'failed';
+      connection.state = this.closed || error.code === 'mcp_cancelled'
+        ? 'closed' : error.retryable === true ? 'degraded' : 'failed';
       await bounded((signal) => connection.transport?.close(signal), config.shutdownTimeoutMs).catch(() => undefined);
       throw error;
     }
@@ -170,11 +182,11 @@ export class McpManager {
   }
 }
 
-async function negotiate(connection, timeoutMs) {
+async function negotiate(connection, timeoutMs, parentSignal) {
   const result = await bounded((signal) => connection.transport.request('initialize', {
     protocolVersion: connection.protocolVersion, capabilities: {},
     clientInfo: { name: 'NotNativeAgent', version: VERSION },
-  }, signal), timeoutMs);
+  }, signal), timeoutMs, parentSignal);
   if (!result || typeof result.protocolVersion !== 'string' || result.protocolVersion.length > 64) {
     throw new ContractError('mcp_version_mismatch', 'MCP server did not negotiate a protocol version');
   }
@@ -184,7 +196,7 @@ async function negotiate(connection, timeoutMs) {
   connection.capabilities = result.capabilities ?? {};
   await bounded(
     (signal) => Promise.resolve(connection.transport.notify?.('notifications/initialized', {}, signal)),
-    timeoutMs,
+    timeoutMs, parentSignal,
   );
 }
 

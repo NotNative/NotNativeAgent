@@ -93,12 +93,12 @@ export class SessionEngine {
       }),
     });
   }
-  async initialize() {
+  async initialize(options = {}) {
     return initializeEngine(this, {
       restore: (records, truncated) => this.#restore(records, truncated),
       createSessionRecord: () => this.#createSessionRecord(),
       markInterrupted: (turnId) => this.#markInterrupted(turnId),
-    });
+    }, options);
   }
 
   async submit(command, principal) {

@@ -3,7 +3,7 @@ import { assertResumeProvenance } from './session-provenance.js';
 import { dispatchSessionHook } from './engine-hooks.js';
 import { ContractError } from './ids.js';
 
-export async function initializeEngine(engine, operations) {
+export async function initializeEngine(engine, operations, options = {}) {
   await engine.lock?.acquire();
   try {
     const telemetry = await engine.telemetry.initialize();
@@ -15,15 +15,27 @@ export async function initializeEngine(engine, operations) {
     for (const status of hookStatus) await engine.output({ type: 'hook_status', ...status });
     await engine.skills.initialize();
     await engine.tools.initialize();
-    const mcpStatus = await engine.mcp.initialize();
-    for (const status of mcpStatus) await engine.output({ type: 'mcp_status', ...status });
+    if (!options.deferMcp) await initializeMcp(engine);
     await engine.ledger.initialize();
     if (engine.store) await restoreDurableEngine(engine, operations);
     await dispatchSessionHook(engine, 'session.start', 'post');
+    if (options.deferMcp) {
+      engine.mcpInitialization = initializeMcp(engine).catch(async (error) => {
+        await engine.output({
+          type: 'mcp_status', id: null, status: 'failed',
+          reason: error?.code ?? 'mcp_initialization_failed',
+        }).catch(() => undefined);
+      });
+    }
   } catch (error) {
     await closeAfterInitializationFailure(engine);
     throw error;
   }
+}
+
+async function initializeMcp(engine) {
+  const statuses = await engine.mcp.initialize();
+  for (const status of statuses) await engine.output({ type: 'mcp_status', ...status });
 }
 
 async function restoreDurableEngine(engine, operations) {

@@ -332,7 +332,9 @@ function applyEvent(session, event) {
   } else if (event.type === 'tool_status' && event.status === 'running') session.state = 'running_tool';
   else if (event.type === 'queue_status') session.state = 'waiting_provider';
   else if (event.type === 'state_status' && STATES.has(event.semantic_state)) session.state = event.semantic_state;
-  else if (event.type === 'memory_status' || event.type === 'mcp_status') session.state = session.state;
+  else if (event.type === 'mcp_status') {
+    if (event.status === 'ready' && session.commandCapabilities) session.commandCapabilities.mcpReady = true;
+  } else if (event.type === 'memory_status') session.state = session.state;
   else if (event.type === 'context_status') {
     session.contextBytes = event.bytes;
     session.contextLimitBytes = event.limit_bytes;
