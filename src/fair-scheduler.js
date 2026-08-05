@@ -19,8 +19,7 @@ export class FairScheduler {
 
   acquire(resource, owner, signal, onQueued = () => undefined, resourceLimit = null) {
     const state = this.#state(resource);
-    state.limit = Number.isSafeInteger(resourceLimit) && resourceLimit > 0
-      ? Math.min(this.limit, resourceLimit) : this.limit;
+    state.limit = effectiveLimit(this.limit, state.discoveredLimit, resourceLimit);
     if (state.running < state.limit && state.queue.length === 0) return Promise.resolve(this.#grant(state, owner));
     if (state.queue.length >= this.maxQueued) throw new ContractError('scheduler_queue_full', 'provider queue is full');
     return new Promise((resolve, reject) => {
@@ -38,9 +37,20 @@ export class FairScheduler {
 
   snapshot() {
     return Object.freeze([...this.#resources.entries()].map(([resource, state]) => Object.freeze({
-      resource, running: state.running,
+      resource, running: state.running, limit: state.limit, discoveredLimit: state.discoveredLimit,
       queued: state.queue.map((item, index) => ({ owner: item.owner, position: index + 1 })),
     })));
+  }
+
+  setDiscoveredLimit(resource, limit) {
+    if (typeof resource !== 'string' || resource.length < 1
+      || !Number.isSafeInteger(limit) || limit < 1) {
+      throw new ContractError('scheduler_resource_limit_invalid', 'discovered provider capacity is invalid');
+    }
+    const state = this.#state(resource);
+    state.discoveredLimit = limit;
+    state.limit = limit;
+    this.#pump(state);
   }
 
   #grant(state, owner) {
@@ -66,10 +76,19 @@ export class FairScheduler {
 
   #state(resource) {
     if (!this.#resources.has(resource)) {
-      this.#resources.set(resource, { running: 0, queue: [], lastOwner: null, limit: this.limit });
+      this.#resources.set(resource, {
+        running: 0, queue: [], lastOwner: null, limit: this.limit, discoveredLimit: null,
+      });
     }
     return this.#resources.get(resource);
   }
+}
+
+function effectiveLimit(configured, discovered, requested) {
+  if (Number.isSafeInteger(discovered) && discovered > 0) {
+    return Number.isSafeInteger(requested) && requested > 0 ? Math.min(discovered, requested) : discovered;
+  }
+  return Number.isSafeInteger(requested) && requested > 0 ? Math.min(configured, requested) : configured;
 }
 
 function nextFairIndex(queue, lastOwner) {

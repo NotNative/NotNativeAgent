@@ -171,6 +171,7 @@ function toolLoop(engine, hooks) {
     persist: hooks.persist, publish: hooks.publish,
     toolContext: hooks.toolContext, executionContext: hooks.executionContext,
     surface: engine.surface, concurrency: engine.config.limits.toolConcurrency,
+    parallelLimit: (group, signal) => engine.parallelToolLimit(group, signal),
   });
 }
 

@@ -15,6 +15,7 @@ export class ToolLoop {
   constructor(options) {
     Object.assign(this, options);
     this.concurrency = boundedConcurrency(options.concurrency ?? 1);
+    this.parallelLimit ??= async () => 1;
     this.results = new ToolResultCache();
   }
 
@@ -171,18 +172,23 @@ export class ToolLoop {
   async #executeApproved(items, active) {
     for (let index = 0; index < items.length;) {
       assertTurnActive(active);
-      if (!this.#readOnly(items[index])) {
+      const parallelGroup = this.#parallelGroup(items[index]);
+      if (parallelGroup === null) {
         await this.#execute(items[index], active); index += 1; continue;
       }
       let end = index + 1;
-      while (end < items.length && this.#readOnly(items[end])) end += 1;
-      await boundedParallel(items.slice(index, end), this.concurrency, (item) => this.#execute(item, active));
+      while (end < items.length && this.#parallelGroup(items[end]) === parallelGroup) end += 1;
+      const limit = parallelGroup === 'read_only' ? this.concurrency
+        : await this.parallelLimit(parallelGroup, active.controller.signal);
+      await boundedParallel(items.slice(index, end), limit, (item) => this.#execute(item, active));
       index = end;
     }
   }
 
-  #readOnly(item) {
-    return this.tools.definition(item.request.toolName, item.request.definitionVersion)?.sideEffect === 'read_only';
+  #parallelGroup(item) {
+    const definition = this.tools.definition(item.request.toolName, item.request.definitionVersion);
+    if (definition?.sideEffect === 'read_only') return 'read_only';
+    return definition?.parallelGroup ?? null;
   }
 
   async #commit(item, active) {

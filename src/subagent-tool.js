@@ -7,7 +7,7 @@ export function subagentDefinition(control) {
   return {
     name: 'agent.run', version: 1,
     purpose: 'Run one bounded foreground sub-agent with the configured Sub-agents provider route and return its terminal result.',
-    sideEffect: 'reversible', scope: 'subagent', cancellation: true, timeoutMs: 3_600_000,
+    sideEffect: 'reversible', scope: 'subagent', parallelGroup: 'subagent', cancellation: true, timeoutMs: 3_600_000,
     maxOutputBytes: 2_097_152,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['type', 'task'],

@@ -35,6 +35,12 @@ runs a planner, coder, tester, and independent reviewer sequentially through the
 Sub-agents provider route. Devteam is available only to standalone root NNA; an authenticated
 host must grant derived sub-agent authority explicitly rather than inheriting it.
 
+When an agent requests multiple independent `agent.run` calls in one model step, NNA may run
+them concurrently. The effective concurrency is discovered from the loaded model assigned to
+the Sub-agents route and registered with the shared provider scheduler. If the provider does not
+advertise a valid parallel capacity, NNA safely executes one sub-agent at a time. Devteam itself
+remains sequential because each delivery stage consumes the preceding stage's artifacts.
+
 ## Authenticated hosts and NNO modules
 
 An authenticated headless host can provide exact inline skill descriptors in

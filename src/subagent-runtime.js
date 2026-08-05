@@ -21,3 +21,16 @@ export function subagentOutputStatus(record) {
   if (record?.outcome === 'denied') return 'denied';
   return 'succeeded';
 }
+
+export async function subagentParallelLimit(engine, group, signal) {
+  if (group !== 'subagent') return 1;
+  const route = engine.router.resolve('subagent');
+  const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
+  const capacity = runtime.parallelCapacity ?? 1;
+  engine.scheduler.setDiscoveredLimit(route.profile.id, capacity);
+  engine.telemetry?.record('subagent.capacity', 'succeeded', {
+    provider_profile: route.profile.id, model: route.model, capacity,
+    source: runtime.parallelCapacity != null ? runtime.source : 'sequential_fallback',
+  });
+  return capacity;
+}

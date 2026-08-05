@@ -212,7 +212,11 @@ The global `context_limit_bytes` remains an independent safety ceiling. Before p
 work, NNA queries a short-lived provider-neutral runtime snapshot. LM Studio endpoints use
 `/api/v1/models`, then `/api/v0/models`, then generic `/v1/models`; the loaded
 `context_length` is treated as a per-request window and is never divided by `parallel`.
-The reported parallel value only caps scheduling beneath NNA's configured concurrency.
+  The reported parallel value establishes the shared scheduler capacity for the exact loaded
+  provider/model resource when NNA launches concurrent sub-agents. This permits independent
+  exploration agents to use the model host's real parallel slots without a separate hard-coded
+  agent count. When discovery is unavailable, configured concurrency remains the conservative
+  fallback and sub-agent batches execute sequentially.
 NNA reserves the route's bounded output allowance and triggers at the earlier of
 `context_compaction_threshold` (default `0.85`) or the fixed 13,000-token safety boundary.
 When token metadata is unavailable, the validated byte ceilings remain the conservative

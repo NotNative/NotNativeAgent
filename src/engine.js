@@ -33,7 +33,7 @@ import { createForensicTelemetry } from './forensic-telemetry.js';
 import { prepareEngineContext } from './engine-context-preparation.js';
 import { initializeEngine } from './engine-initialize.js';
 import { persistEngineRecord } from './engine-persistence.js';
-import { subagentConfig, subagentOutputStatus } from './subagent-runtime.js';
+import { subagentConfig, subagentOutputStatus, subagentParallelLimit } from './subagent-runtime.js';
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -206,7 +206,6 @@ export class SessionEngine {
   async clearConversation() {
     return clearEngineConversation(this);
   }
-
   async runSubagent(input, signal) {
     if (this.config.executionManifest !== null) {
       throw new ContractError('subagent_hosted_forbidden', 'hosted sub-agents require a derived authority envelope from the authenticated host');
@@ -233,7 +232,7 @@ export class SessionEngine {
       await child.shutdown({ request_id: newId('subagent_shutdown'), type: 'shutdown' }).catch(() => undefined);
     }
   }
-
+  parallelToolLimit(group, signal) { return subagentParallelLimit(this, group, signal); }
   async #runTurn(content, attachmentInputs, retryAttachmentId) {
     const active = this.active;
     try {

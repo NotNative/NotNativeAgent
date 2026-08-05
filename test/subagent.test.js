@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { subagentDefinition } from '../src/subagent-tool.js';
-import { subagentConfig } from '../src/subagent-runtime.js';
+import { subagentConfig, subagentParallelLimit } from '../src/subagent-runtime.js';
+import { resolveManifest } from '../src/config.js';
+import { SessionEngine } from '../src/engine.js';
 
 test('agent.run validates a bounded specialist request and returns its terminal result', async () => {
   let received;
@@ -31,3 +36,64 @@ test('subagent configuration promotes only the configured subagent route to prim
   assert.match(derived.applicationPolicy, /implementation stage/u);
   assert.equal(config.routes.primary, primary);
 });
+
+test('subagent concurrency follows the loaded worker model parallel capacity', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-subagents-'));
+  let workers = 0; let peakWorkers = 0; let parentCalls = 0;
+  const parent = { async *stream(request) {
+    parentCalls += 1;
+    if (parentCalls === 1) {
+      yield { type: 'tool_fragment', fragments: [
+        toolFragment(0, 'explore-a', { type: 'general', task: 'Explore area A.' }),
+        toolFragment(1, 'explore-b', { type: 'general', task: 'Explore area B.' }),
+      ] };
+      yield { type: 'terminal', finishReason: 'tool_calls', usage: null };
+      return;
+    }
+    assert.equal(request.messages.filter((item) => item.role === 'tool').length, 2);
+    yield { type: 'text', text: 'Exploration complete.' };
+    yield { type: 'terminal', finishReason: 'stop', usage: null };
+  } };
+  const worker = {
+    async runtimeSnapshot() { return { parallelCapacity: 2, source: 'lmstudio_v1' }; },
+    async *stream() {
+      workers += 1; peakWorkers = Math.max(peakWorkers, workers);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        yield { type: 'text', text: 'Explored.' };
+        yield { type: 'terminal', finishReason: 'stop', usage: null };
+      } finally { workers -= 1; }
+    },
+  };
+  const config = resolveManifest({
+    persistence: 'ephemeral', workspace_root: root, provider_concurrency: 1,
+    providers: [
+      { id: 'parent', endpoint: 'http://127.0.0.1:1234/v1', model: 'parent', trust_zone: 'loopback' },
+      { id: 'worker', endpoint: 'http://127.0.0.1:1235/v1', model: 'worker', trust_zone: 'loopback' },
+    ],
+    routes: { primary: { provider_id: 'parent' }, subagent: { provider_id: 'worker' } },
+  });
+  const engine = new SessionEngine({
+    config, providerFactory: (profile) => profile.id === 'worker' ? worker : parent,
+    semanticReviewer: { async review() { return { outcome: 'approve', confidence: 0.99, reason_code: 'delegation_matches_intent' }; } },
+  });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'parallel-exploration', content: 'Delegate two independent exploration agents.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(peakWorkers, 2);
+  assert.equal(engine.scheduler.snapshot().find((item) => item.resource === 'worker').discoveredLimit, 2);
+  await engine.shutdown({ request_id: 'shutdown', type: 'shutdown' });
+});
+
+test('missing advertised parallel capacity preserves sequential subagent execution', async () => {
+  const engine = {
+    router: { resolve: () => ({ profile: { id: 'worker' }, model: 'worker' }) },
+    modelRuntime: { resolve: async () => ({ parallelCapacity: null }) },
+    scheduler: { setDiscoveredLimit(_resource, limit) { this.limit = limit; } },
+  };
+  assert.equal(await subagentParallelLimit(engine, 'subagent', new AbortController().signal), 1);
+});
+
+function toolFragment(index, id, args) {
+  return { index, id, function: { name: 'agent.run', arguments: JSON.stringify(args) } };
+}

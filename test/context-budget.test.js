@@ -77,6 +77,16 @@ test('loaded parallel capacity caps a provider resource without increasing the c
   assert.equal(granted, true);
 });
 
+test('authoritative discovered capacity can expand one shared provider resource', async () => {
+  const scheduler = new FairScheduler({ limit: 1 });
+  scheduler.setDiscoveredLimit('worker', 2);
+  const signal = new AbortController().signal;
+  const first = await scheduler.acquire('worker', 'one', signal, () => undefined, 2);
+  const second = await scheduler.acquire('worker', 'two', signal, () => undefined, 2);
+  assert.equal(scheduler.snapshot()[0].running, 2);
+  first(); second();
+});
+
 function jsonResponse(value, status = 200) {
   return new Response(JSON.stringify(value), {
     status, headers: { 'content-type': 'application/json' },
