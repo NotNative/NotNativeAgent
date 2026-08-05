@@ -352,9 +352,9 @@ Clear a specialist assignment with “No dedicated profile” or `/provider ROLE
 mutations are available only from Main. Deletion is blocked while an explicitly assigned role in
 any open conversation references the profile.
 Canonical manifest writes are atomic and preserve the prior file as `settings.json.bak`.
-Use `/model` for a conversation-local model override. Use `/mcp` to add, test, enable,
-disable, and delete Streamable HTTP or stdio MCP server definitions. MCP topology changes
-require a new conversation or restart because the callable tool set changes.
+Use `/model` for a conversation-local model override. `/mcp` provides guided add, edit,
+test, enable, disable, and delete flows for Streamable HTTP or stdio server definitions.
+MCP topology changes require a new conversation or restart because the callable tool set changes.
 
 Enabling memory activates NNA's memory integration, but does not install or configure a
 memory service. NotNativeMemory hooks and an MCP memory server are separate integrations;

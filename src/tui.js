@@ -27,6 +27,7 @@ import { handleEditorAction } from './tui-editor-actions.js';
 import { handleGatewayCommand, handleGatewaySelection } from './tui-gateway-command.js';
 import { handleWebFetchCommand } from './tui-webfetch-command.js';
 import { beginProviderManagementSelection, handleProviderRoleNavigation, handleProviderSetupAction } from './tui-provider-setup.js';
+import { beginMcpManagementSelection, handleMcpSetupAction } from './tui-mcp-setup.js';
 import { DestructiveKeyGuard, handleDestructiveCancel, handleDestructiveEscape } from './destructive-key-guard.js';
 export async function runTui(input, output, diagnostics, options) {
   const { capabilities, bindings } = prepareTui(input, output, options);
@@ -236,6 +237,7 @@ async function resetKeys(workspace, decoder) {
 async function handleOverlayAction(action, workspace) {
   const projection = workspace.projection;
   if (await handleProviderSetupAction(action, workspace)) return;
+  if (await handleMcpSetupAction(action, workspace)) return;
   if (handleProviderRoleNavigation(action, workspace)) return;
   if (['history_up', 'history_down'].includes(action.action)) {
     const direction = action.action === 'history_up' ? -1 : 1;
@@ -245,6 +247,7 @@ async function handleOverlayAction(action, workspace) {
     const overlay = projection.overlay;
     const selected = overlay.items[overlay.selected];
     if (beginProviderManagementSelection(selected, workspace, overlay)) return;
+    if (beginMcpManagementSelection(selected, workspace, overlay)) return;
     const draft = overlayCommandDraft(overlay.kind, selected.id);
     if (draft) {
       projection.closeOverlay(); projection.active().editor.set(draft);
@@ -261,15 +264,6 @@ async function handleOverlayAction(action, workspace) {
     else if (overlay.kind === 'provider') await workspace.selectProviderForRole(overlay.role ?? 'primary', selected.id);
     else if (overlay.kind === 'model') await workspace.selectModel(selected.id);
     else if (overlay.kind === 'skills') { prepareSkillInvocation(projection, selected.id); return; }
-    else if (overlay.kind === 'mcp') {
-      const server = workspace.mcpStatus().find((entry) => entry.id === selected.id);
-      await workspace.setMcpEnabled(selected.id, !server.enabled);
-      projection.openOverlay(mcpOverlay(workspace.mcpStatus(), {
-        selectedId: selected.id, message: `${selected.id} ${server.enabled ? 'disabled' : 'enabled'}; open a new conversation to apply.`,
-        canManage: projection.active().role === 'primary',
-      }));
-      return;
-    }
     else if (overlay.kind === 'websearch') {
       const result = await webSearchAction(selected.id, workspace);
       projection.openOverlay(webSearchOverlay(result, { selectedId: selected.id, message: webSearchMessage(selected.id) }));

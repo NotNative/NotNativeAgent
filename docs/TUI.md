@@ -203,8 +203,9 @@ before saving it. The setting is global across conversations and agent roles.
 
 `/mcp` opens the MCP server manager. Main can add Streamable HTTP or shell-free stdio
 servers, test connection and discovery, enable or disable entries, and safely remove them.
-Add, test, and delete are keyboard-selectable actions that place a bounded command form in
-the editor; selecting a configured server continues to toggle its enabled state directly.
+Selecting a configured server opens a focused action menu. Add and edit use bounded,
+single-line, keyboard-navigable forms with same-level Esc/back behavior; deletion requires
+an explicit confirmation. The menu never requires users to complete raw slash-command syntax.
 Credentials are referenced by environment-variable name. Because an MCP topology changes
 the callable tool catalog, saved changes apply to new conversations and after restart;
 the manager reports this explicitly instead of pretending to hot-load the active engine.

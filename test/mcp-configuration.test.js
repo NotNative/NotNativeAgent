@@ -6,7 +6,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveManifest } from '../src/config.js';
 import { InteractiveWorkspace } from '../src/interactive-workspace.js';
-import { mcpOverlay, overlayCommandDraft } from '../src/tui-overlays.js';
+import { mcpOverlay } from '../src/tui-overlays.js';
+import {
+  availableMcpId, beginMcpManagementSelection, handleMcpSetupAction,
+} from '../src/tui-mcp-setup.js';
 
 function configuration(root) {
   return resolveManifest({
@@ -40,6 +43,10 @@ test('Main manages durable MCP topology and marks it for new-session activation'
   assert.equal(JSON.parse(await readFile(configPath, 'utf8')).mcp_servers[0].credential_env, 'NNM_MCP_TOKEN');
   const tested = await workspace.testMcpServer('memory');
   assert.equal(tested.status, 'ready');
+  await workspace.editMcpServer('memory', {
+    id: 'memory', transport: 'streamable_http', endpoint: 'http://127.0.0.1:8899/mcp',
+  });
+  assert.equal(workspace.mcpStatus()[0].endpoint, 'http://127.0.0.1:8899/mcp');
   await workspace.setMcpEnabled('memory', false);
   assert.equal(workspace.mcpStatus()[0].enabled, false);
   await workspace.deleteMcpServer('memory');
@@ -52,12 +59,83 @@ test('MCP overlay exposes configured state and explicit restart semantics', () =
     id: 'memory', enabled: true, transport: 'streamable_http', endpoint: 'http://127.0.0.1/mcp', runtime: 'restart_required',
   }]);
   assert.equal(view.items[0].id, 'memory');
-  assert.match(view.items[0].label, /\[on\]/u);
+  assert.equal(view.items[0].label, 'memory');
+  assert.equal(view.items[0].badge, 'enabled');
   assert.match(view.items[0].detail, /restart_required/u);
   assert.match(view.lines.join('\n'), /new conversations and after restart/u);
-  const managed = mcpOverlay(view.items, { canManage: true });
-  assert.deepEqual(managed.items.slice(-4).map((item) => item.id), [
-    'action:add-http', 'action:add-stdio', 'action:test', 'action:delete',
-  ]);
-  assert.equal(overlayCommandDraft('mcp', 'action:add-http'), '/mcp add-http ');
+  assert.doesNotMatch(view.lines.join('\n'), /\/mcp add-http/u);
+  const managed = mcpOverlay([{
+    id: 'memory', enabled: true, transport: 'streamable_http', endpoint: 'http://127.0.0.1/mcp', runtime: 'restart_required',
+  }], { canManage: true });
+  assert.equal(managed.items.at(-1).id, 'action:add');
+});
+
+test('MCP management uses guided menus for add, edit, and authentication', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-mcp-guided-'));
+  const configPath = join(root, 'settings.json');
+  const workspace = new InteractiveWorkspace({
+    config: configuration(root), configPath,
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
+  });
+  await workspace.create('Main', 'main');
+  workspace.projection.openOverlay(mcpOverlay([], { canManage: true }));
+  assert.equal(beginMcpManagementSelection({ id: 'action:add' }, workspace, workspace.projection.overlay), true);
+  assert.equal(workspace.projection.overlay.kind, 'mcp-transport');
+
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  assert.equal(workspace.projection.overlay.kind, 'mcp-form');
+  workspace.projection.overlay.editor.set('NotNative Memory');
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  workspace.projection.overlay.editor.set('http://127.0.0.1:9500/mcp');
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  assert.equal(workspace.projection.overlay.kind, 'mcp-auth');
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  assert.equal(workspace.mcpStatus()[0].id, 'notnative-memory');
+  assert.equal(workspace.projection.overlay.kind, 'mcp');
+
+  beginMcpManagementSelection(workspace.projection.overlay.items[0], workspace, workspace.projection.overlay);
+  assert.equal(workspace.projection.overlay.kind, 'mcp-server');
+  assert.deepEqual(workspace.projection.overlay.items.map((item) => item.id), ['test', 'disable', 'edit', 'delete']);
+  workspace.projection.moveOverlaySelection(2);
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  workspace.projection.overlay.editor.set('http://127.0.0.1:9600/mcp');
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  assert.equal(workspace.mcpStatus()[0].endpoint, 'http://127.0.0.1:9600/mcp');
+  await workspace.shutdown();
+});
+
+test('MCP names produce stable collision-safe identifiers', () => {
+  assert.equal(availableMcpId('NotNative Memory'), 'notnative-memory');
+  assert.equal(availableMcpId('NotNative Memory', ['notnative-memory']), 'notnative-memory-2');
+});
+
+test('MCP stdio setup parses a quoted launch command and keeps forms single-line', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-mcp-stdio-'));
+  const workspace = new InteractiveWorkspace({
+    config: configuration(root), configPath: join(root, 'settings.json'),
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
+  });
+  await workspace.create('Main', 'main');
+  workspace.projection.openOverlay(mcpOverlay([], { canManage: true }));
+  beginMcpManagementSelection({ id: 'action:add' }, workspace, workspace.projection.overlay);
+  workspace.projection.moveOverlaySelection(1);
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  await handleMcpSetupAction({ action: 'paste', text: 'Local Files\r\nignored' }, workspace);
+  assert.equal(workspace.projection.overlay.editor.text, 'Local Files');
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  workspace.projection.overlay.editor.set('node "server file.js" --safe');
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  workspace.projection.overlay.editor.set(root);
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  assert.equal(workspace.projection.overlay.kind, 'mcp-auth');
+  await handleMcpSetupAction({ action: 'back' }, workspace);
+  assert.match(workspace.projection.overlay.lines.join('\n'), /Working directory/u);
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  const server = workspace.mcpStatus()[0];
+  assert.equal(server.command, 'node');
+  assert.deepEqual(server.args, ['server file.js', '--safe']);
+  assert.equal(server.cwd, root);
+  await workspace.shutdown();
 });

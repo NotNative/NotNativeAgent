@@ -8,7 +8,7 @@ import { userDataPaths } from './product.js';
 import {
   booleanSettingValue, manifestFromConfig, withBooleanSetting, withContextSettings, withRecoverySettings,
   withPrimaryRoute, withRoleRoute, withUpdatedProvider, withoutProvider, withoutRoleRoute,
-  withKeyBindings, withMcpEnabled, withMcpServer, withoutMcpServer, withRuntimeLimits,
+  withKeyBindings, withMcpEnabled, withMcpServer, withMcpServerUpdate, withoutMcpServer, withRuntimeLimits,
 } from './route-configuration.js';
 import { SearxngClient } from './searxng-client.js';
 import { SearxngDeployment } from './searxng-deployment.js';
@@ -380,13 +380,12 @@ export class InteractiveWorkspace {
     this.onChange(); await this.#savePoolRecoverable();
     return globalNext.config;
   }
-  mcpStatus() {
-    return configuredMcpStatus(this.config, this.activeEngine());
-  }
+  mcpStatus() { return configuredMcpStatus(this.config, this.activeEngine()); }
   async addMcpServer(input) {
     this.#requirePrimaryMcpManagement();
     return this.#publishMcpConfiguration(withMcpServer(this.config, input));
   }
+  async editMcpServer(id, input) { this.#requirePrimaryMcpManagement(); return this.#publishMcpConfiguration(withMcpServerUpdate(this.config, id, input)); }
   async setMcpEnabled(id, enabled) {
     this.#requirePrimaryMcpManagement();
     return this.#publishMcpConfiguration(withMcpEnabled(this.config, id, enabled));

@@ -212,29 +212,23 @@ export function webFetchOverlay(config, options = {}) {
 export function mcpOverlay(servers, options = {}) {
   const lines = [
     'MCP servers extend NNA with externally supplied tools, resources, and prompts.',
-    'Up/Down selects a server. Enter enables or disables it.',
-    'Topology changes apply to new conversations and after restart.',
+    'Choose a server to inspect, test, edit, enable, disable, or remove it.',
+    'Connection changes apply to new conversations and after restart.',
   ];
   if (options.message) lines.push('', options.message);
   if (servers.length === 0) lines.push('', 'No MCP servers configured.');
-  lines.push('', 'Manage from Main:');
-  lines.push('  /mcp add-http ID ENDPOINT [CREDENTIAL_ENV]');
-  lines.push('  /mcp add-stdio ID COMMAND [ARG ...]');
-  lines.push('  /mcp test ID · /mcp enable ID · /mcp disable ID · /mcp delete ID');
   const items = servers.map((server) => ({
     id: server.id,
-    label: `${server.enabled ? '[on] ' : '[off]'} ${server.id}`,
-    detail: `${server.transport} · ${server.endpoint ?? server.command} · ${server.runtime}`,
+    label: server.id,
+    badge: server.enabled ? 'enabled' : 'disabled',
+    detail: `${server.transport === 'streamable_http' ? 'HTTP' : 'stdio'} · ${server.endpoint ?? server.command} · ${server.runtime}`,
   }));
   if (options.canManage) items.push(
-    actionItem('add-http', 'Add HTTP server', '/mcp add-http ID ENDPOINT [CREDENTIAL_ENV]'),
-    actionItem('add-stdio', 'Add stdio server', '/mcp add-stdio ID COMMAND [ARG ...]'),
-    actionItem('test', 'Test server', '/mcp test ID'),
-    actionItem('delete', 'Delete server', '/mcp delete ID'),
+    { id: 'action:add', label: 'Add MCP server', detail: 'Connect an HTTP endpoint or a local stdio process' },
   );
   return Object.freeze({
     ...menuOverlay('mcp', 'MCP servers', lines, items, options.selectedId ?? items[0]?.id),
-    actionLabel: options.canManage ? 'Up/Down choose · Enter enable/disable/manage' : 'Up/Down choose · Enter enable/disable',
+    actionLabel: 'Up/Down choose · Enter manage · Esc back',
   });
 }
 
@@ -258,7 +252,6 @@ export function overlayCommandDraft(kind, id) {
   if (!id.startsWith('action:')) return null;
   const action = id.slice(7);
   const drafts = {
-    mcp: { 'add-http': '/mcp add-http ', 'add-stdio': '/mcp add-stdio ', test: '/mcp test ', delete: '/mcp delete ' },
     gateway: { authorize: '/gateway authorize ', revoke: '/gateway revoke ', 'token-env': '/gateway token-env ', workspace: '/gateway workspace ' },
     webfetch: { trust: '/webfetch trust ', revoke: '/webfetch revoke ' },
     tab: { rename: '/rename ' },

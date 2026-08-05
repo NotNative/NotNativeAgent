@@ -231,6 +231,24 @@ export function withMcpEnabled(config, id, enabled) {
   return { manifest, config: resolveManifest(manifest) };
 }
 
+export function withMcpServerUpdate(config, id, input) {
+  const manifest = manifestFromConfig(config);
+  const server = manifest.mcp_servers.find((entry) => entry.id === id);
+  if (!server) throw new ContractError('mcp_server_missing', `MCP server ${id} is not configured`);
+  if (server.transport !== input.transport) {
+    throw new ContractError('invalid_mcp_transport', 'an existing MCP server transport cannot be changed in place');
+  }
+  if (server.transport === 'streamable_http') {
+    server.endpoint = input.endpoint;
+  } else {
+    server.command = input.command;
+    server.args = input.args ?? [];
+    setOptional(server, 'cwd', input.cwd);
+  }
+  setOptional(server, 'credential_env', input.credentialEnv);
+  return { manifest, config: resolveManifest(manifest) };
+}
+
 export function withoutMcpServer(config, id) {
   if (!config.mcpServers.some((server) => server.id === id)) {
     throw new ContractError('mcp_server_missing', `MCP server ${id} is not configured`);
@@ -238,6 +256,11 @@ export function withoutMcpServer(config, id) {
   const manifest = manifestFromConfig(config);
   manifest.mcp_servers = manifest.mcp_servers.filter((server) => server.id !== id);
   return { manifest, config: resolveManifest(manifest) };
+}
+
+function setOptional(target, key, value) {
+  if (value === undefined || value === null || value === '') delete target[key];
+  else target[key] = value;
 }
 
 export async function persistManifest(path, manifest) {
