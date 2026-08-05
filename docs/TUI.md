@@ -100,7 +100,7 @@ Key actions:
   permission views without requiring a configuration-file edit.
 
 Commands include `/new NAME`, `/switch ID-OR-NAME`, `/rename NAME`, `/close`,
-`/confirm close`, `/health`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
+`/confirm close`, `/health`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/dream`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
 `/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP that can be sent
 to maintainers for troubleshooting; it never uploads the archive and refuses to overwrite an existing path. Closing active work requires the explicit confirmation
 command. Conversation editors and transcript projections remain isolated when switching.
@@ -109,6 +109,13 @@ recovered, the Console still opens a fresh Main conversation and reports each na
 failure as a recovery notice. NNA leaves the saved pool and session journals untouched
 and pauses tab-pool persistence for that run so troubleshooting evidence cannot be
 silently replaced; resolve the reported condition and restart NNA to retry recovery.
+
+`/dream` shows local idle-maintenance state and its bounded recent stage receipts.
+`/dream pause` and `/dream resume` control scheduling for the current process; `/dream run`
+requests the next eligible deterministic stage immediately. Any keyboard or mouse input
+cancels an active stage and restarts the idle clock. The first implemented stage harvests
+classified terminal telemetry into fingerprints, counters, and durable watermarks. It
+does not invoke a model, edit `NNA.md`, write NNM memories, or generate skills.
 On every cold launch the fresh Main conversation receives focus. A meaningful prior Main
 is restored as `Previous Main`, and other eligible tabs retain their presentation state,
 but restored tabs do not take startup focus away from Main.

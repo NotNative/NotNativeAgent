@@ -59,6 +59,7 @@ export async function runTui(input, output, diagnostics, options) {
   try {
     terminal.enter();
     await initializeWorkspace(workspace, options);
+    await workspace.initializeDream?.();
     renderLoop.now();
     onData = (chunk) => {
       clearTimeout(escapeTimer); escapeTimer = null;
@@ -87,7 +88,6 @@ export async function runTui(input, output, diagnostics, options) {
     removeTuiListeners(input, output, { onData, resize, signal, suspend, resume });
   }
 }
-
 export async function finalizeTui(terminal, workspace, logger, finish) {
   terminal.restore();
   let failure = null;
@@ -96,12 +96,10 @@ export async function finalizeTui(terminal, workspace, logger, finish) {
   finally { finish(); }
   if (failure) throw failure;
 }
-
 function safeDiagnostic(diagnostics, error) {
   const code = sanitizeTerminal(error?.code ?? 'interactive_failure');
   try { diagnostics.write(`nna tui: ${code}\n`); } catch { /* preserve causal failure */ }
 }
-
 async function initializeWorkspace(workspace, options) {
   if (options.sessionId || options.sessionName) {
     await workspace.create(options.sessionName ?? 'Main', options.sessionId ?? undefined, { role: 'primary' });
@@ -164,7 +162,7 @@ function prepareTui(input, output, options) {
 }
 
 export async function handleActions(actions, workspace, stop, decoder, destructiveKeys = new DestructiveKeyGuard()) {
-  for (const action of actions.slice(0, 4096)) {
+  workspace.dream?.activity(actions[0]?.action ?? 'input'); for (const action of actions.slice(0, 4096)) {
     const session = workspace.projection.active();
     if (!session) return;
     if (!['back', 'cancel'].includes(action.action)) destructiveKeys.reset();
@@ -356,6 +354,7 @@ async function command(value, workspace, stop) {
   else if (name === '/permissions') handlePermissionCommand(argument, workspace);
   else if (name === '/health') workspace.projection.openOverlay(healthOverlay(await workspace.activeEngine().health()));
   else if (name === '/trace') await traceCommand(argument, workspace);
+  else if (name === '/dream') workspace.projection.openOverlay(valueOverlay('dream', 'Idle maintenance', await workspace.dreamCommand(argument)));
   else if (name === '/provider') await handleProviderCommand(argument, workspace, { routeNotice, strictInteger });
   else if (name === '/model') await handleModelCommand(argument, workspace, { modelNotice });
   else if (name === '/mcp') await handleMcpCommand(argument, workspace);

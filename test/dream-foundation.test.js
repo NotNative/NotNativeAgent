@@ -7,6 +7,8 @@ import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { DreamStore } from '../src/dream-store.js';
 import { IdleArbiter } from '../src/idle-arbiter.js';
+import { DreamCoordinator } from '../src/dream-coordinator.js';
+import { ForensicTelemetry } from '../src/forensic-telemetry.js';
 
 test('dream defaults are standalone-only and preserve explicit operator disablement', () => {
   assert.equal(resolveManifest(manifest()).dream.enabled, true);
@@ -65,6 +67,31 @@ test('idle activity aborts maintenance and foreground eligibility is rechecked',
   assert.ok(states.includes('running'));
   assert.ok(states.includes('cancelled'));
   assert.ok(states.includes('waiting'));
+});
+
+test('manual deterministic harvest checkpoints only terminal redacted telemetry evidence', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-harvest-'));
+  const telemetry = new ForensicTelemetry({
+    workspaceRoot: root, runtimeId: 'runtime', sessionId: 'session', dbPath: join(root, 'events.db'),
+  });
+  await telemetry.initialize();
+  telemetry.record('tool.execute', 'succeeded', { tool_name: 'fs.read_text' }, { turnId: 'turn-1' });
+  telemetry.record('provider.attempt', 'failed', { code: 'provider_timeout' }, { turnId: 'turn-1', reasonCode: 'provider_timeout' });
+  await telemetry.flush();
+  const config = resolveManifest(manifest({ workspace_root: root }));
+  const workspace = { sessions: new Map([['session', { engine: { state: { state: 'idle' }, telemetry } }]]) };
+  const coordinator = new DreamCoordinator({ workspace, config, path: join(root, 'dream.db') });
+  await coordinator.initialize();
+  const result = await coordinator.runNow();
+  const status = coordinator.status();
+  assert.equal(result.state, 'completed');
+  assert.equal(result.result.code, 'harvest_complete');
+  assert.equal(result.result.packet.records, 2);
+  assert.equal(result.result.packet.counts.failed, 1);
+  assert.ok(status.watermark.turn_sequence > 0);
+  assert.equal(JSON.stringify(status).includes('fs.read_text'), false);
+  coordinator.close();
+  await telemetry.close();
 });
 
 function manifest(extra = {}) {

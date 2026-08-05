@@ -44,6 +44,12 @@ If filesystem search is slow or the user asks about ripgrep, NNA should consult
 native fallback, and offer an operator-approved platform installation command. Missing
 ripgrep is an optimization opportunity, not a turn-blocking failure.
 
+Standalone Console idle maintenance is inspected with `/dream`. Its deterministic
+harvest stage checkpoints classified terminal telemetry without transcript content.
+Authenticated host sessions cannot run the dream scheduler. The presence of a dream
+checkpoint does not imply that NNA edited project memory, wrote NNM data, changed its
+runtime, or generated a skill; those remain separately governed later stages.
+
 The guidance catalog is separate from the active workspace sandbox. It contains only
 bounded Markdown files under the `docs` directory installed with NNA. Search and read are
 read-only, deterministically reviewed operations. Results identify the canonical document

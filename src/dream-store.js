@@ -44,12 +44,19 @@ export class DreamStore {
     this.#ready();
     const id = input.id ?? newId('dream_run');
     const now = new Date().toISOString();
-    this.db.prepare(`INSERT INTO dream_runs
-      (id, runtime_key, stage, trigger, evidence_start, evidence_end, state, started_at,
-       provider_fingerprint, input_fingerprint)
-      VALUES (?, ?, ?, ?, ?, ?, 'running', ?, ?, ?)`)
-      .run(id, input.runtimeKey, input.stage, input.trigger ?? 'idle', input.evidenceStart ?? null,
-        input.evidenceEnd ?? null, now, input.providerFingerprint ?? null, input.inputFingerprint ?? null);
+    try {
+      this.db.prepare(`INSERT INTO dream_runs
+        (id, runtime_key, stage, trigger, evidence_start, evidence_end, state, started_at,
+         provider_fingerprint, input_fingerprint)
+        VALUES (?, ?, ?, ?, ?, ?, 'running', ?, ?, ?)`)
+        .run(id, input.runtimeKey, input.stage, input.trigger ?? 'idle', input.evidenceStart ?? null,
+          input.evidenceEnd ?? null, now, input.providerFingerprint ?? null, input.inputFingerprint ?? null);
+    } catch (error) {
+      if (String(error?.message).includes('idx_dream_runs_active')) {
+        throw new ContractError('dream_run_active', 'another process already owns idle maintenance for this workspace');
+      }
+      throw error;
+    }
     return this.run(id);
   }
   finish(id, state, detail = {}) {
@@ -99,6 +106,7 @@ CREATE TABLE IF NOT EXISTS dream_runs (
 );
 CREATE INDEX IF NOT EXISTS idx_dream_runs_runtime ON dream_runs(runtime_key, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dream_runs_state ON dream_runs(state, started_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dream_runs_active ON dream_runs(runtime_key) WHERE state = 'running';
 `;
 
 export function validDreamState(value) { return STATES.has(value); }

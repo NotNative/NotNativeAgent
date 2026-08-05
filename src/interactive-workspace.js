@@ -29,6 +29,7 @@ import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
 import { discoverWorkspaceProviderModels } from './workspace-provider-discovery.js';
 import { deleteManagedMcpCredential, saveManagedMcpCredential } from './mcp-credentials.js';
+import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './workspace-dream.js';
 export class InteractiveWorkspace {
   #tasks = new Set();
   constructor(options) {
@@ -59,6 +60,8 @@ export class InteractiveWorkspace {
       },
     });
   }
+  initializeDream() { return initializeWorkspaceDream(this); }
+  dreamCommand(action) { return runWorkspaceDreamCommand(this, action); }
   async restore() {
     const result = await restoreWorkspace(this);
     if (result.complete) await this.#savePoolRecoverable();
@@ -208,6 +211,7 @@ export class InteractiveWorkspace {
     return { closed: true };
   }
   async shutdown() {
+    this.dream?.close();
     let poolFailure = null;
     try {
       await this.#savePool();
@@ -248,7 +252,6 @@ export class InteractiveWorkspace {
     await this.#savePoolRecoverable();
     return { scope: projected.role === 'primary' ? 'main_conversation' : 'conversation', providerId, model };
   }
-
   async usePrimaryRoute() {
     const active = this.#active();
     if (this.projection.active().role === 'primary') return { scope: 'primary' };
@@ -259,7 +262,6 @@ export class InteractiveWorkspace {
     await this.#savePoolRecoverable();
     return { scope: 'copied' };
   }
-
   async followPrimaryRoute() { return this.usePrimaryRoute(); }
   async selectProviderForRole(role, providerId) {
     const active = this.#active();
@@ -316,7 +318,6 @@ export class InteractiveWorkspace {
     await this.#savePoolRecoverable();
     return globalNext.config.providerProfiles[id];
   }
-
   async deleteProvider(id) {
     this.#requirePrimaryProviderManagement();
     for (const session of this.sessions.values()) {
@@ -332,7 +333,6 @@ export class InteractiveWorkspace {
     await this.#publishProviderCatalog(next);
     return { id, deleted: true };
   }
-
   async testProvider(id) {
     const config = this.activeConfig();
     const profile = config.providerProfiles[id];

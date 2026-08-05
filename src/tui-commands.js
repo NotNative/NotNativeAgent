@@ -26,6 +26,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/confirm clear conversation', 'Confirm clearing active conversation context', 'conversation'),
   command('/health', 'Inspect runtime and dependency health', 'diagnostics'),
   command('/trace [failures|open|turn ID]', 'Inspect the local forensic trace for this conversation', 'diagnostics'),
+  command('/dream [status|pause|resume|run]', 'Inspect or control local idle maintenance', 'diagnostics'),
   command('/help', 'Browse commands and current key bindings', 'console'),
   command('/model [NAME]', 'Choose or directly set the active model', 'configuration'),
   command('/model qualify', 'Run bounded compatibility probes for the active model', 'configuration'),
