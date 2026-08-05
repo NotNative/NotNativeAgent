@@ -88,6 +88,7 @@ test('MCP management uses guided menus for add, edit, and authentication', async
   assert.equal(workspace.projection.overlay.kind, 'mcp-form');
   workspace.projection.overlay.editor.set('NotNative Memory');
   await handleMcpSetupAction({ action: 'submit' }, workspace);
+  assert.match(workspace.projection.overlay.lines.join('\n'), /http:\/\/<hostname>:<port>\/mcp/u);
   workspace.projection.overlay.editor.set('http://127.0.0.1:9500/mcp');
   await handleMcpSetupAction({ action: 'submit' }, workspace);
   assert.equal(workspace.projection.overlay.kind, 'mcp-auth');

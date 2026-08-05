@@ -177,7 +177,7 @@ function primarySteps(state) {
   return state.transport === 'streamable_http'
     ? [
       ...(state.operation === 'add' ? [field('name', 'Server name', 'A memorable name used to identify this MCP connection.')] : []),
-      field('endpoint', 'MCP endpoint', 'Complete Streamable HTTP URL exposed by the MCP server.'),
+      field('endpoint', 'MCP endpoint', 'Complete Streamable HTTP URL exposed by the MCP server. Example: http://<hostname>:<port>/mcp'),
     ] : [
       ...(state.operation === 'add' ? [field('name', 'Server name', 'A memorable name used to identify this MCP connection.')] : []),
       field('launch', 'Launch command', 'Executable and arguments used to start the local MCP server. Quoted arguments are supported.'),
