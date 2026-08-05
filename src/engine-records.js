@@ -3,6 +3,7 @@ import { ContractError } from './ids.js';
 import { failureEnvelope } from './failure-envelope.js';
 import { safeToolArguments } from './tool-presentation.js';
 import { requestsInput } from './completion-supervisor.js';
+import { redactText } from './redaction.js';
 
 export function acceptedRecord(requestId, engine, turnId) {
   return { version: '1.0', type: 'accepted', request_id: requestId, accepted: true, session_id: engine.sessionId, turn_id: turnId };
@@ -65,24 +66,35 @@ export function reviewStatus(engine, active, item) {
 
 export function toolStatus(engine, active, item, status) {
   const definition = item.request ? engine.tools.definition(item.request.toolName, item.request.definitionVersion) : null;
+  const args = item.request?.args ?? item.call.args;
+  const failed = !['running', 'succeeded', 'duplicate_ignored'].includes(status);
   return {
     version: '1.0', type: 'tool_status', session_id: engine.sessionId,
     turn_id: active.turnId, tool_request_id: item.request?.id ?? null,
     provider_call_id: item.call.providerCallId, tool: item.call.name, status,
-    target: boundedTarget(item.call.name, item.request?.args),
-    arguments: item.request ? safeToolArguments(item.request.args) : null,
+    target: boundedTarget(item.call.name, args),
+    arguments: args && typeof args === 'object' ? safeToolArguments(args) : null,
     effect: definition?.sideEffect ?? null, scope: definition?.scope ?? null,
     elapsed_ms: item.result?.elapsed_ms ?? null,
     effect_certainty: item.result?.effect_certainty ?? null,
+    reason_code: failed ? item.result?.reason_code ?? null : null,
+    failure_reason: failed ? boundedFailureReason(item.result?.content) : null,
   };
 }
 
 function boundedTarget(tool, args) {
   if (!args || typeof args !== 'object') return null;
-  const path = typeof args.path === 'string' ? args.path : '';
+  const candidate = ['path', 'file_path', 'file', 'filename', 'target']
+    .find((key) => typeof args[key] === 'string' && args[key].length > 0);
+  const path = candidate ? args[candidate] : '';
   const selector = tool === 'fs.search_text' ? args.query : tool === 'fs.glob' ? args.pattern : null;
   if (typeof selector === 'string') return `${path || '.'} :: ${JSON.stringify(selector)}`.slice(0, 512);
-  return path ? path.slice(0, 512) : null;
+  return path ? `${candidate === 'path' ? '' : `${candidate}=`}${path}`.slice(0, 512) : null;
+}
+
+function boundedFailureReason(value) {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  return redactText(value).replace(/\s+/gu, ' ').trim().slice(0, 512) || null;
 }
 
 export function toolDecisionState(outcome) {

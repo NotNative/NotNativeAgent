@@ -13,8 +13,25 @@ export function compactActivityRows(records) {
   }
   return [...calls.values()].map((item) => {
     const timing = Number.isFinite(item.result?.elapsed_ms) ? ` | ${Math.round(item.result.elapsed_ms)} ms` : '';
-    return `  ${toolSymbol(item.result?.status)} ${item.tool}${item.target ? ` (${item.target})` : ''}${timing}`;
+    const target = toolTargetSuffix(item);
+    const failure = toolFailureSuffix(item.result);
+    return `  ${toolSymbol(item.result?.status)} ${item.tool}${target}${timing}${failure}`;
   });
+}
+
+export function toolTargetSuffix(item) {
+  if (item.target) return ` (${item.target})`;
+  return item.result?.status !== 'succeeded' && item.tool.startsWith('fs.') ? ' (path unavailable)' : '';
+}
+
+export function toolFailureSuffix(record) {
+  if (!record || ['running', 'succeeded', 'duplicate_ignored'].includes(record.status)) return '';
+  const reason = [record.reason_code, record.failure_reason].filter(Boolean).join(': ');
+  return reason ? ` | ${reason}` : ` | ${record.status}`;
+}
+
+export function toolFailureText(record) {
+  return [record?.reason_code, record?.failure_reason].filter(Boolean).join(': ');
 }
 
 function toolSymbol(status) {

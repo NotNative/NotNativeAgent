@@ -576,6 +576,19 @@ test('AC-TUI-01 completed activity remains visible without color, compacts, expa
   assert.equal(projection.active().viewportEnd, null);
 });
 
+test('failed tool rows show the attempted target and actionable failure reason', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', {
+    type: 'tool_status', tool_request_id: 'tool-1', turn_id: 'turn-1', tool: 'fs.read_text',
+    target: 'missing.txt', status: 'failed', elapsed_ms: 1,
+    reason_code: 'file_missing', failure_reason: 'requested file does not exist',
+  });
+  projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1' });
+  const frame = new TuiRenderer().frame(projection, { width: 120, height: 24, color: false });
+  assert.match(frame, /X fs\.read_text \(missing\.txt\) \| 1 ms \| file_missing: requested file does not exist/u);
+});
+
 test('completed turn receipt is limited to timing and token usage', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });

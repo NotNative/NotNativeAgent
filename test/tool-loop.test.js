@@ -270,16 +270,24 @@ test('AC-EVENT-06/AC-TOOL-05 duplicate tool identity reuses the terminal result 
 
 test('AC-TOOL-01 unknown tool never reaches review or execution', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-invalid-'));
+  const output = [];
   const provider = new TwoStepProvider(
     { name: 'system.erase', args: { path: 'anything' } },
     (request) => assert.match(request.messages.find((item) => item.role === 'tool').content, /invalid_request/u),
   );
-  const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider });
+  const engine = new SessionEngine({
+    config: manifest(root), providerFactory: () => provider,
+    output: async (record) => output.push(record),
+  });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'invalid-turn', content: 'Inspect safely' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(engine.reviewerAudit().length, 0);
   assert.equal(engine.transcript.find((item) => item.type === 'tool_result').status, 'invalid_request');
+  const terminal = output.find((item) => item.type === 'tool_status');
+  assert.equal(terminal.target, 'anything');
+  assert.equal(terminal.reason_code, 'unknown_tool');
+  assert.match(terminal.failure_reason, /unavailable/u);
 });
 
 test('AC-AUTH-03 semantic approval permits exact expected-hash write', async () => {

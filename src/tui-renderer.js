@@ -2,7 +2,7 @@
 import { sanitizeTerminal } from './terminal-adapter.js';
 import { commandPresentation, commandSuggestions, commandsByCategory } from './tui-commands.js';
 import { VERSION } from './product.js';
-import { compactActivityRows } from './tui-activity-renderer.js';
+import { compactActivityRows, toolFailureSuffix, toolFailureText, toolTargetSuffix } from './tui-activity-renderer.js';
 import { angledWordmarkGradient, decorateOverlay } from './tui-colors.js';
 import { displayWidth, renderMarkdown, truncateTerminal, wrapTerminalLine } from './terminal-markdown.js';
 import { sessionStatusLine } from './tui-status-line.js';
@@ -236,7 +236,6 @@ function helpLines(width, bindings, session) {
   }
   return lines;
 }
-
 function bindingHelpLines(bindings) {
   const labels = (names) => names.map((name) => `${name.replaceAll('_', ' ')} ${keyLabel(bindings[name])}`).join(' · ');
   return [
@@ -251,8 +250,7 @@ function recordLines(record, width) {
   if (record.type === 'user_input') return renderMarkdown(record.text, width, '> ', '  ');
   if (record.type === 'stream_delta') return renderMarkdown(record.text, width, '* ', '  ');
   if (record.type === 'tool_status') {
-    const target = record.target ? ` (${record.target})` : '';
-    return wrap(`  ${toolSymbol(record.status)} ${record.tool}${target} | ${record.status}`, width);
+    return wrap(`  ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${record.status}${toolFailureSuffix(record)}`, width);
   }
   if (record.type === 'review_status') return wrap(`  REVIEW | ${record.outcome} | ${record.reason_code ?? ''}`, width);
   if (record.type === 'error') return wrap(`! ERROR ${record.code} | ${record.message}`, width);
@@ -355,6 +353,8 @@ function resultDetail(record) {
   const values = [record.status];
   if (Number.isFinite(record.elapsed_ms)) values.push(`${Math.round(record.elapsed_ms)} ms`);
   if (record.effect_certainty) values.push(`effect ${record.effect_certainty}`);
+  const failure = toolFailureText(record);
+  if (failure) values.push(failure);
   return values.join(' | ');
 }
 
