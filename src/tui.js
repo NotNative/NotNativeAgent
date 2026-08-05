@@ -29,6 +29,7 @@ import { handleWebFetchCommand } from './tui-webfetch-command.js';
 import { beginProviderManagementSelection, handleProviderRoleNavigation, handleProviderSetupAction } from './tui-provider-setup.js';
 import { beginMcpManagementSelection, handleMcpSetupAction } from './tui-mcp-setup.js';
 import { DestructiveKeyGuard, handleDestructiveCancel, handleDestructiveEscape } from './destructive-key-guard.js';
+import { openRuntimeInspection } from './tui-runtime-inspection.js';
 export async function runTui(input, output, diagnostics, options) {
   const { capabilities, bindings } = prepareTui(input, output, options);
   const terminal = new TerminalMode(input, output, capabilities), renderer = options.renderer ?? new TuiRenderer();
@@ -105,14 +106,12 @@ async function initializeWorkspace(workspace, options) {
     await workspace.create(options.sessionName ?? 'Main', options.sessionId ?? undefined, { role: 'primary' });
   } else await workspace.restore();
 }
-
 function removeTuiListeners(input, output, listeners) {
   process.removeListener('SIGINT', listeners.signal); process.removeListener('SIGTERM', listeners.signal);
   process.removeListener('SIGTSTP', listeners.suspend); process.removeListener('SIGCONT', listeners.resume);
   if (listeners.onData) input.removeListener('data', listeners.onData);
   if (listeners.resize) output.removeListener('resize', listeners.resize);
 }
-
 export function createRenderLoop(output, capabilities, screen, renderer, projection, onError) {
   let timer = null;
   let closed = false;
@@ -293,6 +292,7 @@ async function openConfigurationSection(section, workspace) {
   else if (section === 'websearch') workspace.projection.openOverlay(webSearchOverlay(await workspace.webSearchStatus(false)));
   else if (section === 'webfetch') workspace.projection.openOverlay(webFetchOverlay((await workspace.webFetchCommand(['status'])).config));
   else if (section === 'gateway') workspace.projection.openOverlay(gatewayOverlay(await workspace.gatewayCommand(['status'])));
+  else if (['hooks', 'extensions'].includes(section)) openRuntimeInspection(section, workspace);
   else if (section === 'workspace-trust') workspace.projection.openOverlay(workspaceTrustOverlay(workspace.activeConfig().workspaceRoot));
   else throw new ContractError('config_section_invalid', 'unknown configuration section');
   workspace.projection.openOverlay(Object.freeze({
@@ -355,6 +355,7 @@ async function command(value, workspace, stop) {
   else if (name === '/health') workspace.projection.openOverlay(healthOverlay(await workspace.activeEngine().health()));
   else if (name === '/trace') await traceCommand(argument, workspace);
   else if (name === '/dream') workspace.projection.openOverlay(valueOverlay('dream', 'Idle maintenance', await workspace.dreamCommand(argument)));
+  else if (['/hooks', '/extensions'].includes(name)) openRuntimeInspection(name.slice(1), workspace);
   else if (name === '/provider') await handleProviderCommand(argument, workspace, { routeNotice, strictInteger });
   else if (name === '/model') await handleModelCommand(argument, workspace, { modelNotice });
   else if (name === '/mcp') await handleMcpCommand(argument, workspace);

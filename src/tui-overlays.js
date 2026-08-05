@@ -128,6 +128,8 @@ export function configOverlay(engine, options = {}) {
     { id: 'webfetch', label: 'WebFetch destinations', detail: 'Trust exact private-network origins for bounded fetching' },
     { id: 'gateway', label: 'Telegram gateway', detail: 'Configure authorized remote access and runtime status' },
     { id: 'workspace-trust', label: 'Workspace trust', detail: 'Control project configuration and hook discovery on restart' },
+    { id: 'hooks', label: 'Hook bundles', detail: 'Inspect discovered event subscriptions and registration health' },
+    { id: 'extensions', label: 'Extensions', detail: 'Inspect installed capabilities, lifecycle state, and diagnostics' },
   ];
   return Object.freeze({
     ...menuOverlay('config', 'Configuration', lines, items, options.selectedId ?? 'provider'),

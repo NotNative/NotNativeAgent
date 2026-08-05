@@ -100,7 +100,7 @@ Key actions:
   permission views without requiring a configuration-file edit.
 
 Commands include `/new NAME`, `/switch ID-OR-NAME`, `/rename NAME`, `/close`,
-`/confirm close`, `/health`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/dream`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
+`/confirm close`, `/health`, `/hooks`, `/extensions`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/dream`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
 `/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP that can be sent
 to maintainers for troubleshooting; it never uploads the archive and refuses to overwrite an existing path. Closing active work requires the explicit confirmation
 command. Conversation editors and transcript projections remain isolated when switching.
