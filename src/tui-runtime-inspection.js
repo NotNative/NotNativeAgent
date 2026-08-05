@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
 import { valueOverlay } from './tui-overlays.js';
+import { openSessionStats } from './tui-session-stats.js';
 
 export function openRuntimeInspection(kind, workspace) {
+  if (kind === 'stats') return openSessionStats(workspace);
   const engine = workspace.activeEngine();
   if (kind === 'hooks') {
     workspace.projection.openOverlay(valueOverlay('hooks', 'Hook bundles', engine.hooks.health()));

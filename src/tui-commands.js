@@ -29,6 +29,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/dream [status|pause|resume|run]', 'Inspect or control local idle maintenance', 'diagnostics'),
   command('/hooks', 'Inspect discovered hook bundles and registration health', 'diagnostics'),
   command('/extensions', 'Inspect installed extension capabilities and diagnostics', 'diagnostics'),
+  command('/stats', 'Show conversation turns, tool outcomes, token totals, and context usage', 'diagnostics'),
   command('/help', 'Browse commands and current key bindings', 'console'),
   command('/model [NAME]', 'Choose or directly set the active model', 'configuration'),
   command('/model qualify', 'Run bounded compatibility probes for the active model', 'configuration'),
