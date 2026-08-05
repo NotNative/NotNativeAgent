@@ -94,7 +94,7 @@ the shared adapter boundary projects only known scalar capability fields plus at
 4,096 bounded model identifiers. Custom providers therefore cannot inject an unbounded
 object graph into health or model-selection views.
 
-Global Console changes use a prepareâ€“persistâ€“publish transaction. Every attached
+Global Console changes use a prepare-persist-publish transaction. Every attached
 conversation validates its prospective frozen configuration before the user manifest is
 written; a validation or manifest-write failure publishes nothing. After the atomic
 manifest write succeeds, every prepared conversation version is published at its idle or

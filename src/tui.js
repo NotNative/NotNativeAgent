@@ -411,7 +411,7 @@ async function traceCommand(argument, workspace) {
     const turnId = argument.slice(5).trim();
     if (!turnId) throw new ContractError('trace_command_invalid', 'use /trace turn ID');
     rows = await engine.telemetry.query({ turnId, limit: 2000 });
-    title = `Forensic trace Â· ${turnId}`;
+    title = `Forensic trace | ${turnId}`;
   } else throw new ContractError('trace_command_invalid', 'use /trace, /trace failures, /trace open, or /trace turn ID');
   workspace.projection.openOverlay(valueOverlay('trace', title, traceView(rows)));
 }

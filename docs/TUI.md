@@ -100,7 +100,7 @@ Key actions:
   permission views without requiring a configuration-file edit.
 
 Commands include `/new NAME`, `/switch ID-OR-NAME`, `/rename NAME`, `/close`,
-`/confirm close`, `/health`, `/hooks`, `/extensions`, `/stats`, `/files`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/dream`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
+`/confirm close`, `/health`, `/hooks`, `/extensions`, `/stats`, `/files`, `/project`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/dream`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
 `/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP that can be sent
 to maintainers for troubleshooting; it never uploads the archive and refuses to overwrite an existing path. Closing active work requires the explicit confirmation
 command. Conversation editors and transcript projections remain isolated when switching.
@@ -116,6 +116,11 @@ requests the next eligible deterministic stage immediately. Any keyboard or mous
 cancels an active stage and restarts the idle clock. The first implemented stage harvests
 classified terminal telemetry into fingerprints, counters, and durable watermarks. It
 does not invoke a model, edit `NNA.md`, write NNM memories, or generate skills.
+`/project` shows deterministic, read-only intake for the active workspace: repository
+kind, recognized manifests and guidance, source/test directories, likely entry points,
+and bounded package metadata. The same intake is added to model context only when the
+operator explicitly refers to the project, repository, codebase, or workspace. It does
+not read source contents or imply an assignment merely because a workspace exists.
 On every cold launch the fresh Main conversation receives focus. A meaningful prior Main
 is restored as `Previous Main`, and other eligible tabs retain their presentation state,
 but restored tabs do not take startup focus away from Main.

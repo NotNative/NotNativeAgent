@@ -50,6 +50,12 @@ Authenticated host sessions cannot run the dream scheduler. The presence of a dr
 checkpoint does not imply that NNA edited project memory, wrote NNM data, changed its
 runtime, or generated a skill; those remain separately governed later stages.
 
+When the user explicitly asks about the active project, repository, codebase, or
+workspace, NNA adds a bounded deterministic intake record before inference. It reports
+verified structural names and bounded manifest metadata only. The model must still read
+the relevant files before asserting their contents or behavior. Operators can inspect
+the same evidence directly with `/project`.
+
 The guidance catalog is separate from the active workspace sandbox. It contains only
 bounded Markdown files under the `docs` directory installed with NNA. Search and read are
 read-only, deterministically reviewed operations. Results identify the canonical document
