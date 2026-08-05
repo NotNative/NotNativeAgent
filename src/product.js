@@ -5,7 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
-export const VERSION = '20260804-34';
+export const VERSION = '20260804-35';
 
 export function userDataPaths(options = {}) {
   const environment = options.environment ?? process.env;
@@ -27,6 +27,7 @@ export function userDataPaths(options = {}) {
     webFetchConfig: join(root, 'config', 'web-fetch.json'),
     gatewayConfig: join(root, 'config', 'gateway.json'),
     providerCredentials: join(root, 'config', 'provider-credentials.json'),
+    mcpCredentials: join(root, 'config', 'mcp-credentials.json'),
     trustedWorkspaces: join(root, 'config', 'trusted-workspaces.json'),
     logs: join(root, 'logs'),
     support: join(root, 'support'),

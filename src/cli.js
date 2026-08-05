@@ -14,6 +14,7 @@ import { runSkillsCommand } from './skills-cli.js';
 import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
 import { loadManagedProviderCredentials, runProviderBootstrapCommand } from './provider-bootstrap.js';
+import { loadManagedMcpCredentials } from './mcp-credentials.js';
 
 try {
   const options = parseCli(process.argv.slice(2));
@@ -105,6 +106,7 @@ function help() {
 async function runtimePaths() {
   const paths = await ensureUserDataPaths();
   await loadManagedProviderCredentials(paths);
+  await loadManagedMcpCredentials(paths);
   return paths;
 }
 

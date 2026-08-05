@@ -10,6 +10,7 @@ import { mcpOverlay } from '../src/tui-overlays.js';
 import {
   availableMcpId, beginMcpManagementSelection, handleMcpSetupAction,
 } from '../src/tui-mcp-setup.js';
+import { managedMcpCredentialReference } from '../src/mcp-credentials.js';
 
 function configuration(root) {
   return resolveManifest({
@@ -73,8 +74,9 @@ test('MCP overlay exposes configured state and explicit restart semantics', () =
 test('MCP management uses guided menus for add, edit, and authentication', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-mcp-guided-'));
   const configPath = join(root, 'settings.json');
+  const dataPaths = { mcpCredentials: join(root, 'mcp-credentials.json') };
   const workspace = new InteractiveWorkspace({
-    config: configuration(root), configPath,
+    config: configuration(root), configPath, dataPaths,
     providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
   });
   await workspace.create('Main', 'main');
@@ -89,9 +91,22 @@ test('MCP management uses guided menus for add, edit, and authentication', async
   workspace.projection.overlay.editor.set('http://127.0.0.1:9500/mcp');
   await handleMcpSetupAction({ action: 'submit' }, workspace);
   assert.equal(workspace.projection.overlay.kind, 'mcp-auth');
+  workspace.projection.moveOverlaySelection(1);
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  assert.equal(workspace.projection.overlay.kind, 'mcp-form');
+  workspace.projection.overlay.editor.set('private-token-value');
+  await handleMcpSetupAction({ action: 'home' }, workspace);
+  assert.doesNotMatch(workspace.projection.overlay.lines.join('\n'), /private-token-value/u);
+  assert.match(workspace.projection.overlay.lines.join('\n'), /\*{8}/u);
   await handleMcpSetupAction({ action: 'submit' }, workspace);
   assert.equal(workspace.mcpStatus()[0].id, 'notnative-memory');
   assert.equal(workspace.projection.overlay.kind, 'mcp');
+  const reference = managedMcpCredentialReference('notnative-memory');
+  const manifestText = await readFile(configPath, 'utf8');
+  assert.match(manifestText, new RegExp(reference, 'u'));
+  assert.doesNotMatch(manifestText, /private-token-value/u);
+  assert.match(await readFile(dataPaths.mcpCredentials, 'utf8'), /private-token-value/u);
+  assert.equal(process.env[reference], 'private-token-value');
 
   beginMcpManagementSelection(workspace.projection.overlay.items[0], workspace, workspace.projection.overlay);
   assert.equal(workspace.projection.overlay.kind, 'mcp-server');
@@ -103,6 +118,7 @@ test('MCP management uses guided menus for add, edit, and authentication', async
   await handleMcpSetupAction({ action: 'submit' }, workspace);
   assert.equal(workspace.mcpStatus()[0].endpoint, 'http://127.0.0.1:9600/mcp');
   await workspace.shutdown();
+  delete process.env[reference];
 });
 
 test('MCP names produce stable collision-safe identifiers', () => {

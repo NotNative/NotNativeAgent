@@ -28,6 +28,7 @@ import { providerAdditionPlan, providerCatalogEntries, routePresentation } from 
 import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
 import { discoverWorkspaceProviderModels } from './workspace-provider-discovery.js';
+import { deleteManagedMcpCredential, saveManagedMcpCredential } from './mcp-credentials.js';
 export class InteractiveWorkspace {
   #tasks = new Set();
   constructor(options) {
@@ -350,7 +351,6 @@ export class InteractiveWorkspace {
     };
   }
   async discoverProviderModels(input) { this.#requirePrimaryProviderManagement(); return discoverWorkspaceProviderModels(this, input); }
-
   async toggleConfigSetting(setting) {
     const value = !booleanSettingValue(this.config, setting);
     const config = await this.#publishGlobalConfiguration((current) => withBooleanSetting(current, setting, value));
@@ -385,6 +385,8 @@ export class InteractiveWorkspace {
     this.#requirePrimaryMcpManagement();
     return this.#publishMcpConfiguration(withMcpServer(this.config, input));
   }
+  saveMcpCredential(id, token) { return saveManagedMcpCredential(this.options.dataPaths ?? userDataPaths(), id, token); }
+  removeMcpCredential(reference) { return deleteManagedMcpCredential(this.options.dataPaths ?? userDataPaths(), reference); }
   async editMcpServer(id, input) { this.#requirePrimaryMcpManagement(); return this.#publishMcpConfiguration(withMcpServerUpdate(this.config, id, input)); }
   async setMcpEnabled(id, enabled) {
     this.#requirePrimaryMcpManagement();
@@ -392,7 +394,10 @@ export class InteractiveWorkspace {
   }
   async deleteMcpServer(id) {
     this.#requirePrimaryMcpManagement();
-    return this.#publishMcpConfiguration(withoutMcpServer(this.config, id));
+    const reference = this.mcpStatus().find((server) => server.id === id)?.credentialEnv;
+    const result = await this.#publishMcpConfiguration(withoutMcpServer(this.config, id));
+    await deleteManagedMcpCredential(this.options.dataPaths ?? userDataPaths(), reference);
+    return result;
   }
 
   async testMcpServer(id) {
@@ -401,13 +406,10 @@ export class InteractiveWorkspace {
       webSearchClient: this.webSearchClient, transportFactory: this.options.mcpTransportFactory,
     }, id);
   }
-
   async availableModels() { return availableWorkspaceModels(this); }
-
   async qualifyActiveModel() {
     return qualifyWorkspaceModel(this);
   }
-
   async webSearchStatus(test = false) {
     return webSearchStatus(this.#webSearchState(), test);
   }
@@ -450,7 +452,6 @@ export class InteractiveWorkspace {
     await this.#savePoolRecoverable();
     return { servers: next.config.mcpServers, restartRequired: true };
   }
-
   async #publishProviderCatalog(next) {
     const entries = providerCatalogEntries(this.sessions, next.config);
     await publishWorkspaceConfiguration(this, entries, next);

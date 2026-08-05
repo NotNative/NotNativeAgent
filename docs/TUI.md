@@ -206,7 +206,9 @@ servers, test connection and discovery, enable or disable entries, and safely re
 Selecting a configured server opens a focused action menu. Add and edit use bounded,
 single-line, keyboard-navigable forms with same-level Esc/back behavior; deletion requires
 an explicit confirmation. The menu never requires users to complete raw slash-command syntax.
-Credentials are referenced by environment-variable name. Because an MCP topology changes
+Authentication may be omitted, entered directly as a masked token, or supplied through an
+existing environment variable. Directly entered tokens are saved in NNA's restricted local
+MCP credential file; only a generated reference is written to the MCP configuration. Because an MCP topology changes
 the callable tool catalog, saved changes apply to new conversations and after restart;
 the manager reports this explicitly instead of pretending to hot-load the active engine.
 Connected servers expose bounded, attributed untrusted content through `/mcp resources ID`,

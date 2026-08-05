@@ -5,6 +5,7 @@ import { parseCommand } from './hook-runner.js';
 import { EditorBuffer } from './tui-model.js';
 import { handleEditorAction } from './tui-editor-actions.js';
 import { mcpOverlay } from './tui-overlays.js';
+import { isManagedMcpCredentialReference } from './mcp-credentials.js';
 
 const SETUP_KINDS = new Set([
   'mcp-server', 'mcp-transport', 'mcp-form', 'mcp-auth', 'mcp-delete-confirm',
@@ -53,9 +54,14 @@ export async function handleMcpSetupAction(action, workspace) {
   } else if (overlay.kind === 'mcp-server') {
     await handleServerAction(selected.id, workspace, overlay);
   } else if (overlay.kind === 'mcp-auth') {
-    if (selected.id === 'environment') {
-      workspace.projection.openOverlay(credentialFormOverlay({ ...overlay.formState, draft: { ...overlay.formState.draft, credentialEnv: '' } }));
-    } else await saveServer({ ...overlay.formState, draft: { ...overlay.formState.draft, credentialEnv: '' } }, workspace);
+    if (selected.id === 'managed') workspace.projection.openOverlay(tokenFormOverlay({ ...overlay.formState, authMode: 'managed' }));
+    else if (selected.id === 'environment') {
+      const current = overlay.formState.draft.credentialEnv;
+      const credentialEnv = isManagedMcpCredentialReference(current) ? '' : current ?? '';
+      workspace.projection.openOverlay(credentialFormOverlay({ ...overlay.formState, authMode: 'environment', draft: { ...overlay.formState.draft, credentialEnv } }));
+    }
+    else if (selected.id === 'keep') await saveServer({ ...overlay.formState, authMode: 'keep' }, workspace);
+    else await saveServer({ ...overlay.formState, authMode: 'none', draft: { ...overlay.formState.draft, credentialEnv: '' } }, workspace);
   } else if (overlay.kind === 'mcp-delete-confirm') {
     if (selected.id === 'delete') {
       await workspace.deleteMcpServer(overlay.serverId);
@@ -133,17 +139,23 @@ async function submitFormStep(workspace, overlay) {
     openFormStep(workspace, next, form.stepIndex + 1);
     return;
   }
-  workspace.projection.openOverlay(authenticationOverlay(next));
+  if (form.mode === 'credential') await saveServer(next, workspace);
+  else workspace.projection.openOverlay(authenticationOverlay(next));
 }
 
 async function saveServer(form, workspace) {
   const existing = workspace.mcpStatus().map((server) => server.id);
   const id = form.operation === 'add' ? availableMcpId(form.draft.name, existing) : form.serverId;
+  const previousReference = form.operation === 'edit'
+    ? workspace.mcpStatus().find((server) => server.id === id)?.credentialEnv : undefined;
+  const credentialEnv = form.authMode === 'managed'
+    ? await workspace.saveMcpCredential(id, form.draft.credentialToken) : form.draft.credentialEnv || undefined;
   const input = form.transport === 'streamable_http'
-    ? { id, transport: form.transport, endpoint: form.draft.endpoint, credentialEnv: form.draft.credentialEnv || undefined }
-    : stdioInput(id, form.draft);
+    ? { id, transport: form.transport, endpoint: form.draft.endpoint, credentialEnv }
+    : stdioInput(id, { ...form.draft, credentialEnv });
   if (form.operation === 'add') await workspace.addMcpServer(input);
   else await workspace.editMcpServer(id, input);
+  if (previousReference && previousReference !== credentialEnv) await workspace.removeMcpCredential(previousReference);
   openManager(workspace, form.returnParent, id, `${form.operation === 'add' ? 'Added' : 'Updated'} ${id}. Open a new conversation to connect with the saved configuration.`);
 }
 
@@ -176,23 +188,31 @@ function primarySteps(state) {
 function credentialFormOverlay(state) {
   return formOverlay({
     ...state, mode: 'credential', stepIndex: 0,
-    steps: [field('credentialEnv', 'Credential source', 'Environment-variable name containing the token. The secret value is never stored in this configuration.')],
+    steps: [field('credentialEnv', 'Environment variable', 'Name of an existing environment variable containing the token.')],
+  });
+}
+
+function tokenFormOverlay(state) {
+  return formOverlay({
+    ...state, mode: 'credential', stepIndex: 0,
+    steps: [field('credentialToken', 'Authentication token', 'Paste the token. NNA stores it in its restricted local credential file, not in the MCP configuration.', true)],
   });
 }
 
 function authenticationOverlay(formState) {
   const isHttp = formState.transport === 'streamable_http';
+  const current = formState.draft.credentialEnv;
+  const items = [];
+  if (current) items.push({ id: 'keep', label: 'Keep current authentication', detail: isManagedMcpCredentialReference(current) ? 'Continue using the stored local token' : `Continue using environment variable ${current}` });
+  items.push(
+    { id: 'none', label: 'No authentication', detail: isHttp ? 'Connect without an Authorization header' : 'Launch without an additional credential variable' },
+    { id: 'managed', label: isHttp ? 'Enter bearer token' : 'Enter authentication token', detail: 'Paste a token and store it in NNA\'s restricted local credential file' },
+    { id: 'environment', label: 'Use environment variable', detail: 'Advanced: read the token from an existing named environment variable' },
+  );
   return menu('mcp-auth', 'MCP authentication', [
     'Choose how this server receives authentication.',
-    '', 'Local MCP servers commonly require no credentials.',
-  ], [
-    { id: 'none', label: 'No authentication', detail: isHttp ? 'Connect without an Authorization header' : 'Launch without an additional credential variable' },
-    {
-      id: 'environment',
-      label: isHttp ? 'Bearer token from environment' : 'Credential from environment',
-      detail: isHttp ? 'Read an HTTP bearer token from a named environment variable' : 'Expose one named credential variable to the child process',
-    },
-  ], { formState, returnParent: formState.returnParent, actionLabel: 'Up/Down choose · Enter continue', activeId: formState.draft.credentialEnv ? 'environment' : 'none' });
+    '', 'Tokens entered here are not written to the MCP server configuration.',
+  ], items, { formState, returnParent: formState.returnParent, actionLabel: 'Up/Down choose · Enter continue', activeId: current ? 'keep' : 'none' });
 }
 
 function serverOverlay(server, returnParent, manageable, message) {
@@ -202,7 +222,7 @@ function serverOverlay(server, returnParent, manageable, message) {
     `Transport  ${server.transport === 'streamable_http' ? 'Streamable HTTP' : 'stdio'}`,
     `Target     ${target}`,
     `Status     ${server.enabled ? 'enabled' : 'disabled'} · ${server.runtime}`,
-    `Auth       ${server.credentialEnv ? `environment · ${server.credentialEnv}` : 'none'}`,
+    `Auth       ${isManagedMcpCredentialReference(server.credentialEnv) ? 'managed local token' : server.credentialEnv ? `environment · ${server.credentialEnv}` : 'none'}`,
   ];
   if (message) lines.push('', message);
   const items = [{ id: 'test', label: 'Test connection', detail: 'Validate initialization and capability discovery now' }];
@@ -240,12 +260,10 @@ function deleteConfirmationOverlay(server, returnParent) {
 
 function formOverlay(form, existingEditor) {
   const step = form.steps[form.stepIndex];
-  const editor = existingEditor ?? editorWith(form.draft[step.key] ?? '', step.key === 'credentialEnv' ? 128 : 4096);
+  const editor = existingEditor ?? editorWith(form.draft[step.key] ?? '', step.key === 'credentialEnv' ? 128 : step.secret ? 16_384 : 4096);
   const selection = editor.selection();
-  const before = editor.text.slice(0, selection.start);
-  const selected = editor.text.slice(selection.start, selection.end);
-  const after = editor.text.slice(selection.end);
-  const rendered = `${before}${selected ? `⟦${selected}⟧` : '│'}${after}`;
+  const rendered = step.secret ? `${'*'.repeat(Math.min(editor.text.length, 64))}${editor.text.length > 64 ? '...' : ''}|`
+    : `${editor.text.slice(0, selection.start)}${selection.start !== selection.end ? `⟦${editor.text.slice(selection.start, selection.end)}⟧` : '│'}${editor.text.slice(selection.end)}`;
   return Object.freeze({
     kind: 'mcp-form', title: form.operation === 'add' ? 'Add MCP server' : `Edit MCP server · ${form.serverId}`,
     lines: Object.freeze([
@@ -309,6 +327,9 @@ function validateField(key, value) {
   if (key === 'credentialEnv' && !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/u.test(value)) {
     throw new ContractError('invalid_mcp_credential', 'Enter an environment-variable name containing the MCP token.');
   }
+  if (key === 'credentialToken' && (value.length < 1 || value.length > 16_384 || /[\r\n\u0000]/u.test(value))) {
+    throw new ContractError('invalid_mcp_token', 'Enter a token containing 1-16384 characters without line breaks.');
+  }
 }
 
 export function availableMcpId(label, existingIds = []) {
@@ -335,7 +356,7 @@ function quoteArgument(value) {
 
 function canManage(workspace) { return workspace.projection.active().role === 'primary'; }
 function parentFrom(overlay) { return overlay.parent ? { parent: overlay.parent, configSection: overlay.configSection } : null; }
-function field(key, label, description) { return Object.freeze({ key, label, description }); }
+function field(key, label, description, secret = false) { return Object.freeze({ key, label, description, secret }); }
 function editorWith(value, limit = 4096) { const editor = new EditorBuffer(limit); editor.set(String(value)); return editor; }
 function singleLineAction(action) {
   if (action.action !== 'paste') return action;

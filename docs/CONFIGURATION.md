@@ -163,8 +163,10 @@ initialization; it never substitutes current saved defaults.
 
 Each MCP server may set independent `connect_timeout_ms`, `list_timeout_ms`,
 `call_timeout_ms`, and `shutdown_timeout_ms` bounds. `credential_env` supplies a bearer
-token reference; `header_env` maps non-reserved HTTP header names to environment-variable
-references. Literal credentials and endpoint user-info are rejected. `/mcp` and health
+token reference; `/mcp` can generate that reference while storing a masked token in the
+restricted local `config/mcp-credentials.json` credential file. Advanced users may instead
+name an existing environment variable. `header_env` maps non-reserved HTTP header names to
+environment-variable references. Literal credentials in the manifest and endpoint user-info are rejected. `/mcp` and health
 views expose transport, trust, credential/header references, state, negotiated revision,
 and redacted failure code without resolving or displaying secret values.
 Initialization negotiation, the `notifications/initialized` acknowledgement, discovery,
