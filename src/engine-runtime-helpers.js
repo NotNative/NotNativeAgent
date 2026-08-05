@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import { toProviderMessages } from './context.js';
 import { ToolCallAssembler } from './tool-calls.js';
+import { toolCatalogContext } from './tool-catalog-context.js';
 
 export function providerRequest(engine, route, context) {
   const messages = toProviderMessages(context);
   const dialect = engine.dialects?.instructions(route);
+  const tools = engine.tools.providerDefinitions(toolQuery(context));
+  const catalog = toolCatalogContext(engine.tools.snapshot?.() ?? [], tools);
+  const system = [dialect, catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
   return Object.freeze({
-    model: route.model, messages: dialect ? [{ role: 'system', content: dialect }, ...messages] : messages,
-    tools: engine.tools.providerDefinitions(toolQuery(context)), temperature: route.temperature,
+    model: route.model, messages: [...system, ...messages],
+    tools, temperature: route.temperature,
     maxOutputTokens: route.maxOutputTokens,
   });
 }

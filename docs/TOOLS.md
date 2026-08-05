@@ -5,6 +5,10 @@
 `tool.search` is always visible and searches the complete registered catalog with a
 bounded lexical relevance score. Core workspace and NNA self-guidance tools remain
 visible; a small set of additional tools is selected from authenticated operator text.
+Each provider step also receives a bounded, deterministically sorted JSON array containing
+the names of every other authorized tool whose full schema is not loaded. This includes
+tools discovered from MCP servers in that conversation. The array contains names only;
+the model uses `tool.search` to inspect and promote a matching schema before calling it.
 Calling `tool.search` exposes its bounded matches for later model steps in the session.
 This keeps large MCP and future built-in catalogs out of every provider request without
 making capabilities undiscoverable.
