@@ -9,6 +9,10 @@ test('launch profile and model overrides are ephemeral and preserve saved config
   const selected = applyLaunchProviderOverrides(original, { providerProfile: 'remote', model: 'temporary-model' });
   assert.equal(selected.routes.primary.providerId, 'remote');
   assert.equal(selected.routes.primary.model, 'temporary-model');
+  assert.deepEqual(selected.launchOverrides, {
+    ephemeral: true, source: 'command_line', providerProfile: 'remote', endpoint: null,
+    model: 'temporary-model', credentialReference: false,
+  });
   assert.equal(original.routes.primary.providerId, 'local');
   assert.equal(original.routes.primary.model, 'local-model');
 });
@@ -25,6 +29,7 @@ test('endpoint overrides require an explicit model and store only a credential r
   assert.equal(profile.endpoint, 'http://192.168.1.20:1234/v1');
   assert.equal(profile.model, 'remote-model');
   assert.equal(profile.credentialEnv, 'NNA_REMOTE_TOKEN');
+  assert.equal(selected.launchOverrides.credentialReference, true);
   assert.equal(original.providerProfiles['launch-override'], undefined);
 });
 

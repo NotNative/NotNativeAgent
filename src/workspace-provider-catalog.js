@@ -26,6 +26,7 @@ export function routePresentation(config, route, prior = {}) {
   return {
     ...prior, provider: route.providerId, model: route.model,
     endpoint: config?.providerProfiles[route.providerId]?.endpoint ?? route.providerId,
+    ...(config?.launchOverrides?.ephemeral === true ? { temporaryRoute: true } : {}),
   };
 }
 

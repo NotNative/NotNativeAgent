@@ -108,7 +108,7 @@ function sessionBanner(session, width) {
     ...wordmark(width),
     `NotNativeAgent · v${VERSION}`,
     '',
-    `Provider   ${session.metadata.endpoint ?? session.metadata.provider}`,
+    `Provider   ${session.metadata.endpoint ?? session.metadata.provider}${session.metadata.temporaryRoute ? ' (temporary)' : ''}`,
     `Model      ${session.metadata.model}`,
     `Workspace  ${session.metadata.workspace ?? '--'}`,
     '',

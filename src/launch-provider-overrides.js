@@ -14,14 +14,25 @@ export function applyLaunchProviderOverrides(config, options = {}) {
   }
   const selected = profileId ? config.providerProfiles[profileId] : config.providerProfiles[config.routes.primary.providerId];
   if (!selected && !endpoint) throw new ContractError('provider_missing', `provider ${profileId ?? config.routes.primary.providerId} is not configured`);
-  if (!endpoint && !credentialEnv) return withPrimaryRoute(config, selected.id, model ?? selected.model).config;
+  if (!endpoint && !credentialEnv) return tagged(withPrimaryRoute(config, selected.id, model ?? selected.model).config, options);
   const id = availableId(config.providerProfiles);
   const added = withProvider(config, {
     id, displayName: `Temporary launch route (${selected?.displayName ?? endpoint})`,
     endpoint: endpoint ?? selected.endpoint, model: model ?? selected.model,
     credentialEnv: credentialEnv ?? selected.credentialEnv,
   }).config;
-  return withPrimaryRoute(added, id, model ?? selected.model).config;
+  return tagged(withPrimaryRoute(added, id, model ?? selected.model).config, options);
+}
+
+function tagged(config, options) {
+  return Object.freeze({
+    ...config,
+    launchOverrides: Object.freeze({
+      ephemeral: true, source: 'command_line', providerProfile: options.providerProfile ?? null,
+      endpoint: options.providerEndpoint ?? null, model: options.model ?? null,
+      credentialReference: Boolean(options.providerCredentialEnv),
+    }),
+  });
 }
 
 function availableId(profiles) {

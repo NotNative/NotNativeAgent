@@ -20,6 +20,7 @@ export class HealthInspector {
       configuration: status('ready', {
         version: this.engine.config.version, provenance: this.engine.config.provenance,
         winning_sources: this.engine.config.configurationProvenance ?? {}, warnings: this.engine.config.warnings,
+        launch_overrides: this.engine.config.launchOverrides ?? null,
       }),
       runtime_bounds: status('ready', runtimeBounds(this.engine.config.limits)),
       provider,
