@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { DreamStore } from './dream-store.js';
 import { IdleArbiter } from './idle-arbiter.js';
 import { userDataPaths } from './product.js';
+import { diagnoseDreamEvidence } from './dream-diagnosis.js';
 
 export class DreamCoordinator {
   constructor(options) {
@@ -97,7 +98,10 @@ function evidencePacket(rows) {
     if (row.turn_id) turns.add(row.turn_id);
     if (row.session_id) sessions.add(row.session_id);
   }
-  return { records: rows.length, turns: turns.size, sessions: sessions.size, counts, reasons };
+  return {
+    records: rows.length, turns: turns.size, sessions: sessions.size, counts, reasons,
+    diagnosis: diagnoseDreamEvidence(rows),
+  };
 }
 
 function workspaceKey(root) { return createHash('sha256').update(root).digest('hex').slice(0, 32); }

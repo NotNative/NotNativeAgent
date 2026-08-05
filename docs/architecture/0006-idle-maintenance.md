@@ -16,3 +16,8 @@ review authority, resolve or expose credentials, modify NNA source, activate gen
 skills, or perform deployment. Later stages must use the shared fair provider scheduler,
 retain foreground capacity, and degrade independently when NNM or another optional service
 is unavailable.
+
+The deterministic harvest also emits a bounded operational diagnosis. Any failed,
+cancelled, denied, timed-out, or uncertain-effect episode is quarantined from later
+learning. The diagnosis contains counts, stable reason codes, and suggested inspection
+actions; it does not retain transcript content or invoke a model.

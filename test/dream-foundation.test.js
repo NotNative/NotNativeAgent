@@ -88,6 +88,8 @@ test('manual deterministic harvest checkpoints only terminal redacted telemetry 
   assert.equal(result.result.code, 'harvest_complete');
   assert.equal(result.result.packet.records, 2);
   assert.equal(result.result.packet.counts.failed, 1);
+  assert.equal(result.result.packet.diagnosis.quarantined_turns, 1);
+  assert.equal(result.result.packet.diagnosis.eligible_turns, 0);
   assert.ok(status.watermark.turn_sequence > 0);
   assert.equal(JSON.stringify(status).includes('fs.read_text'), false);
   coordinator.close();
