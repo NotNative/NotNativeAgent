@@ -134,6 +134,10 @@ Supported hook edges are exactly `session.start:post`, `session.end:pre`, `turn:
 `turn:post`, `tool.call:pre`, `tool.call:post`, `compaction:pre`, and
 `compaction:post`. A bundle using an unimplemented event/phase pair is rejected with a
 health diagnostic instead of being reported loaded while silently skipping work.
+`/hooks`, `/health`, and support bundles also expose bounded invocation counts, denial
+counts, failure counts, and the latest result code per bundle. Hook inputs and outputs are
+never included, so a manifest that loads successfully but repeatedly fails at runtime is
+visible without leaking prompt or memory content.
 
 Mission authority is accepted only in a headless initialization or configuration update
 from the authenticated stdio host. A mission requires safe `id` and `revocation_id`

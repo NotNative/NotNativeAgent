@@ -16,6 +16,7 @@ const EVENT_MAP = Object.freeze({
 
 export class HookRuntime {
   #unregister = [];
+  #runtime = new Map();
 
   constructor(options) {
     this.root = options.root;
@@ -51,11 +52,19 @@ export class HookRuntime {
   }
 
   health() {
-    const errors = this.statuses.filter((item) => item.status !== 'loaded').length;
-    return Object.freeze({ status: errors > 0 ? 'degraded' : 'ready', root: this.root, roots: this.roots, bundles: this.statuses, errors });
+    const bundles = this.statuses.map((item) => withRuntime(item, this.#runtime));
+    const registrationErrors = bundles.filter((item) => item.status !== 'loaded').length;
+    const invocationFailures = bundles.reduce((total, item) => total + (item.runtime?.failures ?? 0), 0);
+    const errors = registrationErrors + invocationFailures;
+    return Object.freeze({
+      status: errors > 0 ? 'degraded' : 'ready', root: this.root, roots: this.roots,
+      bundles: Object.freeze(bundles), errors, registration_errors: registrationErrors,
+      invocation_failures: invocationFailures,
+    });
   }
 
   #registerBundle(bundle, scope) {
+    this.#runtime.set(runtimeKey(scope, bundle.name), runtimeState());
     let registered = 0;
     let skipped = 0;
     bundle.subscriptions.forEach((subscription, index) => {
@@ -72,18 +81,51 @@ export class HookRuntime {
         resourceBounds: Object.freeze({
           maxOutputBytes: 262_144, maxConcurrent: subscription.maxConcurrent,
         }),
-      }, (event, signal) => this.#invoke(bundle, subscription, eventName, event, signal));
+      }, (event, signal) => this.#invoke(bundle, subscription, eventName, event, signal, scope));
       this.#unregister.push(unregister); registered += 1;
     });
     return Object.freeze({ bundle: bundle.name, version: bundle.version, scope, status: 'loaded', registered, skipped });
   }
 
-  async #invoke(bundle, subscription, eventName, event, signal) {
+  async #invoke(bundle, subscription, eventName, event, signal, scope) {
     if (event.event_name !== eventName) return { decision: 'continue', code: 'hook_event_filtered' };
     const payload = legacyPayload(subscription, event);
-    const result = await this.runner(subscription, bundle, payload, signal);
-    return Object.freeze({ ...result, hook: bundle.name, event: subscription.event, phase: subscription.phase });
+    try {
+      const result = await this.runner(subscription, bundle, payload, signal);
+      recordRuntime(this.#runtime.get(runtimeKey(scope, bundle.name)), result, subscription);
+      return Object.freeze({ ...result, hook: bundle.name, event: subscription.event, phase: subscription.phase });
+    } catch (error) {
+      recordRuntime(this.#runtime.get(runtimeKey(scope, bundle.name)), {
+        decision: 'continue', code: error?.code ?? 'hook_invocation_failed',
+      }, subscription);
+      throw error;
+    }
   }
+}
+
+function runtimeKey(scope, name) { return `${scope}:${name}`; }
+
+function runtimeState() {
+  return { invocations: 0, failures: 0, denials: 0, last_code: null, last_event: null };
+}
+
+function recordRuntime(state, result, subscription) {
+  if (!state) return;
+  state.invocations += 1;
+  if (result?.decision === 'deny') state.denials += 1;
+  if (hookFailed(result?.code)) state.failures += 1;
+  state.last_code = result?.code ?? 'hook_result_invalid';
+  state.last_event = `${subscription.event}:${subscription.phase}`;
+}
+
+function hookFailed(code) {
+  return !['hook_completed', 'hook_context', 'hook_event_filtered', 'hook_cancelled', 'hook_denied'].includes(code);
+}
+
+function withRuntime(item, states) {
+  const state = states.get(runtimeKey(item.scope, item.bundle));
+  if (!state) return item;
+  return Object.freeze({ ...item, runtime: Object.freeze({ ...state }) });
 }
 
 function legacyPayload(subscription, event) {

@@ -143,5 +143,30 @@ console.log(JSON.stringify({ hookSpecificOutput: { additionalContext: 'fixture m
   assert.equal(result.outcome, 'completed');
   assert.ok(request.messages.some((item) => /Untrusted context supplied by hook fixture-hook/u.test(item.content)));
   assert.ok(request.messages.some((item) => /fixture memory/u.test(item.content)));
+  const runtime = engine.hooks.health().bundles[0].runtime;
+  assert.equal(runtime.invocations, 1);
+  assert.equal(runtime.failures, 0);
+  assert.equal(runtime.last_code, 'hook_context');
+  assert.equal(runtime.last_event, 'turn:pre');
   await engine.shutdown({ request_id: 'hook-stop' });
+});
+
+test('hook health reports invocation failures without exposing hook payloads', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-hook-health-'));
+  const hooks = join(root, 'hooks');
+  await createBundle(hooks, [{
+    event: 'turn', phase: 'pre', command: nodeCommand(), blocking: true, timeout_ms: 5000,
+  }], 'process.exit(1);');
+  const engine = new SessionEngine({
+    config: config(root), hookRoot: hooks, providerFactory: () => new ScriptlessProvider(),
+  });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'hook-failure', content: 'private prompt' }, 'operator');
+  assert.equal(result.outcome, 'incomplete');
+  const health = engine.hooks.health();
+  assert.equal(health.status, 'degraded');
+  assert.equal(health.invocation_failures, 1);
+  assert.equal(health.bundles[0].runtime.last_code, 'hook_failed');
+  assert.doesNotMatch(JSON.stringify(health), /private prompt/u);
+  await engine.shutdown({ request_id: 'hook-health-stop' });
 });
