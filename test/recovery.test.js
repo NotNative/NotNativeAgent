@@ -224,9 +224,10 @@ test('AC-PROD-03/AC-ENGP-02/AC-FAIL-01/AC-FAIL-03/AC-FAIL-11/AC-FAIL-12 stalled 
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'empty-turn', content: 'Produce output' }, 'operator');
-  assert.equal(result.outcome, 'limit_reached');
+  assert.equal(result.outcome, 'incomplete');
   assert.equal(count, 3);
   assert.equal(result.failure.code, 'recovery_exhausted');
+  assert.match(result.text, /stopped making verifiable progress/u);
   assert.equal(result.failure.resume_condition, 'new authenticated input or changed external evidence');
   assert.deepEqual(result.failure.completed_progress, { unique_evidence_count: 0, fingerprints: [], evidence: [] });
   assert.equal(result.failure.last_checkpoint, 'turn_start');
@@ -339,7 +340,7 @@ test('AC-PROD-03 unchanged malformed calls stop at the local recovery budget', a
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'malformed-loop', content: 'Do not loop.' }, 'operator');
-  assert.equal(result.outcome, 'limit_reached');
+  assert.equal(result.outcome, 'incomplete');
   assert.equal(result.failure.code, 'recovery_exhausted');
   assert.equal(count, 3);
 });
@@ -363,14 +364,14 @@ test('AC-FAIL-06 overflow compaction safely truncates an oversized historical me
   assert.equal(engine.state.transitions.filter((item) => item.to === 'compacting_context').length, 1);
 });
 
-test('AC-FAIL-13 many distinct progressing tool steps exceed a small ceiling', async () => {
+test('AC-FAIL-13 distinct progressing tool steps continue beyond the legacy ceiling', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-horizon-'));
-  for (let index = 0; index < 12; index += 1) {
+  for (let index = 0; index < 20; index += 1) {
     await writeFile(join(root, `item-${index}.txt`), `unique-${index}`, 'utf8');
   }
   let count = 0;
   const provider = { async *stream() {
-    if (count < 12) {
+    if (count < 20) {
       yield* toolCall(`call-${count}`, `item-${count}.txt`);
       count += 1;
       return;
@@ -379,12 +380,14 @@ test('AC-FAIL-13 many distinct progressing tool steps exceed a small ceiling', a
     yield { type: 'terminal' };
     count += 1;
   } };
-  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  const engine = new SessionEngine({
+    config: config(root, 'ephemeral', { recovery: { max_model_steps: 16 } }), providerFactory: () => provider,
+  });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'horizon-turn', content: 'Read all item files' }, 'operator');
   assert.equal(result.outcome, 'completed');
-  assert.equal(count, 13);
-  assert.equal(engine.lifecycles.snapshot().filter((item) => item.kind === 'model_step').length, 13);
+  assert.equal(count, 21);
+  assert.equal(engine.lifecycles.snapshot().filter((item) => item.kind === 'model_step').length, 21);
 });
 
 test('AC-REV-09 unchanged successful polling is stopped as no progress', async () => {
@@ -398,7 +401,7 @@ test('AC-REV-09 unchanged successful polling is stopped as no progress', async (
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'churn-turn', content: 'Read same.txt repeatedly' }, 'operator');
-  assert.equal(result.outcome, 'limit_reached');
+  assert.equal(result.outcome, 'incomplete');
   assert.equal(count, 4);
   assert.equal(result.failure.code, 'recovery_exhausted');
   assert.equal(result.failure.side_effect_certainty, 'completed');

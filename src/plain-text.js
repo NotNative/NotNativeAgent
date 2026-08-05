@@ -44,7 +44,7 @@ async function initializeLogger(options, diagnostics) {
 
 function exitCode(outcome) {
   if (outcome === 'completed') return 0;
-  if (['needs_input', 'denied'].includes(outcome)) return 3;
+  if (['incomplete', 'needs_input', 'denied'].includes(outcome)) return 3;
   if (outcome === 'cancelled') return 130;
   return 4;
 }

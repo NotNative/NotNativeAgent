@@ -90,7 +90,7 @@ async function readRecords(path, maximum) {
 
 function severity(event) {
   if (event.type === 'error' || event.outcome === 'failed') return 'error';
-  if (event.status === 'degraded' || event.outcome === 'needs_input') return 'warning';
+  if (event.status === 'degraded' || ['incomplete', 'needs_input'].includes(event.outcome)) return 'warning';
   return 'info';
 }
 

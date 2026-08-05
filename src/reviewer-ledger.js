@@ -29,7 +29,7 @@ export class ReviewerLedger {
     if (existing) return existing;
     const entry = {
       requestId: request.id, signature: operationSignature(request), toolName: request.toolName,
-      targetFingerprint: fingerprint(request.resolved.path), classification,
+      targetFingerprint: fingerprint(targetIdentity(request)), classification,
       decision: null, execution: null, repetition: this.#repetitionCount(request),
     };
     await this.#record('proposal', entry);
@@ -187,4 +187,9 @@ function stableJson(value) {
 
 function fingerprint(value) {
   return createHash('sha256').update(String(value)).digest('hex').slice(0, 24);
+}
+
+function targetIdentity(request) {
+  if (typeof request.resolved?.path === 'string') return request.resolved.path;
+  return stableJson(request.resolved ?? request.args ?? { tool: request.toolName });
 }

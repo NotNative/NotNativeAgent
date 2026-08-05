@@ -11,7 +11,7 @@ import {
 import { admissionFromRetry, createActiveTurn } from './engine-active.js';
 import { LifecycleRegistry, StateAuthority } from './lifecycle.js';
 import { HealthInspector } from './health.js';
-import { recoveryHint } from './recovery.js';
+import { recoveryExhaustionText, recoveryHint } from './recovery.js';
 import { JournalStore } from './store.js';
 import { SessionLock } from './session-lock.js';
 import { restoreSessionRecords } from './session-history.js';
@@ -224,15 +224,17 @@ export class SessionEngine {
         && item.role === 'user' && item.turnId === active.turnId));
       applyPendingConfiguration(this, active);
       let context = await this.#prepareContext(prior, content, active);
-      for (let step = 0; step < this.config.limits.maxModelSteps; step += 1) {
+      while (true) {
         const result = await this.#runModelStep(context, active);
-        if (result.exhausted) return this.#finalize('limit_reached', '', active.recovery.exhaustion(this.transcript));
+        if (result.exhausted) {
+          const detail = active.recovery.exhaustion(this.transcript, active.unresolvedToolFailures);
+          return this.#finalize('incomplete', recoveryExhaustionText(detail), detail);
+        }
         if (!result.continue) return this.#completeFromStep(result, active);
         applyPendingConfiguration(this, active);
         context = await this.#prepareContext(this.transcript, '', active, result.forceCompact);
         context = appendRecoveryHint(context, result.hint);
       }
-      return this.#finalize('limit_reached', '', failure('model_step_limit', false));
     } catch (error) {
       error = missionFailureForError(active, error);
       const outcome = active.cancelled ? 'cancelled' : 'failed';
@@ -290,7 +292,7 @@ export class SessionEngine {
       this.state.transition('recovering', { trigger: 'empty_output', turnId: active.turnId });
       const plan = active.recovery.noProgress('empty_output');
       if (plan.action) await this.#recordRecovery(plan.action, active);
-      await this.#settleStep(active, plan.continue ? 'recovering' : 'limit_reached');
+      await this.#settleStep(active, plan.continue ? 'recovering' : 'incomplete');
       if (!plan.continue) return { exhausted: true };
       this.state.transition('preparing_continuation', { trigger: 'empty_output_recovery', turnId: active.turnId });
       return {
@@ -317,7 +319,7 @@ export class SessionEngine {
       supervised.category, supervised.progressEvidence, partialOutputProgress(active.stepText),
     );
     if (plan.action) await this.#recordRecovery(plan.action, active);
-    await this.#settleStep(active, plan.continue ? 'recovering' : 'limit_reached');
+    await this.#settleStep(active, plan.continue ? 'recovering' : 'incomplete');
     if (!plan.continue) return { exhausted: true };
     this.state.transition('preparing_continuation', { trigger: supervised.category, turnId: active.turnId });
     return { continue: true, hint: recoveryHint(plan.action) };

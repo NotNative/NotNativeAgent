@@ -51,8 +51,10 @@ external telemetry is disabled by default and requires an explicit destination; 
 separate from NNA's default local-only forensic database. This candidate ships no
 telemetry exporter.
 
-`recovery.max_model_steps` defaults to 1,024 and is bounded from 16 through 100,000,
-allowing long-horizon work without disabling cancellation or no-progress supervision.
+`recovery.max_model_steps` is retained as a legacy configuration field for manifest
+compatibility but no longer terminates productive work. Long-horizon turns continue while
+they produce distinct verified progress and stop only through cancellation, a declared
+mission boundary, a classified failure, or bounded no-progress/stall detection.
 `recovery.local_retry_limit` defaults to 3 and is bounded from 2 through 5. The
 `recovery.ladder` array supplies at least one action for every retry before exhaustion and
 may contain only the supported bounded `nudge` and `compact` actions; its default is

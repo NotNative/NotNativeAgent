@@ -378,6 +378,7 @@ function turnReceipt(record, summary, expanded, width) {
     : record.outcome === 'needs_input' ? '?' : '!';
   const label = successful ? 'Turn finished' : record.outcome === 'cancelled'
     ? 'Turn cancelled' : record.outcome === 'needs_input' ? 'Turn needs input'
+      : record.outcome === 'incomplete' ? 'Turn ended without completion'
       : `Turn ${record.outcome.replaceAll('_', ' ')}`;
   if (successful || record.outcome === 'needs_input') {
     const basic = [
@@ -400,9 +401,9 @@ function turnReceipt(record, summary, expanded, width) {
   ].filter(Boolean);
   return wrap(`  ${marker} ${label}${details.length ? ` | ${details.join(' | ')}` : ''}`, width);
 }
-
 function recoveryAction(record) {
   if (record.outcome === 'needs_input') return null;
+  if (record.outcome === 'incomplete') return 'review the explanation above';
   if (record.retryable) return 'retry: Up then Enter';
   if (!['completed', 'cancelled'].includes(record.outcome)) return 'inspect: /health';
   return null;

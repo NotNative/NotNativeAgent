@@ -609,6 +609,18 @@ test('TUI-006 recoverable turn failure exposes its stable code and retry action'
   assert.match(frame, /Turn failed.*code provider_unavailable.*retry: Up then Enter/u);
 });
 
+test('no-progress exhaustion ends as an idle incomplete turn with an explanation pointer', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
+  projection.apply('s1', {
+    type: 'turn_result', outcome: 'incomplete', turn_id: 'turn-1', retryable: true,
+    failure: { code: 'recovery_exhausted', retryable: true },
+  });
+  const frame = new TuiRenderer().frame(projection, { width: 100, height: 24, color: false });
+  assert.match(frame, /Turn ended without completion[^]*code recovery_exhausted[^]*review the\s+explanation above/u);
+  assert.match(frame, /auto-review \| IDLE \|/u);
+});
+
 test('diagnostics use a bounded overlay and restore the transcript on close', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });

@@ -140,6 +140,26 @@ test('configured MCP status and connection tests are deterministic read-only ins
   }
 });
 
+test('runtime diagnostics with no filesystem target are deterministically approved', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'runtime-diagnostics' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({
+    ledger, semanticReviewer: { async review() { semanticCalls += 1; } },
+  });
+  const result = await reviewer.review({
+    ...readRequest('diagnose-turn'), toolName: 'nna.diagnose_turn',
+    args: { turn_id: null }, resolved: null,
+  }, {
+    ...context,
+    authority: { id: 'authority-1', intent: [{ content: 'Inspect the previous turn logs' }], mission: null },
+    definition: { name: 'nna.diagnose_turn', sideEffect: 'read_only', scope: 'runtime_diagnostics' },
+  });
+  assert.equal(result.outcome, 'approve');
+  assert.equal(result.reasonCode, 'deterministic_safe');
+  assert.equal(semanticCalls, 0);
+  assert.match(ledger.audit()[0].target_fingerprint, /^[a-f0-9]{24}$/u);
+});
+
 test('operator-trusted private web.fetch is deterministic safe only after destination validation', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'private-fetch' });
   let semanticCalls = 0;

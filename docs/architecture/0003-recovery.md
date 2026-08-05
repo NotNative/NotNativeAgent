@@ -39,9 +39,11 @@ Empty output and unchanged tool-result fingerprints consume a turn-scoped
 three-attempt no-progress ladder. The ladder records a nudge and deterministic
 context compaction before exhaustion. New authenticated steering or a unique
 successful tool-result fingerprint is progress evidence. Distinct progressing
-steps may continue under the configured generous model-step ceiling; exhaustion
-records completed progress, recovery actions, the last checkpoint, remaining
-work, effect certainty, and a safe resumption condition. Completed progress is
+steps continue for as long as they produce distinct verified progress. There is no
+generic productive-step cutoff. No-progress exhaustion ends the turn as incomplete
+with a concise explanation to the operator; it records completed progress, recovery
+actions, the last checkpoint, remaining work, effect certainty, and a safe resumption
+condition. Completed progress is
 represented by bounded SHA-256 evidence fingerprints, content-free summaries,
 and the actual durable checkpoint (`tool_results_committed`,
 `partial_assistant_message_committed`, or `steering_consumed`) rather than raw tool

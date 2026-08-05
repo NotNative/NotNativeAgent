@@ -69,11 +69,11 @@ export class RecoverySupervisor {
     this.#episodes.clear();
   }
 
-  exhaustion(toolResults = []) {
+  exhaustion(toolResults = [], reasonCodes = []) {
     const evidence = [...this.#progress.values()].slice(-32);
     const checkpoint = evidence.at(-1)?.checkpoint ?? 'turn_start';
     return Object.freeze({
-      code: 'recovery_exhausted', retryable: false, partial: false,
+      code: 'recovery_exhausted', retryable: true, partial: evidence.length > 0,
       progress_fingerprints: this.#progress.size,
       completed_progress: Object.freeze({
         unique_evidence_count: this.#progress.size,
@@ -85,6 +85,7 @@ export class RecoverySupervisor {
       last_verified_checkpoint: checkpoint,
       remaining_work: 'model continuation did not demonstrate forward progress',
       resume_condition: 'new authenticated input or changed external evidence',
+      reason_codes: Object.freeze([...new Set(reasonCodes.filter(Boolean))].slice(0, 16)),
       side_effect_certainty: effectCertainty(toolResults),
     });
   }
@@ -101,6 +102,14 @@ export class RecoverySupervisor {
     if (this.#actions.length > 256) this.#actions.shift();
     return record;
   }
+}
+
+export function recoveryExhaustionText(detail) {
+  const reasons = detail.reason_codes?.length > 0
+    ? ` The repeated operation reported: ${detail.reason_codes.join(', ')}.` : '';
+  return `I couldn't complete the request because the turn stopped making verifiable progress.${reasons}\n\n`
+    + 'I ended the turn to avoid repeating the same unsuccessful work. Any completed work and diagnostics remain preserved. '
+    + 'You can retry after correcting the reported condition or provide new direction.';
 }
 
 function effectCertainty(results) {
