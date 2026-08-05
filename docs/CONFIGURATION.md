@@ -364,7 +364,8 @@ Use `/model` for a conversation-local model override. `/mcp` provides guided add
 test, enable, disable, and delete flows for Streamable HTTP or stdio server definitions.
 MCP topology changes require a new conversation or restart because the callable tool set changes.
 
-Enabling memory activates NNA's memory integration, but does not install or configure a
+Memory is enabled by default for new and otherwise unspecified configurations. Explicitly
+setting `memory.enabled` to `false` disables it. Enabling memory activates NNA's memory integration, but does not install or configure a
 memory service. NotNativeMemory hooks and an MCP memory server are separate integrations;
 the user must explicitly configure the relevant endpoint or adapter. In the Console,
 `/memory` inspects project-scoped records and adapter health, `/memory save TEXT` performs

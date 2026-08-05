@@ -14,7 +14,7 @@ import { prepareEngineConfiguration } from '../src/runtime-config.js';
 
 function configuration(root) {
   return resolveManifest({
-    persistence: 'ephemeral', workspace_root: root,
+    persistence: 'ephemeral', workspace_root: root, memory: { enabled: false },
     providers: [
       { id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'old', trust_zone: 'loopback', context_limit_bytes: 200_000, output_limit_tokens: 4096 },
       { id: 'two', endpoint: 'http://127.0.0.1:2/v1', model: 'other', trust_zone: 'loopback' },

@@ -278,7 +278,7 @@ function validateAttachments(value) {
 function validateMemory(value) {
   const input = isRecord(value) ? value : {};
   return {
-    enabled: input.enabled === true,
+    enabled: input.enabled !== false,
     required: input.required === true,
     timeoutMs: boundedInteger(input.timeout_ms, 750, 50, 30_000),
     maxItems: boundedInteger(input.max_items, 8, 1, 64),

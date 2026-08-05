@@ -1334,7 +1334,8 @@ test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content
   assert.equal(health.read_only, true);
   assert.equal(health.events.status, 'ready');
   assert.equal(health.hooks.status, 'ready');
-  assert.equal(health.memory.status, 'disabled');
+  assert.equal(health.memory.status, 'unavailable');
+  assert.equal(health.memory.reason, 'adapter_unavailable');
   assert.equal(health.reviewer_llm.status, 'ready');
   assert.equal(health.stale_locks.status, 'disabled');
   assert.equal(health.extensions.status, 'degraded');
