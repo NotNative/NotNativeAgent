@@ -12,7 +12,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}) {
     providerTerminal: false, toolAssembler: new ToolCallAssembler(),
     deltaSequence: 1, origin: 'engine', completion: deferred.promise,
     resolveCompletion: deferred.resolve, recovery: new RecoverySupervisor(recoveryOptions),
-    enrichment: { memory: [], attachments: [], hooks: [], skills: [] }, admission: null,
+    enrichment: { memory: [], attachments: [], hooks: [], skills: [], projectIntake: null }, admission: null,
     prompt: '', modelName: '', unresolvedToolFailures: [], contextRetryScale: 1,
     contextBytes: 0, contextTokens: 0, contextRetryBudgetBytes: null,
     compactionAttempts: 0, compactionFingerprints: new Set(),

@@ -17,6 +17,7 @@ import { HookRuntime } from './hook-runtime.js';
 import { ExtensionRegistry } from './extensions.js';
 import { ModelDialectRegistry } from './model-dialects.js';
 import { ProjectGuidance } from './project-guidance.js';
+import { ProjectIntake } from './project-intake.js';
 import { ModelRuntimeRegistry } from './model-runtime.js';
 import { ContinuationCompactor } from './continuation-compactor.js';
 import { SkillRegistry } from './skill-registry.js';
@@ -44,6 +45,9 @@ function installRouting(engine, options) {
     telemetry: engine.telemetry,
   });
   engine.projectGuidance = options.projectGuidance ?? new ProjectGuidance(engine.config.workspaceRoot, {
+    telemetry: engine.telemetry,
+  });
+  engine.projectIntake = options.projectIntake ?? new ProjectIntake(engine.config.workspaceRoot, {
     telemetry: engine.telemetry,
   });
   engine.modelRuntime = options.modelRuntime ?? new ModelRuntimeRegistry({ telemetry: engine.telemetry });

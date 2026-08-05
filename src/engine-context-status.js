@@ -2,9 +2,13 @@
 import { buildContext, measureContext } from './context.js';
 import { estimateContextTokens } from './context-budget.js';
 import { ContractError } from './ids.js';
+import { shouldInspectProject } from './project-intake.js';
 
 export async function buildReportedContext(engine, records, content, enrichment, active, budgetBytes, limitBytes, budget = null) {
   const projectGuidance = engine.projectGuidance?.resolve ? await engine.projectGuidance.resolve(records) : [];
+  if (!enrichment.projectIntake && content && shouldInspectProject(content) && engine.projectIntake?.inspect) {
+    enrichment.projectIntake = await engine.projectIntake.inspect();
+  }
   const context = buildContext(engine.config, records, content, {
     ...enrichment, projectGuidance, skillCatalog: engine.skills?.catalog() ?? [],
   }, budgetBytes);
