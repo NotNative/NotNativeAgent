@@ -104,6 +104,9 @@ Commands include `/new NAME`, `/switch ID-OR-NAME`, `/rename NAME`, `/close`,
 `/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP that can be sent
 to maintainers for troubleshooting; it never uploads the archive and refuses to overwrite an existing path. Closing active work requires the explicit confirmation
 command. Conversation editors and transcript projections remain isolated when switching.
+The archive includes a content-free idle-maintenance summary (scheduler state, stage,
+bounded result codes, and run counts) so cancelled or failing dream cycles can be diagnosed
+without including prompts, memory content, or candidate text.
 If the saved tab pool or an individual conversation cannot be validated, unlocked, or
 recovered, the Console still opens a fresh Main conversation and reports each named
 failure as a recovery notice. NNA leaves the saved pool and session journals untouched

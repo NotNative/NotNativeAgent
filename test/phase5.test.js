@@ -1343,7 +1343,19 @@ test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content
   assert.equal(engine.transcript.length, before);
   assert.equal(streams, 0);
   const path = join(root, 'NotNativeAgent-support.zip');
-  const diagnosticBundle = new DiagnosticBundle({ engine, logger });
+  const diagnosticBundle = new DiagnosticBundle({
+    engine, logger, maintenance: () => ({
+      enabled: true, state: 'waiting', reason: 'idle',
+      watermark: { turn_sequence: 42, stage: 0, updated_at: '2026-08-05T01:02:03.000Z' },
+      store: { runs: { completed: 2 } },
+      recent: [{
+        id: 'private-run-id', runtime_key: 'private-workspace-key', stage: 0,
+        state: 'completed', trigger: 'idle', result_code: 'harvest_complete',
+        duration_ms: 12, finished_at: '2026-08-05T01:02:03.000Z',
+        input_fingerprint: 'private-input-fingerprint',
+      }],
+    }),
+  });
   const result = await diagnosticBundle.create(path);
   const archive = await readFile(result.path);
   const entry = firstZipEntry(archive);
@@ -1356,6 +1368,11 @@ test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content
   assert.equal(decoded.health.installation.version, VERSION);
   assert.equal(decoded.logs.product.version, VERSION);
   assert.equal(decoded.logs.records[0].product_version, VERSION);
+  assert.equal(decoded.idle_maintenance.status, 'waiting');
+  assert.equal(decoded.idle_maintenance.watermark.turn_sequence, 42);
+  assert.equal(decoded.idle_maintenance.runs.completed, 2);
+  assert.equal(decoded.idle_maintenance.recent[0].result_code, 'harvest_complete');
+  assert.doesNotMatch(JSON.stringify(decoded.idle_maintenance), /private-/u);
   await assert.rejects(diagnosticBundle.create(path), { code: 'bundle_exists' });
   assert.deepEqual(await readFile(path), archive);
 });

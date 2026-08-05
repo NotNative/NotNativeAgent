@@ -10,12 +10,13 @@ export class DiagnosticBundle {
   constructor(options) {
     this.engine = options.engine;
     this.logger = options.logger;
+    this.maintenance = options.maintenance ?? null;
     this.supportRoot = options.supportRoot ?? userDataPaths().support;
   }
 
   async preview() {
     return Object.freeze({
-      categories: ['health', 'effective_configuration', 'structured_logs', 'governance_audit', 'forensic_trace'],
+      categories: ['health', 'effective_configuration', 'structured_logs', 'governance_audit', 'forensic_trace', 'idle_maintenance'],
       skipped: ['raw_transcript_content', 'raw_prompt_content', 'raw_tool_content', 'memory_content', 'credentials'],
       redactions: ['secret-like keys', 'credential values', 'free-form content'],
       archive: 'zip', upload: false,
@@ -39,6 +40,7 @@ export class DiagnosticBundle {
         product: { name: 'NotNativeAgent', version: VERSION }, records: [], dropped: 0,
       },
       governance_audit: this.engine.reviewerAudit(1000), uploaded: false,
+      idle_maintenance: safeMaintenance(this.maintenance),
       forensic_trace: {
         format: forensicTrace.format, rows: forensicTrace.rows.length,
         open_spans: forensicTrace.open_spans.length,
@@ -54,6 +56,29 @@ export class DiagnosticBundle {
     ]);
     await atomicWrite(outputPath, archive);
     return Object.freeze({ path: outputPath, bytes: archive.length, manifest: preview });
+  }
+}
+
+function safeMaintenance(source) {
+  try {
+    const value = typeof source === 'function' ? source() : source;
+    if (!value || typeof value !== 'object') return { status: 'unavailable' };
+    const recent = Array.isArray(value.recent) ? value.recent.slice(0, 10) : [];
+    return {
+      status: value.state ?? 'unknown', enabled: value.enabled === true, reason: value.reason ?? null,
+      watermark: value.watermark ? {
+        turn_sequence: value.watermark.turn_sequence ?? null,
+        stage: value.watermark.stage ?? null, updated_at: value.watermark.updated_at ?? null,
+      } : null,
+      runs: value.store?.runs ?? {},
+      recent: recent.map((run) => ({
+        stage: run.stage ?? null, state: run.state ?? null, trigger: run.trigger ?? null,
+        result_code: run.result_code ?? null, duration_ms: run.duration_ms ?? null,
+        finished_at: run.finished_at ?? null,
+      })),
+    };
+  } catch (error) {
+    return { status: 'degraded', code: error?.code ?? 'maintenance_snapshot_failed' };
   }
 }
 

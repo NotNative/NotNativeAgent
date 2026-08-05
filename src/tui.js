@@ -484,8 +484,8 @@ function moveOrNavigate(editor, direction) {
   else editor.navigateHistory(direction);
 }
 
-async function supportCommand(name, argument, workspace) {
-  const bundle = new DiagnosticBundle({ engine: workspace.activeEngine(), logger: workspace.options.logger });
+async function supportCommand(name, argument, workspace) { const bundle = new DiagnosticBundle({ engine: workspace.activeEngine(), logger: workspace.options.logger,
+    maintenance: () => workspace.dream?.status() ?? null });
   const legacyPath = name === '/bundle' && argument.startsWith('create ') ? argument.slice(7).trim() : null;
   if (argument === 'preview') {
     workspace.projection.openOverlay(valueOverlay('support', 'Support bundle preview', await bundle.preview()));
