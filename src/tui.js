@@ -292,7 +292,7 @@ async function openConfigurationSection(section, workspace) {
   else if (section === 'websearch') workspace.projection.openOverlay(webSearchOverlay(await workspace.webSearchStatus(false)));
   else if (section === 'webfetch') workspace.projection.openOverlay(webFetchOverlay((await workspace.webFetchCommand(['status'])).config));
   else if (section === 'gateway') workspace.projection.openOverlay(gatewayOverlay(await workspace.gatewayCommand(['status'])));
-  else if (['hooks', 'extensions'].includes(section)) openRuntimeInspection(section, workspace);
+  else if (['hooks', 'extensions'].includes(section)) await openRuntimeInspection(section, workspace);
   else if (section === 'workspace-trust') workspace.projection.openOverlay(workspaceTrustOverlay(workspace.activeConfig().workspaceRoot));
   else throw new ContractError('config_section_invalid', 'unknown configuration section');
   workspace.projection.openOverlay(Object.freeze({
@@ -355,7 +355,7 @@ async function command(value, workspace, stop) {
   else if (name === '/health') workspace.projection.openOverlay(healthOverlay(await workspace.activeEngine().health()));
   else if (name === '/trace') await traceCommand(argument, workspace);
   else if (name === '/dream') workspace.projection.openOverlay(valueOverlay('dream', 'Idle maintenance', await workspace.dreamCommand(argument)));
-  else if (['/hooks', '/extensions', '/stats', '/files'].includes(name)) openRuntimeInspection(name.slice(1), workspace);
+  else if (['/hooks', '/extensions', '/stats', '/files', '/project'].includes(name)) await openRuntimeInspection(name.slice(1), workspace);
   else if (name === '/provider') await handleProviderCommand(argument, workspace, { routeNotice, strictInteger });
   else if (name === '/model') await handleModelCommand(argument, workspace, { modelNotice });
   else if (name === '/mcp') await handleMcpCommand(argument, workspace);

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildContext } from '../src/context.js';
 import { ProjectIntake, shouldInspectProject } from '../src/project-intake.js';
+import { openRuntimeInspection } from '../src/tui-runtime-inspection.js';
 
 test('project intake reports bounded repository structure and package metadata', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-project-intake-'));
@@ -40,4 +41,16 @@ test('project intake is attributed as deterministic observation', () => {
   const message = context.find((item) => item.provenance === 'project_intake');
   assert.equal(message.trust, 'engine_observation');
   assert.match(message.content, /inspect file contents before asserting details/u);
+});
+
+test('/project opens the current engine intake as a read-only view', async () => {
+  let overlay = null;
+  const intake = { workspace: 'D:/work', repository: 'git', manifests: ['package.json'] };
+  await openRuntimeInspection('project', {
+    activeEngine: () => ({ projectIntake: { inspect: async () => intake } }),
+    projection: { openOverlay: (value) => { overlay = value; } },
+  });
+  assert.equal(overlay.kind, 'project');
+  assert.equal(overlay.title, 'Project intake');
+  assert.match(overlay.lines.join('\n'), /package\.json/u);
 });
