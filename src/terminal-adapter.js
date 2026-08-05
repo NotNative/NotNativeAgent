@@ -106,7 +106,9 @@ export class TerminalInputDecoder {
     if (this.#buffer.startsWith(`${ESC}[<`) && !/[Mm]/u.test(this.#buffer)) return false;
     const sequence = keySequence(this.#buffer, this.bindings);
     if (sequence) {
-      this.#buffer = this.#buffer.slice(sequence.bytes); actions.push({ action: sequence.action }); return true;
+      this.#buffer = this.#buffer.slice(sequence.bytes);
+      actions.push(sequence.action === 'newline' ? { action: 'newline', text: '\n' } : { action: sequence.action });
+      return true;
     }
     // In interactive terminals Enter is a carriage return. Submission must use
     // the conventional key even when an older configuration still names Ctrl+S.

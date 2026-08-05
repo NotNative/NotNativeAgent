@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export function handleEditorAction(action, editor) {
-  if (['insert', 'newline', 'paste'].includes(action.action)) editor.insert(action.text);
+  if (action.action === 'newline') editor.insert('\n');
+  else if (['insert', 'paste'].includes(action.action)) editor.insert(action.text);
   else if (action.action === 'backspace') editor.backspace();
   else if (action.action === 'delete') editor.delete();
   else if (action.action === 'left') editor.move(-1);

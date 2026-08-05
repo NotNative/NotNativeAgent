@@ -34,6 +34,7 @@ import { trustWorkspace } from '../src/workspace-trust.js';
 import { safeToolArguments } from '../src/tool-presentation.js';
 import { ExtensionRegistry } from '../src/extensions.js';
 import { DestructiveKeyGuard } from '../src/destructive-key-guard.js';
+import { handleEditorAction } from '../src/tui-editor-actions.js';
 
 function config(root, persistence = 'ephemeral') {
   return resolveManifest({
@@ -144,9 +145,15 @@ test('AC-TUI-04/AC-TUI-05 editor, paste, keys, and narrow rendering preserve sta
 
 test('interactive defaults use Enter to submit, Ctrl+J for multiline, and Ctrl+C to escape idle state', () => {
   const decoder = new TerminalInputDecoder();
-  assert.deepEqual(decoder.push(Buffer.from('\r\n\u0003')).map((item) => item.action), [
+  const actions = decoder.push(Buffer.from('\r\n\u0003'));
+  assert.deepEqual(actions.map((item) => item.action), [
     'submit', 'newline', 'cancel',
   ]);
+  const editor = new EditorBuffer();
+  editor.insert('first line');
+  assert.equal(handleEditorAction(actions[1], editor), true);
+  assert.equal(editor.text, 'first line\n');
+  assert.equal(editor.text.includes('undefined'), false);
   assert.equal(shouldExitOnCancel({ pendingPermission: null, activeTurnId: null }), true);
   assert.equal(shouldExitOnCancel({ pendingPermission: null, activeTurnId: 'turn-1' }), false);
   assert.equal(shouldExitOnCancel({ pendingPermission: { token: 'p' }, activeTurnId: null }), false);
