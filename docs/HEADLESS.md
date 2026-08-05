@@ -1,7 +1,8 @@
 # Headless host protocol
 
-`nna headless` is a UTF-8, newline-delimited JSON protocol over standard input and
-standard output. Standard output is protocol-only; diagnostics use standard error.
+`nna host` is a UTF-8, newline-delimited JSON protocol over standard input and standard
+output. `nna headless` remains a stable compatibility alias. Standard output is
+protocol-only; diagnostics use standard error.
 The spawning process is the authenticated controlling principal and must initialize the
 runtime before sending work.
 

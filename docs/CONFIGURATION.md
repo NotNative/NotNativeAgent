@@ -27,7 +27,8 @@ workspace; additional `NNA.md` files apply beneath their directory. NNA discover
 from actual tool targets, loads them root-to-leaf with strict bounds, rejects symlinks,
 and attributes them as workspace guidance that cannot grant tool authority.
 
-The CLI accepts a UTF-8 JSON manifest with `--manifest PATH`; headless mode supplies the
+The CLI accepts a UTF-8 JSON manifest with `--config PATH` (`--manifest` remains a
+compatibility alias); host mode supplies the
 same object in its `initialize` command. Secrets are references such as `credential_env`,
 never command-line values. Unknown security-like keys fail. This validation applies at
 the full nested path across provider, route, attachment, memory, MCP, Console, telemetry,
@@ -323,7 +324,10 @@ Installed application state defaults to `$HOME/.nna` on Linux and `%USERPROFILE%
 on Windows. `NNA_HOME` may select another absolute directory. This is an application-data
 location and does not replace the manifest `workspace_root` tool boundary.
 
-Bare `nna` and `nna tui` use `$NNA_HOME/config/manifest.json` when `--manifest` is absent.
+Bare `nna` and `nna tui` use `$NNA_HOME/config/manifest.json` when `--config` is absent.
+`nna -p "PROMPT"` runs the same engine for one noninteractive turn and exits. `nna host`
+is the preferred name for the structured stdio protocol; `nna text` and `nna headless`
+remain stable compatibility aliases.
 On first use, `NNA_PROVIDER_ENDPOINT` and `NNA_MODEL` may provide the initial pair; both
 must be set together. Otherwise NNA probes only fixed loopback OpenAI-compatible endpoints
 on ports 11434, 1234, 8000, and 8080 before asking interactively. The validated generated

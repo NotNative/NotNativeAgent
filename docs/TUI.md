@@ -5,9 +5,9 @@ provider/model and opens a temporary result view. It executes no synthetic tool 
 not change provider routing.
 
 Start the installed interactive surface with `nna`. It resolves the saved user manifest
-or performs first-run provider setup. `nna tui --manifest manifest.json` remains the
+or performs first-run provider setup. `nna tui --config manifest.json` remains the
 explicit configuration form. The interface requires a TTY;
-redirected workflows should use `headless` or `text` mode. The interface uses a
+redirected workflows should use `host` or prompt mode. The interface uses a
 single-column, state-first Console layout. Essential meaning never depends
 on color.
 

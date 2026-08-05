@@ -71,9 +71,9 @@ installers validate an existing runtime or install a verified per-user Node 24 L
 
 ```sh
 npm test
-node src/cli.js headless
-node src/cli.js tui --manifest manifest.json
-node src/cli.js text --manifest manifest.json "Hello"
+node src/cli.js host
+node src/cli.js --config manifest.json
+node src/cli.js --config manifest.json -p "Hello"
 npm run release:check
 ```
 
@@ -96,8 +96,9 @@ nna
 It loads `$HOME/.nna/config/manifest.json` and launches the Console. On first run,
 NNA uses explicit `NNA_PROVIDER_ENDPOINT` plus `NNA_MODEL` settings, discovers a compatible
 loopback provider on common local ports, or asks for the endpoint and model, then saves the
-validated configuration. Explicit `nna tui`, `nna text`, and `nna headless` modes remain
-available.
+validated configuration. `nna -p` runs one prompt and exits, while `nna host` exposes the
+structured parent-process protocol. Explicit `nna tui`, `nna text`, and `nna headless`
+aliases remain available.
 
 Send one UTF-8 JSON object per line. Initialize first, then submit:
 

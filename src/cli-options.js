@@ -4,11 +4,20 @@ import { resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
 
 export function parseCli(argv) {
-  const mode = argv[0] ?? 'tui';
+  let mode = 'tui';
+  let modeSelected = false;
   const options = { mode, manifestPath: null, sessionId: null, prompt: [] };
-  for (let index = 1; index < argv.length; index += 1) {
+  for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
-    if (value === '--manifest') options.manifestPath = requiredValue(argv[++index], '--manifest');
+    if (!modeSelected && MODES.has(value)) {
+      mode = value === 'host' ? 'headless' : value;
+      modeSelected = true;
+    }
+    else if (value === '-p' || value === '--prompt') {
+      mode = 'text'; modeSelected = true;
+      if (argv[index + 1] && !argv[index + 1].startsWith('-')) options.prompt.push(argv[++index]);
+    }
+    else if (value === '--manifest' || value === '--config') options.manifestPath = requiredValue(argv[++index], value);
     else if (value === '--session') options.sessionId = requiredValue(argv[++index], '--session');
     else if (value === '--no-color') options.color = false;
     else if (value === '--reduced-motion') options.reducedMotion = true;
@@ -16,8 +25,13 @@ export function parseCli(argv) {
     else if (value.startsWith('-')) throw new ContractError('invalid_option', `unknown option ${value}`);
     else options.prompt.push(value);
   }
-  return Object.freeze(options);
+  return Object.freeze({ ...options, mode });
 }
+
+const MODES = new Set([
+  'tui', 'text', 'headless', 'host', 'sessions', 'websearch', 'skills', 'gateway',
+  'webfetch', 'provider', 'help', 'version', '--help', '-h', '--version', '-v',
+]);
 
 export async function loadManifest(path) {
   if (!path) throw new ContractError('manifest_required', '--manifest PATH is required');

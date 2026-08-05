@@ -34,6 +34,20 @@ test('AC-HEAD-03 ordinary headless is authenticated stdio and exposes no network
   assert.match(await readFile(join(projectRoot, 'docs', 'HEADLESS.md'), 'utf8'), /spawning process is the authenticated controlling principal/iu);
 });
 
+test('launch options support prompt, host, and config aliases without breaking legacy modes', () => {
+  assert.deepEqual(parseCli(['-p', 'hello']), {
+    mode: 'text', manifestPath: null, sessionId: null, prompt: ['hello'],
+  });
+  assert.deepEqual(parseCli(['--config', 'purpose.json', '-p']), {
+    mode: 'text', manifestPath: 'purpose.json', sessionId: null, prompt: [],
+  });
+  assert.equal(parseCli(['host']).mode, 'headless');
+  assert.equal(parseCli(['headless']).mode, 'headless');
+  assert.equal(parseCli(['--config', 'interactive.json']).mode, 'tui');
+  assert.equal(parseCli(['gateway', 'status']).mode, 'gateway');
+  assert.deepEqual(parseCli(['gateway', 'status']).prompt, ['status']);
+});
+
 test('first run persists explicit environment configuration and reuses it', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-onboarding-'));
   const paths = userDataPaths({ home: root, environment: {} });
