@@ -2,9 +2,11 @@
 import { ContractError } from './ids.js';
 import { valueOverlay } from './tui-overlays.js';
 import { openSessionStats } from './tui-session-stats.js';
+import { openFilesView } from './tui-files-view.js';
 
 export function openRuntimeInspection(kind, workspace) {
   if (kind === 'stats') return openSessionStats(workspace);
+  if (kind === 'files') return openFilesView(workspace);
   const engine = workspace.activeEngine();
   if (kind === 'hooks') {
     workspace.projection.openOverlay(valueOverlay('hooks', 'Hook bundles', engine.hooks.health()));

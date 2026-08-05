@@ -355,7 +355,7 @@ async function command(value, workspace, stop) {
   else if (name === '/health') workspace.projection.openOverlay(healthOverlay(await workspace.activeEngine().health()));
   else if (name === '/trace') await traceCommand(argument, workspace);
   else if (name === '/dream') workspace.projection.openOverlay(valueOverlay('dream', 'Idle maintenance', await workspace.dreamCommand(argument)));
-  else if (['/hooks', '/extensions', '/stats'].includes(name)) openRuntimeInspection(name.slice(1), workspace);
+  else if (['/hooks', '/extensions', '/stats', '/files'].includes(name)) openRuntimeInspection(name.slice(1), workspace);
   else if (name === '/provider') await handleProviderCommand(argument, workspace, { routeNotice, strictInteger });
   else if (name === '/model') await handleModelCommand(argument, workspace, { modelNotice });
   else if (name === '/mcp') await handleMcpCommand(argument, workspace);
