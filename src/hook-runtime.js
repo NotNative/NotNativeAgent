@@ -69,7 +69,9 @@ export class HookRuntime {
         cancellation: subscription.blocking ? 'propagate' : 'detach',
         origin: `hook:${scope}:${bundle.name}`, trust: 'operator_configured',
         inputContract: 'nna.hook-event/1.0', outputContract: 'nna.hook-result/1.0',
-        resourceBounds: Object.freeze({ maxOutputBytes: 262_144, maxConcurrent: 1 }),
+        resourceBounds: Object.freeze({
+          maxOutputBytes: 262_144, maxConcurrent: subscription.maxConcurrent,
+        }),
       }, (event, signal) => this.#invoke(bundle, subscription, eventName, event, signal));
       this.#unregister.push(unregister); registered += 1;
     });
@@ -88,7 +90,7 @@ function legacyPayload(subscription, event) {
   return Object.freeze(redactExtensionData({
     event: subscription.event, phase: subscription.phase,
     session_id: event.session_id, turn_id: event.turn_id, step_id: event.step_id,
-    tool_request_id: event.tool_request_id, ...event.payload,
+    tool_request_id: event.tool_request_id, outcome: event.outcome, ...event.payload,
   }));
 }
 

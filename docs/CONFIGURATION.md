@@ -115,6 +115,9 @@ the project scope. The combined catalog is bounded to 32 bundles. User scope win
 duplicate bundle identity; the project duplicate is skipped with
 `hook_identity_conflict` in health rather than ambiguously registering both. Project hook
 output remains attributed, untrusted enrichment and never replaces mandatory review.
+Each subscription may set `max_concurrent` from 1 through 16. The default is 1;
+raising it is appropriate only for independently safe nonblocking observers such as
+telemetry capture, where serial execution could discard bursts of completed events.
 Supported hook edges are exactly `session.start:post`, `session.end:pre`, `turn:pre`,
 `turn:post`, `tool.call:pre`, `tool.call:post`, `compaction:pre`, and
 `compaction:post`. A bundle using an unimplemented event/phase pair is rejected with a

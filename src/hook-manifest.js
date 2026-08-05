@@ -76,6 +76,7 @@ function validateSubscription(value, index) {
     blocking: value.blocking !== false,
     priority: boundedInteger(value.priority, 100, -100_000, 100_000),
     timeoutMs: boundedInteger(value.timeout_ms, 10_000, 100, 300_000),
+    maxConcurrent: boundedInteger(value.max_concurrent, 1, 1, 16),
   });
 }
 

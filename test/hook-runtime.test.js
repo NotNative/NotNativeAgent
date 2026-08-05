@@ -76,6 +76,27 @@ test('hook discovery rejects advertised phase combinations the runtime cannot re
   assert.equal(result.diagnostics[0].code, 'invalid_hook_subscription');
 });
 
+test('hook discovery accepts bounded subscription concurrency', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-hook-concurrency-'));
+  await createBundle(root, [{
+    event: 'tool.call', phase: 'post', command: nodeCommand(),
+    blocking: false, max_concurrent: 8,
+  }], '');
+  const result = await discoverHookBundles(root);
+  assert.equal(result.bundles.length, 1);
+  assert.equal(result.bundles[0].subscriptions[0].maxConcurrent, 8);
+});
+
+test('hook discovery rejects excessive subscription concurrency', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-hook-concurrency-invalid-'));
+  await createBundle(root, [{
+    event: 'tool.call', phase: 'post', command: nodeCommand(), max_concurrent: 17,
+  }], '');
+  const result = await discoverHookBundles(root);
+  assert.equal(result.bundles.length, 0);
+  assert.equal(result.diagnostics[0].code, 'invalid_hook_limit');
+});
+
 test('hook command parser permits argv but rejects shell composition', () => {
   assert.deepEqual(parseCommand('python "some script.py" --flag'), {
     command: 'python', args: ['some script.py', '--flag'],
