@@ -73,31 +73,40 @@ function listSessionsDefinition(contextProvider) {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
       const context = contextProvider?.();
       if (!context?.sessionsRoot) throw new ContractError('diagnostics_unavailable', 'the runtime session catalog is unavailable');
-      const entries = await readdir(context.sessionsRoot, { withFileTypes: true });
-      const candidates = await Promise.all(entries.filter((entry) => entry.isFile() && entry.name.endsWith('.journal.ndjson'))
-        .slice(0, 512).map(async (entry) => {
-          const path = join(context.sessionsRoot, entry.name);
-          const info = await stat(path);
-          return { path, sessionId: entry.name.slice(0, -'.journal.ndjson'.length), modifiedMs: info.mtimeMs };
-        }));
-      const selected = candidates.sort((a, b) => b.modifiedMs - a.modifiedMs).slice(0, request.args.limit);
-      const sessions = [];
-      for (const candidate of selected) {
-        if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
-        const page = await readDiagnosticPage(candidate.path, 256);
-        const turnId = latestTurnId(page.records);
-        const turnRecords = turnId ? page.records.filter((record) => recordTurnId(record) === turnId) : [];
-        const terminal = [...turnRecords].reverse().find((record) => record.type === 'turn_outcome')?.payload ?? null;
-        sessions.push({
-          session_id: candidate.sessionId, current: candidate.sessionId === context.sessionId,
-          updated_at: new Date(candidate.modifiedMs).toISOString(), latest_turn_id: turnId,
-          latest_outcome: terminal?.outcome ?? (turnId ? 'active_or_interrupted' : null),
-          latest_failure_code: terminal?.failure?.code ?? null,
-        });
-      }
+      const sessions = await listDurableSessions(context, request.args.limit, signal);
       return { content: JSON.stringify({ schema: 'nna.session_catalog.v1', sessions }, null, 2), metadata: { sessions: sessions.length, redacted: true } };
     },
   };
+}
+
+export async function listDurableSessions(context, limit = 20, signal = null) {
+  if (!context?.sessionsRoot) throw new ContractError('diagnostics_unavailable', 'the runtime session catalog is unavailable');
+  const bounded = Number.isInteger(limit) ? Math.max(1, Math.min(64, limit)) : 20;
+  let entries;
+  try { entries = await readdir(context.sessionsRoot, { withFileTypes: true }); }
+  catch (error) { if (error.code === 'ENOENT') return Object.freeze([]); throw error; }
+  const candidates = await Promise.all(entries.filter((entry) => entry.isFile() && entry.name.endsWith('.journal.ndjson'))
+    .slice(0, 512).map(async (entry) => {
+      const path = join(context.sessionsRoot, entry.name);
+      const info = await stat(path);
+      return { path, sessionId: entry.name.slice(0, -'.journal.ndjson'.length), modifiedMs: info.mtimeMs };
+    }));
+  const selected = candidates.sort((a, b) => b.modifiedMs - a.modifiedMs).slice(0, bounded);
+  const sessions = [];
+  for (const candidate of selected) {
+    if (signal?.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
+    const page = await readDiagnosticPage(candidate.path, 256);
+    const turnId = latestTurnId(page.records);
+    const records = turnId ? page.records.filter((record) => recordTurnId(record) === turnId) : [];
+    const terminal = [...records].reverse().find((record) => record.type === 'turn_outcome')?.payload ?? null;
+    sessions.push(Object.freeze({
+      session_id: candidate.sessionId, current: candidate.sessionId === context.sessionId,
+      updated_at: new Date(candidate.modifiedMs).toISOString(), latest_turn_id: turnId,
+      latest_outcome: terminal?.outcome ?? (turnId ? 'active_or_interrupted' : null),
+      latest_failure_code: terminal?.failure?.code ?? null,
+    }));
+  }
+  return Object.freeze(sessions);
 }
 
 function optionalIdentifier(value) {

@@ -16,6 +16,7 @@ import { ReviewerLedger } from '../src/reviewer-ledger.js';
 import { declaredSubscription } from './event-fixture.js';
 import { toolProgressEvidence } from '../src/tool-loop.js';
 import { selfDiagnosticsDefinitions } from '../src/self-diagnostics-tool.js';
+import { openRuntimeInspection } from '../src/tui-runtime-inspection.js';
 
 test('different search arguments count as progress even when their results are identical', () => {
   const item = (query) => ({
@@ -62,6 +63,14 @@ test('turn diagnostics can enumerate and inspect another durable session', async
   assert.match(result.content, /"session_id": "other"/u);
   assert.match(result.content, /file_missing/u);
   assert.match(result.content, /recovery_exhausted/u);
+  let overlay = null;
+  await openRuntimeInspection('sessions', {
+    activeEngine: () => ({ store: { root }, dataPaths: { sessions: root }, sessionId: 'current' }),
+    projection: { openOverlay: (value) => { overlay = value; } },
+  });
+  assert.match(JSON.stringify(overlay), /Durable sessions/u);
+  assert.match(JSON.stringify(overlay), /recovery_exhausted/u);
+  assert.doesNotMatch(JSON.stringify(overlay), /file_missing/u);
 });
 
 function manifest(workspaceRoot) {
