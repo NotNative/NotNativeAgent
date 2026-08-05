@@ -1,5 +1,14 @@
 # Configuration and manifest reference
 
+## Temporary launch routing
+
+Console and single-prompt launches may select an existing profile with
+`--provider-profile ID` and may choose a temporary `--model NAME`. A new endpoint can be
+used with `--provider-endpoint URL --model NAME`. Authenticated endpoints accept only an
+environment-variable reference through `--provider-credential-env NAME`; literal secrets
+are never CLI values. These overrides exist only for the launched process and do not
+rewrite saved provider profiles.
+
 ## Adaptive model dialects, project guidance, and optional LSP
 
 NNA maintains a bounded local dialect profile for each provider/model pair in

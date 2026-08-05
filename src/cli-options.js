@@ -6,7 +6,10 @@ import { ContractError } from './ids.js';
 export function parseCli(argv) {
   let mode = 'tui';
   let modeSelected = false;
-  const options = { mode, manifestPath: null, sessionId: null, prompt: [] };
+  const options = {
+    mode, manifestPath: null, sessionId: null, prompt: [], providerProfile: null,
+    providerEndpoint: null, model: null, providerCredentialEnv: null,
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (!modeSelected && MODES.has(value)) {
@@ -19,11 +22,18 @@ export function parseCli(argv) {
     }
     else if (value === '--manifest' || value === '--config') options.manifestPath = requiredValue(argv[++index], value);
     else if (value === '--session') options.sessionId = requiredValue(argv[++index], '--session');
+    else if (value === '--provider-profile') options.providerProfile = requiredValue(argv[++index], value);
+    else if (value === '--provider-endpoint') options.providerEndpoint = requiredValue(argv[++index], value);
+    else if (value === '--model') options.model = requiredValue(argv[++index], value);
+    else if (value === '--provider-credential-env') options.providerCredentialEnv = credentialName(argv[++index], value);
     else if (value === '--no-color') options.color = false;
     else if (value === '--reduced-motion') options.reducedMotion = true;
     else if (value === '--json' && mode === 'skills') options.prompt.push(value);
     else if (value.startsWith('-')) throw new ContractError('invalid_option', `unknown option ${value}`);
     else options.prompt.push(value);
+  }
+  if (mode === 'headless' && [options.providerProfile, options.providerEndpoint, options.model, options.providerCredentialEnv].some(Boolean)) {
+    throw new ContractError('host_override_requires_manifest', 'host provider routing must be supplied by its authenticated initialization manifest');
   }
   return Object.freeze({ ...options, mode });
 }
@@ -58,4 +68,12 @@ export async function readPrompt(input, arguments_) {
 function requiredValue(value, flag) {
   if (!value) throw new ContractError('option_value_missing', `${flag} requires a value`);
   return value;
+}
+
+function credentialName(value, flag) {
+  const name = requiredValue(value, flag);
+  if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/u.test(name)) {
+    throw new ContractError('credential_reference_invalid', `${flag} requires an environment-variable name`);
+  }
+  return name;
 }

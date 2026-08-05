@@ -36,16 +36,24 @@ test('AC-HEAD-03 ordinary headless is authenticated stdio and exposes no network
 
 test('launch options support prompt, host, and config aliases without breaking legacy modes', () => {
   assert.deepEqual(parseCli(['-p', 'hello']), {
-    mode: 'text', manifestPath: null, sessionId: null, prompt: ['hello'],
+    mode: 'text', manifestPath: null, sessionId: null, prompt: ['hello'], providerProfile: null,
+    providerEndpoint: null, model: null, providerCredentialEnv: null,
   });
   assert.deepEqual(parseCli(['--config', 'purpose.json', '-p']), {
-    mode: 'text', manifestPath: 'purpose.json', sessionId: null, prompt: [],
+    mode: 'text', manifestPath: 'purpose.json', sessionId: null, prompt: [], providerProfile: null,
+    providerEndpoint: null, model: null, providerCredentialEnv: null,
   });
   assert.equal(parseCli(['host']).mode, 'headless');
   assert.equal(parseCli(['headless']).mode, 'headless');
   assert.equal(parseCli(['--config', 'interactive.json']).mode, 'tui');
   assert.equal(parseCli(['gateway', 'status']).mode, 'gateway');
   assert.deepEqual(parseCli(['gateway', 'status']).prompt, ['status']);
+  const override = parseCli(['--provider-profile', 'remote', '--model', 'qwen', '-p', 'hello']);
+  assert.equal(override.providerProfile, 'remote');
+  assert.equal(override.model, 'qwen');
+  assert.deepEqual(override.prompt, ['hello']);
+  assert.throws(() => parseCli(['--provider-credential-env', 'literal-secret!']), { code: 'credential_reference_invalid' });
+  assert.throws(() => parseCli(['host', '--model', 'unsafe-override']), { code: 'host_override_requires_manifest' });
 });
 
 test('first run persists explicit environment configuration and reuses it', async () => {

@@ -15,6 +15,7 @@ import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
 import { loadManagedProviderCredentials, runProviderBootstrapCommand } from './provider-bootstrap.js';
 import { loadManagedMcpCredentials } from './mcp-credentials.js';
+import { applyLaunchProviderOverrides } from './launch-provider-overrides.js';
 
 try {
   const options = parseCli(process.argv.slice(2));
@@ -52,7 +53,7 @@ try {
       explicitPath: options.manifestPath, workspaceRoot: process.cwd(), securityAudit: (event) => startupLog.record(event),
     });
     await startupLog.flush();
-    const config = effective.config;
+    const config = applyLaunchProviderOverrides(effective.config, options);
     const configPath = options.manifestPath ? resolve(options.manifestPath) : join(paths.config, 'manifest.json');
     await runTui(process.stdin, process.stdout, process.stderr, {
       ...options, ...productOptions(paths), config, configPath, startupProject: effective.project,
@@ -62,10 +63,11 @@ try {
   } else if (options.mode === 'text') {
     const paths = await runtimePaths();
     const startupLog = await new StructuredLog({ path: join(paths.logs, 'runtime.ndjson') }).initialize();
-    const config = (await loadEffectiveStartupConfiguration({
+    const loadedConfig = (await loadEffectiveStartupConfiguration({
       paths, input: process.stdin, output: process.stderr, diagnostics: process.stderr,
       explicitPath: options.manifestPath, workspaceRoot: process.cwd(), securityAudit: (event) => startupLog.record(event),
     })).config;
+    const config = applyLaunchProviderOverrides(loadedConfig, options);
     await startupLog.flush();
     const prompt = await readPrompt(process.stdin, options.prompt);
     process.exitCode = await runPlainText(prompt, process.stdout, process.stderr, {
@@ -88,6 +90,9 @@ function help() {
     '  nna [--config PATH] [--session ID]        Launch configured TUI',
     '  nna tui [--config PATH] [--session ID] [--no-color] [--reduced-motion]',
     '  nna -p [PROMPT]                           Run one prompt and exit; stdin is accepted',
+    '  nna [--provider-profile ID] [--model NAME] Temporary route for Console or prompt mode',
+    '  nna --provider-endpoint URL --model NAME   Temporary endpoint; never changes saved profiles',
+    '      [--provider-credential-env ENV_NAME]   Credential reference; literal secrets are rejected',
     '  nna host                                  Structured NDJSON host protocol',
     '  nna headless                              Compatibility alias for host',
     '  nna text [--config PATH] [PROMPT]          Compatibility alias for prompt mode',
