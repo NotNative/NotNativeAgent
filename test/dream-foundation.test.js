@@ -43,6 +43,19 @@ test('dream state commits watermarks and recovers interrupted runs after restart
   second.close();
 });
 
+test('dream retention expires completed run detail without deleting its watermark', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-retention-'));
+  const store = new DreamStore({ path: join(root, 'dream.db'), retentionDays: 1 });
+  await store.initialize();
+  store.commitWatermark({ runtimeKey: 'workspace-a', sessionId: 'session-a', turnSequence: 27, stage: 1 });
+  const run = store.begin({ runtimeKey: 'workspace-a', stage: 0 });
+  store.finish(run.id, 'completed', { resultCode: 'harvest_complete' });
+  assert.equal(store.cleanup(Date.now() + 2 * 86_400_000), 1);
+  assert.equal(store.run(run.id), null);
+  assert.equal(store.watermark('workspace-a').turn_sequence, 27);
+  store.close();
+});
+
 test('idle activity aborts maintenance and foreground eligibility is rechecked', async () => {
   let eligible = true;
   let started;

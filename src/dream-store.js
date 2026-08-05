@@ -81,7 +81,7 @@ export class DreamStore {
   cleanup(now = Date.now()) {
     this.#ready();
     const cutoff = new Date(now - this.retentionDays * 86_400_000).toISOString();
-    return Number(this.db.prepare("DELETE FROM dream_runs WHERE finished_at < ? AND state IN ('cancelled','failed','skipped')").run(cutoff).changes);
+    return Number(this.db.prepare("DELETE FROM dream_runs WHERE finished_at < ? AND state IN ('cancelled','completed','failed','skipped')").run(cutoff).changes);
   }
   status() {
     this.#ready();
