@@ -84,6 +84,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     allowedTools: engine.config.executionManifest?.allowedTools,
   });
   engine.tools = new ToolRegistry(engine.config.workspaceRoot, {
+    hosted: engine.config.executionManifest !== null,
     boundedToWorkspace: engine.config.executionManifest !== null,
     enabled: engine.config.executionManifest?.allowedCapabilities.includes('tools') !== false,
     allowedTools: engine.config.executionManifest?.allowedTools,

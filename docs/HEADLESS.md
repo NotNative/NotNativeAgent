@@ -35,6 +35,10 @@ returns the effective `tools` inventory in `initialized`. Omitting `allowed_tool
 the standalone tool catalog; an empty list grants no tools. A prompt cannot add to this
 grant, and a resumed session must present the same grant.
 
+`agent.run` is reserved for standalone root NNA. Hosted manifests cannot grant it, and
+hosted tool catalogs never install or advertise it. A host that needs parallel work must
+create separate, independently scoped NNA executions with authenticated manifests.
+
 An authenticated host may also provide bounded inline `manifest.skills`. NNA validates
 their identifiers, invocation direction, bodies, source attribution, and required exact
 tool names. It binds a digest and descriptor grant to durable-session provenance and

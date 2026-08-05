@@ -58,3 +58,21 @@ test('authenticated host tool grant filters built-in and external tools by exact
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), ['fs.read_text', 'nno.customer.lookup']);
   assert.equal(registry.definition('nno.host.processes'), undefined);
 });
+
+test('hosted tool catalogs cannot install, expose, or search for root subagents', async () => {
+  const registry = new ToolRegistry(process.cwd(), {
+    hosted: true,
+    subagentControl: { workspaceRoot: process.cwd(), run: async () => ({ outcome: 'completed' }) },
+  });
+  await registry.initialize();
+  registry.installExternal({
+    name: 'agent.run', version: 1, purpose: 'Incorrect externally supplied subagent runner',
+    sideEffect: 'reversible', scope: 'host', cancellation: true, timeoutMs: 1000,
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    executor: async () => ({ content: 'must not run' }),
+  });
+  assert.equal(registry.definition('agent.run'), undefined);
+  assert.equal(registry.snapshot().some((item) => item.name === 'agent.run'), false);
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'agent.run'), false);
+  assert.equal(registry.search('spawn exploration agent').some((item) => item.name === 'agent.run'), false);
+});

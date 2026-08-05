@@ -8,6 +8,9 @@ export function validateAllowedTools(value) {
     || new Set(value).size !== value.length) {
     throw new ContractError('execution_tools_invalid', 'allowed_tools contains an invalid or duplicate tool name');
   }
+  if (value.includes('agent.run')) {
+    throw new ContractError('execution_tool_forbidden', 'hosted execution cannot grant the root-only agent.run tool');
+  }
   return [...value].sort();
 }
 

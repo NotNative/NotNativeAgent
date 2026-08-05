@@ -222,6 +222,9 @@ test('host execution policy validates and canonicalizes exact tool grants', () =
   assert.throws(() => resolveManifest({ ...manifest, allowed_tools: ['bad tool'] }, options), {
     code: 'execution_tools_invalid',
   });
+  assert.throws(() => resolveManifest({ ...manifest, allowed_tools: ['agent.run'] }, options), {
+    code: 'execution_tool_forbidden',
+  });
 });
 
 test('host identity claims are canonical, secret-free, and resume-bound', () => {

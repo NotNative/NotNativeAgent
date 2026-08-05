@@ -102,7 +102,7 @@ NNA also exposes three read-only self-inspection tools from every workspace:
 - `nna.read_guidance`: read one document returned by the search.
 - `nna.list_sessions`: enumerate bounded recent durable sessions for cross-Console troubleshooting.
 - `nna.diagnose_turn`: inspect bounded, content-redacted lifecycle evidence for the active or most recent turn, or for an exact durable `session_id` returned by `nna.list_sessions`.
-- `agent.run`: run one bounded foreground specialist through the configured Sub-agents provider route; available only to standalone root NNA.
+- `agent.run`: run one bounded foreground specialist through the configured Sub-agents provider route; available only to standalone root NNA and absent from hosted catalogs and search.
 
 The guidance tools read only documentation shipped with the running NNA version. The turn
 diagnostic reads only bounded, content-redacted lifecycle fields from NNA's own journal.

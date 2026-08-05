@@ -37,6 +37,7 @@ export class ToolRegistry {
   #changes;
   constructor(workspaceRoot, options = {}) {
     this.enabled = options.enabled !== false;
+    this.hosted = options.hosted === true;
     this.allowedTools = Array.isArray(options.allowedTools) ? new Set(options.allowedTools) : null;
     this.paths = new PathPolicy(workspaceRoot, { boundedToWorkspace: options.boundedToWorkspace });
     this.#changes = new FileChangeLedger(this.paths.inputRoot);
@@ -71,7 +72,7 @@ export class ToolRegistry {
     this.#install(processRunDefinition(this.paths));
     this.#install(lspDiagnosticsDefinition(this.paths, { configPath: this.lspConfigPath, spawnProcess: this.lspSpawnProcess }));
     if (this.skills) for (const definition of skillToolDefinitions(this.skills)) this.#install(definition);
-    if (this.subagentControl) this.#install(subagentDefinition(this.subagentControl));
+    if (this.subagentControl && !this.hosted) this.#install(subagentDefinition(this.subagentControl));
   }
   snapshot() {
     return Object.freeze([...this.#definitions.values()].map(({ executor: _executor, validate: _validate, ...item }) => deepFreeze(structuredClone(item))));
@@ -147,6 +148,7 @@ export class ToolRegistry {
     }
   }
   #install(definition) {
+    if (this.hosted && definition.name === 'agent.run') return false;
     if (this.allowedTools && !this.allowedTools.has(definition.name)) return false;
     if (this.#definitions.has(definition.name)) throw new Error(`duplicate tool ${definition.name}`);
     const maxOutputBytes = definition.maxOutputBytes ?? 1_048_576;
