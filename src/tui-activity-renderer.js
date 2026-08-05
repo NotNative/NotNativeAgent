@@ -15,7 +15,7 @@ export function compactActivityRows(records) {
     const timing = Number.isFinite(item.result?.elapsed_ms) ? ` | ${Math.round(item.result.elapsed_ms)} ms` : '';
     const target = toolTargetSuffix(item);
     const failure = toolFailureSuffix(item.result);
-    return `  ${toolSymbol(item.result?.status)} ${item.tool}${target}${timing}${failure}`;
+    return `    ${toolSymbol(item.result?.status)} ${item.tool}${target}${timing}${failure}`;
   });
 }
 

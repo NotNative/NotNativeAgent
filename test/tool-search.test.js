@@ -15,9 +15,17 @@ test('tool catalog keeps core tools visible and selects bounded relevant capabil
   const baseline = registry.providerDefinitions().map((item) => item.function.name);
   assert.ok(baseline.includes('tool.search'));
   assert.ok(baseline.includes('fs.edit_text'));
+  assert.ok(baseline.includes('process.run'));
   assert.ok(!baseline.includes('browser.navigate'));
   const relevant = registry.providerDefinitions('open and navigate a browser page').map((item) => item.function.name);
   assert.ok(relevant.includes('browser.navigate'));
+});
+
+test('host process execution remains visible for SSH and remote-system requests', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  const tools = registry.providerDefinitions('ssh into a remote Linux machine and inspect its version');
+  assert.ok(tools.some((item) => item.function.name === 'process.run'));
 });
 
 test('tool.search exposes bounded matches for subsequent model steps', async () => {

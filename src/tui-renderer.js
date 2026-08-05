@@ -249,10 +249,8 @@ function recordLines(record, width) {
   if (record.type === 'attachment_status') return wrap(`  ATTACHMENT | ${record.attachment_id ?? ''} | ${record.state} | ${record.guidance ?? ''}`, width);
   if (record.type === 'user_input') return renderMarkdown(record.text, width, '> ', '  ');
   if (record.type === 'stream_delta') return renderMarkdown(record.text, width, '* ', '  ');
-  if (record.type === 'tool_status') {
-    return wrap(`  ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${record.status}${toolFailureSuffix(record)}`, width);
-  }
-  if (record.type === 'review_status') return wrap(`  REVIEW | ${record.outcome} | ${record.reason_code ?? ''}`, width);
+  if (record.type === 'tool_status') return record.status === 'running' ? [] : wrap(`    ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${record.status}${toolFailureSuffix(record)}`, width);
+  if (record.type === 'review_status') return record.outcome === 'approve' ? [] : wrap(`    X REVIEW | ${record.outcome} | ${record.reason_code ?? ''}`, width);
   if (record.type === 'error') return wrap(`! ERROR ${record.code} | ${record.message}`, width);
   if (record.type === 'memory_status' || record.type === 'mcp_status') return wrap(`  DEPENDENCY | ${record.status} | ${record.reason ?? record.id ?? ''}`, width);
   if (record.type === 'local_status') return wrap(`  ${record.kind.toUpperCase()} | ${record.text}`, width);
@@ -338,13 +336,13 @@ function activityDetail(records, width) {
     }
     calls.set(id, item);
   }
-  const lines = [wrap('  v Activity detail', width)[0]];
+  const lines = [wrap('    v Activity detail', width)[0]];
   for (const item of calls.values()) {
     const boundary = [item.effect, item.scope].filter(Boolean).join(' | ');
-    lines.push(...wrap(`  ${toolSymbol(item.result?.status)} ${item.tool}${item.target ? ` (${item.target})` : ''}${boundary ? ` | ${boundary}` : ''}`, width));
-    if (item.arguments) lines.push(...wrap(`    Arguments: ${JSON.stringify(item.arguments)}`, width));
-    if (item.review) lines.push(...wrap(`    Review: ${item.review.outcome} | ${item.review.reason_code ?? '--'}`, width));
-    if (item.result) lines.push(...wrap(`    Result: ${resultDetail(item.result)}`, width));
+    lines.push(...wrap(`    ${toolSymbol(item.result?.status)} ${item.tool}${item.target ? ` (${item.target})` : ''}${boundary ? ` | ${boundary}` : ''}`, width));
+    if (item.arguments) lines.push(...wrap(`      Arguments: ${JSON.stringify(item.arguments)}`, width));
+    if (item.review) lines.push(...wrap(`      Review: ${item.review.outcome} | ${item.review.reason_code ?? '--'}`, width));
+    if (item.result) lines.push(...wrap(`      Result: ${resultDetail(item.result)}`, width));
   }
   return lines;
 }

@@ -549,14 +549,17 @@ test('AC-TUI-01 completed activity remains visible without color, compacts, expa
   projection.apply('s1', { type: 'tool_status', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', arguments: { path: 'README.md' }, effect: 'read_only', scope: 'workspace', status: 'running', turn_id: 'turn-1' });
   const renderer = new TuiRenderer();
   let frame = renderer.frame(projection, { width: 100, height: 24, color: false });
-  assert.match(frame, /\+ fs\.read_text \(README\.md\) \| running/u);
+  assert.doesNotMatch(frame, /fs\.read_text/u);
+  assert.doesNotMatch(frame, /REVIEW \| approve/u);
   projection.apply('s1', { type: 'tool_status', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', arguments: { path: 'README.md' }, effect: 'read_only', scope: 'workspace', status: 'succeeded', elapsed_ms: 4, effect_certainty: 'completed', turn_id: 'turn-1' });
+  frame = renderer.frame(projection, { width: 100, height: 24, color: false });
+  assert.match(frame, /^    OK fs\.read_text \(README\.md\) \| succeeded/mu);
   projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1' });
   frame = renderer.frame(projection, { width: 100, height: 24, color: false });
   assert.equal(frame.includes('\u001b'), false);
   assert.match(frame, /^  \* \d+ms \| 1 tool \| 1 review \| Ctrl\+O details$/mu);
   assert.doesNotMatch(frame, /3 events/u);
-  assert.match(frame, /OK fs\.read_text \(README\.md\) \| 4 ms/u);
+  assert.match(frame, /^    OK fs\.read_text \(README\.md\) \| 4 ms/mu);
   assert.doesNotMatch(frame, /Arguments:/u);
   assert.equal(projection.toggleLatestActivity(), true);
   frame = renderer.frame(projection, { width: 100, height: 24 });
@@ -1095,7 +1098,7 @@ test('color-capable rendering adds hierarchy while plain rendering keeps semanti
   assert.match(colored, /\u001b\[1;38;5;213m\*\u001b\[0m/u);
 });
 
-test('engine state and review text recede in muted gray while tool success remains green', () => {
+test('engine state recedes, routine approvals stay hidden, and terminal tool status remains distinct', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
   projection.apply('s1', { type: 'state_status', semantic_state: 'waiting_provider' });
@@ -1105,8 +1108,13 @@ test('engine state and review text recede in muted gray while tool success remai
   projection.apply('s1', { type: 'tool_status', status: 'succeeded', tool: 'fs.read_text', tool_request_id: 't1' });
   const colored = new TuiRenderer().frame(projection, { width: 100, height: 30, color: true });
   assert.match(colored, /\u001b\[38;5;245m\s*STATE/u);
-  assert.match(colored, /\u001b\[38;5;245m\s*REVIEW/u);
+  assert.doesNotMatch(colored, /REVIEW/u);
   assert.match(colored, /\u001b\[38;5;77m\s*OK fs\.read_text/u);
+  projection.apply('s1', {
+    type: 'review_status', outcome: 'deny_with_guidance', reason_code: 'intent_mismatch', tool_request_id: 't2',
+  });
+  const denied = new TuiRenderer().frame(projection, { width: 100, height: 30, color: true });
+  assert.match(denied, /\u001b\[38;5;203m\s*X REVIEW \| deny_with_guidance \| intent_mismatch/u);
 });
 
 test('new conversations show a responsive splash while the tab strip contains only navigation', () => {
