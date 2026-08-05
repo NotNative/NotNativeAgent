@@ -6,8 +6,8 @@ filesystem access, or a wider workspace scope.
 
 ## Local discovery
 
-Standalone NNA discovers skills from `~/.nna/skills` and, for a trusted workspace only,
-`<workspace>/.nna/skills`. A skill is either a `SKILL.md` inside one child directory or a
+Standalone NNA discovers bundled product skills, then skills from `~/.nna/skills` and,
+for a trusted workspace only, `<workspace>/.nna/skills`. A skill is either a `SKILL.md` inside one child directory or a
 top-level `*.skill.md` file. Discovery is bounded to 128 skills, one directory level below
 each root, 64 KiB per body, and 192 KiB of bodies in total. Symlinks are ignored.
 
@@ -28,6 +28,12 @@ Read relevant files before reporting prioritized findings.
 [REQUEST]` invokes a user-accessible skill for one turn. Agents see bounded catalog
 summaries and use the always-visible `skill.search` and `skill.load` tools to select and
 load agent-accessible bodies. `nna skills --json` provides machine-readable introspection.
+
+NNA includes two direct workflow commands. `/troubleshoot [DESCRIPTION]` diagnoses the
+current or another local session through redacted runtime evidence. `/devteam [REQUEST]`
+runs a planner, coder, tester, and independent reviewer sequentially through the configured
+Sub-agents provider route. Devteam is available only to standalone root NNA; an authenticated
+host must grant derived sub-agent authority explicitly rather than inheriting it.
 
 ## Authenticated hosts and NNO modules
 

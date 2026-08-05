@@ -17,14 +17,16 @@ import { filesystemReadDefinitions, ReadReceiptLedger } from './filesystem-read-
 import { filesystemDiscoveryDefinitions } from './filesystem-discovery-tools.js';
 import { skillToolDefinitions } from './skill-registry.js';
 import { FileChangeLedger } from './file-change-ledger.js';
-import { selfDiagnosticsDefinition } from './self-diagnostics-tool.js';
+import { selfDiagnosticsDefinitions } from './self-diagnostics-tool.js';
 import { mcpControlDefinitions } from './mcp-control-tools.js';
+import { subagentDefinition } from './subagent-tool.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const ALWAYS_EXPOSED = new Set([
   'tool.search', 'fs.list_directory', 'fs.glob', 'fs.search_text', 'fs.metadata', 'fs.read_text', 'fs.read_lines',
   'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file',
-  'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn', 'nna.mcp_status', 'nna.mcp_test', 'web.search', 'web.fetch',
+  'nna.search_guidance', 'nna.read_guidance', 'nna.list_sessions', 'nna.diagnose_turn', 'nna.mcp_status', 'nna.mcp_test', 'web.search', 'web.fetch',
   'skill.search', 'skill.load',
+  'agent.run',
 ]);
 export class ToolRegistry {
   #definitions = new Map();
@@ -47,6 +49,7 @@ export class ToolRegistry {
     this.skills = options.skillRegistry;
     this.diagnosticContext = options.diagnosticContext;
     this.mcpControl = options.mcpControl;
+    this.subagentControl = options.subagentControl;
   }
   async initialize() {
     await this.paths.initialize();
@@ -60,7 +63,7 @@ export class ToolRegistry {
     this.#install(deleteDefinition(this.paths, this.#changes));
     for (const definition of filesystemExtraDefinitions(this.paths, this.#changes)) this.#install(definition);
     for (const definition of guidanceDefinitions(this.guidance)) this.#install(definition);
-    this.#install(selfDiagnosticsDefinition(this.diagnosticContext));
+    for (const definition of selfDiagnosticsDefinitions(this.diagnosticContext)) this.#install(definition);
     for (const definition of mcpControlDefinitions(this.mcpControl)) this.#install(definition);
     this.#install(webSearchDefinition({ configPath: this.webSearchConfigPath, client: this.webSearchClient }));
     this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath }));
@@ -68,6 +71,7 @@ export class ToolRegistry {
     this.#install(processRunDefinition(this.paths));
     this.#install(lspDiagnosticsDefinition(this.paths, { configPath: this.lspConfigPath, spawnProcess: this.lspSpawnProcess }));
     if (this.skills) for (const definition of skillToolDefinitions(this.skills)) this.#install(definition);
+    if (this.subagentControl) this.#install(subagentDefinition(this.subagentControl));
   }
   snapshot() {
     return Object.freeze([...this.#definitions.values()].map(({ executor: _executor, validate: _validate, ...item }) => deepFreeze(structuredClone(item))));
@@ -458,7 +462,6 @@ function replaceLineRange(content, startLine, endLine, replacement) {
   const result = lines.join(newline);
   return trailing && result.length > 0 ? `${result}${newline}` : result;
 }
-
 function countOccurrences(content, search) {
   let count = 0;
   let offset = 0;
@@ -468,11 +471,9 @@ function countOccurrences(content, search) {
   }
   return count;
 }
-
 function replaceText(content, oldText, newText, replaceAll) {
   return replaceAll ? content.split(oldText).join(newText) : content.replace(oldText, newText);
 }
-
 function requireShape(value, required, optional = []) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');
@@ -485,11 +486,7 @@ function requireShape(value, required, optional = []) {
     throw new ContractError('tool_schema_invalid', 'tool argument types are invalid');
   }
 }
-
-function objectSchema(properties, required) {
-  return { type: 'object', properties, required, additionalProperties: false };
-}
-
+function objectSchema(properties, required) { return { type: 'object', properties, required, additionalProperties: false }; }
 function deepFreeze(value) {
   if (value && typeof value === 'object') {
     Object.freeze(value);

@@ -95,10 +95,16 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     skillRegistry: engine.skills,
     diagnosticContext: () => ({
       journalPath: engine.store?.path ?? null,
+      sessionsRoot: engine.store?.root ?? engine.dataPaths.sessions,
+      sessionId: engine.sessionId,
       activeTurnId: engine.active?.turnId ?? null,
       state: engine.state.state,
     }),
     mcpControl: options.mcpControl,
+    subagentControl: engine.config.executionManifest === null && engine.subagentDepth === 0 ? {
+      workspaceRoot: engine.config.workspaceRoot,
+      run: (input, signal) => engine.runSubagent(input, signal),
+    } : null,
   });
   engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter);
   engine.attachments = new AttachmentManager({

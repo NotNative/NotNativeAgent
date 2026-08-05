@@ -21,10 +21,17 @@ application restart is not required.
 For a failed, stalled, unexpectedly compacted, or otherwise surprising turn, NNA must use
 `nna.diagnose_turn` before inferring a cause from the visible transcript. With no argument,
 the tool examines the active turn or most recent durable turn. A correlated `turn_id` may be
-provided when investigating an older visible receipt. The result is deliberately bounded and
+provided when investigating an older visible receipt. `nna.list_sessions` enumerates a bounded
+recent session catalog, and `nna.diagnose_turn` accepts an exact `session_id` so one Console can
+inspect another Console's durable journal without guessing filesystem paths. The result is deliberately bounded and
 content-redacted: it reports provider-attempt outcomes, recovery actions, tool terminal states,
 compaction boundaries, and the durable terminal classification without reproducing prompts,
 model responses, tool output, credentials, or file contents.
+
+The bundled `/troubleshoot` skill coordinates this evidence-first workflow. It does not expand
+diagnostic access or replace `/support`; it selects a session, reads bounded evidence and packaged
+guidance, then explains the likely corrective action. `/support` remains the maintainer-facing
+redacted archive when the bounded diagnostic is insufficient.
 
 The authoritative raw evidence remains local under the configured NNA data root: durable
 session journals are under `sessions`, structured runtime records are under `logs`, and the

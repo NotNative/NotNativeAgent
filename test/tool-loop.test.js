@@ -15,7 +15,7 @@ import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/reviewer-ledger.js';
 import { declaredSubscription } from './event-fixture.js';
 import { toolProgressEvidence } from '../src/tool-loop.js';
-import { selfDiagnosticsDefinition } from '../src/self-diagnostics-tool.js';
+import { selfDiagnosticsDefinitions } from '../src/self-diagnostics-tool.js';
 
 test('different search arguments count as progress even when their results are identical', () => {
   const item = (query) => ({
@@ -32,11 +32,36 @@ test('turn diagnostics expose lifecycle classifications without transcript conte
   await store.append('recovery_decision', { turn_id: 'turn-1', category: 'first_token_timeout', action: 'compact', secret: 'do-not-leak' });
   await store.append('turn_outcome', { turn_id: 'turn-1', outcome: 'needs_input' });
   await store.close();
-  const definition = selfDiagnosticsDefinition(() => ({ journalPath: store.path, state: 'IDLE' }));
+  const definition = selfDiagnosticsDefinitions(() => ({
+    journalPath: store.path, sessionsRoot: root, sessionId: 'diagnose', state: 'IDLE',
+  })).find((item) => item.name === 'nna.diagnose_turn');
   const result = await definition.executor(await definition.validate({ turn_id: 'turn-1' }), new AbortController().signal);
   assert.match(result.content, /first_token_timeout/u);
   assert.match(result.content, /needs_input/u);
   assert.doesNotMatch(result.content, /do-not-leak/u);
+});
+
+test('turn diagnostics can enumerate and inspect another durable session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-cross-session-diagnose-'));
+  const current = new JournalStore(root, 'current');
+  const other = new JournalStore(root, 'other');
+  await current.open(); await current.append('session_created', { sessionId: 'current' }); await current.close();
+  await other.open();
+  await other.append('tool_result', { turnId: 'turn-other', toolName: 'fs.read_text', status: 'failed', reasonCode: 'file_missing' });
+  await other.append('turn_outcome', { turn_id: 'turn-other', outcome: 'incomplete', failure: { code: 'recovery_exhausted' } });
+  await other.close();
+  const definitions = selfDiagnosticsDefinitions(() => ({
+    journalPath: current.path, sessionsRoot: root, sessionId: 'current', state: 'IDLE',
+  }));
+  const list = definitions.find((item) => item.name === 'nna.list_sessions');
+  const catalog = await list.executor(await list.validate({ limit: 10 }), new AbortController().signal);
+  assert.match(catalog.content, /"session_id": "other"/u);
+  assert.match(catalog.content, /"latest_failure_code": "recovery_exhausted"/u);
+  const diagnose = definitions.find((item) => item.name === 'nna.diagnose_turn');
+  const result = await diagnose.executor(await diagnose.validate({ session_id: 'other' }), new AbortController().signal);
+  assert.match(result.content, /"session_id": "other"/u);
+  assert.match(result.content, /file_missing/u);
+  assert.match(result.content, /recovery_exhausted/u);
 });
 
 function manifest(workspaceRoot) {
@@ -445,7 +470,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
     'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.search_text', 'fs.write_text',
-    'nna.diagnose_turn', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'tool.search', 'web.fetch', 'web.search',
+    'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'tool.search', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
 });

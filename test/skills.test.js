@@ -6,8 +6,18 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { resolveManifest } from '../src/config.js';
 import { SkillRegistry, skillToolDefinitions } from '../src/skill-registry.js';
+import { runtimeSkillRoots } from '../src/startup-configuration.js';
 
 const provider = { endpoint: 'http://127.0.0.1:1234/v1', model: 'test', trust_zone: 'loopback' };
+
+test('bundled troubleshoot and devteam skills are available to standalone NNA', async () => {
+  const registry = new SkillRegistry({ roots: runtimeSkillRoots({}, null) });
+  await registry.initialize();
+  const catalog = registry.catalog();
+  assert.deepEqual(catalog.map((item) => item.id).sort(), ['devteam', 'troubleshoot']);
+  assert.match(registry.queueUser('devteam').body, /type `planner`[\s\S]+type `coder`[\s\S]+type `tester`[\s\S]+type `reviewer`/u);
+  assert.match(registry.queueUser('troubleshoot').body, /nna\.list_sessions/u);
+});
 
 test('discovers bounded local skills and enforces invocation direction', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-skills-'));

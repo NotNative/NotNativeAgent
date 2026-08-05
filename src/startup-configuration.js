@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { resolveConfiguration } from './configuration-sources.js';
 import { loadStartupManifestDocument } from './onboarding.js';
 import { workspaceIsTrusted } from './workspace-trust.js';
 import { ContractError } from './ids.js';
+
+const BUNDLED_SKILL_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'resources', 'skills');
 
 export async function loadEffectiveStartupConfiguration(options) {
   const root = resolve(options.workspaceRoot ?? process.cwd());
@@ -38,6 +41,7 @@ export function runtimeHookRoots(paths, project) {
 
 export function runtimeSkillRoots(paths, project) {
   return Object.freeze([
+    Object.freeze({ scope: 'bundled', path: BUNDLED_SKILL_ROOT }),
     ...(typeof paths.skills === 'string' ? [Object.freeze({ scope: 'user', path: paths.skills })] : []),
     ...(project?.trusted ? [Object.freeze({ scope: 'project', path: project.skillRoot })] : []),
   ]);

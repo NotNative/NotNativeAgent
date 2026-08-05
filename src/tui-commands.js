@@ -43,6 +43,8 @@ export const TUI_COMMANDS = Object.freeze([
   command('/memory delete ID [EXPECTED_VERSION]', 'Delete project memory with optional version guard', 'conversation'),
   command('/skills', 'Browse registered user, project, and host-contributed skills', 'workflows'),
   command('/skill ID [REQUEST]', 'Invoke one user-accessible skill for this turn', 'workflows'),
+  command('/devteam [REQUEST]', 'Plan, implement, test, and independently review a software change', 'workflows'),
+  command('/troubleshoot [DESCRIPTION]', 'Diagnose an NNA turn from bounded runtime evidence', 'diagnostics'),
   command('/new NAME', 'Create and select a conversation', 'sessions'),
   command('/quit', 'Exit NNA and restore the terminal', 'console'),
   command('/provider [ID]', 'Choose a configured provider profile', 'configuration'),

@@ -362,6 +362,8 @@ async function command(value, workspace, stop) {
   else if (name === '/memory') await handleMemoryCommand(argument, workspace);
   else if (name === '/skills') workspace.projection.openOverlay(skillsOverlay(workspace.activeEngine().skills.catalog()));
   else if (name === '/skill') await invokeSkill(argument, workspace);
+  else if (name === '/devteam') await invokeNamedSkill('devteam', argument, workspace);
+  else if (name === '/troubleshoot') await invokeNamedSkill('troubleshoot', argument, workspace);
   else if (name === '/trust' && argument === 'workspace') await handleWorkspaceTrust(true, workspace);
   else if (name === '/untrust' && argument === 'workspace') await handleWorkspaceTrust(false, workspace);
   else if (name === '/config') await configCommand(argument, workspace);
@@ -383,10 +385,14 @@ async function command(value, workspace, stop) {
 async function invokeSkill(argument, workspace) {
   const [id, ...request] = argument.trim().split(/\s+/u);
   if (!id) throw new ContractError('skill_id_required', '/skill requires a registered skill id');
+  return invokeNamedSkill(id, request.join(' '), workspace);
+}
+
+async function invokeNamedSkill(id, request, workspace) {
   const session = workspace.projection.active();
   if (session.activeTurnId) throw new ContractError('turn_active', 'wait for or cancel the active turn before invoking a skill');
   const skill = workspace.activeEngine().skills.queueUser(id);
-  const content = request.join(' ').trim() || `Run the ${skill.id} workflow and report the result.`;
+  const content = request.trim() || `Run the ${skill.id} workflow using the current conversation as the request and report the result.`;
   workspace.submitActive(content);
 }
 

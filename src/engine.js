@@ -33,6 +33,7 @@ import { createForensicTelemetry } from './forensic-telemetry.js';
 import { prepareEngineContext } from './engine-context-preparation.js';
 import { initializeEngine } from './engine-initialize.js';
 import { persistEngineRecord } from './engine-persistence.js';
+import { subagentConfig, subagentOutputStatus } from './subagent-runtime.js';
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -46,6 +47,16 @@ export class SessionEngine {
     this.runtimeId = options.runtimeId ?? newId('runtime');
     this.sessionId = options.sessionId ?? newId('session');
     this.dataPaths = options.dataPaths ?? userDataPaths();
+    this.subagentDepth = options.subagentDepth ?? 0;
+    this.subagentOptions = {
+      providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
+      memoryAdapter: options.memoryAdapter, mcpTransportFactory: options.mcpTransportFactory,
+      hookRoot: options.hookRoot, hookRoots: options.hookRoots, skillRoots: options.skillRoots,
+      webSearchConfigPath: options.webSearchConfigPath, webSearchClient: options.webSearchClient,
+      webFetchConfigPath: options.webFetchConfigPath, lspConfigPath: options.lspConfigPath,
+      lspSpawnProcess: options.lspSpawnProcess, attachmentRoot: options.attachmentRoot,
+      reviewerRoot: options.reviewerRoot, telemetryRoot: options.telemetryRoot,
+    };
     this.telemetry = createForensicTelemetry({
       telemetry: options.telemetry, workspaceRoot: this.config.workspaceRoot,
       runtimeId: this.runtimeId, sessionId: this.sessionId,
@@ -61,6 +72,7 @@ export class SessionEngine {
     this.eventFactory = new EventFactory(this.runtimeId, this.sessionId);
     this.providerFactory = options.providerFactory;
     const storeRoot = options.storeRoot ?? userDataPaths().sessions;
+    this.storeRoot = storeRoot;
     this.storeFactory = options.storeFactory ?? ((root, id, storeOptions) => new JournalStore(root, id, storeOptions));
     this.store = this.#createStore(storeRoot);
     this.lock = this.store ? new SessionLock(storeRoot, this.sessionId) : null;
@@ -193,6 +205,33 @@ export class SessionEngine {
   }
   async clearConversation() {
     return clearEngineConversation(this);
+  }
+
+  async runSubagent(input, signal) {
+    if (this.config.executionManifest !== null) {
+      throw new ContractError('subagent_hosted_forbidden', 'hosted sub-agents require a derived authority envelope from the authenticated host');
+    }
+    if (this.subagentDepth > 0) throw new ContractError('subagent_nesting_forbidden', 'sub-agents cannot launch nested sub-agents');
+    if (signal.aborted) throw new ContractError('tool_cancelled', 'sub-agent execution was cancelled');
+    const sessionId = newId(`agent_${input.type}`);
+    const config = subagentConfig(this.config, input.type);
+    const child = new SessionEngine({
+      ...this.subagentOptions, config, sessionId, surface: 'subagent', reviewPosture: 'auto-review',
+      dataPaths: this.dataPaths, storeRoot: this.storeRoot, scheduler: this.scheduler,
+      subagentDepth: this.subagentDepth + 1,
+      output: async (record) => this.telemetry?.record('subagent.output', subagentOutputStatus(record), {
+        agent_id: sessionId, agent_type: input.type, record,
+      }, { turnId: this.active?.turnId, stepId: this.active?.stepId, outcome: record?.outcome }),
+    });
+    const cancel = () => child.cancel({ request_id: newId('subagent_cancel'), type: 'cancel' }).catch(() => undefined);
+    signal.addEventListener('abort', cancel, { once: true });
+    try {
+      await child.initialize();
+      return await child.submit({ request_id: newId('subagent'), content: input.task }, `derived-subagent:${input.type}`);
+    } finally {
+      signal.removeEventListener('abort', cancel);
+      await child.shutdown({ request_id: newId('subagent_shutdown'), type: 'shutdown' }).catch(() => undefined);
+    }
   }
 
   async #runTurn(content, attachmentInputs, retryAttachmentId) {
