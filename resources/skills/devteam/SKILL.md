@@ -24,6 +24,36 @@ Delegate through `agent.run` with type `planner` to inspect the repository and w
 
 The planner must not edit product code or tests. Read the result and resolve missing or contradictory requirements before continuing. Do not accept vague criteria such as "excellent" or "be impressive" without observable evidence.
 
+### Engineering standards inherited by every run
+
+First discover and obey the target repository's own architecture, contributor guidance, language conventions, test commands, and acceptance standards. Add the following NNA baseline wherever it is relevant; do not require the user to ask for it.
+
+Apply the general Power of Ten as an engineering sanity standard to every function and class in every file touched by the team, including pre-existing code in those files:
+
+1. Avoid recursion when bounded iterative or async-sequential control flow is practical.
+2. Give loops, retries, traversals, and agent cycles explicit termination or convergence conditions.
+3. Bound growing collections, queues, caches, buffers, retained history, and external input.
+4. Keep functions cohesive and understandable at a glance. Treat roughly 60 lines as a diagnostic signal, not a mechanical limit; extract only when it improves responsibility or failure isolation.
+5. Check meaningful return values and outcomes. Never silently swallow exceptions; preserve or record actionable failure evidence.
+6. Validate untrusted inputs, external data, state transitions, and critical invariants at their owning boundary without duplicating noisy validation inside already-protected helpers.
+
+Use judgment. These rules exist to improve reliability, readability, and efficiency, not to generate ceremonial refactors.
+
+For terminal, web, desktop, or mobile interface changes, also apply the UI Power of Ten:
+
+1. Each authoritative state has one owner.
+2. Each interaction changes only the state it names.
+3. Rendering observes state and does not reinterpret user intent.
+4. UI collections and work are bounded without discarding authoritative data.
+5. Lifecycle transitions and partial-failure recovery are explicit.
+6. Hidden or inactive views remain inert.
+7. Execution state comes from structured engine or service events, not presentation inference.
+8. Platform-specific behavior stays behind capability adapters.
+9. Tests assert state transitions and invariants, not snapshots alone.
+10. Presentation failure preserves user control and authoritative state.
+
+Where applicable, the delivery contract must also include security and authorization boundaries, secret redaction, useful local observability, cancellation and recovery behavior, cross-platform differences, keyboard and screen-reader accessibility, responsive layout, and failure-path tests. Mark a standard `NOT_APPLICABLE` with a short reason rather than pretending to verify it.
+
 ## 2. Build in dependency waves
 
 Delegate through `agent.run` with type `coder` according to the dependency graph. Give each coder only its work package, relevant interfaces, acceptance criteria, and required handoff. Each writes a package handoff under `.devteam/packages/<id>/changes.md` with files changed, decisions, checks run, and remaining concerns.
@@ -34,7 +64,9 @@ Run independent packages concurrently only when their file ownership and interfa
 
 Delegate through `agent.run` with type `tester` to run the deterministic checks in the contract, add focused tests where authorized, and write `.devteam/packages/<id>/test-results.md` with exact commands, outcomes, and criterion coverage. Deterministic evidence comes before semantic judgment.
 
-After package checks pass, delegate through `agent.run` with type `reviewer` against distinct relevant dimensions such as correctness, specification compliance, security, reliability, maintainability, accessibility, or visual quality. Run independent read-only reviews concurrently when capacity permits. Give reviewers the specification, artifact, diff, and test evidence, but not the builder's private reasoning.
+The tester must exercise applicable Power of Ten boundaries and UI invariants, including malformed input, cancellation, partial failure, and recovery paths—not only the happy path.
+
+After package checks pass, delegate through `agent.run` with type `reviewer` against distinct relevant dimensions such as correctness, specification compliance, Power of Ten, UI Power of Ten, security, reliability, observability, maintainability, accessibility, or visual quality. Run independent read-only reviews concurrently when capacity permits. Give reviewers the specification, artifact, diff, and test evidence, but not the builder's private reasoning.
 
 Each reviewer writes a bounded findings artifact containing, for every material finding:
 

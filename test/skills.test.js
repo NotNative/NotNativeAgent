@@ -15,7 +15,9 @@ test('bundled operational skills are available to standalone NNA', async () => {
   await registry.initialize();
   const catalog = registry.catalog();
   assert.deepEqual(catalog.map((item) => item.id).sort(), ['devteam', 'research', 'troubleshoot']);
-  assert.match(registry.queueUser('devteam').body, /type `planner`[\s\S]+type `coder`[\s\S]+type `tester`[\s\S]+type `reviewer`/u);
+  const devteam = registry.queueUser('devteam').body;
+  assert.match(devteam, /type `planner`[\s\S]+type `coder`[\s\S]+type `tester`[\s\S]+type `reviewer`/u);
+  assert.match(devteam, /general Power of Ten[\s\S]+UI Power of Ten[\s\S]+accessibility/u);
   assert.match(registry.queueUser('research').body, /evidence ledger[\s\S]+contradictions[\s\S]+fresh `reviewer`/u);
   assert.match(registry.queueUser('troubleshoot').body, /nna\.list_sessions/u);
 });

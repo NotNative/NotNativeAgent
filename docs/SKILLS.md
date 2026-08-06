@@ -33,6 +33,9 @@ NNA includes three direct workflow commands. `/troubleshoot [DESCRIPTION]` diagn
 current or another local session through redacted runtime evidence. `/devteam [REQUEST]`
 runs a full evidence-driven software team through planning, dependency-aware implementation,
 testing, independent criticism, targeted repair, and a whole-product integration gate.
+Every run inherits the target repository's own standards plus NNA's judgment-based Power of
+Ten baseline; interface work also receives UI ownership, lifecycle, bounded-work, platform,
+accessibility, and failure-preservation gates without requiring a separate invocation mode.
 `/research [QUESTION]` performs source-diverse discovery, builds a dated evidence ledger,
 tests contradictions, closes material gaps, and produces an independently reviewed synthesis.
 These sub-agent workflows are available only to standalone root NNA; an authenticated host
