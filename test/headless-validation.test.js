@@ -41,6 +41,17 @@ test('AC-HEAD-06 malformed, deeply nested, oversized, and unknown controls are b
   }
 });
 
+test('host resume fails explicitly instead of silently creating a blank durable session', async () => {
+  const result = await invoke(`${JSON.stringify({
+    version: '1.0', type: 'initialize', request_id: 'missing-resume',
+    session_id: 'missing-session', require_existing_session: true,
+    manifest: { persistence: 'durable', provider },
+  })}\n`);
+  assert.equal(result.records.at(-1).type, 'error');
+  assert.equal(result.records.at(-1).code, 'session_missing');
+  assert.equal(result.providerCalls, 0);
+});
+
 async function invoke(inputText, options = {}) {
   const root = await mkdtemp(join(tmpdir(), 'nna-headless-validation-'));
   let stdout = '';

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { once } from 'node:events';
+import { access } from 'node:fs/promises';
+import { join } from 'node:path';
 import { resolveManifest } from './config.js';
 import { parseProtocolLine, PROTOCOL_VERSION, safeError } from './contracts.js';
 import { SessionEngine } from './engine.js';
@@ -74,8 +76,17 @@ async function initialize(command, writer, logger, options) {
   });
   const paths = userDataPaths();
   const sessionId = command.session_id ? requireExternalId(command.session_id, 'session_id') : newId('session');
+  const storeRoot = options.storeRoot ?? paths.sessions;
+  if (command.require_existing_session === true) {
+    if (!command.session_id) throw new ContractError('session_id_required', 'resuming a session requires session_id');
+    try { await access(join(storeRoot, `${sessionId}.journal.ndjson`)); }
+    catch (error) {
+      if (error?.code === 'ENOENT') throw new ContractError('session_missing', 'the requested durable session was not found');
+      throw error;
+    }
+  }
   const engine = new SessionEngine({
-    config, sessionId, storeRoot: options.storeRoot ?? paths.sessions,
+    config, sessionId, storeRoot,
     providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
     semanticReviewTimeoutMs: options.semanticReviewTimeoutMs,
     reviewerRoot: options.reviewerRoot ?? paths.reviewerLedger, memoryAdapter: options.memoryAdapter,
