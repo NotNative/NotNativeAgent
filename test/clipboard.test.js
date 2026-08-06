@@ -101,6 +101,27 @@ test('selection uses transcript coordinates and autoscrolls while held at a view
   assert.match(selectedText(projection), /one\ntwo\nthree\nfour/u);
 });
 
+test('a completed transcript click cannot extend through a later tab click', async () => {
+  const projection = new TuiProjection();
+  projection.addSession('main', 'Main', { model: 'm', provider: 'p' });
+  projection.addSession('other', 'Other', { model: 'm', provider: 'p' });
+  projection.selectionRowMap = new Map([[5, 0]]);
+  projection.selectionDocumentLines = ['transcript'];
+  const workspace = { projection, onChange() {} };
+  const headerTargetAt = (_projection, column) => (
+    column === 10 ? { type: 'session', id: 'other' } : null
+  );
+
+  await handleMouse({ button: 0, pressed: true, row: 5, column: 4 }, workspace, headerTargetAt);
+  await handleMouse({ button: 3, pressed: false, row: 5, column: 4 }, workspace, headerTargetAt);
+  assert.equal(projection.terminalSelection.complete, true);
+
+  await handleMouse({ button: 0, pressed: true, row: 1, column: 10 }, workspace, headerTargetAt);
+  await handleMouse({ button: 3, pressed: false, row: 1, column: 10 }, workspace, headerTargetAt);
+  assert.equal(projection.activeId, 'other');
+  assert.equal(projection.terminalSelection, null);
+});
+
 test('/copy selects only an assistant response and reports metadata', async () => {
   let copied = null; let notice = null;
   const workspace = {

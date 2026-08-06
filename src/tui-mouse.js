@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { loadEarlierTranscriptPage } from './workspace-history.js';
 import { tabMenuOverlay } from './tui-overlays.js';
-import { beginSelection, extendDocumentSelection, updateSelection } from './tui-selection.js';
+import { beginSelection, clearSelection, extendDocumentSelection, updateSelection } from './tui-selection.js';
 
 export async function scrollPageUp(workspace) {
   workspace.projection.scrollActive(-10);
@@ -30,11 +30,13 @@ export async function handleMouse(action, workspace, headerTargetAt, activateOve
   if (action.button === 0) {
     const contentTarget = workspace.projection.mouseTargets.find((item) => item.row === action.row);
     if (contentTarget?.type === 'overlay-item') {
+      clearSelection(workspace.projection);
       workspace.projection.selectOverlay(contentTarget.index);
       await activateOverlay();
       return;
     }
     if (contentTarget?.type === 'activity') {
+      clearSelection(workspace.projection);
       workspace.projection.toggleActivity(contentTarget.turnId);
       return;
     }
@@ -44,6 +46,7 @@ export async function handleMouse(action, workspace, headerTargetAt, activateOve
     return;
   }
   if (![0, 2].includes(action.button) || action.shift || action.row !== 1) return;
+  clearSelection(workspace.projection);
   const target = headerTargetAt(workspace.projection, action.column);
   if (target?.type === 'session') {
     workspace.projection.activate(target.id);

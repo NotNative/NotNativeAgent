@@ -10,7 +10,7 @@ export function beginSelection(projection, action) {
 }
 
 export function updateSelection(projection, action) {
-  if (!projection.terminalSelection) return false;
+  if (!projection.terminalSelection || projection.terminalSelection.complete) return false;
   projection.terminalSelection.focus = point(action);
   projection.terminalSelection.documentFocus = documentPoint(projection, action) ?? projection.terminalSelection.documentFocus;
   projection.terminalSelection.complete = !action.pressed;
