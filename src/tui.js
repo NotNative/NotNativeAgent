@@ -359,6 +359,7 @@ async function command(value, workspace, stop) {
   else if (name === '/confirm' && argument === 'clear conversation') await confirmConversationClear(workspace);
   else if (name === '/audit') workspace.projection.openOverlay(auditOverlay(
     workspace.activeEngine().reviewerAudit(), workspace.activeEngine().governanceAudit(),
+    workspace.activeEngine().governance.health(),
   ));
   else if (name === '/permissions') handlePermissionCommand(argument, workspace);
   else if (name === '/health') workspace.projection.openOverlay(healthOverlay(await workspace.activeEngine().health()));

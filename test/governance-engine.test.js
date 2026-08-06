@@ -109,6 +109,26 @@ test('authorization governance binds decisions to fingerprinted request and inte
   assert.doesNotMatch(JSON.stringify(governance.audit()), /private operator request/u);
 });
 
+test('governance health aggregates attention and incomplete effect trails without payload content', async () => {
+  const governance = new GovernanceEngine({ durable: false, sessionId: 'health-summary' });
+  const evidence = await governance.registerEvidence({
+    ...evidenceRecord('evidence-attention', 'private-content-fingerprint'),
+    state: 'quarantined', kind: 'claim_observation',
+  });
+  await governance.decide({
+    id: 'decision-unsettled', domain: 'claim_support', subjectRef: 'claim:one',
+    subjectFingerprint: 'claim-one', outcome: 'quarantine', reasonCode: 'support_missing',
+    policyVersion: 'test/1', evidenceRefs: [evidence.id], authorityRefs: [], decidedAt: 10,
+  });
+  const health = governance.health();
+  assert.equal(health.status, 'attention');
+  assert.equal(health.attention_evidence, 1);
+  assert.equal(health.unsettled_decisions, 1);
+  assert.equal(health.decisions_by_domain.claim_support, 1);
+  assert.equal(health.decision_outcomes.quarantine, 1);
+  assert.doesNotMatch(JSON.stringify(health), /private-content-fingerprint/u);
+});
+
 function evidenceRecord(id, content) {
   return {
     id, kind: 'test', origin: 'runtime', trust: 'observed', state: 'active',

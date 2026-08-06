@@ -31,7 +31,7 @@ export class HealthInspector {
       network_destinations: await inspectNetworkDestinations(this.engine),
       reviewer_llm: reviewerModelHealth(this.engine),
       ledger: status('ready', this.engine.ledger.health()),
-      governance: status('ready', this.engine.governance.health()),
+      governance: governanceHealth(this.engine.governance.health()),
       sandbox: status(this.engine.tools?.paths?.root ? 'ready' : 'unavailable', { root: this.engine.tools?.paths?.root ?? null }),
       memory: await this.engine.memory.health(),
       hooks: this.engine.hooks.health(), events: this.engine.events.health(),
@@ -103,4 +103,8 @@ async function persistenceHealth(engine) {
 
 function status(state, details) {
   return Object.freeze({ status: state, ...details });
+}
+
+function governanceHealth(details) {
+  return status(details.status === 'attention' ? 'degraded' : 'ready', details);
 }

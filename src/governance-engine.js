@@ -158,10 +158,27 @@ export class GovernanceEngine {
 
   health() {
     const states = {};
+    const kinds = {};
+    const domains = {};
+    const outcomes = {};
+    let unsettled = 0;
+    let uncertainEffects = 0;
     for (const entry of this.#evidence.values()) states[entry.record.state] = (states[entry.record.state] ?? 0) + 1;
+    for (const entry of this.#evidence.values()) kinds[entry.record.kind] = (kinds[entry.record.kind] ?? 0) + 1;
+    for (const entry of this.#decisions.values()) {
+      domains[entry.record.domain] = (domains[entry.record.domain] ?? 0) + 1;
+      outcomes[entry.record.outcome] = (outcomes[entry.record.outcome] ?? 0) + 1;
+      if (!entry.terminal) unsettled += 1;
+      else if (entry.terminal.effectCertainty === 'unknown' || entry.terminal.status === 'unknown_effect') uncertainEffects += 1;
+    }
+    const attentionEvidence = (states.quarantined ?? 0) + (states.conflicting ?? 0);
     return Object.freeze({
-      status: 'ready', durable: this.#store !== null, evidence: this.#evidence.size,
+      status: attentionEvidence > 0 || uncertainEffects > 0 ? 'attention' : 'ready',
+      durable: this.#store !== null, evidence: this.#evidence.size,
       decisions: this.#decisions.size, evidence_states: Object.freeze(states),
+      evidence_kinds: Object.freeze(kinds), decisions_by_domain: Object.freeze(domains),
+      decision_outcomes: Object.freeze(outcomes), unsettled_decisions: unsettled,
+      uncertain_effects: uncertainEffects, attention_evidence: attentionEvidence,
       retention_entries: this.retentionEntries,
     });
   }

@@ -10,11 +10,18 @@ const PROVIDER_ROLE_PURPOSES = Object.freeze({
   vision: 'Global profile used for image analysis when the requesting agent cannot process images.',
 });
 
-export function auditOverlay(entries, governance = []) {
+export function auditOverlay(entries, governance = [], health = null) {
   if ((!Array.isArray(entries) || entries.length === 0) && (!Array.isArray(governance) || governance.length === 0)) {
     return overlay('audit', 'Governance audit', ['No governance decisions.']);
   }
   const lines = [];
+  if (health) {
+    lines.push(
+      `Evidence ${health.evidence ?? 0} · decisions ${health.decisions ?? 0} · unsettled ${health.unsettled_decisions ?? 0}`,
+      `Attention ${health.attention_evidence ?? 0} · uncertain effects ${health.uncertain_effects ?? 0}`,
+      '',
+    );
+  }
   if (governance.length > 0) {
     lines.push('Governance decisions', '');
     for (const entry of governance.slice(-32)) {
