@@ -1,20 +1,67 @@
 ---
 id: devteam
-version: 1
-description: Turn an agreed software change into a planned, implemented, tested, independently reviewed delivery using bounded specialist sub-agents
+version: 2
+description: Bring a full software-delivery team to turn an agreed change into a planned, implemented, tested, independently challenged, and evidence-verified delivery
 invocation: both
 requires_tools: [agent.run, fs.read_text, fs.write_text, fs.create_directory, fs.delete_file]
 ---
 # Devteam
 
-Run a sequential software-delivery pipeline. The current conversation and any request supplied with the invocation define the work. Resolve material ambiguity with the user before starting.
+Treat every invocation as a request for the full delivery team. Quality verification is the default; do not require the user to know a special mode or keyword.
 
-1. Create `.devteam/` if needed. Preserve artifacts from an interrupted or blocked prior run unless the user authorizes replacing them.
-2. Delegate to `agent.run` with type `planner`. Require it to inspect the repository and write `.devteam/spec.md` containing scope, acceptance criteria, constraints, affected areas, tests, and explicit non-goals. It must not edit product code or tests.
-3. Read and validate `spec.md`. Delegate to type `coder`, requiring it to implement only that specification and write `.devteam/changes.md` with files changed, decisions, checks run, and remaining concerns.
-4. Delegate to type `tester`, requiring it to read the specification and handoff, add or update focused tests, run relevant verification, and write `.devteam/test-results.md` with commands and exact outcomes.
-5. Delegate to type `reviewer`, requiring an independent read-only review of the specification, diff, and test evidence. It may write only `.devteam/verdict.md`, with verdict `PASS` or `REVISE` and prioritized findings.
-6. If the verdict is `REVISE`, permit one corrective cycle: delegate the precise findings to a coder, then a tester, then a reviewer. Store that cycle's handoffs under `.devteam/cycle-1/`. Do not continue looping after that cycle.
-7. Write `.devteam/final-summary.md` with the delivered outcome, verification, review verdict, changed-file summary, and any remaining user action. Report it concisely to the user.
+Resolve material product ambiguity with the user before implementation. Create `.devteam/` and preserve artifacts from an interrupted or blocked run unless the user authorizes replacement.
 
-Do not commit, push, switch branches, publish, deploy, or broaden scope. On success, remove intermediate handoff files after producing the final summary; leave `.devteam/` present. On failure or uncertainty, preserve all artifacts and explain the blocker.
+## 1. Establish the delivery contract
+
+Delegate through `agent.run` with type `planner` to inspect the repository and write `.devteam/spec.md`. It must define:
+
+- requested outcome, constraints, and explicit non-goals;
+- observable acceptance criteria, including applicable UX qualities;
+- affected components and interfaces;
+- a dependency graph of bounded work packages;
+- deterministic checks and evidence required for each criterion;
+- integration risks and user decisions that cannot safely be inferred.
+
+The planner must not edit product code or tests. Read the result and resolve missing or contradictory requirements before continuing. Do not accept vague criteria such as "excellent" or "be impressive" without observable evidence.
+
+## 2. Build in dependency waves
+
+Delegate through `agent.run` with type `coder` according to the dependency graph. Give each coder only its work package, relevant interfaces, acceptance criteria, and required handoff. Each writes a package handoff under `.devteam/packages/<id>/changes.md` with files changed, decisions, checks run, and remaining concerns.
+
+Run independent packages concurrently only when their file ownership and interfaces do not overlap. Concurrency must follow NNA's discovered sub-agent capacity. Serialize overlapping edits and integration-sensitive work. A coder must read an existing file before modifying it and must not broaden scope.
+
+## 3. Verify with evidence
+
+Delegate through `agent.run` with type `tester` to run the deterministic checks in the contract, add focused tests where authorized, and write `.devteam/packages/<id>/test-results.md` with exact commands, outcomes, and criterion coverage. Deterministic evidence comes before semantic judgment.
+
+After package checks pass, delegate through `agent.run` with type `reviewer` against distinct relevant dimensions such as correctness, specification compliance, security, reliability, maintainability, accessibility, or visual quality. Run independent read-only reviews concurrently when capacity permits. Give reviewers the specification, artifact, diff, and test evidence, but not the builder's private reasoning.
+
+Each reviewer writes a bounded findings artifact containing, for every material finding:
+
+- failed acceptance criterion;
+- concrete file, test, screenshot, or runtime evidence;
+- severity and confidence;
+- responsible work package;
+- the verification that would demonstrate repair.
+
+Reviewers do not edit product code or tests. Subjective assertions without evidence are advisory, not release blockers.
+
+## 4. Integrate findings and repair
+
+Have the parent agent deduplicate findings, reject unsupported claims, resolve cross-package conflicts, and maintain `.devteam/acceptance-ledger.md` with every criterion marked `PASS`, `FAIL`, `BLOCKED`, or `NOT_APPLICABLE` plus its evidence.
+
+Send only failed criteria and relevant evidence back to the responsible `coder`; then rerun the affected tester and reviewer checks. Do not impose a fixed number of repair cycles. Continue while material progress occurs. Stop and report rather than churn when:
+
+- all required criteria pass;
+- the same finding or tool-request fingerprint repeats without new evidence;
+- repairs oscillate or create contradictory findings;
+- an external dependency or user decision blocks verification;
+- the user cancels or an explicit mission deadline is reached.
+
+## 5. Whole-product integration gate
+
+After package criteria pass, delegate a final `tester` for repository-level regression checks and a fresh `reviewer` for cross-component assumptions, unintended scope, and requirements traceability. Update the acceptance ledger from evidence; a package-level pass cannot override an integration failure.
+
+Write `.devteam/final-summary.md` with the delivered outcome, changed-file summary, verification evidence, review disposition, repaired findings, and remaining user action. Report it concisely.
+
+Do not commit, push, switch branches, publish, deploy, or broaden scope unless the user separately authorizes it. Preserve evidence on failure or uncertainty. On success, retain the final summary and acceptance ledger; intermediate artifacts may be removed only after their evidence is represented there.

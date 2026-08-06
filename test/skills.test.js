@@ -10,12 +10,13 @@ import { runtimeSkillRoots } from '../src/startup-configuration.js';
 
 const provider = { endpoint: 'http://127.0.0.1:1234/v1', model: 'test', trust_zone: 'loopback' };
 
-test('bundled troubleshoot and devteam skills are available to standalone NNA', async () => {
+test('bundled operational skills are available to standalone NNA', async () => {
   const registry = new SkillRegistry({ roots: runtimeSkillRoots({}, null) });
   await registry.initialize();
   const catalog = registry.catalog();
-  assert.deepEqual(catalog.map((item) => item.id).sort(), ['devteam', 'troubleshoot']);
+  assert.deepEqual(catalog.map((item) => item.id).sort(), ['devteam', 'research', 'troubleshoot']);
   assert.match(registry.queueUser('devteam').body, /type `planner`[\s\S]+type `coder`[\s\S]+type `tester`[\s\S]+type `reviewer`/u);
+  assert.match(registry.queueUser('research').body, /evidence ledger[\s\S]+contradictions[\s\S]+fresh `reviewer`/u);
   assert.match(registry.queueUser('troubleshoot').body, /nna\.list_sessions/u);
 });
 

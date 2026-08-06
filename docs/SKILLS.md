@@ -29,17 +29,22 @@ Read relevant files before reporting prioritized findings.
 summaries and use the always-visible `skill.search` and `skill.load` tools to select and
 load agent-accessible bodies. `nna skills --json` provides machine-readable introspection.
 
-NNA includes two direct workflow commands. `/troubleshoot [DESCRIPTION]` diagnoses the
+NNA includes three direct workflow commands. `/troubleshoot [DESCRIPTION]` diagnoses the
 current or another local session through redacted runtime evidence. `/devteam [REQUEST]`
-runs a planner, coder, tester, and independent reviewer sequentially through the configured
-Sub-agents provider route. Devteam is available only to standalone root NNA; an authenticated
-host must grant derived sub-agent authority explicitly rather than inheriting it.
+runs a full evidence-driven software team through planning, dependency-aware implementation,
+testing, independent criticism, targeted repair, and a whole-product integration gate.
+`/research [QUESTION]` performs source-diverse discovery, builds a dated evidence ledger,
+tests contradictions, closes material gaps, and produces an independently reviewed synthesis.
+These sub-agent workflows are available only to standalone root NNA; an authenticated host
+must grant derived sub-agent authority explicitly rather than inheriting it.
 
 When an agent requests multiple independent `agent.run` calls in one model step, NNA may run
 them concurrently. The effective concurrency is discovered from the loaded model assigned to
 the Sub-agents route and registered with the shared provider scheduler. If the provider does not
-advertise a valid parallel capacity, NNA safely executes one sub-agent at a time. Devteam itself
-remains sequential because each delivery stage consumes the preceding stage's artifacts.
+advertise a valid parallel capacity, NNA safely executes one sub-agent at a time. Devteam and
+research preserve dependency order, but may fan out independent work packages, source classes,
+or read-only reviews up to that discovered capacity. Overlapping edits and integration-sensitive
+work remain serialized.
 
 Use `/agents` to inspect the endpoint and model assigned to the Sub-agents route, whether root
 sub-agent execution is available, and the scheduler's running, queued, and discovered-capacity

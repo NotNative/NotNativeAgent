@@ -347,7 +347,6 @@ export async function submitEditor(workspace, stop) {
   await command(content.trim(), workspace, stop);
   session.editor.take();
 }
-
 async function command(value, workspace, stop) {
   const [name, ...rest] = value.split(/\s+/u);
   const argument = rest.join(' ');
@@ -377,6 +376,7 @@ async function command(value, workspace, stop) {
   else if (name === '/skills') workspace.projection.openOverlay(skillsOverlay(workspace.activeEngine().skills.catalog()));
   else if (name === '/skill') await invokeSkill(argument, workspace);
   else if (name === '/devteam') await invokeNamedSkill('devteam', argument, workspace);
+  else if (name === '/research') await invokeNamedSkill('research', argument, workspace);
   else if (name === '/troubleshoot') await invokeNamedSkill('troubleshoot', argument, workspace);
   else if (name === '/trust' && argument === 'workspace') await handleWorkspaceTrust(true, workspace);
   else if (name === '/untrust' && argument === 'workspace') await handleWorkspaceTrust(false, workspace);
