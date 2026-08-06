@@ -2,7 +2,8 @@
 
 NotNativeAgent (NNA) is a local-first, model-agnostic agent runtime built to make capable
 language models useful, observable, and safe to operate. Its engine provides reviewed
-tool execution, durable steering, bounded recovery, context compaction, concurrent
+tool execution, durable steering, bounded recovery, long-horizon context compression and
+compaction, concurrent
 cancellation, and non-replaying session resume through a consistent lifecycle and NDJSON
 projection. Images, optional attributed memory, governed MCP tools, and extension adapters
 use the same state, cancellation, privacy, and review boundaries.
