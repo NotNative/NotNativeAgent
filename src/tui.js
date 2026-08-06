@@ -29,6 +29,8 @@ import { handleResumeCommand, openRuntimeInspection } from './tui-runtime-inspec
 import { handleSupportCommand } from './tui-support-command.js';
 import { handleWorkCommand, handleWorkSelection, openPlan } from './tui-work-command.js';
 import { modelNotice, routeNotice, strictInteger } from './tui-command-support.js';
+import { handleSecretsCommand } from './tui-secret-command.js';
+import { beginSecretManagementSelection, handleSecretSetupAction } from './tui-secret-setup.js';
 export async function runTui(input, output, diagnostics, options) {
   const { capabilities, bindings } = prepareTui(input, output, options);
   const terminal = new TerminalMode(input, output, capabilities), renderer = options.renderer ?? new TuiRenderer();
@@ -240,6 +242,7 @@ async function handleOverlayAction(action, workspace) {
   const projection = workspace.projection;
   if (await handleProviderSetupAction(action, workspace)) return;
   if (await handleMcpSetupAction(action, workspace)) return;
+  if (await handleSecretSetupAction(action, workspace)) return;
   if (handleProviderRoleNavigation(action, workspace)) return;
   if (['history_up', 'history_down'].includes(action.action)) {
     const direction = action.action === 'history_up' ? -1 : 1;
@@ -251,6 +254,7 @@ async function handleOverlayAction(action, workspace) {
     if (await handleWorkSelection(selected, workspace, overlay)) return;
     if (beginProviderManagementSelection(selected, workspace, overlay)) return;
     if (beginMcpManagementSelection(selected, workspace, overlay)) return;
+    if (await beginSecretManagementSelection(selected, workspace, overlay)) return;
     const draft = overlayCommandDraft(overlay.kind, selected.id);
     if (draft) {
       projection.closeOverlay(); projection.active().editor.set(draft);
@@ -303,6 +307,7 @@ async function openConfigurationSection(section, workspace) {
   if (section === 'provider') await handleProviderCommand('', workspace, { routeNotice, strictInteger });
   else if (section === 'model') await handleModelCommand('', workspace, { modelNotice });
   else if (section === 'mcp') await handleMcpCommand('', workspace);
+  else if (section === 'secrets') await handleSecretsCommand('', workspace);
   else if (section === 'websearch') workspace.projection.openOverlay(webSearchOverlay(await workspace.webSearchStatus(false)));
   else if (section === 'webfetch') workspace.projection.openOverlay(webFetchOverlay((await workspace.webFetchCommand(['status'])).config));
   else if (section === 'gateway') workspace.projection.openOverlay(gatewayOverlay(await workspace.gatewayCommand(['status'])));
@@ -378,6 +383,7 @@ async function command(value, workspace, stop) {
   else if (name === '/provider') await handleProviderCommand(argument, workspace, { routeNotice, strictInteger });
   else if (name === '/model') await handleModelCommand(argument, workspace, { modelNotice });
   else if (name === '/mcp') await handleMcpCommand(argument, workspace);
+  else if (name === '/secrets') await handleSecretsCommand(argument, workspace);
   else if (name === '/memory') await handleMemoryCommand(argument, workspace);
   else if (name === '/skills') workspace.projection.openOverlay(skillsOverlay(workspace.activeEngine().skills.catalog()));
   else if (name === '/skill') await invokeSkill(argument, workspace);

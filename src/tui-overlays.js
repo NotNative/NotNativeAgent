@@ -160,6 +160,7 @@ export function configOverlay(engine, options = {}) {
     { id: 'provider', label: 'Provider profiles and role routing', detail: `${Object.keys(config.providerProfiles).length} configured profiles` },
     { id: 'model', label: 'Active model', detail: 'Choose a conversation-local model from the active provider' },
     { id: 'mcp', label: 'MCP servers', detail: `${config.mcpServers.length} configured servers` },
+    { id: 'secrets', label: 'Secrets', detail: 'Manage write-only credentials in the local NNA broker' },
     { id: 'websearch', label: 'WebSearch', detail: 'Configure, test, or locally deploy SearXNG' },
     { id: 'webfetch', label: 'WebFetch destinations', detail: 'Trust exact private-network origins for bounded fetching' },
     { id: 'gateway', label: 'Telegram gateway', detail: 'Configure authorized remote access and runtime status' },
@@ -173,6 +174,25 @@ export function configOverlay(engine, options = {}) {
   });
 }
 
+export function secretsOverlay(secrets, options = {}) {
+  const lines = [
+    'Managed values are write-only. NNA shows labels and field names, never stored values.',
+    'Local secrets belong only to this NNA installation and are invisible to NNO realms.',
+  ];
+  if (options.message) lines.push('', options.message);
+  const items = secrets.map((secret) => ({
+    id: secret.id, label: secret.label, badge: secret.enabled ? 'available' : 'revoked',
+    detail: `${secret.kind.replaceAll('_', ' ')} · ${secret.fields.join(', ')}${secret.rotatedAt ? ` · rotated ${secret.rotatedAt.slice(0, 10)}` : ''}`,
+    section: 'Local secrets',
+  }));
+  items.push({ id: 'action:add', label: '+ Add secret', detail: 'Store a new write-only value', section: 'Manage secrets' });
+  return Object.freeze({
+    ...menuOverlay('secrets', 'Secrets', lines, items, options.selectedId ?? items[0]?.id),
+    parent: options.parent,
+    configSection: options.configSection,
+    actionLabel: 'Up/Down choose · Enter inspect/manage · Esc back',
+  });
+}
 export function gatewayOverlay(status, options = {}) {
   const runtime = status.runtime ?? { running: false };
   const lines = [

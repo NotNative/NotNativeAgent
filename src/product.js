@@ -5,7 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
-export const VERSION = '20260806-30';
+export const VERSION = '20260806-31';
 
 export function userDataPaths(options = {}) {
   const environment = options.environment ?? process.env;
@@ -31,6 +31,10 @@ export function userDataPaths(options = {}) {
     gatewayConfig: join(root, 'config', 'gateway.json'),
     providerCredentials: join(root, 'config', 'provider-credentials.json'),
     mcpCredentials: join(root, 'config', 'mcp-credentials.json'),
+    secrets: join(root, 'secrets'),
+    secretVault: join(root, 'secrets', 'vault.json'),
+    secretKey: join(root, 'secrets', 'master-key.json'),
+    secretAudit: join(root, 'secrets', 'audit.ndjson'),
     trustedWorkspaces: join(root, 'config', 'trusted-workspaces.json'),
     logs: join(root, 'logs'),
     support: join(root, 'support'),
@@ -44,7 +48,7 @@ export function userDataPaths(options = {}) {
 }
 
 export async function ensureUserDataPaths(paths = userDataPaths()) {
-  for (const path of [paths.root, paths.projects, paths.sessions, paths.governanceLedger, paths.reviewerLedger, paths.config, paths.logs, paths.support, paths.hooks, paths.skills, paths.managedSearxng, paths.rootTui, paths.gateway, paths.gatewayWorkspace]) {
+  for (const path of [paths.root, paths.projects, paths.sessions, paths.governanceLedger, paths.reviewerLedger, paths.config, paths.secrets, paths.logs, paths.support, paths.hooks, paths.skills, paths.managedSearxng, paths.rootTui, paths.gateway, paths.gatewayWorkspace]) {
     await mkdir(path, { recursive: true, mode: 0o700 });
   }
   return paths;

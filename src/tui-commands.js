@@ -54,6 +54,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/mcp read ID URI', 'Read one bounded untrusted MCP resource', 'configuration'),
   command('/mcp prompts ID', 'Browse prompts from a connected MCP server', 'configuration'),
   command('/mcp prompt ID NAME [JSON]', 'Get one attributed MCP prompt', 'configuration'),
+  command('/secrets', 'Create, rotate, revoke, or delete local managed secrets', 'configuration'),
   command('/memory', 'Inspect memory integration health and stored items', 'conversation'),
   command('/memory save TEXT', 'Explicitly save non-secret project memory', 'conversation'),
   command('/memory delete ID [EXPECTED_VERSION]', 'Delete project memory with optional version guard', 'conversation'),
@@ -128,6 +129,7 @@ function command(usage, description, category) {
 function requiredCapability(usage) {
   if (usage.startsWith('/memory')) return 'configured memory adapter';
   if (usage.startsWith('/mcp')) return 'configured MCP capability';
+  if (usage.startsWith('/secrets')) return 'local secret broker';
   if (usage.startsWith('/provider')) return 'provider configuration';
   if (usage.startsWith('/gateway')) return 'Telegram gateway configuration';
   if (usage.startsWith('/attach') || usage.startsWith('/detach')) return 'attachment admission';

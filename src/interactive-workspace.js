@@ -35,6 +35,7 @@ import { discoverWorkspaceProviderModels } from './workspace-provider-discovery.
 import { deleteManagedMcpCredential, saveManagedMcpCredential } from './mcp-credentials.js';
 import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './workspace-dream.js';
 import { resumeWorkspaceConversation } from './workspace-resume.js';
+import { SecretBroker } from './secret-broker.js';
 export class InteractiveWorkspace {
   #tasks = new Set();
   constructor(options) {
@@ -49,6 +50,11 @@ export class InteractiveWorkspace {
     });
     this.webSearchConfigPath = options.webSearchConfigPath ?? userDataPaths().webSearchConfig;
     this.gatewayConfigPath = options.gatewayConfigPath ?? userDataPaths().gatewayConfig;
+    const dataPaths = options.dataPaths ?? userDataPaths();
+    this.secretBroker = options.secretBroker ?? new SecretBroker({
+      vaultPath: dataPaths.secretVault, keyPath: dataPaths.secretKey, auditPath: dataPaths.secretAudit,
+      audit: async (event) => this.options.logger?.record({ type: 'secret_broker_event', ...event }),
+    });
     this.webSearchClient = options.webSearchClient ?? new SearxngClient();
     this.searxngDeployment = options.searxngDeployment ?? new SearxngDeployment({
       root: options.managedSearxngRoot ?? userDataPaths().managedSearxng,
@@ -399,6 +405,11 @@ export class InteractiveWorkspace {
     return manageWebSearch(this.#webSearchState(), action);
   }
   gatewayCommand(args) { return runGatewayCommand(args, this.options.dataPaths ?? userDataPaths()); }
+  listSecrets() { this.#requirePrimarySecretManagement(); return this.secretBroker.list(); }
+  createSecret(input) { this.#requirePrimarySecretManagement(); return this.secretBroker.create(input); }
+  rotateSecret(id, fields) { this.#requirePrimarySecretManagement(); return this.secretBroker.rotate(id, fields); }
+  setSecretEnabled(id, enabled) { this.#requirePrimarySecretManagement(); return this.secretBroker.setEnabled(id, enabled); }
+  deleteSecret(id) { this.#requirePrimarySecretManagement(); return this.secretBroker.remove(id); }
   webFetchCommand(args) { return runWebFetchCommand(args, this.options.dataPaths ?? userDataPaths()); }
   reportError(error) {
     this.projection.showNotice(error.code ?? 'console', error.message ?? 'Console input failed.');
@@ -422,7 +433,11 @@ export class InteractiveWorkspace {
       throw new ContractError('mcp_primary_required', 'manage MCP servers from the Main conversation');
     }
   }
-
+  #requirePrimarySecretManagement() {
+    if (this.projection.active().role !== 'primary') {
+      throw new ContractError('secret_primary_required', 'manage local secrets from the Main conversation');
+    }
+  }
   async #publishMcpConfiguration(next) {
     await writeWorkspaceManifest(this, next.manifest);
     this.config = advanceWorkspaceConfig(this, next.config);

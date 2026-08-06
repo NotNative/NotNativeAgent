@@ -939,13 +939,13 @@ test('configuration hub lists each focused manager without engine-policy control
   const resolved = config(process.cwd());
   const view = configOverlay({ config: resolved });
   assert.deepEqual(view.items.map((item) => item.id), [
-    'provider', 'model', 'mcp', 'websearch', 'webfetch', 'gateway', 'workspace-trust', 'hooks', 'extensions',
+    'provider', 'model', 'mcp', 'secrets', 'websearch', 'webfetch', 'gateway', 'workspace-trust', 'hooks', 'extensions',
   ]);
   assert.equal(overlayCommandDraft('config', 'action:recovery'), null);
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
   projection.openOverlay(view);
-  const frame = new TuiRenderer().frame(projection, { width: 100, height: 24 });
+  const frame = new TuiRenderer().frame(projection, { width: 100, height: 36 });
   assert.match(frame, /Choose a configuration area/u);
   assert.match(frame, /Provider profiles and role routing/u);
   assert.match(frame, /MCP servers/u);
