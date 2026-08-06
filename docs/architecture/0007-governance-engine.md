@@ -129,3 +129,17 @@ This contract applies equally to project guidance, provider dialect observations
 recovery ordering, retrieval tuning, and future skill proposals. Candidate bodies remain
 in their domain store; governance retains their identity, fingerprints, causal evidence,
 authority, state changes, and terminal effect.
+
+## Idle evidence pipeline
+
+Stage 0 seals a bounded, redacted telemetry window and registers its fingerprint as
+governance evidence. The aggregate packet is durable, so a restart cannot lose the work
+between harvesting and diagnosis. Stage 1 consumes that packet, classifies operational
+failures, and may observe a quarantined reliability candidate when the same stable reason
+recurs at least three times. It does not change runtime policy or recovery ordering.
+
+Project-memory reconciliation is proposal-only at this boundary. It reads the current
+`NNA.md`, rejects symbolic links, malformed managed markers, oversized files, and
+secret-like content, then produces an expected-hash proposal that preserves every byte
+outside the managed region. Applying that proposal remains a normal reviewed filesystem
+effect under a workspace-specific maintenance grant.

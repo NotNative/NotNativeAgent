@@ -94,8 +94,10 @@ test('manual deterministic harvest checkpoints only terminal redacted telemetry 
   telemetry.record('tool.execute', 'succeeded', { tool_name: 'fs.read_text' }, { turnId: 'turn-1' });
   telemetry.record('provider.attempt', 'failed', { code: 'provider_timeout' }, { turnId: 'turn-1', reasonCode: 'provider_timeout' });
   await telemetry.flush();
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
   const config = resolveManifest(manifest({ workspace_root: root }));
-  const workspace = { sessions: new Map([['session', { engine: { state: { state: 'idle' }, telemetry } }]]) };
+  const workspace = { sessions: new Map([['session', { engine: { state: { state: 'idle' }, telemetry, governance } }]]) };
   const coordinator = new DreamCoordinator({ workspace, config, path: join(root, 'dream.db') });
   await coordinator.initialize();
   const result = await coordinator.runNow();
@@ -109,6 +111,40 @@ test('manual deterministic harvest checkpoints only terminal redacted telemetry 
   assert.ok(status.watermark.turn_sequence > 0);
   assert.equal(JSON.stringify(status).includes('fs.read_text'), false);
   coordinator.close();
+  await telemetry.close();
+});
+
+test('idle operational diagnosis survives the stage boundary and observes repeated-failure candidates', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-diagnosis-'));
+  const telemetry = new ForensicTelemetry({
+    workspaceRoot: root, runtimeId: 'runtime', sessionId: 'session', dbPath: join(root, 'events.db'),
+  });
+  await telemetry.initialize();
+  for (let index = 1; index <= 3; index += 1) {
+    telemetry.record('provider.attempt', 'failed', { code: 'provider_timeout' }, {
+      turnId: `turn-${index}`, reasonCode: 'provider_timeout',
+    });
+  }
+  await telemetry.flush();
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  const config = resolveManifest(manifest({ workspace_root: root }));
+  const workspace = { sessions: new Map([['session', { engine: { state: { state: 'idle' }, telemetry, governance } }]]) };
+  const path = join(root, 'dream.db');
+  const coordinator = new DreamCoordinator({ workspace, config, path });
+  await coordinator.initialize();
+  assert.equal((await coordinator.runNow()).result.code, 'harvest_complete');
+  const stage = await coordinator.runNow();
+  assert.equal(stage.result.code, 'operational_diagnosis_complete');
+  assert.equal(stage.result.candidates, 1);
+  assert.equal(coordinator.status().store.candidates.observed, 1);
+  coordinator.close();
+
+  const restored = new DreamStore({ path });
+  await restored.initialize();
+  assert.equal(restored.pendingPacket(createHashForTest(root)), null);
+  assert.equal(restored.candidates().at(0).payload.failure_code, 'provider_timeout');
+  restored.close();
   await telemetry.close();
 });
 
@@ -182,4 +218,8 @@ function manifest(extra = {}) {
     },
     ...extra,
   };
+}
+
+function createHashForTest(value) {
+  return governanceFingerprint(value).slice(0, 32);
 }

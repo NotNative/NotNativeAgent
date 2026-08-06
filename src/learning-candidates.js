@@ -27,13 +27,14 @@ export class LearningCandidateRegistry {
       scope: input.scope ?? this.scope, observedAt: Date.parse(candidate.created_at),
       attributes: { candidate_kind: candidate.kind, risk_class: candidate.risk_class },
     });
+    const observationKey = governanceFingerprint(sources.map((item) => item.id).sort().join(':')).slice(0, 24);
     await this.governance.decide({
-      id: `governance:observe:${candidate.id}`,
+      id: `governance:observe:${candidate.id}:${observationKey}`,
       domain: domainFor(candidate.kind), subjectRef: candidate.id,
       subjectFingerprint: candidate.payload_fingerprint, outcome: 'defer',
       reasonCode: 'candidate_requires_validation', policyVersion: LEARNING_POLICY_VERSION,
       evidenceRefs: [...sources.map((item) => item.id), evidence.id], authorityRefs: [],
-      decidedAt: Date.parse(candidate.created_at),
+      decidedAt: Math.max(...sources.map((item) => item.observedAt)),
       expiresAt: candidate.expires_at ? Date.parse(candidate.expires_at) : null,
       attributes: { candidate_state: candidate.state, candidate_kind: candidate.kind },
     });

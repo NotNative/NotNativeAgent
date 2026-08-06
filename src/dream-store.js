@@ -93,6 +93,41 @@ export class DreamStore {
     const bounded = Number.isSafeInteger(limit) ? Math.max(1, Math.min(500, limit)) : 50;
     return this.db.prepare('SELECT * FROM dream_runs ORDER BY rowid DESC LIMIT ?').all(bounded);
   }
+  savePacket(input) {
+    this.#ready();
+    const id = boundedId(input.id ?? newId('dream_packet'), 'packet id');
+    const runtimeKey = boundedId(input.runtimeKey, 'runtime key');
+    const evidenceId = boundedId(input.evidenceId, 'governance evidence id');
+    const payload = boundedPacket(input.payload);
+    const now = new Date().toISOString();
+    this.db.prepare(`INSERT INTO dream_packets
+      (id, runtime_key, stage, state, evidence_start, evidence_end, governance_evidence_id,
+       payload, payload_fingerprint, created_at, updated_at)
+      VALUES (?, ?, 1, 'pending', ?, ?, ?, ?, ?, ?, ?)`)
+      .run(id, runtimeKey, input.evidenceStart ?? null, input.evidenceEnd ?? null,
+        evidenceId, JSON.stringify(payload), digest(JSON.stringify(payload)), now, now);
+    return this.packet(id);
+  }
+  pendingPacket(runtimeKey) {
+    this.#ready();
+    const row = this.db.prepare("SELECT * FROM dream_packets WHERE runtime_key = ? AND state = 'pending' ORDER BY rowid LIMIT 1")
+      .get(runtimeKey);
+    return row ? parsePacket(row) : null;
+  }
+  finishPacket(id, resultCode) {
+    this.#ready();
+    const packet = this.packet(id);
+    if (!packet) throw new ContractError('dream_packet_missing', 'dream evidence packet does not exist');
+    if (packet.state !== 'pending') return packet;
+    this.db.prepare("UPDATE dream_packets SET state='completed', result_code=?, updated_at=? WHERE id=?")
+      .run(boundedId(resultCode, 'packet result code'), new Date().toISOString(), id);
+    return this.packet(id);
+  }
+  packet(id) {
+    this.#ready();
+    const row = this.db.prepare('SELECT * FROM dream_packets WHERE id = ?').get(id);
+    return row ? parsePacket(row) : null;
+  }
   observeCandidate(input) {
     this.#ready();
     const candidate = normalizeCandidate(input);
@@ -104,7 +139,8 @@ export class DreamStore {
       }
       this.db.prepare(`UPDATE improvement_candidates SET recurrence_count=recurrence_count+1,
         confidence=?, evidence_refs=?, updated_at=? WHERE id=?`)
-        .run(Math.max(Number(existing.confidence), candidate.confidence), JSON.stringify(candidate.evidenceRefs),
+        .run(Math.max(Number(existing.confidence), candidate.confidence),
+          JSON.stringify([...new Set([...existing.evidence_refs, ...candidate.evidenceRefs])].slice(-64)),
           new Date().toISOString(), candidate.id);
       return this.candidate(candidate.id);
     }
@@ -154,7 +190,9 @@ export class DreamStore {
   cleanup(now = Date.now()) {
     this.#ready();
     const cutoff = new Date(now - this.retentionDays * 86_400_000).toISOString();
-    return Number(this.db.prepare("DELETE FROM dream_runs WHERE finished_at < ? AND state IN ('cancelled','completed','failed','skipped')").run(cutoff).changes);
+    const runs = Number(this.db.prepare("DELETE FROM dream_runs WHERE finished_at < ? AND state IN ('cancelled','completed','failed','skipped')").run(cutoff).changes);
+    const packets = Number(this.db.prepare("DELETE FROM dream_packets WHERE updated_at < ? AND state = 'completed'").run(cutoff).changes);
+    return runs + packets;
   }
   status() {
     this.#ready();
@@ -185,6 +223,15 @@ CREATE TABLE IF NOT EXISTS dream_runs (
 CREATE INDEX IF NOT EXISTS idx_dream_runs_runtime ON dream_runs(runtime_key, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dream_runs_state ON dream_runs(state, started_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_dream_runs_active ON dream_runs(runtime_key) WHERE state = 'running';
+CREATE TABLE IF NOT EXISTS dream_packets (
+  id TEXT PRIMARY KEY, runtime_key TEXT NOT NULL, stage INTEGER NOT NULL,
+  state TEXT NOT NULL, evidence_start INTEGER, evidence_end INTEGER,
+  governance_evidence_id TEXT NOT NULL, payload TEXT NOT NULL,
+  payload_fingerprint TEXT NOT NULL, result_code TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  CHECK(state IN ('pending','completed'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dream_packets_pending ON dream_packets(runtime_key) WHERE state = 'pending';
 CREATE TABLE IF NOT EXISTS improvement_candidates (
   id TEXT PRIMARY KEY, runtime_key TEXT NOT NULL, kind TEXT NOT NULL,
   scope_kind TEXT NOT NULL, scope_fingerprint TEXT NOT NULL, state TEXT NOT NULL,
@@ -229,6 +276,17 @@ function parseCandidate(row) {
     success_criteria: Object.freeze(JSON.parse(row.success_criteria)),
     payload: Object.freeze(JSON.parse(row.payload)),
   });
+}
+
+function parsePacket(row) {
+  return Object.freeze({ ...row, stage: Number(row.stage), payload: Object.freeze(JSON.parse(row.payload)) });
+}
+
+function boundedPacket(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ContractError('dream_packet_invalid', 'dream packet must be an object');
+  const encoded = JSON.stringify(value);
+  if (Buffer.byteLength(encoded, 'utf8') > 32_768) throw new ContractError('dream_packet_invalid', 'dream packet exceeds 32 KiB');
+  return structuredClone(value);
 }
 
 function boundedPayload(value) {
