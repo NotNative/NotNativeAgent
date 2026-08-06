@@ -8,6 +8,7 @@ export async function compactActiveConversation(workspace) {
   const result = await session.engine.compactConversation();
   projected.records = [];
   projected.expandedTurns.clear();
+  projected.detailedTurns.clear();
   restoreTranscript(workspace.projection, session.id, session.engine.transcript);
   workspace.projection.showNotice('context', `Compaction omitted ${result.omitted} settled records and retained ${result.retained}.`);
   workspace.onChange();
@@ -28,6 +29,7 @@ export async function confirmConversationClear(workspace) {
   const result = await session.engine.clearConversation();
   projected.records = [];
   projected.expandedTurns.clear();
+  projected.detailedTurns.clear();
   projected.contextBytes = 0;
   projected.confirmClear = false;
   workspace.projection.showNotice('context', `Cleared ${result.removed} context records from this conversation.`);

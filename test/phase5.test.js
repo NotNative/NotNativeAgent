@@ -449,6 +449,18 @@ test('assistant markdown preserves structure without exposing formatting markers
   assert.equal(frame.trimEnd().split('\n').every((line) => displayWidth(line) <= 48), true);
 });
 
+test('separate assistant response segments use one blank line without changing internal paragraphs', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', { type: 'stream_delta', turn_id: 'turn-1', text: 'First paragraph.\n\nSecond paragraph.\n\n' });
+  projection.apply('s1', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', status: 'succeeded' });
+  projection.apply('s1', { type: 'stream_delta', turn_id: 'turn-1', text: '\n\nNext response.' });
+  projection.apply('s1', { type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
+  const frame = new TuiRenderer().frame(projection, { width: 100, height: 30, color: false });
+  assert.match(frame, /\* First paragraph\.\n[ \t]*\n  Second paragraph\.\n\n\* Next response\./u);
+  assert.doesNotMatch(frame, /Second paragraph\.\n[ \t]*\n[ \t]*\n\* Next response\./u);
+});
+
 test('assistant transcript presentation uses copy-safe ASCII markers', () => {
   const projection = new TuiProjection();
   projection.addSession('main', 'Main', { model: 'm', provider: 'p' });
@@ -583,17 +595,24 @@ test('AC-TUI-01 completed activity remains visible without color, compacts, expa
   projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1' });
   frame = renderer.frame(projection, { width: 100, height: 24, color: false });
   assert.equal(frame.includes('\u001b'), false);
-  assert.match(frame, /^  \* \d+ms \| 1 tool \| 1 review \| Ctrl\+O details$/mu);
+  assert.match(frame, /^  \* \d+ms \| 1 tool \| 1 review \| Ctrl\+O summary$/mu);
   assert.doesNotMatch(frame, /3 events/u);
-  assert.match(frame, /^    ✓ fs\.read_text \(README\.md\) \| 4 ms/mu);
+  assert.doesNotMatch(frame, /fs\.read_text/u);
   assert.doesNotMatch(frame, /Arguments:/u);
   assert.equal(projection.toggleLatestActivity(), true);
   frame = renderer.frame(projection, { width: 100, height: 24 });
-  assert.match(frame, /fs\.read_text/u);
+  assert.match(frame, /Activity summary/u);
+  assert.match(frame, /fs\.read_text x1 \| all succeeded/u);
   assert.match(frame, /README\.md/u);
+  assert.doesNotMatch(frame, /Arguments:/u);
+  assert.equal(projection.toggleLatestActivity(), true);
+  frame = renderer.frame(projection, { width: 100, height: 24 });
   assert.match(frame, /read_only \| workspace/u);
   assert.match(frame, /Arguments: \{"path":"README\.md"\}/u);
   assert.match(frame, /Review: approve \| deterministic_safe/u);
+  assert.equal(projection.toggleLatestActivity(), true);
+  frame = renderer.frame(projection, { width: 100, height: 24 });
+  assert.doesNotMatch(frame, /fs\.read_text/u);
   assert.doesNotMatch(frame, /STATE \|/u);
   projection.scrollActive(-2);
   assert.notEqual(projection.active().viewportEnd, null);
@@ -792,7 +811,7 @@ test('mouse wheel navigates the retained transcript and returns to follow mode',
   assert.equal(projection.active().viewportEnd, null);
 });
 
-test('clicking a completed tool row expands and collapses that turn activity', async () => {
+test('clicking a completed activity receipt cycles summary, details, and collapsed views', async () => {
   const projection = new TuiProjection();
   projection.addSession('main', 'Main', { model: 'm1', provider: 'p1' });
   projection.apply('main', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', status: 'succeeded', elapsed_ms: 5 });
@@ -804,10 +823,17 @@ test('clicking a completed tool row expands and collapses that turn activity', a
   const click = { action: 'mouse', pressed: true, button: 0, wheel: false, shift: false, row: target.row, column: 4 };
   await handleActions([click], workspace, () => undefined, new TerminalInputDecoder());
   assert.equal(projection.active().expandedTurns.has('turn-1'), true);
+  assert.equal(projection.active().detailedTurns.has('turn-1'), false);
   new TuiRenderer().frame(projection, { width: 100, height: 40 });
-  const expandedTarget = projection.mouseTargets.find((item) => item.type === 'activity');
+  let expandedTarget = projection.mouseTargets.find((item) => item.type === 'activity');
+  await handleActions([{ ...click, row: expandedTarget.row }], workspace, () => undefined, new TerminalInputDecoder());
+  assert.equal(projection.active().expandedTurns.has('turn-1'), true);
+  assert.equal(projection.active().detailedTurns.has('turn-1'), true);
+  new TuiRenderer().frame(projection, { width: 100, height: 40 });
+  expandedTarget = projection.mouseTargets.find((item) => item.type === 'activity');
   await handleActions([{ ...click, row: expandedTarget.row }], workspace, () => undefined, new TerminalInputDecoder());
   assert.equal(projection.active().expandedTurns.has('turn-1'), false);
+  assert.equal(projection.active().detailedTurns.has('turn-1'), false);
 });
 
 test('right-clicking a tab opens real rename and close actions', async () => {

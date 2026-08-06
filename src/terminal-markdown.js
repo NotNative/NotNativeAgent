@@ -2,7 +2,7 @@
 import { sanitizeTerminal } from './terminal-adapter.js';
 
 export function renderMarkdown(value, width, firstPrefix = '', continuationPrefix = '') {
-  const source = asciiPresentation(sanitizeTerminal(value)).replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  const source = asciiPresentation(sanitizeTerminal(value)).replaceAll('\r\n', '\n').replaceAll('\r', '\n').replace(/^\n+|\n+$/gu, '');
   const lines = [];
   let fenced = false;
   for (const raw of source.split('\n')) {

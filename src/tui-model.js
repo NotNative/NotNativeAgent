@@ -185,7 +185,7 @@ export class TuiProjection {
       id, name, metadata, role,
       state: 'idle', records: [], editor: new EditorBuffer(), unread: false,
       pendingPermission: null, permissionOffset: 0, activeTurnId: null, confirmClose: false, confirmClear: false,
-      viewportEnd: null, viewportLineCount: 0, expandedTurns: new Set(), usage: null,
+      viewportEnd: null, viewportLineCount: 0, expandedTurns: new Set(), detailedTurns: new Set(), usage: null,
       contextBytes: 0, contextLimitBytes: null, contextTokens: null, contextLimitTokens: null,
       contextThresholdTokens: null, contextOutputReserveTokens: null,
       contextParallelCapacity: null, contextMeasurement: null, contextSource: null,
@@ -269,8 +269,7 @@ export class TuiProjection {
     const turnId = [...session.records].reverse().find((record) => completed.has(record.turn_id)
       && ['tool_status', 'review_status'].includes(record.type))?.turn_id;
     if (!turnId) return false;
-    if (session.expandedTurns.has(turnId)) session.expandedTurns.delete(turnId);
-    else session.expandedTurns.add(turnId);
+    cycleActivityView(session, turnId);
     return true;
   }
 
@@ -281,8 +280,7 @@ export class TuiProjection {
     const completed = records.some((record) => record.type === 'turn_result' && record.turn_id === turnId);
     const hasActivity = records.some((record) => ['tool_status', 'review_status'].includes(record.type) && record.turn_id === turnId);
     if (!completed || !hasActivity) return false;
-    if (session.expandedTurns.has(turnId)) session.expandedTurns.delete(turnId);
-    else session.expandedTurns.add(turnId);
+    cycleActivityView(session, turnId);
     return true;
   }
 
@@ -320,6 +318,13 @@ export class TuiProjection {
     this.overlay = Object.freeze({ ...this.overlay, selected: index });
     return true;
   }
+}
+
+function cycleActivityView(session, turnId) {
+  if (session.detailedTurns.has(turnId)) {
+    session.detailedTurns.delete(turnId); session.expandedTurns.delete(turnId);
+  } else if (session.expandedTurns.has(turnId)) session.detailedTurns.add(turnId);
+  else session.expandedTurns.add(turnId);
 }
 
 function applyEvent(session, event) {

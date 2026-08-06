@@ -2,7 +2,7 @@
 import { sanitizeTerminal } from './terminal-adapter.js';
 import { commandPresentation, commandSuggestions, commandsByCategory } from './tui-commands.js';
 import { VERSION } from './product.js';
-import { compactActivityRows, toolFailureSuffix, toolFailureText, toolTargetSuffix } from './tui-activity-renderer.js';
+import { activityDetailRows, collapsedFailureRows, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './tui-activity-renderer.js';
 import { angledWordmarkGradient, decorateOverlay } from './tui-colors.js';
 import { displayWidth, renderMarkdown, truncateTerminal, wrapTerminalLine } from './terminal-markdown.js';
 import { sessionStatusLine } from './tui-status-line.js';
@@ -84,17 +84,22 @@ function contentLines(projection, session, width, targets = new Map()) {
     if (record.type === 'turn_result') {
       const records = activity.get(record.turn_id) ?? [];
       const summary = summarizeActivity(records);
-      const expanded = session.expandedTurns.has(record.turn_id);
+      const mode = session.detailedTurns.has(record.turn_id) ? 'details'
+        : session.expandedTurns.has(record.turn_id) ? 'summary' : 'collapsed';
       const start = lines.length;
-      if (expanded) lines.push(...activityDetail(records, width));
-      else lines.push(...compactActivityRows(records).flatMap((line) => wrap(line, width)));
-      for (let index = start; index < lines.length; index += 1) targets.set(index, { type: 'activity', turnId: record.turn_id });
-      lines.push(...turnReceipt(record, summary, expanded, width), '');
+      if (mode === 'details') lines.push(...activityDetailRows(records, width, wrap));
+      else if (mode === 'summary') lines.push(...summaryActivityRows(records).flatMap((line) => wrap(line, width)));
+      else lines.push(...collapsedFailureRows(records).flatMap((line) => wrap(line, width)));
+      lines.push(...turnReceipt(record, summary, mode, width), '');
+      for (let index = start; index < lines.length - 1; index += 1) targets.set(index, { type: 'activity', turnId: record.turn_id });
       lastVisibleKind = 'turn_result';
       continue;
     }
     const rendered = recordLines(record, width); if (rendered.length === 0) continue;
-    if (record.type === 'stream_delta' && lastVisibleKind === 'activity' && lines.at(-1) !== '') lines.push('');
+    if (record.type === 'stream_delta' && ['activity', 'stream_delta'].includes(lastVisibleKind)) {
+      while (lines.at(-1) === '') lines.pop();
+      lines.push('');
+    }
     lines.push(...rendered); lastVisibleKind = isActivity(record) ? 'activity' : record.type;
   }
   return lines;
@@ -323,43 +328,6 @@ function summarizeActivity(records) {
   return { tools, reviews, engine };
 }
 
-function activityDetail(records, width) {
-  const calls = new Map();
-  for (const record of records) {
-    if (!['tool_status', 'review_status'].includes(record.type)) continue;
-    const id = record.tool_request_id ?? record.provider_call_id ?? `activity:${calls.size}`;
-    const item = calls.get(id) ?? { tool: record.tool ?? 'tool request', target: null, arguments: null, effect: null, scope: null, review: null, result: null };
-    if (record.type === 'review_status') item.review = record;
-    else {
-      item.tool = record.tool;
-      item.target = record.target ?? item.target;
-      item.arguments = record.arguments ?? item.arguments;
-      item.effect = record.effect ?? item.effect;
-      item.scope = record.scope ?? item.scope;
-      item.result = record;
-    }
-    calls.set(id, item);
-  }
-  const lines = [wrap('    v Activity detail', width)[0]];
-  for (const item of calls.values()) {
-    const boundary = [item.effect, item.scope].filter(Boolean).join(' | ');
-    lines.push(...wrap(`    ${toolSymbol(item.result?.status)} ${item.tool}${item.target ? ` (${item.target})` : ''}${boundary ? ` | ${boundary}` : ''}`, width));
-    if (item.arguments) lines.push(...wrap(`      Arguments: ${JSON.stringify(item.arguments)}`, width));
-    if (item.review) lines.push(...wrap(`      Review: ${item.review.outcome} | ${item.review.reason_code ?? '--'}`, width));
-    if (item.result) lines.push(...wrap(`      Result: ${resultDetail(item.result)}`, width));
-  }
-  return lines;
-}
-
-function resultDetail(record) {
-  const values = [record.status];
-  if (Number.isFinite(record.elapsed_ms)) values.push(`${Math.round(record.elapsed_ms)} ms`);
-  if (record.effect_certainty) values.push(`effect ${record.effect_certainty}`);
-  const failure = toolFailureText(record);
-  if (failure) values.push(failure);
-  return values.join(' | ');
-}
-
 function keyLabel(value) {
   if (!value) return 'unbound';
   return value.split('+').map((part) => part.length === 1 ? part.toUpperCase() : `${part[0].toUpperCase()}${part.slice(1)}`).join('+');
@@ -369,7 +337,7 @@ function toolSymbol(status) {
   return !status ? '-' : status === 'running' ? '+' : status === 'succeeded' ? '\u2713' : 'X';
 }
 
-function turnReceipt(record, summary, expanded, width) {
+function turnReceipt(record, summary, mode, width) {
   const toolCount = summary.tools.size;
   const reviewCount = summary.reviews.size;
   const successful = record.outcome === 'completed';
@@ -385,7 +353,7 @@ function turnReceipt(record, summary, expanded, width) {
       receiptTokens(record.usage),
       toolCount ? `${toolCount} tool${toolCount === 1 ? '' : 's'}` : null,
       reviewCount ? `${reviewCount} review${reviewCount === 1 ? '' : 's'}` : null,
-      toolCount || reviewCount ? `Ctrl+O ${expanded ? 'collapse' : 'details'}` : null,
+      toolCount || reviewCount ? `Ctrl+O ${mode === 'collapsed' ? 'summary' : mode === 'summary' ? 'details' : 'collapse'}` : null,
     ].filter(Boolean);
     return wrap(`  ${marker}${basic.length ? ` ${basic.join(' | ')}` : ''}`, width);
   }
@@ -396,7 +364,7 @@ function turnReceipt(record, summary, expanded, width) {
     reviewCount ? `${reviewCount} review${reviewCount === 1 ? '' : 's'}` : null,
     record.failure?.code ? `code ${record.failure.code}` : null,
     recoveryAction(record),
-    toolCount || reviewCount ? `Ctrl+O ${expanded ? 'collapse' : 'details'}` : null,
+    toolCount || reviewCount ? `Ctrl+O ${mode === 'collapsed' ? 'summary' : mode === 'summary' ? 'details' : 'collapse'}` : null,
   ].filter(Boolean);
   return wrap(`  ${marker} ${label}${details.length ? ` | ${details.join(' | ')}` : ''}`, width);
 }
@@ -453,6 +421,7 @@ function decorateContent(line, width, color, index, overlayKind) {
   const succeededTool = line.match(/^(\s*)(\u2713)(.*)$/u); if (succeededTool) return `${succeededTool[1]}${paint('38;5;77', succeededTool[2])}${paint('38;5;245', succeededTool[3])}`;
   if (/^\s+\+/u.test(line)) return paint('38;5;245', line);
   if (/^\s+X|^!/u.test(line)) return paint('38;5;203', line);
+  if (/^\s+Activity summary/u.test(line)) return paint('38;5;245', line);
   if (/^\s+v Activity detail/u.test(line)) return paint('38;5;141', line);
   if (/^\s+[*-](?:\s|$)/u.test(line)) return paint('38;5;103', line);
   return line;
