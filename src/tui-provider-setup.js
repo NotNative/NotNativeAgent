@@ -47,9 +47,11 @@ export function handleProviderRoleNavigation(action, workspace) {
   const direction = action.action === 'left' ? -1 : 1;
   const role = roles[(current + direction + roles.length) % roles.length];
   const projected = workspace.projection.active();
-  workspace.projection.openOverlay(providerOverlay({ config: workspace.activeConfig() }, {
+  const config = role === 'primary' ? workspace.activeConfig() : workspace.config;
+  workspace.projection.openOverlay(providerOverlay({ config }, {
     role, inheritRoute: projected.role === 'primary' ? null : workspace.config.routes.primary,
     canManage: projected.role === 'primary' && role === 'primary',
+    canAssign: projected.role === 'primary', isMain: projected.role === 'primary',
   }));
   return true;
 }
@@ -380,7 +382,8 @@ function openProviderManager(workspace, returnParent, selectedId) {
   const projected = workspace.projection.active();
   const view = providerOverlay({ config: workspace.activeConfig() }, {
     role: 'primary', inheritRoute: projected.role === 'primary' ? null : workspace.config.routes.primary,
-    canManage: projected.role === 'primary', selectedId,
+    canManage: projected.role === 'primary', canAssign: true,
+    isMain: projected.role === 'primary', selectedId,
   });
   workspace.projection.openOverlay(returnParent ? { ...view, ...returnParent } : view);
 }

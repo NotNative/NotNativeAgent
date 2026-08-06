@@ -192,17 +192,17 @@ model catalog before opening its model menu. Use Up/Down to choose and Enter to 
 `/provider add`, `/provider edit`, `/provider test`, and `/provider delete`; run `/help` for
 their exact forms. Those operations are also selectable inside `/provider`; Enter closes
 the menu and places the corresponding command form in the editor for completion.
-Credential arguments name environment variables and never contain the
-credential itself. Deletion is refused while any conversation role still uses the profile,
-and every persisted manifest replacement retains a last-known-good `.bak` file. Left/Right in the
-provider manager selects a pronounced Primary, Sub-agents, Permission reviewer, or Vision role tab.
-Only Primary exposes profile-management actions. A specialist tab assigns an existing profile to
-that role or clears the assignment with “No dedicated profile.” A cleared specialist remains
-unassigned and follows Primary when that role can use it; Vision is attempted only after Primary
-cannot process the image. The direct clear form is `/provider ROLE clear`. A Main-tab provider
-choice becomes the persisted workspace default used by external consumers
-and tabs created later. Existing tabs retain independent route snapshots; “Copy Main” replaces
-a standard tab's route set once. `/model` changes only the active conversation's temporary
+Credential arguments name environment variables and never contain the credential itself.
+Deletion is refused while any conversation Primary route or global specialist role still uses the
+profile, and every persisted manifest replacement retains a last-known-good `.bak` file. Left/Right
+selects a pronounced Primary, Sub-agents, Permission reviewer, or Vision role tab. Only Main's
+Primary tab exposes profile-management actions. Primary is conversation-specific: Main supplies
+the one-time default copied by new tabs, while existing tabs retain their own routes. Reviewer,
+Sub-agents, and Vision are global workspace roles and can be assigned or cleared only from Main;
+changes propagate to every open and saved tab. A cleared specialist falls back to the requesting
+tab's Primary route. Vision is attempted only after that Primary cannot process the image. The
+direct clear form is `/provider ROLE clear`. “Copy Main” copies only Main's Primary route once.
+`/model` changes only the active conversation's temporary
 primary-model override and does not rewrite the provider profile. Configuration changes are
 immediate while idle and take effect at the next model boundary while a turn is running.
 `/config` is the keyboard-driven hub for focused configuration surfaces. It opens the

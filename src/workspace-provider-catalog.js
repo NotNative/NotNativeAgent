@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  manifestFromConfig, withPrimaryRoute, withProvider, withoutProvider,
+  manifestFromConfig, withGlobalSpecialistRoutes, withPrimaryRoute, withProvider, withoutProvider,
 } from './route-configuration.js';
+import { resolveManifest } from './config.js';
+import { ContractError } from './ids.js';
 
 export function providerAdditionPlan(sessions, activeId, globalConfig, input) {
   let next = withProvider(globalConfig, input);
@@ -35,10 +37,44 @@ export function providerCatalogEntries(sessions, catalogConfig) {
   for (const session of sessions.values()) {
     const current = session.engine.pendingConfig ?? session.engine.config;
     const manifest = manifestFromConfig(catalogConfig);
-    for (const [role, route] of Object.entries(current.routes)) preserveAssignment(manifest.routes[role], role, route);
-    entries.push({ session, manifest });
+    preserveAssignment(manifest.routes.primary, 'primary', current.routes.primary);
+    const synchronized = withGlobalSpecialistRoutes(resolveCatalog(manifest, current), catalogConfig);
+    entries.push({ session, manifest: synchronized.manifest });
   }
   return entries;
+}
+
+export function specialistRouteEntries(sessions, globalConfig) {
+  return [...sessions.values()].map((session) => {
+    const current = session.engine.pendingConfig ?? session.engine.config;
+    return { session, manifest: withGlobalSpecialistRoutes(current, globalConfig).manifest };
+  });
+}
+
+export function assertProviderUnused(sessions, globalConfig, id) {
+  const globalRoles = ['subagent', 'reviewer', 'vision'].filter((role) => {
+    const route = globalConfig.routes[role];
+    return route.providerId === id && route.assigned !== false;
+  });
+  if (globalRoles.length > 0) {
+    throw new ContractError('provider_in_use', `provider ${id} is assigned to global ${globalRoles.join(', ')}`);
+  }
+  for (const session of sessions.values()) {
+    const config = session.engine.pendingConfig ?? session.engine.config;
+    if (config.routes.primary.providerId === id) {
+      throw new ContractError('provider_in_use', `provider ${id} is the primary route in ${session.name}`);
+    }
+  }
+}
+
+
+function resolveCatalog(manifest, current) {
+  const currentManifest = manifestFromConfig(current);
+  const known = new Set(manifest.providers.map((provider) => provider.id));
+  for (const provider of currentManifest.providers) {
+    if (provider.id === current.routes.primary.providerId && !known.has(provider.id)) manifest.providers.push(provider);
+  }
+  return resolveManifest(manifest);
 }
 
 function preserveAssignment(manifestRoute, role, route) {

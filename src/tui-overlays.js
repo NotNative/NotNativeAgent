@@ -1,5 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
+const PROVIDER_ROLE_LABELS = Object.freeze({
+  primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
+});
+const PROVIDER_ROLE_PURPOSES = Object.freeze({
+  primary: 'Choose the active inference profile for this conversation and eligible work.',
+  subagent: 'Global profile used when NNA delegates work to sub-agents.',
+  reviewer: 'Global profile used for permission and safety review.',
+  vision: 'Global profile used for image analysis when the requesting agent cannot process images.',
+});
+
 export function auditOverlay(entries) {
   if (!Array.isArray(entries) || entries.length === 0) return overlay('audit', 'Reviewer audit', ['No reviewed tool calls.']);
   const lines = [];
@@ -22,32 +32,29 @@ export function healthOverlay(value) {
 export function providerOverlay(engine, options = {}) {
   const role = options.role ?? 'primary';
   const active = engine.config.routes[role];
-  const labels = { primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision' };
+  const labels = PROVIDER_ROLE_LABELS;
   const roleLabel = labels[role] ?? role;
   const assigned = role === 'primary' || active.assigned !== false;
   const manageProfiles = role === 'primary' && options.canManage;
-  const purpose = {
-    primary: 'Choose the active inference profile for this conversation and eligible work.',
-    subagent: 'Dedicated profile used when NNA delegates work to sub-agents.',
-    reviewer: 'Dedicated profile used for permission and safety review.',
-    vision: 'Used for image analysis when Primary cannot process images.',
-  }[role];
+  const purpose = PROVIDER_ROLE_PURPOSES[role];
+  const scope = providerScope(role, options.isMain);
   const lines = [
     purpose,
     '',
+    `Scope     ${scope}`,
     `Role      ${roleLabel}`,
     `Profile   ${assigned ? active.providerId : 'Not assigned'}`,
-    `Model     ${assigned ? active.model : 'Primary is used when eligible'}`,
+    `Model     ${assigned ? active.model : "Requesting conversation's Primary is used"}`,
   ];
   const items = [];
   if (role === 'primary' && options.inheritRoute) items.push({
-    id: 'inherit', label: 'Copy every route from Main',
-    detail: 'One-time copy; later Main changes do not alter this tab.',
+    id: 'inherit', label: 'Copy Primary profile from Main',
+    detail: 'One-time primary-route copy; global specialist roles remain shared.',
     section: 'Conversation route',
   });
   if (role !== 'primary') items.push({
     id: 'clear-role', label: 'No dedicated profile', badge: assigned ? '' : 'active',
-    detail: 'Clear this role assignment; Primary remains available when eligible.',
+    detail: 'Clear this global assignment; each requesting conversation then uses its own Agent profile.',
     section: `${roleLabel} assignment`,
   });
   for (const profile of Object.values(engine.config.providerProfiles)) {
@@ -72,10 +79,17 @@ export function providerOverlay(engine, options = {}) {
     ...menuOverlay('provider', 'Providers', lines, items, options.selectedId ?? (assigned ? active.providerId : 'clear-role')),
     tabs: Object.freeze(Object.entries(labels).map(([id, label]) => Object.freeze({ id, label, active: id === role }))),
     role,
-    actionLabel: manageProfiles ? 'Left/Right role · Up/Down choose · Enter make active/manage'
+    actionLabel: role !== 'primary' && options.canAssign === false
+      ? 'Left/Right role · Global assignments are managed from Main'
+      : manageProfiles ? 'Left/Right role · Up/Down choose · Enter make active/manage'
       : role === 'primary' ? 'Left/Right role · Up/Down choose · Enter make active'
         : 'Left/Right role · Up/Down choose · Enter assign/clear',
   });
+}
+
+function providerScope(role, isMain) {
+  if (role !== 'primary') return 'Global workspace role (shared by every conversation)';
+  return isMain ? 'Main workspace default (new conversations copy this once)' : 'This conversation only';
 }
 
 export function modelOverlay(engine, models = [], options = {}) {

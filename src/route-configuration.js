@@ -4,6 +4,8 @@ import { dirname } from 'node:path';
 import { resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
 
+export const SPECIALIST_ROUTE_ROLES = Object.freeze(['subagent', 'reviewer', 'vision']);
+
 export function manifestFromConfig(config) {
   return compact({
     format_version: 1,
@@ -100,6 +102,19 @@ export function withoutRoleRoute(config, role) {
   delete manifest.routes[role].provider_id;
   delete manifest.routes[role].model;
   delete manifest.routes[role].context_limit_bytes;
+  return { manifest, config: resolveManifest(manifest) };
+}
+
+export function withGlobalSpecialistRoutes(config, globalConfig) {
+  const manifest = manifestFromConfig(config);
+  const globalManifest = manifestFromConfig(globalConfig);
+  const knownProviders = new Set(manifest.providers.map((provider) => provider.id));
+  for (const provider of globalManifest.providers) {
+    if (!knownProviders.has(provider.id)) manifest.providers.push(provider);
+  }
+  for (const role of SPECIALIST_ROUTE_ROLES) {
+    manifest.routes[role] = { ...globalManifest.routes[role] };
+  }
   return { manifest, config: resolveManifest(manifest) };
 }
 

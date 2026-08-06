@@ -7,7 +7,8 @@ import { FairScheduler } from './fair-scheduler.js';
 import { userDataPaths } from './product.js';
 import {
   booleanSettingValue, manifestFromConfig, withBooleanSetting, withContextSettings, withRecoverySettings,
-  withPrimaryRoute, withRoleRoute, withUpdatedProvider, withoutProvider, withoutRoleRoute,
+  withPrimaryRoute, withUpdatedProvider,
+  withGlobalSpecialistRoutes,
   withKeyBindings, withMcpEnabled, withMcpServer, withMcpServerUpdate, withoutMcpServer, withRuntimeLimits,
 } from './route-configuration.js';
 import { SearxngClient } from './searxng-client.js';
@@ -24,7 +25,10 @@ import { WorkspaceTabPersistence } from './workspace-tab-persistence.js';
 import { boundedProviderCapabilities } from './provider-capabilities.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './workspace-models.js';
 import { advanceWorkspaceConfig, publishWorkspaceConfiguration, writeWorkspaceManifest } from './workspace-configuration-publication.js';
-import { providerAdditionPlan, providerCatalogEntries, routePresentation } from './workspace-provider-catalog.js';
+import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './workspace-provider-catalog.js';
+import {
+  clearWorkspaceProviderRole, deleteWorkspaceProvider, selectWorkspaceProviderRole,
+} from './workspace-provider-routing.js';
 import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
 import { discoverWorkspaceProviderModels } from './workspace-provider-discovery.js';
@@ -64,7 +68,7 @@ export class InteractiveWorkspace {
   dreamCommand(action) { return runWorkspaceDreamCommand(this, action); }
   async restore() {
     const result = await restoreWorkspace(this);
-    if (result.complete) await this.#savePoolRecoverable();
+    if (result.complete) await this._savePoolRecoverable();
     return result.mainId;
   }
   async create(name = 'Main', sessionId = newId('session'), options = {}) {
@@ -75,7 +79,9 @@ export class InteractiveWorkspace {
       this.onChange();
     };
     const paths = userDataPaths();
-    const sessionConfig = options.config ?? this.config;
+    const sourceConfig = options.config ?? this.config;
+    const synchronizedConfig = withGlobalSpecialistRoutes(sourceConfig, this.config).config;
+    const sessionConfig = Object.freeze({ ...synchronizedConfig, version: sourceConfig.version });
     const engine = new SessionEngine({
       config: sessionConfig, sessionId, surface: 'interactive_tui', output,
       dataPaths: this.options.dataPaths,
@@ -108,14 +114,14 @@ export class InteractiveWorkspace {
     Object.assign(this.projection.sessions.get(sessionId), engine.resumeBoundary ?? { beforeSequence: null, hasMore: false });
     restorePresentation(this.projection.sessions.get(sessionId), engine, options.presentation);
     this.projection.activate(sessionId);
-    if (options.persist !== false) await this.#savePoolRecoverable();
+    if (options.persist !== false) await this._savePoolRecoverable();
     this.onChange();
     return sessionId;
   }
   createNext() { return createNextConversation(this); }
   createAtWorkspace(value) { return createWorkspaceConversation(this, value); }
   submitActive(content) {
-    const session = this.#active();
+    const session = this._active();
     const projected = this.projection.active();
     const attachments = projected.pendingAttachments.splice(0).map(({ path, mime_type }) => ({ path, mime_type }));
     session.meaningful = true;
@@ -126,7 +132,7 @@ export class InteractiveWorkspace {
     }, 'authenticated-interactive-operator'));
   }
   steerActive(content) {
-    const session = this.#active();
+    const session = this._active();
     return session.ingress.submit({
       version: '1.0', type: 'steer', request_id: newId('tui'), content,
     }, 'authenticated-interactive-operator').then((result) => {
@@ -138,7 +144,7 @@ export class InteractiveWorkspace {
     });
   }
   decideActive(choice) {
-    const session = this.#active();
+    const session = this._active();
     const pending = this.projection.active().pendingPermission;
     if (!pending) throw new ContractError('permission_missing', 'no interactive permission is pending');
     return session.ingress.submit({
@@ -147,27 +153,27 @@ export class InteractiveWorkspace {
     }, 'authenticated-interactive-operator');
   }
   cancelActive() {
-    const session = this.#active();
+    const session = this._active();
     if (this.projection.active().pendingPermission) return this.decideActive('cancel');
     return session.ingress.submit({
       version: '1.0', type: 'cancel', request_id: newId('tui'),
     }, 'authenticated-interactive-operator');
   }
   retryActiveAttachment(id, content) {
-    const session = this.#active();
+    const session = this._active();
     this.projection.apply(session.id, { type: 'user_input', text: content });
     return this.#own(session.ingress.submit({
       version: '1.0', type: 'attachment_retry', request_id: newId('tui'), attachment_id: id, content,
     }, 'authenticated-interactive-operator'));
   }
   removeActiveAttachment(id) {
-    const session = this.#active();
+    const session = this._active();
     return session.ingress.submit({
       version: '1.0', type: 'attachment_remove', request_id: newId('tui'), attachment_id: id,
     }, 'authenticated-interactive-operator');
   }
   cycleReviewPosture() {
-    const session = this.#active();
+    const session = this._active();
     const projected = this.projection.active();
     projected.reviewPosture = nextReviewPosture(projected.reviewPosture);
     session.engine.reviewPosture = projected.reviewPosture;
@@ -183,14 +189,14 @@ export class InteractiveWorkspace {
   }
   renameActive(name) {
     if (!name || name.length > 128) throw new ContractError('session_name_invalid', 'conversation name is invalid');
-    const session = this.#active();
+    const session = this._active();
     session.name = name;
     this.projection.active().name = name;
     this.tabPersistence.observe(this.#savePool(), this.#tasks);
     this.onChange();
   }
   async closeActive(confirm = false) {
-    const session = this.#active();
+    const session = this._active();
     const projected = this.projection.active();
     if (projected.role === 'primary') {
       this.projection.showNotice('session', 'The primary conversation remains attached until NNA exits.');
@@ -206,7 +212,7 @@ export class InteractiveWorkspace {
     await session.engine.shutdown({ request_id: newId('tui_close'), type: 'shutdown' });
     this.sessions.delete(session.id);
     this.projection.remove(session.id);
-    await this.#savePoolRecoverable();
+    await this._savePoolRecoverable();
     this.onChange();
     return { closed: true };
   }
@@ -227,7 +233,7 @@ export class InteractiveWorkspace {
     const engineFailure = shutdowns.find((item) => item.status === 'rejected');
     if (engineFailure) throw engineFailure.reason;
   }
-  activeEngine() { return this.#active().engine; }
+  activeEngine() { return this._active().engine; }
   activeConfig() {
     const engine = this.activeEngine();
     return engine.pendingConfig ?? engine.config;
@@ -243,68 +249,46 @@ export class InteractiveWorkspace {
     return this.selectRoute(route.providerId, model);
   }
   async selectRoute(providerId, model) {
-    const active = this.#active();
+    const active = this._active();
     const projected = this.projection.active();
     const next = withPrimaryRoute(active.engine.pendingConfig ?? active.engine.config, providerId, model);
-    await this.#updateSession(active, next.manifest);
-    this.#projectRoute(active.id, next.config.routes.primary);
+    await this._updateSession(active, next.manifest);
+    this._projectRoute(active.id, next.config.routes.primary);
     this.onChange();
-    await this.#savePoolRecoverable();
+    await this._savePoolRecoverable();
     return { scope: projected.role === 'primary' ? 'main_conversation' : 'conversation', providerId, model };
   }
   async usePrimaryRoute() {
-    const active = this.#active();
+    const active = this._active();
     if (this.projection.active().role === 'primary') return { scope: 'primary' };
-    const manifest = manifestFromConfig(this.config);
-    await this.#updateSession(active, manifest);
-    this.#projectRoute(active.id, this.config.routes.primary);
+    const current = active.engine.pendingConfig ?? active.engine.config;
+    const primary = this.config.routes.primary;
+    const copied = withPrimaryRoute(current, primary.providerId, primary.model);
+    const manifest = withGlobalSpecialistRoutes(copied.config, this.config).manifest;
+    await this._updateSession(active, manifest);
+    this._projectRoute(active.id, this.config.routes.primary);
     this.onChange();
-    await this.#savePoolRecoverable();
+    await this._savePoolRecoverable();
     return { scope: 'copied' };
   }
   async followPrimaryRoute() { return this.usePrimaryRoute(); }
-  async selectProviderForRole(role, providerId) {
-    const active = this.#active();
-    const current = active.engine.pendingConfig ?? active.engine.config;
-    const profile = current.providerProfiles[providerId];
-    if (!profile) throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
-    const sessionNext = withRoleRoute(current, role, providerId, profile.model);
-    if (this.projection.active().role === 'primary') {
-      const globalNext = withRoleRoute(this.config, role, providerId, profile.model);
-      await publishWorkspaceConfiguration(this, [{ session: active, manifest: sessionNext.manifest }], globalNext);
-    } else await this.#updateSession(active, sessionNext.manifest);
-    if (role === 'primary') this.#projectRoute(active.id, sessionNext.config.routes.primary);
-    this.onChange();
-    await this.#savePoolRecoverable();
-    return { scope: this.projection.active().role === 'primary' ? 'workspace_default' : 'conversation', role, providerId, model: profile.model };
-  }
-  async clearProviderForRole(role) {
-    const active = this.#active();
-    const current = active.engine.pendingConfig ?? active.engine.config;
-    const sessionNext = withoutRoleRoute(current, role);
-    if (this.projection.active().role === 'primary') {
-      const globalNext = withoutRoleRoute(this.config, role);
-      await publishWorkspaceConfiguration(this, [{ session: active, manifest: sessionNext.manifest }], globalNext);
-    } else await this.#updateSession(active, sessionNext.manifest);
-    this.onChange();
-    await this.#savePoolRecoverable();
-    return { scope: this.projection.active().role === 'primary' ? 'workspace_default' : 'conversation', role, assigned: false };
-  }
+  selectProviderForRole(role, providerId) { return selectWorkspaceProviderRole(this, role, providerId); }
+  clearProviderForRole(role) { return clearWorkspaceProviderRole(this, role); }
   async addProvider(input) {
     if (this.projection.active().role !== 'primary') {
       throw new ContractError('provider_primary_required', 'add providers from the Main conversation');
     }
-    const { next, entries } = providerAdditionPlan(this.sessions, this.#active().id, this.config, input);
+    const { next, entries } = providerAdditionPlan(this.sessions, this._active().id, this.config, input);
     await publishWorkspaceConfiguration(this, entries, next);
     for (const entry of entries) {
-      if (entry.route) this.#projectRoute(entry.session.id, entry.route);
+      if (entry.route) this._projectRoute(entry.session.id, entry.route);
     }
     this.onChange();
-    await this.#savePoolRecoverable();
+    await this._savePoolRecoverable();
     return next.config.providerProfiles[input.id];
   }
   async editProvider(id, input) {
-    this.#requirePrimaryProviderManagement();
+    this._requireMainProviderManagement();
     const globalNext = withUpdatedProvider(this.config, id, input);
     const entries = [];
     for (const session of this.sessions.values()) {
@@ -313,26 +297,12 @@ export class InteractiveWorkspace {
       entries.push({ session, manifest: sessionNext.manifest, route: sessionNext.config.routes.primary });
     }
     await publishWorkspaceConfiguration(this, entries, globalNext);
-    for (const entry of entries) this.#projectRoute(entry.session.id, entry.route);
+    for (const entry of entries) this._projectRoute(entry.session.id, entry.route);
     this.onChange();
-    await this.#savePoolRecoverable();
+    await this._savePoolRecoverable();
     return globalNext.config.providerProfiles[id];
   }
-  async deleteProvider(id) {
-    this.#requirePrimaryProviderManagement();
-    for (const session of this.sessions.values()) {
-      const config = session.engine.pendingConfig ?? session.engine.config;
-      const roles = Object.entries(config.routes)
-        .filter(([role, route]) => route.providerId === id && (role === 'primary' || route.assigned !== false))
-        .map(([role]) => role);
-      if (roles.length > 0) {
-        throw new ContractError('provider_in_use', `provider ${id} is assigned to ${roles.join(', ')} in ${session.name}`);
-      }
-    }
-    const next = withoutProvider(this.config, id);
-    await this.#publishProviderCatalog(next);
-    return { id, deleted: true };
-  }
+  deleteProvider(id) { return deleteWorkspaceProvider(this, id); }
   async testProvider(id) {
     const config = this.activeConfig();
     const profile = config.providerProfiles[id];
@@ -350,7 +320,7 @@ export class InteractiveWorkspace {
       images: capabilities?.images,
     };
   }
-  async discoverProviderModels(input) { this.#requirePrimaryProviderManagement(); return discoverWorkspaceProviderModels(this, input); }
+  async discoverProviderModels(input) { this._requireMainProviderManagement(); return discoverWorkspaceProviderModels(this, input); }
   async toggleConfigSetting(setting) {
     const value = !booleanSettingValue(this.config, setting);
     const config = await this.#publishGlobalConfiguration((current) => withBooleanSetting(current, setting, value));
@@ -377,7 +347,7 @@ export class InteractiveWorkspace {
       entries.push({ session, manifest: transform(current).manifest });
     }
     await publishWorkspaceConfiguration(this, entries, globalNext);
-    this.onChange(); await this.#savePoolRecoverable();
+    this.onChange(); await this._savePoolRecoverable();
     return globalNext.config;
   }
   mcpStatus() { return configuredMcpStatus(this.config, this.activeEngine()); }
@@ -431,9 +401,14 @@ export class InteractiveWorkspace {
     this.projection.showNotice(error.code ?? 'console', error.message ?? 'Console input failed.');
     this.onChange();
   }
-  #requirePrimaryProviderManagement() {
+  _requireMainProviderManagement() {
     if (this.projection.active().role !== 'primary') {
       throw new ContractError('provider_primary_required', 'manage provider profiles from the Main conversation');
+    }
+  }
+  _requireMainSpecialistManagement() {
+    if (this.projection.active().role !== 'primary') {
+      throw new ContractError('provider_main_required', 'assign global reviewer, sub-agent, and vision profiles from Main');
     }
   }
   #webSearchState() {
@@ -449,32 +424,39 @@ export class InteractiveWorkspace {
     await writeWorkspaceManifest(this, next.manifest);
     this.config = advanceWorkspaceConfig(this, next.config);
     this.onChange();
-    await this.#savePoolRecoverable();
+    await this._savePoolRecoverable();
     return { servers: next.config.mcpServers, restartRequired: true };
   }
-  async #publishProviderCatalog(next) {
+  async _publishProviderCatalog(next) {
     const entries = providerCatalogEntries(this.sessions, next.config);
     await publishWorkspaceConfiguration(this, entries, next);
     for (const { session } of entries) {
-      this.#projectRoute(session.id, (session.engine.pendingConfig ?? session.engine.config).routes.primary);
+      this._projectRoute(session.id, (session.engine.pendingConfig ?? session.engine.config).routes.primary);
     }
     this.onChange();
-    await this.#savePoolRecoverable();
+    await this._savePoolRecoverable();
   }
 
-  async #updateSession(session, manifest) {
+  async _publishSpecialistRoutes(next) {
+    const entries = specialistRouteEntries(this.sessions, next.config);
+    await publishWorkspaceConfiguration(this, entries, next);
+    this.onChange();
+    await this._savePoolRecoverable();
+  }
+
+  async _updateSession(session, manifest) {
     await session.engine.updateConfiguration({
       request_id: newId('tui_config'), type: 'configuration_update', manifest,
     });
   }
-  #projectRoute(sessionId, route) {
+  _projectRoute(sessionId, route) {
     const projected = this.projection.sessions.get(sessionId);
     const session = this.sessions.get(sessionId);
     const config = session?.engine.pendingConfig ?? session?.engine.config;
     if (projected) projected.metadata = routePresentation(config, route, projected.metadata);
   }
 
-  #active() {
+  _active() {
     const session = this.sessions.get(this.projection.activeId);
     if (!session) throw new ContractError('session_missing', 'no active conversation');
     return session;
@@ -483,7 +465,7 @@ export class InteractiveWorkspace {
   #savePool() {
     return this.tabPersistence.save();
   }
-  #savePoolRecoverable() {
+  _savePoolRecoverable() {
     return this.tabPersistence.recover();
   }
   #own(operation) {

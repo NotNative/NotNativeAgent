@@ -357,8 +357,11 @@ hub when it was opened there.
 Memory service policy, attachment admission, recovery behavior, deadlines, concurrency,
 and context safety ceilings are not presented as ordinary user toggles.
 
-Use `/provider` to add, edit, test, and safely delete provider profiles from its Primary role tab,
-and use the specialist tabs to assign an existing profile to reviewer, subagent, or vision.
+Use `/provider` to add, edit, test, and safely delete provider profiles from Main's Primary role tab.
+Primary routes are conversation-specific: Main supplies the default copied once by new tabs. The
+reviewer, subagent, and vision tabs are global workspace roles; assign or clear them from Main and
+the change propagates to all conversations. An unassigned specialist falls back to the requesting
+conversation's Primary route.
 Add and edit remain inside the provider manager: choose LM Studio, Ollama, or another
 OpenAI-compatible endpoint; complete the guided fields; then choose from the endpoint's
 discovered model catalog. If discovery is unavailable, the same form offers bounded manual
@@ -376,8 +379,8 @@ provided, it is kept in the permission-restricted
 unauthenticated profile. Subsequent installer runs detect the existing profile and skip
 the entire bootstrap without modifying it.
 Clear a specialist assignment with “No dedicated profile” or `/provider ROLE clear`. Profile
-mutations are available only from Main. Deletion is blocked while an explicitly assigned role in
-any open conversation references the profile.
+mutations and global specialist assignments are available only from Main. Deletion is blocked
+while a global specialist role or any conversation's Primary route references the profile.
 Canonical manifest writes are atomic and preserve the prior file as `settings.json.bak`.
 Use `/model` for a conversation-local model override. `/mcp` provides guided add, edit,
 test, enable, disable, and delete flows for Streamable HTTP or stdio server definitions.

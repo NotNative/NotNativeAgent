@@ -998,7 +998,7 @@ test('Escape returns from a menu without changing its selection', async () => {
   assert.equal(projection.overlay, null);
 });
 
-test('AC-PROV-03 Main publishes defaults while existing conversations keep independent route snapshots', async () => {
+test('AC-PROV-03 primary routes stay tab-local while Main publishes global specialist routes', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-route-menu-'));
   const configPath = join(root, 'manifest.json');
   const initial = resolveManifest({
@@ -1031,11 +1031,12 @@ test('AC-PROV-03 Main publishes defaults while existing conversations keep indep
   assert.deepEqual(projection.sessions.get(main).metadata, { provider: 'two', endpoint: 'http://127.0.0.1:2/v1', model: 'a', workspace: root });
   assert.equal(workspace.config.routes.primary.model, 'b');
   assert.equal(workspace.config.routes.reviewer.providerId, 'two');
+  assert.equal(workspace.sessions.get(other).engine.config.routes.reviewer.providerId, 'two');
   assert.deepEqual(projection.sessions.get(other).metadata, { provider: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'c', workspace: root });
   projection.activate(other);
   await workspace.usePrimaryRoute();
   assert.deepEqual(projection.sessions.get(other).metadata, { provider: 'two', endpoint: 'http://127.0.0.1:2/v1', model: 'b', workspace: root });
-  await workspace.selectProviderForRole('reviewer', 'two');
+  await assert.rejects(workspace.selectProviderForRole('reviewer', 'two'), { code: 'provider_main_required' });
   assert.equal(workspace.activeConfig().routes.reviewer.providerId, 'two');
   projection.activate(main);
   await workspace.addProvider({ id: 'three', endpoint: 'http://127.0.0.1:3/v1', model: 'd' });

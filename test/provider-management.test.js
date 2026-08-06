@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrateManifestDocument, resolveManifest } from '../src/config.js';
 import {
-  manifestFromConfig, persistManifest, withRoleRoute, withUpdatedProvider, withoutProvider, withoutRoleRoute,
+  manifestFromConfig, persistManifest, withGlobalSpecialistRoutes, withRoleRoute, withUpdatedProvider,
+  withoutProvider, withoutRoleRoute,
 } from '../src/route-configuration.js';
 import { InteractiveWorkspace } from '../src/interactive-workspace.js';
 import { prepareEngineConfiguration } from '../src/runtime-config.js';
@@ -62,6 +63,33 @@ test('cleared specialist assignment remains unassigned and follows Primary', () 
   assert.equal(changed.config.routes.reviewer.providerId, 'two');
   assert.equal(changed.config.routes.reviewer.model, 'other');
   assert.throws(() => withoutRoleRoute(changed.config, 'primary'), { code: 'primary_route_required' });
+});
+
+test('global specialist synchronization preserves a conversation primary route', () => {
+  const global = configuration(process.cwd());
+  const conversation = withRoleRoute(withRoleRoute(global, 'primary', 'two', 'tab-model').config, 'reviewer', 'one', 'stale-reviewer').config;
+  const synchronized = withGlobalSpecialistRoutes(conversation, global).config;
+  assert.equal(synchronized.routes.primary.providerId, 'two');
+  assert.equal(synchronized.routes.primary.model, 'tab-model');
+  assert.equal(synchronized.routes.reviewer.providerId, 'two');
+  assert.equal(synchronized.routes.reviewer.model, 'reviewer-override');
+});
+
+test('restored conversation configuration discards stale specialist assignments', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-provider-role-migration-'));
+  const global = withoutRoleRoute(configuration(root), 'reviewer').config;
+  const stale = withRoleRoute(global, 'reviewer', 'two', 'stale-reviewer').config;
+  const workspace = new InteractiveWorkspace({
+    config: global, configPath: join(root, 'settings.json'),
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
+  });
+  await workspace.create('Main', 'main');
+  const restored = await workspace.create('Restored', 'restored', { role: 'standard', config: stale });
+  assert.equal(workspace.sessions.get(restored).engine.config.routes.reviewer.assigned, false);
+  workspace.projection.activate('main');
+  await workspace.deleteProvider('two');
+  assert.equal(workspace.config.providerProfiles.two, undefined);
+  await workspace.shutdown();
 });
 
 test('legacy auto-discovered specialist defaults migrate back to Primary inheritance', () => {
