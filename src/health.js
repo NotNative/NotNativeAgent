@@ -31,6 +31,7 @@ export class HealthInspector {
       network_destinations: await inspectNetworkDestinations(this.engine),
       reviewer_llm: reviewerModelHealth(this.engine),
       ledger: status('ready', this.engine.ledger.health()),
+      governance: status('ready', this.engine.governance.health()),
       sandbox: status(this.engine.tools?.paths?.root ? 'ready' : 'unavailable', { root: this.engine.tools?.paths?.root ?? null }),
       memory: await this.engine.memory.health(),
       hooks: this.engine.hooks.health(), events: this.engine.events.health(),

@@ -21,6 +21,8 @@ import { ProjectIntake } from './project-intake.js';
 import { ModelRuntimeRegistry } from './model-runtime.js';
 import { ContinuationCompactor } from './continuation-compactor.js';
 import { SkillRegistry } from './skill-registry.js';
+import { GovernanceEngine } from './governance-engine.js';
+import { join } from 'node:path';
 
 export function installEngineComponents(engine, options, storeRoot, hooks) {
   installRouting(engine, options);
@@ -30,7 +32,7 @@ export function installEngineComponents(engine, options, storeRoot, hooks) {
   installOutput(engine, options);
   installExtensions(engine, options);
   installCapabilities(engine, options, storeRoot, hooks);
-  installReview(engine, options);
+  installReview(engine, options, storeRoot);
   engine.toolLoop = toolLoop(engine, hooks);
   engine.providerRunner = providerRunner(engine, hooks);
   engine.continuationCompactor = options.continuationCompactor ?? new ContinuationCompactor({
@@ -130,7 +132,15 @@ function installCapabilities(engine, options, storeRoot, hooks) {
   });
 }
 
-function installReview(engine, options) {
+function installReview(engine, options, storeRoot) {
+  engine.governance = options.governance ?? new GovernanceEngine({
+    durable: engine.config.persistence === 'durable',
+    root: options.governanceRoot ?? (options.storeRoot
+      ? join(storeRoot, '.governance') : engine.dataPaths.governanceLedger),
+    sessionId: engine.sessionId,
+    telemetry: engine.telemetry,
+    persistenceDeadlineMs: engine.config.limits.persistenceFlushMs,
+  });
   engine.ledger = new ReviewerLedger({
     durable: engine.config.persistence === 'durable',
     root: options.reviewerRoot ?? userDataPaths().reviewerLedger, sessionId: engine.sessionId,
@@ -139,6 +149,7 @@ function installReview(engine, options) {
   });
   engine.reviewer = new MandatoryReviewer({
     ledger: engine.ledger,
+    governance: engine.governance,
     telemetry: engine.telemetry,
     semanticReviewer: options.semanticReviewer ?? new RoutedSemanticReviewer(engine.router, {
       scheduler: engine.scheduler, telemetry: engine.telemetry, modelRuntime: engine.modelRuntime,
@@ -148,6 +159,7 @@ function installReview(engine, options) {
   });
   engine.governor = new ToolGovernor({
     events: engine.events, reviewer: engine.reviewer, registry: engine.tools,
+    governance: engine.governance,
     permissionBroker: engine.permissionBroker,
   });
 }

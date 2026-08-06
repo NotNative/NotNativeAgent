@@ -1,0 +1,204 @@
+// SPDX-License-Identifier: Apache-2.0
+import { ContractError, newId } from './ids.js';
+import { JournalStore } from './store.js';
+import {
+  assertEvidenceTransition, governanceFingerprint, normalizeGovernanceDecision,
+  normalizeGovernanceEvidence, normalizeGovernanceTerminal,
+} from './governance-contracts.js';
+
+export class GovernanceEngine {
+  #evidence = new Map();
+  #decisions = new Map();
+  #store = null;
+
+  constructor(options) {
+    this.telemetry = options.telemetry ?? null;
+    this.sessionId = options.sessionId;
+    this.retentionEntries = options.retentionEntries ?? 20_000;
+    if (options.durable) this.#store = new JournalStore(options.root, `${this.sessionId}.governance`, {
+      persistenceDeadlineMs: options.persistenceDeadlineMs,
+      resumeRecordLimit: Math.max(this.retentionEntries * 4, 10_000),
+    });
+  }
+
+  async initialize() {
+    if (!this.#store) return this.health();
+    const recovered = await this.#store.open();
+    if (recovered.corruptTail) {
+      throw new ContractError('governance_journal_corrupt', 'governance journal has a corrupt tail');
+    }
+    for (const record of recovered.records) this.#apply(record.type, record.payload);
+    await this.#enforceRetention();
+    return this.health();
+  }
+
+  async registerEvidence(input) {
+    const evidence = normalizeGovernanceEvidence({ ...input, id: input.id ?? newId('evidence') });
+    const existing = this.#evidence.get(evidence.id);
+    if (existing) {
+      if (governanceFingerprint(existing.record) !== governanceFingerprint(evidence)) {
+        throw new ContractError('governance_evidence_drift', 'evidence identity was reused with different content');
+      }
+      return existing.record;
+    }
+    await this.#record('evidence_registered', { evidence });
+    this.#evidence.set(evidence.id, { record: evidence, history: [] });
+    this.#telemetry('governance.evidence', 'succeeded', evidence, { evidence_id: evidence.id });
+    await this.#enforceRetention();
+    return evidence;
+  }
+
+  async transitionEvidence(id, state, detail = {}) {
+    const entry = this.#requireEvidence(id);
+    assertEvidenceTransition(entry.record.state, state);
+    const transition = Object.freeze({
+      id, from: entry.record.state, to: state, at: Date.now(),
+      reasonCode: detail.reasonCode ?? 'policy_transition',
+      evidenceRefs: Object.freeze([...(detail.evidenceRefs ?? [])]),
+    });
+    await this.#record('evidence_transitioned', { transition });
+    this.#apply('evidence_transitioned', { transition });
+    this.#telemetry('governance.evidence', 'succeeded', transition, { evidence_id: id, reason_code: transition.reasonCode });
+    return this.#evidence.get(id).record;
+  }
+
+  async decide(input) {
+    const decision = normalizeGovernanceDecision({ ...input, id: input.id ?? newId('governance_decision') });
+    const existing = this.#decisions.get(decision.id);
+    if (existing) {
+      if (governanceFingerprint(existing.record) !== governanceFingerprint(decision)) {
+        throw new ContractError('governance_decision_drift', 'decision identity was reused with different content');
+      }
+      return existing.record;
+    }
+    for (const evidenceId of decision.evidenceRefs) this.#requireEvidence(evidenceId);
+    await this.#record('decision_committed', { decision });
+    this.#decisions.set(decision.id, { record: decision, terminal: null });
+    this.#telemetry('governance.decision', decisionStatus(decision.outcome), decision, {
+      governance_decision_id: decision.id, reason_code: decision.reasonCode,
+    });
+    await this.#enforceRetention();
+    return decision;
+  }
+
+  async settleDecision(id, input) {
+    const entry = this.#requireDecision(id);
+    if (entry.terminal) return entry.terminal;
+    const terminal = normalizeGovernanceTerminal(input);
+    await this.#record('decision_settled', { id, terminal });
+    entry.terminal = terminal;
+    this.#telemetry('governance.effect', terminalStatus(terminal.status), terminal, {
+      governance_decision_id: id, reason_code: terminal.reasonCode,
+    });
+    return terminal;
+  }
+
+  async recordAuthorization(request, decision) {
+    return this.decide({
+      id: decision.id,
+      domain: 'action_authorization',
+      subjectRef: request.id,
+      subjectFingerprint: decision.requestDigest,
+      outcome: decision.outcome,
+      reasonCode: decision.reasonCode,
+      policyVersion: String(decision.policyVersion),
+      authorityRefs: decision.authorityId ? [decision.authorityId] : [],
+      decidedAt: decision.committedAt,
+      expiresAt: decision.expiresAt,
+      attributes: {
+        tool_name: request.toolName,
+        authority_version: decision.authorityVersion,
+        restriction_version: decision.authorityRestrictionVersion,
+      },
+    });
+  }
+
+  evidence(id) { return this.#evidence.get(id)?.record ?? null; }
+  decision(id) { return this.#decisions.get(id)?.record ?? null; }
+
+  audit(limit = 100) {
+    const bounded = Number.isSafeInteger(limit) ? Math.max(1, Math.min(1000, limit)) : 100;
+    return Object.freeze([...this.#decisions.values()].slice(-bounded).map((entry) => Object.freeze({
+      ...entry.record, terminal: entry.terminal,
+    })));
+  }
+
+  health() {
+    const states = {};
+    for (const entry of this.#evidence.values()) states[entry.record.state] = (states[entry.record.state] ?? 0) + 1;
+    return Object.freeze({
+      status: 'ready', durable: this.#store !== null, evidence: this.#evidence.size,
+      decisions: this.#decisions.size, evidence_states: Object.freeze(states),
+      retention_entries: this.retentionEntries,
+    });
+  }
+
+  async close() { await this.#store?.close(); }
+
+  #requireEvidence(id) {
+    const entry = this.#evidence.get(id);
+    if (!entry) throw new ContractError('governance_evidence_missing', 'referenced evidence does not exist');
+    return entry;
+  }
+
+  #requireDecision(id) {
+    const entry = this.#decisions.get(id);
+    if (!entry) throw new ContractError('governance_decision_missing', 'governance decision does not exist');
+    return entry;
+  }
+
+  async #record(type, payload) { if (this.#store) await this.#store.append(type, payload); }
+
+  #apply(type, payload) {
+    if (type === 'evidence_registered') this.#evidence.set(payload.evidence.id, { record: payload.evidence, history: [] });
+    if (type === 'evidence_transitioned') {
+      const entry = this.#requireEvidence(payload.transition.id);
+      entry.history.push(payload.transition);
+      entry.record = Object.freeze({ ...entry.record, state: payload.transition.to });
+    }
+    if (type === 'decision_committed') this.#decisions.set(payload.decision.id, { record: payload.decision, terminal: null });
+    if (type === 'decision_settled') this.#requireDecision(payload.id).terminal = payload.terminal;
+  }
+
+  async #enforceRetention() {
+    const total = this.#evidence.size + this.#decisions.size;
+    if (total <= this.retentionEntries) return;
+    const decisionBudget = Math.min(this.#decisions.size, Math.ceil(this.retentionEntries / 2));
+    const evidenceBudget = Math.max(0, this.retentionEntries - decisionBudget);
+    const evidence = [...this.#evidence.values()].slice(-evidenceBudget);
+    const decisions = [...this.#decisions.values()].slice(-decisionBudget);
+    if (this.#store) await this.#store.replace([
+      ...evidence.flatMap(evidenceRecords), ...decisions.flatMap(decisionRecords),
+    ]);
+    this.#evidence = new Map(evidence.map((entry) => [entry.record.id, entry]));
+    this.#decisions = new Map(decisions.map((entry) => [entry.record.id, entry]));
+  }
+
+  #telemetry(event, status, payload, correlation) {
+    this.telemetry?.record(event, status, payload, correlation);
+  }
+}
+
+function evidenceRecords(entry) {
+  return [
+    { type: 'evidence_registered', payload: { evidence: { ...entry.record, state: entry.history[0]?.from ?? entry.record.state } } },
+    ...entry.history.map((transition) => ({ type: 'evidence_transitioned', payload: { transition } })),
+  ];
+}
+
+function decisionRecords(entry) {
+  const records = [{ type: 'decision_committed', payload: { decision: entry.record } }];
+  if (entry.terminal) records.push({ type: 'decision_settled', payload: { id: entry.record.id, terminal: entry.terminal } });
+  return records;
+}
+
+function decisionStatus(outcome) {
+  return ['approve', 'admit', 'promote'].includes(outcome) ? 'succeeded'
+    : ['deny_with_guidance', 'hard_deny', 'reject', 'quarantine'].includes(outcome) ? 'denied' : 'skipped';
+}
+
+function terminalStatus(status) {
+  if (status === 'applied') return 'succeeded';
+  if (status === 'not_applied') return 'skipped';
+  return status;
+}

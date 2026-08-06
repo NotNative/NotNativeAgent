@@ -16,6 +16,7 @@ export async function initializeEngine(engine, operations, options = {}) {
     await engine.skills.initialize();
     await engine.tools.initialize();
     if (!options.deferMcp) await initializeMcp(engine);
+    await engine.governance.initialize();
     await engine.ledger.initialize();
     if (engine.store) await restoreDurableEngine(engine, operations);
     await dispatchSessionHook(engine, 'session.start', 'post');
@@ -54,6 +55,7 @@ async function restoreDurableEngine(engine, operations) {
 async function closeAfterInitializationFailure(engine) {
   await Promise.allSettled([
     () => engine.hooks.close(), () => engine.extensions?.close(), () => engine.ledger.close(),
+    () => engine.governance?.close(),
     () => engine.dialects?.close(), () => engine.store?.close(), () => engine.lock?.release(),
   ].map((operation) => Promise.resolve().then(operation)));
 }

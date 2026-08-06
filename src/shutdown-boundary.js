@@ -39,6 +39,7 @@ export async function performEngineShutdown(engine, command) {
       await engine.mcpInitialization;
     }, () => engine.attachments.close(),
     () => engine.extensions?.close(), () => engine.store?.close(), () => engine.ledger.close(),
+    () => engine.governance?.close(),
   ].map((operation) => Promise.resolve().then(operation)));
   try { engine.hooks.close(); } catch (error) { primaryFailure ??= error; }
   try { await engine.lock?.release(); } catch (error) { primaryFailure ??= error; }

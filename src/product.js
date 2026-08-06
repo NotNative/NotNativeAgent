@@ -5,7 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
-export const VERSION = '20260806-9';
+export const VERSION = '20260806-10';
 
 export function userDataPaths(options = {}) {
   const environment = options.environment ?? process.env;
@@ -22,6 +22,7 @@ export function userDataPaths(options = {}) {
     modelDialects: join(root, 'model-dialects.json'),
     dreamState: join(root, 'runtime', 'dream-state.db'),
     sessions: join(root, 'sessions'),
+    governanceLedger: join(root, 'governance-ledger'),
     reviewerLedger: join(root, 'reviewer-ledger'),
     config: join(root, 'config'),
     webSearchConfig: join(root, 'config', 'web-search.json'),
@@ -42,7 +43,7 @@ export function userDataPaths(options = {}) {
 }
 
 export async function ensureUserDataPaths(paths = userDataPaths()) {
-  for (const path of [paths.root, paths.projects, paths.sessions, paths.reviewerLedger, paths.config, paths.logs, paths.support, paths.hooks, paths.skills, paths.managedSearxng, paths.rootTui, paths.gateway, paths.gatewayWorkspace]) {
+  for (const path of [paths.root, paths.projects, paths.sessions, paths.governanceLedger, paths.reviewerLedger, paths.config, paths.logs, paths.support, paths.hooks, paths.skills, paths.managedSearxng, paths.rootTui, paths.gateway, paths.gatewayWorkspace]) {
     await mkdir(path, { recursive: true, mode: 0o700 });
   }
   return paths;

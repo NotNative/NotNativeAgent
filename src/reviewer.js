@@ -8,6 +8,7 @@ const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalat
 export class MandatoryReviewer {
   constructor(options) {
     this.ledger = options.ledger;
+    this.governance = options.governance ?? null;
     this.telemetry = options.telemetry;
     this.semantic = options.semanticReviewer ?? new UnavailableSemanticReviewer();
     this.semanticTimeoutMs = options.semanticTimeoutMs ?? 15_000;
@@ -64,6 +65,7 @@ export class MandatoryReviewer {
         decision = escalate('prompt_posture_operator_decision', request, 'Prompt posture requires operator approval before execution.');
       }
       const committed = await this.ledger.commitDecision(request.id, decision);
+      await this.governance?.recordAuthorization(request, committed);
       this.telemetry?.record('review.decision', reviewTelemetryStatus(committed.outcome), {
         classification, decision: committed, ledger_repetition: entry.repetition,
       }, { ...correlation, durationMs: elapsedMs(started), outcome: committed.outcome, reasonCode: committed.reasonCode });

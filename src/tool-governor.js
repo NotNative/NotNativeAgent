@@ -8,11 +8,13 @@ export const MANDATORY_REVIEW_EVENT_TIMEOUT_MS = 3_605_000;
 
 export class ToolGovernor {
   #pending = new Map();
+  #activeDecisions = new Map();
 
   constructor(options) {
     this.events = options.events;
     this.reviewer = options.reviewer;
     this.registry = options.registry;
+    this.governance = options.governance ?? null;
     this.permissionBroker = options.permissionBroker ?? null;
     this.events.register({
       id: 'kernel.mandatory-reviewer', category: 'permission', phase: 'pre',
@@ -55,7 +57,9 @@ export class ToolGovernor {
           });
         }
         const operator = await this.permissionBroker.request(request, result, context, context.signal);
-        return this.reviewer.ledger.commitOperatorDecision(request.id, operator);
+        const committed = await this.reviewer.ledger.commitOperatorDecision(request.id, operator);
+        await this.governance?.recordAuthorization(request, committed);
+        return committed;
       }
       if (result) return result;
       return Object.freeze({
@@ -70,6 +74,7 @@ export class ToolGovernor {
   async beginExecution(request, decision, current) {
     this.#revalidate(request, decision, current);
     await this.reviewer.ledger.executionStarted(request.id, decision.id);
+    this.#activeDecisions.set(request.id, decision.id);
   }
 
   async executePrepared(request, signal) {
@@ -84,10 +89,19 @@ export class ToolGovernor {
   }
 
   async settle(result) {
-    return this.reviewer.ledger.settle(result.request_id, {
+    const terminal = await this.reviewer.ledger.settle(result.request_id, {
       status: result.status, effect_certainty: result.effect_certainty,
       result_fingerprint: fingerprintResult(result), elapsed_ms: result.elapsed_ms,
     });
+    const decisionId = this.#activeDecisions.get(result.request_id);
+    if (decisionId) {
+      await this.governance?.settleDecision(decisionId, {
+        status: governanceTerminal(result.status), effectCertainty: result.effect_certainty,
+        resultFingerprint: fingerprintResult(result), reasonCode: result.reason_code ?? null,
+      });
+      this.#activeDecisions.delete(result.request_id);
+    }
+    return terminal;
   }
 
   #revalidate(request, decision, current) {
@@ -231,4 +245,11 @@ function effectCertainty(definition, error) {
 
 function fingerprintResult(result) {
   return `${result.status}:${result.content.length}:${result.truncated}`;
+}
+
+function governanceTerminal(status) {
+  if (status === 'succeeded') return 'applied';
+  if (status === 'cancelled') return 'cancelled';
+  if (status === 'unknown_effect') return 'unknown_effect';
+  return 'failed';
 }

@@ -55,7 +55,8 @@ export class SessionEngine {
       webSearchConfigPath: options.webSearchConfigPath, webSearchClient: options.webSearchClient,
       webFetchConfigPath: options.webFetchConfigPath, lspConfigPath: options.lspConfigPath,
       lspSpawnProcess: options.lspSpawnProcess, attachmentRoot: options.attachmentRoot,
-      reviewerRoot: options.reviewerRoot, telemetryRoot: options.telemetryRoot,
+      reviewerRoot: options.reviewerRoot, governanceRoot: options.governanceRoot,
+      telemetryRoot: options.telemetryRoot,
     };
     this.telemetry = createForensicTelemetry({
       telemetry: options.telemetry, workspaceRoot: this.config.workspaceRoot,
