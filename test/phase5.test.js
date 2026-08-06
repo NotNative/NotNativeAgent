@@ -458,9 +458,11 @@ test('kernel context treats the workspace as context instead of an implicit task
   const context = buildContext(config(process.cwd()), [], 'hello');
   const policy = context[0].content;
   assert.match(policy, /respond conversationally when no action is requested/u);
-  assert.match(policy, /Authoritative runtime clock: local \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}/u);
-  assert.match(policy, /UTC \d{4}-\d{2}-\d{2}T/u);
-  assert.match(policy, /today, tomorrow, yesterday, and this evening/u);
+  const clock = context.find((item) => item.provenance === 'runtime_clock')?.content ?? '';
+  assert.doesNotMatch(policy, /Authoritative runtime clock/u);
+  assert.match(clock, /Authoritative runtime clock: local \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}/u);
+  assert.match(clock, /UTC \d{4}-\d{2}-\d{2}T/u);
+  assert.match(clock, /today, tomorrow, yesterday, and this evening/u);
   assert.match(policy, /workspace is context, not an implied assignment/u);
   assert.equal(policy.includes(config(process.cwd()).workspaceRoot), true);
   assert.match(policy, /explicitly refers to this project, repository, codebase, or workspace/u);
@@ -480,6 +482,17 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /SSH, Git, Docker, and system utilities/u);
 });
 
+test('provider context keeps its policy prefix byte-stable while placing the clock at the mutable tail', () => {
+  const configured = config(process.cwd());
+  const first = buildContext(configured, [], 'first request');
+  const second = buildContext(configured, [], 'second request');
+  assert.deepEqual(first.slice(0, -2), second.slice(0, -2));
+  assert.equal(first.at(-2).provenance, 'runtime_clock');
+  assert.equal(second.at(-2).provenance, 'runtime_clock');
+  assert.match(first.at(-2).content, /Authoritative runtime clock/u);
+  assert.match(second.at(-2).content, /Authoritative runtime clock/u);
+});
+
 test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and credential-free', () => {
   const configured = { ...config(process.cwd()), applicationPolicy: 'Host policy.' };
   const transcript = [
@@ -493,10 +506,10 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
   });
   assert.deepEqual(context.map((item) => item.provenance), [
     'engine_policy', 'application_policy', 'transcript', 'transcript', 'tool_result',
-    'memory:memory-1', 'hook:guidance-hook', 'authenticated_submission',
+    'memory:memory-1', 'hook:guidance-hook', 'runtime_clock', 'authenticated_submission',
   ]);
   assert.deepEqual(context.slice(2).map((item) => item.trust), [
-    'operator', 'model', 'untrusted_tool_output', 'untrusted_memory', 'untrusted_hook_context', 'operator',
+    'operator', 'model', 'untrusted_tool_output', 'untrusted_memory', 'untrusted_hook_context', 'kernel', 'operator',
   ]);
   assert.equal(context[3].tool_calls[0].id, context[4].tool_call_id);
   let selectedQuery;

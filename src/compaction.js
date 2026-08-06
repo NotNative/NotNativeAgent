@@ -25,7 +25,8 @@ export function compactTranscript(transcript, maxBytes) {
 }
 
 function selectRecentRecords(transcript, budget) {
-  const normalized = transcript.map((item, index) => ({ index, item: compactRecord(item, budget) }));
+  const projected = supersedeColdToolResults(transcript);
+  const normalized = projected.map((item, index) => ({ index, item: compactRecord(item, budget) }));
   const requestIndexes = new Map(); const resultIndexes = new Map();
   for (const entry of normalized) {
     if (entry.item.type === 'tool_request') requestIndexes.set(entry.item.providerCallId, entry.index);
@@ -58,6 +59,50 @@ function selectRecentRecords(transcript, budget) {
     add(unit);
   }
   return [...selected.values()].sort((a, b) => a.index - b.index);
+}
+
+function supersedeColdToolResults(transcript) {
+  const requests = new Map();
+  for (const item of transcript) {
+    if (item.type === 'tool_request') requests.set(item.providerCallId, item);
+  }
+  const latest = new Map();
+  const keys = new Map();
+  for (let index = 0; index < transcript.length; index += 1) {
+    const item = transcript[index];
+    if (item.type !== 'tool_result' || item.status !== 'succeeded') continue;
+    const request = requests.get(item.providerCallId);
+    const key = supersessionKey(request);
+    if (!key) continue;
+    keys.set(index, key); latest.set(key, index);
+  }
+  return transcript.map((item, index) => {
+    const key = keys.get(index);
+    if (!key || latest.get(key) === index) return item;
+    const notice = '[Older successful tool output superseded by a newer result for the same target; full output remains in the session journal.]';
+    if (Buffer.byteLength(String(item.content ?? ''), 'utf8') - Buffer.byteLength(notice, 'utf8') < 512) return item;
+    return { ...item, content: notice, metadata: { compacted: true, reason: 'superseded_result' } };
+  });
+}
+
+function supersessionKey(request) {
+  if (!request || !request.args || typeof request.args !== 'object') return null;
+  const args = request.args;
+  switch (request.toolName) {
+    case 'fs.read_text': return keyed(request.toolName, [args.path]);
+    case 'fs.read_lines': return keyed(request.toolName, [args.path, args.start_line, args.end_line]);
+    case 'fs.list_directory': return keyed(request.toolName, [args.path, args.depth]);
+    case 'fs.glob': return keyed(request.toolName, [args.path, args.pattern]);
+    case 'fs.search_text': return keyed(request.toolName, [args.path, args.query, args.glob]);
+    case 'code.diagnostics': return keyed(request.toolName, [args.path]);
+    case 'web.fetch': return keyed(request.toolName, [args.url]);
+    default: return null;
+  }
+}
+
+function keyed(name, values) {
+  if (values[0] === undefined || values[0] === null || values[0] === '') return null;
+  return `${name}:${JSON.stringify(values)}`;
 }
 
 function compactRecord(item, budget) {

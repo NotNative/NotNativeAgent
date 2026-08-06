@@ -77,6 +77,23 @@ test('legacy summary-only checkpoints recover durable history for one-time migra
   assert.match(text, /Legacy continuation/u);
 });
 
+test('compaction projection replaces only older large successful results for the same target', () => {
+  const transcript = [
+    message('user', 'Inspect the file twice.'),
+    { type: 'tool_request', providerCallId: 'read-old', toolName: 'fs.read_text', args: { path: 'src/a.js' } },
+    { type: 'tool_result', providerCallId: 'read-old', toolName: 'fs.read_text', status: 'succeeded', content: `old-marker-${'x'.repeat(4_000)}` },
+    { type: 'tool_request', providerCallId: 'read-new', toolName: 'fs.read_text', args: { path: 'src/a.js' } },
+    { type: 'tool_result', providerCallId: 'read-new', toolName: 'fs.read_text', status: 'succeeded', content: `new-marker-${'y'.repeat(4_000)}` },
+  ];
+  const compacted = compactTranscript(transcript, 40_000);
+  const oldResult = compacted.records.find((item) => item.type === 'tool_result' && item.providerCallId === 'read-old');
+  const newResult = compacted.records.find((item) => item.type === 'tool_result' && item.providerCallId === 'read-new');
+  assert.match(oldResult.content, /superseded by a newer result/u);
+  assert.doesNotMatch(oldResult.content, /old-marker/u);
+  assert.match(newResult.content, /new-marker/u);
+  assert.match(transcript[2].content, /old-marker/u);
+});
+
 test('semantic continuation enrichment is schema validated and failure falls back deterministically', async () => {
   const base = compactTranscript([
     message('user', 'Finish the task'),
