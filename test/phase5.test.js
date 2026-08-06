@@ -19,7 +19,7 @@ import { EditorBuffer, TuiProjection, validateKeyBindings } from '../src/tui-mod
 import { headerTargetAt, TuiRenderer } from '../src/tui-renderer.js';
 import { displayWidth } from '../src/terminal-markdown.js';
 import { runPlainText } from '../src/plain-text.js';
-import { createRenderLoop, finalizeTui, handleActions, runTui, shouldExitOnCancel, submitEditor } from '../src/tui.js';
+import { adaptiveRenderDelay, createRenderLoop, finalizeTui, handleActions, runTui, shouldExitOnCancel, submitEditor } from '../src/tui.js';
 import { commandDefinition, commandSuggestions, TUI_COMMANDS } from '../src/tui-commands.js';
 import { VERSION } from '../src/product.js';
 import { resolveConfiguration } from '../src/configuration-sources.js';
@@ -413,6 +413,14 @@ test('final render-loop cancellation cannot be restarted by session.end output',
   loop.now();
   await new Promise((resolve) => setTimeout(resolve, 25));
   assert.equal(paints, 0);
+});
+
+test('stream rendering is capped and backs off when a frame is expensive', () => {
+  assert.equal(adaptiveRenderDelay(0, false), 33);
+  assert.equal(adaptiveRenderDelay(2, false), 33);
+  assert.equal(adaptiveRenderDelay(40, false), 80);
+  assert.equal(adaptiveRenderDelay(500, false), 200);
+  assert.equal(adaptiveRenderDelay(2, true), 50);
 });
 
 test('streaming fragments render as one assistant message with a visible editor cursor', () => {
