@@ -110,3 +110,22 @@ Deterministic policy is preferred. Semantic governance runs only when uncertaint
 consequence justifies it. NNA does not add a general claim-supervisor inference to every
 turn. Foreground work wins over idle analysis, and governance persistence is bounded by
 the same cancellation, shutdown, and supportability expectations as the agent engine.
+
+## Governed learning candidates
+
+Idle analysis may observe an improvement, but observation is not promotion. Candidates
+live in the bounded dream-state database with an explicit lifecycle from `observed`
+through validation and proposal. Their payloads reject secret-bearing fields, have a
+16 KiB ceiling, and retain only bounded evidence references.
+
+The governance ledger records a fingerprinted candidate evidence item in quarantine and
+a deferred promotion decision. Activation requires all cited evidence to remain active
+or explicitly historical, non-conflicting, and present. It also requires an active
+operator-authority evidence record. Successful promotion activates the candidate evidence
+and settles the promotion decision; failure leaves an auditable terminal rather than
+pretending the change applied.
+
+This contract applies equally to project guidance, provider dialect observations,
+recovery ordering, retrieval tuning, and future skill proposals. Candidate bodies remain
+in their domain store; governance retains their identity, fingerprints, causal evidence,
+authority, state changes, and terminal effect.

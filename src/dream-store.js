@@ -1,11 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mkdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ContractError, newId } from './ids.js';
 
 const TERMINAL = new Set(['cancelled', 'completed', 'failed', 'skipped']);
 const STATES = new Set(['queued', 'running', ...TERMINAL]);
+const CANDIDATE_STATES = new Set([
+  'observed', 'gathering', 'ready', 'validating', 'proposed', 'active',
+  'rejected', 'expired', 'regressed', 'rolled_back',
+]);
+const CANDIDATE_TRANSITIONS = Object.freeze({
+  observed: new Set(['gathering', 'rejected', 'expired']),
+  gathering: new Set(['ready', 'rejected', 'expired']),
+  ready: new Set(['validating', 'rejected', 'expired']),
+  validating: new Set(['proposed', 'gathering', 'rejected', 'expired']),
+  proposed: new Set(['active', 'rejected', 'expired']),
+  active: new Set(['regressed', 'expired']),
+  rejected: new Set([]), expired: new Set([]),
+  regressed: new Set(['rolled_back']), rolled_back: new Set([]),
+});
 
 export class DreamStore {
   constructor(options) {
@@ -78,6 +93,64 @@ export class DreamStore {
     const bounded = Number.isSafeInteger(limit) ? Math.max(1, Math.min(500, limit)) : 50;
     return this.db.prepare('SELECT * FROM dream_runs ORDER BY rowid DESC LIMIT ?').all(bounded);
   }
+  observeCandidate(input) {
+    this.#ready();
+    const candidate = normalizeCandidate(input);
+    const existing = this.candidate(candidate.id);
+    if (existing) {
+      if (existing.payload_fingerprint !== candidate.payloadFingerprint
+          || existing.kind !== candidate.kind || existing.scope_fingerprint !== candidate.scopeFingerprint) {
+        throw new ContractError('dream_candidate_drift', 'candidate identity was reused with different content');
+      }
+      this.db.prepare(`UPDATE improvement_candidates SET recurrence_count=recurrence_count+1,
+        confidence=?, evidence_refs=?, updated_at=? WHERE id=?`)
+        .run(Math.max(Number(existing.confidence), candidate.confidence), JSON.stringify(candidate.evidenceRefs),
+          new Date().toISOString(), candidate.id);
+      return this.candidate(candidate.id);
+    }
+    const now = new Date().toISOString();
+    this.db.prepare(`INSERT INTO improvement_candidates
+      (id, runtime_key, kind, scope_kind, scope_fingerprint, state, confidence,
+       recurrence_count, evidence_refs, expected_benefit, success_criteria, risk_class,
+       expires_at, payload, payload_fingerprint, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'observed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(candidate.id, candidate.runtimeKey, candidate.kind, candidate.scopeKind,
+        candidate.scopeFingerprint, candidate.confidence, candidate.recurrenceCount,
+        JSON.stringify(candidate.evidenceRefs), candidate.expectedBenefit,
+        JSON.stringify(candidate.successCriteria), candidate.riskClass, candidate.expiresAt,
+        JSON.stringify(candidate.payload), candidate.payloadFingerprint, now, now);
+    return this.candidate(candidate.id);
+  }
+  transitionCandidate(id, state, detail = {}) {
+    this.#ready();
+    if (!CANDIDATE_STATES.has(state)) throw new ContractError('dream_candidate_state_invalid', 'candidate state is invalid');
+    const current = this.candidate(id);
+    if (!current) throw new ContractError('dream_candidate_missing', 'candidate does not exist');
+    if (!CANDIDATE_TRANSITIONS[current.state]?.has(state)) {
+      throw new ContractError('dream_candidate_transition_invalid', `candidate cannot transition from ${current.state} to ${state}`);
+    }
+    const rejectionReason = state === 'rejected' ? boundedText(detail.reason, 512, 'rejection reason') : null;
+    const supersededBy = detail.supersededBy === undefined ? null : boundedId(detail.supersededBy, 'superseding candidate');
+    this.db.prepare(`UPDATE improvement_candidates SET state=?, rejection_reason=?,
+      superseded_by=?, updated_at=? WHERE id=?`)
+      .run(state, rejectionReason, supersededBy, new Date().toISOString(), id);
+    return this.candidate(id);
+  }
+  candidate(id) {
+    this.#ready();
+    const row = this.db.prepare('SELECT * FROM improvement_candidates WHERE id = ?').get(id);
+    return row ? parseCandidate(row) : null;
+  }
+  candidates(input = {}) {
+    this.#ready();
+    const limit = Number.isSafeInteger(input.limit) ? Math.max(1, Math.min(500, input.limit)) : 50;
+    if (input.state !== undefined) {
+      if (!CANDIDATE_STATES.has(input.state)) throw new ContractError('dream_candidate_state_invalid', 'candidate state is invalid');
+      return this.db.prepare('SELECT * FROM improvement_candidates WHERE state = ? ORDER BY updated_at DESC LIMIT ?')
+        .all(input.state, limit).map(parseCandidate);
+    }
+    return this.db.prepare('SELECT * FROM improvement_candidates ORDER BY updated_at DESC LIMIT ?').all(limit).map(parseCandidate);
+  }
   cleanup(now = Date.now()) {
     this.#ready();
     const cutoff = new Date(now - this.retentionDays * 86_400_000).toISOString();
@@ -86,7 +159,12 @@ export class DreamStore {
   status() {
     this.#ready();
     const counts = this.db.prepare('SELECT state, COUNT(*) AS count FROM dream_runs GROUP BY state').all();
-    return { status: 'ready', path: this.path, runs: Object.fromEntries(counts.map((row) => [row.state, Number(row.count)])) };
+    const candidates = this.db.prepare('SELECT state, COUNT(*) AS count FROM improvement_candidates GROUP BY state').all();
+    return {
+      status: 'ready', path: this.path,
+      runs: Object.fromEntries(counts.map((row) => [row.state, Number(row.count)])),
+      candidates: Object.fromEntries(candidates.map((row) => [row.state, Number(row.count)])),
+    };
   }
   close() { if (this.db) { this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); this.db.close(); this.db = null; } }
   #ready() { if (!this.db) throw new ContractError('dream_store_unavailable', 'dream state store is not initialized'); }
@@ -107,6 +185,95 @@ CREATE TABLE IF NOT EXISTS dream_runs (
 CREATE INDEX IF NOT EXISTS idx_dream_runs_runtime ON dream_runs(runtime_key, started_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dream_runs_state ON dream_runs(state, started_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_dream_runs_active ON dream_runs(runtime_key) WHERE state = 'running';
+CREATE TABLE IF NOT EXISTS improvement_candidates (
+  id TEXT PRIMARY KEY, runtime_key TEXT NOT NULL, kind TEXT NOT NULL,
+  scope_kind TEXT NOT NULL, scope_fingerprint TEXT NOT NULL, state TEXT NOT NULL,
+  confidence REAL NOT NULL, recurrence_count INTEGER NOT NULL,
+  evidence_refs TEXT NOT NULL, expected_benefit TEXT NOT NULL,
+  success_criteria TEXT NOT NULL, risk_class TEXT NOT NULL, expires_at TEXT,
+  superseded_by TEXT, rejection_reason TEXT, payload TEXT NOT NULL,
+  payload_fingerprint TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  CHECK(state IN ('observed','gathering','ready','validating','proposed','active','rejected','expired','regressed','rolled_back'))
+);
+CREATE INDEX IF NOT EXISTS idx_improvement_candidates_runtime ON improvement_candidates(runtime_key, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_improvement_candidates_state ON improvement_candidates(state, updated_at DESC);
 `;
 
 export function validDreamState(value) { return STATES.has(value); }
+
+function normalizeCandidate(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new ContractError('dream_candidate_invalid', 'candidate must be an object');
+  const payload = boundedPayload(input.payload ?? {});
+  return {
+    id: boundedId(input.id ?? newId('improvement'), 'candidate id'),
+    runtimeKey: boundedId(input.runtimeKey, 'runtime key'),
+    kind: boundedId(input.kind, 'candidate kind'),
+    scopeKind: boundedId(input.scope?.kind, 'scope kind'),
+    scopeFingerprint: boundedDigest(input.scope?.fingerprint),
+    confidence: boundedNumber(input.confidence ?? 0),
+    recurrenceCount: boundedInteger(input.recurrenceCount ?? 1),
+    evidenceRefs: boundedRefs(input.evidenceRefs ?? []),
+    expectedBenefit: boundedText(input.expectedBenefit, 1024, 'expected benefit'),
+    successCriteria: boundedList(input.successCriteria, 16, 512, 'success criteria'),
+    riskClass: boundedId(input.riskClass ?? 'low', 'risk class'),
+    expiresAt: input.expiresAt === undefined || input.expiresAt === null ? null : validDate(input.expiresAt),
+    payload,
+    payloadFingerprint: digest(JSON.stringify(payload)),
+  };
+}
+
+function parseCandidate(row) {
+  return Object.freeze({
+    ...row, confidence: Number(row.confidence), recurrence_count: Number(row.recurrence_count),
+    evidence_refs: Object.freeze(JSON.parse(row.evidence_refs)),
+    success_criteria: Object.freeze(JSON.parse(row.success_criteria)),
+    payload: Object.freeze(JSON.parse(row.payload)),
+  });
+}
+
+function boundedPayload(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ContractError('dream_candidate_payload_invalid', 'candidate payload must be an object');
+  const encoded = JSON.stringify(value);
+  if (Buffer.byteLength(encoded, 'utf8') > 16_384) throw new ContractError('dream_candidate_payload_invalid', 'candidate payload exceeds 16 KiB');
+  const forbidden = /(?:secret|password|passwd|token|credential|api[_-]?key|authorization)/iu;
+  for (const key of Object.keys(value)) if (forbidden.test(key)) throw new ContractError('dream_candidate_secret_forbidden', 'candidate payload may not contain secret-bearing fields');
+  if (/-----BEGIN [A-Z ]+PRIVATE KEY-----|\bBearer\s+[A-Za-z0-9._~+/-]+=*/u.test(encoded)) {
+    throw new ContractError('dream_candidate_secret_forbidden', 'candidate payload appears to contain secret material');
+  }
+  return structuredClone(value);
+}
+
+function boundedRefs(value) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 64) throw new ContractError('dream_candidate_evidence_invalid', 'candidate requires 1 to 64 evidence references');
+  return [...new Set(value.map((item) => boundedId(item, 'evidence reference')))];
+}
+function boundedList(value, maxItems, maxBytes, label) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > maxItems) throw new ContractError('dream_candidate_invalid', `${label} is invalid`);
+  return value.map((item) => boundedText(item, maxBytes, label));
+}
+function boundedText(value, maximum, label) {
+  if (typeof value !== 'string' || value.trim().length === 0 || Buffer.byteLength(value, 'utf8') > maximum) throw new ContractError('dream_candidate_invalid', `${label} must be bounded text`);
+  return value.trim();
+}
+function boundedId(value, label) {
+  const text = boundedText(value, 160, label);
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.:@/-]*$/u.test(text)) throw new ContractError('dream_candidate_invalid', `${label} has an invalid format`);
+  return text;
+}
+function boundedDigest(value) {
+  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/u.test(value)) throw new ContractError('dream_candidate_invalid', 'scope fingerprint must be sha256');
+  return value;
+}
+function boundedNumber(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) throw new ContractError('dream_candidate_invalid', 'confidence must be between 0 and 1');
+  return value;
+}
+function boundedInteger(value) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 1_000_000) throw new ContractError('dream_candidate_invalid', 'recurrence count is invalid');
+  return value;
+}
+function validDate(value) {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) throw new ContractError('dream_candidate_invalid', 'candidate expiry is invalid');
+  return new Date(value).toISOString();
+}
+function digest(value) { return createHash('sha256').update(value).digest('hex'); }

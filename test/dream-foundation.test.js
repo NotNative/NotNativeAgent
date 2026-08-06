@@ -9,6 +9,9 @@ import { DreamStore } from '../src/dream-store.js';
 import { IdleArbiter } from '../src/idle-arbiter.js';
 import { DreamCoordinator } from '../src/dream-coordinator.js';
 import { ForensicTelemetry } from '../src/forensic-telemetry.js';
+import { GovernanceEngine } from '../src/governance-engine.js';
+import { LearningCandidateRegistry } from '../src/learning-candidates.js';
+import { governanceFingerprint } from '../src/governance-contracts.js';
 
 test('dream defaults are standalone-only and preserve explicit operator disablement', () => {
   assert.equal(resolveManifest(manifest()).dream.enabled, true);
@@ -107,6 +110,68 @@ test('manual deterministic harvest checkpoints only terminal redacted telemetry 
   assert.equal(JSON.stringify(status).includes('fs.read_text'), false);
   coordinator.close();
   await telemetry.close();
+});
+
+test('learning candidates persist bounded evidence and require governed authority to promote', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-learning-candidate-'));
+  const path = join(root, 'dream.db');
+  const store = new DreamStore({ path });
+  await store.initialize();
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  const scope = { kind: 'workspace', fingerprint: governanceFingerprint(root) };
+  await governance.registerEvidence({
+    id: 'evidence:verified-test', kind: 'verified_outcome', origin: 'tool_result',
+    trust: 'observed', state: 'active', freshness: 'current', conflict: 'none',
+    sourceRef: 'turn:1', sourceFingerprint: 'turn:1', contentFingerprint: 'passed',
+    scope, observedAt: Date.now(), attributes: { result: 'passed' },
+  });
+  await governance.registerEvidence({
+    id: 'evidence:operator-grant', kind: 'maintenance_grant', origin: 'operator',
+    trust: 'authority', state: 'active', freshness: 'current', conflict: 'none',
+    sourceRef: 'grant:1', sourceFingerprint: 'grant:1', contentFingerprint: 'workspace-guidance',
+    scope, observedAt: Date.now(), attributes: { capability: 'guidance_promotion' },
+  });
+  const registry = new LearningCandidateRegistry({ store, governance, runtimeKey: 'workspace-a', scope });
+  const observed = await registry.observe({
+    id: 'candidate-guidance-1', kind: 'guidance.project_memory', confidence: 0.8,
+    evidenceRefs: ['evidence:verified-test'], expectedBenefit: 'Preserve a verified project convention.',
+    successCriteria: ['Managed guidance contains the verified convention exactly once.'],
+    riskClass: 'reversible', payload: { section: 'Working conventions', statement: 'Run checks before commit.' },
+  });
+  assert.equal(observed.state, 'observed');
+  assert.equal(governance.evidence('evidence:candidate:candidate-guidance-1').state, 'quarantined');
+  for (const state of ['gathering', 'ready', 'validating', 'proposed']) await registry.advance(observed.id, state);
+  await assert.rejects(() => registry.promote(observed.id, { authorityRefs: [] }), { code: 'learning_authority_required' });
+  const active = await registry.promote(observed.id, { authorityRefs: ['evidence:operator-grant'] });
+  assert.equal(active.state, 'active');
+  assert.equal(governance.evidence('evidence:candidate:candidate-guidance-1').state, 'active');
+  assert.ok(governance.audit().some((decision) => decision.domain === 'guidance_promotion' && decision.outcome === 'promote'));
+  store.close();
+
+  const restored = new DreamStore({ path });
+  await restored.initialize();
+  assert.equal(restored.candidate(observed.id).state, 'active');
+  assert.equal(restored.status().candidates.active, 1);
+  restored.close();
+});
+
+test('learning candidates reject secrets, drift, and invalid state shortcuts', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-learning-guard-'));
+  const store = new DreamStore({ path: join(root, 'dream.db') });
+  await store.initialize();
+  const base = {
+    id: 'candidate-safe', runtimeKey: 'workspace-a', kind: 'recovery.ordering',
+    scope: { kind: 'workspace', fingerprint: governanceFingerprint(root) }, confidence: 0.5,
+    evidenceRefs: ['evidence:one'], expectedBenefit: 'Reduce a repeated recovery failure.',
+    successCriteria: ['Recovery succeeds in the bounded fixture.'], riskClass: 'low',
+    payload: { failure_code: 'provider_timeout', action: 'retry' },
+  };
+  store.observeCandidate(base);
+  assert.throws(() => store.transitionCandidate(base.id, 'active'), { code: 'dream_candidate_transition_invalid' });
+  assert.throws(() => store.observeCandidate({ ...base, payload: { password: 'do-not-store' } }), { code: 'dream_candidate_secret_forbidden' });
+  assert.throws(() => store.observeCandidate({ ...base, payload: { action: 'compact' } }), { code: 'dream_candidate_drift' });
+  store.close();
 });
 
 function manifest(extra = {}) {
