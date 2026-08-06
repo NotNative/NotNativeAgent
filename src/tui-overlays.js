@@ -326,8 +326,48 @@ export function overlayCommandDraft(kind, id) {
     gateway: { authorize: '/gateway authorize ', revoke: '/gateway revoke ', 'token-env': '/gateway token-env ', workspace: '/gateway workspace ' },
     webfetch: { trust: '/webfetch trust ', revoke: '/webfetch revoke ' },
     tab: { rename: '/rename ' },
+    plan: { 'set-goal': '/goal ', 'complete-goal': '/goal complete ', 'add-task': '/task add ' },
   };
   return drafts[kind]?.[action] ?? null;
+}
+
+export function planOverlay(work, options = {}) {
+  const goal = work.goal;
+  const complete = work.tasks.filter((task) => task.status === 'completed').length;
+  const lines = [
+    goal ? goal.objective : 'No goal has been defined for this conversation.',
+    goal ? `Status: ${goal.status} | Progress: ${complete}/${work.tasks.length} tasks complete | Revision: ${work.revision}`
+      : 'Planning is optional. Add a goal only when structured progress helps the work.',
+  ];
+  const items = [];
+  items.push({ id: 'action:set-goal', label: goal ? 'Update goal' : 'Set goal', detail: 'Describe the durable outcome for this conversation', section: 'Goal' });
+  if (goal?.status === 'active') items.push({ id: 'action:complete-goal', label: 'Complete goal', detail: 'Requires concrete completion evidence', section: 'Goal' });
+  if (goal?.status === 'completed') items.push({ id: 'action:goal-reopen', label: 'Reopen goal', detail: 'Return this goal to active work', section: 'Goal' });
+  items.push({ id: 'action:add-task', label: 'Add task', detail: 'Append one ordered pending task', section: 'Tasks' });
+  for (const task of work.tasks) items.push({
+    id: `task:${task.id}`, label: `${taskMarker(task.status)} ${task.id}  ${task.title}`,
+    badge: task.status.replace('_', ' '), detail: task.evidence ?? task.blockedReason ?? 'Open task details', section: 'Tasks',
+  });
+  return Object.freeze({
+    ...menuOverlay('plan', 'Plan', lines, items, options.selectedId ?? (work.tasks.find((task) => task.status === 'in_progress') ? `task:${work.tasks.find((task) => task.status === 'in_progress').id}` : 'action:add-task')),
+    actionLabel: 'Up/Down choose · Enter manage',
+  });
+}
+
+export function taskOverlay(work, id) {
+  const task = work.tasks.find((item) => item.id === id);
+  if (!task) return overlay('work-task', 'Task unavailable', [`Task ${id} no longer exists.`]);
+  const lines = [task.title, `Status: ${task.status}`, task.evidence ? `Evidence: ${task.evidence}` : task.blockedReason ? `Blocked: ${task.blockedReason}` : ''];
+  const items = [];
+  if (task.status !== 'in_progress') items.push({ id: `action:start:${id}`, label: 'Start task', detail: 'Make this the one in-progress task' });
+  if (task.status !== 'pending') items.push({ id: `action:pending:${id}`, label: 'Return to pending', detail: 'Keep the task without active or terminal status' });
+  if (task.status !== 'completed') items.push({ id: `action:complete:${id}`, label: 'Complete task', detail: 'Requires concrete evidence' });
+  if (task.status !== 'blocked') items.push({ id: `action:block:${id}`, label: 'Block task', detail: 'Requires a specific blocking reason' });
+  return Object.freeze({ ...menuOverlay('work-task', `Task ${id}`, lines.filter(Boolean), items, items[0]?.id), parent: 'plan', taskId: id });
+}
+
+function taskMarker(status) {
+  return ({ pending: '[ ]', in_progress: '[>]', completed: '[x]', blocked: '[!]' })[status] ?? '[?]';
 }
 
 export function contextOverlay(session) {

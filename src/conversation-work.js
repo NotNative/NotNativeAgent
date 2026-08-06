@@ -1,0 +1,169 @@
+// SPDX-License-Identifier: Apache-2.0
+import { ContractError, newId } from './ids.js';
+
+const TASK_STATES = new Set(['pending', 'in_progress', 'completed', 'blocked']);
+const MAX_TASKS = 64;
+const MAX_GOAL_TEXT = 2048;
+const MAX_TASK_TITLE = 512;
+const MAX_DETAIL = 1024;
+
+export class ConversationWork {
+  constructor(options = {}) {
+    this.persist = options.persist ?? (async () => undefined);
+    this.output = options.output ?? (async () => undefined);
+    this.telemetry = options.telemetry ?? null;
+    this.sessionId = options.sessionId ?? null;
+    this.state = emptyState();
+  }
+
+  snapshot() { return deepFreeze(structuredClone(this.state)); }
+
+  restore(records = []) {
+    const latest = [...records].reverse().find((record) => record.type === 'work_state')?.payload;
+    if (!latest) return this.snapshot();
+    this.state = validateSnapshot(latest);
+    return this.snapshot();
+  }
+
+  async setGoal(objective) {
+    const text = boundedText(objective, 'goal objective', MAX_GOAL_TEXT);
+    const now = new Date().toISOString();
+    const prior = this.state.goal;
+    this.state = {
+      ...this.state,
+      revision: this.state.revision + 1,
+      goal: Object.freeze({
+        id: prior?.id ?? newId('goal'), objective: text, status: 'active',
+        createdAt: prior?.createdAt ?? now, updatedAt: now, evidence: null,
+      }),
+    };
+    return this.#commit('goal_set');
+  }
+
+  async completeGoal(evidence) {
+    if (!this.state.goal) throw new ContractError('goal_missing', 'this conversation has no active goal');
+    const unfinished = this.state.tasks.filter((task) => task.status !== 'completed');
+    if (unfinished.length > 0) throw new ContractError('goal_tasks_unfinished', `${unfinished.length} task(s) are not complete`);
+    const proof = boundedText(evidence, 'goal completion evidence', MAX_DETAIL);
+    this.state = {
+      ...this.state, revision: this.state.revision + 1,
+      goal: Object.freeze({ ...this.state.goal, status: 'completed', evidence: proof, updatedAt: new Date().toISOString() }),
+    };
+    return this.#commit('goal_completed');
+  }
+
+  async reopenGoal() {
+    if (!this.state.goal) throw new ContractError('goal_missing', 'this conversation has no goal to reopen');
+    this.state = {
+      ...this.state, revision: this.state.revision + 1,
+      goal: Object.freeze({ ...this.state.goal, status: 'active', evidence: null, updatedAt: new Date().toISOString() }),
+    };
+    return this.#commit('goal_reopened');
+  }
+
+  async clear() {
+    const revision = this.state.revision + 1;
+    this.state = Object.freeze({ ...emptyState(), revision });
+    return this.#commit('work_cleared');
+  }
+
+  async addTask(title) {
+    if (this.state.tasks.length >= MAX_TASKS) throw new ContractError('task_capacity', `a conversation may contain at most ${MAX_TASKS} tasks`);
+    const text = boundedText(title, 'task title', MAX_TASK_TITLE);
+    const now = new Date().toISOString();
+    const number = this.state.nextTaskNumber;
+    const task = Object.freeze({
+      id: `T${number}`, title: text, status: 'pending', evidence: null, blockedReason: null,
+      createdAt: now, updatedAt: now,
+    });
+    this.state = {
+      ...this.state, revision: this.state.revision + 1, nextTaskNumber: number + 1,
+      tasks: Object.freeze([...this.state.tasks, task]),
+    };
+    return this.#commit('task_added', task.id);
+  }
+
+  async updateTask(id, status, detail = null) {
+    const taskId = normalizeTaskId(id);
+    if (!TASK_STATES.has(status)) throw new ContractError('task_status_invalid', 'task status must be pending, in_progress, completed, or blocked');
+    const index = this.state.tasks.findIndex((task) => task.id === taskId);
+    if (index < 0) throw new ContractError('task_missing', `task ${taskId} does not exist`);
+    if (status === 'in_progress' && this.state.tasks.some((task, taskIndex) => taskIndex !== index && task.status === 'in_progress')) {
+      throw new ContractError('task_active_conflict', 'complete, block, or return the current in-progress task to pending first');
+    }
+    const evidence = status === 'completed' ? boundedText(detail, 'task completion evidence', MAX_DETAIL) : null;
+    const blockedReason = status === 'blocked' ? boundedText(detail, 'task blocking reason', MAX_DETAIL) : null;
+    const tasks = [...this.state.tasks];
+    tasks[index] = Object.freeze({
+      ...tasks[index], status, evidence, blockedReason, updatedAt: new Date().toISOString(),
+    });
+    this.state = { ...this.state, revision: this.state.revision + 1, tasks: Object.freeze(tasks) };
+    return this.#commit(`task_${status}`, taskId);
+  }
+
+  async #commit(action, taskId = null) {
+    const snapshot = this.snapshot();
+    await this.persist('work_state', snapshot);
+    this.telemetry?.record('work.state', 'succeeded', {
+      action, revision: snapshot.revision, goal_status: snapshot.goal?.status ?? null,
+      task_id: taskId, task_counts: taskCounts(snapshot.tasks),
+    });
+    await this.output({
+      version: '1.0', type: 'work_status', session_id: this.sessionId,
+      action, work: snapshot,
+    });
+    return snapshot;
+  }
+}
+
+function emptyState() {
+  return Object.freeze({ schema: 'nna.conversation_work.v1', revision: 0, nextTaskNumber: 1, goal: null, tasks: Object.freeze([]) });
+}
+
+function validateSnapshot(value) {
+  if (!value || value.schema !== 'nna.conversation_work.v1' || !Number.isInteger(value.revision)
+    || value.revision < 0 || !Number.isInteger(value.nextTaskNumber) || value.nextTaskNumber < 1
+    || !Array.isArray(value.tasks) || value.tasks.length > MAX_TASKS) {
+    throw new ContractError('work_state_invalid', 'durable conversation work state is invalid');
+  }
+  const ids = new Set();
+  const tasks = value.tasks.map((task) => {
+    const id = normalizeTaskId(task.id);
+    if (ids.has(id) || !TASK_STATES.has(task.status)) throw new ContractError('work_state_invalid', 'durable task identity or status is invalid');
+    ids.add(id);
+    return Object.freeze({
+      id, title: boundedText(task.title, 'task title', MAX_TASK_TITLE), status: task.status,
+      evidence: optionalText(task.evidence), blockedReason: optionalText(task.blockedReason),
+      createdAt: String(task.createdAt), updatedAt: String(task.updatedAt),
+    });
+  });
+  const goal = value.goal === null ? null : Object.freeze({
+    id: String(value.goal.id), objective: boundedText(value.goal.objective, 'goal objective', MAX_GOAL_TEXT),
+    status: value.goal.status === 'completed' ? 'completed' : 'active',
+    evidence: optionalText(value.goal.evidence), createdAt: String(value.goal.createdAt), updatedAt: String(value.goal.updatedAt),
+  });
+  return Object.freeze({ ...emptyState(), revision: value.revision, nextTaskNumber: value.nextTaskNumber, goal, tasks: Object.freeze(tasks) });
+}
+
+function boundedText(value, label, maximum) {
+  if (typeof value !== 'string' || value.trim().length < 1 || value.length > maximum) {
+    throw new ContractError('work_text_invalid', `${label} must be between 1 and ${maximum} characters`);
+  }
+  return value.trim();
+}
+
+function optionalText(value) { return value == null ? null : boundedText(value, 'work detail', MAX_DETAIL); }
+function normalizeTaskId(value) {
+  const id = String(value ?? '').toUpperCase();
+  if (!/^T[1-9][0-9]{0,5}$/u.test(id)) throw new ContractError('task_id_invalid', 'task id must look like T1');
+  return id;
+}
+function taskCounts(tasks) {
+  return Object.freeze(Object.fromEntries([...TASK_STATES].map((status) => [status, tasks.filter((task) => task.status === status).length])));
+}
+function deepFreeze(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value); for (const item of Object.values(value)) deepFreeze(item);
+  }
+  return value;
+}

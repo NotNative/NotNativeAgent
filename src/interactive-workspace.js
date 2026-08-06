@@ -112,6 +112,7 @@ export class InteractiveWorkspace {
     }), role);
     this.projection.sessions.get(sessionId).commandCapabilities = { memoryAvailable: engine.memory.enabled, mcpReady: engine.mcp.status().some((item) => item.state === 'ready') };
     restoreTranscript(this.projection, sessionId, engine.transcript);
+    this.projection.sessions.get(sessionId).work = engine.workStatus();
     Object.assign(this.projection.sessions.get(sessionId), engine.resumeBoundary ?? { beforeSequence: null, hasMore: false });
     restorePresentation(this.projection.sessions.get(sessionId), engine, options.presentation);
     this.projection.activate(sessionId);

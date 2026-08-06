@@ -156,6 +156,9 @@ function classify(request, definition) {
   if (definition.sideEffect === 'read_only' && definition.scope === 'tool_catalog' && definition.name === 'tool.search') {
     return Object.freeze({ risk: 'safe', reason: 'bounded_tool_catalog', effect: 'read_only', scope: 'tool_catalog', complexity: 'simple' });
   }
+  if (definition.scope === 'conversation_work' && definition.name.startsWith('work.')) {
+    return Object.freeze({ risk: 'safe', reason: 'bounded_conversation_work', effect: definition.sideEffect, scope: 'conversation_work', complexity: 'simple' });
+  }
   if (definition.scope === 'workspace' && ['reversible', 'irreversible'].includes(definition.sideEffect)) {
     const recovery = resolvedRecovery(request);
     if (!resolvedOutsideWorkspace(request) && ['git_tracked', 'new_target'].includes(recovery)) {

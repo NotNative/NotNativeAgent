@@ -33,7 +33,7 @@ import { createForensicTelemetry } from './forensic-telemetry.js';
 import { prepareEngineContext } from './engine-context-preparation.js';
 import { initializeEngine } from './engine-initialize.js';
 import { persistEngineRecord } from './engine-persistence.js';
-import { subagentConfig, subagentOutputStatus, subagentParallelLimit } from './subagent-runtime.js';
+import { runEngineSubagent, subagentParallelLimit } from './subagent-runtime.js';
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -195,6 +195,12 @@ export class SessionEngine {
   inspectMemory() {
     return this.memory.inspect(this.config.workspaceRoot);
   }
+  workStatus() { return this.work.snapshot(); }
+  setGoal(objective) { return this.work.setGoal(objective); }
+  completeGoal(evidence) { return this.work.completeGoal(evidence); }
+  reopenGoal() { return this.work.reopenGoal(); }
+  addTask(title) { return this.work.addTask(title); }
+  updateTask(id, status, detail) { return this.work.updateTask(id, status, detail); }
 
   deleteMemory(id, expectedVersion) {
     return this.memory.delete(id, this.config.workspaceRoot, expectedVersion);
@@ -207,30 +213,7 @@ export class SessionEngine {
     return clearEngineConversation(this);
   }
   async runSubagent(input, signal) {
-    if (this.config.executionManifest !== null) {
-      throw new ContractError('subagent_hosted_forbidden', 'hosted sub-agents require a derived authority envelope from the authenticated host');
-    }
-    if (this.subagentDepth > 0) throw new ContractError('subagent_nesting_forbidden', 'sub-agents cannot launch nested sub-agents');
-    if (signal.aborted) throw new ContractError('tool_cancelled', 'sub-agent execution was cancelled');
-    const sessionId = newId(`agent_${input.type}`);
-    const config = subagentConfig(this.config, input.type);
-    const child = new SessionEngine({
-      ...this.subagentOptions, config, sessionId, surface: 'subagent', reviewPosture: 'auto-review',
-      dataPaths: this.dataPaths, storeRoot: this.storeRoot, scheduler: this.scheduler,
-      subagentDepth: this.subagentDepth + 1,
-      output: async (record) => this.telemetry?.record('subagent.output', subagentOutputStatus(record), {
-        agent_id: sessionId, agent_type: input.type, record,
-      }, { turnId: this.active?.turnId, stepId: this.active?.stepId, outcome: record?.outcome }),
-    });
-    const cancel = () => child.cancel({ request_id: newId('subagent_cancel'), type: 'cancel' }).catch(() => undefined);
-    signal.addEventListener('abort', cancel, { once: true });
-    try {
-      await child.initialize();
-      return await child.submit({ request_id: newId('subagent'), content: input.task }, `derived-subagent:${input.type}`);
-    } finally {
-      signal.removeEventListener('abort', cancel);
-      await child.shutdown({ request_id: newId('subagent_shutdown'), type: 'shutdown' }).catch(() => undefined);
-    }
+    return runEngineSubagent(this, input, signal, (options) => new SessionEngine(options));
   }
   parallelToolLimit(group, signal) { return subagentParallelLimit(this, group, signal); }
   async #runTurn(content, attachmentInputs, retryAttachmentId) {
@@ -433,6 +416,10 @@ export class SessionEngine {
       'idle', { trigger: 'finalization_committed', turnId: active.turnId },
     ));
     this.active = null;
+    const work = this.work?.snapshot();
+    if (work && (work.goal || work.tasks.length > 0)) {
+      await faults.capture('persistence', () => this.#persist('work_state', work));
+    }
     let terminal = terminalRecord(this, active, faults.outcome, text, faults.primary, faults.secondary);
     await faults.capture('persistence', () => this.#persist('turn_outcome', terminal));
     faults.latchCommit();
@@ -489,6 +476,7 @@ export class SessionEngine {
 
   #restore(records, truncated = false) {
     const restored = restoreSessionRecords(records);
+    this.work.restore(records);
     this.transcript.push(...restored.transcript);
     this.authority.restore(restored.authority, restored.missionTurns, { conversationComplete: !truncated || restored.authorityReset, requireMissionUsage: Boolean(this.config.mission), missionUsageComplete: !truncated || restored.missionTurns.length > 0 });
     this.toolLoop.restore(restored.transcript);

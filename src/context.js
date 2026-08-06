@@ -9,6 +9,7 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
     messages.push({ role: 'system', content: config.applicationPolicy, provenance: 'application_policy', trust: 'host' });
   }
   if (enrichment.skillCatalog?.length > 0) messages.push(skillCatalogMessage(enrichment.skillCatalog));
+  if (enrichment.work?.goal || enrichment.work?.tasks?.length > 0) messages.push(conversationWorkMessage(enrichment.work));
   for (const item of activeContextRecords(transcript).slice(-512)) {
     if (item.type === 'message') {
       messages.push({ role: item.role, content: item.content, provenance: 'transcript', trust: item.trust });
@@ -52,6 +53,7 @@ function enginePolicyMessage(config) {
       'For questions about NotNativeAgent itself—including configuration, commands, tools, architecture, installation, troubleshooting, hooks, MCP, memory, providers, or permissions—do not guess from general knowledge. Briefly say you will check NNA documentation, call nna.search_guidance, read the relevant result with nna.read_guidance, and ground the answer in that packaged guidance. For a runtime failure or surprising turn, call nna.diagnose_turn to inspect bounded redacted lifecycle evidence. To investigate another Console or session, call nna.list_sessions first, then pass its exact session_id to nna.diagnose_turn. If the guidance or diagnostic evidence does not cover the question, say so explicitly.',
       'NNA private runtime configuration is not stored in the active project workspace. Do not search project files or source code for configured providers, MCP servers, or other private runtime settings. In the root Console, use nna.mcp_status and nna.mcp_test to inspect or validate MCP configuration. MCP tools added after this conversation began require a new conversation, not an application restart.',
       'Use tools only when they are necessary to fulfill the request or directly support an answer.',
+      'For substantive multi-step work, use the optional work.goal and work.task tools to preserve intent and progress. Do not create planning state for greetings, simple questions, or brief one-step requests.',
       'Before changing, moving, copying, or deleting an existing file, read its current snapshot first. Use fs.read_text for whole-file operations, or prefer fs.read_lines plus fs.edit_lines for a small targeted change. Never invent an expected hash or edit a line that was not displayed by the matching snapshot read. New-file creation is exempt.',
       'When the visible tools do not cover the task, call tool.search with a concise capability description before claiming the capability is unavailable.',
       config.executionManifest
@@ -163,6 +165,14 @@ function skillCatalogMessage(items) {
     role: 'system',
     content: `Available bounded skills (catalog only; use skill.search and skill.load for agent-invocable bodies):\n${JSON.stringify(catalog)}`,
     provenance: 'skill_catalog', trust: 'configured_skill_catalog',
+  };
+}
+
+function conversationWorkMessage(work) {
+  return {
+    role: 'system',
+    content: `Durable conversation work state (engine-maintained, revision ${work.revision}). Use work.status, work.goal, work.task_add, and work.task_update to keep it accurate as meaningful progress occurs. Do not mark a task or goal complete without concrete evidence. This state survives context compaction and session resume:\n${JSON.stringify(work)}`,
+    provenance: 'conversation_work', trust: 'kernel',
   };
 }
 

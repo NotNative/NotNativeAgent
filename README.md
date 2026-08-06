@@ -11,7 +11,7 @@ use the same state, cancellation, privacy, and review boundaries.
 The **NNA Console** adds a state-first TUI, authenticated allow-once
 reviewer escalation, isolated multi-conversation projections, fair local-provider
 scheduling, read-only health, redacted governance audit and diagnostic bundles, plain
-one-shot mode, and recoverable session-data deletion. Additional security, visual-design,
+one-shot mode, optional durable goal/task progress, and recoverable session-data deletion. Additional security, visual-design,
 native-platform, and live-server release validation remains pending; see
 [release readiness](docs/RELEASE_READINESS.md).
 
@@ -130,4 +130,5 @@ they are not additional license conditions.
 See the [runtime architecture](docs/architecture/0001-runtime.md),
 [recovery architecture](docs/architecture/0003-recovery.md),
 [attachments, memory, and MCP architecture](docs/architecture/0004-attachments-memory-mcp.md),
-and [operator-product architecture](docs/architecture/0005-operator-product.md).
+[operator-product architecture](docs/architecture/0005-operator-product.md), and
+[durable conversation work](docs/architecture/0008-conversation-work.md).

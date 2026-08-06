@@ -10,9 +10,17 @@ export function sessionStatusLine(session, width) {
   const attachments = session.pendingAttachments.length > 0
     ? ` | ${session.pendingAttachments.length} attachment${session.pendingAttachments.length === 1 ? '' : 's'}` : '';
   const state = session.state === 'needs_input' ? 'IDLE' : session.state.toUpperCase();
+  const work = workProgress(session.work);
   return truncateTerminal(sanitizeTerminal(
-    `${session.reviewPosture} | ${state} | ${route}${attachments} | ${context} | ${usage} | ${view}`,
+    `${session.reviewPosture} | ${state} | ${route}${attachments}${work} | ${context} | ${usage} | ${view}`,
   ), width);
+}
+
+function workProgress(work) {
+  if (!work?.goal && !work?.tasks?.length) return '';
+  const total = work.tasks?.length ?? 0;
+  const complete = work.tasks?.filter((task) => task.status === 'completed').length ?? 0;
+  return ` | plan ${complete}/${total}${work.goal?.status === 'completed' ? ' done' : ''}`;
 }
 
 function totalTokens(usage) {

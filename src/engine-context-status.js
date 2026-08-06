@@ -15,7 +15,7 @@ export async function buildReportedContext(engine, records, content, enrichment,
     enrichment.projectIntake = await engine.projectIntake.inspect();
   }
   const context = buildContext(engine.config, records, content, {
-    ...enrichment, projectGuidance, skillCatalog: engine.skills?.catalog() ?? [],
+    ...enrichment, projectGuidance, skillCatalog: engine.skills?.catalog() ?? [], work: engine.work?.snapshot(),
   }, budgetBytes);
   active.contextBytes = measureContext(context);
   active.contextTokens = estimateContextTokens(context);

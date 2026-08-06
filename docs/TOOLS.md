@@ -131,6 +131,18 @@ NNA also exposes three read-only self-inspection tools from every workspace:
 - `agent.run`: run one bounded foreground specialist through the configured Sub-agents provider route; available only to standalone root NNA and absent from hosted catalogs and search.
 - `git.inspect`: inspect bounded repository status, working or staged diffs, and recent commit history through explicit read-only Git argv.
 
+Conversation work uses four always-visible engine tools:
+
+- `work.status`: read the current durable goal and ordered task list.
+- `work.goal`: set, complete with evidence, or reopen the conversation goal.
+- `work.task_add`: append one pending task.
+- `work.task_update`: move a task between pending, in-progress, completed, and blocked;
+  terminal states require evidence or a reason.
+
+They mutate only bounded conversation work state in the existing session journal and grant
+no filesystem, process, network, secret, or host authority. Hosted manifests must explicitly
+grant their exact names before they appear.
+
 The guidance tools read only documentation shipped with the running NNA version. The turn
 diagnostic reads only bounded, content-redacted lifecycle fields from NNA's own journal.
 

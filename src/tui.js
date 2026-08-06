@@ -27,6 +27,8 @@ import { beginMcpManagementSelection, handleMcpSetupAction } from './tui-mcp-set
 import { DestructiveKeyGuard, handleDestructiveCancel, handleDestructiveEscape } from './destructive-key-guard.js';
 import { handleResumeCommand, openRuntimeInspection } from './tui-runtime-inspection.js';
 import { handleSupportCommand } from './tui-support-command.js';
+import { handleWorkCommand, handleWorkSelection, openPlan } from './tui-work-command.js';
+import { modelNotice, routeNotice, strictInteger } from './tui-command-support.js';
 export async function runTui(input, output, diagnostics, options) {
   const { capabilities, bindings } = prepareTui(input, output, options);
   const terminal = new TerminalMode(input, output, capabilities), renderer = options.renderer ?? new TuiRenderer();
@@ -246,6 +248,7 @@ async function handleOverlayAction(action, workspace) {
   } else if (action.action === 'submit' && projection.overlay.items?.length) {
     const overlay = projection.overlay;
     const selected = overlay.items[overlay.selected];
+    if (await handleWorkSelection(selected, workspace, overlay)) return;
     if (beginProviderManagementSelection(selected, workspace, overlay)) return;
     if (beginMcpManagementSelection(selected, workspace, overlay)) return;
     const draft = overlayCommandDraft(overlay.kind, selected.id);
@@ -283,6 +286,8 @@ async function handleOverlayAction(action, workspace) {
     await reopenDreamManager(workspace);
   } else if (action.action === 'back' && projection.overlay.parent === 'config') {
     projection.openOverlay(configOverlay(workspace.activeConfig(), { selectedId: projection.overlay.configSection }));
+  } else if (action.action === 'back' && projection.overlay.parent === 'plan') {
+    openPlan(workspace, `task:${projection.overlay.taskId}`);
   } else if (['help', 'cancel', 'back'].includes(action.action)) {
     projection.closeOverlay();
   } else {
@@ -386,6 +391,7 @@ async function command(value, workspace, stop) {
   else if (name === '/webfetch') await handleWebFetchCommand(argument, workspace);
   else if (name === '/gateway') await handleGatewayCommand(argument, workspace);
   else if (name === '/context') workspace.projection.openOverlay(contextOverlay(workspace.projection.active()));
+  else if (['/plan', '/tasks', '/goal', '/task'].includes(name)) await handleWorkCommand(name, argument, workspace);
   else if (name === '/diff') workspace.projection.openOverlay(valueOverlay('diff', argument ? `Changes · ${argument}` : 'Conversation changes', workspace.activeEngine().tools.diff(argument || null)));
   else if (name === '/copy') await handleCopyCommand(argument, workspace);
   else if (name === '/compact' && !argument) await compactActiveConversation(workspace);
@@ -474,23 +480,6 @@ async function configCommand(argument, workspace) {
     return;
   }
   throw new ContractError('config_read_only', 'Use /config without arguments; provider, model, MCP, and WebSearch have dedicated managers.');
-}
-
-function strictInteger(value, label) {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) throw new ContractError('config_command_invalid', `${label} must be an integer`);
-  return parsed;
-}
-
-function modelNotice(workspace) {
-  const session = workspace.projection.active();
-  return `${session.metadata.model} selected as this conversation's temporary model override.`;
-}
-
-function routeNotice(workspace) {
-  const session = workspace.projection.active();
-  const scope = session.role === 'primary' ? 'workspace default' : 'this conversation';
-  return `${session.metadata.endpoint ?? session.metadata.provider} · ${session.metadata.model} selected for ${scope}.`;
 }
 
 function moveOrNavigate(editor, direction) {

@@ -101,7 +101,7 @@ Key actions:
 
 Commands include `/new NAME`, `/switch ID-OR-NAME`, `/sessions`, `/resume [SESSION_ID]`, `/rename NAME`, `/close`,
 `/confirm close`, `/health`, `/hooks`, `/extensions`, `/stats` (or `/status`), `/files`, `/project`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/dream`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
-`/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP that can be sent
+`/plan`, `/tasks`, `/goal`, `/task`, `/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP that can be sent
 to maintainers for troubleshooting; it never uploads the archive and refuses to overwrite an existing path. Its manifest lists the included attached conversations, and each conversation has an isolated `sessions/<session-id>/` folder containing its redacted diagnostics, repair statistics, and forensic trace. Closing active work requires the explicit confirmation
 command. Conversation editors and transcript projections remain isolated when switching.
 The archive includes a content-free idle-maintenance summary (scheduler state, stage,
@@ -116,6 +116,16 @@ silently replaced; resolve the reported condition and restart NNA to retry recov
 ID directly. It restores the saved transcript in a new tab using the current Console provider
 and workspace configuration. Authenticated hosted and mission sessions are intentionally excluded;
 their originating host must resume them with the original execution authority.
+
+`/plan` opens the optional durable work hub for the active conversation; `/tasks` is an
+alias for the same view. One goal may own up to 64 ordered tasks, with at most one task
+in progress. Use `/goal TEXT`, `/goal complete EVIDENCE`, or `/goal reopen`, and use
+`/task add TEXT`, `/task start ID`, `/task pending ID`, `/task complete ID EVIDENCE`, or
+`/task block ID REASON`. The menu provides the same operations without requiring command
+memorization. Completion requires evidence and blocking requires a reason. Work state is
+stored in the conversation journal, restored by `/resume`, preserved independently of
+context compaction, and summarized as `plan completed/total` in the footer. No planning
+state is created for an ordinary conversation unless the operator or agent chooses to do so.
 
 `/dream` shows local idle-maintenance state and its bounded recent stage receipts.
 `/dream pause` and `/dream resume` control scheduling for the current process; `/dream run`
@@ -168,7 +178,7 @@ context from that artifact plus the newest causal tail. A bounded semantic pass 
 the artifact when the configured provider supports it; strict schema validation and a
 deterministic artifact remain the failure-safe path. `/clear conversation` never acts immediately: it requires
 the exact `/confirm clear conversation` follow-up, records the durable clear boundary,
-and resets authenticated conversational authority along with visible context.
+and resets authenticated conversational authority, durable goal/task state, and visible context.
 The primary conversation is marked with `*`. Inactive conversations use `+` for unseen
 output; `~`, `?`, and `!` indicate active work, attention required, and failure.
 

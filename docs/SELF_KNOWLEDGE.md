@@ -66,3 +66,10 @@ ID and packaged path so the Console activity stream shows what NNA consulted.
 Documentation and implementation changes belong to the same date-iteration version.
 Support bundles and structured logs carry that version so maintainers can compare an
 answer or failure with the behavior and guidance that produced it.
+
+Optional long-horizon progress is maintained through `/plan` (with `/tasks` as an alias),
+`/goal`, and `/task`. The agent uses `work.status`, `work.goal`, `work.task_add`, and
+`work.task_update` to keep the same durable state accurate. A current work snapshot is
+kernel-grounded independently of transcript compaction and restores with the session. The
+agent must record concrete evidence before completing a task or goal, and must not create
+planning state merely because the capability exists.

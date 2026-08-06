@@ -22,13 +22,9 @@ import { mcpControlDefinitions } from './mcp-control-tools.js';
 import { subagentDefinition } from './subagent-tool.js';
 import { gitInspectionDefinition } from './git-inspection-tool.js';
 import { prepareLineEdit, prepareTextEdit } from './stale-edit-recovery.js';
-const MAX_TEXT_BYTES = 1_048_576; const ALWAYS_EXPOSED = new Set([
-  'tool.search', 'fs.list_directory', 'fs.glob', 'fs.search_text', 'fs.metadata', 'fs.read_text', 'fs.read_lines',
-  'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file',
-  'nna.search_guidance', 'nna.read_guidance', 'nna.list_sessions', 'nna.diagnose_turn', 'nna.mcp_status', 'nna.mcp_test', 'web.search', 'web.fetch', 'process.run', 'shell.run',
-  'skill.search', 'skill.load',
-  'agent.run',
-]);
+import { conversationWorkDefinitions } from './conversation-work-tools.js';
+import { CORE_TOOL_NAMES } from './core-tool-names.js';
+const MAX_TEXT_BYTES = 1_048_576; const ALWAYS_EXPOSED = new Set(CORE_TOOL_NAMES);
 export class ToolRegistry {
   #definitions = new Map();
   #history = new Map();
@@ -52,6 +48,7 @@ export class ToolRegistry {
     this.diagnosticContext = options.diagnosticContext;
     this.mcpControl = options.mcpControl;
     this.subagentControl = options.subagentControl;
+    this.conversationWork = options.conversationWork;
   }
   async initialize() {
     await this.paths.initialize();
@@ -75,6 +72,7 @@ export class ToolRegistry {
     this.#install(lspDiagnosticsDefinition(this.paths, { configPath: this.lspConfigPath, spawnProcess: this.lspSpawnProcess }));
     if (this.skills) for (const definition of skillToolDefinitions(this.skills)) this.#install(definition);
     if (this.subagentControl && !this.hosted) this.#install(subagentDefinition(this.subagentControl));
+    if (this.conversationWork) for (const definition of conversationWorkDefinitions(this.conversationWork)) this.#install(definition);
   }
   snapshot() {
     return Object.freeze([...this.#definitions.values()].map(({ executor: _executor, validate: _validate, ...item }) => deepFreeze(structuredClone(item))));

@@ -191,6 +191,7 @@ export class TuiProjection {
       contextParallelCapacity: null, contextMeasurement: null, contextSource: null,
       lastOutcome: null, turnStartedAt: null, reviewPosture: 'auto-review', pendingAttachments: [],
       historyRecords: [], beforeSequence: null, hasMore: false, historyAnchor: null,
+      work: null,
     });
     this.activeId ??= id;
   }
@@ -335,6 +336,7 @@ function applyEvent(session, event) {
   else if (event.type === 'mcp_status') {
     if (event.status === 'ready' && session.commandCapabilities) session.commandCapabilities.mcpReady = true;
   } else if (event.type === 'memory_status') session.state = session.state;
+  else if (event.type === 'work_status') session.work = event.work;
   else if (event.type === 'context_status') {
     session.contextBytes = event.bytes;
     session.contextLimitBytes = event.limit_bytes;

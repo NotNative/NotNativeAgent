@@ -44,6 +44,23 @@ export function sessionStats(session) {
       measurement: session?.contextMeasurement ?? 'unavailable',
       source: session?.contextSource ?? 'unavailable',
     }),
+    work: workStats(session?.work),
+  });
+}
+
+function workStats(work) {
+  const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
+  return Object.freeze({
+    goal: work?.goal?.objective ?? 'none',
+    goal_status: work?.goal?.status ?? 'none',
+    revision: Number.isInteger(work?.revision) ? work.revision : 0,
+    tasks: Object.freeze({
+      total: tasks.length,
+      pending: tasks.filter((task) => task.status === 'pending').length,
+      in_progress: tasks.filter((task) => task.status === 'in_progress').length,
+      completed: tasks.filter((task) => task.status === 'completed').length,
+      blocked: tasks.filter((task) => task.status === 'blocked').length,
+    }),
   });
 }
 

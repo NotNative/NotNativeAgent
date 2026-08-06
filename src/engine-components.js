@@ -24,6 +24,7 @@ import { SkillRegistry } from './skill-registry.js';
 import { GovernanceEngine } from './governance-engine.js';
 import { GroundingPolicy } from './grounding-policy.js';
 import { join } from 'node:path';
+import { ConversationWork } from './conversation-work.js';
 
 export function installEngineComponents(engine, options, storeRoot, hooks) {
   installRouting(engine, options);
@@ -85,6 +86,9 @@ function installExtensions(engine, options) {
 }
 
 function installCapabilities(engine, options, storeRoot, hooks) {
+  engine.work = options.conversationWork ?? new ConversationWork({
+    persist: hooks.persist, output: engine.output, telemetry: engine.telemetry, sessionId: engine.sessionId,
+  });
   engine.skills = options.skillRegistry ?? new SkillRegistry({
     hosted: engine.config.executionManifest !== null,
     hostSkills: engine.config.skills,
@@ -114,6 +118,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       workspaceRoot: engine.config.workspaceRoot,
       run: (input, signal) => engine.runSubagent(input, signal),
     } : null,
+    conversationWork: engine.work,
   });
   engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter, {
     grounding: engine.grounding,
