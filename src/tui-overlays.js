@@ -285,6 +285,39 @@ export function skillsOverlay(skills, options = {}) {
   });
 }
 
+export function dreamOverlay(status, candidates = [], options = {}) {
+  const pending = status.pending;
+  const lines = [
+    'Idle maintenance learns only from governed evidence. Foreground activity always cancels maintenance.',
+    '',
+    `State       ${status.enabled ? status.state : 'disabled'}`,
+    `Next stage  ${pending ? dreamStage(pending.stage) : 'Evidence harvest'}`,
+    `Pending     ${pending ? `${pending.id} · ${pending.result_code ?? 'ready'}` : 'None'}`,
+    `Candidates  ${candidates.length}`,
+  ];
+  if (options.message) lines.push('', options.message);
+  const items = [
+    { id: 'action:run', label: 'Run next maintenance stage', detail: 'Run one bounded stage now; foreground activity still cancels it' },
+    status.state === 'paused'
+      ? { id: 'action:resume', label: 'Resume idle maintenance', detail: 'Allow eligible idle stages to continue' }
+      : { id: 'action:pause', label: 'Pause idle maintenance', detail: 'Stop scheduling new idle stages' },
+    ...candidates.map((candidate) => ({
+      id: `candidate:${candidate.id}`, label: candidate.kind, badge: candidate.state,
+      detail: `${candidate.id} · confidence ${candidate.confidence.toFixed(2)} · observed ${candidate.recurrence_count}x`,
+      section: 'Learning candidates',
+    })),
+  ];
+  return Object.freeze({
+    ...menuOverlay('dream', 'Idle maintenance', lines, items, options.selectedId ?? items[0]?.id),
+    actionLabel: 'Up/Down choose · Enter inspect/run · Esc back',
+  });
+}
+
+function dreamStage(stage) {
+  return ({ 1: 'Operational diagnosis', 2: 'Project-memory eligibility', 3: 'NNM reconciliation', 4: 'NNM hygiene' })[stage]
+    ?? `Stage ${stage}`;
+}
+
 export function overlayCommandDraft(kind, id) {
   if (!id.startsWith('action:')) return null;
   const action = id.slice(7);

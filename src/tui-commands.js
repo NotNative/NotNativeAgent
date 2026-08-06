@@ -29,7 +29,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/confirm clear conversation', 'Confirm clearing active conversation context', 'conversation'),
   command('/health', 'Inspect runtime and dependency health', 'diagnostics'),
   command('/trace [failures|open|turn ID]', 'Inspect the local forensic trace for this conversation', 'diagnostics'),
-  command('/dream [status|pause|resume|run]', 'Inspect or control local idle maintenance', 'diagnostics'),
+  command('/dream [status|pause|resume|run|candidates|inspect ID|reject ID REASON]', 'Inspect or control governed idle maintenance', 'diagnostics'),
   command('/hooks', 'Inspect discovered hook bundles and registration health', 'diagnostics'),
   command('/extensions', 'Inspect installed extension capabilities and diagnostics', 'diagnostics'),
   command('/stats', 'Show conversation turns, tool outcomes, token totals, and context usage', 'diagnostics'),

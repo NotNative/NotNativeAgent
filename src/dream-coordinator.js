@@ -35,11 +35,32 @@ export class DreamCoordinator {
   resume() { if (this.config.dream.enabled) this.arbiter.resume(); }
   runNow() { return this.arbiter.runNow(); }
   status() {
+    const pending = this.store.pendingPacket(this.runtimeKey);
     return {
       enabled: this.config.dream.enabled, state: this.state.state, reason: this.state.reason,
       workspace: this.config.workspaceRoot, watermark: this.store.watermark(this.runtimeKey),
+      pending: pending ? {
+        id: pending.id, stage: pending.stage, created_at: pending.created_at,
+        updated_at: pending.updated_at, result_code: pending.result_code,
+      } : null,
       store: this.store.status(), recent: this.store.recent(10),
     };
+  }
+  candidates(limit = 50) {
+    return this.store.candidates({ limit }).map(candidateSummary);
+  }
+  candidate(id) {
+    const candidate = this.store.candidate(id);
+    if (!candidate) throw Object.assign(new Error('learning candidate does not exist'), { code: 'dream_candidate_missing' });
+    return candidateSummary(candidate, true);
+  }
+  async rejectCandidate(id, reason) {
+    const registry = new LearningCandidateRegistry({
+      store: this.store, governance: this.#engine().governance, runtimeKey: this.runtimeKey,
+      scope: { kind: 'workspace', fingerprint: governanceFingerprint(this.config.workspaceRoot) },
+      telemetry: this.#engine().telemetry,
+    });
+    return candidateSummary(await registry.reject(id, reason));
   }
   close() { this.arbiter.close(); this.store.close(); }
   async #eligible() {
@@ -283,6 +304,21 @@ function reliabilityCandidate(issue, evidenceId) {
     ],
     riskClass: 'diagnostic', payload: { failure_code: reason, proposed_action: 'investigate' },
   };
+}
+
+function candidateSummary(candidate, detail = false) {
+  const summary = {
+    id: candidate.id, kind: candidate.kind, state: candidate.state,
+    confidence: Number(candidate.confidence), recurrence_count: Number(candidate.recurrence_count),
+    risk_class: candidate.risk_class, expected_benefit: candidate.expected_benefit,
+    updated_at: candidate.updated_at,
+  };
+  if (detail) Object.assign(summary, {
+    evidence_refs: candidate.evidence_refs, success_criteria: candidate.success_criteria,
+    rejection_reason: candidate.rejection_reason, expires_at: candidate.expires_at,
+    payload_fingerprint: candidate.payload_fingerprint,
+  });
+  return Object.freeze(summary);
 }
 
 function nnmHook(health) {

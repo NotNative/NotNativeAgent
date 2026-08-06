@@ -6,6 +6,7 @@ import { validateKeyBindings } from './tui-model.js';
 import { RetainedTerminalScreen } from './terminal-screen.js';
 import { commandDefinition } from './tui-commands.js';
 import { auditOverlay, configOverlay, contextOverlay, gatewayOverlay, healthOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui-overlays.js';
+import { handleDreamSelection, openDreamCommand, reopenDreamManager } from './tui-dream.js';
 import { compactActiveConversation, confirmConversationClear, requestConversationClear } from './workspace-context.js';
 import { handleAttachmentCommand } from './tui-attachment-command.js';
 import { handleMemoryCommand } from './tui-memory-command.js';
@@ -133,7 +134,6 @@ export function createRenderLoop(output, capabilities, screen, renderer, project
     cancel() { closed = true; clearTimeout(timer); timer = null; },
   };
 }
-
 export function adaptiveRenderDelay(lastRenderMs, reducedMotion = false) {
   const base = reducedMotion ? 50 : 33;
   return !Number.isFinite(lastRenderMs) || lastRenderMs <= 0
@@ -234,7 +234,6 @@ async function resetKeys(workspace, decoder) {
     workspace.projection.showNotice('configuration', `Defaults active for this run; save failed (${error.code ?? 'configuration_write_failed'}).`);
   }
 }
-
 async function handleOverlayAction(action, workspace) {
   const projection = workspace.projection;
   if (await handleProviderSetupAction(action, workspace)) return;
@@ -265,6 +264,7 @@ async function handleOverlayAction(action, workspace) {
     else if (overlay.kind === 'provider') await workspace.selectProviderForRole(overlay.role ?? 'primary', selected.id);
     else if (overlay.kind === 'model') await workspace.selectModel(selected.id);
     else if (overlay.kind === 'skills') { prepareSkillInvocation(projection, selected.id); return; }
+    else if (overlay.kind === 'dream') { await handleDreamSelection(selected.id, workspace); return; }
     else if (overlay.kind === 'websearch') {
       const result = await webSearchAction(selected.id, workspace);
       projection.openOverlay(webSearchOverlay(result, { selectedId: selected.id, message: webSearchMessage(selected.id) }));
@@ -278,6 +278,8 @@ async function handleOverlayAction(action, workspace) {
         ? `${overlay.role} profile ${selected.id === 'clear-role' ? 'cleared' : 'updated'} globally for all conversations.`
         : routeNotice(workspace);
     projection.showNotice('route', notice);
+  } else if (action.action === 'back' && projection.overlay.parent === 'dream') {
+    await reopenDreamManager(workspace);
   } else if (action.action === 'back' && projection.overlay.parent === 'config') {
     projection.openOverlay(configOverlay(workspace.activeConfig(), { selectedId: projection.overlay.configSection }));
   } else if (['help', 'cancel', 'back'].includes(action.action)) {
@@ -364,7 +366,7 @@ async function command(value, workspace, stop) {
   else if (name === '/permissions') handlePermissionCommand(argument, workspace);
   else if (name === '/health') workspace.projection.openOverlay(healthOverlay(await workspace.activeEngine().health()));
   else if (name === '/trace') await traceCommand(argument, workspace);
-  else if (name === '/dream') workspace.projection.openOverlay(valueOverlay('dream', 'Idle maintenance', await workspace.dreamCommand(argument)));
+  else if (name === '/dream') await openDreamCommand(argument, workspace);
   else if (['/hooks', '/extensions', '/stats', '/status', '/files', '/project', '/sessions', '/agents'].includes(name)) {
     await openRuntimeInspection(name === '/status' ? 'stats' : name.slice(1), workspace);
   }
@@ -394,7 +396,6 @@ async function command(value, workspace, stop) {
   else if (name === '/quit') await stop();
   else throw new ContractError('tui_command_invalid', `invalid usage for ${name}`);
 }
-
 async function invokeSkill(argument, workspace) {
   const [id, ...request] = argument.trim().split(/\s+/u);
   if (!id) throw new ContractError('skill_id_required', '/skill requires a registered skill id');

@@ -157,3 +157,16 @@ evidence plus a settled `memory_eligibility` decision. Missing, malformed, late,
 legacy receipt contracts degrade the maintenance stage only; they never fail a user
 turn. This establishes causal auditability without giving NNA a second semantic-memory
 store or letting NNM widen NNA authority.
+
+## Operator inspection
+
+`/audit` begins with aggregate governance integrity: evidence and decision counts,
+unsettled decisions, quarantined or conflicting evidence, and effects whose completion
+is uncertain. The records below retain stable domains, outcomes, reasons, evidence
+references, and terminal certainty without prompts, tool output, memory text, or secret
+values.
+
+`/dream` is the governed learning control plane. It shows the pending evidence stage and
+typed learning candidates, supports one-stage manual execution and pause/resume, and
+allows candidate inspection. Rejection requires the explicit
+`/dream reject ID REASON` command; inspection never promotes or activates a candidate.
