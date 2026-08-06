@@ -210,6 +210,19 @@ test('learning candidates reject secrets, drift, and invalid state shortcuts', a
   store.close();
 });
 
+test('learning candidates reject nested secret-bearing fields', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-secret-'));
+  const store = new DreamStore({ path: join(root, 'dream.db') });
+  await store.initialize();
+  assert.throws(() => store.observeCandidate({
+    id: 'candidate-nested-secret', runtimeKey: 'runtime', kind: 'guidance.test',
+    scope: { kind: 'workspace', fingerprint: 'a'.repeat(64) }, confidence: 1,
+    evidenceRefs: ['evidence:test'], expectedBenefit: 'test', successCriteria: ['safe'],
+    riskClass: 'low', payload: { safe: { auth_token: 'hidden' } },
+  }), { code: 'dream_candidate_secret_forbidden' });
+  store.close();
+});
+
 function manifest(extra = {}) {
   return {
     format_version: 1, persistence: 'ephemeral', workspace_root: process.cwd(),

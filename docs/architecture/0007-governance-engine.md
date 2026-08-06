@@ -143,3 +143,17 @@ Project-memory reconciliation is proposal-only at this boundary. It reads the cu
 secret-like content, then produces an expected-hash proposal that preserves every byte
 outside the managed region. Applying that proposal remains a normal reviewed filesystem
 effect under a workspace-specific maintenance grant.
+
+## NNM effect receipts
+
+NotNativeMemory owns semantic-memory content and extraction. Its detached NNA
+`turn:post` analyzer emits `nnm.turn-analysis-receipt/1.0` records containing only
+session/turn correlation, a workspace fingerprint, aggregate candidate/write counts,
+and completion time. It never copies extracted memory text into NNA telemetry.
+
+Idle governance reconciles these receipts after deterministic diagnosis and the
+project-memory eligibility stage. Each accepted receipt becomes observed governance
+evidence plus a settled `memory_eligibility` decision. Missing, malformed, late, or
+legacy receipt contracts degrade the maintenance stage only; they never fail a user
+turn. This establishes causal auditability without giving NNA a second semantic-memory
+store or letting NNM widen NNA authority.

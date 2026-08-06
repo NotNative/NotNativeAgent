@@ -123,6 +123,17 @@ export class DreamStore {
       .run(boundedId(resultCode, 'packet result code'), new Date().toISOString(), id);
     return this.packet(id);
   }
+  advancePacket(id, stage, resultCode) {
+    this.#ready();
+    const packet = this.packet(id);
+    if (!packet || packet.state !== 'pending' || !Number.isSafeInteger(stage)
+        || stage !== packet.stage + 1 || stage > 8) {
+      throw new ContractError('dream_packet_transition_invalid', 'dream evidence packet stage transition is invalid');
+    }
+    this.db.prepare('UPDATE dream_packets SET stage=?, result_code=?, updated_at=? WHERE id=?')
+      .run(stage, boundedId(resultCode, 'packet result code'), new Date().toISOString(), id);
+    return this.packet(id);
+  }
   packet(id) {
     this.#ready();
     const row = this.db.prepare('SELECT * FROM dream_packets WHERE id = ?').get(id);
@@ -293,12 +304,18 @@ function boundedPayload(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ContractError('dream_candidate_payload_invalid', 'candidate payload must be an object');
   const encoded = JSON.stringify(value);
   if (Buffer.byteLength(encoded, 'utf8') > 16_384) throw new ContractError('dream_candidate_payload_invalid', 'candidate payload exceeds 16 KiB');
-  const forbidden = /(?:secret|password|passwd|token|credential|api[_-]?key|authorization)/iu;
-  for (const key of Object.keys(value)) if (forbidden.test(key)) throw new ContractError('dream_candidate_secret_forbidden', 'candidate payload may not contain secret-bearing fields');
+  if (hasSecretField(value)) throw new ContractError('dream_candidate_secret_forbidden', 'candidate payload may not contain secret-bearing fields');
   if (/-----BEGIN [A-Z ]+PRIVATE KEY-----|\bBearer\s+[A-Za-z0-9._~+/-]+=*/u.test(encoded)) {
     throw new ContractError('dream_candidate_secret_forbidden', 'candidate payload appears to contain secret material');
   }
   return structuredClone(value);
+}
+
+function hasSecretField(value) {
+  const forbidden = /(?:secret|password|passwd|token|credential|api[_-]?key|authorization)/iu;
+  if (Array.isArray(value)) return value.some(hasSecretField);
+  if (!value || typeof value !== 'object') return false;
+  return Object.entries(value).some(([key, child]) => forbidden.test(key) || hasSecretField(child));
 }
 
 function boundedRefs(value) {

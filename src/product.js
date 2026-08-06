@@ -5,7 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
-export const VERSION = '20260806-16';
+export const VERSION = '20260806-17';
 
 export function userDataPaths(options = {}) {
   const environment = options.environment ?? process.env;
@@ -21,6 +21,7 @@ export function userDataPaths(options = {}) {
     projects: join(root, 'projects'),
     modelDialects: join(root, 'model-dialects.json'),
     dreamState: join(root, 'runtime', 'dream-state.db'),
+    nnmGovernanceReceipts: join(root, 'runtime', 'nnm-turn-receipts.jsonl'),
     sessions: join(root, 'sessions'),
     governanceLedger: join(root, 'governance-ledger'),
     reviewerLedger: join(root, 'reviewer-ledger'),

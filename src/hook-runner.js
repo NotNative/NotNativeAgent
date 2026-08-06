@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
 import { ContractError } from './ids.js';
+import { userDataPaths } from './product.js';
 
 const MAX_INPUT_BYTES = 1_048_576;
 const MAX_OUTPUT_BYTES = 262_144;
@@ -100,6 +101,7 @@ function payloadEnvironment(bundle, input) {
     NNA_SESSION_ID: String(payload.session_id ?? ''), NNA_CWD: String(payload.cwd ?? ''),
     NNA_HOOK_BUNDLE: bundle.name,
     NNA_LOADED_SKILLS: Array.isArray(payload.loaded_skills) ? payload.loaded_skills.join(',') : '',
+    NNM_GOVERNANCE_RECEIPTS: userDataPaths().nnmGovernanceReceipts,
   };
 }
 
