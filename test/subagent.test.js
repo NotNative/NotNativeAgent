@@ -35,7 +35,27 @@ test('subagent configuration promotes only the configured subagent route to prim
   assert.equal(derived.routes.primary.model, 'small');
   assert.equal(derived.routes.subagent, subagent);
   assert.match(derived.applicationPolicy, /implementation stage/u);
+  assert.match(derived.applicationPolicy, /not reserved for the final reviewer/u);
+  assert.match(derived.applicationPolicy, /entirety of every touched file/u);
   assert.equal(config.routes.primary, primary);
+});
+
+test('each devteam specialist receives role-specific engineering standards directly', () => {
+  const route = { role: 'primary', providerId: 'worker', model: 'small' };
+  const config = { routes: { primary: route, subagent: route }, applicationPolicy: 'Base policy.' };
+  const expected = {
+    planner: /observable acceptance criterion/u,
+    coder: /pre-existing violations/u,
+    tester: /partial failure, recovery/u,
+    reviewer: /concrete evidence/u,
+  };
+  for (const [type, pattern] of Object.entries(expected)) {
+    const policy = subagentConfig(config, type).applicationPolicy;
+    assert.match(policy, /Power of Ten/u);
+    assert.match(policy, /interface work/u);
+    assert.match(policy, pattern);
+  }
+  assert.doesNotMatch(subagentConfig(config, 'general').applicationPolicy, /Power of Ten/u);
 });
 
 test('subagent concurrency follows the loaded worker model parallel capacity', async () => {
