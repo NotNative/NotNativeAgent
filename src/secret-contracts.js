@@ -3,6 +3,7 @@ import { ContractError } from './ids.js';
 
 export const LOCAL_SECRET_REALM = 'nna.local';
 export const SECRET_KINDS = Object.freeze(['api_key', 'token', 'username_password', 'text']);
+export const SECRET_SCOPE_KINDS = Object.freeze(['deployment', 'workspace', 'group', 'role', 'user']);
 
 export function normalizeSecretLabel(value) {
   const label = String(value ?? '').trim();
@@ -35,9 +36,23 @@ export function validateSecretFields(kind, fields) {
   return Object.freeze(Object.fromEntries(entries));
 }
 
+export function normalizeSecretScope(value, realm) {
+  if (realm === LOCAL_SECRET_REALM && value == null) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new ContractError('secret_scope_invalid', 'managed secrets require an ownership scope');
+  }
+  const kind = String(value.kind ?? '').trim();
+  const id = String(value.id ?? '').trim();
+  if (!SECRET_SCOPE_KINDS.includes(kind) || !id || id.length > 128 || /[\x00-\x1f\x7f]/u.test(id)) {
+    throw new ContractError('secret_scope_invalid', 'secret scope kind or identifier is invalid');
+  }
+  return Object.freeze({ kind, id });
+}
+
 export function publicSecret(record) {
   return Object.freeze({
     id: record.id, realm: record.realm, label: record.label, kind: record.kind,
+    scope: record.scope ? Object.freeze({ ...record.scope }) : null,
     fields: Object.freeze(Object.keys(record.encryptedFields).sort()), enabled: record.enabled,
     createdAt: record.createdAt, updatedAt: record.updatedAt, rotatedAt: record.rotatedAt,
     lastUsedAt: record.lastUsedAt, useCount: record.useCount,

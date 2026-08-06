@@ -251,6 +251,21 @@ provider's model clears stale declared limits, preventing assumptions from one m
 being applied to another. The Console does not expose a separate global context-budget
 control; the global value is an internal safety ceiling for unknown model metadata.
 
+## Secrets
+
+`/secrets` opens the write-only local secret manager. Local records belong to the
+`nna.local` realm and can be created, rotated, revoked, enabled, or deleted only from Main.
+The Console displays labels, kinds, field names, and lifecycle metadata but never stored
+values. Local secrets are not enumerable through an NNO realm.
+
+An NNO deployment can start the authenticated management service with `nna secrets serve`.
+The service requires `NNA_SECRET_BROKER_REALM=nno:<deployment-id>` and a high-entropy
+`NNA_SECRET_BROKER_TOKEN`; `NNA_SECRET_BROKER_HOST` defaults to `127.0.0.1` and may only
+name a loopback host, while `NNA_SECRET_BROKER_PORT` defaults to `7321`. NNO's backend calls
+the versioned `/v1/secrets` routes with its authenticated actor scope. Browser clients must
+call NNO, never the broker port directly. Management responses are metadata-only and there
+is deliberately no HTTP endpoint that returns decrypted values.
+
 ## WebSearch
 
 WebSearch is global rather than tab-local. Its configuration lives at

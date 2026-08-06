@@ -49,6 +49,7 @@ test('launch options support prompt, host, and config aliases without breaking l
   assert.equal(parseCli(['--config', 'interactive.json']).mode, 'tui');
   assert.equal(parseCli(['gateway', 'status']).mode, 'gateway');
   assert.deepEqual(parseCli(['gateway', 'status']).prompt, ['status']);
+  assert.deepEqual(parseCli(['secrets', 'serve']).prompt, ['serve']);
   assert.equal(parseCli(['uninstall']).mode, 'uninstall');
   assert.deepEqual(parseCli(['uninstall', '--delete-user-data']).prompt, ['--delete-user-data']);
   assert.deepEqual(parseCli(['uninstall', '--keep-user-data']).prompt, ['--keep-user-data']);

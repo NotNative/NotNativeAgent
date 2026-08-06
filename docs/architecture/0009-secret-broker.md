@@ -20,9 +20,11 @@ While a trusted consumer is using a secret, exact values and their common encode
 
 ## NNO integration boundary
 
-NNO's browser must call its authenticated backend. The backend may then call NNA's authenticated broker management API using a signed NNO identity assertion. NNA must validate the issuer, audience, deployment realm, subject, tenant/workspace scope, roles, permissions, expiry, and request binding before every operation.
+NNO's browser must call its authenticated backend. The backend may then call NNA's authenticated broker management API over loopback. A high-entropy bearer credential authenticates the NNO service channel; the request also carries the already authenticated actor's platform role, permissions, and workspace/group/role memberships. NNA rechecks those claims against the requested secret scope on every operation. The broker endpoint is bound to one configured `nno:<deployment-id>` realm and cannot select another realm per request.
 
 Management endpoints may accept new values but must never return stored values. Runtime secret use remains a separate trusted-consumer flow so the model, browser, NNO module code, hooks, transcripts, and support bundles do not receive plaintext.
+
+The management service exposes versioned `/v1/health` and `/v1/secrets` routes. It binds only to loopback and does not emit CORS authorization, so a browser cannot call it directly. NNO's authenticated backend remains the only supported UI integration surface.
 
 ## Failure behavior
 

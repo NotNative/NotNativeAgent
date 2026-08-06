@@ -3,7 +3,9 @@ import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ContractError } from './ids.js';
-import { LOCAL_SECRET_REALM, normalizeSecretKind, normalizeSecretLabel, publicSecret, validateSecretFields } from './secret-contracts.js';
+import {
+  LOCAL_SECRET_REALM, normalizeSecretKind, normalizeSecretLabel, normalizeSecretScope, publicSecret, validateSecretFields,
+} from './secret-contracts.js';
 import { registerSecretValue, releaseSecretValue } from './redaction.js';
 import { SecretVault } from './secret-vault.js';
 
@@ -29,6 +31,7 @@ export class SecretBroker {
     const label = normalizeSecretLabel(input.label);
     const kind = normalizeSecretKind(input.kind);
     const fields = validateSecretFields(kind, input.fields);
+    const scope = normalizeSecretScope(input.scope, this.realm);
     const id = `sec_${randomUUID()}`;
     const encryptedFields = await this.vault.encryptFields(this.realm, id, fields);
     const now = new Date().toISOString();
@@ -38,7 +41,7 @@ export class SecretBroker {
         throw new ContractError('secret_label_duplicate', 'a secret with that label already exists');
       }
       created = {
-        id, realm: this.realm, label, kind, encryptedFields, enabled: true,
+        id, realm: this.realm, label, kind, scope, encryptedFields, enabled: true,
         createdAt: now, updatedAt: now, rotatedAt: null, lastUsedAt: null, useCount: 0,
       };
       vault.records.push(created);

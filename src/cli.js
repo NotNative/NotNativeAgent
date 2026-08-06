@@ -17,6 +17,7 @@ import { loadManagedProviderCredentials, runProviderBootstrapCommand } from './p
 import { loadManagedMcpCredentials } from './mcp-credentials.js';
 import { applyLaunchProviderOverrides } from './launch-provider-overrides.js';
 import { runUninstallCommand } from './uninstall-cli.js';
+import { runSecretBrokerCommand } from './secret-broker-cli.js';
 
 try {
   const options = parseCli(process.argv.slice(2));
@@ -47,6 +48,9 @@ try {
   }
   else if (options.mode === 'uninstall') {
     process.exitCode = await runUninstallCommand(options.prompt, process.stdout);
+  }
+  else if (options.mode === 'secrets') {
+    await runSecretBrokerCommand(options.prompt, await runtimePaths(), { input: process.stdin, output: process.stdout });
   }
   else if (options.mode === 'tui') {
     if (!process.stdin.isTTY || !process.stdout.isTTY) throw Object.assign(new Error('interactive terminal required'), { code: 'interactive_terminal_required' });
@@ -109,6 +113,7 @@ function help() {
     '  nna gateway token-env NAME|authorize USER_ID|revoke USER_ID|workspace PATH',
     '  nna webfetch status|trust ORIGIN|revoke ORIGIN',
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
+    '  nna secrets serve                        Start authenticated NNO broker endpoint (environment configured)',
     '  nna uninstall [--delete-user-data|--keep-user-data]',
     '  nna --help | --version',
     '',

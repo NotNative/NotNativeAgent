@@ -47,7 +47,9 @@ test('realm separation prevents supported cross-realm enumeration and use', asyn
   const paths = { vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json'), auditPath: join(root, 'audit.ndjson') };
   const local = new SecretBroker({ ...paths, realm: 'nna.local' });
   const nno = new SecretBroker({ ...paths, realm: 'nno:one' });
-  const secret = await nno.create({ label: 'Business', kind: 'token', fields: { token: 'business-secret' } });
+  const secret = await nno.create({
+    label: 'Business', kind: 'token', scope: { kind: 'deployment', id: 'one' }, fields: { token: 'business-secret' },
+  });
   assert.deepEqual(await local.list(), []);
   await assert.rejects(() => local.withSecret(secret.id, {
     consumer: 'test', destination: 'https://example.test', purpose: 'test', reviewerDecisionId: 'review_1',
