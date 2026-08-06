@@ -6,7 +6,7 @@ import { ContractError } from './ids.js';
 export function processRunDefinition(paths) {
   return {
     name: 'process.run', version: 1,
-    purpose: 'Run one bounded host command with explicit argv, including SSH and remote-system commands. Root NNA may target host paths; hosted sessions remain workspace-bounded.',
+    purpose: 'Run one bounded installed host program with explicit argv for local or remote tasks. Prefer a direct executable; shell interpreters are optional host software and receive semantic review. Root NNA may target host paths; hosted sessions remain workspace-bounded.',
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
     inputSchema: {
       type: 'object', properties: {

@@ -21,11 +21,12 @@ test('tool catalog keeps core tools visible and selects bounded relevant capabil
   assert.ok(relevant.includes('browser.navigate'));
 });
 
-test('host process execution remains visible for SSH and remote-system requests', async () => {
+test('host process execution is a core visible capability independent of query wording', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  const tools = registry.providerDefinitions('ssh into a remote Linux machine and inspect its version');
-  assert.ok(tools.some((item) => item.function.name === 'process.run'));
+  for (const query of ['', 'inspect this computer', 'connect to another host', 'run a repository command']) {
+    assert.ok(registry.providerDefinitions(query).some((item) => item.function.name === 'process.run'));
+  }
 });
 
 test('tool.search exposes bounded matches for subsequent model steps', async () => {
