@@ -58,7 +58,7 @@ export class ToolGovernor {
         }
         const operator = await this.permissionBroker.request(request, result, context, context.signal);
         const committed = await this.reviewer.ledger.commitOperatorDecision(request.id, operator);
-        await this.governance?.recordAuthorization(request, committed);
+        await this.governance?.recordAuthorization(request, committed, context);
         return committed;
       }
       if (result) return result;

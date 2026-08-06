@@ -54,6 +54,12 @@ while retaining the existing reviewer ledger. This is a compatibility migration,
 second authorization vote. Once field evidence proves recovery and diagnostics, the
 reviewer ledger may become a domain-specific projection of governance records.
 
+Each mirrored authorization decision cites two immutable, content-free evidence records:
+the sealed tool request and the authenticated intent snapshot considered for that exact
+request. The records contain hashes, versions, scope, and classifications—not prompt text,
+arguments, credentials, or tool output. Execution settlement is then attached to the same
+governance decision, producing one causal chain from authority through review to effect.
+
 ## Durability and observability
 
 The governance journal is local-only, hash-chained, flush-before-effect where required,

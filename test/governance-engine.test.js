@@ -89,6 +89,26 @@ test('governance retention never leaves a retained decision with dangling eviden
   assert.ok(governance.health().evidence + governance.health().decisions <= 4);
 });
 
+test('authorization governance binds decisions to fingerprinted request and intent evidence without raw intent', async () => {
+  const governance = new GovernanceEngine({ durable: false, sessionId: 'authorization' });
+  const request = {
+    id: 'tool-request-1', toolName: 'process.run', workspaceRoot: 'D:/workspace', createdAt: 100,
+  };
+  const decision = {
+    id: 'decision-1', outcome: 'approve', reasonCode: 'semantic_intent_match',
+    requestDigest: 'request-digest', authorityId: 'authority-1', authorityVersion: 2,
+    authorityRestrictionVersion: 0, policyVersion: 1, committedAt: 110, expiresAt: 1_000,
+  };
+  const record = await governance.recordAuthorization(request, decision, {
+    authority: { id: 'authority-1', version: 2, complete: true, intent: [{ content: 'private operator request' }] },
+    definition: { sideEffect: 'external_effect' },
+  });
+  assert.equal(record.domain, 'action_authorization');
+  assert.equal(record.evidenceRefs.length, 2);
+  assert.ok(record.evidenceRefs.every((id) => governance.evidence(id)));
+  assert.doesNotMatch(JSON.stringify(governance.audit()), /private operator request/u);
+});
+
 function evidenceRecord(id, content) {
   return {
     id, kind: 'test', origin: 'runtime', trust: 'observed', state: 'active',

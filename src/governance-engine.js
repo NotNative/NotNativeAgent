@@ -93,7 +93,35 @@ export class GovernanceEngine {
     return terminal;
   }
 
-  async recordAuthorization(request, decision) {
+  async recordAuthorization(request, decision, context = {}) {
+    const scope = { kind: 'workspace', fingerprint: governanceFingerprint(request.workspaceRoot) };
+    const requestEvidence = await this.registerEvidence({
+      id: `evidence:request:${request.id}`, kind: 'tool_request', origin: 'runtime', trust: 'observed',
+      state: 'active', freshness: 'current', conflict: 'none', sourceRef: request.id,
+      sourceFingerprint: decision.requestDigest, contentFingerprint: decision.requestDigest,
+      scope, observedAt: request.createdAt,
+      attributes: { tool_name: request.toolName, side_effect: context.definition?.sideEffect ?? 'unknown' },
+    });
+    const authorityMaterial = governanceFingerprint(JSON.stringify({
+      id: decision.authorityId,
+      version: decision.authorityVersion,
+      restrictionVersion: decision.authorityRestrictionVersion,
+      intent: context.authority?.intent ?? [],
+      mission: context.authority?.mission ?? null,
+      complete: context.authority?.complete ?? null,
+    }));
+    const authorityEvidence = await this.registerEvidence({
+      id: `evidence:authority:${governanceFingerprint(`${request.id}:${decision.authorityId}:${decision.authorityVersion}:${decision.authorityRestrictionVersion}:${authorityMaterial}`)}`,
+      kind: 'authenticated_intent', origin: 'operator', trust: 'authority',
+      state: 'active', freshness: 'current', conflict: 'none',
+      sourceRef: decision.authorityId, sourceFingerprint: authorityMaterial,
+      contentFingerprint: authorityMaterial, scope, observedAt: request.createdAt,
+      attributes: {
+        authority_version: decision.authorityVersion,
+        restriction_version: decision.authorityRestrictionVersion,
+        complete: context.authority?.complete ?? null,
+      },
+    });
     return this.decide({
       id: decision.id,
       domain: 'action_authorization',
@@ -102,7 +130,8 @@ export class GovernanceEngine {
       outcome: decision.outcome,
       reasonCode: decision.reasonCode,
       policyVersion: String(decision.policyVersion),
-      authorityRefs: decision.authorityId ? [decision.authorityId] : [],
+      evidenceRefs: [requestEvidence.id, authorityEvidence.id],
+      authorityRefs: [authorityEvidence.id],
       decidedAt: decision.committedAt,
       expiresAt: decision.expiresAt,
       attributes: {
