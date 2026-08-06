@@ -23,6 +23,79 @@ export function processRunDefinition(paths) {
   };
 }
 
+export function shellRunDefinition(paths) {
+  return {
+    name: 'shell.run', version: 1,
+    purpose: 'Run a bounded script in the host platform shell. Use this for pipelines, redirection, environment expansion, and multi-command terminal work; use process.run for one exact executable and argv. The complete script is reviewed before execution.',
+    sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
+    inputSchema: {
+      type: 'object', properties: {
+        script: { type: 'string', minLength: 1, maxLength: 32768 },
+        shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'] },
+        cwd: { type: 'string', minLength: 1, maxLength: 4096 },
+        timeout_ms: { type: 'integer', minimum: 100, maximum: 3600000 },
+      }, required: ['script'], additionalProperties: false,
+    },
+    validate: async (args) => validateShellRequest(paths, args),
+    executor: (request, signal) => runShell(request.args, signal),
+  };
+}
+
+async function validateShellRequest(paths, input) {
+  const allowed = new Set(['script', 'shell', 'cwd', 'timeout_ms']);
+  if (!input || typeof input.script !== 'string' || input.script.trim().length < 1
+    || input.script.length > 32768 || input.script.includes('\0')
+    || Object.keys(input).some((key) => !allowed.has(key))) {
+    throw new ContractError('shell_request_invalid', 'shell requires one non-empty bounded script');
+  }
+  if (/(?:bearer\s+|api[_-]?key\s*[=:]|token\s*[=:]|password\s*[=:])/iu.test(input.script)) {
+    throw new ContractError('shell_secret_argument_forbidden', 'secret-like literal values cannot be placed in shell scripts');
+  }
+  const shell = input.shell ?? 'auto';
+  if (!['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'].includes(shell)) {
+    throw new ContractError('shell_interpreter_invalid', 'requested shell is not supported');
+  }
+  const cwd = await paths.resolveDirectory(input.cwd ?? '.');
+  const timeoutMs = input.timeout_ms ?? 600_000;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 3_600_000) {
+    throw new ContractError('shell_timeout_invalid', 'shell timeout must be 100 to 3600000 milliseconds');
+  }
+  const invocation = shellInvocation(shell, input.script, process.platform);
+  return {
+    args: { script: input.script, shell: invocation.shell, cwd: cwd.path, timeout_ms: timeoutMs },
+    resolved: {
+      path: cwd.path, executable: invocation.executable, shell: invocation.shell, script: input.script,
+      reviewComplexity: shellComplexity(input.script), reviewPurpose: shellReviewPurpose(input.script),
+      insideWorkspace: cwd.insideWorkspace, recovery: cwd.recovery,
+    },
+  };
+}
+
+function runShell(input, signal) {
+  const invocation = shellInvocation(input.shell, input.script);
+  return runProcess({ ...input, executable: invocation.executable, args: invocation.args }, signal, true);
+}
+
+export function shellInvocation(requested, script, platform = process.platform) {
+  const shell = requested === 'auto' ? (platform === 'win32' ? 'powershell' : 'sh') : requested;
+  if (shell === 'powershell') return { shell, executable: 'powershell.exe', args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script] };
+  if (shell === 'pwsh') return { shell, executable: 'pwsh', args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script] };
+  if (shell === 'cmd') return { shell, executable: 'cmd.exe', args: ['/d', '/s', '/c', script] };
+  if (shell === 'bash') return { shell, executable: 'bash', args: ['-c', script] };
+  return { shell: 'sh', executable: 'sh', args: ['-c', script] };
+}
+
+function shellComplexity(script) {
+  if (/(?:^|[;&|\n]\s*)(?:rm\s+-[^\n]*r[^\n]*f|format\b|diskpart\b|shutdown\b|reboot\b|git\s+(?:clean\s+-[^\n]*f|reset\s+--hard)|Remove-Item\b[^\n]*(?:-Recurse|-Force)|(?:del|erase|rmdir)\b)/iu.test(script)) return 'destructive_shell';
+  if (/\r?\n|&&|\|\||[|;<>]/u.test(script)) return 'compound_shell';
+  return 'simple_shell';
+}
+
+function shellReviewPurpose(script) {
+  return /^\s*(?:ping|ping6|nslookup|host|dig|traceroute|tracert|pathping|Test-Connection|Resolve-DnsName)\b[^;&|\n]*\s*$/iu.test(script)
+    ? 'network_diagnostic' : null;
+}
+
 async function validateProcessRequest(paths, input) {
   const allowed = new Set(['executable', 'args', 'cwd', 'timeout_ms']);
   if (!input || typeof input.executable !== 'string' || input.executable.length < 1 || input.executable.length > 4096
@@ -75,7 +148,7 @@ function processComplexity(executable, args) {
   return 'simple_argv';
 }
 
-async function runProcess(input, signal) {
+async function runProcess(input, signal, shellTool = false) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'process was cancelled');
   const child = spawn(input.executable, input.args, {
     cwd: input.cwd, shell: false, windowsHide: true, detached: process.platform !== 'win32', env: minimalEnvironment(),
@@ -95,7 +168,7 @@ async function runProcess(input, signal) {
     if (signal.aborted) throw new ContractError('tool_cancelled', 'process was cancelled');
     if (settled.boundary === 'timeout') throw new ContractError('tool_timeout', 'process exceeded its deadline');
     const result = settled.value;
-    return { content: JSON.stringify(result, null, 2), metadata: { exitCode: result.exit_code, shell: false } };
+    return { content: JSON.stringify(result, null, 2), metadata: { exitCode: result.exit_code, shell: shellTool ? input.shell : false } };
   } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
 }
 

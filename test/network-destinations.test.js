@@ -34,7 +34,7 @@ test('AC-PRIV-01 every configured and dynamic egress surface exposes destination
   assert.equal(report.status, 'ready');
   assert.equal(report.default_unrelated_egress, false);
   assert.deepEqual(report.destinations.map((item) => item.kind), [
-    'provider', 'mcp', 'telemetry', 'web_search', 'governed_tool', 'governed_tool', 'hook', 'extension',
+    'provider', 'mcp', 'telemetry', 'web_search', 'governed_tool', 'governed_tool', 'governed_tool', 'hook', 'extension',
   ]);
   assert.equal(report.destinations.every((item) => item.destination && item.purpose && item.state), true);
   assert.equal(report.destinations.find((item) => item.kind === 'provider').credential_reference, 'MODEL_TOKEN');
@@ -51,7 +51,7 @@ test('AC-PRIV-01 local defaults disclose no unrelated fixed remote destination',
     config, tools: { enabled: true, webSearchConfigPath: join(root, 'absent.json') },
     hooks: { health: () => ({ bundles: [] }) }, extensions: { list: () => [] },
   });
-  const fixed = report.destinations.filter((item) => !['per_request', 'process_arguments'].includes(item.destination));
+  const fixed = report.destinations.filter((item) => !['per_request', 'process_arguments', 'shell_script'].includes(item.destination));
   assert.deepEqual(fixed.map((item) => [item.kind, item.trust_zone]), [['provider', 'loopback']]);
 });
 

@@ -78,6 +78,8 @@ function operationTargetFingerprint(request) {
     .filter((value) => typeof value === 'string');
   const identity = request.toolName === 'process.run'
     ? { targets, executable: resolved.executable, argv: resolved.argv }
+    : request.toolName === 'shell.run'
+      ? { targets, shell: resolved.shell, script: resolved.script }
     : targets.length > 0 ? { targets } : { args: request.args };
   return fingerprint(JSON.stringify(canonical(identity)));
 }

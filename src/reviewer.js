@@ -164,11 +164,11 @@ function classify(request, definition) {
       effect: definition.sideEffect, scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
     });
   }
-  if (definition.name === 'process.run') {
+  if (['process.run', 'shell.run'].includes(definition.name)) {
     const complexity = request.resolved.reviewComplexity ?? 'unknown';
     return Object.freeze({
       risk: 'review_required',
-      reason: complexity === 'simple_argv' ? 'process_execution' : 'opaque_process_request',
+      reason: ['simple_argv', 'simple_shell'].includes(complexity) ? 'process_execution' : 'opaque_process_request',
       effect: 'unknown', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity,
       purpose: request.resolved.reviewPurpose ?? 'general_process',
     });
@@ -313,7 +313,7 @@ function redactReviewValue(value, key = '') {
 
 function authenticatedIntentRelation(request, authority, definition) {
   if (definition.sideEffect === 'read_only') return 'covered';
-  if (request.toolName === 'process.run') return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
+  if (['process.run', 'shell.run'].includes(request.toolName)) return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
   if (!request.toolName.startsWith('fs.')) return 'uncertain';
   const mission = authority.mission?.outcome?.toLowerCase() ?? '';
   const targets = resolvedTargets(request);
@@ -347,9 +347,13 @@ function authorityCoversProcess(request, authority) {
   const latest = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction');
   if (!latest) return false;
   const evidence = tokenSet(latest.content);
-  const command = tokenSet([request.args?.executable, ...(request.args?.args ?? [])].join(' '));
-  const destructive = ['rm', 'rmdir', 'del', 'erase', 'format', 'shutdown', 'reboot', 'diskpart', 'taskkill']
-    .includes(String(request.args?.executable ?? '').toLowerCase());
+  const commandText = request.toolName === 'shell.run'
+    ? request.args?.script
+    : [request.args?.executable, ...(request.args?.args ?? [])].join(' ');
+  const command = tokenSet(commandText);
+  const destructive = request.resolved?.reviewComplexity === 'destructive_shell'
+    || ['rm', 'rmdir', 'del', 'erase', 'format', 'shutdown', 'reboot', 'diskpart', 'taskkill']
+      .includes(String(request.args?.executable ?? '').toLowerCase());
   if (destructive && !/\b(?:delete|remove|erase|format|shutdown|reboot|kill|wipe)\b/iu.test(latest.content)) return false;
   for (const token of command) if (evidence.has(token)) return true;
   if (request.resolved?.reviewPurpose === 'network_diagnostic') {

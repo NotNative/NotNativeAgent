@@ -39,10 +39,15 @@ an explicit allowlist of operating-system path/locale/temp/home and SSH-agent va
 arbitrary parent variables and secrets are not forwarded. Shell interpreters, destructive
 file-management programs, destructive Git cleanup/reset, inline interpreter payloads,
 package scripts, and complex argv are classified for semantic review rather than hard-blocked.
-Installed programs such as SSH, Git, Docker, native system utilities, and shell interpreters
-are invoked through `process.run`; they are not separately named NNA tools. The agent should
-prefer a direct executable and must not assume an optional shell is installed. On Windows,
-`powershell.exe` is the normal Windows PowerShell 5.1 entry point. `pwsh` identifies the
+`shell.run` accepts one readable script when shell behavior is actually needed: pipelines,
+redirection, expansion, or multiple commands. It selects Windows PowerShell 5.1 on Windows
+and `sh` on Unix-like hosts unless the caller explicitly chooses another supported interpreter.
+The complete script, working directory, and interpreter are sealed into the reviewer request;
+NNA then owns interpreter argv, cancellation, output bounds, and process-tree cleanup.
+
+Installed programs such as SSH, Git, Docker, and native system utilities may be invoked through
+`process.run` for exact argv or `shell.run` for terminal workflows. The agent should not wrap a
+shell inside `process.run`. On Windows, `powershell.exe` is the normal Windows PowerShell 5.1 entry point. `pwsh` identifies the
 separately installed, cross-platform PowerShell 7 product and is used only after discovery or
 an explicit operator request. Unix-like hosts likewise may provide `sh`, `bash`, or another
 shell, and a shell wrapper is used only when its syntax is necessary.

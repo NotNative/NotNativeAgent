@@ -5,6 +5,7 @@ import { mkdtemp, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ToolRegistry } from '../src/tool-registry.js';
+import { shellInvocation } from '../src/process-tool.js';
 
 test('process.run executes bounded shell-free argv inside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-'));
@@ -83,4 +84,39 @@ test('AC-SEC-05 process execution receives a minimal environment without inherit
     if (previous === undefined) delete process.env.NNA_TEST_SECRET;
     else process.env.NNA_TEST_SECRET = previous;
   }
+});
+
+test('shell.run owns platform interpreter argv and executes a readable reviewed script', async () => {
+  assert.deepEqual(shellInvocation('auto', 'Write-Output ok', 'win32'), {
+    shell: 'powershell', executable: 'powershell.exe',
+    args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', 'Write-Output ok'],
+  });
+  assert.deepEqual(shellInvocation('auto', 'printf ok', 'linux'), {
+    shell: 'sh', executable: 'sh', args: ['-c', 'printf ok'],
+  });
+  const root = await mkdtemp(join(tmpdir(), 'nna-shell-'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const definition = registry.definition('shell.run');
+  const script = process.platform === 'win32' ? "[Console]::Write('shell-ok')" : "printf 'shell-ok'";
+  const normalized = await definition.validate({ script, timeout_ms: 5_000 });
+  assert.equal(normalized.resolved.shell, process.platform === 'win32' ? 'powershell' : 'sh');
+  assert.equal(normalized.resolved.reviewComplexity, 'simple_shell');
+  const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
+  assert.equal(JSON.parse(result.content).stdout, 'shell-ok');
+  assert.equal(result.metadata.shell, normalized.resolved.shell);
+});
+
+test('shell.run classifies compound and destructive scripts for semantic review and stays out of hosted sessions', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-shell-policy-'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const definition = registry.definition('shell.run');
+  assert.equal((await definition.validate({ script: 'git status; npm test' })).resolved.reviewComplexity, 'compound_shell');
+  assert.equal((await definition.validate({ script: 'git reset --hard' })).resolved.reviewComplexity, 'destructive_shell');
+  assert.equal((await definition.validate({ script: 'Resolve-DnsName fixture-host' })).resolved.reviewPurpose, 'network_diagnostic');
+  await assert.rejects(definition.validate({ script: 'curl -H "Authorization: Bearer literal" example.test' }), { code: 'shell_secret_argument_forbidden' });
+  const hosted = new ToolRegistry(root, { hosted: true, boundedToWorkspace: true, allowedTools: ['shell.run'] });
+  await hosted.initialize();
+  assert.equal(hosted.definition('shell.run'), undefined);
 });

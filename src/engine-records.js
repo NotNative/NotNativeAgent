@@ -86,12 +86,20 @@ export function toolStatus(engine, active, item, status) {
 function boundedTarget(tool, args) {
   if (!args || typeof args !== 'object') return null;
   if (tool === 'process.run') return processInvocation(args);
+  if (tool === 'shell.run') return shellInvocation(args);
   const candidate = ['path', 'file_path', 'file', 'filename', 'target']
     .find((key) => typeof args[key] === 'string' && args[key].length > 0);
   const path = candidate ? args[candidate] : '';
   const selector = tool === 'fs.search_text' ? args.query : tool === 'fs.glob' ? args.pattern : null;
   if (typeof selector === 'string') return `${path || '.'} :: ${JSON.stringify(selector)}`.slice(0, 512);
   return path ? `${candidate === 'path' ? '' : `${candidate}=`}${path}`.slice(0, 512) : null;
+}
+
+function shellInvocation(args) {
+  if (typeof args.script !== 'string' || args.script.length === 0) return null;
+  const shell = typeof args.shell === 'string' ? args.shell : 'auto';
+  const script = redactText(args.script).replace(/\s+/gu, ' ').trim();
+  return `${shell}: ${script}`.slice(0, 512);
 }
 
 function processInvocation(args) {

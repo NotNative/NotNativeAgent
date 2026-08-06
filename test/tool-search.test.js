@@ -16,6 +16,7 @@ test('tool catalog keeps core tools visible and selects bounded relevant capabil
   assert.ok(baseline.includes('tool.search'));
   assert.ok(baseline.includes('fs.edit_text'));
   assert.ok(baseline.includes('process.run'));
+  assert.ok(baseline.includes('shell.run'));
   assert.ok(!baseline.includes('browser.navigate'));
   const relevant = registry.providerDefinitions('open and navigate a browser page').map((item) => item.function.name);
   assert.ok(relevant.includes('browser.navigate'));

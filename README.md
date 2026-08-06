@@ -109,7 +109,7 @@ Send one UTF-8 JSON object per line. Initialize first, then submit:
 
 Stdout is protocol-only; diagnostics use stderr. The current tool snapshot includes
 bounded host-visible discovery, glob, text search, read, write, exact edit, metadata,
-directory, copy, move, delete, reviewed `process.run`, configured WebSearch, public WebFetch,
+directory, copy, move, delete, reviewed `process.run` and `shell.run`, configured WebSearch, public WebFetch,
 and packaged NNA
 self-guidance. Root sessions may act outside their working directory when requested; NNO and
 other hosted sessions remain bounded by their execution manifest. Reads are deterministically

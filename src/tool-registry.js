@@ -10,7 +10,7 @@ import { userDataPaths } from './product.js';
 import { webSearchDefinition } from './web-search-tool.js';
 import { webFetchDefinition } from './web-fetch-tool.js';
 import { rankToolDefinitions, toolSearchDefinition } from './tool-search.js';
-import { processRunDefinition } from './process-tool.js';
+import { processRunDefinition, shellRunDefinition } from './process-tool.js';
 import { filesystemExtraDefinitions } from './filesystem-extra-tools.js';
 import { lspDiagnosticsDefinition } from './lsp-diagnostics.js';
 import { filesystemReadDefinitions, ReadReceiptLedger } from './filesystem-read-tools.js';
@@ -25,7 +25,7 @@ const MAX_TEXT_BYTES = 1_048_576;
 const ALWAYS_EXPOSED = new Set([
   'tool.search', 'fs.list_directory', 'fs.glob', 'fs.search_text', 'fs.metadata', 'fs.read_text', 'fs.read_lines',
   'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file',
-  'nna.search_guidance', 'nna.read_guidance', 'nna.list_sessions', 'nna.diagnose_turn', 'nna.mcp_status', 'nna.mcp_test', 'web.search', 'web.fetch', 'process.run',
+  'nna.search_guidance', 'nna.read_guidance', 'nna.list_sessions', 'nna.diagnose_turn', 'nna.mcp_status', 'nna.mcp_test', 'web.search', 'web.fetch', 'process.run', 'shell.run',
   'skill.search', 'skill.load',
   'agent.run',
 ]);
@@ -70,7 +70,7 @@ export class ToolRegistry {
     this.#install(webSearchDefinition({ configPath: this.webSearchConfigPath, client: this.webSearchClient }));
     this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath }));
     this.#install(toolSearchDefinition(this));
-    this.#install(processRunDefinition(this.paths));
+    this.#install(processRunDefinition(this.paths)); if (!this.hosted) this.#install(shellRunDefinition(this.paths));
     this.#install(gitInspectionDefinition(this.paths));
     this.#install(lspDiagnosticsDefinition(this.paths, { configPath: this.lspConfigPath, spawnProcess: this.lspSpawnProcess }));
     if (this.skills) for (const definition of skillToolDefinitions(this.skills)) this.#install(definition);

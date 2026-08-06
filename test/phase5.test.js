@@ -474,10 +474,10 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /Never infer that a version, product, API, or event does not exist/u);
   assert.match(policy, /search summaries as source discovery rather than detailed evidence/u);
   assert.match(policy, /claim could not be verified/u);
-  assert.match(policy, /Prefer invoking the target executable directly/u);
-  assert.match(policy, /Windows PowerShell 5\.1 normally uses powershell\.exe/u);
-  assert.match(policy, /pwsh means separately installed PowerShell 7/u);
-  assert.match(policy, /SSH, Git, Docker, system utilities, and shell interpreters/u);
+  assert.match(policy, /Prefer shell\.run instead of wrapping/u);
+  assert.match(policy, /built-in Windows PowerShell 5\.1 on Windows/u);
+  assert.match(policy, /Select pwsh only after separately installed PowerShell 7/u);
+  assert.match(policy, /SSH, Git, Docker, and system utilities/u);
 });
 
 test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and credential-free', () => {
