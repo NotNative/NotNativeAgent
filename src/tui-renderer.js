@@ -78,6 +78,7 @@ function contentLines(projection, session, width, targets = new Map()) {
   const records = [...session.historyRecords, ...session.records];
   const completed = new Set(records.filter((record) => record.type === 'turn_result').map((record) => record.turn_id));
   const activity = activityByTurn(records, completed);
+  let lastVisibleKind = null;
   for (const record of records) {
     if (isActivity(record) && completed.has(record.turn_id)) continue;
     if (record.type === 'turn_result') {
@@ -89,9 +90,12 @@ function contentLines(projection, session, width, targets = new Map()) {
       else lines.push(...compactActivityRows(records).flatMap((line) => wrap(line, width)));
       for (let index = start; index < lines.length; index += 1) targets.set(index, { type: 'activity', turnId: record.turn_id });
       lines.push(...turnReceipt(record, summary, expanded, width), '');
+      lastVisibleKind = 'turn_result';
       continue;
     }
-    lines.push(...recordLines(record, width));
+    const rendered = recordLines(record, width); if (rendered.length === 0) continue;
+    if (record.type === 'stream_delta' && lastVisibleKind === 'activity' && lines.at(-1) !== '') lines.push('');
+    lines.push(...rendered); lastVisibleKind = isActivity(record) ? 'activity' : record.type;
   }
   return lines;
 }
@@ -255,7 +259,7 @@ function recordLines(record, width) {
   if (record.type === 'memory_status' || record.type === 'mcp_status') return wrap(`  DEPENDENCY | ${record.status} | ${record.reason ?? record.id ?? ''}`, width);
   if (record.type === 'local_status') return wrap(`  ${record.kind.toUpperCase()} | ${record.text}`, width);
   if (record.type === 'queue_status') return wrap(`... WAITING FOR PROVIDER | position ${record.position}`, width);
-  if (record.type === 'state_status') return wrap(`  STATE | ${record.semantic_state}`, width);
+  if (record.type === 'state_status') return [];
   if (record.type === 'context_compaction_status') return wrap(contextCompactionText(record), width);
   return [];
 }
@@ -362,10 +366,7 @@ function keyLabel(value) {
 }
 
 function toolSymbol(status) {
-  if (!status) return '-';
-  if (status === 'running') return '+';
-  if (status === 'succeeded') return 'OK';
-  return 'X';
+  return !status ? '-' : status === 'running' ? '+' : status === 'succeeded' ? '\u2713' : 'X';
 }
 
 function turnReceipt(record, summary, expanded, width) {
@@ -449,7 +450,8 @@ function decorateContent(line, width, color, index, overlayKind) {
     return paint('38;5;245', line);
   }
   if (/^\s+(?:Review|Result):/u.test(line)) return paint('38;5;245', line);
-  if (/^\s+(?:OK|\+)/u.test(line)) return paint('38;5;77', line);
+  const succeededTool = line.match(/^(\s*)(\u2713)(.*)$/u); if (succeededTool) return `${succeededTool[1]}${paint('38;5;77', succeededTool[2])}${paint('38;5;245', succeededTool[3])}`;
+  if (/^\s+\+/u.test(line)) return paint('38;5;245', line);
   if (/^\s+X|^!/u.test(line)) return paint('38;5;203', line);
   if (/^\s+v Activity detail/u.test(line)) return paint('38;5;141', line);
   if (/^\s+[*-](?:\s|$)/u.test(line)) return paint('38;5;103', line);

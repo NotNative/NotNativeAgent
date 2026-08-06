@@ -579,13 +579,13 @@ test('AC-TUI-01 completed activity remains visible without color, compacts, expa
   assert.doesNotMatch(frame, /REVIEW \| approve/u);
   projection.apply('s1', { type: 'tool_status', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', arguments: { path: 'README.md' }, effect: 'read_only', scope: 'workspace', status: 'succeeded', elapsed_ms: 4, effect_certainty: 'completed', turn_id: 'turn-1' });
   frame = renderer.frame(projection, { width: 100, height: 24, color: false });
-  assert.match(frame, /^    OK fs\.read_text \(README\.md\) \| succeeded/mu);
+  assert.match(frame, /^    ✓ fs\.read_text \(README\.md\) \| succeeded/mu);
   projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1' });
   frame = renderer.frame(projection, { width: 100, height: 24, color: false });
   assert.equal(frame.includes('\u001b'), false);
   assert.match(frame, /^  \* \d+ms \| 1 tool \| 1 review \| Ctrl\+O details$/mu);
   assert.doesNotMatch(frame, /3 events/u);
-  assert.match(frame, /^    OK fs\.read_text \(README\.md\) \| 4 ms/mu);
+  assert.match(frame, /^    ✓ fs\.read_text \(README\.md\) \| 4 ms/mu);
   assert.doesNotMatch(frame, /Arguments:/u);
   assert.equal(projection.toggleLatestActivity(), true);
   frame = renderer.frame(projection, { width: 100, height: 24 });
@@ -616,6 +616,8 @@ test('failed tool rows show the attempted target and actionable failure reason',
   projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1' });
   const frame = new TuiRenderer().frame(projection, { width: 120, height: 24, color: false });
   assert.match(frame, /X fs\.read_text \(missing\.txt\) \| 1 ms \| file_missing: requested file does not exist/u);
+  const colored = new TuiRenderer().frame(projection, { width: 120, height: 24, color: true });
+  assert.match(colored, /\u001b\[38;5;203m    X fs\.read_text/u);
 });
 
 test('completed turn receipt is limited to timing and token usage', () => {
@@ -1173,11 +1175,16 @@ test('engine state recedes, routine approvals stay hidden, and terminal tool sta
   projection.apply('s1', {
     type: 'review_status', outcome: 'approve', reason_code: 'deterministic_safe', tool_request_id: 't1',
   });
-  projection.apply('s1', { type: 'tool_status', status: 'succeeded', tool: 'fs.read_text', tool_request_id: 't1' });
+  projection.apply('s1', {
+    type: 'tool_status', status: 'succeeded', tool: 'fs.read_text', target: 'README.md', tool_request_id: 't1',
+  });
+  projection.apply('s1', { type: 'stream_delta', text: 'Tool-backed answer.' });
   const colored = new TuiRenderer().frame(projection, { width: 100, height: 30, color: true });
-  assert.match(colored, /\u001b\[38;5;245m\s*STATE/u);
+  assert.doesNotMatch(colored, /STATE/u);
   assert.doesNotMatch(colored, /REVIEW/u);
-  assert.match(colored, /\u001b\[38;5;77m\s*OK fs\.read_text/u);
+  assert.match(colored, /\u001b\[38;5;77m✓\u001b\[0m\u001b\[38;5;245m fs\.read_text/u);
+  const plain = new TuiRenderer().frame(projection, { width: 100, height: 30, color: false });
+  assert.match(plain, /    ✓ fs\.read_text \(README\.md\) \| succeeded\n\n\* Tool-backed answer\./u);
   projection.apply('s1', {
     type: 'review_status', outcome: 'deny_with_guidance', reason_code: 'intent_mismatch', tool_request_id: 't2',
   });
@@ -1272,7 +1279,7 @@ test('process tool status shows the executable and argv in its compact target', 
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', record);
   const frame = new TuiRenderer().frame(projection, { width: 120, height: 24, color: false });
-  assert.match(frame, /OK process\.run \(ssh \["fixture-host","hostname && uname -a"\]\) \| succeeded/u);
+  assert.match(frame, /✓ process\.run \(ssh \["fixture-host","hostname && uname -a"\]\) \| succeeded/u);
 });
 
 test('AC-TURN-06 active-turn submit becomes acknowledged steering and clears only after acceptance', async () => {

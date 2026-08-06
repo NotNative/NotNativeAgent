@@ -37,6 +37,6 @@ export function toolFailureText(record) {
 function toolSymbol(status) {
   if (!status) return '-';
   if (status === 'running') return '+';
-  if (status === 'succeeded') return 'OK';
+  if (status === 'succeeded') return '\u2713';
   return 'X';
 }
