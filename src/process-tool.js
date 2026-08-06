@@ -151,7 +151,7 @@ function processComplexity(executable, args) {
 async function runProcess(input, signal, shellTool = false) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'process was cancelled');
   const child = spawn(input.executable, input.args, {
-    cwd: input.cwd, shell: false, windowsHide: true, detached: process.platform !== 'win32', env: minimalEnvironment(),
+    cwd: input.cwd, shell: false, windowsHide: true, detached: process.platform !== 'win32', env: operationalEnvironment(),
   });
   const output = collectOutput(child, 1_048_576);
   const abort = () => terminateTree(child);
@@ -207,12 +207,21 @@ function terminateTree(child) {
   }
 }
 
-function minimalEnvironment() {
+export function operationalEnvironment(environment = process.env) {
   const allowed = [
-    'PATH', 'Path', 'PATHEXT', 'SystemRoot', 'WINDIR', 'ComSpec', 'TMP', 'TEMP', 'LANG', 'LC_ALL', 'NO_COLOR',
-    'HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'SSH_AUTH_SOCK',
+    // Executable, shell, and operating-system discovery.
+    'PATH', 'Path', 'PATHEXT', 'SystemRoot', 'WINDIR', 'windir', 'SystemDrive', 'ComSpec', 'OS',
+    'ProgramData', 'ALLUSERSPROFILE', 'ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432',
+    'CommonProgramFiles', 'CommonProgramFiles(x86)', 'CommonProgramW6432', 'PSModulePath',
+    // User identity and per-user application/configuration paths. These are locations, not credentials.
+    'HOME', 'USER', 'LOGNAME', 'SHELL', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'USERNAME',
+    'USERDOMAIN', 'USERDOMAIN_ROAMINGPROFILE', 'LOGONSERVER', 'APPDATA', 'LOCALAPPDATA', 'PUBLIC',
+    'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_RUNTIME_DIR',
+    // Locale, terminal behavior, temporary storage, and an already-authorized user SSH agent.
+    'TMP', 'TEMP', 'TMPDIR', 'LANG', 'LANGUAGE', 'LC_ALL', 'LC_CTYPE', 'TERM', 'COLORTERM', 'NO_COLOR',
+    'SSH_AUTH_SOCK', 'SSH_AGENT_PID',
   ];
-  return Object.fromEntries(allowed.filter((key) => process.env[key]).map((key) => [key, process.env[key]]));
+  return Object.fromEntries(allowed.filter((key) => environment[key]).map((key) => [key, environment[key]]));
 }
 
 function normalizedExecutable(value) {

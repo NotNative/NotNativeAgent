@@ -35,8 +35,11 @@ The native filesystem tools are:
 Node process boundary. Its cwd may be any accessible host directory for ordinary root NNA;
 environment, duration, and combined output are
 bounded, and cancellation terminates the process tree. Child environment inheritance is
-an explicit allowlist of operating-system path/locale/temp/home and SSH-agent values;
-arbitrary parent variables and secrets are not forwarded. Shell interpreters, destructive
+an explicit allowlist of operating-system discovery, user configuration paths, locale,
+temporary storage, shell/module discovery, and SSH-agent values. This includes foundational
+Windows locations such as `ProgramData`, which Windows OpenSSH requires, and Unix home/XDG
+locations used by user-scoped command-line tools. Arbitrary parent variables, credential
+helpers, provider keys, cloud secrets, and other secrets are not forwarded. Shell interpreters, destructive
 file-management programs, destructive Git cleanup/reset, inline interpreter payloads,
 package scripts, and complex argv are classified for semantic review rather than hard-blocked.
 `shell.run` accepts one readable script when shell behavior is actually needed: pipelines,
