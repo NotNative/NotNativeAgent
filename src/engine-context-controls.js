@@ -4,16 +4,36 @@ import { ContractError } from './ids.js';
 
 export async function compactEngineConversation(engine) {
   if (engine.state.state !== 'idle') throw new ContractError('compaction_busy', 'wait for the active turn before compacting');
-  const compacted = compactTranscript(engine.transcript, engine.config.limits.maxContextBytes);
-  const route = engine.router.resolve('primary');
-  const signal = new AbortController().signal;
-  const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
-  const fact = await engine.continuationCompactor.refine(compacted.fact, engine.router, route, runtime, signal);
-  if (engine.store) await engine.store.append('compaction_snapshot', {
-    records: engine.transcript, fact,
-  });
-  engine.transcript.push(fact);
-  return Object.freeze({ omitted: fact.omitted, retained: fact.retainedRecords?.length ?? 0, fact });
+  engine.telemetry?.record('context.compaction', 'started', { trigger: 'operator_command' });
+  try {
+    const compacted = compactTranscript(engine.transcript, engine.config.limits.maxContextBytes);
+    const route = engine.router.resolve('primary');
+    const signal = new AbortController().signal;
+    const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
+    const fact = await engine.continuationCompactor.refine(compacted.fact, engine.router, route, runtime, signal);
+    if (engine.store) await engine.store.append('compaction_snapshot', {
+      records: engine.transcript, fact,
+    });
+    engine.transcript.push(fact);
+    engine.telemetry?.record('context.compaction', 'succeeded', {
+      trigger: 'operator_command', policy: fact.projection?.policy ?? 'legacy',
+      protected_completed_turns: fact.projection?.protectedCompletedTurns ?? 0,
+      protected_turn_count: fact.projection?.protectedTurnCount ?? 0,
+      protected_record_count: fact.projection?.protectedRecordCount ?? 0,
+      payload_compacted_records: fact.projection?.payloadCompactedRecords ?? 0,
+      oversized_protected_records: fact.projection?.oversizedProtectedRecords ?? 0,
+      superseded_records: fact.projection?.supersededRecords ?? 0,
+      original_bytes: fact.projection?.originalBytes ?? null,
+      projected_bytes: fact.projection?.projectedBytes ?? null,
+      source_fingerprint: fact.sourceFingerprint,
+    });
+    return Object.freeze({ omitted: fact.omitted, retained: fact.retainedRecords?.length ?? 0, fact });
+  } catch (error) {
+    engine.telemetry?.record('context.compaction', 'failed', {
+      trigger: 'operator_command', reason_code: error.code ?? 'compaction_failed',
+    }, { reasonCode: error.code ?? 'compaction_failed' });
+    throw error;
+  }
 }
 
 export async function clearEngineConversation(engine) {

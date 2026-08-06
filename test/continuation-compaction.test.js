@@ -45,7 +45,7 @@ test('compaction preserves the active turn and paired calls while bounding overs
   const context = buildContext({ ...config, limits: { maxContextBytes: 65_536 } }, [compacted.fact], 'Continue.');
   const providerText = context.map((item) => typeof item.content === 'string' ? item.content : '').join('\n');
   assert.match(providerText, /Verify the current Node release/u);
-  assert.match(providerText, /Tool output truncated by context compaction/u);
+  assert.match(providerText, /Tool output compacted/u);
   assert.equal(context.filter((item) => item.tool_calls?.[0]?.id === 'fetch-1').length, 1);
   assert.equal(context.filter((item) => item.tool_call_id === 'fetch-1').length, 1);
   assert.ok(Buffer.byteLength(JSON.stringify(context), 'utf8') < 65_536);
@@ -79,11 +79,16 @@ test('legacy summary-only checkpoints recover durable history for one-time migra
 
 test('compaction projection replaces only older large successful results for the same target', () => {
   const transcript = [
-    message('user', 'Inspect the file twice.'),
-    { type: 'tool_request', providerCallId: 'read-old', toolName: 'fs.read_text', args: { path: 'src/a.js' } },
-    { type: 'tool_result', providerCallId: 'read-old', toolName: 'fs.read_text', status: 'succeeded', content: `old-marker-${'x'.repeat(4_000)}` },
-    { type: 'tool_request', providerCallId: 'read-new', toolName: 'fs.read_text', args: { path: 'src/a.js' } },
-    { type: 'tool_result', providerCallId: 'read-new', toolName: 'fs.read_text', status: 'succeeded', content: `new-marker-${'y'.repeat(4_000)}` },
+    message('user', 'Inspect the file.', 'turn-old'),
+    { type: 'tool_request', turnId: 'turn-old', providerCallId: 'read-old', toolName: 'fs.read_text', args: { path: 'src/a.js' } },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'read-old', toolName: 'fs.read_text', status: 'succeeded', content: `old-marker-${'x'.repeat(4_000)}` },
+    ...Array.from({ length: 5 }, (_, index) => [
+      message('user', `Intervening request ${index}`, `turn-${index}`),
+      message('assistant', `Intervening answer ${index}`, `turn-${index}`),
+    ]).flat(),
+    message('user', 'Inspect the file again.', 'turn-new'),
+    { type: 'tool_request', turnId: 'turn-new', providerCallId: 'read-new', toolName: 'fs.read_text', args: { path: 'src/a.js' } },
+    { type: 'tool_result', turnId: 'turn-new', providerCallId: 'read-new', toolName: 'fs.read_text', status: 'succeeded', content: `new-marker-${'y'.repeat(4_000)}` },
   ];
   const compacted = compactTranscript(transcript, 40_000);
   const oldResult = compacted.records.find((item) => item.type === 'tool_result' && item.providerCallId === 'read-old');
@@ -92,6 +97,53 @@ test('compaction projection replaces only older large successful results for the
   assert.doesNotMatch(oldResult.content, /old-marker/u);
   assert.match(newResult.content, /new-marker/u);
   assert.match(transcript[2].content, /old-marker/u);
+});
+
+test('normal compaction leaves the active turn and five newest completed turns unchanged', () => {
+  const transcript = [];
+  for (let index = 0; index < 8; index += 1) {
+    transcript.push(message('user', `Request ${index}`, `turn-${index}`));
+    transcript.push(message('assistant', `${index < 3 ? 'x'.repeat(20_000) : ''}Answer ${index}`, `turn-${index}`));
+  }
+  transcript.push(message('user', 'Active request', 'turn-active'));
+  transcript.push(message('assistant', 'Active work in progress', 'turn-active'));
+  const protectedOriginal = transcript.filter((item) => ['turn-3', 'turn-4', 'turn-5', 'turn-6', 'turn-7', 'turn-active'].includes(item.turnId));
+  const compacted = compactTranscript(transcript, 120_000, { activeTurnId: 'turn-active' });
+  const protectedRetained = compacted.records.filter((item) => ['turn-3', 'turn-4', 'turn-5', 'turn-6', 'turn-7', 'turn-active'].includes(item.turnId));
+  assert.deepEqual(protectedRetained, protectedOriginal);
+  assert.equal(compacted.fact.projection.protectedCompletedTurns, 5);
+  assert.equal(compacted.fact.projection.protectedTurnCount, 6);
+  assert.equal(compacted.fact.projection.oversizedProtectedRecords, 0);
+});
+
+test('oversized protected tool payload becomes a ledger-backed receipt without orphaning its request', () => {
+  const transcript = [
+    message('user', 'Inspect the large output.', 'turn-active'),
+    { type: 'tool_request', turnId: 'turn-active', requestId: 'request-1', providerCallId: 'call-1', toolName: 'process.run', args: { executable: 'fixture' } },
+    { type: 'tool_result', turnId: 'turn-active', requestId: 'request-1', providerCallId: 'call-1', toolName: 'process.run', status: 'succeeded', content: `head-${'x'.repeat(200_000)}-tail` },
+  ];
+  const compacted = compactTranscript(transcript, 65_536, { activeTurnId: 'turn-active' });
+  const request = compacted.records.find((item) => item.type === 'tool_request');
+  const result = compacted.records.find((item) => item.type === 'tool_result');
+  assert.equal(request.providerCallId, result.providerCallId);
+  assert.equal(result.metadata.compacted, true);
+  assert.equal(result.metadata.reason, 'oversized_protected_payload');
+  assert.equal(result.metadata.ledgerRef, 'request-1');
+  assert.match(result.content, /head-/u);
+  assert.match(result.content, /-tail/u);
+});
+
+test('recent tool output below the context-scaled protected cap remains unchanged', () => {
+  const content = `head-${'x'.repeat(60_000)}-tail`;
+  const transcript = [
+    message('user', 'Inspect the substantial output.', 'turn-active'),
+    { type: 'tool_request', turnId: 'turn-active', providerCallId: 'call-1', toolName: 'process.run', args: { executable: 'fixture' } },
+    { type: 'tool_result', turnId: 'turn-active', providerCallId: 'call-1', toolName: 'process.run', status: 'succeeded', content },
+  ];
+  const compacted = compactTranscript(transcript, 524_288, { activeTurnId: 'turn-active' });
+  const result = compacted.records.find((item) => item.type === 'tool_result');
+  assert.equal(result.content, content);
+  assert.notEqual(result.metadata?.compacted, true);
 });
 
 test('semantic continuation enrichment is schema validated and failure falls back deterministically', async () => {
@@ -115,6 +167,6 @@ test('semantic continuation enrichment is schema validated and failure falls bac
   assert.equal(fallback, base);
 });
 
-function message(role, content) {
-  return { type: 'message', role, content, trust: role === 'user' ? 'operator' : 'model' };
+function message(role, content, turnId = undefined) {
+  return { type: 'message', role, content, trust: role === 'user' ? 'operator' : 'model', ...(turnId ? { turnId } : {}) };
 }

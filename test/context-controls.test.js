@@ -28,12 +28,13 @@ test('explicit compaction and confirmed clear survive durable session recovery',
   };
   const first = new SessionEngine(options);
   await first.initialize();
-  for (let index = 0; index < 5; index += 1) {
+  for (let index = 0; index < 7; index += 1) {
     await first.submit({ request_id: `turn-${index}`, content: `Continue the bounded task ${index}.` }, 'operator');
   }
   const before = first.transcript.length;
   const compacted = await first.compactConversation();
   assert.ok(compacted.omitted > 0);
+  assert.equal(compacted.fact.projection.protectedCompletedTurns, 5);
   assert.equal(first.transcript.length, before + 1);
   assert.equal(first.transcript.at(-1).continuation.schema, 'nna.continuation.v1');
   await first.shutdown({ request_id: 'shutdown-1', type: 'shutdown' });

@@ -237,6 +237,12 @@ NNA reserves the route's bounded output allowance and triggers at the earlier of
 `context_compaction_threshold` (default `0.85`) or the fixed 13,000-token safety boundary.
 When token metadata is unavailable, the validated byte ceilings remain the conservative
 fallback. Estimates and authoritative provider usage are never presented as equivalent.
+A compaction projection protects the active turn plus the five newest completed turns.
+Older history and superseded tool payload are reduced first. When a single protected turn
+cannot fit, NNA preserves its prompt, final response, causal tool pairing, and outcomes while
+replacing oversized recoverable payload with durable-ledger receipts. That protected payload
+limit scales with the active context budget, up to a bounded ceiling. The Console reports
+that exceptional reduction, while the complete transcript remains available for audit.
 A temporary `/model` override clears a stale profile-derived limit unless the selected
 model is the provider profile's declared model.
 

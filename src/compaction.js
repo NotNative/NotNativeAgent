@@ -2,9 +2,11 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from './ids.js';
 
-export function compactTranscript(transcript, maxBytes) {
+const DEFAULT_PROTECTED_COMPLETED_TURNS = 5;
+
+export function compactTranscript(transcript, maxBytes, options = {}) {
   const budget = Math.floor(maxBytes * 0.55);
-  const selected = selectRecentRecords(transcript, budget);
+  const selected = selectRecentRecords(transcript, budget, options);
   const bytes = selected.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
   if (bytes > maxBytes * 0.65) {
     throw new ContractError(
@@ -20,13 +22,30 @@ export function compactTranscript(transcript, maxBytes) {
     continuation,
     summary: renderContinuation(continuation),
     retainedRecords: Object.freeze(selected.map((entry) => Object.freeze(entry.item))),
+    projection: Object.freeze({
+      policy: 'protected_recency_v1',
+      protectedCompletedTurns: selected.metrics.protectedCompletedTurns,
+      protectedTurnCount: selected.metrics.protectedTurnCount,
+      protectedRecordCount: selected.metrics.protectedRecordCount,
+      payloadCompactedRecords: selected.metrics.payloadCompactedRecords,
+      oversizedProtectedRecords: selected.metrics.oversizedProtectedRecords,
+      supersededRecords: selected.metrics.supersededRecords,
+      originalBytes: selected.metrics.originalBytes,
+      projectedBytes: bytes,
+    }),
   });
   return Object.freeze({ records: fact.retainedRecords, fact });
 }
 
-function selectRecentRecords(transcript, budget) {
-  const projected = supersedeColdToolResults(transcript);
-  const normalized = projected.map((item, index) => ({ index, item: compactRecord(item, budget) }));
+function selectRecentRecords(transcript, budget, options) {
+  const protection = protectedRecency(transcript, options);
+  const projection = supersedeColdToolResults(transcript, protection.indexes);
+  const turns = turnEntries(projection.records);
+  const normalized = projection.records.map((item, index) => ({
+    index, item: compactRecord(item, budget, protection.indexes.has(index)),
+    protected: protection.indexes.has(index),
+    turnKey: turns[index].turnKey,
+  }));
   const requestIndexes = new Map(); const resultIndexes = new Map();
   for (const entry of normalized) {
     if (entry.item.type === 'tool_request') requestIndexes.set(entry.item.providerCallId, entry.index);
@@ -53,15 +72,31 @@ function selectRecentRecords(transcript, budget) {
     for (const entry of unit.entries) selected.set(entry.index, entry);
     bytes += size; return true;
   };
-  if (latestUser) add(units.find((unit) => unit.entries.some((entry) => entry.index === latestUser.index)), true);
+  for (const unit of units.filter((candidate) => candidate.entries.some((entry) => entry.protected))) add(unit, true);
+  if (latestUser && !selected.has(latestUser.index)) {
+    add(units.find((unit) => unit.entries.some((entry) => entry.index === latestUser.index)), true);
+  }
   for (const unit of [...units].sort((a, b) => b.priority - a.priority)) {
     if (unit.entries.some((entry) => selected.has(entry.index))) continue;
     add(unit);
   }
-  return [...selected.values()].sort((a, b) => a.index - b.index);
+  const retained = shrinkOversizedProtectedRecords(
+    [...selected.values()].sort((a, b) => a.index - b.index), budget,
+  );
+  retained.metrics = Object.freeze({
+    protectedCompletedTurns: protection.completedTurnCount,
+    protectedTurnCount: protection.turnKeys.size,
+    protectedRecordCount: retained.filter((entry) => entry.protected).length,
+    payloadCompactedRecords: retained.filter((entry) => entry.item.metadata?.compacted === true).length,
+    oversizedProtectedRecords: retained.filter((entry) => entry.item.metadata?.reason === 'oversized_protected_record').length
+      + (retained.oversizedRemoved ?? 0),
+    supersededRecords: projection.superseded,
+    originalBytes: transcript.reduce((sum, item) => sum + recordBytes(item), 0),
+  });
+  return retained;
 }
 
-function supersedeColdToolResults(transcript) {
+function supersedeColdToolResults(transcript, protectedIndexes) {
   const requests = new Map();
   for (const item of transcript) {
     if (item.type === 'tool_request') requests.set(item.providerCallId, item);
@@ -76,13 +111,20 @@ function supersedeColdToolResults(transcript) {
     if (!key) continue;
     keys.set(index, key); latest.set(key, index);
   }
-  return transcript.map((item, index) => {
+  let superseded = 0;
+  const records = transcript.map((item, index) => {
+    if (protectedIndexes.has(index)) return item;
     const key = keys.get(index);
     if (!key || latest.get(key) === index) return item;
     const notice = '[Older successful tool output superseded by a newer result for the same target; full output remains in the session journal.]';
     if (Buffer.byteLength(String(item.content ?? ''), 'utf8') - Buffer.byteLength(notice, 'utf8') < 512) return item;
-    return { ...item, content: notice, metadata: { compacted: true, reason: 'superseded_result' } };
+    superseded += 1;
+    return {
+      ...item, content: notice,
+      metadata: { compacted: true, reason: 'superseded_result', ledgerRef: ledgerReference(item) },
+    };
   });
+  return Object.freeze({ records, superseded });
 }
 
 function supersessionKey(request) {
@@ -105,22 +147,107 @@ function keyed(name, values) {
   return `${name}:${JSON.stringify(values)}`;
 }
 
-function compactRecord(item, budget) {
+function compactRecord(item, budget, protectedRecord = false) {
   if (item.type === 'tool_result') {
-    const cap = Math.max(2_048, Math.min(16_384, Math.floor(budget / 8)));
-    const content = bounded(item.content ?? '', cap);
+    const cap = protectedRecord
+      ? Math.max(16_384, Math.min(131_072, Math.floor(budget / 4)))
+      : Math.max(2_048, Math.min(16_384, Math.floor(budget / 8)));
+    if (protectedRecord && recordBytes(item) <= cap) return { ...item };
+    const content = boundedHeadTail(item.content ?? '', cap);
     const truncated = content !== (item.content ?? '');
     return {
-      ...item, content: truncated ? `${content}\n[Tool output truncated by context compaction; the complete result remains in the session journal.]` : content,
-      metadata: boundedMetadata(item.metadata),
+      ...item,
+      content: truncated ? `${content}\n[Tool output compacted; the complete result remains in the durable session ledger.]` : content,
+      metadata: truncated
+        ? {
+          ...boundedMetadata(item.metadata), compacted: true,
+          reason: protectedRecord ? 'oversized_protected_payload' : 'tool_payload',
+          ledgerRef: ledgerReference(item),
+        }
+        : boundedMetadata(item.metadata),
     };
   }
-  if (item.type === 'message') return { ...item, content: bounded(item.content ?? '', 32_768) };
+  if (item.type === 'message') {
+    if (protectedRecord) return { ...item };
+    return { ...item, content: boundedHeadTail(item.content ?? '', 32_768) };
+  }
   if (item.type === 'compaction') {
     const { retainedRecords: _retainedRecords, ...checkpoint } = item;
     return checkpoint;
   }
   return item;
+}
+
+function protectedRecency(transcript, options) {
+  const completedLimit = Number.isInteger(options.protectedCompletedTurns)
+    ? Math.max(0, options.protectedCompletedTurns) : DEFAULT_PROTECTED_COMPLETED_TURNS;
+  const entries = turnEntries(transcript);
+  const ordered = [];
+  for (const entry of entries) {
+    if (entry.turnKey && !ordered.includes(entry.turnKey)) ordered.push(entry.turnKey);
+  }
+  const explicitActive = options.activeTurnId ? `id:${options.activeTurnId}` : null;
+  const active = explicitActive && ordered.includes(explicitActive) ? explicitActive : null;
+  const completed = ordered.filter((key) => key !== active).slice(-completedLimit);
+  const turnKeys = new Set([...completed, ...(active ? [active] : [])]);
+  const indexes = new Set(entries.filter((entry) => turnKeys.has(entry.turnKey)).map((entry) => entry.index));
+  return Object.freeze({ indexes, turnKeys, completedTurnCount: completed.length });
+}
+
+function turnEntries(transcript) {
+  let inferred = null;
+  return transcript.map((item, index) => {
+    const explicit = item.turnId ?? item.turn_id ?? null;
+    if (explicit) return { index, turnKey: `id:${explicit}` };
+    if (item.type === 'message' && item.role === 'user') inferred = `legacy:${index}`;
+    return { index, turnKey: inferred };
+  });
+}
+
+function shrinkOversizedProtectedRecords(entries, budget) {
+  let bytes = entries.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
+  if (bytes <= budget) return entries;
+  const cap = Math.max(512, Math.floor(budget / 5));
+  const candidates = entries.filter((entry) => entry.protected && entry.item.type === 'message')
+    .sort((left, right) => {
+      const roleOrder = Number(left.item.role === 'user') - Number(right.item.role === 'user');
+      return roleOrder || left.index - right.index;
+    });
+  for (const entry of candidates) {
+    if (bytes <= budget) break;
+    if (Buffer.byteLength(entry.item.content ?? '', 'utf8') <= cap) continue;
+    const before = recordBytes(entry.item);
+    entry.item = {
+      ...entry.item,
+      content: `${boundedHeadTail(entry.item.content ?? '', cap)}\n[Oversized recent message compacted for provider admission; the complete text remains in the durable session ledger.]`,
+      metadata: {
+        ...boundedMetadata(entry.item.metadata), compacted: true,
+        reason: 'oversized_protected_record', ledgerRef: ledgerReference(entry.item),
+      },
+    };
+    bytes -= before - recordBytes(entry.item);
+  }
+  if (bytes <= budget) return entries;
+  const lastAssistant = new Map();
+  for (const entry of entries) {
+    if (entry.protected && entry.item.type === 'message' && entry.item.role === 'assistant') {
+      lastAssistant.set(entry.turnKey, entry.index);
+    }
+  }
+  const removed = new Set();
+  for (const entry of candidates) {
+    if (bytes <= budget) break;
+    if (entry.item.role !== 'assistant' || lastAssistant.get(entry.turnKey) === entry.index) continue;
+    bytes -= recordBytes(entry.item);
+    removed.add(entry.index);
+  }
+  const retained = entries.filter((entry) => !removed.has(entry.index));
+  retained.oversizedRemoved = removed.size;
+  return retained;
+}
+
+function ledgerReference(item) {
+  return item.requestId ?? item.providerCallId ?? item.turnId ?? item.turn_id ?? null;
 }
 
 function boundedMetadata(value) {
@@ -222,6 +349,20 @@ function bounded(value, maxBytes) {
   if (typeof value !== 'string') return '';
   const buffer = Buffer.from(value, 'utf8');
   return buffer.byteLength <= maxBytes ? value : buffer.subarray(0, maxBytes).toString('utf8').replace(/\uFFFD$/u, '');
+}
+
+function boundedHeadTail(value, maxBytes) {
+  if (typeof value !== 'string') return '';
+  const buffer = Buffer.from(value, 'utf8');
+  if (buffer.byteLength <= maxBytes) return value;
+  const marker = '\n...[middle omitted]...\n';
+  const markerBytes = Buffer.byteLength(marker, 'utf8');
+  const available = Math.max(0, maxBytes - markerBytes);
+  const headBytes = Math.ceil(available * 0.7);
+  const tailBytes = Math.floor(available * 0.3);
+  const head = buffer.subarray(0, headBytes).toString('utf8').replace(/\uFFFD$/u, '');
+  const tail = buffer.subarray(buffer.length - tailBytes).toString('utf8').replace(/^\uFFFD/u, '');
+  return `${head}${marker}${tail}`;
 }
 
 function recordBytes(value) {

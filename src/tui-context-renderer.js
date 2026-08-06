@@ -5,7 +5,9 @@ export function contextCompactionText(record) {
     return `  CONTEXT | compacting | ${formatTokens(record.before_estimated_tokens)} -> target ${formatTokens(record.target_tokens)}`;
   }
   if (record.status === 'completed') {
-    return `* Context compacted | ${formatTokens(record.before_estimated_tokens)} -> ${formatTokens(record.after_estimated_tokens)} | retained ${record.retained_records ?? 0} recent records`;
+    const protectedText = record.protected_turns ? ` | protected ${record.protected_turns} recent turns` : '';
+    const payloadText = record.payload_compacted_records ? ` | reduced ${record.payload_compacted_records} payloads` : '';
+    return `* Context compacted | ${formatTokens(record.before_estimated_tokens)} -> ${formatTokens(record.after_estimated_tokens)} | retained ${record.retained_records ?? 0} recent records${protectedText}${payloadText}`;
   }
   return `! Context compaction failed | ${record.reason_code ?? 'unknown'}`;
 }

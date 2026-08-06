@@ -87,7 +87,16 @@ pass may enrich completed work, verified facts, questions, and next actions; mal
 timed-out, or unsupported semantic output falls back to the deterministic artifact. The
 full transcript remains local for display and audit while provider context restarts at the
 fingerprinted continuation boundary. Repeated same-source or excessive compaction is
-stopped by a local circuit breaker. Cancellation remains
+stopped by a local circuit breaker. Normal projection preserves the active turn and five
+newest completed turns without rewriting their conversational content. Older history is
+reduced first. If a protected turn alone prevents provider admission, only recoverable bulk
+payload is reduced first; tool output becomes a typed, ledger-referenced receipt while its
+request/result pairing remains intact. The protected tool-payload limit scales with the active
+context budget, up to a bounded ceiling, so large-context models retain substantial recent
+evidence. Oversized intermediate model steps may be omitted only
+after the final response for that turn is retained. The full records remain in the durable
+journal, and content-free telemetry records the policy, protected counts, byte reduction,
+exception count, and source fingerprint. Cancellation remains
 monotonic; late provider output is ignored and cannot replace `cancelled`. Cancellation
 checkpoints precede hook, attachment, memory, provider, review, and execution boundaries,
 so accepting cancellation prevents any later boundary from starting new external work.
