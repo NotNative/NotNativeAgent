@@ -2,11 +2,13 @@
 import { ContractError } from './ids.js';
 import { SecretBroker } from './secret-broker.js';
 import { startSecretBrokerServer } from './secret-broker-server.js';
+import { validateNnoBrokerActivation } from './nno-broker-activation.js';
 
 export async function runSecretBrokerCommand(args, paths, options = {}) {
   const action = args[0] ?? 'status';
   if (action !== 'serve') throw new ContractError('secret_broker_command_invalid', 'secrets command supports serve');
   const environment = options.environment ?? process.env;
+  const activation = await validateNnoBrokerActivation(environment.NNA_NNO_INSTALL_ROOT);
   const realm = requireRealm(environment.NNA_SECRET_BROKER_REALM);
   const token = environment.NNA_SECRET_BROKER_TOKEN;
   const host = environment.NNA_SECRET_BROKER_HOST ?? '127.0.0.1';
@@ -14,7 +16,7 @@ export async function runSecretBrokerCommand(args, paths, options = {}) {
   const broker = new SecretBroker({
     realm, vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
   });
-  const service = await startSecretBrokerServer({ broker, token, host, port });
+  const service = await startSecretBrokerServer({ broker, token, host, port, activation });
   const address = service.address;
   options.output?.write(`${JSON.stringify({ ready: true, host: address.address, port: address.port, realm })}\n`);
   await waitForShutdown(options.signal, service.server);

@@ -113,7 +113,7 @@ function help() {
     '  nna gateway token-env NAME|authorize USER_ID|revoke USER_ID|workspace PATH',
     '  nna webfetch status|trust ORIGIN|revoke ORIGIN',
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
-    '  nna secrets serve                        Start authenticated NNO broker endpoint (environment configured)',
+    '  nna secrets serve                        Start broker endpoint (installed NNO activation required)',
     '  nna uninstall [--delete-user-data|--keep-user-data]',
     '  nna --help | --version',
     '',

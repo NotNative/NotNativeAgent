@@ -258,8 +258,12 @@ control; the global value is an internal safety ceiling for unknown model metada
 The Console displays labels, kinds, field names, and lifecycle metadata but never stored
 values. Local secrets are not enumerable through an NNO realm.
 
-An NNO deployment can start the authenticated management service with `nna secrets serve`.
-The service requires `NNA_SECRET_BROKER_REALM=nno:<deployment-id>` and a high-entropy
+Only an installed NNO deployment can activate the authenticated management service with
+`nna secrets serve`. `NNA_NNO_INSTALL_ROOT` must identify the absolute NNO installation
+root containing `nna-integration/nno-hosted/integration.json`, and that NNO-owned manifest
+must declare secret broker protocol `1.0`. NNA validates the installed bundle before any
+listener binds; copying a free-form marker or setting broker variables is insufficient.
+The service also requires `NNA_SECRET_BROKER_REALM=nno:<deployment-id>` and a high-entropy
 `NNA_SECRET_BROKER_TOKEN`; `NNA_SECRET_BROKER_HOST` defaults to `127.0.0.1` and may only
 name a loopback host, while `NNA_SECRET_BROKER_PORT` defaults to `7321`. NNO's backend calls
 the versioned `/v1/secrets` routes with its authenticated actor scope. Browser clients must

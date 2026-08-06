@@ -3,12 +3,14 @@ import { createServer } from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { ContractError } from './ids.js';
 import { SecretBroker } from './secret-broker.js';
+import { assertNnoBrokerActivation } from './nno-broker-activation.js';
 
 const BODY_LIMIT = 96 * 1024;
 const PRINCIPAL_LIMIT = 16 * 1024;
 const ALLOWED_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 
 export async function startSecretBrokerServer(options) {
+  assertNnoBrokerActivation(options.activation);
   const host = options.host ?? '127.0.0.1';
   if (!ALLOWED_HOSTS.has(host)) throw new ContractError('secret_broker_bind_invalid', 'secret broker must bind to loopback');
   const port = Number(options.port ?? 0);
