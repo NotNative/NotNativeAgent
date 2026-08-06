@@ -46,6 +46,36 @@ test('dream state commits watermarks and recovers interrupted runs after restart
   second.close();
 });
 
+test('dream store emits content-free lifecycle observations for every stage', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-observe-')), events = [];
+  const store = new DreamStore({ path: join(root, 'dream.db'), observe: (event) => events.push(event) });
+  await store.initialize();
+  const run = store.begin({
+    runtimeKey: 'workspace-a', stage: 2, trigger: 'idle',
+    inputFingerprint: 'a'.repeat(64),
+  });
+  store.finish(run.id, 'completed', {
+    resultCode: 'proposal_created', durationMs: 12, outputFingerprint: 'b'.repeat(64),
+  });
+  store.close();
+  assert.deepEqual(events.map((event) => [event.phase, event.run.state]), [
+    ['started', 'running'], ['finished', 'completed'],
+  ]);
+  assert.equal(JSON.stringify(events).includes('prompt'), false);
+});
+
+test('dream stage durability is independent from a failed telemetry observer', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-observer-failure-'));
+  const store = new DreamStore({
+    path: join(root, 'dream.db'), observe: () => { throw new Error('telemetry unavailable'); },
+  });
+  await store.initialize();
+  const run = store.begin({ runtimeKey: 'workspace-a', stage: 1 });
+  assert.equal(store.finish(run.id, 'completed', { resultCode: 'diagnosis_complete' }).state, 'completed');
+  assert.equal(store.run(run.id).result_code, 'diagnosis_complete');
+  store.close();
+});
+
 test('dream retention expires completed run detail without deleting its watermark', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-dream-retention-'));
   const store = new DreamStore({ path: join(root, 'dream.db'), retentionDays: 1 });
@@ -110,6 +140,10 @@ test('manual deterministic harvest checkpoints only terminal redacted telemetry 
   assert.equal(result.result.packet.diagnosis.eligible_turns, 0);
   assert.ok(status.watermark.turn_sequence > 0);
   assert.equal(JSON.stringify(status).includes('fs.read_text'), false);
+  await telemetry.flush();
+  const lifecycle = await telemetry.query({ eventName: 'maintenance.stage', limit: 20 });
+  assert.deepEqual(lifecycle.map((row) => row.status), ['running', 'succeeded']);
+  assert.equal(JSON.stringify(lifecycle).includes('fs.read_text'), false);
   coordinator.close();
   await telemetry.close();
 });
@@ -145,6 +179,37 @@ test('idle operational diagnosis survives the stage boundary and observes repeat
   assert.equal(restored.pendingPacket(createHashForTest(root)), null);
   assert.equal(restored.candidates().at(0).payload.failure_code, 'provider_timeout');
   restored.close();
+  await telemetry.close();
+});
+
+test('idle diagnosis records explicit skill requests as proposal-only opportunities', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-skill-'));
+  const telemetry = new ForensicTelemetry({
+    workspaceRoot: root, runtimeId: 'runtime', sessionId: 'session', dbPath: join(root, 'events.db'),
+  });
+  await telemetry.initialize();
+  telemetry.record('turn.result', 'succeeded', {}, { turnId: 'turn-skill' });
+  await telemetry.flush();
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  const engine = {
+    state: { state: 'idle' }, telemetry, governance,
+    transcript: [{
+      type: 'message', role: 'user', trust: 'operator', turnId: 'turn-skill',
+      content: 'Please build a deep research skill from this workflow.',
+    }],
+  };
+  const coordinator = new DreamCoordinator({
+    workspace: { sessions: new Map([['session', { engine }]]) },
+    config: resolveManifest(manifest({ workspace_root: root })), path: join(root, 'dream.db'),
+  });
+  await coordinator.initialize();
+  assert.equal((await coordinator.runNow()).result.code, 'harvest_complete');
+  assert.equal((await coordinator.runNow()).result.code, 'operational_diagnosis_complete');
+  const candidate = coordinator.candidates().find((item) => item.kind === 'skill.workflow_opportunity');
+  assert.equal(candidate.state, 'observed');
+  assert.equal(coordinator.candidate(candidate.id).payload.state, 'specification_only');
+  coordinator.close();
   await telemetry.close();
 });
 

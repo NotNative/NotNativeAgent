@@ -174,6 +174,18 @@ evidence and folds recurring equivalent results into one quarantined
 `memory.hygiene_attention` candidate. This stage never edits, promotes, merges, or deletes
 memory; it only gives an operator an attributable queue for later inspection.
 
+Explicit operator requests to make a reusable workflow are admitted through the same
+boundary as `operator_skill_request` evidence with proposal-only authority. The resulting
+`skill.workflow_opportunity` candidate is quarantined and carries value, verification,
+deduplication, maintenance, and security gates. Operator wording that proposes a skill is
+evidence that the proposal should be evaluated; it is not authority to build, install,
+activate, or grant capabilities to that skill.
+
+Every idle stage has two complementary records: the durable dream-state receipt used for
+restart recovery and a content-free `maintenance.stage` forensic event used for timeline
+diagnosis and support bundles. Governance decisions cite stable evidence identities rather
+than relying on either record's mere existence as proof of truth or authority.
+
 ## Operator inspection
 
 `/audit` begins with aggregate governance integrity: evidence and decision counts,

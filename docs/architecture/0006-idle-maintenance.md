@@ -28,3 +28,14 @@ Every stage has its own durable receipt. Optional-service failure degrades only 
 operator activity cancels the shared signal before the next stage can begin. Project memory
 and hygiene findings remain quarantined proposals until a separately authorized action
 applies them.
+
+Stage start and terminal state are also projected into local forensic telemetry as
+content-free `maintenance.stage` events. They contain run identity, stage number, stable
+result code, duration, and input/output fingerprints. The SQLite checkpoint remains the
+source of truth: a telemetry outage cannot prevent a stage from committing or recovering.
+
+Operational diagnosis may recognize an explicit authenticated operator request to package
+a workflow as a skill. It records only a bounded, secret-screened `skill.workflow_opportunity`
+candidate in `proposal_only` state. This recognition does not invoke devteam, write a skill
+package, alter a catalog, or activate anything. Building and promotion remain distinct,
+explicitly authorized future stages with baseline evaluation and independent review.

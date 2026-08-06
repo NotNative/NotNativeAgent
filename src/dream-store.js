@@ -26,8 +26,10 @@ export class DreamStore {
   constructor(options) {
     this.path = options.path;
     this.retentionDays = options.retentionDays ?? 30;
+    this.observe = typeof options.observe === 'function' ? options.observe : null;
     this.db = null;
   }
+  setObserver(observer) { this.observe = typeof observer === 'function' ? observer : null; }
   async initialize() {
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(this.path);
@@ -72,7 +74,9 @@ export class DreamStore {
       }
       throw error;
     }
-    return this.run(id);
+    const run = this.run(id);
+    this.#observed('started', run);
+    return run;
   }
   finish(id, state, detail = {}) {
     this.#ready();
@@ -85,7 +89,9 @@ export class DreamStore {
       duration_ms=?, input_tokens=?, output_tokens=?, output_fingerprint=? WHERE id=?`)
       .run(state, now, detail.resultCode ?? null, detail.durationMs ?? null,
         detail.inputTokens ?? null, detail.outputTokens ?? null, detail.outputFingerprint ?? null, id);
-    return this.run(id);
+    const finished = this.run(id);
+    this.#observed('finished', finished);
+    return finished;
   }
   run(id) { this.#ready(); return this.db.prepare('SELECT * FROM dream_runs WHERE id = ?').get(id) ?? null; }
   recent(limit = 50) {
@@ -216,6 +222,10 @@ export class DreamStore {
     };
   }
   close() { if (this.db) { this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); this.db.close(); this.db = null; } }
+  #observed(phase, run) {
+    try { this.observe?.(Object.freeze({ phase, run: Object.freeze({ ...run }) })); }
+    catch { /* maintenance observability cannot break maintenance durability */ }
+  }
   #ready() { if (!this.db) throw new ContractError('dream_store_unavailable', 'dream state store is not initialized'); }
 }
 

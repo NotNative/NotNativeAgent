@@ -9,6 +9,7 @@ import { governanceFingerprint } from './governance-contracts.js';
 import { NnmGovernanceReceipts } from './nnm-governance-receipts.js';
 import { NnmHygieneReceipts } from './nnm-hygiene-receipts.js';
 import { admitHygieneReceipt, admitNnmReceipt } from './dream-governance-admission.js';
+import { observeSkillRequests } from './skill-opportunity.js';
 import {
   explicitProjectDecisions, ProjectMemoryReconciler, projectMemoryCandidate,
 } from './project-memory-reconciler.js';
@@ -21,6 +22,7 @@ export class DreamCoordinator {
     this.store = options.store ?? new DreamStore({
       path: options.path ?? userDataPaths().dreamState, retentionDays: this.config.dream.retentionDays,
     });
+    this.store.setObserver?.((event) => this.#recordStage(event));
     this.state = { state: 'starting', reason: null, lastResult: null };
     this.nnmReceipts = options.nnmReceipts ?? new NnmGovernanceReceipts({ path: options.nnmReceiptPath });
     this.nnmHygieneReceipts = options.nnmHygieneReceipts ?? new NnmHygieneReceipts({ path: options.nnmReceiptPath });
@@ -152,6 +154,12 @@ export class DreamCoordinator {
         if (issue.code !== 'repeated_reason') continue;
         candidates.push(await registry.observe(reliabilityCandidate(issue, packet.governance_evidence_id)));
       }
+      const skillCandidates = await observeSkillRequests({
+        records: this.#transcriptRecords(), turnRefs: packet.payload.turn_refs,
+        engine: this.#engine(), store: this.store, runtimeKey: this.runtimeKey,
+        scope: { kind: 'workspace', fingerprint: governanceFingerprint(this.config.workspaceRoot) }, signal,
+      });
+      candidates.push(...skillCandidates);
       this.store.advancePacket(packet.id, 2, 'operational_diagnosis_complete');
       this.store.finish(run.id, 'completed', {
         resultCode: 'operational_diagnosis_complete', durationMs: performance.now() - started,
@@ -371,6 +379,16 @@ export class DreamCoordinator {
     if (!engine && required) throw Object.assign(new Error('dream engine unavailable'), { code: 'dream_engine_unavailable' });
     return engine;
   }
+  #recordStage(event) {
+    const telemetry = this.#engine(false)?.telemetry;
+    if (!telemetry) return;
+    const run = event.run, terminal = event.phase === 'finished';
+    telemetry.record('maintenance.stage', terminal ? telemetryStatus(run.state) : 'running', {
+      run_id: run.id, stage: run.stage, trigger: run.trigger,
+      result_code: run.result_code, duration_ms: run.duration_ms,
+      input_fingerprint: run.input_fingerprint, output_fingerprint: run.output_fingerprint,
+    }, { reasonCode: run.result_code ?? `stage_${event.phase}` });
+  }
   #transcriptRecords() {
     return [...this.workspace.sessions.values()].flatMap((session) => session.engine?.transcript ?? []);
   }
@@ -378,6 +396,10 @@ export class DreamCoordinator {
 
 function terminalEvidence(row) {
   return ['succeeded', 'failed', 'cancelled', 'timed_out', 'denied', 'skipped', 'unknown_effect'].includes(row.status);
+}
+
+function telemetryStatus(state) {
+  return state === 'completed' ? 'succeeded' : state;
 }
 
 function evidencePacket(rows) {

@@ -116,9 +116,11 @@ silently replaced; resolve the reported condition and restart NNA to retry recov
 `/dream` shows local idle-maintenance state and its bounded recent stage receipts.
 `/dream pause` and `/dream resume` control scheduling for the current process; `/dream run`
 requests the next eligible deterministic stage immediately. Any keyboard or mouse input
-cancels an active stage and restarts the idle clock. The first implemented stage harvests
-classified terminal telemetry into fingerprints, counters, and durable watermarks. It
-does not invoke a model, edit `NNA.md`, write NNM memories, or generate skills.
+cancels an active stage and restarts the idle clock. Implemented stages harvest classified
+telemetry, diagnose failures, create project-memory proposals, reconcile NNM receipts,
+and request read-only NNM hygiene. Explicit skill requests may appear as proposal-only
+opportunities. None of these stages builds or activates a skill, broadens authority, or
+silently applies a project-memory change.
 `/project` shows deterministic, read-only intake for the active workspace: repository
 kind, recognized manifests and guidance, source/test directories, likely entry points,
 and bounded package metadata. The same intake is added to model context only when the

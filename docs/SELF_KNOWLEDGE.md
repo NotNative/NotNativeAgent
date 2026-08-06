@@ -45,10 +45,12 @@ native fallback, and offer an operator-approved platform installation command. M
 ripgrep is an optimization opportunity, not a turn-blocking failure.
 
 Standalone Console idle maintenance is inspected with `/dream`. Its deterministic
-harvest stage checkpoints classified terminal telemetry without transcript content.
-Authenticated host sessions cannot run the dream scheduler. The presence of a dream
-checkpoint does not imply that NNA edited project memory, wrote NNM data, changed its
-runtime, or generated a skill; those remain separately governed later stages.
+pipeline checkpoints classified telemetry, operational diagnosis, project-memory
+proposals, NNM effect reconciliation, and read-only NNM hygiene. Each stage also emits a
+content-free forensic lifecycle event. Authenticated host sessions cannot run the dream
+scheduler. The presence of a checkpoint or a `skill.workflow_opportunity` candidate does
+not imply that NNA edited project memory, wrote NNM data, changed its runtime, built a
+skill, or activated one; those remain separately governed actions.
 
 When the user explicitly asks about the active project, repository, codebase, or
 workspace, NNA adds a bounded deterministic intake record before inference. It reports
