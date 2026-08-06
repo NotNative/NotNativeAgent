@@ -77,11 +77,11 @@ export class ToolGovernor {
     this.#activeDecisions.set(request.id, decision.id);
   }
 
-  async executePrepared(request, signal) {
+  async executePrepared(request, decision, signal) {
     const definition = this.registry.definition(request.toolName, request.definitionVersion);
     const started = performance.now();
     try {
-      const raw = await executeBounded(definition, request, signal);
+      const raw = await executeBounded(definition, request, signal, { reviewerDecisionId: decision.id });
       return normalizeResult(request, 'succeeded', raw.content, raw.metadata, started, definition.maxOutputBytes);
     } catch (error) {
       return normalizeFailure(request, definition, error, started);
@@ -176,7 +176,7 @@ export function blockedResult(request, error) {
   });
 }
 
-async function executeBounded(definition, request, parentSignal) {
+async function executeBounded(definition, request, parentSignal, executionContext) {
   if (parentSignal.aborted) throw new ContractError('tool_cancelled', 'tool execution was cancelled');
   const controller = new AbortController();
   let timeoutId;
@@ -191,7 +191,7 @@ async function executeBounded(definition, request, parentSignal) {
     parentSignal.addEventListener('abort', parentAbort, { once: true });
   });
   const operation = Promise.resolve()
-    .then(() => definition.executor(request, controller.signal))
+    .then(() => definition.executor(request, controller.signal, executionContext))
     .then((value) => ({ value }), (error) => ({ error }));
   try {
     const settled = await Promise.race([operation, timeout, cancelled]);

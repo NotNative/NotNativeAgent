@@ -153,6 +153,7 @@ function classify(request, definition) {
     const privateOrigin = request.resolved.destination === 'trusted_private_origin';
     return Object.freeze({ risk: 'safe', reason: privateOrigin ? 'trusted_private_web_fetch' : 'validated_public_web_fetch', effect: 'read_only', scope: privateOrigin ? 'private_network' : 'public_network', complexity: 'simple' });
   }
+  if (definition.name === 'web.browse') return browserClassification(request);
   if (definition.sideEffect === 'read_only' && definition.scope === 'tool_catalog' && definition.name === 'tool.search') {
     return Object.freeze({ risk: 'safe', reason: 'bounded_tool_catalog', effect: 'read_only', scope: 'tool_catalog', complexity: 'simple' });
   }
@@ -179,6 +180,14 @@ function classify(request, definition) {
     });
   }
   return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
+}
+
+function browserClassification(request) {
+  const destination = request.resolved?.destination ?? null;
+  if (request.resolved?.readOnly === true && [null, 'public_network', 'trusted_private_origin'].includes(destination)) {
+    return Object.freeze({ risk: 'safe', reason: 'bounded_browser_observation', effect: 'read_only', scope: destination === 'trusted_private_origin' ? 'private_network' : 'browser', complexity: 'simple' });
+  }
+  return Object.freeze({ risk: 'review_required', reason: 'interactive_browser_action', effect: 'unknown', scope: 'browser', complexity: 'simple' });
 }
 
 function resolvedRecovery(request) {

@@ -103,6 +103,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     webSearchConfigPath: options.webSearchConfigPath ?? userDataPaths().webSearchConfig,
     webSearchClient: options.webSearchClient,
     webFetchConfigPath: options.webFetchConfigPath ?? userDataPaths().webFetchConfig,
+    ...browserToolOptions(engine, options),
     lspConfigPath: options.lspConfigPath,
     lspSpawnProcess: options.lspSpawnProcess,
     skillRegistry: engine.skills,
@@ -139,6 +140,16 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     registry: engine.tools, configs: engine.config.mcpServers ?? [],
     transportFactory: options.mcpTransportFactory,
   });
+}
+
+function browserToolOptions(engine, options) {
+  const defaults = userDataPaths();
+  return {
+    browserManager: options.browserManager,
+    browserRoot: join(engine.dataPaths.root ?? defaults.root, 'runtime', 'browser', engine.sessionId),
+    managedPlaywrightRoot: options.managedPlaywrightRoot ?? engine.dataPaths.managedPlaywright ?? defaults.managedPlaywright,
+    secretBroker: options.secretBroker, sessionId: engine.sessionId,
+  };
 }
 
 function installReview(engine, options) {

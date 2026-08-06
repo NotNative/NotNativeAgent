@@ -154,7 +154,7 @@ export class ToolLoop {
     item.child.move('running');
     await this.output(toolStatus(this.engine, active, item, 'running'));
     try {
-      item.result = await this.governor.executePrepared(item.request, active.controller.signal);
+      item.result = await this.governor.executePrepared(item.request, item.decision, active.controller.signal);
       item.child.move(toolResultState(item.result));
       this.telemetry?.record('tool.execution', toolTelemetryStatus(item.result.status), {
         tool_name: item.request.toolName, result: item.result,

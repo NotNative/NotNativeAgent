@@ -46,7 +46,7 @@ export class WebFetchClient {
     let url = normalizeUrl(input);
     for (let redirect = 0; redirect <= 5; redirect += 1) {
       const destination = await this.policy.classify(url);
-      const addresses = await allowedAddresses(url, this.resolve, destination);
+      const addresses = await allowedWebAddresses(url, this.resolve, destination);
       const response = await this.transport(url, addresses[0], {
         method: 'GET', redirect: 'manual', signal: combinedSignal(signal, this.timeoutMs),
         headers: { accept: 'text/plain, text/html, application/json, application/xml, text/xml, text/markdown', 'user-agent': `NotNativeAgent/${VERSION}` },
@@ -91,7 +91,7 @@ function normalizeUrl(value) {
   return url;
 }
 
-async function allowedAddresses(url, resolver, destination) {
+export async function allowedWebAddresses(url, resolver = resolveHost, destination = 'public_network') {
   const addresses = isIP(url.hostname) ? [url.hostname] : await resolver(url.hostname);
   if (!Array.isArray(addresses) || addresses.length === 0) throw blocked();
   if (destination === 'public_network' && addresses.some(privateAddress)) throw blocked();

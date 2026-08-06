@@ -38,6 +38,7 @@ export async function performEngineShutdown(engine, command) {
       await engine.mcp.close();
       await engine.mcpInitialization;
     }, () => engine.attachments.close(),
+    () => engine.tools?.close?.(),
     () => engine.extensions?.close(), () => engine.store?.close(), () => engine.ledger.close(),
     () => engine.governance?.close(),
   ].map((operation) => Promise.resolve().then(operation)));

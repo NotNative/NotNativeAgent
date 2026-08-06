@@ -9,6 +9,7 @@ import { PathPolicy } from './path-policy.js';
 import { userDataPaths } from './product.js';
 import { webSearchDefinition } from './web-search-tool.js';
 import { webFetchDefinition } from './web-fetch-tool.js';
+import { webBrowseDefinition } from './web-browse-tool.js';
 import { rankToolDefinitions, toolSearchDefinition } from './tool-search.js';
 import { processRunDefinition, shellRunDefinition } from './process-tool.js';
 import { filesystemExtraDefinitions } from './filesystem-extra-tools.js';
@@ -42,6 +43,9 @@ export class ToolRegistry {
     this.webSearchConfigPath = options.webSearchConfigPath ?? userDataPaths().webSearchConfig;
     this.webSearchClient = options.webSearchClient;
     this.webFetchConfigPath = options.webFetchConfigPath ?? userDataPaths().webFetchConfig;
+    this.browserManager = options.browserManager; this.secretBroker = options.secretBroker; this.sessionId = options.sessionId;
+    this.browserRoot = options.browserRoot ?? join(userDataPaths().root, 'runtime', 'browser', options.sessionId ?? 'standalone');
+    this.managedPlaywrightRoot = options.managedPlaywrightRoot ?? userDataPaths().managedPlaywright;
     this.lspConfigPath = options.lspConfigPath ?? join(userDataPaths().config, 'lsp.json');
     this.lspSpawnProcess = options.lspSpawnProcess;
     this.skills = options.skillRegistry;
@@ -66,6 +70,9 @@ export class ToolRegistry {
     for (const definition of mcpControlDefinitions(this.mcpControl)) this.#install(definition);
     this.#install(webSearchDefinition({ configPath: this.webSearchConfigPath, client: this.webSearchClient }));
     this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath }));
+    if (!this.hosted) this.#install(webBrowseDefinition({ manager: this.browserManager, root: this.browserRoot,
+      managedPlaywrightRoot: this.managedPlaywrightRoot, configPath: this.webFetchConfigPath,
+      secretBroker: this.secretBroker, sessionId: this.sessionId }));
     this.#install(toolSearchDefinition(this));
     this.#install(processRunDefinition(this.paths)); if (!this.hosted) this.#install(shellRunDefinition(this.paths));
     this.#install(gitInspectionDefinition(this.paths));
@@ -74,6 +81,7 @@ export class ToolRegistry {
     if (this.subagentControl && !this.hosted) this.#install(subagentDefinition(this.subagentControl));
     if (this.conversationWork) for (const definition of conversationWorkDefinitions(this.conversationWork)) this.#install(definition);
   }
+  async close() { await this.definition('web.browse')?.manager?.close?.(); }
   snapshot() {
     return Object.freeze([...this.#definitions.values()].map(({ executor: _executor, validate: _validate, ...item }) => deepFreeze(structuredClone(item))));
   }
@@ -464,17 +472,14 @@ function replaceLineRange(content, startLine, endLine, replacement) {
   return trailing && result.length > 0 ? `${result}${newline}` : result;
 }
 function countOccurrences(content, search) {
-  let count = 0;
-  let offset = 0;
+  let count = 0; let offset = 0;
   while ((offset = content.indexOf(search, offset)) !== -1) {
     count += 1;
     offset += search.length;
   }
   return count;
 }
-function replaceText(content, oldText, newText, replaceAll) {
-  return replaceAll ? content.split(oldText).join(newText) : content.replace(oldText, newText);
-}
+function replaceText(content, oldText, newText, replaceAll) { return replaceAll ? content.split(oldText).join(newText) : content.replace(oldText, newText); }
 function requireShape(value, required, optional = []) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');
@@ -489,9 +494,6 @@ function requireShape(value, required, optional = []) {
 }
 function objectSchema(properties, required) { return { type: 'object', properties, required, additionalProperties: false }; }
 function deepFreeze(value) {
-  if (value && typeof value === 'object') {
-    Object.freeze(value);
-    for (const child of Object.values(value)) deepFreeze(child);
-  }
+  if (value && typeof value === 'object') { Object.freeze(value); for (const child of Object.values(value)) deepFreeze(child); }
   return value;
 }

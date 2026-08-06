@@ -311,6 +311,16 @@ checks its package and Chromium binary without network access; `nna webbrowse ve
 also performs a bounded local launch probe. Declining the component leaves WebSearch and
 WebFetch fully functional; the browser runtime remains unavailable until installed.
 
+When installed, the standalone tool `web.browse` creates Chromium lazily on first use. Its
+context is headless and ephemeral: cookies, local storage, element references, and other browser
+state are kept only for the active NNA session and are destroyed during normal shutdown.
+Navigation and every browser subrequest use the WebFetch destination policy, including exact
+private-origin trust configured through `/webfetch`. Page inspection is bounded to 64 KiB of
+visible text and 100 interactive element references. Browser interactions undergo semantic
+review; credential entry uses a Secret Broker ID and field name so the decrypted value is passed
+straight to Playwright without entering the model transcript. Hosted NNO sessions do not inherit
+the standalone root browser tool unless a future identity-scoped host contract grants it.
+
 ## Telegram gateway
 
 `/gateway` opens the Telegram manager and is also listed by `/config`. Bot configuration,

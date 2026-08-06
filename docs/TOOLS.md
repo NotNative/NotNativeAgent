@@ -121,6 +121,19 @@ The global WebSearch tool is:
   while retaining the original Host/TLS server name. Untrusted loopback, private,
   link-local, reserved, credential-bearing, non-text, and over-sized destinations or
   responses are rejected. Origin trust never acts as a subnet wildcard.
+- `web.browse`: operate one headless, ephemeral Chromium context for the current standalone
+  NNA session. It can navigate, return bounded page text and stable element references,
+  interact with a selected element, save a managed screenshot, and close itself. Read-only
+  observation is deterministically safe after destination validation; screenshots, clicks, key
+  presses, ordinary form entry, and Secret Broker field injection require semantic review. Every
+  browser request and redirect is checked against the same exact-origin private-network
+  trust policy as `web.fetch`. Hosted NNO sessions do not receive this root tool implicitly.
+
+`web.browse fill_secret` accepts only a Secret Broker record ID and field name. The plaintext
+is decrypted inside the trusted browser consumer after review, filled directly into the page,
+and never returned in tool output or provider context. Injected values remain in an ephemeral
+trusted-process redaction set so reflected page text is scrubbed from later inspection. Browser cookies and storage survive only
+for the active NNA session in this release and are discarded on shutdown.
 
 NNA also exposes three read-only self-inspection tools from every workspace:
 

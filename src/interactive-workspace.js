@@ -100,7 +100,7 @@ export class InteractiveWorkspace {
       mcpTransportFactory: this.options.mcpTransportFactory, hookRoot: this.options.hookRoot,
       hookRoots: options.hookRoots ?? this.options.hookRoots,
       skillRoots: options.skillRoots ?? this.options.skillRoots,
-      scheduler: this.scheduler,
+      scheduler: this.scheduler, secretBroker: this.secretBroker,
       webSearchConfigPath: this.webSearchConfigPath, webSearchClient: this.webSearchClient,
       mcpControl: {
         status: () => ({ configured: this.config.mcpServers, active: sessionConfig.mcpServers }),
