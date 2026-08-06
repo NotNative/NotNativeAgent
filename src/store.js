@@ -139,7 +139,7 @@ export async function readJournalPage(path, options = {}) {
   } finally { await handle.close(); }
 }
 
-async function readJournalPrefix(path, limit) {
+export async function readJournalPrefix(path, limit) {
   const handle = await open(path, 'r');
   try {
     const { size } = await handle.stat();

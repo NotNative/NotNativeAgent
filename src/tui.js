@@ -25,7 +25,7 @@ import { handleWebFetchCommand } from './tui-webfetch-command.js';
 import { beginProviderManagementSelection, handleProviderRoleNavigation, handleProviderSetupAction } from './tui-provider-setup.js';
 import { beginMcpManagementSelection, handleMcpSetupAction } from './tui-mcp-setup.js';
 import { DestructiveKeyGuard, handleDestructiveCancel, handleDestructiveEscape } from './destructive-key-guard.js';
-import { openRuntimeInspection } from './tui-runtime-inspection.js';
+import { handleResumeCommand, openRuntimeInspection } from './tui-runtime-inspection.js';
 import { handleSupportCommand } from './tui-support-command.js';
 export async function runTui(input, output, diagnostics, options) {
   const { capabilities, bindings } = prepareTui(input, output, options);
@@ -272,6 +272,7 @@ async function handleOverlayAction(action, workspace) {
     }
     else if (overlay.kind === 'gateway') { await handleGatewaySelection(selected.id, workspace); return; }
     else if (overlay.kind === 'workspace-trust') { await updateWorkspaceTrust(selected.id, workspace); return; }
+    else if (overlay.kind === 'resume') { projection.closeOverlay(); await workspace.resume(selected.id); return; }
     projection.closeOverlay();
     const notice = overlay.kind === 'model' ? modelNotice(workspace)
       : overlay.kind === 'provider' && overlay.role !== 'primary'
@@ -288,13 +289,11 @@ async function handleOverlayAction(action, workspace) {
     projection.showNotice('overlay', 'Close the current view with Ctrl+G or Ctrl+C.');
   }
 }
-
 function prepareSkillInvocation(projection, id) {
   projection.closeOverlay();
   projection.active().editor.set(`/skill ${id} `);
   projection.showNotice('skill', 'Add an optional request, then press Enter to invoke this skill.');
 }
-
 async function openConfigurationSection(section, workspace) {
   if (section === 'provider') await handleProviderCommand('', workspace, { routeNotice, strictInteger });
   else if (section === 'model') await handleModelCommand('', workspace, { modelNotice });
@@ -350,6 +349,7 @@ async function command(value, workspace, stop) {
   const argument = rest.join(' ');
   if (!commandDefinition(name)) throw new ContractError('unknown_tui_command', `unknown command ${name}`);
   if (name === '/new') await workspace.create(argument || 'Conversation');
+  else if (name === '/resume') await handleResumeCommand(argument, workspace);
   else if (name === '/workspace') await workspace.createAtWorkspace(argument);
   else if (['/attach', '/attachments', '/detach', '/attachment'].includes(name)) {
     await handleAttachmentCommand(name, argument, workspace);

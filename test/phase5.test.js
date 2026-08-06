@@ -1119,6 +1119,37 @@ test('durable Console launch rotates meaningful Main into Previous Main with its
   await second.shutdown();
 });
 
+test('Console can resume a detached durable standalone conversation in a new tab', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-manual-resume-'));
+  const storeRoot = join(root, 'sessions');
+  const provider = { async *stream() { yield { type: 'text', text: 'durable answer' }; yield { type: 'terminal' }; } };
+  const first = new InteractiveWorkspace({
+    config: config(root, 'durable'), storeRoot, reviewerRoot: join(root, 'reviewers'),
+    providerFactory: () => provider,
+  });
+  await first.create('Original', 'session_resume_case');
+  await first.submitActive('remember this exchange');
+  await first.shutdown();
+
+  const second = new InteractiveWorkspace({
+    config: config(root, 'durable'), storeRoot, reviewerRoot: join(root, 'reviewers-2'),
+    providerFactory: () => provider,
+  });
+  await second.create('Main', 'session_new_main');
+  await second.resume('session_resume_case');
+  assert.equal(second.projection.activeId, 'session_resume_case');
+  assert.equal(second.projection.active().role, 'standard');
+  assert.ok(second.projection.active().records.some(
+    (record) => record.type === 'user_input' && record.text === 'remember this exchange',
+  ));
+  assert.ok(second.projection.active().records.some(
+    (record) => record.type === 'stream_delta' && record.text === 'durable answer',
+  ));
+  await assert.rejects(second.resume('session_resume_case'), { code: 'session_duplicate' });
+  await assert.rejects(second.resume('session_missing_case'), { code: 'session_missing' });
+  await second.shutdown();
+});
+
 test('color-capable rendering adds hierarchy while plain rendering keeps semantic markers', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
@@ -1303,6 +1334,7 @@ test('command registry exposes origin, capability, effective binding, and action
   assert.ok(TUI_COMMANDS.every((item) => item.origin === 'core' && item.availability === 'runtime'
     && typeof item.requiredCapability === 'string'));
   assert.equal(commandDefinition('/status').description.includes('active conversation'), true);
+  assert.equal(commandDefinition('/resume').description.includes('saved standalone conversation'), true);
 });
 
 test('editor selection and multiline navigation preserve one authoritative buffer', () => {

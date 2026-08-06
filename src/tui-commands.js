@@ -12,6 +12,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/webfetch [status|trust ORIGIN|revoke ORIGIN]', 'Manage exact private origins trusted for WebFetch', 'configuration'),
   command('/workspace PATH', 'Open a new conversation rooted at a working directory', 'sessions'),
   command('/sessions', 'Browse recent durable sessions and terminal outcomes', 'sessions'),
+  command('/resume [SESSION_ID]', 'Resume a saved standalone conversation in a new tab', 'sessions'),
   command('/close', 'Close this conversation; active work requires confirmation', 'sessions'),
   command('/config', 'Open the configuration hub', 'configuration'),
   command('/gateway [status|test|start|stop|enable|disable]', 'Configure the Telegram gateway', 'configuration'),

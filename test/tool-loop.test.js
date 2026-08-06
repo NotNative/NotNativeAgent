@@ -78,7 +78,13 @@ test('turn diagnostics can enumerate and inspect another durable session', async
   const root = await mkdtemp(join(tmpdir(), 'nna-cross-session-diagnose-'));
   const current = new JournalStore(root, 'current');
   const other = new JournalStore(root, 'other');
+  const hosted = new JournalStore(root, 'hosted');
   await current.open(); await current.append('session_created', { sessionId: 'current' }); await current.close();
+  await hosted.open();
+  await hosted.append('session_created', {
+    sessionId: 'hosted', executionManifest: { id: 'nno-run', principal: 'authenticated-stdio-host' },
+  });
+  await hosted.close();
   await other.open();
   await other.append('tool_result', { turnId: 'turn-other', toolName: 'fs.read_text', status: 'failed', reasonCode: 'file_missing' });
   await other.append('turn_outcome', { turn_id: 'turn-other', outcome: 'incomplete', failure: { code: 'recovery_exhausted' } });
@@ -90,6 +96,8 @@ test('turn diagnostics can enumerate and inspect another durable session', async
   const catalog = await list.executor(await list.validate({ limit: 10 }), new AbortController().signal);
   assert.match(catalog.content, /"session_id": "other"/u);
   assert.match(catalog.content, /"latest_failure_code": "recovery_exhausted"/u);
+  assert.match(catalog.content, /"session_id": "hosted"[^]*"resumable": false/u);
+  assert.match(catalog.content, /"resume_blocked_reason": "authenticated_host_session"/u);
   const diagnose = definitions.find((item) => item.name === 'nna.diagnose_turn');
   const result = await diagnose.executor(await diagnose.validate({ session_id: 'other' }), new AbortController().signal);
   assert.match(result.content, /"session_id": "other"/u);

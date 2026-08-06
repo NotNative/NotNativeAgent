@@ -34,6 +34,7 @@ import { runWebFetchCommand } from './web-fetch-cli.js';
 import { discoverWorkspaceProviderModels } from './workspace-provider-discovery.js';
 import { deleteManagedMcpCredential, saveManagedMcpCredential } from './mcp-credentials.js';
 import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './workspace-dream.js';
+import { resumeWorkspaceConversation } from './workspace-resume.js';
 export class InteractiveWorkspace {
   #tasks = new Set();
   constructor(options) {
@@ -118,6 +119,7 @@ export class InteractiveWorkspace {
     this.onChange();
     return sessionId;
   }
+  resume(sessionId) { return resumeWorkspaceConversation(this, sessionId); }
   createNext() { return createNextConversation(this); }
   createAtWorkspace(value) { return createWorkspaceConversation(this, value); }
   submitActive(content) {

@@ -99,7 +99,7 @@ Key actions:
   documented defaults, persists the reset, and remains effective inside overlays and
   permission views without requiring a configuration-file edit.
 
-Commands include `/new NAME`, `/switch ID-OR-NAME`, `/sessions`, `/rename NAME`, `/close`,
+Commands include `/new NAME`, `/switch ID-OR-NAME`, `/sessions`, `/resume [SESSION_ID]`, `/rename NAME`, `/close`,
 `/confirm close`, `/health`, `/hooks`, `/extensions`, `/stats` (or `/status`), `/files`, `/project`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/dream`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
 `/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP that can be sent
 to maintainers for troubleshooting; it never uploads the archive and refuses to overwrite an existing path. Its manifest lists the included attached conversations, and each conversation has an isolated `sessions/<session-id>/` folder containing its redacted diagnostics, repair statistics, and forensic trace. Closing active work requires the explicit confirmation
@@ -112,6 +112,10 @@ recovered, the Console still opens a fresh Main conversation and reports each na
 failure as a recovery notice. NNA leaves the saved pool and session journals untouched
 and pauses tab-pool persistence for that run so troubleshooting evidence cannot be
 silently replaced; resolve the reported condition and restart NNA to retry recovery.
+`/resume` opens a picker for unattached standalone durable conversations, or accepts a session
+ID directly. It restores the saved transcript in a new tab using the current Console provider
+and workspace configuration. Authenticated hosted and mission sessions are intentionally excluded;
+their originating host must resume them with the original execution authority.
 
 `/dream` shows local idle-maintenance state and its bounded recent stage receipts.
 `/dream pause` and `/dream resume` control scheduling for the current process; `/dream run`

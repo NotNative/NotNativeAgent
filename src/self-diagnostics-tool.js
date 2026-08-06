@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { readJournalPage } from './store.js';
+import { readJournalPage, readJournalPrefix } from './store.js';
 import { ContractError } from './ids.js';
 
 const SESSION_ID = /^[A-Za-z0-9_-]{1,256}$/u;
@@ -96,14 +96,19 @@ export async function listDurableSessions(context, limit = 20, signal = null) {
   for (const candidate of selected) {
     if (signal?.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
     const page = await readDiagnosticPage(candidate.path, 256);
+    const header = (await readJournalPrefix(candidate.path, 1))[0]?.payload ?? {};
     const turnId = latestTurnId(page.records);
     const records = turnId ? page.records.filter((record) => recordTurnId(record) === turnId) : [];
     const terminal = [...records].reverse().find((record) => record.type === 'turn_outcome')?.payload ?? null;
+    const hosted = header.executionManifest != null;
+    const mission = header.mission != null;
     sessions.push(Object.freeze({
       session_id: candidate.sessionId, current: candidate.sessionId === context.sessionId,
       updated_at: new Date(candidate.modifiedMs).toISOString(), latest_turn_id: turnId,
       latest_outcome: terminal?.outcome ?? (turnId ? 'active_or_interrupted' : null),
       latest_failure_code: terminal?.failure?.code ?? null,
+      resumable: !hosted && !mission,
+      resume_blocked_reason: hosted ? 'authenticated_host_session' : mission ? 'mission_session' : null,
     }));
   }
   return Object.freeze(sessions);

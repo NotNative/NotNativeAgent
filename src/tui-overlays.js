@@ -372,6 +372,24 @@ export function valueOverlay(kind, title, value) {
   return overlay(kind, title, typeof value === 'string' ? value.split('\n') : flatten(value));
 }
 
+export function resumeOverlay(sessions, attachedIds = []) {
+  const attached = new Set(attachedIds);
+  const eligible = sessions.filter((item) => item.resumable && !attached.has(item.session_id));
+  const hosted = sessions.filter((item) => !item.resumable).length;
+  const lines = [
+    'Choose a saved standalone conversation to attach as a new tab.',
+    'The transcript is restored with this Console\'s current provider and workspace configuration.',
+  ];
+  if (hosted > 0) lines.push(`${hosted} authenticated host or mission session(s) are hidden; resume those from their original host.`);
+  if (eligible.length === 0) lines.push('No unattached standalone conversations are available.');
+  const items = eligible.map((item) => ({
+    id: item.session_id,
+    label: item.session_id,
+    detail: `${item.updated_at} · ${item.latest_outcome ?? 'no completed turns'}`,
+  }));
+  return menuOverlay('resume', 'Resume conversation', lines, items, items[0]?.id);
+}
+
 export function tabMenuOverlay(session) {
   const items = [{ id: 'action:rename', label: 'Rename conversation', detail: 'Enter a new tab name' }];
   if (session.role !== 'primary') {

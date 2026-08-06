@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
-import { valueOverlay } from './tui-overlays.js';
+import { resumeOverlay, valueOverlay } from './tui-overlays.js';
 import { openSessionStats } from './tui-session-stats.js';
 import { openFilesView } from './tui-files-view.js';
 import { listDurableSessions } from './self-diagnostics-tool.js';
@@ -38,6 +38,15 @@ export async function openRuntimeInspection(kind, workspace) {
     return;
   }
   throw new ContractError('runtime_inspection_invalid', 'unknown runtime inspection area');
+}
+
+export async function handleResumeCommand(sessionId, workspace) {
+  if (sessionId) return workspace.resume(sessionId);
+  const engine = workspace.activeEngine();
+  const sessions = await listDurableSessions({
+    sessionsRoot: engine.store?.root ?? engine.dataPaths.sessions, sessionId: engine.sessionId,
+  }, 64);
+  workspace.projection.openOverlay(resumeOverlay(sessions, [...workspace.sessions.keys()]));
 }
 
 export function subagentStatus(engine) {
