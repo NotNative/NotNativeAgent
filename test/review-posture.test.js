@@ -6,7 +6,8 @@ import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/reviewer-ledger.js';
 import { nextReviewPosture } from '../src/review-posture.js';
 import { TerminalInputDecoder } from '../src/terminal-adapter.js';
-import { ToolGovernor } from '../src/tool-governor.js';
+import { MANDATORY_REVIEW_EVENT_TIMEOUT_MS, ToolGovernor } from '../src/tool-governor.js';
+import { semanticReviewTimeout } from '../src/config-bounds.js';
 
 function safeRequest(id = 'safe-1') {
   return Object.freeze({
@@ -21,6 +22,11 @@ test('review postures cycle in the documented order and Shift+Tab is decoded', (
   assert.equal(nextReviewPosture('unattended'), 'prompt');
   assert.equal(nextReviewPosture('prompt'), 'auto-review');
   assert.deepEqual(new TerminalInputDecoder().push(Buffer.from('\u001b[Z')), [{ action: 'cycle_review' }]);
+});
+
+test('mandatory review event ceiling exceeds the slowest configurable semantic review', () => {
+  const maximumSemanticReview = semanticReviewTimeout({ semantic_review_timeout_ms: 3_600_000 }, 3_600_000);
+  assert.ok(MANDATORY_REVIEW_EVENT_TIMEOUT_MS > maximumSemanticReview);
 });
 
 test('Prompt posture escalates a deterministically safe reviewed request', async () => {

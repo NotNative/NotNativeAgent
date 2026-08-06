@@ -9,9 +9,21 @@ export function safeToolArguments(args) {
   for (const [key, value] of Object.entries(args ?? {}).slice(0, 64)) {
     if (SENSITIVE_KEY.test(key)) result[key] = '[redacted]';
     else if (key === 'content') result.content = contentIdentity(value);
+    else if (key === 'args' && Array.isArray(value)) result.args = Object.freeze(safeArgv(value));
     else result[key] = boundedValue(value);
   }
   return Object.freeze(result);
+}
+
+function safeArgv(values) {
+  const result = [];
+  let redactNext = false;
+  for (const value of values.slice(0, 64)) {
+    const text = String(value);
+    result.push(redactNext ? '[redacted]' : redactText(text).slice(0, 4096));
+    redactNext = /^(?:--?(?:api[_-]?key|authorization|credential|password|secret|token))$/iu.test(text);
+  }
+  return result;
 }
 
 function contentIdentity(value) {

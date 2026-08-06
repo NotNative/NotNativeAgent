@@ -2,6 +2,10 @@
 import { ContractError } from './ids.js';
 import { requestDigest } from './reviewer-ledger.js';
 
+// This outer event boundary must remain above the largest configured semantic-review
+// deadline. The reviewer owns the operative timeout; this is only a stuck-handler backstop.
+export const MANDATORY_REVIEW_EVENT_TIMEOUT_MS = 3_605_000;
+
 export class ToolGovernor {
   #pending = new Map();
 
@@ -13,7 +17,7 @@ export class ToolGovernor {
     this.events.register({
       id: 'kernel.mandatory-reviewer', category: 'permission', phase: 'pre',
       blocking: true, mandatory: true, priority: -10_000,
-      timeoutMs: options.reviewTimeoutMs ?? 20_000, failurePolicy: 'deny',
+      timeoutMs: options.reviewTimeoutMs ?? MANDATORY_REVIEW_EVENT_TIMEOUT_MS, failurePolicy: 'deny',
       cancellation: 'propagate', origin: 'kernel:mandatory-reviewer', trust: 'kernel',
       inputContract: 'nna.permission-review/1.0', outputContract: 'nna.review-decision/1.0',
       resourceBounds: Object.freeze({ maxOutputBytes: 65_536, maxConcurrent: 1 }),

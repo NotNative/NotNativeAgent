@@ -60,6 +60,8 @@ agent to continue through a safer, narrower, or more reversible approach. The ag
 operator only when reasonable alternatives are exhausted, and then identifies the attempted
 operation, the denial, and the exact clarification needed. Immutable denials and reviewer
 unavailability are reported distinctly and never misrepresented as missing user authorization.
+The mandatory permission-event backstop must exceed the maximum configurable semantic-review
+deadline so slow local inference cannot be misclassified as a failed reviewer subscription.
 
 ## Capability and command review
 
@@ -93,8 +95,10 @@ visible beside the assistant response, followed by a turn receipt with status, d
 count, and outcome. The activity group can be expanded to recover its ordered review evidence,
 bounded arguments, and result detail.
 
-Tool rows are collapsed by default after completion and show name, effect, status, and
-duration. Expansion reveals bounded attributed arguments and result details. Untrusted
+Tool rows are collapsed by default after completion and show the tool name, concise target,
+status, and duration. A `process.run` target includes its redacted executable and argv so the
+operator can see what actually ran without expanding the activity group. Expansion reveals
+the full bounded attributed arguments, including working directory and timeout, plus result details. Untrusted
 model/tool content remains visibly distinct from operator and engine facts.
 Each completed activity group is also a mouse target, allowing the operator to expand or
 collapse that exact turn without changing the selected conversation.

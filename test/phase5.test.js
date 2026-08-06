@@ -35,6 +35,7 @@ import { safeToolArguments } from '../src/tool-presentation.js';
 import { ExtensionRegistry } from '../src/extensions.js';
 import { DestructiveKeyGuard } from '../src/destructive-key-guard.js';
 import { handleEditorAction } from '../src/tui-editor-actions.js';
+import { toolStatus } from '../src/engine-records.js';
 
 function config(root, persistence = 'ephemeral') {
   return resolveManifest({
@@ -1184,6 +1185,31 @@ test('tool presentation arguments are bounded and redact keyed and free-form cre
   assert.match(presented.note, /Bearer \[redacted\]/u);
   assert.doesNotMatch(JSON.stringify(presented), /do-not-show|also-hidden|private replacement body/u);
   assert.match(presented.content.sha256, /^[0-9a-f]{64}$/u);
+  const process = safeToolArguments({ args: ['--token', 'do-not-show', '--flag'] });
+  assert.deepEqual(process.args, ['--token', '[redacted]', '--flag']);
+});
+
+test('process tool status shows the executable and argv in its compact target', () => {
+  const item = {
+    request: {
+      id: 'process-1', toolName: 'process.run', definitionVersion: 1,
+      args: {
+        executable: 'ssh', args: ['fixture-host', 'hostname && uname -a'],
+        cwd: 'D:\\workspace', timeout_ms: 60_000,
+      },
+    },
+    call: { providerCallId: 'provider-1', name: 'process.run' },
+    result: { elapsed_ms: 12, effect_certainty: 'completed' },
+  };
+  const record = toolStatus({
+    sessionId: 'session-1', tools: { definition: () => ({ sideEffect: 'unknown', scope: 'workspace' }) },
+  }, { turnId: 'turn-1' }, item, 'succeeded');
+  assert.equal(record.target, 'ssh ["fixture-host","hostname && uname -a"]');
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', record);
+  const frame = new TuiRenderer().frame(projection, { width: 120, height: 24, color: false });
+  assert.match(frame, /OK process\.run \(ssh \["fixture-host","hostname && uname -a"\]\) \| succeeded/u);
 });
 
 test('AC-TURN-06 active-turn submit becomes acknowledged steering and clears only after acceptance', async () => {

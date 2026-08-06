@@ -67,13 +67,14 @@ export function reviewStatus(engine, active, item) {
 export function toolStatus(engine, active, item, status) {
   const definition = item.request ? engine.tools.definition(item.request.toolName, item.request.definitionVersion) : null;
   const args = item.request?.args ?? item.call.args;
+  const presentedArgs = args && typeof args === 'object' ? safeToolArguments(args) : null;
   const failed = !['running', 'succeeded', 'duplicate_ignored'].includes(status);
   return {
     version: '1.0', type: 'tool_status', session_id: engine.sessionId,
     turn_id: active.turnId, tool_request_id: item.request?.id ?? null,
     provider_call_id: item.call.providerCallId, tool: item.call.name, status,
-    target: boundedTarget(item.call.name, args),
-    arguments: args && typeof args === 'object' ? safeToolArguments(args) : null,
+    target: boundedTarget(item.call.name, presentedArgs),
+    arguments: presentedArgs,
     effect: definition?.sideEffect ?? null, scope: definition?.scope ?? null,
     elapsed_ms: item.result?.elapsed_ms ?? null,
     effect_certainty: item.result?.effect_certainty ?? null,
@@ -84,12 +85,22 @@ export function toolStatus(engine, active, item, status) {
 
 function boundedTarget(tool, args) {
   if (!args || typeof args !== 'object') return null;
+  if (tool === 'process.run') return processInvocation(args);
   const candidate = ['path', 'file_path', 'file', 'filename', 'target']
     .find((key) => typeof args[key] === 'string' && args[key].length > 0);
   const path = candidate ? args[candidate] : '';
   const selector = tool === 'fs.search_text' ? args.query : tool === 'fs.glob' ? args.pattern : null;
   if (typeof selector === 'string') return `${path || '.'} :: ${JSON.stringify(selector)}`.slice(0, 512);
   return path ? `${candidate === 'path' ? '' : `${candidate}=`}${path}`.slice(0, 512) : null;
+}
+
+function processInvocation(args) {
+  if (typeof args.executable !== 'string' || args.executable.length === 0) return null;
+  const executable = redactText(args.executable).replace(/\s+/gu, ' ').trim().slice(0, 128);
+  const argv = Array.isArray(args.args)
+    ? args.args.slice(0, 64).map((value) => redactText(String(value)).slice(0, 256))
+    : [];
+  return `${executable}${argv.length ? ` ${JSON.stringify(argv)}` : ''}`.slice(0, 512);
 }
 
 function boundedFailureReason(value) {

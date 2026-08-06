@@ -183,7 +183,7 @@ function validateDeclaration(value, handler) {
     throw new ContractError('invalid_subscription', 'blocking mode is required');
   }
   if (!Number.isInteger(value.priority)) throw new ContractError('invalid_subscription', 'subscription priority is required');
-  boundedInteger(value.timeoutMs, undefined, 1, 300_000);
+  boundedInteger(value.timeoutMs, undefined, 1, 3_605_000);
   if (!['continue', 'deny'].includes(value.failurePolicy)) throw new ContractError('invalid_subscription', 'subscription failure policy is required');
   if (!['propagate', 'detach'].includes(value.cancellation)) throw new ContractError('invalid_subscription', 'subscription cancellation behavior is required');
   if (value.blocking && value.cancellation !== 'propagate') throw new ContractError('invalid_subscription', 'blocking subscriptions must propagate cancellation');
