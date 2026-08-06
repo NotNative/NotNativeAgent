@@ -21,8 +21,8 @@ import { selfDiagnosticsDefinitions } from './self-diagnostics-tool.js';
 import { mcpControlDefinitions } from './mcp-control-tools.js';
 import { subagentDefinition } from './subagent-tool.js';
 import { gitInspectionDefinition } from './git-inspection-tool.js';
-const MAX_TEXT_BYTES = 1_048_576;
-const ALWAYS_EXPOSED = new Set([
+import { prepareLineEdit, prepareTextEdit } from './stale-edit-recovery.js';
+const MAX_TEXT_BYTES = 1_048_576; const ALWAYS_EXPOSED = new Set([
   'tool.search', 'fs.list_directory', 'fs.glob', 'fs.search_text', 'fs.metadata', 'fs.read_text', 'fs.read_lines',
   'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file',
   'nna.search_guidance', 'nna.read_guidance', 'nna.list_sessions', 'nna.diagnose_turn', 'nna.mcp_status', 'nna.mcp_test', 'web.search', 'web.fetch', 'process.run', 'shell.run',
@@ -60,8 +60,8 @@ export class ToolRegistry {
     for (const definition of filesystemReadDefinitions(this.paths, this.#readReceipts)) this.#install(definition);
     for (const definition of filesystemDiscoveryDefinitions(this.paths)) this.#install(definition);
     this.#install(writeDefinition(this.paths, this.#changes));
-    this.#install(editDefinition(this.paths, this.#changes));
-    this.#install(editLinesDefinition(this.paths, this.#changes));
+    this.#install(editDefinition(this.paths, this.#changes, this.#readReceipts));
+    this.#install(editLinesDefinition(this.paths, this.#changes, this.#readReceipts));
     this.#install(deleteDefinition(this.paths, this.#changes));
     for (const definition of filesystemExtraDefinitions(this.paths, this.#changes)) this.#install(definition);
     for (const definition of guidanceDefinitions(this.guidance)) this.#install(definition);
@@ -123,6 +123,7 @@ export class ToolRegistry {
     if (!name.startsWith('fs.') || !normalized?.args?.expected_sha256) return;
     const target = normalized.resolved?.source?.path ?? normalized.resolved?.path;
     if (!target || normalized.resolved?.exists === false) return;
+    if (normalized.resolved?.staleEditRecovered === true) return;
     if (name === 'fs.edit_lines') {
       this.#readReceipts.require(target, normalized.args.expected_sha256, {
         start: normalized.args.start_line, end: normalized.args.end_line,
@@ -254,7 +255,7 @@ function writeDefinition(paths, changes) {
   };
 }
 
-function editDefinition(paths, changes) {
+function editDefinition(paths, changes, receipts) {
   return {
     name: 'fs.edit_text', version: 1,
     purpose: 'Replace exact text in one existing accessible file without rewriting unrelated content.',
@@ -266,12 +267,12 @@ function editDefinition(paths, changes) {
       replace_all: { type: 'boolean' },
       expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
     }, ['path', 'old_text', 'new_text', 'expected_sha256']),
-    validate: async (args) => validateEdit(paths, args),
+    validate: async (args) => validateEdit(paths, args, receipts),
     executor: (request, signal) => executeEdit(request, signal, changes),
   };
 }
 
-function editLinesDefinition(paths, changes) {
+function editLinesDefinition(paths, changes, receipts) {
   return {
     name: 'fs.edit_lines', version: 1,
     purpose: 'Replace an inclusive line range previously shown by fs.read_lines in the same exact file snapshot.',
@@ -295,11 +296,15 @@ function editLinesDefinition(paths, changes) {
       }
       const resolved = await paths.withRecovery(await paths.resolveRead(args.path));
       const content = await readFile(resolved.path, 'utf8');
-      requireExpectedContent(content, args.expected_sha256);
-      if (args.end_line > logicalLines(content).length) {
+      const actual = sha256(content);
+      const prepared = prepareLineEdit(receipts, resolved.path, args, content, actual);
+      if (prepared.endLine > logicalLines(content).length) {
         throw new ContractError('edit_line_out_of_range', 'line range exceeds the file snapshot');
       }
-      return { args: { ...args }, resolved };
+      return {
+        args: { ...args, start_line: prepared.startLine, end_line: prepared.endLine, expected_sha256: prepared.expectedSha256 },
+        resolved: { ...resolved, staleEditRecovered: prepared.recovered, requestedExpectedSha256: args.expected_sha256 },
+      };
     },
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
@@ -316,7 +321,7 @@ function editLinesDefinition(paths, changes) {
   };
 }
 
-async function validateEdit(paths, args) {
+async function validateEdit(paths, args, receipts) {
   requireShape(args, ['path', 'old_text', 'new_text', 'expected_sha256'], ['replace_all']);
   requireHash(args.expected_sha256);
   if (typeof args.old_text !== 'string' || args.old_text.length === 0
@@ -326,13 +331,8 @@ async function validateEdit(paths, args) {
   const resolved = await paths.withRecovery(await paths.resolveRead(args.path));
   if (resolved.size > MAX_TEXT_BYTES) throw new ContractError('tool_target_too_large', 'file exceeds edit bound');
   const content = await readFile(resolved.path, 'utf8');
-  requireExpectedContent(content, args.expected_sha256);
-  const occurrences = countOccurrences(content, args.old_text);
-  if (occurrences === 0) throw new ContractError('edit_match_missing', 'old_text was not found');
-  if (!args.replace_all && occurrences !== 1) {
-    throw new ContractError('edit_match_ambiguous', 'old_text occurs more than once; provide more context or use replace_all');
-  }
-  if (occurrences > 4096) throw new ContractError('edit_match_limit', 'edit exceeds the replacement-count bound');
+  const actual = sha256(content);
+  const prepared = prepareTextEdit(receipts, resolved.path, args, content, actual);
   const updated = replaceText(content, args.old_text, args.new_text, Boolean(args.replace_all));
   if (Buffer.byteLength(updated, 'utf8') > MAX_TEXT_BYTES) {
     throw new ContractError('tool_arguments_too_large', 'edited content exceeds bound');
@@ -340,9 +340,9 @@ async function validateEdit(paths, args) {
   return {
     args: {
       path: args.path, old_text: args.old_text, new_text: args.new_text,
-      replace_all: Boolean(args.replace_all), expected_sha256: args.expected_sha256,
+      replace_all: Boolean(args.replace_all), expected_sha256: prepared.expectedSha256,
     },
-    resolved,
+    resolved: { ...resolved, staleEditRecovered: prepared.recovered, requestedExpectedSha256: args.expected_sha256 },
   };
 }
 

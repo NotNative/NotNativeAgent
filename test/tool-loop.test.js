@@ -579,6 +579,60 @@ test('numbered reads authorize anchored edits only inside the displayed snapshot
   }, context), { code: 'read_receipt_required' });
 });
 
+test('anchored line edits recover across an unrelated unambiguous line shift', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-line-recovery-'));
+  const path = join(root, 'target.txt');
+  const before = 'header\ntarget one\ntarget two\nfooter\n';
+  await writeFile(path, before, 'utf8');
+  const registry = new ToolRegistry(root); await registry.initialize();
+  const read = registry.definition('fs.read_lines');
+  await read.executor(await read.validate({ path: 'target.txt', start_line: 2, line_count: 2 }), new AbortController().signal);
+  await writeFile(path, `new preface\n${before}`, 'utf8');
+  const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
+  const sealed = await registry.seal({
+    providerCallId: 'shifted-lines', name: 'fs.edit_lines',
+    args: { path: 'target.txt', start_line: 2, end_line: 3, replacement: 'changed one\nchanged two', expected_sha256: createHash('sha256').update(before).digest('hex') },
+  }, context);
+  assert.deepEqual([sealed.args.start_line, sealed.args.end_line], [3, 4]);
+  assert.notEqual(sealed.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
+  await registry.definition('fs.edit_lines').executor(sealed, new AbortController().signal);
+  assert.equal(await readFile(path, 'utf8'), 'new preface\nheader\nchanged one\nchanged two\nfooter\n');
+});
+
+test('stale line recovery rejects an ambiguous live mapping', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-line-recovery-ambiguous-'));
+  const path = join(root, 'target.txt');
+  const before = 'header\ntarget\nfooter\n';
+  await writeFile(path, before, 'utf8');
+  const registry = new ToolRegistry(root); await registry.initialize();
+  const read = registry.definition('fs.read_lines');
+  await read.executor(await read.validate({ path: 'target.txt', start_line: 2, line_count: 1 }), new AbortController().signal);
+  await writeFile(path, `${before}${before}`, 'utf8');
+  const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
+  await assert.rejects(registry.seal({
+    providerCallId: 'ambiguous-lines', name: 'fs.edit_lines',
+    args: { path: 'target.txt', start_line: 2, end_line: 2, replacement: 'changed', expected_sha256: createHash('sha256').update(before).digest('hex') },
+  }, context), { code: 'tool_revalidation_drift' });
+});
+
+test('exact text edits preserve unrelated external changes when the old target remains unique', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-text-recovery-'));
+  const path = join(root, 'target.txt');
+  const before = 'header\nold target\nfooter\n';
+  await writeFile(path, before, 'utf8');
+  const registry = new ToolRegistry(root); await registry.initialize();
+  const read = registry.definition('fs.read_text');
+  await read.executor(await read.validate({ path: 'target.txt' }), new AbortController().signal);
+  await writeFile(path, `${before}external tail\n`, 'utf8');
+  const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
+  const sealed = await registry.seal({
+    providerCallId: 'shifted-text', name: 'fs.edit_text',
+    args: { path: 'target.txt', old_text: 'old target', new_text: 'new target', expected_sha256: createHash('sha256').update(before).digest('hex') },
+  }, context);
+  await registry.definition('fs.edit_text').executor(sealed, new AbortController().signal);
+  assert.equal(await readFile(path, 'utf8'), 'header\nnew target\nfooter\nexternal tail\n');
+});
+
 test('AC-TOOL-07 caller identity is auditable but cannot weaken sealing or review', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-callers-'));
   await writeFile(join(root, 'note.txt'), 'bounded', 'utf8');

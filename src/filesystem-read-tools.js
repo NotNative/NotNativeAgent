@@ -12,19 +12,24 @@ export function filesystemReadDefinitions(paths, receipts) {
 
 export class ReadReceiptLedger {
   #receipts = new Map();
+  #snapshotBytes = 0;
 
-  record(path, digest, coverage = {}) {
+  record(path, digest, coverage = {}, snapshot = null) {
     const prior = this.#receipts.get(path);
     const ranges = prior?.digest === digest ? [...prior.ranges] : [];
     if (Number.isSafeInteger(coverage.start) && Number.isSafeInteger(coverage.end)) ranges.push([coverage.start, coverage.end]);
+    const retainedSnapshot = typeof snapshot === 'string' ? snapshot : prior?.digest === digest ? prior.snapshot : null;
     const receipt = Object.freeze({
       id: newId('read_receipt'), path, digest, readAt: Date.now(),
       full: coverage.full === true || (prior?.digest === digest && prior.full === true),
       ranges: Object.freeze(mergeRanges(ranges)),
+      snapshot: retainedSnapshot,
     });
+    this.#snapshotBytes -= snapshotBytes(prior?.snapshot);
     this.#receipts.delete(path);
     this.#receipts.set(path, receipt);
-    while (this.#receipts.size > 2048) this.#receipts.delete(this.#receipts.keys().next().value);
+    this.#snapshotBytes += snapshotBytes(retainedSnapshot);
+    while (this.#receipts.size > 2048 || this.#snapshotBytes > 16_777_216) this.#evictOldest();
     return receipt;
   }
 
@@ -40,7 +45,25 @@ export class ReadReceiptLedger {
     }
     return receipt;
   }
+
+  contentFor(path, digest, coverage = {}) {
+    const receipt = this.require(path, digest, coverage);
+    if (typeof receipt.snapshot !== 'string') {
+      throw new ContractError('read_receipt_required', 'read the relevant file snapshot again before editing it');
+    }
+    return receipt.snapshot;
+  }
+
+  #evictOldest() {
+    const key = this.#receipts.keys().next().value;
+    if (key === undefined) return;
+    const receipt = this.#receipts.get(key);
+    this.#snapshotBytes -= snapshotBytes(receipt?.snapshot);
+    this.#receipts.delete(key);
+  }
 }
+
+function snapshotBytes(value) { return typeof value === 'string' ? Buffer.byteLength(value, 'utf8') : 0; }
 
 function readDefinition(paths, receipts) {
   return {
@@ -57,7 +80,7 @@ function readDefinition(paths, receipts) {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
       const content = await readFile(request.resolved.path, 'utf8');
       const digest = sha256(content);
-      const receipt = receipts.record(request.resolved.path, digest, { full: true });
+      const receipt = receipts.record(request.resolved.path, digest, { full: true }, content);
       return {
         content,
         metadata: {
@@ -102,7 +125,7 @@ function readLinesDefinition(paths, receipts) {
       const start = request.args.start_line;
       const end = Math.min(lines.length, start + request.args.line_count - 1);
       const shown = lines.slice(start - 1, end).map((line, index) => `${start + index}: ${line}`).join('\n');
-      const receipt = receipts.record(request.resolved.path, digest, { start, end, full: start === 1 && end === lines.length });
+      const receipt = receipts.record(request.resolved.path, digest, { start, end, full: start === 1 && end === lines.length }, content);
       return {
         content: `snapshot sha256:${digest} lines ${start}-${end} of ${lines.length}\n${shown}`,
         metadata: {
