@@ -32,6 +32,14 @@ export function providerTimeouts(manifest) {
   };
 }
 
+export function semanticReviewTimeout(manifest, providerMs) {
+  const configured = manifest.semantic_review_timeout_ms;
+  // Fifteen seconds was an early default that is too short for local models and
+  // was persisted into existing manifests. Migrate that exact legacy value.
+  if (configured === undefined || configured === 15_000) return providerMs;
+  return boundedInteger(configured, providerMs, 100, 3_600_000);
+}
+
 export function telemetryDestination(value) {
   try {
     const url = new URL(value);

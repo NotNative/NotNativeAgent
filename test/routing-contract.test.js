@@ -91,6 +91,18 @@ test('historical short provider defaults migrate to local-model-safe deadlines',
   assert.equal(custom.limits.firstTokenMs, 30_000);
 });
 
+test('semantic review inherits the provider deadline and migrates the legacy fifteen-second default', () => {
+  const defaults = resolveManifest({ providers });
+  assert.equal(defaults.limits.semanticReviewMs, defaults.limits.providerMs);
+  assert.equal(defaults.limits.semanticReviewMs, 1_800_000);
+
+  const migrated = resolveManifest({ providers, semantic_review_timeout_ms: 15_000 });
+  assert.equal(migrated.limits.semanticReviewMs, 1_800_000);
+
+  const explicit = resolveManifest({ providers, semantic_review_timeout_ms: 15_001 });
+  assert.equal(explicit.limits.semanticReviewMs, 15_001);
+});
+
 test('AC-ROUTE-06 capability cache invalidates on endpoint, model, override, and configuration version', () => {
   const cache = new CapabilityCache();
   const base = { profile: { id: 'primary', endpoint: 'http://127.0.0.1:1/v1' }, model: 'model-a' };

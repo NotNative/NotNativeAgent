@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { validateKeyBindings } from './key-bindings.js';
 import { validateNestedManifestKeys } from './configuration-shape.js';
-import { boundedInteger, boundedNumber, providerTimeouts, telemetryDestination } from './config-bounds.js';
+import { boundedInteger, boundedNumber, providerTimeouts, semanticReviewTimeout, telemetryDestination } from './config-bounds.js';
 import { validateAllowedTools, validateHostIdentity } from './execution-policy.js';
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
 import { migrateRoutingInheritance } from './manifest-migration.js';
@@ -41,7 +41,7 @@ export function resolveManifest(manifest = {}, options = {}) {
   }
   const { providerMs, firstTokenMs, idleMs } = providerTimeouts(manifest);
   const connectMs = boundedInteger(manifest.provider_connect_timeout_ms, 10_000, 100, 600_000);
-  const semanticReviewMs = boundedInteger(manifest.semantic_review_timeout_ms, 15_000, 100, 300_000);
+  const semanticReviewMs = semanticReviewTimeout(manifest, providerMs);
   const approvalMs = boundedInteger(manifest.approval_timeout_ms, 120_000, 1_000, 3_600_000);
   const providerConcurrency = boundedInteger(manifest.provider_concurrency, 1, 1, 16);
   const providerQueueLimit = boundedInteger(manifest.provider_queue_limit, 256, 1, 4096);

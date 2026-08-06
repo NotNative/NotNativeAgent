@@ -72,13 +72,15 @@ may contain only the supported bounded `nudge` and `compact` actions; its defaul
 and is captured when a turn starts, so a mid-turn configuration update cannot reset its
 consumed recovery budget.
 
-Provider connection, semantic-review, and interactive-approval deadlines default to 10,
-15, and 120 seconds respectively. Provider first-token, inter-token idle, and overall
-deadlines default to 10, 5, and 30 minutes. These deliberately generous bounds accommodate
+Provider connection and interactive-approval deadlines default to 10 and 120 seconds.
+Provider first-token, inter-token idle, and overall deadlines default to 10, 5, and 30
+minutes. Semantic review inherits that 30-minute overall provider deadline by default.
+These deliberately generous bounds accommodate
 large prompts on local models and consumer hardware while preserving cancellation and a
 finite failure path. Manifests carrying the exact historical 30-second/45-second/120-second
-default tuple are migrated to these safer defaults; genuinely customized values remain
-authoritative. `provider_concurrency` and `tool_concurrency` default
+default tuple are migrated to these safer defaults. The exact historical 15-second semantic
+review default is migrated as well; genuinely customized values remain authoritative.
+`provider_concurrency` and `tool_concurrency` default
 to one for constrained local systems and accept one through sixteen. Tool concurrency
 applies only to consecutive independently reviewed read-only operations; mutations remain
 ordered barriers. `provider_queue_limit` defaults to 256 and accepts one through 4,096.
