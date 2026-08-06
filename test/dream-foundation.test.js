@@ -148,6 +148,42 @@ test('idle operational diagnosis survives the stage boundary and observes repeat
   await telemetry.close();
 });
 
+test('idle project memory creates an inspectable proposal from explicit operator decisions only', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-project-memory-'));
+  const telemetry = new ForensicTelemetry({
+    workspaceRoot: root, runtimeId: 'runtime', sessionId: 'session', dbPath: join(root, 'events.db'),
+  });
+  await telemetry.initialize();
+  telemetry.record('turn.result', 'succeeded', {}, { turnId: 'turn-decision' });
+  await telemetry.flush();
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  const config = resolveManifest(manifest({ workspace_root: root }));
+  const engine = {
+    state: { state: 'idle' }, telemetry, governance,
+    transcript: [
+      { type: 'message', role: 'user', trust: 'operator', turnId: 'turn-decision', content: 'We decided the governance engine owns evidence policy.' },
+      { type: 'message', role: 'assistant', trust: 'model', turnId: 'turn-decision', content: 'We should silently rewrite NNA.md.' },
+    ],
+  };
+  const coordinator = new DreamCoordinator({
+    workspace: { sessions: new Map([['session', { engine }]]) }, config,
+    path: join(root, 'dream.db'),
+  });
+  await coordinator.initialize();
+  assert.equal((await coordinator.runNow()).result.code, 'harvest_complete');
+  assert.equal((await coordinator.runNow()).result.code, 'operational_diagnosis_complete');
+  const stage = await coordinator.runNow();
+  assert.equal(stage.result.code, 'project_memory_proposal_created');
+  const candidate = coordinator.candidate(stage.result.candidate_id);
+  assert.equal(candidate.state, 'observed');
+  assert.match(candidate.payload.new_region, /governance engine owns evidence policy/u);
+  assert.doesNotMatch(candidate.payload.new_region, /silently rewrite/u);
+  assert.equal(await import('node:fs/promises').then(({ readFile }) => readFile(join(root, 'NNA.md'), 'utf8').catch((error) => error.code)), 'ENOENT');
+  coordinator.close();
+  await telemetry.close();
+});
+
 test('learning candidates persist bounded evidence and require governed authority to promote', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-learning-candidate-'));
   const path = join(root, 'dream.db');

@@ -144,6 +144,13 @@ secret-like content, then produces an expected-hash proposal that preserves ever
 outside the managed region. Applying that proposal remains a normal reviewed filesystem
 effect under a workspace-specific maintenance grant.
 
+The eligibility stage considers only authenticated operator messages from turns named by
+the sealed evidence window. A deliberately narrow deterministic grammar recognizes
+explicit decisions and conventions; assistant prose, generic conversation, unrelated
+turns, and secret-like text are excluded. Existing managed knowledge is merged into the
+proposal so a partial observation cannot erase prior memory. The resulting candidate is
+inspectable in `/dream`, remains quarantined, and does not write `NNA.md`.
+
 ## NNM effect receipts
 
 NotNativeMemory owns semantic-memory content and extraction. Its detached NNA

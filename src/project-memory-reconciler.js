@@ -21,6 +21,20 @@ export class ProjectMemoryReconciler {
 
   async propose(input) {
     const snapshot = await this.#snapshot();
+    return this.#proposal(snapshot, input);
+  }
+
+  async proposeAppend(input) {
+    const snapshot = await this.#snapshot();
+    const existing = snapshot.region ? parseManagedRegion(snapshot.region) : {};
+    const sections = {};
+    for (const section of SECTIONS) {
+      sections[section] = [...(existing[section] ?? []), ...(input.sections?.[section] ?? [])];
+    }
+    return this.#proposal(snapshot, { ...input, sections });
+  }
+
+  #proposal(snapshot, input) {
     const managed = managedRegion(input.sections);
     const content = replaceManaged(snapshot.content, managed);
     if (Buffer.byteLength(content, 'utf8') > this.maximumBytes) {
@@ -46,6 +60,21 @@ export class ProjectMemoryReconciler {
       return { exists: false, content: '', hash: null, region: null };
     }
   }
+}
+
+export function explicitProjectDecisions(records, turnRefs) {
+  const allowed = new Set(Array.isArray(turnRefs) ? turnRefs : []);
+  const found = [];
+  for (const record of records ?? []) {
+    if (record?.type !== 'message' || record.role !== 'user' || record.trust !== 'operator'
+        || !allowed.has(record.turnId) || typeof record.content !== 'string') continue;
+    for (const statement of decisionStatements(record.content)) {
+      if (secretLike(statement) || Buffer.byteLength(statement, 'utf8') > 512) continue;
+      found.push(Object.freeze({ turnId: record.turnId, statement, section: decisionSection(statement) }));
+      if (found.length >= 64) return Object.freeze(found);
+    }
+  }
+  return Object.freeze(found);
 }
 
 export function projectMemoryCandidate(proposal, evidenceRefs = proposal.evidence_refs) {
@@ -80,6 +109,32 @@ function managedRegion(sections) {
   while (lines.at(-1) === '') lines.pop();
   lines.push(MANAGED_END);
   return lines.join('\n');
+}
+
+function parseManagedRegion(region) {
+  const result = {}; let section = null;
+  for (const line of region.split(/\r?\n/u)) {
+    if (line.startsWith('## ')) {
+      const name = line.slice(3).trim();
+      section = SECTIONS.includes(name) ? name : null;
+      if (section) result[section] ??= [];
+    } else if (section && line.startsWith('- ')) result[section].push(line.slice(2));
+  }
+  return result;
+}
+
+function decisionStatements(content) {
+  const normalized = content.replace(/\r\n?/gu, '\n').split(/\n+/u)
+    .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/u, '').trim())
+    .filter(Boolean);
+  return normalized.filter((line) => /^(?:decision\s*:|we (?:decided|agreed|will|must|should|need to)|i (?:decided|want|need|prefer|would like)|let(?:'|’)s|from now on|always\b|never\b)/iu.test(line));
+}
+
+function decisionSection(statement) {
+  if (/\b(?:bug|broken|problem|issue|failure|missing)\b/iu.test(statement)) return 'Known problems';
+  if (/\b(?:later|future|eventually|backlog|defer|shelve|unresolved)\b/iu.test(statement)) return 'Unresolved work';
+  if (/\b(?:architecture|design|engine|component|provider|model|routing|storage|schema)\b/iu.test(statement)) return 'Decisions and rationale';
+  return 'Working conventions';
 }
 
 function replaceManaged(content, managed) {

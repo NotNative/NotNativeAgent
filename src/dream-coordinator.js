@@ -7,6 +7,9 @@ import { diagnoseDreamEvidence } from './dream-diagnosis.js';
 import { LearningCandidateRegistry } from './learning-candidates.js';
 import { governanceFingerprint } from './governance-contracts.js';
 import { NnmGovernanceReceipts } from './nnm-governance-receipts.js';
+import {
+  explicitProjectDecisions, ProjectMemoryReconciler, projectMemoryCandidate,
+} from './project-memory-reconciler.js';
 
 export class DreamCoordinator {
   constructor(options) {
@@ -177,18 +180,37 @@ export class DreamCoordinator {
     });
     try {
       if (signal.aborted) throw cancelled();
-      // Raw transcript prose is deliberately absent from forensic evidence packets.
-      // A future typed user-decision extractor may create a proposal; generic runtime
-      // aggregates are never sufficient authority to edit project memory.
-      this.store.advancePacket(packet.id, 3, 'project_memory_no_eligible_evidence');
-      this.store.finish(run.id, 'skipped', {
-        resultCode: 'project_memory_no_eligible_evidence', durationMs: performance.now() - started,
+      const decisions = explicitProjectDecisions(this.#transcriptRecords(), packet.payload.turn_refs);
+      if (decisions.length === 0) return this.#finishProjectMemorySkipped(run, packet, started);
+      const engine = this.#engine();
+      const scope = { kind: 'workspace', fingerprint: governanceFingerprint(this.config.workspaceRoot) };
+      const { evidenceRefs, sections } = await registerProjectDecisions(engine, decisions, scope, signal);
+      const proposal = await new ProjectMemoryReconciler(this.config.workspaceRoot)
+        .proposeAppend({ evidenceRefs, sections });
+      if (proposal.expected_hash === proposal.proposed_hash) {
+        return this.#finishProjectMemorySkipped(run, packet, started, 'project_memory_already_current');
+      }
+      const registry = new LearningCandidateRegistry({
+        store: this.store, governance: engine.governance, runtimeKey: this.runtimeKey,
+        scope, telemetry: engine.telemetry,
+      });
+      const candidate = await registry.observe({
+        ...projectMemoryCandidate(proposal, evidenceRefs),
+        id: `candidate-project-memory-${proposal.proposed_hash.slice(0, 24)}`,
+      });
+      this.store.advancePacket(packet.id, 3, 'project_memory_proposal_created');
+      this.store.finish(run.id, 'completed', {
+        resultCode: 'project_memory_proposal_created', durationMs: performance.now() - started,
+        outputFingerprint: candidate.payload_fingerprint,
       });
       this.store.commitWatermark({
         runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
         stage: 3, configGeneration: this.config.version,
       });
-      const result = { code: 'project_memory_no_eligible_evidence', packet_id: packet.id };
+      const result = {
+        code: 'project_memory_proposal_created', packet_id: packet.id,
+        candidate_id: candidate.id, decisions: decisions.length,
+      };
       this.state.lastResult = result;
       return result;
     } catch (error) {
@@ -198,6 +220,17 @@ export class DreamCoordinator {
       });
       throw error;
     }
+  }
+  #finishProjectMemorySkipped(run, packet, started, code = 'project_memory_no_eligible_evidence') {
+    this.store.advancePacket(packet.id, 3, code);
+    this.store.finish(run.id, 'skipped', { resultCode: code, durationMs: performance.now() - started });
+    this.store.commitWatermark({
+      runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
+      stage: 3, configGeneration: this.config.version,
+    });
+    const result = { code, packet_id: packet.id };
+    this.state.lastResult = result;
+    return result;
   }
   async #reconcileNnm(packet, { trigger, signal }) {
     const started = performance.now();
@@ -267,6 +300,9 @@ export class DreamCoordinator {
     if (!engine && required) throw Object.assign(new Error('dream engine unavailable'), { code: 'dream_engine_unavailable' });
     return engine;
   }
+  #transcriptRecords() {
+    return [...this.workspace.sessions.values()].flatMap((session) => session.engine?.transcript ?? []);
+  }
 }
 
 function terminalEvidence(row) {
@@ -316,7 +352,7 @@ function candidateSummary(candidate, detail = false) {
   if (detail) Object.assign(summary, {
     evidence_refs: candidate.evidence_refs, success_criteria: candidate.success_criteria,
     rejection_reason: candidate.rejection_reason, expires_at: candidate.expires_at,
-    payload_fingerprint: candidate.payload_fingerprint,
+    payload_fingerprint: candidate.payload_fingerprint, payload: candidate.payload,
   });
   return Object.freeze(summary);
 }
@@ -353,4 +389,23 @@ async function admitNnmReceipt(engine, receipt, workspaceRoot) {
     status: 'applied', effectCertainty: 'completed', resultFingerprint: receipt.receipt_id,
     reasonCode: 'nnm_effects_attributed',
   });
+}
+
+async function registerProjectDecisions(engine, decisions, scope, signal) {
+  const evidenceRefs = [], sections = {};
+  for (const decision of decisions) {
+    if (signal.aborted) throw cancelled();
+    const contentFingerprint = governanceFingerprint(decision.statement);
+    const evidence = await engine.governance.registerEvidence({
+      id: `evidence:operator-decision:${decision.turnId}:${contentFingerprint.slice(0, 24)}`,
+      kind: 'operator_project_decision', origin: 'operator', trust: 'authority',
+      state: 'active', freshness: 'current', conflict: 'none',
+      sourceRef: `turn:${decision.turnId}`, sourceFingerprint: decision.turnId,
+      contentFingerprint, scope, observedAt: Date.now(),
+      attributes: { destination: 'project_memory', section: decision.section },
+    });
+    evidenceRefs.push(evidence.id);
+    (sections[decision.section] ??= []).push(decision.statement);
+  }
+  return { evidenceRefs, sections };
 }
