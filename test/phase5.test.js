@@ -667,18 +667,28 @@ test('diagnostics use a bounded overlay and restore the transcript on close', ()
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', { type: 'stream_delta', text: 'conversation remains here' });
-  projection.openOverlay(auditOverlay([{
+  const audit = auditOverlay([{
     tool: 'fs.read_text', result: 'succeeded', decision: 'approve', reason: 'deterministic_safe',
     risk: 'safe', scope: 'workspace', effect: 'read_only', effect_certainty: 'completed', elapsed_ms: 2,
-  }]));
+  }]);
+  projection.openOverlay(audit);
   const renderer = new TuiRenderer();
   let frame = renderer.frame(projection, { width: 100, height: 24 });
   assert.match(frame, /GOVERNANCE AUDIT/u);
   assert.match(frame, /Decision: approve/u);
+  assert.doesNotMatch(audit.lines.join('\n'), /[·—]/u);
   assert.doesNotMatch(frame, /conversation remains here/u);
   projection.closeOverlay();
   frame = renderer.frame(projection, { width: 100, height: 24 });
   assert.match(frame, /conversation remains here/u);
+});
+
+test('governance audit distinguishes pending proposals from unhealthy evidence', () => {
+  const view = auditOverlay([], [], {
+    evidence: 3, decisions: 2, unsettled_decisions: 0,
+    pending_evidence: 1, attention_evidence: 0, uncertain_effects: 0,
+  });
+  assert.match(view.lines.join('\n'), /Pending proposals 1 \| attention 0/u);
 });
 
 test('Console input errors remain local and do not poison engine state', () => {

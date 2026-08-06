@@ -320,6 +320,9 @@ test('learning candidates persist bounded evidence and require governed authorit
   });
   assert.equal(observed.state, 'observed');
   assert.equal(governance.evidence('evidence:candidate:candidate-guidance-1').state, 'quarantined');
+  assert.equal(governance.health().status, 'ready');
+  assert.equal(governance.health().pending_evidence, 1);
+  assert.equal(governance.health().unsettled_decisions, 0);
   for (const state of ['gathering', 'ready', 'validating', 'proposed']) await registry.advance(observed.id, state);
   await assert.rejects(() => registry.promote(observed.id, { authorityRefs: [] }), { code: 'learning_authority_required' });
   const active = await registry.promote(observed.id, { authorityRefs: ['evidence:operator-grant'] });

@@ -168,17 +168,23 @@ export class GovernanceEngine {
     for (const entry of this.#decisions.values()) {
       domains[entry.record.domain] = (domains[entry.record.domain] ?? 0) + 1;
       outcomes[entry.record.outcome] = (outcomes[entry.record.outcome] ?? 0) + 1;
-      if (!entry.terminal) unsettled += 1;
-      else if (entry.terminal.effectCertainty === 'unknown' || entry.terminal.status === 'unknown_effect') uncertainEffects += 1;
+      if (!entry.terminal) {
+        if (settlementRequired(entry.record)) unsettled += 1;
+      } else if (entry.terminal.effectCertainty === 'unknown' || entry.terminal.status === 'unknown_effect') {
+        uncertainEffects += 1;
+      }
     }
-    const attentionEvidence = (states.quarantined ?? 0) + (states.conflicting ?? 0);
+    const pendingEvidence = [...this.#evidence.values()].filter((entry) =>
+      entry.record.state === 'quarantined' && entry.record.kind === 'improvement_candidate').length;
+    const attentionEvidence = (states.quarantined ?? 0) - pendingEvidence + (states.conflicting ?? 0);
     return Object.freeze({
-      status: attentionEvidence > 0 || uncertainEffects > 0 ? 'attention' : 'ready',
+      status: attentionEvidence > 0 || uncertainEffects > 0 || unsettled > 0 ? 'attention' : 'ready',
       durable: this.#store !== null, evidence: this.#evidence.size,
       decisions: this.#decisions.size, evidence_states: Object.freeze(states),
       evidence_kinds: Object.freeze(kinds), decisions_by_domain: Object.freeze(domains),
       decision_outcomes: Object.freeze(outcomes), unsettled_decisions: unsettled,
       uncertain_effects: uncertainEffects, attention_evidence: attentionEvidence,
+      pending_evidence: pendingEvidence,
       retention_entries: this.retentionEntries,
     });
   }
@@ -267,4 +273,10 @@ function terminalStatus(status) {
   if (status === 'applied') return 'succeeded';
   if (status === 'not_applied') return 'skipped';
   return status;
+}
+
+function settlementRequired(decision) {
+  if (decision.domain === 'action_authorization') return true;
+  return ['guidance_promotion', 'learning_promotion'].includes(decision.domain)
+    && decision.outcome === 'promote';
 }

@@ -28,7 +28,7 @@ export class LearningCandidateRegistry {
       attributes: { candidate_kind: candidate.kind, risk_class: candidate.risk_class },
     });
     const observationKey = governanceFingerprint(sources.map((item) => item.id).sort().join(':')).slice(0, 24);
-    await this.governance.decide({
+    const decision = await this.governance.decide({
       id: `governance:observe:${candidate.id}:${observationKey}`,
       domain: domainFor(candidate.kind), subjectRef: candidate.id,
       subjectFingerprint: candidate.payload_fingerprint, outcome: 'defer',
@@ -37,6 +37,11 @@ export class LearningCandidateRegistry {
       decidedAt: Math.max(...sources.map((item) => item.observedAt)),
       expiresAt: candidate.expires_at ? Date.parse(candidate.expires_at) : null,
       attributes: { candidate_state: candidate.state, candidate_kind: candidate.kind },
+    });
+    await this.governance.settleDecision(decision.id, {
+      status: 'applied', effectCertainty: 'completed',
+      resultFingerprint: candidate.payload_fingerprint,
+      reasonCode: 'candidate_observation_recorded',
     });
     this.#telemetry('learning.candidate', 'succeeded', candidate, 'candidate_observed');
     return candidate;

@@ -11,33 +11,34 @@ const PROVIDER_ROLE_PURPOSES = Object.freeze({
 });
 
 export function auditOverlay(entries, governance = [], health = null) {
-  if ((!Array.isArray(entries) || entries.length === 0) && (!Array.isArray(governance) || governance.length === 0)) {
+  if ((!Array.isArray(entries) || entries.length === 0)
+      && (!Array.isArray(governance) || governance.length === 0) && !health) {
     return overlay('audit', 'Governance audit', ['No governance decisions.']);
   }
   const lines = [];
   if (health) {
     lines.push(
-      `Evidence ${health.evidence ?? 0} · decisions ${health.decisions ?? 0} · unsettled ${health.unsettled_decisions ?? 0}`,
-      `Attention ${health.attention_evidence ?? 0} · uncertain effects ${health.uncertain_effects ?? 0}`,
+      `Evidence ${health.evidence ?? 0} | decisions ${health.decisions ?? 0} | unsettled ${health.unsettled_decisions ?? 0}`,
+      `Pending proposals ${health.pending_evidence ?? 0} | attention ${health.attention_evidence ?? 0} | uncertain effects ${health.uncertain_effects ?? 0}`,
       '',
     );
   }
   if (governance.length > 0) {
     lines.push('Governance decisions', '');
     for (const entry of governance.slice(-32)) {
-      lines.push(`- ${entry.domain} · ${entry.outcome} · ${entry.reasonCode}`);
-      lines.push(`  Subject: ${entry.subjectRef} · evidence ${entry.evidenceRefs?.length ?? 0} · authority ${entry.authorityRefs?.length ?? 0}`);
-      if (entry.terminal) lines.push(`  Effect: ${entry.terminal.status} · certainty ${entry.terminal.effectCertainty}`);
+      lines.push(`- ${entry.domain} | ${entry.outcome} | ${entry.reasonCode}`);
+      lines.push(`  Subject: ${entry.subjectRef} | evidence ${entry.evidenceRefs?.length ?? 0} | authority ${entry.authorityRefs?.length ?? 0}`);
+      if (entry.terminal) lines.push(`  Effect: ${entry.terminal.status} | certainty ${entry.terminal.effectCertainty}`);
     }
   }
   if (entries.length > 0) {
     if (lines.length > 0) lines.push('');
     lines.push('Reviewed tool calls', '');
     for (const [index, entry] of entries.slice(-32).entries()) {
-      lines.push(`${index + 1}. ${entry.tool ?? 'unknown tool'} — ${entry.result ?? entry.decision ?? 'unknown'}`);
+      lines.push(`${index + 1}. ${entry.tool ?? 'unknown tool'} - ${entry.result ?? entry.decision ?? 'unknown'}`);
       lines.push(`   Decision: ${entry.decision ?? '--'} (${entry.reason ?? entry.reason_code ?? '--'})`);
       lines.push(`   Risk/scope: ${entry.risk ?? '--'} / ${entry.scope ?? '--'}`);
-      lines.push(`   Effect: ${entry.effect ?? '--'} · certainty ${entry.effect_certainty ?? '--'}`);
+      lines.push(`   Effect: ${entry.effect ?? '--'} | certainty ${entry.effect_certainty ?? '--'}`);
       if (Number.isFinite(entry.elapsed_ms)) lines.push(`   Duration: ${Math.round(entry.elapsed_ms)} ms`);
       if (entry.repetition > 0) lines.push(`   Repetition: ${entry.repetition}`);
       lines.push('');

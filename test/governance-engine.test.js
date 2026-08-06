@@ -120,9 +120,15 @@ test('governance health aggregates attention and incomplete effect trails withou
     subjectFingerprint: 'claim-one', outcome: 'quarantine', reasonCode: 'support_missing',
     policyVersion: 'test/1', evidenceRefs: [evidence.id], authorityRefs: [], decidedAt: 10,
   });
+  await governance.decide({
+    id: 'decision-effectful', domain: 'action_authorization', subjectRef: 'tool:one',
+    subjectFingerprint: 'tool-one', outcome: 'approve', reasonCode: 'authorized',
+    policyVersion: 'test/1', evidenceRefs: [evidence.id], authorityRefs: [], decidedAt: 11,
+  });
   const health = governance.health();
   assert.equal(health.status, 'attention');
   assert.equal(health.attention_evidence, 1);
+  assert.equal(health.pending_evidence, 0);
   assert.equal(health.unsettled_decisions, 1);
   assert.equal(health.decisions_by_domain.claim_support, 1);
   assert.equal(health.decision_outcomes.quarantine, 1);

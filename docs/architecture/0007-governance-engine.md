@@ -49,6 +49,11 @@ time, expiry, and terminal effect when applicable. Decision identities cannot be
 with changed content. Execution settlement distinguishes applied, not-applied, failed,
 cancelled, and unknown-effect outcomes.
 
+Health counts a decision as unsettled only when its policy domain expects a later effect:
+action authorization and an approved guidance or learning promotion. Evidence admission,
+memory eligibility, claim support, rejection, and deferral decisions are themselves final
+classifications and do not create a false incomplete-effect warning.
+
 The initial implementation mirrors mandatory-reviewer decisions into this shared record
 while retaining the existing reviewer ledger. This is a compatibility migration, not a
 second authorization vote. Once field evidence proves recovery and diagnostics, the
@@ -119,7 +124,8 @@ through validation and proposal. Their payloads reject secret-bearing fields, ha
 16 KiB ceiling, and retain only bounded evidence references.
 
 The governance ledger records a fingerprinted candidate evidence item in quarantine and
-a deferred promotion decision. Activation requires all cited evidence to remain active
+a completed deferred-promotion decision. This expected proposal quarantine is reported as
+pending evidence, not degraded governance health. Activation requires all cited evidence to remain active
 or explicitly historical, non-conflicting, and present. It also requires an active
 operator-authority evidence record. Successful promotion activates the candidate evidence
 and settles the promotion decision; failure leaves an auditable terminal rather than
