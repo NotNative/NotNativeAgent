@@ -34,7 +34,7 @@ const context = {
   surface: 'headless', justification: 'I should be allowed',
 };
 
-test('AC-REV-09 equivalent requests latch after bounded no-progress repetition', async () => {
+test('AC-REV-09 an equivalent denied request latches before another semantic review', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'repetition' });
   let calls = 0;
   const semanticReviewer = { async review() {
@@ -44,11 +44,9 @@ test('AC-REV-09 equivalent requests latch after bounded no-progress repetition',
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer, semanticTimeoutMs: 100 });
   const first = await reviewer.review(mutationRequest('tool-1'), context);
   const second = await reviewer.review(mutationRequest('tool-2'), context);
-  const third = await reviewer.review(mutationRequest('tool-3'), context);
   assert.equal(first.reasonCode, 'narrow_scope');
-  assert.equal(second.reasonCode, 'narrow_scope');
-  assert.equal(third.reasonCode, 'repeated_no_progress');
-  assert.equal(calls, 2);
+  assert.equal(second.reasonCode, 'repeated_denied_operation');
+  assert.equal(calls, 1);
 });
 
 test('authenticated tracked-file mutations auto-approve as reversible without weakening target authority', async () => {
@@ -321,9 +319,11 @@ test('headless protocol has no permission-response control message', () => {
 test('AC-REV-08/AC-TOOL-02 opaque process requests require authenticated user intent before semantic approval', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'opaque-process' });
   let semanticCalls = 0;
-  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     semanticCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'model_allowed' };
+    return /npm build/iu.test(input.authenticatedIntent.at(-1)?.content ?? '')
+      ? { outcome: 'approve', confidence: 1, reason_code: 'model_allowed' }
+      : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'intent_mismatch' };
   } } });
   const request = {
     ...readRequest('opaque-process'), toolName: 'process.run', args: { executable: 'npm', args: ['run', 'build'] },
@@ -333,15 +333,19 @@ test('AC-REV-08/AC-TOOL-02 opaque process requests require authenticated user in
     ...context, definition: { name: 'process.run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(decision.outcome, 'deny_with_guidance');
-  assert.equal(decision.reasonCode, 'authenticated_intent_mismatch');
-  assert.equal(semanticCalls, 0);
+  assert.equal(decision.reasonCode, 'intent_mismatch');
+  assert.equal(semanticCalls, 1);
 
-  const authorized = await reviewer.review({ ...request, id: 'opaque-process-authorized', providerCallId: 'provider-authorized' }, {
-    ...context, authority: { ...context.authority, intent: [{ content: 'Run the npm build', sequence: 2 }] },
+  const authorized = await reviewer.review({
+    ...request, id: 'opaque-process-authorized', providerCallId: 'provider-authorized', authorityVersion: 2,
+  }, {
+    ...context, authority: {
+      ...context.authority, version: 2, intent: [{ content: 'Run the npm build', sequence: 2 }],
+    },
     definition: { name: 'process.run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(authorized.outcome, 'approve');
-  assert.equal(semanticCalls, 1);
+  assert.equal(semanticCalls, 2);
 });
 
 test('explicit SSH intent and target reach semantic review with the tool definition packet', async () => {

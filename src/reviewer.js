@@ -36,6 +36,7 @@ export class MandatoryReviewer {
       const entry = await this.ledger.propose(request, classification);
       let decision;
       const missionViolation = missionBoundaryViolation(request, context.definition, context.authority?.mission);
+      const intentRelation = authenticatedIntentRelation(request, context.authority, context.definition);
       if (missionViolation) decision = hardDeny(missionViolation, request);
       else if (context.authority?.complete === false && !context.authority?.mission && classification.risk !== 'safe') {
         decision = deny(
@@ -47,16 +48,18 @@ export class MandatoryReviewer {
       else if (classification.risk === 'safe' && conversationOnly(context.authority)) {
         decision = deny('tool_not_justified_by_request', 'The user made a conversational request that does not require tools.', request);
       } else if (classification.risk === 'safe') decision = approve('deterministic_safe', request);
-      else if (classification.risk === 'reversible' && !authorityCoversMutation(request, context.authority, context.definition)) {
+      else if (!['safe', 'prohibited'].includes(classification.risk) && intentRelation === 'conflict') {
         decision = deny(
           'authenticated_intent_mismatch',
-          'The requested operation is recoverable, but the user did not authorize this action and target.',
+          'The requested operation concretely conflicts with the authenticated action or target.',
           request,
         );
       }
-      else if (classification.risk === 'reversible') decision = approve('deterministic_reversible', request);
+      else if (classification.risk === 'reversible' && intentRelation === 'covered') {
+        decision = approve('deterministic_reversible', request);
+      }
       else if (classification.risk === 'prohibited') decision = hardDeny(classification.reason, request);
-      else decision = await this.#semanticDecision(request, context, entry);
+      else decision = await this.#semanticDecision(request, context, entry, intentRelation);
       if (context.reviewPosture === 'prompt' && decision.outcome === 'approve') {
         decision = escalate('prompt_posture_operator_decision', request, 'Prompt posture requires operator approval before execution.');
       }
@@ -73,16 +76,14 @@ export class MandatoryReviewer {
     }
   }
 
-  async #semanticDecision(request, context, entry) {
-    if (!authorityCoversMutation(request, context.authority, context.definition)) {
+  async #semanticDecision(request, context, entry, intentRelation) {
+    const prior = this.ledger.summary(request).slice(0, -1);
+    if (entry.repetition >= 1 && prior.some((item) => item.decision === 'deny_with_guidance')) {
       return deny(
-        'authenticated_intent_mismatch',
-        'Authenticated intent does not clearly cover this operation and target.',
+        'repeated_denied_operation',
+        'An equivalent operation was already denied. Choose a materially different or safer approach.',
         request,
       );
-    }
-    if (entry.repetition >= 2) {
-      return deny('repeated_no_progress', 'Equivalent operation repeated without verified progress.', request);
     }
     const input = Object.freeze({
       request: safeReviewRequest(request), classification: classify(request, context.definition),
@@ -90,7 +91,7 @@ export class MandatoryReviewer {
       authenticatedIntent: context.authority.intent,
       mission: context.authority.mission, justification: context.justification ?? '',
       justificationTrust: 'untrusted_model', causalEvidence: context.causalEvidence ?? [],
-      ledgerSummary: this.ledger.summary(request),
+      intentRelation, ledgerSummary: this.ledger.summary(request),
     });
     const candidate = await boundedReview(this.semantic, input, this.semanticTimeoutMs, context.signal, {
       turnId: context.turnId, stepId: context.stepId, toolRequestId: request.id,
@@ -310,24 +311,36 @@ function redactReviewValue(value, key = '') {
   return value;
 }
 
-function authorityCoversMutation(request, authority, definition) {
-  if (definition.sideEffect === 'read_only') return true;
-  if (request.toolName === 'process.run') return authorityCoversProcess(request, authority);
-  if (!request.toolName.startsWith('fs.')) return true;
+function authenticatedIntentRelation(request, authority, definition) {
+  if (definition.sideEffect === 'read_only') return 'covered';
+  if (request.toolName === 'process.run') return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
+  if (!request.toolName.startsWith('fs.')) return 'uncertain';
   const mission = authority.mission?.outcome?.toLowerCase() ?? '';
   const targets = resolvedTargets(request);
   const action = filesystemActionPattern(request.toolName);
   if (authority.mission) {
     const namesTargets = targets.every((target) => authority.mission.targets.some((item) => missionTargetMatches(item, request, { scope: 'workspace' }, target)));
-    return namesTargets && action.test(mission);
+    return namesTargets && action.test(mission) ? 'covered' : 'conflict';
   }
   const relevant = [...authority.intent].reverse().find((item) => {
     const evidence = item.content.toLowerCase();
     return targets.some((target) => evidenceNamesTarget(evidence, target));
   });
-  if (!relevant || relevant.kind === 'restriction') return false;
+  if (relevant?.kind === 'restriction') return 'conflict';
+  if (!relevant) return clearlyReadOnlyIntent(authority) ? 'conflict' : 'uncertain';
   const evidence = relevant.content.toLowerCase();
-  return targets.every((target) => evidenceNamesTarget(evidence, target)) && action.test(evidence);
+  if (targets.every((target) => evidenceNamesTarget(evidence, target)) && action.test(evidence)) return 'covered';
+  return clearlyReadOnlyText(evidence) ? 'conflict' : 'uncertain';
+}
+
+function clearlyReadOnlyIntent(authority) {
+  const latest = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction');
+  return latest ? clearlyReadOnlyText(latest.content) : false;
+}
+
+function clearlyReadOnlyText(value) {
+  return /\b(?:read|inspect|audit|review|summarize|explain|show|list|search|find|check|diagnose|answer|respond|tell)\b/iu.test(value)
+    && !/\b(?:write|change|replace|create|update|edit|modify|delete|remove|move|rename|copy|fix|build|implement|install)\b/iu.test(value);
 }
 
 function authorityCoversProcess(request, authority) {

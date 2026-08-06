@@ -48,6 +48,19 @@ arguments and target, deterministic risk classification, untrusted agent justifi
 authenticated operator intent, mission authority, bounded causal conversation evidence,
 and relevant ledger summary. Tool output and agent justification never become authority.
 
+Deterministic review owns only mechanically clear approvals and the immutable denial floor.
+Uncertain consequential operations reach semantic review. Its default is to approve a
+reasonable, proportionate means of carrying out authenticated intent unless it identifies a
+concrete conflict, scope divergence, or disproportionate irreversible harm. Operators need not
+name ordinary intermediate commands or targets derived from prior results.
+
+A guidance denial constrains the current route rather than completing the objective. The engine
+prevents unchanged denied requests from consuming repeated semantic reviews and directs the
+agent to continue through a safer, narrower, or more reversible approach. The agent asks the
+operator only when reasonable alternatives are exhausted, and then identifies the attempted
+operation, the denial, and the exact clarification needed. Immutable denials and reviewer
+unavailability are reported distinctly and never misrepresented as missing user authorization.
+
 ## Capability and command review
 
 NNA should allow an agent to use every configured capability needed to fulfill authenticated

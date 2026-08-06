@@ -109,13 +109,32 @@ export class ToolGovernor {
 }
 
 export function denialResult(request, decision) {
+  const recovery = denialRecovery(decision);
   return Object.freeze({
     request_id: request.id, provider_call_id: request.providerCallId,
     tool_name: request.toolName, status: decision.outcome,
-    content: decision.guidance ?? decision.reasonCode, truncated: false,
+    content: `${decision.guidance ?? decision.reasonCode}\n\n${recovery.instruction}`, truncated: false,
     elapsed_ms: 0, effect_certainty: 'none', untrusted: true,
-    reason_code: decision.reasonCode,
+    reason_code: decision.reasonCode, metadata: Object.freeze({
+      denial_kind: recovery.kind, continuation: recovery.continuation,
+      retry: 'materially_different_only', user_clarification: recovery.userClarification,
+    }),
   });
+}
+
+function denialRecovery(decision) {
+  if (decision.outcome === 'hard_deny') return {
+    kind: 'immutable_policy', continuation: 'continue_within_boundary', userClarification: false,
+    instruction: 'This is an immutable policy boundary. Do not retry or imply that additional user authorization can override it. Continue all remaining work within the boundary; report it only if it blocks the objective.',
+  };
+  if (['mandatory_review_failed', 'semantic_review_unavailable'].includes(decision.reasonCode)) return {
+    kind: 'reviewer_unavailable', continuation: 'replan_safer', userClarification: false,
+    instruction: 'The reviewer was unavailable; this is not a finding that the user withheld authorization. Do not repeat the same request unchanged. Continue through a safer deterministic approach, or report reviewer unavailability only if no useful path remains.',
+  };
+  return {
+    kind: 'review_denial', continuation: 'replan_safer', userClarification: true,
+    instruction: 'Treat this denial as a constraint, not task completion. Do not repeat an equivalent request unchanged. Continue through a safer, narrower, or more reversible approach. Ask the user only if no meaningful alternative remains; then state what you tried, what was denied, and the explicit authorization or information needed.',
+  };
 }
 
 export function invalidResult(call, error) {

@@ -46,7 +46,10 @@ prefer a direct executable and must not assume an optional shell is installed. O
 separately installed, cross-platform PowerShell 7 product and is used only after discovery or
 an explicit operator request. Unix-like hosts likewise may provide `sh`, `bash`, or another
 shell, and a shell wrapper is used only when its syntax is necessary.
-The reviewer requires matching authenticated user intent before an operation can proceed.
+The reviewer requires the operation to be a reasonable, proportionate way to carry out
+authenticated user intent. Ordinary intermediate commands and targets derived from prior
+results need not be named verbatim. A concrete contradiction, scope divergence, or
+disproportionate irreversible effect remains a denial.
 Its requested deadline returns a typed timeout immediately
 after requesting tree termination. External effects are therefore reported with unknown
 certainty and are never automatically retried. POSIX termination escalates from `SIGTERM`

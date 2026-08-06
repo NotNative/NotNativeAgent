@@ -24,10 +24,10 @@ the operator clears or replaces the conversation and restates authority. An acti
 cannot resume from a truncated tail unless at least one cumulative mission-budget fact is
 present; otherwise initialization fails closed rather than minting resource budget.
 
-Shell-free process requests retain an independent comprehensibility floor. Opaque
-package scripts, large argv sets, interpreted patterns, and dynamic flags are denied
-with structured-tool guidance before semantic review; a permissive reviewer cannot
-authorize a command the deterministic boundary cannot understand.
+Shell-free process requests retain an independent comprehensibility floor. Malformed or
+mechanically prohibited plans fail before semantic review. Opaque package scripts, large
+argv sets, interpreted patterns, and dynamic flags are classified as uncertain and reach
+semantic review with their complexity intact; they are not disguised as simple commands.
 
 Completed tool-call identities are cached with a bounded operation fingerprint. A replay
 of the same identity and operation reuses the prior terminal result without repeating
@@ -35,19 +35,21 @@ review or execution; reuse of an identity with different tool arguments is rejec
 drift. Durable transcript recovery rebuilds the cache for resumed conversations.
 
 The reviewer is mandatory kernel policy registered on the permission `pre`
-phase. Ordinary callers cannot remove that subscription. It classifies bounded
-workspace reads as safe, treats writes as review-required, and rejects unknown
-or out-of-scope operations before semantic review. Review-required work uses a
+phase. Ordinary callers cannot remove that subscription. It deterministically approves
+mechanically safe work, enforces mission ceilings and clear authenticated-intent conflicts,
+and reserves a short immutable denial floor for prohibited operations. Other uncertain
+or consequential operations reach semantic review. Review-required work uses a
 tool-less `reviewer` model route with a portable structural JSON Schema response
 constraint, strict local decision validation, bounded time, and a
-fail-closed default. Mutation approval additionally requires authenticated
-intent to name the mutation class and target.
+fail-closed default. The semantic default is permissive toward a reasonable, proportionate
+means of carrying out authenticated intent; ordinary intermediate commands and targets
+derived from prior results need not be named verbatim.
 
 File, web, memory, MCP, hook, attachment, and tool-result content remains explicitly
 untrusted evidence in provider context. It is never added to the authority record. Even
-when such content induces a later mutation and the semantic reviewer returns approval,
-the deterministic intent/target floor denies the call unless authenticated operator or
-mission authority independently permits it.
+when such content induces a later mutation, it cannot independently authorize the call.
+Authenticated operator or mission intent must still cover the objective, while the semantic
+reviewer may recognize proportionate intermediate actions and causally derived targets.
 
 The reviewer alone owns a separate hash-chained ledger. It stores normalized
 operation hashes, redacted target fingerprints, decisions, repetition counts,
@@ -65,6 +67,13 @@ matches the action and target. Untracked, external, destructive, shell, and comp
 effects reach mandatory semantic review instead of being prohibited by the tool layer.
 `process.run` retains minimal-environment inheritance, bounded output, deadlines, and
 process-tree cancellation. `docs/TOOLS.md` is the canonical current catalog.
+
+A guidance denial constrains the attempted route rather than completing the objective.
+Equivalent denied requests are latched within the same authority snapshot; a newer
+authenticated operator instruction creates a new snapshot and may reopen review. The engine
+directs the agent to try a materially different safer, narrower, or more reversible route and
+to ask the operator only after useful alternatives are exhausted. Immutable policy denials
+and reviewer unavailability remain distinct and cannot be presented as withheld permission.
 
 Interactive operation preauthorization fingerprints the complete canonical target set. File
 transfers bind source and destination together; process requests bind working directory,

@@ -171,7 +171,9 @@ export function requestDigest(request) {
 export function operationSignature(request) {
   const value = {
     toolName: request.toolName, args: request.args, resolved: request.resolved,
-    authorityId: request.authorityId, policyVersion: request.policyVersion,
+    authorityId: request.authorityId, authorityVersion: request.authorityVersion,
+    authorityRestrictionVersion: request.authorityRestrictionVersion ?? 0,
+    policyVersion: request.policyVersion,
     definitionVersion: request.definitionVersion,
   };
   return createHash('sha256').update(stableJson(value)).digest('hex');

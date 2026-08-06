@@ -15,7 +15,7 @@ import { recoveryExhaustionText, recoveryHint } from './recovery.js';
 import { JournalStore } from './store.js';
 import { SessionLock } from './session-lock.js';
 import { restoreSessionRecords } from './session-history.js';
-import { toolProgressEvidence } from './tool-loop.js';
+import { toolContinuationHint, toolProgressEvidence } from './tool-loop.js';
 import { installEngineComponents } from './engine-components.js';
 import { applyPendingConfiguration, updateEngineConfiguration } from './runtime-config.js';
 import { userDataPaths } from './product.js';
@@ -319,7 +319,7 @@ export class SessionEngine {
     if (!progress.continue) return { exhausted: true };
     this.state.transition('preparing_continuation', { trigger: 'tool_results_committed', turnId: active.turnId });
     return {
-      continue: true, hint: recoveryHint(progress.action),
+      continue: true, hint: toolContinuationHint(items, recoveryHint(progress.action)),
       forceCompact: progress.action?.action === 'compact',
     };
   }

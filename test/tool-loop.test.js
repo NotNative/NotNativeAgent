@@ -13,8 +13,9 @@ import { JournalStore } from '../src/store.js';
 import { ContractError } from '../src/ids.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/reviewer-ledger.js';
+import { denialResult } from '../src/tool-governor.js';
 import { declaredSubscription } from './event-fixture.js';
-import { toolProgressEvidence } from '../src/tool-loop.js';
+import { toolContinuationHint, toolProgressEvidence } from '../src/tool-loop.js';
 import { selfDiagnosticsDefinitions } from '../src/self-diagnostics-tool.js';
 import { openRuntimeInspection } from '../src/tui-runtime-inspection.js';
 
@@ -24,6 +25,37 @@ test('different search arguments count as progress even when their results are i
     result: { status: 'succeeded', tool_name: 'fs.search_text', content: 'no text matches' },
   });
   assert.notEqual(toolProgressEvidence([item('alpha')], 0).value, toolProgressEvidence([item('beta')], 0).value);
+});
+
+test('review denial continuation favors safer progress before operator interruption', () => {
+  const hint = toolContinuationHint([{
+    result: { status: 'deny_with_guidance', tool_name: 'process.run' },
+  }], 'generic recovery');
+  assert.match(hint, /constraint, not the end[^]*safer[^]*Ask the operator only after/iu);
+});
+
+test('denial results distinguish recoverable review constraints from policy and availability failures', () => {
+  const request = { id: 'tool-1', providerCallId: 'call-1', toolName: 'process.run' };
+  const ordinary = denialResult(request, {
+    outcome: 'deny_with_guidance', reasonCode: 'intent_mismatch', guidance: 'Target was not authorized.',
+  });
+  assert.equal(ordinary.metadata.continuation, 'replan_safer');
+  assert.equal(ordinary.metadata.user_clarification, true);
+  assert.match(ordinary.content, /constraint, not task completion[^]*safer, narrower, or more reversible/iu);
+
+  const unavailable = denialResult(request, {
+    outcome: 'deny_with_guidance', reasonCode: 'semantic_review_unavailable', guidance: 'Review failed.',
+  });
+  assert.equal(unavailable.metadata.denial_kind, 'reviewer_unavailable');
+  assert.equal(unavailable.metadata.user_clarification, false);
+  assert.match(unavailable.content, /not a finding that the user withheld authorization/iu);
+
+  const prohibited = denialResult(request, {
+    outcome: 'hard_deny', reasonCode: 'immutable_policy', guidance: null,
+  });
+  assert.equal(prohibited.metadata.denial_kind, 'immutable_policy');
+  assert.equal(prohibited.metadata.user_clarification, false);
+  assert.match(prohibited.content, /Do not retry[^]*Continue all remaining work/iu);
 });
 
 test('turn diagnostics expose lifecycle classifications without transcript content', async () => {

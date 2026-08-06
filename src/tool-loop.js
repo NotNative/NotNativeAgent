@@ -293,6 +293,15 @@ export function toolProgressEvidence(items, steeringApplied) {
   };
 }
 
+export function toolContinuationHint(items, fallback = null) {
+  const denied = items.filter((item) => ['deny_with_guidance', 'hard_deny'].includes(item.result?.status));
+  if (denied.length === 0) return fallback;
+  const immutable = denied.some((item) => item.result.status === 'hard_deny');
+  return immutable
+    ? 'A tool reached an immutable policy boundary. Do not retry it or ask for authorization to bypass it. Continue the active task within the remaining capabilities, and report the boundary only if it prevents the objective.'
+    : 'A tool was denied. Treat the denial as a route constraint, not the end of the task. Do not repeat an equivalent call unchanged. Continue with a safer, narrower, or more reversible approach. Ask the operator only after reasonable alternatives are exhausted; if blocked, state the attempted operation, denial, and exact clarification needed.';
+}
+
 function stableJson(value) {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
   if (value && typeof value === 'object') {
