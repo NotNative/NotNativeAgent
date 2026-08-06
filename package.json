@@ -1,7 +1,7 @@
 {
   "name": "not-native-agent",
-  "version": "20260806.0.3",
-  "nna_version": "20260806-3",
+  "version": "20260806.0.5",
+  "nna_version": "20260806-5",
   "description": "Local-first agent runtime and terminal interface",
   "type": "module",
   "license": "Apache-2.0",
@@ -38,6 +38,7 @@
     "tui": "node src/cli.js tui",
     "platform:test": "node --test test/productization.test.js",
     "performance:lab": "node scripts/performance-lab.js",
+    "smoke:test": "node --no-warnings scripts/smoke-test.js",
     "provider:conformance": "node scripts/provider-conformance.js",
     "recovery:force-kill": "node scripts/forced-termination-lab.js",
     "version:bump": "node scripts/bump-version.js",

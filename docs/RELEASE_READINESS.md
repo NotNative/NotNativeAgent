@@ -6,6 +6,12 @@ candidate.
 
 ## Automated gates
 
+Before the heavier release checks, run `npm run smoke:test`. It performs no network
+requests and needs no configured model server: it validates the actual CLI version path,
+starts an ephemeral engine with a deterministic in-process provider, completes one turn,
+and shuts the runtime down cleanly. This is a fast local packaging/runtime check, not a
+replacement for native-platform or live-provider conformance.
+
 The release check covers:
 
 - the complete automated test suite and JavaScript syntax checks;
