@@ -8,8 +8,8 @@ utilities are missing. Install from the root of an extracted, trusted release af
 verifying its `RELEASE_MANIFEST.sha256`.
 
 Both installers present the same concise stage-oriented progress: runtime readiness,
-application payload, protected user data, launchers, optional WebSearch, and an installed-CLI
-verification. Successful checks use `[OK]`; intentionally retained or skipped work uses
+application payload, protected user data, launchers, optional WebSearch and WebBrowse, and
+an installed-CLI verification. Successful checks use `[OK]`; intentionally retained or skipped work uses
 `[--]`. Color is used only on an interactive terminal and is automatically disabled for
 redirected output or when `NO_COLOR` is set. The progress display adds no artificial delay.
 
@@ -23,6 +23,19 @@ Docker deployment.
 Windows automation can use `-WebSearchEndpoint URL`, `-DeployLocalSearch`, or
 `-SkipWebSearchSetup`. Linux and macOS equivalents are `--websearch-endpoint URL`,
 `--deploy-local-search`, and `--skip-websearch-setup`.
+
+## Optional WebBrowse setup
+
+Playwright and Chromium are not bundled with NNA. Each installer first performs a local,
+network-free validation of `$NNA_HOME/managed/playwright`. When both the installed Playwright
+package and its matching Chromium executable are usable, the installer prints one skip line
+and continues. When absent, an interactive install offers to download them into that managed
+directory. Declining does not affect WebSearch or WebFetch.
+
+Non-interactive installs never download Playwright implicitly. Use `-SkipPlaywrightSetup`
+on Windows or `--skip-playwright-setup` on Linux/macOS to suppress the offer explicitly.
+`nna webbrowse status` repeats the fast local check; `nna webbrowse verify` additionally
+launches and closes Chromium to verify the runtime.
 
 ## Optional Telegram gateway setup
 

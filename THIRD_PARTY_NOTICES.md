@@ -16,6 +16,13 @@ to install ripgrep as an optional search accelerator. NNA does not embed ripgrep
 functional without it. ripgrep is dual-licensed under the Unlicense and MIT licenses; the
 system package manager owns the installed copy and its notices.
 
+At the user's request, the installers may retrieve Playwright version `1.61.1` and its
+matching Chromium browser into NNA's managed user-data directory for interactive WebBrowse.
+Neither component is embedded in the NNA source package, and an existing valid installation
+is preserved. Playwright is licensed under Apache-2.0. Chromium and the downloaded browser
+distribution include their own licenses and third-party notices; consult the files installed
+with those components.
+
 The optional managed WebSearch deployment retrieves the official SearXNG container
 version `2026.7.26-b060c780d`, pinned to OCI index digest
 `sha256:d0aaeb14880e6e92bde1518fcc7261e995783367d63d95203383607bef9c6516`,

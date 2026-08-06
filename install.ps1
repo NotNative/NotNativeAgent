@@ -10,6 +10,7 @@ param(
     [switch]$ForceBundledNode,
     [switch]$SkipProviderSetup,
     [switch]$SkipWebSearchSetup,
+    [switch]$SkipPlaywrightSetup,
     [switch]$DeployLocalSearch,
     [string]$WebSearchEndpoint,
     [switch]$SkipGatewaySetup,
@@ -102,6 +103,42 @@ function Initialize-Ripgrep {
     $Installed = Find-Ripgrep
     if ($Installed) { Write-InstallerOk "ripgrep installed: $Installed" }
     else { Write-InstallerWarning 'ripgrep installed but is not visible in this terminal; open a new terminal before using NNA' }
+}
+
+function Find-CompatibleNpm([string]$SelectedNode) {
+    $NodeDirectory = Split-Path -Parent $SelectedNode
+    foreach ($Candidate in @((Join-Path $NodeDirectory 'npm.cmd'), (Join-Path $NodeDirectory 'npm'))) {
+        if (Test-Path -LiteralPath $Candidate -PathType Leaf) { return $Candidate }
+    }
+    $Command = Get-Command npm.cmd,npm -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($Command) { return $Command.Source }
+    return $null
+}
+
+function Install-ManagedPlaywright([string]$SelectedNode, [string]$CliPath, [string]$ManagedRoot) {
+    $Npm = Find-CompatibleNpm $SelectedNode
+    if (-not $Npm) { Write-InstallerWarning 'npm was not found; Playwright was not installed'; return }
+    New-Item -ItemType Directory -Force -Path $ManagedRoot | Out-Null
+    $BrowserRoot = Join-Path $ManagedRoot 'browsers'
+    $PriorBrowserPath = $env:PLAYWRIGHT_BROWSERS_PATH
+    $PriorSkipDownload = $env:PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD
+    try {
+        $env:PLAYWRIGHT_BROWSERS_PATH = $BrowserRoot
+        $env:PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = '1'
+        Write-InstallerStep 'Installing the optional Playwright library'
+        & $Npm install --prefix $ManagedRoot --no-audit --no-fund --omit=dev --loglevel=error 'playwright@1.61.1'
+        if ($LASTEXITCODE -ne 0) { Write-InstallerWarning 'Playwright package installation failed'; return }
+        $env:PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = $null
+        Write-InstallerStep 'Downloading Playwright Chromium'
+        & $SelectedNode (Join-Path $ManagedRoot 'node_modules\playwright\cli.js') install chromium
+        if ($LASTEXITCODE -ne 0) { Write-InstallerWarning 'Playwright Chromium download failed'; return }
+        $Verified = & $SelectedNode $CliPath webbrowse verify | ConvertFrom-Json
+        if (-not $Verified.available) { Write-InstallerWarning 'Playwright installed but Chromium launch validation failed'; return }
+        Write-InstallerOk "Playwright Chromium ready (v$($Verified.version))"
+    } finally {
+        $env:PLAYWRIGHT_BROWSERS_PATH = $PriorBrowserPath
+        $env:PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = $PriorSkipDownload
+    }
 }
 
 function Assert-SafeRoot([string]$Path, [string[]]$Forbidden) {
@@ -365,6 +402,25 @@ $DataMarker = @{ product = $Product; data_root = $DataRoot; created_by = 'window
 [IO.File]::WriteAllText($DataMarkerPath, $DataMarker, [Text.UTF8Encoding]::new($false))
 Write-InstallerOk 'User data directories prepared with restricted ACLs'
 Write-InstallerLine "      $DataRoot" DarkGray
+
+Write-InstallerSection 'Interactive WebBrowse'
+$PriorNnaHome = $env:NNA_HOME
+$env:NNA_HOME = $DataRoot
+try {
+    $BrowseStatus = & $NodePath (Join-Path $Target 'src\cli.js') webbrowse status | ConvertFrom-Json
+    if ($BrowseStatus.available) {
+        Write-InstallerSkip "Playwright Chromium v$($BrowseStatus.version) is already installed; setup skipped."
+    } elseif ($SkipPlaywrightSetup -or $SkipDependencyInstall) {
+        Write-InstallerSkip 'Optional Playwright installation skipped by request'
+    } elseif ([Console]::IsInputRedirected) {
+        Write-InstallerSkip 'Non-interactive install detected; optional Playwright setup skipped'
+    } else {
+        $ConfigureBrowse = (Read-Host 'Install Playwright Chromium for interactive WebBrowse? [y/N]').Trim()
+        if ($ConfigureBrowse -match '^(?i:y|yes)$') {
+            Install-ManagedPlaywright $NodePath (Join-Path $Target 'src\cli.js') (Join-Path $DataRoot 'managed\playwright')
+        } else { Write-InstallerSkip 'Optional Playwright installation declined' }
+    }
+} finally { $env:NNA_HOME = $PriorNnaHome }
 
 Write-InstallerSection 'Command launchers'
 $BinRoot = Join-Path $InstallRoot 'bin'

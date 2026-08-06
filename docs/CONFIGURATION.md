@@ -297,6 +297,20 @@ to remove it. `/webfetch` and the WebFetch entry in `/config` show the current a
 Trust is exact by scheme, host, and port, is stored in `$NNA_HOME/config/web-fetch.json`,
 and is not a subnet wildcard. DNS answers and every redirect target remain revalidated.
 
+## Interactive WebBrowse
+
+Interactive WebBrowse support uses an optional, NNA-managed Playwright Chromium runtime.
+Playwright and its browser binary are not bundled with NNA. During installation, NNA performs a fast
+local validation first: an existing usable runtime is reported and skipped, while an
+absent runtime produces one optional installation prompt. Non-interactive installation
+never downloads it implicitly. Use `-SkipPlaywrightSetup` on Windows or
+`--skip-playwright-setup` on Linux/macOS to suppress the offer.
+
+The managed component lives under `$NNA_HOME/managed/playwright`. `nna webbrowse status`
+checks its package and Chromium binary without network access; `nna webbrowse verify`
+also performs a bounded local launch probe. Declining the component leaves WebSearch and
+WebFetch fully functional; the browser runtime remains unavailable until installed.
+
 ## Telegram gateway
 
 `/gateway` opens the Telegram manager and is also listed by `/config`. Bot configuration,

@@ -2,8 +2,8 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "NotNativeAgent-20260806-32",
-  "documentNamespace": "https://example.invalid/not-native-agent/sbom/20260806-32",
+  "name": "NotNativeAgent-20260806-34",
+  "documentNamespace": "https://example.invalid/not-native-agent/sbom/20260806-34",
   "creationInfo": {
     "created": "2026-08-01T00:00:00Z",
     "creators": [
@@ -14,7 +14,7 @@
     {
       "name": "not-native-agent",
       "SPDXID": "SPDXRef-Package-NNA",
-      "versionInfo": "20260806-32",
+      "versionInfo": "20260806-34",
       "downloadLocation": "NOASSERTION",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
@@ -60,6 +60,17 @@
       "licenseDeclared": "MIT OR Unlicense",
       "copyrightText": "NOASSERTION",
       "externalRefs": []
+    },
+    {
+      "name": "Playwright",
+      "SPDXID": "SPDXRef-Package-Playwright",
+      "versionInfo": "1.61.1 (optional managed browser automation runtime)",
+      "downloadLocation": "https://www.npmjs.com/package/playwright/v/1.61.1",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": []
     }
   ],
   "relationships": [
@@ -80,6 +91,11 @@
     },
     {
       "spdxElementId": "SPDXRef-Package-ripgrep",
+      "relationshipType": "OPTIONAL_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-NNA"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-Playwright",
       "relationshipType": "OPTIONAL_DEPENDENCY_OF",
       "relatedSpdxElement": "SPDXRef-Package-NNA"
     }

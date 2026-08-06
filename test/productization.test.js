@@ -50,6 +50,7 @@ test('launch options support prompt, host, and config aliases without breaking l
   assert.equal(parseCli(['gateway', 'status']).mode, 'gateway');
   assert.deepEqual(parseCli(['gateway', 'status']).prompt, ['status']);
   assert.deepEqual(parseCli(['secrets', 'serve']).prompt, ['serve']);
+  assert.deepEqual(parseCli(['webbrowse', 'status']).prompt, ['status']);
   assert.equal(parseCli(['uninstall']).mode, 'uninstall');
   assert.deepEqual(parseCli(['uninstall', '--delete-user-data']).prompt, ['--delete-user-data']);
   assert.deepEqual(parseCli(['uninstall', '--keep-user-data']).prompt, ['--keep-user-data']);
@@ -179,6 +180,9 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /\$PriorNnaHome/u);
   assert.match(windowsInstall, /SkipWebSearchSetup/u);
   assert.match(windowsInstall, /WebSearch is already configured/u);
+  assert.match(windowsInstall, /SkipPlaywrightSetup/u);
+  assert.match(windowsInstall, /Playwright Chromium v.*already installed; setup skipped/u);
+  assert.match(windowsInstall, /webbrowse verify/u);
   assert.match(windowsInstall, /base URL of your existing SearXNG server/u);
   assert.match(windowsInstall, /Test-LegacyGatewayTask/u);
   assert.match(windowsInstall, /NotNativeAgentGateway/u);
@@ -204,6 +208,9 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(linuxInstall, /\$install_root\/uninstall\.sh/u);
   assert.match(linuxInstall, /--skip-websearch-setup/u);
   assert.match(linuxInstall, /WebSearch is already configured/u);
+  assert.match(linuxInstall, /--skip-playwright-setup/u);
+  assert.match(linuxInstall, /Playwright Chromium v.*already installed; setup skipped/u);
+  assert.match(linuxInstall, /webbrowse verify/u);
   assert.match(linuxInstall, /base URL of your existing SearXNG server/u);
   assert.match(unixUninstall, /Darwin/u);
   assert.match(unixUninstall, /Application Support\/NotNativeAgent/u);

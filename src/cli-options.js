@@ -41,7 +41,7 @@ export function parseCli(argv) {
 
 const MODES = new Set([
   'tui', 'text', 'headless', 'host', 'sessions', 'websearch', 'skills', 'gateway',
-  'webfetch', 'provider', 'secrets', 'uninstall', 'help', 'version', '--help', '-h', '--version', '-v',
+  'webfetch', 'webbrowse', 'provider', 'secrets', 'uninstall', 'help', 'version', '--help', '-h', '--version', '-v',
 ]);
 
 export async function loadManifest(path) {

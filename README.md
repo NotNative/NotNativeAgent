@@ -37,7 +37,8 @@ and preserves an existing NNA configuration when upgrading.
 WebSearch setup is highly recommended. You can point NNA at an existing SearXNG endpoint or
 let the installer offer a local Docker deployment when Docker is available. The Telegram
 gateway is optional; configure it only if you want to communicate with NNA remotely through
-an authorized Telegram account.
+an authorized Telegram account. Interactive WebBrowse is also optional: the installer skips
+an existing valid Playwright Chromium runtime, or offers to download one when it is absent.
 
 When installation finishes, open a new terminal if instructed and launch the Console:
 
@@ -48,9 +49,9 @@ nna
 Releases use the canonical `YYYYMMDD-<iteration>` identifier documented in
 [the versioning policy](docs/VERSIONING.md).
 
-The per-user productization layer adds Windows and Linux installers,
-stable home-scoped application data, safe marker-checked uninstallers, and native CI
-coverage for both platforms. See [per-user installation](docs/INSTALLATION.md).
+The per-user productization layer adds Windows, Linux, and macOS installers,
+stable home-scoped application data, safe marker-checked uninstallers, and native installer
+test coverage. See [per-user installation](docs/INSTALLATION.md).
 Reinstalling replaces the complete `installed` application payload while preserving
 managed runtimes and all home-scoped session/configuration data.
 Remove NNA with `nna uninstall`. A directly attached operator must complete a randomized

@@ -14,6 +14,7 @@ data_root="$HOME/.nna"
 web_search_mode=prompt
 web_search_endpoint=''
 gateway_mode=prompt
+playwright_mode=prompt
 provider_mode=prompt
 telegram_token=''
 telegram_user_id=''
@@ -40,6 +41,7 @@ while [ "$#" -gt 0 ]; do
     --install-root) install_root=$2; shift 2 ;;
     --data-root) data_root=$2; shift 2 ;;
     --skip-websearch-setup) web_search_mode=skip; shift ;;
+    --skip-playwright-setup) playwright_mode=skip; shift ;;
     --skip-provider-setup) provider_mode=skip; shift ;;
     --skip-ripgrep-setup) NNA_SKIP_RIPGREP_SETUP=1; shift ;;
     --deploy-local-search) web_search_mode=local; shift ;;
@@ -110,6 +112,34 @@ ensure_download_tools() {
     exit 1
   fi
   for tool in $required_tools; do command -v "$tool" >/dev/null 2>&1 || { printf '%s\n' "Dependency installation did not provide $tool." >&2; exit 1; }; done
+}
+
+find_npm() {
+  node_dir=$(dirname -- "$node_path")
+  if [ -x "$node_dir/npm" ]; then printf '%s\n' "$node_dir/npm"; return; fi
+  command -v npm 2>/dev/null || true
+}
+
+install_managed_playwright() {
+  managed_root="$data_root/managed/playwright"
+  browser_root="$managed_root/browsers"
+  npm_path=$(find_npm)
+  if [ -z "$npm_path" ]; then warn 'npm was not found; Playwright was not installed'; return 1; fi
+  mkdir -p "$managed_root" "$browser_root"
+  chmod 700 "$data_root/managed" "$managed_root" "$browser_root" 2>/dev/null || true
+  step 'Installing the optional Playwright library'
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 "$npm_path" install --prefix "$managed_root" --no-audit --no-fund --omit=dev --loglevel=error 'playwright@1.61.1' || {
+    warn 'Playwright package installation failed'; return 1;
+  }
+  step 'Downloading Playwright Chromium'
+  PLAYWRIGHT_BROWSERS_PATH="$browser_root" "$node_path" "$managed_root/node_modules/playwright/cli.js" install chromium || {
+    warn 'Playwright Chromium download failed'; return 1;
+  }
+  verified=$(NNA_HOME="$data_root" PLAYWRIGHT_BROWSERS_PATH="$browser_root" "$node_path" "$target/src/cli.js" webbrowse verify) || {
+    warn 'Playwright installed but Chromium launch validation failed'; return 1;
+  }
+  version=$(printf '%s' "$verified" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).version||''))")
+  ok "Playwright Chromium ready (v$version)"
 }
 
 archive_checksum() {
@@ -226,6 +256,22 @@ chmod 700 "$data_root" "$data_root/sessions" "$data_root/reviewer-ledger" "$data
 chmod 600 "$data_root/.nna-install.json"
 ok 'User data directories prepared with restricted permissions'
 printf '%b      %s%b\n' "$c_dim" "$data_root" "$c_reset"
+
+section 'Interactive WebBrowse'
+browse_status=$(NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" webbrowse status)
+browse_available=$(printf '%s' "$browse_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).available?'true':'false'))")
+if [ "$browse_available" = true ]; then
+  browse_version=$(printf '%s' "$browse_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).version||''))")
+  skip "Playwright Chromium v$browse_version is already installed; setup skipped."
+elif [ "$playwright_mode" = skip ] || [ "${NNA_SKIP_DEPENDENCY_INSTALL:-0}" = 1 ]; then
+  skip 'Optional Playwright installation skipped by request'
+elif [ -t 0 ] && [ -t 1 ]; then
+  printf '%s' 'Install Playwright Chromium for interactive WebBrowse? [y/N] '
+  read -r configure_browse
+  case "$configure_browse" in y|Y|yes|YES) install_managed_playwright || true ;; *) skip 'Optional Playwright installation declined' ;; esac
+else
+  skip 'Non-interactive install detected; optional Playwright setup skipped'
+fi
 
 section 'Command launcher'
 bin_root="$HOME/.local/bin"
