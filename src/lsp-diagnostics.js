@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -10,6 +11,7 @@ const MAX_MESSAGE_BYTES = 2_097_152;
 export function lspDiagnosticsDefinition(paths, options = {}) {
   const configPath = options.configPath;
   const spawnProcess = options.spawnProcess ?? spawn;
+  const ledger = new DiagnosticLedger();
   return {
     name: 'code.diagnostics', version: 1,
     purpose: 'Ask an explicitly configured local language server for bounded diagnostics on one accessible file.',
@@ -33,12 +35,42 @@ export function lspDiagnosticsDefinition(paths, options = {}) {
         server: request.resolved.lsp, workspaceRoot: paths.root,
         path: request.resolved.path, text, signal, spawnProcess,
       });
+      const delta = ledger.observe(request.resolved.path, diagnostics);
       return {
-        content: JSON.stringify(diagnostics),
-        metadata: { path: request.args.path, server: request.resolved.lsp.id, count: diagnostics.length },
+        content: JSON.stringify(delta),
+        metadata: {
+          path: request.args.path, server: request.resolved.lsp.id, count: diagnostics.length,
+          new_count: delta.new.length, resolved_count: delta.resolved.length,
+          unchanged_count: delta.unchanged_count,
+        },
       };
     },
   };
+}
+
+export class DiagnosticLedger {
+  #files = new Map();
+
+  observe(path, diagnostics) {
+    const prior = this.#files.get(path) ?? new Map();
+    const current = new Map(diagnostics.map((item) => [diagnosticFingerprint(item), item]));
+    const fresh = [...current].filter(([key]) => !prior.has(key)).map(([, item]) => item);
+    const resolved = [...prior].filter(([key]) => !current.has(key)).map(([, item]) => item);
+    const unchanged = [...current.keys()].filter((key) => prior.has(key)).length;
+    this.#files.set(path, current);
+    if (this.#files.size > 1024) this.#files.delete(this.#files.keys().next().value);
+    return Object.freeze({
+      new: Object.freeze(fresh), resolved: Object.freeze(resolved),
+      unchanged_count: unchanged, total_count: current.size,
+    });
+  }
+}
+
+function diagnosticFingerprint(item) {
+  return createHash('sha256').update(JSON.stringify({
+    message: item.message, severity: item.severity, code: item.code,
+    range: item.range, source: item.source,
+  })).digest('hex');
 }
 
 export async function runLspDiagnostics(options) {

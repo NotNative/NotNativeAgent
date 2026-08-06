@@ -408,7 +408,9 @@ test('AC-REV-09 unchanged successful polling is stopped as no progress', async (
   assert.equal(result.failure.last_verified_checkpoint, 'tool_results_committed');
   assert.deepEqual(result.failure.completed_progress.evidence[0].summary, {
     successful_tool_calls: 1, tool_names: ['fs.read_text'],
+    request_fingerprints: [result.failure.completed_progress.evidence[0].summary.request_fingerprints[0]],
   });
+  assert.match(result.failure.completed_progress.evidence[0].summary.request_fingerprints[0], /^[a-f0-9]{64}$/u);
 });
 
 test('AC-TURN-09/AC-TURN-10 steering overrides a bare completion claim at the supervised checkpoint', async () => {

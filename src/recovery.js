@@ -34,7 +34,8 @@ export class RecoverySupervisor {
   }
 
   noProgress(category, evidence = null, detail = {}) {
-    if (evidence && this.observeProgress(evidenceValue(evidence), evidenceDetail(evidence, detail))) {
+    const observedDetail = evidenceDetail(evidence, detail);
+    if (evidence && this.observeProgress(evidenceValue(evidence), observedDetail)) {
       this.#episodes.delete(category);
       return Object.freeze({ continue: true, progress: true, action: null });
     }
@@ -43,7 +44,7 @@ export class RecoverySupervisor {
     if (count >= this.localLimit) return Object.freeze({ continue: false, exhausted: true, count });
     return Object.freeze({
       continue: true, progress: false, count,
-      action: this.#record(category, this.ladder[count - 1], count),
+      action: this.#record(category, this.ladder[count - 1], count, repeatedEvidenceDetail(observedDetail)),
     });
   }
 
@@ -104,6 +105,12 @@ export class RecoverySupervisor {
   }
 }
 
+function repeatedEvidenceDetail(detail) {
+  const fingerprints = detail?.summary?.request_fingerprints;
+  if (!Array.isArray(fingerprints) || fingerprints.length === 0) return {};
+  return { repeated_request_fingerprints: Object.freeze(fingerprints.slice(0, 16)) };
+}
+
 export function recoveryExhaustionText(detail) {
   const reasons = detail.reason_codes?.length > 0
     ? ` The repeated operation reported: ${detail.reason_codes.join(', ')}.` : '';
@@ -146,7 +153,9 @@ function boundedLabel(value, fallback) {
 export function recoveryHint(action) {
   if (!action) return null;
   const guidance = {
-    nudge: 'Previous work made no observable progress. Reassess the task and choose a materially different bounded action.',
+    nudge: action.repeated_request_fingerprints?.length > 0
+      ? 'The same tool request and result were repeated without observable progress. Do not submit the same arguments again; inspect the failure or choose a materially different bounded action.'
+      : 'Previous work made no observable progress. Reassess the task and choose a materially different bounded action.',
     retry_continuation: 'Continue the active operator request using new evidence or a materially different action. Do not restart the conversation, greet the user again, ask what task to perform, or repeat an unchanged failed request.',
     compact: 'Context was reduced after repeated no-progress behavior. Preserve the operator task and use the last verified result.',
     compact_context_limit: 'The provider rejected the previous context size. Continue from the preserved task using the reduced context; do not reconstruct omitted transcript.',

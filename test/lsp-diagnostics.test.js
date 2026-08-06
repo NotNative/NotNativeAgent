@@ -30,7 +30,13 @@ test('LSP diagnostics use bounded stdio protocol and return attributed findings'
   const result = await definition.executor(request, new AbortController().signal);
   assert.equal(result.metadata.server, 'fixture');
   assert.equal(result.metadata.count, 1);
+  assert.equal(result.metadata.new_count, 1);
+  assert.equal(result.metadata.resolved_count, 0);
   assert.match(result.content, /fixture syntax error/u);
+  const repeated = await definition.executor(request, new AbortController().signal);
+  assert.equal(repeated.metadata.new_count, 0);
+  assert.equal(repeated.metadata.unchanged_count, 1);
+  assert.doesNotMatch(repeated.content, /fixture syntax error/u);
 });
 
 function fakeServerSource() {

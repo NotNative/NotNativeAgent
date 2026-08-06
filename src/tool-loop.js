@@ -275,11 +275,14 @@ export function toolProgressEvidence(items, steeringApplied) {
   const successes = items.filter((item) => item.result.status === 'succeeded');
   if (successes.length === 0) return null;
   const hash = createHash('sha256');
+  const requestFingerprints = [];
   for (const item of successes) {
     hash.update(item.result.tool_name);
     hash.update(item.result.status);
     hash.update(stableJson(item.request?.args ?? {}));
     hash.update(item.result.content);
+    requestFingerprints.push(createHash('sha256')
+      .update(item.result.tool_name).update('\0').update(stableJson(item.request?.args ?? {})).digest('hex'));
   }
   return {
     value: hash.digest('hex'),
@@ -288,6 +291,7 @@ export function toolProgressEvidence(items, steeringApplied) {
       summary: {
         successful_tool_calls: successes.length,
         tool_names: [...new Set(successes.map((item) => item.result.tool_name))].slice(0, 16),
+        request_fingerprints: [...new Set(requestFingerprints)].slice(0, 16),
       },
     },
   };
