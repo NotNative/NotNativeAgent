@@ -166,6 +166,31 @@ test('an MCP memory lookup carries user intent and remote tool purpose into sema
   assert.match(captured.authenticatedIntent[0].content, /fixture-host/u);
 });
 
+test('semantic review receives causal evidence as explicitly untrusted context', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'causal-review-evidence' });
+  let captured;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    captured = input;
+    return { outcome: 'approve', confidence: 1, reason_code: 'derived_target_matches' };
+  } } });
+  const request = {
+    ...readRequest('ping-derived'), toolName: 'process.run',
+    args: { executable: 'ping', args: ['-n', '3', '192.0.2.15'] },
+    resolved: { reviewComplexity: 'simple_argv', reviewPurpose: 'network_diagnostic' },
+  };
+  await reviewer.review(request, {
+    ...context,
+    authority: { id: 'authority-1', intent: [{ content: 'Find fixture-host on the network' }], mission: null },
+    definition: { name: 'process.run', sideEffect: 'unknown', scope: 'host' },
+    causalEvidence: [{
+      type: 'tool_result', trust: 'untrusted_tool', tool: 'process.run',
+      status: 'succeeded', content: 'fixture-host resolves to 192.0.2.15',
+    }],
+  });
+  assert.equal(captured.causalEvidence[0].trust, 'untrusted_tool');
+  assert.match(captured.causalEvidence[0].content, /192\.168\.20\.15/u);
+});
+
 test('runtime diagnostics with no filesystem target are deterministically approved', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'runtime-diagnostics' });
   let semanticCalls = 0;
@@ -347,6 +372,31 @@ test('explicit SSH intent and target reach semantic review with the tool definit
     name: 'process.run', purpose: 'Execute one bounded argv command without a shell.',
     sideEffect: 'unknown', scope: 'workspace', source: 'built_in',
   });
+});
+
+test('network discovery intent covers a diagnostic continuation from hostname to resolved address', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'network-diagnostic-intent' });
+  let captured;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    captured = input;
+    return { outcome: 'approve', confidence: 1, reason_code: 'network_diagnostic_matches_intent' };
+  } } });
+  const request = {
+    ...readRequest('ping-fixture-host'), toolName: 'process.run',
+    args: { executable: 'ping', args: ['-n', '3', '192.0.2.15'] },
+    resolved: {
+      path: 'D:/workspace', executable: 'ping', argv: ['-n', '3', '192.0.2.15'],
+      reviewComplexity: 'simple_argv', reviewPurpose: 'network_diagnostic',
+    },
+  };
+  const decision = await reviewer.review(request, {
+    ...context,
+    authority: { id: 'authority-1', intent: [{ content: 'See if you can find fixture-host.example on the network', sequence: 1 }], mission: null },
+    definition: { name: 'process.run', purpose: 'Execute one bounded host program.', sideEffect: 'unknown', scope: 'workspace' },
+  });
+  assert.equal(decision.outcome, 'approve');
+  assert.equal(decision.reasonCode, 'semantic_intent_match');
+  assert.equal(captured.classification.purpose, 'network_diagnostic');
 });
 
 test('AC-REV-01 mandatory review applies deterministic safe, prohibited, and semantic paths independently', async () => {

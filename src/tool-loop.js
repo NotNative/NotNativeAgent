@@ -10,6 +10,7 @@ import { assertMissionBudget, missionConditionFailure, reserveAndPersistMissionT
 import { ToolResultCache } from './tool-result-cache.js';
 import { assertTurnActive } from './turn-cancellation.js';
 import { ContractError } from './ids.js';
+import { recentReviewEvidence } from './review-evidence.js';
 
 export class ToolLoop {
   constructor(options) {
@@ -107,6 +108,7 @@ export class ToolLoop {
       ...execution,
       authority: active.authority, definition: this.tools.definition(item.request.toolName),
       surface: this.surface, justification: '', signal: active.controller.signal,
+      causalEvidence: recentReviewEvidence(this.engine.transcript, item.request.id),
     };
     const event = this.eventFactory.create(
       'permission.pre', 'permission', 'pre', active, { request_id: item.request.id },

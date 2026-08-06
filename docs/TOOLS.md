@@ -87,6 +87,14 @@ authorize a destructive result when the proposed operation and scope match it. H
 Device namespaces, Windows reserved device stems, control characters, and non-portable
 trailing-dot/space segments remain rejected consistently on every platform.
 
+`process.run` remains review-required. Bounded direct network diagnostics such as DNS lookup,
+ping, traceroute, and exact PowerShell `Test-Connection` or `Resolve-DnsName` commands are
+identified as non-mutating discovery. An authenticated request to find, resolve, or test a host
+covers a diagnostic continuation from its hostname to an address returned by a prior tool. The
+semantic reviewer receives that recent result as bounded, redacted, untrusted causal evidence;
+tool output can connect targets but can never grant authority. Shell composition or additional
+commands do not receive this classification.
+
 The Console command `/diff` shows the text changes NNA has recorded during the active
 conversation runtime; `/diff PATH` narrows the view to one file. This ledger is observational
 and does not replace Git or another durable version-control system.

@@ -77,7 +77,7 @@ export class MandatoryReviewer {
     if (!authorityCoversMutation(request, context.authority, context.definition)) {
       return deny(
         'authenticated_intent_mismatch',
-        'Authenticated intent does not clearly name this mutation and target.',
+        'Authenticated intent does not clearly cover this operation and target.',
         request,
       );
     }
@@ -89,7 +89,8 @@ export class MandatoryReviewer {
       toolDefinition: safeReviewDefinition(context.definition),
       authenticatedIntent: context.authority.intent,
       mission: context.authority.mission, justification: context.justification ?? '',
-      justificationTrust: 'untrusted_model', ledgerSummary: this.ledger.summary(request),
+      justificationTrust: 'untrusted_model', causalEvidence: context.causalEvidence ?? [],
+      ledgerSummary: this.ledger.summary(request),
     });
     const candidate = await boundedReview(this.semantic, input, this.semanticTimeoutMs, context.signal, {
       turnId: context.turnId, stepId: context.stepId, toolRequestId: request.id,
@@ -168,6 +169,7 @@ function classify(request, definition) {
       risk: 'review_required',
       reason: complexity === 'simple_argv' ? 'process_execution' : 'opaque_process_request',
       effect: 'unknown', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity,
+      purpose: request.resolved.reviewPurpose ?? 'general_process',
     });
   }
   return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
@@ -337,6 +339,9 @@ function authorityCoversProcess(request, authority) {
     .includes(String(request.args?.executable ?? '').toLowerCase());
   if (destructive && !/\b(?:delete|remove|erase|format|shutdown|reboot|kill|wipe)\b/iu.test(latest.content)) return false;
   for (const token of command) if (evidence.has(token)) return true;
+  if (request.resolved?.reviewPurpose === 'network_diagnostic') {
+    return /\b(?:find|locate|discover|resolve|lookup|look\s+up|ping|reach|reachable|connectivity|network|dns|host)\b/iu.test(latest.content);
+  }
   return false;
 }
 

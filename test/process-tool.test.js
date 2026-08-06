@@ -18,6 +18,7 @@ test('process.run executes bounded shell-free argv inside the workspace', async 
   const canonicalRoot = await realpath(root);
   assert.equal(normalized.resolved.shell, false);
   assert.equal(normalized.resolved.reviewComplexity, 'simple_argv');
+  assert.equal(normalized.resolved.reviewPurpose, null);
   assert.equal(normalized.args.cwd, canonicalRoot);
   const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
   const output = JSON.parse(result.content);
@@ -57,6 +58,13 @@ test('AC-AUTH-04 process.run seals shells and destructive commands for semantic 
   await assert.rejects(hosted.definition('process.run').validate({ executable: 'node', args: ['file.js'], cwd: '..' }), { code: 'tool_scope_denied' });
   assert.equal((await definition.validate({ executable: 'npm', args: ['run', 'build'] })).resolved.reviewComplexity, 'opaque_package_script');
   assert.equal((await definition.validate({ executable: 'rg', args: ['TODO.*unsafe'] })).resolved.reviewComplexity, 'interpreted_pattern');
+  assert.equal((await definition.validate({ executable: 'ping', args: ['-n', '3', '192.0.2.15'] })).resolved.reviewPurpose, 'network_diagnostic');
+  assert.equal((await definition.validate({
+    executable: 'powershell.exe', args: ['-Command', 'Test-Connection -ComputerName 192.0.2.15 -Count 3'],
+  })).resolved.reviewPurpose, 'network_diagnostic');
+  assert.equal((await definition.validate({
+    executable: 'powershell.exe', args: ['-Command', 'Test-Connection fixture-host; Remove-Item target.txt'],
+  })).resolved.reviewPurpose, null);
 });
 
 test('AC-SEC-05 process execution receives a minimal environment without inherited secrets', async () => {

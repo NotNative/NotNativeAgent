@@ -46,8 +46,19 @@ async function validateProcessRequest(paths, input) {
   return { args: { executable: input.executable, args: [...args], cwd: cwd.path, timeout_ms: timeoutMs }, resolved: {
     path: cwd.path, executable: input.executable, argv: [...args], shell: false,
     reviewComplexity: processComplexity(executable, args), insideWorkspace: cwd.insideWorkspace,
-    recovery: cwd.recovery,
+    reviewPurpose: processReviewPurpose(executable, args), recovery: cwd.recovery,
   } };
+}
+
+function processReviewPurpose(executable, args) {
+  if (['ping', 'ping6', 'nslookup', 'host', 'dig', 'traceroute', 'tracert', 'pathping'].includes(executable)) {
+    return 'network_diagnostic';
+  }
+  if (!['powershell', 'pwsh'].includes(executable) || args.length !== 2
+    || !/^(?:-c|-command)$/iu.test(args[0])) return null;
+  const command = args[1].trim();
+  return /^(?:Test-Connection\s+(?:-ComputerName\s+)?[A-Za-z0-9._:-]+(?:\s+-Count\s+\d{1,3})?|Resolve-DnsName\s+(?:-Name\s+)?[A-Za-z0-9._:-]+)$/iu.test(command)
+    ? 'network_diagnostic' : null;
 }
 
 function processComplexity(executable, args) {
