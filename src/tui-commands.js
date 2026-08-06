@@ -6,7 +6,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/detach INDEX|all', 'Remove a queued image before submission', 'conversation'),
   command('/attachment retry ID MESSAGE', 'Retry a temporarily failed managed image', 'conversation'),
   command('/attachment remove ID', 'Remove a failed managed image', 'conversation'),
-  command('/audit', 'Show the redacted reviewer audit', 'governance'),
+  command('/audit', 'Show redacted authorization, grounding, and learning decisions', 'governance'),
   command('/support [preview|PATH.zip]', 'Create or preview a redacted troubleshooting ZIP', 'diagnostics'),
   command('/websearch [ENDPOINT|test|deploy|disable]', 'Configure and test SearXNG web search', 'configuration'),
   command('/webfetch [status|trust ORIGIN|revoke ORIGIN]', 'Manage exact private origins trusted for WebFetch', 'configuration'),

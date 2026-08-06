@@ -20,7 +20,7 @@ export class DiagnosticBundle {
 
   async preview() {
     return Object.freeze({
-      categories: ['health', 'effective_configuration', 'structured_logs', 'governance_audit', 'forensic_trace', 'idle_maintenance'],
+      categories: ['health', 'effective_configuration', 'structured_logs', 'reviewer_audit', 'governance_audit', 'forensic_trace', 'idle_maintenance'],
       skipped: ['raw_transcript_content', 'raw_prompt_content', 'raw_tool_content', 'memory_content', 'credentials'],
       redactions: ['secret-like keys', 'credential values', 'free-form content'],
       archive: 'zip', layout: 'one folder per conversation session', upload: false,
@@ -48,7 +48,8 @@ export class DiagnosticBundle {
         session_id: sessionId, active: sessionId === this.activeSessionId,
         statistics: session.statistics ?? null,
         health: await session.engine.health(), configuration: safeConfiguration(session.engine.config),
-        logs: sessionLogs(logSnapshot, sessionId), governance_audit: session.engine.reviewerAudit(1000),
+        logs: sessionLogs(logSnapshot, sessionId), reviewer_audit: session.engine.reviewerAudit(1000),
+        governance_audit: session.engine.governanceAudit(1000),
         idle_maintenance: sessionId === this.activeSessionId ? safeMaintenance(this.maintenance) : { status: 'not_active_session' },
         forensic_trace: {
           format: forensicTrace.format, rows: forensicTrace.rows.length,
@@ -107,6 +108,7 @@ function safeMaintenance(source) {
         stage: value.watermark.stage ?? null, updated_at: value.watermark.updated_at ?? null,
       } : null,
       runs: value.store?.runs ?? {},
+      candidates: value.store?.candidates ?? {},
       recent: recent.map((run) => ({
         stage: run.stage ?? null, state: run.state ?? null, trigger: run.trigger ?? null,
         result_code: run.result_code ?? null, duration_ms: run.duration_ms ?? null,

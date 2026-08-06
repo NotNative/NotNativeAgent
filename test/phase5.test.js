@@ -673,7 +673,7 @@ test('diagnostics use a bounded overlay and restore the transcript on close', ()
   }]));
   const renderer = new TuiRenderer();
   let frame = renderer.frame(projection, { width: 100, height: 24 });
-  assert.match(frame, /REVIEWER AUDIT/u);
+  assert.match(frame, /GOVERNANCE AUDIT/u);
   assert.match(frame, /Decision: approve/u);
   assert.doesNotMatch(frame, /conversation remains here/u);
   projection.closeOverlay();
@@ -1410,7 +1410,7 @@ test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content
     engine, logger, maintenance: () => ({
       enabled: true, state: 'waiting', reason: 'idle',
       watermark: { turn_sequence: 42, stage: 0, updated_at: '2026-08-05T01:02:03.000Z' },
-      store: { runs: { completed: 2 } },
+      store: { runs: { completed: 2 }, candidates: { observed: 1 } },
       recent: [{
         id: 'private-run-id', runtime_key: 'private-workspace-key', stage: 0,
         state: 'completed', trigger: 'idle', result_code: 'harvest_complete',
@@ -1438,6 +1438,7 @@ test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content
   assert.equal(sessionDecoded.idle_maintenance.status, 'waiting');
   assert.equal(sessionDecoded.idle_maintenance.watermark.turn_sequence, 42);
   assert.equal(sessionDecoded.idle_maintenance.runs.completed, 2);
+  assert.equal(sessionDecoded.idle_maintenance.candidates.observed, 1);
   assert.equal(sessionDecoded.idle_maintenance.recent[0].result_code, 'harvest_complete');
   assert.doesNotMatch(JSON.stringify(sessionDecoded.idle_maintenance), /private-/u);
   await assert.rejects(diagnosticBundle.create(path), { code: 'bundle_exists' });

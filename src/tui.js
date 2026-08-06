@@ -5,11 +5,7 @@ import { headerTargetAt, TuiRenderer } from './tui-renderer.js';
 import { validateKeyBindings } from './tui-model.js';
 import { RetainedTerminalScreen } from './terminal-screen.js';
 import { commandDefinition } from './tui-commands.js';
-import {
-  auditOverlay, configOverlay, contextOverlay, gatewayOverlay, healthOverlay,
-  mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay,
-  skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay,
-} from './tui-overlays.js';
+import { auditOverlay, configOverlay, contextOverlay, gatewayOverlay, healthOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui-overlays.js';
 import { compactActiveConversation, confirmConversationClear, requestConversationClear } from './workspace-context.js';
 import { handleAttachmentCommand } from './tui-attachment-command.js';
 import { handleMemoryCommand } from './tui-memory-command.js';
@@ -361,7 +357,9 @@ async function command(value, workspace, stop) {
   else if (name === '/close') await workspace.closeActive(false);
   else if (name === '/confirm' && argument === 'close') await workspace.closeActive(true);
   else if (name === '/confirm' && argument === 'clear conversation') await confirmConversationClear(workspace);
-  else if (name === '/audit') workspace.projection.openOverlay(auditOverlay(workspace.activeEngine().reviewerAudit()));
+  else if (name === '/audit') workspace.projection.openOverlay(auditOverlay(
+    workspace.activeEngine().reviewerAudit(), workspace.activeEngine().governanceAudit(),
+  ));
   else if (name === '/permissions') handlePermissionCommand(argument, workspace);
   else if (name === '/health') workspace.projection.openOverlay(healthOverlay(await workspace.activeEngine().health()));
   else if (name === '/trace') await traceCommand(argument, workspace);

@@ -184,9 +184,8 @@ export class SessionEngine {
   async shutdown(command) {
     return boundedShutdown(this, () => performEngineShutdown(this, command));
   }
-  reviewerAudit(limit = 100) {
-    return this.ledger.audit(limit);
-  }
+  reviewerAudit(limit = 100) { return this.ledger.audit(limit); }
+  governanceAudit(limit = 100) { return this.governance.audit(limit); }
   health() {
     return new HealthInspector(this).inspect();
   }

@@ -10,19 +10,33 @@ const PROVIDER_ROLE_PURPOSES = Object.freeze({
   vision: 'Global profile used for image analysis when the requesting agent cannot process images.',
 });
 
-export function auditOverlay(entries) {
-  if (!Array.isArray(entries) || entries.length === 0) return overlay('audit', 'Reviewer audit', ['No reviewed tool calls.']);
-  const lines = [];
-  for (const [index, entry] of entries.slice(-64).entries()) {
-    lines.push(`${index + 1}. ${entry.tool ?? 'unknown tool'} — ${entry.result ?? entry.decision ?? 'unknown'}`);
-    lines.push(`   Decision: ${entry.decision ?? '--'} (${entry.reason ?? entry.reason_code ?? '--'})`);
-    lines.push(`   Risk/scope: ${entry.risk ?? '--'} / ${entry.scope ?? '--'}`);
-    lines.push(`   Effect: ${entry.effect ?? '--'} · certainty ${entry.effect_certainty ?? '--'}`);
-    if (Number.isFinite(entry.elapsed_ms)) lines.push(`   Duration: ${Math.round(entry.elapsed_ms)} ms`);
-    if (entry.repetition > 0) lines.push(`   Repetition: ${entry.repetition}`);
-    lines.push('');
+export function auditOverlay(entries, governance = []) {
+  if ((!Array.isArray(entries) || entries.length === 0) && (!Array.isArray(governance) || governance.length === 0)) {
+    return overlay('audit', 'Governance audit', ['No governance decisions.']);
   }
-  return overlay('audit', 'Reviewer audit', lines);
+  const lines = [];
+  if (governance.length > 0) {
+    lines.push('Governance decisions', '');
+    for (const entry of governance.slice(-32)) {
+      lines.push(`- ${entry.domain} · ${entry.outcome} · ${entry.reasonCode}`);
+      lines.push(`  Subject: ${entry.subjectRef} · evidence ${entry.evidenceRefs?.length ?? 0} · authority ${entry.authorityRefs?.length ?? 0}`);
+      if (entry.terminal) lines.push(`  Effect: ${entry.terminal.status} · certainty ${entry.terminal.effectCertainty}`);
+    }
+  }
+  if (entries.length > 0) {
+    if (lines.length > 0) lines.push('');
+    lines.push('Reviewed tool calls', '');
+    for (const [index, entry] of entries.slice(-32).entries()) {
+      lines.push(`${index + 1}. ${entry.tool ?? 'unknown tool'} — ${entry.result ?? entry.decision ?? 'unknown'}`);
+      lines.push(`   Decision: ${entry.decision ?? '--'} (${entry.reason ?? entry.reason_code ?? '--'})`);
+      lines.push(`   Risk/scope: ${entry.risk ?? '--'} / ${entry.scope ?? '--'}`);
+      lines.push(`   Effect: ${entry.effect ?? '--'} · certainty ${entry.effect_certainty ?? '--'}`);
+      if (Number.isFinite(entry.elapsed_ms)) lines.push(`   Duration: ${Math.round(entry.elapsed_ms)} ms`);
+      if (entry.repetition > 0) lines.push(`   Repetition: ${entry.repetition}`);
+      lines.push('');
+    }
+  }
+  return overlay('audit', 'Governance audit', lines);
 }
 
 export function healthOverlay(value) {
