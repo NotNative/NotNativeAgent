@@ -12,6 +12,7 @@ const EVENT_MAP = Object.freeze({
   'tool.call:post': ['tool_request', 'terminal', 'tool_request.terminal'],
   'compaction:pre': ['compaction', 'pre', 'compaction.pre'],
   'compaction:post': ['compaction', 'terminal', 'compaction.terminal'],
+  'maintenance:idle': ['maintenance', 'active', 'maintenance.idle'],
 });
 
 export class HookRuntime {

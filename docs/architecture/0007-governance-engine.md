@@ -165,6 +165,15 @@ legacy receipt contracts degrade the maintenance stage only; they never fail a u
 turn. This establishes causal auditability without giving NNA a second semantic-memory
 store or letting NNM widen NNA authority.
 
+NNM also participates in the final idle stage through the read-only
+`maintenance:idle` hook. The hook calls NNM's deterministic review-candidate query and
+returns `nnm.hygiene-receipt/1.0`: a unique scan identity, workspace fingerprint, bounded
+candidate count, and a fixed vocabulary of reason-code counts. Memory IDs, text, model
+output, and mutation instructions are excluded. Governance admits each scan as observed
+evidence and folds recurring equivalent results into one quarantined
+`memory.hygiene_attention` candidate. This stage never edits, promotes, merges, or deletes
+memory; it only gives an operator an attributable queue for later inspection.
+
 ## Operator inspection
 
 `/audit` begins with aggregate governance integrity: evidence and decision counts,

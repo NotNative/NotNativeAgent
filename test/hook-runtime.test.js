@@ -87,6 +87,16 @@ test('hook discovery accepts bounded subscription concurrency', async () => {
   assert.equal(result.bundles[0].subscriptions[0].maxConcurrent, 8);
 });
 
+test('hook discovery accepts the governed idle-maintenance event', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-hook-maintenance-'));
+  await createBundle(root, [{
+    event: 'maintenance', phase: 'idle', command: nodeCommand(), blocking: true,
+  }], '');
+  const result = await discoverHookBundles(root);
+  assert.equal(result.bundles.length, 1);
+  assert.equal(result.bundles[0].subscriptions[0].event, 'maintenance');
+});
+
 test('hook discovery rejects excessive subscription concurrency', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-hook-concurrency-invalid-'));
   await createBundle(root, [{

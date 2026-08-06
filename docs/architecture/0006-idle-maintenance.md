@@ -21,3 +21,10 @@ The deterministic harvest also emits a bounded operational diagnosis. Any failed
 cancelled, denied, timed-out, or uncertain-effect episode is quarantined from later
 learning. The diagnosis contains counts, stable reason codes, and suggested inspection
 actions; it does not retain transcript content or invoke a model.
+
+The current staged pipeline is deterministic evidence harvest, operational diagnosis,
+project-memory proposal, detached NNM effect reconciliation, then read-only NNM hygiene.
+Every stage has its own durable receipt. Optional-service failure degrades only that stage;
+operator activity cancels the shared signal before the next stage can begin. Project memory
+and hygiene findings remain quarantined proposals until a separately authorized action
+applies them.

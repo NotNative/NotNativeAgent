@@ -184,6 +184,48 @@ test('idle project memory creates an inspectable proposal from explicit operator
   await telemetry.close();
 });
 
+test('idle NNM hygiene uses a read-only hook receipt and creates attention, never mutations', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-hygiene-'));
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  let dispatched = null;
+  const engine = {
+    state: { state: 'idle' }, governance, telemetry: null, transcript: [],
+    hooks: { health: () => ({ bundles: [{ bundle: 'notnative-memory', version: '1.6.0', status: 'loaded' }] }) },
+    eventFactory: { create: (name, category, phase, _correlation, payload) => ({ event_name: name, category, phase, payload }) },
+    events: { dispatch: async (event) => { dispatched = event; return { decision: 'continue', results: [] }; } },
+  };
+  const receipt = {
+    contract: 'nnm.hygiene-receipt/1.0', receipt_id: 'b'.repeat(64), session_id: 'session',
+    status: 'completed', candidates: 3, categories: { conflict: 2, stale: 1 },
+    project_fingerprint: governanceFingerprint(root), completed_at: new Date().toISOString(),
+  };
+  const coordinator = new DreamCoordinator({
+    workspace: { sessions: new Map([['session', { engine }]]) },
+    config: resolveManifest(manifest({ workspace_root: root })), path: join(root, 'dream.db'),
+    nnmHygieneReceipts: { latest: async () => receipt },
+  });
+  await coordinator.initialize();
+  const packet = coordinator.store.savePacket({
+    id: 'hygiene-packet', runtimeKey: coordinator.runtimeKey, evidenceStart: 1, evidenceEnd: 1,
+    evidenceId: 'evidence:window', payload: { records: 1, turn_refs: [], session_refs: [] },
+  });
+  coordinator.store.advancePacket(packet.id, 2, 'diagnosed');
+  coordinator.store.advancePacket(packet.id, 3, 'project_memory_skipped');
+  coordinator.store.advancePacket(packet.id, 4, 'nnm_reconciled');
+  const stage = await coordinator.runNow();
+  const candidate = stage.result?.candidate_id ? coordinator.candidate(stage.result.candidate_id) : null;
+  const pending = coordinator.store.pendingPacket(coordinator.runtimeKey);
+  coordinator.close();
+  assert.equal(stage.state, 'completed', stage.error?.stack);
+  assert.equal(stage.result.code, 'nnm_hygiene_scanned');
+  assert.equal(dispatched.event_name, 'maintenance.idle');
+  assert.equal(dispatched.payload.evidence_packet_id, packet.id);
+  assert.equal(candidate.kind, 'memory.hygiene_attention');
+  assert.deepEqual(candidate.payload, { candidates: 3, categories: { conflict: 2, stale: 1 } });
+  assert.equal(pending, null);
+});
+
 test('learning candidates persist bounded evidence and require governed authority to promote', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-learning-candidate-'));
   const path = join(root, 'dream.db');

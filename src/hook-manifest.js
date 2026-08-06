@@ -6,6 +6,7 @@ import { ContractError } from './ids.js';
 const SUBSCRIPTIONS = new Set([
   'session.start:post', 'session.end:pre', 'turn:pre', 'turn:post',
   'tool.call:pre', 'tool.call:post', 'compaction:pre', 'compaction:post',
+  'maintenance:idle',
 ]);
 const MAX_BUNDLES = 32;
 const MAX_SUBSCRIPTIONS = 64;

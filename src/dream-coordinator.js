@@ -7,6 +7,8 @@ import { diagnoseDreamEvidence } from './dream-diagnosis.js';
 import { LearningCandidateRegistry } from './learning-candidates.js';
 import { governanceFingerprint } from './governance-contracts.js';
 import { NnmGovernanceReceipts } from './nnm-governance-receipts.js';
+import { NnmHygieneReceipts } from './nnm-hygiene-receipts.js';
+import { admitHygieneReceipt, admitNnmReceipt } from './dream-governance-admission.js';
 import {
   explicitProjectDecisions, ProjectMemoryReconciler, projectMemoryCandidate,
 } from './project-memory-reconciler.js';
@@ -21,6 +23,7 @@ export class DreamCoordinator {
     });
     this.state = { state: 'starting', reason: null, lastResult: null };
     this.nnmReceipts = options.nnmReceipts ?? new NnmGovernanceReceipts({ path: options.nnmReceiptPath });
+    this.nnmHygieneReceipts = options.nnmHygieneReceipts ?? new NnmHygieneReceipts({ path: options.nnmReceiptPath });
     this.arbiter = new IdleArbiter({
       idleMs: this.config.dream.idleMs, interStageMs: this.config.dream.interStageMs,
       eligible: () => this.#eligible(), runStage: (request) => this.#runNext(request),
@@ -79,6 +82,7 @@ export class DreamCoordinator {
     if (packet.stage === 1) return this.#diagnose(packet, request);
     if (packet.stage === 2) return this.#projectMemory(packet, request);
     if (packet.stage === 3) return this.#reconcileNnm(packet, request);
+    if (packet.stage === 4) return this.#scanNnmHygiene(packet, request);
     throw Object.assign(new Error('unsupported dream packet stage'), { code: 'dream_stage_invalid' });
   }
   async #harvest({ trigger, signal }) {
@@ -256,7 +260,7 @@ export class DreamCoordinator {
       }
       const engine = this.#engine();
       for (const receipt of receipts) await admitNnmReceipt(engine, receipt, this.config.workspaceRoot);
-      this.store.finishPacket(packet.id, receipts.length > 0 ? 'nnm_reconciled' : 'nnm_receipt_timeout');
+      this.store.advancePacket(packet.id, 4, receipts.length > 0 ? 'nnm_reconciled' : 'nnm_receipt_timeout');
       this.store.finish(run.id, receipts.length > 0 ? 'completed' : 'skipped', {
         resultCode: receipts.length > 0 ? 'nnm_reconciled' : 'nnm_receipt_timeout',
         durationMs: performance.now() - started,
@@ -264,7 +268,7 @@ export class DreamCoordinator {
       });
       this.store.commitWatermark({
         runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
-        stage: 0, configGeneration: this.config.version,
+        stage: 4, configGeneration: this.config.version,
       });
       const result = { code: receipts.length > 0 ? 'nnm_reconciled' : 'nnm_receipt_timeout', receipts: receipts.length };
       this.state.lastResult = result;
@@ -278,13 +282,80 @@ export class DreamCoordinator {
     }
   }
   #finishNnmSkipped(run, packet, started, code) {
-    this.store.finishPacket(packet.id, code);
+    this.store.advancePacket(packet.id, 4, code);
     this.store.finish(run.id, 'skipped', { resultCode: code, durationMs: performance.now() - started });
+    this.store.commitWatermark({
+      runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
+      stage: 4, configGeneration: this.config.version,
+    });
+    const result = { code, packet_id: packet.id };
+    this.state.lastResult = result;
+    return result;
+  }
+  async #scanNnmHygiene(packet, { trigger, signal }) {
+    const started = performance.now(), since = Date.now();
+    const run = this.store.begin({
+      runtimeKey: this.runtimeKey, stage: 4, trigger,
+      evidenceStart: packet.evidence_start, evidenceEnd: packet.evidence_end,
+      inputFingerprint: packet.payload_fingerprint,
+    });
+    try {
+      if (signal.aborted) throw cancelled();
+      const engine = this.#engine(), hook = nnmHook(engine.hooks?.health?.());
+      if (!hook || !supportsHygiene(hook.version)) {
+        return this.#finishHygiene(run, packet, started, 'nnm_hygiene_contract_unavailable');
+      }
+      const event = engine.eventFactory.create('maintenance.idle', 'maintenance', 'active', {}, {
+        cwd: this.config.workspaceRoot, evidence_packet_id: packet.id,
+        governance_evidence_id: packet.governance_evidence_id,
+      });
+      await engine.events.dispatch(event, signal);
+      if (signal.aborted) throw cancelled();
+      const receipt = await this.nnmHygieneReceipts.latest({ workspaceRoot: this.config.workspaceRoot, since });
+      if (!receipt) return this.#finishHygiene(run, packet, started, 'nnm_hygiene_receipt_unavailable');
+      const evidence = await admitHygieneReceipt(engine, receipt, this.config.workspaceRoot);
+      let candidate = null;
+      if (receipt.candidates > 0) candidate = await this.#observeHygieneCandidate(engine, receipt, evidence.id);
+      return this.#finishHygiene(run, packet, started, 'nnm_hygiene_scanned', {
+        receipt, candidate, state: 'completed', fingerprint: receipt.receipt_id,
+      });
+    } catch (error) {
+      this.store.finish(run.id, signal.aborted ? 'cancelled' : 'failed', {
+        resultCode: signal.aborted ? 'activity_cancelled' : (error.code ?? 'nnm_hygiene_failed'),
+        durationMs: performance.now() - started,
+      });
+      throw error;
+    }
+  }
+  async #observeHygieneCandidate(engine, receipt, evidenceId) {
+    const registry = new LearningCandidateRegistry({
+      store: this.store, governance: engine.governance, runtimeKey: this.runtimeKey,
+      scope: { kind: 'workspace', fingerprint: governanceFingerprint(this.config.workspaceRoot) },
+      telemetry: engine.telemetry,
+    });
+    const condition = governanceFingerprint({ candidates: receipt.candidates, categories: receipt.categories });
+    return registry.observe({
+      id: `candidate-nnm-hygiene-${condition.slice(0, 24)}`,
+      kind: 'memory.hygiene_attention', confidence: 1, recurrenceCount: 1,
+      evidenceRefs: [evidenceId], expectedBenefit: 'Review deterministic NNM curation candidates without automatic mutation.',
+      successCriteria: ['An operator inspects provenance before any explicit memory mutation.'],
+      riskClass: 'diagnostic', payload: { candidates: receipt.candidates, categories: receipt.categories },
+    });
+  }
+  #finishHygiene(run, packet, started, code, detail = {}) {
+    this.store.finishPacket(packet.id, code);
+    this.store.finish(run.id, detail.state ?? 'skipped', {
+      resultCode: code, durationMs: performance.now() - started,
+      outputFingerprint: detail.fingerprint ?? null,
+    });
     this.store.commitWatermark({
       runtimeKey: this.runtimeKey, sessionId: null, turnSequence: packet.evidence_end,
       stage: 0, configGeneration: this.config.version,
     });
-    const result = { code, packet_id: packet.id };
+    const result = {
+      code, packet_id: packet.id, candidates: detail.receipt?.candidates ?? 0,
+      candidate_id: detail.candidate?.id ?? null,
+    };
     this.state.lastResult = result;
     return result;
   }
@@ -365,32 +436,11 @@ function supportsReceipts(version) {
   return parts.length === 3 && parts.every(Number.isSafeInteger)
     && (parts[0] > 1 || (parts[0] === 1 && (parts[1] > 5 || (parts[1] === 5 && parts[2] >= 2))));
 }
-async function admitNnmReceipt(engine, receipt, workspaceRoot) {
-  const evidenceId = `evidence:nnm-receipt:${receipt.receipt_id}`;
-  const evidence = await engine.governance.registerEvidence({
-    id: evidenceId, kind: 'nnm_turn_analysis_receipt', origin: 'hook', trust: 'observed',
-    state: 'active', freshness: 'current', conflict: 'none', sourceRef: `nnm:${receipt.receipt_id}`,
-    sourceFingerprint: receipt.receipt_id, contentFingerprint: governanceFingerprint(receipt),
-    scope: { kind: 'workspace', fingerprint: governanceFingerprint(workspaceRoot) },
-    observedAt: Date.parse(receipt.completed_at), attributes: {
-      stored: receipt.stored, facts_stored: receipt.facts_stored,
-      relationships_stored: receipt.relationships_stored, candidates: receipt.candidates,
-      summary_stored: receipt.summary_stored,
-    },
-  });
-  const decision = await engine.governance.decide({
-    id: `governance:nnm-receipt:${receipt.receipt_id}`, domain: 'memory_eligibility',
-    subjectRef: `turn:${receipt.turn_id}`, subjectFingerprint: receipt.receipt_id,
-    outcome: 'admit', reasonCode: 'nnm_effect_receipt_verified', policyVersion: 'nnm-reconciliation/1',
-    evidenceRefs: [evidence.id], authorityRefs: [], decidedAt: Date.parse(receipt.completed_at),
-    expiresAt: null, attributes: { stored: receipt.stored, candidates: receipt.candidates },
-  });
-  await engine.governance.settleDecision(decision.id, {
-    status: 'applied', effectCertainty: 'completed', resultFingerprint: receipt.receipt_id,
-    reasonCode: 'nnm_effects_attributed',
-  });
+function supportsHygiene(version) {
+  const parts = String(version ?? '').split('.').map(Number);
+  return parts.length === 3 && parts.every(Number.isSafeInteger)
+    && (parts[0] > 1 || (parts[0] === 1 && parts[1] >= 6));
 }
-
 async function registerProjectDecisions(engine, decisions, scope, signal) {
   const evidenceRefs = [], sections = {};
   for (const decision of decisions) {

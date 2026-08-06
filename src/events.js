@@ -12,6 +12,7 @@ const PHASES = Object.freeze({
   compaction: { pre: true, active: false, terminal: false },
   recovery: { pre: true, active: false, terminal: false },
   diagnostic: { committed: false },
+  maintenance: { active: false },
   persistence: { committed: false },
 });
 
