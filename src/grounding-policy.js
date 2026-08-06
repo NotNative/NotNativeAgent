@@ -40,11 +40,66 @@ export class GroundingPolicy {
     return Object.freeze({ admitted: Object.freeze(admitted), rejected: Object.freeze(rejected) });
   }
 
+  async admitProjectGuidance(items, context = {}) {
+    return this.#admitContext(items, context, {
+      kind: 'project_guidance', origin: 'workspace_guidance', trust: 'configured',
+      source: (item) => `project_guidance:${item.path}`,
+      content: (item) => item.content,
+      scope: () => context.scope ?? 'project:workspace',
+      reasonCode: 'workspace_guidance_admitted', assertionMode: 'behavioral_guidance',
+    });
+  }
+
+  async admitHook(items, context = {}) {
+    return this.#admitContext(items, context, {
+      kind: 'hook_context', origin: 'hook', trust: 'untrusted',
+      source: (item) => `hook:${item.source}`,
+      content: (item) => item.content,
+      scope: () => context.scope ?? 'session:active',
+      reasonCode: 'hook_context_qualified', assertionMode: 'qualified',
+    });
+  }
+
+  async #admitContext(items, context, policy) {
+    const admitted = [];
+    for (const item of items) {
+      const sourceRef = policy.source(item);
+      const contentFingerprint = governanceFingerprint(policy.content(item));
+      const evidence = this.governance ? await this.governance.registerEvidence({
+        id: policy.origin === 'hook' ? newId('evidence')
+          : `evidence:${policy.kind}:${governanceFingerprint(`${sourceRef}:${contentFingerprint}`)}`,
+        kind: policy.kind, origin: policy.origin, trust: policy.trust,
+        state: 'active', freshness: policy.origin === 'hook' ? 'unknown' : 'not_applicable', conflict: 'none',
+        sourceRef, sourceFingerprint: sourceRef, contentFingerprint,
+        scope: scopeRecord(policy.scope(item)), observedAt: observedAt(item),
+        attributes: { assertion_mode: policy.assertionMode, turn_id: context.turnId ?? null },
+      }) : null;
+      if (evidence) {
+        await this.#supersedePrior(sourceRef, evidence);
+        await this.governance.decide({
+          domain: 'evidence_admission', subjectRef: sourceRef,
+          subjectFingerprint: contentFingerprint, outcome: 'admit', reasonCode: policy.reasonCode,
+          policyVersion: GROUNDING_POLICY_VERSION, evidenceRefs: [evidence.id],
+          authorityRefs: context.authorityRef ? [context.authorityRef] : [],
+          attributes: { assertion_mode: policy.assertionMode, turn_id: context.turnId ?? null },
+        });
+      }
+      admitted.push(Object.freeze({
+        ...item,
+        grounding: Object.freeze({
+          assertionMode: policy.assertionMode, evidenceId: evidence?.id ?? null,
+          reasonCode: policy.reasonCode, policyVersion: GROUNDING_POLICY_VERSION,
+        }),
+      }));
+    }
+    return Object.freeze({ admitted: Object.freeze(admitted), rejected: Object.freeze([]) });
+  }
+
   async #recordEvidence(item, assessment, context) {
     if (!this.governance) return null;
     const contentFingerprint = governanceFingerprint(item.content);
     const sourceVersion = `${item.source}:${item.id}:${item.updatedAt}:${contentFingerprint}`;
-    return this.governance.registerEvidence({
+    const evidence = await this.governance.registerEvidence({
       id: `evidence:memory:${governanceFingerprint(sourceVersion)}`,
       kind: 'memory_recall', origin: 'memory', trust: 'untrusted',
       state: assessment.state, freshness: assessment.freshness, conflict: assessment.conflict,
@@ -57,6 +112,8 @@ export class GroundingPolicy {
         assertion_mode: assessment.assertionMode,
       },
     });
+    await this.#supersedePrior(`memory:${item.id}`, evidence);
+    return evidence;
   }
 
   async #recordDecision(item, assessment, evidence, context) {
@@ -69,6 +126,15 @@ export class GroundingPolicy {
       evidenceRefs: [evidence.id], authorityRefs: context.authorityRef ? [context.authorityRef] : [],
       attributes: { request_id: context.requestId ?? null, assertion_mode: assessment.assertionMode },
     });
+  }
+
+  async #supersedePrior(sourceRef, current) {
+    for (const prior of this.governance.evidenceBySource(sourceRef)) {
+      if (prior.id === current.id || ['superseded', 'invalidated', 'expired'].includes(prior.state)) continue;
+      await this.governance.transitionEvidence(prior.id, 'superseded', {
+        reasonCode: 'source_version_replaced', evidenceRefs: [current.id],
+      });
+    }
   }
 }
 

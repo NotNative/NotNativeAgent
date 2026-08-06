@@ -30,7 +30,10 @@ export class ProjectGuidance {
         const content = await readFile(path, 'utf8');
         const bytes = Buffer.byteLength(content, 'utf8');
         if (bytes === 0 || total + bytes > MAX_TOTAL_BYTES) continue;
-        items.push(Object.freeze({ path: relative(this.root, path) || 'NNA.md', content, depth: pathDepth(this.root, directory) }));
+        items.push(Object.freeze({
+          path: relative(this.root, path) || 'NNA.md', content,
+          depth: pathDepth(this.root, directory), updatedAt: Math.trunc(metadata.mtimeMs),
+        }));
         total += bytes;
       } catch (error) {
         if (error.code !== 'ENOENT') this.telemetry?.record('project.guidance', 'failed', {

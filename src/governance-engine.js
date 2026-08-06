@@ -44,7 +44,7 @@ export class GovernanceEngine {
     await this.#record('evidence_registered', { evidence });
     this.#evidence.set(evidence.id, { record: evidence, history: [] });
     this.#telemetry('governance.evidence', 'succeeded', evidence, { evidence_id: evidence.id });
-    await this.#enforceRetention();
+    await this.#enforceRetention(evidence.id);
     return evidence;
   }
 
@@ -114,6 +114,10 @@ export class GovernanceEngine {
   }
 
   evidence(id) { return this.#evidence.get(id)?.record ?? null; }
+  evidenceBySource(sourceRef) {
+    return Object.freeze([...this.#evidence.values()]
+      .map((entry) => entry.record).filter((record) => record.sourceRef === sourceRef));
+  }
   decision(id) { return this.#decisions.get(id)?.record ?? null; }
 
   audit(limit = 100) {
@@ -160,13 +164,29 @@ export class GovernanceEngine {
     if (type === 'decision_settled') this.#requireDecision(payload.id).terminal = payload.terminal;
   }
 
-  async #enforceRetention() {
+  async #enforceRetention(pinnedEvidenceId = null) {
     const total = this.#evidence.size + this.#decisions.size;
     if (total <= this.retentionEntries) return;
-    const decisionBudget = Math.min(this.#decisions.size, Math.ceil(this.retentionEntries / 2));
-    const evidenceBudget = Math.max(0, this.retentionEntries - decisionBudget);
-    const evidence = [...this.#evidence.values()].slice(-evidenceBudget);
-    const decisions = [...this.#decisions.values()].slice(-decisionBudget);
+    const allDecisions = [...this.#decisions.values()];
+    const decisions = [];
+    const requiredEvidence = new Set(pinnedEvidenceId ? [pinnedEvidenceId] : []);
+    for (let index = allDecisions.length - 1; index >= 0; index -= 1) {
+      const candidate = allDecisions[index];
+      const additions = candidate.record.evidenceRefs.filter((id) => !requiredEvidence.has(id));
+      if (decisions.length + requiredEvidence.size + additions.length + 1 > this.retentionEntries) break;
+      decisions.push(candidate);
+      for (const id of additions) requiredEvidence.add(id);
+    }
+    decisions.reverse();
+    const evidenceBudget = this.retentionEntries - decisions.length;
+    const allEvidence = [...this.#evidence.values()];
+    const optional = allEvidence.filter((entry) => !requiredEvidence.has(entry.record.id));
+    const optionalBudget = Math.max(0, evidenceBudget - requiredEvidence.size);
+    const retainedIds = new Set([
+      ...requiredEvidence,
+      ...(optionalBudget > 0 ? optional.slice(-optionalBudget) : []).map((entry) => entry.record.id),
+    ]);
+    const evidence = allEvidence.filter((entry) => retainedIds.has(entry.record.id));
     if (this.#store) await this.#store.replace([
       ...evidence.flatMap(evidenceRecords), ...decisions.flatMap(decisionRecords),
     ]);

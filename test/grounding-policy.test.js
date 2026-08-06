@@ -23,6 +23,26 @@ test('memory grounding admits current evidence, qualifies stale evidence, and qu
   assert.equal(governance.audit().filter((item) => item.domain === 'memory_eligibility').length, 4);
 });
 
+test('workspace guidance and hook context retain distinct trust and supersession histories', async () => {
+  const governance = new GovernanceEngine({ durable: false, sessionId: 'context-grounding' });
+  const policy = new GroundingPolicy({ governance });
+  const first = await policy.admitProjectGuidance([
+    { path: 'NNA.md', content: 'first policy', depth: 0, updatedAt: 100 },
+  ], { turnId: 'turn-1', authorityRef: 'operator', scope: 'project:workspace' });
+  const second = await policy.admitProjectGuidance([
+    { path: 'NNA.md', content: 'replacement policy', depth: 0, updatedAt: 200 },
+  ], { turnId: 'turn-2', authorityRef: 'operator', scope: 'project:workspace' });
+  const hook = await policy.admitHook([
+    { source: 'memory-hook', content: 'possibly relevant context' },
+  ], { turnId: 'turn-2', scope: 'session:context-grounding' });
+
+  assert.equal(first.admitted[0].grounding.assertionMode, 'behavioral_guidance');
+  assert.equal(hook.admitted[0].grounding.assertionMode, 'qualified');
+  assert.equal(governance.evidence(first.admitted[0].grounding.evidenceId).state, 'superseded');
+  assert.equal(governance.evidence(second.admitted[0].grounding.evidenceId).state, 'active');
+  assert.equal(governance.evidence(hook.admitted[0].grounding.evidenceId).trust, 'untrusted');
+});
+
 function memory(id, overrides = {}) {
   return Object.freeze({
     id, scope: 'user', content: `content-${id}`, relevance: 0.5, pinned: false,

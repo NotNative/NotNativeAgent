@@ -102,7 +102,7 @@ const TRANSITIONS = Object.freeze({
   active: new Set(['stale', 'conflicting', 'quarantined', 'superseded', 'invalidated', 'expired']),
   stale: new Set(['active', 'conflicting', 'quarantined', 'superseded', 'invalidated', 'expired']),
   conflicting: new Set(['active', 'stale', 'quarantined', 'superseded', 'invalidated']),
-  quarantined: new Set(['active', 'stale', 'conflicting', 'invalidated', 'expired']),
+  quarantined: new Set(['active', 'stale', 'conflicting', 'superseded', 'invalidated', 'expired']),
   superseded: new Set(['invalidated', 'expired']),
   invalidated: new Set([]),
   expired: new Set(['invalidated']),

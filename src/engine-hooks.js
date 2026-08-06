@@ -14,7 +14,7 @@ export async function dispatchTurnPreHook(engine, active, prompt) {
     hookPayload(engine, active, { authority_snapshot_id: active.authority.id, prompt }),
   );
   const dispatch = await engine.events.dispatch(event, active.controller.signal);
-  addHookContexts(active, dispatch);
+  await addHookContexts(engine, active, dispatch);
   return dispatch.decision !== 'deny';
 }
 
@@ -26,7 +26,13 @@ export function hookPayload(engine, active = null, extra = {}) {
   });
 }
 
-export function addHookContexts(active, dispatch) {
+export async function addHookContexts(engine, active, dispatch) {
   const additions = hookContexts(dispatch);
-  if (additions.length > 0) active.enrichment.hooks.push(...additions);
+  if (additions.length === 0) return;
+  const governed = engine.grounding?.admitHook
+    ? await engine.grounding.admitHook(additions, {
+      turnId: active.turnId, authorityRef: active.authority?.id,
+      scope: `session:${engine.sessionId}`,
+    }) : { admitted: additions };
+  active.enrichment.hooks.push(...governed.admitted);
 }

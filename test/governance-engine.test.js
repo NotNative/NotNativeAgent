@@ -70,3 +70,30 @@ test('governance rejects identity drift, invalid lifecycle reversal, and raw pay
   assert.throws(() => normalizeGovernanceEvidence({ ...base, content: 'must not enter the governance journal' }),
     { code: 'governance_fields_invalid' });
 });
+
+test('governance retention never leaves a retained decision with dangling evidence', async () => {
+  const governance = new GovernanceEngine({ durable: false, sessionId: 'retention', retentionEntries: 4 });
+  for (let index = 0; index < 4; index += 1) {
+    const evidence = await governance.registerEvidence(evidenceRecord(`evidence-${index}`, `content-${index}`));
+    await governance.decide({
+      domain: 'evidence_admission', subjectRef: `subject-${index}`,
+      subjectFingerprint: `subject-${index}`, outcome: 'admit', reasonCode: 'eligible',
+      policyVersion: 'test/1', evidenceRefs: [evidence.id],
+    });
+  }
+  const decisions = governance.audit();
+  assert.ok(decisions.length > 0);
+  for (const decision of decisions) {
+    for (const evidenceId of decision.evidenceRefs) assert.ok(governance.evidence(evidenceId));
+  }
+  assert.ok(governance.health().evidence + governance.health().decisions <= 4);
+});
+
+function evidenceRecord(id, content) {
+  return {
+    id, kind: 'test', origin: 'runtime', trust: 'observed', state: 'active',
+    freshness: 'current', conflict: 'none', sourceRef: `source:${id}`,
+    contentFingerprint: content, scope: { kind: 'session', fingerprint: 'retention' },
+    observedAt: 1,
+  };
+}

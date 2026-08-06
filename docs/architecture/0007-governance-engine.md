@@ -89,6 +89,15 @@ Every considered item receives a content-free evidence record and a `memory_elig
 decision. The governance journal stores fingerprints, source references, scope, policy
 version, and disposition; it does not duplicate the recalled memory text.
 
+Workspace `NNA.md` files and hook-supplied context cross the same evidence boundary.
+Workspace guidance is admitted as configured behavioral policy for its path scope; it
+cannot prove a factual claim or expand authority. Hook context remains untrusted,
+qualified context. A changed guidance document supersedes its prior fingerprinted
+version, leaving an auditable history without retaining a second copy of its content.
+
+Retention preserves referential integrity: governance will drop older decisions before
+it permits a retained decision to outlive the evidence records it cites.
+
 ## Performance rule
 
 Deterministic policy is preferred. Semantic governance runs only when uncertainty or

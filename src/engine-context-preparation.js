@@ -36,7 +36,7 @@ async function compactContext(engine, records, content, active, operations, plan
   });
   const lifecycle = engine.lifecycles.start('compaction', active.turnId);
   const pre = await operations.publish('compaction.pre', 'compaction', 'pre', active, null, hookPayload(engine, active));
-  addHookContexts(active, pre);
+  await addHookContexts(engine, active, pre);
   await operations.publish('compaction.started', 'compaction', 'active', active);
   try {
     if (active.compactionAttempts >= 4) {
@@ -56,7 +56,7 @@ async function compactContext(engine, records, content, active, operations, plan
     const post = await operations.publish(
       'compaction.terminal', 'compaction', 'terminal', active, 'completed', hookPayload(engine, active),
     );
-    addHookContexts(active, post);
+    await addHookContexts(engine, active, post);
     const context = await buildReportedContext(
       engine, engine.transcript, content, active.enrichment, active, budget, hardLimit, planned,
     );
