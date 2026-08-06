@@ -184,7 +184,7 @@ test('AC-STATE-04 attachment cancellation does not await or admit a late provide
   assert.equal(statuses.some((item) => item.state === 'admitted'), false);
 });
 
-test('AC-MEM-01/AC-MEM-02/AC-MEM-03/AC-PRIV-02 recall is attributed, scope-specific, labeled, bounded, and deterministic', async () => {
+test('AC-MEM-01/AC-MEM-02/AC-MEM-03/AC-PRIV-02 recall is governed, attributed, scope-specific, bounded, and deterministic', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-memory-'));
   let received;
   const memoryAdapter = { async query(request) {
@@ -208,10 +208,14 @@ test('AC-MEM-01/AC-MEM-02/AC-MEM-03/AC-PRIV-02 recall is attributed, scope-speci
   await engine.submit({ request_id: 'memory-turn', content: 'Recall context' }, 'operator');
   assert.equal(received.query, 'Recall context');
   const memories = providerRequest.messages.filter((item) => item.content?.startsWith?.('Untrusted recalled memory'));
-  assert.equal(memories.length, 3);
+  assert.equal(memories.length, 2);
   assert.match(memories[0].content, /pinned fact/u);
-  assert.match(memories[2].content, /source fixture-user.*labels stale,conflict/u);
+  assert.match(memories[0].content, /assertion assertable_with_attribution/u);
+  assert.equal(providerRequest.messages.some((item) => item.content?.includes?.('older user fact')), false);
   assert.doesNotMatch(JSON.stringify(providerRequest), /secret project/u);
+  const audit = engine.governance.audit().filter((item) => item.domain === 'memory_eligibility');
+  assert.equal(audit.length, 3);
+  assert.equal(audit.filter((item) => item.outcome === 'quarantine').length, 1);
 });
 
 test('AC-MEM-04 optional timeout degrades visibly and does not block the turn', async () => {

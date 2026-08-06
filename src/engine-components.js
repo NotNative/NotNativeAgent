@@ -22,6 +22,7 @@ import { ModelRuntimeRegistry } from './model-runtime.js';
 import { ContinuationCompactor } from './continuation-compactor.js';
 import { SkillRegistry } from './skill-registry.js';
 import { GovernanceEngine } from './governance-engine.js';
+import { GroundingPolicy } from './grounding-policy.js';
 import { join } from 'node:path';
 
 export function installEngineComponents(engine, options, storeRoot, hooks) {
@@ -31,8 +32,9 @@ export function installEngineComponents(engine, options, storeRoot, hooks) {
   });
   installOutput(engine, options);
   installExtensions(engine, options);
+  installGovernance(engine, options, storeRoot);
   installCapabilities(engine, options, storeRoot, hooks);
-  installReview(engine, options, storeRoot);
+  installReview(engine, options);
   engine.toolLoop = toolLoop(engine, hooks);
   engine.providerRunner = providerRunner(engine, hooks);
   engine.continuationCompactor = options.continuationCompactor ?? new ContinuationCompactor({
@@ -113,7 +115,9 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       run: (input, signal) => engine.runSubagent(input, signal),
     } : null,
   });
-  engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter);
+  engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter, {
+    grounding: engine.grounding,
+  });
   engine.attachments = new AttachmentManager({
     config: engine.config.attachments ?? { enabled: false },
     root: options.attachmentRoot ?? `${storeRoot}/attachments/${engine.sessionId}`,
@@ -132,15 +136,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
   });
 }
 
-function installReview(engine, options, storeRoot) {
-  engine.governance = options.governance ?? new GovernanceEngine({
-    durable: engine.config.persistence === 'durable',
-    root: options.governanceRoot ?? (options.storeRoot
-      ? join(storeRoot, '.governance') : engine.dataPaths.governanceLedger),
-    sessionId: engine.sessionId,
-    telemetry: engine.telemetry,
-    persistenceDeadlineMs: engine.config.limits.persistenceFlushMs,
-  });
+function installReview(engine, options) {
   engine.ledger = new ReviewerLedger({
     durable: engine.config.persistence === 'durable',
     root: options.reviewerRoot ?? userDataPaths().reviewerLedger, sessionId: engine.sessionId,
@@ -161,6 +157,21 @@ function installReview(engine, options, storeRoot) {
     events: engine.events, reviewer: engine.reviewer, registry: engine.tools,
     governance: engine.governance,
     permissionBroker: engine.permissionBroker,
+  });
+}
+
+function installGovernance(engine, options, storeRoot) {
+  engine.governance = options.governance ?? new GovernanceEngine({
+    durable: engine.config.persistence === 'durable',
+    root: options.governanceRoot ?? (options.storeRoot
+      ? join(storeRoot, '.governance') : engine.dataPaths.governanceLedger),
+    sessionId: engine.sessionId,
+    telemetry: engine.telemetry,
+    persistenceDeadlineMs: engine.config.limits.persistenceFlushMs,
+  });
+  engine.grounding = options.grounding ?? new GroundingPolicy({
+    governance: engine.governance,
+    telemetry: engine.telemetry,
   });
 }
 

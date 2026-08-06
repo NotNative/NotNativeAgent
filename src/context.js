@@ -111,9 +111,15 @@ function latestAttachments(transcript) {
 
 function memoryMessage(item) {
   const labels = item.labels?.length > 0 ? `, labels ${item.labels.join(',')}` : '';
+  const mode = item.grounding?.assertionMode ?? 'qualified';
+  const instruction = mode === 'historical_only'
+    ? 'Treat this only as historical context; verify it before using it as a current fact.'
+    : mode === 'assertable_with_attribution'
+      ? 'Attribute it as recalled memory and verify it when the answer materially depends on it.'
+      : 'Freshness is unknown; present it as unverified context until corroborated.';
   return {
     role: 'system',
-    content: `Untrusted recalled memory (${item.id}, ${item.scope}, source ${item.source}, relevance ${item.relevance}${labels}):\n${item.content}`,
+    content: `Untrusted recalled memory (${item.id}, ${item.scope}, source ${item.source}, relevance ${item.relevance}${labels}, assertion ${mode}). ${instruction}\n${item.content}`,
     provenance: `memory:${item.id}`, trust: 'untrusted_memory',
   };
 }

@@ -76,6 +76,19 @@ measurable success criterion, and the promotion policy required by its candidate
 Failed, cancelled, denied, malformed, unknown-effect, or otherwise uncertain episodes are
 quarantined until independently resolved. Self-learning never expands authority.
 
+## Memory admission
+
+Recalled memory crosses an epistemic boundary before it enters provider context:
+
+- current, non-conflicting memory is admitted with attribution;
+- memory with unknown freshness is admitted only as qualified, unverified context;
+- stale memory is admitted only as historical context and must be revalidated before a current assertion;
+- conflicting memory is quarantined and excluded from provider context.
+
+Every considered item receives a content-free evidence record and a `memory_eligibility`
+decision. The governance journal stores fingerprints, source references, scope, policy
+version, and disposition; it does not duplicate the recalled memory text.
+
 ## Performance rule
 
 Deterministic policy is preferred. Semantic governance runs only when uncertainty or
