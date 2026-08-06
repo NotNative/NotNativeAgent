@@ -104,10 +104,11 @@ nna uninstall
 ```
 
 It opens the installed PowerShell uninstaller in a separate window so the bundled runtime
-can exit before its own files are removed. An interactive uninstall asks whether to
-permanently delete the marked `.nna` directory. Use `nna uninstall --delete-user-data` for
-an unattended full removal or `nna uninstall --keep-user-data` to preserve sessions and
-configuration without prompting. The underlying script remains available at
+can exit before its own files are removed. A directly attached operator must type a
+randomized confirmation challenge; redirected input, agents, scripts, and command-line
+flags cannot authorize removal. After that confirmation, the uninstaller asks whether to
+permanently delete the marked `.nna` directory. `--delete-user-data` or `--keep-user-data`
+may preselect that data choice, but neither bypasses the operator challenge. The underlying script remains available at
 `%LOCALAPPDATA%\NotNativeAgent\uninstall.ps1` for recovery and managed automation. The
 uninstaller validates both markers before removing anything when full deletion is requested.
 
@@ -132,8 +133,10 @@ The simplest uninstall entry point is:
 nna uninstall
 ```
 
-Interactive uninstall asks whether to delete `$HOME/.nna`. Pass `--delete-user-data` for
-an unattended full removal or `--keep-user-data` to preserve data without prompting. The
+An attached operator must first complete a randomized confirmation challenge. Agents,
+scripts, redirected input, and flags cannot authorize removal. The uninstaller then asks
+whether to delete `$HOME/.nna`; `--delete-user-data` or `--keep-user-data` can preselect
+that data choice, but cannot bypass the operator challenge. The
 underlying script is installed at
 `${XDG_DATA_HOME:-$HOME/.local/share}/not-native-agent/uninstall.sh` on Linux and
 `$HOME/Library/Application Support/NotNativeAgent/uninstall.sh` on macOS. Custom automation

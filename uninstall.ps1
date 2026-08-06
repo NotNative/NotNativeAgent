@@ -19,8 +19,20 @@ if ($Marker.product -ne 'NotNativeAgent' -or [IO.Path]::GetFullPath($Marker.inst
 }
 if ($DeleteUserData -and $KeepUserData) { throw 'Choose either -DeleteUserData or -KeepUserData, not both.' }
 
+if ([Console]::IsInputRedirected -or -not [Environment]::UserInteractive) {
+    throw 'Refusing to uninstall without a directly attached interactive terminal. Run "nna uninstall" yourself and complete its confirmation challenge.'
+}
+$Challenge = Get-Random -Minimum 100000 -Maximum 1000000
+Write-Host ''
+Write-Host "This will remove the NotNativeAgent application from '$InstallRoot'."
+Write-Host 'An agent, script, redirected command, or command-line flag cannot approve this action.'
+$UninstallConfirmation = Read-Host "To confirm, type exactly: UNINSTALL $Challenge"
+if ($UninstallConfirmation -cne "UNINSTALL $Challenge") {
+    throw 'Uninstall cancelled because the confirmation challenge did not match.'
+}
+
 $ShouldDeleteUserData = [bool]$DeleteUserData
-if (-not $DeleteUserData -and -not $KeepUserData -and -not [Console]::IsInputRedirected) {
+if (-not $DeleteUserData -and -not $KeepUserData) {
     Write-Host ''
     Write-Host 'NotNativeAgent user data includes sessions, configuration, provider and MCP references,'
     Write-Host 'hooks, skills, logs, support bundles, reviewer ledgers, and locally stored credentials.'

@@ -187,6 +187,8 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsUninstall, /DeleteUserData/u);
   assert.match(windowsUninstall, /KeepUserData/u);
   assert.match(windowsUninstall, /ParentProcessId/u);
+  assert.match(windowsUninstall, /IsInputRedirected/u);
+  assert.match(windowsUninstall, /UNINSTALL \$Challenge/u);
   assert.match(windowsUninstall, /Permanently delete all NNA user data/u);
   assert.match(windowsUninstall, /belongs to another NNA installation and was preserved/u);
   assert.match(linuxInstall, /HOME\/\.local\/share/u);
@@ -205,6 +207,8 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(unixUninstall, /Darwin/u);
   assert.match(unixUninstall, /Application Support\/NotNativeAgent/u);
   assert.match(unixUninstall, /--keep-user-data/u);
+  assert.match(unixUninstall, /\[ -t 0 \] && \[ -t 1 \]/u);
+  assert.match(unixUninstall, /UNINSTALL %s/u);
   assert.match(unixUninstall, /Permanently delete all NNA user data/u);
 });
 
@@ -320,7 +324,7 @@ test('installed CLI state follows NNA_HOME instead of the launch directory', asy
   }
 });
 
-test('native per-user installer launches the packaged CLI and safely uninstalls', {
+test('native per-user installer launches the packaged CLI and refuses noninteractive self-removal', {
   skip: !['win32', 'linux', 'darwin'].includes(process.platform), timeout: 30_000,
 }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-native-install-'));
@@ -337,8 +341,8 @@ test('native per-user installer launches the packaged CLI and safely uninstalls'
     assert.match(result.stdout, /Verification/u);
     assert.match(result.stdout, /INSTALL COMPLETE/u);
     assert.doesNotMatch(result.stdout, /\u001b/u);
-    assert.equal(existsSync(app), false);
-    assert.equal(existsSync(data), false);
+    assert.equal(existsSync(app), true);
+    assert.equal(existsSync(data), true);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -364,7 +368,11 @@ function windowsSmoke(root, app, data) {
     `& '${join(app, 'bin', 'nna.ps1')}' --version`,
     `$env:Path = '${join(app, 'bin')};' + $env:Path`,
     `if ((Get-Command nna -CommandType ExternalScript).Name -ne 'nna.ps1') { throw 'PowerShell did not prefer the non-batch launcher' }`,
-    `& '${uninstall}' -InstallRoot '${app}' -DeleteUserData -SkipPathUpdate`,
+    `$UninstallBlocked = $false`,
+    `try { & '${uninstall}' -InstallRoot '${app}' -DeleteUserData -SkipPathUpdate } catch { $UninstallBlocked = $true }`,
+    `if (-not $UninstallBlocked) { throw 'noninteractive uninstall was not blocked' }`,
+    `if (-not (Test-Path -LiteralPath '${app}')) { throw 'application was removed without human confirmation' }`,
+    `if (-not (Test-Path -LiteralPath '${data}')) { throw 'user data was removed without human confirmation' }`,
   ].join('; ');
   return spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], {
     cwd: root, encoding: 'utf8', timeout: 25_000,
@@ -391,7 +399,9 @@ function linuxSmoke(root, app, data) {
     'test -e "$3/transitory/keep.txt"',
     'test -e "$4/keep.txt"',
     '"$HOME/.local/bin/nna" --version',
-    'sh "$5" --install-root "$3" --delete-user-data',
+    'if sh "$5" --install-root "$3" --delete-user-data; then exit 1; fi',
+    'test -e "$3"',
+    'test -e "$4"',
   ].join(' && ');
   return spawnSync('sh', ['-c', script, 'nna-test', install, projectRoot, app, data, uninstall], {
     cwd: root, encoding: 'utf8', timeout: 25_000, env: environment,

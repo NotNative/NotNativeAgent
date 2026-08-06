@@ -32,7 +32,21 @@ data_root=$("$node_path" -e "const p=require(process.argv[1]);process.stdout.wri
 [ "$product" = 'NotNativeAgent' ] || { printf '%s\n' 'Refusing to uninstall: install marker is invalid.' >&2; exit 1; }
 [ "$marked_install_root" = "$install_root" ] || { printf '%s\n' 'Refusing to uninstall: install marker does not match the requested directory.' >&2; exit 1; }
 
-if [ "$data_choice" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
+[ -t 0 ] && [ -t 1 ] || {
+  printf '%s\n' 'Refusing to uninstall without a directly attached interactive terminal. Run "nna uninstall" yourself and complete its confirmation challenge.' >&2
+  exit 1
+}
+challenge=$($node_path -e "process.stdout.write(String(require('node:crypto').randomInt(100000,1000000)))")
+printf '\n%s\n' "This will remove the NotNativeAgent application from '$install_root'."
+printf '%s\n' 'An agent, script, redirected command, or command-line flag cannot approve this action.'
+printf 'To confirm, type exactly: UNINSTALL %s\n> ' "$challenge"
+read -r uninstall_confirmation
+[ "$uninstall_confirmation" = "UNINSTALL $challenge" ] || {
+  printf '%s\n' 'Uninstall cancelled because the confirmation challenge did not match.' >&2
+  exit 1
+}
+
+if [ "$data_choice" = prompt ]; then
   printf '\n%s\n' 'NotNativeAgent user data includes sessions, configuration, provider and MCP references,'
   printf '%s\n' 'hooks, skills, logs, support bundles, reviewer ledgers, and locally stored credentials.'
   printf "Permanently delete all NNA user data at '%s'? [y/N] " "$data_root"

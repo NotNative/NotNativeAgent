@@ -53,9 +53,9 @@ stable home-scoped application data, safe marker-checked uninstallers, and nativ
 coverage for both platforms. See [per-user installation](docs/INSTALLATION.md).
 Reinstalling replaces the complete `installed` application payload while preserving
 managed runtimes and all home-scoped session/configuration data.
-Remove NNA with `nna uninstall`. The interactive uninstaller can retain or permanently
-delete `~/.nna`; automation can state that choice with `--keep-user-data` or
-`--delete-user-data`.
+Remove NNA with `nna uninstall`. A directly attached operator must complete a randomized
+confirmation challenge; agents, scripts, redirected input, and flags cannot authorize
+removal. The operator can retain or permanently delete `~/.nna`.
 
 ## Operator responsibility
 
