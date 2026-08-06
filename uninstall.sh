@@ -8,10 +8,12 @@ case "$(uname -s)" in
   *) printf '%s\n' "Unsupported operating system: $(uname -s)" >&2; exit 1 ;;
 esac
 delete_data=0
+data_choice=prompt
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --install-root) install_root=$2; shift 2 ;;
-    --delete-user-data) delete_data=1; shift ;;
+    --delete-user-data) delete_data=1; data_choice=delete; shift ;;
+    --keep-user-data) delete_data=0; data_choice=keep; shift ;;
     *) printf '%s\n' "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -30,6 +32,14 @@ data_root=$("$node_path" -e "const p=require(process.argv[1]);process.stdout.wri
 [ "$product" = 'NotNativeAgent' ] || { printf '%s\n' 'Refusing to uninstall: install marker is invalid.' >&2; exit 1; }
 [ "$marked_install_root" = "$install_root" ] || { printf '%s\n' 'Refusing to uninstall: install marker does not match the requested directory.' >&2; exit 1; }
 
+if [ "$data_choice" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
+  printf '\n%s\n' 'NotNativeAgent user data includes sessions, configuration, provider and MCP references,'
+  printf '%s\n' 'hooks, skills, logs, support bundles, reviewer ledgers, and locally stored credentials.'
+  printf "Permanently delete all NNA user data at '%s'? [y/N] " "$data_root"
+  read -r confirmation
+  case "$confirmation" in y|Y|yes|YES) delete_data=1 ;; esac
+fi
+
 if [ "$(uname -s)" = Linux ] && command -v systemctl >/dev/null 2>&1; then
   systemctl --user disable --now notnativeagent-telegram.service >/dev/null 2>&1 || true
   rm -f -- "$HOME/.config/systemd/user/notnativeagent-telegram.service"
@@ -41,13 +51,13 @@ fi
 
 if [ "$delete_data" -eq 1 ]; then
   data_marker="$data_root/.nna-install.json"
-  [ -f "$data_marker" ] || { printf '%s\n' 'Refusing data deletion because its marker is missing.' >&2; exit 1; }
+  [ -f "$data_marker" ] || { printf '%s\n' 'Refusing full uninstall because the user-data marker is missing.' >&2; exit 1; }
   data_product=$("$node_path" -e "const p=require(process.argv[1]);process.stdout.write(p.product)" "$data_marker")
   marked_data_root=$("$node_path" -e "const p=require(process.argv[1]);process.stdout.write(p.data_root)" "$data_marker")
   data_deletable=$("$node_path" -e "const p=require(process.argv[1]);process.stdout.write(p.deletable===true?'true':'false')" "$data_marker")
-  [ "$data_product" = 'NotNativeAgent' ] || { printf '%s\n' 'Refusing data deletion because its marker is invalid.' >&2; exit 1; }
-  [ "$marked_data_root" = "$data_root" ] || { printf '%s\n' 'Refusing data deletion because its marker does not match.' >&2; exit 1; }
-  [ "$data_deletable" = 'true' ] || { printf '%s\n' 'Refusing to delete a pre-existing user data directory.' >&2; exit 1; }
+  [ "$data_product" = 'NotNativeAgent' ] || { printf '%s\n' 'Refusing full uninstall because the user-data marker is invalid.' >&2; exit 1; }
+  [ "$marked_data_root" = "$data_root" ] || { printf '%s\n' 'Refusing full uninstall because the user-data marker does not match.' >&2; exit 1; }
+  [ "$data_deletable" = 'true' ] || { printf '%s\n' 'Refusing full uninstall because the user-data directory predates this NNA installation.' >&2; exit 1; }
   case "$data_root" in /|"$HOME"|'') printf '%s\n' 'Refusing an unsafe user data root.' >&2; exit 1 ;; esac
 fi
 

@@ -97,14 +97,19 @@ created. Managed installations can supply `-InstallRoot`, `-DataRoot`, and
 `-SkipPathUpdate`. Installing Node itself remains per-user and does not invoke MSI or
 Windows package management.
 
-Uninstall the application while retaining user sessions and configuration:
+The simplest uninstall entry point is:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall.ps1
+nna uninstall
 ```
 
-Add `-DeleteUserData` only when permanent deletion of the marked `.nna` directory is
-intended. The uninstaller refuses deletion when its installation markers do not match.
+It opens the installed PowerShell uninstaller in a separate window so the bundled runtime
+can exit before its own files are removed. An interactive uninstall asks whether to
+permanently delete the marked `.nna` directory. Use `nna uninstall --delete-user-data` for
+an unattended full removal or `nna uninstall --keep-user-data` to preserve sessions and
+configuration without prompting. The underlying script remains available at
+`%LOCALAPPDATA%\NotNativeAgent\uninstall.ps1` for recovery and managed automation. The
+uninstaller validates both markers before removing anything when full deletion is requested.
 
 ## Linux and macOS
 
@@ -121,14 +126,18 @@ created at `$HOME/.local/bin/nna`, and durable data is initialized under `$HOME/
 If `$HOME/.local/bin` is not already on PATH, the installer prints the required action
 without modifying shell startup files.
 
-Uninstall while retaining data:
+The simplest uninstall entry point is:
 
 ```sh
-sh ./uninstall.sh
+nna uninstall
 ```
 
-Pass `--delete-user-data` only for intentional permanent deletion. Custom automation may
-use `--source`, `--install-root`, and `--data-root` on install.
+Interactive uninstall asks whether to delete `$HOME/.nna`. Pass `--delete-user-data` for
+an unattended full removal or `--keep-user-data` to preserve data without prompting. The
+underlying script is installed at
+`${XDG_DATA_HOME:-$HOME/.local/share}/not-native-agent/uninstall.sh` on Linux and
+`$HOME/Library/Application Support/NotNativeAgent/uninstall.sh` on macOS. Custom automation
+may use `--source`, `--install-root`, and `--data-root` on install.
 
 ## Runtime paths
 

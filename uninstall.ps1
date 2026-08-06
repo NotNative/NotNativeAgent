@@ -3,6 +3,8 @@
 param(
     [string]$InstallRoot,
     [switch]$DeleteUserData,
+    [switch]$KeepUserData,
+    [int]$ParentProcessId = 0,
     [switch]$SkipPathUpdate
 )
 
@@ -14,6 +16,26 @@ if (-not (Test-Path -LiteralPath $MarkerPath)) { throw 'Refusing to uninstall: N
 $Marker = Get-Content -LiteralPath $MarkerPath -Raw | ConvertFrom-Json
 if ($Marker.product -ne 'NotNativeAgent' -or [IO.Path]::GetFullPath($Marker.install_root) -ne $InstallRoot) {
     throw 'Refusing to uninstall: install marker does not match the requested directory.'
+}
+if ($DeleteUserData -and $KeepUserData) { throw 'Choose either -DeleteUserData or -KeepUserData, not both.' }
+
+$ShouldDeleteUserData = [bool]$DeleteUserData
+if (-not $DeleteUserData -and -not $KeepUserData -and -not [Console]::IsInputRedirected) {
+    Write-Host ''
+    Write-Host 'NotNativeAgent user data includes sessions, configuration, provider and MCP references,'
+    Write-Host 'hooks, skills, logs, support bundles, reviewer ledgers, and locally stored credentials.'
+    $Confirmation = Read-Host "Permanently delete all NNA user data at '$($Marker.data_root)'? [y/N]"
+    $ShouldDeleteUserData = $Confirmation -match '^(?i:y|yes)$'
+}
+
+$DataRoot = [IO.Path]::GetFullPath([string]$Marker.data_root)
+if ($ShouldDeleteUserData) {
+    $DataMarkerPath = Join-Path $DataRoot '.nna-install.json'
+    if (-not (Test-Path -LiteralPath $DataMarkerPath)) { throw 'Refusing full uninstall because the user-data marker is missing.' }
+    $DataMarker = Get-Content -LiteralPath $DataMarkerPath -Raw | ConvertFrom-Json
+    if ($DataMarker.product -ne 'NotNativeAgent' -or [IO.Path]::GetFullPath($DataMarker.data_root) -ne $DataRoot -or $DataMarker.deletable -ne $true) {
+        throw 'Refusing full uninstall because the user-data marker is invalid or the directory predates this NNA installation.'
+    }
 }
 
 $BinRoot = Join-Path $InstallRoot 'bin'
@@ -40,17 +62,17 @@ if (-not $SkipPathUpdate) {
     $Entries = @($UserPath -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ine $BinRoot.TrimEnd('\') })
     [Environment]::SetEnvironmentVariable('Path', ($Entries -join ';'), 'User')
 }
+if ($ParentProcessId -gt 0) {
+    try { Wait-Process -Id $ParentProcessId -Timeout 15 -ErrorAction Stop } catch {
+        if (Get-Process -Id $ParentProcessId -ErrorAction SilentlyContinue) {
+            throw 'Refusing to remove the application while the NNA launcher is still running.'
+        }
+    }
+}
 Remove-Item -LiteralPath $InstallRoot -Recurse -Force
 Write-Output "Removed NotNativeAgent from $InstallRoot"
 
-if ($DeleteUserData) {
-    $DataRoot = [IO.Path]::GetFullPath([string]$Marker.data_root)
-    $DataMarkerPath = Join-Path $DataRoot '.nna-install.json'
-    if (-not (Test-Path -LiteralPath $DataMarkerPath)) { throw 'Application removed, but user data was retained because its marker is missing.' }
-    $DataMarker = Get-Content -LiteralPath $DataMarkerPath -Raw | ConvertFrom-Json
-    if ($DataMarker.product -ne 'NotNativeAgent' -or [IO.Path]::GetFullPath($DataMarker.data_root) -ne $DataRoot -or $DataMarker.deletable -ne $true) {
-        throw 'Application removed, but user data was retained because its marker is invalid.'
-    }
+if ($ShouldDeleteUserData) {
     Remove-Item -LiteralPath $DataRoot -Recurse -Force
     Write-Output "Deleted NotNativeAgent user data from $DataRoot; this cannot be recovered by the uninstaller."
 } else {

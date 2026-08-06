@@ -9,6 +9,7 @@ import test from 'node:test';
 import { ensureUserDataPaths, userDataPaths, VERSION } from '../src/product.js';
 import { parseCli } from '../src/cli-options.js';
 import { discoverLocalProvider, loadStartupManifest } from '../src/onboarding.js';
+import { runUninstallCommand } from '../src/uninstall-cli.js';
 
 const projectRoot = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/u, (value) => value.slice(1))), '..');
 
@@ -48,12 +49,20 @@ test('launch options support prompt, host, and config aliases without breaking l
   assert.equal(parseCli(['--config', 'interactive.json']).mode, 'tui');
   assert.equal(parseCli(['gateway', 'status']).mode, 'gateway');
   assert.deepEqual(parseCli(['gateway', 'status']).prompt, ['status']);
+  assert.equal(parseCli(['uninstall']).mode, 'uninstall');
+  assert.deepEqual(parseCli(['uninstall', '--delete-user-data']).prompt, ['--delete-user-data']);
+  assert.deepEqual(parseCli(['uninstall', '--keep-user-data']).prompt, ['--keep-user-data']);
   const override = parseCli(['--provider-profile', 'remote', '--model', 'qwen', '-p', 'hello']);
   assert.equal(override.providerProfile, 'remote');
   assert.equal(override.model, 'qwen');
   assert.deepEqual(override.prompt, ['hello']);
   assert.throws(() => parseCli(['--provider-credential-env', 'literal-secret!']), { code: 'credential_reference_invalid' });
   assert.throws(() => parseCli(['host', '--model', 'unsafe-override']), { code: 'host_override_requires_manifest' });
+});
+
+test('uninstall command rejects conflicting or unknown deletion choices before launch', async () => {
+  await assert.rejects(runUninstallCommand(['--delete-user-data', '--keep-user-data']), { code: 'uninstall_option_conflict' });
+  await assert.rejects(runUninstallCommand(['--force']), { code: 'uninstall_option_invalid' });
 });
 
 test('first run persists explicit environment configuration and reuses it', async () => {
@@ -165,6 +174,7 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /ForceBundledNode/u);
   assert.match(windowsInstall, /Join-Path \$InstallRoot 'installed'/u);
   assert.match(windowsInstall, /Join-Path \$BinRoot 'nna\.ps1'/u);
+  assert.match(windowsInstall, /Join-Path \$InstallRoot 'uninstall\.ps1'/u);
   assert.match(windowsInstall, /\$PriorNnaHome/u);
   assert.match(windowsInstall, /SkipWebSearchSetup/u);
   assert.match(windowsInstall, /WebSearch is already configured/u);
@@ -175,6 +185,9 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /-Verb RunAs/u);
   assert.match(windowsInstall, /does not target the legacy NNA gateway/u);
   assert.match(windowsUninstall, /DeleteUserData/u);
+  assert.match(windowsUninstall, /KeepUserData/u);
+  assert.match(windowsUninstall, /ParentProcessId/u);
+  assert.match(windowsUninstall, /Permanently delete all NNA user data/u);
   assert.match(windowsUninstall, /belongs to another NNA installation and was preserved/u);
   assert.match(linuxInstall, /HOME\/\.local\/share/u);
   assert.match(linuxInstall, /Darwin/u);
@@ -185,11 +198,14 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(linuxInstall, /sha256sum/u);
   assert.match(linuxInstall, /apt-get|dnf|yum|zypper/u);
   assert.match(linuxInstall, /target="\$install_root\/installed"/u);
+  assert.match(linuxInstall, /\$install_root\/uninstall\.sh/u);
   assert.match(linuxInstall, /--skip-websearch-setup/u);
   assert.match(linuxInstall, /WebSearch is already configured/u);
   assert.match(linuxInstall, /base URL of your existing SearXNG server/u);
   assert.match(unixUninstall, /Darwin/u);
   assert.match(unixUninstall, /Application Support\/NotNativeAgent/u);
+  assert.match(unixUninstall, /--keep-user-data/u);
+  assert.match(unixUninstall, /Permanently delete all NNA user data/u);
 });
 
 test('AC-PROD-05 installation, primary, and headless guidance disclose operator responsibility', async () => {

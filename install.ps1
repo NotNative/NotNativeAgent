@@ -369,6 +369,7 @@ Write-InstallerLine "      $DataRoot" DarkGray
 Write-InstallerSection 'Command launchers'
 $BinRoot = Join-Path $InstallRoot 'bin'
 New-Item -ItemType Directory -Force -Path $BinRoot | Out-Null
+Copy-Item -LiteralPath (Join-Path $SourceRoot 'uninstall.ps1') -Destination (Join-Path $InstallRoot 'uninstall.ps1') -Force
 $Launcher = "@echo off`r`nset `"NNA_HOME=$DataRoot`"`r`n`"$NodePath`" `"$Target\src\cli.js`" %*`r`n"
 [IO.File]::WriteAllText((Join-Path $BinRoot 'nna.cmd'), $Launcher, [Text.ASCIIEncoding]::new())
 $PowerShellDataRoot = $DataRoot.Replace("'", "''")
@@ -391,6 +392,7 @@ $InstallMarker = @{ product = $Product; version = $Version; install_root = $Inst
 [IO.File]::WriteAllText((Join-Path $InstallRoot 'install.json'), $InstallMarker, [Text.UTF8Encoding]::new($false))
 Write-InstallerOk 'PowerShell and Command Prompt launchers written'
 Write-InstallerLine "      $BinRoot" DarkGray
+Write-InstallerLine "      Uninstaller: $(Join-Path $InstallRoot 'uninstall.ps1')" DarkGray
 
 Write-InstallerSection 'Initial provider profile'
 $PriorNnaHome = $env:NNA_HOME

@@ -230,6 +230,8 @@ printf '%b      %s%b\n' "$c_dim" "$data_root" "$c_reset"
 section 'Command launcher'
 bin_root="$HOME/.local/bin"
 mkdir -p "$bin_root"
+cp "$source_root/uninstall.sh" "$install_root/uninstall.sh"
+chmod 700 "$install_root/uninstall.sh"
 chmod 755 "$target/src/cli.js"
 rm -f -- "$bin_root/nna"
 shell_quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
@@ -241,6 +243,7 @@ chmod 755 "$bin_root/nna"
 "$node_path" -e "const fs=require('fs');fs.writeFileSync(process.argv[1],JSON.stringify({product:'NotNativeAgent',version:process.argv[2],install_root:process.argv[3],data_root:process.argv[4],node:process.argv[5],node_major:Number(process.argv[6])})+'\\n',{mode:0o600})" "$install_root/install.json" "$version" "$install_root" "$data_root" "$node_path" "$node_major"
 ok 'NNA launcher written'
 printf '%b      %s%b\n' "$c_dim" "$bin_root/nna" "$c_reset"
+printf '%b      Uninstaller: %s%b\n' "$c_dim" "$install_root/uninstall.sh" "$c_reset"
 
 section 'Initial provider profile'
 provider_status=$(NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" provider status)

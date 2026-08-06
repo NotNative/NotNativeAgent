@@ -16,6 +16,7 @@ import { runWebFetchCommand } from './web-fetch-cli.js';
 import { loadManagedProviderCredentials, runProviderBootstrapCommand } from './provider-bootstrap.js';
 import { loadManagedMcpCredentials } from './mcp-credentials.js';
 import { applyLaunchProviderOverrides } from './launch-provider-overrides.js';
+import { runUninstallCommand } from './uninstall-cli.js';
 
 try {
   const options = parseCli(process.argv.slice(2));
@@ -43,6 +44,9 @@ try {
   else if (options.mode === 'provider') {
     const result = await runProviderBootstrapCommand(options.prompt, await runtimePaths(), { input: process.stdin });
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  }
+  else if (options.mode === 'uninstall') {
+    process.exitCode = await runUninstallCommand(options.prompt, process.stdout);
   }
   else if (options.mode === 'tui') {
     if (!process.stdin.isTTY || !process.stdout.isTTY) throw Object.assign(new Error('interactive terminal required'), { code: 'interactive_terminal_required' });
@@ -105,6 +109,7 @@ function help() {
     '  nna gateway token-env NAME|authorize USER_ID|revoke USER_ID|workspace PATH',
     '  nna webfetch status|trust ORIGIN|revoke ORIGIN',
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
+    '  nna uninstall [--delete-user-data|--keep-user-data]',
     '  nna --help | --version',
     '',
   ].join('\n');
