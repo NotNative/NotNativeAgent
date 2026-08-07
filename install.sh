@@ -367,6 +367,7 @@ section 'Telegram gateway'
 gateway_status=$(NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway status)
 gateway_configured=$(printf '%s' "$gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).configured?'true':'false'))")
 gateway_users=$(printf '%s' "$gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(String(JSON.parse(s).authorized_user_ids.length)))")
+gateway_running=$(printf '%s' "$gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).runtime?.running?'true':'false'))")
 if [ "$gateway_configured" = true ] && [ "$gateway_users" -gt 0 ]; then
   skip "Telegram gateway is already configured for $gateway_users authorized operator(s)."
 elif [ "$gateway_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
@@ -420,6 +421,26 @@ EOF
   ok 'Telegram bot validated and gateway started'
 elif [ "$gateway_mode" = skip ]; then
   skip 'Telegram gateway setup not requested'
+fi
+if [ "$gateway_running" = true ] && [ "$gateway_mode" != configure ]; then
+  step 'Restarting the running Telegram gateway on the updated runtime'
+  if [ "$platform_name" = linux ] && command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet notnativeagent-telegram.service; then
+    systemctl --user restart notnativeagent-telegram.service
+  else
+    NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway stop >/dev/null
+    gateway_stopped=false
+    gateway_attempt=0
+    while [ "$gateway_attempt" -lt 300 ]; do
+      sleep 0.1
+      gateway_runtime=$(NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway status)
+      gateway_still_running=$(printf '%s' "$gateway_runtime" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).runtime?.running?'true':'false'))")
+      if [ "$gateway_still_running" = false ]; then gateway_stopped=true; break; fi
+      gateway_attempt=$((gateway_attempt + 1))
+    done
+    [ "$gateway_stopped" = true ] || { printf '%s\n' 'Telegram gateway did not stop within 30 seconds; refusing to start a duplicate runtime.' >&2; exit 1; }
+    NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway start >/dev/null
+  fi
+  ok 'Telegram gateway restarted on the updated runtime'
 fi
 
 section 'Verification'

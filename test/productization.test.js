@@ -189,6 +189,8 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /Unregister-ScheduledTask/u);
   assert.match(windowsInstall, /-Verb RunAs/u);
   assert.match(windowsInstall, /does not target the legacy NNA gateway/u);
+  assert.match(windowsInstall, /GatewayWasRunning/u);
+  assert.match(windowsInstall, /Telegram gateway restarted on the updated runtime/u);
   assert.match(windowsUninstall, /DeleteUserData/u);
   assert.match(windowsUninstall, /KeepUserData/u);
   assert.match(windowsUninstall, /ParentProcessId/u);
@@ -212,6 +214,9 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(linuxInstall, /Playwright Chromium v.*already installed; setup skipped/u);
   assert.match(linuxInstall, /webbrowse verify/u);
   assert.match(linuxInstall, /base URL of your existing SearXNG server/u);
+  assert.match(linuxInstall, /gateway_running/u);
+  assert.match(linuxInstall, /systemctl --user restart notnativeagent-telegram\.service/u);
+  assert.match(linuxInstall, /Telegram gateway restarted on the updated runtime/u);
   assert.match(unixUninstall, /Darwin/u);
   assert.match(unixUninstall, /Application Support\/NotNativeAgent/u);
   assert.match(unixUninstall, /--keep-user-data/u);

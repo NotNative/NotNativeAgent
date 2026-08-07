@@ -526,6 +526,7 @@ $PriorNnaHome = $env:NNA_HOME
 $env:NNA_HOME = $DataRoot
 try {
     $GatewayStatus = & $NodePath (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json
+    $GatewayWasRunning = [bool]$GatewayStatus.runtime.running
     $ConfigureGateway = $false
     if ($GatewayStatus.configured -and $GatewayStatus.authorized_user_ids.Count -gt 0) {
         Write-InstallerSkip "Telegram gateway already configured for $($GatewayStatus.authorized_user_ids.Count) authorized operator(s)."
@@ -555,15 +556,30 @@ try {
         Write-InstallerOk 'Telegram bot validated and operator authorized'
         $StartGateway = $true
     }
-    if ($StartGateway) {
+    if ($GatewayWasRunning) {
+        Write-InstallerStep 'Restarting the running Telegram gateway on the updated runtime'
+        & $NodePath (Join-Path $Target 'src\cli.js') gateway stop | Out-Null
+        $GatewayStopped = $false
+        for ($Attempt = 0; $Attempt -lt 300; $Attempt++) {
+            Start-Sleep -Milliseconds 100
+            $Runtime = (& $NodePath (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json).runtime
+            if (-not $Runtime.running) { $GatewayStopped = $true; break }
+        }
+        if (-not $GatewayStopped) { throw 'Telegram gateway did not stop within 30 seconds; refusing to start a duplicate runtime.' }
         & $NodePath (Join-Path $Target 'src\cli.js') gateway start | Out-Null
+        Write-InstallerOk 'Telegram gateway restarted on the updated runtime'
+    } elseif ($StartGateway) {
+        & $NodePath (Join-Path $Target 'src\cli.js') gateway start | Out-Null
+        Write-InstallerOk 'Telegram gateway started'
+    }
+    if ($StartGateway) {
         $StartupRoot = [Environment]::GetFolderPath('Startup')
         $StartupPath = Join-Path $StartupRoot 'NotNativeAgent-Telegram.vbs'
         $GatewayCommand = '"{0}" "{1}" gateway start' -f $NodePath, (Join-Path $Target 'src\cli.js')
         $VbsCommand = $GatewayCommand.Replace('"', '""')
         $Vbs = "CreateObject(`"WScript.Shell`").Run `"$VbsCommand`", 0, False`r`n"
         [IO.File]::WriteAllText($StartupPath, $Vbs, [Text.ASCIIEncoding]::new())
-        Write-InstallerOk 'Telegram gateway started and registered for user login'
+        Write-InstallerOk 'Telegram gateway registered for user login'
     } elseif (-not $GatewayStatus.configured) {
         Write-InstallerSkip 'Telegram gateway setup not requested'
     }
