@@ -22,6 +22,10 @@ onto NNA; do not make the standalone runtime depend on NotNativeMemory or NotNat
   security boundary between root NNA and authenticated hosted sessions.
 - Built-in skills belong under `resources/skills/<skill-id>/`; workspace-specific skills
   belong under the workspace's `.nna/skills/` only when the user asks for a local skill.
+- Give skills short command-like IDs and put variants in the request or workflow body;
+  do not invent dotted modifier forms such as `webdesign.modern`. Custom workflows use
+  `/skill <id> [request]`; only explicit product aliases such as `/devteam`, `/research`,
+  and `/troubleshoot` are direct commands.
 - Run `npm test` for implementation slices. Run the broader release checks only when the
   change requires them.
 - Advance the canonical `YYYYMMDD-<iteration>` version for each logical product slice.

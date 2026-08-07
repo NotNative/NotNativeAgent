@@ -492,6 +492,8 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /Use tools only when they are necessary/u);
   assert.match(policy, /do not guess from general knowledge/u);
   assert.match(policy, /nna\.search_guidance/u);
+  assert.match(policy, /skills and skill authoring/u);
+  assert.match(policy, /consult the packaged skill-authoring guidance/u);
   assert.match(policy, /training data as background reference only/u);
   assert.match(policy, /Verify claims about the active environment, files, code, configuration, logs, installed software, or runtime behavior/u);
   assert.match(policy, /do not present an unverified inference as fact/u);

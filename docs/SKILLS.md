@@ -15,7 +15,7 @@ Each file begins with restricted YAML-style frontmatter:
 
 ```markdown
 ---
-id: review.code
+id: code-review
 version: 1
 description: Review changed code for correctness
 invocation: both
@@ -28,6 +28,32 @@ Read relevant files before reporting prioritized findings.
 [REQUEST]` invokes a user-accessible skill for one turn. Agents see bounded catalog
 summaries and use the always-visible `skill.search` and `skill.load` tools to select and
 load agent-accessible bodies. `nna skills --json` provides machine-readable introspection.
+
+## Authoring a skill
+
+Use a short, memorable, command-like `id` such as `webdesign`, `pricecheck`, or
+`server-audit`. The ID names the reusable workflow; it is not a command plus a modifier.
+Put modes, variants, targets, and desired outcomes in the invocation request or the skill
+body rather than encoding them in dotted IDs such as `webdesign.modern`.
+
+Create the package in exactly one appropriate scope:
+
+- `resources/skills/<id>/SKILL.md` for a built-in workflow shipped with NNA;
+- `~/.nna/skills/<id>/SKILL.md` for a user-wide custom workflow;
+- `<workspace>/.nna/skills/<id>/SKILL.md` for a workflow intentionally local to one
+  trusted workspace.
+
+Choose `invocation: user`, `agent`, or `both` deliberately. Declare only tools the
+workflow actually needs, and write the body as an evidence-driven procedure with explicit
+inputs, ordered stages, completion criteria, failure behavior, and verification. A skill
+never grants its declared tools; normal tool availability, review, and host authorization
+still apply.
+
+Custom skills use the generic invocation form `/skill <id> [request]`, for example
+`/skill webdesign improve the settings page`. A small number of important bundled
+workflows also have memorable command aliases. `/devteam`, `/research`, and
+`/troubleshoot` remain workflow commands backed by their corresponding skills; skill
+authors should not assume a new alias exists merely because a skill was registered.
 
 NNA includes three direct workflow commands. `/troubleshoot [DESCRIPTION]` diagnoses the
 current or another local session through redacted runtime evidence. `/devteam [REQUEST]`

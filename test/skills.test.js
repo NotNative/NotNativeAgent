@@ -14,7 +14,7 @@ test('bundled operational skills are available to standalone NNA', async () => {
   const registry = new SkillRegistry({ roots: runtimeSkillRoots({}, null) });
   await registry.initialize();
   const catalog = registry.catalog();
-  assert.deepEqual(catalog.map((item) => item.id).sort(), ['devteam', 'research', 'troubleshoot']);
+  assert.deepEqual(catalog.map((item) => item.id).sort(), ['devteam', 'research', 'troubleshoot', 'webdesign']);
   const devteam = registry.queueUser('devteam').body;
   assert.match(devteam, /type `planner`[\s\S]+type `coder`[\s\S]+type `tester`[\s\S]+type `reviewer`/u);
   assert.match(devteam, /general Power of Ten[\s\S]+UI Power of Ten[\s\S]+accessibility/u);
@@ -28,16 +28,16 @@ test('discovers bounded local skills and enforces invocation direction', async (
     const folder = join(root, 'review');
     await mkdir(folder);
     await writeFile(join(folder, 'SKILL.md'), [
-      '---', 'id: review.code', 'version: 1', 'description: Review changed code',
+      '---', 'id: code-review', 'version: 1', 'description: Review changed code',
       'invocation: both', 'requires_tools: [fs.read_text]', '---', 'Read the relevant files and report defects.',
     ].join('\n'));
     const registry = new SkillRegistry({ roots: [{ scope: 'user', path: root }] });
     await registry.initialize();
-    assert.equal(registry.catalog()[0].id, 'review.code');
-    assert.equal(registry.search('review code')[0].id, 'review.code');
-    registry.queueUser('review.code');
-    assert.deepEqual(registry.beginTurn().map((item) => item.id), ['review.code']);
-    assert.deepEqual(registry.loadedIds(), ['review.code']);
+    assert.equal(registry.catalog()[0].id, 'code-review');
+    assert.equal(registry.search('review code')[0].id, 'code-review');
+    registry.queueUser('code-review');
+    assert.deepEqual(registry.beginTurn().map((item) => item.id), ['code-review']);
+    assert.deepEqual(registry.loadedIds(), ['code-review']);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

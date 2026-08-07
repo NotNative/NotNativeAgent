@@ -1,7 +1,8 @@
 # NNA self-knowledge
 
 NotNativeAgent must consult the documentation packaged with its running version before
-answering questions about its own configuration, commands, tools, architecture,
+answering questions about its own configuration, commands, tools, skills and skill
+authoring, architecture,
 installation, troubleshooting, hooks, MCP integration, memory, provider routing, or
 permission system. It must not substitute general knowledge about other agent products.
 
@@ -9,6 +10,9 @@ The engine prompt instructs the model to briefly tell the user it is checking NN
 documentation, call `nna.search_guidance`, read the relevant document with
 `nna.read_guidance`, and ground the answer in those results. If the installed guidance
 does not cover the question, NNA must state that limitation rather than invent behavior.
+Before creating or modifying an NNA skill, it must read `SKILLS.md` and follow the NNA
+package, scope, metadata, invocation, and verification conventions instead of borrowing
+syntax from another agent product.
 
 Private NNA runtime configuration is not stored in the active project workspace. The model
 must not search project files or source code to discover configured providers or MCP
