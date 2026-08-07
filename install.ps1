@@ -132,7 +132,7 @@ function Install-ManagedPlaywright([string]$SelectedNode, [string]$CliPath, [str
         Write-InstallerStep 'Downloading Playwright Chromium'
         & $SelectedNode (Join-Path $ManagedRoot 'node_modules\playwright\cli.js') install chromium
         if ($LASTEXITCODE -ne 0) { Write-InstallerWarning 'Playwright Chromium download failed'; return }
-        $Verified = & $SelectedNode $CliPath webbrowse verify | ConvertFrom-Json
+        $Verified = & $SelectedNode --disable-warning=ExperimentalWarning $CliPath webbrowse verify | ConvertFrom-Json
         if (-not $Verified.available) { Write-InstallerWarning 'Playwright installed but Chromium launch validation failed'; return }
         Write-InstallerOk "Playwright Chromium ready (v$($Verified.version))"
     } finally {
@@ -407,7 +407,7 @@ Write-InstallerSection 'Interactive WebBrowse'
 $PriorNnaHome = $env:NNA_HOME
 $env:NNA_HOME = $DataRoot
 try {
-    $BrowseStatus = & $NodePath (Join-Path $Target 'src\cli.js') webbrowse status | ConvertFrom-Json
+    $BrowseStatus = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') webbrowse status | ConvertFrom-Json
     if ($BrowseStatus.available) {
         Write-InstallerSkip "Playwright Chromium v$($BrowseStatus.version) is already installed; setup skipped."
     } elseif ($SkipPlaywrightSetup -or $SkipDependencyInstall) {
@@ -426,7 +426,7 @@ Write-InstallerSection 'Command launchers'
 $BinRoot = Join-Path $InstallRoot 'bin'
 New-Item -ItemType Directory -Force -Path $BinRoot | Out-Null
 Copy-Item -LiteralPath (Join-Path $SourceRoot 'uninstall.ps1') -Destination (Join-Path $InstallRoot 'uninstall.ps1') -Force
-$Launcher = "@echo off`r`nset `"NNA_HOME=$DataRoot`"`r`n`"$NodePath`" `"$Target\src\cli.js`" %*`r`n"
+$Launcher = "@echo off`r`nset `"NNA_HOME=$DataRoot`"`r`n`"$NodePath`" --disable-warning=ExperimentalWarning `"$Target\src\cli.js`" %*`r`n"
 [IO.File]::WriteAllText((Join-Path $BinRoot 'nna.cmd'), $Launcher, [Text.ASCIIEncoding]::new())
 $PowerShellDataRoot = $DataRoot.Replace("'", "''")
 $PowerShellNodePath = $NodePath.Replace("'", "''")
@@ -436,7 +436,7 @@ $PowerShellLauncher = @"
 `$PriorNnaHome = `$env:NNA_HOME
 try {
     `$env:NNA_HOME = '$PowerShellDataRoot'
-    & '$PowerShellNodePath' '$PowerShellCliPath' @args
+    & '$PowerShellNodePath' --disable-warning=ExperimentalWarning '$PowerShellCliPath' @args
     `$NnaExitCode = `$LASTEXITCODE
 } finally {
     `$env:NNA_HOME = `$PriorNnaHome
@@ -454,7 +454,7 @@ Write-InstallerSection 'Initial provider profile'
 $PriorNnaHome = $env:NNA_HOME
 $env:NNA_HOME = $DataRoot
 try {
-    $ProviderStatus = & $NodePath (Join-Path $Target 'src\cli.js') provider status | ConvertFrom-Json
+    $ProviderStatus = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') provider status | ConvertFrom-Json
     if ($ProviderStatus.configured) {
         Write-InstallerSkip "Provider profile already configured; setup skipped."
     } elseif ($SkipProviderSetup -or [Console]::IsInputRedirected) {
@@ -466,7 +466,7 @@ try {
         try { $ProviderKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($Pointer) }
         finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($Pointer) }
         Write-InstallerStep 'Discovering available models from the provider'
-        $DiscoveryJson = $ProviderKey | & $NodePath (Join-Path $Target 'src\cli.js') provider discover $ProviderEndpoint
+        $DiscoveryJson = $ProviderKey | & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') provider discover $ProviderEndpoint
         if ($LASTEXITCODE -ne 0) { throw 'Provider model discovery failed. Verify the URL and API key, then run the installer again.' }
         $Models = @(($DiscoveryJson | ConvertFrom-Json).models)
         for ($Index = 0; $Index -lt $Models.Count; $Index++) { Write-InstallerLine ("  {0,3}. {1}" -f ($Index + 1), $Models[$Index]) White }
@@ -481,7 +481,7 @@ try {
             }
             if (-not $SelectedModel) { Write-InstallerWarning 'Enter a listed number or an exact model name.' }
         } while (-not $SelectedModel)
-        $ConfigureJson = $ProviderKey | & $NodePath (Join-Path $Target 'src\cli.js') provider configure $ProviderEndpoint $SelectedModel
+        $ConfigureJson = $ProviderKey | & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') provider configure $ProviderEndpoint $SelectedModel
         if ($LASTEXITCODE -ne 0) { throw 'Provider profile could not be saved.' }
         $ConfiguredProvider = $ConfigureJson | ConvertFrom-Json
         Write-InstallerOk "Provider configured: $($ConfiguredProvider.endpoint) / $($ConfiguredProvider.model)"
@@ -496,23 +496,23 @@ Write-InstallerSection 'WebSearch integration'
 $PriorNnaHome = $env:NNA_HOME
 $env:NNA_HOME = $DataRoot
 try {
-    $SearchStatus = & $NodePath (Join-Path $Target 'src\cli.js') websearch status | ConvertFrom-Json
+    $SearchStatus = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch status | ConvertFrom-Json
     if ($SearchStatus.configured) {
         Write-InstallerSkip "WebSearch is already configured at $($SearchStatus.config.endpoint); setup skipped."
     } elseif ($WebSearchEndpoint) {
         Write-InstallerStep "Validating existing SearXNG endpoint: $WebSearchEndpoint"
-        & $NodePath (Join-Path $Target 'src\cli.js') websearch configure $WebSearchEndpoint | Out-Null
+        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch configure $WebSearchEndpoint | Out-Null
         Write-InstallerOk "WebSearch configured at $WebSearchEndpoint"
     } elseif ($DeployLocalSearch) {
         Write-InstallerStep 'Checking Docker and deploying loopback-only SearXNG'
-        & $NodePath (Join-Path $Target 'src\cli.js') websearch deploy | Out-Null
+        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch deploy | Out-Null
         Write-InstallerOk 'Loopback-only SearXNG deployed and configured'
     } elseif (-not $SkipWebSearchSetup -and -not [Console]::IsInputRedirected) {
         $ConfigureSearch = Read-Host 'Configure WebSearch now? [y/N]'
         if ($ConfigureSearch -match '^(?i:y|yes)$') {
             $Endpoint = Read-Host 'Enter the base URL of your existing SearXNG server (example: http://192.168.1.50:8080), or leave blank to deploy a new local instance with Docker'
-            if ($Endpoint) { & $NodePath (Join-Path $Target 'src\cli.js') websearch configure $Endpoint | Out-Null }
-            else { & $NodePath (Join-Path $Target 'src\cli.js') websearch deploy | Out-Null }
+            if ($Endpoint) { & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch configure $Endpoint | Out-Null }
+            else { & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch deploy | Out-Null }
             Write-InstallerOk 'WebSearch configured and validated'
         }
     } else { Write-InstallerSkip 'WebSearch setup not requested' }
@@ -525,7 +525,7 @@ Remove-LegacyGatewayTask
 $PriorNnaHome = $env:NNA_HOME
 $env:NNA_HOME = $DataRoot
 try {
-    $GatewayStatus = & $NodePath (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json
+    $GatewayStatus = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json
     $GatewayWasRunning = [bool]$GatewayStatus.runtime.running
     $ConfigureGateway = $false
     if ($GatewayStatus.configured -and $GatewayStatus.authorized_user_ids.Count -gt 0) {
@@ -546,36 +546,36 @@ try {
     }
     if ($ConfigureGateway) {
         Write-InstallerStep 'Saving the bot token in restricted local configuration'
-        $TelegramBotToken | & $NodePath (Join-Path $Target 'src\cli.js') gateway token-stdin | Out-Null
-        & $NodePath (Join-Path $Target 'src\cli.js') gateway authorize $TelegramUserId | Out-Null
+        $TelegramBotToken | & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway token-stdin | Out-Null
+        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway authorize $TelegramUserId | Out-Null
         $GatewayWorkspace = Join-Path $DataRoot 'gateway\workspace'
         New-Item -ItemType Directory -Force -Path $GatewayWorkspace | Out-Null
-        & $NodePath (Join-Path $Target 'src\cli.js') gateway workspace $GatewayWorkspace | Out-Null
-        & $NodePath (Join-Path $Target 'src\cli.js') gateway enable | Out-Null
-        & $NodePath (Join-Path $Target 'src\cli.js') gateway test | Out-Null
+        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway workspace $GatewayWorkspace | Out-Null
+        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway enable | Out-Null
+        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway test | Out-Null
         Write-InstallerOk 'Telegram bot validated and operator authorized'
         $StartGateway = $true
     }
     if ($GatewayWasRunning) {
         Write-InstallerStep 'Restarting the running Telegram gateway on the updated runtime'
-        & $NodePath (Join-Path $Target 'src\cli.js') gateway stop | Out-Null
+        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway stop | Out-Null
         $GatewayStopped = $false
         for ($Attempt = 0; $Attempt -lt 300; $Attempt++) {
             Start-Sleep -Milliseconds 100
-            $Runtime = (& $NodePath (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json).runtime
+            $Runtime = (& $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json).runtime
             if (-not $Runtime.running) { $GatewayStopped = $true; break }
         }
         if (-not $GatewayStopped) { throw 'Telegram gateway did not stop within 30 seconds; refusing to start a duplicate runtime.' }
-        & $NodePath (Join-Path $Target 'src\cli.js') gateway start | Out-Null
+        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway start | Out-Null
         Write-InstallerOk 'Telegram gateway restarted on the updated runtime'
     } elseif ($StartGateway) {
-        & $NodePath (Join-Path $Target 'src\cli.js') gateway start | Out-Null
+        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway start | Out-Null
         Write-InstallerOk 'Telegram gateway started'
     }
     if ($StartGateway) {
         $StartupRoot = [Environment]::GetFolderPath('Startup')
         $StartupPath = Join-Path $StartupRoot 'NotNativeAgent-Telegram.vbs'
-        $GatewayCommand = '"{0}" "{1}" gateway start' -f $NodePath, (Join-Path $Target 'src\cli.js')
+        $GatewayCommand = '"{0}" --disable-warning=ExperimentalWarning "{1}" gateway start' -f $NodePath, (Join-Path $Target 'src\cli.js')
         $VbsCommand = $GatewayCommand.Replace('"', '""')
         $Vbs = "CreateObject(`"WScript.Shell`").Run `"$VbsCommand`", 0, False`r`n"
         [IO.File]::WriteAllText($StartupPath, $Vbs, [Text.ASCIIEncoding]::new())
@@ -605,7 +605,7 @@ if (-not $SkipPathUpdate) {
 
 Write-InstallerSection 'Verification'
 Write-InstallerStep 'Launching the installed CLI and checking its canonical version'
-$InstalledVersion = (& $NodePath (Join-Path $Target 'src\cli.js') --version | Out-String).Trim()
+$InstalledVersion = (& $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') --version | Out-String).Trim()
 if ($InstalledVersion -notmatch [Regex]::Escape($Version)) { throw 'Installed CLI version verification failed.' }
 Write-InstallerOk $InstalledVersion
 

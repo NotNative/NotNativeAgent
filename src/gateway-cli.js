@@ -67,7 +67,7 @@ async function startDetached(config, paths, options) {
   const status = await runtimeStatus(paths);
   if (status.running) return { started: false, reason: 'already_running', runtime: status };
   const log = await open(join(paths.logs, 'gateway-console.log'), 'a');
-  const child = spawn(process.execPath, [process.argv[1], 'gateway', 'run'], {
+  const child = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', process.argv[1], 'gateway', 'run'], {
     detached: true, windowsHide: true, stdio: ['ignore', log.fd, log.fd],
     env: { ...process.env, NNA_HOME: paths.root },
   });

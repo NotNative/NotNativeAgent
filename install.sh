@@ -120,6 +120,10 @@ find_npm() {
   command -v npm 2>/dev/null || true
 }
 
+nna_runtime() {
+  NNA_HOME="$data_root" "$node_path" --disable-warning=ExperimentalWarning "$target/src/cli.js" "$@"
+}
+
 install_managed_playwright() {
   managed_root="$data_root/managed/playwright"
   browser_root="$managed_root/browsers"
@@ -135,7 +139,7 @@ install_managed_playwright() {
   PLAYWRIGHT_BROWSERS_PATH="$browser_root" "$node_path" "$managed_root/node_modules/playwright/cli.js" install chromium || {
     warn 'Playwright Chromium download failed'; return 1;
   }
-  verified=$(NNA_HOME="$data_root" PLAYWRIGHT_BROWSERS_PATH="$browser_root" "$node_path" "$target/src/cli.js" webbrowse verify) || {
+  verified=$(PLAYWRIGHT_BROWSERS_PATH="$browser_root" nna_runtime webbrowse verify) || {
     warn 'Playwright installed but Chromium launch validation failed'; return 1;
   }
   version=$(printf '%s' "$verified" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).version||''))")
@@ -258,7 +262,7 @@ ok 'User data directories prepared with restricted permissions'
 printf '%b      %s%b\n' "$c_dim" "$data_root" "$c_reset"
 
 section 'Interactive WebBrowse'
-browse_status=$(NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" webbrowse status)
+browse_status=$(nna_runtime webbrowse status)
 browse_available=$(printf '%s' "$browse_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).available?'true':'false'))")
 if [ "$browse_available" = true ]; then
   browse_version=$(printf '%s' "$browse_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).version||''))")
@@ -284,7 +288,7 @@ shell_quote() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 quoted_node=$(shell_quote "$node_path")
 quoted_cli=$(shell_quote "$target/src/cli.js")
 quoted_data=$(shell_quote "$data_root")
-printf '#!/bin/sh\nexport NNA_HOME=%s\nexec %s %s "$@"\n' "$quoted_data" "$quoted_node" "$quoted_cli" > "$bin_root/nna"
+printf '#!/bin/sh\nexport NNA_HOME=%s\nexec %s --disable-warning=ExperimentalWarning %s "$@"\n' "$quoted_data" "$quoted_node" "$quoted_cli" > "$bin_root/nna"
 chmod 755 "$bin_root/nna"
 "$node_path" -e "const fs=require('fs');fs.writeFileSync(process.argv[1],JSON.stringify({product:'NotNativeAgent',version:process.argv[2],install_root:process.argv[3],data_root:process.argv[4],node:process.argv[5],node_major:Number(process.argv[6])})+'\\n',{mode:0o600})" "$install_root/install.json" "$version" "$install_root" "$data_root" "$node_path" "$node_major"
 ok 'NNA launcher written'
@@ -292,7 +296,7 @@ printf '%b      %s%b\n' "$c_dim" "$bin_root/nna" "$c_reset"
 printf '%b      Uninstaller: %s%b\n' "$c_dim" "$install_root/uninstall.sh" "$c_reset"
 
 section 'Initial provider profile'
-provider_status=$(NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" provider status)
+provider_status=$(nna_runtime provider status)
 provider_configured=$(printf '%s' "$provider_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).configured?'true':'false'))")
 if [ "$provider_configured" = true ]; then
   skip 'Provider profile already configured; setup skipped.'
@@ -308,7 +312,7 @@ elif [ "$provider_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
   stty echo
   printf '\n'
   step 'Discovering available models from the provider'
-  discovery_json=$(printf '%s\n' "$provider_key" | NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" provider discover "$provider_endpoint")
+  discovery_json=$(printf '%s\n' "$provider_key" | nna_runtime provider discover "$provider_endpoint")
   model_count=$(printf '%s' "$discovery_json" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(String(JSON.parse(s).models.length)))")
   index=1
   while [ "$index" -le "$model_count" ]; do
@@ -323,7 +327,7 @@ elif [ "$provider_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
     selected_model=$(printf '%s' "$discovery_json" | "$node_path" -e "let s='';const v=process.argv[1];process.stdin.on('data',d=>s+=d).on('end',()=>{const m=JSON.parse(s).models;const n=Number(v);const x=Number.isInteger(n)&&n>=1&&n<=m.length?m[n-1]:m.find(i=>i===v);process.stdout.write(x||'')})" "$selection")
     [ -n "$selected_model" ] || printf '%s\n' 'Enter a listed number or an exact model name.' >&2
   done
-  configured_json=$(printf '%s\n' "$provider_key" | NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" provider configure "$provider_endpoint" "$selected_model")
+  configured_json=$(printf '%s\n' "$provider_key" | nna_runtime provider configure "$provider_endpoint" "$selected_model")
   configured_endpoint=$(printf '%s' "$configured_json" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).endpoint))")
   ok "Provider configured: $configured_endpoint / $selected_model"
   provider_key=''
@@ -332,18 +336,18 @@ else
 fi
 
 section 'WebSearch integration'
-search_status=$(NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" websearch status)
+search_status=$(nna_runtime websearch status)
 search_configured=$(printf '%s' "$search_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).configured?'true':'false'))")
 if [ "$search_configured" = true ]; then
   search_endpoint=$(printf '%s' "$search_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).config.endpoint||''))")
   skip "WebSearch is already configured at $search_endpoint; setup skipped."
 elif [ "$web_search_mode" = endpoint ]; then
   step "Validating existing SearXNG endpoint: $web_search_endpoint"
-  NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" websearch configure "$web_search_endpoint" >/dev/null
+  nna_runtime websearch configure "$web_search_endpoint" >/dev/null
   ok "WebSearch configured at $web_search_endpoint"
 elif [ "$web_search_mode" = local ]; then
   step 'Checking Docker and deploying loopback-only SearXNG'
-  NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" websearch deploy >/dev/null
+  nna_runtime websearch deploy >/dev/null
   ok 'Loopback-only SearXNG deployed and configured'
 elif [ "$web_search_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
   printf '%s' 'Configure WebSearch now? [y/N] '
@@ -353,9 +357,9 @@ elif [ "$web_search_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
       printf '%s' 'Enter the base URL of your existing SearXNG server (example: http://192.168.1.50:8080), or leave blank to deploy a new local instance with Docker: '
       read -r endpoint
       if [ -n "$endpoint" ]; then
-        NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" websearch configure "$endpoint" >/dev/null
+        nna_runtime websearch configure "$endpoint" >/dev/null
       else
-        NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" websearch deploy >/dev/null
+        nna_runtime websearch deploy >/dev/null
       fi
       ok 'WebSearch configured and validated' ;;
   esac
@@ -364,7 +368,7 @@ else
 fi
 
 section 'Telegram gateway'
-gateway_status=$(NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway status)
+gateway_status=$(nna_runtime gateway status)
 gateway_configured=$(printf '%s' "$gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).configured?'true':'false'))")
 gateway_users=$(printf '%s' "$gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(String(JSON.parse(s).authorized_user_ids.length)))")
 gateway_running=$(printf '%s' "$gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).runtime?.running?'true':'false'))")
@@ -385,14 +389,14 @@ fi
 if [ "$gateway_mode" = configure ]; then
   [ -n "$telegram_token" ] && [ -n "$telegram_user_id" ] || { printf '%s\n' 'Telegram token and user ID are both required.' >&2; exit 1; }
   step 'Saving the bot token in restricted local configuration'
-  printf '%s\n' "$telegram_token" | NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway token-stdin >/dev/null
-  NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway authorize "$telegram_user_id" >/dev/null
+  printf '%s\n' "$telegram_token" | nna_runtime gateway token-stdin >/dev/null
+  nna_runtime gateway authorize "$telegram_user_id" >/dev/null
   gateway_workspace="$data_root/gateway/workspace"
   mkdir -p "$gateway_workspace"
   chmod 700 "$gateway_workspace"
-  NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway workspace "$gateway_workspace" >/dev/null
-  NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway enable >/dev/null
-  NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway test >/dev/null
+  nna_runtime gateway workspace "$gateway_workspace" >/dev/null
+  nna_runtime gateway enable >/dev/null
+  nna_runtime gateway test >/dev/null
   if [ "$platform_name" = linux ] && command -v systemctl >/dev/null 2>&1; then
     service_root="$HOME/.config/systemd/user"
     mkdir -p "$service_root"
@@ -403,7 +407,7 @@ After=network-online.target
 [Service]
 Type=simple
 Environment="NNA_HOME=$data_root"
-ExecStart="$node_path" "$target/src/cli.js" gateway run
+ExecStart="$node_path" --disable-warning=ExperimentalWarning "$target/src/cli.js" gateway run
 Restart=on-failure
 RestartSec=3
 [Install]
@@ -412,10 +416,10 @@ EOF
     if systemctl --user daemon-reload >/dev/null 2>&1; then
       systemctl --user enable --now notnativeagent-telegram.service >/dev/null
     else
-      NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway start >/dev/null
+      nna_runtime gateway start >/dev/null
     fi
   else
-    NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway start >/dev/null
+    nna_runtime gateway start >/dev/null
   fi
   telegram_token=''
   ok 'Telegram bot validated and gateway started'
@@ -427,25 +431,25 @@ if [ "$gateway_running" = true ] && [ "$gateway_mode" != configure ]; then
   if [ "$platform_name" = linux ] && command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet notnativeagent-telegram.service; then
     systemctl --user restart notnativeagent-telegram.service
   else
-    NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway stop >/dev/null
+    nna_runtime gateway stop >/dev/null
     gateway_stopped=false
     gateway_attempt=0
     while [ "$gateway_attempt" -lt 300 ]; do
       sleep 0.1
-      gateway_runtime=$(NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway status)
+      gateway_runtime=$(nna_runtime gateway status)
       gateway_still_running=$(printf '%s' "$gateway_runtime" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).runtime?.running?'true':'false'))")
       if [ "$gateway_still_running" = false ]; then gateway_stopped=true; break; fi
       gateway_attempt=$((gateway_attempt + 1))
     done
     [ "$gateway_stopped" = true ] || { printf '%s\n' 'Telegram gateway did not stop within 30 seconds; refusing to start a duplicate runtime.' >&2; exit 1; }
-    NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" gateway start >/dev/null
+    nna_runtime gateway start >/dev/null
   fi
   ok 'Telegram gateway restarted on the updated runtime'
 fi
 
 section 'Verification'
 step 'Launching the installed CLI and checking its canonical version'
-installed_version=$(NNA_HOME="$data_root" "$node_path" "$target/src/cli.js" --version)
+installed_version=$(nna_runtime --version)
 case "$installed_version" in *"$version"*) ;; *) printf '%s\n' 'Installed CLI version verification failed.' >&2; exit 1 ;; esac
 ok "$installed_version"
 

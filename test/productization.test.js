@@ -191,6 +191,7 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /does not target the legacy NNA gateway/u);
   assert.match(windowsInstall, /GatewayWasRunning/u);
   assert.match(windowsInstall, /Telegram gateway restarted on the updated runtime/u);
+  assert.match(windowsInstall, /--disable-warning=ExperimentalWarning/u);
   assert.match(windowsUninstall, /DeleteUserData/u);
   assert.match(windowsUninstall, /KeepUserData/u);
   assert.match(windowsUninstall, /ParentProcessId/u);
@@ -217,6 +218,8 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(linuxInstall, /gateway_running/u);
   assert.match(linuxInstall, /systemctl --user restart notnativeagent-telegram\.service/u);
   assert.match(linuxInstall, /Telegram gateway restarted on the updated runtime/u);
+  assert.match(linuxInstall, /nna_runtime/u);
+  assert.match(linuxInstall, /--disable-warning=ExperimentalWarning/u);
   assert.match(unixUninstall, /Darwin/u);
   assert.match(unixUninstall, /Application Support\/NotNativeAgent/u);
   assert.match(unixUninstall, /--keep-user-data/u);
@@ -354,6 +357,7 @@ test('native per-user installer launches the packaged CLI and refuses noninterac
     assert.match(result.stdout, /Verification/u);
     assert.match(result.stdout, /INSTALL COMPLETE/u);
     assert.doesNotMatch(result.stdout, /\u001b/u);
+    assert.doesNotMatch(result.stderr, /ExperimentalWarning/u);
     assert.equal(existsSync(app), true);
     assert.equal(existsSync(data), true);
   } finally {
