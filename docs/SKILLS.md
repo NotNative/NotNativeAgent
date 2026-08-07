@@ -55,6 +55,11 @@ workflows also have memorable command aliases. `/devteam`, `/research`, and
 `/troubleshoot` remain workflow commands backed by their corresponding skills; skill
 authors should not assume a new alias exists merely because a skill was registered.
 
+The bundled `webdesign` skill is intentionally different from those direct workflows. It
+is a reusable design-and-validation standard that an agent can load while performing an
+ordinary UI task. It has no dedicated command alias and does not imply a separate pipeline;
+users may invoke it explicitly with `/skill webdesign [request]` when desired.
+
 NNA includes three direct workflow commands. `/troubleshoot [DESCRIPTION]` diagnoses the
 current or another local session through redacted runtime evidence. `/devteam [REQUEST]`
 runs a full evidence-driven software team through planning, dependency-aware implementation,

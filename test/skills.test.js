@@ -20,6 +20,12 @@ test('bundled operational skills are available to standalone NNA', async () => {
   assert.match(devteam, /general Power of Ten[\s\S]+UI Power of Ten[\s\S]+accessibility/u);
   assert.match(registry.queueUser('research').body, /evidence ledger[\s\S]+contradictions[\s\S]+fresh `reviewer`/u);
   assert.match(registry.queueUser('troubleshoot').body, /nna\.list_sessions/u);
+  const webdesign = registry.queueUser('webdesign').body;
+  assert.match(webdesign, /Swiss-informed baseline/u);
+  assert.match(webdesign, /target product's established visual language is authoritative/u);
+  assert.match(webdesign, /Validate with rendered evidence/u);
+  assert.match(webdesign, /Do not claim visual validation from source inspection alone/u);
+  assert.match(webdesign, /not a separate[\s\S]+pipeline/u);
 });
 
 test('discovers bounded local skills and enforces invocation direction', async () => {
