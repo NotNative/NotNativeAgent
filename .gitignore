@@ -1,5 +1,6 @@
 # Local development planning artifacts, including docs/planning/resolved/.
 /docs/planning/
+/.research/
 /.devteam/
 /.tmp-npm-cache/
 /.npm-cache/
