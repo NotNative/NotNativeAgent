@@ -484,6 +484,9 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(clock, /UTC \d{4}-\d{2}-\d{2}T/u);
   assert.match(clock, /today, tomorrow, yesterday, and this evening/u);
   assert.match(policy, /workspace is context, not an implied assignment/u);
+  assert.match(policy, /NNA\.md is discovered and injected by the runtime/u);
+  assert.match(policy, /orient yourself from any injected project guidance/u);
+  assert.match(policy, /do not assume or create a guidance file when none was injected/u);
   assert.equal(policy.includes(config(process.cwd()).workspaceRoot), true);
   assert.match(policy, /explicitly refers to this project, repository, codebase, or workspace/u);
   assert.match(policy, /Use tools only when they are necessary/u);
