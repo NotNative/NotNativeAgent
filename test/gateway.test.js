@@ -9,6 +9,8 @@ import {
 } from '../src/gateway-config.js';
 import { splitTelegramText, TelegramApi } from '../src/telegram-api.js';
 import { gatewaySessionId, TelegramGateway } from '../src/telegram-gateway.js';
+import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-broker.js';
+import { readTelegramOutbox, TelegramNotificationQueue } from '../src/telegram-notifications.js';
 import { commandDefinition } from '../src/tui-commands.js';
 import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui-overlays.js';
 
@@ -48,6 +50,8 @@ test('Telegram transport uses bounded POST requests and chunks replies', async (
   await api.sendMessage('99', 'a'.repeat(8_300));
   assert.equal(calls.length, 4);
   assert.equal(calls.every((item) => item.init.method === 'POST'), true);
+  await api.getUpdates(0, 5);
+  assert.deepEqual(JSON.parse(calls.at(-1).init.body).allowed_updates, ['message', 'callback_query']);
   assert.equal(splitTelegramText('a'.repeat(8_300)).length, 3);
 });
 
@@ -114,4 +118,110 @@ test('authorized Telegram messages enter a durable chat session while unknown us
   assert.equal(created.length, 1);
   assert.equal(created[0], gatewaySessionId('420'));
   assert.deepEqual(sent, [{ chatId: '420', text: 'authenticated-telegram-user:42:hello' }]);
+});
+
+test('Console session broker discovers, submits, and cancels without copying conversation context', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-session-broker-'));
+  const calls = [];
+  const workspace = {
+    brokerSessions: () => [{ id: 'session-main', alias: 'Main', summary: 'Working on gateway routing', active: true, busy: false }],
+    submitSession: async (id, content) => { calls.push(['submit', id, content]); return { outcome: 'completed', text: 'done' }; },
+    cancelSession: async (id) => { calls.push(['cancel', id]); return { accepted: true }; },
+  };
+  const broker = await new ConsoleSessionBroker(workspace, { root }).start();
+  const directory = new ConsoleSessionDirectory(root);
+  try {
+    const [target] = await directory.list();
+    assert.equal(target.alias, 'Main');
+    assert.equal(target.summary, 'Working on gateway routing');
+    assert.deepEqual(await directory.submit(target, 'continue here'), { outcome: 'completed', text: 'done' });
+    assert.deepEqual(await directory.cancel(target), { accepted: true });
+    assert.deepEqual(calls, [['submit', 'session-main', 'continue here'], ['cancel', 'session-main']]);
+  } finally { await broker.close(); }
+  assert.deepEqual(await directory.list(), []);
+});
+
+test('Telegram attach and detach controls are intercepted before the standalone model', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-attach-'));
+  const sent = [], callbacks = [], routed = [], created = [];
+  let polls = 0; let finished;
+  const done = new Promise((resolve) => { finished = resolve; });
+  const target = { id: 'session-main', targetId: 'target123', alias: 'Main', summary: 'Building NNA', brokerId: 'broker', broker: {} };
+  const api = {
+    async getMe() { return { id: 1 }; },
+    async getUpdates(_offset, _timeout, signal) {
+      polls += 1;
+      if (polls === 1) return [
+        { update_id: 1, message: { text: '/sessions', from: { id: 42 }, chat: { id: 42 } } },
+        { update_id: 2, callback_query: { id: 'cb1', data: 'nna:a:target123', from: { id: 42 }, message: { chat: { id: 42 } } } },
+        { update_id: 3, message: { text: 'continue here', from: { id: 42 }, chat: { id: 42 } } },
+        { update_id: 4, message: { text: '/detach', from: { id: 42 }, chat: { id: 42 } } },
+        { update_id: 5, message: { text: 'standalone', from: { id: 42 }, chat: { id: 42 } } },
+      ];
+      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    },
+    async sendMessage(chatId, text, _signal, options) {
+      sent.push({ chatId, text, options }); if (text.includes('standalone:standalone')) finished();
+    },
+    async answerCallbackQuery(id) { callbacks.push(id); },
+  };
+  const gateway = new TelegramGateway({
+    api, paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 8 } },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    sessionDirectory: { list: async () => [target], submit: async (_target, text) => { routed.push(text); return { outcome: 'completed', text: `attached:${text}` }; } },
+    engineFactory: () => {
+      created.push(true);
+      return { config: { executionManifest: null }, initialize: async () => undefined,
+        submit: async (command) => ({ outcome: 'completed', text: `standalone:${command.content}` }),
+        cancel: async () => ({ accepted: true }), shutdown: async () => ({ complete: true }) };
+    },
+  });
+  const running = gateway.run(); await done; await gateway.shutdown(); await running;
+  assert.deepEqual(routed, ['continue here']);
+  assert.equal(created.length, 1);
+  assert.deepEqual(callbacks, ['cb1']);
+  assert.equal(sent.some((item) => item.text === 'attached:continue here' && item.options.replyMarkup), true);
+});
+
+test('Telegram notification queue publishes only at terminal turn state', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-outbox-'));
+  const queue = new TelegramNotificationQueue(root, 'session-main');
+  queue.schedule('turn-1', 'The audit is complete.');
+  assert.deepEqual(await readTelegramOutbox(root), []);
+  await queue.terminal({ type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
+  const [item] = await readTelegramOutbox(root);
+  assert.equal(item.message, 'The audit is complete.');
+  assert.equal(item.session_id, 'session-main');
+  assert.equal(item.outcome, 'completed');
+});
+
+test('gateway delivers terminal notifications out of band with an attach control', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-telegram-delivery-'));
+  const outbox = join(root, 'outbox');
+  const queue = new TelegramNotificationQueue(outbox, 'session-main');
+  queue.schedule('turn-1', 'Finished the requested audit.');
+  await queue.terminal({ type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
+  let sentResolve; const delivered = new Promise((resolve) => { sentResolve = resolve; });
+  const sent = [];
+  const api = {
+    async getMe() { return { id: 1 }; },
+    async getUpdates(_offset, _timeout, signal) {
+      if (sent.length === 0) return [];
+      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    },
+    async sendMessage(chatId, text, _signal, options) { sent.push({ chatId, text, options }); sentResolve(); },
+  };
+  const target = { id: 'session-main', targetId: 'target123', alias: 'Main', summary: 'Audit', brokerId: 'broker', broker: {} };
+  const gateway = new TelegramGateway({
+    api, paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), telegramOutbox: outbox },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    sessionDirectory: { list: async () => [target] },
+  });
+  const running = gateway.run(); await delivered; await gateway.shutdown(); await running;
+  assert.equal(sent[0].chatId, '42');
+  assert.match(sent[0].text, /Finished the requested audit/u);
+  assert.equal(sent[0].options.replyMarkup.inline_keyboard[0][0].callback_data, 'nna:a:target123');
+  assert.deepEqual(await readTelegramOutbox(outbox), []);
 });

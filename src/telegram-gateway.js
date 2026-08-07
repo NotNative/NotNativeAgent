@@ -7,6 +7,8 @@ import { SessionEngine } from './engine.js';
 import { newId } from './ids.js';
 import { StructuredLog } from './structured-log.js';
 import { FairScheduler } from './fair-scheduler.js';
+import { ConsoleSessionDirectory } from './session-broker.js';
+import { acknowledgeTelegramNotification, readTelegramOutbox } from './telegram-notifications.js';
 
 export class TelegramGateway {
   constructor(options) {
@@ -17,6 +19,8 @@ export class TelegramGateway {
     this.engineOptions = options.engineOptions ?? {};
     this.engineFactory = options.engineFactory ?? ((engineOptions) => new SessionEngine(engineOptions));
     this.sessions = new Map();
+    this.attachments = new Map();
+    this.catalogs = new Map();
     this.queues = new Map();
     this.offset = 0;
     this.running = false;
@@ -25,6 +29,7 @@ export class TelegramGateway {
     this.scheduler = options.scheduler ?? new FairScheduler({
       limit: this.engineConfig.limits.providerConcurrency, maxQueued: this.engineConfig.limits.providerQueueLimit,
     });
+    this.sessionDirectory = options.sessionDirectory ?? new ConsoleSessionDirectory(this.paths.sessionBrokers ?? join(this.paths.gateway, 'session-brokers'));
   }
 
   async initialize() {
@@ -53,6 +58,9 @@ export class TelegramGateway {
         this.offset = Math.max(this.offset, Number(update.update_id) + 1);
         this.#dispatch(update);
       }
+      await this.#drainNotifications().catch((error) => this.logger.record({
+        type: 'gateway_notification_failed', code: error.code ?? 'notification_delivery_failed', outcome: 'failed',
+      }));
       await saveOffset(join(this.paths.gateway, 'state.json'), this.offset);
     }
     await this.shutdown();
@@ -76,7 +84,7 @@ export class TelegramGateway {
   }
 
   #dispatch(update) {
-    const message = update?.message;
+    const message = update?.message ?? update?.callback_query?.message;
     const chatId = message?.chat ? String(message.chat.id) : null;
     if (!chatId || message?.text?.trim() === '/cancel') {
       this.#handle(update).catch((error) => this.#recordUpdateFailure(error));
@@ -100,24 +108,44 @@ export class TelegramGateway {
   }
 
   async #handle(update) {
-    const message = update?.message;
-    if (!message || typeof message.text !== 'string' || !message.from || !message.chat) return;
-    const userId = String(message.from.id);
+    const callback = update?.callback_query;
+    const message = update?.message ?? callback?.message;
+    const actor = update?.message?.from ?? callback?.from;
+    if (!message || !actor || !message.chat) return;
+    const userId = String(actor.id);
     const chatId = String(message.chat.id);
     if (!this.config.authorized_user_ids.includes(userId)) {
       this.logger.record({ type: 'gateway_access_denied', reason_code: 'telegram_user_not_authorized', outcome: 'denied' });
       return;
     }
+    if (callback) return this.#callback(callback, chatId, userId);
+    if (typeof message.text !== 'string') return;
     const text = message.text.trim();
     if (!text) return;
     if (text === '/cancel') {
+      const attached = await this.#attachedTarget(chatId);
+      if (attached) {
+        await this.sessionDirectory.cancel(attached);
+        await this.api.sendMessage(chatId, `Cancellation requested for ${attached.alias}.`, this.controller.signal, attachedControls(attached.alias));
+        return;
+      }
       const session = this.sessions.get(chatId);
       if (session) await session.ingress.submit({ version: '1.0', type: 'cancel', request_id: newId('gateway_cancel') }, gatewayPrincipal(userId));
       await this.api.sendMessage(chatId, session ? 'Cancellation requested.' : 'No active turn.', this.controller.signal);
       return;
     }
     if (text === '/start' || text === '/help') {
-      await this.api.sendMessage(chatId, 'NNA gateway ready. Send a request, or use /cancel to stop active work.', this.controller.signal);
+      await this.api.sendMessage(chatId, 'NNA gateway ready. Send a request, use /sessions to attach to a Console conversation, or /cancel to stop active work.', this.controller.signal);
+      return;
+    }
+    if (text === '/sessions') return this.#showSessions(chatId);
+    if (text === '/detach') return this.#detach(chatId);
+    const attach = /^\/attach(?:\s+(.+))?$/u.exec(text);
+    if (attach) return this.#attachFromText(chatId, attach[1]);
+    const attached = await this.#attachedTarget(chatId);
+    if (attached) {
+      const result = await this.sessionDirectory.submit(attached, text);
+      await this.api.sendMessage(chatId, result.text || turnFallback(result), this.controller.signal, attachedControls(attached.alias));
       return;
     }
     const session = await this.#session(chatId);
@@ -126,6 +154,94 @@ export class TelegramGateway {
     }, gatewayPrincipal(userId));
     const response = result.text || turnFallback(result);
     await this.api.sendMessage(chatId, response, this.controller.signal);
+  }
+
+  async #showSessions(chatId) {
+    const catalog = await this.sessionDirectory.list();
+    this.catalogs.set(chatId, catalog);
+    if (catalog.length === 0) {
+      await this.api.sendMessage(chatId, 'No active NNA Console conversations are available.', this.controller.signal);
+      return;
+    }
+    const current = this.attachments.get(chatId)?.targetId;
+    const lines = catalog.map((item, index) => `${index + 1}. ${item.alias}${item.targetId === current ? ' (attached)' : ''} - ${item.summary}`);
+    const keyboard = catalog.slice(0, 20).map((item) => [{ text: `Attach ${item.alias}`, callback_data: `nna:a:${item.targetId}` }]);
+    await this.api.sendMessage(chatId, `Active NNA conversations:\n\n${lines.join('\n')}\n\nUse /attach <number-or-name>.`, this.controller.signal, {
+      replyMarkup: { inline_keyboard: keyboard },
+    });
+  }
+
+  async #attachFromText(chatId, selector) {
+    if (!selector?.trim()) return this.#showSessions(chatId);
+    const catalog = await this.sessionDirectory.list();
+    this.catalogs.set(chatId, catalog);
+    const number = Number(selector);
+    const target = Number.isSafeInteger(number) && number > 0 ? catalog[number - 1]
+      : catalog.find((item) => item.alias.toLowerCase() === selector.trim().toLowerCase());
+    if (!target) {
+      await this.api.sendMessage(chatId, 'Conversation not found. Use /sessions to refresh the list.', this.controller.signal);
+      return;
+    }
+    await this.#attach(chatId, target);
+  }
+
+  async #attach(chatId, target) {
+    this.attachments.set(chatId, { targetId: target.targetId, brokerId: target.brokerId, sessionId: target.id, alias: target.alias });
+    await this.api.sendMessage(chatId, `Attached to ${target.alias}. Messages now continue that Console conversation.`, this.controller.signal, attachedControls(target.alias));
+  }
+
+  async #detach(chatId) {
+    const prior = this.attachments.get(chatId);
+    this.attachments.delete(chatId);
+    await this.api.sendMessage(chatId, prior
+      ? `Detached from ${prior.alias}. The standalone Telegram conversation is active again.`
+      : 'Telegram is already using its standalone conversation.', this.controller.signal);
+  }
+
+  async #callback(callback, chatId) {
+    const data = String(callback.data ?? '');
+    try {
+      if (data === 'nna:d') await this.#detach(chatId);
+      else if (data === 'nna:s') await this.#showSessions(chatId);
+      else if (data.startsWith('nna:a:')) {
+        const targetId = data.slice(6);
+        const catalog = await this.sessionDirectory.list();
+        const target = catalog.find((item) => item.targetId === targetId);
+        if (!target) await this.api.sendMessage(chatId, 'That conversation is no longer available. Use /sessions to refresh.', this.controller.signal);
+        else await this.#attach(chatId, target);
+      }
+    } finally { await this.api.answerCallbackQuery?.(callback.id, null, this.controller.signal); }
+  }
+
+  async #attachedTarget(chatId) {
+    const attachment = this.attachments.get(chatId);
+    if (!attachment) return null;
+    const catalog = await this.sessionDirectory.list();
+    const target = catalog.find((item) => item.targetId === attachment.targetId);
+    if (target) return target;
+    this.attachments.delete(chatId);
+    await this.api.sendMessage(chatId, `${attachment.alias} closed or became unavailable. Telegram returned to its standalone conversation.`, this.controller.signal);
+    return null;
+  }
+
+  async #drainNotifications() {
+    const items = await readTelegramOutbox(this.paths.telegramOutbox);
+    if (items.length === 0) return;
+    const catalog = await this.sessionDirectory.list();
+    for (const item of items) {
+      const source = catalog.find((target) => target.id === item.session_id);
+      for (const chatId of this.config.authorized_user_ids) {
+        const attached = this.attachments.get(String(chatId));
+        const options = attached?.targetId === source?.targetId ? attachedControls(source.alias)
+          : source ? { replyMarkup: { inline_keyboard: [[
+            { text: `Attach ${source.alias}`, callback_data: `nna:a:${source.targetId}` },
+            { text: 'Sessions', callback_data: 'nna:s' },
+          ]] } } : {};
+        await this.api.sendMessage(String(chatId), `NNA notification (${item.outcome}):\n${item.message}`, this.controller.signal, options);
+      }
+      await acknowledgeTelegramNotification(item);
+      this.logger.record({ type: 'gateway_notification_delivered', outcome: 'completed', session_id: item.session_id });
+    }
   }
 
   async #session(chatId) {
@@ -142,6 +258,13 @@ export class TelegramGateway {
     this.sessions.set(chatId, session);
     return session;
   }
+}
+
+function attachedControls(alias) {
+  return { replyMarkup: { inline_keyboard: [[
+    { text: `Detach from ${String(alias).slice(0, 30)}`, callback_data: 'nna:d' },
+    { text: 'Sessions', callback_data: 'nna:s' },
+  ]] } };
 }
 
 export function gatewaySessionId(chatId) {

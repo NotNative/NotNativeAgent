@@ -25,6 +25,7 @@ import { gitInspectionDefinition } from './git-inspection-tool.js';
 import { prepareLineEdit, prepareTextEdit } from './stale-edit-recovery.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { CORE_TOOL_NAMES } from './core-tool-names.js';
+import { telegramNotificationDefinition } from './telegram-notifications.js';
 const MAX_TEXT_BYTES = 1_048_576; const ALWAYS_EXPOSED = new Set(CORE_TOOL_NAMES);
 export class ToolRegistry {
   #definitions = new Map();
@@ -53,6 +54,7 @@ export class ToolRegistry {
     this.mcpControl = options.mcpControl;
     this.subagentControl = options.subagentControl;
     this.conversationWork = options.conversationWork;
+    this.telegramNotifications = options.telegramNotifications; this.activeTurnId = options.activeTurnId;
   }
   async initialize() {
     await this.paths.initialize();
@@ -80,6 +82,7 @@ export class ToolRegistry {
     if (this.skills) for (const definition of skillToolDefinitions(this.skills)) this.#install(definition);
     if (this.subagentControl && !this.hosted) this.#install(subagentDefinition(this.subagentControl));
     if (this.conversationWork) for (const definition of conversationWorkDefinitions(this.conversationWork)) this.#install(definition);
+    if (this.telegramNotifications) this.#install(telegramNotificationDefinition(this.telegramNotifications, this.activeTurnId));
   }
   async close() { await this.definition('web.browse')?.manager?.close?.(); }
   snapshot() {
@@ -215,7 +218,6 @@ function validateValue(value, rule, depth) {
     for (const [key, item] of Object.entries(value)) validateValue(item, rule.properties?.[key], depth + 1);
   }
 }
-
 function validateSchema(schema) {
   let encoded;
   try { encoded = JSON.stringify(schema); } catch {
@@ -235,7 +237,6 @@ function validateSchema(schema) {
     }
   }
 }
-
 function writeDefinition(paths, changes) {
   return {
     name: 'fs.write_text', version: 1, purpose: 'Atomically write bounded UTF-8 text to one accessible file after reading existing content.',
@@ -260,7 +261,6 @@ function writeDefinition(paths, changes) {
     executor: (request, signal) => atomicWrite(request, signal, {}, changes),
   };
 }
-
 function editDefinition(paths, changes, receipts) {
   return {
     name: 'fs.edit_text', version: 1,

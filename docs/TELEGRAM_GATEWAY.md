@@ -32,9 +32,34 @@ chat while sharing NNA's bounded provider scheduler. `/cancel` bypasses the chat
 reaches an active engine turn immediately. Replies are plain text and split at Telegram's
 message-size boundary.
 
+## Console conversation attachment
+
+The standalone Telegram conversation remains the default. The gateway can also attach to
+a currently running NNA Console conversation without copying or merging context:
+
+- `/sessions` lists active Console conversations with a short alias and bounded summary.
+- `/attach <number-or-alias>` routes subsequent messages into that exact conversation.
+- `/detach` returns Telegram to its standalone durable conversation.
+- Inline **Attach**, **Detach**, and **Sessions** buttons perform the same operations before
+  any message reaches a model.
+- If the Console conversation closes or its process exits, the gateway detaches
+  automatically and preserves the standalone Telegram conversation.
+
+Console discovery uses an authenticated loopback-only broker. Each Console process owns
+its session engines and remains authoritative; the gateway receives only bounded
+descriptors and terminal turn results.
+
+## Completion notifications
+
+Root interactive NNA sessions expose `notification.telegram`. When the operator asks to
+be notified after work finishes, the tool registers a harness-owned terminal-event
+notification. The message enters the local gateway outbox only when that turn reaches a
+terminal outcome. Delivery does not inject content into either conversation. If the
+originating Console conversation is still available, Telegram includes an inline
+**Attach** button.
+
 Gateway sessions use the normal engine, reviewer, tools, model routes, context management,
 hooks, skills, forensic telemetry, and project-trust rules. A role without a dedicated
 provider profile inherits Primary just as it does in the Console. Telegram does not create
 a second permission system and cannot bypass tool review. The configured gateway workspace
 is therefore a real authority boundary; choose it deliberately.
-

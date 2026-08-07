@@ -9,4 +9,5 @@ export const CORE_TOOL_NAMES = Object.freeze([
   'web.search', 'web.fetch', 'web.browse', 'process.run', 'shell.run',
   'skill.search', 'skill.load', 'agent.run',
   'work.status', 'work.goal', 'work.task_add', 'work.task_update',
+  'notification.telegram',
 ]);

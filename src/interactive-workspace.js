@@ -26,9 +26,7 @@ import { boundedProviderCapabilities } from './provider-capabilities.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './workspace-models.js';
 import { advanceWorkspaceConfig, publishWorkspaceConfiguration, writeWorkspaceManifest } from './workspace-configuration-publication.js';
 import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './workspace-provider-catalog.js';
-import {
-  clearWorkspaceProviderRole, deleteWorkspaceProvider, selectWorkspaceProviderRole,
-} from './workspace-provider-routing.js';
+import { clearWorkspaceProviderRole, deleteWorkspaceProvider, selectWorkspaceProviderRole } from './workspace-provider-routing.js';
 import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
 import { discoverWorkspaceProviderModels } from './workspace-provider-discovery.js';
@@ -36,6 +34,7 @@ import { deleteManagedMcpCredential, saveManagedMcpCredential } from './mcp-cred
 import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './workspace-dream.js';
 import { resumeWorkspaceConversation } from './workspace-resume.js';
 import { SecretBroker } from './secret-broker.js';
+import { cancelWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './workspace-session-broker.js';
 export class InteractiveWorkspace {
   #tasks = new Set();
   constructor(options) {
@@ -72,6 +71,7 @@ export class InteractiveWorkspace {
     });
   }
   initializeDream() { return initializeWorkspaceDream(this); }
+  initializeSessionBroker() { return initializeWorkspaceSessionBroker(this); }
   dreamCommand(action) { return runWorkspaceDreamCommand(this, action); }
   async restore() {
     const result = await restoreWorkspace(this);
@@ -140,6 +140,11 @@ export class InteractiveWorkspace {
       version: '1.0', type: 'submit', request_id: newId('tui'), content, attachments,
     }, 'authenticated-interactive-operator'));
   }
+  brokerSessions() { return workspaceBrokerSessions(this); }
+  submitSession(sessionId, content) { return submitWorkspaceSession(this, sessionId, content); }
+  cancelSession(sessionId) { return cancelWorkspaceSession(this, sessionId); }
+  _savePoolForBroker() { return this.#savePool(); }
+  _tasksForBroker() { return this.#tasks; }
   steerActive(content) {
     const session = this._active();
     return session.ingress.submit({
@@ -227,6 +232,7 @@ export class InteractiveWorkspace {
   }
   async shutdown() {
     this.dream?.close();
+    await this.sessionBroker?.close?.();
     let poolFailure = null;
     try {
       await this.#savePool();
@@ -378,7 +384,6 @@ export class InteractiveWorkspace {
     await deleteManagedMcpCredential(this.options.dataPaths ?? userDataPaths(), reference);
     return result;
   }
-
   async testMcpServer(id) {
     return testConfiguredMcpServer({
       config: this.config, webSearchConfigPath: this.webSearchConfigPath,
@@ -386,9 +391,7 @@ export class InteractiveWorkspace {
     }, id);
   }
   async availableModels() { return availableWorkspaceModels(this); }
-  async qualifyActiveModel() {
-    return qualifyWorkspaceModel(this);
-  }
+  async qualifyActiveModel() { return qualifyWorkspaceModel(this); }
   async webSearchStatus(test = false) {
     return webSearchStatus(this.#webSearchState(), test);
   }
@@ -454,14 +457,12 @@ export class InteractiveWorkspace {
     this.onChange();
     await this._savePoolRecoverable();
   }
-
   async _publishSpecialistRoutes(next) {
     const entries = specialistRouteEntries(this.sessions, next.config);
     await publishWorkspaceConfiguration(this, entries, next);
     this.onChange();
     await this._savePoolRecoverable();
   }
-
   async _updateSession(session, manifest) {
     await session.engine.updateConfiguration({
       request_id: newId('tui_config'), type: 'configuration_update', manifest,
@@ -473,13 +474,11 @@ export class InteractiveWorkspace {
     const config = session?.engine.pendingConfig ?? session?.engine.config;
     if (projected) projected.metadata = routePresentation(config, route, projected.metadata);
   }
-
   _active() {
     const session = this.sessions.get(this.projection.activeId);
     if (!session) throw new ContractError('session_missing', 'no active conversation');
     return session;
   }
-
   #savePool() {
     return this.tabPersistence.save();
   }

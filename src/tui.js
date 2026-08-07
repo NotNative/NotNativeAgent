@@ -61,6 +61,7 @@ export async function runTui(input, output, diagnostics, options) {
   try {
     terminal.enter();
     await initializeWorkspace(workspace, options);
+    await workspace.initializeSessionBroker?.();
     await workspace.initializeDream?.();
     renderLoop.now();
     onData = (chunk) => {

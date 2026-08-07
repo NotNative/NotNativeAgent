@@ -25,6 +25,7 @@ import { GovernanceEngine } from './governance-engine.js';
 import { GroundingPolicy } from './grounding-policy.js';
 import { join } from 'node:path';
 import { ConversationWork } from './conversation-work.js';
+import { TelegramNotificationQueue } from './telegram-notifications.js';
 
 export function installEngineComponents(engine, options, storeRoot, hooks) {
   installRouting(engine, options);
@@ -70,7 +71,9 @@ function installOutput(engine, options) {
       reasonCode: record?.reason_code ?? record?.code,
       effectCertainty: record?.effect_certainty,
     });
-    return output(record);
+    const result = await output(record);
+    if (record?.type === 'turn_result') await engine.telegramNotifications?.terminal(record);
+    return result;
   };
   engine.surface = options.surface ?? 'headless';
 }
@@ -86,6 +89,7 @@ function installExtensions(engine, options) {
 }
 
 function installCapabilities(engine, options, storeRoot, hooks) {
+  installNotifications(engine, options);
   engine.work = options.conversationWork ?? new ConversationWork({
     persist: hooks.persist, output: engine.output, telemetry: engine.telemetry, sessionId: engine.sessionId,
   });
@@ -120,6 +124,8 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       run: (input, signal) => engine.runSubagent(input, signal),
     } : null,
     conversationWork: engine.work,
+    telegramNotifications: engine.telegramNotifications,
+    activeTurnId: () => engine.active?.turnId ?? null,
   });
   engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter, {
     grounding: engine.grounding,
@@ -140,6 +146,13 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     registry: engine.tools, configs: engine.config.mcpServers ?? [],
     transportFactory: options.mcpTransportFactory,
   });
+}
+
+function installNotifications(engine, options) {
+  if (engine.surface !== 'interactive_tui' || engine.config.executionManifest !== null) return;
+  engine.telegramNotifications = options.telegramNotifications ?? new TelegramNotificationQueue(
+    engine.dataPaths.telegramOutbox ?? userDataPaths().telegramOutbox, engine.sessionId,
+  );
 }
 
 function browserToolOptions(engine, options) {

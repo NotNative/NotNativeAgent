@@ -14,14 +14,21 @@ export class TelegramApi {
 
   getUpdates(offset, timeout, signal) {
     return this.#call('getUpdates', {
-      offset, timeout, limit: 20, allowed_updates: ['message'],
+      offset, timeout, limit: 20, allowed_updates: ['message', 'callback_query'],
     }, signal, (timeout + 10) * 1000);
   }
 
-  async sendMessage(chatId, text, signal) {
+  async sendMessage(chatId, text, signal, options = {}) {
     const chunks = splitTelegramText(String(text));
-    for (const chunk of chunks) await this.#call('sendMessage', { chat_id: chatId, text: chunk }, signal);
+    for (const [index, chunk] of chunks.entries()) await this.#call('sendMessage', {
+      chat_id: chatId, text: chunk,
+      ...(index === chunks.length - 1 && options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
+    }, signal);
     return { chunks: chunks.length };
+  }
+
+  answerCallbackQuery(id, text, signal) {
+    return this.#call('answerCallbackQuery', { callback_query_id: id, ...(text ? { text } : {}) }, signal);
   }
 
   async #call(method, body, outerSignal, timeoutMs = 30_000) {
