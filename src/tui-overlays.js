@@ -47,10 +47,6 @@ export function auditOverlay(entries, governance = [], health = null) {
   return overlay('audit', 'Governance audit', lines);
 }
 
-export function healthOverlay(value) {
-  return overlay('health', 'Runtime health', flatten(value));
-}
-
 export function providerOverlay(engine, options = {}) {
   const role = options.role ?? 'primary';
   const active = engine.config.routes[role];

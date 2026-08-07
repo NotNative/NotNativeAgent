@@ -5,7 +5,8 @@ import { headerTargetAt, TuiRenderer } from './tui-renderer.js';
 import { validateKeyBindings } from './tui-model.js';
 import { RetainedTerminalScreen } from './terminal-screen.js';
 import { commandDefinition } from './tui-commands.js';
-import { auditOverlay, configOverlay, contextOverlay, gatewayOverlay, healthOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui-overlays.js';
+import { auditOverlay, configOverlay, contextOverlay, gatewayOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui-overlays.js';
+import { handleHealthOverlayAction, healthOverlay } from './tui-health.js';
 import { handleDreamSelection, openDreamCommand, reopenDreamManager } from './tui-dream.js';
 import { compactActiveConversation, confirmConversationClear, requestConversationClear } from './workspace-context.js';
 import { handleAttachmentCommand } from './tui-attachment-command.js';
@@ -241,10 +242,7 @@ async function resetKeys(workspace, decoder) {
 }
 async function handleOverlayAction(action, workspace) {
   const projection = workspace.projection;
-  if (await handleProviderSetupAction(action, workspace)) return;
-  if (await handleMcpSetupAction(action, workspace)) return;
-  if (await handleSecretSetupAction(action, workspace)) return;
-  if (handleProviderRoleNavigation(action, workspace)) return;
+  if (await handleSpecialOverlayAction(action, workspace)) return;
   if (['history_up', 'history_down'].includes(action.action)) {
     const direction = action.action === 'history_up' ? -1 : 1;
     if (projection.overlay.items?.length) projection.moveOverlaySelection(direction);
@@ -298,6 +296,12 @@ async function handleOverlayAction(action, workspace) {
   } else {
     projection.showNotice('overlay', 'Close the current view with Ctrl+G or Ctrl+C.');
   }
+}
+async function handleSpecialOverlayAction(action, workspace) {
+  if (await handleProviderSetupAction(action, workspace)) return true;
+  if (await handleMcpSetupAction(action, workspace)) return true;
+  if (await handleSecretSetupAction(action, workspace)) return true;
+  return handleProviderRoleNavigation(action, workspace) || handleHealthOverlayAction(action, workspace);
 }
 function prepareSkillInvocation(projection, id) {
   projection.closeOverlay();
@@ -375,7 +379,7 @@ async function command(value, workspace, stop) {
     workspace.activeEngine().governance.health(),
   ));
   else if (name === '/permissions') handlePermissionCommand(argument, workspace);
-  else if (name === '/health') workspace.projection.openOverlay(healthOverlay(await workspace.activeEngine().health()));
+  else if (name === '/health') workspace.projection.openOverlay(healthOverlay(await workspace.activeEngine().health(), workspace.projection.active()));
   else if (name === '/trace') await traceCommand(argument, workspace);
   else if (name === '/dream') await openDreamCommand(argument, workspace);
   else if (['/hooks', '/extensions', '/stats', '/status', '/files', '/project', '/sessions', '/agents'].includes(name)) {
