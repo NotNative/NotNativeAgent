@@ -116,6 +116,44 @@ consequence justifies it. NNA does not add a general claim-supervisor inference 
 turn. Foreground work wins over idle analysis, and governance persistence is bounded by
 the same cancellation, shutdown, and supportability expectations as the agent engine.
 
+## Context as addressable evidence
+
+Compaction controls provider input; it does not erase the durable conversational source
+of truth. The active context keeps the current turn and five newest completed turns as
+intact as practical, while older records remain addressable through bounded, redacted
+session-history tools. Search returns record indexes and snippets; an exact read must name
+an index and may request only a small neighboring window. This lets a smaller model recover
+an earlier requirement or result without reinjecting an entire transcript or inventing a
+summary from memory.
+
+History lookup is session-local and read-only. It cannot recover a deliberately cleared
+conversation, inspect another principal's session, widen hosted authority, or bypass
+secret redaction. Search/read activity emits content-free telemetry so context recovery
+can be evaluated without storing a second transcript.
+
+## Refinement and execution boundary
+
+Behavioral refinements are supplemental candidates, not rewrites of the engine policy,
+reviewer floor, authority model, secret boundary, or evidence rules. Model output may
+propose a candidate; promotion requires attributable eligible evidence, measurable success
+criteria, and explicit active authority. Candidate identity and payload fingerprints are
+immutable, state transitions are checked, and regression/rollback states remain auditable.
+Activation never expands tools, scope, permissions, or hosted capability grants.
+
+Sub-agents are children of an active parent tool call. Capacity may permit concurrent
+children, but cancellation propagates and every child is shut down before `agent.run`
+settles. Tabs and Telegram attachments may retain resumable session state; they do not
+retain execution authority or continue work after the active turn ends. Hosted NNO
+sessions retain the same rule and additionally omit root sub-agent authority unless a
+future authenticated derived-authority contract explicitly supplies it.
+
+Completion is evidence-gated rather than duration-gated. Durable conversation goals
+cannot complete while tasks remain pending, active, or blocked, and every completed task
+and goal requires evidence. `/devteam` adds package acceptance ledgers, deterministic
+checks, independent review, repair convergence, and a whole-product integration gate.
+Failure leaves inspectable state; it does not create a detached worker that continues
+unsupervised.
+
 ## Governed learning candidates
 
 Idle analysis may observe an improvement, but observation is not promotion. Candidates

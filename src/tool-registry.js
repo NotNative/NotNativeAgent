@@ -25,7 +25,7 @@ import { gitInspectionDefinition } from './git-inspection-tool.js';
 import { prepareLineEdit, prepareTextEdit } from './stale-edit-recovery.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { CORE_TOOL_NAMES } from './core-tool-names.js';
-import { telegramNotificationDefinition } from './telegram-notifications.js';
+import { telegramNotificationDefinition } from './telegram-notifications.js'; import { sessionHistoryDefinitions } from './session-history-tools.js';
 const MAX_TEXT_BYTES = 1_048_576; const ALWAYS_EXPOSED = new Set(CORE_TOOL_NAMES);
 export class ToolRegistry {
   #definitions = new Map();
@@ -54,7 +54,7 @@ export class ToolRegistry {
     this.mcpControl = options.mcpControl;
     this.subagentControl = options.subagentControl;
     this.conversationWork = options.conversationWork;
-    this.telegramNotifications = options.telegramNotifications; this.activeTurnId = options.activeTurnId;
+    this.telegramNotifications = options.telegramNotifications; this.activeTurnId = options.activeTurnId; this.sessionHistory = options.sessionHistory;
   }
   async initialize() {
     await this.paths.initialize();
@@ -83,6 +83,7 @@ export class ToolRegistry {
     if (this.subagentControl && !this.hosted) this.#install(subagentDefinition(this.subagentControl));
     if (this.conversationWork) for (const definition of conversationWorkDefinitions(this.conversationWork)) this.#install(definition);
     if (this.telegramNotifications) this.#install(telegramNotificationDefinition(this.telegramNotifications, this.activeTurnId));
+    for (const definition of sessionHistoryDefinitions(this.sessionHistory)) this.#install(definition);
   }
   async close() { await this.definition('web.browse')?.manager?.close?.(); }
   snapshot() {
@@ -386,7 +387,6 @@ function deleteDefinition(paths, changes) {
     executor: (request, signal) => executeDelete(request, signal, changes),
   };
 }
-
 async function executeDelete(request, signal, changes) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
   await verifyExpectedState(request);

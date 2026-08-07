@@ -126,6 +126,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     conversationWork: engine.work,
     telegramNotifications: engine.telegramNotifications,
     activeTurnId: () => engine.active?.turnId ?? null,
+    sessionHistory: historyToolOptions(engine),
   });
   engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter, {
     grounding: engine.grounding,
@@ -146,6 +147,10 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     registry: engine.tools, configs: engine.config.mcpServers ?? [],
     transportFactory: options.mcpTransportFactory,
   });
+}
+
+function historyToolOptions(engine) {
+  return { transcript: () => engine.transcript, telemetry: engine.telemetry };
 }
 
 function installNotifications(engine, options) {

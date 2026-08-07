@@ -156,6 +156,17 @@ They mutate only bounded conversation work state in the existing session journal
 no filesystem, process, network, secret, or host authority. Hosted manifests must explicitly
 grant their exact names before they appear.
 
+Compacted history remains queryable without returning it wholesale to the provider:
+
+- `session.search_history`: searches up to the newest 50,000 records in the active
+  conversation and returns ranked, redacted snippets with stable record indexes.
+- `session.read_history`: reads one exact indexed record plus at most three neighboring
+  records on either side. The result is redacted and capped before reinjection.
+
+These tools are read-only, conversation-local, and always visible in a standalone Console.
+They do not search other sessions, bypass `/clear`, or widen a hosted manifest. A hosted
+session receives them only when its authenticated tool grant names them explicitly.
+
 The guidance tools read only documentation shipped with the running NNA version. The turn
 diagnostic reads only bounded, content-redacted lifecycle fields from NNA's own journal.
 
