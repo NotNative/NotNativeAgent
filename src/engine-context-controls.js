@@ -6,7 +6,9 @@ export async function compactEngineConversation(engine) {
   if (engine.state.state !== 'idle') throw new ContractError('compaction_busy', 'wait for the active turn before compacting');
   engine.telemetry?.record('context.compaction', 'started', { trigger: 'operator_command' });
   try {
-    const compacted = compactTranscript(engine.transcript, engine.config.limits.maxContextBytes);
+    const compacted = compactTranscript(engine.transcript, engine.config.limits.maxContextBytes, {
+      requireProgress: true,
+    });
     const route = engine.router.resolve('primary');
     const signal = new AbortController().signal;
     const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
@@ -27,7 +29,14 @@ export async function compactEngineConversation(engine) {
       projected_bytes: fact.projection?.projectedBytes ?? null,
       source_fingerprint: fact.sourceFingerprint,
     });
-    return Object.freeze({ omitted: fact.omitted, retained: fact.retainedRecords?.length ?? 0, fact });
+    return Object.freeze({
+      omitted: fact.omitted,
+      retained: fact.retainedRecords?.length ?? 0,
+      reduced: fact.projection?.payloadCompactedRecords ?? 0,
+      beforeBytes: fact.projection?.originalBytes ?? null,
+      afterBytes: fact.projection?.projectedBytes ?? null,
+      fact,
+    });
   } catch (error) {
     engine.telemetry?.record('context.compaction', 'failed', {
       trigger: 'operator_command', reason_code: error.code ?? 'compaction_failed',

@@ -242,7 +242,11 @@ Older history and superseded tool payload are reduced first. When a single prote
 cannot fit, NNA preserves its prompt, final response, causal tool pairing, and outcomes while
 replacing oversized recoverable payload with durable-ledger receipts. That protected payload
 limit scales with the active context budget, up to a bounded ceiling. The Console reports
-that exceptional reduction, while the complete transcript remains available for audit.
+that exceptional reduction, while the complete transcript remains available for audit. If
+five-turn protection would make a requested or threshold-triggered compaction a no-op, NNA
+adaptively compresses the recent settled history while keeping the active turn protected.
+Continuation summaries use a portable JSON schema and enforce detailed size limits after
+generation so llama.cpp-compatible providers are not asked to compile unsafe grammar bounds.
 A temporary `/model` override clears a stale profile-derived limit unless the selected
 model is the provider profile's declared model.
 

@@ -116,6 +116,20 @@ test('normal compaction leaves the active turn and five newest completed turns u
   assert.equal(compacted.fact.projection.oversizedProtectedRecords, 0);
 });
 
+test('requested compaction adaptively reduces oversized recent history instead of succeeding as a no-op', () => {
+  const transcript = [];
+  for (let index = 0; index < 3; index += 1) {
+    transcript.push(message('user', `Request ${index}`, `turn-${index}`));
+    transcript.push(message('assistant', `${'x'.repeat(18_000)} Answer ${index}`, `turn-${index}`));
+  }
+  const compacted = compactTranscript(transcript, 200_000, { requireProgress: true });
+  assert.equal(compacted.fact.projection.policy, 'adaptive_recent_history_v2');
+  assert.ok(compacted.fact.omitted > 0 || compacted.fact.projection.payloadCompactedRecords > 0);
+  assert.ok(compacted.fact.projection.projectedBytes < compacted.fact.projection.originalBytes * 0.7);
+  assert.match(compacted.records.at(-1).content, /Answer 2/u);
+  assert.match(compacted.fact.continuation.completedWork.at(-1), /Answer 2/u);
+});
+
 test('oversized protected tool payload becomes a ledger-backed receipt without orphaning its request', () => {
   const transcript = [
     message('user', 'Inspect the large output.', 'turn-active'),
@@ -153,15 +167,17 @@ test('semantic continuation enrichment is schema validated and failure falls bac
   ], 6_000).fact;
   const route = { profile: { id: 'local' }, model: 'fixture', maxOutputTokens: 4096, deadlineMs: 1000 };
   const compactor = new ContinuationCompactor({ scheduler: new FairScheduler(), timeoutMs: 1000 });
+  const requests = [];
   const provider = (text) => ({
     runtimeSnapshot: async () => ({}),
-    async *stream() { yield { type: 'text', text }; yield { type: 'terminal' }; },
+    async *stream(request) { requests.push(request); yield { type: 'text', text }; yield { type: 'terminal' }; },
   });
   const enriched = await compactor.refine(base, { provider: () => provider(JSON.stringify({
     completed_work: ['Implemented parser'], open_questions: [], next_actions: ['Run full suite'],
   })) }, route, null, new AbortController().signal);
   assert.deepEqual(enriched.continuation.nextActions, ['Run full suite']);
   assert.deepEqual(enriched.continuation.verifiedFacts, []);
+  assert.equal(JSON.stringify(requests[0].responseFormat).includes('maxLength'), false);
 
   const fallback = await compactor.refine(base, { provider: () => provider('{bad') }, route, null, new AbortController().signal);
   assert.equal(fallback, base);

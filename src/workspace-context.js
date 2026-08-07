@@ -10,7 +10,14 @@ export async function compactActiveConversation(workspace) {
   projected.expandedTurns.clear();
   projected.detailedTurns.clear();
   restoreTranscript(workspace.projection, session.id, session.engine.transcript);
-  workspace.projection.showNotice('context', `Compaction omitted ${result.omitted} settled records and retained ${result.retained}.`);
+  if (Number.isFinite(result.afterBytes)) {
+    projected.contextBytes = result.afterBytes;
+    projected.contextTokens = Math.ceil(result.afterBytes / 3);
+  }
+  const reduced = result.reduced ? ` and reduced ${result.reduced} retained payloads` : '';
+  workspace.projection.showNotice(
+    'context', `Compaction omitted ${result.omitted} settled records${reduced}; retained ${result.retained}.`,
+  );
   workspace.onChange();
   return result;
 }

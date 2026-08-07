@@ -67,7 +67,10 @@ function compactionRequest(route, fact) {
 }
 
 function stringArraySchema() {
-  return { type: 'array', maxItems: 16, items: { type: 'string', maxLength: 2048 } };
+  // Some llama.cpp-compatible servers translate maxLength into a bounded grammar
+  // repetition and reject large bounds before inference. Runtime validation below
+  // still enforces NNA's byte and item limits without making the wire schema brittle.
+  return { type: 'array', maxItems: 16, items: { type: 'string' } };
 }
 
 async function collect(stream) {

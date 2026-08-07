@@ -65,7 +65,9 @@ async function createCompactionFact(engine, records, active, operations, plan) {
   if (active.compactionAttempts >= 4) {
     throw new ContractError('context_compaction_stalled', 'context compaction reached its bounded retry limit');
   }
-  const compacted = compactTranscript(records, plan.budget, { activeTurnId: active.turnId });
+  const compacted = compactTranscript(records, plan.budget, {
+    activeTurnId: active.turnId, requireProgress: true,
+  });
   if (active.compactionFingerprints.has(compacted.fact.sourceFingerprint)) {
     throw new ContractError('context_compaction_stalled', 'context compaction made no observable source progress');
   }

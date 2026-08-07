@@ -6,7 +6,16 @@ const DEFAULT_PROTECTED_COMPLETED_TURNS = 5;
 
 export function compactTranscript(transcript, maxBytes, options = {}) {
   const budget = Math.floor(maxBytes * 0.55);
-  const selected = selectRecentRecords(transcript, budget, options);
+  let selected = selectRecentRecords(transcript, budget, options);
+  let policy = 'protected_recency_v1';
+  if (options.requireProgress && transcript.length > 2 && selected.length === transcript.length) {
+    const originalBytes = transcript.reduce((sum, item) => sum + recordBytes(item), 0);
+    const adaptiveBudget = Math.max(16_384, Math.min(budget, Math.floor(originalBytes * 0.55)));
+    selected = selectRecentRecords(transcript, adaptiveBudget, {
+      ...options, protectedCompletedTurns: 0,
+    });
+    policy = 'adaptive_recent_history_v2';
+  }
   const bytes = selected.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
   if (bytes > maxBytes * 0.65) {
     throw new ContractError(
@@ -23,7 +32,7 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
     summary: renderContinuation(continuation),
     retainedRecords: Object.freeze(selected.map((entry) => Object.freeze(entry.item))),
     projection: Object.freeze({
-      policy: 'protected_recency_v1',
+      policy,
       protectedCompletedTurns: selected.metrics.protectedCompletedTurns,
       protectedTurnCount: selected.metrics.protectedTurnCount,
       protectedRecordCount: selected.metrics.protectedRecordCount,
@@ -263,7 +272,10 @@ function continuationArtifact(transcript, omitted) {
   const objective = userMessages.at(-1);
   const objectiveIndex = objective ? transcript.lastIndexOf(objective) : -1;
   const currentRecords = objectiveIndex >= 0 ? transcript.slice(objectiveIndex + 1) : transcript;
-  const assistantMessages = currentRecords.filter((item) => item.type === 'message' && item.role === 'assistant');
+  const currentAssistantMessages = currentRecords.filter((item) => item.type === 'message' && item.role === 'assistant');
+  const assistantMessages = currentAssistantMessages.length > 0
+    ? currentAssistantMessages
+    : transcript.filter((item) => item.type === 'message' && item.role === 'assistant');
   const results = new Map(transcript.filter((item) => item.type === 'tool_result')
     .map((item) => [item.providerCallId, item]));
   const allToolRequests = transcript.filter((item) => item.type === 'tool_request');
@@ -285,7 +297,7 @@ function continuationArtifact(transcript, omitted) {
     .slice(-32).map((item) => `${bounded(item.toolName, 256)} completed successfully`);
   return Object.freeze({
     schema: 'nna.continuation.v1',
-    objective: bounded(objective?.content ?? '', 8_192),
+    objective: boundedHeadTail(objective?.content ?? '', 8_192),
     recentDirectives: Object.freeze(uniqueTail(userMessages.slice(-9, -1).map((item) => item.content), 8, 16_384)),
     completedWork: Object.freeze(uniqueTail(assistantMessages.map((item) => item.content), 4, 12_288)),
     changedFiles: Object.freeze(changedFiles.slice(-64)),
@@ -335,7 +347,7 @@ function toolTargets(args) {
 function uniqueTail(values, count, totalLimit) {
   const selected = []; let bytes = 0;
   for (const value of [...values].reverse()) {
-    const text = bounded(value, 4_096);
+    const text = boundedHeadTail(value, 4_096);
     if (!text || selected.includes(text)) continue;
     const size = Buffer.byteLength(text, 'utf8');
     if (bytes + size > totalLimit) continue;

@@ -176,7 +176,9 @@ automatic provider preflight. Compaction retains the full local transcript for d
 audit, appends a source-fingerprinted continuation artifact, and starts subsequent model
 context from that artifact plus the newest causal tail. A bounded semantic pass enriches
 the artifact when the configured provider supports it; strict schema validation and a
-deterministic artifact remain the failure-safe path. `/clear conversation` never acts immediately: it requires
+deterministic artifact remain the failure-safe path. Recent-turn protection relaxes only when
+it would otherwise make an explicit or required compaction a no-op; complete source records
+remain in the durable session ledger. `/clear conversation` never acts immediately: it requires
 the exact `/confirm clear conversation` follow-up, records the durable clear boundary,
 and resets authenticated conversational authority, durable goal/task state, and visible context.
 The primary conversation is marked with `*`. Inactive conversations use `+` for unseen
