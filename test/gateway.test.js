@@ -127,6 +127,8 @@ test('Console session broker discovers, submits, and cancels without copying con
     brokerSessions: () => [{ id: 'session-main', alias: 'Main', summary: 'Working on gateway routing', active: true, busy: false }],
     submitSession: async (id, content) => { calls.push(['submit', id, content]); return { outcome: 'completed', text: 'done' }; },
     cancelSession: async (id) => { calls.push(['cancel', id]); return { accepted: true }; },
+    compactSession: async (id) => { calls.push(['compact', id]); return { omitted: 8, retained: 3, reduced: 1 }; },
+    clearSession: async (id) => { calls.push(['clear', id]); return { removed: 4, cleared: true }; },
   };
   const broker = await new ConsoleSessionBroker(workspace, { root }).start();
   const directory = new ConsoleSessionDirectory(root);
@@ -136,9 +138,56 @@ test('Console session broker discovers, submits, and cancels without copying con
     assert.equal(target.summary, 'Working on gateway routing');
     assert.deepEqual(await directory.submit(target, 'continue here'), { outcome: 'completed', text: 'done' });
     assert.deepEqual(await directory.cancel(target), { accepted: true });
-    assert.deepEqual(calls, [['submit', 'session-main', 'continue here'], ['cancel', 'session-main']]);
+    assert.deepEqual(await directory.compact(target), { omitted: 8, retained: 3, reduced: 1 });
+    assert.deepEqual(await directory.clear(target), { removed: 4, cleared: true });
+    assert.deepEqual(calls, [
+      ['submit', 'session-main', 'continue here'], ['cancel', 'session-main'],
+      ['compact', 'session-main'], ['clear', 'session-main'],
+    ]);
   } finally { await broker.close(); }
   assert.deepEqual(await directory.list(), []);
+});
+
+test('Telegram compact and confirmed clear control the standalone session without entering the model', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-context-'));
+  const sent = [], modelSubmissions = [], controls = [];
+  let polls = 0; let finished;
+  const done = new Promise((resolve) => { finished = resolve; });
+  const api = {
+    async getMe() { return { id: 1 }; },
+    async getUpdates(_offset, _timeout, signal) {
+      polls += 1;
+      if (polls === 1) return [
+        { update_id: 1, message: { text: '/compact', from: { id: 42 }, chat: { id: 42 } } },
+        { update_id: 2, message: { text: '/clear', from: { id: 42 }, chat: { id: 42 } } },
+        { update_id: 3, callback_query: { id: 'clear-confirm', data: 'nna:clear:y', from: { id: 42 }, message: { chat: { id: 42 } } } },
+      ];
+      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    },
+    async sendMessage(chatId, text, _signal, options) {
+      sent.push({ chatId, text, options });
+      if (text.startsWith('Conversation cleared.')) finished();
+    },
+    async answerCallbackQuery() {},
+  };
+  const gateway = new TelegramGateway({
+    api, paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), telegramOutbox: join(root, 'outbox') },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 8 } },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    sessionDirectory: { list: async () => [] },
+    engineFactory: () => ({
+      config: { executionManifest: null }, initialize: async () => undefined,
+      submit: async (command) => { modelSubmissions.push(command.content); return { outcome: 'completed', text: 'model' }; },
+      cancel: async () => ({ accepted: true }), shutdown: async () => ({ complete: true }),
+      compactConversation: async () => { controls.push('compact'); return { omitted: 12, retained: 5, reduced: 2 }; },
+      clearConversation: async () => { controls.push('clear'); return { removed: 9, cleared: true }; },
+    }),
+  });
+  const running = gateway.run(); await done; await gateway.shutdown(); await running;
+  assert.deepEqual(controls, ['compact', 'clear']);
+  assert.deepEqual(modelSubmissions, []);
+  assert.match(sent.find((item) => item.text.startsWith('Context compacted.')).text, /Omitted 12/u);
+  assert.equal(sent.find((item) => item.text.startsWith('Clear all context')).options.replyMarkup.inline_keyboard[0][0].callback_data, 'nna:clear:y');
 });
 
 test('Telegram attach and detach controls are intercepted before the standalone model', async () => {

@@ -34,7 +34,7 @@ import { deleteManagedMcpCredential, saveManagedMcpCredential } from './mcp-cred
 import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './workspace-dream.js';
 import { resumeWorkspaceConversation } from './workspace-resume.js';
 import { SecretBroker } from './secret-broker.js';
-import { cancelWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './workspace-session-broker.js';
+import { cancelWorkspaceSession, clearWorkspaceSession, compactWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './workspace-session-broker.js';
 export class InteractiveWorkspace {
   #tasks = new Set();
   constructor(options) {
@@ -143,6 +143,7 @@ export class InteractiveWorkspace {
   brokerSessions() { return workspaceBrokerSessions(this); }
   submitSession(sessionId, content) { return submitWorkspaceSession(this, sessionId, content); }
   cancelSession(sessionId) { return cancelWorkspaceSession(this, sessionId); }
+  compactSession(sessionId) { return compactWorkspaceSession(this, sessionId); } clearSession(sessionId) { return clearWorkspaceSession(this, sessionId); }
   _savePoolForBroker() { return this.#savePool(); }
   _tasksForBroker() { return this.#tasks; }
   steerActive(content) {

@@ -32,6 +32,13 @@ chat while sharing NNA's bounded provider scheduler. `/cancel` bypasses the chat
 reaches an active engine turn immediately. Replies are plain text and split at Telegram's
 message-size boundary.
 
+`/compact` explicitly compacts the conversation currently controlled by Telegram. `/clear`
+asks for inline confirmation before removing that conversation's context; `/clear confirm`
+and `/clear cancel` are text fallbacks. Confirmations expire after one minute and are bound
+to the exact standalone or attached conversation, so changing attachments cannot clear the
+wrong session. Both controls are rejected while a turn is active; use `/cancel` first when
+the active work should be stopped.
+
 ## Console conversation attachment
 
 The standalone Telegram conversation remains the default. The gateway can also attach to
@@ -40,6 +47,8 @@ a currently running NNA Console conversation without copying or merging context:
 - `/sessions` lists active Console conversations with a short alias and bounded summary.
 - `/attach <number-or-alias>` routes subsequent messages into that exact conversation.
 - `/detach` returns Telegram to its standalone durable conversation.
+- `/compact` and confirmed `/clear` operate on the attached Console conversation itself,
+  not on a copied Telegram transcript.
 - Inline **Attach**, **Detach**, and **Sessions** buttons perform the same operations before
   any message reaches a model.
 - If the Console conversation closes or its process exits, the gateway detaches

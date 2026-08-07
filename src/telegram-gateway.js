@@ -20,6 +20,7 @@ export class TelegramGateway {
     this.engineFactory = options.engineFactory ?? ((engineOptions) => new SessionEngine(engineOptions));
     this.sessions = new Map();
     this.attachments = new Map();
+    this.pendingClears = new Map();
     this.catalogs = new Map();
     this.queues = new Map();
     this.offset = 0;
@@ -135,11 +136,15 @@ export class TelegramGateway {
       return;
     }
     if (text === '/start' || text === '/help') {
-      await this.api.sendMessage(chatId, 'NNA gateway ready. Send a request, use /sessions to attach to a Console conversation, or /cancel to stop active work.', this.controller.signal);
+      await this.api.sendMessage(chatId, 'NNA gateway ready. Send a request, use /sessions to attach to a Console conversation, /compact to reduce older context, /clear to start fresh, or /cancel to stop active work.', this.controller.signal);
       return;
     }
     if (text === '/sessions') return this.#showSessions(chatId);
     if (text === '/detach') return this.#detach(chatId);
+    if (/^\/compact(?:@\w+)?$/iu.test(text)) return this.#compact(chatId);
+    if (/^\/clear(?:@\w+)?$/iu.test(text)) return this.#requestClear(chatId);
+    if (/^\/clear(?:@\w+)?\s+confirm$/iu.test(text)) return this.#confirmClear(chatId);
+    if (/^\/clear(?:@\w+)?\s+cancel$/iu.test(text)) return this.#cancelClear(chatId);
     const attach = /^\/attach(?:\s+(.+))?$/u.exec(text);
     if (attach) return this.#attachFromText(chatId, attach[1]);
     const attached = await this.#attachedTarget(chatId);
@@ -186,11 +191,13 @@ export class TelegramGateway {
   }
 
   async #attach(chatId, target) {
+    this.pendingClears.delete(chatId);
     this.attachments.set(chatId, { targetId: target.targetId, brokerId: target.brokerId, sessionId: target.id, alias: target.alias });
     await this.api.sendMessage(chatId, `Attached to ${target.alias}. Messages now continue that Console conversation.`, this.controller.signal, attachedControls(target.alias));
   }
 
   async #detach(chatId) {
+    this.pendingClears.delete(chatId);
     const prior = this.attachments.get(chatId);
     this.attachments.delete(chatId);
     await this.api.sendMessage(chatId, prior
@@ -203,6 +210,8 @@ export class TelegramGateway {
     try {
       if (data === 'nna:d') await this.#detach(chatId);
       else if (data === 'nna:s') await this.#showSessions(chatId);
+      else if (data === 'nna:clear:y') await this.#confirmClear(chatId);
+      else if (data === 'nna:clear:n') await this.#cancelClear(chatId);
       else if (data.startsWith('nna:a:')) {
         const targetId = data.slice(6);
         const catalog = await this.sessionDirectory.list();
@@ -211,6 +220,68 @@ export class TelegramGateway {
         else await this.#attach(chatId, target);
       }
     } finally { await this.api.answerCallbackQuery?.(callback.id, null, this.controller.signal); }
+  }
+
+  async #compact(chatId) {
+    try {
+      const attached = await this.#attachedTarget(chatId);
+      const result = attached
+        ? await this.sessionDirectory.compact(attached)
+        : await (await this.#session(chatId)).engine.compactConversation();
+      const reduced = result.reduced ? ` Reduced ${result.reduced} retained payloads.` : '';
+      await this.api.sendMessage(chatId,
+        `Context compacted. Omitted ${result.omitted} settled records and retained ${result.retained}.${reduced}`,
+        this.controller.signal, attached ? attachedControls(attached.alias) : {});
+      this.logger.record({ type: 'gateway_context_compacted', outcome: 'completed', attached: Boolean(attached) });
+    } catch (error) { await this.#controlFailure(chatId, 'compact', error); }
+  }
+
+  async #requestClear(chatId) {
+    const attached = await this.#attachedTarget(chatId);
+    this.pendingClears.set(chatId, {
+      requestedAt: Date.now(), targetId: attached?.targetId ?? null,
+      label: attached ? attached.alias : 'the standalone Telegram conversation',
+    });
+    await this.api.sendMessage(chatId,
+      `Clear all context from ${attached ? attached.alias : 'this Telegram conversation'}? This cannot be undone.`,
+      this.controller.signal, clearConfirmationControls());
+  }
+
+  async #confirmClear(chatId) {
+    const pending = this.pendingClears.get(chatId);
+    if (!pending || Date.now() - pending.requestedAt > 60_000) {
+      this.pendingClears.delete(chatId);
+      await this.api.sendMessage(chatId, 'Clear confirmation expired. Send /clear to try again.', this.controller.signal);
+      return;
+    }
+    const attached = await this.#attachedTarget(chatId);
+    if ((attached?.targetId ?? null) !== pending.targetId) {
+      this.pendingClears.delete(chatId);
+      await this.api.sendMessage(chatId, 'The active conversation changed, so nothing was cleared. Send /clear again.', this.controller.signal);
+      return;
+    }
+    try {
+      const result = attached
+        ? await this.sessionDirectory.clear(attached)
+        : await (await this.#session(chatId)).engine.clearConversation();
+      this.pendingClears.delete(chatId);
+      await this.api.sendMessage(chatId, `Conversation cleared. Removed ${result.removed} context records.`,
+        this.controller.signal, attached ? attachedControls(attached.alias) : {});
+      this.logger.record({ type: 'gateway_context_cleared', outcome: 'completed', attached: Boolean(attached) });
+    } catch (error) { await this.#controlFailure(chatId, 'clear', error); }
+  }
+
+  async #cancelClear(chatId) {
+    const existed = this.pendingClears.delete(chatId);
+    await this.api.sendMessage(chatId, existed ? 'Clear cancelled.' : 'No clear confirmation is pending.', this.controller.signal);
+  }
+
+  async #controlFailure(chatId, operation, error) {
+    const busy = ['compaction_busy', 'clear_busy'].includes(error.code);
+    const message = busy ? `Cannot ${operation} while a turn is active. Wait for it to finish or use /cancel first.`
+      : `Could not ${operation} this conversation (${error.code ?? 'context_control_failed'}).`;
+    this.logger.record({ type: 'gateway_context_control_failed', operation, code: error.code ?? 'context_control_failed', outcome: 'failed' });
+    await this.api.sendMessage(chatId, message, this.controller.signal);
   }
 
   async #attachedTarget(chatId) {
@@ -264,6 +335,13 @@ function attachedControls(alias) {
   return { replyMarkup: { inline_keyboard: [[
     { text: `Detach from ${String(alias).slice(0, 30)}`, callback_data: 'nna:d' },
     { text: 'Sessions', callback_data: 'nna:s' },
+  ]] } };
+}
+
+function clearConfirmationControls() {
+  return { replyMarkup: { inline_keyboard: [[
+    { text: 'Clear conversation', callback_data: 'nna:clear:y' },
+    { text: 'Keep conversation', callback_data: 'nna:clear:n' },
   ]] } };
 }
 
