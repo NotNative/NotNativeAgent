@@ -49,10 +49,32 @@ export function normalizeSecretScope(value, realm) {
   return Object.freeze({ kind, id });
 }
 
+export function normalizeSecretMetadata(value) {
+  if (value == null) return Object.freeze({});
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new ContractError('secret_metadata_invalid', 'secret metadata must be an object');
+  }
+  const entries = Object.entries(value);
+  if (entries.length > 32) throw new ContractError('secret_metadata_invalid', 'secret metadata exceeds its field bound');
+  const normalized = {};
+  for (const [name, item] of entries) {
+    if (!/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u.test(name)) {
+      throw new ContractError('secret_metadata_invalid', 'secret metadata field name is invalid');
+    }
+    if (item === null || typeof item === 'boolean') normalized[name] = item;
+    else if (typeof item === 'string' && item.length <= 2_000 && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u.test(item)) normalized[name] = item;
+    else if (Array.isArray(item) && item.length <= 64 && item.every((entry) => typeof entry === 'string' && entry.length <= 256)) {
+      normalized[name] = [...new Set(item)];
+    } else throw new ContractError('secret_metadata_invalid', `secret metadata field ${name} is invalid`);
+  }
+  return Object.freeze(normalized);
+}
+
 export function publicSecret(record) {
   return Object.freeze({
     id: record.id, realm: record.realm, label: record.label, kind: record.kind,
     scope: record.scope ? Object.freeze({ ...record.scope }) : null,
+    metadata: Object.freeze({ ...(record.metadata ?? {}) }),
     fields: Object.freeze(Object.keys(record.encryptedFields).sort()), enabled: record.enabled,
     createdAt: record.createdAt, updatedAt: record.updatedAt, rotatedAt: record.rotatedAt,
     lastUsedAt: record.lastUsedAt, useCount: record.useCount,

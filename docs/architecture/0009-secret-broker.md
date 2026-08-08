@@ -24,9 +24,9 @@ NNO's browser must call its authenticated backend. The backend may then call NNA
 
 The API is dormant in standalone NNA. Before binding a listener, NNA resolves an explicit absolute NNO installation root and validates NNO's installed `nna-integration/nno-hosted/integration.json` ownership contract and secret-broker protocol. NNO owns and installs that activation artifact. Local `/secrets` management does not depend on it.
 
-Management endpoints may accept new values but must never return stored values. Runtime secret use remains a separate trusted-consumer flow so the model, browser, NNO module code, hooks, transcripts, and support bundles do not receive plaintext.
+Management endpoints may accept new values but never return stored values. Runtime use is a separate `secret.use` flow: the loopback broker releases values only to the bearer-authenticated NNO backend after rechecking the authenticated actor's scope and capability metadata. The browser and model never receive the broker credential, and plaintext must not enter prompts, transcripts, hooks, or support bundles.
 
-The management service exposes versioned `/v1/health` and `/v1/secrets` routes. It binds only to loopback and does not emit CORS authorization, so a browser cannot call it directly. NNO's authenticated backend remains the only supported UI integration surface.
+The service exposes versioned health, metadata-management, runtime-use, and audit routes under `/v1`. It binds only to loopback and does not emit CORS authorization, so a browser cannot call it directly. NNO's authenticated backend remains the only supported UI integration surface.
 
 ## Failure behavior
 

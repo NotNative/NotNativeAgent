@@ -9,11 +9,11 @@ import { startSecretBrokerServer } from '../src/secret-broker-server.js';
 import { validateNnoBrokerActivation } from '../src/nno-broker-activation.js';
 
 const TOKEN = 'test-broker-token-with-at-least-thirty-two-characters';
-const USER = principal({ userId: 'u1', permissions: ['secret.read', 'secret.manage'] });
-const OTHER = principal({ userId: 'u2', permissions: ['secret.read', 'secret.manage'] });
+const USER = principal({ userId: 'u1', permissions: ['secret.read', 'secret.manage', 'secret.use'] });
+const OTHER = principal({ userId: 'u2', permissions: ['secret.read', 'secret.manage', 'secret.use'] });
 const ADMIN = principal({ userId: 'admin', platformRole: 'admin' });
 
-test('authenticated broker endpoints are write-only and scope filtered', async () => {
+test('authenticated broker management is metadata-only and scope filtered', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-secret-api-'));
   const broker = new SecretBroker({
     realm: 'nno:test', vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json'), auditPath: join(root, 'audit.ndjson'),
@@ -24,10 +24,15 @@ test('authenticated broker endpoints are write-only and scope filtered', async (
     const denied = await fetch(`${base}/v1/secrets`, { headers: headers(USER, 'bad-token') });
     assert.equal(denied.status, 401);
     const created = await json(base, '/v1/secrets', USER, {
-      method: 'POST', body: { label: 'Vendor login', kind: 'username_password', scope: { kind: 'user', id: 'u1' }, fields: { username: 'person', password: 'do-not-return' } },
+      method: 'POST', body: {
+        label: 'Vendor login', kind: 'username_password', scope: { kind: 'user', id: 'u1' },
+        metadata: { ownerUserId: 'u1', allowedCapabilities: ['vendor.price.read'] },
+        fields: { username: 'person', password: 'do-not-return' },
+      },
     });
     assert.equal(created.status, 201);
     assert.deepEqual(created.value.secret.fields, ['password', 'username']);
+    assert.deepEqual(created.value.secret.metadata.allowedCapabilities, ['vendor.price.read']);
     assert.doesNotMatch(JSON.stringify(created.value), /do-not-return|person/u);
     const own = await json(base, '/v1/secrets', USER);
     const other = await json(base, '/v1/secrets', OTHER);
@@ -37,6 +42,22 @@ test('authenticated broker endpoints are write-only and scope filtered', async (
     assert.equal(hidden.status, 404);
     const admin = await json(base, '/v1/secrets', ADMIN);
     assert.equal(admin.value.secrets.length, 1);
+    const updated = await json(base, `/v1/secrets/${created.value.secret.id}`, USER, {
+      method: 'PATCH', body: { label: 'Vendor account', metadata: { ownerUserId: 'u1', description: 'Retail login' } },
+    });
+    assert.equal(updated.status, 200);
+    assert.equal(updated.value.secret.label, 'Vendor account');
+    const used = await json(base, `/v1/secrets/${created.value.secret.id}/use`, USER, {
+      method: 'POST', body: {
+        consumer: 'nno.module', destination: 'vendor.price.read', purpose: 'mission test',
+        reviewerDecisionId: 'nno-policy-test', sessionId: 'mission-1',
+      },
+    });
+    assert.equal(used.status, 200);
+    assert.deepEqual(used.value.fields, { username: 'person', password: 'do-not-return' });
+    const audit = await json(base, '/v1/audit?limit=20', ADMIN);
+    assert.equal(audit.status, 200);
+    assert.equal(audit.value.events.some((event) => event.event === 'secret.used'), true);
   } finally { await service.close(); }
 });
 

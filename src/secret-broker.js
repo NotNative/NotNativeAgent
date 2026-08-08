@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { appendFile, mkdir } from 'node:fs/promises';
+import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ContractError } from './ids.js';
 import {
-  LOCAL_SECRET_REALM, normalizeSecretKind, normalizeSecretLabel, normalizeSecretScope, publicSecret, validateSecretFields,
+  LOCAL_SECRET_REALM, normalizeSecretKind, normalizeSecretLabel, normalizeSecretMetadata, normalizeSecretScope, publicSecret, validateSecretFields,
 } from './secret-contracts.js';
 import { registerSecretValue, releaseSecretValue } from './redaction.js';
 import { SecretVault } from './secret-vault.js';
@@ -32,6 +32,7 @@ export class SecretBroker {
     const kind = normalizeSecretKind(input.kind);
     const fields = validateSecretFields(kind, input.fields);
     const scope = normalizeSecretScope(input.scope, this.realm);
+    const metadata = normalizeSecretMetadata(input.metadata);
     const id = `sec_${randomUUID()}`;
     const encryptedFields = await this.vault.encryptFields(this.realm, id, fields);
     const now = new Date().toISOString();
@@ -41,7 +42,7 @@ export class SecretBroker {
         throw new ContractError('secret_label_duplicate', 'a secret with that label already exists');
       }
       created = {
-        id, realm: this.realm, label, kind, scope, encryptedFields, enabled: true,
+        id, realm: this.realm, label, kind, scope, metadata, encryptedFields, enabled: true,
         createdAt: now, updatedAt: now, rotatedAt: null, lastUsedAt: null, useCount: 0,
       };
       vault.records.push(created);
@@ -49,6 +50,24 @@ export class SecretBroker {
     });
     await this.#record('secret.created', created, 'succeeded');
     return publicSecret(created);
+  }
+
+  async update(id, patch) {
+    let updated;
+    await this.vault.update((vault) => {
+      const record = requireRecord(vault, this.realm, id);
+      const label = patch.label === undefined ? record.label : normalizeSecretLabel(patch.label);
+      if (vault.records.some((candidate) => candidate !== record && candidate.realm === this.realm && fold(candidate.label) === fold(label))) {
+        throw new ContractError('secret_label_duplicate', 'a secret with that label already exists');
+      }
+      record.label = label;
+      if (patch.scope !== undefined) record.scope = normalizeSecretScope(patch.scope, this.realm);
+      if (patch.metadata !== undefined) record.metadata = normalizeSecretMetadata(patch.metadata);
+      record.updatedAt = new Date().toISOString(); updated = record;
+      return vault;
+    });
+    await this.#record('secret.updated', updated, 'succeeded');
+    return publicSecret(updated);
   }
 
   async rotate(id, fields) {
@@ -106,6 +125,18 @@ export class SecretBroker {
       throw error;
     } finally {
       for (const value of Object.values(fields)) releaseSecretValue(value);
+    }
+  }
+
+  async auditEvents(limit = 500) {
+    if (!this.auditPath) return [];
+    const bounded = Math.max(1, Math.min(Number(limit) || 500, 2_000));
+    try {
+      const lines = (await readFile(this.auditPath, 'utf8')).trim().split(/\r?\n/u).filter(Boolean).slice(-bounded);
+      return lines.map((line) => JSON.parse(line)).filter((entry) => entry?.realm === this.realm);
+    } catch (error) {
+      if (error.code === 'ENOENT') return [];
+      throw new ContractError('secret_audit_unavailable', 'secret audit ledger could not be read');
     }
   }
 

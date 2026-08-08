@@ -43,15 +43,18 @@ async function dispatch(request, response, context) {
   }
   const principal = readPrincipal(request);
   if (!principal) return send(response, 401, failure('principal_required', 'authenticated NNO principal required'));
-  const match = /^\/v1\/secrets(?:\/([^/]+))?(?:\/(values|status))?$/u.exec(url.pathname);
+  if (request.method === 'GET' && url.pathname === '/v1/audit') return audit(response, context.broker, principal, url);
+  const match = /^\/v1\/secrets(?:\/([^/]+))?(?:\/(values|status|use))?$/u.exec(url.pathname);
   if (!match) return send(response, 404, failure('not_found', 'broker endpoint not found'));
   const id = match[1] ? decodeURIComponent(match[1]) : null;
   const subresource = match[2] ?? null;
   if (request.method === 'GET' && !id) return list(response, context.broker, principal);
   if (request.method === 'GET' && id && !subresource) return get(response, context.broker, principal, id);
   if (request.method === 'POST' && !id) return create(response, request, context.broker, principal);
+  if (request.method === 'PATCH' && id && !subresource) return update(response, request, context.broker, principal, id);
   if (request.method === 'PUT' && id && subresource === 'values') return rotate(response, request, context.broker, principal, id);
   if (request.method === 'PATCH' && id && subresource === 'status') return status(response, request, context.broker, principal, id);
+  if (request.method === 'POST' && id && subresource === 'use') return use(response, request, context.broker, principal, id);
   if (request.method === 'DELETE' && id && !subresource) return remove(response, context.broker, principal, id);
   return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
 }
@@ -73,8 +76,18 @@ async function create(response, request, broker, principal) {
   requirePermission(principal, 'secret.manage');
   const body = await readBody(request);
   if (!canManageScope(principal, body.scope)) throw new ContractError('secret_scope_forbidden', 'principal cannot manage the requested secret scope');
-  const secret = await broker.create({ label: body.label, kind: body.kind, fields: body.fields, scope: body.scope });
+  const secret = await broker.create({ label: body.label, kind: body.kind, fields: body.fields, scope: body.scope, metadata: body.metadata });
   return send(response, 201, { secret });
+}
+
+async function update(response, request, broker, principal, id) {
+  requirePermission(principal, 'secret.manage');
+  await manageable(broker, principal, id);
+  const body = await readBody(request);
+  if (body.scope !== undefined && !canManageScope(principal, body.scope)) {
+    throw new ContractError('secret_scope_forbidden', 'principal cannot manage the requested secret scope');
+  }
+  return send(response, 200, { secret: await broker.update(id, { label: body.label, scope: body.scope, metadata: body.metadata }) });
 }
 
 async function rotate(response, request, broker, principal, id) {
@@ -97,6 +110,21 @@ async function remove(response, broker, principal, id) {
   const secret = await manageable(broker, principal, id);
   await broker.remove(secret.id);
   return send(response, 200, { ok: true });
+}
+
+async function use(response, request, broker, principal, id) {
+  requirePermission(principal, 'secret.use');
+  const secret = await broker.get(id);
+  if (!secret || !canAccess(principal, secret.scope)) return send(response, 404, failure('not_found', 'secret not found'));
+  const body = await readBody(request);
+  const fields = await broker.withSecret(id, body, async (values) => values);
+  return send(response, 200, { fields });
+}
+
+async function audit(response, broker, principal, url) {
+  requirePermission(principal, 'secret.audit');
+  const limit = Number(url.searchParams.get('limit') ?? 500);
+  return send(response, 200, { events: await broker.auditEvents(limit) });
 }
 
 async function manageable(broker, principal, id) {
