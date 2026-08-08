@@ -88,11 +88,11 @@ export class ToolLoop {
         if (call.invalid) throw new ContractError(call.invalid.code, call.invalid.message);
         item.request = await this.tools.seal(call, this.toolContext(active));
         item.child.move('review_pending');
-        await this.persist('tool_request', toolRequestRecord(item.request, active.turnId));
+        await this.persist('tool_request', toolRequestRecord(item.request, active.turnId, active.stepId));
       } catch (error) {
         item.child.move('invalid');
         item.result = invalidResult(call, error);
-        await this.persist('tool_request', invalidRequestRecord(call, lifecycle.id, active.turnId));
+        await this.persist('tool_request', invalidRequestRecord(call, lifecycle.id, active.turnId, active.stepId));
       }
       await this.publish('tool_request.started', 'tool_request', 'active', {
         ...active, toolRequestId: item.request?.id ?? lifecycle.id,
@@ -216,7 +216,7 @@ export class ToolLoop {
   async #commit(item, active) {
     if (item.duplicate) return;
     this.results.record(item.call, item.result);
-    await this.persist('tool_result', toolResultRecord(item, active.turnId));
+    await this.persist('tool_result', toolResultRecord(item, active.turnId, active.stepId));
     let settlementError = null;
     if (item.result.ledger_started) {
       try {

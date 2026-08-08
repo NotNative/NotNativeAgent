@@ -233,11 +233,17 @@ work, NNA queries a short-lived provider-neutral runtime snapshot. LM Studio end
   exploration agents to use the model host's real parallel slots without a separate hard-coded
   agent count. When discovery is unavailable, configured concurrency remains the conservative
   fallback and sub-agent batches execute sequentially.
-NNA reserves the route's bounded output allowance and triggers at the earlier of
-`context_compaction_threshold` (default `0.85`) or the fixed 13,000-token safety boundary.
+NNA reserves the route's bounded output allowance and manages prompt pressure in progressive
+stages. At 45% it replaces settled tool payloads from older active steps with bounded receipts;
+at 60% it emits a deterministic continuity checkpoint; at 70% it retains only the newest active
+step in the provider projection; and at 75% it begins full compaction. The configurable
+`context_compaction_threshold` defaults to `0.75`; a lower configured value remains an
+intentional earlier compaction trigger. These percentages are calculated from the discovered
+model context window after the bounded output reserve, not from a frontier-model constant.
 When token metadata is unavailable, the validated byte ceilings remain the conservative
 fallback. Estimates and authoritative provider usage are never presented as equivalent.
-A compaction projection protects the active turn plus the five newest completed turns.
+A compaction projection protects the active request, the newest two active model/tool steps,
+plus the five newest completed turns.
 Older history and superseded tool payload are reduced first. When a single protected turn
 cannot fit, NNA preserves its prompt, final response, causal tool pairing, and outcomes while
 replacing oversized recoverable payload with durable-ledger receipts. That protected payload
@@ -247,6 +253,11 @@ five-turn protection would make a requested or threshold-triggered compaction a 
 adaptively compresses the recent settled history while keeping the active turn protected.
 Continuation summaries use a portable JSON schema and enforce detailed size limits after
 generation so llama.cpp-compatible providers are not asked to compile unsafe grammar bounds.
+Pressure is reevaluated between provider/tool cycles, so a long-running turn can checkpoint and
+compact before it overruns the window. The full journal remains auditable, while the provider
+receives the smaller projection. Repeated compaction is bounded by consecutive no-progress
+detection rather than a lifetime per-turn count, allowing productive long-horizon work to
+continue.
 A temporary `/model` override clears a stale profile-derived limit unless the selected
 model is the provider profile's declared model.
 

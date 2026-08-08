@@ -293,7 +293,9 @@ export class SessionEngine {
     const calls = active.toolAssembler.complete();
     if (calls.length === 0) return this.#afterTextStep(active);
     await this.#settleAttempt(active, 'completed');
-    if (active.stepText.length > 0) await this.#persist('message', assistantMessage(active.turnId, active.stepText, null));
+    if (active.stepText.length > 0) await this.#persist('message', assistantMessage(
+      active.turnId, active.stepText, { stepId: active.stepId },
+    ));
     const items = await this.toolLoop.process(calls, active);
     active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded')
       .map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
@@ -337,7 +339,9 @@ export class SessionEngine {
       return { continue: false, text: active.stepText, outcome: supervised.disposition };
     }
     await this.#settleAttempt(active, 'completed');
-    await this.#persist('message', assistantMessage(active.turnId, active.stepText, { partial: true }));
+    await this.#persist('message', assistantMessage(active.turnId, active.stepText, {
+      partial: true, stepId: active.stepId,
+    }));
     this.state.transition('recovering', { trigger: supervised.category, turnId: active.turnId });
     const plan = active.recovery.continuation(
       supervised.category, supervised.progressEvidence, partialOutputProgress(active.stepText),
@@ -407,7 +411,7 @@ export class SessionEngine {
       this, active, faults.outcome, (...args) => this.#publish(...args),
     ));
     if (text.length > 0) await faults.capture('persistence', () => this.#persist(
-      'message', assistantMessage(active.turnId, text, faults.primary),
+      'message', assistantMessage(active.turnId, text, { ...faults.primary, stepId: active.stepId }),
     ));
     await faults.capture('lifecycle', () => this.lifecycles.finish(active.turnId, faults.outcome));
     await faults.capture('event', () => this.#publish(

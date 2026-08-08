@@ -14,26 +14,29 @@ export function userMessage(turnId, content, extra = {}) {
 }
 
 export function assistantMessage(turnId, content, detail) {
-  return { type: 'message', role: 'assistant', content, trust: 'model', turnId, partial: detail?.partial ?? false };
+  return {
+    type: 'message', role: 'assistant', content, trust: 'model', turnId,
+    stepId: detail?.stepId ?? null, partial: detail?.partial ?? false,
+  };
 }
 
-export function toolRequestRecord(request, turnId) {
+export function toolRequestRecord(request, turnId, stepId = null) {
   return {
-    type: 'tool_request', turnId, requestId: request.id,
+    type: 'tool_request', turnId, stepId, requestId: request.id,
     providerCallId: request.providerCallId, toolName: request.toolName, args: request.args,
   };
 }
 
-export function invalidRequestRecord(call, lifecycleId, turnId) {
+export function invalidRequestRecord(call, lifecycleId, turnId, stepId = null) {
   return {
-    type: 'tool_request', turnId, requestId: lifecycleId,
+    type: 'tool_request', turnId, stepId, requestId: lifecycleId,
     providerCallId: call.providerCallId, toolName: call.name, args: call.args,
   };
 }
 
-export function toolResultRecord(item, turnId) {
+export function toolResultRecord(item, turnId, stepId = null) {
   return {
-    type: 'tool_result', turnId, requestId: item.result.request_id ?? item.lifecycle.id,
+    type: 'tool_result', turnId, stepId, requestId: item.result.request_id ?? item.lifecycle.id,
     providerCallId: item.result.provider_call_id, toolName: item.result.tool_name,
     status: item.result.status, content: item.result.content,
     metadata: item.result.metadata ?? null,

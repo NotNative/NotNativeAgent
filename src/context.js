@@ -22,6 +22,11 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
         role: 'system', content: item.summary,
         provenance: 'engine_compaction', trust: 'engine_continuation',
       });
+    } else if (item.type === 'context_checkpoint') {
+      messages.push({
+        role: 'system', content: item.summary,
+        provenance: 'engine_active_checkpoint', trust: 'engine_continuation',
+      });
     }
   }
   for (const item of attachments) messages.push(attachmentMessage(item));

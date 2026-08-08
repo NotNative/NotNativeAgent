@@ -4,6 +4,7 @@ import { contextBudget } from './context-budget.js';
 import { buildReportedContext } from './engine-context-status.js';
 import { addHookContexts, hookPayload } from './engine-hooks.js';
 import { ContractError } from './ids.js';
+import { pressureTier, projectActiveTurn } from './active-context-pressure.js';
 
 export async function prepareEngineContext(engine, records, content, active, force, operations) {
   const routes = engine.router.candidates('primary', { requiredCapabilities: ['tools'] });
@@ -17,7 +18,10 @@ export async function prepareEngineContext(engine, records, content, active, for
   active.contextLimitBytes = hardLimit;
   if (!force) {
     try {
-      return await buildReportedContext(engine, records, content, active.enrichment, active, budget, hardLimit, planned);
+      return await buildReportedContext(
+        engine, records, content, active.enrichment, active, budget, hardLimit, planned,
+        { projectContext: (measurement) => pressureProjection(engine, active, operations, measurement) },
+      );
     } catch (error) {
       if (error.code !== 'context_too_large') throw error;
     }
@@ -62,22 +66,60 @@ async function compactContext(engine, records, content, active, operations, plan
 }
 
 async function createCompactionFact(engine, records, active, operations, plan) {
-  if (active.compactionAttempts >= 4) {
-    throw new ContractError('context_compaction_stalled', 'context compaction reached its bounded retry limit');
-  }
   const compacted = compactTranscript(records, plan.budget, {
-    activeTurnId: active.turnId, requireProgress: true,
+    activeTurnId: active.turnId, activeStepId: active.stepId,
+    protectedActiveSteps: 2, requireProgress: true,
   });
-  if (active.compactionFingerprints.has(compacted.fact.sourceFingerprint)) {
+  if (active.lastCompactionSourceFingerprint === compacted.fact.sourceFingerprint) {
+    active.compactionNoProgressAttempts += 1;
+  } else {
+    active.compactionNoProgressAttempts = 0;
+  }
+  if (active.compactionNoProgressAttempts >= 2) {
     throw new ContractError('context_compaction_stalled', 'context compaction made no observable source progress');
   }
   active.compactionAttempts += 1;
+  active.lastCompactionSourceFingerprint = compacted.fact.sourceFingerprint;
   active.compactionFingerprints.add(compacted.fact.sourceFingerprint);
   const fact = await engine.continuationCompactor.refine(
     compacted.fact, engine.router, plan.route, plan.runtime, active.controller.signal,
   );
   await operations.persist('compaction', fact);
   return fact;
+}
+
+async function pressureProjection(engine, active, operations, measurement) {
+  const tier = pressureTier(measurement.rawContextTokens, measurement.effectiveInputTokens);
+  const ratio = measurement.effectiveInputTokens
+    ? measurement.rawContextTokens / measurement.effectiveInputTokens : null;
+  active.contextPressureTier = tier;
+  const projection = projectActiveTurn(measurement.records, {
+    turnId: active.turnId, stepId: active.stepId, tier,
+  });
+  if (projection.checkpoint && tier !== 'receipts'
+    && !active.contextCheckpointFingerprints.has(projection.sourceFingerprint)) {
+    await operations.persist('context_checkpoint', projection.checkpoint);
+    active.contextCheckpointFingerprints.add(projection.sourceFingerprint);
+    await operations.publish(
+      'context_checkpoint.terminal', 'context_checkpoint', 'terminal', active, 'completed',
+      hookPayload(engine, active, {
+        checkpoint_summary: projection.checkpoint.summary,
+        checkpoint_tier: tier,
+        checkpoint_fingerprint: projection.sourceFingerprint,
+      }),
+    );
+  }
+  engine.telemetry?.record('context.pressure', tier === 'none' ? 'measured' : 'projected', {
+    tier, ratio, raw_estimated_tokens: measurement.rawContextTokens,
+    effective_input_tokens: measurement.effectiveInputTokens,
+    cold_records: projection.coldRecords,
+    retained_active_steps: projection.retainedActiveSteps,
+    source_fingerprint: projection.sourceFingerprint,
+  }, { turnId: active.turnId, stepId: active.stepId });
+  if (tier === 'compact') {
+    throw new ContractError('context_too_large', 'context reached the automatic compaction pressure boundary');
+  }
+  return projection;
 }
 
 function compactionStartedDetail(active, planned, beforeEstimatedTokens) {

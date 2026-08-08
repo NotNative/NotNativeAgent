@@ -5,13 +5,14 @@ import { ContractError } from './ids.js';
 const DEFAULT_PROTECTED_COMPLETED_TURNS = 5;
 
 export function compactTranscript(transcript, maxBytes, options = {}) {
+  const source = latestCompactionProjection(transcript);
   const budget = Math.floor(maxBytes * 0.55);
-  let selected = selectRecentRecords(transcript, budget, options);
+  let selected = selectRecentRecords(source, budget, options);
   let policy = 'protected_recency_v1';
-  if (options.requireProgress && transcript.length > 2 && selected.length === transcript.length) {
-    const originalBytes = transcript.reduce((sum, item) => sum + recordBytes(item), 0);
+  if (options.requireProgress && source.length > 2 && selected.length === source.length) {
+    const originalBytes = source.reduce((sum, item) => sum + recordBytes(item), 0);
     const adaptiveBudget = Math.max(16_384, Math.min(budget, Math.floor(originalBytes * 0.55)));
-    selected = selectRecentRecords(transcript, adaptiveBudget, {
+    selected = selectRecentRecords(source, adaptiveBudget, {
       ...options, protectedCompletedTurns: 0,
     });
     policy = 'adaptive_recent_history_v2';
@@ -23,11 +24,11 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
       'mandatory context still exceeds the provider budget; reduce the request or attachments, clear the conversation, or select a model with a larger context limit',
     );
   }
-  const omitted = Math.max(0, transcript.length - selected.length);
-  const continuation = continuationArtifact(transcript, omitted);
+  const omitted = Math.max(0, source.length - selected.length);
+  const continuation = continuationArtifact(source, omitted);
   const fact = Object.freeze({
     type: 'compaction', version: 2, omitted,
-    sourceFingerprint: fingerprint(transcript),
+    sourceFingerprint: fingerprint(source),
     continuation,
     summary: renderContinuation(continuation),
     retainedRecords: Object.freeze(selected.map((entry) => Object.freeze(entry.item))),
@@ -44,6 +45,17 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
     }),
   });
   return Object.freeze({ records: fact.retainedRecords, fact });
+}
+
+function latestCompactionProjection(transcript) {
+  let latest = -1;
+  for (let index = transcript.length - 1; index >= 0; index -= 1) {
+    if (transcript[index]?.type === 'compaction') { latest = index; break; }
+  }
+  if (latest < 0) return transcript;
+  const checkpoint = transcript[latest];
+  if (!Array.isArray(checkpoint.retainedRecords)) return transcript;
+  return [checkpoint, ...checkpoint.retainedRecords, ...transcript.slice(latest + 1)];
 }
 
 export function createHandoffFact(transcript) {
@@ -231,7 +243,20 @@ function protectedRecency(transcript, options) {
   const active = explicitActive && ordered.includes(explicitActive) ? explicitActive : null;
   const completed = ordered.filter((key) => key !== active).slice(-completedLimit);
   const turnKeys = new Set([...completed, ...(active ? [active] : [])]);
-  const indexes = new Set(entries.filter((entry) => turnKeys.has(entry.turnKey)).map((entry) => entry.index));
+  const activeStepLimit = Number.isInteger(options.protectedActiveSteps)
+    ? Math.max(1, options.protectedActiveSteps) : null;
+  const activeSteps = active && activeStepLimit
+    ? unique(entries.filter((entry) => entry.turnKey === active).map((entry) => entry.stepKey).filter(Boolean)).slice(-activeStepLimit)
+    : [];
+  const activeStepKeys = new Set(activeSteps);
+  const indexes = new Set(entries.filter((entry) => {
+    if (completed.includes(entry.turnKey)) return true;
+    if (entry.turnKey !== active) return false;
+    if (!activeStepLimit) return true;
+    if (entry.item.type === 'message' && entry.item.role === 'user') return true;
+    if (entry.item.type === 'compaction' || entry.item.type === 'context_checkpoint') return true;
+    return Boolean(entry.stepKey && activeStepKeys.has(entry.stepKey));
+  }).map((entry) => entry.index));
   return Object.freeze({ indexes, turnKeys, completedTurnCount: completed.length });
 }
 
@@ -239,11 +264,14 @@ function turnEntries(transcript) {
   let inferred = null;
   return transcript.map((item, index) => {
     const explicit = item.turnId ?? item.turn_id ?? null;
-    if (explicit) return { index, turnKey: `id:${explicit}` };
+    const step = item.stepId ?? item.step_id ?? null;
+    if (explicit) return { index, item, turnKey: `id:${explicit}`, stepKey: step ? `id:${step}` : null };
     if (item.type === 'message' && item.role === 'user') inferred = `legacy:${index}`;
-    return { index, turnKey: inferred };
+    return { index, item, turnKey: inferred, stepKey: step ? `id:${step}` : null };
   });
 }
+
+function unique(values) { return [...new Set(values)]; }
 
 function shrinkOversizedProtectedRecords(entries, budget) {
   let bytes = entries.reduce((sum, entry) => sum + recordBytes(entry.item), 0);

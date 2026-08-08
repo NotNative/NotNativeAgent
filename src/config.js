@@ -50,7 +50,7 @@ export function resolveManifest(manifest = {}, options = {}) {
   const shutdownMs = boundedInteger(manifest.shutdown_timeout_ms, 15_000, 100, 120_000);
   const routes = buildRoutes(manifest.routes, profile, profiles, providerMs);
   const contextBytes = boundedInteger(manifest.context_limit_bytes, 2_097_152, 65_536, 16_777_216);
-  const contextThreshold = boundedNumber(manifest.context_compaction_threshold, 0.85, 0.5, 0.99);
+  const contextThreshold = boundedNumber(manifest.context_compaction_threshold, 0.75, 0.5, 0.99);
   const skills = validateManifestSkills(manifest.skills, options);
   const executionManifest = validateExecutionManifest(manifest, options, routes, profiles, skills);
   const attachments = validateAttachments(manifest.attachments);

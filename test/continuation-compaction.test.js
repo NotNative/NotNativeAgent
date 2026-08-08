@@ -140,6 +140,24 @@ test('normal compaction leaves the active turn and five newest completed turns u
   assert.equal(compacted.fact.projection.oversizedProtectedRecords, 0);
 });
 
+test('long active turns protect only the configured newest model steps during automatic compaction', () => {
+  const transcript = [
+    { type: 'message', role: 'user', content: 'long audit', turnId: 'turn-active' },
+    ...Array.from({ length: 5 }, (_, index) => ({
+      type: 'message', role: 'assistant', content: `step-${index + 1} `.repeat(2_000),
+      turnId: 'turn-active', stepId: `step-${index + 1}`,
+    })),
+  ];
+  const compacted = compactTranscript(transcript, 80_000, {
+    activeTurnId: 'turn-active', activeStepId: 'step-5', protectedActiveSteps: 2,
+  });
+  const steps = compacted.records.map((item) => item.stepId).filter(Boolean);
+  assert.ok(steps.includes('step-4'));
+  assert.ok(steps.includes('step-5'));
+  assert.ok(!steps.includes('step-1'));
+  assert.ok(compacted.records.some((item) => item.role === 'user'));
+});
+
 test('requested compaction adaptively reduces oversized recent history instead of succeeding as a no-op', () => {
   const transcript = [];
   for (let index = 0; index < 3; index += 1) {
