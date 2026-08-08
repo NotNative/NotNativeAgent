@@ -16,7 +16,8 @@ export function renderMarkdown(value, width, firstPrefix = '', continuationPrefi
       continue;
     }
     const normalized = fenced ? `  ${raw.replaceAll('\t', '  ')}` : markdownLine(raw);
-    lines.push(...wrapTerminalLine(normalized, width, lines.length === 0 ? firstPrefix : continuationPrefix));
+    const prefix = lines.length === 0 ? firstPrefix : continuationPrefix;
+    lines.push(...wrapTerminalLine(normalized, width, prefix, hangingPrefix(continuationPrefix, normalized)));
   }
   return lines.length > 0 ? lines : [firstPrefix];
 }
@@ -30,21 +31,28 @@ function asciiPresentation(value) {
     .replace(/[←⇐]/gu, '<-');
 }
 
-export function wrapTerminalLine(value, width, prefix = '') {
+export function wrapTerminalLine(value, width, prefix = '', continuationPrefix = null) {
   const safeWidth = Math.max(1, width);
   const clean = sanitizeTerminal(value).replaceAll('\t', '  ');
   if (clean.length === 0) return [prefix.slice(0, safeWidth)];
   const result = [];
   let remaining = clean;
   let currentPrefix = prefix;
+  const nextPrefix = continuationPrefix ?? ' '.repeat(displayWidth(prefix));
   while (remaining.length > 0) {
     const room = Math.max(1, safeWidth - displayWidth(currentPrefix));
     const split = splitAtWidth(remaining, room);
     result.push(`${currentPrefix}${split.head}`);
     remaining = split.tail.replace(/^\s+/u, '');
-    currentPrefix = ' '.repeat(displayWidth(prefix));
+    currentPrefix = nextPrefix;
   }
   return result;
+}
+
+export function wrapIndentedTerminalLine(value, width) {
+  const clean = sanitizeTerminal(value).replaceAll('\t', '  ');
+  const indentation = /^\s*/u.exec(clean)?.[0] ?? '';
+  return wrapTerminalLine(clean.slice(indentation.length), width, indentation, indentation);
 }
 
 export function displayWidth(value) {
@@ -79,6 +87,13 @@ function markdownLine(raw) {
   line = line.replace(/~~([^~]+)~~/gu, '$1');
   line = line.replace(/`([^`]+)`/gu, '$1');
   return line.replace(/\\([\\`*_[\]{}()#+.!>-])/gu, '$1');
+}
+
+function hangingPrefix(prefix, value) {
+  const structural = /^(\s*)(?:(?:[-*+]\s+)|(?:\d+[.)]\s+))/u.exec(value);
+  if (structural) return `${prefix}${' '.repeat(displayWidth(structural[0]))}`;
+  const indentation = /^\s+/u.exec(value)?.[0] ?? '';
+  return `${prefix}${' '.repeat(displayWidth(indentation))}`;
 }
 
 function splitAtWidth(value, maximum) {

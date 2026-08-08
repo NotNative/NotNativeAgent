@@ -4,7 +4,7 @@ import { commandPresentation, commandSuggestions, commandsByCategory } from './t
 import { VERSION } from './product.js';
 import { activityDetailRows, collapsedFailureRows, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './tui-activity-renderer.js';
 import { angledWordmarkGradient, decorateOverlay } from './tui-colors.js';
-import { displayWidth, renderMarkdown, truncateTerminal, wrapTerminalLine } from './terminal-markdown.js';
+import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLine, wrapTerminalLine } from './terminal-markdown.js';
 import { sessionStatusLine } from './tui-status-line.js';
 import { decorateSelection, plainTerminalLine } from './tui-selection.js';
 import { contextCompactionText } from './tui-context-renderer.js';
@@ -463,7 +463,7 @@ function paint(codes, value) {
 }
 
 function wrap(value, width) {
-  return String(value).split(/\r?\n/u).flatMap((line) => wrapTerminalLine(line, width)).slice(0, 64);
+  return String(value).split(/\r?\n/u).flatMap((line) => wrapIndentedTerminalLine(line, width)).slice(0, 64);
 }
 
 function crop(value, width) {

@@ -17,7 +17,7 @@ import { TerminalInputDecoder, TerminalMode, sanitizeTerminal } from '../src/ter
 import { RetainedTerminalScreen } from '../src/terminal-screen.js';
 import { EditorBuffer, TuiProjection, validateKeyBindings } from '../src/tui-model.js';
 import { headerTargetAt, TuiRenderer } from '../src/tui-renderer.js';
-import { displayWidth } from '../src/terminal-markdown.js';
+import { displayWidth, renderMarkdown, wrapIndentedTerminalLine } from '../src/terminal-markdown.js';
 import { runPlainText } from '../src/plain-text.js';
 import { adaptiveRenderDelay, createRenderLoop, finalizeTui, handleActions, runTui, shouldExitOnCancel, submitEditor } from '../src/tui.js';
 import { commandDefinition, commandSuggestions, TUI_COMMANDS } from '../src/tui-commands.js';
@@ -451,6 +451,21 @@ test('assistant markdown preserves structure without exposing formatting markers
   assert.match(frame, /\[js\]/u);
   assert.doesNotMatch(frame, /\*\*|```/u);
   assert.equal(frame.trimEnd().split('\n').every((line) => displayWidth(line) <= 48), true);
+});
+
+test('wrapped transcript lines retain semantic hanging indentation', () => {
+  const activity = wrapIndentedTerminalLine(`    \u2713 shell.run (${`command-${'x'.repeat(80)}`}) | succeeded`, 48);
+  assert.equal(activity.length > 1, true);
+  assert.equal(activity.every((line) => line.startsWith('    ')), true);
+  assert.equal(activity.some((line) => line.startsWith('command-')), false);
+
+  const prose = renderMarkdown('A deliberately long assistant sentence that must wrap without changing its response-level indentation.', 44, '* ', '  ');
+  assert.equal(prose[0].startsWith('* '), true);
+  assert.equal(prose.slice(1).every((line) => line.startsWith('  ')), true);
+
+  const list = renderMarkdown('- A deliberately long list item that must wrap beneath its text rather than beneath the bullet marker.', 42, '* ', '  ');
+  assert.equal(list[0].startsWith('* - '), true);
+  assert.equal(list.slice(1).every((line) => line.startsWith('    ')), true);
 });
 
 test('separate assistant response segments use one blank line without changing internal paragraphs', () => {
