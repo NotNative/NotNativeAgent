@@ -41,8 +41,13 @@ export class DestructiveKeyGuard {
 
 export async function handleDestructiveEscape(workspace, guard) {
   const session = workspace.projection.active();
-  if (session.editor.text.length > 0) {
-    if (confirmOrWarn(workspace, guard, 'escape:clear_editor', 'Press Esc again within 1 second to clear the input.')) session.editor.take();
+  const attachmentCount = session.pendingAttachments?.length ?? 0;
+  if (session.editor.text.length > 0 || attachmentCount > 0) {
+    const description = attachmentCount > 0 ? 'input and queued attachments' : 'input';
+    if (confirmOrWarn(workspace, guard, 'escape:clear_input', `Press Esc again within 1 second to clear the ${description}.`)) {
+      session.editor.take();
+      session.pendingAttachments?.splice(0);
+    }
     return;
   }
   if (session.pendingPermission || session.activeTurnId) {
@@ -66,5 +71,8 @@ function confirmOrWarn(workspace, guard, intent, text) {
     workspace.onChange();
   });
   if (!confirmed) workspace.projection.showNotice('confirmation', text);
+  else if (workspace.projection.notice?.kind === 'confirmation' && workspace.projection.notice.text === text) {
+    workspace.projection.clearNotice();
+  }
   return confirmed;
 }

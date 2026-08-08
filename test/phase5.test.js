@@ -184,6 +184,7 @@ test('double Escape clears a draft, then a fresh pair cancels active work', asyn
   const session = projection.active();
   session.activeTurnId = 'turn-1';
   session.editor.set('incorrect steering draft');
+  session.pendingAttachments.push({ path: 'queued.png', mime_type: 'image/png', size: 12 });
   let cancellations = 0;
   const workspace = {
     projection, onChange() {},
@@ -193,11 +194,14 @@ test('double Escape clears a draft, then a fresh pair cancels active work', asyn
 
   await handleActions([{ action: 'back' }], workspace, () => undefined, decoder, guard);
   assert.equal(session.editor.text, 'incorrect steering draft');
-  assert.match(projection.notice.text, /Esc again.*clear the input/u);
+  assert.equal(session.pendingAttachments.length, 1);
+  assert.match(projection.notice.text, /Esc again.*clear the input and queued attachments/u);
   now = 500;
   await handleActions([{ action: 'back' }], workspace, () => undefined, decoder, guard);
   assert.equal(session.editor.text, '');
+  assert.equal(session.pendingAttachments.length, 0);
   assert.equal(cancellations, 0);
+  assert.equal(projection.notice, null);
 
   now = 600;
   session.activeTurnId = 'turn-1';
