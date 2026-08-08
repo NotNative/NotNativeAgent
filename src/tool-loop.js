@@ -10,7 +10,7 @@ import { assertMissionBudget, missionConditionFailure, reserveAndPersistMissionT
 import { ToolResultCache } from './tool-result-cache.js';
 import { assertTurnActive } from './turn-cancellation.js';
 import { ContractError } from './ids.js';
-import { recentReviewEvidence } from './review-evidence.js';
+import { buildReviewEvidence } from './review-evidence.js';
 
 export class ToolLoop {
   constructor(options) {
@@ -104,11 +104,31 @@ export class ToolLoop {
 
   async #review(item, active) {
     const execution = this.toolContext(active);
+    const reviewEvidence = buildReviewEvidence(this.engine.transcript, {
+      currentRequestId: item.request.id,
+      currentTurnId: active.turnId,
+      request: item.request,
+      authenticatedIntent: active.authority?.intent,
+      justification: '',
+    });
+    this.telemetry?.record('review.context_retrieval', 'succeeded', {
+      records_scanned: reviewEvidence.metadata.recordsScanned,
+      scan_truncated: reviewEvidence.metadata.scanTruncated,
+      recent_records: reviewEvidence.metadata.recentRecords,
+      history_matches: reviewEvidence.metadata.historyMatches,
+      matched_record_indexes: reviewEvidence.metadata.matchedRecordIndexes,
+      relevance_scores: reviewEvidence.metadata.relevanceScores,
+      packet_bytes: reviewEvidence.metadata.packetBytes,
+      packet_truncated: reviewEvidence.metadata.packetTruncated,
+    }, {
+      spanId: `review-context:${item.request.id}`, parentSpanId: active.stepId,
+      turnId: active.turnId, stepId: active.stepId, toolRequestId: item.request.id,
+    });
     const context = {
       ...execution,
       authority: active.authority, definition: this.tools.definition(item.request.toolName),
       surface: this.surface, justification: '', signal: active.controller.signal,
-      causalEvidence: recentReviewEvidence(this.engine.transcript, item.request.id),
+      causalEvidence: reviewEvidence.evidence,
     };
     const event = this.eventFactory.create(
       'permission.pre', 'permission', 'pre', active, { request_id: item.request.id },
