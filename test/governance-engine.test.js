@@ -53,7 +53,7 @@ test('governance persists evidence lifecycle, decisions, and terminal effects', 
   }
 });
 
-test('governance rejects identity drift, invalid lifecycle reversal, and raw payload fields', async () => {
+test('governance rejects invalid lifecycle reversal and raw payload fields', async () => {
   const governance = new GovernanceEngine({ durable: false, sessionId: 'ephemeral' });
   await governance.initialize();
   const base = {
@@ -62,13 +62,86 @@ test('governance rejects identity drift, invalid lifecycle reversal, and raw pay
     scope: { kind: 'session', fingerprint: 'session-one' }, observedAt: 100,
   };
   await governance.registerEvidence(base);
-  await assert.rejects(() => governance.registerEvidence({ ...base, contentFingerprint: 'result-two' }),
-    { code: 'governance_evidence_drift' });
   await governance.transitionEvidence(base.id, 'invalidated', { reasonCode: 'superseded_by_observation' });
   await assert.rejects(() => governance.transitionEvidence(base.id, 'active', { reasonCode: 'unsafe_revival' }),
     { code: 'governance_evidence_transition_invalid' });
   assert.throws(() => normalizeGovernanceEvidence({ ...base, content: 'must not enter the governance journal' }),
     { code: 'governance_fields_invalid' });
+});
+
+test('governance recovers evidence identity drift onto a replacement id without failing the turn', async () => {
+  const telemetry = [];
+  const governance = new GovernanceEngine({
+    durable: false, sessionId: 'ephemeral',
+    telemetry: { record: (...args) => telemetry.push(args) },
+  });
+  await governance.initialize();
+  const base = {
+    id: 'evidence:one', kind: 'runtime_observation', origin: 'runtime', trust: 'observed',
+    sourceRef: 'event:one', sourceFingerprint: 'event-one', contentFingerprint: 'result-one',
+    scope: { kind: 'session', fingerprint: 'session-one' }, observedAt: 100,
+  };
+  const original = await governance.registerEvidence(base);
+  const drifted = await governance.registerEvidence({ ...base, contentFingerprint: 'result-two' });
+  assert.notEqual(drifted.id, original.id);
+  assert.deepEqual([...drifted.supersedes], [original.id]);
+  assert.equal(drifted.conflict, 'suspected');
+  assert.equal(governance.evidence(original.id).contentFingerprint, original.contentFingerprint);
+  const replayed = await governance.registerEvidence({ ...base, contentFingerprint: 'result-two' });
+  assert.equal(replayed.id, drifted.id);
+  const third = await governance.registerEvidence({ ...base, contentFingerprint: 'result-three' });
+  assert.notEqual(third.id, drifted.id);
+  assert.notEqual(third.id, original.id);
+  assert.ok(telemetry.some(([name, status, , correlation]) => name === 'governance.evidence'
+    && status === 'recovered' && correlation.reason_code === 'governance_evidence_drift'));
+});
+
+test('governance recovers decision identity drift and the replacement decision stays settleable', async () => {
+  const governance = new GovernanceEngine({ durable: false, sessionId: 'ephemeral' });
+  await governance.initialize();
+  const evidence = await governance.registerEvidence(evidenceRecord('evidence-decision-drift', 'content-a'));
+  const base = {
+    id: 'decision:fixed', domain: 'memory_eligibility', subjectRef: 'memory:alpha',
+    subjectFingerprint: 'memory-alpha-v1', outcome: 'admit', reasonCode: 'eligible',
+    policyVersion: 'test/1', evidenceRefs: [evidence.id], authorityRefs: [], decidedAt: 10,
+  };
+  const original = await governance.decide(base);
+  const drifted = await governance.decide({ ...base, outcome: 'quarantine', reasonCode: 'source_stale' });
+  assert.notEqual(drifted.id, original.id);
+  assert.equal(drifted.attributes.drift_of, original.id);
+  assert.equal(drifted.outcome, 'quarantine');
+  assert.equal(governance.decision(original.id).outcome, 'admit');
+  const terminal = await governance.settleDecision(drifted.id, {
+    status: 'not_applied', effectCertainty: 'none', resultFingerprint: 'not-injected',
+    settledAt: 20, reasonCode: 'source_stale',
+  });
+  assert.equal(terminal.status, 'not_applied');
+  const replayed = await governance.decide({ ...base, outcome: 'quarantine', reasonCode: 'source_stale' });
+  assert.equal(replayed.id, drifted.id);
+});
+
+test('drifted evidence registered after a durable resume no longer poisons the session', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-governance-drift-'));
+  try {
+    const first = new GovernanceEngine({ durable: true, root, sessionId: 'session-drift' });
+    await first.initialize();
+    await first.registerEvidence(evidenceRecord('evidence:request:tool-1', 'digest-one'));
+    await first.close();
+
+    const resumed = new GovernanceEngine({ durable: true, root, sessionId: 'session-drift' });
+    await resumed.initialize();
+    const drifted = await resumed.registerEvidence(evidenceRecord('evidence:request:tool-1', 'digest-two'));
+    assert.notEqual(drifted.id, 'evidence:request:tool-1');
+    await resumed.close();
+
+    const verified = new GovernanceEngine({ durable: true, root, sessionId: 'session-drift' });
+    await verified.initialize();
+    assert.ok(verified.evidence('evidence:request:tool-1'));
+    assert.ok(verified.evidence(drifted.id));
+    await verified.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('governance retention never leaves a retained decision with dangling evidence', async () => {

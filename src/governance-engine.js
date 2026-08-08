@@ -37,7 +37,7 @@ export class GovernanceEngine {
     const existing = this.#evidence.get(evidence.id);
     if (existing) {
       if (governanceFingerprint(existing.record) !== governanceFingerprint(evidence)) {
-        throw new ContractError('governance_evidence_drift', 'evidence identity was reused with different content');
+        return this.#recoverEvidenceDrift(evidence);
       }
       return existing.record;
     }
@@ -67,7 +67,7 @@ export class GovernanceEngine {
     const existing = this.#decisions.get(decision.id);
     if (existing) {
       if (governanceFingerprint(existing.record) !== governanceFingerprint(decision)) {
-        throw new ContractError('governance_decision_drift', 'decision identity was reused with different content');
+        return this.#recoverDecisionDrift(decision);
       }
       return existing.record;
     }
@@ -190,6 +190,37 @@ export class GovernanceEngine {
   }
 
   async close() { await this.#store?.close(); }
+
+  // Identity reuse with different content is a drift, but throwing here left the
+  // session permanently unrecoverable: the durable journal replays the original
+  // record forever, so every later turn that recomputes the same deterministic id
+  // failed again. Instead, rebase the drifted record onto a replacement id derived
+  // from (original id, content) — deterministic, so a retried turn converges on the
+  // same record — and keep the collision auditable via supersedes, the suspected
+  // conflict marker, and a recovered telemetry event. The original record is never
+  // mutated.
+  async #recoverEvidenceDrift(evidence) {
+    const driftId = `evidence:drift:${governanceFingerprint(`${evidence.id}:${governanceFingerprint(evidence)}`)}`;
+    this.#telemetry('governance.evidence', 'recovered', evidence, {
+      evidence_id: driftId, reason_code: 'governance_evidence_drift',
+    });
+    return this.registerEvidence({
+      ...evidence,
+      id: driftId,
+      conflict: evidence.conflict === 'none' ? 'suspected' : evidence.conflict,
+      supersedes: [...evidence.supersedes.slice(-63), evidence.id],
+    });
+  }
+
+  async #recoverDecisionDrift(decision) {
+    const driftId = `governance_decision:drift:${governanceFingerprint(`${decision.id}:${governanceFingerprint(decision)}`)}`;
+    this.#telemetry('governance.decision', 'recovered', decision, {
+      governance_decision_id: driftId, reason_code: 'governance_decision_drift',
+    });
+    const attributes = Object.keys(decision.attributes).length < 32
+      ? { ...decision.attributes, drift_of: decision.id } : decision.attributes;
+    return this.decide({ ...decision, id: driftId, attributes });
+  }
 
   #requireEvidence(id) {
     const entry = this.#evidence.get(id);
