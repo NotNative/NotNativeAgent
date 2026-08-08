@@ -7,6 +7,14 @@ import { queueClipboardImage, queuePastedImagePaths } from './workspace-attachme
 export async function clipboardPasteAction(workspace) {
   const read = workspace.options.clipboardRead;
   if (typeof read !== 'function') throw new ContractError('clipboard_unavailable', 'clipboard paste is unavailable');
+  if (!workspace.projection?.overlay && typeof workspace.options.clipboardImageRead === 'function') {
+    try {
+      const attachment = await queueClipboardImage(workspace);
+      return { action: 'attachment', attachment };
+    } catch (error) {
+      if (!imageFallbackError(error)) throw error;
+    }
+  }
   let text = '';
   try { text = await read(); } catch { /* an image clipboard commonly has no text representation */ }
   if (!text) {
@@ -17,6 +25,10 @@ export async function clipboardPasteAction(workspace) {
     return { action: 'attachment', attachment };
   }
   return { action: 'paste', text: normalizeClipboardText(text) };
+}
+
+function imageFallbackError(error) {
+  return ['clipboard_image_unavailable', 'attachments_disabled'].includes(error?.code);
 }
 
 export async function pasteClipboard(workspace, handleOverlayAction, handleEditorAction, source = 'keyboard') {

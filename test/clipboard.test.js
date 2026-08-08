@@ -50,6 +50,56 @@ test('native clipboard image ingestion validates a bounded PNG', async () => {
   assert.deepEqual(await clipboard.readImage(target, 1024), { path: target, mime_type: 'image/png', size: 12 });
 });
 
+test('Windows image extraction passes the destination outside PowerShell source text', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-clipboard-command-'));
+  const target = join(root, 'clipboard image.png');
+  let observed;
+  const clipboard = nativeClipboard({ platform: 'win32', imageProcessRunner: async (command, args, path, maxBytes, capture, env) => {
+    observed = { command, args, path, maxBytes, capture, env };
+    await writeFile(path, Buffer.from('89504e470d0a1a0a00000000', 'hex'));
+  } });
+  await clipboard.readImage(target, 2048);
+  assert.equal(observed.command, 'powershell.exe');
+  assert.equal(observed.args.includes(target), false);
+  assert.equal(observed.args.at(-2), '-Command');
+  assert.match(observed.args.at(-1), /NNA_CLIPBOARD_IMAGE_PATH/u);
+  assert.equal(observed.env.NNA_CLIPBOARD_IMAGE_PATH, target);
+  assert.equal(observed.path, target);
+  assert.equal(observed.maxBytes, 2048);
+  assert.equal(observed.capture, false);
+});
+
+test('clipboard image takes precedence over incidental text and text remains the fallback', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-clipboard-priority-'));
+  const session = { pendingAttachments: [] };
+  let textRead = false;
+  const imageWorkspace = {
+    options: {
+      clipboardRead: async () => { textRead = true; return 'incidental image text'; },
+      clipboardImageRead: async (path) => writeFile(path, Buffer.from('89504e470d0a1a0a00000000', 'hex')),
+    },
+    projection: { overlay: null, active: () => session },
+    activeConfig: () => ({ workspaceRoot: root, attachments: { enabled: true, maxBytes: 1024 } }),
+    activeEngine: () => ({ attachments: { root: join(root, 'attachments') } }),
+    onChange() {},
+  };
+  const imageAction = await clipboardPasteAction(imageWorkspace);
+  assert.equal(imageAction.action, 'attachment');
+  assert.equal(imageAction.attachment.mime_type, 'image/png');
+  assert.equal(textRead, false);
+
+  const textWorkspace = {
+    options: {
+      clipboardRead: async () => 'plain text',
+      clipboardImageRead: async () => { throw Object.assign(new Error('no image'), { code: 'clipboard_image_unavailable' }); },
+    },
+    projection: { overlay: null, active: () => ({ pendingAttachments: [] }) },
+    activeConfig: () => ({ attachments: { enabled: true, maxBytes: 1024 } }),
+    activeEngine: () => ({ attachments: { root: 'unused' } }),
+  };
+  assert.deepEqual(await clipboardPasteAction(textWorkspace), { action: 'paste', text: 'plain text' });
+});
+
 test('empty or non-text clipboard paste fails visibly instead of doing nothing', async () => {
   const workspace = { options: { clipboardRead: async () => '' } };
   await assert.rejects(clipboardPasteAction(workspace), { code: 'clipboard_empty' });

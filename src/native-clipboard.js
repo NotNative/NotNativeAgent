@@ -30,7 +30,7 @@ export function nativeClipboard(options = {}) {
     async readImage(path, maxBytes) {
       await mkdir(dirname(path), { recursive: true, mode: 0o700 });
       try {
-        await readClipboardImage(platform, path, maxBytes, options.imageRunner);
+        await readClipboardImage(platform, path, maxBytes, options.imageRunner, options.imageProcessRunner);
         const details = await stat(path);
         if (!details.isFile() || details.size === 0 || details.size > maxBytes) {
           throw new ContractError('clipboard_image_size_invalid', 'clipboard image is empty or exceeds the attachment limit');
@@ -47,22 +47,30 @@ export function nativeClipboard(options = {}) {
   });
 }
 
-async function readClipboardImage(platform, path, maxBytes, injected) {
+async function readClipboardImage(platform, path, maxBytes, injected, processRunner = runImageProcess) {
   if (injected) return injected(path, maxBytes, platform);
   if (platform === 'win32') {
-    const script = 'param([string]$p); Add-Type -AssemblyName System.Windows.Forms; '
-      + 'Add-Type -AssemblyName System.Drawing; if(-not [Windows.Forms.Clipboard]::ContainsImage()) { exit 3 }; '
-      + '$i=[Windows.Forms.Clipboard]::GetImage(); $i.Save($p,[Drawing.Imaging.ImageFormat]::Png); $i.Dispose()';
-    return runImageProcess('powershell.exe', ['-NoProfile', '-NonInteractive', '-STA', '-Command', script, path], path, maxBytes, false);
+    const script = '$p=[Environment]::GetEnvironmentVariable("NNA_CLIPBOARD_IMAGE_PATH"); '
+      + 'Add-Type -AssemblyName System.Drawing; '
+      + '$i=Get-Clipboard -Format Image -ErrorAction SilentlyContinue; if($null -eq $i) { exit 3 }; '
+      + 'try { $i.Save($p,[Drawing.Imaging.ImageFormat]::Png) } finally { $i.Dispose() }';
+    return processRunner(
+      'powershell.exe', ['-NoProfile', '-NonInteractive', '-STA', '-Command', script], path, maxBytes, false,
+      { NNA_CLIPBOARD_IMAGE_PATH: path },
+    );
   }
-  if (platform === 'darwin') return runImageProcess('pngpaste', [path], path, maxBytes, false);
-  try { return await runImageProcess('wl-paste', ['--no-newline', '--type', 'image/png'], path, maxBytes, true); }
-  catch { return runImageProcess('xclip', ['-selection', 'clipboard', '-t', 'image/png', '-o'], path, maxBytes, true); }
+  if (platform === 'darwin') return processRunner('pngpaste', [path], path, maxBytes, false);
+  try { return await processRunner('wl-paste', ['--no-newline', '--type', 'image/png'], path, maxBytes, true); }
+  catch { return processRunner('xclip', ['-selection', 'clipboard', '-t', 'image/png', '-o'], path, maxBytes, true); }
 }
 
-function runImageProcess(command, args, path, maxBytes, captureStdout) {
+function runImageProcess(command, args, path, maxBytes, captureStdout, extraEnv = undefined) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { windowsHide: true, stdio: ['ignore', captureStdout ? 'pipe' : 'ignore', 'ignore'] });
+    const child = spawn(command, args, {
+      windowsHide: true,
+      stdio: ['ignore', captureStdout ? 'pipe' : 'ignore', 'ignore'],
+      env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
+    });
     let bytes = 0; const chunks = [];
     const timer = setTimeout(() => child.kill(), TIMEOUT_MS);
     if (captureStdout) child.stdout.on('data', (chunk) => {
