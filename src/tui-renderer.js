@@ -171,7 +171,7 @@ function footerLines(projection, session, width) {
   if (projection.notice && projection.notice.kind !== 'confirmation') lines.push(crop(`[${projection.notice.kind.toUpperCase()}] ${projection.notice.text}`, width));
   const suggestions = commandSuggestions(session.editor.text, 3).map((item) => commandPresentation(item, session, projection.bindings));
   for (const item of suggestions) lines.push(crop(`${item.usage} — ${item.available ? item.description : `unavailable: ${item.unavailableReason}`}`, width));
-  lines.push(...editorLines(session.editor, width));
+  lines.push(...editorLines(session, width));
   lines.push(rule(width));
   lines.push(crop(controlLine(session, projection.bindings), width));
   lines.push(footerStatusLine(projection, session, width));
@@ -269,12 +269,16 @@ function recordLines(record, width) {
   return [];
 }
 
-function editorLines(editor, width) {
+function editorLines(session, width) {
+  const editor = session.editor;
   const range = editor.selection();
   const before = editor.text.slice(0, range.start);
   const selected = editor.text.slice(range.start, range.end);
   const after = editor.text.slice(range.end);
-  const value = `${before}${selected ? `⟦${selected}⟧` : '|'}${after}`;
+  const attachmentCount = session.pendingAttachments?.length ?? 0;
+  const attachmentMarker = attachmentCount > 0
+    ? `[pasted ${attachmentCount} image${attachmentCount === 1 ? '' : 's'}] ` : '';
+  const value = `${attachmentMarker}${before}${selected ? `⟦${selected}⟧` : '|'}${after}`;
   const lines = value.split('\n').flatMap((line) => wrap(line, Math.max(1, width - 2)));
   return lines.slice(-4).map((line, index) => crop(`${index === 0 ? '> ' : '  '}${line}`, width));
 }
@@ -442,7 +446,10 @@ function decorateFooter(line, index, length, color) {
     return status.replace(/^(?:prompt|auto-review|unattended)/u, (posture) => paint('1;38;5;213', posture));
   }
   if (index === length - 2) return paint('38;5;244', line);
-  if (line.startsWith('> ')) return `${paint('1;38;5;81', '>')} ${line.slice(2)}`;
+  if (line.startsWith('> ')) {
+    const body = line.slice(2).replace(/^\[pasted \d+ images?\]/u, (marker) => paint('38;5;141', marker));
+    return `${paint('1;38;5;81', '>')} ${body}`;
+  }
   if (line.startsWith('/')) return paint('38;5;141', line);
   return line;
 }

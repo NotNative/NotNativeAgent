@@ -12,6 +12,7 @@ import { clipboardPasteAction, pasteClipboard } from '../src/tui-clipboard-actio
 import { recordTuiClick } from '../src/tui-telemetry.js';
 import { handleMouse } from '../src/tui-mouse.js';
 import { TuiProjection } from '../src/tui-model.js';
+import { TuiRenderer } from '../src/tui-renderer.js';
 
 test('TUI-012 clipboard emission is explicit, bounded, and base64 isolated', async () => {
   let wire = '';
@@ -98,6 +99,20 @@ test('clipboard image takes precedence over incidental text and text remains the
     activeEngine: () => ({ attachments: { root: 'unused' } }),
   };
   assert.deepEqual(await clipboardPasteAction(textWorkspace), { action: 'paste', text: 'plain text' });
+});
+
+test('queued images appear beside the composer without entering prompt text', () => {
+  const projection = new TuiProjection();
+  projection.addSession('main', 'Main', { model: 'model', provider: 'provider' });
+  const session = projection.active();
+  session.editor.insert('describe these');
+  session.pendingAttachments.push(
+    { path: 'first.png', mime_type: 'image/png', size: 12 },
+    { path: 'second.png', mime_type: 'image/png', size: 12 },
+  );
+  const frame = new TuiRenderer().frame(projection, { width: 100, height: 24, color: false });
+  assert.match(frame, /> \[pasted 2 images\] describe these\|/u);
+  assert.equal(session.editor.text, 'describe these');
 });
 
 test('empty or non-text clipboard paste fails visibly instead of doing nothing', async () => {
