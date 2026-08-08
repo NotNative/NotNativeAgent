@@ -98,16 +98,24 @@ export class GroundingPolicy {
   async #recordEvidence(item, assessment, context) {
     if (!this.governance) return null;
     const contentFingerprint = governanceFingerprint(item.content);
-    const sourceVersion = `${item.source}:${item.id}:${item.updatedAt}:${contentFingerprint}`;
+    const sourceVersion = governanceFingerprint({
+      source: item.source,
+      id: item.id,
+      scope: item.scope,
+      contentFingerprint,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+      pinned: item.pinned,
+      stale: item.stale,
+      conflict: item.conflict,
+    });
     const evidence = await this.governance.registerEvidence({
-      id: `evidence:memory:${governanceFingerprint(sourceVersion)}`,
+      id: `evidence:memory:${sourceVersion}`,
       kind: 'memory_recall', origin: 'memory', trust: 'untrusted',
       state: assessment.state, freshness: assessment.freshness, conflict: assessment.conflict,
       sourceRef: `memory:${item.id}`, sourceFingerprint: sourceVersion, contentFingerprint,
       scope: scopeRecord(item.scope), observedAt: observedAt(item),
       attributes: {
-        request_id: context.requestId ?? null,
-        relevance: item.relevance,
         pinned: item.pinned,
         assertion_mode: assessment.assertionMode,
       },
@@ -124,7 +132,12 @@ export class GroundingPolicy {
       outcome: assessment.admit ? 'admit' : assessment.outcome,
       reasonCode: assessment.reasonCode, policyVersion: GROUNDING_POLICY_VERSION,
       evidenceRefs: [evidence.id], authorityRefs: context.authorityRef ? [context.authorityRef] : [],
-      attributes: { request_id: context.requestId ?? null, assertion_mode: assessment.assertionMode },
+      attributes: {
+        request_id: context.requestId ?? null,
+        relevance: item.relevance,
+        pinned: item.pinned,
+        assertion_mode: assessment.assertionMode,
+      },
     });
   }
 
@@ -168,5 +181,5 @@ function scopeRecord(scope) {
 
 function observedAt(item) {
   const value = item.updatedAt || item.createdAt;
-  return Number.isSafeInteger(value) && value > 0 ? value : Date.now();
+  return Number.isSafeInteger(value) && value > 0 ? value : 0;
 }
