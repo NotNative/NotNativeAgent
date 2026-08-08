@@ -88,3 +88,16 @@ test('plan and task overlays expose structured progress with a compact footer in
   }, 240);
   assert.match(status, /plan 1\/2/u);
 });
+
+test('footer keeps the active workspace visible and collapses a long provider route before the model', () => {
+  const session = {
+    metadata: { endpoint: 'http://provider-host.example:1234/v1', model: 'qwen-model', workspace: 'D:\\ProjectRepo\\NotNativeAgent' },
+    usage: null, viewportEnd: null, viewportLineCount: 0, pendingAttachments: [], state: 'idle',
+    reviewPosture: 'auto-review', contextLimitTokens: null, contextLimitBytes: null, work: null,
+  };
+  const wide = sessionStatusLine(session, 240);
+  assert.match(wide, /IDLE \| D:\\ProjectRepo\\NotNativeAgent \| http:\/\/provider-host\.example:1234\/v1\/qwen-model/u);
+  const narrow = sessionStatusLine(session, 100);
+  assert.match(narrow, /IDLE \| D:\\ProjectRepo\\NotNativeAgent \| qwen-model/u);
+  assert.doesNotMatch(narrow, /provider-host/u);
+});

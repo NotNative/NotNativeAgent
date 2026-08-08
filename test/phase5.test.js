@@ -1241,7 +1241,9 @@ test('new conversations show a responsive splash while the tab strip contains on
   assert.match(wide, /Provider\s+http:\/\/model-host:1234\/v1/u);
   assert.doesNotMatch(wide, /Provider\s+provider-one/u);
   assert.match(wide, /Model\s+model-one/u);
-  assert.match(wide, /http:\/\/model-host:1234\/v1\/model-one/u);
+  const footer = wide.split('\n').find((line) => line.startsWith('auto-review'));
+  assert.match(footer, /D:\\ProjectRepo\\NotNativeAgent \| model-one/u);
+  assert.doesNotMatch(footer, /model-host/u);
   assert.match(wide, /Workspace\s+D:\\ProjectRepo\\NotNativeAgent/u);
   assert.match(wide, /███╗/u);
   assert.match(wide, /╚═╝  ╚═══╝ ╚═╝  ╚═══╝ ╚═╝  ╚═╝/u);

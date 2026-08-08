@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { sanitizeTerminal } from './terminal-adapter.js';
-import { truncateTerminal } from './terminal-markdown.js';
+import { displayWidth, truncateTerminal } from './terminal-markdown.js';
 
 export function sessionStatusLine(session, width) {
-  const route = `${session.metadata.endpoint ?? session.metadata.provider}/${session.metadata.model}`;
+  const route = responsiveRoute(session, width);
   const usage = totalTokens(session.usage);
   const context = contextUsage(session);
   const view = session.viewportEnd === null ? 'following' : `${Math.max(0, session.viewportLineCount - session.viewportEnd)} unseen`;
@@ -11,9 +11,19 @@ export function sessionStatusLine(session, width) {
     ? ` | ${session.pendingAttachments.length} attachment${session.pendingAttachments.length === 1 ? '' : 's'}` : '';
   const state = session.state === 'needs_input' ? 'IDLE' : session.state.toUpperCase();
   const work = workProgress(session.work);
+  const workspace = session.metadata.workspace ? ` | ${session.metadata.workspace}` : '';
   return truncateTerminal(sanitizeTerminal(
-    `${session.reviewPosture} | ${state} | ${route}${attachments}${work} | ${context} | ${usage} | ${view}`,
+    `${session.reviewPosture} | ${state}${workspace} | ${route}${attachments}${work} | ${context} | ${usage} | ${view}`,
   ), width);
+}
+
+function responsiveRoute(session, width) {
+  const model = session.metadata.model;
+  const route = `${session.metadata.endpoint ?? session.metadata.provider}/${model}`;
+  const workspace = session.metadata.workspace ? ` | ${session.metadata.workspace}` : '';
+  const fixedPrefix = `${session.reviewPosture} | ${session.state === 'needs_input' ? 'IDLE' : session.state.toUpperCase()}${workspace} | `;
+  const minimumSuffix = ' | context --';
+  return displayWidth(`${fixedPrefix}${route}${minimumSuffix}`) <= width ? route : model;
 }
 
 function workProgress(work) {
