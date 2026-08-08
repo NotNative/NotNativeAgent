@@ -23,6 +23,7 @@ export class PreauthorizationRegistry {
       policyVersion: request.policyVersion, principal, createdAt: Date.now(),
       expiresAt: Math.min(request.expiresAt + this.lifetimeMs, Date.now() + this.lifetimeMs),
       targetFingerprint: operationTargetFingerprint(request),
+      operationFamilyFingerprint: operationFamilyFingerprint(request),
     });
     this.#grants.push(grant);
     return grant;
@@ -35,7 +36,9 @@ export class PreauthorizationRegistry {
       && grant.policyVersion === request.policyVersion && grant.workspaceRoot === request.workspaceRoot
       && grant.toolName === request.toolName && grant.definitionVersion === request.definitionVersion
       && grant.sideEffect === context.definition.sideEffect
-      && (grant.scope === 'workspace' || grant.targetFingerprint === operationTargetFingerprint(request))) ?? null;
+      && (grant.scope === 'workspace'
+        ? grant.operationFamilyFingerprint === operationFamilyFingerprint(request)
+        : grant.targetFingerprint === operationTargetFingerprint(request))) ?? null;
   }
 
   snapshot() {
@@ -43,6 +46,7 @@ export class PreauthorizationRegistry {
     return Object.freeze(this.#grants.map((grant) => Object.freeze({
       id: grant.id, scope: grant.scope, tool: grant.toolName, effect: grant.sideEffect,
       target_fingerprint: grant.targetFingerprint, restriction_version: grant.authorityRestrictionVersion,
+      operation_family_fingerprint: grant.operationFamilyFingerprint,
       expires_at: grant.expiresAt,
     })));
   }
@@ -82,6 +86,50 @@ function operationTargetFingerprint(request) {
       ? { targets, shell: resolved.shell, script: resolved.script }
     : targets.length > 0 ? { targets } : { args: request.args };
   return fingerprint(JSON.stringify(canonical(identity)));
+}
+
+function operationFamilyFingerprint(request) {
+  const resolved = request.resolved ?? {};
+  if (request.toolName === 'process.run') {
+    const executable = commandName(resolved.executable);
+    const argv = Array.isArray(resolved.argv) ? resolved.argv : [];
+    return fingerprint(JSON.stringify(canonical({
+      executable,
+      operation: processOperation(executable, argv),
+      complexity: resolved.reviewComplexity ?? null,
+      purpose: resolved.reviewPurpose ?? null,
+    })));
+  }
+  if (request.toolName === 'shell.run') {
+    return fingerprint(JSON.stringify(canonical({
+      shell: resolved.shell ?? null,
+      commands: shellCommandFamily(resolved.script),
+      complexity: resolved.reviewComplexity ?? null,
+      purpose: resolved.reviewPurpose ?? null,
+    })));
+  }
+  return fingerprint(request.toolName);
+}
+
+function processOperation(executable, argv) {
+  if (['cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh', 'sh', 'bash', 'zsh', 'fish'].includes(executable)) {
+    return shellCommandFamily(argv.at(-1));
+  }
+  const significant = argv.filter((value) => typeof value === 'string' && !value.startsWith('-'));
+  return significant.slice(0, 2).map((value) => value.toLowerCase());
+}
+
+function shellCommandFamily(script) {
+  if (typeof script !== 'string') return [];
+  return script.split(/(?:\r?\n|&&|\|\||[|;])/u).map((segment) => {
+    const match = segment.trim().match(/^(?:&\s*)?(?:["']?)([^\s"']+)/u);
+    return commandName(match?.[1]);
+  }).filter(Boolean);
+}
+
+function commandName(value) {
+  if (typeof value !== 'string') return null;
+  return value.replaceAll('\\', '/').split('/').at(-1)?.toLowerCase() ?? null;
 }
 
 function canonical(value) {

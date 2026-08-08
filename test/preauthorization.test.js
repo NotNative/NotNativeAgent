@@ -16,7 +16,7 @@ test('AC-AUTH-05 conversation preauthorization is scoped, drift-sensitive, inspe
   assert.equal(registry.match({ ...request('four', 'a.txt'), policyVersion: 2 }, context), null);
   assert.equal(registry.match({ ...request('restricted', 'a.txt'), authorityRestrictionVersion: 1 }, context), null);
   assert.deepEqual(Object.keys(registry.snapshot()[0]).sort(), [
-    'effect', 'expires_at', 'id', 'restriction_version', 'scope', 'target_fingerprint', 'tool',
+    'effect', 'expires_at', 'id', 'operation_family_fingerprint', 'restriction_version', 'scope', 'target_fingerprint', 'tool',
   ]);
   assert.equal(registry.revoke(exact.id, 'operator').revoked, true);
   assert.equal(registry.match(request('five', 'a.txt'), context), null);
@@ -24,6 +24,32 @@ test('AC-AUTH-05 conversation preauthorization is scoped, drift-sensitive, inspe
   const workspace = registry.grant('allow_workspace', request('six', 'a.txt'), context, 'operator');
   assert.equal(registry.match(request('seven', 'b.txt'), context)?.id, workspace.id);
   assert.equal(registry.match({ ...request('eight', 'b.txt'), workspaceRoot: 'D:/other' }, context), null);
+});
+
+test('workspace execution grants bind to an operation family rather than every command', () => {
+  const registry = new PreauthorizationRegistry();
+  const review = { definition: { sideEffect: 'unknown' } };
+  const status = compoundRequest('status-one', 'process.run', {
+    path: 'D:/work', executable: 'git', argv: ['status'], reviewComplexity: 'simple_argv',
+  });
+  const grant = registry.grant('allow_workspace', status, review, 'operator');
+  assert.equal(registry.match(compoundRequest('status-two', 'process.run', {
+    path: 'D:/work/subdir', executable: 'git', argv: ['status'], reviewComplexity: 'simple_argv',
+  }), review)?.id, grant.id);
+  assert.equal(registry.match(compoundRequest('push', 'process.run', {
+    path: 'D:/work', executable: 'git', argv: ['push'], reviewComplexity: 'simple_argv',
+  }), review), null);
+
+  const shell = compoundRequest('shell-one', 'shell.run', {
+    path: 'D:/work', shell: 'powershell', script: 'Get-ChildItem | Select-Object Name', reviewComplexity: 'compound_shell',
+  });
+  registry.grant('allow_workspace', shell, review, 'operator');
+  assert.ok(registry.match(compoundRequest('shell-two', 'shell.run', {
+    path: 'D:/work', shell: 'powershell', script: 'Get-ChildItem C:/Temp | Select-Object Name', reviewComplexity: 'compound_shell',
+  }), review));
+  assert.equal(registry.match(compoundRequest('shell-drift', 'shell.run', {
+    path: 'D:/work', shell: 'powershell', script: 'Get-ChildItem; Remove-Item file.txt', reviewComplexity: 'compound_shell',
+  }), review), null);
 });
 
 test('preauthorization choices exist only on the authenticated interactive contract', () => {

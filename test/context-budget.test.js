@@ -49,7 +49,7 @@ test('model runtime registry caches normalized discovery and degrades safely', a
   assert.equal(fallback.source, 'declared');
 });
 
-test('context planning reserves output, retains a fixed safety boundary, and never divides by parallelism', () => {
+test('context planning reserves output proportionally and never divides by parallelism', () => {
   const config = { limits: { maxContextBytes: 2_097_152, contextCompactionThreshold: 0.85 } };
   const budget = contextBudget(config, [route], {
     contextWindowTokens: 131072, outputLimitTokens: 8192,
@@ -60,6 +60,19 @@ test('context planning reserves output, retains a fixed safety boundary, and nev
   assert.equal(budget.parallelCapacity, 4);
   assert.equal(budget.thresholdBytes, 313344);
   assert.ok(estimateContextTokens([{ role: 'user', content: 'hello' }]) > 0);
+});
+
+test('small local-model windows retain useful proportional input budgets', () => {
+  const config = { limits: { maxContextBytes: 2_097_152, contextCompactionThreshold: 0.85 } };
+  const small = contextBudget(config, [route], { contextWindowTokens: 8192, source: 'declared' });
+  assert.equal(small.outputReserveTokens, 1024);
+  assert.equal(small.effectiveInputTokens, 7168);
+  assert.equal(small.thresholdTokens, 6092);
+
+  const medium = contextBudget(config, [route], { contextWindowTokens: 32768, source: 'declared' });
+  assert.equal(medium.outputReserveTokens, 4096);
+  assert.equal(medium.effectiveInputTokens, 28672);
+  assert.equal(medium.thresholdTokens, 24371);
 });
 
 test('loaded parallel capacity caps a provider resource without increasing the configured ceiling', async () => {
