@@ -22,7 +22,7 @@ import { userDataPaths } from './product.js';
 import { dispatchTurnPreHook, hookPayload } from './engine-hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import { executionContext, providerRequest, resetStep, toolContext } from './engine-runtime-helpers.js';
-import { clearEngineConversation, compactEngineConversation } from './engine-context-controls.js';
+import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine-context-controls.js';
 import { FinalizationFaults } from './finalization-faults.js';
 import { evaluateCompletion, partialOutputProgress } from './completion-supervisor.js';
 import { recoverProviderContextLimit } from './engine-provider-recovery.js';
@@ -208,6 +208,9 @@ export class SessionEngine {
 
   async compactConversation() {
     return compactEngineConversation(this);
+  }
+  async handoffConversation() {
+    return handoffEngineConversation(this);
   }
   async clearConversation() {
     return clearEngineConversation(this);

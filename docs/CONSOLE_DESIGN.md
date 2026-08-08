@@ -156,7 +156,8 @@ prior Main and empty standard tabs are not retained.
 ## Context
 
 The status line shows bounded context usage derived from engine facts. `/context` opens an
-inspectable breakdown, `/compact` requests an explicit auditable compaction, and `/clear`
+inspectable breakdown, `/compact` requests an explicit auditable compaction, `/handoff`
+replaces active model context with a terse self-handoff, and `/clear`
 requires clear scope and confirmation. Automatic preflight compaction remains the default
 and reports its boundary without interrupting ordinary work.
 

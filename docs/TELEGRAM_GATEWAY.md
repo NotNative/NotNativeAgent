@@ -39,6 +39,9 @@ to the exact standalone or attached conversation, so changing attachments cannot
 wrong session. Both controls are rejected while a turn is active; use `/cancel` first when
 the active work should be stopped.
 
+`/handoff` creates the same terse self-handoff available in the Console and makes it the
+new active-context boundary for the attached or standalone Telegram conversation.
+
 ## Console conversation attachment
 
 The standalone Telegram conversation remains the default. The gateway can also attach to
@@ -47,7 +50,7 @@ a currently running NNA Console conversation without copying or merging context:
 - `/sessions` lists active Console conversations with a short alias and bounded summary.
 - `/attach <number-or-alias>` routes subsequent messages into that exact conversation.
 - `/detach` returns Telegram to its standalone durable conversation.
-- `/compact` and confirmed `/clear` operate on the attached Console conversation itself,
+- `/compact`, `/handoff`, and confirmed `/clear` operate on the attached Console conversation itself,
   not on a copied Telegram transcript.
 - Inline **Attach**, **Detach**, and **Sessions** buttons perform the same operations before
   any message reaches a model.

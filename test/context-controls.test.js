@@ -55,3 +55,31 @@ test('explicit compaction and confirmed clear survive durable session recovery',
   assert.deepEqual(third.transcript, []);
   await third.shutdown({ request_id: 'shutdown-3', type: 'shutdown' });
 });
+
+test('terse handoff survives recovery while excluding prior transcript from future provider context', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-handoff-control-'));
+  const requests = [];
+  const options = {
+    config: configuration(root), sessionId: 'handoff-session', storeRoot: join(root, 'sessions'),
+    reviewerRoot: join(root, 'reviewers'),
+    providerFactory: () => ({ async *stream(request) {
+      requests.push(request.messages);
+      yield { type: 'text', text: 'completed' }; yield { type: 'terminal' };
+    } }),
+  };
+  const first = new SessionEngine(options);
+  await first.initialize();
+  await first.submit({ request_id: 'old-turn', content: 'Old detail that must leave active context.' }, 'operator');
+  const handoff = await first.handoffConversation();
+  assert.equal(handoff.retained, 0);
+  assert.equal(handoff.fact.continuation.schema, 'nna.handoff.v1');
+  await first.shutdown({ request_id: 'shutdown-1', type: 'shutdown' });
+
+  const second = new SessionEngine(options);
+  await second.initialize();
+  await second.submit({ request_id: 'new-turn', content: 'Continue from the handoff.' }, 'operator');
+  const resumed = requests.at(-1).map((item) => item.content).filter((item) => typeof item === 'string').join('\n');
+  assert.match(resumed, /NNA self-handoff/u);
+  assert.match(resumed, /Continue from the handoff/u);
+  await second.shutdown({ request_id: 'shutdown-2', type: 'shutdown' });
+});

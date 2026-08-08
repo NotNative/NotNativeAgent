@@ -128,6 +128,7 @@ test('Console session broker discovers, submits, and cancels without copying con
     submitSession: async (id, content) => { calls.push(['submit', id, content]); return { outcome: 'completed', text: 'done' }; },
     cancelSession: async (id) => { calls.push(['cancel', id]); return { accepted: true }; },
     compactSession: async (id) => { calls.push(['compact', id]); return { omitted: 8, retained: 3, reduced: 1 }; },
+    handoffSession: async (id) => { calls.push(['handoff', id]); return { omitted: 11, retained: 0 }; },
     clearSession: async (id) => { calls.push(['clear', id]); return { removed: 4, cleared: true }; },
   };
   const broker = await new ConsoleSessionBroker(workspace, { root }).start();
@@ -139,10 +140,11 @@ test('Console session broker discovers, submits, and cancels without copying con
     assert.deepEqual(await directory.submit(target, 'continue here'), { outcome: 'completed', text: 'done' });
     assert.deepEqual(await directory.cancel(target), { accepted: true });
     assert.deepEqual(await directory.compact(target), { omitted: 8, retained: 3, reduced: 1 });
+    assert.deepEqual(await directory.handoff(target), { omitted: 11, retained: 0 });
     assert.deepEqual(await directory.clear(target), { removed: 4, cleared: true });
     assert.deepEqual(calls, [
       ['submit', 'session-main', 'continue here'], ['cancel', 'session-main'],
-      ['compact', 'session-main'], ['clear', 'session-main'],
+      ['compact', 'session-main'], ['handoff', 'session-main'], ['clear', 'session-main'],
     ]);
   } finally { await broker.close(); }
   assert.deepEqual(await directory.list(), []);
@@ -159,8 +161,9 @@ test('Telegram compact and confirmed clear control the standalone session withou
       polls += 1;
       if (polls === 1) return [
         { update_id: 1, message: { text: '/compact', from: { id: 42 }, chat: { id: 42 } } },
-        { update_id: 2, message: { text: '/clear', from: { id: 42 }, chat: { id: 42 } } },
-        { update_id: 3, callback_query: { id: 'clear-confirm', data: 'nna:clear:y', from: { id: 42 }, message: { chat: { id: 42 } } } },
+        { update_id: 2, message: { text: '/handoff', from: { id: 42 }, chat: { id: 42 } } },
+        { update_id: 3, message: { text: '/clear', from: { id: 42 }, chat: { id: 42 } } },
+        { update_id: 4, callback_query: { id: 'clear-confirm', data: 'nna:clear:y', from: { id: 42 }, message: { chat: { id: 42 } } } },
       ];
       return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
     },
@@ -180,13 +183,15 @@ test('Telegram compact and confirmed clear control the standalone session withou
       submit: async (command) => { modelSubmissions.push(command.content); return { outcome: 'completed', text: 'model' }; },
       cancel: async () => ({ accepted: true }), shutdown: async () => ({ complete: true }),
       compactConversation: async () => { controls.push('compact'); return { omitted: 12, retained: 5, reduced: 2 }; },
+      handoffConversation: async () => { controls.push('handoff'); return { omitted: 17, retained: 0 }; },
       clearConversation: async () => { controls.push('clear'); return { removed: 9, cleared: true }; },
     }),
   });
   const running = gateway.run(); await done; await gateway.shutdown(); await running;
-  assert.deepEqual(controls, ['compact', 'clear']);
+  assert.deepEqual(controls, ['compact', 'handoff', 'clear']);
   assert.deepEqual(modelSubmissions, []);
   assert.match(sent.find((item) => item.text.startsWith('Context compacted.')).text, /Omitted 12/u);
+  assert.match(sent.find((item) => item.text.startsWith('Terse self-handoff')).text, /17 records/u);
   assert.equal(sent.find((item) => item.text.startsWith('Clear all context')).options.replyMarkup.inline_keyboard[0][0].callback_data, 'nna:clear:y');
 });
 

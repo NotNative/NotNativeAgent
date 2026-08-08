@@ -6,10 +6,36 @@ export async function compactActiveConversation(workspace) {
   return compactWorkspaceConversation(workspace, workspace.projection.activeId, { notice: true });
 }
 
+export async function handoffActiveConversation(workspace) {
+  return handoffWorkspaceConversation(workspace, workspace.projection.activeId, { notice: true });
+}
+
+export async function handoffWorkspaceConversation(workspace, sessionId, options = {}) {
+  const projected = requireProjectedSession(workspace, sessionId);
+  const session = requireEngineSession(workspace, sessionId);
+  const result = await session.engine.handoffConversation();
+  refreshProjectedContext(workspace, projected, session, result);
+  if (options.notice) workspace.projection.showNotice(
+    'context', `Terse self-handoff created from ${result.omitted} records; future context starts from the handoff.`,
+  );
+  persistWorkspaceContext(workspace);
+  return result;
+}
+
 export async function compactWorkspaceConversation(workspace, sessionId, options = {}) {
   const projected = requireProjectedSession(workspace, sessionId);
   const session = requireEngineSession(workspace, sessionId);
   const result = await session.engine.compactConversation();
+  refreshProjectedContext(workspace, projected, session, result);
+  const reduced = result.reduced ? ` and reduced ${result.reduced} retained payloads` : '';
+  if (options.notice) workspace.projection.showNotice(
+    'context', `Compaction omitted ${result.omitted} settled records${reduced}; retained ${result.retained}.`,
+  );
+  persistWorkspaceContext(workspace);
+  return result;
+}
+
+function refreshProjectedContext(workspace, projected, session, result) {
   projected.records = [];
   projected.expandedTurns.clear();
   projected.detailedTurns.clear();
@@ -18,13 +44,11 @@ export async function compactWorkspaceConversation(workspace, sessionId, options
     projected.contextBytes = result.afterBytes;
     projected.contextTokens = Math.ceil(result.afterBytes / 3);
   }
-  const reduced = result.reduced ? ` and reduced ${result.reduced} retained payloads` : '';
-  if (options.notice) workspace.projection.showNotice(
-    'context', `Compaction omitted ${result.omitted} settled records${reduced}; retained ${result.retained}.`,
-  );
+}
+
+function persistWorkspaceContext(workspace) {
   workspace.tabPersistence?.observe(workspace._savePoolForBroker(), workspace._tasksForBroker());
   workspace.onChange();
-  return result;
 }
 
 export function requestConversationClear(workspace) {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compactTranscript } from '../src/compaction.js';
+import { compactTranscript, createHandoffFact } from '../src/compaction.js';
 import { buildContext } from '../src/context.js';
 import { ContinuationCompactor } from '../src/continuation-compactor.js';
 import { FairScheduler } from '../src/fair-scheduler.js';
@@ -63,6 +63,30 @@ test('future model context begins at the latest continuation while full history 
   assert.match(text, /Validated continuation/u);
   assert.match(text, /Newest request/u);
   assert.equal(transcript.length, 4);
+});
+
+test('handoff replaces active model history with a terse zero-retention continuation', () => {
+  const transcript = [
+    message('user', 'Build a reliable handoff command.'),
+    message('assistant', `Exploration details ${'x'.repeat(20_000)}`),
+    { type: 'tool_request', providerCallId: 'edit-1', toolName: 'fs.edit_text', args: { path: 'src/tui.js' } },
+    { type: 'tool_result', providerCallId: 'edit-1', status: 'succeeded', content: 'edited' },
+    message('user', 'Keep it extremely concise.'),
+    message('assistant', 'The command is implemented; run the test suite next.'),
+  ];
+  const fact = createHandoffFact(transcript);
+  assert.equal(fact.version, 3);
+  assert.equal(fact.continuation.schema, 'nna.handoff.v1');
+  assert.equal(fact.continuation.objective, 'Keep it extremely concise.');
+  assert.equal(fact.omitted, transcript.length);
+  assert.deepEqual(fact.retainedRecords, []);
+  assert.equal(fact.projection.policy, 'terse_handoff_v1');
+  assert.ok(fact.projection.projectedBytes < fact.projection.originalBytes);
+  const context = buildContext(config, [...transcript, fact], 'Continue.');
+  const text = context.map((item) => item.content).filter((item) => typeof item === 'string').join('\n');
+  assert.match(text, /NNA self-handoff/u);
+  assert.match(text, /Keep it extremely concise/u);
+  assert.doesNotMatch(text, /Exploration details/u);
 });
 
 test('legacy summary-only checkpoints recover durable history for one-time migration', () => {
@@ -180,6 +204,26 @@ test('semantic continuation enrichment is schema validated and failure falls bac
   assert.equal(JSON.stringify(requests[0].responseFormat).includes('maxLength'), false);
 
   const fallback = await compactor.refine(base, { provider: () => provider('{bad') }, route, null, new AbortController().signal);
+  assert.equal(fallback, base);
+});
+
+test('semantic handoff is tightly bounded and invalid output falls back deterministically', async () => {
+  const base = createHandoffFact([message('user', 'Finish the handoff feature.')]);
+  const route = { profile: { id: 'local' }, model: 'fixture', maxOutputTokens: 4096, deadlineMs: 1000 };
+  const compactor = new ContinuationCompactor({ scheduler: new FairScheduler(), timeoutMs: 1000 });
+  const provider = (text) => ({
+    runtimeSnapshot: async () => ({}),
+    async *stream() { yield { type: 'text', text }; yield { type: 'terminal' }; },
+  });
+  const enriched = await compactor.handoff(base, { provider: () => provider(JSON.stringify({
+    objective: 'Ship /handoff', decisions: ['No retained records'], completed_work: ['Core implemented'],
+    verified_state: ['Focused tests pass'], blockers: [], next_actions: ['Run all checks'],
+  })) }, route, null, new AbortController().signal);
+  assert.equal(enriched.continuation.objective, 'Ship /handoff');
+  assert.deepEqual(enriched.continuation.nextActions, ['Run all checks']);
+  assert.match(enriched.summary, /Objective: Ship \/handoff/u);
+
+  const fallback = await compactor.handoff(base, { provider: () => provider('{bad') }, route, null, new AbortController().signal);
   assert.equal(fallback, base);
 });
 

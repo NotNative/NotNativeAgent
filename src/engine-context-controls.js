@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { compactTranscript } from './compaction.js';
+import { compactTranscript, createHandoffFact } from './compaction.js';
 import { ContractError } from './ids.js';
 
 export async function compactEngineConversation(engine) {
@@ -41,6 +41,34 @@ export async function compactEngineConversation(engine) {
     engine.telemetry?.record('context.compaction', 'failed', {
       trigger: 'operator_command', reason_code: error.code ?? 'compaction_failed',
     }, { reasonCode: error.code ?? 'compaction_failed' });
+    throw error;
+  }
+}
+
+export async function handoffEngineConversation(engine) {
+  if (engine.state.state !== 'idle') throw new ContractError('handoff_busy', 'wait for the active turn before creating a handoff');
+  engine.telemetry?.record('context.handoff', 'started', { trigger: 'operator_command' });
+  try {
+    const base = createHandoffFact(engine.transcript);
+    const route = engine.router.resolve('primary');
+    const signal = new AbortController().signal;
+    const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
+    const fact = await engine.continuationCompactor.handoff(base, engine.router, route, runtime, signal);
+    if (engine.store) await engine.store.append('compaction_snapshot', { records: engine.transcript, fact });
+    engine.transcript.push(fact);
+    engine.telemetry?.record('context.handoff', 'succeeded', {
+      trigger: 'operator_command', omitted_records: fact.omitted,
+      original_bytes: fact.projection.originalBytes, projected_bytes: fact.projection.projectedBytes,
+      source_fingerprint: fact.sourceFingerprint,
+    });
+    return Object.freeze({
+      omitted: fact.omitted, retained: 0, reduced: 0,
+      beforeBytes: fact.projection.originalBytes, afterBytes: fact.projection.projectedBytes, fact,
+    });
+  } catch (error) {
+    engine.telemetry?.record('context.handoff', 'failed', {
+      trigger: 'operator_command', reason_code: error.code ?? 'handoff_failed',
+    }, { reasonCode: error.code ?? 'handoff_failed' });
     throw error;
   }
 }

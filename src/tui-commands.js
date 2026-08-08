@@ -32,6 +32,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/files', 'Show files read, changed, or failed in this Console runtime', 'conversation'),
   command('/project', 'Show verified repository structure and project entry points', 'conversation'),
   command('/compact', 'Explicitly compact settled conversation context', 'conversation'),
+  command('/handoff', 'Replace active context with a terse self-handoff', 'conversation'),
   command('/copy [N]', 'Copy the latest or Nth-latest assistant response explicitly', 'conversation'),
   command('/clear conversation', 'Request a confirmed clear of active conversation context', 'conversation'),
   command('/confirm clear conversation', 'Confirm clearing active conversation context', 'conversation'),

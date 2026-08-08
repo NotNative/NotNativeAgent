@@ -136,12 +136,13 @@ export class TelegramGateway {
       return;
     }
     if (text === '/start' || text === '/help') {
-      await this.api.sendMessage(chatId, 'NNA gateway ready. Send a request, use /sessions to attach to a Console conversation, /compact to reduce older context, /clear to start fresh, or /cancel to stop active work.', this.controller.signal);
+      await this.api.sendMessage(chatId, 'NNA gateway ready. Send a request, use /sessions to attach to a Console conversation, /compact to reduce older context, /handoff for a terse continuation, /clear to start fresh, or /cancel to stop active work.', this.controller.signal);
       return;
     }
     if (text === '/sessions') return this.#showSessions(chatId);
     if (text === '/detach') return this.#detach(chatId);
     if (/^\/compact(?:@\w+)?$/iu.test(text)) return this.#compact(chatId);
+    if (/^\/handoff(?:@\w+)?$/iu.test(text)) return this.#handoff(chatId);
     if (/^\/clear(?:@\w+)?$/iu.test(text)) return this.#requestClear(chatId);
     if (/^\/clear(?:@\w+)?\s+confirm$/iu.test(text)) return this.#confirmClear(chatId);
     if (/^\/clear(?:@\w+)?\s+cancel$/iu.test(text)) return this.#cancelClear(chatId);
@@ -234,6 +235,19 @@ export class TelegramGateway {
         this.controller.signal, attached ? attachedControls(attached.alias) : {});
       this.logger.record({ type: 'gateway_context_compacted', outcome: 'completed', attached: Boolean(attached) });
     } catch (error) { await this.#controlFailure(chatId, 'compact', error); }
+  }
+
+  async #handoff(chatId) {
+    try {
+      const attached = await this.#attachedTarget(chatId);
+      const result = attached
+        ? await this.sessionDirectory.handoff(attached)
+        : await (await this.#session(chatId)).engine.handoffConversation();
+      await this.api.sendMessage(chatId,
+        `Terse self-handoff created from ${result.omitted} records. Future context starts from that handoff.`,
+        this.controller.signal, attached ? attachedControls(attached.alias) : {});
+      this.logger.record({ type: 'gateway_context_handoff', outcome: 'completed', attached: Boolean(attached) });
+    } catch (error) { await this.#controlFailure(chatId, 'handoff', error); }
   }
 
   async #requestClear(chatId) {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { enrichCompactionFact } from './compaction.js';
+import { enrichCompactionFact, enrichHandoffFact } from './compaction.js';
 
 const MAX_RESPONSE_BYTES = 65_536;
 
@@ -11,6 +11,14 @@ export class ContinuationCompactor {
   }
 
   async refine(fact, router, route, runtime, parentSignal) {
+    return this.#run(fact, router, route, runtime, parentSignal, 'compaction');
+  }
+
+  async handoff(fact, router, route, runtime, parentSignal) {
+    return this.#run(fact, router, route, runtime, parentSignal, 'handoff');
+  }
+
+  async #run(fact, router, route, runtime, parentSignal, mode) {
     const provider = router.provider(route);
     if (typeof provider.runtimeSnapshot !== 'function') return fact;
     const controller = new AbortController();
@@ -20,19 +28,20 @@ export class ContinuationCompactor {
     let release = null;
     try {
       release = await this.scheduler.acquire(
-        route.profile.id, `compaction:${fact.sourceFingerprint.slice(0, 16)}`,
+        route.profile.id, `${mode}:${fact.sourceFingerprint.slice(0, 16)}`,
         controller.signal, () => undefined, runtime?.parallelCapacity ?? null,
       );
-      const text = await collect(provider.stream(compactionRequest(route, fact), controller.signal));
-      const semantic = validateSemantic(parseJson(text));
-      const enriched = enrichCompactionFact(fact, semantic);
-      this.telemetry?.record('context.semantic_compaction', 'succeeded', {
+      const request = mode === 'handoff' ? handoffRequest(route, fact) : compactionRequest(route, fact);
+      const text = await collect(provider.stream(request, controller.signal));
+      const semantic = mode === 'handoff' ? validateHandoff(parseJson(text)) : validateSemantic(parseJson(text));
+      const enriched = mode === 'handoff' ? enrichHandoffFact(fact, semantic) : enrichCompactionFact(fact, semantic);
+      this.telemetry?.record(`context.semantic_${mode}`, 'succeeded', {
         provider_profile: route.profile.id, model: route.model,
         source_fingerprint: fact.sourceFingerprint,
       });
       return enriched;
     } catch (error) {
-      this.telemetry?.record('context.semantic_compaction', 'failed', {
+      this.telemetry?.record(`context.semantic_${mode}`, 'failed', {
         provider_profile: route.profile.id, model: route.model,
         source_fingerprint: fact.sourceFingerprint,
         failure: { code: error?.code ?? 'semantic_compaction_failed' },
@@ -45,6 +54,29 @@ export class ContinuationCompactor {
     }
   }
 }
+
+function handoffRequest(route, fact) {
+  return Object.freeze({
+    model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens, 1024), tools: [],
+    messages: [
+      { role: 'system', content: 'Create an extremely terse self-handoff from the supplied NNA record. Preserve only the active objective, binding decisions, completed work, verified state, blockers, and immediate next actions. Return only JSON. Never invent facts, work, or authority.' },
+      { role: 'user', content: JSON.stringify(fact.continuation) },
+    ],
+    responseFormat: {
+      type: 'json_schema', json_schema: { name: 'nna_handoff', strict: true, schema: {
+        type: 'object', additionalProperties: false,
+        properties: {
+          objective: { type: 'string' }, decisions: handoffArraySchema(),
+          completed_work: handoffArraySchema(), verified_state: handoffArraySchema(),
+          blockers: handoffArraySchema(), next_actions: handoffArraySchema(),
+        },
+        required: ['objective', 'decisions', 'completed_work', 'verified_state', 'blockers', 'next_actions'],
+      } },
+    },
+  });
+}
+
+function handoffArraySchema() { return { type: 'array', maxItems: 6, items: { type: 'string' } }; }
 
 function compactionRequest(route, fact) {
   return Object.freeze({
@@ -98,6 +130,24 @@ function validateSemantic(value) {
   const result = {};
   for (const key of keys) result[toCamel(key)] = boundedArray(value[key]);
   return Object.freeze(result);
+}
+
+function validateHandoff(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw codeError('semantic_handoff_invalid');
+  const keys = ['objective', 'decisions', 'completed_work', 'verified_state', 'blockers', 'next_actions'];
+  if (Object.keys(value).some((key) => !keys.includes(key)) || typeof value.objective !== 'string'
+    || Buffer.byteLength(value.objective, 'utf8') > 2048) throw codeError('semantic_handoff_invalid');
+  const result = { objective: value.objective.slice(0, 1024) };
+  for (const key of keys.slice(1)) result[toCamel(key)] = boundedHandoffArray(value[key]);
+  return Object.freeze(result);
+}
+
+function boundedHandoffArray(value) {
+  if (!Array.isArray(value) || value.length > 6
+    || value.some((item) => typeof item !== 'string' || Buffer.byteLength(item, 'utf8') > 1024)) {
+    throw codeError('semantic_handoff_invalid');
+  }
+  return Object.freeze(value.map((item) => item.slice(0, 512)));
 }
 
 function boundedArray(value) {

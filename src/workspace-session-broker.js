@@ -2,7 +2,7 @@
 import { userDataPaths } from './product.js';
 import { ConsoleSessionBroker } from './session-broker.js';
 import { ContractError, newId } from './ids.js';
-import { clearWorkspaceConversation, compactWorkspaceConversation } from './workspace-context.js';
+import { clearWorkspaceConversation, compactWorkspaceConversation, handoffWorkspaceConversation } from './workspace-context.js';
 
 export async function initializeWorkspaceSessionBroker(workspace) {
   if (workspace.sessionBroker) return workspace.sessionBroker;
@@ -46,6 +46,10 @@ export function cancelWorkspaceSession(workspace, sessionId) {
 
 export function compactWorkspaceSession(workspace, sessionId) {
   return compactWorkspaceConversation(workspace, sessionId);
+}
+
+export function handoffWorkspaceSession(workspace, sessionId) {
+  return handoffWorkspaceConversation(workspace, sessionId);
 }
 
 export function clearWorkspaceSession(workspace, sessionId) {

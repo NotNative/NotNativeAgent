@@ -181,6 +181,12 @@ it would otherwise make an explicit or required compaction a no-op; complete sou
 remain in the durable session ledger. `/clear conversation` never acts immediately: it requires
 the exact `/confirm clear conversation` follow-up, records the durable clear boundary,
 and resets authenticated conversational authority, durable goal/task state, and visible context.
+
+`/handoff` is intentionally more aggressive. It creates an extremely terse self-handoff
+containing only the active objective, binding decisions, completed work, verified state,
+blockers, and immediate next actions. No prior transcript records remain in active model
+context, although the complete conversation remains visible and durably journaled.
+
 The primary conversation is marked with `*`. Inactive conversations use `+` for unseen
 output; `~`, `?`, and `!` indicate active work, attention required, and failure.
 

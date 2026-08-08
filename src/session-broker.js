@@ -41,7 +41,7 @@ export class ConsoleSessionBroker {
       if (request.method === 'GET' && url.pathname === '/sessions') {
         return reply(response, 200, { sessions: this.workspace.brokerSessions() });
       }
-      const match = /^\/sessions\/([^/]+)\/(submit|cancel|compact|clear)$/u.exec(url.pathname);
+      const match = /^\/sessions\/([^/]+)\/(submit|cancel|compact|handoff|clear)$/u.exec(url.pathname);
       if (request.method !== 'POST' || !match) return reply(response, 404, { code: 'broker_route_missing' });
       const sessionId = decodeURIComponent(match[1]);
       const body = await readJsonBody(request);
@@ -49,6 +49,7 @@ export class ConsoleSessionBroker {
         submit: () => this.workspace.submitSession(sessionId, body.content),
         cancel: () => this.workspace.cancelSession(sessionId),
         compact: () => this.workspace.compactSession(sessionId),
+        handoff: () => this.workspace.handoffSession(sessionId),
         clear: () => this.workspace.clearSession(sessionId),
       };
       const result = await operations[match[2]]();
@@ -97,6 +98,7 @@ export class ConsoleSessionDirectory {
     return envelope.result;
   }
   async compact(target) { return this.#control(target, 'compact'); }
+  async handoff(target) { return this.#control(target, 'handoff'); }
   async clear(target) { return this.#control(target, 'clear'); }
   async #control(target, operation) {
     const envelope = await this.#call(target.broker, `/sessions/${encodeURIComponent(target.id)}/${operation}`, {

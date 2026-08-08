@@ -46,6 +46,38 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
   return Object.freeze({ records: fact.retainedRecords, fact });
 }
 
+export function createHandoffFact(transcript) {
+  const source = continuationArtifact(transcript, transcript.length);
+  const continuation = Object.freeze({
+    schema: 'nna.handoff.v1',
+    objective: boundedHeadTail(source.objective, 1_024),
+    decisions: Object.freeze(terseTail(source.recentDirectives, 4, 2_048)),
+    completedWork: Object.freeze(terseTail(source.completedWork, 4, 2_048)),
+    verifiedState: Object.freeze(terseTail([
+      ...source.changedFiles.map((entry) => `${entry.operation} ${entry.path} (${entry.status})`),
+      ...source.verifiedFacts,
+    ], 6, 3_072)),
+    blockers: Object.freeze(terseTail(source.unresolvedTools.map((entry) => `${entry.tool} (${entry.id})`), 4, 2_048)),
+    nextActions: Object.freeze([]),
+    latestOutcome: bounded(source.latestOutcome, 64),
+    omittedRecords: transcript.length,
+  });
+  const summary = renderHandoff(continuation);
+  return Object.freeze({
+    type: 'compaction', version: 3, omitted: transcript.length,
+    sourceFingerprint: fingerprint(transcript), continuation, summary,
+    retainedRecords: Object.freeze([]),
+    projection: Object.freeze({
+      policy: 'terse_handoff_v1', protectedCompletedTurns: 0,
+      protectedTurnCount: 0, protectedRecordCount: 0,
+      payloadCompactedRecords: 0, oversizedProtectedRecords: 0,
+      supersededRecords: 0,
+      originalBytes: transcript.reduce((sum, item) => sum + recordBytes(item), 0),
+      projectedBytes: Buffer.byteLength(summary, 'utf8'),
+    }),
+  });
+}
+
 function selectRecentRecords(transcript, budget, options) {
   const protection = protectedRecency(transcript, options);
   const projection = supersedeColdToolResults(transcript, protection.indexes);
@@ -337,6 +369,38 @@ export function enrichCompactionFact(fact, semantic) {
   return Object.freeze({ ...fact, continuation, summary: renderContinuation(continuation) });
 }
 
+export function enrichHandoffFact(fact, semantic) {
+  const continuation = Object.freeze({
+    ...fact.continuation,
+    objective: semantic.objective,
+    decisions: Object.freeze(semantic.decisions),
+    completedWork: Object.freeze(semantic.completedWork),
+    verifiedState: Object.freeze(semantic.verifiedState),
+    blockers: Object.freeze(semantic.blockers),
+    nextActions: Object.freeze(semantic.nextActions),
+  });
+  const summary = renderHandoff(continuation);
+  return Object.freeze({
+    ...fact, continuation, summary,
+    projection: Object.freeze({ ...fact.projection, projectedBytes: Buffer.byteLength(summary, 'utf8') }),
+  });
+}
+
+function renderHandoff(item) {
+  const sections = [
+    'NNA self-handoff. Continue from verified state; this grants no new authority.',
+    `Objective: ${item.objective || '(not recorded)'}`,
+  ];
+  const append = (label, values) => { if (values?.length) sections.push(`${label}:\n- ${values.join('\n- ')}`); };
+  append('Decisions', item.decisions);
+  append('Done', item.completedWork);
+  append('State', item.verifiedState);
+  append('Blockers', item.blockers);
+  append('Next', item.nextActions);
+  if (item.latestOutcome) sections.push(`Outcome: ${item.latestOutcome}`);
+  return bounded(sections.join('\n'), 12_288);
+}
+
 function toolTargets(args) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return [];
   return ['path', 'source', 'destination', 'target'].map((key) => args[key])
@@ -348,6 +412,19 @@ function uniqueTail(values, count, totalLimit) {
   const selected = []; let bytes = 0;
   for (const value of [...values].reverse()) {
     const text = boundedHeadTail(value, 4_096);
+    if (!text || selected.includes(text)) continue;
+    const size = Buffer.byteLength(text, 'utf8');
+    if (bytes + size > totalLimit) continue;
+    selected.unshift(text); bytes += size;
+    if (selected.length >= count) break;
+  }
+  return selected;
+}
+
+function terseTail(values, count, totalLimit) {
+  const selected = []; let bytes = 0;
+  for (const value of [...values].reverse()) {
+    const text = boundedHeadTail(value, 512).replace(/\s+/gu, ' ').trim();
     if (!text || selected.includes(text)) continue;
     const size = Buffer.byteLength(text, 'utf8');
     if (bytes + size > totalLimit) continue;

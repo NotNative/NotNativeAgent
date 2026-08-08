@@ -8,7 +8,7 @@ import { commandDefinition } from './tui-commands.js';
 import { auditOverlay, configOverlay, contextOverlay, gatewayOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui-overlays.js';
 import { handleHealthOverlayAction, healthOverlay } from './tui-health.js';
 import { handleDreamSelection, openDreamCommand, reopenDreamManager } from './tui-dream.js';
-import { compactActiveConversation, confirmConversationClear, requestConversationClear } from './workspace-context.js';
+import { compactActiveConversation, confirmConversationClear, handoffActiveConversation, requestConversationClear } from './workspace-context.js';
 import { handleAttachmentCommand } from './tui-attachment-command.js';
 import { handleMemoryCommand } from './tui-memory-command.js';
 import { handleMcpCommand } from './tui-mcp-command.js';
@@ -406,6 +406,7 @@ async function command(value, workspace, stop) {
   else if (name === '/diff') workspace.projection.openOverlay(valueOverlay('diff', argument ? `Changes · ${argument}` : 'Conversation changes', workspace.activeEngine().tools.diff(argument || null)));
   else if (name === '/copy') await handleCopyCommand(argument, workspace);
   else if (name === '/compact' && !argument) await compactActiveConversation(workspace);
+  else if (name === '/handoff' && !argument) await handoffActiveConversation(workspace);
   else if (name === '/clear' && argument === 'conversation') requestConversationClear(workspace);
   else if (name === '/help') workspace.projection.help = !workspace.projection.help;
   else if (name === '/steer' && argument) await workspace.steerActive(argument);
@@ -492,7 +493,6 @@ async function configCommand(argument, workspace) {
   }
   throw new ContractError('config_read_only', 'Use /config without arguments; provider, model, MCP, and WebSearch have dedicated managers.');
 }
-
 function moveOrNavigate(editor, direction) {
   if (editor.text.includes('\n')) editor.moveVertical(direction);
   else editor.navigateHistory(direction);
