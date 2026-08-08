@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -94,6 +94,22 @@ test('configuration is not persisted until endpoint validation succeeds', async 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('reset removes only saved WebSearch configuration for installer rediscovery', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-web-reset-'));
+  const paths = { webSearchConfig: join(root, 'config.json'), managedSearxng: join(root, 'managed') };
+  try {
+    await mkdir(paths.managedSearxng, { recursive: true });
+    await saveWebSearchConfig(paths.webSearchConfig, {
+      enabled: true, provider: 'searxng', endpoint: 'http://127.0.0.1:8888', managed: true,
+    });
+    const result = await runWebSearchCommand(['reset'], paths);
+    assert.equal(result.configured, false);
+    assert.equal(result.config.endpoint, null);
+    assert.equal((await loadWebSearchConfig(paths.webSearchConfig)).enabled, false);
+    assert.equal((await stat(paths.managedSearxng)).isDirectory(), true);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('/websearch exposes an actionable keyboard menu', () => {
   assert.equal(commandDefinition('/websearch').name, '/websearch');
   assert.equal(commandDefinition('/search_config').name, '/websearch');
@@ -102,7 +118,7 @@ test('/websearch exposes an actionable keyboard menu', () => {
     test: { ok: true, results: 1 },
   });
   assert.equal(view.kind, 'websearch');
-  assert.deepEqual(view.items.map((item) => item.id), ['test', 'deploy', 'start', 'stop', 'disable']);
+  assert.deepEqual(view.items.map((item) => item.id), ['test', 'deploy', 'start', 'stop', 'disable', 'reset']);
 });
 
 function sealContext() {

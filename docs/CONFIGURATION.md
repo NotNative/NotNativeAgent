@@ -292,8 +292,10 @@ WebSearch is global rather than tab-local. Its configuration lives at
 non-TUI workflows use the same endpoint.
 
 Use `/websearch` for the keyboard-driven manager. `/websearch URL` validates and
-saves an existing SearXNG endpoint; `/websearch test`, `/websearch disable`, and
-`/websearch deploy` are direct forms. The quiet aliases `/search-config` and
+saves an existing SearXNG endpoint; `/websearch test`, `/websearch disable`,
+`/websearch reset`, and `/websearch deploy` are direct forms. Reset removes only
+the saved WebSearch endpoint so a later installer run offers setup again; an existing
+managed container and its data remain available for update or reuse. The quiet aliases `/search-config` and
 `/search_config` remain available.
 
 NNA does not install Docker. Local deployment first verifies the Docker client,

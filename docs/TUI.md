@@ -235,7 +235,7 @@ logic. Esc returns to the hub when a manager was opened from it. The hub does no
 memory service policy, attachment admission, context ceilings, recovery behavior,
 deadlines, concurrency, or key maps as ordinary toggles.
 
-`/websearch` opens the global SearXNG manager. It can test or disable an existing
+`/websearch` opens the global SearXNG manager. It can test, disable, or forget an existing
 endpoint, deploy/start/stop NNA's optional local container, and preserves managed data
 when stopped. `/websearch URL` validates a remote, private-network, or local endpoint
 before saving it. The setting is global across conversations and agent roles.

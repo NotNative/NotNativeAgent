@@ -245,6 +245,10 @@ export function webSearchOverlay(status, options = {}) {
     items.push({ id: 'stop', label: 'Stop managed SearXNG', detail: 'Stop without deleting its container or data' });
   }
   if (status.config.enabled) items.push({ id: 'disable', label: 'Disable WebSearch', detail: 'Preserve endpoint and managed deployment data' });
+  if (status.config.endpoint) items.push({
+    id: 'reset', label: 'Forget WebSearch configuration',
+    detail: 'Remove only the saved endpoint; preserve managed container and data',
+  });
   return menuOverlay('websearch', 'WebSearch · SearXNG', lines, items, options.selectedId ?? items[0]?.id);
 }
 

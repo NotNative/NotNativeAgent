@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from './ids.js';
 
@@ -26,6 +26,11 @@ export async function saveWebSearchConfig(path, value) {
   await writeFile(temporary, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
   await rename(temporary, path);
   return config;
+}
+
+export async function resetWebSearchConfig(path) {
+  await rm(path, { force: true });
+  return DEFAULT_WEB_SEARCH_CONFIG;
 }
 
 export function normalizeWebSearchConfig(value) {

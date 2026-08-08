@@ -465,27 +465,27 @@ async function webSearchCommand(argument, workspace) {
   if (argument === 'test') result = await workspace.webSearchStatus(true);
   else if (argument === 'deploy') result = await workspace.deployWebSearch();
   else if (argument === 'disable') result = await workspace.disableWebSearch();
+  else if (argument === 'reset') result = await workspace.resetWebSearch();
   else if (['start', 'stop'].includes(argument)) result = await workspace.manageWebSearch(argument);
   else result = await workspace.configureWebSearch(argument, false);
   workspace.projection.openOverlay(webSearchOverlay(result, { message: 'WebSearch configuration updated.' }));
 }
-
 async function webSearchAction(action, workspace) {
   if (action === 'test') return workspace.webSearchStatus(true);
   if (action === 'deploy') return workspace.deployWebSearch();
   if (action === 'disable') return workspace.disableWebSearch();
+  if (action === 'reset') return workspace.resetWebSearch();
   if (['start', 'stop'].includes(action)) return workspace.manageWebSearch(action);
   throw new ContractError('web_search_action_invalid', 'unknown WebSearch menu action');
 }
-
 function webSearchMessage(action) {
   if (action === 'deploy') return 'Local SearXNG is deployed, validated, and active.';
   if (action === 'disable') return 'WebSearch is disabled; its saved endpoint and managed data were preserved.';
+  if (action === 'reset') return 'Saved WebSearch configuration removed; managed deployment data was preserved.';
   if (action === 'stop') return 'Managed SearXNG stopped; no data was removed.';
   if (action === 'start') return 'Managed SearXNG started and validated.';
   return 'Endpoint validation completed.';
 }
-
 async function configCommand(argument, workspace) {
   if (!argument) {
     workspace.projection.openOverlay(configOverlay(workspace.activeConfig()));

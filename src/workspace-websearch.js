@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { configuredWebSearch, loadWebSearchConfig, saveWebSearchConfig } from './web-search-config.js';
+import {
+  configuredWebSearch, loadWebSearchConfig, resetWebSearchConfig, saveWebSearchConfig,
+} from './web-search-config.js';
 import { ContractError } from './ids.js';
 
 export async function webSearchStatus(state, test = false) {
@@ -23,6 +25,10 @@ export async function disableWebSearch(state) {
     ...current, enabled: false, updated_at: new Date().toISOString(),
   });
   return { config, test: null };
+}
+
+export async function resetWebSearch(state) {
+  return { config: await resetWebSearchConfig(state.path), test: null, reset: true };
 }
 
 export async function deployWebSearch(state) {

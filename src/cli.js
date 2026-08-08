@@ -112,7 +112,7 @@ function help() {
     '  nna sessions preview SESSION_ID',
     '  nna sessions export SESSION_ID PATH',
     '  nna sessions delete SESSION_ID delete:SESSION_ID',
-    '  nna websearch status|configure URL|deploy',
+    '  nna websearch status|configure URL|deploy|reset',
     '  nna skills [list] [--json]',
     '  nna gateway status|test|start|stop|enable|disable',
     '  nna gateway token-env NAME|authorize USER_ID|revoke USER_ID|workspace PATH',

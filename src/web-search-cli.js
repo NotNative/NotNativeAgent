@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { configuredWebSearch, loadWebSearchConfig, saveWebSearchConfig } from './web-search-config.js';
+import {
+  configuredWebSearch, loadWebSearchConfig, resetWebSearchConfig, saveWebSearchConfig,
+} from './web-search-config.js';
 import { SearxngClient } from './searxng-client.js';
 import { SearxngDeployment } from './searxng-deployment.js';
 
@@ -9,6 +11,9 @@ export async function runWebSearchCommand(args, paths, options = {}) {
   const deployment = options.deployment ?? new SearxngDeployment({ root: paths.managedSearxng, client });
   const current = await loadWebSearchConfig(paths.webSearchConfig);
   if (action === 'status') return { configured: current.enabled, config: current };
+  if (action === 'reset') {
+    return { configured: false, reset: true, config: await resetWebSearchConfig(paths.webSearchConfig) };
+  }
   if (action === 'install-if-unconfigured' && current.enabled) return { skipped: true, reason: 'already_configured', config: current };
   if (action === 'configure' || (action === 'install-if-unconfigured' && args[1])) {
     const endpoint = args[1];

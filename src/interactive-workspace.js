@@ -14,7 +14,9 @@ import {
 import { SearxngClient } from './searxng-client.js';
 import { SearxngDeployment } from './searxng-deployment.js';
 import { configuredMcpStatus, testConfiguredMcpServer } from './workspace-mcp.js';
-import { configureWebSearch, deployWebSearch, disableWebSearch, manageWebSearch, webSearchStatus } from './workspace-websearch.js';
+import {
+  configureWebSearch, deployWebSearch, disableWebSearch, manageWebSearch, resetWebSearch, webSearchStatus,
+} from './workspace-websearch.js';
 import { nextReviewPosture, reviewPostureNotice } from './review-posture.js';
 import { restoreTranscript } from './workspace-transcript.js';
 import { restorePresentation, tabPoolRecords } from './workspace-presentation.js';
@@ -399,12 +401,9 @@ export class InteractiveWorkspace {
   async configureWebSearch(endpoint, managed = false) {
     return configureWebSearch(this.#webSearchState(), endpoint, managed);
   }
-  async disableWebSearch() {
-    return disableWebSearch(this.#webSearchState());
-  }
-  async deployWebSearch() {
-    return deployWebSearch(this.#webSearchState());
-  }
+  async disableWebSearch() { return disableWebSearch(this.#webSearchState()); }
+  async resetWebSearch() { return resetWebSearch(this.#webSearchState()); }
+  async deployWebSearch() { return deployWebSearch(this.#webSearchState()); }
   async manageWebSearch(action) {
     return manageWebSearch(this.#webSearchState(), action);
   }
