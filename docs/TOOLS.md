@@ -67,6 +67,17 @@ repository programs and package scripts may still have effects. The deterministi
 labels simple argv separately from opaque package scripts, large argv sets, dynamic flags,
 and wildcard/regex-like patterns so complexity cannot disappear behind an apparently safe
 executable name.
+
+`project.verify` is the governed software-verification boundary. It reads a bounded regular
+`package.json`, deterministically chooses the declared npm or Bun adapter, resolves the exact
+package scripts and argv, and exposes that complete plan to review before starting a process.
+The manifest digest is revalidated immediately before execution so a reviewed script cannot be
+silently replaced. Supported scopes are `focused`, `affected`, and `full`; focused Node built-in
+or Bun tests can receive explicit test paths, while unsupported affected selection falls back to
+the repository script and says so. Results include exact commands, exit codes, bounded output,
+the manifest digest, and a stable receipt id in the durable turn record. A completed non-zero
+check is a failed tool result, not a green execution success. The Console aliases this boundary
+as `/verify [focused|affected|full] [PATH ...]`.
 - `fs.edit_text`: replace an exact, normally unique text match. The request requires the
   current file digest; `replace_all` must be explicit for multiple matches.
 - `fs.edit_lines`: replace an inclusive numbered range only when that complete range was

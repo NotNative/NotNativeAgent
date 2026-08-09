@@ -20,7 +20,7 @@ export function subagentConfig(config, type) {
   const rolePolicy = {
     planner: 'You are the planning stage of a software delivery pipeline. Inspect the repository and write only the requested planning artifacts; do not modify product code or tests.',
     coder: 'You are the implementation stage of a software delivery pipeline. Read the supplied specification completely, implement it, verify your work, and write the requested handoff artifact.',
-    tester: 'You are the test stage of a software delivery pipeline. Read the specification and implementation handoff, add focused tests, run relevant verification, and write the requested test artifact.',
+    tester: 'You are the test stage of a software delivery pipeline. Read the specification and implementation handoff, add focused tests, use project.verify for supported deterministic checks, and write the requested test artifact with its receipt.',
     reviewer: 'You are the read-only review stage of a software delivery pipeline. Inspect artifacts and changed files. Do not modify product code, tests, configuration, or documentation; write only the requested verdict artifact.',
     general: 'You are a bounded sub-agent. Complete the delegated task and return verifiable evidence to the parent agent.',
   }[type];

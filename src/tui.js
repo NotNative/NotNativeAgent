@@ -31,7 +31,7 @@ import { handleSupportCommand } from './tui-support-command.js';
 import { handleWorkCommand, handleWorkSelection, openPlan } from './tui-work-command.js';
 import { modelNotice, routeNotice, strictInteger } from './tui-command-support.js';
 import { handleSecretsCommand } from './tui-secret-command.js';
-import { beginSecretManagementSelection, handleSecretSetupAction } from './tui-secret-setup.js';
+import { beginSecretManagementSelection, handleSecretSetupAction } from './tui-secret-setup.js'; import { invokeProjectVerification } from './tui-verification-command.js';
 export async function runTui(input, output, diagnostics, options) {
   const { capabilities, bindings } = prepareTui(input, output, options);
   const terminal = new TerminalMode(input, output, capabilities), renderer = options.renderer ?? new TuiRenderer();
@@ -404,6 +404,7 @@ async function command(value, workspace, stop) {
   else if (name === '/context') workspace.projection.openOverlay(contextOverlay(workspace.projection.active()));
   else if (['/plan', '/tasks', '/goal', '/task'].includes(name)) await handleWorkCommand(name, argument, workspace);
   else if (name === '/diff') workspace.projection.openOverlay(valueOverlay('diff', argument ? `Changes · ${argument}` : 'Conversation changes', workspace.activeEngine().tools.diff(argument || null)));
+  else if (name === '/verify') invokeProjectVerification(argument, workspace);
   else if (name === '/copy') await handleCopyCommand(argument, workspace);
   else if (name === '/compact' && !argument) await compactActiveConversation(workspace);
   else if (name === '/handoff' && !argument) await handoffActiveConversation(workspace);
@@ -447,7 +448,6 @@ async function traceCommand(argument, workspace) {
   } else throw new ContractError('trace_command_invalid', 'use /trace, /trace failures, /trace open, or /trace turn ID');
   workspace.projection.openOverlay(valueOverlay('trace', title, traceView(rows)));
 }
-
 function traceView(rows) {
   return rows.map((row) => ({
     at: row.timestamp, sequence: row.sequence, event: row.event_name, status: row.status,

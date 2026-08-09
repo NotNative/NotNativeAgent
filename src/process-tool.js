@@ -148,7 +148,7 @@ function processComplexity(executable, args) {
   return 'simple_argv';
 }
 
-async function runProcess(input, signal, shellTool = false) {
+export async function runProcess(input, signal, shellTool = false) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'process was cancelled');
   const child = spawn(input.executable, input.args, {
     cwd: input.cwd, shell: false, windowsHide: true, detached: process.platform !== 'win32', env: operationalEnvironment(),

@@ -14,7 +14,7 @@ export async function prepareEngineContext(engine, records, content, active, for
   recordBudget(engine, runtime, planned, active);
   const hardLimit = planned.hardLimitBytes;
   const thresholdBudget = planned.thresholdBytes;
-  const budget = Math.min(thresholdBudget, active.contextRetryBudgetBytes ?? thresholdBudget);
+  const budget = thresholdBudget;
   active.contextLimitBytes = hardLimit;
   if (!force) {
     try {
@@ -42,7 +42,6 @@ async function compactContext(engine, records, content, active, operations, plan
   await operations.publish('compaction.started', 'compaction', 'active', active);
   try {
     const fact = await createCompactionFact(engine, records, active, operations, { budget, route: routes[0], runtime });
-    engine.lifecycles.finish(lifecycle.id, 'completed');
     const post = await operations.publish(
       'compaction.terminal', 'compaction', 'terminal', active, 'completed', hookPayload(engine, active),
     );
@@ -50,6 +49,7 @@ async function compactContext(engine, records, content, active, operations, plan
     const context = await buildReportedContext(
       engine, engine.transcript, content, active.enrichment, active, budget, hardLimit, planned,
     );
+    engine.lifecycles.finish(lifecycle.id, 'completed');
     await emitCompactionStatus(engine, active, 'completed', compactionCompletedDetail(active, fact, beforeEstimatedTokens));
     recordCompactionTelemetry(engine, active, 'succeeded', compactionProjectionDetail(active, fact));
     return context;

@@ -82,7 +82,9 @@ export class ToolGovernor {
     const started = performance.now();
     try {
       const raw = await executeBounded(definition, request, signal, { reviewerDecisionId: decision.id });
-      return normalizeResult(request, 'succeeded', raw.content, raw.metadata, started, definition.maxOutputBytes);
+      const status = raw.status === 'failed' ? 'failed' : 'succeeded';
+      return normalizeResult(request, status, raw.content, raw.metadata, started, definition.maxOutputBytes,
+        status === 'failed' ? raw.reasonCode ?? 'tool_reported_failure' : null);
     } catch (error) {
       return normalizeFailure(request, definition, error, started);
     }
@@ -206,7 +208,7 @@ async function executeBounded(definition, request, parentSignal, executionContex
   }
 }
 
-function normalizeResult(request, status, content, metadata, started, maxOutputBytes) {
+function normalizeResult(request, status, content, metadata, started, maxOutputBytes, reasonCode = null) {
   const source = String(content);
   const bounded = truncateUtf8(source, maxOutputBytes);
   return Object.freeze({
@@ -215,6 +217,7 @@ function normalizeResult(request, status, content, metadata, started, maxOutputB
     truncated: Buffer.byteLength(bounded) !== Buffer.byteLength(source),
     elapsed_ms: Math.max(0, performance.now() - started),
     effect_certainty: 'completed', untrusted: true, metadata, ledger_started: true,
+    ...(reasonCode ? { reason_code: reasonCode } : {}),
   });
 }
 

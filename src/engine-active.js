@@ -14,7 +14,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}) {
     resolveCompletion: deferred.resolve, recovery: new RecoverySupervisor(recoveryOptions),
     enrichment: { memory: [], attachments: [], hooks: [], skills: [], projectIntake: null }, admission: null,
     prompt: '', modelName: '', unresolvedToolFailures: [], contextRetryScale: 1,
-    contextBytes: 0, contextTokens: 0, contextRetryBudgetBytes: null,
+    contextBytes: 0, contextTokens: 0,
     rawContextBytes: 0, rawContextTokens: 0, contextPressureTier: 'none',
     compactionAttempts: 0, compactionNoProgressAttempts: 0,
     lastCompactionSourceFingerprint: null, compactionFingerprints: new Set(),

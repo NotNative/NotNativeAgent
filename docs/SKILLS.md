@@ -64,6 +64,8 @@ NNA includes three direct workflow commands. `/troubleshoot [DESCRIPTION]` diagn
 current or another local session through redacted runtime evidence. `/devteam [REQUEST]`
 runs a full evidence-driven software team through planning, dependency-aware implementation,
 testing, independent criticism, targeted repair, and a whole-product integration gate.
+Its testers use `project.verify` for supported Node/npm and Bun repositories: focused receipts
+guide repair, and a fresh full-scope receipt is required at the final integration gate.
 Every run inherits the target repository's own standards plus NNA's judgment-based Power of
 Ten baseline; interface work also receives UI ownership, lifecycle, bounded-work, platform,
 accessibility, and failure-preservation gates without requiring a separate invocation mode.

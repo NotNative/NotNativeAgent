@@ -12,7 +12,7 @@ import { webFetchDefinition } from './web-fetch-tool.js';
 import { webBrowseDefinition } from './web-browse-tool.js';
 import { rankToolDefinitions, toolSearchDefinition } from './tool-search.js';
 import { processRunDefinition, shellRunDefinition } from './process-tool.js';
-import { filesystemExtraDefinitions } from './filesystem-extra-tools.js';
+import { projectVerifyDefinition } from './project-verification.js'; import { filesystemExtraDefinitions } from './filesystem-extra-tools.js';
 import { lspDiagnosticsDefinition } from './lsp-diagnostics.js';
 import { filesystemReadDefinitions, ReadReceiptLedger } from './filesystem-read-tools.js';
 import { filesystemDiscoveryDefinitions } from './filesystem-discovery-tools.js';
@@ -77,6 +77,7 @@ export class ToolRegistry {
       secretBroker: this.secretBroker, sessionId: this.sessionId }));
     this.#install(toolSearchDefinition(this));
     this.#install(processRunDefinition(this.paths)); if (!this.hosted) this.#install(shellRunDefinition(this.paths));
+    this.#install(projectVerifyDefinition(this.paths));
     this.#install(gitInspectionDefinition(this.paths));
     this.#install(lspDiagnosticsDefinition(this.paths, { configPath: this.lspConfigPath, spawnProcess: this.lspSpawnProcess }));
     if (this.skills) for (const definition of skillToolDefinitions(this.skills)) this.#install(definition);
@@ -454,7 +455,6 @@ function requireExpectedContent(content, expected) {
 function sha256(content) {
   return createHash('sha256').update(content).digest('hex');
 }
-
 function logicalLines(content) {
   const lines = content.split(/\r?\n/u);
   if (lines.length > 1 && lines.at(-1) === '') lines.pop();

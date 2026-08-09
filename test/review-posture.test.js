@@ -56,3 +56,24 @@ test('Unattended posture converts unresolved escalation into actionable denial',
   assert.equal(result.outcome, 'deny_with_guidance');
   assert.equal(result.reasonCode, 'unattended_escalation_denied');
 });
+
+test('governor preserves a completed verification failure and its reason code', async () => {
+  const events = new EventHub();
+  const definition = {
+    name: 'project.verify', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
+    async executor() {
+      return { status: 'failed', reasonCode: 'verification_failed', content: '{"passed":false}', metadata: { passed: false } };
+    },
+  };
+  const governor = new ToolGovernor({
+    events,
+    reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
+    registry: { definition: () => definition },
+  });
+  const request = { id: 'verify-1', providerCallId: 'provider-1', toolName: 'project.verify', definitionVersion: 1 };
+  const result = await governor.executePrepared(request, { id: 'decision-1' }, new AbortController().signal);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.reason_code, 'verification_failed');
+  assert.equal(result.effect_certainty, 'completed');
+  assert.deepEqual(result.metadata, { passed: false });
+});

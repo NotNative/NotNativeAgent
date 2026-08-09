@@ -10,7 +10,6 @@ export async function recoverProviderContextLimit(engine, error, active, operati
   await operations.settleStep(plan.continue ? 'recovering' : 'failed');
   if (!plan.continue) throw error;
   active.contextRetryScale = plan.scale;
-  active.contextRetryBudgetBytes = Math.max(8192, Math.floor(active.contextBytes * plan.scale));
   engine.state.transition('preparing_continuation', { trigger: error.code, turnId: active.turnId });
   return { continue: true, forceCompact: true, hint: operations.hint(plan.action) };
 }

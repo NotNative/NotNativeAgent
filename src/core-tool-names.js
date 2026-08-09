@@ -8,6 +8,7 @@ export const CORE_TOOL_NAMES = Object.freeze([
   'nna.mcp_status', 'nna.mcp_test',
   'session.search_history', 'session.read_history',
   'web.search', 'web.fetch', 'web.browse', 'process.run', 'shell.run',
+  'project.verify',
   'skill.search', 'skill.load', 'agent.run',
   'work.status', 'work.goal', 'work.task_add', 'work.task_update',
   'notification.telegram',

@@ -31,6 +31,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/diff [PATH]', 'Show file changes made by NNA in this conversation', 'conversation'),
   command('/files', 'Show files read, changed, or failed in this Console runtime', 'conversation'),
   command('/project', 'Show verified repository structure and project entry points', 'conversation'),
+  command('/verify [focused|affected|full] [PATH ...]', 'Run governed project checks with durable evidence', 'workflows'),
   command('/compact', 'Explicitly compact settled conversation context', 'conversation'),
   command('/handoff', 'Replace active context with a terse self-handoff', 'conversation'),
   command('/copy [N]', 'Copy the latest or Nth-latest assistant response explicitly', 'conversation'),

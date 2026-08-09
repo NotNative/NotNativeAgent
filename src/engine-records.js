@@ -76,7 +76,7 @@ export function toolStatus(engine, active, item, status) {
     version: '1.0', type: 'tool_status', session_id: engine.sessionId,
     turn_id: active.turnId, tool_request_id: item.request?.id ?? null,
     provider_call_id: item.call.providerCallId, tool: item.call.name, status,
-    target: boundedTarget(item.call.name, presentedArgs),
+    target: boundedTarget(item.call.name, presentedArgs, item.request?.resolved),
     arguments: presentedArgs,
     effect: definition?.sideEffect ?? null, scope: definition?.scope ?? null,
     elapsed_ms: item.result?.elapsed_ms ?? null,
@@ -86,10 +86,15 @@ export function toolStatus(engine, active, item, status) {
   };
 }
 
-function boundedTarget(tool, args) {
+function boundedTarget(tool, args, resolved = null) {
   if (!args || typeof args !== 'object') return null;
   if (tool === 'process.run') return processInvocation(args);
   if (tool === 'shell.run') return shellInvocation(args);
+  if (tool === 'project.verify') {
+    const commands = Array.isArray(resolved?.commands) ? resolved.commands.map((item) => item.display).filter(Boolean) : [];
+    const invocation = redactText(commands.join(' && ')).replace(/\s+/gu, ' ').trim().slice(0, 512);
+    return invocation || `${args.scope ?? 'full'} verification`;
+  }
   const candidate = ['path', 'file_path', 'file', 'filename', 'target']
     .find((key) => typeof args[key] === 'string' && args[key].length > 0);
   const path = candidate ? args[candidate] : '';
