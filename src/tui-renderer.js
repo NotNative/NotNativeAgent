@@ -294,7 +294,8 @@ function controlLine(session, bindings) {
 function tabLabel(session, activeId) {
   const selected = session.id === activeId ? (session.role === 'primary' ? '*' : '@') : session.unread ? '+' : ' ';
   const state = tabState(session);
-  return `[${selected} ${sanitizeTerminal(session.name).slice(0, 18)}${state}]`;
+  const authority = session.role === 'primary' ? ' *' : '';
+  return `[${selected} ${sanitizeTerminal(session.name).slice(0, 18)}${state}${authority}]`;
 }
 
 function tabState(session) {

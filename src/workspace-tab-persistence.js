@@ -11,7 +11,9 @@ export class WorkspaceTabPersistence {
   save() {
     if (!this.options.enabled()) return Promise.resolve();
     const { tabs, activeId } = this.options.snapshot();
-    const write = this.#tail.then(() => (this.options.writer ?? saveTabPool)(this.options.path, tabs, activeId));
+    const write = this.#tail.then(() => (this.options.writer ?? saveTabPool)(
+      this.options.path, tabs, activeId, { consoleId: this.options.consoleId },
+    ));
     this.#tail = write.catch(() => undefined);
     return write;
   }

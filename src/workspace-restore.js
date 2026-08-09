@@ -5,16 +5,16 @@ import { loadTabPool } from './tab-pool.js';
 
 export async function restoreWorkspace(workspace) {
   const poolResult = await readPool(workspace);
-  const mainId = await workspace.create('Main', newId('session'), { role: 'primary', persist: false });
+  const authoritative = await workspace.acquireConsoleAuthority();
+  const mainId = await workspace.create('Main', newId('session'), {
+    role: authoritative ? 'primary' : 'standard', main: true, persist: false,
+  });
   if (poolResult.error) reportFailure(workspace, mainId, 'saved Console pool', poolResult.error);
   const pool = poolResult.value;
-  const primary = pool?.tabs.find((tab) => tab.role === 'primary');
-  if (primary?.meaningful && await restoreTab(workspace, mainId, primary, 'Previous Main')) {
-    // A prior Main remains available as history, but never inherits startup focus.
-  }
   for (const tab of pool?.tabs ?? []) {
-    if (tab.role !== 'standard' || !tab.meaningful || workspace.sessions.size >= 8) continue;
-    await restoreTab(workspace, mainId, tab, tab.name);
+    if (!tab.meaningful || workspace.sessions.size >= 8) continue;
+    const name = tab.main && tab.name === 'Main' ? 'Previous Main' : tab.name;
+    await restoreTab(workspace, mainId, tab, name);
   }
   workspace.projection.activate(mainId);
   workspace.onChange();
@@ -35,6 +35,7 @@ async function restoreTab(workspace, mainId, tab, name) {
     });
     return true;
   } catch (error) {
+    if (error?.code === 'session_locked') return false;
     reportFailure(workspace, mainId, name, error);
     return false;
   }

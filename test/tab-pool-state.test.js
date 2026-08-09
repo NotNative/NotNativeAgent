@@ -52,6 +52,35 @@ test('durable tab pool restores conversation presentation but opens with fresh M
   await second.shutdown();
 });
 
+test('concurrent Consoles isolate live writers and merge both Main sessions back into the pool', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tab-concurrent-'));
+  const options = {
+    config: configuration(root), tabPoolPath: join(root, 'pool.json'), configPath: join(root, 'settings.json'),
+    storeRoot: join(root, 'sessions'), reviewerRoot: join(root, 'reviewers'),
+    providerFactory: () => ({ async *stream() { yield { type: 'text', text: 'done' }; yield { type: 'terminal' }; } }),
+  };
+  const first = new InteractiveWorkspace(options);
+  const firstMain = await first.restore();
+  await first.submitActive('first terminal');
+  const second = new InteractiveWorkspace(options);
+  const secondMain = await second.restore();
+  assert.equal(first.projection.sessions.get(firstMain).role, 'primary');
+  assert.equal(second.projection.sessions.get(secondMain).role, 'standard');
+  assert.equal(second.sessions.size, 1, 'a live session owned by another Console is not attached twice');
+  assert.deepEqual(second.restoreFailures, []);
+  await second.submitActive('second terminal');
+  assert.deepEqual(await second.closeActive(), { protected: true });
+  await first.shutdown();
+  await second.shutdown();
+
+  const later = new InteractiveWorkspace(options);
+  const laterMain = await later.restore();
+  assert.equal(later.projection.sessions.get(laterMain).role, 'primary');
+  assert.equal(later.sessions.size, 3);
+  assert.equal([...later.sessions.values()].filter((session) => session.name === 'Previous Main').length, 2);
+  await later.shutdown();
+});
+
 test('a corrupt saved tab pool opens recoverable Main and preserves the original evidence', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-tab-corrupt-'));
   const tabPoolPath = join(root, 'pool.json');

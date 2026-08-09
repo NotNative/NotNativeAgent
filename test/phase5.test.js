@@ -786,7 +786,7 @@ test('session bar exposes primary, activity, unread state, route, usage, and nav
   projection.activate('main');
   projection.apply('other', { type: 'stream_delta', turn_id: 'turn-2', text: 'background result' });
   let frame = new TuiRenderer().frame(projection, { width: 120, height: 24 });
-  assert.match(frame, /\[\* Main\]/u);
+  assert.match(frame, /\[\* Main \*\]/u);
   assert.match(frame, /\[\+ Other\]/u);
   assert.match(frame, /auto-review \| IDLE \| p1\/m1/u);
   projection.cycleActive(1);
@@ -1250,7 +1250,7 @@ test('new conversations show a responsive splash while the tab strip contains on
   const renderer = new TuiRenderer();
   const wide = renderer.frame(projection, { width: 80, height: 24, color: false });
   const narrow = renderer.frame(projection, { width: 40, height: 24, color: false });
-  assert.equal(wide.split('\n')[0], '[* Main]  [+]');
+  assert.equal(wide.split('\n')[0], '[* Main *]  [+]');
   assert.doesNotMatch(wide.split('\n')[0], new RegExp(VERSION, 'u'));
   assert.match(wide, new RegExp(`NotNativeAgent · v${VERSION}`, 'u'));
   assert.match(wide, /Provider\s+http:\/\/model-host:1234\/v1/u);

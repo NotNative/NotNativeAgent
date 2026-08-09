@@ -143,6 +143,11 @@ not read source contents or imply an assignment merely because a workspace exist
 On every cold launch the fresh Main conversation receives focus. A meaningful prior Main
 is restored as `Previous Main`, and other eligible tabs retain their presentation state,
 but restored tabs do not take startup focus away from Main.
+Multiple Console processes may run concurrently. The first owns the workspace authority
+lease and displays its replaceable tab name as `[* Main *]`; later Consoles receive an
+independent, non-authoritative Main. Sessions already open elsewhere are skipped without a
+recovery alarm. Each Console merges its meaningful Main and tabs into the shared pool on
+exit, so they become separately restorable after their writer locks are released.
 If a tab-pool write fails after a successful restore, the Console reports a persistence
 notice without changing the agent turn state. The write queue remains usable and retries
 the current presentation snapshot on the next tab mutation or shutdown. Exit still closes

@@ -4,6 +4,7 @@ import { manifestFromConfig } from './route-configuration.js';
 export function tabPoolRecords(sessions, projection) {
   return [...sessions.values()].map((session) => ({
     sessionId: session.sessionId, name: session.name,
+    main: session.main === true,
     role: projection.sessions.get(session.id)?.role ?? 'standard', meaningful: session.meaningful,
     manifest: manifestFromConfig(session.engine.pendingConfig ?? session.engine.config),
     presentation: presentationState(projection.sessions.get(session.id)),

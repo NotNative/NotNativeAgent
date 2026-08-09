@@ -36,6 +36,7 @@ import { deleteManagedMcpCredential, saveManagedMcpCredential } from './mcp-cred
 import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './workspace-dream.js';
 import { resumeWorkspaceConversation } from './workspace-resume.js';
 import { SecretBroker } from './secret-broker.js';
+import { ConsoleAuthority } from './console-authority.js';
 import { cancelWorkspaceSession, clearWorkspaceSession, compactWorkspaceSession, handoffWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './workspace-session-broker.js';
 export class InteractiveWorkspace {
   #tasks = new Set();
@@ -44,6 +45,8 @@ export class InteractiveWorkspace {
     this.options = options;
     this.projection = options.projection ?? new TuiProjection();
     this.sessions = new Map();
+    this.consoleId = options.consoleId ?? newId('console');
+    this.consoleAuthority = new ConsoleAuthority(options.tabPoolPath, options.authorityLock);
     this.restoreFailures = [];
     this.onChange = options.onChange ?? (() => undefined);
     this.scheduler = options.scheduler ?? new FairScheduler({
@@ -63,6 +66,7 @@ export class InteractiveWorkspace {
     });
     this.tabPersistence = new WorkspaceTabPersistence({
       path: options.tabPoolPath, writer: options.tabPoolWriter,
+      consoleId: this.consoleId,
       enabled: () => this.config.persistence === 'durable' && options.tabPoolPath && this.restoreFailures.length === 0,
       snapshot: () => ({ tabs: tabPoolRecords(this.sessions, this.projection), activeId: this.projection.activeId }),
       onFailure: (error) => {
@@ -80,6 +84,7 @@ export class InteractiveWorkspace {
     if (result.complete) await this._savePoolRecoverable();
     return result.mainId;
   }
+  acquireConsoleAuthority() { return this.consoleAuthority.acquire(); }
   async create(name = 'Main', sessionId = newId('session'), options = {}) {
     if (this.sessions.has(sessionId)) throw new ContractError('session_duplicate', 'conversation is already attached');
     const output = async (event) => {
@@ -113,7 +118,7 @@ export class InteractiveWorkspace {
     const ingress = new CanonicalIngress(engine, { interactive: true });
     const role = options.role ?? (this.sessions.size === 0 ? 'primary' : 'standard');
     const meaningful = options.meaningful ?? engine.transcript.some((item) => item.type === 'message' && item.role === 'user');
-    this.sessions.set(sessionId, { id: sessionId, sessionId, name, engine, ingress, meaningful });
+    this.sessions.set(sessionId, { id: sessionId, sessionId, name, engine, ingress, meaningful, main: options.main === true });
     const primary = sessionConfig.routes.primary;
     this.projection.addSession(sessionId, name, routePresentation(sessionConfig, primary, {
       workspace: sessionConfig.workspaceRoot,
@@ -215,8 +220,8 @@ export class InteractiveWorkspace {
   async closeActive(confirm = false) {
     const session = this._active();
     const projected = this.projection.active();
-    if (projected.role === 'primary') {
-      this.projection.showNotice('session', 'The primary conversation remains attached until NNA exits.');
+    if (session.main) {
+      this.projection.showNotice('session', 'This Console\'s Main conversation remains attached until NNA exits.');
       this.onChange();
       return { protected: true };
     }
@@ -247,6 +252,7 @@ export class InteractiveWorkspace {
     })));
     await Promise.allSettled([...this.#tasks]);
     await this.tabPersistence.wait();
+    await this.consoleAuthority.release();
     if (poolFailure) throw poolFailure;
     const engineFailure = shutdowns.find((item) => item.status === 'rejected');
     if (engineFailure) throw engineFailure.reason;
@@ -354,9 +360,7 @@ export class InteractiveWorkspace {
     )).recovery;
   }
   async configureRuntimeLimits(values) { return (await this.#publishGlobalConfiguration((current) => withRuntimeLimits(current, values))).limits; }
-  async configureKeyBindings(bindings) {
-    return validateKeyBindings((await this.#publishGlobalConfiguration((current) => withKeyBindings(current, bindings))).tui.keyBindings);
-  }
+  async configureKeyBindings(bindings) { return validateKeyBindings((await this.#publishGlobalConfiguration((current) => withKeyBindings(current, bindings))).tui.keyBindings); }
   async #publishGlobalConfiguration(transform) {
     const globalNext = transform(this.config);
     const entries = [];
@@ -395,18 +399,12 @@ export class InteractiveWorkspace {
   }
   async availableModels() { return availableWorkspaceModels(this); }
   async qualifyActiveModel() { return qualifyWorkspaceModel(this); }
-  async webSearchStatus(test = false) {
-    return webSearchStatus(this.#webSearchState(), test);
-  }
-  async configureWebSearch(endpoint, managed = false) {
-    return configureWebSearch(this.#webSearchState(), endpoint, managed);
-  }
+  webSearchStatus(test = false) { return webSearchStatus(this.#webSearchState(), test); }
+  configureWebSearch(endpoint, managed = false) { return configureWebSearch(this.#webSearchState(), endpoint, managed); }
   async disableWebSearch() { return disableWebSearch(this.#webSearchState()); }
   async resetWebSearch() { return resetWebSearch(this.#webSearchState()); }
   async deployWebSearch() { return deployWebSearch(this.#webSearchState()); }
-  async manageWebSearch(action) {
-    return manageWebSearch(this.#webSearchState(), action);
-  }
+  manageWebSearch(action) { return manageWebSearch(this.#webSearchState(), action); }
   gatewayCommand(args) { return runGatewayCommand(args, this.options.dataPaths ?? userDataPaths()); }
   listSecrets() { this.#requirePrimarySecretManagement(); return this.secretBroker.list(); }
   createSecret(input) { this.#requirePrimarySecretManagement(); return this.secretBroker.create(input); }
