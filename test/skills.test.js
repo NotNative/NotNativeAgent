@@ -47,6 +47,26 @@ test('discovers bounded local skills and enforces invocation direction', async (
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('malformed external skills are quarantined without preventing startup', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-skills-invalid-'));
+  try {
+    const malformed = join(root, 'broken');
+    const valid = join(root, 'valid');
+    await mkdir(malformed); await mkdir(valid);
+    await writeFile(join(malformed, 'SKILL.md'), ['---', 'name: broken', 'unsupported yaml list', '---', 'Broken.'].join('\n'));
+    await writeFile(join(valid, 'SKILL.md'), [
+      '---', 'id: valid-skill', 'version: 1', 'description: A valid external skill',
+      'invocation: both', '---', 'Remain available when a peer manifest is malformed.',
+    ].join('\n'));
+    const registry = new SkillRegistry({ roots: [{ scope: 'user', path: root }] });
+    await registry.initialize();
+    assert.deepEqual(registry.catalog().map((item) => item.id), ['valid-skill']);
+    assert.equal(registry.diagnostics().length, 1);
+    assert.equal(registry.diagnostics()[0].code, 'skill_frontmatter_invalid');
+    assert.match(registry.diagnostics()[0].path, /broken[\\/]SKILL\.md/u);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('host skills require authenticated policy and exact skill tools', async () => {
   const skill = {
     id: 'module.customer', version: '1', description: 'Handle an allowed customer workflow',

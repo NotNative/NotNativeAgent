@@ -34,6 +34,7 @@ export class HealthInspector {
       governance: governanceHealth(this.engine.governance.health()),
       sandbox: status(this.engine.tools?.paths?.root ? 'ready' : 'unavailable', { root: this.engine.tools?.paths?.root ?? null }),
       memory: await this.engine.memory.health(),
+      skills: skillHealth(this.engine.skills),
       hooks: this.engine.hooks.health(), events: this.engine.events.health(),
       forensic_telemetry: await this.engine.telemetry.health(),
       mcp: this.engine.mcp.status(), extensions: extensionHealth(this.engine.extensions),
@@ -103,6 +104,15 @@ async function persistenceHealth(engine) {
 
 function status(state, details) {
   return Object.freeze({ status: state, ...details });
+}
+
+function skillHealth(registry) {
+  const diagnostics = registry?.diagnostics?.() ?? [];
+  return status(diagnostics.length > 0 ? 'degraded' : 'ready', {
+    loaded: registry?.catalog?.().length ?? 0,
+    skipped: diagnostics.length,
+    diagnostics,
+  });
 }
 
 function governanceHealth(details) {

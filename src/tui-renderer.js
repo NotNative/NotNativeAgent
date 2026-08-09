@@ -262,6 +262,7 @@ function recordLines(record, width) {
   if (record.type === 'review_status') return record.outcome === 'approve' ? [] : wrap(`    X REVIEW | ${record.outcome} | ${record.reason_code ?? ''}`, width);
   if (record.type === 'error') return wrap(`! ERROR ${record.code} | ${record.message}`, width);
   if (record.type === 'memory_status' || record.type === 'mcp_status') return wrap(`  DEPENDENCY | ${record.status} | ${record.reason ?? record.id ?? ''}`, width);
+  if (record.type === 'skill_status') return wrap(`  SKILL | ${record.status} | ${record.code ?? ''} | ${record.path ?? ''}`, width);
   if (record.type === 'local_status') return wrap(`  ${record.kind.toUpperCase()} | ${record.text}`, width);
   if (record.type === 'queue_status') return wrap(`... WAITING FOR PROVIDER | position ${record.position}`, width);
   if (record.type === 'state_status') return [];

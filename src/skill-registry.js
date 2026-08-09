@@ -44,6 +44,7 @@ export class SkillRegistry {
   #skills = new Map();
   #pendingUser = new Set();
   #active = new Map();
+  #diagnostics = [];
 
   constructor(options = {}) {
     this.hosted = options.hosted === true;
@@ -53,16 +54,36 @@ export class SkillRegistry {
   }
 
   async initialize() {
-    const values = this.hosted ? this.hostSkills : await discoverSkills(this.roots);
+    this.#diagnostics.length = 0;
+    const values = this.hosted ? this.hostSkills : await discoverSkills(
+      this.roots,
+      (diagnostic) => this.#diagnostics.push(Object.freeze(diagnostic)),
+    );
     if (this.hosted && values.some((item) => item.invocation === 'agent' || item.invocation === 'both')
       && (!this.allowedTools?.has('skill.search') || !this.allowedTools?.has('skill.load'))) {
       throw new ContractError('skill_tools_not_granted', 'agent-invocable hosted skills require exact grants for skill.search and skill.load');
     }
     for (const skill of values) {
-      if (this.#skills.has(skill.id)) throw new ContractError('skill_duplicate', `duplicate skill ${skill.id}`);
+      if (this.#skills.has(skill.id)) {
+        if (this.hosted || skill.source.startsWith('bundled:')) {
+          throw new ContractError('skill_duplicate', `duplicate skill ${skill.id}`);
+        }
+        this.#diagnostics.push(Object.freeze({
+          status: 'skipped', scope: skill.source.split(':', 1)[0], path: skill.source,
+          code: 'skill_duplicate', message: `duplicate skill ${skill.id}`,
+        }));
+        continue;
+      }
       const missing = skill.requiresTools.filter((name) => this.allowedTools && !this.allowedTools.has(name));
       if (missing.length > 0) {
-        throw new ContractError('skill_capability_missing', `skill ${skill.id} requires unavailable tools: ${missing.join(', ')}`);
+        if (this.hosted || skill.source.startsWith('bundled:')) {
+          throw new ContractError('skill_capability_missing', `skill ${skill.id} requires unavailable tools: ${missing.join(', ')}`);
+        }
+        this.#diagnostics.push(Object.freeze({
+          status: 'skipped', scope: skill.source.split(':', 1)[0], path: skill.source,
+          code: 'skill_capability_missing', message: `requires unavailable tools: ${missing.join(', ')}`,
+        }));
+        continue;
       }
       this.#skills.set(skill.id, Object.freeze(skill));
     }
@@ -111,6 +132,7 @@ export class SkillRegistry {
 
   active() { return Object.freeze([...this.#active.values()]); }
   loadedIds() { return Object.freeze([...this.#active.keys()]); }
+  diagnostics() { return Object.freeze([...this.#diagnostics]); }
 }
 
 export function skillToolDefinitions(registry) {
@@ -158,23 +180,47 @@ function skillEnvelope(skill) {
   ].join('\n\n');
 }
 
-async function discoverSkills(roots) {
+async function discoverSkills(roots, report) {
   const result = [];
   let total = 0;
   for (const root of roots.slice(0, 8)) {
-    const files = await skillFiles(root.path ?? root);
+    const scope = root.scope ?? 'local';
+    let files;
+    try {
+      files = await skillFiles(root.path ?? root);
+    } catch (error) {
+      if (scope === 'bundled') throw error;
+      report(skillDiagnostic(scope, root.path ?? root, error));
+      continue;
+    }
     for (const path of files) {
-      if (result.length >= MAX_SKILLS) throw new ContractError('skills_invalid', `more than ${MAX_SKILLS} skills were discovered`);
-      const bytes = await readFile(path);
-      if (bytes.length > MAX_BODY_BYTES + 8192) throw new ContractError('skill_too_large', `skill file ${path} exceeds its bound`);
-      const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-      const parsed = parseSkillFile(text, path, root.scope ?? 'local');
-      total += Buffer.byteLength(parsed.body, 'utf8');
-      if (total > MAX_TOTAL_BODY_BYTES) throw new ContractError('skills_too_large', 'combined skill bodies exceed 196608 bytes');
-      result.push(parsed);
+      try {
+        if (result.length >= MAX_SKILLS) throw new ContractError('skills_invalid', `more than ${MAX_SKILLS} skills were discovered`);
+        const bytes = await readFile(path);
+        if (bytes.length > MAX_BODY_BYTES + 8192) throw new ContractError('skill_too_large', `skill file ${path} exceeds its bound`);
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        const parsed = parseSkillFile(text, path, scope);
+        const bodyBytes = Buffer.byteLength(parsed.body, 'utf8');
+        if (total + bodyBytes > MAX_TOTAL_BODY_BYTES) {
+          throw new ContractError('skills_too_large', 'combined skill bodies exceed 196608 bytes');
+        }
+        total += bodyBytes;
+        result.push(parsed);
+      } catch (error) {
+        if (scope === 'bundled') throw error;
+        report(skillDiagnostic(scope, path, error));
+      }
     }
   }
   return result;
+}
+
+function skillDiagnostic(scope, path, error) {
+  return {
+    status: 'skipped', scope, path,
+    code: error?.code ?? 'skill_load_failed',
+    message: error?.message ?? 'skill could not be loaded',
+  };
 }
 
 async function skillFiles(root) {

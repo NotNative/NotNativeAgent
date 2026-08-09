@@ -14,6 +14,9 @@ export async function initializeEngine(engine, operations, options = {}) {
     const hookStatus = await engine.hooks.initialize();
     for (const status of hookStatus) await engine.output({ type: 'hook_status', ...status });
     await engine.skills.initialize();
+    for (const diagnostic of engine.skills.diagnostics?.() ?? []) {
+      await engine.output({ type: 'skill_status', ...diagnostic });
+    }
     await engine.tools.initialize();
     if (!options.deferMcp) await initializeMcp(engine);
     await engine.governance.initialize();
