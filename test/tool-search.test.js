@@ -80,3 +80,17 @@ test('hosted tool catalogs cannot install, expose, or search for root subagents'
   assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'agent.run'), false);
   assert.equal(registry.search('spawn exploration agent').some((item) => item.name === 'agent.run'), false);
 });
+
+test('provider tool schemas omit grammar-hostile bounds while runtime schemas retain them', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  const runtime = registry.snapshot().find((item) => item.name === 'fs.read_lines');
+  const wire = registry.providerDefinitions('read numbered lines')
+    .find((item) => item.function.name === 'fs.read_lines');
+
+  assert.equal(runtime.inputSchema.properties.start_line.maximum, 10_000_000);
+  assert.equal(runtime.inputSchema.properties.path.maxLength, 4096);
+  assert.equal(Object.hasOwn(wire.function.parameters.properties.start_line, 'maximum'), false);
+  assert.equal(Object.hasOwn(wire.function.parameters.properties.path, 'maxLength'), false);
+  assert.equal(wire.function.parameters.properties.start_line.type, 'integer');
+});

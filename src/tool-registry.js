@@ -23,6 +23,7 @@ import { mcpControlDefinitions } from './mcp-control-tools.js';
 import { subagentDefinition } from './subagent-tool.js';
 import { gitInspectionDefinition } from './git-inspection-tool.js';
 import { prepareLineEdit, prepareTextEdit } from './stale-edit-recovery.js';
+import { providerSchema, schemaValidator } from './tool-schema.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { CORE_TOOL_NAMES } from './core-tool-names.js';
 import { telegramNotificationDefinition } from './telegram-notifications.js'; import { sessionHistoryDefinitions } from './session-history-tools.js';
@@ -94,7 +95,7 @@ export class ToolRegistry {
     const relevant = new Set(query.trim() ? this.search(query, 6).map((item) => item.name) : []);
     const definitions = this.snapshot().filter((item) => ALWAYS_EXPOSED.has(item.name) || this.#exposed.has(item.name) || relevant.has(item.name)).map((item) => ({
       type: 'function',
-      function: { name: item.name, description: item.purpose, parameters: item.inputSchema },
+      function: { name: item.name, description: item.purpose, parameters: providerSchema(item.inputSchema) },
     }));
     this.#ageExposed();
     return definitions;
@@ -173,70 +174,6 @@ export class ToolRegistry {
     this.#definitions.set(definition.name, frozen);
     this.#history.set(`${definition.name}@${definition.version}`, frozen);
     return true;
-  }
-}
-function schemaValidator(schema) {
-  if (!schema || schema.type !== 'object' || (schema.properties && typeof schema.properties !== 'object')) {
-    throw new ContractError('invalid_external_schema', 'external tool input schema must describe an object');
-  }
-  validateSchema(schema);
-  return async (args) => {
-    if (!args || typeof args !== 'object' || Array.isArray(args)) {
-      throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');
-    }
-    const required = Array.isArray(schema.required) ? schema.required : [];
-    if (required.some((key) => !Object.hasOwn(args, key))) {
-      throw new ContractError('tool_schema_invalid', 'tool arguments omit a required property');
-    }
-    if (schema.additionalProperties === false
-      && Object.keys(args).some((key) => !Object.hasOwn(schema.properties ?? {}, key))) {
-      throw new ContractError('tool_schema_invalid', 'tool arguments contain an unknown property');
-    }
-    for (const [key, value] of Object.entries(args)) validateValue(value, schema.properties?.[key], 0);
-    return { args: structuredClone(args), resolved: { source: 'external' } };
-  };
-}
-function validateValue(value, rule, depth) {
-  if (!rule?.type) return;
-  if (depth > 12) throw new ContractError('tool_schema_invalid', 'tool argument nesting exceeds bound');
-  const types = Array.isArray(rule.type) ? rule.type : [rule.type];
-  const actual = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
-  if (!types.includes(actual) && !(actual === 'number' && types.includes('integer') && Number.isInteger(value))) {
-    throw new ContractError('tool_schema_invalid', 'tool argument type does not match schema');
-  }
-  if (typeof value === 'string' && value.length > (rule.maxLength ?? 131_072)) {
-    throw new ContractError('tool_schema_invalid', 'tool string argument exceeds bound');
-  }
-  if (Array.isArray(value)) {
-    if (value.length > (rule.maxItems ?? 4096)) throw new ContractError('tool_schema_invalid', 'tool array exceeds bound');
-    for (const item of value) validateValue(item, rule.items, depth + 1);
-  } else if (value && typeof value === 'object') {
-    const required = Array.isArray(rule.required) ? rule.required : [];
-    if (required.some((key) => !Object.hasOwn(value, key))) throw new ContractError('tool_schema_invalid', 'nested required property is missing');
-    if (rule.additionalProperties === false
-      && Object.keys(value).some((key) => !Object.hasOwn(rule.properties ?? {}, key))) {
-      throw new ContractError('tool_schema_invalid', 'nested tool argument contains an unknown property');
-    }
-    for (const [key, item] of Object.entries(value)) validateValue(item, rule.properties?.[key], depth + 1);
-  }
-}
-function validateSchema(schema) {
-  let encoded;
-  try { encoded = JSON.stringify(schema); } catch {
-    throw new ContractError('invalid_external_schema', 'external tool schema is not serializable');
-  }
-  if (Buffer.byteLength(encoded) > 131_072) {
-    throw new ContractError('invalid_external_schema', 'external tool schema exceeds bound');
-  }
-  const stack = [{ value: schema, depth: 0 }];
-  let nodes = 0;
-  while (stack.length > 0) {
-    const { value, depth } = stack.pop();
-    nodes += 1;
-    if (nodes > 10_000 || depth > 24) throw new ContractError('invalid_external_schema', 'external schema structure exceeds bound');
-    if (value && typeof value === 'object') {
-      for (const child of Object.values(value)) stack.push({ value: child, depth: depth + 1 });
-    }
   }
 }
 function writeDefinition(paths, changes) {

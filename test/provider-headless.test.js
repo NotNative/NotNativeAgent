@@ -221,6 +221,18 @@ test('AC-PROV-01 types in-band SSE errors without exposing provider-controlled t
   });
 });
 
+test('classifies local provider grammar compilation failures without echoing provider text', async () => {
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, capabilities: {}, model: 'fixture',
+  }, { maxOutputBytes: 4096 }, { fetch: async () => new Response(
+    `data: ${JSON.stringify({ error: { code: 400, message: 'Failed to initialize samplers: failed to parse grammar' } })}\n\n`,
+    { status: 200, headers: { 'content-type': 'text/event-stream' } },
+  ) });
+  await assert.rejects(async () => {
+    for await (const _event of provider.stream({ model: 'fixture', messages: [] }, new AbortController().signal)) { /* consume */ }
+  }, { code: 'provider_tool_schema_rejected', retryable: false });
+});
+
 test('normalizes context overflow variants from local OpenAI-compatible hosts', async () => {
   const variants = [
     { error: { code: 'context_window_exceeded' } },

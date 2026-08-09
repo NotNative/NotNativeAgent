@@ -248,7 +248,14 @@ function decodeChunk(value) {
     }
     const status = Number(value.error.code);
     const retryable = Number.isInteger(status) && (status === 408 || status === 429 || status >= 500);
-    throw new ContractError(retryable ? 'provider_transient' : 'provider_rejected', 'provider reported an error during streaming', retryable);
+    const grammarFailure = isGrammarFailure(value.error);
+    throw new ContractError(
+      grammarFailure ? 'provider_tool_schema_rejected' : retryable ? 'provider_transient' : 'provider_rejected',
+      grammarFailure
+        ? 'provider could not compile the supplied tool schema into a valid grammar'
+        : 'provider reported an error during streaming',
+      retryable,
+    );
   }
   if (!value || !Array.isArray(value.choices)) {
     throw new ContractError('provider_malformed_stream', 'provider chunk lacks choices');
@@ -305,7 +312,16 @@ async function providerErrorResponse(response) {
   if (response.status === 413 || isContextLimitError(body)) {
     return new ContractError('provider_context_limit', 'provider rejected the request because its context limit was exceeded');
   }
+  if (isGrammarFailure(body)) {
+    return new ContractError('provider_tool_schema_rejected', 'provider could not compile the supplied tool schema into a valid grammar');
+  }
   return providerError(response.status, 'provider request failed');
+}
+
+function isGrammarFailure(value) {
+  const text = boundedErrorStrings(value).join(' ').toLowerCase();
+  return /(?:failed|error).{0,64}(?:parse|compile).{0,32}grammar/u.test(text)
+    || /failed to initialize samplers.{0,96}grammar/u.test(text);
 }
 
 const CONTEXT_LIMIT_CODES = new Set([
