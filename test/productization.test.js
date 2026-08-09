@@ -187,6 +187,8 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /Test-LegacyGatewayTask/u);
   assert.match(windowsInstall, /NotNativeAgentGateway/u);
   assert.match(windowsInstall, /Unregister-ScheduledTask/u);
+  assert.match(windowsInstall, /Unregister-ScheduledTask[^\r\n]+-ErrorAction Stop/u);
+  assert.match(windowsInstall, /still registered after removal/u);
   assert.match(windowsInstall, /-Verb RunAs/u);
   assert.match(windowsInstall, /does not target the legacy NNA gateway/u);
   assert.match(windowsInstall, /GatewayWasRunning/u);

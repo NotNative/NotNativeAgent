@@ -189,7 +189,9 @@ if ($argument.Length -ge 2 -and $argument[0] -eq '"' -and $argument[$argument.Le
 }
 try { $resolved = [IO.Path]::GetFullPath($argument) } catch { exit 3 }
 if ($resolved -ine $expected) { exit 3 }
-Unregister-ScheduledTask -TaskName 'NotNativeAgentGateway' -TaskPath '\' -Confirm:$false
+Unregister-ScheduledTask -TaskName 'NotNativeAgentGateway' -TaskPath '\' -Confirm:$false -ErrorAction Stop
+$remaining = Get-ScheduledTask -TaskName 'NotNativeAgentGateway' -TaskPath '\' -ErrorAction SilentlyContinue
+if ($remaining) { exit 5 }
 exit 0
 '@
     $Encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($Cleanup))
@@ -217,7 +219,11 @@ function Remove-LegacyGatewayTask {
         return
     }
     try {
-        Unregister-ScheduledTask -TaskName $TaskName -TaskPath '\' -Confirm:$false
+        # ScheduledTasks emits access-denied as a non-terminating error by
+        # default. Make it terminating so we do not report a false success.
+        Unregister-ScheduledTask -TaskName $TaskName -TaskPath '\' -Confirm:$false -ErrorAction Stop
+        $Remaining = Get-ScheduledTask -TaskName $TaskName -TaskPath '\' -ErrorAction SilentlyContinue
+        if ($Remaining) { throw "Scheduled task \$TaskName is still registered after removal." }
         Write-InstallerOk 'Removed the legacy elevated Telegram gateway task'
         return
     } catch [System.UnauthorizedAccessException] {
@@ -234,6 +240,8 @@ function Remove-LegacyGatewayTask {
         Write-InstallerOk 'Removed the legacy elevated Telegram gateway task'
     } elseif ($ExitCode -eq 3) {
         Write-InstallerWarning "Scheduled task \$TaskName changed during inspection and was preserved."
+    } elseif ($ExitCode -eq 5) {
+        Write-InstallerWarning 'Legacy gateway cleanup completed without an error, but the task is still registered.'
     } else {
         Write-InstallerWarning 'Legacy gateway cleanup was not approved; the existing task was preserved.'
     }
