@@ -49,7 +49,9 @@ async function forceAt(root, boundary) {
   } finally { if (child.exitCode === null) child.kill('SIGKILL'); }
   const prefix = await recoverJournal(journalPath(caseRoot));
   const resume = await runChild(['--resume', '--root', caseRoot], 'resume');
-  const durableResult = prefix.records.some((item) => item.type === 'tool_result');
+  const durableResult = prefix.records.some((item) => item.type === 'tool_result'
+    && item.payload?.toolName === 'fs.write_text' && item.payload?.status === 'succeeded'
+    && item.payload?.effectCertainty === 'completed');
   const passed = marker.sequence === boundary.sequence && marker.type === boundary.type
     && !prefix.corruptTail && prefix.lastSequence === boundary.sequence
     && resume.provider_calls === 0 && resume.recovery_notice_count <= 1
@@ -69,6 +71,11 @@ async function childRun(root, targetSequence) {
   const provider = { async *stream() {
     calls += 1;
     if (calls === 1) yield { type: 'tool_fragment', fragments: [{
+      index: 0, id: 'force-kill-read', function: {
+        name: 'fs.read_text', arguments: JSON.stringify({ path: 'target.txt' }),
+      },
+    }] };
+    else if (calls === 2) yield { type: 'tool_fragment', fragments: [{
       index: 0, id: 'force-kill-write', function: {
         name: 'fs.write_text', arguments: JSON.stringify({
           path: 'target.txt', content: 'after', expected_sha256: expected,
@@ -76,7 +83,7 @@ async function childRun(root, targetSequence) {
       },
     }] };
     else yield { type: 'text', text: 'completed' };
-    yield { type: 'terminal', finishReason: calls === 1 ? 'tool_calls' : 'stop' };
+    yield { type: 'terminal', finishReason: calls <= 2 ? 'tool_calls' : 'stop' };
   } };
   class ObservedStore extends JournalStore {
     async append(type, payload) {
