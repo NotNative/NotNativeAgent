@@ -3,6 +3,7 @@ import { InteractiveWorkspace } from './interactive-workspace.js';
 import { StructuredLog } from './structured-log.js';
 import { osc52Clipboard } from './terminal-clipboard.js';
 import { nativeClipboard } from './native-clipboard.js';
+import { launchTuiUpdateCheck } from './tui-update-check.js';
 
 export async function createTuiWorkspace(options, output, onChange) {
   const logger = options.logger ?? new StructuredLog({ path: options.logPath });
@@ -16,5 +17,6 @@ export async function createTuiWorkspace(options, output, onChange) {
     ...options, logger, onChange, clipboard, clipboardRead: options.clipboardRead ?? (() => systemClipboard.read()),
     clipboardImageRead: options.clipboardImageRead ?? ((path, maxBytes) => systemClipboard.readImage(path, maxBytes)),
   });
+  launchTuiUpdateCheck(workspace.projection, options, onChange).catch(() => undefined);
   return { logger, workspace };
 }

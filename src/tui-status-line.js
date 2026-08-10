@@ -2,7 +2,7 @@
 import { sanitizeTerminal } from './terminal-adapter.js';
 import { displayWidth, truncateTerminal } from './terminal-markdown.js';
 
-export function sessionStatusLine(session, width) {
+export function sessionStatusLine(session, width, rightStatus = '') {
   const route = responsiveRoute(session, width);
   const usage = totalTokens(session.usage);
   const context = contextUsage(session);
@@ -12,9 +12,14 @@ export function sessionStatusLine(session, width) {
   const state = session.state === 'needs_input' ? 'IDLE' : session.state.toUpperCase();
   const work = workProgress(session.work);
   const workspace = session.metadata.workspace ? ` | ${session.metadata.workspace}` : '';
-  return truncateTerminal(sanitizeTerminal(
+  const left = truncateTerminal(sanitizeTerminal(
     `${session.reviewPosture} | ${state}${workspace} | ${route}${attachments}${work} | ${context} | ${usage} | ${view}`,
   ), width);
+  const right = sanitizeTerminal(rightStatus).trim();
+  if (!right || width < displayWidth(right) + 24) return left;
+  const available = width - displayWidth(right) - 2;
+  const compactLeft = truncateTerminal(left, available);
+  return `${compactLeft}${' '.repeat(Math.max(2, width - displayWidth(compactLeft) - displayWidth(right)))}${right}`;
 }
 
 function responsiveRoute(session, width) {

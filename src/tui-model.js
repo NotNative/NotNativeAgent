@@ -171,6 +171,7 @@ export class TuiProjection {
     this.selectionRowMap = new Map();
     this.selectionContentBounds = null;
     this.notice = null;
+    this.updateAvailable = false;
     this.bindings = validateKeyBindings();
   }
 

@@ -49,6 +49,21 @@ nna
 Releases use the canonical `YYYYMMDD-<iteration>` identifier documented in
 [the versioning policy](docs/VERSIONING.md).
 
+Installed Consoles perform a silent, non-blocking check for deliberately published version
+tags no more than once every 24 hours. When a newer tag exists, `update available` appears at
+the far right of the footer; offline or failed checks do not delay startup or display noise.
+Updates are always operator-initiated:
+
+```sh
+nna update --check
+nna update
+```
+
+`nna update` downloads the exact commit referenced by the newest version tag, validates the
+product and version, reuses the idempotent installer without repeating onboarding, verifies
+the installed command, and restores the prior installed runtime if installation fails. It
+never updates from the moving `main` branch and never replaces `~/.nna` user data.
+
 The per-user productization layer adds Windows, Linux, and macOS installers,
 stable home-scoped application data, safe marker-checked uninstallers, and native installer
 test coverage. See [per-user installation](docs/INSTALLATION.md).

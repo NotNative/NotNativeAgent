@@ -101,3 +101,16 @@ test('footer keeps the active workspace visible and collapses a long provider ro
   assert.match(narrow, /IDLE \| D:\\ProjectRepo\\NotNativeAgent \| qwen-model/u);
   assert.doesNotMatch(narrow, /provider-host/u);
 });
+
+test('footer quietly right-aligns an update notice only when room is available', () => {
+  const session = {
+    metadata: { endpoint: 'local', model: 'model', workspace: 'D:\\work' }, usage: null,
+    viewportEnd: null, viewportLineCount: 0, pendingAttachments: [], state: 'idle',
+    reviewPosture: 'auto-review', contextLimitTokens: null, contextLimitBytes: null, work: null,
+  };
+  const wide = sessionStatusLine(session, 140, 'update available');
+  assert.equal(wide.endsWith('update available'), true);
+  assert.equal(wide.length, 140);
+  const narrow = sessionStatusLine(session, 30, 'update available');
+  assert.doesNotMatch(narrow, /update available/u);
+});

@@ -29,6 +29,7 @@ export function parseCli(argv) {
     else if (value === '--no-color') options.color = false;
     else if (value === '--reduced-motion') options.reducedMotion = true;
     else if (value === '--json' && mode === 'skills') options.prompt.push(value);
+    else if (value === '--check' && mode === 'update') options.prompt.push(value);
     else if (mode === 'uninstall' && ['--delete-user-data', '--keep-user-data'].includes(value)) options.prompt.push(value);
     else if (value.startsWith('-')) throw new ContractError('invalid_option', `unknown option ${value}`);
     else options.prompt.push(value);
@@ -42,6 +43,7 @@ export function parseCli(argv) {
 const MODES = new Set([
   'tui', 'text', 'headless', 'host', 'sessions', 'websearch', 'skills', 'gateway',
   'webfetch', 'webbrowse', 'provider', 'secrets', 'uninstall', 'help', 'version', '--help', '-h', '--version', '-v',
+  'update',
 ]);
 
 export async function loadManifest(path) {

@@ -19,6 +19,7 @@ import { applyLaunchProviderOverrides } from './launch-provider-overrides.js';
 import { runUninstallCommand } from './uninstall-cli.js';
 import { runSecretBrokerCommand } from './secret-broker-cli.js';
 import { runWebBrowseCommand } from './web-browse-cli.js';
+import { runUpdateCommand } from './update-cli.js';
 
 try {
   const options = parseCli(process.argv.slice(2));
@@ -56,6 +57,11 @@ try {
   }
   else if (options.mode === 'secrets') {
     await runSecretBrokerCommand(options.prompt, await runtimePaths(), { input: process.stdin, output: process.stdout });
+  }
+  else if (options.mode === 'update') {
+    process.exitCode = await runUpdateCommand(options.prompt, await runtimePaths(), {
+      input: process.stdin, output: process.stdout, diagnostics: process.stderr,
+    });
   }
   else if (options.mode === 'tui') {
     if (!process.stdin.isTTY || !process.stdout.isTTY) throw Object.assign(new Error('interactive terminal required'), { code: 'interactive_terminal_required' });
@@ -121,6 +127,8 @@ function help() {
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
     '  nna secrets serve                        Start broker endpoint (installed NNO activation required)',
     '  nna uninstall [--delete-user-data|--keep-user-data]',
+    '  nna update --check                     Check the latest deliberately tagged version',
+    '  nna update                             Install the latest tagged version with rollback',
     '  nna --help | --version',
     '',
   ].join('\n');
@@ -153,6 +161,7 @@ function productOptions(paths) {
     webSearchConfigPath: paths.webSearchConfig, managedSearxngRoot: paths.managedSearxng,
     webFetchConfigPath: paths.webFetchConfig,
     gatewayConfigPath: paths.gatewayConfig,
+    updateState: paths.updateState,
     logPath: join(paths.logs, 'runtime.ndjson'),
     trustedWorkspacesPath: paths.trustedWorkspaces,
     hookRoot: paths.hooks,

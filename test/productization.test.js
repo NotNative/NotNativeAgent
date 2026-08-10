@@ -54,6 +54,8 @@ test('launch options support prompt, host, and config aliases without breaking l
   assert.equal(parseCli(['uninstall']).mode, 'uninstall');
   assert.deepEqual(parseCli(['uninstall', '--delete-user-data']).prompt, ['--delete-user-data']);
   assert.deepEqual(parseCli(['uninstall', '--keep-user-data']).prompt, ['--keep-user-data']);
+  assert.equal(parseCli(['update']).mode, 'update');
+  assert.deepEqual(parseCli(['update', '--check']).prompt, ['--check']);
   const override = parseCli(['--provider-profile', 'remote', '--model', 'qwen', '-p', 'hello']);
   assert.equal(override.providerProfile, 'remote');
   assert.equal(override.model, 'qwen');

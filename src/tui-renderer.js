@@ -180,7 +180,7 @@ function footerLines(projection, session, width) {
 
 function footerStatusLine(projection, session, width) {
   if (projection.notice?.kind === 'confirmation') return crop(projection.notice.text, width);
-  return sessionStatusLine(session, width);
+  return sessionStatusLine(session, width, projection.updateAvailable ? 'update available' : '');
 }
 
 function permissionLines(record, width) {
