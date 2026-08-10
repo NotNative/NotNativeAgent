@@ -103,6 +103,32 @@ test('AC-PROV-01/AC-PROV-02 discovers local models and preserves fragmented SSE 
   assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
 });
 
+test('AC-PROV-01 allows slow model admission to use the first-token deadline', async () => {
+  let requestSignal;
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'slow-model', capabilities: {},
+  }, { connectMs: 5, maxOutputBytes: 4096 }, { fetch: async (_url, options) => {
+    requestSignal = options.signal;
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(resolve, 40);
+      options.signal.addEventListener('abort', () => {
+        clearTimeout(timer);
+        reject(options.signal.reason ?? new DOMException('aborted', 'AbortError'));
+      }, { once: true });
+    });
+    return new Response('data: {"choices":[{"delta":{"content":"ready"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  const items = [];
+  for await (const item of provider.stream({ model: 'slow-model', messages: [] }, new AbortController().signal)) {
+    items.push(item);
+  }
+  assert.equal(requestSignal.aborted, true);
+  assert.equal(items.filter((item) => item.type === 'text').map((item) => item.text).join(''), 'ready');
+  assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
+});
+
 test('AC-PROV-01 capability metadata is byte-bounded before JSON parsing', async () => {
   const provider = new OpenAICompatibleProvider({
     endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'fixture', capabilities: {},

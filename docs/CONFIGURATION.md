@@ -80,6 +80,10 @@ large prompts on local models and consumer hardware while preserving cancellatio
 finite failure path. Manifests carrying the exact historical 30-second/45-second/120-second
 default tuple are migrated to these safer defaults. The exact historical 15-second semantic
 review default is migrated as well; genuinely customized values remain authoritative.
+For streamed inference, the first-token deadline covers endpoint admission, on-demand
+model loading, prompt processing, and the first stream event. The short connection value
+is reserved for connectivity and metadata probes; it does not abort a healthy LM Studio,
+Ollama, llama.cpp, vLLM, SGLang, or other compatible host while that host loads a model.
 `provider_concurrency` and `tool_concurrency` default
 to one for constrained local systems and accept one through sixteen. Tool concurrency
 applies only to consecutive independently reviewed read-only operations; mutations remain

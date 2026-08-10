@@ -50,16 +50,14 @@ export class OpenAICompatibleProvider {
 
   async *stream(request, signal) {
     const transport = new AbortController();
-    let connectTimedOut = false;
     const cancel = () => transport.abort();
     signal.addEventListener('abort', cancel, { once: true });
-    const timer = setTimeout(() => {
-      connectTimedOut = true;
-      transport.abort();
-    }, this.limits.connectMs ?? 10_000);
     let response;
     try {
       const responseFormat = validateResponseFormat(request.responseFormat);
+      // OpenAI-compatible hosts may load a model before returning response headers.
+      // The ProviderRunner owns this whole admission phase with its first-token
+      // deadline; a short fetch timer here would abort legitimate local model loads.
       response = await this.fetch(`${this.profile.endpoint}/chat/completions`, {
         method: 'POST', headers: this.#headers(), signal: transport.signal,
         body: JSON.stringify({
@@ -74,10 +72,7 @@ export class OpenAICompatibleProvider {
     } catch (error) {
       signal.removeEventListener('abort', cancel);
       transport.abort();
-      if (connectTimedOut) throw new ContractError('provider_connect_timeout', 'provider connection timed out', true);
       throw error;
-    } finally {
-      clearTimeout(timer);
     }
     try {
       if (!response.ok) throw await providerErrorResponse(response);
