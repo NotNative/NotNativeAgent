@@ -276,12 +276,12 @@ function unique(values) { return [...new Set(values)]; }
 function shrinkOversizedProtectedRecords(entries, budget) {
   let bytes = entries.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
   if (bytes <= budget) return entries;
-  const cap = Math.max(512, Math.floor(budget / 5));
   const candidates = entries.filter((entry) => entry.protected && entry.item.type === 'message')
     .sort((left, right) => {
       const roleOrder = Number(left.item.role === 'user') - Number(right.item.role === 'user');
       return roleOrder || left.index - right.index;
     });
+  const cap = Math.max(512, Math.floor(budget / Math.max(5, candidates.length)));
   for (const entry of candidates) {
     if (bytes <= budget) break;
     if (Buffer.byteLength(entry.item.content ?? '', 'utf8') <= cap) continue;

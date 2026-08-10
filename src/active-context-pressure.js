@@ -2,10 +2,10 @@
 import { createHash } from 'node:crypto';
 
 export const CONTEXT_PRESSURE = Object.freeze({
-  receipts: 0.45,
-  checkpoint: 0.60,
-  aggressive: 0.70,
-  compact: 0.75,
+  receipts: 0.25,
+  checkpoint: 0.35,
+  aggressive: 0.45,
+  compact: 0.60,
 });
 
 export function pressureTier(estimatedTokens, effectiveInputTokens) {

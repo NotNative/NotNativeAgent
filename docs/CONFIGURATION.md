@@ -251,10 +251,10 @@ work, NNA queries a short-lived provider-neutral runtime snapshot. LM Studio end
   agent count. When discovery is unavailable, configured concurrency remains the conservative
   fallback and sub-agent batches execute sequentially.
 NNA reserves the route's bounded output allowance and manages prompt pressure in progressive
-stages. At 45% it replaces settled tool payloads from older active steps with bounded receipts;
-at 60% it emits a deterministic continuity checkpoint; at 70% it retains only the newest active
-step in the provider projection; and at 75% it begins full compaction. The configurable
-`context_compaction_threshold` defaults to `0.75`; a lower configured value remains an
+stages. At 25% it replaces settled tool payloads from older active steps with bounded receipts;
+at 35% it emits a deterministic continuity checkpoint; at 45% it retains only the newest active
+step in the provider projection; and at 60% it begins full compaction. The configurable
+`context_compaction_threshold` defaults to `0.60`; a lower configured value remains an
 intentional earlier compaction trigger. These percentages are calculated from the discovered
 model context window after the bounded output reserve, not from a frontier-model constant.
 When token metadata is unavailable, the validated byte ceilings remain the conservative

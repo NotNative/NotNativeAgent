@@ -47,7 +47,7 @@ async function compactContext(engine, records, content, active, operations, plan
     );
     await addHookContexts(engine, active, post);
     const context = await buildReportedContext(
-      engine, engine.transcript, content, active.enrichment, active, budget, hardLimit, planned,
+      engine, engine.transcript, '', active.enrichment, active, budget, hardLimit, planned,
     );
     engine.lifecycles.finish(lifecycle.id, 'completed');
     await emitCompactionStatus(engine, active, 'completed', compactionCompletedDetail(active, fact, beforeEstimatedTokens));
@@ -66,7 +66,8 @@ async function compactContext(engine, records, content, active, operations, plan
 }
 
 async function createCompactionFact(engine, records, active, operations, plan) {
-  const compacted = compactTranscript(records, plan.budget, {
+  const source = includeUnprojectedActiveRecords(records, engine.transcript, active.turnId);
+  const compacted = compactTranscript(source, plan.budget, {
     activeTurnId: active.turnId, activeStepId: active.stepId,
     protectedActiveSteps: 2, requireProgress: true,
   });
@@ -86,6 +87,15 @@ async function createCompactionFact(engine, records, active, operations, plan) {
   );
   await operations.persist('compaction', fact);
   return fact;
+}
+
+function includeUnprojectedActiveRecords(records, transcript, turnId) {
+  const source = [...records];
+  for (const record of transcript) {
+    if ((record.turnId ?? record.turn_id) !== turnId || source.includes(record)) continue;
+    source.push(record);
+  }
+  return source;
 }
 
 async function pressureProjection(engine, active, operations, measurement) {

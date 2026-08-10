@@ -31,12 +31,19 @@ test('explicit compaction and confirmed clear survive durable session recovery',
   for (let index = 0; index < 7; index += 1) {
     await first.submit({ request_id: `turn-${index}`, content: `Continue the bounded task ${index}.` }, 'operator');
   }
+  assert.equal(requests[4].filter((item) => item.role === 'user'
+    && item.content === 'Continue the bounded task 4.').length, 1);
   const before = first.transcript.length;
   const compacted = await first.compactConversation();
   assert.ok(compacted.omitted > 0);
   assert.equal(compacted.fact.projection.protectedCompletedTurns, 5);
   assert.equal(first.transcript.length, before + 1);
   assert.equal(first.transcript.at(-1).continuation.schema, 'nna.continuation.v1');
+  const retainedUsers = compacted.fact.retainedRecords.filter((item) => item.type === 'message' && item.role === 'user')
+    .map((item) => item.content);
+  for (let index = 2; index < 7; index += 1) {
+    assert.ok(retainedUsers.includes(`Continue the bounded task ${index}.`));
+  }
   await first.shutdown({ request_id: 'shutdown-1', type: 'shutdown' });
 
   const second = new SessionEngine(options);
