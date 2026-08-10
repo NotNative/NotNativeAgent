@@ -1325,6 +1325,31 @@ test('permission view shows mandatory decision evidence and hides the editor', (
   assert.match(frame, /Ctrl\+Y allow once/u);
 });
 
+test('one-shot elevation makes the exact command and primary actions visually dominant', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
+  projection.apply('s1', {
+    type: 'permission_prompt', tool: 'system.elevate', action: 'Run one privileged command',
+    scope: 'host', effect: 'privileged_execution', reversibility: 'not_verified',
+    blast_radius: 'host', risk: 'review_required', reason_code: 'elevation_operator_confirmation_required',
+    guidance: 'This exact command requires fresh local approval.',
+    arguments: {
+      executable: '/usr/bin/mount', args: ['/dev/nvme1p2', '/mnt/windows'], cwd: '/home/operator',
+      reason: 'Mount the second disk', expected_effect: 'Attach the disk at /mnt/windows',
+    },
+    choices: ['allow_once', 'deny', 'cancel'], expires_at: Date.UTC(2026, 7, 1),
+    permission_token: 'permission-1', tool_request_id: 'tool-1',
+  });
+  const plain = new TuiRenderer().frame(projection, { width: 100, height: 26 });
+  assert.match(plain, /ELEVATED COMMAND APPROVAL/u);
+  assert.match(plain, /Command: \/usr\/bin\/mount \/dev\/nvme1p2 \/mnt\/windows/u);
+  assert.match(plain, /\n\nCtrl\+Y  APPROVE ONCE\nCtrl\+C  CANCEL\n\n/u);
+  assert.doesNotMatch(plain, /1 Ctrl\+Y|2 deny/u);
+  const color = new TuiRenderer().frame(projection, { width: 100, height: 26, color: true });
+  assert.match(color, /\u001b\[1;38;5;77mCtrl\+Y  APPROVE ONCE/u);
+  assert.match(color, /\u001b\[1;38;5;203mCtrl\+C  CANCEL/u);
+});
+
 test('tool presentation arguments are bounded and redact keyed and free-form credentials', () => {
   const presented = safeToolArguments({
     path: 'notes.txt', token: 'do-not-show', note: 'Authorization: Bearer abcdefghijklmnopqrstuvwxyz',

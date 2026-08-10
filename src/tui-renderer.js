@@ -9,6 +9,7 @@ import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLin
 import { sessionStatusLine } from './tui-status-line.js';
 import { decorateSelection, plainTerminalLine } from './tui-selection.js';
 import { contextCompactionText } from './tui-context-renderer.js';
+import { decoratePermissionLine, permissionControlLine, permissionLines } from './tui-permission-renderer.js';
 export class TuiRenderer {
   frame(projection, capabilities) {
     const session = projection.active();
@@ -42,7 +43,9 @@ export class TuiRenderer {
     const color = capabilities.color === true;
     const frame = [
       ...header.map((line, index) => decorateHeader(line, index, color)),
-      ...content.map((line, index) => decorateContent(line, width, color, index, projection.overlay?.kind)),
+      ...content.map((line, index) => decorateContent(
+        line, width, color, index, session.pendingPermission ? 'permission' : projection.overlay?.kind,
+      )),
       ...footer.map((line, index) => decorateFooter(line, index, footer.length, color, capabilities.animationFrame)),
     ];
     const visible = frame.slice(0, height);
@@ -71,7 +74,7 @@ function headerLines(projection, session, width) {
 }
 
 function contentLines(projection, session, width, targets = new Map()) {
-  if (session.pendingPermission) return permissionLines(session.pendingPermission, width);
+  if (session.pendingPermission) return permissionLines(session.pendingPermission, width, projection.bindings);
   if (projection.overlay) return overlayLines(projection.overlay, width, targets);
   if (projection.help) return helpLines(width, projection.bindings, session);
   const lines = [...sessionBanner(session, width), ''];
@@ -185,32 +188,9 @@ function footerLines(projection, session, width, capabilities = {}) {
   return lines;
 }
 
-function permissionControlLine(permission, bindings) {
-  const labels = {
-    allow_once: `${keyLabel(bindings.allow_once)} allow once`, allow_session: 'allow for same operation',
-    allow_workspace: 'allow this tool in workspace', deny: 'deny', cancel: `${keyLabel(bindings.cancel)} cancel`,
-  };
-  const choices = Array.isArray(permission.choices)
-    ? permission.choices : ['allow_once', 'allow_session', 'allow_workspace', 'deny', 'cancel'];
-  return choices.map((choice, index) => `${index + 1} ${labels[choice]}`).join(' · ');
-}
-
 function footerStatusLine(projection, session, width) {
   if (projection.notice?.kind === 'confirmation') return crop(projection.notice.text, width);
   return sessionStatusLine(session, width, projection.updateAvailable ? 'update available' : '');
-}
-
-function permissionLines(record, width) {
-  const values = [
-    ['APPROVAL REQUIRED', `${record.tool}`], ['Action', record.action],
-    ['Scope', record.scope], ['Effect', record.effect], ['Reversible', record.reversibility],
-    ['Blast radius', record.blast_radius], ['Risk', `${record.risk}: ${record.reason_code}`],
-    ['Reviewer', record.guidance], ['Arguments', JSON.stringify(record.arguments)],
-    ['Expires', new Date(record.expires_at).toISOString()],
-  ];
-  const lines = [];
-  for (const [label, value] of values) lines.push(...wrap(`${label}: ${value ?? 'not provided'}`, width));
-  return lines;
 }
 
 function overlayLines(overlay, width, targets = new Map()) {
@@ -437,6 +417,7 @@ function decorateContent(line, width, color, index, overlayKind) {
   if (!color) return line;
   if (/^[╭╰]/u.test(line)) return paint('38;5;93', line);
   if (line.startsWith('│') && line.endsWith('│')) return decorateBanner(line, index);
+  if (overlayKind === 'permission') return decoratePermissionLine(line);
   if (overlayKind) return decorateOverlay(line, width, overlayKind);
   if (line.startsWith('> ')) return paint('38;5;255;48;5;236', padCells(line, width));
   if (line.startsWith('* ')) return `${paint('1;38;5;213', '*')} ${line.slice(2)}`;
