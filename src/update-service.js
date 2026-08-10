@@ -8,6 +8,7 @@ import { ContractError } from './ids.js';
 import { PRODUCT_NAME, VERSION } from './product.js';
 
 export const UPDATE_REPOSITORY = Object.freeze({ owner: 'NotNative', repo: 'NotNativeAgent' });
+export const UPDATE_BRANCH = 'main';
 export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MAX_ARCHIVE_BYTES = 64 * 1024 * 1024;
 const VERSION_PATTERN = /^(?:v)?(\d{8})-(\d+)$/u;
@@ -23,17 +24,17 @@ export async function checkForUpdate(options) {
   }
   let state;
   try {
-    const tags = await fetchVersionTags(options.fetchImpl ?? globalThis.fetch, options.timeoutMs ?? 3000);
-    const latest = tags.sort((left, right) => compareVersions(right.version, left.version))[0] ?? null;
+    const latest = await fetchRepositoryVersion(options.fetchImpl ?? globalThis.fetch, options.timeoutMs ?? 3000);
     state = {
       format: 1, checked_at: new Date(now).toISOString(), status: 'ready',
-      latest_version: latest?.version ?? null, latest_tag: latest?.tag ?? null, latest_sha: latest?.sha ?? null,
+      latest_version: latest.version, latest_ref: latest.ref, latest_tag: null, latest_sha: latest.sha,
     };
   } catch (error) {
     state = {
       format: 1, checked_at: new Date(now).toISOString(), status: 'unavailable',
       error_code: stableUpdateError(error), latest_version: prior?.latest_version ?? null,
-      latest_tag: prior?.latest_tag ?? null, latest_sha: prior?.latest_sha ?? null,
+      latest_ref: prior?.latest_ref ?? null, latest_tag: prior?.latest_tag ?? null,
+      latest_sha: prior?.latest_sha ?? null,
     };
   }
   await writeUpdateState(statePath, state);
@@ -92,7 +93,8 @@ export async function installAvailableUpdate(options) {
     if (backupRoot) await rm(backupRoot, { recursive: true, force: true });
     await writeUpdateState(paths.updateState, {
       format: 1, checked_at: new Date().toISOString(), status: 'ready',
-      latest_version: availability.latest_version, latest_tag: availability.latest_tag,
+      latest_version: availability.latest_version, latest_ref: availability.latest_ref,
+      latest_tag: availability.latest_tag,
       latest_sha: availability.latest_sha, installed_at: new Date().toISOString(),
     });
     return Object.freeze({ ...availability, installed: true });
@@ -126,27 +128,27 @@ export function defaultInstallMarkerPath(environment = process.env, platform = p
   return join(environment.XDG_DATA_HOME || join(home, '.local', 'share'), 'not-native-agent', 'install.json');
 }
 
-async function fetchVersionTags(fetchImpl, timeoutMs) {
+async function fetchRepositoryVersion(fetchImpl, timeoutMs) {
   if (typeof fetchImpl !== 'function') throw new ContractError('update_network_unavailable', 'Fetch is unavailable');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const url = `https://api.github.com/repos/${UPDATE_REPOSITORY.owner}/${UPDATE_REPOSITORY.repo}/tags?per_page=100`;
-    const response = await fetchImpl(url, {
+    const base = `https://api.github.com/repos/${UPDATE_REPOSITORY.owner}/${UPDATE_REPOSITORY.repo}`;
+    const commitResponse = await fetchImpl(`${base}/commits/${UPDATE_BRANCH}`, {
       signal: controller.signal, headers: { Accept: 'application/vnd.github+json', 'User-Agent': `NotNativeAgent/${VERSION}` },
     });
-    if (!response.ok) throw new ContractError('update_check_failed', `tag query returned HTTP ${response.status}`);
-    const values = await response.json();
-    if (!Array.isArray(values)) throw new ContractError('update_response_invalid', 'tag query returned an invalid response');
-    const tags = [];
-    for (const item of values.slice(0, 100)) {
-      try {
-        const parsed = parseVersion(item?.name);
-        const sha = item?.commit?.sha;
-        if (typeof sha === 'string' && /^[a-f0-9]{40}$/u.test(sha)) tags.push({ ...parsed, tag: item.name, sha });
-      } catch { /* non-version tag */ }
+    if (!commitResponse.ok) throw new ContractError('update_check_failed', `repository query returned HTTP ${commitResponse.status}`);
+    const commit = await commitResponse.json();
+    const sha = commit?.sha;
+    if (typeof sha !== 'string' || !/^[a-f0-9]{40}$/u.test(sha)) {
+      throw new ContractError('update_response_invalid', 'repository query returned an invalid commit');
     }
-    return tags;
+    const versionResponse = await fetchImpl(`${base}/contents/VERSION?ref=${sha}`, {
+      signal: controller.signal, headers: { Accept: 'application/vnd.github.raw+json', 'User-Agent': `NotNativeAgent/${VERSION}` },
+    });
+    if (!versionResponse.ok) throw new ContractError('update_check_failed', `VERSION query returned HTTP ${versionResponse.status}`);
+    const parsed = parseVersion((await versionResponse.text()).trim());
+    return Object.freeze({ ...parsed, ref: UPDATE_BRANCH, sha });
   } finally { clearTimeout(timer); }
 }
 
@@ -154,7 +156,8 @@ function updateAvailability(state, currentVersion, cached) {
   const available = state.latest_version ? compareVersions(state.latest_version, currentVersion) > 0 : false;
   return Object.freeze({
     status: state.status, checked_at: state.checked_at, cached, current_version: currentVersion,
-    latest_version: state.latest_version, latest_tag: state.latest_tag, latest_sha: state.latest_sha,
+    latest_version: state.latest_version, latest_ref: state.latest_ref ?? null,
+    latest_tag: state.latest_tag, latest_sha: state.latest_sha,
     available, error_code: state.error_code ?? null,
   });
 }

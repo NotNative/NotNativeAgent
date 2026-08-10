@@ -127,8 +127,8 @@ function help() {
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
     '  nna secrets serve                        Start broker endpoint (installed NNO activation required)',
     '  nna uninstall [--delete-user-data|--keep-user-data]',
-    '  nna update --check                     Check the latest deliberately tagged version',
-    '  nna update                             Install the latest tagged version with rollback',
+    '  nna update --check                     Check the repository for a newer version',
+    '  nna update                             Install the latest repository version with rollback',
     '  nna --help | --version',
     '',
   ].join('\n');

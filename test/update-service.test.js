@@ -14,29 +14,26 @@ test('NNA versions compare by date and numeric iteration', () => {
   assert.throws(() => parseVersion('latest'), { code: 'update_version_invalid' });
 });
 
-test('update discovery selects only valid immutable version tags and reuses its cache', async () => {
+test('update discovery reads VERSION from the immutable commit currently at main and reuses its cache', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-update-'));
   const statePath = join(root, 'update-state.json');
   let calls = 0;
-  const fetchImpl = async () => {
+  const sha = 'c'.repeat(40);
+  const fetchImpl = async (url) => {
     calls += 1;
-    return { ok: true, json: async () => [
-      { name: 'latest', commit: { sha: 'f'.repeat(40) } },
-      { name: 'v20260809-6', commit: { sha: 'a'.repeat(40) } },
-      { name: 'v20260809-12', commit: { sha: 'b'.repeat(40) } },
-      { name: 'v20260810-1', commit: { sha: 'c'.repeat(40) } },
-      { name: 'v20260811-1', commit: { sha: 'not-a-sha' } },
-    ] };
+    if (url.endsWith('/commits/main')) return { ok: true, json: async () => ({ sha }) };
+    assert.match(url, new RegExp(`/contents/VERSION\\?ref=${sha}$`, 'u'));
+    return { ok: true, text: async () => '20260810-1\n' };
   };
   try {
     const first = await checkForUpdate({ statePath, currentVersion: '20260809-5', fetchImpl, force: true, now: 1_000_000 });
     assert.equal(first.available, true);
     assert.equal(first.latest_version, '20260810-1');
-    assert.equal(first.latest_sha, 'c'.repeat(40));
+    assert.equal(first.latest_sha, sha);
     const cached = await checkForUpdate({ statePath, currentVersion: '20260809-5', fetchImpl, now: 1_000_100 });
     assert.equal(cached.cached, true);
-    assert.equal(calls, 1);
-    assert.equal(JSON.parse(await readFile(statePath, 'utf8')).latest_tag, 'v20260810-1');
+    assert.equal(calls, 2);
+    assert.equal(JSON.parse(await readFile(statePath, 'utf8')).latest_ref, 'main');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
