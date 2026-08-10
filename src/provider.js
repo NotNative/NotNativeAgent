@@ -61,7 +61,7 @@ export class OpenAICompatibleProvider {
       response = await this.fetch(`${this.profile.endpoint}/chat/completions`, {
         method: 'POST', headers: this.#headers(), signal: transport.signal,
         body: JSON.stringify({
-          model: request.model, messages: request.messages,
+          model: request.model, messages: normalizeSystemMessages(request.messages ?? []),
           stream: true, temperature: request.temperature ?? 0.2,
           ...(this.profile.capabilities?.usage === false ? {} : { stream_options: { include_usage: true } }),
           ...(Number.isInteger(request.maxOutputTokens) ? { max_tokens: request.maxOutputTokens } : {}),
@@ -94,6 +94,28 @@ export class OpenAICompatibleProvider {
     }
     return headers;
   }
+}
+
+function normalizeSystemMessages(messages) {
+  if (!Array.isArray(messages)) {
+    throw new ContractError('provider_messages_invalid', 'provider messages must be an array');
+  }
+  const system = [];
+  const conversation = [];
+  let firstSystem = null;
+  for (const message of messages) {
+    if (message?.role !== 'system') {
+      conversation.push(message);
+      continue;
+    }
+    if (typeof message.content !== 'string') {
+      throw new ContractError('provider_system_message_invalid', 'provider system message content must be text');
+    }
+    firstSystem ??= message;
+    system.push(message.content);
+  }
+  if (system.length === 0) return conversation;
+  return [{ ...firstSystem, content: system.join('\n\n') }, ...conversation];
 }
 
 function declaredRuntime(profile) {

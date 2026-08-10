@@ -207,6 +207,34 @@ test('AC-PROV-02 structured-output constraints cross the generic provider bounda
   assert.equal(called, false);
 });
 
+test('strict chat templates receive one leading system message', async () => {
+  let body;
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, capabilities: {}, model: 'fixture',
+  }, { maxOutputBytes: 4096 }, { fetch: async (_url, options) => {
+    body = JSON.parse(options.body);
+    return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  const messages = [
+    { role: 'system', content: 'Engine policy.' },
+    { role: 'user', content: 'Earlier request.' },
+    { role: 'assistant', content: 'Earlier response.' },
+    { role: 'system', content: 'Fresh runtime clock.' },
+    { role: 'system', content: 'Retrieved project guidance.' },
+    { role: 'user', content: 'Current request.' },
+  ];
+  for await (const _event of provider.stream({ model: 'fixture', messages }, new AbortController().signal)) { /* consume */ }
+  assert.deepEqual(body.messages, [
+    { role: 'system', content: 'Engine policy.\n\nFresh runtime clock.\n\nRetrieved project guidance.' },
+    { role: 'user', content: 'Earlier request.' },
+    { role: 'assistant', content: 'Earlier response.' },
+    { role: 'user', content: 'Current request.' },
+  ]);
+  assert.equal(body.messages.filter((message) => message.role === 'system').length, 1);
+});
+
 test('AC-FAIL-08/AC-PROV-01 rejects invalid usage and types provider context rejection', async () => {
   const profile = { endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, capabilities: {}, model: 'fixture' };
   const invalidUsage = new OpenAICompatibleProvider(profile, { maxOutputBytes: 4096 }, {

@@ -84,6 +84,10 @@ For streamed inference, the first-token deadline covers endpoint admission, on-d
 model loading, prompt processing, and the first stream event. The short connection value
 is reserved for connectivity and metadata probes; it does not abort a healthy LM Studio,
 Ollama, llama.cpp, vLLM, SGLang, or other compatible host while that host loads a model.
+Before inference, NNA coalesces its attributed policy, clock, memory, hook, project,
+continuation, and recovery fragments into one leading system message. Conversation and
+tool chronology remain unchanged. This supports strict local chat templates that reject
+multiple system messages or any system role after the first message.
 `provider_concurrency` and `tool_concurrency` default
 to one for constrained local systems and accept one through sixteen. Tool concurrency
 applies only to consecutive independently reviewed read-only operations; mutations remain
