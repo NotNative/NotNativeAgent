@@ -10,6 +10,7 @@ const PHASES = Object.freeze({
   permission: { pre: true, active: false, terminal: false },
   steering: { pre: true, active: false, terminal: false },
   compaction: { pre: true, active: false, terminal: false },
+  context_checkpoint: { terminal: false },
   recovery: { pre: true, active: false, terminal: false },
   diagnostic: { committed: false },
   maintenance: { active: false },

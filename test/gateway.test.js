@@ -146,6 +146,43 @@ test('authorized Telegram messages enter a durable chat session while unknown us
   assert.deepEqual(sent, [{ chatId: '420', text: 'authenticated-telegram-user:42:hello' }]);
 });
 
+test('Telegram explains internal maintenance failures without falsely discarding delivered work', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-maintenance-failure-'));
+  const sent = [];
+  let polls = 0; let delivered;
+  const done = new Promise((resolve) => { delivered = resolve; });
+  const api = {
+    async getMe() { return { id: 1 }; },
+    async getUpdates(_offset, _timeout, signal) {
+      polls += 1;
+      if (polls === 1) return [{ update_id: 1, message: { text: 'research this', from: { id: 42 }, chat: { id: 420 } } }];
+      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    },
+    async sendMessage(chatId, text) { sent.push({ chatId, text }); delivered(); },
+  };
+  const gateway = new TelegramGateway({
+    api,
+    paths: { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer') },
+    engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 4 } },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineFactory: () => ({
+      config: { executionManifest: null }, initialize: async () => undefined,
+      submit: async () => ({
+        outcome: 'failed', text: '', failure: { code: 'invalid_event_phase', category: 'contract' },
+      }),
+      cancel: async () => ({ accepted: true }), shutdown: async () => ({ complete: true }),
+    }),
+  });
+  const running = gateway.run();
+  await done;
+  await gateway.shutdown();
+  await running;
+  assert.equal(sent.length, 1);
+  assert.match(sent[0].text, /internal session-maintenance error/u);
+  assert.match(sent[0].text, /response already received.*conversation was preserved/u);
+  assert.doesNotMatch(sent[0].text, /^Turn failed\.$/u);
+});
+
 test('Console session broker discovers, submits, and cancels without copying conversation context', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-session-broker-'));
   const calls = [];

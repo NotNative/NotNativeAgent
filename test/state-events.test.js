@@ -118,6 +118,24 @@ test('AC-EVENT-01 rejects undefined phases before handler execution', () => {
   assert.equal(called, false);
 });
 
+test('active context checkpoints publish a valid non-cancelable terminal event', async () => {
+  const hub = new EventHub();
+  const observed = [];
+  hub.register(declaredSubscription({
+    id: 'checkpoint-observer', category: 'context_checkpoint', phase: 'terminal', blocking: false,
+    timeoutMs: 100, failurePolicy: 'continue',
+  }), async (event) => { observed.push(event); });
+  const result = await hub.dispatch({
+    category: 'context_checkpoint', phase: 'terminal', payload: { checkpoint_tier: 'checkpoint' },
+  });
+  await hub.drain();
+  assert.equal(result.decision, 'continue');
+  assert.equal(observed.length, 1);
+  assert.equal(observed[0].payload.checkpoint_tier, 'checkpoint');
+  assert.equal(Object.isFrozen(observed[0]), true);
+  await hub.close();
+});
+
 test('AC-EVENT-07 bounds nonblocking observers and reports overflow without delaying dispatch', async () => {
   const hub = new EventHub({ maxBackground: 2 });
   let release;

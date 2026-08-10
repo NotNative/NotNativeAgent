@@ -367,6 +367,13 @@ function gatewayPrincipal(userId) { return `authenticated-telegram-user:${userId
 function turnFallback(result) {
   if (result.outcome === 'needs_input') return 'I need more information to continue.';
   if (result.outcome === 'cancelled') return 'Turn cancelled.';
+  if (result.outcome === 'failed') {
+    const code = result.failure?.code ?? 'internal_failure';
+    if (code === 'invalid_event_phase') {
+      return `NNA encountered an internal session-maintenance error after processing the request (${code}). Any response already received remains available, and the conversation was preserved. Retry if more work was expected; use /support if this repeats.`;
+    }
+    return `NNA could not finish the turn (${code}). The conversation was preserved. Please retry; use /support if this repeats.`;
+  }
   return `Turn ${result.outcome ?? 'failed'}.`;
 }
 function delay(ms, signal) { return new Promise((resolve, reject) => {
