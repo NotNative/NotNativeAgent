@@ -27,6 +27,7 @@ export class StdioMcpTransport {
     this.child.stdout.setEncoding('utf8');
     this.child.stdout.on('data', (chunk) => this.#consume(chunk));
     this.child.stderr.on('data', () => undefined);
+    this.child.stdin.on?.('error', (error) => this.#failAll(error, true));
     this.child.on('error', (error) => this.#failAll(error, true));
     this.child.on('exit', () => this.#failAll(new ContractError('mcp_closed', 'MCP subprocess closed'), true));
   }

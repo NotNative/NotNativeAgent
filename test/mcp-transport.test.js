@@ -31,6 +31,19 @@ test('AC-MCP-02 stdio failure settles pending work and removes cancellation list
   await assert.rejects(transport.request('tools/list'), { code: 'mcp_closed' });
 });
 
+test('AC-MCP-02 stdio input-pipe failure degrades the transport instead of escaping', async () => {
+  const child = fakeChild();
+  child.stdin = new PassThrough();
+  const transport = new StdioMcpTransport(stdioConfig(), () => child);
+  await transport.open();
+  assert.equal(transport.notify('notifications/initialized'), true);
+
+  assert.doesNotThrow(() => child.stdin.emit(
+    'error', Object.assign(new Error('broken pipe'), { code: 'EPIPE' }),
+  ));
+  await assert.rejects(transport.request('tools/list'), { code: 'mcp_closed' });
+});
+
 test('AC-MCP-02 stdio close immediately settles owned requests', async () => {
   const child = fakeChild();
   const transport = new StdioMcpTransport(stdioConfig(), () => child);
