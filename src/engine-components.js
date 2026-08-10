@@ -11,6 +11,7 @@ import { MandatoryReviewer } from './reviewer.js';
 import { ToolGovernor } from './tool-governor.js';
 import { ToolLoop } from './tool-loop.js';
 import { ToolRegistry } from './tool-registry.js';
+import { ElevationBroker } from './elevation-broker.js';
 import { FairScheduler } from './fair-scheduler.js';
 import { userDataPaths } from './product.js';
 import { HookRuntime } from './hook-runtime.js';
@@ -119,6 +120,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       state: engine.state.state,
     }),
     mcpControl: options.mcpControl,
+    elevationBroker: elevationBrokerFor(engine, options),
     subagentControl: engine.config.executionManifest === null && engine.subagentDepth === 0 ? {
       workspaceRoot: engine.config.workspaceRoot,
       run: (input, signal) => engine.runSubagent(input, signal),
@@ -128,9 +130,8 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     activeTurnId: () => engine.active?.turnId ?? null,
     sessionHistory: historyToolOptions(engine),
   });
-  engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter, {
-    grounding: engine.grounding,
-  });
+  engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter,
+    { grounding: engine.grounding });
   engine.attachments = new AttachmentManager({
     config: engine.config.attachments ?? { enabled: false },
     root: options.attachmentRoot ?? `${storeRoot}/attachments/${engine.sessionId}`,
@@ -147,6 +148,13 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     registry: engine.tools, configs: engine.config.mcpServers ?? [],
     transportFactory: options.mcpTransportFactory,
   });
+}
+
+function elevationBrokerFor(engine, options) {
+  if (engine.surface !== 'interactive_tui' || engine.config.executionManifest !== null) return null;
+  return options.elevationBroker ?? (options.elevationControl
+    ? new ElevationBroker({ interactive: options.elevationControl, root: engine.dataPaths.elevation })
+    : null);
 }
 
 function historyToolOptions(engine) {

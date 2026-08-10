@@ -42,14 +42,14 @@ async function compactContext(engine, records, content, active, operations, plan
   await addHookContexts(engine, active, pre);
   await operations.publish('compaction.started', 'compaction', 'active', active);
   try {
-    const fact = await createCompactionFact(engine, records, active, operations, { budget, route: routes[0], runtime });
+    const fitted = await fitCompactedContext(engine, records, active, operations, {
+      budget, hardLimit, planned, route: routes[0], runtime,
+    });
+    const { fact, context } = fitted;
     const post = await operations.publish(
       'compaction.terminal', 'compaction', 'terminal', active, 'completed', hookPayload(engine, active),
     );
     await addHookContexts(engine, active, post);
-    const context = await buildReportedContext(
-      engine, engine.transcript, '', active.enrichment, active, budget, hardLimit, planned,
-    );
     engine.lifecycles.finish(lifecycle.id, 'completed');
     await emitCompactionStatus(engine, active, 'completed', compactionCompletedDetail(active, fact, beforeEstimatedTokens));
     recordCompactionTelemetry(engine, active, 'succeeded', compactionProjectionDetail(active, fact));
@@ -65,6 +65,24 @@ async function compactContext(engine, records, content, active, operations, plan
     }, error.code ?? 'compaction_failed');
     throw error;
   }
+}
+
+async function fitCompactedContext(engine, records, active, operations, plan) {
+  let budget = plan.budget; let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const fact = await createCompactionFact(engine, records, active, operations, { ...plan, budget });
+    try {
+      const context = await buildReportedContext(
+        engine, engine.transcript, '', active.enrichment, active,
+        plan.budget, plan.hardLimit, plan.planned,
+      );
+      return { fact, context };
+    } catch (error) {
+      if (error.code !== 'context_too_large') throw error;
+      lastError = error; budget = Math.max(8_192, Math.floor(budget * 0.6));
+    }
+  }
+  throw lastError;
 }
 
 async function createCompactionFact(engine, records, active, operations, plan) {

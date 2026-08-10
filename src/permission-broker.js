@@ -17,7 +17,8 @@ export class InteractivePermissionBroker {
   }
 
   async request(request, escalation, context, signal) {
-    const grant = this.preauthorizations.match(request, context);
+    const oneShot = context.definition?.operatorConfirmation === 'one_shot';
+    const grant = oneShot ? null : this.preauthorizations.match(request, context);
     if (grant) return this.preauthorizations.decision(grant, request);
     if (this.#pending.size >= this.maxPending) {
       throw new ContractError('permission_queue_full', 'interactive permission queue is full');
@@ -25,7 +26,7 @@ export class InteractivePermissionBroker {
     const token = newId('permission');
     const expiresAt = Date.now() + this.timeoutMs;
     const deferred = createDeferred();
-    const pending = { token, request, escalation, context, expiresAt, deferred };
+    const pending = { token, request, escalation, context, expiresAt, deferred, oneShot };
     this.#pending.set(token, pending);
     const abort = () => this.#resolveDenied(pending, 'operator_cancelled');
     signal.addEventListener('abort', abort, { once: true });
@@ -45,6 +46,9 @@ export class InteractivePermissionBroker {
     }
     if (command.tool_request_id !== pending.request.id) {
       throw new ContractError('permission_mismatch', 'permission decision does not match the pending tool request');
+    }
+    if (pending.oneShot && !['allow_once', 'deny', 'cancel'].includes(command.choice)) {
+      throw new ContractError('permission_choice_invalid', 'this operation only supports one-time approval, denial, or cancellation');
     }
     const grant = ['allow_session', 'allow_workspace'].includes(command.choice)
       ? this.preauthorizations.grant(command.choice, pending.request, pending.context, principal) : null;
@@ -80,7 +84,8 @@ function promptRecord(pending) {
     blast_radius: definition.scope, risk: 'review_required',
     reason_code: pending.escalation.reasonCode, guidance: pending.escalation.guidance,
     arguments: safeToolArguments(pending.request.args), expires_at: pending.expiresAt,
-    choices: ['allow_once', 'allow_session', 'allow_workspace', 'deny', 'cancel'],
+    choices: pending.oneShot ? ['allow_once', 'deny', 'cancel']
+      : ['allow_once', 'allow_session', 'allow_workspace', 'deny', 'cancel'],
   };
 }
 

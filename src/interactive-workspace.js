@@ -105,6 +105,7 @@ export class InteractiveWorkspace {
       providerFactory: this.options.providerFactory,
       semanticReviewer: this.options.semanticReviewer, memoryAdapter: this.options.memoryAdapter,
       mcpTransportFactory: this.options.mcpTransportFactory, hookRoot: this.options.hookRoot,
+      elevationControl: this.options.elevationControl,
       hookRoots: options.hookRoots ?? this.options.hookRoots,
       skillRoots: options.skillRoots ?? this.options.skillRoots,
       scheduler: this.scheduler, secretBroker: this.secretBroker,

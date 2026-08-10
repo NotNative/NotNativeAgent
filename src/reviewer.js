@@ -62,6 +62,7 @@ export class MandatoryReviewer {
       }
       else if (classification.risk === 'prohibited') decision = hardDeny(classification.reason, request);
       else decision = await this.#semanticDecision(request, context, entry, intentRelation);
+      decision = requireOneShotConfirmation(decision, context.definition, request);
       if (context.reviewPosture === 'prompt' && decision.outcome === 'approve') {
         decision = escalate('prompt_posture_operator_decision', request, 'Prompt posture requires operator approval before execution.');
       }
@@ -177,6 +178,7 @@ function classify(request, definition) {
       effect: definition.sideEffect, scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
     });
   }
+  if (definition.name === 'system.elevate') return elevationClassification();
   if (['process.run', 'shell.run'].includes(definition.name)) {
     const complexity = request.resolved.reviewComplexity ?? 'unknown';
     return Object.freeze({
@@ -187,6 +189,21 @@ function classify(request, definition) {
     });
   }
   return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
+}
+
+function requireOneShotConfirmation(decision, definition, request) {
+  if (definition.operatorConfirmation !== 'one_shot' || decision.outcome !== 'approve') return decision;
+  return escalate(
+    'elevation_operator_confirmation_required', request,
+    'This exact privileged executable, argv, working directory, reason, and expected effect require a fresh local approval. Approval cannot be remembered.',
+  );
+}
+
+function elevationClassification() {
+  return Object.freeze({
+    risk: 'review_required', reason: 'privileged_execution', effect: 'unknown', scope: 'host',
+    complexity: 'privileged_execution', purpose: 'host_elevation',
+  });
 }
 
 function browserClassification(request) {
@@ -334,7 +351,7 @@ function redactReviewValue(value, key = '') {
 
 function authenticatedIntentRelation(request, authority, definition) {
   if (definition.sideEffect === 'read_only') return 'covered';
-  if (['process.run', 'shell.run'].includes(request.toolName)) return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
+  if (['process.run', 'shell.run', 'system.elevate'].includes(request.toolName)) return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
   if (!request.toolName.startsWith('fs.')) return 'uncertain';
   const mission = authority.mission?.outcome?.toLowerCase() ?? '';
   const targets = resolvedTargets(request);

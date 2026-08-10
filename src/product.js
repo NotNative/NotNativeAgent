@@ -5,7 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
-export const VERSION = '20260810-8';
+export const VERSION = '20260810-9';
 
 export function userDataPaths(options = {}) {
   const environment = options.environment ?? process.env;
@@ -46,6 +46,7 @@ export function userDataPaths(options = {}) {
     gateway: join(root, 'runtime', 'gateway'),
     sessionBrokers: join(root, 'runtime', 'session-brokers'),
     telegramOutbox: join(root, 'runtime', 'telegram-outbox'),
+    elevation: join(root, 'runtime', 'elevation'),
     gatewayWorkspace: join(root, 'gateway', 'workspace'),
     updateState: join(root, 'runtime', 'update-state.json'),
     updateRoot: join(root, 'runtime', 'updates'),
@@ -53,7 +54,7 @@ export function userDataPaths(options = {}) {
 }
 
 export async function ensureUserDataPaths(paths = userDataPaths()) {
-  for (const path of [paths.root, paths.projects, paths.sessions, paths.governanceLedger, paths.reviewerLedger, paths.config, paths.secrets, paths.logs, paths.support, paths.hooks, paths.skills, paths.managedSearxng, paths.managedPlaywright, paths.rootTui, paths.gateway, paths.sessionBrokers, paths.telegramOutbox, paths.gatewayWorkspace, paths.updateRoot]) {
+  for (const path of [paths.root, paths.projects, paths.sessions, paths.governanceLedger, paths.reviewerLedger, paths.config, paths.secrets, paths.logs, paths.support, paths.hooks, paths.skills, paths.managedSearxng, paths.managedPlaywright, paths.rootTui, paths.gateway, paths.sessionBrokers, paths.telegramOutbox, paths.elevation, paths.gatewayWorkspace, paths.updateRoot]) {
     await mkdir(path, { recursive: true, mode: 0o700 });
   }
   return paths;

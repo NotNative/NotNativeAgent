@@ -36,15 +36,18 @@ import { handleSecretsCommand } from './tui-secret-command.js';
 import { beginSecretManagementSelection, handleSecretSetupAction } from './tui-secret-setup.js'; import { invokeProjectVerification } from './tui-verification-command.js';
 export async function runTui(input, output, diagnostics, options) {
   const { capabilities, bindings } = prepareTui(input, output, options);
-  const terminal = new TerminalMode(input, output, capabilities), renderer = options.renderer ?? new TuiRenderer();
-  const screen = new RetainedTerminalScreen(output), decoder = new TerminalInputDecoder(bindings);
-  let stopping = false, fatalError = null, onData = null, resize = null;
-  let escapeTimer = null, renderLoop;
+  const terminal = new TerminalMode(input, output, capabilities), renderer = options.renderer ?? new TuiRenderer(),
+    screen = new RetainedTerminalScreen(output), decoder = new TerminalInputDecoder(bindings);
+  let stopping = false, fatalError = null, onData = null, resize = null, escapeTimer = null, renderLoop;
   const destructiveKeys = new DestructiveKeyGuard({ windowMs: options.destructiveKeyWindowMs });
   let tail = Promise.resolve(), finish; const finished = new Promise((resolve) => { finish = resolve; });
-  const render = () => renderLoop?.schedule();
-  const workspaceFactory = options.workspaceFactory ?? createTuiWorkspace;
-  const { logger, workspace } = await workspaceFactory(options, output, render); workspace.projection.bindings = bindings;
+  const render = () => renderLoop?.schedule(), workspaceFactory = options.workspaceFactory ?? createTuiWorkspace;
+  const elevationControl = createElevationControl({
+    input, output, terminal, state: () => ({ onData, stopping, renderLoop }),
+    disarmEscape: () => { clearTimeout(escapeTimer); escapeTimer = null; },
+  });
+  const { logger, workspace } = await workspaceFactory({ ...options, elevationControl }, output, render);
+  workspace.projection.bindings = bindings;
   const stop = async () => {
     if (stopping) return;
     stopping = true;
@@ -63,10 +66,8 @@ export async function runTui(input, output, diagnostics, options) {
   const resume = () => { terminal.enter(); renderLoop.invalidate(); renderLoop.now(); process.once('SIGTSTP', suspend); };
   try {
     terminal.enter();
-    await initializeWorkspace(workspace, options);
-    await workspace.initializeSessionBroker?.();
-    await workspace.initializeDream?.();
-    renderLoop.now();
+    await initializeWorkspace(workspace, options); await workspace.initializeSessionBroker?.();
+    await workspace.initializeDream?.(); renderLoop.now();
     onData = (chunk) => {
       clearTimeout(escapeTimer); escapeTimer = null;
       tail = consumeInput(tail, chunk, decoder, workspace, stop, destructiveKeys);
@@ -87,8 +88,7 @@ export async function runTui(input, output, diagnostics, options) {
     await stop();
     if (fatalError) throw fatalError;
   } catch (error) {
-    terminal.restore();
-    safeDiagnostic(diagnostics, error);
+    terminal.restore(); safeDiagnostic(diagnostics, error);
     throw error;
   } finally {
     removeTuiListeners(input, output, { onData, resize, signal, suspend, resume });
@@ -147,10 +147,10 @@ export async function handleActions(actions, workspace, stop, decoder, destructi
     const session = workspace.projection.active();
     if (!session) return;
     if (!['back', 'cancel'].includes(action.action)) destructiveKeys.reset();
-    if (!['mouse', 'cancel'].includes(action.action)) clearTerminalSelection(workspace);
-    workspace.projection.clearNotice();
+    if (!['mouse', 'cancel'].includes(action.action)) clearTerminalSelection(workspace); workspace.projection.clearNotice();
     if (action.action === 'reset_keys') await resetKeys(workspace, decoder);
-    else if (session.pendingPermission && action.action === 'insert' && permissionChoice(action.text)) await workspace.decideActive(permissionChoice(action.text));
+    else if (session.pendingPermission && action.action === 'insert' && selectedPermission(action, session))
+      await workspace.decideActive(selectedPermission(action, session));
     else if (session.pendingPermission && ['history_up', 'history_down'].includes(action.action)) {
       session.permissionOffset = Math.max(0, session.permissionOffset + (action.action === 'history_up' ? -1 : 1));
     }
@@ -201,6 +201,25 @@ export async function handleActions(actions, workspace, stop, decoder, destructi
     decoder.setBindings(workspace.projection.bindings);
     workspace.onChange();
   }
+}
+
+function createElevationControl(options) {
+  return { run: async (operation, notice) => {
+    const { onData, stopping, renderLoop } = options.state();
+    if (!onData || stopping) throw new Error('elevation_terminal_unavailable');
+    options.disarmEscape(); renderLoop?.cancel();
+    options.input.removeListener('data', onData); options.terminal.restore();
+    options.output.write(`\nNNA elevation requested\n${notice}\n\n`);
+    try { return await operation(); } finally {
+      if (!options.state().stopping) {
+        options.input.on('data', onData); options.terminal.enter(); renderLoop.invalidate(); renderLoop.now();
+      }
+    }
+  } };
+}
+
+function selectedPermission(action, session) {
+  return permissionChoice(action.text, session.pendingPermission.choices);
 }
 async function resetKeys(workspace, decoder) {
   workspace.projection.bindings = validateKeyBindings();

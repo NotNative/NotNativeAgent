@@ -12,6 +12,7 @@ import { webFetchDefinition } from './web-fetch-tool.js';
 import { webBrowseDefinition } from './web-browse-tool.js';
 import { rankToolDefinitions, toolSearchDefinition } from './tool-search.js';
 import { processRunDefinition, shellRunDefinition } from './process-tool.js';
+import { elevationDefinition } from './elevation-tool.js';
 import { projectVerifyDefinition } from './project-verification.js'; import { filesystemExtraDefinitions } from './filesystem-extra-tools.js';
 import { lspDiagnosticsDefinition } from './lsp-diagnostics.js';
 import { filesystemReadDefinitions, ReadReceiptLedger } from './filesystem-read-tools.js';
@@ -56,6 +57,7 @@ export class ToolRegistry {
     this.subagentControl = options.subagentControl;
     this.conversationWork = options.conversationWork;
     this.telegramNotifications = options.telegramNotifications; this.activeTurnId = options.activeTurnId; this.sessionHistory = options.sessionHistory;
+    this.elevationBroker = options.elevationBroker;
   }
   async initialize() {
     await this.paths.initialize();
@@ -78,6 +80,7 @@ export class ToolRegistry {
       secretBroker: this.secretBroker, sessionId: this.sessionId }));
     this.#install(toolSearchDefinition(this));
     this.#install(processRunDefinition(this.paths)); if (!this.hosted) this.#install(shellRunDefinition(this.paths));
+    if (!this.hosted && this.elevationBroker) this.#install(elevationDefinition(this.paths, this.elevationBroker));
     this.#install(projectVerifyDefinition(this.paths));
     this.#install(gitInspectionDefinition(this.paths));
     this.#install(lspDiagnosticsDefinition(this.paths, { configPath: this.lspConfigPath, spawnProcess: this.lspSpawnProcess }));

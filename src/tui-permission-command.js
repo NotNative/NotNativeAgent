@@ -2,8 +2,9 @@
 import { ContractError } from './ids.js';
 import { valueOverlay } from './tui-overlays.js';
 
-export function permissionChoice(text) {
-  return ({ '1': 'allow_once', '2': 'allow_session', '3': 'allow_workspace', '4': 'deny' })[text] ?? null;
+export function permissionChoice(text, choices = null) {
+  const available = Array.isArray(choices) ? choices : ['allow_once', 'allow_session', 'allow_workspace', 'deny'];
+  return available[Number(text) - 1] ?? null;
 }
 
 export function handlePermissionCommand(argument, workspace) {

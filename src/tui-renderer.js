@@ -50,7 +50,6 @@ export class TuiRenderer {
     return `${decorateSelection(visible, projection.terminalSelection).join('\n')}\n`;
   }
 }
-
 export function headerTargetAt(projection, column) {
   let start = 1;
   const sessions = [...projection.sessions.values()];
@@ -163,7 +162,7 @@ function boxBottom(width) {
 function footerLines(projection, session, width, capabilities = {}) {
   const lines = [rule(width)];
   if (session.pendingPermission) {
-    lines.push(crop(`${keyLabel(projection.bindings.allow_once)} allow once · 2 same operation · 3 this tool in workspace · 4 deny · ${keyLabel(projection.bindings.cancel)} cancel`, width));
+    lines.push(crop(permissionControlLine(session.pendingPermission, projection.bindings), width));
     lines.push(footerStatusLine(projection, session, width));
     return lines;
   }
@@ -184,6 +183,16 @@ function footerLines(projection, session, width, capabilities = {}) {
   lines.push(crop(controlLine(session, projection.bindings), width));
   lines.push(footerStatusLine(projection, session, width));
   return lines;
+}
+
+function permissionControlLine(permission, bindings) {
+  const labels = {
+    allow_once: `${keyLabel(bindings.allow_once)} allow once`, allow_session: 'allow for same operation',
+    allow_workspace: 'allow this tool in workspace', deny: 'deny', cancel: `${keyLabel(bindings.cancel)} cancel`,
+  };
+  const choices = Array.isArray(permission.choices)
+    ? permission.choices : ['allow_once', 'allow_session', 'allow_workspace', 'deny', 'cancel'];
+  return choices.map((choice, index) => `${index + 1} ${labels[choice]}`).join(' · ');
 }
 
 function footerStatusLine(projection, session, width) {
