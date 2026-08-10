@@ -127,12 +127,13 @@ nna_runtime() {
 install_managed_playwright() {
   managed_root="$data_root/managed/playwright"
   browser_root="$managed_root/browsers"
+  node_dir=$(dirname -- "$node_path")
   npm_path=$(find_npm)
   if [ -z "$npm_path" ]; then warn 'npm was not found; Playwright was not installed'; return 1; fi
   mkdir -p "$managed_root" "$browser_root"
   chmod 700 "$data_root/managed" "$managed_root" "$browser_root" 2>/dev/null || true
   step 'Installing the optional Playwright library'
-  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 "$npm_path" install --prefix "$managed_root" --no-audit --no-fund --omit=dev --loglevel=error 'playwright@1.61.1' || {
+  PATH="$node_dir:$PATH" PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 "$npm_path" install --prefix "$managed_root" --no-audit --no-fund --omit=dev --loglevel=error 'playwright@1.61.1' || {
     warn 'Playwright package installation failed'; return 1;
   }
   step 'Downloading Playwright Chromium'

@@ -217,6 +217,7 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(linuxInstall, /WebSearch is already configured/u);
   assert.match(linuxInstall, /--skip-playwright-setup/u);
   assert.match(linuxInstall, /Playwright Chromium v.*already installed; setup skipped/u);
+  assert.match(linuxInstall, /PATH="\$node_dir:\$PATH" PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD/u);
   assert.match(linuxInstall, /webbrowse verify/u);
   assert.match(linuxInstall, /base URL of your existing SearXNG server/u);
   assert.match(linuxInstall, /gateway_running/u);
