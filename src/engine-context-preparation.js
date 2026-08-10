@@ -5,6 +5,7 @@ import { buildReportedContext } from './engine-context-status.js';
 import { addHookContexts, hookPayload } from './engine-hooks.js';
 import { ContractError } from './ids.js';
 import { pressureTier, projectActiveTurn } from './active-context-pressure.js';
+import { longHorizonCompressionTrigger } from './long-horizon-context.js';
 
 export async function prepareEngineContext(engine, records, content, active, force, operations) {
   const routes = engine.router.candidates('primary', { requiredCapabilities: ['tools'] });
@@ -52,6 +53,7 @@ async function compactContext(engine, records, content, active, operations, plan
     engine.lifecycles.finish(lifecycle.id, 'completed');
     await emitCompactionStatus(engine, active, 'completed', compactionCompletedDetail(active, fact, beforeEstimatedTokens));
     recordCompactionTelemetry(engine, active, 'succeeded', compactionProjectionDetail(active, fact));
+    active.contextCompressionTrigger = null;
     return context;
   } catch (error) {
     engine.lifecycles.finish(lifecycle.id, 'failed');
@@ -99,6 +101,16 @@ function includeUnprojectedActiveRecords(records, transcript, turnId) {
 }
 
 async function pressureProjection(engine, active, operations, measurement) {
+  const horizon = longHorizonCompressionTrigger(measurement.records, {
+    activeTurnId: active.turnId, effectiveInputTokens: measurement.effectiveInputTokens,
+  });
+  if (horizon) {
+    active.contextCompressionTrigger = horizon.reason;
+    engine.telemetry?.record('context.compression', 'triggered', horizon, {
+      turnId: active.turnId, stepId: active.stepId,
+    });
+    throw new ContractError('context_too_large', `long-horizon compression required: ${horizon.reason}`);
+  }
   const tier = pressureTier(measurement.rawContextTokens, measurement.effectiveInputTokens);
   const ratio = measurement.effectiveInputTokens
     ? measurement.rawContextTokens / measurement.effectiveInputTokens : null;
@@ -146,6 +158,7 @@ function compactionCompletedDetail(active, fact, beforeEstimatedTokens) {
     retained_records: fact.retainedRecords?.length ?? 0,
     protected_turns: fact.projection?.protectedTurnCount ?? 0,
     payload_compacted_records: fact.projection?.payloadCompactedRecords ?? 0,
+    semantic_receipt_records: fact.projection?.semanticReceiptRecords ?? 0,
   };
 }
 
@@ -165,7 +178,8 @@ function compactionProjectionDetail(active, fact) {
 }
 
 function compactionTrigger(active) {
-  return active.contextRetryScale < 1 ? 'provider_context_limit' : 'automatic_threshold';
+  if (active.contextRetryScale < 1) return 'provider_context_limit';
+  return active.contextCompressionTrigger ?? 'automatic_threshold';
 }
 
 function recordCompactionTelemetry(engine, active, status, detail, reasonCode = null) {

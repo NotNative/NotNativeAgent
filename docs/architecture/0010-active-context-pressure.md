@@ -19,6 +19,20 @@ compaction threshold below 60% intentionally wins; a higher legacy or operator v
 delay the local-model safety boundary. When discovery is unavailable, NNA uses its
 validated byte ceiling as a conservative fallback.
 
+## Long-horizon compression
+
+Pressure is not the only checkpoint trigger. NNA also refreshes its continuation after 12
+completed turns, when settled tool-result payload reaches 10% of the effective input window,
+or when a fingerprint proves that retained checkpoint records drifted. Only records after the
+latest checkpoint contribute to the interval and payload triggers.
+
+Compaction preserves the active turn and five newest completed turns under normal conditions.
+Older tool exchanges become typed, redacted, ledger-backed receipts containing the tool,
+material target, outcome, effect certainty, concise result, result fingerprint, and durable
+ledger reference. Filesystem, search, shell, web, MCP, and sub-agent calls use category-aware
+reducers. The durable transcript is never rewritten, and legacy checkpoints without retained
+record fingerprints remain compatible.
+
 ## Reliability boundaries
 
 - Pressure is reevaluated before every provider call, including calls made after tool results.

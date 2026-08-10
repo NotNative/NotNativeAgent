@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { ContractError } from './ids.js';
+import { retainedRecordsFingerprint } from './long-horizon-context.js';
+import { compactToolRequest, createToolContextReceipt } from './tool-context-receipt.js';
 
 const DEFAULT_PROTECTED_COMPLETED_TURNS = 5;
-
 export function compactTranscript(transcript, maxBytes, options = {}) {
   const source = latestCompactionProjection(transcript);
   const budget = Math.floor(maxBytes * 0.55);
@@ -38,10 +39,12 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
       protectedTurnCount: selected.metrics.protectedTurnCount,
       protectedRecordCount: selected.metrics.protectedRecordCount,
       payloadCompactedRecords: selected.metrics.payloadCompactedRecords,
+      semanticReceiptRecords: selected.metrics.semanticReceiptRecords,
       oversizedProtectedRecords: selected.metrics.oversizedProtectedRecords,
       supersededRecords: selected.metrics.supersededRecords,
       originalBytes: selected.metrics.originalBytes,
       projectedBytes: bytes,
+      retainedFingerprint: retainedRecordsFingerprint(selected.map((entry) => entry.item)),
     }),
   });
   return Object.freeze({ records: fact.retainedRecords, fact });
@@ -83,6 +86,7 @@ export function createHandoffFact(transcript) {
       policy: 'terse_handoff_v1', protectedCompletedTurns: 0,
       protectedTurnCount: 0, protectedRecordCount: 0,
       payloadCompactedRecords: 0, oversizedProtectedRecords: 0,
+      semanticReceiptRecords: 0,
       supersededRecords: 0,
       originalBytes: transcript.reduce((sum, item) => sum + recordBytes(item), 0),
       projectedBytes: Buffer.byteLength(summary, 'utf8'),
@@ -94,8 +98,9 @@ function selectRecentRecords(transcript, budget, options) {
   const protection = protectedRecency(transcript, options);
   const projection = supersedeColdToolResults(transcript, protection.indexes);
   const turns = turnEntries(projection.records);
+  const requests = new Map(projection.records.filter((item) => item.type === 'tool_request').map((item) => [item.providerCallId, item]));
   const normalized = projection.records.map((item, index) => ({
-    index, item: compactRecord(item, budget, protection.indexes.has(index)),
+    index, item: compactRecord(item, budget, protection.indexes.has(index), requests.get(item.providerCallId)),
     protected: protection.indexes.has(index),
     turnKey: turns[index].turnKey,
   }));
@@ -133,14 +138,13 @@ function selectRecentRecords(transcript, budget, options) {
     if (unit.entries.some((entry) => selected.has(entry.index))) continue;
     add(unit);
   }
-  const retained = shrinkOversizedProtectedRecords(
-    [...selected.values()].sort((a, b) => a.index - b.index), budget,
-  );
+  const retained = shrinkOversizedProtectedRecords([...selected.values()].sort((a, b) => a.index - b.index), budget);
   retained.metrics = Object.freeze({
     protectedCompletedTurns: protection.completedTurnCount,
     protectedTurnCount: protection.turnKeys.size,
     protectedRecordCount: retained.filter((entry) => entry.protected).length,
     payloadCompactedRecords: retained.filter((entry) => entry.item.metadata?.compacted === true).length,
+    semanticReceiptRecords: retained.filter((entry) => entry.item.metadata?.reason === 'semantic_tool_receipt').length,
     oversizedProtectedRecords: retained.filter((entry) => entry.item.metadata?.reason === 'oversized_protected_record').length
       + (retained.oversizedRemoved ?? 0),
     supersededRecords: projection.superseded,
@@ -200,12 +204,13 @@ function keyed(name, values) {
   return `${name}:${JSON.stringify(values)}`;
 }
 
-function compactRecord(item, budget, protectedRecord = false) {
+function compactRecord(item, budget, protectedRecord = false, request = null) {
   if (item.type === 'tool_result') {
     const cap = protectedRecord
       ? Math.max(16_384, Math.min(131_072, Math.floor(budget / 4)))
       : Math.max(2_048, Math.min(16_384, Math.floor(budget / 8)));
     if (protectedRecord && recordBytes(item) <= cap) return { ...item };
+    if (!protectedRecord) return createToolContextReceipt(item, request);
     const content = boundedHeadTail(item.content ?? '', cap);
     const truncated = content !== (item.content ?? '');
     return {
@@ -220,6 +225,7 @@ function compactRecord(item, budget, protectedRecord = false) {
         : boundedMetadata(item.metadata),
     };
   }
+  if (item.type === 'tool_request' && !protectedRecord) return compactToolRequest(item);
   if (item.type === 'message') {
     if (protectedRecord) return { ...item };
     return { ...item, content: boundedHeadTail(item.content ?? '', 32_768) };

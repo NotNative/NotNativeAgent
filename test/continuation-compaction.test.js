@@ -202,6 +202,32 @@ test('recent tool output below the context-scaled protected cap remains unchange
   assert.notEqual(result.metadata?.compacted, true);
 });
 
+test('settled tool exchanges become typed causal receipts while recent turns remain verbatim', () => {
+  const transcript = [
+    message('user', 'Inspect the host.', 'turn-old'),
+    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'shell-old', toolName: 'shell.run', args: { script: `hostname && ${'x'.repeat(3_000)}`, shell: 'auto' } },
+    { type: 'tool_result', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'shell-old', toolName: 'shell.run', status: 'succeeded', effectCertainty: 'completed', content: `host-a\n${'output '.repeat(2_000)}` },
+    ...Array.from({ length: 5 }, (_, index) => [
+      message('user', `Recent request ${index}`, `turn-${index}`),
+      message('assistant', `Recent answer ${index}`, `turn-${index}`),
+    ]).flat(),
+  ];
+  const compacted = compactTranscript(transcript, 80_000);
+  const request = compacted.records.find((item) => item.providerCallId === 'shell-old' && item.type === 'tool_request');
+  const result = compacted.records.find((item) => item.providerCallId === 'shell-old' && item.type === 'tool_result');
+  const receipt = JSON.parse(result.content);
+  assert.equal(request.providerCallId, result.providerCallId);
+  assert.equal(request.args.shell, 'auto');
+  assert.ok(request.args.script.length < 1_000);
+  assert.equal(receipt.schema, 'nna.tool-receipt.v1');
+  assert.equal(receipt.category, 'shell');
+  assert.equal(receipt.outcome, 'succeeded');
+  assert.equal(receipt.effect_certainty, 'completed');
+  assert.equal(receipt.ledger_ref, 'request-old');
+  assert.match(receipt.result_fingerprint, /^[a-f0-9]{64}$/u);
+  assert.equal(result.metadata.reason, 'semantic_tool_receipt');
+});
+
 test('semantic continuation enrichment is schema validated and failure falls back deterministically', async () => {
   const base = compactTranscript([
     message('user', 'Finish the task'),
