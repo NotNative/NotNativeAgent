@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile } from 'node:fs/promises';
+import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -13,6 +14,7 @@ import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-br
 import { readTelegramOutbox, TelegramNotificationQueue } from '../src/telegram-notifications.js';
 import { commandDefinition } from '../src/tui-commands.js';
 import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui-overlays.js';
+import { runGatewayCommand } from '../src/gateway-cli.js';
 
 test('gateway config is absent-safe, bounded, durable, and redacted', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-gateway-'));
@@ -75,6 +77,30 @@ test('gateway appears in configuration and exposes actionable menu drafts', () =
     providerProfiles: { local: {} }, mcpServers: [],
   });
   assert.equal(hub.items.some((item) => item.id === 'gateway'), true);
+});
+
+test('gateway start failure is reported without publishing a false pid', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-start-failure-'));
+  const paths = {
+    root, gateway: join(root, 'gateway'), logs: join(root, 'logs'),
+    gatewayConfig: join(root, 'gateway', 'config.json'),
+  };
+  await mkdir(paths.logs, { recursive: true });
+  await saveGatewayConfig(paths.gatewayConfig, {
+    enabled: true, token: 'TEST_FIXTURE_NOT_A_REAL_TELEGRAM_TOKEN', authorized_user_ids: ['42'],
+  });
+  const child = new EventEmitter();
+  child.pid = undefined;
+  child.unref = () => undefined;
+
+  await assert.rejects(runGatewayCommand(['start'], paths, {
+    environment: {},
+    spawnProcess: () => {
+      queueMicrotask(() => child.emit('error', Object.assign(new Error('spawn failed'), { code: 'ENOENT' })));
+      return child;
+    },
+  }), { code: 'gateway_start_failed' });
+  await assert.rejects(readFile(join(paths.gateway, 'gateway.pid')), { code: 'ENOENT' });
 });
 
 test('authorized Telegram messages enter a durable chat session while unknown users are silent', async () => {

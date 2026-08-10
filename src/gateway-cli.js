@@ -67,14 +67,35 @@ async function startDetached(config, paths, options) {
   const status = await runtimeStatus(paths);
   if (status.running) return { started: false, reason: 'already_running', runtime: status };
   const log = await open(join(paths.logs, 'gateway-console.log'), 'a');
-  const child = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', process.argv[1], 'gateway', 'run'], {
+  const child = (options.spawnProcess ?? spawn)(process.execPath, ['--disable-warning=ExperimentalWarning', process.argv[1], 'gateway', 'run'], {
     detached: true, windowsHide: true, stdio: ['ignore', log.fd, log.fd],
     env: { ...process.env, NNA_HOME: paths.root },
   });
-  await writePid(paths, child.pid);
+  try {
+    await childStarted(child);
+    await writePid(paths, child.pid);
+  } catch (error) {
+    child.kill?.();
+    throw error;
+  } finally { await log.close(); }
   child.unref();
-  await log.close();
   return { started: true, pid: child.pid };
+}
+
+function childStarted(child) {
+  return new Promise((resolve, reject) => {
+    const cleanup = () => { child.removeListener('spawn', started); child.removeListener('error', failed); };
+    const started = () => {
+      cleanup();
+      if (Number.isSafeInteger(child.pid) && child.pid > 0) resolve();
+      else reject(Object.assign(new Error('gateway process did not provide a pid'), { code: 'gateway_start_failed' }));
+    };
+    const failed = () => {
+      cleanup();
+      reject(Object.assign(new Error('gateway process could not start'), { code: 'gateway_start_failed' }));
+    };
+    child.once('spawn', started); child.once('error', failed);
+  });
 }
 
 async function stopGateway(paths, options) {
