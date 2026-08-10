@@ -4,6 +4,8 @@ import { TerminalInputDecoder, TerminalMode, sanitizeTerminal, terminalCapabilit
 import { headerTargetAt, TuiRenderer } from './tui-renderer.js';
 import { validateKeyBindings } from './tui-model.js';
 import { RetainedTerminalScreen } from './terminal-screen.js';
+import { createRenderLoop } from './tui-render-loop.js';
+export { adaptiveRenderDelay, createRenderLoop } from './tui-render-loop.js';
 import { commandDefinition } from './tui-commands.js';
 import { auditOverlay, configOverlay, contextOverlay, gatewayOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui-overlays.js';
 import { handleHealthOverlayAction, healthOverlay } from './tui-health.js';
@@ -114,36 +116,6 @@ function removeTuiListeners(input, output, listeners) {
   process.removeListener('SIGTSTP', listeners.suspend); process.removeListener('SIGCONT', listeners.resume);
   if (listeners.onData) input.removeListener('data', listeners.onData);
   if (listeners.resize) output.removeListener('resize', listeners.resize);
-}
-export function createRenderLoop(output, capabilities, screen, renderer, projection, onError) {
-  let timer = null;
-  let closed = false;
-  let lastRenderMs = 0;
-  const now = () => {
-    if (closed) return;
-    if (timer) { clearTimeout(timer); timer = null; }
-    try {
-      const started = performance.now();
-      screen.paint(renderer.frame(projection, {
-        ...capabilities, width: output.columns ?? capabilities.width, height: output.rows ?? capabilities.height,
-      }));
-      lastRenderMs = Math.max(0, performance.now() - started);
-    } catch (error) { onError(error); }
-  };
-  return {
-    now,
-    schedule() {
-      if (closed || timer) return;
-      timer = setTimeout(now, adaptiveRenderDelay(lastRenderMs, capabilities.reducedMotion));
-    },
-    invalidate() { if (!closed) screen.invalidate(); },
-    cancel() { closed = true; clearTimeout(timer); timer = null; },
-  };
-}
-export function adaptiveRenderDelay(lastRenderMs, reducedMotion = false) {
-  const base = reducedMotion ? 50 : 33;
-  return !Number.isFinite(lastRenderMs) || lastRenderMs <= 0
-    ? base : Math.max(base, Math.min(200, Math.ceil(lastRenderMs * 2)));
 }
 function consumeInput(tail, chunk, decoder, workspace, stop, destructiveKeys) {
   return consumeActions(tail, decoder.push(chunk), workspace, stop, decoder, destructiveKeys);

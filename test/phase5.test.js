@@ -1254,6 +1254,21 @@ test('engine state recedes, routine approvals stay hidden, and terminal tool sta
   assert.match(denied, /\u001b\[38;5;203m\s*X REVIEW \| deny_with_guidance \| intent_mismatch/u);
 });
 
+test('active turns show a synthwave live activity indicator without persisting it as transcript content', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
+  projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
+  projection.apply('s1', { type: 'state_status', semantic_state: 'waiting_provider', turn_id: 'turn-1' });
+  const renderer = new TuiRenderer();
+  const first = renderer.frame(projection, { width: 80, height: 24, color: true, unicode: true, animationFrame: 0 });
+  const second = renderer.frame(projection, { width: 80, height: 24, color: true, unicode: true, animationFrame: 2 });
+  assert.match(first, /\u001b\[1;38;2;120;240;255m⠋\u001b\[0m \u001b\[38;5;147mWaiting for model…/u);
+  assert.match(second, /\u001b\[1;38;2;255;120;220m⠹\u001b\[0m \u001b\[38;5;147mWaiting for model…/u);
+  assert.equal(projection.active().records.some((record) => record.type === 'live_activity'), false);
+  projection.apply('s1', { type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
+  assert.doesNotMatch(renderer.frame(projection, { width: 80, height: 24, color: false }), /Waiting for model/u);
+});
+
 test('new conversations show a responsive splash while the tab strip contains only navigation', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', {

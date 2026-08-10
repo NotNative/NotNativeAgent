@@ -4,6 +4,7 @@ import { commandPresentation, commandSuggestions, commandsByCategory } from './t
 import { VERSION } from './product.js';
 import { activityDetailRows, collapsedFailureRows, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './tui-activity-renderer.js';
 import { angledWordmarkGradient, decorateOverlay } from './tui-colors.js';
+import { decorateLiveActivity, liveActivityLine } from './tui-live-activity.js';
 import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLine, wrapTerminalLine } from './terminal-markdown.js';
 import { sessionStatusLine } from './tui-status-line.js';
 import { decorateSelection, plainTerminalLine } from './tui-selection.js';
@@ -15,7 +16,7 @@ export class TuiRenderer {
     const width = Math.max(24, capabilities.width);
     const height = Math.max(8, capabilities.height);
     const header = headerLines(projection, session, width);
-    const footer = footerLines(projection, session, width);
+    const footer = footerLines(projection, session, width, capabilities);
     const room = Math.max(1, height - header.length - footer.length);
     const targets = new Map();
     const available = contentLines(projection, session, width, targets);
@@ -42,7 +43,7 @@ export class TuiRenderer {
     const frame = [
       ...header.map((line, index) => decorateHeader(line, index, color)),
       ...content.map((line, index) => decorateContent(line, width, color, index, projection.overlay?.kind)),
-      ...footer.map((line, index) => decorateFooter(line, index, footer.length, color)),
+      ...footer.map((line, index) => decorateFooter(line, index, footer.length, color, capabilities.animationFrame)),
     ];
     const visible = frame.slice(0, height);
     projection.visibleFrame = Object.freeze(visible.map(plainTerminalLine));
@@ -159,7 +160,7 @@ function boxBottom(width) {
   return `╰${'─'.repeat(Math.max(1, width - 2))}╯`;
 }
 
-function footerLines(projection, session, width) {
+function footerLines(projection, session, width, capabilities = {}) {
   const lines = [rule(width)];
   if (session.pendingPermission) {
     lines.push(crop(`${keyLabel(projection.bindings.allow_once)} allow once · 2 same operation · 3 this tool in workspace · 4 deny · ${keyLabel(projection.bindings.cancel)} cancel`, width));
@@ -176,6 +177,8 @@ function footerLines(projection, session, width) {
   if (projection.notice && projection.notice.kind !== 'confirmation') lines.push(crop(`[${projection.notice.kind.toUpperCase()}] ${projection.notice.text}`, width));
   const suggestions = commandSuggestions(session.editor.text, 3).map((item) => commandPresentation(item, session, projection.bindings));
   for (const item of suggestions) lines.push(crop(`${item.usage} — ${item.available ? item.description : `unavailable: ${item.unavailableReason}`}`, width));
+  const activity = liveActivityLine(session, capabilities);
+  if (activity) lines.push(crop(activity, width));
   lines.push(...editorLines(session, width));
   lines.push(rule(width));
   lines.push(crop(controlLine(session, projection.bindings), width));
@@ -448,8 +451,10 @@ function decorateBanner(line, contentIndex) {
   return `${paint('38;5;93', '│')}${styled}${paint('38;5;93', '│')}`;
 }
 
-function decorateFooter(line, index, length, color) {
+function decorateFooter(line, index, length, color, animationFrame = 0) {
   if (!color) return line;
+  const activity = decorateLiveActivity(line, animationFrame);
+  if (activity) return activity;
   if (/^─+$/u.test(line)) return paint('38;5;238', line);
   if (index === length - 1) {
     const status = paint('38;5;103', line);

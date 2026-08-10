@@ -51,6 +51,21 @@ export function angledWordmarkGradient(value, row) {
   return result + points.slice(last + 1).join('');
 }
 
+const SYNTHWAVE_ACTIVITY_STOPS = Object.freeze([
+  Object.freeze([120, 240, 255]),
+  Object.freeze([200, 180, 255]),
+  Object.freeze([255, 120, 220]),
+  Object.freeze([240, 80, 200]),
+  Object.freeze([180, 60, 220]),
+  Object.freeze([110, 40, 180]),
+]);
+
+export function synthwaveActivityIndicator(marker, label, frame = 0) {
+  const index = Number.isInteger(frame) ? Math.abs(frame) % SYNTHWAVE_ACTIVITY_STOPS.length : 0;
+  const [red, green, blue] = SYNTHWAVE_ACTIVITY_STOPS[index];
+  return `  ${paint(`1;38;2;${red};${green};${blue}`, marker)} ${paint('38;5;147', label)}`;
+}
+
 function decorateOverlayItem(line, kind, selected) {
   if (kind !== 'model') return selected ? line : paint('38;5;252', line);
   const badgeStart = line.lastIndexOf('  [');
