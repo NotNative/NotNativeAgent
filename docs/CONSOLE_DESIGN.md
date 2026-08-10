@@ -100,8 +100,9 @@ status, and duration. A `process.run` target includes its redacted executable an
 operator can see what actually ran without expanding the activity group. Expansion reveals
 the full bounded attributed arguments, including working directory and timeout, plus result details. Untrusted
 model/tool content remains visibly distinct from operator and engine facts.
-Each completed activity group is also a mouse target, allowing the operator to expand or
-collapse that exact turn without changing the selected conversation.
+Each completed turn receipt is a mouse target that toggles its compact activity summary.
+Full activity details are controlled with `Ctrl+O`; detail rows remain ordinary selectable
+transcript text so click-drag copying cannot accidentally collapse them.
 
 ## Viewport behavior
 

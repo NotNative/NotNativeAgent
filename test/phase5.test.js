@@ -619,18 +619,13 @@ test('AC-TUI-01 completed activity remains visible without color, compacts, expa
   projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1' });
   frame = renderer.frame(projection, { width: 100, height: 24, color: false });
   assert.equal(frame.includes('\u001b'), false);
-  assert.match(frame, /^  \* \d+ms \| 1 tool \| 1 review \| Ctrl\+O summary$/mu);
+  assert.match(frame, /^  \* \d+ms \| 1 tool \| 1 review \| Ctrl\+O details$/mu);
   assert.doesNotMatch(frame, /3 events/u);
   assert.doesNotMatch(frame, /fs\.read_text/u);
   assert.doesNotMatch(frame, /Arguments:/u);
   assert.equal(projection.toggleLatestActivity(), true);
   frame = renderer.frame(projection, { width: 100, height: 24 });
-  assert.match(frame, /Activity summary/u);
-  assert.match(frame, /fs\.read_text x1 \| all succeeded/u);
-  assert.match(frame, /README\.md/u);
-  assert.doesNotMatch(frame, /Arguments:/u);
-  assert.equal(projection.toggleLatestActivity(), true);
-  frame = renderer.frame(projection, { width: 100, height: 24 });
+  assert.match(frame, /Activity detail/u);
   assert.match(frame, /read_only \| workspace/u);
   assert.match(frame, /Arguments: \{"path":"README\.md"\}/u);
   assert.match(frame, /Review: approve \| deterministic_safe/u);
@@ -835,7 +830,7 @@ test('mouse wheel navigates the retained transcript and returns to follow mode',
   assert.equal(projection.active().viewportEnd, null);
 });
 
-test('clicking a completed activity receipt cycles summary, details, and collapsed views', async () => {
+test('clicking a completed receipt toggles summary while Ctrl+O owns selectable full detail', async () => {
   const projection = new TuiProjection();
   projection.addSession('main', 'Main', { model: 'm1', provider: 'p1' });
   projection.apply('main', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', status: 'succeeded', elapsed_ms: 5 });
@@ -849,15 +844,32 @@ test('clicking a completed activity receipt cycles summary, details, and collaps
   assert.equal(projection.active().expandedTurns.has('turn-1'), true);
   assert.equal(projection.active().detailedTurns.has('turn-1'), false);
   new TuiRenderer().frame(projection, { width: 100, height: 40 });
-  let expandedTarget = projection.mouseTargets.find((item) => item.type === 'activity');
-  await handleActions([{ ...click, row: expandedTarget.row }], workspace, () => undefined, new TerminalInputDecoder());
-  assert.equal(projection.active().expandedTurns.has('turn-1'), true);
-  assert.equal(projection.active().detailedTurns.has('turn-1'), true);
-  new TuiRenderer().frame(projection, { width: 100, height: 40 });
-  expandedTarget = projection.mouseTargets.find((item) => item.type === 'activity');
+  const expandedTarget = projection.mouseTargets.find((item) => item.type === 'activity');
   await handleActions([{ ...click, row: expandedTarget.row }], workspace, () => undefined, new TerminalInputDecoder());
   assert.equal(projection.active().expandedTurns.has('turn-1'), false);
   assert.equal(projection.active().detailedTurns.has('turn-1'), false);
+
+  assert.equal(projection.toggleLatestActivity(), true);
+  new TuiRenderer().frame(projection, { width: 100, height: 40 });
+  assert.equal(projection.active().detailedTurns.has('turn-1'), true);
+  assert.equal(projection.mouseTargets.some((item) => item.type === 'activity'), false);
+  const detailIndex = projection.selectionDocumentLines.findIndex((line) => line.includes('Result:'));
+  const detailRow = [...projection.selectionRowMap].find(([, index]) => index === detailIndex)?.[0];
+  assert.ok(detailRow);
+  await handleActions([{ ...click, row: detailRow }], workspace, () => undefined, new TerminalInputDecoder());
+  assert.equal(projection.active().detailedTurns.has('turn-1'), true);
+  assert.ok(projection.terminalSelection);
+});
+
+test('healthy dependency startup events remain quiet while failures stay visible', () => {
+  const projection = new TuiProjection();
+  projection.addSession('main', 'Main', { model: 'm1', provider: 'p1' });
+  projection.apply('main', { type: 'mcp_status', id: 'memory', status: 'ready' });
+  let frame = new TuiRenderer().frame(projection, { width: 100, height: 30, color: false });
+  assert.doesNotMatch(frame, /DEPENDENCY/u);
+  projection.apply('main', { type: 'mcp_status', id: 'memory', status: 'failed', reason: 'connection refused' });
+  frame = new TuiRenderer().frame(projection, { width: 100, height: 30, color: false });
+  assert.match(frame, /DEPENDENCY \| failed \| connection refused/u);
 });
 
 test('right-clicking a tab opens real rename and close actions', async () => {

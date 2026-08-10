@@ -83,10 +83,10 @@ Key actions:
 - The mouse wheel navigates the same transcript viewport. NNA stays in the terminal's normal
   screen buffer by default, so it does not replace the host's configured scrollback with a
   viewport-sized alternate buffer.
-- `Ctrl+O`: expand or collapse the latest completed activity group.
-- Left-click any compact completed-tool row to expand that turn's activity. Clicking the
-  expanded activity again collapses it; this is the mouse equivalent of `Ctrl+O` for an
-  individually selected turn.
+- `Ctrl+O`: show or collapse the full detail for the latest completed activity group.
+- Left-click a completed turn receipt to toggle its compact activity summary. Full detail
+  remains a keyboard-controlled view so click-drag selection can copy arguments and results
+  without collapsing the activity.
 - `Shift+Tab`: cycle Prompt, Auto-review, and Unattended review postures when the
   terminal reports the chord distinctly. Review, hard policy, and the ledger remain mandatory.
 - Arrow keys: move the cursor or navigate history.

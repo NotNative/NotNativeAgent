@@ -86,12 +86,17 @@ function contentLines(projection, session, width, targets = new Map()) {
       const summary = summarizeActivity(records);
       const mode = session.detailedTurns.has(record.turn_id) ? 'details'
         : session.expandedTurns.has(record.turn_id) ? 'summary' : 'collapsed';
-      const start = lines.length;
       if (mode === 'details') lines.push(...activityDetailRows(records, width, wrap));
       else if (mode === 'summary') lines.push(...summaryActivityRows(records).flatMap((line) => wrap(line, width)));
       else lines.push(...collapsedFailureRows(records).flatMap((line) => wrap(line, width)));
-      lines.push(...turnReceipt(record, summary, mode, width), '');
-      for (let index = start; index < lines.length - 1; index += 1) targets.set(index, { type: 'activity', turnId: record.turn_id });
+      const receiptStart = lines.length;
+      const receipt = turnReceipt(record, summary, mode, width);
+      lines.push(...receipt, '');
+      if (mode !== 'details') {
+        for (let index = receiptStart; index < receiptStart + receipt.length; index += 1) {
+          targets.set(index, { type: 'activity', turnId: record.turn_id });
+        }
+      }
       lastVisibleKind = 'turn_result';
       continue;
     }
@@ -261,7 +266,10 @@ function recordLines(record, width) {
   if (record.type === 'tool_status') return record.status === 'running' ? [] : wrap(`    ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${record.status}${toolFailureSuffix(record)}`, width);
   if (record.type === 'review_status') return record.outcome === 'approve' ? [] : wrap(`    X REVIEW | ${record.outcome} | ${record.reason_code ?? ''}`, width);
   if (record.type === 'error') return wrap(`! ERROR ${record.code} | ${record.message}`, width);
-  if (record.type === 'memory_status' || record.type === 'mcp_status') return wrap(`  DEPENDENCY | ${record.status} | ${record.reason ?? record.id ?? ''}`, width);
+  if (record.type === 'memory_status' || record.type === 'mcp_status') {
+    if (record.status === 'ready') return [];
+    return wrap(`  DEPENDENCY | ${record.status} | ${record.reason ?? record.id ?? ''}`, width);
+  }
   if (record.type === 'skill_status') return wrap(`  SKILL | ${record.status} | ${record.code ?? ''} | ${record.path ?? ''}`, width);
   if (record.type === 'local_status') return wrap(`  ${record.kind.toUpperCase()} | ${record.text}`, width);
   if (record.type === 'queue_status') return wrap(`... WAITING FOR PROVIDER | position ${record.position}`, width);
@@ -359,7 +367,7 @@ function turnReceipt(record, summary, mode, width) {
       receiptTokens(record.usage),
       toolCount ? `${toolCount} tool${toolCount === 1 ? '' : 's'}` : null,
       reviewCount ? `${reviewCount} review${reviewCount === 1 ? '' : 's'}` : null,
-      toolCount || reviewCount ? `Ctrl+O ${mode === 'collapsed' ? 'summary' : mode === 'summary' ? 'details' : 'collapse'}` : null,
+      toolCount || reviewCount ? `Ctrl+O ${mode === 'details' ? 'collapse' : 'details'}` : null,
     ].filter(Boolean);
     return wrap(`  ${marker}${basic.length ? ` ${basic.join(' | ')}` : ''}`, width);
   }
@@ -370,7 +378,7 @@ function turnReceipt(record, summary, mode, width) {
     reviewCount ? `${reviewCount} review${reviewCount === 1 ? '' : 's'}` : null,
     record.failure?.code ? `code ${record.failure.code}` : null,
     recoveryAction(record),
-    toolCount || reviewCount ? `Ctrl+O ${mode === 'collapsed' ? 'summary' : mode === 'summary' ? 'details' : 'collapse'}` : null,
+    toolCount || reviewCount ? `Ctrl+O ${mode === 'details' ? 'collapse' : 'details'}` : null,
   ].filter(Boolean);
   return wrap(`  ${marker} ${label}${details.length ? ` | ${details.join(' | ')}` : ''}`, width);
 }

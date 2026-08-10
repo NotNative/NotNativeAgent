@@ -270,7 +270,7 @@ export class TuiProjection {
     const turnId = [...session.records].reverse().find((record) => completed.has(record.turn_id)
       && ['tool_status', 'review_status'].includes(record.type))?.turn_id;
     if (!turnId) return false;
-    cycleActivityView(session, turnId);
+    toggleDetailedActivity(session, turnId);
     return true;
   }
 
@@ -281,7 +281,9 @@ export class TuiProjection {
     const completed = records.some((record) => record.type === 'turn_result' && record.turn_id === turnId);
     const hasActivity = records.some((record) => ['tool_status', 'review_status'].includes(record.type) && record.turn_id === turnId);
     if (!completed || !hasActivity) return false;
-    cycleActivityView(session, turnId);
+    if (session.detailedTurns.has(turnId)) return false;
+    if (session.expandedTurns.has(turnId)) session.expandedTurns.delete(turnId);
+    else session.expandedTurns.add(turnId);
     return true;
   }
 
@@ -321,11 +323,12 @@ export class TuiProjection {
   }
 }
 
-function cycleActivityView(session, turnId) {
+function toggleDetailedActivity(session, turnId) {
   if (session.detailedTurns.has(turnId)) {
     session.detailedTurns.delete(turnId); session.expandedTurns.delete(turnId);
-  } else if (session.expandedTurns.has(turnId)) session.detailedTurns.add(turnId);
-  else session.expandedTurns.add(turnId);
+  } else {
+    session.expandedTurns.add(turnId); session.detailedTurns.add(turnId);
+  }
 }
 
 function applyEvent(session, event) {
