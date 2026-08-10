@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ForensicTelemetry } from '../src/forensic-telemetry.js';
@@ -100,6 +100,34 @@ test('volatile TUI telemetry expires independently after its short retention win
   assert.equal(rows.some((row) => row.event_name === 'engine.phase'), true);
   assert.equal(health.volatileRetentionDays, 1000 / 86_400_000);
   await reopened.close();
+});
+
+test('telemetry degradation is observable but never process-fatal', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-forensic-degraded-'));
+  const blockedParent = join(root, 'not-a-directory');
+  await writeFile(blockedParent, 'occupied');
+  const telemetry = new ForensicTelemetry({
+    workspaceRoot: root, runtimeId: 'runtime-test', sessionId: 'session-test',
+    dbPath: join(blockedParent, 'events.db'), maxAgeMs: 86_400_000, maxBytes: 4_194_304,
+  });
+  const unhandled = [];
+  const observe = (error) => unhandled.push(error);
+  process.on('unhandledRejection', observe);
+  try {
+    const initialized = await telemetry.initialize();
+    assert.equal(initialized.status, 'degraded');
+    assert.equal(initialized.code, 'telemetry_open_failed');
+    assert.equal(telemetry.record('engine.phase', 'started', {}), false);
+    assert.deepEqual(await telemetry.query({ limit: 10 }), []);
+    assert.deepEqual(await telemetry.openSpans(), []);
+    assert.equal((await telemetry.flush()).status, 'degraded');
+    await telemetry.close();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.removeListener('unhandledRejection', observe);
+    await telemetry.close();
+  }
 });
 
 function telemetryAt(root, options = {}) {

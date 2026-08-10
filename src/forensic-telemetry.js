@@ -45,16 +45,18 @@ export class ForensicTelemetry {
       worker.on('exit', (code) => { if (!this.#closed && code !== 0) this.#degrade('telemetry_worker_exited', resolve); });
     });
     await this.#ready;
-    this.record('telemetry.session', 'started', {
-      product_version: VERSION, workspace: this.workspaceRoot, retention_days: this.maxAgeMs / 86_400_000,
-      max_bytes: this.maxBytes, local_only: true, rich_capture: true,
-      volatile_retention_days: this.volatileMaxAgeMs / 86_400_000,
-    }, { spanId: `telemetry:${this.sessionId}` });
+    if (this.#health.status === 'ready') {
+      this.record('telemetry.session', 'started', {
+        product_version: VERSION, workspace: this.workspaceRoot, retention_days: this.maxAgeMs / 86_400_000,
+        max_bytes: this.maxBytes, local_only: true, rich_capture: true,
+        volatile_retention_days: this.volatileMaxAgeMs / 86_400_000,
+      }, { spanId: `telemetry:${this.sessionId}` });
+    }
     return this.health();
   }
 
   record(eventName, status, payload = {}, correlation = {}) {
-    if (this.#closed || !this.#worker) return false;
+    if (this.#closed || !this.#worker || this.#health.status === 'degraded') return false;
     const row = rowFrom(this, eventName, status, payload, correlation, ++this.#recordSequence);
     try { this.#worker.postMessage({ type: 'record', row }); return true; }
     catch { this.#degrade('telemetry_write_failed'); return false; }
@@ -110,12 +112,12 @@ export class ForensicTelemetry {
 
   async query(options = {}) {
     await this.#ready;
-    return this.#request('query', { options });
+    return this.#request('query', { options }, []);
   }
 
   async openSpans(limit = 200) {
     await this.#ready;
-    return this.#request('open_spans', { limit });
+    return this.#request('open_spans', { limit }, []);
   }
 
   async supportSnapshot(options = {}) {
@@ -130,51 +132,73 @@ export class ForensicTelemetry {
 
   async health() {
     if (!this.#worker || this.#health.status === 'degraded') return Object.freeze({ ...this.#health });
-    try { this.#health = await this.#request('health'); } catch { /* retained degraded state */ }
+    const health = await this.#request('health');
+    if (health) this.#health = health;
     return Object.freeze({ ...this.#health });
   }
 
   async flush() {
     if (!this.#worker) return this.health();
-    try { this.#health = await this.#request('flush'); } catch { /* health carries failure */ }
+    const health = await this.#request('flush');
+    if (health) this.#health = health;
     return this.health();
   }
 
   async close() {
     if (this.#closed) return;
     if (!this.#worker) { this.#closed = true; return; }
-    this.record('telemetry.session', 'succeeded', { product_version: VERSION }, { spanId: `telemetry:${this.sessionId}` });
-    await this.flush();
-    try { await this.#request('close'); } catch { /* best effort */ }
+    if (this.#health.status !== 'degraded') {
+      this.record('telemetry.session', 'succeeded', { product_version: VERSION }, { spanId: `telemetry:${this.sessionId}` });
+      await this.flush();
+      await this.#request('close', {}, { closed: false });
+    }
     this.#closed = true;
     await this.#worker.terminate().catch(() => undefined);
     this.#worker = null;
   }
 
-  #request(type, payload = {}) {
-    if (!this.#worker) return Promise.reject(new Error('telemetry_unavailable'));
+  #request(type, payload = {}, fallback = null) {
+    if (!this.#worker || this.#closed || this.#health.status === 'degraded') return Promise.resolve(fallback);
     const id = `telemetry_request_${++this.#requestSequence}`;
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.#requests.delete(id); reject(new Error('telemetry_timeout')); }, 5000);
-      this.#requests.set(id, { resolve, reject, timer });
-      this.#worker.postMessage({ type, id, ...payload });
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.#requests.delete(id);
+        this.#degrade('telemetry_timeout');
+        resolve(fallback);
+      }, 5000);
+      this.#requests.set(id, { resolve, timer, fallback });
+      try { this.#worker.postMessage({ type, id, ...payload }); }
+      catch {
+        clearTimeout(timer);
+        this.#requests.delete(id);
+        this.#degrade('telemetry_request_failed');
+        resolve(fallback);
+      }
     });
   }
 
   #message(message, readyResolve) {
     if (message.type === 'ready') { this.#health = { ...this.#health, status: 'ready', dbPath: message.dbPath }; readyResolve(this.#health); return; }
-    if (message.type === 'fatal' || message.type === 'degraded') { this.#degrade(message.code, readyResolve); return; }
+    if (message.type === 'fatal' || message.type === 'degraded') { this.#degrade(message.code, readyResolve, message.message); return; }
     if (message.type !== 'response') return;
     const pending = this.#requests.get(message.id);
     if (!pending) return;
     clearTimeout(pending.timer); this.#requests.delete(message.id);
-    if (message.error) { this.#degrade(message.error); pending.reject(new Error(message.error)); }
+    if (message.error) { this.#degrade(message.error); pending.resolve(pending.fallback); }
     else pending.resolve(message.value);
   }
 
-  #degrade(code, readyResolve = () => undefined) {
-    this.#health = { ...this.#health, status: 'degraded', code };
+  #degrade(code, readyResolve = () => undefined, detail = null) {
+    this.#health = {
+      ...this.#health, status: 'degraded', code, lastErrorAt: new Date().toISOString(),
+      ...(typeof detail === 'string' && detail.length > 0 ? { detail: detail.slice(0, 160) } : {}),
+    };
     readyResolve(this.#health);
+    for (const pending of this.#requests.values()) {
+      clearTimeout(pending.timer);
+      pending.resolve(pending.fallback);
+    }
+    this.#requests.clear();
   }
 }
 
