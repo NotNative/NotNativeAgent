@@ -107,16 +107,18 @@ export class ToolGovernor {
   }
 
   #revalidate(request, decision, current) {
-    const valid = decision.outcome === 'approve'
+    const exact = decision.outcome === 'approve'
       && decision.requestId === request.id
       && decision.requestDigest === requestDigest(request)
       && decision.authorityId === current.authority.id
       && decision.authorityVersion === current.authority.version
       && decision.authorityRestrictionVersion === (current.authority.restrictionVersion ?? 0)
       && decision.policyVersion === current.policyVersion
-      && request.workspaceRoot === current.workspaceRoot
-      && decision.expiresAt >= Date.now();
-    if (!valid) throw new ContractError('tool_revalidation_drift', 'approval is missing, stale, expired, or drifted');
+      && request.workspaceRoot === current.workspaceRoot;
+    if (!exact) throw new ContractError('tool_revalidation_drift', 'approval no longer matches the exact request, authority, policy, or workspace');
+    if (decision.expiresAt < Date.now()) {
+      throw new ContractError('tool_revalidation_drift', 'approval expired after review but before execution');
+    }
   }
 
   async #reviewSubscription(event) {

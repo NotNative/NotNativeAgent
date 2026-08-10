@@ -11,7 +11,9 @@ export class InteractivePermissionBroker {
     this.output = options.output ?? (async () => undefined);
     this.timeoutMs = options.timeoutMs ?? 120_000;
     this.maxPending = options.maxPending ?? 16;
-    this.preauthorizations = new PreauthorizationRegistry(options.preauthorization);
+    this.preauthorizations = new PreauthorizationRegistry({
+      ...options.preauthorization, decisionTtlMs: this.timeoutMs,
+    });
   }
 
   async request(request, escalation, context, signal) {
@@ -21,7 +23,7 @@ export class InteractivePermissionBroker {
       throw new ContractError('permission_queue_full', 'interactive permission queue is full');
     }
     const token = newId('permission');
-    const expiresAt = Math.min(request.expiresAt, Date.now() + this.timeoutMs);
+    const expiresAt = Date.now() + this.timeoutMs;
     const deferred = createDeferred();
     const pending = { token, request, escalation, context, expiresAt, deferred };
     this.#pending.set(token, pending);
@@ -47,7 +49,7 @@ export class InteractivePermissionBroker {
     const grant = ['allow_session', 'allow_workspace'].includes(command.choice)
       ? this.preauthorizations.grant(command.choice, pending.request, pending.context, principal) : null;
     const decision = grant ? this.preauthorizations.decision(grant, pending.request)
-      : operatorDecision(command.choice, pending.request, principal);
+      : operatorDecision(command.choice, pending.request, principal, null, this.timeoutMs);
     pending.deferred.resolve(decision);
     return { accepted: true, permission_token: pending.token, outcome: decision.outcome };
   }
@@ -64,7 +66,7 @@ export class InteractivePermissionBroker {
   revoke(id, principal) { return this.preauthorizations.revoke(id, principal); }
 
   #resolveDenied(pending, reason) {
-    pending.deferred.resolve(operatorDecision('cancel', pending.request, 'engine', reason));
+    pending.deferred.resolve(operatorDecision('cancel', pending.request, 'engine', reason, this.timeoutMs));
   }
 }
 
@@ -87,7 +89,7 @@ function verifiedRecovery(request) {
   return checkpoint?.verified === true && typeof checkpoint.id === 'string' && checkpoint.id.length > 0;
 }
 
-function operatorDecision(choice, request, principal, forcedReason = null) {
+function operatorDecision(choice, request, principal, forcedReason = null, ttlMs = 120_000) {
   const approved = choice === 'allow_once';
   const reasonCode = forcedReason ?? (approved ? 'operator_allow_once' : choice === 'deny' ? 'operator_denied' : 'operator_cancelled');
   return Object.freeze({
@@ -97,7 +99,7 @@ function operatorDecision(choice, request, principal, forcedReason = null) {
     authorityId: request.authorityId, authorityVersion: request.authorityVersion,
     authorityRestrictionVersion: request.authorityRestrictionVersion ?? 0, policyVersion: request.policyVersion,
     provenance: 'authenticated_interactive_operator', principal,
-    committedAt: Date.now(), expiresAt: Math.min(request.expiresAt, Date.now() + 30_000),
+    committedAt: Date.now(), expiresAt: Date.now() + ttlMs,
   });
 }
 

@@ -33,7 +33,7 @@ export class RecoverySupervisor {
     return Object.freeze({ continue: true, scale, action });
   }
 
-  noProgress(category, evidence = null, detail = {}) {
+  noProgress(category, evidence = null, detail = {}, options = {}) {
     const observedDetail = evidenceDetail(evidence, detail);
     if (evidence && this.observeProgress(evidenceValue(evidence), observedDetail)) {
       this.#episodes.delete(category);
@@ -42,14 +42,16 @@ export class RecoverySupervisor {
     const count = (this.#episodes.get(category) ?? 0) + 1;
     this.#episodes.set(category, count);
     if (count >= this.localLimit) return Object.freeze({ continue: false, exhausted: true, count });
+    const configuredAction = this.ladder[count - 1];
+    const action = configuredAction === 'compact' && options.allowCompaction === false ? 'nudge' : configuredAction;
     return Object.freeze({
       continue: true, progress: false, count,
-      action: this.#record(category, this.ladder[count - 1], count, repeatedEvidenceDetail(observedDetail)),
+      action: this.#record(category, action, count, repeatedEvidenceDetail(observedDetail)),
     });
   }
 
-  continuation(category, evidence = null, detail = {}) {
-    const plan = this.noProgress(category, evidence, detail);
+  continuation(category, evidence = null, detail = {}, options = {}) {
+    const plan = this.noProgress(category, evidence, detail, options);
     if (!plan.progress) return plan;
     return Object.freeze({
       ...plan,

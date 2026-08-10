@@ -60,6 +60,12 @@ test('configured recovery ladder remains finite and consumes its declared action
   assert.deepEqual(recovery.noProgress('configured'), { continue: false, exhausted: true, count: 5 });
 });
 
+test('low-pressure no-progress recovery does not substitute compaction for correction', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'compact'] });
+  assert.equal(recovery.noProgress('schema', null, {}, { allowCompaction: false }).action.action, 'nudge');
+  assert.equal(recovery.noProgress('schema', null, {}, { allowCompaction: false }).action.action, 'nudge');
+});
+
 function toolCall(id, path) {
   return [
     { type: 'tool_fragment', fragments: [{
@@ -234,7 +240,7 @@ test('AC-PROD-03/AC-ENGP-02/AC-FAIL-01/AC-FAIL-03/AC-FAIL-11/AC-FAIL-12 stalled 
   assert.equal(result.failure.last_verified_checkpoint, 'turn_start');
   assert.match(result.failure.remaining_work, /continuation/u);
   assert.equal(result.failure.side_effect_certainty, 'none');
-  assert.deepEqual(result.failure.recovery_actions.map((item) => [item.action, item.count]), [['nudge', 1], ['compact', 2]]);
+  assert.deepEqual(result.failure.recovery_actions.map((item) => [item.action, item.count]), [['nudge', 1], ['nudge', 2]]);
   assert.equal(result.recovery.length, 2);
 });
 

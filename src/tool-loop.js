@@ -318,6 +318,11 @@ export function toolProgressEvidence(items, steeringApplied) {
 }
 
 export function toolContinuationHint(items, fallback = null) {
+  const invalid = items.filter((item) => item.result?.status === 'invalid_request');
+  if (invalid.length > 0) {
+    const failures = [...new Set(invalid.map((item) => `${item.result.tool_name ?? 'tool'}: ${item.result.reason_code ?? 'invalid_request'}`))];
+    return `The tool request was invalid (${failures.join(', ')}). Correct the arguments to exactly match the supplied tool schema; do not repeat the unchanged arguments. Context reduction cannot repair a schema mismatch.`;
+  }
   const denied = items.filter((item) => ['deny_with_guidance', 'hard_deny'].includes(item.result?.status));
   if (denied.length === 0) return fallback;
   const immutable = denied.some((item) => item.result.status === 'hard_deny');

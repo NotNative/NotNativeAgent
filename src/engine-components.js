@@ -186,6 +186,7 @@ function installReview(engine, options) {
       dialects: engine.dialects, sessionId: engine.sessionId,
     }),
     semanticTimeoutMs: options.semanticReviewTimeoutMs ?? engine.config.limits.semanticReviewMs,
+    decisionTtlMs: engine.config.limits.approvalMs,
   });
   engine.governor = new ToolGovernor({
     events: engine.events, reviewer: engine.reviewer, registry: engine.tools,

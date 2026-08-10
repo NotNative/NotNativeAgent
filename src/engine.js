@@ -301,7 +301,9 @@ export class SessionEngine {
       .map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
     const steeringApplied = await this.#consumeSteering(active);
     const evidence = toolProgressEvidence(items, steeringApplied);
-    const progress = active.recovery.noProgress('tool_no_progress', evidence);
+    const progress = active.recovery.noProgress(
+      'tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact' },
+    );
     if (progress.action) await this.#recordRecovery(progress.action, active);
     await this.#settleStep(active, 'continued');
     if (!progress.continue) return { exhausted: true };
@@ -316,7 +318,9 @@ export class SessionEngine {
     if (active.stepText.length === 0) {
       await this.#settleAttempt(active, 'empty');
       this.state.transition('recovering', { trigger: 'empty_output', turnId: active.turnId });
-      const plan = active.recovery.noProgress('empty_output');
+      const plan = active.recovery.noProgress(
+        'empty_output', null, {}, { allowCompaction: active.contextPressureTier === 'compact' },
+      );
       if (plan.action) await this.#recordRecovery(plan.action, active);
       await this.#settleStep(active, plan.continue ? 'recovering' : 'incomplete');
       if (!plan.continue) return { exhausted: true };
@@ -345,6 +349,7 @@ export class SessionEngine {
     this.state.transition('recovering', { trigger: supervised.category, turnId: active.turnId });
     const plan = active.recovery.continuation(
       supervised.category, supervised.progressEvidence, partialOutputProgress(active.stepText),
+      { allowCompaction: active.contextPressureTier === 'compact' },
     );
     if (plan.action) await this.#recordRecovery(plan.action, active);
     await this.#settleStep(active, plan.continue ? 'recovering' : 'incomplete');

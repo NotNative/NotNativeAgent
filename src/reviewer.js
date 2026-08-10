@@ -12,6 +12,7 @@ export class MandatoryReviewer {
     this.telemetry = options.telemetry;
     this.semantic = options.semanticReviewer ?? new UnavailableSemanticReviewer();
     this.semanticTimeoutMs = options.semanticTimeoutMs ?? 15_000;
+    this.decisionTtlMs = options.decisionTtlMs ?? 120_000;
   }
 
   health() {
@@ -64,6 +65,7 @@ export class MandatoryReviewer {
       if (context.reviewPosture === 'prompt' && decision.outcome === 'approve') {
         decision = escalate('prompt_posture_operator_decision', request, 'Prompt posture requires operator approval before execution.');
       }
+      if (decision.outcome === 'approve') decision = refreshApprovalWindow(decision, this.decisionTtlMs);
       const committed = await this.ledger.commitDecision(request.id, decision);
       await this.governance?.recordAuthorization(request, committed, { ...context, classification });
       this.telemetry?.record('review.decision', reviewTelemetryStatus(committed.outcome), {
@@ -101,6 +103,11 @@ export class MandatoryReviewer {
     });
     return normalizeCandidate(candidate, request, context.surface);
   }
+}
+
+function refreshApprovalWindow(decision, ttlMs) {
+  const committedAt = Date.now();
+  return Object.freeze({ ...decision, committedAt, expiresAt: committedAt + ttlMs });
 }
 
 function reviewTelemetryStatus(outcome) {

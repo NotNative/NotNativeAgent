@@ -70,6 +70,21 @@ test('authenticated tracked-file mutations auto-approve as reversible without we
   assert.equal(denied.reasonCode, 'authenticated_intent_mismatch');
 });
 
+test('approval execution window begins when a slow review finishes', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'slow-review-window' });
+  const reviewer = new MandatoryReviewer({
+    ledger, decisionTtlMs: 5_000,
+    semanticReviewer: { async review() {
+      return { outcome: 'approve', confidence: 1, reason_code: 'explicit_intent' };
+    } },
+  });
+  const request = Object.freeze({ ...mutationRequest('slow-review'), expiresAt: Date.now() - 1 });
+  const decidedAt = Date.now();
+  const approved = await reviewer.review(request, context);
+  assert.equal(approved.outcome, 'approve');
+  assert.ok(approved.expiresAt >= decidedAt + 4_900);
+});
+
 test('an explicitly requested external mutation remains semantic-review required', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'external-mutation' });
   let semanticCalls = 0;

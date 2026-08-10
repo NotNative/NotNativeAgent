@@ -70,7 +70,12 @@ mission boundary, a classified failure, or bounded no-progress/stall detection.
 may contain only the supported bounded `nudge` and `compact` actions; its default is
 `["nudge", "compact"]`. The effective ladder is retained by every configuration round trip
 and is captured when a turn starts, so a mid-turn configuration update cannot reset its
-consumed recovery budget.
+consumed recovery budget. A generic no-progress recovery step may request `compact`, but NNA
+admits that action only when measured context pressure has reached the full-compaction tier;
+below that tier it emits a corrective nudge instead. Schema-invalid tool arguments receive
+schema-correction guidance rather than context reduction, because compaction cannot repair a
+malformed request. Provider-reported context-limit failures retain their dedicated compaction
+and retry path.
 
 Provider connection and interactive-approval deadlines default to 10 and 120 seconds.
 Provider first-token, inter-token idle, and overall deadlines default to 10, 5, and 30
@@ -80,6 +85,10 @@ large prompts on local models and consumer hardware while preserving cancellatio
 finite failure path. Manifests carrying the exact historical 30-second/45-second/120-second
 default tuple are migrated to these safer defaults. The exact historical 15-second semantic
 review default is migrated as well; genuinely customized values remain authoritative.
+`approval_timeout_ms` is also the execution-validity window for semantic and operator
+approvals. That window starts when review finishes and the approval is committed, not when the
+original request entered a potentially slow local-model review queue. Execution still requires
+an exact match on request digest, authority, policy, tool definition, workspace, and expiry.
 For streamed inference, the first-token deadline covers endpoint admission, on-demand
 model loading, prompt processing, and the first stream event. The short connection value
 is reserved for connectivity and metadata probes; it does not abort a healthy LM Studio,

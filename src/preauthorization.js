@@ -9,6 +9,7 @@ export class PreauthorizationRegistry {
   constructor(options = {}) {
     this.maxGrants = options.maxGrants ?? 64;
     this.lifetimeMs = options.lifetimeMs ?? 14_400_000;
+    this.decisionTtlMs = options.decisionTtlMs ?? 120_000;
   }
 
   grant(choice, request, context, principal) {
@@ -65,7 +66,7 @@ export class PreauthorizationRegistry {
       authorityId: request.authorityId, authorityVersion: request.authorityVersion,
       authorityRestrictionVersion: request.authorityRestrictionVersion ?? 0, policyVersion: request.policyVersion,
       provenance: 'authenticated_interactive_operator', principal: grant.principal,
-      grantId: grant.id, committedAt: Date.now(), expiresAt: Math.min(request.expiresAt, Date.now() + 30_000),
+      grantId: grant.id, committedAt: Date.now(), expiresAt: Date.now() + this.decisionTtlMs,
     });
   }
 
