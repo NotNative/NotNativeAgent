@@ -37,6 +37,7 @@ export class DreamStore {
     this.db.exec(SCHEMA);
     const now = new Date().toISOString();
     this.db.prepare("UPDATE dream_runs SET state = 'cancelled', result_code = 'restart_recovered', finished_at = ? WHERE state IN ('queued','running')").run(now);
+    this.#quarantineMalformedRows();
     this.cleanup();
     return this.status();
   }
@@ -118,7 +119,7 @@ export class DreamStore {
     this.#ready();
     const row = this.db.prepare("SELECT * FROM dream_packets WHERE runtime_key = ? AND state = 'pending' ORDER BY rowid LIMIT 1")
       .get(runtimeKey);
-    return row ? parsePacket(row) : null;
+    return row ? this.#packetValue(row) : null;
   }
   finishPacket(id, resultCode) {
     this.#ready();
@@ -143,7 +144,7 @@ export class DreamStore {
   packet(id) {
     this.#ready();
     const row = this.db.prepare('SELECT * FROM dream_packets WHERE id = ?').get(id);
-    return row ? parsePacket(row) : null;
+    return row ? this.#packetValue(row) : null;
   }
   observeCandidate(input) {
     this.#ready();
@@ -192,7 +193,7 @@ export class DreamStore {
   candidate(id) {
     this.#ready();
     const row = this.db.prepare('SELECT * FROM improvement_candidates WHERE id = ?').get(id);
-    return row ? parseCandidate(row) : null;
+    return row ? this.#candidateValue(row) : null;
   }
   candidates(input = {}) {
     this.#ready();
@@ -200,9 +201,10 @@ export class DreamStore {
     if (input.state !== undefined) {
       if (!CANDIDATE_STATES.has(input.state)) throw new ContractError('dream_candidate_state_invalid', 'candidate state is invalid');
       return this.db.prepare('SELECT * FROM improvement_candidates WHERE state = ? ORDER BY updated_at DESC LIMIT ?')
-        .all(input.state, limit).map(parseCandidate);
+        .all(input.state, limit).map((row) => this.#candidateValue(row)).filter(Boolean);
     }
-    return this.db.prepare('SELECT * FROM improvement_candidates ORDER BY updated_at DESC LIMIT ?').all(limit).map(parseCandidate);
+    return this.db.prepare('SELECT * FROM improvement_candidates ORDER BY updated_at DESC LIMIT ?')
+      .all(limit).map((row) => this.#candidateValue(row)).filter(Boolean);
   }
   cleanup(now = Date.now()) {
     this.#ready();
@@ -225,6 +227,24 @@ export class DreamStore {
   #observed(phase, run) {
     try { this.observe?.(Object.freeze({ phase, run: Object.freeze({ ...run }) })); }
     catch { /* maintenance observability cannot break maintenance durability */ }
+  }
+  #packetValue(row) {
+    const packet = parsePacket(row);
+    if (packet) return packet;
+    this.db.prepare("UPDATE dream_packets SET state='completed', result_code='malformed_payload_quarantined', updated_at=? WHERE id=?")
+      .run(new Date().toISOString(), row.id);
+    return null;
+  }
+  #candidateValue(row) {
+    const candidate = parseCandidate(row);
+    if (candidate) return candidate;
+    this.db.prepare("UPDATE improvement_candidates SET state='rejected', rejection_reason='malformed_durable_payload', updated_at=? WHERE id=?")
+      .run(new Date().toISOString(), row.id);
+    return null;
+  }
+  #quarantineMalformedRows() {
+    for (const row of this.db.prepare("SELECT * FROM dream_packets WHERE state='pending'").all()) this.#packetValue(row);
+    for (const row of this.db.prepare('SELECT * FROM improvement_candidates').all()) this.#candidateValue(row);
   }
   #ready() { if (!this.db) throw new ContractError('dream_store_unavailable', 'dream state store is not initialized'); }
 }
@@ -291,16 +311,36 @@ function normalizeCandidate(input) {
 }
 
 function parseCandidate(row) {
+  const evidenceRefs = storedArray(row.evidence_refs, 64);
+  const successCriteria = storedArray(row.success_criteria, 16);
+  const payload = storedObject(row.payload, 16_384);
+  if (!evidenceRefs || !successCriteria || !payload || digest(JSON.stringify(payload)) !== row.payload_fingerprint) return null;
   return Object.freeze({
     ...row, confidence: Number(row.confidence), recurrence_count: Number(row.recurrence_count),
-    evidence_refs: Object.freeze(JSON.parse(row.evidence_refs)),
-    success_criteria: Object.freeze(JSON.parse(row.success_criteria)),
-    payload: Object.freeze(JSON.parse(row.payload)),
+    evidence_refs: Object.freeze(evidenceRefs), success_criteria: Object.freeze(successCriteria),
+    payload: Object.freeze(payload),
   });
 }
 
 function parsePacket(row) {
-  return Object.freeze({ ...row, stage: Number(row.stage), payload: Object.freeze(JSON.parse(row.payload)) });
+  const payload = storedObject(row.payload, 32_768);
+  if (!payload || digest(JSON.stringify(payload)) !== row.payload_fingerprint) return null;
+  return Object.freeze({ ...row, stage: Number(row.stage), payload: Object.freeze(payload) });
+}
+
+function storedArray(text, maximum) {
+  try {
+    const value = JSON.parse(text);
+    return Array.isArray(value) && value.length <= maximum && value.every((item) => typeof item === 'string') ? value : null;
+  } catch { return null; }
+}
+
+function storedObject(text, maximumBytes) {
+  if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > maximumBytes) return null;
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  } catch { return null; }
 }
 
 function boundedPacket(value) {

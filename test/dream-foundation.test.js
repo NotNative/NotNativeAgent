@@ -46,6 +46,42 @@ test('dream state commits watermarks and recovers interrupted runs after restart
   second.close();
 });
 
+test('malformed durable dream payloads are quarantined instead of poisoning restart', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-corrupt-'));
+  const path = join(root, 'dream.db');
+  const first = new DreamStore({ path });
+  await first.initialize();
+  first.savePacket({
+    id: 'packet-corrupt', runtimeKey: 'workspace-a', evidenceId: 'evidence:packet',
+    payload: { records: 1 },
+  });
+  first.observeCandidate({
+    id: 'candidate-corrupt', runtimeKey: 'workspace-a', kind: 'reliability.issue',
+    scope: { kind: 'workspace', fingerprint: 'a'.repeat(64) }, confidence: 0.8,
+    evidenceRefs: ['evidence:packet'], expectedBenefit: 'Avoid repeated failures.',
+    successCriteria: ['The failure no longer repeats.'], riskClass: 'low',
+    payload: { failure_code: 'provider_timeout' },
+  });
+  first.db.prepare('UPDATE dream_packets SET payload = ? WHERE id = ?').run('{', 'packet-corrupt');
+  first.db.prepare('UPDATE improvement_candidates SET evidence_refs = ? WHERE id = ?')
+    .run('{', 'candidate-corrupt');
+  first.close();
+
+  const restored = new DreamStore({ path });
+  await restored.initialize();
+  assert.equal(restored.pendingPacket('workspace-a'), null);
+  assert.deepEqual(restored.candidates(), []);
+  assert.deepEqual(
+    { ...restored.db.prepare('SELECT state, result_code FROM dream_packets WHERE id = ?').get('packet-corrupt') },
+    { state: 'completed', result_code: 'malformed_payload_quarantined' },
+  );
+  assert.deepEqual(
+    { ...restored.db.prepare('SELECT state, rejection_reason FROM improvement_candidates WHERE id = ?').get('candidate-corrupt') },
+    { state: 'rejected', rejection_reason: 'malformed_durable_payload' },
+  );
+  restored.close();
+});
+
 test('dream store emits content-free lifecycle observations for every stage', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-dream-observe-')), events = [];
   const store = new DreamStore({ path: join(root, 'dream.db'), observe: (event) => events.push(event) });
