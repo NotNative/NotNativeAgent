@@ -1343,6 +1343,53 @@ test('active tool status identifies the currently running tool and its presentat
   }), /Running shell\.run/u);
 });
 
+test('active agent runs remain visible with their inherited model and replace their running row when settled', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'primary-model', provider: 'p' });
+  projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
+  projection.apply('s1', {
+    type: 'tool_status', status: 'running', tool: 'agent.run',
+    target: 'coder · worker-model · inherits Primary: configure yellow host',
+    tool_request_id: 'agent-1', turn_id: 'turn-1',
+  });
+  let frame = new TuiRenderer().frame(projection, {
+    width: 120, height: 24, color: false, unicode: false, reducedMotion: true,
+  });
+  assert.match(frame, /\+ agent\.run \(coder · worker-model · inherits Primary: configure yellow host\) \| running/u);
+  assert.match(frame, /Sub-agent active · coder · worker-model · inherits Primary: configure yellow host/u);
+  projection.apply('s1', {
+    type: 'tool_status', status: 'succeeded', tool: 'agent.run',
+    target: 'coder · worker-model · inherits Primary: configure yellow host',
+    tool_request_id: 'agent-1', turn_id: 'turn-1', elapsed_ms: 10,
+  });
+  frame = new TuiRenderer().frame(projection, {
+    width: 120, height: 24, color: false, unicode: false, reducedMotion: true,
+  });
+  assert.doesNotMatch(frame, /agent\.run .* \| running/u);
+  assert.match(frame, /agent\.run .* \| succeeded/u);
+  assert.doesNotMatch(frame, /Sub-agent active/u);
+});
+
+test('agent tool status records the effective sub-agent route and task', () => {
+  const item = {
+    request: {
+      id: 'agent-1', toolName: 'agent.run', definitionVersion: 1,
+      args: { type: 'coder', task: 'Configure the yellow host.' },
+    },
+    call: { providerCallId: 'provider-1', name: 'agent.run' },
+  };
+  const record = toolStatus({
+    sessionId: 'session-1',
+    config: { routes: { subagent: { assigned: false } } },
+    router: { resolve: () => ({ model: 'worker-model', profile: { id: 'primary-profile' } }) },
+    tools: { definition: () => ({ sideEffect: 'reversible', scope: 'subagent' }) },
+  }, { turnId: 'turn-1' }, item, 'running');
+  assert.deepEqual(record.agent_route, {
+    provider_profile: 'primary-profile', model: 'worker-model', inherited: true, agent_type: 'coder',
+  });
+  assert.equal(record.target, 'coder · worker-model · inherits Primary: Configure the yellow host.');
+});
+
 test('new conversations show a responsive splash while the tab strip contains only navigation', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', {

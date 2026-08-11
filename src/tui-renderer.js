@@ -88,10 +88,13 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
   const records = [...session.historyRecords, ...session.records];
   const completed = new Set(records.filter((record) => record.type === 'turn_result').map((record) => record.turn_id));
   const activity = activityByTurn(records, completed);
+  const settledTools = new Set(records.filter((record) => record.type === 'tool_status' && record.status !== 'running')
+    .map((record) => record.tool_request_id ?? record.provider_call_id).filter(Boolean));
   let lastVisibleKind = null;
   let lastMessageKind = null;
   for (const record of records) {
     if (isActivity(record) && completed.has(record.turn_id)) continue;
+    if (record.type === 'tool_status' && record.status === 'running' && settledTools.has(record.tool_request_id ?? record.provider_call_id)) continue;
     if (record.type === 'turn_result') {
       const records = activity.get(record.turn_id) ?? [];
       const summary = summarizeActivity(records);
@@ -264,7 +267,10 @@ function recordLines(record, width) {
   if (record.type === 'attachment_status') return wrap(`  ATTACHMENT | ${record.attachment_id ?? ''} | ${record.state} | ${record.guidance ?? ''}`, width);
   if (record.type === 'user_input') return renderMarkdown(record.text, width, '> ', '  ');
   if (record.type === 'stream_delta') return renderMarkdown(record.text, width, '* ', '  ');
-  if (record.type === 'tool_status') return record.status === 'running' ? [] : wrap(`    ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${record.status}${toolFailureSuffix(record)}`, width);
+  if (record.type === 'tool_status') {
+    if (record.status === 'running' && record.tool !== 'agent.run') return [];
+    return wrap(`    ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${record.status}${toolFailureSuffix(record)}`, width);
+  }
   if (record.type === 'review_status') return record.outcome === 'approve' ? [] : wrap(`    X REVIEW | ${record.outcome} | ${record.reason_code ?? ''}`, width);
   if (record.type === 'error') return wrap(`! ERROR ${record.code} | ${record.message}`, width);
   if (record.type === 'memory_status' || record.type === 'mcp_status') {

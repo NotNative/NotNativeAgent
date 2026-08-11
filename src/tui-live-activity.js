@@ -40,6 +40,10 @@ function runningToolLabel(session) {
   if (running.length === 0) return 'Running tool…';
   const first = running[0];
   const detail = [first.tool, first.target ? `(${singleLine(first.target)})` : ''].filter(Boolean).join(' ');
+  if (running.every((record) => record.tool === 'agent.run')) {
+    if (running.length === 1) return `Sub-agent active · ${singleLine(first.target ?? 'delegated task')}…`;
+    return `${running.length} sub-agents active · ${singleLine(first.target ?? 'delegated work')}…`;
+  }
   if (running.length === 1) return `Running ${detail || 'tool'}…`;
   return `Running ${running.length} tools · ${detail || 'working'}…`;
 }

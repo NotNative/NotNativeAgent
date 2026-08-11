@@ -72,12 +72,14 @@ export function toolStatus(engine, active, item, status) {
   const args = item.request?.args ?? item.call.args;
   const presentedArgs = args && typeof args === 'object' ? safeToolArguments(args) : null;
   const failed = !['running', 'succeeded', 'duplicate_ignored'].includes(status);
+  const agentRoute = item.call.name === 'agent.run' ? presentedAgentRoute(engine, presentedArgs) : null;
   return {
     version: '1.0', type: 'tool_status', session_id: engine.sessionId,
     turn_id: active.turnId, tool_request_id: item.request?.id ?? null,
     provider_call_id: item.call.providerCallId, tool: item.call.name, status,
-    target: boundedTarget(item.call.name, presentedArgs, item.request?.resolved),
+    target: boundedTarget(item.call.name, presentedArgs, item.request?.resolved, agentRoute),
     arguments: presentedArgs,
+    agent_route: agentRoute,
     effect: definition?.sideEffect ?? null, scope: definition?.scope ?? null,
     elapsed_ms: item.result?.elapsed_ms ?? null,
     effect_certainty: item.result?.effect_certainty ?? null,
@@ -86,8 +88,9 @@ export function toolStatus(engine, active, item, status) {
   };
 }
 
-function boundedTarget(tool, args, resolved = null) {
+function boundedTarget(tool, args, resolved = null, agentRoute = null) {
   if (!args || typeof args !== 'object') return null;
+  if (tool === 'agent.run') return agentInvocation(args, agentRoute);
   if (tool === 'process.run') return processInvocation(args);
   if (tool === 'shell.run') return shellInvocation(args);
   if (tool === 'project.verify') {
@@ -101,6 +104,31 @@ function boundedTarget(tool, args, resolved = null) {
   const selector = tool === 'fs.search_text' ? args.query : tool === 'fs.glob' ? args.pattern : null;
   if (typeof selector === 'string') return `${path || '.'} :: ${JSON.stringify(selector)}`.slice(0, 512);
   return path ? `${candidate === 'path' ? '' : `${candidate}=`}${path}`.slice(0, 512) : null;
+}
+
+function agentInvocation(args, route) {
+  const type = typeof args.type === 'string' ? args.type : 'general';
+  const task = typeof args.task === 'string'
+    ? redactText(args.task).replace(/\s+/gu, ' ').trim().slice(0, 180)
+    : 'delegated task';
+  const model = route?.model ? ` · ${route.model}` : '';
+  const inherited = route?.inherited ? ' · inherits Primary' : '';
+  return `${type}${model}${inherited}: ${task}`.slice(0, 512);
+}
+
+function presentedAgentRoute(engine, args) {
+  try {
+    const route = engine.router?.resolve('subagent');
+    if (!route) return null;
+    return Object.freeze({
+      provider_profile: route.profile?.id ?? null,
+      model: route.model ?? null,
+      inherited: engine.config?.routes?.subagent?.assigned === false,
+      agent_type: typeof args?.type === 'string' ? args.type : 'general',
+    });
+  } catch {
+    return null;
+  }
 }
 
 function shellInvocation(args) {
