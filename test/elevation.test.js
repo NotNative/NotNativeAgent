@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { elevationInvocation } from '../src/elevation-broker.js';
+import { elevationInvocation, elevationNotice } from '../src/elevation-broker.js';
+import { assertNonInteractiveElevation } from '../src/elevation-tool.js';
 import { InteractivePermissionBroker } from '../src/permission-broker.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/reviewer-ledger.js';
@@ -39,6 +40,18 @@ test('system.elevate is an interactive root capability with exact resolved argv'
   assert.equal(hosted.definition('system.elevate'), undefined);
 });
 
+test('system.elevate rejects shell launchers that would open an interactive prompt', () => {
+  assert.throws(() => assertNonInteractiveElevation('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', []), {
+    code: 'elevation_interactive_shell_forbidden',
+  });
+  assert.throws(() => assertNonInteractiveElevation('/bin/sh', ['-l']), {
+    code: 'elevation_interactive_shell_forbidden',
+  });
+  assert.doesNotThrow(() => assertNonInteractiveElevation('powershell.exe', ['-NoProfile', '-Command', 'Write-Output ok']));
+  assert.doesNotThrow(() => assertNonInteractiveElevation('/bin/sh', ['-c', 'id']));
+  assert.doesNotThrow(() => assertNonInteractiveElevation('/usr/bin/id', []));
+});
+
 test('Windows, Linux, and macOS elevation adapters use native UAC or sudo without a shell', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'nna-elevation-platform-'));
   const broker = { nodePath: '/runtime/node', helperPath: '/runtime/elevation helper.js' };
@@ -58,8 +71,19 @@ test('Windows, Linux, and macOS elevation adapters use native UAC or sudo withou
   const script = await readFile(windows.args.at(-1), 'utf8');
   assert.match(script, /Start-Process/u);
   assert.match(script, /-Verb RunAs/u);
+  assert.match(script, /-WindowStyle Hidden/u);
   assert.match(script, /elevation-helper\.js/u);
   await assert.rejects(elevationInvocation('aix', broker, directory, 'sealed-envelope'), { code: 'elevation_platform_unsupported' });
+});
+
+test('elevation notice shows the exact argv, working directory, and expected effect', () => {
+  const notice = elevationNotice({ args: {
+    executable: 'C:\\Windows\\powershell.exe', args: ['-Command', 'Write-Output ok'],
+    cwd: 'C:\\work', expected_effect: 'Print ok',
+  } });
+  assert.match(notice, /"-Command" "Write-Output ok"/u);
+  assert.match(notice, /Working directory: C:\\work/u);
+  assert.match(notice, /Expected effect: Print ok/u);
 });
 
 test('reviewed elevation still requires a fresh local one-shot decision', async () => {
@@ -102,6 +126,7 @@ test('sealed helper consumes one immutable request and returns bounded exact-pro
   const directory = await mkdtemp(join(tmpdir(), 'nna-elevation-helper-'));
   const requestPath = join(directory, 'request.json');
   const resultPath = join(directory, 'result.json');
+  const cancelPath = join(directory, 'cancel.requested');
   const now = Date.now();
   const record = {
     version: '1.0', request_id: 'helper-1', issued_at: now, expires_at: now + 60_000,
@@ -111,7 +136,7 @@ test('sealed helper consumes one immutable request and returns bounded exact-pro
   const bytes = `${JSON.stringify(record)}\n`;
   await writeFile(requestPath, bytes, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
   const envelope = Buffer.from(JSON.stringify({
-    requestPath, resultPath, digest: createHash('sha256').update(bytes).digest('hex'),
+    requestPath, resultPath, cancelPath, digest: createHash('sha256').update(bytes).digest('hex'),
   }), 'utf8').toString('base64url');
   const helperPath = fileURLToPath(new URL('../src/elevation-helper.js', import.meta.url));
   const status = await runHelper(process.execPath, [helperPath, '--envelope', envelope]);
@@ -122,6 +147,32 @@ test('sealed helper consumes one immutable request and returns bounded exact-pro
   assert.match(result.stdout, /^v\d+/u);
   await assert.rejects(readFile(requestPath), { code: 'ENOENT' });
   assert.equal(JSON.parse(await readFile(`${requestPath}.consumed`, 'utf8')).request_id, 'helper-1');
+});
+
+test('sealed helper observes cancellation and terminates the elevated process tree', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'nna-elevation-cancel-'));
+  const requestPath = join(directory, 'request.json');
+  const resultPath = join(directory, 'result.json');
+  const cancelPath = join(directory, 'cancel.requested');
+  const now = Date.now();
+  const record = {
+    version: '1.0', request_id: 'helper-cancel', issued_at: now, expires_at: now + 60_000,
+    executable: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'], cwd: directory,
+    timeout_ms: 5_000, expected_effect: 'Remain active until cancelled by the parent runtime',
+  };
+  const bytes = `${JSON.stringify(record)}\n`;
+  await writeFile(requestPath, bytes, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+  const envelope = Buffer.from(JSON.stringify({
+    requestPath, resultPath, cancelPath, digest: createHash('sha256').update(bytes).digest('hex'),
+  }), 'utf8').toString('base64url');
+  const helperPath = fileURLToPath(new URL('../src/elevation-helper.js', import.meta.url));
+  const pending = runHelper(process.execPath, [helperPath, '--envelope', envelope]);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await writeFile(cancelPath, 'cancel\n', { encoding: 'utf8', flag: 'wx' });
+  assert.equal(await pending, 0);
+  const result = JSON.parse(await readFile(resultPath, 'utf8'));
+  assert.equal(result.status, 'failed');
+  assert.equal(result.reason_code, 'elevated_process_cancelled');
 });
 
 function runHelper(executable, args) {

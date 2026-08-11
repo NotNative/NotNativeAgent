@@ -44,18 +44,23 @@ export class ElevationBroker {
     await chmod(directory, 0o700).catch(() => undefined);
     const requestPath = join(directory, 'request.json');
     const resultPath = join(directory, 'result.json');
+    const cancelPath = join(directory, 'cancel.requested');
     const record = elevationRecord(request, this.now());
     const bytes = `${JSON.stringify(record)}\n`;
     await writeFile(requestPath, bytes, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
     const digest = createHash('sha256').update(bytes).digest('hex');
-    return { directory, requestPath, resultPath, digest };
+    return { directory, requestPath, resultPath, cancelPath, digest };
   }
 
   async #launch(operation, signal) {
     const envelope = Buffer.from(JSON.stringify({
-      requestPath: operation.requestPath, resultPath: operation.resultPath, digest: operation.digest,
+      requestPath: operation.requestPath, resultPath: operation.resultPath,
+      cancelPath: operation.cancelPath, digest: operation.digest,
     }), 'utf8').toString('base64url');
     const invocation = await elevationInvocation(this.platform, this, operation.directory, envelope);
+    invocation.cancel = () => writeFile(operation.cancelPath, 'cancel\n', {
+      encoding: 'utf8', mode: 0o600, flag: 'wx',
+    }).catch(() => undefined);
     return waitForLauncher(this.spawnProcess, invocation, signal);
   }
 }
@@ -75,8 +80,14 @@ function elevationRecord(request, now) {
   });
 }
 
-function elevationNotice(request) {
-  return `Elevating one reviewed command: ${request.args.executable}\nAuthenticate only if this matches the operation you approved.`;
+export function elevationNotice(request) {
+  const command = [request.args.executable, ...request.args.args].map((item) => JSON.stringify(item)).join(' ');
+  return [
+    `Command: ${command}`,
+    `Working directory: ${request.args.cwd}`,
+    `Expected effect: ${request.args.expected_effect}`,
+    'Authenticate only if this exactly matches the operation you approved.',
+  ].join('\n');
 }
 
 function unixInvocation(broker, envelope) {
@@ -104,7 +115,7 @@ function windowsLauncherScript(nodePath, helperPath, envelope) {
   return [
     '$ErrorActionPreference = \'Stop\'',
     `$arguments = ${psLiteral(argumentsList)}`,
-    `$process = Start-Process -FilePath ${psLiteral(nodePath)} -Verb RunAs -ArgumentList $arguments -Wait -PassThru`,
+    `$process = Start-Process -FilePath ${psLiteral(nodePath)} -Verb RunAs -WindowStyle Hidden -ArgumentList $arguments -Wait -PassThru`,
     'exit $process.ExitCode',
     '',
   ].join('\r\n');
@@ -121,7 +132,13 @@ function windowsCommandLineArgument(value) {
 function waitForLauncher(spawnProcess, invocation, signal) {
   return new Promise((resolve, reject) => {
     const child = spawnProcess(invocation.executable, invocation.args, invocation.options);
-    const abort = () => child.kill('SIGTERM');
+    let forceTimer = null;
+    const abort = () => {
+      Promise.resolve(invocation.cancel?.()).finally(() => {
+        forceTimer = setTimeout(() => child.kill('SIGTERM'), 5_000);
+        forceTimer.unref?.();
+      });
+    };
     signal.addEventListener('abort', abort, { once: true });
     child.once('error', (error) => finish(() => reject(new ContractError(
       'elevation_launcher_unavailable', `operating-system elevation launcher failed: ${error.code ?? 'spawn_failed'}`,
@@ -129,7 +146,10 @@ function waitForLauncher(spawnProcess, invocation, signal) {
     child.once('exit', (code, exitSignal) => finish(() => resolve({
       cancelled: code !== 0 || exitSignal !== null, exitCode: code, signal: exitSignal,
     })));
-    function finish(operation) { signal.removeEventListener('abort', abort); operation(); }
+    if (signal.aborted) abort();
+    function finish(operation) {
+      signal.removeEventListener('abort', abort); clearTimeout(forceTimer); operation();
+    }
   });
 }
 

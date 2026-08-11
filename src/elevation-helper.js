@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { chmod, readFile, rename, writeFile } from 'node:fs/promises';
-import { isAbsolute, resolve } from 'node:path';
+import { access, chmod, readFile, rename, writeFile } from 'node:fs/promises';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const MAX_OUTPUT_BYTES = 1_048_576;
@@ -15,7 +15,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
 async function main() {
   const envelope = parseEnvelope(process.argv.slice(2));
   const request = await consumeRequest(envelope);
-  const result = await execute(request);
+  const result = await execute(request, envelope.cancelPath);
   await writeFile(envelope.resultPath, `${JSON.stringify(result)}\n`, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
   await chmod(envelope.resultPath, 0o600).catch(() => undefined);
 }
@@ -23,8 +23,10 @@ async function main() {
 function parseEnvelope(argv) {
   if (argv.length !== 2 || argv[0] !== '--envelope') throw new Error('invalid_envelope');
   const value = JSON.parse(Buffer.from(argv[1], 'base64url').toString('utf8'));
-  if (!value || !isAbsolute(value.requestPath) || !isAbsolute(value.resultPath)
+  if (!value || !isAbsolute(value.requestPath) || !isAbsolute(value.resultPath) || !isAbsolute(value.cancelPath)
     || !/^[0-9a-f]{64}$/u.test(value.digest)) throw new Error('invalid_envelope');
+  const root = dirname(resolve(value.requestPath));
+  if ([value.resultPath, value.cancelPath].some((path) => dirname(resolve(path)) !== root)) throw new Error('invalid_envelope');
   return value;
 }
 
@@ -53,9 +55,9 @@ function validateRequest(value) {
   if (!exact) throw new Error('invalid_request');
 }
 
-async function execute(request) {
+async function execute(request, cancelPath) {
   try {
-    const result = await runExact(request);
+    const result = await runExact(request, cancelPath);
     return {
       status: result.exit_code === 0 ? 'succeeded' : 'failed',
       reason_code: result.exit_code === 0 ? 'elevated_process_succeeded' : 'elevated_process_nonzero',
@@ -63,33 +65,67 @@ async function execute(request) {
     };
   } catch (error) {
     return {
-      status: 'failed', reason_code: error.message === 'output_too_large' ? 'elevated_output_too_large' : 'elevated_process_failed',
+      status: 'failed', reason_code: elevationFailureCode(error),
       exit_code: null, signal: null, stdout: '', stderr: String(error.code ?? error.message ?? 'elevated_process_failed'),
     };
   }
 }
 
-function runExact(request) {
+function elevationFailureCode(error) {
+  if (error.message === 'output_too_large') return 'elevated_output_too_large';
+  if (error.message === 'timeout') return 'elevated_process_timeout';
+  if (error.message === 'cancelled') return 'elevated_process_cancelled';
+  return 'elevated_process_failed';
+}
+
+function runExact(request, cancelPath) {
   return new Promise((resolve, reject) => {
     const child = spawn(request.executable, request.args, {
-      cwd: request.cwd, shell: false, windowsHide: true, env: safeEnvironment(process.env),
+      cwd: request.cwd, shell: false, windowsHide: true, detached: process.platform !== 'win32',
+      env: safeEnvironment(process.env),
     });
     let stdout = '', stderr = '', bytes = 0, settled = false;
     const consume = (kind, chunk) => {
+      if (settled) return;
       bytes += chunk.length;
-      if (bytes > MAX_OUTPUT_BYTES) { child.kill('SIGKILL'); rejectOnce(new Error('output_too_large')); return; }
+      if (bytes > MAX_OUTPUT_BYTES) { void rejectOnce(new Error('output_too_large')); return; }
       if (kind === 'stdout') stdout += chunk.toString('utf8'); else stderr += chunk.toString('utf8');
     };
-    const rejectOnce = (error) => { if (!settled) { settled = true; clearTimeout(timer); reject(error); } };
-    const timer = setTimeout(() => { child.kill('SIGKILL'); rejectOnce(new Error('timeout')); }, request.timeout_ms);
+    const rejectOnce = async (error) => {
+      if (settled) return; settled = true; cleanup();
+      await terminateTree(child); reject(error);
+    };
+    const timer = setTimeout(() => { void rejectOnce(new Error('timeout')); }, request.timeout_ms);
+    const cancellation = setInterval(async () => {
+      try { await access(cancelPath); void rejectOnce(new Error('cancelled')); } catch { /* not cancelled */ }
+    }, 100);
+    cancellation.unref?.();
+    const cleanup = () => { clearTimeout(timer); clearInterval(cancellation); };
     child.stdout.on('data', (chunk) => consume('stdout', chunk));
     child.stderr.on('data', (chunk) => consume('stderr', chunk));
-    child.once('error', rejectOnce);
+    child.once('error', (error) => { void rejectOnce(error); });
     child.once('exit', (code, signal) => {
-      if (settled) return; settled = true; clearTimeout(timer);
+      if (settled) return; settled = true; cleanup();
       resolve({ exit_code: code, signal, stdout, stderr });
     });
   });
+}
+
+async function terminateTree(child) {
+  if (child.exitCode !== null || !child.pid) return;
+  if (process.platform === 'win32') {
+    await new Promise((resolveKill) => {
+      const killer = spawn('taskkill.exe', ['/pid', String(child.pid), '/t', '/f'], {
+        windowsHide: true, stdio: 'ignore', shell: false,
+      });
+      const timer = setTimeout(() => { killer.kill('SIGKILL'); resolveKill(); }, 2_000);
+      killer.once('error', () => { clearTimeout(timer); child.kill('SIGKILL'); resolveKill(); });
+      killer.once('exit', () => { clearTimeout(timer); resolveKill(); });
+    });
+    if (child.exitCode === null) child.kill('SIGKILL');
+    return;
+  }
+  try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); }
 }
 
 function safeEnvironment(environment) {
