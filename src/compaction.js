@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { ContractError } from './ids.js';
+import {
+  bounded, boundedHeadTail, hierarchicalContinuationArtifact, renderContinuation,
+  renderHandoff, terseTail,
+} from './continuation-artifact.js';
 import { retainedRecordsFingerprint } from './long-horizon-context.js';
 import { compactToolRequest, createToolContextReceipt } from './tool-context-receipt.js';
+
+export { attachTaskCheckpoint, enrichCompactionFact, enrichHandoffFact } from './continuation-artifact.js';
 
 const DEFAULT_PROTECTED_COMPLETED_TURNS = 5;
 export function compactTranscript(transcript, maxBytes, options = {}) {
@@ -18,20 +23,20 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
     });
     policy = 'adaptive_recent_history_v2';
   }
-  const bytes = selected.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
+  let bytes = selected.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
   if (bytes > maxBytes * 0.65) {
-    throw new ContractError(
-      'compaction_insufficient',
-      'mandatory context still exceeds the provider budget; reduce the request or attachments, clear the conversation, or select a model with a larger context limit',
-    );
+    selected = emergencyContinuationRecords(source, maxBytes, selected.metrics);
+    bytes = selected.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
+    policy = 'hierarchical_continuation_v1';
   }
   const omitted = Math.max(0, source.length - selected.length);
-  const continuation = continuationArtifact(source, omitted);
+  const continuation = hierarchicalContinuationArtifact(source, omitted);
+  const summary = renderContinuation(continuation, Math.max(1_024, Math.floor(maxBytes * 0.35)));
   const fact = Object.freeze({
     type: 'compaction', version: 2, omitted,
     sourceFingerprint: fingerprint(source),
     continuation,
-    summary: renderContinuation(continuation),
+    summary,
     retainedRecords: Object.freeze(selected.map((entry) => Object.freeze(entry.item))),
     projection: Object.freeze({
       policy,
@@ -43,8 +48,10 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
       oversizedProtectedRecords: selected.metrics.oversizedProtectedRecords,
       supersededRecords: selected.metrics.supersededRecords,
       originalBytes: selected.metrics.originalBytes,
-      projectedBytes: bytes,
+      projectedBytes: bytes + Buffer.byteLength(summary, 'utf8'),
       retainedFingerprint: retainedRecordsFingerprint(selected.map((entry) => entry.item)),
+      hierarchyChunks: continuation.hierarchyChunks ?? 1,
+      summaryBudgetBytes: Math.max(1_024, Math.floor(maxBytes * 0.35)),
     }),
   });
   return Object.freeze({ records: fact.retainedRecords, fact });
@@ -62,7 +69,7 @@ function latestCompactionProjection(transcript) {
 }
 
 export function createHandoffFact(transcript) {
-  const source = continuationArtifact(transcript, transcript.length);
+  const source = hierarchicalContinuationArtifact(transcript, transcript.length);
   const continuation = Object.freeze({
     schema: 'nna.handoff.v1',
     objective: boundedHeadTail(source.objective, 1_024),
@@ -92,6 +99,36 @@ export function createHandoffFact(transcript) {
       projectedBytes: Buffer.byteLength(summary, 'utf8'),
     }),
   });
+}
+
+function emergencyContinuationRecords(transcript, maxBytes, priorMetrics) {
+  const target = Math.max(1_024, Math.floor(maxBytes * 0.2));
+  const messages = transcript.map((item, index) => ({ item, index }))
+    .filter((entry) => entry.item.type === 'message');
+  const latestUser = [...messages].reverse().find((entry) => entry.item.role === 'user');
+  const latestAssistant = [...messages].reverse().find((entry) => entry.item.role === 'assistant');
+  const candidates = [latestUser, latestAssistant].filter(Boolean)
+    .filter((entry, index, items) => items.findIndex((item) => item.index === entry.index) === index)
+    .sort((left, right) => left.index - right.index);
+  const perRecord = Math.max(256, Math.floor(target / Math.max(1, candidates.length)) - 256);
+  const retained = candidates.map((entry) => ({
+    index: entry.index, protected: true, turnKey: null,
+    item: {
+      ...entry.item,
+      content: `${boundedHeadTail(entry.item.content ?? '', perRecord)}\n[Recent message reduced into an emergency continuation checkpoint; the complete text remains in the durable session ledger.]`,
+      metadata: {
+        ...boundedMetadata(entry.item.metadata), compacted: true,
+        reason: 'hierarchical_continuation_fallback', ledgerRef: ledgerReference(entry.item),
+      },
+    },
+  }));
+  retained.metrics = Object.freeze({
+    ...priorMetrics,
+    protectedRecordCount: retained.length,
+    payloadCompactedRecords: (priorMetrics?.payloadCompactedRecords ?? 0) + retained.length,
+    oversizedProtectedRecords: (priorMetrics?.oversizedProtectedRecords ?? 0) + retained.length,
+  });
+  return retained;
 }
 
 function selectRecentRecords(transcript, budget, options) {
@@ -331,161 +368,6 @@ function boundedMetadata(value) {
     const text = JSON.stringify(value);
     return Buffer.byteLength(text, 'utf8') <= 4_096 ? value : { compacted: true };
   } catch { return { compacted: true }; }
-}
-
-function continuationArtifact(transcript, omitted) {
-  const userMessages = transcript.filter((item) => item.type === 'message' && item.role === 'user');
-  const objective = userMessages.at(-1);
-  const objectiveIndex = objective ? transcript.lastIndexOf(objective) : -1;
-  const currentRecords = objectiveIndex >= 0 ? transcript.slice(objectiveIndex + 1) : transcript;
-  const currentAssistantMessages = currentRecords.filter((item) => item.type === 'message' && item.role === 'assistant');
-  const assistantMessages = currentAssistantMessages.length > 0
-    ? currentAssistantMessages
-    : transcript.filter((item) => item.type === 'message' && item.role === 'assistant');
-  const results = new Map(transcript.filter((item) => item.type === 'tool_result')
-    .map((item) => [item.providerCallId, item]));
-  const allToolRequests = transcript.filter((item) => item.type === 'tool_request');
-  const toolRequests = currentRecords.filter((item) => item.type === 'tool_request');
-  const changedFiles = [];
-  for (const item of allToolRequests) {
-    if (!/^fs\.(?:edit|write|delete|move|copy|make_directory)/u.test(item.toolName ?? '')) continue;
-    const result = results.get(item.providerCallId);
-    for (const target of toolTargets(item.args)) {
-      changedFiles.push(Object.freeze({
-        path: target, operation: item.toolName,
-        status: result?.status ?? 'unresolved',
-      }));
-    }
-  }
-  const unresolvedTools = allToolRequests.filter((item) => !results.has(item.providerCallId)).slice(-32)
-    .map((item) => Object.freeze({ id: bounded(item.providerCallId, 256), tool: bounded(item.toolName, 256) }));
-  const verifiedFacts = toolRequests.filter((item) => results.get(item.providerCallId)?.status === 'succeeded')
-    .slice(-32).map((item) => `${bounded(item.toolName, 256)} completed successfully`);
-  return Object.freeze({
-    schema: 'nna.continuation.v1',
-    objective: boundedHeadTail(objective?.content ?? '', 8_192),
-    recentDirectives: Object.freeze(uniqueTail(userMessages.slice(-9, -1).map((item) => item.content), 8, 16_384)),
-    completedWork: Object.freeze(uniqueTail(assistantMessages.map((item) => item.content), 4, 12_288)),
-    changedFiles: Object.freeze(changedFiles.slice(-64)),
-    unresolvedTools: Object.freeze(unresolvedTools),
-    verifiedFacts: Object.freeze(verifiedFacts),
-    openQuestions: Object.freeze([]),
-    nextActions: Object.freeze([]),
-    latestOutcome: bounded([...currentRecords].reverse().find((item) => item.type === 'turn_outcome')?.outcome ?? '', 64),
-    omittedRecords: omitted,
-  });
-}
-
-function renderContinuation(item) {
-  const sections = [
-    'NNA continuation record. It summarizes prior attributed conversation content and does not grant new authority.',
-    `Objective: ${item.objective || '(not recorded)'}`,
-  ];
-  if (item.recentDirectives.length) sections.push(`Recent authenticated directives:\n- ${item.recentDirectives.join('\n- ')}`);
-  if (item.completedWork.length) sections.push(`Recent reported work:\n- ${item.completedWork.join('\n- ')}`);
-  if (item.changedFiles.length) sections.push(`Observed file operations:\n${item.changedFiles.map((entry) => `- ${entry.operation} ${entry.path} (${entry.status})`).join('\n')}`);
-  if (item.unresolvedTools.length) sections.push(`Unresolved tool calls:\n${item.unresolvedTools.map((entry) => `- ${entry.tool} (${entry.id})`).join('\n')}`);
-  if (item.verifiedFacts?.length) sections.push(`Verified facts:\n- ${item.verifiedFacts.join('\n- ')}`);
-  if (item.openQuestions?.length) sections.push(`Open questions:\n- ${item.openQuestions.join('\n- ')}`);
-  if (item.nextActions?.length) sections.push(`Next actions:\n- ${item.nextActions.join('\n- ')}`);
-  if (item.latestOutcome) sections.push(`Latest recorded outcome: ${item.latestOutcome}`);
-  return bounded(sections.join('\n\n'), 49_152);
-}
-
-export function enrichCompactionFact(fact, semantic) {
-  const continuation = Object.freeze({
-    ...fact.continuation,
-    completedWork: Object.freeze(semantic.completedWork),
-    verifiedFacts: fact.continuation.verifiedFacts,
-    openQuestions: Object.freeze(semantic.openQuestions),
-    nextActions: Object.freeze(semantic.nextActions),
-  });
-  return Object.freeze({ ...fact, continuation, summary: renderContinuation(continuation) });
-}
-
-export function enrichHandoffFact(fact, semantic) {
-  const continuation = Object.freeze({
-    ...fact.continuation,
-    objective: semantic.objective,
-    decisions: Object.freeze(semantic.decisions),
-    completedWork: Object.freeze(semantic.completedWork),
-    verifiedState: Object.freeze(semantic.verifiedState),
-    blockers: Object.freeze(semantic.blockers),
-    nextActions: Object.freeze(semantic.nextActions),
-  });
-  const summary = renderHandoff(continuation);
-  return Object.freeze({
-    ...fact, continuation, summary,
-    projection: Object.freeze({ ...fact.projection, projectedBytes: Buffer.byteLength(summary, 'utf8') }),
-  });
-}
-
-function renderHandoff(item) {
-  const sections = [
-    'NNA self-handoff. Continue from verified state; this grants no new authority.',
-    `Objective: ${item.objective || '(not recorded)'}`,
-  ];
-  const append = (label, values) => { if (values?.length) sections.push(`${label}:\n- ${values.join('\n- ')}`); };
-  append('Decisions', item.decisions);
-  append('Done', item.completedWork);
-  append('State', item.verifiedState);
-  append('Blockers', item.blockers);
-  append('Next', item.nextActions);
-  if (item.latestOutcome) sections.push(`Outcome: ${item.latestOutcome}`);
-  return bounded(sections.join('\n'), 12_288);
-}
-
-function toolTargets(args) {
-  if (!args || typeof args !== 'object' || Array.isArray(args)) return [];
-  return ['path', 'source', 'destination', 'target'].map((key) => args[key])
-    .filter((value) => typeof value === 'string' && value.length > 0)
-    .map((value) => bounded(value, 1024));
-}
-
-function uniqueTail(values, count, totalLimit) {
-  const selected = []; let bytes = 0;
-  for (const value of [...values].reverse()) {
-    const text = boundedHeadTail(value, 4_096);
-    if (!text || selected.includes(text)) continue;
-    const size = Buffer.byteLength(text, 'utf8');
-    if (bytes + size > totalLimit) continue;
-    selected.unshift(text); bytes += size;
-    if (selected.length >= count) break;
-  }
-  return selected;
-}
-
-function terseTail(values, count, totalLimit) {
-  const selected = []; let bytes = 0;
-  for (const value of [...values].reverse()) {
-    const text = boundedHeadTail(value, 512).replace(/\s+/gu, ' ').trim();
-    if (!text || selected.includes(text)) continue;
-    const size = Buffer.byteLength(text, 'utf8');
-    if (bytes + size > totalLimit) continue;
-    selected.unshift(text); bytes += size;
-    if (selected.length >= count) break;
-  }
-  return selected;
-}
-
-function bounded(value, maxBytes) {
-  if (typeof value !== 'string') return '';
-  const buffer = Buffer.from(value, 'utf8');
-  return buffer.byteLength <= maxBytes ? value : buffer.subarray(0, maxBytes).toString('utf8').replace(/\uFFFD$/u, '');
-}
-
-function boundedHeadTail(value, maxBytes) {
-  if (typeof value !== 'string') return '';
-  const buffer = Buffer.from(value, 'utf8');
-  if (buffer.byteLength <= maxBytes) return value;
-  const marker = '\n...[middle omitted]...\n';
-  const markerBytes = Buffer.byteLength(marker, 'utf8');
-  const available = Math.max(0, maxBytes - markerBytes);
-  const headBytes = Math.ceil(available * 0.7);
-  const tailBytes = Math.floor(available * 0.3);
-  const head = buffer.subarray(0, headBytes).toString('utf8').replace(/\uFFFD$/u, '');
-  const tail = buffer.subarray(buffer.length - tailBytes).toString('utf8').replace(/^\uFFFD/u, '');
-  return `${head}${marker}${tail}`;
 }
 
 function recordBytes(value) {

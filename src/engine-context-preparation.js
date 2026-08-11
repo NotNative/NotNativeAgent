@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
-import { compactTranscript } from './compaction.js';
+import { createHash } from 'node:crypto';
+import { attachTaskCheckpoint, compactTranscript } from './compaction.js';
 import { contextBudget } from './context-budget.js';
 import { buildReportedContext } from './engine-context-status.js';
 import { addHookContexts, hookPayload } from './engine-hooks.js';
 import { ContractError } from './ids.js';
 import { pressureTier, projectActiveTurn } from './active-context-pressure.js';
 import { longHorizonCompressionTrigger } from './long-horizon-context.js';
+import { writeTaskCheckpoint } from './task-checkpoint.js';
 
 export async function prepareEngineContext(engine, records, content, active, force, operations) {
   const routes = engine.router.candidates('primary', { requiredCapabilities: ['tools'] });
@@ -70,12 +72,23 @@ async function compactContext(engine, records, content, active, operations, plan
 async function fitCompactedContext(engine, records, active, operations, plan) {
   let budget = plan.budget; let lastError = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const fact = await createCompactionFact(engine, records, active, operations, { ...plan, budget });
+    const candidate = await createCompactionCandidate(engine, records, active, { ...plan, budget });
     try {
-      const context = await buildReportedContext(
-        engine, engine.transcript, '', active.enrichment, active,
-        plan.budget, plan.hardLimit, plan.planned,
-      );
+      let fact = candidate;
+      let context = await validateCompactionCandidate(engine, fact, active, plan);
+      try {
+        const checkpointPath = await writeTaskCheckpoint(engine, fact);
+        if (checkpointPath) {
+          const checkpointFact = attachTaskCheckpoint(fact, checkpointPath);
+          context = await validateCompactionCandidate(engine, checkpointFact, active, plan);
+          fact = checkpointFact;
+        }
+      } catch (error) {
+        engine.telemetry?.record('context.task_checkpoint', 'failed', {
+          reason_code: error.code ?? 'task_checkpoint_write_failed',
+        }, { turnId: active.turnId, stepId: active.stepId });
+      }
+      await commitCompactionCandidate(engine, fact, active, operations);
       return { fact, context };
     } catch (error) {
       if (error.code !== 'context_too_large') throw error;
@@ -85,37 +98,64 @@ async function fitCompactedContext(engine, records, active, operations, plan) {
   throw lastError;
 }
 
-async function createCompactionFact(engine, records, active, operations, plan) {
+async function createCompactionCandidate(engine, records, active, plan) {
   const source = includeUnprojectedActiveRecords(records, engine.transcript, active.turnId);
   const compacted = compactTranscript(source, plan.budget, {
     activeTurnId: active.turnId, activeStepId: active.stepId,
     protectedActiveSteps: 2, requireProgress: true,
   });
-  if (active.lastCompactionSourceFingerprint === compacted.fact.sourceFingerprint) {
-    active.compactionNoProgressAttempts += 1;
-  } else {
-    active.compactionNoProgressAttempts = 0;
-  }
-  if (active.compactionNoProgressAttempts >= 2) {
+  const repeated = active.lastCompactionSourceFingerprint === compacted.fact.sourceFingerprint
+    ? active.compactionNoProgressAttempts + 1 : 0;
+  if (repeated >= 2) {
     throw new ContractError('context_compaction_stalled', 'context compaction made no observable source progress');
   }
-  active.compactionAttempts += 1;
-  active.lastCompactionSourceFingerprint = compacted.fact.sourceFingerprint;
-  active.compactionFingerprints.add(compacted.fact.sourceFingerprint);
-  const fact = await engine.continuationCompactor.refine(
+  return engine.continuationCompactor.refine(
     compacted.fact, engine.router, plan.route, plan.runtime, active.controller.signal,
   );
+}
+
+function validateCompactionCandidate(engine, fact, active, plan) {
+  return buildReportedContext(
+    engine, [...engine.transcript, fact], '', active.enrichment, active,
+    plan.budget, plan.hardLimit, plan.planned,
+  );
+}
+
+async function commitCompactionCandidate(engine, fact, active, operations) {
   await operations.persist('compaction', fact);
-  return fact;
+  active.compactionNoProgressAttempts = active.lastCompactionSourceFingerprint === fact.sourceFingerprint
+    ? active.compactionNoProgressAttempts + 1 : 0;
+  active.compactionAttempts += 1;
+  active.lastCompactionSourceFingerprint = fact.sourceFingerprint;
+  active.compactionFingerprints.add(fact.sourceFingerprint);
+  if (fact.continuation?.taskStatePath) engine.telemetry?.record('context.task_checkpoint', 'succeeded', {
+    path_attached: true,
+  }, { turnId: active.turnId, stepId: active.stepId });
 }
 
 function includeUnprojectedActiveRecords(records, transcript, turnId) {
   const source = [...records];
+  const identities = new Set(source.map(recordIdentity));
   for (const record of transcript) {
-    if ((record.turnId ?? record.turn_id) !== turnId || source.includes(record)) continue;
+    const identity = recordIdentity(record);
+    if ((record.turnId ?? record.turn_id) !== turnId || identities.has(identity)) continue;
     source.push(record);
+    identities.add(identity);
   }
   return source;
+}
+
+function recordIdentity(record) {
+  try {
+    return createHash('sha256').update(JSON.stringify({
+      type: record.type, role: record.role, turnId: record.turnId ?? record.turn_id,
+      stepId: record.stepId ?? record.step_id, providerCallId: record.providerCallId,
+      requestId: record.requestId, toolName: record.toolName, status: record.status,
+      content: record.content, args: record.args,
+    })).digest('hex');
+  } catch {
+    return `${record.type}:${record.turnId ?? record.turn_id}:${record.stepId ?? record.step_id}:${record.providerCallId ?? ''}`;
+  }
 }
 
 async function pressureProjection(engine, active, operations, measurement) {
@@ -177,6 +217,8 @@ function compactionCompletedDetail(active, fact, beforeEstimatedTokens) {
     protected_turns: fact.projection?.protectedTurnCount ?? 0,
     payload_compacted_records: fact.projection?.payloadCompactedRecords ?? 0,
     semantic_receipt_records: fact.projection?.semanticReceiptRecords ?? 0,
+    hierarchy_chunks: fact.projection?.hierarchyChunks ?? 1,
+    task_checkpoint: Boolean(fact.continuation?.taskStatePath),
   };
 }
 
@@ -191,6 +233,9 @@ function compactionProjectionDetail(active, fact) {
     superseded_records: fact.projection?.supersededRecords ?? 0,
     original_bytes: fact.projection?.originalBytes ?? null,
     projected_bytes: fact.projection?.projectedBytes ?? null,
+    summary_budget_bytes: fact.projection?.summaryBudgetBytes ?? null,
+    hierarchy_chunks: fact.projection?.hierarchyChunks ?? 1,
+    task_checkpoint: Boolean(fact.continuation?.taskStatePath),
     source_fingerprint: fact.sourceFingerprint,
   };
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { compactTranscript, createHandoffFact } from './compaction.js';
+import { attachTaskCheckpoint, compactTranscript, createHandoffFact } from './compaction.js';
 import { ContractError } from './ids.js';
+import { writeTaskCheckpoint } from './task-checkpoint.js';
 
 export async function compactEngineConversation(engine) {
   if (engine.state.state !== 'idle') throw new ContractError('compaction_busy', 'wait for the active turn before compacting');
@@ -12,7 +13,15 @@ export async function compactEngineConversation(engine) {
     const route = engine.router.resolve('primary');
     const signal = new AbortController().signal;
     const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
-    const fact = await engine.continuationCompactor.refine(compacted.fact, engine.router, route, runtime, signal);
+    let fact = await engine.continuationCompactor.refine(compacted.fact, engine.router, route, runtime, signal);
+    try {
+      const checkpointPath = await writeTaskCheckpoint(engine, fact);
+      if (checkpointPath) fact = attachTaskCheckpoint(fact, checkpointPath);
+    } catch (error) {
+      engine.telemetry?.record('context.task_checkpoint', 'failed', {
+        reason_code: error.code ?? 'task_checkpoint_write_failed', trigger: 'operator_command',
+      });
+    }
     if (engine.store) await engine.store.append('compaction_snapshot', {
       records: engine.transcript, fact,
     });
@@ -27,6 +36,9 @@ export async function compactEngineConversation(engine) {
       superseded_records: fact.projection?.supersededRecords ?? 0,
       original_bytes: fact.projection?.originalBytes ?? null,
       projected_bytes: fact.projection?.projectedBytes ?? null,
+      summary_budget_bytes: fact.projection?.summaryBudgetBytes ?? null,
+      hierarchy_chunks: fact.projection?.hierarchyChunks ?? 1,
+      task_checkpoint: Boolean(fact.continuation?.taskStatePath),
       source_fingerprint: fact.sourceFingerprint,
     });
     return Object.freeze({

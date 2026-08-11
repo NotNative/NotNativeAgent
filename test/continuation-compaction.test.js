@@ -202,6 +202,29 @@ test('recent tool output below the context-scaled protected cap remains unchange
   assert.notEqual(result.metadata?.compacted, true);
 });
 
+test('oversized protected history falls back to a bounded hierarchical continuation', () => {
+  const transcript = [message('user', 'Current objective: finish the reliable compaction repair.', 'turn-active')];
+  for (let index = 0; index < 6; index += 1) {
+    transcript.push({
+      type: 'tool_request', turnId: 'turn-active', providerCallId: `call-${index}`,
+      toolName: 'process.run', args: { executable: 'fixture', args: [String(index)] },
+    });
+    transcript.push({
+      type: 'tool_result', turnId: 'turn-active', providerCallId: `call-${index}`,
+      toolName: 'process.run', status: 'succeeded', content: `Result ${index} ${'a'.repeat(20_000)}`,
+    });
+  }
+  transcript.push(message('assistant', `Current work ${'z'.repeat(80_000)}`, 'turn-active'));
+  const compacted = compactTranscript(transcript, 65_536, { activeTurnId: 'turn-active' });
+  assert.equal(compacted.fact.projection.policy, 'hierarchical_continuation_v1');
+  assert.ok(compacted.fact.projection.hierarchyChunks > 1);
+  assert.match(compacted.fact.summary, /finish the reliable compaction repair/u);
+  assert.ok(compacted.fact.projection.projectedBytes < 65_536);
+  assert.ok(compacted.records.length <= 2);
+  const context = buildContext({ ...config, limits: { maxContextBytes: 65_536 } }, [compacted.fact], 'Continue.');
+  assert.ok(Buffer.byteLength(JSON.stringify(context), 'utf8') < 65_536);
+});
+
 test('settled tool exchanges become typed causal receipts while recent turns remain verbatim', () => {
   const transcript = [
     message('user', 'Inspect the host.', 'turn-old'),
