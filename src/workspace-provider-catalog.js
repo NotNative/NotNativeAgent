@@ -36,9 +36,7 @@ export function providerCatalogEntries(sessions, catalogConfig) {
   const entries = [];
   for (const session of sessions.values()) {
     const current = session.engine.pendingConfig ?? session.engine.config;
-    const manifest = manifestFromConfig(catalogConfig);
-    preserveAssignment(manifest.routes.primary, 'primary', current.routes.primary);
-    const synchronized = withGlobalSpecialistRoutes(resolveCatalog(manifest, current), catalogConfig);
+    const synchronized = withGlobalSpecialistRoutes(resolveCatalog(current, catalogConfig), catalogConfig);
     entries.push({ session, manifest: synchronized.manifest });
   }
   return entries;
@@ -68,21 +66,14 @@ export function assertProviderUnused(sessions, globalConfig, id) {
 }
 
 
-function resolveCatalog(manifest, current) {
+function resolveCatalog(current, catalogConfig) {
+  const manifest = manifestFromConfig(current);
+  const catalogManifest = manifestFromConfig(catalogConfig);
+  manifest.providers = [...catalogManifest.providers];
   const currentManifest = manifestFromConfig(current);
   const known = new Set(manifest.providers.map((provider) => provider.id));
   for (const provider of currentManifest.providers) {
     if (provider.id === current.routes.primary.providerId && !known.has(provider.id)) manifest.providers.push(provider);
   }
   return resolveManifest(manifest);
-}
-
-function preserveAssignment(manifestRoute, role, route) {
-  if (role === 'primary' || route.assigned !== false) {
-    manifestRoute.provider_id = route.providerId;
-    manifestRoute.model = route.model;
-    return;
-  }
-  delete manifestRoute.provider_id;
-  delete manifestRoute.model;
 }

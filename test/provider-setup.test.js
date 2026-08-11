@@ -55,6 +55,34 @@ test('provider add is a guided form with discovery and a model picker', async ()
   assert.match(projection.notice.text, /Added provider lm-studio/u);
 });
 
+test('provider model picker keeps save failures visible', async () => {
+  const config = resolveManifest({
+    provider: { id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'a', trust_zone: 'loopback' },
+  });
+  const projection = new TuiProjection();
+  projection.addSession('main', 'Main', { provider: 'one', model: 'a' }, 'primary');
+  const workspace = {
+    projection, config, onChange() {}, activeConfig: () => config,
+    async discoverProviderModels() { return { ready: true, models: ['qwen-test'] }; },
+    async addProvider() {
+      const error = new Error('another conversation has an incompatible scope');
+      error.code = 'configuration_scope_change';
+      throw error;
+    },
+  };
+
+  beginProviderManagement('add', workspace);
+  await handleProviderSetupAction({ action: 'submit' }, workspace);
+  await handleProviderSetupAction({ action: 'submit' }, workspace);
+  await handleProviderSetupAction({ action: 'submit' }, workspace);
+  await handleProviderSetupAction({ action: 'submit' }, workspace);
+  assert.equal(projection.overlay.kind, 'provider-model-select');
+
+  await handleProviderSetupAction({ action: 'submit' }, workspace);
+  assert.equal(projection.overlay.kind, 'provider-model-select');
+  assert.match(projection.overlay.lines.at(-1), /configuration_scope_change/u);
+});
+
 test('provider setup requests a credential reference only when environment authentication is selected', async () => {
   const config = resolveManifest({
     provider: { id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'a', trust_zone: 'loopback' },

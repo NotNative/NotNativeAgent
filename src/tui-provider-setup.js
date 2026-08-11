@@ -89,7 +89,15 @@ export async function handleProviderSetupAction(action, workspace) {
   } else if (overlay.kind === 'provider-model-select') {
     if (selected.id === 'manual') {
       workspace.projection.openOverlay(modelFormOverlay(overlay.formState, overlay.discoveryError));
-    } else await saveProfile({ ...overlay.formState, draft: { ...overlay.formState.draft, model: selected.id } }, workspace);
+    } else {
+      workspace.projection.openOverlay(modelSaveProgressOverlay(overlay, selected.id));
+      workspace.onChange();
+      try {
+        await saveProfile({ ...overlay.formState, draft: { ...overlay.formState.draft, model: selected.id } }, workspace);
+      } catch (error) {
+        workspace.projection.openOverlay(modelSaveErrorOverlay(overlay, error));
+      }
+    }
   } else if (overlay.kind === 'provider-delete-confirm') {
     if (selected.id === 'cancel') openProviderManager(workspace, overlay.returnParent, overlay.profileId);
     else {
@@ -333,6 +341,24 @@ function modelSelectionOverlay(formState, models) {
   ], items, {
     formState, actionLabel: 'Up/Down choose · Enter save profile',
     activeId: formState.draft.model,
+  });
+}
+
+function modelSaveProgressOverlay(overlay, model) {
+  return Object.freeze({
+    ...overlay,
+    title: `Saving provider profile · ${model}`,
+    lines: Object.freeze([...overlay.lines, '', 'Applying this provider catalog to open conversations...']),
+    items: Object.freeze([]),
+    actionLabel: 'Saving provider profile',
+  });
+}
+
+function modelSaveErrorOverlay(overlay, error) {
+  const detail = error?.code ? `${error.code}: ${error.message}` : (error?.message ?? 'unknown provider save failure');
+  return Object.freeze({
+    ...overlay,
+    lines: Object.freeze([...overlay.lines, '', `Could not save provider profile · ${detail}`]),
   });
 }
 

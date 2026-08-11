@@ -179,6 +179,28 @@ test('first saved profile replaces the auto-discovered bootstrap and becomes act
   await workspace.shutdown();
 });
 
+test('provider catalog publication preserves each open conversation immutable scope', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-provider-catalog-main-'));
+  const otherRoot = await mkdtemp(join(tmpdir(), 'nna-provider-catalog-other-'));
+  const workspace = new InteractiveWorkspace({
+    config: configuration(root), configPath: join(root, 'settings.json'),
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
+  });
+  const main = await workspace.create('Main', 'main');
+  const other = await workspace.create('Other workspace', 'other', { config: configuration(otherRoot) });
+  workspace.projection.activate(main);
+
+  await workspace.addProvider({
+    id: 'three', displayName: 'Third provider', endpoint: 'http://127.0.0.1:3/v1', model: 'third-model',
+  });
+
+  assert.equal(workspace.sessions.get(main).engine.config.workspaceRoot, root);
+  assert.equal(workspace.sessions.get(other).engine.config.workspaceRoot, otherRoot);
+  assert.ok(workspace.sessions.get(main).engine.config.providerProfiles.three);
+  assert.ok(workspace.sessions.get(other).engine.config.providerProfiles.three);
+  await workspace.shutdown();
+});
+
 test('provider discovery requests v1/models with optional authentication', async () => {
   const requests = [];
   const server = createServer((request, response) => {
