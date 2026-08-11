@@ -9,6 +9,7 @@ import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLin
 import { sessionStatusLine } from './tui-status-line.js';
 import { decorateSelection, plainTerminalLine } from './tui-selection.js';
 import { contextCompactionText } from './tui-context-renderer.js';
+import { applyConversationSpacing } from './tui-conversation-spacing.js';
 import { decoratePermissionLine, permissionControlLine, permissionLines } from './tui-permission-renderer.js';
 export class TuiRenderer {
   frame(projection, capabilities) {
@@ -88,6 +89,7 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
   const completed = new Set(records.filter((record) => record.type === 'turn_result').map((record) => record.turn_id));
   const activity = activityByTurn(records, completed);
   let lastVisibleKind = null;
+  let lastMessageKind = null;
   for (const record of records) {
     if (isActivity(record) && completed.has(record.turn_id)) continue;
     if (record.type === 'turn_result') {
@@ -110,14 +112,12 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
       continue;
     }
     const rendered = recordLines(record, width); if (rendered.length === 0) continue;
-    if (record.type === 'stream_delta' && ['activity', 'stream_delta'].includes(lastVisibleKind)) {
-      while (lines.at(-1) === '') lines.pop();
-      lines.push('');
-    }
+    applyConversationSpacing(lines, record.type, lastMessageKind, lastVisibleKind);
     const start = lines.length;
     lines.push(...rendered);
     for (let index = start; index < lines.length; index += 1) lineKinds.set(index, record.type);
     lastVisibleKind = isActivity(record) ? 'activity' : record.type;
+    if (['user_input', 'stream_delta'].includes(record.type)) lastMessageKind = record.type;
   }
   return lines;
 }

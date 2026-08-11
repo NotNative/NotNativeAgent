@@ -516,6 +516,19 @@ test('separate assistant response segments use one blank line without changing i
   assert.doesNotMatch(frame, /Second paragraph\.\n[ \t]*\n[ \t]*\n\* Next response\./u);
 });
 
+test('conversation rhythm separates user requests and model responses', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', { type: 'user_input', turn_id: 'turn-1', text: 'First request.' });
+  projection.apply('s1', { type: 'stream_delta', turn_id: 'turn-1', text: 'First response.' });
+  projection.apply('s1', { type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
+  projection.apply('s1', { type: 'user_input', turn_id: 'turn-2', text: 'Second request.' });
+  projection.apply('s1', { type: 'stream_delta', turn_id: 'turn-2', text: 'Second response.' });
+  const frame = new TuiRenderer().frame(projection, { width: 100, height: 32, color: false });
+  assert.match(frame, /> First request\.\n\n\* First response\./u);
+  assert.match(frame, /\*\n\n\n> Second request\.\n\n\* Second response\./u);
+});
+
 test('assistant transcript presentation uses copy-safe ASCII markers', () => {
   const projection = new TuiProjection();
   projection.addSession('main', 'Main', { model: 'm', provider: 'p' });
