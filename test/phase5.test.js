@@ -611,7 +611,7 @@ test('AC-TUI-01 completed activity remains visible without color, compacts, expa
   projection.apply('s1', { type: 'tool_status', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', arguments: { path: 'README.md' }, effect: 'read_only', scope: 'workspace', status: 'running', turn_id: 'turn-1' });
   const renderer = new TuiRenderer();
   let frame = renderer.frame(projection, { width: 100, height: 24, color: false });
-  assert.doesNotMatch(frame, /fs\.read_text/u);
+  assert.match(frame, /Running fs\.read_text \(README\.md\)/u);
   assert.doesNotMatch(frame, /REVIEW \| approve/u);
   projection.apply('s1', { type: 'tool_status', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', arguments: { path: 'README.md' }, effect: 'read_only', scope: 'workspace', status: 'succeeded', elapsed_ms: 4, effect_certainty: 'completed', turn_id: 'turn-1' });
   frame = renderer.frame(projection, { width: 100, height: 24, color: false });
@@ -1267,6 +1267,27 @@ test('active turns show a synthwave live activity indicator without persisting i
   assert.equal(projection.active().records.some((record) => record.type === 'live_activity'), false);
   projection.apply('s1', { type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
   assert.doesNotMatch(renderer.frame(projection, { width: 80, height: 24, color: false }), /Waiting for model/u);
+});
+
+test('active tool status identifies the currently running tool and its presentation target', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
+  projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
+  projection.apply('s1', {
+    type: 'tool_status', status: 'running', tool: 'shell.run',
+    target: 'powershell: Get-ChildItem README.md', tool_request_id: 'tool-1', turn_id: 'turn-1',
+  });
+  const frame = new TuiRenderer().frame(projection, {
+    width: 100, height: 24, color: false, unicode: false, reducedMotion: true,
+  });
+  assert.match(frame, /\* Running shell\.run \(powershell: Get-ChildItem README\.md\)/u);
+  projection.apply('s1', {
+    type: 'tool_status', status: 'succeeded', tool: 'shell.run',
+    target: 'powershell: Get-ChildItem README.md', tool_request_id: 'tool-1', turn_id: 'turn-1',
+  });
+  assert.doesNotMatch(new TuiRenderer().frame(projection, {
+    width: 100, height: 24, color: false, unicode: false, reducedMotion: true,
+  }), /Running shell\.run/u);
 });
 
 test('new conversations show a responsive splash while the tab strip contains only navigation', () => {
