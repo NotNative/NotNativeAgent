@@ -1538,6 +1538,25 @@ test('AC-TURN-06 active-turn submit becomes acknowledged steering and clears onl
   assert.equal(editor.text, '');
 });
 
+test('accepted steering is projected as user input instead of an implementation status notice', async () => {
+  const applied = [];
+  const workspace = {
+    _active() {
+      return {
+        id: 'session-1',
+        ingress: { async submit() { return { accepted: true }; } },
+      };
+    },
+    projection: { apply(sessionId, event) { applied.push({ sessionId, event }); } },
+    onChange() {},
+  };
+  await InteractiveWorkspace.prototype.steerActive.call(workspace, 'Continue with the safer approach.');
+  assert.deepEqual(applied, [{
+    sessionId: 'session-1',
+    event: { type: 'user_input', text: 'Continue with the safer approach.', steering: true },
+  }]);
+});
+
 test('backslash followed by Enter inserts a newline without submitting', async () => {
   const editor = new EditorBuffer();
   editor.insert('first line\\');

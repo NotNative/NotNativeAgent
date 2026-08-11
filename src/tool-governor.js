@@ -84,7 +84,7 @@ export class ToolGovernor {
       const raw = await executeBounded(definition, request, signal, { reviewerDecisionId: decision.id });
       const status = raw.status === 'failed' ? 'failed' : 'succeeded';
       return normalizeResult(request, status, raw.content, raw.metadata, started, definition.maxOutputBytes,
-        status === 'failed' ? raw.reasonCode ?? 'tool_reported_failure' : null);
+        status === 'failed' ? normalizeReasonCode(raw.reasonCode, 'tool_reported_failure') : null);
     } catch (error) {
       return normalizeFailure(request, definition, error, started);
     }
@@ -165,7 +165,7 @@ export function invalidResult(call, error) {
     tool_name: call.name ?? null, status: 'invalid_request',
     content: error instanceof ContractError ? error.message : 'invalid tool request',
     truncated: false, elapsed_ms: 0, effect_certainty: 'none',
-    untrusted: true, reason_code: error.code ?? 'tool_invalid',
+    untrusted: true, reason_code: normalizeReasonCode(error?.code, 'tool_invalid'),
   });
 }
 
@@ -175,7 +175,7 @@ export function blockedResult(request, error) {
     tool_name: request.toolName, status: 'failed',
     content: error instanceof ContractError ? error.message : 'execution-boundary revalidation failed',
     truncated: false, elapsed_ms: 0, effect_certainty: 'none',
-    untrusted: true, reason_code: error.code ?? 'tool_revalidation_failed',
+    untrusted: true, reason_code: normalizeReasonCode(error?.code, 'tool_revalidation_failed'),
     ledger_started: false,
   });
 }
@@ -238,8 +238,17 @@ function normalizeFailure(request, definition, error, started) {
     content: error instanceof ContractError ? error.message : 'tool execution failed',
     truncated: false, elapsed_ms: Math.max(0, performance.now() - started),
     effect_certainty: effectCertainty(definition, error),
-    untrusted: true, reason_code: error.code ?? 'executor_failure', ledger_started: true,
+    untrusted: true, reason_code: normalizeReasonCode(error?.code, 'executor_failure'), ledger_started: true,
   });
+}
+
+function normalizeReasonCode(value, fallback) {
+  if (typeof value === 'string') {
+    const normalized = value.trim().replace(/[^A-Za-z0-9_.:@/-]+/gu, '_').slice(0, 160);
+    if (/^[A-Za-z0-9]/u.test(normalized)) return normalized;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return `${fallback}_code_${Math.trunc(value)}`;
+  return fallback;
 }
 
 function effectCertainty(definition, error) {

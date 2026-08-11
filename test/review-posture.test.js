@@ -77,3 +77,22 @@ test('governor preserves a completed verification failure and its reason code', 
   assert.equal(result.effect_certainty, 'completed');
   assert.deepEqual(result.metadata, { passed: false });
 });
+
+test('governor converts numeric executor error codes into governance-safe reason identifiers', async () => {
+  const events = new EventHub();
+  const definition = {
+    name: 'web.fetch', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'read_only',
+    async executor() {
+      throw Object.assign(new Error('proxy connection failed'), { code: 23 });
+    },
+  };
+  const governor = new ToolGovernor({
+    events,
+    reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
+    registry: { definition: () => definition },
+  });
+  const request = { id: 'fetch-1', providerCallId: 'provider-1', toolName: 'web.fetch', definitionVersion: 1 };
+  const result = await governor.executePrepared(request, { id: 'decision-1' }, new AbortController().signal);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.reason_code, 'executor_failure_code_23');
+});

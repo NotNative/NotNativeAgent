@@ -160,7 +160,7 @@ export class InteractiveWorkspace {
       version: '1.0', type: 'steer', request_id: newId('tui'), content,
     }, 'authenticated-interactive-operator').then((result) => {
       if (result.accepted) this.projection.apply(session.id, {
-        type: 'local_status', kind: 'steering', text: 'Guidance queued for the active turn.',
+        type: 'user_input', text: content, steering: true,
       });
       this.onChange();
       return result;
