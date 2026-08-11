@@ -468,6 +468,26 @@ test('wrapped transcript lines retain semantic hanging indentation', () => {
   assert.equal(list.slice(1).every((line) => line.startsWith('    ')), true);
 });
 
+test('wrapped user input retains one visual message band without repeated copy markers', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', {
+    type: 'user_input',
+    text: 'A deliberately long user request that must wrap across several physical terminal rows while remaining one visually coherent submission.',
+  });
+  const plain = new TuiRenderer().frame(projection, { width: 42, height: 30, color: false });
+  const frameLines = plain.split('\n');
+  const messageStart = frameLines.findIndex((line) => line.startsWith('> A deliberately'));
+  const message = frameLines.slice(messageStart, frameLines.findIndex((line, index) => index > messageStart && /^─+$/u.test(line)));
+  assert.equal(message.length >= 3, true);
+  assert.equal(message[0].startsWith('> '), true);
+  assert.equal(message.slice(1).every((line) => line.startsWith('  ') && !line.startsWith('> ')), true);
+  assert.equal(plain.trimEnd().split('\n').every((line) => displayWidth(line) <= 41), true);
+
+  const colored = new TuiRenderer().frame(projection, { width: 42, height: 30, color: true });
+  assert.equal((colored.match(/\u001b\[38;5;255;48;5;236m/gu) ?? []).length, message.length);
+});
+
 test('renderer reserves the terminal auto-wrap cell and retains tool indentation', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });

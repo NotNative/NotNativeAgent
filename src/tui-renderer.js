@@ -24,7 +24,8 @@ export class TuiRenderer {
     const footer = footerLines(projection, session, width, capabilities);
     const room = Math.max(1, height - header.length - footer.length);
     const targets = new Map();
-    const available = contentLines(projection, session, width, targets);
+    const lineKinds = new Map();
+    const available = contentLines(projection, session, width, targets, lineKinds);
     restoreHistoryAnchor(session, available.length);
     if (!session.pendingPermission && !projection.help && !projection.overlay) session.viewportLineCount = available.length;
     const permissionStart = Math.min(session.permissionOffset, Math.max(0, available.length - room));
@@ -49,6 +50,7 @@ export class TuiRenderer {
       ...header.map((line, index) => decorateHeader(line, index, color)),
       ...content.map((line, index) => decorateContent(
         line, width, color, index, session.pendingPermission ? 'permission' : projection.overlay?.kind,
+        lineKinds.get(contentStart + index),
       )),
       ...footer.map((line, index) => decorateFooter(line, index, footer.length, color, capabilities.animationFrame)),
     ];
@@ -77,7 +79,7 @@ function headerLines(projection, session, width) {
   ];
 }
 
-function contentLines(projection, session, width, targets = new Map()) {
+function contentLines(projection, session, width, targets = new Map(), lineKinds = new Map()) {
   if (session.pendingPermission) return permissionLines(session.pendingPermission, width, projection.bindings);
   if (projection.overlay) return overlayLines(projection.overlay, width, targets);
   if (projection.help) return helpLines(width, projection.bindings, session);
@@ -112,7 +114,10 @@ function contentLines(projection, session, width, targets = new Map()) {
       while (lines.at(-1) === '') lines.pop();
       lines.push('');
     }
-    lines.push(...rendered); lastVisibleKind = isActivity(record) ? 'activity' : record.type;
+    const start = lines.length;
+    lines.push(...rendered);
+    for (let index = start; index < lines.length; index += 1) lineKinds.set(index, record.type);
+    lastVisibleKind = isActivity(record) ? 'activity' : record.type;
   }
   return lines;
 }
@@ -417,13 +422,17 @@ function decorateHeader(line, index, color) {
   });
   return result;
 }
-function decorateContent(line, width, color, index, overlayKind) {
+function decorateContent(line, width, color, index, overlayKind, lineKind) {
   if (!color) return line;
   if (/^[╭╰]/u.test(line)) return paint('38;5;93', line);
   if (line.startsWith('│') && line.endsWith('│')) return decorateBanner(line, index);
   if (overlayKind === 'permission') return decoratePermissionLine(line);
   if (overlayKind) return decorateOverlay(line, width, overlayKind);
-  if (line.startsWith('> ')) return paint('38;5;255;48;5;236', padCells(line, width));
+  // Record identity, rather than the visible prefix, owns presentation. Wrapped
+  // user messages only carry `> ` on their first physical row; retaining the
+  // record kind keeps every continuation row inside the same message band while
+  // leaving copied transcript text free of renderer-only markers.
+  if (lineKind === 'user_input') return paint('38;5;255;48;5;236', padCells(line, width));
   if (line.startsWith('* ')) return `${paint('1;38;5;213', '*')} ${line.slice(2)}`;
   if (/^\s*(?:STATE|REVIEW|DEPENDENCY|ATTACHMENT|\.\.\. WAITING FOR PROVIDER)\b/u.test(line)) {
     return paint('38;5;245', line);
