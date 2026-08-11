@@ -52,7 +52,14 @@ export function wrapTerminalLine(value, width, prefix = '', continuationPrefix =
 export function wrapIndentedTerminalLine(value, width) {
   const clean = sanitizeTerminal(value).replaceAll('\t', '  ');
   const indentation = /^\s*/u.exec(clean)?.[0] ?? '';
-  return wrapTerminalLine(clean.slice(indentation.length), width, indentation, indentation);
+  const content = clean.slice(indentation.length);
+  // Activity rows use a status glyph followed by the tool presentation. Keep
+  // wrapped command text beneath that presentation instead of letting it fall
+  // back to the row's outer indent. Long shell commands are common and the
+  // weaker indentation made their continuation lines look like transcript text.
+  const activityMarker = /^(?:\u2713|X|\+)\s+/u.exec(content)?.[0] ?? '';
+  const continuation = `${indentation}${' '.repeat(displayWidth(activityMarker))}`;
+  return wrapTerminalLine(content, width, indentation, continuation);
 }
 
 export function displayWidth(value) {

@@ -456,7 +456,8 @@ test('assistant markdown preserves structure without exposing formatting markers
 test('wrapped transcript lines retain semantic hanging indentation', () => {
   const activity = wrapIndentedTerminalLine(`    \u2713 shell.run (${`command-${'x'.repeat(80)}`}) | succeeded`, 48);
   assert.equal(activity.length > 1, true);
-  assert.equal(activity.every((line) => line.startsWith('    ')), true);
+  assert.equal(activity[0].startsWith('    \u2713 shell.run'), true);
+  assert.equal(activity.slice(1).every((line) => line.startsWith('      ') && !line.startsWith('       ')), true);
   assert.equal(activity.some((line) => line.startsWith('command-')), false);
 
   const prose = renderMarkdown('A deliberately long assistant sentence that must wrap without changing its response-level indentation.', 44, '* ', '  ');
@@ -501,7 +502,23 @@ test('renderer reserves the terminal auto-wrap cell and retains tool indentation
   assert.equal(lines.every((line) => displayWidth(line) <= 47), true);
   const toolLines = lines.filter((line) => /shell\.run|ssh command|semantic_review|Reviewer guidance/u.test(line));
   assert.equal(toolLines.length > 1, true);
-  assert.equal(toolLines.every((line) => line.startsWith('    ')), true);
+  assert.equal(toolLines[0].startsWith('    X shell.run'), true);
+  assert.equal(toolLines.slice(1).every((line) => line.startsWith('      ')), true);
+});
+
+test('long shell tool targets wrap with a stable hanging indent', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', {
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell.run', status: 'succeeded',
+    target: 'powershell: ssh operator@fixture-host "sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target; echo System sleep targets masked; sudo nmcli network connectivity check" 2>&1',
+  });
+  const frame = new TuiRenderer().frame(projection, { width: 96, height: 30, color: false });
+  const toolLines = frame.split('\n').filter((line) => /shell\.run|systemctl|sleep\.target|connectivity check|succeeded/u.test(line));
+  assert.equal(toolLines.length > 1, true);
+  assert.equal(toolLines[0].startsWith('    \u2713 shell.run'), true);
+  assert.equal(toolLines.slice(1).every((line) => line.startsWith('      ')), true);
+  assert.equal(toolLines.every((line) => displayWidth(line) <= 95), true);
 });
 
 test('separate assistant response segments use one blank line without changing internal paragraphs', () => {
