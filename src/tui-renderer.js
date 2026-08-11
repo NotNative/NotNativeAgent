@@ -14,7 +14,11 @@ export class TuiRenderer {
   frame(projection, capabilities) {
     const session = projection.active();
     if (!session) return `NotNativeAgent ${VERSION}\n[IDLE] No conversation\n`;
-    const width = Math.max(24, capabilities.width);
+    // Leave the terminal's final cell unused. Several terminals enter a pending
+    // auto-wrap state when the last physical column is painted, which causes the
+    // terminal (rather than NNA) to wrap the next text at column zero and lose
+    // our semantic hanging indentation.
+    const width = Math.max(23, capabilities.width - 1);
     const height = Math.max(8, capabilities.height);
     const header = headerLines(projection, session, width);
     const footer = footerLines(projection, session, width, capabilities);

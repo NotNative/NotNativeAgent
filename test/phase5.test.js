@@ -468,6 +468,22 @@ test('wrapped transcript lines retain semantic hanging indentation', () => {
   assert.equal(list.slice(1).every((line) => line.startsWith('    ')), true);
 });
 
+test('renderer reserves the terminal auto-wrap cell and retains tool indentation', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', {
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1',
+    tool: 'shell.run', target: `powershell: ${'ssh command '.repeat(12)}`, status: 'denied_with_guidance',
+    reason_code: 'semantic_review_unavailable', failure_reason: 'Reviewer guidance that must also wrap safely.',
+  });
+  const frame = new TuiRenderer().frame(projection, { width: 48, height: 24, color: false });
+  const lines = frame.trimEnd().split('\n');
+  assert.equal(lines.every((line) => displayWidth(line) <= 47), true);
+  const toolLines = lines.filter((line) => /shell\.run|ssh command|semantic_review|Reviewer guidance/u.test(line));
+  assert.equal(toolLines.length > 1, true);
+  assert.equal(toolLines.every((line) => line.startsWith('    ')), true);
+});
+
 test('separate assistant response segments use one blank line without changing internal paragraphs', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
