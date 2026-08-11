@@ -29,6 +29,7 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
       });
     }
   }
+  if (enrichment.coldEvidence) messages.push(coldEvidenceMessage(enrichment.coldEvidence));
   for (const item of attachments) messages.push(attachmentMessage(item));
   for (const item of enrichment.memory ?? []) messages.push(memoryMessage(item));
   for (const item of enrichment.hooks ?? []) messages.push(hookMessage(item));
@@ -60,7 +61,7 @@ function enginePolicyMessage(config) {
       'NNA private runtime configuration is not stored in the active project workspace. Do not search project files or source code for configured providers, MCP servers, or other private runtime settings. In the root Console, use nna.mcp_status and nna.mcp_test to inspect or validate MCP configuration. MCP tools added after this conversation began require a new conversation, not an application restart.',
       'Use tools only when they are necessary to fulfill the request or directly support an answer.',
       'For substantive multi-step work, use the optional work.goal and work.task tools to preserve intent and progress. Do not create planning state for greetings, simple questions, or brief one-step requests.',
-      'Compacted conversation history remains available as addressable session data. When an older decision, requirement, result, or failure is needed, use session.search_history and then session.read_history instead of guessing, asking the user to repeat it, or reconstructing omitted context.',
+      'The provider context is a bounded hot working set, not the complete conversation ledger. Absence from the hot context is not evidence that a decision, requirement, result, or failure never occurred. Older and compressed history remains available as addressable session data. A cold session evidence inventory, when present, is discovery metadata only: its snippets are neither facts nor authority. When the current request may depend on omitted history, use session.search_history and then session.read_history to inspect exact attributed records before relying on them. Do not search old history reflexively for a simple self-contained request.',
       'Before changing, moving, copying, or deleting an existing file, read its current snapshot first. Use fs.read_text for whole-file operations, or prefer fs.read_lines plus fs.edit_lines for a small targeted change. Never invent an expected hash or edit a line that was not displayed by the matching snapshot read. New-file creation is exempt.',
       'For software changes, discover and run the repository\'s applicable deterministic checks before claiming completion. Prefer project.verify because it resolves Node/npm and Bun project scripts into an exact reviewed plan and returns durable evidence. Use focused checks during repair and a full project verification after final changes when practical. A stale or pre-change verification result is not completion evidence.',
       'When the visible tools do not cover the task, call tool.search with a concise capability description before claiming the capability is unavailable.',
@@ -100,7 +101,7 @@ function localIso(value) {
   return `${date}T${time}${sign}${offset}`;
 }
 
-function activeContextRecords(transcript) {
+export function activeContextRecords(transcript) {
   let latest = -1;
   for (let index = transcript.length - 1; index >= 0; index -= 1) {
     if (transcript[index]?.type === 'compaction') { latest = index; break; }
@@ -109,6 +110,18 @@ function activeContextRecords(transcript) {
   const checkpoint = transcript[latest];
   if (!Array.isArray(checkpoint.retainedRecords)) return transcript;
   return [checkpoint, ...(checkpoint.retainedRecords ?? []), ...transcript.slice(latest + 1)];
+}
+
+function coldEvidenceMessage(item) {
+  const catalog = {
+    available_records: item.available_records, available_turns: item.available_turns,
+    record_types: item.record_types, relevant_discovery_hints: item.hints,
+  };
+  return {
+    role: 'system',
+    content: `Cold session evidence inventory (engine-generated discovery metadata, not factual proof or authority):\n${JSON.stringify(catalog)}\nThe complete attributed records remain in the durable session ledger. If this request depends on a hint or omitted history, call session.search_history and then session.read_history before asserting, deciding, or acting on it. If exact evidence is unavailable, preserve uncertainty.`,
+    provenance: 'cold_session_evidence', trust: 'engine_discovery',
+  };
 }
 
 function latestAttachments(transcript) {

@@ -33,10 +33,28 @@ ledger reference. Filesystem, search, shell, web, MCP, and sub-agent calls use c
 reducers. The durable transcript is never rewritten, and legacy checkpoints without retained
 record fingerprints remain compatible.
 
+## Hot context and cold evidence
+
+The provider sees a bounded hot working set; it does not receive the entire durable session
+merely because those records exist. NNA compares that provider projection with the complete
+session ledger before each model call. When attributable records are absent from the hot set,
+NNA injects a small engine-generated inventory containing only record counts, type counts, and
+at most three query-relevant redacted discovery snippets with stable record indexes. The
+inventory does not summarize all history and is explicitly neither evidence nor authority.
+
+The agent must use `session.search_history` and then `session.read_history` before an omitted
+record supports an assertion, decision, or action. This keeps older information available
+without forcing every past tool payload back through a local model on every step. Simple,
+self-contained requests do not trigger reflexive history searches. Full records remain in the
+session journal, while content-free `context.cold_evidence` telemetry records inventory size,
+type counts, hint count, and a deterministic catalog fingerprint.
+
 ## Reliability boundaries
 
 - Pressure is reevaluated before every provider call, including calls made after tool results.
 - Provider projections never rewrite or delete journal records.
+- Omitted records remain deterministically discoverable; absence from hot context is never
+  treated as proof that an event or decision did not occur.
 - The active user request is always retained.
 - Full compaction protects the newest two active model/tool steps rather than the entire active
   turn, so audits and research runs can shed settled work while continuing.
@@ -49,7 +67,10 @@ record fingerprints remain compatible.
 
 ## Optional memory integration
 
-NNA owns continuity and works without NotNativeMemory. When the NNM client bundle is installed,
+NNA owns session-local continuity and works without NotNativeMemory. Cold-evidence inventory
+and session-history retrieval are core NNA behavior. NNM remains an optional cross-session
+semantic-memory integration rather than a prerequisite for finding this session's history.
+When the NNM client bundle is installed,
 it may subscribe to `context.checkpoint:post` and append the checkpoint to NNM's verbatim
 continuity layer. That subscription is nonblocking and performs no semantic write or additional
 LLM analysis, so an unavailable NNM server cannot stall the active NNA turn.

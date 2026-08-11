@@ -195,6 +195,10 @@ Compacted history remains queryable without returning it wholesale to the provid
 These tools are read-only, conversation-local, and always visible in a standalone Console.
 They do not search other sessions, bypass `/clear`, or widen a hosted manifest. A hosted
 session receives them only when its authenticated tool grant names them explicitly.
+When provider pressure or durable compaction removes records from the hot working set, NNA may
+inject a bounded cold-evidence inventory with stable record indexes and up to three relevant
+discovery hints. Those hints are not factual evidence. The agent reads the exact attributed
+record through these tools before relying on it.
 
 The guidance tools read only documentation shipped with the running NNA version. The turn
 diagnostic reads only bounded, content-redacted lifecycle fields from NNA's own journal.

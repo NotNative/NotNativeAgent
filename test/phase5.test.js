@@ -563,6 +563,10 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /skills and skill authoring/u);
   assert.match(policy, /consult the packaged skill-authoring guidance/u);
   assert.match(policy, /training data as background reference only/u);
+  assert.match(policy, /bounded hot working set/u);
+  assert.match(policy, /Absence from the hot context is not evidence/u);
+  assert.match(policy, /cold session evidence inventory/u);
+  assert.match(policy, /session\.search_history and then session\.read_history/u);
   assert.match(policy, /Verify claims about the active environment, files, code, configuration, logs, installed software, or runtime behavior/u);
   assert.match(policy, /do not present an unverified inference as fact/u);
   assert.match(policy, /Before asserting current versions, releases/u);

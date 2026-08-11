@@ -275,6 +275,13 @@ compact before it overruns the window. The full journal remains auditable, while
 receives the smaller projection. Repeated compaction is bounded by consecutive no-progress
 detection rather than a lifetime per-turn count, allowing productive long-horizon work to
 continue.
+Before each provider call, NNA also compares the hot projection with the complete durable
+session ledger. Omitted attributable records produce a bounded cold-evidence inventory with
+counts and at most three query-relevant redacted hints. This inventory is discovery metadata,
+not a replacement summary or proof. The agent retrieves exact records with
+`session.search_history` and `session.read_history` when the current task depends on them.
+This core session-local path works without a memory service; optional NNM enrichment remains
+separate cross-session context with its own grounding admission.
 A temporary `/model` override clears a stale profile-derived limit unless the selected
 model is the provider profile's declared model.
 

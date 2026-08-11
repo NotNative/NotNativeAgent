@@ -77,3 +77,9 @@ Optional long-horizon progress is maintained through `/plan` (with `/tasks` as a
 kernel-grounded independently of transcript compaction and restores with the session. The
 agent must record concrete evidence before completing a task or goal, and must not create
 planning state merely because the capability exists.
+
+Provider context is a bounded hot working set rather than the complete durable transcript.
+When records become cold through projection or compaction, NNA supplies a small discovery-only
+inventory and preserves the exact records in session history. The agent searches and reads the
+attributed record before relying on omitted history. This session-local continuity is built in;
+NotNativeMemory remains optional cross-session semantic enrichment.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { buildContext, measureContext } from './context.js';
+import { activeContextRecords, buildContext, measureContext } from './context.js';
 import { estimateContextTokens } from './context-budget.js';
+import { buildColdEvidence } from './cold-context.js';
 import { ContractError } from './ids.js';
 import { shouldInspectProject } from './project-intake.js';
 
@@ -16,10 +17,10 @@ export async function buildReportedContext(
   if (!enrichment.projectIntake && content && shouldInspectProject(content) && engine.projectIntake?.inspect) {
     enrichment.projectIntake = await engine.projectIntake.inspect();
   }
-  const resolvedEnrichment = {
+  const baseEnrichment = {
     ...enrichment, projectGuidance, skillCatalog: engine.skills?.catalog() ?? [], work: engine.work?.snapshot(),
   };
-  const rawContext = buildContext(engine.config, records, content, resolvedEnrichment, Number.MAX_SAFE_INTEGER);
+  const rawContext = buildContext(engine.config, records, content, baseEnrichment, Number.MAX_SAFE_INTEGER);
   const rawContextBytes = measureContext(rawContext);
   const rawContextTokens = estimateContextTokens(rawContext);
   const projection = options.projectContext ? await options.projectContext({
@@ -27,6 +28,10 @@ export async function buildReportedContext(
     effectiveInputTokens: budget?.effectiveInputTokens ?? null,
   }) : null;
   const contextRecords = projection?.records ?? records;
+  const providerRecords = activeContextRecords(contextRecords).slice(-512);
+  const coldEvidence = buildColdEvidence(records, providerRecords, content);
+  const resolvedEnrichment = { ...baseEnrichment, coldEvidence };
+  recordColdEvidence(engine, active, coldEvidence);
   const context = buildContext(engine.config, contextRecords, content, resolvedEnrichment, budgetBytes);
   active.contextBytes = measureContext(context);
   active.contextTokens = estimateContextTokens(context);
@@ -51,6 +56,18 @@ export async function buildReportedContext(
     });
   }
   return context;
+}
+
+function recordColdEvidence(engine, active, catalog) {
+  if (!catalog) return;
+  active.coldEvidenceFingerprints ??= new Set();
+  if (active.coldEvidenceFingerprints.has(catalog.fingerprint)) return;
+  active.coldEvidenceFingerprints.add(catalog.fingerprint);
+  engine.telemetry?.record('context.cold_evidence', 'indexed', {
+    available_records: catalog.available_records, available_turns: catalog.available_turns,
+    record_types: catalog.record_types, relevant_hints: catalog.hints.length,
+    catalog_fingerprint: catalog.fingerprint,
+  }, { turnId: active.turnId, stepId: active.stepId });
 }
 
 export function selectedContextLimit(config, routes) {
