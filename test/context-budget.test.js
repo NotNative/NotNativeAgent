@@ -49,17 +49,20 @@ test('model runtime registry caches normalized discovery and degrades safely', a
   assert.equal(fallback.source, 'declared');
 });
 
-test('context planning reserves output proportionally and never divides by parallelism', () => {
-  const config = { limits: { maxContextBytes: 2_097_152, contextCompactionThreshold: 0.85 } };
+test('context planning honors configured thresholds and never divides by parallelism', () => {
+  const config = { limits: {
+    maxContextBytes: 2_097_152, contextCompressionThreshold: 0.40, contextCompactionThreshold: 0.85,
+  } };
   const budget = contextBudget(config, [route], {
     contextWindowTokens: 131072, outputLimitTokens: 8192,
     parallelCapacity: 4, source: 'lmstudio_v1',
   });
   assert.equal(budget.effectiveInputTokens, 122880);
-  assert.equal(budget.thresholdTokens, 73728);
+  assert.equal(budget.thresholdTokens, 104448);
   assert.equal(budget.parallelCapacity, 4);
-  assert.equal(budget.thresholdBytes, 221184);
-  assert.equal(budget.compactionThreshold, 0.60);
+  assert.equal(budget.thresholdBytes, 313344);
+  assert.equal(budget.compactionThreshold, 0.85);
+  assert.equal(budget.compressionThreshold, 0.40);
   assert.ok(estimateContextTokens([{ role: 'user', content: 'hello' }]) > 0);
 });
 
@@ -68,12 +71,12 @@ test('small local-model windows retain useful proportional input budgets', () =>
   const small = contextBudget(config, [route], { contextWindowTokens: 8192, source: 'declared' });
   assert.equal(small.outputReserveTokens, 1024);
   assert.equal(small.effectiveInputTokens, 7168);
-  assert.equal(small.thresholdTokens, 4300);
+  assert.equal(small.thresholdTokens, 6092);
 
   const medium = contextBudget(config, [route], { contextWindowTokens: 32768, source: 'declared' });
   assert.equal(medium.outputReserveTokens, 4096);
   assert.equal(medium.effectiveInputTokens, 28672);
-  assert.equal(medium.thresholdTokens, 17203);
+  assert.equal(medium.thresholdTokens, 24371);
 });
 
 test('loaded parallel capacity caps a provider resource without increasing the configured ceiling', async () => {

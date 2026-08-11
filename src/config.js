@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { validateKeyBindings } from './key-bindings.js';
 import { validateNestedManifestKeys } from './configuration-shape.js';
 import { boundedInteger, boundedNumber, providerTimeouts, semanticReviewTimeout, telemetryDestination } from './config-bounds.js';
+import { resolveContextLimits } from './config-context.js';
 import { validateAllowedTools, validateHostIdentity } from './execution-policy.js';
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
 import { migrateRoutingInheritance } from './manifest-migration.js';
@@ -23,7 +24,7 @@ const KNOWN_KEYS = new Set([
   'provider_connect_timeout_ms', 'semantic_review_timeout_ms', 'approval_timeout_ms',
   'provider_concurrency', 'provider_queue_limit', 'tool_concurrency',
   'persistence_flush_timeout_ms', 'shutdown_timeout_ms',
-  'context_limit_bytes', 'context_compaction_threshold', 'attachments', 'memory', 'dream', 'mcp_servers', 'tui', 'telemetry',
+  'context_limit_bytes', 'context_compression_threshold', 'context_compaction_threshold', 'attachments', 'memory', 'dream', 'mcp_servers', 'tui', 'telemetry',
   'allowed_capabilities', 'allowed_tools', 'disconnect_policy', 'skills',
   'reviewer_ledger', 'recovery',
 ]);
@@ -49,8 +50,7 @@ export function resolveManifest(manifest = {}, options = {}) {
   const persistenceFlushMs = boundedInteger(manifest.persistence_flush_timeout_ms, 10_000, 100, 120_000);
   const shutdownMs = boundedInteger(manifest.shutdown_timeout_ms, 15_000, 100, 120_000);
   const routes = buildRoutes(manifest.routes, profile, profiles, providerMs);
-  const contextBytes = boundedInteger(manifest.context_limit_bytes, 2_097_152, 65_536, 16_777_216);
-  const contextThreshold = boundedNumber(manifest.context_compaction_threshold, 0.60, 0.5, 0.99);
+  const context = resolveContextLimits(manifest);
   const skills = validateManifestSkills(manifest.skills, options);
   const executionManifest = validateExecutionManifest(manifest, options, routes, profiles, skills);
   const attachments = validateAttachments(manifest.attachments);
@@ -76,7 +76,7 @@ export function resolveManifest(manifest = {}, options = {}) {
       providerMs, connectMs, firstTokenMs, idleMs, semanticReviewMs, approvalMs,
       providerConcurrency, providerQueueLimit, toolConcurrency, persistenceFlushMs, shutdownMs,
       maxOutputBytes: 2_097_152, maxModelSteps: recovery.maxModelSteps,
-      maxContextBytes: contextBytes, contextCompactionThreshold: contextThreshold, maxSteering: 32,
+      ...context, maxSteering: 32,
     },
     provenance: options.principal ?? 'authenticated-local-operator',
     executionManifest,

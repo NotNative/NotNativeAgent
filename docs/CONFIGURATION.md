@@ -52,7 +52,7 @@ settings remain valid.
 
 Recognized top-level fields are `format_version`, `persistence`, `provider` or `providers`, `routes`,
 `workspace_root`, `application_system_prompt`, `mission`, provider/context deadlines,
-`context_limit_bytes`, `context_compaction_threshold`,
+`context_limit_bytes`, `context_compression_threshold`, `context_compaction_threshold`,
 `provider_connect_timeout_ms`, `semantic_review_timeout_ms`, `approval_timeout_ms`,
 `provider_concurrency`, `provider_queue_limit`, `tool_concurrency`,
 `persistence_flush_timeout_ms`, `shutdown_timeout_ms`,
@@ -251,12 +251,15 @@ work, NNA queries a short-lived provider-neutral runtime snapshot. LM Studio end
   agent count. When discovery is unavailable, configured concurrency remains the conservative
   fallback and sub-agent batches execute sequentially.
 NNA reserves the route's bounded output allowance and manages prompt pressure in progressive
-stages. At 25% it replaces settled tool payloads from older active steps with bounded receipts;
-at 35% it emits a deterministic continuity checkpoint; at 45% it retains only the newest active
-step in the provider projection; and at 60% it begins full compaction. The configurable
-`context_compaction_threshold` defaults to `0.60`; a lower configured value remains an
-intentional earlier compaction trigger. These percentages are calculated from the discovered
-model context window after the bounded output reserve, not from a frontier-model constant.
+stages. By default, deterministic compression begins at 40%, refreshes its continuation
+checkpoint at 55%, applies aggressive receipt reduction at 70%, and begins full compaction at
+75%. Operators configure the two meaningful boundaries: `context_compression_threshold`
+defaults to `0.40` and `context_compaction_threshold` defaults to `0.75`; the checkpoint and
+aggressive-receipt tiers are derived between them. Compression must remain lower than full
+compaction. `/context` shows the effective percentages and token boundaries and permits both
+settings to be changed; the same Context management entry is available from `/config`.
+These percentages are calculated from the discovered model context window after the bounded
+output reserve, not from a frontier-model constant.
 When token metadata is unavailable, the validated byte ceilings remain the conservative
 fallback. Estimates and authoritative provider usage are never presented as equivalent.
 A compaction projection protects the active request, the newest two active model/tool steps,

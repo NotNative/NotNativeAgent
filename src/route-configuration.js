@@ -42,6 +42,7 @@ export function manifestFromConfig(config) {
     persistence_flush_timeout_ms: config.limits.persistenceFlushMs,
     shutdown_timeout_ms: config.limits.shutdownMs,
     context_limit_bytes: config.limits.maxContextBytes,
+    context_compression_threshold: config.limits.contextCompressionThreshold,
     context_compaction_threshold: config.limits.contextCompactionThreshold,
     attachments: {
       enabled: config.attachments.enabled, max_bytes: config.attachments.maxBytes, retain: config.attachments.retain,
@@ -155,10 +156,13 @@ export function withUpdatedProvider(config, id, input) {
   return { manifest, config: resolveManifest(manifest) };
 }
 
-export function withContextSettings(config, maxContextBytes, threshold = config.limits.contextCompactionThreshold) {
+export function withContextSettings(config, maxContextBytes,
+  compactionThreshold = config.limits.contextCompactionThreshold,
+  compressionThreshold = config.limits.contextCompressionThreshold) {
   const manifest = manifestFromConfig(config);
   manifest.context_limit_bytes = maxContextBytes;
-  manifest.context_compaction_threshold = threshold;
+  manifest.context_compression_threshold = compressionThreshold;
+  manifest.context_compaction_threshold = compactionThreshold;
   return { manifest, config: resolveManifest(manifest) };
 }
 

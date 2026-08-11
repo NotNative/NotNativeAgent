@@ -36,6 +36,8 @@ import { ExtensionRegistry } from '../src/extensions.js';
 import { DestructiveKeyGuard } from '../src/destructive-key-guard.js';
 import { handleEditorAction } from '../src/tui-editor-actions.js';
 import { toolStatus } from '../src/engine-records.js';
+import { handleCommandPickerAction } from '../src/tui-command-picker.js';
+import { contextOverlay } from '../src/tui-context.js';
 
 function config(root, persistence = 'ephemeral') {
   return resolveManifest({
@@ -1093,7 +1095,7 @@ test('configuration hub lists each focused manager without engine-policy control
   const resolved = config(process.cwd());
   const view = configOverlay({ config: resolved });
   assert.deepEqual(view.items.map((item) => item.id), [
-    'provider', 'model', 'mcp', 'secrets', 'websearch', 'webfetch', 'gateway', 'workspace-trust', 'hooks', 'extensions',
+    'provider', 'model', 'mcp', 'secrets', 'websearch', 'webfetch', 'gateway', 'context', 'workspace-trust', 'hooks', 'extensions',
   ]);
   assert.equal(overlayCommandDraft('config', 'action:recovery'), null);
   const projection = new TuiProjection();
@@ -1601,6 +1603,25 @@ test('pending permission preserves draft and command catalog uses canonical vers
   assert.equal(editor.text, 'do not lose this');
   assert.equal(notices.length, 1);
   assert.equal(commandSuggestions('/he').some((item) => item.name === '/help'), true);
+  const slashCommands = commandSuggestions('/', Number.MAX_SAFE_INTEGER);
+  assert.equal(slashCommands.length, new Set(TUI_COMMANDS.map((item) => item.name)).size);
+  assert.equal(commandSuggestions('/context c', 10).some((item) => item.usage === '/context compaction PERCENT'), true);
+  const pickerSession = { editor: new EditorBuffer(), commandSuggestionIndex: 0 };
+  pickerSession.editor.set('/context c');
+  assert.equal(handleCommandPickerAction({ action: 'history_down' }, pickerSession), true);
+  assert.equal(pickerSession.commandSuggestionIndex, 1);
+  assert.equal(handleCommandPickerAction({ action: 'complete_command' }, pickerSession), true);
+  assert.match(pickerSession.editor.text, /^\/context /u);
+  assert.deepEqual(new TerminalInputDecoder().push('\t'), [{ action: 'complete_command' }]);
+  const context = contextOverlay({
+    contextTokens: 40_000, contextLimitTokens: 100_000,
+    contextCompressionThresholdTokens: 40_000, contextThresholdTokens: 75_000,
+    contextOutputReserveTokens: 8_000, contextParallelCapacity: 1,
+    contextSource: 'provider', contextLimitBytes: 2_097_152,
+  }, { limits: { contextCompressionThreshold: 0.40, contextCompactionThreshold: 0.75 } });
+  assert.match(context.lines.join('\n'), /Compression starts: 40% \| 40,000 estimated tokens/u);
+  assert.match(context.lines.join('\n'), /Full compaction starts: 75% \| 75,000 estimated tokens/u);
+  assert.deepEqual(context.items.map((item) => item.badge), ['40%', '75%']);
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
   assert.match(new TuiRenderer().frame(projection, { width: 80, height: 24 }), new RegExp(VERSION, 'u'));

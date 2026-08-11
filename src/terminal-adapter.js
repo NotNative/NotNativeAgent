@@ -192,6 +192,7 @@ function keySequence(value, bindings) {
     [`${ESC}4`]: 'tab_4', [`${ESC}5`]: 'tab_5', [`${ESC}6`]: 'tab_6',
     [`${ESC}7`]: 'tab_7', [`${ESC}8`]: 'tab_8',
     [`${ESC}[A`]: 'history_up', [`${ESC}[B`]: 'history_down', [`${ESC}[24~`]: 'reset_keys',
+    '\t': 'complete_command',
   };
   for (const [bytes, action] of Object.entries(controls)) {
     if (value.startsWith(bytes)) return { bytes: bytes.length, action };

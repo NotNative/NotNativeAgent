@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import { measureContext } from './context.js';
-import { CONTEXT_PRESSURE } from './active-context-pressure.js';
 
 const TOKEN_BYTE_RATIO = 3;
 const OUTPUT_RESERVE_RATIO = 0.125;
@@ -17,9 +16,8 @@ export function contextBudget(config, routes, runtime, retryScale = 1) {
     ?? positiveValue(routes[0]?.maxOutputTokens) ?? 4096;
   const outputReserveTokens = windowTokens ? adaptiveOutputReserve(windowTokens, declaredOutputLimit) : null;
   const effectiveInputTokens = windowTokens ? Math.max(1, windowTokens - outputReserveTokens) : null;
-  const compactionThreshold = Math.min(
-    config.limits.contextCompactionThreshold, CONTEXT_PRESSURE.compact,
-  );
+  const compactionThreshold = config.limits.contextCompactionThreshold ?? 0.75;
+  const compressionThreshold = config.limits.contextCompressionThreshold ?? 0.40;
   const thresholdTokens = effectiveInputTokens
     ? Math.max(1, Math.floor(effectiveInputTokens * compactionThreshold)) : null;
   const scaledTokens = thresholdTokens ? Math.max(1, Math.floor(thresholdTokens * retryScale)) : null;
@@ -30,7 +28,9 @@ export function contextBudget(config, routes, runtime, retryScale = 1) {
   return Object.freeze({
     hardLimitBytes, thresholdBytes, windowTokens, outputReserveTokens,
     effectiveInputTokens, thresholdTokens, scaledTokens,
-    source: runtime?.source ?? 'configured_bytes', compactionThreshold,
+    compressionThresholdTokens: effectiveInputTokens
+      ? Math.max(1, Math.floor(effectiveInputTokens * compressionThreshold)) : null,
+    source: runtime?.source ?? 'configured_bytes', compactionThreshold, compressionThreshold,
     parallelCapacity: positiveValue(runtime?.parallelCapacity),
     estimated: true,
   });

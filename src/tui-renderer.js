@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { sanitizeTerminal } from './terminal-adapter.js';
-import { commandPresentation, commandSuggestions, commandsByCategory } from './tui-commands.js';
+import { commandPresentation, commandsByCategory } from './tui-commands.js';
+import { commandPickerLines } from './tui-command-picker.js';
 import { VERSION } from './product.js';
 import { activityDetailRows, collapsedFailureRows, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './tui-activity-renderer.js';
 import { angledWordmarkGradient, decorateOverlay } from './tui-colors.js';
@@ -20,7 +21,8 @@ export class TuiRenderer {
     const width = Math.max(23, capabilities.width - 2);
     const height = Math.max(8, capabilities.height);
     const header = headerLines(projection, session, width);
-    const footer = footerLines(projection, session, width, capabilities);
+    const suggestionCapacity = Math.max(3, height - header.length - 8);
+    const footer = footerLines(projection, session, width, capabilities, suggestionCapacity);
     const room = Math.max(1, height - header.length - footer.length);
     const targets = new Map();
     const lineKinds = new Map();
@@ -172,7 +174,7 @@ function boxBottom(width) {
   return `╰${'─'.repeat(Math.max(1, width - 2))}╯`;
 }
 
-function footerLines(projection, session, width, capabilities = {}) {
+function footerLines(projection, session, width, capabilities = {}, suggestionCapacity = 3) {
   const lines = [rule(width)];
   if (session.pendingPermission) {
     lines.push(crop(permissionControlLine(session.pendingPermission, projection.bindings), width));
@@ -187,8 +189,7 @@ function footerLines(projection, session, width, capabilities = {}) {
     return lines;
   }
   if (projection.notice && projection.notice.kind !== 'confirmation') lines.push(crop(`[${projection.notice.kind.toUpperCase()}] ${projection.notice.text}`, width));
-  const suggestions = commandSuggestions(session.editor.text, 3).map((item) => commandPresentation(item, session, projection.bindings));
-  for (const item of suggestions) lines.push(crop(`${item.usage} — ${item.available ? item.description : `unavailable: ${item.unavailableReason}`}`, width));
+  lines.push(...commandPickerLines(session, projection, suggestionCapacity).map((line) => crop(line, width)));
   const activity = liveActivityLine(session, capabilities);
   if (activity) lines.push(crop(activity, width));
   lines.push(...editorLines(session, width));

@@ -351,9 +351,14 @@ export class InteractiveWorkspace {
     const config = await this.#publishGlobalConfiguration((current) => withBooleanSetting(current, setting, value));
     return { setting, value, config };
   }
-  async configureContext(maxContextBytes, threshold) {
-    const config = await this.#publishGlobalConfiguration((current) => withContextSettings(current, maxContextBytes, threshold));
-    return { maxContextBytes, threshold: config.limits.contextCompactionThreshold };
+  async configureContext(maxContextBytes, compactionThreshold, compressionThreshold) {
+    const config = await this.#publishGlobalConfiguration((current) => withContextSettings(
+      current, maxContextBytes, compactionThreshold, compressionThreshold,
+    ));
+    return {
+      maxContextBytes, compactionThreshold: config.limits.contextCompactionThreshold,
+      compressionThreshold: config.limits.contextCompressionThreshold,
+    };
   }
   async configureRecovery(maxModelSteps, localLimit, ladder) {
     return (await this.#publishGlobalConfiguration(
@@ -478,12 +483,8 @@ export class InteractiveWorkspace {
     if (!session) throw new ContractError('session_missing', 'no active conversation');
     return session;
   }
-  #savePool() {
-    return this.tabPersistence.save();
-  }
-  _savePoolRecoverable() {
-    return this.tabPersistence.recover();
-  }
+  #savePool() { return this.tabPersistence.save(); }
+  _savePoolRecoverable() { return this.tabPersistence.recover(); }
   #own(operation) {
     const task = Promise.resolve(operation).catch((error) => {
       const active = this.projection.active();

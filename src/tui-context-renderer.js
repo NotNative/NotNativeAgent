@@ -2,7 +2,7 @@
 
 export function contextCompactionText(record) {
   if (record.status === 'started') {
-    return `  CONTEXT | compacting | ${formatTokens(record.before_estimated_tokens)} -> target ${formatTokens(record.target_tokens)}`;
+    return `  CONTEXT | compacting | current ${formatTokens(record.before_estimated_tokens)} -> target <= ${formatTokens(record.target_tokens)}`;
   }
   if (record.status === 'completed') {
     const protectedText = record.protected_turns ? ` | protected ${record.protected_turns} recent turns` : '';

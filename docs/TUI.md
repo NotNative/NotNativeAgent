@@ -89,7 +89,9 @@ Key actions:
   without collapsing the activity.
 - `Shift+Tab`: cycle Prompt, Auto-review, and Unattended review postures when the
   terminal reports the chord distinctly. Review, hard policy, and the ledger remain mandatory.
-- Arrow keys: move the cursor or navigate history.
+- Typing `/` opens the complete command catalog. Additional text filters the list; Up/Down
+  selects a match and Tab completes its literal command prefix.
+- Arrow keys move the cursor or navigate history when command completion is not active.
 - Up/Down inside multiline input move between lines. Shift+Left/Right select text where
   the terminal emits standard sequences; Shift+Up/Down extends multiline selection.
   Ctrl+Left/Right moves by word and Ctrl+Shift+Left/Right extends selection by word.
@@ -163,8 +165,10 @@ support OpenAI-compatible streaming usage are asked to include it; unavailable u
 `tokens --` rather than presenting an estimate as measured data. The context footer uses
 the loaded model's usable input window when available. A `~` marks the conservative prompt
 token estimate; values below one percent display as `context ~<1%` instead of rounding to
-zero. `/context` shows that estimate, output reservation, automatic compaction boundary,
-provider discovery source, loaded parallel capacity, and the independent hard byte ceiling.
+zero. `/context` shows that estimate, output reservation, the configurable compression and
+full-compaction boundaries, provider discovery source, loaded parallel capacity, and the
+independent hard byte ceiling. The two boundaries can be edited from that menu or the Context
+entry under `/config`.
 Terminal restoration happens before shutdown work. If an engine close fails, NNA still
 attempts every other engine close and flushes local diagnostics; the Console completion
 latch is always released and a safe stable failure code is written to the fallback stream.

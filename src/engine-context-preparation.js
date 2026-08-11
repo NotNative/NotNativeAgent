@@ -5,7 +5,7 @@ import { contextBudget } from './context-budget.js';
 import { buildReportedContext } from './engine-context-status.js';
 import { addHookContexts, hookPayload } from './engine-hooks.js';
 import { ContractError } from './ids.js';
-import { pressureTier, projectActiveTurn } from './active-context-pressure.js';
+import { contextPressurePolicy, pressureTier, projectActiveTurn } from './active-context-pressure.js';
 import { longHorizonCompressionTrigger } from './long-horizon-context.js';
 import { writeTaskCheckpoint } from './task-checkpoint.js';
 
@@ -33,10 +33,12 @@ export async function prepareEngineContext(engine, records, content, active, for
 }
 
 async function compactContext(engine, records, content, active, operations, plan) {
-  const { routes, runtime, planned, budget, hardLimit } = plan;
+  const { routes, runtime, planned, hardLimit } = plan;
   engine.state.transition('compacting_context', { trigger: 'context_preflight', turnId: active.turnId });
   const beforeEstimatedTokens = estimatedTranscriptTokens(records, content);
-  const started = compactionStartedDetail(active, planned, beforeEstimatedTokens);
+  const targetTokens = desiredCompactionTarget(planned, beforeEstimatedTokens);
+  const budget = Math.min(plan.budget, Math.max(8_192, targetTokens * 3));
+  const started = compactionStartedDetail(active, planned, beforeEstimatedTokens, targetTokens);
   await emitCompactionStatus(engine, active, 'started', started);
   recordCompactionTelemetry(engine, active, 'started', started);
   const lifecycle = engine.lifecycles.start('compaction', active.turnId);
@@ -45,7 +47,7 @@ async function compactContext(engine, records, content, active, operations, plan
   await operations.publish('compaction.started', 'compaction', 'active', active);
   try {
     const fitted = await fitCompactedContext(engine, records, active, operations, {
-      budget, hardLimit, planned, route: routes[0], runtime,
+      budget, validationBudget: plan.budget, hardLimit, planned, route: routes[0], runtime,
     });
     const { fact, context } = fitted;
     const post = await operations.publish(
@@ -117,7 +119,7 @@ async function createCompactionCandidate(engine, records, active, plan) {
 function validateCompactionCandidate(engine, fact, active, plan) {
   return buildReportedContext(
     engine, [...engine.transcript, fact], '', active.enrichment, active,
-    plan.budget, plan.hardLimit, plan.planned,
+    plan.validationBudget, plan.hardLimit, plan.planned,
   );
 }
 
@@ -159,20 +161,22 @@ function recordIdentity(record) {
 }
 
 async function pressureProjection(engine, active, operations, measurement) {
+  const ratio = measurement.effectiveInputTokens
+    ? measurement.rawContextTokens / measurement.effectiveInputTokens : null;
+  const policy = contextPressurePolicy(
+    engine.config.limits.contextCompressionThreshold,
+    engine.config.limits.contextCompactionThreshold,
+  );
   const horizon = longHorizonCompressionTrigger(measurement.records, {
     activeTurnId: active.turnId, effectiveInputTokens: measurement.effectiveInputTokens,
   });
-  if (horizon) {
-    active.contextCompressionTrigger = horizon.reason;
-    engine.telemetry?.record('context.compression', 'triggered', horizon, {
-      turnId: active.turnId, stepId: active.stepId,
-    });
-    throw new ContractError('context_too_large', `long-horizon compression required: ${horizon.reason}`);
-  }
-  const tier = pressureTier(measurement.rawContextTokens, measurement.effectiveInputTokens);
-  const ratio = measurement.effectiveInputTokens
-    ? measurement.rawContextTokens / measurement.effectiveInputTokens : null;
+  const tier = pressureTier(measurement.rawContextTokens, measurement.effectiveInputTokens, policy);
   active.contextPressureTier = tier;
+  if (horizon && tier !== 'none') {
+    engine.telemetry?.record('context.compression', tier === 'compact' ? 'escalated' : 'observed', {
+      ...horizon, tier, ratio,
+    }, { turnId: active.turnId, stepId: active.stepId });
+  }
   const projection = projectActiveTurn(measurement.records, {
     turnId: active.turnId, stepId: active.stepId, tier,
   });
@@ -197,16 +201,23 @@ async function pressureProjection(engine, active, operations, measurement) {
     source_fingerprint: projection.sourceFingerprint,
   }, { turnId: active.turnId, stepId: active.stepId });
   if (tier === 'compact') {
+    active.contextCompressionTrigger = horizon?.reason ?? null;
     throw new ContractError('context_too_large', 'context reached the automatic compaction pressure boundary');
   }
   return projection;
 }
 
-function compactionStartedDetail(active, planned, beforeEstimatedTokens) {
+function compactionStartedDetail(active, planned, beforeEstimatedTokens, targetTokens) {
   return {
     trigger: compactionTrigger(active), before_estimated_tokens: beforeEstimatedTokens,
-    target_tokens: planned.scaledTokens,
+    target_tokens: targetTokens, admissible_ceiling_tokens: planned.scaledTokens,
   };
+}
+
+function desiredCompactionTarget(planned, beforeEstimatedTokens) {
+  const proportional = Math.max(1, Math.floor(beforeEstimatedTokens * 0.75));
+  const configured = planned.compressionThresholdTokens ?? proportional;
+  return Math.max(1, Math.min(beforeEstimatedTokens - 1, proportional, configured));
 }
 
 function compactionCompletedDetail(active, fact, beforeEstimatedTokens) {
@@ -270,6 +281,7 @@ function recordBudget(engine, runtime, planned, active) {
     source: planned.source, authoritative: runtime.authoritative,
     context_window_tokens: planned.windowTokens,
     effective_input_tokens: planned.effectiveInputTokens,
+    compression_threshold_tokens: planned.compressionThresholdTokens,
     compaction_threshold_tokens: planned.thresholdTokens,
     output_reserve_tokens: planned.outputReserveTokens,
     parallel_capacity: planned.parallelCapacity,

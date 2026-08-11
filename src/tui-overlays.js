@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { contextPercentText } from './tui-context.js';
 
 const PROVIDER_ROLE_LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
@@ -144,6 +145,7 @@ export function modelOverlay(engine, models = [], options = {}) {
 
 export function configOverlay(engine, options = {}) {
   const config = engine.config ?? engine;
+  const limits = config.limits ?? {};
   const primary = config.routes.primary;
   const endpoint = config.providerProfiles[primary.providerId]?.endpoint ?? primary.providerId;
   const lines = [
@@ -160,6 +162,7 @@ export function configOverlay(engine, options = {}) {
     { id: 'websearch', label: 'WebSearch', detail: 'Configure, test, or locally deploy SearXNG' },
     { id: 'webfetch', label: 'WebFetch destinations', detail: 'Trust exact private-network origins for bounded fetching' },
     { id: 'gateway', label: 'Telegram gateway', detail: 'Configure authorized remote access and runtime status' },
+    { id: 'context', label: 'Context management', detail: `${contextPercentText(limits.contextCompressionThreshold ?? 0.40)} compression · ${contextPercentText(limits.contextCompactionThreshold ?? 0.75)} full compaction` },
     { id: 'workspace-trust', label: 'Workspace trust', detail: 'Control project configuration and hook discovery on restart' },
     { id: 'hooks', label: 'Hook bundles', detail: 'Inspect discovered event subscriptions and registration health' },
     { id: 'extensions', label: 'Extensions', detail: 'Inspect installed capabilities, lifecycle state, and diagnostics' },
@@ -347,6 +350,7 @@ export function overlayCommandDraft(kind, id) {
     webfetch: { trust: '/webfetch trust ', revoke: '/webfetch revoke ' },
     tab: { rename: '/rename ' },
     plan: { 'set-goal': '/goal ', 'complete-goal': '/goal complete ', 'add-task': '/task add ' },
+    context: { compression: '/context compression ', compaction: '/context compaction ' },
   };
   return drafts[kind]?.[action] ?? null;
 }
@@ -388,33 +392,6 @@ export function taskOverlay(work, id) {
 
 function taskMarker(status) {
   return ({ pending: '[ ]', in_progress: '[>]', completed: '[x]', blocked: '[!]' })[status] ?? '[?]';
-}
-
-export function contextOverlay(session) {
-  const tokenAware = session.contextLimitTokens > 0;
-  const percent = tokenAware
-    ? Math.min(100, Math.round((session.contextTokens / session.contextLimitTokens) * 100))
-    : session.contextLimitBytes > 0
-      ? Math.min(100, Math.round((session.contextBytes / session.contextLimitBytes) * 100)) : null;
-  return overlay('context', 'Context usage', [
-    tokenAware
-      ? `Prompt estimate: ${formatCount(session.contextTokens)} / ${formatCount(session.contextLimitTokens)} usable input tokens`
-      : `Conservative context: ${formatBytes(session.contextBytes)} / ${formatBytes(session.contextLimitBytes)}`,
-    `Utilization: ${percent === null ? '--' : `${percent}%`}`,
-    `Auto-compact boundary: ${formatCount(session.contextThresholdTokens)} estimated tokens`,
-    `Output reserved: ${formatCount(session.contextOutputReserveTokens)} tokens`,
-    `Loaded parallel capacity: ${formatCount(session.contextParallelCapacity)}`,
-    `Runtime source: ${session.contextSource ?? 'configured byte fallback'}`,
-    `Hard byte ceiling: ${formatBytes(session.contextLimitBytes)}`,
-    '',
-    tokenAware
-      ? 'NNA compacts before provider I/O at the model-aware boundary shown above.'
-      : 'The provider did not report a token window; NNA is using its conservative byte ceiling.',
-  ]);
-}
-
-function formatCount(value) {
-  return Number.isFinite(value) ? Math.round(value).toLocaleString('en-US') : '--';
 }
 
 export function attachmentsOverlay(session) {

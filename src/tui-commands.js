@@ -20,7 +20,9 @@ export const TUI_COMMANDS = Object.freeze([
   command('/gateway token-env NAME', 'Use a Telegram token from an environment variable', 'configuration'),
   command('/gateway workspace PATH', 'Set the Telegram gateway working directory', 'configuration'),
   command('/confirm close', 'Confirm closing the active conversation', 'sessions'),
-  command('/context', 'Inspect current context usage', 'conversation'),
+  command('/context', 'Inspect context usage, reductions, and thresholds', 'conversation'),
+  command('/context compression PERCENT', 'Set the soft context-compression threshold', 'configuration'),
+  command('/context compaction PERCENT', 'Set the full context-compaction threshold', 'configuration'),
   command('/plan', 'Open the durable conversation goal and task hub', 'workflows'),
   command('/tasks', 'Alias for /plan; inspect conversation work progress', 'workflows'),
   command('/goal [TEXT|complete EVIDENCE|reopen]', 'Create, update, complete, or reopen the conversation goal', 'workflows'),
@@ -87,12 +89,17 @@ export const TUI_COMMANDS = Object.freeze([
 export function commandSuggestions(input, limit = 6) {
   const query = String(input).trimStart().toLowerCase();
   if (!query.startsWith('/') || query.includes('\n')) return [];
-  return TUI_COMMANDS
+  const matches = TUI_COMMANDS
     .map((item) => ({ item, score: suggestionScore(item, query) }))
     .filter((candidate) => candidate.score < 2)
-    .sort((left, right) => left.score - right.score || left.item.usage.localeCompare(right.item.usage))
-    .slice(0, limit)
-    .map((candidate) => candidate.item);
+    .sort((left, right) => left.score - right.score || left.item.usage.localeCompare(right.item.usage));
+  const unique = query === '/' ? deduplicateCommands(matches) : matches;
+  return unique.slice(0, limit).map((candidate) => candidate.item);
+}
+
+function deduplicateCommands(candidates) {
+  const seen = new Set();
+  return candidates.filter(({ item }) => seen.has(item.name) ? false : (seen.add(item.name), true));
 }
 
 export function commandDefinition(name) {

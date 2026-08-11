@@ -2,19 +2,29 @@
 import { createHash } from 'node:crypto';
 
 export const CONTEXT_PRESSURE = Object.freeze({
-  receipts: 0.25,
-  checkpoint: 0.35,
-  aggressive: 0.45,
-  compact: 0.60,
+  receipts: 0.40,
+  checkpoint: 0.55,
+  aggressive: 0.70,
+  compact: 0.75,
 });
 
-export function pressureTier(estimatedTokens, effectiveInputTokens) {
+export function contextPressurePolicy(compression = CONTEXT_PRESSURE.receipts, compact = CONTEXT_PRESSURE.compact) {
+  const span = Math.max(0.02, compact - compression);
+  return Object.freeze({
+    receipts: compression,
+    checkpoint: compression + (span * 0.43),
+    aggressive: compression + (span * 0.86),
+    compact,
+  });
+}
+
+export function pressureTier(estimatedTokens, effectiveInputTokens, policy = CONTEXT_PRESSURE) {
   if (!positive(estimatedTokens) || !positive(effectiveInputTokens)) return 'none';
   const ratio = estimatedTokens / effectiveInputTokens;
-  if (ratio >= CONTEXT_PRESSURE.compact) return 'compact';
-  if (ratio >= CONTEXT_PRESSURE.aggressive) return 'aggressive';
-  if (ratio >= CONTEXT_PRESSURE.checkpoint) return 'checkpoint';
-  if (ratio >= CONTEXT_PRESSURE.receipts) return 'receipts';
+  if (ratio >= policy.compact) return 'compact';
+  if (ratio >= policy.aggressive) return 'aggressive';
+  if (ratio >= policy.checkpoint) return 'checkpoint';
+  if (ratio >= policy.receipts) return 'receipts';
   return 'none';
 }
 

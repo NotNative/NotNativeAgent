@@ -8,16 +8,17 @@ request, so pressure management is active during a turn and deliberately conserv
 
 | Effective input use | Provider projection |
 |---|---|
-| Below 25% | Full eligible conversation projection. |
-| 25% | Older settled tool payloads become bounded receipts; the newest three active steps remain verbatim. |
-| 35% | A deterministic continuity checkpoint replaces older active work; the newest two active steps remain verbatim. |
-| 45% | Aggressive checkpoint projection retains the active request and newest active step. |
-| 60% | Full transcript compaction begins. |
+| Below 40% | Full eligible conversation projection. |
+| 40% | Older settled history and tool payloads begin deterministic compression. |
+| 55% | A deterministic continuity checkpoint replaces older active work; the newest two active steps remain verbatim. |
+| 70% | Aggressive checkpoint projection retains the active request and newest active step. |
+| 75% | Full transcript compaction begins. |
 
-The denominator is the discovered model window after the bounded output reserve. A configured
-compaction threshold below 60% intentionally wins; a higher legacy or operator value cannot
-delay the local-model safety boundary. When discovery is unavailable, NNA uses its
-validated byte ceiling as a conservative fallback.
+The denominator is the discovered model window after the bounded output reserve. Operators
+configure the compression and full-compaction boundaries through `/context` or the Context
+entry in `/config`; the two intermediate tiers are derived between them. Compression must
+remain below full compaction. When discovery is unavailable, NNA uses its validated byte
+ceiling as a conservative fallback.
 
 ## Long-horizon compression
 

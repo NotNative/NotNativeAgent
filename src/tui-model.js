@@ -189,6 +189,8 @@ export class TuiProjection {
       viewportEnd: null, viewportLineCount: 0, expandedTurns: new Set(), detailedTurns: new Set(), usage: null,
       contextBytes: 0, contextLimitBytes: null, contextTokens: null, contextLimitTokens: null,
       contextThresholdTokens: null, contextOutputReserveTokens: null,
+      contextCompressionThresholdTokens: null, contextCompressionThreshold: null,
+      contextCompactionThreshold: null, lastContextReduction: null, commandSuggestionIndex: 0,
       contextParallelCapacity: null, contextMeasurement: null, contextSource: null,
       lastOutcome: null, turnStartedAt: null, reviewPosture: 'auto-review', pendingAttachments: [],
       historyRecords: [], beforeSequence: null, hasMore: false, historyAnchor: null,
@@ -352,10 +354,18 @@ function applyEvent(session, event) {
     session.contextTokens = event.estimated_tokens;
     session.contextLimitTokens = event.limit_tokens;
     session.contextThresholdTokens = event.compaction_threshold_tokens;
+    session.contextCompressionThresholdTokens = event.compression_threshold_tokens;
+    session.contextCompressionThreshold = event.compression_threshold;
+    session.contextCompactionThreshold = event.compaction_threshold;
     session.contextOutputReserveTokens = event.output_reserve_tokens;
     session.contextParallelCapacity = event.parallel_capacity;
     session.contextMeasurement = event.measurement;
     session.contextSource = event.source;
+  } else if (event.type === 'context_compaction_status' && event.status === 'completed') {
+    session.lastContextReduction = {
+      beforeTokens: event.before_estimated_tokens,
+      afterTokens: event.after_estimated_tokens,
+    };
   }
   else if (event.type === 'turn_result') finishTurn(session, event);
   else if (event.type === 'error') session.state = 'failed';

@@ -7,7 +7,9 @@ import { RetainedTerminalScreen } from './terminal-screen.js';
 import { createRenderLoop } from './tui-render-loop.js';
 export { adaptiveRenderDelay, createRenderLoop } from './tui-render-loop.js';
 import { commandDefinition } from './tui-commands.js';
-import { auditOverlay, configOverlay, contextOverlay, gatewayOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui-overlays.js';
+import { auditOverlay, configOverlay, gatewayOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui-overlays.js';
+import { runContextCommand } from './tui-context.js';
+import { handleCommandPickerAction } from './tui-command-picker.js';
 import { handleHealthOverlayAction, healthOverlay } from './tui-health.js';
 import { handleDreamSelection, openDreamCommand, reopenDreamManager } from './tui-dream.js';
 import { compactActiveConversation, confirmConversationClear, handoffActiveConversation, requestConversationClear } from './workspace-context.js';
@@ -170,7 +172,8 @@ export async function handleActions(actions, workspace, stop, decoder, destructi
     else if (workspace.projection.help && action.action === 'back') workspace.projection.help = false;
     else if (action.action === 'back') await handleDestructiveEscape(workspace, destructiveKeys);
     else if (action.action === 'paste' && await attachDroppedPaths(workspace, action.text)) { /* queued as attachments */ }
-    else if (handleEditorAction(action, session.editor)) { /* editor owns its mutation */ }
+    else if (handleCommandPickerAction(action, session)) { /* command picker consumed the action */ }
+    else if (handleEditorAction(action, session.editor)) { session.commandSuggestionIndex = 0; }
     else if (action.action === 'home') session.editor.moveLine('start');
     else if (action.action === 'end') {
       if (session.viewportEnd === null) session.editor.moveLine('end');
@@ -198,8 +201,7 @@ export async function handleActions(actions, workspace, stop, decoder, destructi
     else if (action.action === 'deny') await workspace.decideActive('deny');
     else if (action.action === 'submit') await submitEditor(workspace, stop);
     else if (action.action === 'input_rejected') throw new ContractError(action.reason, 'terminal input was rejected');
-    decoder.setBindings(workspace.projection.bindings);
-    workspace.onChange();
+    decoder.setBindings(workspace.projection.bindings); workspace.onChange();
   }
 }
 
@@ -307,6 +309,7 @@ async function openConfigurationSection(section, workspace) {
   else if (section === 'websearch') workspace.projection.openOverlay(webSearchOverlay(await workspace.webSearchStatus(false)));
   else if (section === 'webfetch') workspace.projection.openOverlay(webFetchOverlay((await workspace.webFetchCommand(['status'])).config));
   else if (section === 'gateway') workspace.projection.openOverlay(gatewayOverlay(await workspace.gatewayCommand(['status'])));
+  else if (section === 'context') await runContextCommand('', workspace);
   else if (['hooks', 'extensions'].includes(section)) await openRuntimeInspection(section, workspace);
   else if (section === 'workspace-trust') workspace.projection.openOverlay(workspaceTrustOverlay(workspace.activeConfig().workspaceRoot));
   else throw new ContractError('config_section_invalid', 'unknown configuration section');
@@ -392,7 +395,7 @@ async function command(value, workspace, stop) {
   else if (['/websearch', '/search-config', '/search_config'].includes(name)) await webSearchCommand(argument, workspace);
   else if (name === '/webfetch') await handleWebFetchCommand(argument, workspace);
   else if (name === '/gateway') await handleGatewayCommand(argument, workspace);
-  else if (name === '/context') workspace.projection.openOverlay(contextOverlay(workspace.projection.active()));
+  else if (name === '/context') await runContextCommand(argument, workspace);
   else if (['/plan', '/tasks', '/goal', '/task'].includes(name)) await handleWorkCommand(name, argument, workspace);
   else if (name === '/diff') workspace.projection.openOverlay(valueOverlay('diff', argument ? `Changes · ${argument}` : 'Conversation changes', workspace.activeEngine().tools.diff(argument || null)));
   else if (name === '/verify') invokeProjectVerification(argument, workspace);

@@ -5,13 +5,13 @@ import { CONTEXT_PRESSURE, pressureTier, projectActiveTurn } from '../src/active
 
 test('active pressure tiers use conservative local-model boundaries', () => {
   assert.deepEqual(CONTEXT_PRESSURE, {
-    receipts: 0.25, checkpoint: 0.35, aggressive: 0.45, compact: 0.60,
+    receipts: 0.40, checkpoint: 0.55, aggressive: 0.70, compact: 0.75,
   });
-  assert.equal(pressureTier(24_999, 100_000), 'none');
-  assert.equal(pressureTier(25_000, 100_000), 'receipts');
-  assert.equal(pressureTier(35_000, 100_000), 'checkpoint');
-  assert.equal(pressureTier(45_000, 100_000), 'aggressive');
-  assert.equal(pressureTier(60_000, 100_000), 'compact');
+  assert.equal(pressureTier(39_999, 100_000), 'none');
+  assert.equal(pressureTier(40_000, 100_000), 'receipts');
+  assert.equal(pressureTier(55_000, 100_000), 'checkpoint');
+  assert.equal(pressureTier(70_000, 100_000), 'aggressive');
+  assert.equal(pressureTier(75_000, 100_000), 'compact');
 });
 
 test('receipt pressure keeps recent steps and replaces settled payloads without mutating the ledger', () => {
