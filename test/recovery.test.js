@@ -258,7 +258,11 @@ test('empty continuation exhaustion preserves a useful partial handoff', async (
     }
     yield { type: 'terminal' };
   } };
-  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  const output = [];
+  const engine = new SessionEngine({
+    config: config(root), providerFactory: () => provider,
+    output: async (record) => output.push(record),
+  });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'empty-partial-turn', content: 'Read and explain target.txt.' }, 'operator');
   assert.equal(result.outcome, 'incomplete');
@@ -268,6 +272,12 @@ test('empty continuation exhaustion preserves a useful partial handoff', async (
   assert.match(result.text, /Completed tool effects and diagnostics remain preserved/u);
   assert.match(result.text, /Verified checkpoint: the requested target was read successfully/u);
   assert.doesNotMatch(result.text, /turn stopped making verifiable progress/u);
+  const explanation = output.filter((record) => record.type === 'stream_delta').at(-1);
+  assert.equal(explanation.delta_type, 'recovery_explanation');
+  assert.match(explanation.text, /model returned no usable continuation after 3 attempts/u);
+  assert.match(explanation.text, /The remaining step was not completed/u);
+  assert.equal(output.at(-1).type, 'turn_result');
+  assert.equal(output.filter((record) => record.type === 'turn_result').length, 1);
 });
 
 test('AC-PROD-03 malformed small-model tool arguments become an in-band repair opportunity', async () => {

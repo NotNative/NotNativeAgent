@@ -765,10 +765,15 @@ test('no-progress exhaustion ends as an idle incomplete turn with an explanation
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p', workspace: process.cwd() });
   projection.apply('s1', {
+    type: 'stream_delta', delta_type: 'recovery_explanation', turn_id: 'turn-1',
+    text: 'The model returned no usable continuation after 3 attempts. The remaining step was not completed.',
+  });
+  projection.apply('s1', {
     type: 'turn_result', outcome: 'incomplete', turn_id: 'turn-1', retryable: true,
     failure: { code: 'recovery_exhausted', retryable: true },
   });
   const frame = new TuiRenderer().frame(projection, { width: 100, height: 24, color: false });
+  assert.match(frame, /model returned no usable continuation after 3 attempts/u);
   assert.match(frame, /Turn ended without completion[^]*code recovery_exhausted[^]*review the\s+explanation above/u);
   assert.match(frame, /auto-review \| IDLE \|/u);
 });

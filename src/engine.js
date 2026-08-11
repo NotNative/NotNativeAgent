@@ -27,7 +27,7 @@ import { FinalizationFaults } from './finalization-faults.js';
 import { evaluateCompletion, partialOutputProgress } from './completion-supervisor.js';
 import { recoverProviderContextLimit } from './engine-provider-recovery.js';
 import { settleEngineAttempt, settleEngineChildren, settleEngineStep } from './engine-lifecycle-settlement.js';
-import { acceptEngineText, emitEngineStatus } from './engine-output.js';
+import { acceptEngineText, emitEngineStatus, emitEngineText } from './engine-output.js';
 import { assertTurnActive } from './turn-cancellation.js';
 import { createForensicTelemetry } from './forensic-telemetry.js';
 import { prepareEngineContext } from './engine-context-preparation.js';
@@ -254,7 +254,7 @@ export class SessionEngine {
           const detail = recoveryExhaustionDetail(active.recovery, this.transcript, active.unresolvedToolFailures, result);
           return this.#finalize('incomplete', recoveryExhaustionText(detail, {
             transcript: this.transcript, turnId: active.turnId,
-          }), detail);
+          }), detail, { emitText: true });
         }
         if (!result.continue) return this.#completeFromStep(result, active);
         applyPendingConfiguration(this, active);
@@ -402,8 +402,7 @@ export class SessionEngine {
     active.finalText = result.text;
     return this.#finalize(result.outcome ?? classifyCompletion(result.text), result.text, null);
   }
-
-  async #finalize(outcome, text, failureDetail) {
+  async #finalize(outcome, text, failureDetail, options = {}) {
     const active = this.active;
     if (!active || active.finalized) throw new ContractError('duplicate_finalization', 'turn already finalized');
     active.finalized = true; clearTimeout(active.missionTimer);
@@ -419,6 +418,7 @@ export class SessionEngine {
     if (text.length > 0) await faults.capture('persistence', () => this.#persist(
       'message', assistantMessage(active.turnId, text, { ...faults.primary, stepId: active.stepId }),
     ));
+    if (text.length > 0 && options.emitText === true) await faults.capture('output', () => emitEngineText(this, text, active, 'recovery_explanation'));
     await faults.capture('lifecycle', () => this.lifecycles.finish(active.turnId, faults.outcome));
     await faults.capture('event', () => this.#publish(
       'turn.terminal', 'turn', 'terminal', active, faults.outcome, hookPayload(this, active, {
