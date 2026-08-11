@@ -284,16 +284,12 @@ function missionToolDisposition(active, items) {
   return null;
 }
 
-export function toolProgressEvidence(items, steeringApplied) {
-  if (steeringApplied) return {
-    value: `steering:${steeringApplied}`,
-    detail: {
-      kind: 'operator_steering', checkpoint: 'steering_consumed',
-      summary: { consumed_messages: steeringApplied },
-    },
-  };
+export function toolProgressEvidence(items, steeringApplied = []) {
   const successes = items.filter((item) => item.result.status === 'succeeded');
-  if (successes.length === 0) return null;
+  const steeringIds = Array.isArray(steeringApplied)
+    ? steeringApplied.filter((item) => typeof item === 'string' && item.length > 0)
+    : [];
+  if (successes.length === 0 && steeringIds.length === 0) return null;
   const hash = createHash('sha256');
   const requestFingerprints = [];
   for (const item of successes) {
@@ -304,14 +300,17 @@ export function toolProgressEvidence(items, steeringApplied) {
     requestFingerprints.push(createHash('sha256')
       .update(item.result.tool_name).update('\0').update(stableJson(item.request?.args ?? {})).digest('hex'));
   }
+  for (const steeringId of steeringIds) hash.update('\0steering\0').update(steeringId);
   return {
     value: hash.digest('hex'),
     detail: {
-      kind: 'tool_results', checkpoint: 'tool_results_committed',
+      kind: successes.length > 0 ? 'tool_results' : 'operator_steering',
+      checkpoint: successes.length > 0 ? 'tool_results_committed' : 'steering_consumed',
       summary: {
         successful_tool_calls: successes.length,
         tool_names: [...new Set(successes.map((item) => item.result.tool_name))].slice(0, 16),
         request_fingerprints: [...new Set(requestFingerprints)].slice(0, 16),
+        ...(steeringIds.length > 0 ? { consumed_steering_messages: steeringIds.length } : {}),
       },
     },
   };

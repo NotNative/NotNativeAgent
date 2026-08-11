@@ -11,7 +11,7 @@ import {
 import { admissionFromRetry, createActiveTurn } from './engine-active.js';
 import { LifecycleRegistry, StateAuthority } from './lifecycle.js';
 import { HealthInspector } from './health.js';
-import { recoveryExhaustionText, recoveryHint } from './recovery.js';
+import { recoveryExhaustionDetail, recoveryExhaustionText, recoveryHint } from './recovery.js';
 import { JournalStore } from './store.js';
 import { SessionLock } from './session-lock.js';
 import { restoreSessionRecords } from './session-history.js';
@@ -251,8 +251,10 @@ export class SessionEngine {
       while (true) {
         const result = await this.#runModelStep(context, active);
         if (result.exhausted) {
-          const detail = active.recovery.exhaustion(this.transcript, active.unresolvedToolFailures);
-          return this.#finalize('incomplete', recoveryExhaustionText(detail), detail);
+          const detail = recoveryExhaustionDetail(active.recovery, this.transcript, active.unresolvedToolFailures, result);
+          return this.#finalize('incomplete', recoveryExhaustionText(detail, {
+            transcript: this.transcript, turnId: active.turnId,
+          }), detail);
         }
         if (!result.continue) return this.#completeFromStep(result, active);
         applyPendingConfiguration(this, active);
@@ -306,14 +308,13 @@ export class SessionEngine {
     );
     if (progress.action) await this.#recordRecovery(progress.action, active);
     await this.#settleStep(active, 'continued');
-    if (!progress.continue) return { exhausted: true };
+    if (!progress.continue) return { exhausted: true, category: 'tool_no_progress', count: progress.count };
     this.state.transition('preparing_continuation', { trigger: 'tool_results_committed', turnId: active.turnId });
     return {
       continue: true, hint: toolContinuationHint(items, recoveryHint(progress.action)),
       forceCompact: progress.action?.action === 'compact',
     };
   }
-
   async #afterTextStep(active) {
     if (active.stepText.length === 0) {
       await this.#settleAttempt(active, 'empty');
@@ -323,7 +324,7 @@ export class SessionEngine {
       );
       if (plan.action) await this.#recordRecovery(plan.action, active);
       await this.#settleStep(active, plan.continue ? 'recovering' : 'incomplete');
-      if (!plan.continue) return { exhausted: true };
+      if (!plan.continue) return { exhausted: true, category: 'empty_output', count: plan.count };
       this.state.transition('preparing_continuation', { trigger: 'empty_output_recovery', turnId: active.turnId });
       return {
         continue: true, hint: recoveryHint(plan.action),
@@ -353,7 +354,7 @@ export class SessionEngine {
     );
     if (plan.action) await this.#recordRecovery(plan.action, active);
     await this.#settleStep(active, plan.continue ? 'recovering' : 'incomplete');
-    if (!plan.continue) return { exhausted: true };
+    if (!plan.continue) return { exhausted: true, category: supervised.category, count: plan.count };
     this.state.transition('preparing_continuation', { trigger: supervised.category, turnId: active.turnId });
     return { continue: true, hint: recoveryHint(plan.action) };
   }
@@ -370,7 +371,7 @@ export class SessionEngine {
   }
 
   async #consumeSteering(active) {
-    let consumed = 0;
+    const consumed = [];
     while (this.steering.length > 0) {
       const steering = this.steering.shift();
       const lifecycle = this.lifecycles.start('steering', active.stepId ?? active.turnId);
@@ -384,9 +385,9 @@ export class SessionEngine {
       active.recovery.externalEvidence(steering.id);
       this.lifecycles.finish(lifecycle.id, 'consumed');
       await this.#publish('steering.terminal', 'steering', 'terminal', active, 'consumed');
-      consumed += 1;
+      consumed.push(steering.id);
     }
-    return consumed;
+    return Object.freeze(consumed);
   }
 
   async #prepareContext(records, content, active, force = false) {

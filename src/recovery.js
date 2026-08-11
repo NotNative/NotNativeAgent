@@ -113,12 +113,51 @@ function repeatedEvidenceDetail(detail) {
   return { repeated_request_fingerprints: Object.freeze(fingerprints.slice(0, 16)) };
 }
 
-export function recoveryExhaustionText(detail) {
+export function recoveryExhaustionText(detail, options = {}) {
+  if (detail.exhaustion_category === 'empty_output') {
+    const checkpoint = usefulAssistantCheckpoint(options.transcript, options.turnId);
+    const attempts = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} attempts` : '';
+    const preserved = checkpoint
+      ? `\n\nLast useful assistant checkpoint:\n${checkpoint}`
+      : '';
+    return `The model returned no usable continuation${attempts}, so I stopped retrying. `
+      + `Completed tool effects and diagnostics remain preserved.${preserved}\n\n`
+      + 'The remaining step was not completed. Resume from the activity details or provide new direction.';
+  }
   const reasons = detail.reason_codes?.length > 0
     ? ` The repeated operation reported: ${detail.reason_codes.join(', ')}.` : '';
   return `I couldn't complete the request because the turn stopped making verifiable progress.${reasons}\n\n`
     + 'I ended the turn to avoid repeating the same unsuccessful work. Any completed work and diagnostics remain preserved. '
     + 'You can retry after correcting the reported condition or provide new direction.';
+}
+
+export function recoveryExhaustionDetail(recovery, transcript, reasonCodes, result) {
+  return Object.freeze({
+    ...recovery.exhaustion(transcript, reasonCodes),
+    exhaustion_category: result.category ?? 'no_progress',
+    exhaustion_count: result.count ?? null,
+  });
+}
+
+function usefulAssistantCheckpoint(transcript, turnId) {
+  if (!Array.isArray(transcript)) return null;
+  const messages = transcript.filter((item) => item?.type === 'message'
+    && item.role === 'assistant'
+    && (!turnId || item.turnId === turnId)
+    && typeof item.content === 'string'
+    && item.content.trim().length > 0);
+  if (messages.length === 0) return null;
+  const recent = messages.slice(-5).reverse();
+  const selected = recent.find((item) => item.content.trim().length >= 160) ?? recent[0];
+  return boundedCheckpoint(selected.content.trim());
+}
+
+function boundedCheckpoint(content) {
+  const limit = 2400;
+  if (content.length <= limit) return content;
+  const head = content.slice(0, Math.floor(limit * 0.7)).trimEnd();
+  const tail = content.slice(-(limit - head.length - 32)).trimStart();
+  return `${head}\n...[checkpoint shortened]...\n${tail}`;
 }
 
 function effectCertainty(results) {

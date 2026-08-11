@@ -233,7 +233,7 @@ test('AC-PROD-03/AC-ENGP-02/AC-FAIL-01/AC-FAIL-03/AC-FAIL-11/AC-FAIL-12 stalled 
   assert.equal(result.outcome, 'incomplete');
   assert.equal(count, 3);
   assert.equal(result.failure.code, 'recovery_exhausted');
-  assert.match(result.text, /stopped making verifiable progress/u);
+  assert.match(result.text, /model returned no usable continuation after 3 attempts/u);
   assert.equal(result.failure.resume_condition, 'new authenticated input or changed external evidence');
   assert.deepEqual(result.failure.completed_progress, { unique_evidence_count: 0, fingerprints: [], evidence: [] });
   assert.equal(result.failure.last_checkpoint, 'turn_start');
@@ -242,6 +242,32 @@ test('AC-PROD-03/AC-ENGP-02/AC-FAIL-01/AC-FAIL-03/AC-FAIL-11/AC-FAIL-12 stalled 
   assert.equal(result.failure.side_effect_certainty, 'none');
   assert.deepEqual(result.failure.recovery_actions.map((item) => [item.action, item.count]), [['nudge', 1], ['nudge', 2]]);
   assert.equal(result.recovery.length, 2);
+});
+
+test('empty continuation exhaustion preserves a useful partial handoff', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-empty-partial-'));
+  await writeFile(join(root, 'target.txt'), 'verified evidence', 'utf8');
+  let count = 0;
+  const checkpoint = 'Verified checkpoint: the requested target was read successfully. The remaining step is to explain the result to the operator with the evidence already collected.';
+  const provider = { async *stream() {
+    count += 1;
+    if (count === 1) {
+      yield { type: 'text', text: checkpoint };
+      yield* toolCall('partial-handoff-read', 'target.txt');
+      return;
+    }
+    yield { type: 'terminal' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'empty-partial-turn', content: 'Read and explain target.txt.' }, 'operator');
+  assert.equal(result.outcome, 'incomplete');
+  assert.equal(count, 4);
+  assert.equal(result.failure.exhaustion_category, 'empty_output');
+  assert.equal(result.failure.exhaustion_count, 3);
+  assert.match(result.text, /Completed tool effects and diagnostics remain preserved/u);
+  assert.match(result.text, /Verified checkpoint: the requested target was read successfully/u);
+  assert.doesNotMatch(result.text, /turn stopped making verifiable progress/u);
 });
 
 test('AC-PROD-03 malformed small-model tool arguments become an in-band repair opportunity', async () => {

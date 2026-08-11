@@ -27,6 +27,19 @@ test('different search arguments count as progress even when their results are i
   assert.notEqual(toolProgressEvidence([item('alpha')], 0).value, toolProgressEvidence([item('beta')], 0).value);
 });
 
+test('successful tool evidence is retained and combined with unique steering identity', () => {
+  const item = (path) => ({
+    request: { args: { path } },
+    result: { status: 'succeeded', tool_name: 'fs.read_text', content: 'same content' },
+  });
+  const first = toolProgressEvidence([item('alpha.txt')], ['steering-alpha']);
+  const second = toolProgressEvidence([item('beta.txt')], ['steering-beta']);
+  assert.notEqual(first.value, second.value);
+  assert.equal(first.detail.kind, 'tool_results');
+  assert.equal(first.detail.summary.successful_tool_calls, 1);
+  assert.equal(first.detail.summary.consumed_steering_messages, 1);
+});
+
 test('review denial continuation favors safer progress before operator interruption', () => {
   const hint = toolContinuationHint([{
     result: { status: 'deny_with_guidance', tool_name: 'process.run' },
