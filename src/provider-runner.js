@@ -32,6 +32,7 @@ export class ProviderRunner {
           model: active.modelName, provider_profile: active.providerResource,
           finish_reason: active.finishReason, usage: active.usage,
           response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
+          step_reasoning_bytes: active.stepReasoningBytes,
         }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), outcome: 'completed' });
         this.dialects?.observe({ profile: { id: active.providerResource }, model: active.modelName }, { status: 'succeeded' });
         return;
@@ -40,6 +41,7 @@ export class ProviderRunner {
           model: active.modelName, provider_profile: active.providerResource,
           finish_reason: active.finishReason, usage: active.usage,
           partial_response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
+          step_reasoning_bytes: active.stepReasoningBytes,
           failure: { code: error?.code ?? 'provider_failed', retryable: error?.retryable === true },
         }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), reasonCode: error?.code });
         this.dialects?.observe(
@@ -124,7 +126,11 @@ export class ProviderRunner {
           opened = true;
         }
         if (item.type === 'text') await this.acceptText(item.text, active);
-        else if (item.type === 'reasoning') active.reasoningBytes += Buffer.byteLength(item.text, 'utf8');
+        else if (item.type === 'reasoning') {
+          const bytes = Buffer.byteLength(item.text, 'utf8');
+          active.reasoningBytes += bytes;
+          active.stepReasoningBytes += bytes;
+        }
         else if (item.type === 'tool_fragment') active.toolAssembler.add(item.fragments);
         else if (item.type === 'usage') attemptUsage = validatedUsage(item.usage);
         else if (item.type === 'metadata') active.finishReason = item.finishReason;

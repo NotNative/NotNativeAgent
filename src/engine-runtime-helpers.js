@@ -3,7 +3,7 @@ import { toProviderMessages } from './context.js';
 import { ToolCallAssembler } from './tool-calls.js';
 import { toolCatalogContext } from './tool-catalog-context.js';
 
-export function providerRequest(engine, route, context) {
+export function providerRequest(engine, route, context, options = {}) {
   const messages = toProviderMessages(context);
   const dialect = engine.dialects?.instructions(route);
   const tools = engine.tools.providerDefinitions(toolQuery(context));
@@ -13,6 +13,7 @@ export function providerRequest(engine, route, context) {
     model: route.model, messages: [...system, ...messages],
     tools, temperature: route.temperature,
     maxOutputTokens: route.maxOutputTokens,
+    ...(options.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
   });
 }
 
@@ -37,8 +38,12 @@ export function executionContext(engine, active) {
 }
 
 export function resetStep(active) {
+  const reasoningMode = active.reasoningFallbackPending ? 'off' : undefined;
+  active.reasoningFallbackPending = false;
   active.stepText = '';
+  active.stepReasoningBytes = 0;
   active.finishReason = null;
   active.providerTerminal = false;
   active.toolAssembler = new ToolCallAssembler();
+  return reasoningMode;
 }

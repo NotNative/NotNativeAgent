@@ -142,6 +142,47 @@ test('AC-PROV-02 reasoning is typed and counted without entering transcript or o
   assert.equal(JSON.stringify(output).includes(secretReasoning), false);
 });
 
+test('reasoning-only output receives one reasoning-disabled retry before normal empty recovery', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-empty-'));
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length === 1) {
+      yield { type: 'reasoning', text: 'hidden reasoning without a final answer' };
+      yield { type: 'terminal', finishReason: 'stop' };
+      return;
+    }
+    yield { type: 'text', text: 'Visible answer after the bounded fallback.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'reasoning-empty', content: 'Answer visibly.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].reasoningMode, undefined);
+  assert.equal(requests[1].reasoningMode, 'off');
+  assert.equal(result.text, 'Visible answer after the bounded fallback.');
+  assert.deepEqual(result.recovery.map((item) => item.action), ['retry_without_reasoning']);
+});
+
+test('reasoning-disabled fallback occurs once before bounded empty-output exhaustion', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-empty-bounded-'));
+  const modes = [];
+  const provider = { async *stream(request) {
+    modes.push(request.reasoningMode);
+    if (modes.length === 1) yield { type: 'reasoning', text: 'hidden only' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'reasoning-empty-bounded', content: 'Answer visibly.' }, 'operator');
+  assert.equal(result.outcome, 'incomplete');
+  assert.deepEqual(modes, [undefined, 'off', undefined, undefined]);
+  assert.deepEqual(result.recovery.map((item) => item.action), ['retry_without_reasoning', 'nudge', 'nudge']);
+  assert.equal(result.failure.exhaustion_category, 'empty_output');
+});
+
 test('AC-FAIL-06 provider size rejection compacts once and never resends unchanged context', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-provider-overflow-'));
   const sizes = [];

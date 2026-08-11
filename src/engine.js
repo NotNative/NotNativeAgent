@@ -4,10 +4,7 @@ import { appendRecoveryHint } from './context.js';
 import { EventFactory } from './event-factory.js';
 import { EventHub, phaseIsCancelable } from './events.js';
 import { ContractError, newId } from './ids.js';
-import {
-  acceptedRecord, assistantMessage, classifyCompletion, failure,
-  normalizeFailure, terminalRecord, userMessage,
-} from './engine-records.js';
+import { acceptedRecord, assistantMessage, classifyCompletion, failure, normalizeFailure, terminalRecord, userMessage } from './engine-records.js';
 import { admissionFromRetry, createActiveTurn } from './engine-active.js';
 import { LifecycleRegistry, StateAuthority } from './lifecycle.js';
 import { HealthInspector } from './health.js';
@@ -25,7 +22,7 @@ import { executionContext, providerRequest, resetStep, toolContext } from './eng
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine-context-controls.js';
 import { FinalizationFaults } from './finalization-faults.js';
 import { evaluateCompletion, partialOutputProgress } from './completion-supervisor.js';
-import { recoverProviderContextLimit } from './engine-provider-recovery.js';
+import { recoverProviderContextLimit, recoverReasoningOnly } from './engine-provider-recovery.js';
 import { settleEngineAttempt, settleEngineChildren, settleEngineStep } from './engine-lifecycle-settlement.js';
 import { acceptEngineText, emitEngineStatus, emitEngineText } from './engine-output.js';
 import { assertTurnActive } from './turn-cancellation.js';
@@ -271,7 +268,7 @@ export class SessionEngine {
   async #runModelStep(context, active) {
     assertTurnActive(active);
     assertMissionBudget(active);
-    resetStep(active);
+    const reasoningMode = resetStep(active);
     const step = this.lifecycles.start('model_step', active.turnId);
     active.stepId = step.id;
     await this.#publish('model_step.started', 'model_step', 'active', active);
@@ -280,7 +277,7 @@ export class SessionEngine {
     active.sessionId = this.sessionId;
     await emitEngineStatus(this, 'waiting_provider', active);
     try {
-      await this.providerRunner.runRoutes(this.router, routes, (route) => providerRequest(this, route, context), {
+      await this.providerRunner.runRoutes(this.router, routes, (route) => providerRequest(this, route, context, { reasoningMode }), {
         firstTokenMs: this.config.limits.firstTokenMs,
         idleMs: this.config.limits.idleMs,
       }, active);
@@ -293,6 +290,7 @@ export class SessionEngine {
     }
     assertTurnActive(active);
     const calls = active.toolAssembler.complete();
+    if (active.stepText.length > 0 || calls.length > 0) active.reasoningFallbackUsed = false;
     if (calls.length === 0) return this.#afterTextStep(active);
     await this.#settleAttempt(active, 'completed');
     if (active.stepText.length > 0) await this.#persist('message', assistantMessage(
@@ -316,6 +314,7 @@ export class SessionEngine {
     };
   }
   async #afterTextStep(active) {
+    const retry = await recoverReasoningOnly(this, active); if (retry) return retry;
     if (active.stepText.length === 0) {
       await this.#settleAttempt(active, 'empty');
       this.state.transition('recovering', { trigger: 'empty_output', turnId: active.turnId });

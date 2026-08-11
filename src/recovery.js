@@ -33,6 +33,12 @@ export class RecoverySupervisor {
     return Object.freeze({ continue: true, scale, action });
   }
 
+  reasoningOnly() {
+    return this.#record('reasoning_only_output', 'retry_without_reasoning', 1, {
+      target: 'current_route', partial: false,
+    });
+  }
+
   noProgress(category, evidence = null, detail = {}, options = {}) {
     const observedDetail = evidenceDetail(evidence, detail);
     if (evidence && this.observeProgress(evidenceValue(evidence), observedDetail)) {
@@ -200,6 +206,7 @@ export function recoveryHint(action) {
     retry_continuation: 'Continue the active operator request using new evidence or a materially different action. Do not restart the conversation, greet the user again, ask what task to perform, or repeat an unchanged failed request.',
     compact: 'Context was reduced after repeated no-progress behavior. Preserve the operator task and use the last verified result.',
     compact_context_limit: 'The provider rejected the previous context size. Continue from the preserved task using the reduced context; do not reconstruct omitted transcript.',
+    retry_without_reasoning: 'The prior attempt produced hidden reasoning but no usable response. Continue the same task directly with reasoning disabled and produce visible text or a tool call.',
   };
   return guidance[action.action] ?? null;
 }
