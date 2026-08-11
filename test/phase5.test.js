@@ -521,6 +521,21 @@ test('long shell tool targets wrap with a stable hanging indent', () => {
   assert.equal(toolLines.every((line) => displayWidth(line) <= 95), true);
 });
 
+test('tool rows retain a two-cell terminal safety margin before hanging wraps', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', {
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell.run', status: 'succeeded',
+    target: `powershell: ssh operator@fixture-host "podman run --rm image bash -c '${'find / -name model; '.repeat(12)}'" 2>&1`,
+  });
+  const frame = new TuiRenderer().frame(projection, { width: 120, height: 40, color: false });
+  const toolLines = frame.split('\n').filter((line) => /shell\.run|podman|find \/|succeeded/u.test(line));
+  assert.equal(toolLines.length > 2, true);
+  assert.equal(toolLines[0].startsWith('    \u2713 shell.run'), true);
+  assert.equal(toolLines.slice(1).every((line) => line.startsWith('      ')), true);
+  assert.equal(frame.trimEnd().split('\n').every((line) => displayWidth(line) <= 118), true);
+});
+
 test('separate assistant response segments use one blank line without changing internal paragraphs', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
