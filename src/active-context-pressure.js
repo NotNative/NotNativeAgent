@@ -8,12 +8,16 @@ export const CONTEXT_PRESSURE = Object.freeze({
   compact: 0.75,
 });
 
-export function contextPressurePolicy(compression = CONTEXT_PRESSURE.receipts, compact = CONTEXT_PRESSURE.compact) {
-  const span = Math.max(0.02, compact - compression);
+export function contextPressurePolicy(
+  compression = CONTEXT_PRESSURE.receipts,
+  checkpoint = CONTEXT_PRESSURE.checkpoint,
+  aggressive = CONTEXT_PRESSURE.aggressive,
+  compact = CONTEXT_PRESSURE.compact,
+) {
   return Object.freeze({
     receipts: compression,
-    checkpoint: compression + (span * 0.43),
-    aggressive: compression + (span * 0.86),
+    checkpoint,
+    aggressive,
     compact,
   });
 }

@@ -165,6 +165,8 @@ async function pressureProjection(engine, active, operations, measurement) {
     ? measurement.rawContextTokens / measurement.effectiveInputTokens : null;
   const policy = contextPressurePolicy(
     engine.config.limits.contextCompressionThreshold,
+    engine.config.limits.contextCompressionLevel2Threshold,
+    engine.config.limits.contextCompressionLevel3Threshold,
     engine.config.limits.contextCompactionThreshold,
   );
   const horizon = longHorizonCompressionTrigger(measurement.records, {

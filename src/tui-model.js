@@ -190,6 +190,8 @@ export class TuiProjection {
       contextBytes: 0, contextLimitBytes: null, contextTokens: null, contextLimitTokens: null,
       contextThresholdTokens: null, contextOutputReserveTokens: null,
       contextCompressionThresholdTokens: null, contextCompressionThreshold: null,
+      contextCompressionLevel2ThresholdTokens: null, contextCompressionLevel2Threshold: null,
+      contextCompressionLevel3ThresholdTokens: null, contextCompressionLevel3Threshold: null,
       contextCompactionThreshold: null, lastContextReduction: null, commandSuggestionIndex: 0,
       contextParallelCapacity: null, contextMeasurement: null, contextSource: null,
       lastOutcome: null, turnStartedAt: null, reviewPosture: 'auto-review', pendingAttachments: [],
@@ -355,7 +357,11 @@ function applyEvent(session, event) {
     session.contextLimitTokens = event.limit_tokens;
     session.contextThresholdTokens = event.compaction_threshold_tokens;
     session.contextCompressionThresholdTokens = event.compression_threshold_tokens;
+    session.contextCompressionLevel2ThresholdTokens = event.compression_level_2_threshold_tokens;
+    session.contextCompressionLevel3ThresholdTokens = event.compression_level_3_threshold_tokens;
     session.contextCompressionThreshold = event.compression_threshold;
+    session.contextCompressionLevel2Threshold = event.compression_level_2_threshold;
+    session.contextCompressionLevel3Threshold = event.compression_level_3_threshold;
     session.contextCompactionThreshold = event.compaction_threshold;
     session.contextOutputReserveTokens = event.output_reserve_tokens;
     session.contextParallelCapacity = event.parallel_capacity;

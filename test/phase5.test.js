@@ -1605,9 +1605,9 @@ test('pending permission preserves draft and command catalog uses canonical vers
   assert.equal(commandSuggestions('/he').some((item) => item.name === '/help'), true);
   const slashCommands = commandSuggestions('/', Number.MAX_SAFE_INTEGER);
   assert.equal(slashCommands.length, new Set(TUI_COMMANDS.map((item) => item.name)).size);
-  assert.equal(commandSuggestions('/context c', 10).some((item) => item.usage === '/context compaction PERCENT'), true);
+  assert.equal(commandSuggestions('/context l', 10).some((item) => item.usage === '/context level2 PERCENT'), true);
   const pickerSession = { editor: new EditorBuffer(), commandSuggestionIndex: 0 };
-  pickerSession.editor.set('/context c');
+  pickerSession.editor.set('/context l');
   assert.equal(handleCommandPickerAction({ action: 'history_down' }, pickerSession), true);
   assert.equal(pickerSession.commandSuggestionIndex, 1);
   assert.equal(handleCommandPickerAction({ action: 'complete_command' }, pickerSession), true);
@@ -1615,13 +1615,21 @@ test('pending permission preserves draft and command catalog uses canonical vers
   assert.deepEqual(new TerminalInputDecoder().push('\t'), [{ action: 'complete_command' }]);
   const context = contextOverlay({
     contextTokens: 40_000, contextLimitTokens: 100_000,
-    contextCompressionThresholdTokens: 40_000, contextThresholdTokens: 75_000,
+    contextCompressionThresholdTokens: 40_000,
+    contextCompressionLevel2ThresholdTokens: 55_000,
+    contextCompressionLevel3ThresholdTokens: 70_000,
+    contextThresholdTokens: 75_000,
     contextOutputReserveTokens: 8_000, contextParallelCapacity: 1,
     contextSource: 'provider', contextLimitBytes: 2_097_152,
-  }, { limits: { contextCompressionThreshold: 0.40, contextCompactionThreshold: 0.75 } });
-  assert.match(context.lines.join('\n'), /Compression starts: 40% \| 40,000 estimated tokens/u);
+  }, { limits: {
+    contextCompressionThreshold: 0.40, contextCompressionLevel2Threshold: 0.55,
+    contextCompressionLevel3Threshold: 0.70, contextCompactionThreshold: 0.75,
+  } });
+  assert.match(context.lines.join('\n'), /Compression level 1: 40% \| 40,000 estimated tokens/u);
+  assert.match(context.lines.join('\n'), /Compression level 2: 55% \| 55,000 estimated tokens/u);
+  assert.match(context.lines.join('\n'), /Compression level 3: 70% \| 70,000 estimated tokens/u);
   assert.match(context.lines.join('\n'), /Full compaction starts: 75% \| 75,000 estimated tokens/u);
-  assert.deepEqual(context.items.map((item) => item.badge), ['40%', '75%']);
+  assert.deepEqual(context.items.map((item) => item.badge), ['40%', '55%', '70%', '75%']);
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
   assert.match(new TuiRenderer().frame(projection, { width: 80, height: 24 }), new RegExp(VERSION, 'u'));

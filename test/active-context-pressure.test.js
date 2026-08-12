@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CONTEXT_PRESSURE, pressureTier, projectActiveTurn } from '../src/active-context-pressure.js';
+import {
+  CONTEXT_PRESSURE, contextPressurePolicy, pressureTier, projectActiveTurn,
+} from '../src/active-context-pressure.js';
 
 test('active pressure tiers use conservative local-model boundaries', () => {
   assert.deepEqual(CONTEXT_PRESSURE, {
@@ -12,6 +14,15 @@ test('active pressure tiers use conservative local-model boundaries', () => {
   assert.equal(pressureTier(55_000, 100_000), 'checkpoint');
   assert.equal(pressureTier(70_000, 100_000), 'aggressive');
   assert.equal(pressureTier(75_000, 100_000), 'compact');
+});
+
+test('active pressure policy honors all four configured boundaries', () => {
+  const policy = contextPressurePolicy(0.35, 0.48, 0.62, 0.72);
+  assert.equal(pressureTier(34_999, 100_000, policy), 'none');
+  assert.equal(pressureTier(35_000, 100_000, policy), 'receipts');
+  assert.equal(pressureTier(48_000, 100_000, policy), 'checkpoint');
+  assert.equal(pressureTier(62_000, 100_000, policy), 'aggressive');
+  assert.equal(pressureTier(72_000, 100_000, policy), 'compact');
 });
 
 test('receipt pressure keeps recent steps and replaces settled payloads without mutating the ledger', () => {

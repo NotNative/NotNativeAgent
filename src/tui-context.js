@@ -4,14 +4,18 @@ import { ContractError } from './ids.js';
 export function contextOverlay(session, config, options = {}) {
   const tokenAware = session.contextLimitTokens > 0;
   const utilization = contextUtilization(session, tokenAware);
-  const compression = config?.limits?.contextCompressionThreshold ?? session.contextCompressionThreshold ?? 0.40;
+  const level1 = config?.limits?.contextCompressionThreshold ?? session.contextCompressionThreshold ?? 0.40;
+  const level2 = config?.limits?.contextCompressionLevel2Threshold ?? session.contextCompressionLevel2Threshold ?? 0.55;
+  const level3 = config?.limits?.contextCompressionLevel3Threshold ?? session.contextCompressionLevel3Threshold ?? 0.70;
   const compaction = config?.limits?.contextCompactionThreshold ?? session.contextCompactionThreshold ?? 0.75;
   const lines = [
     tokenAware
       ? `Prompt estimate: ${count(session.contextTokens)} / ${count(session.contextLimitTokens)} usable input tokens`
       : `Conservative context: ${bytes(session.contextBytes)} / ${bytes(session.contextLimitBytes)}`,
     `Utilization: ${utilization === null ? '--' : `${utilization}%`}`,
-    `Compression starts: ${contextPercentText(compression)} | ${count(session.contextCompressionThresholdTokens)} estimated tokens`,
+    `Compression level 1: ${contextPercentText(level1)} | ${thresholdCount(session, level1, session.contextCompressionThresholdTokens)} estimated tokens`,
+    `Compression level 2: ${contextPercentText(level2)} | ${thresholdCount(session, level2, session.contextCompressionLevel2ThresholdTokens)} estimated tokens`,
+    `Compression level 3: ${contextPercentText(level3)} | ${thresholdCount(session, level3, session.contextCompressionLevel3ThresholdTokens)} estimated tokens`,
     `Full compaction starts: ${contextPercentText(compaction)} | ${count(session.contextThresholdTokens)} estimated tokens`,
     `Output reserved: ${count(session.contextOutputReserveTokens)} tokens`,
     `Loaded parallel capacity: ${count(session.contextParallelCapacity)}`,
@@ -23,25 +27,31 @@ export function contextOverlay(session, config, options = {}) {
   );
   if (options.status) lines.push('', options.status);
   const items = [
-    contextItem('compression', 'Compression threshold', compression, 'Reduce settled history and tool payloads before prompt cost grows expensive'),
+    contextItem('level1', 'Compression level 1', level1, 'Replace settled activity with compact receipts'),
+    contextItem('level2', 'Compression level 2', level2, 'Checkpoint settled work and retain fewer active steps'),
+    contextItem('level3', 'Compression level 3', level3, 'Use the most aggressive compression before full compaction'),
     contextItem('compaction', 'Full compaction threshold', compaction, 'Build a continuation artifact and compact aggressively before provider overflow'),
   ];
-  return menu('context', 'Context', lines, items, options.selectedId ?? 'action:compression');
+  return menu('context', 'Context', lines, items, options.selectedId ?? 'action:level1');
 }
 
 export async function runContextCommand(argument, workspace) {
   const [action, rawValue, ...extra] = argument.trim().split(/\s+/u).filter(Boolean);
   if (!action) return openContext(workspace);
-  if (!['compression', 'compaction'].includes(action) || !rawValue || extra.length > 0) {
-    throw new ContractError('context_command_invalid', 'Use /context, /context compression PERCENT, or /context compaction PERCENT.');
+  const normalizedAction = action === 'compression' ? 'level1' : action;
+  if (!['level1', 'level2', 'level3', 'compaction'].includes(normalizedAction) || !rawValue || extra.length > 0) {
+    throw new ContractError('context_command_invalid',
+      'Use /context, /context level1 PERCENT, /context level2 PERCENT, /context level3 PERCENT, or /context compaction PERCENT.');
   }
   const value = parseContextPercent(rawValue), limits = workspace.activeConfig().limits;
-  const compression = action === 'compression' ? value : limits.contextCompressionThreshold;
-  const compaction = action === 'compaction' ? value : limits.contextCompactionThreshold;
-  await workspace.configureContext(limits.maxContextBytes, compaction, compression);
+  const level1 = normalizedAction === 'level1' ? value : limits.contextCompressionThreshold;
+  const level2 = normalizedAction === 'level2' ? value : limits.contextCompressionLevel2Threshold;
+  const level3 = normalizedAction === 'level3' ? value : limits.contextCompressionLevel3Threshold;
+  const compaction = normalizedAction === 'compaction' ? value : limits.contextCompactionThreshold;
+  await workspace.configureContext(limits.maxContextBytes, compaction, level1, level2, level3);
   workspace.projection.openOverlay(contextOverlay(workspace.projection.active(), workspace.activeConfig(), {
-    selectedId: `action:${action}`,
-    status: `${action === 'compression' ? 'Compression' : 'Full compaction'} threshold saved at ${Math.round(value * 100)}%.`,
+    selectedId: `action:${normalizedAction}`,
+    status: `${normalizedAction === 'compaction' ? 'Full compaction' : `Compression ${normalizedAction}`} threshold saved at ${Math.round(value * 100)}%.`,
   }));
 }
 
@@ -76,6 +86,11 @@ function menu(kind, title, lines, items, activeId) {
 }
 
 function count(value) { return Number.isFinite(value) ? Math.round(value).toLocaleString('en-US') : '--'; }
+function thresholdCount(session, ratio, recorded) {
+  if (Number.isFinite(recorded)) return count(recorded);
+  if (Number.isFinite(session.contextLimitTokens)) return count(session.contextLimitTokens * ratio);
+  return '--';
+}
 function bytes(value) {
   if (!Number.isFinite(value)) return '--';
   if (value < 1024) return `${value} B`;

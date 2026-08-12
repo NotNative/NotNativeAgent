@@ -52,7 +52,9 @@ settings remain valid.
 
 Recognized top-level fields are `format_version`, `persistence`, `provider` or `providers`, `routes`,
 `workspace_root`, `application_system_prompt`, `mission`, provider/context deadlines,
-`context_limit_bytes`, `context_compression_threshold`, `context_compaction_threshold`,
+`context_limit_bytes`, `context_compression_threshold`,
+`context_compression_level_2_threshold`, `context_compression_level_3_threshold`,
+`context_compaction_threshold`,
 `provider_connect_timeout_ms`, `semantic_review_timeout_ms`, `approval_timeout_ms`,
 `provider_concurrency`, `provider_queue_limit`, `tool_concurrency`,
 `persistence_flush_timeout_ms`, `shutdown_timeout_ms`,
@@ -253,11 +255,14 @@ work, NNA queries a short-lived provider-neutral runtime snapshot. LM Studio end
 NNA reserves the route's bounded output allowance and manages prompt pressure in progressive
 stages. By default, deterministic compression begins at 40%, refreshes its continuation
 checkpoint at 55%, applies aggressive receipt reduction at 70%, and begins full compaction at
-75%. Operators configure the two meaningful boundaries: `context_compression_threshold`
-defaults to `0.40` and `context_compaction_threshold` defaults to `0.75`; the checkpoint and
-aggressive-receipt tiers are derived between them. Compression must remain lower than full
-compaction. `/context` shows the effective percentages and token boundaries and permits both
-settings to be changed; the same Context management entry is available from `/config`.
+75%. All four boundaries are explicit and configurable: `context_compression_threshold`
+(Level 1) defaults to `0.40`, `context_compression_level_2_threshold` defaults to `0.55`,
+`context_compression_level_3_threshold` defaults to `0.70`, and
+`context_compaction_threshold` defaults to `0.75`. They must remain strictly ordered.
+For older configurations that only persisted Level 1 and full compaction, Levels 2 and 3 are
+derived proportionally between those boundaries during migration. `/context` shows each
+effective percentage and token boundary and permits every level to be changed; the same
+Context management entry is available from `/config`.
 These percentages are calculated from the discovered model context window after the bounded
 output reserve, not from a frontier-model constant.
 When token metadata is unavailable, the validated byte ceilings remain the conservative

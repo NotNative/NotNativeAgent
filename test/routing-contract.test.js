@@ -42,18 +42,42 @@ test('AC-ROUTE-01 validates role settings and returns bounded capability-eligibl
 
 test('AC-TURN-07 route and provider context limits survive configuration round trips', () => {
   const config = resolveManifest({
-    context_limit_bytes: 1_000_000, context_compaction_threshold: 0.8,
+    context_limit_bytes: 1_000_000,
+    context_compression_threshold: 0.35,
+    context_compression_level_2_threshold: 0.50,
+    context_compression_level_3_threshold: 0.68,
+    context_compaction_threshold: 0.8,
     providers: [{ ...providers[0], context_limit_bytes: 400_000, output_limit_tokens: 4096 }],
     routes: { primary: { provider_id: 'lan', context_limit_bytes: 250_000 } },
   });
   const candidate = new ModelRouter(config).resolve('primary');
   assert.equal(candidate.contextLimitBytes, 250_000);
   const manifest = manifestFromConfig(config);
+  assert.equal(manifest.context_compression_threshold, 0.35);
+  assert.equal(manifest.context_compression_level_2_threshold, 0.50);
+  assert.equal(manifest.context_compression_level_3_threshold, 0.68);
   assert.equal(manifest.context_compaction_threshold, 0.8);
   assert.equal(manifest.providers[0].context_limit_bytes, 400_000);
   assert.equal(manifest.providers[0].output_limit_tokens, 4096);
   assert.equal(manifest.routes.primary.context_limit_bytes, 250_000);
   assert.equal(candidate.maxOutputTokens, 4096);
+});
+
+test('legacy two-boundary context settings derive ordered compression levels', () => {
+  const config = resolveManifest({
+    context_compression_threshold: 0.30,
+    context_compaction_threshold: 0.79,
+    providers,
+  });
+  assert.equal(config.limits.contextCompressionLevel2Threshold, 0.51);
+  assert.equal(config.limits.contextCompressionLevel3Threshold, 0.72);
+  assert.throws(() => resolveManifest({
+    context_compression_threshold: 0.40,
+    context_compression_level_2_threshold: 0.69,
+    context_compression_level_3_threshold: 0.60,
+    context_compaction_threshold: 0.75,
+    providers,
+  }), { code: 'context_thresholds_invalid' });
 });
 
 test('AC-FAIL-02/AC-PERF-05 runtime deadlines and concurrency are independently bounded and durable', () => {

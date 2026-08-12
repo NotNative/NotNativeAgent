@@ -351,13 +351,14 @@ export class InteractiveWorkspace {
     const config = await this.#publishGlobalConfiguration((current) => withBooleanSetting(current, setting, value));
     return { setting, value, config };
   }
-  async configureContext(maxContextBytes, compactionThreshold, compressionThreshold) {
+  async configureContext(maxContextBytes, compactionThreshold, compressionThreshold,
+    compressionLevel2Threshold, compressionLevel3Threshold) {
     const config = await this.#publishGlobalConfiguration((current) => withContextSettings(
-      current, maxContextBytes, compactionThreshold, compressionThreshold,
+      current, maxContextBytes, compactionThreshold, compressionThreshold, compressionLevel2Threshold, compressionLevel3Threshold,
     ));
-    return {
-      maxContextBytes, compactionThreshold: config.limits.contextCompactionThreshold,
-      compressionThreshold: config.limits.contextCompressionThreshold,
+    return { maxContextBytes, compactionThreshold: config.limits.contextCompactionThreshold,
+      compressionThreshold: config.limits.contextCompressionThreshold, compressionLevel2Threshold: config.limits.contextCompressionLevel2Threshold,
+      compressionLevel3Threshold: config.limits.contextCompressionLevel3Threshold,
     };
   }
   async configureRecovery(maxModelSteps, localLimit, ladder) {

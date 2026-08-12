@@ -162,7 +162,7 @@ export function configOverlay(engine, options = {}) {
     { id: 'websearch', label: 'WebSearch', detail: 'Configure, test, or locally deploy SearXNG' },
     { id: 'webfetch', label: 'WebFetch destinations', detail: 'Trust exact private-network origins for bounded fetching' },
     { id: 'gateway', label: 'Telegram gateway', detail: 'Configure authorized remote access and runtime status' },
-    { id: 'context', label: 'Context management', detail: `${contextPercentText(limits.contextCompressionThreshold ?? 0.40)} compression · ${contextPercentText(limits.contextCompactionThreshold ?? 0.75)} full compaction` },
+    { id: 'context', label: 'Context management', detail: `${contextPercentText(limits.contextCompressionThreshold ?? 0.40)} / ${contextPercentText(limits.contextCompressionLevel2Threshold ?? 0.55)} / ${contextPercentText(limits.contextCompressionLevel3Threshold ?? 0.70)} compression · ${contextPercentText(limits.contextCompactionThreshold ?? 0.75)} full compaction` },
     { id: 'workspace-trust', label: 'Workspace trust', detail: 'Control project configuration and hook discovery on restart' },
     { id: 'hooks', label: 'Hook bundles', detail: 'Inspect discovered event subscriptions and registration health' },
     { id: 'extensions', label: 'Extensions', detail: 'Inspect installed capabilities, lifecycle state, and diagnostics' },
@@ -350,7 +350,10 @@ export function overlayCommandDraft(kind, id) {
     webfetch: { trust: '/webfetch trust ', revoke: '/webfetch revoke ' },
     tab: { rename: '/rename ' },
     plan: { 'set-goal': '/goal ', 'complete-goal': '/goal complete ', 'add-task': '/task add ' },
-    context: { compression: '/context compression ', compaction: '/context compaction ' },
+    context: {
+      level1: '/context level1 ', level2: '/context level2 ', level3: '/context level3 ',
+      compaction: '/context compaction ',
+    },
   };
   return drafts[kind]?.[action] ?? null;
 }

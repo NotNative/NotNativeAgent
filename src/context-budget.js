@@ -18,6 +18,8 @@ export function contextBudget(config, routes, runtime, retryScale = 1) {
   const effectiveInputTokens = windowTokens ? Math.max(1, windowTokens - outputReserveTokens) : null;
   const compactionThreshold = config.limits.contextCompactionThreshold ?? 0.75;
   const compressionThreshold = config.limits.contextCompressionThreshold ?? 0.40;
+  const compressionLevel2Threshold = config.limits.contextCompressionLevel2Threshold ?? 0.55;
+  const compressionLevel3Threshold = config.limits.contextCompressionLevel3Threshold ?? 0.70;
   const thresholdTokens = effectiveInputTokens
     ? Math.max(1, Math.floor(effectiveInputTokens * compactionThreshold)) : null;
   const scaledTokens = thresholdTokens ? Math.max(1, Math.floor(thresholdTokens * retryScale)) : null;
@@ -30,7 +32,12 @@ export function contextBudget(config, routes, runtime, retryScale = 1) {
     effectiveInputTokens, thresholdTokens, scaledTokens,
     compressionThresholdTokens: effectiveInputTokens
       ? Math.max(1, Math.floor(effectiveInputTokens * compressionThreshold)) : null,
+    compressionLevel2ThresholdTokens: effectiveInputTokens
+      ? Math.max(1, Math.floor(effectiveInputTokens * compressionLevel2Threshold)) : null,
+    compressionLevel3ThresholdTokens: effectiveInputTokens
+      ? Math.max(1, Math.floor(effectiveInputTokens * compressionLevel3Threshold)) : null,
     source: runtime?.source ?? 'configured_bytes', compactionThreshold, compressionThreshold,
+    compressionLevel2Threshold, compressionLevel3Threshold,
     parallelCapacity: positiveValue(runtime?.parallelCapacity),
     estimated: true,
   });

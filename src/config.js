@@ -24,7 +24,8 @@ const KNOWN_KEYS = new Set([
   'provider_connect_timeout_ms', 'semantic_review_timeout_ms', 'approval_timeout_ms',
   'provider_concurrency', 'provider_queue_limit', 'tool_concurrency',
   'persistence_flush_timeout_ms', 'shutdown_timeout_ms',
-  'context_limit_bytes', 'context_compression_threshold', 'context_compaction_threshold', 'attachments', 'memory', 'dream', 'mcp_servers', 'tui', 'telemetry',
+  'context_limit_bytes', 'context_compression_threshold', 'context_compression_level_2_threshold', 'context_compression_level_3_threshold',
+  'context_compaction_threshold', 'attachments', 'memory', 'dream', 'mcp_servers', 'tui', 'telemetry',
   'allowed_capabilities', 'allowed_tools', 'disconnect_policy', 'skills',
   'reviewer_ledger', 'recovery',
 ]);
@@ -238,7 +239,6 @@ function validateTelemetry(value) {
   const destination = enabled ? telemetryDestination(input.destination) : null;
   return { enabled, destination, retention: enabled ? optionalString(input.retention) : null };
 }
-
 function buildRoutes(value, profile, profiles, providerMs) {
   const input = isRecord(value) ? value : {};
   const result = {};
