@@ -276,6 +276,9 @@ function decodeChunk(value) {
     if (isContextLimitError(value.error)) {
       throw new ContractError('provider_context_limit', 'provider rejected the request because its context limit was exceeded');
     }
+    if (isImageUnsupportedError(value.error)) {
+      throw new ContractError('provider_image_unsupported', 'provider explicitly rejected image input');
+    }
     const status = Number(value.error.code);
     const retryable = Number.isInteger(status) && (status === 408 || status === 429 || status >= 500);
     const grammarFailure = isGrammarFailure(value.error);
@@ -335,8 +338,7 @@ async function providerErrorResponse(response) {
   try {
     body = await boundedResponseJson(response);
   } catch { /* response bodies are untrusted and optional */ }
-  const code = body?.error?.code ?? body?.code ?? '';
-  if (['unsupported_image', 'image_not_supported', 'unsupported_content_type'].includes(code)) {
+  if (isImageUnsupportedError(body)) {
     return new ContractError('provider_image_unsupported', 'provider explicitly rejected image input');
   }
   if (response.status === 413 || isContextLimitError(body)) {
@@ -346,6 +348,23 @@ async function providerErrorResponse(response) {
     return new ContractError('provider_tool_schema_rejected', 'provider could not compile the supplied tool schema into a valid grammar');
   }
   return providerError(response.status, 'provider request failed');
+}
+
+const IMAGE_UNSUPPORTED_CODES = new Set([
+  'unsupported_image', 'image_not_supported', 'unsupported_content_type',
+  'unsupported_image_input', 'vision_not_supported', 'multimodal_not_supported',
+]);
+
+function isImageUnsupportedError(value) {
+  const fields = boundedErrorStrings(value);
+  if (fields.some((item) => IMAGE_UNSUPPORTED_CODES.has(item.toLowerCase().replaceAll('-', '_')))) return true;
+  const text = fields.join(' ').toLowerCase();
+  return [
+    /(?:image|vision|multimodal).{0,64}(?:not supported|unsupported|not available|not enabled)/u,
+    /(?:does not|doesn't|cannot|can't).{0,48}(?:support|accept|process).{0,32}(?:image|vision|multimodal)/u,
+    /(?:unsupported|invalid) content (?:type|part).{0,48}image/u,
+    /(?:text[- ]only|only supports? text).{0,48}(?:model|input|content)?/u,
+  ].some((pattern) => pattern.test(text));
 }
 
 function isGrammarFailure(value) {

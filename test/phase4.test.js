@@ -36,8 +36,10 @@ test('AC-ATT-01/AC-ROUTE-04 primary-first image fallback returns a tool-less att
   });
   let primaryCalls = 0;
   let taskRequest;
+  const providerCalls = [];
   const statuses = [];
   const factory = (profile) => ({ async *stream(request) {
+    providerCalls.push(profile.id);
     if (profile.id === 'vision') {
       assert.equal(request.tools.length, 0);
       yield { type: 'text', text: 'a blue square' };
@@ -63,7 +65,59 @@ test('AC-ATT-01/AC-ROUTE-04 primary-first image fallback returns a tool-less att
   assert.equal(result.attachment_admission.admitted[0].route, 'vision');
   assert.deepEqual(statuses, ['staged', 'admitted']);
   assert.match(taskRequest.messages.find((item) => item.content?.includes?.('a blue square')).content, /untrusted attachment/iu);
+  const followup = await engine.submit({ request_id: 'attachment-followup', content: 'Continue without an image' }, 'operator');
+  assert.equal(followup.outcome, 'completed');
+  assert.deepEqual(providerCalls, ['primary', 'vision', 'primary', 'primary']);
   assert.equal(await readFile(image, 'hex'), '89504e470d0a1a0a00000000');
+});
+
+test('primary image attempt is never bypassed by declarations or a prior rejection', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-primary-image-retry-'));
+  const firstImage = join(root, 'first.png');
+  const secondImage = join(root, 'second.png');
+  const png = Buffer.from('89504e470d0a1a0a00000000', 'hex');
+  await writeFile(firstImage, png);
+  await writeFile(secondImage, png);
+  const config = resolveManifest({
+    persistence: 'ephemeral', workspace_root: root,
+    providers: [
+      { id: 'primary', endpoint: 'http://127.0.0.1:1/v1', model: 'p', trust_zone: 'loopback', capabilities: { images: false } },
+      { id: 'vision', endpoint: 'http://127.0.0.1:2/v1', model: 'v', trust_zone: 'loopback', capabilities: { images: true } },
+    ],
+    routes: { vision: { provider_id: 'vision' } },
+  });
+  let primaryImageAttempts = 0;
+  let visionCalls = 0;
+  const factory = (profile) => ({ async *stream(request) {
+    const imageRequest = Array.isArray(request.messages?.[0]?.content);
+    if (profile.id === 'vision') {
+      visionCalls += 1;
+      yield { type: 'text', text: 'fallback observation' };
+      yield { type: 'terminal' };
+      return;
+    }
+    if (imageRequest) {
+      primaryImageAttempts += 1;
+      if (primaryImageAttempts === 1) throw new ContractError('provider_image_unsupported', 'unsupported');
+      yield { type: 'text', text: 'primary observation' };
+      yield { type: 'terminal' };
+      return;
+    }
+    yield { type: 'text', text: 'done' };
+    yield { type: 'terminal' };
+  } });
+  const engine = new SessionEngine({ config, providerFactory: factory, attachmentRoot: join(root, '.managed') });
+  await engine.initialize();
+  const first = await engine.submit({
+    request_id: 'first-image', content: 'Inspect first', attachments: [{ path: firstImage, mime_type: 'image/png' }],
+  }, 'operator');
+  const second = await engine.submit({
+    request_id: 'second-image', content: 'Inspect second', attachments: [{ path: secondImage, mime_type: 'image/png' }],
+  }, 'operator');
+  assert.equal(first.attachment_admission.admitted[0].route, 'vision');
+  assert.equal(second.attachment_admission.admitted[0].route, 'primary');
+  assert.equal(primaryImageAttempts, 2);
+  assert.equal(visionCalls, 1);
 });
 
 test('AC-ATT-02 no eligible vision route rejects managed copy and retains text for retry', async () => {

@@ -190,9 +190,10 @@ export class AttachmentObservationRouter {
     const attempts = [];
     const primary = this.router.resolve('primary');
     try {
-      if (knownIncompatible(this.cache, primary, this.router.config.version)) {
-        throw new ContractError('provider_image_unsupported', 'primary is known incompatible with images');
-      }
+      // Always let the active primary model see the image first. Capability
+      // declarations and prior observations are advisory only: local hosts can
+      // change a model or chat template without changing the saved profile.
+      // Vision is a request-scoped fallback after an explicit provider reject.
       const result = await observeWith(this.router, primary, 'primary', item, prompt, signal);
       this.cache.record(primary, 'image_input', this.router.config.version, true);
       attempts.push(attemptFact(primary, 'consumed'));
@@ -205,7 +206,7 @@ export class AttachmentObservationRouter {
       this.cache.record(primary, 'image_input', this.router.config.version, false);
       attempts.push(attemptFact(primary, 'unsupported'));
       const vision = this.router.resolve('vision');
-      if (sameRoute(primary, vision) || vision.profile.capabilities.images === false) {
+      if (sameRoute(primary, vision)) {
         throw annotateRouteError(
           new ContractError('no_eligible_vision_route', 'no eligible vision route is configured'),
           logicalRequestId, attempts,
@@ -225,9 +226,6 @@ export class AttachmentObservationRouter {
 }
 
 async function observeWith(router, resolution, role, item, prompt, signal) {
-  if (resolution.profile.capabilities.images === false) {
-    throw new ContractError('provider_image_unsupported', `${role} route explicitly rejects images`);
-  }
   if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
   const bytes = await readFile(item.managedPath);
   if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
@@ -274,11 +272,6 @@ async function observeWith(router, resolution, role, item, prompt, signal) {
   }
   if (text.trim().length === 0) throw new ContractError('attachment_empty_observation', 'vision route returned no observation', true);
   return { text: text.slice(0, 131_072), route: role };
-}
-
-function knownIncompatible(cache, resolution, version) {
-  return resolution.profile.capabilities.images === false
-    || cache.get(resolution, 'image_input', version) === false;
 }
 
 function attemptFact(resolution, outcome) {

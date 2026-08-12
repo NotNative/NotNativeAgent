@@ -292,6 +292,22 @@ test('AC-PROV-01 types in-band SSE errors without exposing provider-controlled t
   });
 });
 
+test('normalizes explicit HTTP and streaming image incompatibility for request-scoped fallback', async () => {
+  const profile = { endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, capabilities: {}, model: 'fixture' };
+  const responses = [
+    () => Response.json({ error: { code: 'vision_not_supported', message: 'model is text only' } }, { status: 400 }),
+    () => new Response('data: {"error":{"message":"This model does not support image input"}}\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    }),
+  ];
+  for (const response of responses) {
+    const provider = new OpenAICompatibleProvider(profile, { maxOutputBytes: 4096 }, { fetch: async () => response() });
+    await assert.rejects(async () => {
+      for await (const _event of provider.stream({ model: 'fixture', messages: [] }, new AbortController().signal)) { /* consume */ }
+    }, { code: 'provider_image_unsupported', retryable: false });
+  }
+});
+
 test('classifies local provider grammar compilation failures without echoing provider text', async () => {
   const provider = new OpenAICompatibleProvider({
     endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, capabilities: {}, model: 'fixture',
