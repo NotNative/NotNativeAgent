@@ -1,4 +1,11 @@
-use_default_settings: true
+use_default_settings:
+  engines:
+    remove:
+      # These optional engines currently fail during startup in the upstream
+      # container or require an external service that rejects initialization.
+      - ahmia
+      - torch
+      - wikidata
 
 general:
   debug: false
@@ -13,4 +20,5 @@ search:
 
 server:
   limiter: false
+  public_instance: false
   image_proxy: true

@@ -11,6 +11,11 @@ export async function runWebSearchCommand(args, paths, options = {}) {
   const deployment = options.deployment ?? new SearxngDeployment({ root: paths.managedSearxng, client });
   const current = await loadWebSearchConfig(paths.webSearchConfig);
   if (action === 'status') return { configured: current.enabled, config: current };
+  if (action === 'refresh-managed') {
+    if (!current.enabled || !current.managed) return { skipped: true, reason: 'not_managed', config: current };
+    const refreshed = await deployment.refreshIfNeeded();
+    return { configured: true, config: current, deployment: refreshed, refreshed: refreshed.refreshed === true };
+  }
   if (action === 'reset' || action === 'disable') {
     return { configured: false, reset: true, config: await resetWebSearchConfig(paths.webSearchConfig) };
   }

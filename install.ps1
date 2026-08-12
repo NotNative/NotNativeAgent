@@ -506,7 +506,19 @@ $env:NNA_HOME = $DataRoot
 try {
     $SearchStatus = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch status | ConvertFrom-Json
     if ($SearchStatus.configured) {
-        Write-InstallerSkip "WebSearch is already configured at $($SearchStatus.config.endpoint); setup skipped."
+        if ($SearchStatus.config.managed) {
+            Write-InstallerStep 'Checking the NNA-managed SearXNG deployment profile'
+            $RefreshJson = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch refresh-managed
+            if ($LASTEXITCODE -ne 0) {
+                Write-InstallerWarning 'Managed SearXNG refresh was deferred; use /websearch to inspect or redeploy it.'
+            } else {
+                $Refresh = $RefreshJson | ConvertFrom-Json
+                if ($Refresh.refreshed) { Write-InstallerOk 'Managed SearXNG configuration refreshed and container restarted' }
+                else { Write-InstallerSkip 'Managed SearXNG configuration is current; setup skipped.' }
+            }
+        } else {
+            Write-InstallerSkip "WebSearch is already configured at $($SearchStatus.config.endpoint); setup skipped."
+        }
     } elseif ($WebSearchEndpoint) {
         Write-InstallerStep "Validating existing SearXNG endpoint: $WebSearchEndpoint"
         & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch configure $WebSearchEndpoint | Out-Null

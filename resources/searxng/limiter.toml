@@ -1,0 +1,8 @@
+# NNA exposes SearXNG directly on loopback rather than through a reverse proxy.
+# Keep loopback clients trusted if bot-detection code is loaded by SearXNG.
+[botdetection]
+trusted_proxies = []
+
+[botdetection.ip_lists]
+pass_ip = ["127.0.0.0/8", "::1/128"]
+pass_searxng_org = false

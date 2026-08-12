@@ -41,6 +41,13 @@ export class SearxngDeployment {
     return Object.freeze({ ...preflight, ...validation, managed: true, root: this.root });
   }
 
+  async refreshIfNeeded() {
+    if (await this.#managedProfileIsCurrent()) {
+      return Object.freeze({ refreshed: false, skipped: true, reason: 'current', managed: true, endpoint: MANAGED_SEARXNG_ENDPOINT });
+    }
+    return Object.freeze({ ...await this.deploy(), refreshed: true });
+  }
+
   async start() {
     await this.preflight();
     await this.#stage();
@@ -80,8 +87,21 @@ export class SearxngDeployment {
     await mkdir(join(this.root, 'config'), { recursive: true, mode: 0o700 });
     await mkdir(join(this.root, 'data'), { recursive: true, mode: 0o700 });
     await copyFile(join(this.resources, 'compose.yaml'), join(this.root, 'compose.yaml'));
-    await copyIfMissing(join(this.resources, 'settings.yml'), join(this.root, 'config', 'settings.yml'));
+    await copyFile(join(this.resources, 'settings.yml'), join(this.root, 'config', 'settings.yml'));
+    await copyFile(join(this.resources, 'limiter.toml'), join(this.root, 'config', 'limiter.toml'));
     await writeIfMissing(join(this.root, '.env'), `SEARXNG_SECRET=${randomBytes(32).toString('hex')}\n`);
+  }
+
+  async #managedProfileIsCurrent() {
+    const pairs = [
+      ['compose.yaml', 'compose.yaml'],
+      ['settings.yml', join('config', 'settings.yml')],
+      ['limiter.toml', join('config', 'limiter.toml')],
+    ];
+    for (const [source, target] of pairs) {
+      if (!await filesEqual(join(this.resources, source), join(this.root, target))) return false;
+    }
+    return true;
   }
 
   #compose(arguments_) {
@@ -117,14 +137,18 @@ function isPortAvailable(port, host) {
   });
 }
 
-async function copyIfMissing(source, destination) {
-  try { await writeFile(destination, await readFile(source), { flag: 'wx', mode: 0o600 }); } catch (error) {
+async function writeIfMissing(path, content) {
+  try { await writeFile(path, content, { flag: 'wx', mode: 0o600 }); } catch (error) {
     if (error.code !== 'EEXIST') throw error;
   }
 }
 
-async function writeIfMissing(path, content) {
-  try { await writeFile(path, content, { flag: 'wx', mode: 0o600 }); } catch (error) {
-    if (error.code !== 'EEXIST') throw error;
+async function filesEqual(left, right) {
+  try {
+    const [leftContent, rightContent] = await Promise.all([readFile(left), readFile(right)]);
+    return leftContent.equals(rightContent);
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
   }
 }

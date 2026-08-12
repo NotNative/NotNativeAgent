@@ -341,7 +341,22 @@ search_status=$(nna_runtime websearch status)
 search_configured=$(printf '%s' "$search_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).configured?'true':'false'))")
 if [ "$search_configured" = true ]; then
   search_endpoint=$(printf '%s' "$search_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).config.endpoint||''))")
-  skip "WebSearch is already configured at $search_endpoint; setup skipped."
+  search_managed=$(printf '%s' "$search_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).config.managed?'true':'false'))")
+  if [ "$search_managed" = true ]; then
+    step 'Checking the NNA-managed SearXNG deployment profile'
+    if refresh_status=$(nna_runtime websearch refresh-managed); then
+      search_refreshed=$(printf '%s' "$refresh_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).refreshed?'true':'false'))")
+      if [ "$search_refreshed" = true ]; then
+        ok 'Managed SearXNG configuration refreshed and container restarted'
+      else
+        skip 'Managed SearXNG configuration is current; setup skipped.'
+      fi
+    else
+      warn 'Managed SearXNG refresh was deferred; use /websearch to inspect or redeploy it.'
+    fi
+  else
+    skip "WebSearch is already configured at $search_endpoint; setup skipped."
+  fi
 elif [ "$web_search_mode" = endpoint ]; then
   step "Validating existing SearXNG endpoint: $web_search_endpoint"
   nna_runtime websearch configure "$web_search_endpoint" >/dev/null

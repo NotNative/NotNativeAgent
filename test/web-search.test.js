@@ -75,12 +75,45 @@ test('managed deployment preflights Docker, stages pinned resources, and validat
   };
   const client = { test: async () => ({ ok: true, endpoint: MANAGED_SEARXNG_ENDPOINT, results: 1 }) };
   try {
-    const result = await new SearxngDeployment({ root, run, client, portAvailable: async () => true }).deploy();
+    await mkdir(join(root, 'config'), { recursive: true });
+    await writeFile(join(root, 'config', 'settings.yml'), 'stale: true\n');
+    const deployment = new SearxngDeployment({ root, run, client, portAvailable: async () => true });
+    const result = await deployment.deploy();
     assert.equal(result.endpoint, MANAGED_SEARXNG_ENDPOINT);
     assert.ok(calls.some((call) => call.includes('compose') && call.includes('up')));
     assert.ok(calls.some((call) => call.includes('compose') && call.includes('--force-recreate')));
     assert.match(await readFile(join(root, 'compose.yaml'), 'utf8'), /127\.0\.0\.1:8888:8080/u);
     assert.match(await readFile(join(root, 'compose.yaml'), 'utf8'), /searxng@sha256:d0aaeb14880e6e92bde1518fcc7261e995783367d63d95203383607bef9c6516/u);
+    assert.match(await readFile(join(root, 'compose.yaml'), 'utf8'), /SEARXNG_LIMITER: "false"/u);
+    const settings = await readFile(join(root, 'config', 'settings.yml'), 'utf8');
+    assert.doesNotMatch(settings, /stale: true/u);
+    assert.match(settings, /- ahmia/u);
+    assert.match(settings, /- torch/u);
+    assert.match(settings, /- wikidata/u);
+    assert.match(settings, /public_instance: false/u);
+    assert.match(await readFile(join(root, 'config', 'limiter.toml'), 'utf8'), /trusted_proxies = \[\]/u);
+    const callCount = calls.length;
+    assert.equal((await deployment.refreshIfNeeded()).refreshed, false);
+    assert.equal(calls.length, callCount);
+    await writeFile(join(root, 'config', 'settings.yml'), 'stale: true\n');
+    assert.equal((await deployment.refreshIfNeeded()).refreshed, true);
+    assert.doesNotMatch(await readFile(join(root, 'config', 'settings.yml'), 'utf8'), /stale: true/u);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('managed WebSearch refresh is bounded to managed configurations', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-web-refresh-'));
+  const paths = { webSearchConfig: join(root, 'config.json'), managedSearxng: join(root, 'managed') };
+  let refreshes = 0;
+  const deployment = { refreshIfNeeded: async () => { refreshes += 1; return { refreshed: true }; } };
+  try {
+    assert.equal((await runWebSearchCommand(['refresh-managed'], paths, { deployment })).reason, 'not_managed');
+    await saveWebSearchConfig(paths.webSearchConfig, {
+      enabled: true, provider: 'searxng', endpoint: MANAGED_SEARXNG_ENDPOINT, managed: true,
+    });
+    const refreshed = await runWebSearchCommand(['refresh-managed'], paths, { deployment });
+    assert.equal(refreshed.refreshed, true);
+    assert.equal(refreshes, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

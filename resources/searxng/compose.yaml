@@ -9,6 +9,8 @@ services:
     environment:
       SEARXNG_BASE_URL: http://127.0.0.1:8888/
       SEARXNG_SECRET: ${SEARXNG_SECRET}
+      SEARXNG_LIMITER: "false"
+      SEARXNG_PUBLIC_INSTANCE: "false"
     volumes:
       - ./config:/etc/searxng
       - ./data:/var/cache/searxng
