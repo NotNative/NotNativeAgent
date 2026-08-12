@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { Readable, Writable } from 'node:stream';
 import test from 'node:test';
 import { runHeadless } from '../src/headless.js';
+import { resolveManifest } from '../src/config.js';
 
 const provider = { endpoint: 'http://127.0.0.1:9/v1', model: 'fixture', trust_zone: 'loopback' };
 
@@ -49,6 +50,37 @@ test('host resume fails explicitly instead of silently creating a blank durable 
   })}\n`);
   assert.equal(result.records.at(-1).type, 'error');
   assert.equal(result.records.at(-1).code, 'session_missing');
+  assert.equal(result.providerCalls, 0);
+});
+
+test('host selects a saved provider by label and acknowledges the effective route', async () => {
+  const operatorConfig = resolveManifest({
+    providers: [
+      { id: 'local', display_name: 'Local', endpoint: 'http://127.0.0.1:1/v1', model: 'local', trust_zone: 'loopback' },
+      { id: 'remote', display_name: 'Remote Lab', endpoint: 'http://192.168.1.20:1234/v1', model: 'qwen-remote', trust_zone: 'private_network' },
+    ],
+    routes: { primary: { provider_id: 'local', model: 'local' } },
+  });
+  const result = await invoke(`${JSON.stringify({
+    version: '1.0', type: 'initialize', request_id: 'profile-init', provider_profile: 'Remote Lab',
+    manifest: { persistence: 'ephemeral', workspace_root: process.cwd() },
+  })}\n${JSON.stringify({ version: '1.0', type: 'shutdown', request_id: 'profile-stop' })}\n`, { operatorConfig });
+  const initialized = result.records[0];
+  assert.equal(initialized.type, 'initialized');
+  assert.equal(initialized.status, 'ready');
+  assert.equal(initialized.provider_profile, 'Remote Lab');
+  assert.equal(initialized.provider_profile_id, 'remote');
+  assert.equal(initialized.endpoint, 'http://192.168.1.20:1234/v1');
+  assert.equal(initialized.model, 'qwen-remote');
+});
+
+test('host profile selection fails clearly without fallback', async () => {
+  const operatorConfig = resolveManifest({ provider });
+  const result = await invoke(`${JSON.stringify({
+    version: '1.0', type: 'initialize', request_id: 'profile-missing', provider_profile: 'not-configured',
+    manifest: { persistence: 'ephemeral' },
+  })}\n`, { operatorConfig });
+  assert.equal(result.records.at(-1).code, 'provider_missing');
   assert.equal(result.providerCalls, 0);
 });
 

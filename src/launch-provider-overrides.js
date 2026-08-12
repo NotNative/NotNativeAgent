@@ -3,17 +3,18 @@ import { ContractError } from './ids.js';
 import { withPrimaryRoute, withProvider } from './route-configuration.js';
 
 export function applyLaunchProviderOverrides(config, options = {}) {
-  const profileId = options.providerProfile, endpoint = options.providerEndpoint;
+  const profileSelector = options.providerProfile, endpoint = options.providerEndpoint;
   const model = options.model, credentialEnv = options.providerCredentialEnv;
-  if (!profileId && !endpoint && !model && !credentialEnv) return config;
-  if (profileId && endpoint) {
+  if (!profileSelector && !endpoint && !model && !credentialEnv) return config;
+  if (profileSelector && endpoint) {
     throw new ContractError('provider_override_conflict', '--provider-profile and --provider-endpoint are mutually exclusive');
   }
   if (endpoint && !model) {
     throw new ContractError('provider_model_required', '--provider-endpoint currently requires --model; no catalog entry is selected implicitly');
   }
-  const selected = profileId ? config.providerProfiles[profileId] : config.providerProfiles[config.routes.primary.providerId];
-  if (!selected && !endpoint) throw new ContractError('provider_missing', `provider ${profileId ?? config.routes.primary.providerId} is not configured`);
+  const profileId = profileSelector ? resolveProfileId(config.providerProfiles, profileSelector) : config.routes.primary.providerId;
+  const selected = config.providerProfiles[profileId];
+  if (!selected && !endpoint) throw new ContractError('provider_missing', `provider ${profileSelector ?? profileId} is not configured`);
   if (!endpoint && !credentialEnv) return tagged(withPrimaryRoute(config, selected.id, model ?? selected.model).config, options);
   const id = availableId(config.providerProfiles);
   const added = withProvider(config, {
@@ -22,6 +23,23 @@ export function applyLaunchProviderOverrides(config, options = {}) {
     credentialEnv: credentialEnv ?? selected.credentialEnv,
   }).config;
   return tagged(withPrimaryRoute(added, id, model ?? selected.model).config, options);
+}
+
+function resolveProfileId(profiles, selector) {
+  if (profiles[selector]) return selector;
+  const exact = Object.values(profiles).filter((profile) => profile.displayName === selector);
+  if (exact.length === 1) return exact[0].id;
+  if (exact.length > 1) throw ambiguous(selector);
+  const folded = selector.toLocaleLowerCase('en-US');
+  const insensitive = Object.values(profiles)
+    .filter((profile) => profile.displayName.toLocaleLowerCase('en-US') === folded);
+  if (insensitive.length === 1) return insensitive[0].id;
+  if (insensitive.length > 1) throw ambiguous(selector);
+  throw new ContractError('provider_missing', `provider profile ${selector} is not configured`);
+}
+
+function ambiguous(selector) {
+  return new ContractError('provider_profile_ambiguous', `provider profile label ${selector} matches more than one saved profile`);
 }
 
 function tagged(config, options) {

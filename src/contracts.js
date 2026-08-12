@@ -56,6 +56,11 @@ export function validateCommand(value, options = {}) {
 
 function validateInitialization(value) {
   if (!isRecord(value.manifest)) throw new ContractError('initialization_manifest_invalid', 'initialize requires an execution manifest');
+  if (value.provider_profile !== undefined && (typeof value.provider_profile !== 'string'
+    || value.provider_profile.length === 0 || value.provider_profile.length > 256
+    || /[\u0000-\u001f\u007f]/u.test(value.provider_profile))) {
+    throw new ContractError('provider_profile_invalid', 'provider_profile must be bounded printable text');
+  }
   if (value.execution_manifest_id !== undefined) requireExternalId(value.execution_manifest_id, 'execution_manifest_id');
   if (value.host_origin !== undefined && (typeof value.host_origin !== 'string' || value.host_origin.length > 256
     || /[\u0000-\u001f\u007f]/u.test(value.host_origin))) {

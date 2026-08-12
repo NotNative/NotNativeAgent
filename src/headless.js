@@ -8,6 +8,8 @@ import { SessionEngine } from './engine.js';
 import { CanonicalIngress } from './ingress.js';
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { userDataPaths } from './product.js';
+import { applyLaunchProviderOverrides } from './launch-provider-overrides.js';
+import { manifestFromConfig } from './route-configuration.js';
 import { StructuredLog } from './structured-log.js';
 
 export async function runHeadless(input, output, diagnostics, options = {}) {
@@ -69,7 +71,11 @@ async function initialize(command, writer, logger, options) {
   if (command.type !== 'initialize') {
     throw new ContractError('initialization_required', 'initialize must be the first command');
   }
-  const config = resolveManifest(command.manifest, {
+  const selectedProfile = selectRequestedProfile(command.provider_profile, options.providerProfile);
+  const manifest = selectedProfile
+    ? await manifestWithSelectedProvider(command.manifest, selectedProfile, options)
+    : command.manifest;
+  const config = resolveManifest(manifest, {
     missionPrincipal: 'authenticated-stdio-host', principal: 'authenticated-stdio-host',
     executionManifestId: command.execution_manifest_id ?? command.request_id,
     hostOrigin: command.host_origin ?? 'stdio-parent', hostIdentity: command.host_identity,
@@ -97,9 +103,13 @@ async function initialize(command, writer, logger, options) {
   });
   await engine.initialize();
   const ingress = new CanonicalIngress(engine);
+  const primaryRoute = config.routes.primary;
+  const primaryProvider = config.providerProfiles[primaryRoute.providerId];
   await writeObserved(writer, logger, {
     version: '1.0', type: 'initialized', request_id: command.request_id,
     runtime_id: engine.runtimeId, session_id: engine.sessionId,
+    status: 'ready', provider_profile: primaryProvider.displayName,
+    provider_profile_id: primaryProvider.id, endpoint: primaryProvider.endpoint, model: primaryRoute.model,
     protocol: PROTOCOL_VERSION, capabilities: {
       streaming: true,
       tools: config.executionManifest.allowedCapabilities.includes('tools'),
@@ -115,6 +125,27 @@ async function initialize(command, writer, logger, options) {
     recovered_interruptions: engine.recoveryNotices,
   }, sessionId);
   return { engine, ingress };
+}
+
+function selectRequestedProfile(commandProfile, launchProfile) {
+  if (commandProfile && launchProfile && commandProfile !== launchProfile) {
+    throw new ContractError('provider_profile_conflict', 'initialize provider_profile conflicts with the launch -provider selection');
+  }
+  return commandProfile ?? launchProfile ?? null;
+}
+
+async function manifestWithSelectedProvider(hostManifest, selector, options) {
+  const operatorConfig = options.operatorConfig ?? await options.loadOperatorConfig?.();
+  if (!operatorConfig) {
+    throw new ContractError('provider_configuration_unavailable', 'saved NNA provider profiles are unavailable to this host');
+  }
+  const selected = applyLaunchProviderOverrides(operatorConfig, { providerProfile: selector });
+  const routing = manifestFromConfig(selected);
+  const manifest = structuredClone(hostManifest);
+  delete manifest.provider;
+  manifest.providers = routing.providers;
+  manifest.routes = routing.routes;
+  return manifest;
 }
 
 async function dispatch(command, ingress, engine, writer, logger) {

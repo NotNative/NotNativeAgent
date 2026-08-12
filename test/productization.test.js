@@ -60,6 +60,9 @@ test('launch options support prompt, host, and config aliases without breaking l
   assert.equal(override.providerProfile, 'remote');
   assert.equal(override.model, 'qwen');
   assert.deepEqual(override.prompt, ['hello']);
+  assert.equal(parseCli(['-provider', 'Remote Lab']).providerProfile, 'Remote Lab');
+  assert.equal(parseCli(['--provider', 'Remote Lab']).providerProfile, 'Remote Lab');
+  assert.equal(parseCli(['host', '-provider', 'Remote Lab']).providerProfile, 'Remote Lab');
   assert.throws(() => parseCli(['--provider-credential-env', 'literal-secret!']), { code: 'credential_reference_invalid' });
   assert.throws(() => parseCli(['host', '--model', 'unsafe-override']), { code: 'host_override_requires_manifest' });
 });

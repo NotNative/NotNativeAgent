@@ -16,6 +16,8 @@ import { runWebFetchCommand } from './web-fetch-cli.js';
 import { loadManagedProviderCredentials, runProviderBootstrapCommand } from './provider-bootstrap.js';
 import { loadManagedMcpCredentials } from './mcp-credentials.js';
 import { applyLaunchProviderOverrides } from './launch-provider-overrides.js';
+import { loadStartupManifestDocument } from './onboarding.js';
+import { resolveManifest } from './config.js';
 import { runUninstallCommand } from './uninstall-cli.js';
 import { runSecretBrokerCommand } from './secret-broker-cli.js';
 import { runWebBrowseCommand } from './web-browse-cli.js';
@@ -27,7 +29,16 @@ try {
   else if (['version', '--version', '-v'].includes(options.mode)) process.stdout.write(`${VERSION}\n`);
   else if (options.mode === 'headless') {
     const paths = await runtimePaths();
-    await runHeadless(process.stdin, process.stdout, process.stderr, productOptions(paths));
+    let operatorConfig;
+    const loadOperatorConfig = async () => {
+      operatorConfig ??= resolveManifest(await loadStartupManifestDocument({
+        paths, input: process.stdin, output: process.stderr, diagnostics: process.stderr,
+      }));
+      return operatorConfig;
+    };
+    await runHeadless(process.stdin, process.stdout, process.stderr, {
+      ...productOptions(paths), providerProfile: options.providerProfile, loadOperatorConfig,
+    });
   }
   else if (options.mode === 'websearch') {
     const result = await runWebSearchCommand(options.prompt, await runtimePaths());
@@ -109,10 +120,11 @@ function help() {
     '  nna [--config PATH] [--session ID]        Launch configured TUI',
     '  nna tui [--config PATH] [--session ID] [--no-color] [--reduced-motion]',
     '  nna -p [PROMPT]                           Run one prompt and exit; stdin is accepted',
-    '  nna [--provider-profile ID] [--model NAME] Temporary route for Console or prompt mode',
+    '  nna [-provider LABEL] [--model NAME]        Select a saved profile for Console or prompt mode',
+    '      --provider and --provider-profile remain supported aliases',
     '  nna --provider-endpoint URL --model NAME   Temporary endpoint; never changes saved profiles',
     '      [--provider-credential-env ENV_NAME]   Credential reference; literal secrets are rejected',
-    '  nna host                                  Structured NDJSON host protocol',
+    '  nna host [-provider LABEL]                Structured NDJSON host protocol',
     '  nna headless                              Compatibility alias for host',
     '  nna text [--config PATH] [PROMPT]          Compatibility alias for prompt mode',
     '  nna sessions preview SESSION_ID',

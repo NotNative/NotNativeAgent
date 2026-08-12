@@ -22,7 +22,9 @@ export function parseCli(argv) {
     }
     else if (value === '--manifest' || value === '--config') options.manifestPath = requiredValue(argv[++index], value);
     else if (value === '--session') options.sessionId = requiredValue(argv[++index], '--session');
-    else if (value === '--provider-profile') options.providerProfile = requiredValue(argv[++index], value);
+    else if (['-provider', '--provider', '--provider-profile'].includes(value)) {
+      options.providerProfile = requiredValue(argv[++index], value);
+    }
     else if (value === '--provider-endpoint') options.providerEndpoint = requiredValue(argv[++index], value);
     else if (value === '--model') options.model = requiredValue(argv[++index], value);
     else if (value === '--provider-credential-env') options.providerCredentialEnv = credentialName(argv[++index], value);
@@ -34,8 +36,8 @@ export function parseCli(argv) {
     else if (value.startsWith('-')) throw new ContractError('invalid_option', `unknown option ${value}`);
     else options.prompt.push(value);
   }
-  if (mode === 'headless' && [options.providerProfile, options.providerEndpoint, options.model, options.providerCredentialEnv].some(Boolean)) {
-    throw new ContractError('host_override_requires_manifest', 'host provider routing must be supplied by its authenticated initialization manifest');
+  if (mode === 'headless' && [options.providerEndpoint, options.model, options.providerCredentialEnv].some(Boolean)) {
+    throw new ContractError('host_override_requires_manifest', 'host endpoint, model, and credential overrides must be supplied by its authenticated initialization manifest');
   }
   return Object.freeze({ ...options, mode });
 }

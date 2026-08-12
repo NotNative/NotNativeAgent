@@ -29,6 +29,17 @@ The initialization response includes the immutable authenticated execution manif
 the effective capability ceilings. Disconnect policy is currently always `cancel`;
 detached execution is deliberately unsupported.
 
+Hosts may select one of the operator's saved NNA provider profiles with
+`nna host -provider "PROFILE LABEL"` or the bounded `provider_profile` field on the
+`initialize` command. Both paths use the same label resolver; internal profile IDs remain
+a supported compatibility selector. When a profile is explicitly selected, NNA supplies
+its saved endpoint/model routing while retaining the host's workspace, identity, mission,
+capability, and tool restrictions. A missing, ambiguous, or conflicting selection fails
+initialization without falling back. The `initialized` acknowledgement returns the
+secret-free effective `provider_profile`, `provider_profile_id`, `endpoint`, `model`, and
+`status` fields. Legacy hosts may continue supplying a complete provider route in the
+authenticated manifest.
+
 An authenticated host may provide `manifest.allowed_tools` as an exact list of native or
 MCP tool names. NNA filters every registration through that list, including capabilities
 discovered after startup, binds the canonical list into durable-session provenance, and
