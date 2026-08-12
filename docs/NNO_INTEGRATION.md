@@ -116,6 +116,21 @@ Test returns `{ "profile_id", "status", "selected_model", "discovered_models" }`
 Provider authentication currently remains an environment-variable reference; literal
 provider credentials are neither accepted nor returned by this API.
 
+### Provider response schemas
+
+Successful responses are newline-terminated JSON with `Content-Type: application/json`
+and `Cache-Control: no-store`:
+
+| Operation | Status | Body |
+| --- | ---: | --- |
+| List | 200 | `{ "profiles": [<profile>...] }` |
+| Get | 200 | `{ "profile": <profile> }` |
+| Create | 201 | `{ "profile": <profile> }` |
+| Update | 200 | `{ "profile": <profile> }` |
+| Delete | 200 | `{ "removed": "<profile_id>" }` |
+| Discover | 200 | `{ "profile_id": "...", "models": ["..."] }` |
+| Test | 200 | `{ "profile_id": "...", "status": "ready|model_unavailable", "selected_model": "...", "discovered_models": 3 }` |
+
 ## Secret management
 
 ```text
@@ -138,6 +153,28 @@ Metadata responses contain only field names and lifecycle information. Value rot
 The `/use` result is for NNO's trusted backend only and must never be forwarded to a
 browser, model context, or log.
 
+## HTTP failure contract
+
+Every integration HTTP failure is a newline-terminated JSON object:
+
+```json
+{"error":{"code":"provider_missing","message":"provider profile not found"}}
+```
+
+NNO branches on `error.code`, never on message text. The NNO-relevant stable codes are:
+
+| HTTP | Codes |
+| ---: | --- |
+| 400 | `request_invalid`, `request_too_large`, `provider_request_invalid`, `provider_id_invalid`, `provider_duplicate`, `provider_last_profile`, `provider_in_use`, `provider_configuration_invalid`, `provider_configuration_too_large`, `invalid_endpoint`, `invalid_model`, `missing_credential`, `provider_discovery_unreachable`, `provider_discovery_failed`, `provider_discovery_too_large`, `provider_models_empty`, `secret_label_invalid`, `secret_kind_invalid`, `secret_fields_invalid`, `secret_field_name_invalid`, `secret_field_value_invalid`, `secret_scope_invalid`, `secret_metadata_invalid`, `secret_label_duplicate`, `secret_status_invalid`, `secret_use_request_invalid`, `secret_revoked`, `secret_audit_unavailable`, `secret_key_invalid`, `secret_vault_integrity_failed`, `secret_vault_corrupt` |
+| 401 | `unauthenticated`, `principal_required`, `principal_invalid`, `principal_stale` |
+| 403 | `integration_permission_denied`, `secret_scope_forbidden` |
+| 404 | `not_found`, `provider_missing`, `secret_not_found` |
+| 405 | `method_not_allowed` |
+| 500 | `internal_failure` |
+
+The request-body limit is 96 KiB. A 500 response always uses the generic message
+`integration request failed`; internal exception text is not exposed.
+
 ## Hosted agent selection
 
 NNO launches `nna host -provider <profile_id>` (the `--provider` and
@@ -158,7 +195,9 @@ The `initialized` frame acknowledges the resolved route at one canonical locatio
 
 ```json
 {
+  "version": "1.0",
   "type": "initialized",
+  "request_id": "req_...",
   "status": "ready",
   "provider": {
     "profile_id": "lab-qwen35b",
@@ -168,6 +207,41 @@ The `initialized` frame acknowledges the resolved route at one canonical locatio
   }
 }
 ```
+
+NNO validates `version`, `type`, `request_id`, `status`, and the complete `provider`
+object. Other bounded fields in the frame are additive runtime metadata. The acknowledged
+`provider.profile_id` must exactly equal the requested stable ID before NNO submits work.
+
+If initialization fails after a command was parsed, NNA emits one protocol error frame
+before exiting nonzero:
+
+```json
+{
+  "version": "1.0",
+  "type": "error",
+  "request_id": "req_...",
+  "code": "provider_missing",
+  "category": "provider",
+  "message": "provider profile not found",
+  "retryable": false,
+  "operation": "headless_protocol",
+  "next_action": "Inspect local health and diagnostics using the stable error code."
+}
+```
+
+Initialization codes NNO must handle are `provider_missing`,
+`provider_profile_conflict`, `provider_profile_invalid`,
+`provider_configuration_unavailable`, `initialization_required`,
+`initialization_manifest_invalid`, `incompatible_version`, `session_missing`,
+`malformed_json`, `line_too_large`, `structure_too_large`, `unknown_control`, and
+`internal_failure`. An unparseable command cannot supply a trustworthy `request_id`.
+
+Before the integration service emits `ready`, fatal CLI activation errors are written to
+stderr as `nna: <code>` and the process exits nonzero without a ready frame. Codes are
+`integration_command_invalid`, `integration_bind_invalid`, `integration_token_invalid`,
+`nno_install_required`, `nno_install_invalid`, `nno_integration_activation_missing`,
+`nno_integration_activation_invalid`, `nno_integration_activation_incompatible`, and
+`nno_integration_activation_required`. NNO treats stderr as diagnostics, not as protocol.
 
 NNO business routes, blind-test primaries, and candidates store profile IDs, never model
 names or display names. NNA resolves its internal reviewer, vision, and subagent routes.

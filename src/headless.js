@@ -18,11 +18,14 @@ export async function runHeadless(input, output, diagnostics, options = {}) {
   let engine = null;
   let ingress = null;
   let cleanShutdown = false;
+  let activeRequestId = null;
   const owned = new Set();
   try {
     for await (const line of interruptibleLines(input, writer, options.maxLineBytes ?? 262_144)) {
       if (line.trim().length === 0) continue;
+      activeRequestId = null;
       const command = parseProtocolLine(line);
+      activeRequestId = command.request_id;
       if (!engine) {
         const initialized = await initialize(command, writer, logger, options);
         engine = initialized.engine;
@@ -52,7 +55,9 @@ export async function runHeadless(input, output, diagnostics, options = {}) {
   } catch (error) {
     if (!writer.failed) {
       await writeObserved(writer, logger, {
-        version: '1.0', type: 'error', ...safeError(error, 'headless_protocol'),
+        version: '1.0', type: 'error',
+        ...(activeRequestId ? { request_id: activeRequestId } : {}),
+        ...safeError(error, 'headless_protocol'),
       }, engine?.sessionId);
     }
     diagnostics.write(`nna: ${safeError(error, 'headless_protocol').code}\n`);

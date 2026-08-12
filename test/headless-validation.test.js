@@ -49,6 +49,7 @@ test('host resume fails explicitly instead of silently creating a blank durable 
     manifest: { persistence: 'durable', provider },
   })}\n`);
   assert.equal(result.records.at(-1).type, 'error');
+  assert.equal(result.records.at(-1).request_id, 'missing-resume');
   assert.equal(result.records.at(-1).code, 'session_missing');
   assert.equal(result.providerCalls, 0);
 });
