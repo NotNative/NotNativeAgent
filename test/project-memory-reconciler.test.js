@@ -27,6 +27,8 @@ test('project-memory proposals preserve user content and replace only the manage
   assert.equal(await readFile(join(root, 'NNA.md'), 'utf8'), before);
   const candidate = projectMemoryCandidate(proposal);
   assert.equal(candidate.kind, 'guidance.project_memory');
+  assert.equal(candidate.schema, 'notnative.learning-candidate/1.0');
+  assert.equal(candidate.destination, 'project_memory');
   assert.equal(candidate.payload.expected_hash, proposal.expected_hash);
 });
 

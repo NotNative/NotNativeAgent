@@ -11,7 +11,7 @@ import { NnmHygieneReceipts } from './nnm-hygiene-receipts.js';
 import { admitHygieneReceipt, admitNnmReceipt } from './dream-governance-admission.js';
 import { observeSkillRequests } from './skill-opportunity.js';
 import {
-  explicitProjectDecisions, ProjectMemoryReconciler, projectMemoryCandidate,
+  explicitProjectKnowledge, ProjectMemoryReconciler, projectMemoryCandidate,
 } from './project-memory-reconciler.js';
 
 export class DreamCoordinator {
@@ -192,7 +192,7 @@ export class DreamCoordinator {
     });
     try {
       if (signal.aborted) throw cancelled();
-      const decisions = explicitProjectDecisions(this.#transcriptRecords(), packet.payload.turn_refs);
+      const decisions = explicitProjectKnowledge(this.#transcriptRecords(), packet.payload.turn_refs);
       if (decisions.length === 0) return this.#finishProjectMemorySkipped(run, packet, started);
       const engine = this.#engine();
       const scope = { kind: 'workspace', fingerprint: governanceFingerprint(this.config.workspaceRoot) };
@@ -469,8 +469,8 @@ async function registerProjectDecisions(engine, decisions, scope, signal) {
     if (signal.aborted) throw cancelled();
     const contentFingerprint = governanceFingerprint(decision.statement);
     const evidence = await engine.governance.registerEvidence({
-      id: `evidence:operator-decision:${decision.turnId}:${contentFingerprint.slice(0, 24)}`,
-      kind: 'operator_project_decision', origin: 'operator', trust: 'authority',
+      id: `evidence:operator-project-knowledge:${decision.turnId}:${contentFingerprint.slice(0, 24)}`,
+      kind: 'operator_project_knowledge', origin: 'operator', trust: 'authority',
       state: 'active', freshness: 'current', conflict: 'none',
       sourceRef: `turn:${decision.turnId}`, sourceFingerprint: decision.turnId,
       contentFingerprint, scope, observedAt: Date.now(),

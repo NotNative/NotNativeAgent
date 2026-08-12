@@ -22,7 +22,24 @@ export function hookPayload(engine, active = null, extra = {}) {
   return Object.freeze({
     cwd: engine.config.workspaceRoot, prompt: active?.prompt ?? '',
     model_name: active?.modelName ?? '', transcript_path: engine.store?.path ?? '',
-    loaded_skills: engine.skills?.loadedIds() ?? Object.freeze([]), ...extra,
+    loaded_skills: engine.skills?.loadedIds() ?? Object.freeze([]),
+    identity_scope: hookIdentityScope(engine), ...extra,
+  });
+}
+
+export function hookIdentityScope(engine) {
+  const hosted = engine.config?.executionManifest?.hostIdentity;
+  const list = (value) => Object.freeze(Array.isArray(value) ? [...value] : []);
+  return Object.freeze({
+    schema: 'notnative.identity-scope/1.0',
+    subject_id: hosted?.subjectId ?? 'local-operator',
+    platform_role: hosted?.platformRole ?? 'local-operator',
+    scope: hosted?.scope ?? 'workspace',
+    workspace_ids: list(hosted?.workspaceIds),
+    group_ids: list(hosted?.groupIds),
+    module_ids: list(hosted?.moduleIds),
+    project_root: engine.config?.workspaceRoot ?? '',
+    session_id: engine.sessionId ?? '',
   });
 }
 

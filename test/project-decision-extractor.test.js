@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import {
-  explicitProjectDecisions, MANAGED_END, MANAGED_START, ProjectMemoryReconciler,
+  explicitProjectDecisions, explicitProjectKnowledge, MANAGED_END, MANAGED_START, ProjectMemoryReconciler,
 } from '../src/project-memory-reconciler.js';
 
 test('explicit decision extraction is operator-only, turn-bounded, and conservative', () => {
@@ -22,6 +22,25 @@ test('explicit decision extraction is operator-only, turn-bounded, and conservat
   ]);
   assert.equal(result[0].section, 'Decisions and rationale');
   assert.equal(result[1].section, 'Working conventions');
+});
+
+test('project knowledge extraction retains durable project semantics but not business facts', () => {
+  const records = [{
+    type: 'message', role: 'user', trust: 'operator', turnId: 't1', content: [
+      'NNA hooks are discovered from the user runtime directory.',
+      'Provider routes must use stable profile IDs.',
+      'Sleep is disabled on both inference nodes.',
+      'The customer prefers email updates.',
+    ].join('\n'),
+  }];
+  const result = explicitProjectKnowledge(records, ['t1']);
+  assert.deepEqual(result.map((item) => item.statement), [
+    'NNA hooks are discovered from the user runtime directory.',
+    'Provider routes must use stable profile IDs.',
+  ]);
+  assert.deepEqual(result.map((item) => item.section), [
+    'Verified environment', 'Current architecture',
+  ]);
 });
 
 test('project-memory append proposals retain prior managed knowledge', async () => {

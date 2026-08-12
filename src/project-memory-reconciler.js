@@ -62,13 +62,13 @@ export class ProjectMemoryReconciler {
   }
 }
 
-export function explicitProjectDecisions(records, turnRefs) {
+export function explicitProjectKnowledge(records, turnRefs) {
   const allowed = new Set(Array.isArray(turnRefs) ? turnRefs : []);
   const found = [];
   for (const record of records ?? []) {
     if (record?.type !== 'message' || record.role !== 'user' || record.trust !== 'operator'
         || !allowed.has(record.turnId) || typeof record.content !== 'string') continue;
-    for (const statement of decisionStatements(record.content)) {
+    for (const statement of projectKnowledgeStatements(record.content)) {
       if (secretLike(statement) || Buffer.byteLength(statement, 'utf8') > 512) continue;
       found.push(Object.freeze({ turnId: record.turnId, statement, section: decisionSection(statement) }));
       if (found.length >= 64) return Object.freeze(found);
@@ -77,8 +77,12 @@ export function explicitProjectDecisions(records, turnRefs) {
   return Object.freeze(found);
 }
 
+// Retained for integrations that imported the original narrow extractor.
+export const explicitProjectDecisions = explicitProjectKnowledge;
+
 export function projectMemoryCandidate(proposal, evidenceRefs = proposal.evidence_refs) {
   return Object.freeze({
+    schema: 'notnative.learning-candidate/1.0', destination: 'project_memory',
     kind: 'guidance.project_memory', confidence: 1, evidenceRefs,
     expectedBenefit: 'Preserve verified durable project knowledge for future turns.',
     successCriteria: [
@@ -130,10 +134,26 @@ function decisionStatements(content) {
   return normalized.filter((line) => /^(?:decision\s*:|we (?:decided|agreed|will|must|should|need to)|i (?:decided|want|need|prefer|would like)|let(?:'|’)s|from now on|always\b|never\b)/iu.test(line));
 }
 
+function projectKnowledgeStatements(content) {
+  const normalized = content.replace(/\r\n?/gu, '\n').split(/\n+|(?<=[.!?])\s+(?=[A-Z])/u)
+    .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/u, '').trim())
+    .filter(Boolean);
+  return normalized.filter((line) => durableProjectStatement(line));
+}
+
+function durableProjectStatement(line) {
+  if (line.endsWith('?') || !PROJECT_SUBJECT.test(line)) return false;
+  if (EXPLICIT_DECISION.test(line)) return true;
+  return PROJECT_RULE.test(line) || PROJECT_STATE.test(line);
+}
+
 function decisionSection(statement) {
   if (/\b(?:bug|broken|problem|issue|failure|missing)\b/iu.test(statement)) return 'Known problems';
   if (/\b(?:later|future|eventually|backlog|defer|shelve|unresolved)\b/iu.test(statement)) return 'Unresolved work';
-  if (/\b(?:architecture|design|engine|component|provider|model|routing|storage|schema)\b/iu.test(statement)) return 'Decisions and rationale';
+  if (/^(?:from now on|always\b|never\b)/iu.test(statement)) return 'Working conventions';
+  if (EXPLICIT_DECISION.test(statement)) return 'Decisions and rationale';
+  if (/\b(?:architecture|topology|design|engine|component|provider|model|routing|storage|schema|owns?|integration|contract)\b/iu.test(statement)) return 'Current architecture';
+  if (/\b(?:path|directory|folder|file|runtime|platform|host|endpoint|configured|installed)\b/iu.test(statement)) return 'Verified environment';
   return 'Working conventions';
 }
 
@@ -165,7 +185,9 @@ function normalizeItems(value) {
       throw new ContractError('project_memory_item_invalid', 'project-memory items must be bounded single-line text');
     }
     if (secretLike(item)) throw new ContractError('project_memory_secret_forbidden', 'project memory may not contain secret material');
-    if (!items.includes(item.trim())) items.push(item.trim());
+    const trimmed = item.trim();
+    const identity = semanticIdentity(trimmed);
+    if (!items.some((existing) => semanticIdentity(existing) === identity)) items.push(trimmed);
   }
   return items;
 }
@@ -185,5 +207,12 @@ function indexes(content, marker) {
 }
 function secretLike(value) {
   return /-----BEGIN [A-Z ]+PRIVATE KEY-----|\bBearer\s+[A-Za-z0-9._~+/-]+=*|\b(?:password|passwd|api[_-]?key|token|secret)\s*[:=]/iu.test(value);
+}
+const PROJECT_SUBJECT = /\b(?:NNA|NotNativeAgent|agent|harness|runtime|engine|repository|repo|project|workspace|source|code|docs?|tests?|config(?:uration)?|installer|command|tool|hook|provider|model|routing|module|package|schema|API|UI|TUI|GUI|file|folder|directory|path|release|build|deployment)\b/iu;
+const EXPLICIT_DECISION = /^(?:decision\s*:|we (?:decided|agreed|will|must|should|need to)|i (?:decided|want|need|prefer|would like)|let(?:'|’|â€™)s|from now on|always\b|never\b)/iu;
+const PROJECT_RULE = /\b(?:must|should|shall|always|never|is required to|needs? to|prefer(?:s|red)?|convention|policy|standard|rule|owned by|belongs? to)\b/iu;
+const PROJECT_STATE = /\b(?:is|are|uses?|contains?|lives?|located|configured|installed|routes?|stores?|loads?|exposes?|supports?)\b/iu;
+function semanticIdentity(value) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/gu, ' ').trim();
 }
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }
