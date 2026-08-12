@@ -11,7 +11,7 @@ export async function runWebSearchCommand(args, paths, options = {}) {
   const deployment = options.deployment ?? new SearxngDeployment({ root: paths.managedSearxng, client });
   const current = await loadWebSearchConfig(paths.webSearchConfig);
   if (action === 'status') return { configured: current.enabled, config: current };
-  if (action === 'reset') {
+  if (action === 'reset' || action === 'disable') {
     return { configured: false, reset: true, config: await resetWebSearchConfig(paths.webSearchConfig) };
   }
   if (action === 'install-if-unconfigured' && current.enabled) return { skipped: true, reason: 'already_configured', config: current };
@@ -25,6 +25,11 @@ export async function runWebSearchCommand(args, paths, options = {}) {
     const deployed = await deployment.deploy();
     const config = await saveWebSearchConfig(paths.webSearchConfig, configuredWebSearch(deployed.endpoint, true));
     return { config, deployment: deployed };
+  }
+  if (action === 'remove' || action === 'remove-deployment') {
+    const removed = await deployment.remove();
+    const config = current.managed ? await resetWebSearchConfig(paths.webSearchConfig) : current;
+    return { config, deployment: removed, removed: true };
   }
   throw Object.assign(new Error('invalid WebSearch command'), { code: 'invalid_web_search_command' });
 }

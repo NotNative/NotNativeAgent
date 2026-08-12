@@ -8,7 +8,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/attachment remove ID', 'Remove a failed managed image', 'conversation'),
   command('/audit', 'Show redacted authorization, grounding, and learning decisions', 'governance'),
   command('/support [preview|PATH.zip]', 'Create or preview a redacted troubleshooting ZIP', 'diagnostics'),
-  command('/websearch [ENDPOINT|test|deploy|disable|reset]', 'Configure and test SearXNG web search', 'configuration'),
+  command('/websearch [status|configure URL|test|deploy|disable|remove]', 'Manage SearXNG web search', 'configuration'),
   command('/webfetch [status|trust ORIGIN|revoke ORIGIN]', 'Manage exact private origins trusted for WebFetch', 'configuration'),
   command('/workspace PATH', 'Open a new conversation rooted at a working directory', 'sessions'),
   command('/sessions', 'Browse recent durable sessions and terminal outcomes', 'sessions'),
@@ -89,14 +89,14 @@ export const TUI_COMMANDS = Object.freeze([
 ]);
 
 export function commandSuggestions(input, limit = 6) {
-  const query = String(input).trimStart().toLowerCase();
-  if (!query.startsWith('/') || query.includes('\n')) return [];
-  const matches = TUI_COMMANDS
-    .map((item) => ({ item, score: suggestionScore(item, query) }))
-    .filter((candidate) => candidate.score < 2)
-    .sort((left, right) => left.score - right.score || left.item.usage.localeCompare(right.item.usage));
-  const unique = query === '/' ? deduplicateCommands(matches) : matches;
-  return unique.slice(0, limit).map((candidate) => candidate.item);
+  const raw = String(input).trimStart().toLowerCase();
+  if (!raw.startsWith('/') || raw.includes('\n')) return [];
+  const query = raw.match(/^\/[^\s]*/u)?.[0] ?? raw;
+  return deduplicateCommands(TUI_COMMANDS.map((item) => ({ item })))
+    .map(({ item }) => item)
+    .filter((item) => item.name.toLowerCase().startsWith(query))
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .slice(0, limit);
 }
 
 function deduplicateCommands(candidates) {
@@ -162,10 +162,4 @@ function unavailableReason(item, session) {
   if (item.usage.startsWith('/memory ') && session.commandCapabilities?.memoryAvailable === false) return 'memory adapter unavailable';
   if (/^\/mcp (?:resources|read|prompts|prompt)/u.test(item.usage) && session.commandCapabilities?.mcpReady === false) return 'no ready MCP server';
   return null;
-}
-
-function suggestionScore(item, query) {
-  if (item.usage.toLowerCase().startsWith(query)) return 0;
-  if (item.description.toLowerCase().includes(query.slice(1))) return 1;
-  return 2;
 }

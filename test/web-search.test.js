@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -78,6 +78,7 @@ test('managed deployment preflights Docker, stages pinned resources, and validat
     const result = await new SearxngDeployment({ root, run, client, portAvailable: async () => true }).deploy();
     assert.equal(result.endpoint, MANAGED_SEARXNG_ENDPOINT);
     assert.ok(calls.some((call) => call.includes('compose') && call.includes('up')));
+    assert.ok(calls.some((call) => call.includes('compose') && call.includes('--force-recreate')));
     assert.match(await readFile(join(root, 'compose.yaml'), 'utf8'), /127\.0\.0\.1:8888:8080/u);
     assert.match(await readFile(join(root, 'compose.yaml'), 'utf8'), /searxng@sha256:d0aaeb14880e6e92bde1518fcc7261e995783367d63d95203383607bef9c6516/u);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -110,6 +111,28 @@ test('reset removes only saved WebSearch configuration for installer rediscovery
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('managed deployment removal is explicit and idempotent', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-searxng-remove-'));
+  const calls = [];
+  const run = async (file, args) => {
+    calls.push([file, ...args]);
+    if (args[0] === 'info') return { stdout: 'linux\n', stderr: '' };
+    return { stdout: 'ok\n', stderr: '' };
+  };
+  try {
+    await mkdir(root, { recursive: true });
+    await saveWebSearchConfig(join(root, 'unused-config.json'), {
+      enabled: true, provider: 'searxng', endpoint: MANAGED_SEARXNG_ENDPOINT, managed: true,
+    });
+    await mkdir(join(root, 'deployment'), { recursive: true });
+    await writeFile(join(root, 'deployment', 'compose.yaml'), 'services: {}\n');
+    const deployment = new SearxngDeployment({ root: join(root, 'deployment'), run });
+    assert.equal((await deployment.remove()).removed, true);
+    assert.ok(calls.some((call) => call.includes('down') && call.includes('--remove-orphans')));
+    assert.equal((await deployment.remove()).removed, false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('/websearch exposes an actionable keyboard menu', () => {
   assert.equal(commandDefinition('/websearch').name, '/websearch');
   assert.equal(commandDefinition('/search_config').name, '/websearch');
@@ -118,7 +141,11 @@ test('/websearch exposes an actionable keyboard menu', () => {
     test: { ok: true, results: 1 },
   });
   assert.equal(view.kind, 'websearch');
-  assert.deepEqual(view.items.map((item) => item.id), ['test', 'deploy', 'start', 'stop', 'disable', 'reset']);
+  assert.deepEqual(view.items.map((item) => item.id), ['action:configure', 'test', 'deploy', 'start', 'stop', 'disable', 'remove']);
+  const disabled = webSearchOverlay({
+    config: { enabled: false, provider: 'searxng', endpoint: null, managed: false }, test: null,
+  });
+  assert.deepEqual(disabled.items.map((item) => item.id), ['action:configure', 'deploy', 'remove']);
 });
 
 function sealContext() {

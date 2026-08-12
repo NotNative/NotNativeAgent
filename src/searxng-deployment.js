@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,7 +36,7 @@ export class SearxngDeployment {
     if (!managedRunning && !await this.portAvailable(8888, '127.0.0.1')) {
       throw new ContractError('web_search_port_unavailable', 'Port 8888 is already in use; configure that endpoint or free the port');
     }
-    await this.#compose(['up', '-d']);
+    await this.#compose(['up', '-d', '--force-recreate']);
     const validation = await this.#waitUntilReady();
     return Object.freeze({ ...preflight, ...validation, managed: true, root: this.root });
   }
@@ -52,6 +52,21 @@ export class SearxngDeployment {
     await this.preflight();
     await this.#compose(['stop']);
     return Object.freeze({ stopped: true, managed: true, endpoint: MANAGED_SEARXNG_ENDPOINT });
+  }
+
+  async remove() {
+    const composePath = join(this.root, 'compose.yaml');
+    let staged = true;
+    try { await access(composePath); } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      staged = false;
+    }
+    if (staged) {
+      await this.preflight();
+      await this.#compose(['down', '--remove-orphans']);
+    }
+    await rm(this.root, { recursive: true, force: true });
+    return Object.freeze({ removed: staged, managed: true, endpoint: MANAGED_SEARXNG_ENDPOINT });
   }
 
   async status() {

@@ -9,7 +9,7 @@ export { adaptiveRenderDelay, createRenderLoop } from './tui-render-loop.js';
 import { commandDefinition } from './tui-commands.js';
 import { auditOverlay, configOverlay, gatewayOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui-overlays.js';
 import { runContextCommand } from './tui-context.js';
-import { handleCommandPickerAction } from './tui-command-picker.js';
+import { handleCommandPickerAction, resetCommandPicker } from './tui-command-picker.js';
 import { handleHealthOverlayAction, healthOverlay } from './tui-health.js';
 import { handleDreamSelection, openDreamCommand, reopenDreamManager } from './tui-dream.js';
 import { compactActiveConversation, confirmConversationClear, handoffActiveConversation, requestConversationClear } from './workspace-context.js';
@@ -173,7 +173,7 @@ export async function handleActions(actions, workspace, stop, decoder, destructi
     else if (action.action === 'back') await handleDestructiveEscape(workspace, destructiveKeys);
     else if (action.action === 'paste' && await attachDroppedPaths(workspace, action.text)) { /* queued as attachments */ }
     else if (handleCommandPickerAction(action, session)) { /* command picker consumed the action */ }
-    else if (handleEditorAction(action, session.editor)) { session.commandSuggestionIndex = 0; }
+    else if (handleEditorAction(action, session.editor)) { resetCommandPicker(session); }
     else if (action.action === 'home') session.editor.moveLine('start');
     else if (action.action === 'end') {
       if (session.viewportEnd === null) session.editor.moveLine('end');
@@ -455,27 +455,31 @@ async function webSearchCommand(argument, workspace) {
     workspace.projection.openOverlay(webSearchOverlay(await workspace.webSearchStatus(false)));
     return;
   }
+  const [action, ...rest] = argument.trim().split(/\s+/u);
   let result;
-  if (argument === 'test') result = await workspace.webSearchStatus(true);
-  else if (argument === 'deploy') result = await workspace.deployWebSearch();
-  else if (argument === 'disable') result = await workspace.disableWebSearch();
-  else if (argument === 'reset') result = await workspace.resetWebSearch();
-  else if (['start', 'stop'].includes(argument)) result = await workspace.manageWebSearch(argument);
-  else result = await workspace.configureWebSearch(argument, false);
-  workspace.projection.openOverlay(webSearchOverlay(result, { message: 'WebSearch configuration updated.' }));
+  if (action === 'test') result = await workspace.webSearchStatus(true);
+  else if (action === 'deploy') result = await workspace.deployWebSearch();
+  else if (['disable', 'reset'].includes(action)) result = await workspace.disableWebSearch();
+  else if (['remove', 'remove-deployment'].includes(action)) result = await workspace.removeWebSearchDeployment();
+  else if (['start', 'stop'].includes(action)) result = await workspace.manageWebSearch(action);
+  else if (action === 'configure') {
+    if (rest.length === 0) throw new ContractError('web_search_endpoint_required', 'use /websearch configure URL');
+    result = await workspace.configureWebSearch(rest.join(' '), false);
+  } else result = await workspace.configureWebSearch(argument, false);
+  workspace.projection.openOverlay(webSearchOverlay(result, { message: webSearchMessage(action) }));
 }
 async function webSearchAction(action, workspace) {
   if (action === 'test') return workspace.webSearchStatus(true);
   if (action === 'deploy') return workspace.deployWebSearch();
   if (action === 'disable') return workspace.disableWebSearch();
-  if (action === 'reset') return workspace.resetWebSearch();
+  if (action === 'remove') return workspace.removeWebSearchDeployment();
   if (['start', 'stop'].includes(action)) return workspace.manageWebSearch(action);
   throw new ContractError('web_search_action_invalid', 'unknown WebSearch menu action');
 }
 function webSearchMessage(action) {
-  if (action === 'deploy') return 'Local SearXNG is deployed, validated, and active.';
-  if (action === 'disable') return 'WebSearch is disabled; its saved endpoint and managed data were preserved.';
-  if (action === 'reset') return 'Saved WebSearch configuration removed; managed deployment data was preserved.';
+  if (action === 'deploy') return 'Local SearXNG was deployed or redeployed, validated, and activated.';
+  if (action === 'disable' || action === 'reset') return 'WebSearch was disabled and its saved configuration was removed.';
+  if (action === 'remove' || action === 'remove-deployment') return 'The NNA-managed local SearXNG deployment was removed.';
   if (action === 'stop') return 'Managed SearXNG stopped; no data was removed.';
   if (action === 'start') return 'Managed SearXNG started and validated.';
   return 'Endpoint validation completed.';

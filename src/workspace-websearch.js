@@ -20,11 +20,7 @@ export async function configureWebSearch(state, endpoint, managed = false) {
 }
 
 export async function disableWebSearch(state) {
-  const current = await loadWebSearchConfig(state.path);
-  const config = await saveWebSearchConfig(state.path, {
-    ...current, enabled: false, updated_at: new Date().toISOString(),
-  });
-  return { config, test: null };
+  return { config: await resetWebSearchConfig(state.path), test: null, disabled: true };
 }
 
 export async function resetWebSearch(state) {
@@ -32,8 +28,15 @@ export async function resetWebSearch(state) {
 }
 
 export async function deployWebSearch(state) {
-  await state.deployment.deploy();
-  return configureWebSearch(state, 'http://127.0.0.1:8888', true);
+  const deployment = await state.deployment.deploy();
+  return { ...await configureWebSearch(state, deployment.endpoint, true), deployment };
+}
+
+export async function removeWebSearchDeployment(state) {
+  const current = await loadWebSearchConfig(state.path);
+  const deployment = await state.deployment.remove();
+  const config = current.managed ? await resetWebSearchConfig(state.path) : current;
+  return { config, test: null, deployment, removed: true };
 }
 
 export async function manageWebSearch(state, action) {

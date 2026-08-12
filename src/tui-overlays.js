@@ -239,19 +239,20 @@ export function webSearchOverlay(status, options = {}) {
   ];
   if (status.test) lines.push(`Health: ${status.test.ok ? `ready (${status.test.results} test results)` : `unavailable (${status.test.error})`}`);
   if (options.message) lines.push('', options.message);
-  lines.push('', 'Set a remote or existing endpoint with /websearch URL.');
-  const items = [];
+  lines.push('', 'Choose an action below. Configure accepts an existing local or remote SearXNG endpoint.');
+  const items = [
+    { id: 'action:configure', label: 'Configure endpoint', detail: 'Set or replace the URL of an existing SearXNG service' },
+  ];
   if (status.config.enabled) items.push({ id: 'test', label: 'Test endpoint', detail: 'Run a bounded JSON search health check' });
-  items.push({ id: 'deploy', label: 'Deploy local SearXNG', detail: 'Preflight Docker, bind loopback only, then validate' });
+  items.push({ id: 'deploy', label: status.config.managed ? 'Redeploy local SearXNG' : 'Deploy local SearXNG', detail: 'Preflight Docker, recreate the local service, then validate' });
   if (status.config.managed) {
     items.push({ id: 'start', label: 'Start managed SearXNG', detail: 'Start the preserved local deployment' });
     items.push({ id: 'stop', label: 'Stop managed SearXNG', detail: 'Stop without deleting its container or data' });
   }
-  if (status.config.enabled) items.push({ id: 'disable', label: 'Disable WebSearch', detail: 'Preserve endpoint and managed deployment data' });
-  if (status.config.endpoint) items.push({
-    id: 'reset', label: 'Forget WebSearch configuration',
-    detail: 'Remove only the saved endpoint; preserve managed container and data',
+  if (status.config.enabled || status.config.endpoint) items.push({
+    id: 'disable', label: 'Disable and clear WebSearch', detail: 'Remove the active WebSearch configuration; preserve any local deployment',
   });
+  items.push({ id: 'remove', label: 'Remove local deployment', detail: 'Stop and delete NNA-managed SearXNG containers and local deployment data' });
   return menuOverlay('websearch', 'WebSearch · SearXNG', lines, items, options.selectedId ?? items[0]?.id);
 }
 
@@ -348,6 +349,7 @@ export function overlayCommandDraft(kind, id) {
   const drafts = {
     gateway: { authorize: '/gateway authorize ', revoke: '/gateway revoke ', 'token-env': '/gateway token-env ', workspace: '/gateway workspace ' },
     webfetch: { trust: '/webfetch trust ', revoke: '/webfetch revoke ' },
+    websearch: { configure: '/websearch configure ' },
     tab: { rename: '/rename ' },
     plan: { 'set-goal': '/goal ', 'complete-goal': '/goal complete ', 'add-task': '/task add ' },
     context: {

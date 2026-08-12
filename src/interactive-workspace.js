@@ -11,11 +11,10 @@ import {
   withGlobalSpecialistRoutes,
   withKeyBindings, withMcpEnabled, withMcpServer, withMcpServerUpdate, withoutMcpServer, withRuntimeLimits,
 } from './route-configuration.js';
-import { SearxngClient } from './searxng-client.js';
-import { SearxngDeployment } from './searxng-deployment.js';
+import { SearxngClient } from './searxng-client.js'; import { SearxngDeployment } from './searxng-deployment.js';
 import { configuredMcpStatus, testConfiguredMcpServer } from './workspace-mcp.js';
 import {
-  configureWebSearch, deployWebSearch, disableWebSearch, manageWebSearch, resetWebSearch, webSearchStatus,
+  configureWebSearch, deployWebSearch, disableWebSearch, manageWebSearch, removeWebSearchDeployment, resetWebSearch, webSearchStatus,
 } from './workspace-websearch.js';
 import { nextReviewPosture, reviewPostureNotice } from './review-posture.js';
 import { restoreTranscript } from './workspace-transcript.js';
@@ -411,6 +410,7 @@ export class InteractiveWorkspace {
   async disableWebSearch() { return disableWebSearch(this.#webSearchState()); }
   async resetWebSearch() { return resetWebSearch(this.#webSearchState()); }
   async deployWebSearch() { return deployWebSearch(this.#webSearchState()); }
+  async removeWebSearchDeployment() { return removeWebSearchDeployment(this.#webSearchState()); }
   manageWebSearch(action) { return manageWebSearch(this.#webSearchState(), action); }
   gatewayCommand(args) { return runGatewayCommand(args, this.options.dataPaths ?? userDataPaths()); }
   listSecrets() { this.#requirePrimarySecretManagement(); return this.secretBroker.list(); }

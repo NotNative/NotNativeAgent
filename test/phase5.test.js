@@ -1605,13 +1605,16 @@ test('pending permission preserves draft and command catalog uses canonical vers
   assert.equal(commandSuggestions('/he').some((item) => item.name === '/help'), true);
   const slashCommands = commandSuggestions('/', Number.MAX_SAFE_INTEGER);
   assert.equal(slashCommands.length, new Set(TUI_COMMANDS.map((item) => item.name)).size);
-  assert.equal(commandSuggestions('/context l', 10).some((item) => item.usage === '/context level2 PERCENT'), true);
-  const pickerSession = { editor: new EditorBuffer(), commandSuggestionIndex: 0 };
-  pickerSession.editor.set('/context l');
+  assert.deepEqual(commandSuggestions('/context l', 10).map((item) => item.name), ['/context']);
+  assert.deepEqual(commandSuggestions('/we', 10).map((item) => item.name), ['/webfetch', '/websearch']);
+  assert.equal(commandSuggestions('/we', 10).some((item) => item.name === '/provider'), false);
+  const pickerSession = { editor: new EditorBuffer(), commandSuggestionIndex: 0, commandSuggestionItems: null };
+  pickerSession.editor.set('/we');
   assert.equal(handleCommandPickerAction({ action: 'history_down' }, pickerSession), true);
   assert.equal(pickerSession.commandSuggestionIndex, 1);
+  assert.equal(pickerSession.editor.text, '/websearch');
   assert.equal(handleCommandPickerAction({ action: 'complete_command' }, pickerSession), true);
-  assert.match(pickerSession.editor.text, /^\/context /u);
+  assert.equal(pickerSession.editor.text, '/websearch');
   assert.deepEqual(new TerminalInputDecoder().push('\t'), [{ action: 'complete_command' }]);
   const context = contextOverlay({
     contextTokens: 40_000, contextLimitTokens: 100_000,
