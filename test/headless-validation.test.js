@@ -53,7 +53,7 @@ test('host resume fails explicitly instead of silently creating a blank durable 
   assert.equal(result.providerCalls, 0);
 });
 
-test('host selects a saved provider by label and acknowledges the effective route', async () => {
+test('host selects a saved provider by canonical manifest id and acknowledges the effective route', async () => {
   const operatorConfig = resolveManifest({
     providers: [
       { id: 'local', display_name: 'Local', endpoint: 'http://127.0.0.1:1/v1', model: 'local', trust_zone: 'loopback' },
@@ -62,8 +62,8 @@ test('host selects a saved provider by label and acknowledges the effective rout
     routes: { primary: { provider_id: 'local', model: 'local' } },
   });
   const result = await invoke(`${JSON.stringify({
-    version: '1.0', type: 'initialize', request_id: 'profile-init', provider_profile: 'Remote Lab',
-    manifest: { persistence: 'ephemeral', workspace_root: process.cwd() },
+    version: '1.0', type: 'initialize', request_id: 'profile-init',
+    manifest: { persistence: 'ephemeral', workspace_root: process.cwd(), provider_profile_id: 'remote' },
   })}\n${JSON.stringify({ version: '1.0', type: 'shutdown', request_id: 'profile-stop' })}\n`, { operatorConfig });
   const initialized = result.records[0];
   assert.equal(initialized.type, 'initialized');
@@ -72,6 +72,9 @@ test('host selects a saved provider by label and acknowledges the effective rout
   assert.equal(initialized.provider_profile_id, 'remote');
   assert.equal(initialized.endpoint, 'http://192.168.1.20:1234/v1');
   assert.equal(initialized.model, 'qwen-remote');
+  assert.deepEqual(initialized.provider, {
+    profile_id: 'remote', display_name: 'Remote Lab', endpoint: 'http://192.168.1.20:1234/v1', model: 'qwen-remote',
+  });
 });
 
 test('host profile selection fails clearly without fallback', async () => {

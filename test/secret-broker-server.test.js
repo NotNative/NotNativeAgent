@@ -6,12 +6,12 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SecretBroker } from '../src/secret-broker.js';
 import { startSecretBrokerServer } from '../src/secret-broker-server.js';
-import { validateNnoBrokerActivation } from '../src/nno-broker-activation.js';
+import { validateNnoIntegrationActivation } from '../src/nno-integration-activation.js';
 
 const TOKEN = 'test-broker-token-with-at-least-thirty-two-characters';
-const USER = principal({ userId: 'u1', permissions: ['secret.read', 'secret.manage', 'secret.use'] });
-const OTHER = principal({ userId: 'u2', permissions: ['secret.read', 'secret.manage', 'secret.use'] });
-const ADMIN = principal({ userId: 'admin', platformRole: 'admin' });
+const USER = principal({ subjectId: 'u1', permissions: ['secret.read', 'secret.manage', 'secret.use'] });
+const OTHER = principal({ subjectId: 'u2', permissions: ['secret.read', 'secret.manage', 'secret.use'] });
+const ADMIN = principal({ subjectId: 'admin', platformRole: 'admin', permissions: ['secret.read', 'secret.audit', 'secret.scope.all'] });
 
 test('authenticated broker management is metadata-only and scope filtered', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-secret-api-'));
@@ -55,7 +55,7 @@ test('authenticated broker management is metadata-only and scope filtered', asyn
     });
     assert.equal(used.status, 200);
     assert.deepEqual(used.value.fields, { username: 'person', password: 'do-not-return' });
-    const audit = await json(base, '/v1/audit?limit=20', ADMIN);
+    const audit = await json(base, '/v1/secrets/audit?limit=20', ADMIN);
     assert.equal(audit.status, 200);
     assert.equal(audit.value.events.some((event) => event.event === 'secret.used'), true);
   } finally { await service.close(); }
@@ -67,7 +67,7 @@ test('broker endpoint enforces principal permissions and immutable ownership', a
   const service = await startSecretBrokerServer({ broker, token: TOKEN, port: 0, activation: await activation(root) });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {
-    const reader = principal({ userId: 'u1', permissions: ['secret.read'] });
+    const reader = principal({ subjectId: 'u1', permissions: ['secret.read'] });
     const forbidden = await json(base, '/v1/secrets', reader, {
       method: 'POST', body: { label: 'x', kind: 'token', scope: { kind: 'user', id: 'u1' }, fields: { token: 'value' } },
     });
@@ -89,10 +89,10 @@ test('secret broker service refuses non-loopback binding', async () => {
 
 test('secret broker service remains dormant without an installed NNO activation', async () => {
   await assert.rejects(() => startSecretBrokerServer({ broker: {}, token: TOKEN, port: 0 }), {
-    code: 'nno_broker_activation_required',
+    code: 'nno_integration_activation_required',
   });
   const root = await mkdtemp(join(tmpdir(), 'nna-secret-api-'));
-  await assert.rejects(() => validateNnoBrokerActivation(root), { code: 'nno_broker_activation_missing' });
+  await assert.rejects(() => validateNnoIntegrationActivation(root), { code: 'nno_integration_activation_missing' });
 });
 
 async function json(base, path, actor, options = {}) {
@@ -105,8 +105,9 @@ async function json(base, path, actor, options = {}) {
 
 function principal(input) {
   return {
-    userId: input.userId, platformRole: input.platformRole ?? 'user', permissions: input.permissions ?? [],
-    workspaceIds: input.workspaceIds ?? [], groupIds: input.groupIds ?? [], roleIds: input.roleIds ?? [],
+    subject_id: input.subjectId, platform_role: input.platformRole ?? 'user', permissions: input.permissions ?? [],
+    workspace_ids: input.workspaceIds ?? [], group_ids: input.groupIds ?? [],
+    trace_id: 'trace_test', issued_at: new Date().toISOString(), request_id: 'request_test',
   };
 }
 
@@ -119,7 +120,7 @@ async function activation(root) {
   const integration = join(installRoot, 'nna-integration', 'nno-hosted');
   await mkdir(integration, { recursive: true });
   await writeFile(join(integration, 'integration.json'), JSON.stringify({
-    id: 'nno-hosted', ownership: 'nno', scope: 'nno-child-only', nna_secret_broker_protocol: '1.0',
+    id: 'nno-hosted', ownership: 'nno', scope: 'nno-child-only', nna_integration_protocol: '1.0',
   }));
-  return validateNnoBrokerActivation(installRoot);
+  return validateNnoIntegrationActivation(installRoot);
 }

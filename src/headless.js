@@ -71,10 +71,13 @@ async function initialize(command, writer, logger, options) {
   if (command.type !== 'initialize') {
     throw new ContractError('initialization_required', 'initialize must be the first command');
   }
-  const selectedProfile = selectRequestedProfile(command.provider_profile, options.providerProfile);
+  const selectedProfile = selectRequestedProfile([
+    command.manifest.provider_profile_id, command.provider_profile_id,
+    command.provider_profile, options.providerProfile,
+  ]);
   const manifest = selectedProfile
     ? await manifestWithSelectedProvider(command.manifest, selectedProfile, options)
-    : command.manifest;
+    : withoutProviderSelector(command.manifest);
   const config = resolveManifest(manifest, {
     missionPrincipal: 'authenticated-stdio-host', principal: 'authenticated-stdio-host',
     executionManifestId: command.execution_manifest_id ?? command.request_id,
@@ -103,13 +106,22 @@ async function initialize(command, writer, logger, options) {
   });
   await engine.initialize();
   const ingress = new CanonicalIngress(engine);
-  const primaryRoute = config.routes.primary;
-  const primaryProvider = config.providerProfiles[primaryRoute.providerId];
-  await writeObserved(writer, logger, {
+  await writeObserved(writer, logger, initializedFrame(command, engine, config), sessionId);
+  return { engine, ingress };
+}
+
+function initializedFrame(command, engine, config) {
+  const route = config.routes.primary;
+  const profile = config.providerProfiles[route.providerId];
+  return {
     version: '1.0', type: 'initialized', request_id: command.request_id,
     runtime_id: engine.runtimeId, session_id: engine.sessionId,
-    status: 'ready', provider_profile: primaryProvider.displayName,
-    provider_profile_id: primaryProvider.id, endpoint: primaryProvider.endpoint, model: primaryRoute.model,
+    status: 'ready', provider_profile: profile.displayName,
+    provider_profile_id: profile.id, endpoint: profile.endpoint, model: route.model,
+    provider: {
+      profile_id: profile.id, display_name: profile.displayName,
+      endpoint: profile.endpoint, model: route.model,
+    },
     protocol: PROTOCOL_VERSION, capabilities: {
       streaming: true,
       tools: config.executionManifest.allowedCapabilities.includes('tools'),
@@ -123,15 +135,15 @@ async function initialize(command, writer, logger, options) {
     limits: config.limits, persistence: config.persistence,
     execution_manifest: config.executionManifest, mission: config.mission,
     recovered_interruptions: engine.recoveryNotices,
-  }, sessionId);
-  return { engine, ingress };
+  };
 }
 
-function selectRequestedProfile(commandProfile, launchProfile) {
-  if (commandProfile && launchProfile && commandProfile !== launchProfile) {
-    throw new ContractError('provider_profile_conflict', 'initialize provider_profile conflicts with the launch -provider selection');
+function selectRequestedProfile(candidates) {
+  const selected = candidates.filter(Boolean);
+  if (new Set(selected).size > 1) {
+    throw new ContractError('provider_profile_conflict', 'initialize provider profile selection conflicts with the launch -provider selection');
   }
-  return commandProfile ?? launchProfile ?? null;
+  return selected[0] ?? null;
 }
 
 async function manifestWithSelectedProvider(hostManifest, selector, options) {
@@ -141,10 +153,16 @@ async function manifestWithSelectedProvider(hostManifest, selector, options) {
   }
   const selected = applyLaunchProviderOverrides(operatorConfig, { providerProfile: selector });
   const routing = manifestFromConfig(selected);
-  const manifest = structuredClone(hostManifest);
+  const manifest = withoutProviderSelector(hostManifest);
   delete manifest.provider;
   manifest.providers = routing.providers;
   manifest.routes = routing.routes;
+  return manifest;
+}
+
+function withoutProviderSelector(hostManifest) {
+  const manifest = structuredClone(hostManifest);
+  delete manifest.provider_profile_id;
   return manifest;
 }
 

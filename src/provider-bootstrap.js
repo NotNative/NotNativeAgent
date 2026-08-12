@@ -39,7 +39,7 @@ export async function discoverProviderModels(endpoint, key = '', options = {}) {
   let response;
   try {
     response = await (options.fetch ?? globalThis.fetch)(`${normalized}/models`, {
-      headers, signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
+      headers, redirect: 'error', signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
     });
   } catch {
     throw new ContractError('provider_discovery_unreachable', 'unable to reach the provider model catalog');

@@ -56,6 +56,8 @@ export function validateCommand(value, options = {}) {
 
 function validateInitialization(value) {
   if (!isRecord(value.manifest)) throw new ContractError('initialization_manifest_invalid', 'initialize requires an execution manifest');
+  validateProviderProfileId(value.manifest.provider_profile_id, 'manifest.provider_profile_id');
+  validateProviderProfileId(value.provider_profile_id, 'provider_profile_id');
   if (value.provider_profile !== undefined && (typeof value.provider_profile !== 'string'
     || value.provider_profile.length === 0 || value.provider_profile.length > 256
     || /[\u0000-\u001f\u007f]/u.test(value.provider_profile))) {
@@ -69,6 +71,13 @@ function validateInitialization(value) {
   if (value.host_identity !== undefined && (!isRecord(value.host_identity)
     || Object.keys(value.host_identity).length > 7)) {
     throw new ContractError('host_identity_invalid', 'host_identity must be a bounded object');
+  }
+}
+
+function validateProviderProfileId(value, field) {
+  if (value === undefined) return;
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/u.test(value)) {
+    throw new ContractError('provider_profile_invalid', `${field} must be a stable provider profile id`);
   }
 }
 

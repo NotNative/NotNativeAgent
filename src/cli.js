@@ -22,6 +22,7 @@ import { runUninstallCommand } from './uninstall-cli.js';
 import { runSecretBrokerCommand } from './secret-broker-cli.js';
 import { runWebBrowseCommand } from './web-browse-cli.js';
 import { runUpdateCommand } from './update-cli.js';
+import { runIntegrationCommand } from './integration-cli.js';
 
 try {
   const options = parseCli(process.argv.slice(2));
@@ -68,6 +69,11 @@ try {
   }
   else if (options.mode === 'secrets') {
     await runSecretBrokerCommand(options.prompt, await runtimePaths(), { input: process.stdin, output: process.stdout });
+  }
+  else if (options.mode === 'integration') {
+    await runIntegrationCommand(options.prompt, await runtimePaths(), {
+      output: process.stdout, diagnostics: process.stderr,
+    });
   }
   else if (options.mode === 'update') {
     process.exitCode = await runUpdateCommand(options.prompt, await runtimePaths(), {
@@ -120,11 +126,11 @@ function help() {
     '  nna [--config PATH] [--session ID]        Launch configured TUI',
     '  nna tui [--config PATH] [--session ID] [--no-color] [--reduced-motion]',
     '  nna -p [PROMPT]                           Run one prompt and exit; stdin is accepted',
-    '  nna [-provider LABEL] [--model NAME]        Select a saved profile for Console or prompt mode',
+    '  nna [-provider PROFILE_ID] [--model NAME]   Select a saved profile for Console or prompt mode',
     '      --provider and --provider-profile remain supported aliases',
     '  nna --provider-endpoint URL --model NAME   Temporary endpoint; never changes saved profiles',
     '      [--provider-credential-env ENV_NAME]   Credential reference; literal secrets are rejected',
-    '  nna host [-provider LABEL]                Structured NDJSON host protocol',
+    '  nna host [-provider PROFILE_ID]           Structured NDJSON host protocol',
     '  nna headless                              Compatibility alias for host',
     '  nna text [--config PATH] [PROMPT]          Compatibility alias for prompt mode',
     '  nna sessions preview SESSION_ID',
@@ -137,7 +143,7 @@ function help() {
     '  nna webfetch status|trust ORIGIN|revoke ORIGIN',
     '  nna webbrowse status|verify               Inspect optional Playwright Chromium runtime',
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
-    '  nna secrets serve                        Start broker endpoint (installed NNO activation required)',
+    '  nna integration serve                    Start the ephemeral NNO integration service',
     '  nna uninstall [--delete-user-data|--keep-user-data]',
     '  nna update --check                     Check the repository for a newer version',
     '  nna update                             Install the latest repository version with rollback',

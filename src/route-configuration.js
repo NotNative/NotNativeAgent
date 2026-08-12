@@ -130,6 +130,8 @@ export function withProvider(config, input) {
   manifest.providers.push(compact({
     id: input.id, display_name: input.displayName ?? input.id, endpoint: input.endpoint, model: input.model,
     trust_zone: endpointTrustZone(input.endpoint), credential_env: input.credentialEnv,
+    context_limit_bytes: input.contextLimitBytes,
+    output_limit_tokens: input.outputLimitTokens,
   }));
   return { manifest, config: resolveManifest(manifest) };
 }
