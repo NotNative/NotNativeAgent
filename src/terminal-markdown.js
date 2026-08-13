@@ -53,12 +53,14 @@ export function wrapIndentedTerminalLine(value, width) {
   const clean = sanitizeTerminal(value).replaceAll('\t', '  ');
   const indentation = /^\s*/u.exec(clean)?.[0] ?? '';
   const content = clean.slice(indentation.length);
-  // Activity rows use a status glyph followed by the tool presentation. Keep
-  // wrapped command text beneath that presentation instead of letting it fall
-  // back to the row's outer indent. Long shell commands are common and the
-  // weaker indentation made their continuation lines look like transcript text.
-  const activityMarker = /^(?:\u2713|X|\+)\s+/u.exec(content)?.[0] ?? '';
-  const continuation = `${indentation}${' '.repeat(displayWidth(activityMarker))}`;
+  // Activity rows use a status glyph, tool name, and optional target. Hang
+  // wrapped target/task text beneath the start of that target instead of only
+  // beneath the status marker. This keeps long shell and agent.run rows
+  // visually distinct from assistant transcript text.
+  const activityLead = /^(?:\u2713|X|\+)\s+[\w.:-]+(?:\s+\()?/u.exec(content)?.[0]
+    ?? /^(?:\u2713|X|\+)\s+/u.exec(content)?.[0]
+    ?? '';
+  const continuation = `${indentation}${' '.repeat(displayWidth(activityLead))}`;
   return wrapTerminalLine(content, width, indentation, continuation);
 }
 

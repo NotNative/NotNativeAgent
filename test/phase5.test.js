@@ -457,9 +457,10 @@ test('assistant markdown preserves structure without exposing formatting markers
 
 test('wrapped transcript lines retain semantic hanging indentation', () => {
   const activity = wrapIndentedTerminalLine(`    \u2713 shell.run (${`command-${'x'.repeat(80)}`}) | succeeded`, 48);
+  const activityIndent = ' '.repeat('    \u2713 shell.run ('.length);
   assert.equal(activity.length > 1, true);
   assert.equal(activity[0].startsWith('    \u2713 shell.run'), true);
-  assert.equal(activity.slice(1).every((line) => line.startsWith('      ') && !line.startsWith('       ')), true);
+  assert.equal(activity.slice(1).every((line) => line.startsWith(activityIndent) && line[activityIndent.length] !== ' '), true);
   assert.equal(activity.some((line) => line.startsWith('command-')), false);
 
   const prose = renderMarkdown('A deliberately long assistant sentence that must wrap without changing its response-level indentation.', 44, '* ', '  ');
@@ -469,6 +470,19 @@ test('wrapped transcript lines retain semantic hanging indentation', () => {
   const list = renderMarkdown('- A deliberately long list item that must wrap beneath its text rather than beneath the bullet marker.', 42, '* ', '  ');
   assert.equal(list[0].startsWith('* - '), true);
   assert.equal(list.slice(1).every((line) => line.startsWith('    ')), true);
+});
+
+test('long live agent.run activity hangs beneath its task instead of transcript text', () => {
+  const lead = '    + agent.run (';
+  const activity = wrapIndentedTerminalLine(
+    `${lead}general · nvidia-nemotron-3.5-lightning-30b-a3b: Work on SSH host operator@fixture-host. Stop services and inspect the llama.cpp installation state.) | running`,
+    86,
+  );
+  const continuation = ' '.repeat(lead.length);
+  assert.equal(activity.length > 1, true);
+  assert.equal(activity[0].startsWith(lead), true);
+  assert.equal(activity.slice(1).every((line) => line.startsWith(continuation) && line[continuation.length] !== ' '), true);
+  assert.equal(activity.every((line) => displayWidth(line) <= 86), true);
 });
 
 test('wrapped user input retains one visual message band without repeated copy markers', () => {
@@ -503,9 +517,10 @@ test('renderer reserves the terminal auto-wrap cell and retains tool indentation
   const lines = frame.trimEnd().split('\n');
   assert.equal(lines.every((line) => displayWidth(line) <= 47), true);
   const toolLines = lines.filter((line) => /shell\.run|ssh command|semantic_review|Reviewer guidance/u.test(line));
+  const continuation = ' '.repeat('    X shell.run ('.length);
   assert.equal(toolLines.length > 1, true);
   assert.equal(toolLines[0].startsWith('    X shell.run'), true);
-  assert.equal(toolLines.slice(1).every((line) => line.startsWith('      ')), true);
+  assert.equal(toolLines.slice(1).every((line) => line.startsWith(continuation) && line[continuation.length] !== ' '), true);
 });
 
 test('long shell tool targets wrap with a stable hanging indent', () => {
@@ -517,9 +532,10 @@ test('long shell tool targets wrap with a stable hanging indent', () => {
   });
   const frame = new TuiRenderer().frame(projection, { width: 96, height: 30, color: false });
   const toolLines = frame.split('\n').filter((line) => /shell\.run|systemctl|sleep\.target|connectivity check|succeeded/u.test(line));
+  const continuation = ' '.repeat('    \u2713 shell.run ('.length);
   assert.equal(toolLines.length > 1, true);
   assert.equal(toolLines[0].startsWith('    \u2713 shell.run'), true);
-  assert.equal(toolLines.slice(1).every((line) => line.startsWith('      ')), true);
+  assert.equal(toolLines.slice(1).every((line) => line.startsWith(continuation) && line[continuation.length] !== ' '), true);
   assert.equal(toolLines.every((line) => displayWidth(line) <= 95), true);
 });
 
@@ -532,9 +548,10 @@ test('tool rows retain a two-cell terminal safety margin before hanging wraps', 
   });
   const frame = new TuiRenderer().frame(projection, { width: 120, height: 40, color: false });
   const toolLines = frame.split('\n').filter((line) => /shell\.run|podman|find \/|succeeded/u.test(line));
+  const continuation = ' '.repeat('    \u2713 shell.run ('.length);
   assert.equal(toolLines.length > 2, true);
   assert.equal(toolLines[0].startsWith('    \u2713 shell.run'), true);
-  assert.equal(toolLines.slice(1).every((line) => line.startsWith('      ')), true);
+  assert.equal(toolLines.slice(1).every((line) => line.startsWith(continuation) && line[continuation.length] !== ' '), true);
   assert.equal(frame.trimEnd().split('\n').every((line) => displayWidth(line) <= 118), true);
 });
 
