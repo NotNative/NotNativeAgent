@@ -130,6 +130,11 @@ export class EditorBuffer {
     this.set(this.history[this.historyIndex] ?? '');
   }
 
+  isNavigatingHistory() {
+    return this.historyIndex < this.history.length
+      && this.text === this.history[this.historyIndex];
+  }
+
   #deleteSelection() {
     const range = this.selection();
     if (range.start === range.end) return false;

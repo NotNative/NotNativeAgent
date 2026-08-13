@@ -1708,6 +1708,38 @@ test('editor selection and multiline navigation preserve one authoritative buffe
   assert.equal(editor.text, 'alX\nbeta');
 });
 
+test('prompt history navigation never replaces a non-empty draft at vertical boundaries', async () => {
+  const projection = new TuiProjection();
+  projection.addSession('main', 'Main', { model: 'm', provider: 'p' });
+  const session = projection.active();
+  const workspace = { projection, onChange() {} };
+  const decoder = new TerminalInputDecoder();
+
+  session.editor.set('previous prompt');
+  session.editor.take();
+  session.editor.set('alpha\nbeta');
+  session.editor.move(-session.editor.text.length);
+  await handleActions([{ action: 'history_up' }], workspace, () => undefined, decoder);
+  assert.equal(session.editor.text, 'alpha\nbeta');
+  assert.equal(session.editor.cursor, 0);
+
+  session.editor.move(session.editor.text.length);
+  await handleActions([{ action: 'history_down' }], workspace, () => undefined, decoder);
+  assert.equal(session.editor.text, 'alpha\nbeta');
+  assert.equal(session.editor.cursor, session.editor.text.length);
+
+  session.editor.set('single-line draft');
+  await handleActions([
+    { action: 'history_up' }, { action: 'history_down' },
+  ], workspace, () => undefined, decoder);
+  assert.equal(session.editor.text, 'single-line draft');
+
+  session.editor.set('');
+  await handleActions([{ action: 'history_up' }], workspace, () => undefined, decoder);
+  assert.equal(session.editor.text, 'previous prompt');
+  assert.equal(session.editor.isNavigatingHistory(), true);
+});
+
 test('TUI-003 editor restoration enforces its UTF-8 byte bound without silent truncation', () => {
   const editor = new EditorBuffer(4);
   editor.set('éé');
