@@ -2,14 +2,14 @@
 import { sanitizeTerminal } from './terminal-adapter.js';
 import { displayWidth, truncateTerminal } from './terminal-markdown.js';
 
-export function sessionStatusLine(session, width, rightStatus = '') {
-  const route = responsiveRoute(session, width);
+export function sessionStatusLine(session, width, rightStatus = '', now = Date.now()) {
+  const state = stateStatus(session, now);
+  const route = responsiveRoute(session, width, state);
   const usage = totalTokens(session.usage);
   const context = contextUsage(session);
   const view = session.viewportEnd === null ? 'following' : `${Math.max(0, session.viewportLineCount - session.viewportEnd)} unseen`;
   const attachments = session.pendingAttachments.length > 0
     ? ` | ${session.pendingAttachments.length} attachment${session.pendingAttachments.length === 1 ? '' : 's'}` : '';
-  const state = session.state === 'needs_input' ? 'IDLE' : session.state.toUpperCase();
   const work = workProgress(session.work);
   const workspace = session.metadata.workspace ? ` | ${session.metadata.workspace}` : '';
   const left = truncateTerminal(sanitizeTerminal(
@@ -22,13 +22,30 @@ export function sessionStatusLine(session, width, rightStatus = '') {
   return `${compactLeft}${' '.repeat(Math.max(2, width - displayWidth(compactLeft) - displayWidth(right)))}${right}`;
 }
 
-function responsiveRoute(session, width) {
+function responsiveRoute(session, width, state) {
   const model = session.metadata.model;
   const route = `${session.metadata.endpoint ?? session.metadata.provider}/${model}`;
   const workspace = session.metadata.workspace ? ` | ${session.metadata.workspace}` : '';
-  const fixedPrefix = `${session.reviewPosture} | ${session.state === 'needs_input' ? 'IDLE' : session.state.toUpperCase()}${workspace} | `;
+  const fixedPrefix = `${session.reviewPosture} | ${state}${workspace} | `;
   const minimumSuffix = ' | context --';
   return displayWidth(`${fixedPrefix}${route}${minimumSuffix}`) <= width ? route : model;
+}
+
+function stateStatus(session, now) {
+  const state = session.state === 'needs_input' ? 'IDLE' : session.state.toUpperCase();
+  if (!session.activeTurnId || !Number.isFinite(session.turnStartedAt) || ['idle', 'needs_input', 'failed'].includes(session.state)) {
+    return state;
+  }
+  return `${state} ${formatElapsed(Math.max(0, now - session.turnStartedAt))}`;
+}
+
+function formatElapsed(elapsedMs) {
+  const seconds = Math.floor(elapsedMs / 1_000);
+  const hours = Math.floor(seconds / 3_600);
+  const minutes = Math.floor((seconds % 3_600) / 60);
+  const remainder = seconds % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  return `${minutes}m ${String(remainder).padStart(2, '0')}s`;
 }
 
 function workProgress(work) {

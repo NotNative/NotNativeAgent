@@ -114,3 +114,16 @@ test('footer quietly right-aligns an update notice only when room is available',
   const narrow = sessionStatusLine(session, 30, 'update available');
   assert.doesNotMatch(narrow, /update available/u);
 });
+
+test('footer shows elapsed time for the active turn and clears it when idle', () => {
+  const session = {
+    metadata: { endpoint: 'local', model: 'model', workspace: 'D:\\work' }, usage: null,
+    viewportEnd: null, viewportLineCount: 0, pendingAttachments: [], state: 'running_tool',
+    activeTurnId: 'turn_1', turnStartedAt: 1_000, reviewPosture: 'auto-review',
+    contextLimitTokens: null, contextLimitBytes: null, work: null,
+  };
+  assert.match(sessionStatusLine(session, 180, '', 126_000), /RUNNING_TOOL 2m 05s/u);
+  session.state = 'idle';
+  session.activeTurnId = null;
+  assert.doesNotMatch(sessionStatusLine(session, 180, '', 126_000), /2m 05s/u);
+});
