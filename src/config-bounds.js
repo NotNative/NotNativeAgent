@@ -18,9 +18,11 @@ export function boundedNumber(value, fallback, minimum, maximum) {
 }
 
 export function migrateLegacyProviderTimeoutDefaults(manifest) {
-  if (manifest.provider_timeout_ms !== 120_000 || manifest.first_token_timeout_ms !== 30_000
-    || manifest.idle_timeout_ms !== 45_000) return manifest;
-  return { ...manifest, provider_timeout_ms: undefined, first_token_timeout_ms: undefined, idle_timeout_ms: undefined };
+  const migrated = { ...manifest };
+  if (migrated.provider_timeout_ms === 120_000) migrated.provider_timeout_ms = undefined;
+  if (migrated.first_token_timeout_ms === 30_000) migrated.first_token_timeout_ms = undefined;
+  if (migrated.idle_timeout_ms === 45_000) migrated.idle_timeout_ms = undefined;
+  return migrated;
 }
 
 export function providerTimeouts(manifest) {

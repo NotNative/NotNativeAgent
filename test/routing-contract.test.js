@@ -112,7 +112,14 @@ test('historical short provider defaults migrate to local-model-safe deadlines',
     providers, provider_timeout_ms: 121_000, first_token_timeout_ms: 30_000, idle_timeout_ms: 45_000,
   });
   assert.equal(custom.limits.providerMs, 121_000);
-  assert.equal(custom.limits.firstTokenMs, 30_000);
+  assert.equal(custom.limits.firstTokenMs, 600_000);
+  assert.equal(custom.limits.idleMs, 300_000);
+  const fullyCustom = resolveManifest({
+    providers, provider_timeout_ms: 121_000, first_token_timeout_ms: 31_000, idle_timeout_ms: 46_000,
+  });
+  assert.equal(fullyCustom.limits.providerMs, 121_000);
+  assert.equal(fullyCustom.limits.firstTokenMs, 31_000);
+  assert.equal(fullyCustom.limits.idleMs, 46_000);
 });
 
 test('semantic review inherits the provider deadline and migrates the legacy fifteen-second default', () => {

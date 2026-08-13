@@ -13,7 +13,8 @@ export function createSubagentProgressRelay(engine, identity) {
         narrative = bounded(`${narrative}${record.text ?? ''}`);
         return;
       }
-      if (record?.type !== 'tool_status' || record.status !== 'running') return;
+      if (record?.type !== 'tool_status'
+        || !['running', 'succeeded', 'failed', 'denied'].includes(record.status)) return;
       if (updates >= MAX_PROGRESS_UPDATES) {
         if (!suppressionReported) await emitProgress(engine, identity, 'working', 'Additional child activity continues; detailed events remain in telemetry.');
         suppressionReported = true;
@@ -23,7 +24,8 @@ export function createSubagentProgressRelay(engine, identity) {
       const context = clean(narrative);
       narrative = '';
       updates += 1;
-      await emitProgress(engine, identity, 'working', context ? `${context} -> ${tool}` : tool);
+      const status = record.status === 'running' ? '' : ` · ${record.status}`;
+      await emitProgress(engine, identity, 'working', context ? `${context} -> ${tool}${status}` : `${tool}${status}`);
     },
     started: (task) => emitProgress(engine, identity, 'started', bounded(task)),
     returned: (result) => emitProgress(engine, identity, 'returned', bounded(result?.text || narrative || result?.outcome || 'No summary returned.')),

@@ -56,6 +56,10 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
     storeRoot: engine.storeRoot, scheduler: engine.scheduler, subagentDepth: engine.subagentDepth + 1,
     output: async (record) => {
       await relay.accept(record);
+      // Child streaming deltas are already represented by the child engine's
+      // telemetry. Mirroring every token into the parent produces thousands of
+      // low-value wrapper rows during long delegated work.
+      if (record?.type === 'stream_delta') return undefined;
       return engine.telemetry?.record('subagent.output', subagentOutputStatus(record), {
         agent_id: sessionId, agent_type: input.type, record,
       }, { turnId: parent.turnId, stepId: parent.stepId, outcome: record?.outcome });

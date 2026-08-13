@@ -218,6 +218,44 @@ test('idle operational diagnosis survives the stage boundary and observes repeat
   await telemetry.close();
 });
 
+test('idle maintenance settles packets whose governance evidence is no longer available', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-stale-evidence-'));
+  const governance = new GovernanceEngine({ sessionId: 'session' });
+  await governance.initialize();
+  const engine = { state: { state: 'idle' }, governance, transcript: [] };
+  const coordinator = new DreamCoordinator({
+    workspace: { sessions: new Map([['session', { engine }]]) },
+    config: resolveManifest(manifest({ workspace_root: root })), path: join(root, 'dream.db'),
+  });
+  await coordinator.initialize();
+  const packet = coordinator.store.savePacket({
+    id: 'stale-evidence-packet', runtimeKey: coordinator.runtimeKey,
+    evidenceStart: 7, evidenceEnd: 9, evidenceId: 'evidence:missing',
+    payload: {
+      records: 3, turn_refs: [], session_refs: [],
+      diagnosis: { issues: [{ code: 'repeated_reason', reason: 'provider_timeout', count: 3 }] },
+    },
+  });
+
+  try {
+    const stage = await coordinator.runNow();
+    assert.equal(stage.state, 'completed', stage.error?.stack);
+    assert.deepEqual(stage.result, {
+      code: 'maintenance_evidence_unavailable', packet_id: packet.id,
+      reason_code: 'learning_evidence_missing',
+    });
+    assert.equal(coordinator.store.pendingPacket(coordinator.runtimeKey), null);
+    const settledRun = coordinator.store.db.prepare(
+      'SELECT state, result_code FROM dream_runs ORDER BY started_at DESC LIMIT 1',
+    ).get();
+    assert.deepEqual({ ...settledRun }, {
+      state: 'skipped', result_code: 'maintenance_evidence_unavailable',
+    });
+  } finally {
+    coordinator.close();
+  }
+});
+
 test('idle diagnosis records explicit skill requests as proposal-only opportunities', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-dream-skill-'));
   const telemetry = new ForensicTelemetry({

@@ -6,9 +6,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { subagentDefinition } from '../src/subagent-tool.js';
 import { subagentConfig, subagentParallelLimit } from '../src/subagent-runtime.js';
+import { createSubagentProgressRelay } from '../src/subagent-progress.js';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
 import { subagentStatus } from '../src/tui-runtime-inspection.js';
+
+test('sub-agent progress reports bounded tool starts and outcomes', async () => {
+  const output = [];
+  const relay = createSubagentProgressRelay({
+    sessionId: 'parent', output: async (record) => output.push(record),
+  }, { turnId: 'turn-1', stepId: 'step-1', agentId: 'agent-1', agentType: 'general' });
+  await relay.accept({ type: 'tool_status', status: 'running', tool: 'fs.read_text', target: 'README.md' });
+  await relay.accept({ type: 'tool_status', status: 'succeeded', tool: 'fs.read_text', target: 'README.md' });
+  assert.match(output[0].text, /fs\.read_text \(README\.md\)$/u);
+  assert.match(output[1].text, /fs\.read_text \(README\.md\) · succeeded$/u);
+});
 
 test('agent.run validates a bounded specialist request and returns its terminal result', async () => {
   let received;

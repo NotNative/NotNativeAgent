@@ -9,11 +9,11 @@ import { governanceFingerprint } from './governance-contracts.js';
 import { NnmGovernanceReceipts } from './nnm-governance-receipts.js';
 import { NnmHygieneReceipts } from './nnm-hygiene-receipts.js';
 import { admitHygieneReceipt, admitNnmReceipt } from './dream-governance-admission.js';
+import { settleUnavailableEvidence } from './dream-evidence-settlement.js';
 import { observeSkillRequests } from './skill-opportunity.js';
 import {
   explicitProjectKnowledge, ProjectMemoryReconciler, projectMemoryCandidate,
 } from './project-memory-reconciler.js';
-
 export class DreamCoordinator {
   constructor(options) {
     this.workspace = options.workspace;
@@ -176,6 +176,8 @@ export class DreamCoordinator {
       this.state.lastResult = result;
       return result;
     } catch (error) {
+      const settled = this.#settleUnavailableEvidence(run, packet, started, error);
+      if (settled) return settled;
       this.store.finish(run.id, signal.aborted ? 'cancelled' : 'failed', {
         resultCode: signal.aborted ? 'activity_cancelled' : (error.code ?? 'diagnosis_failed'),
         durationMs: performance.now() - started,
@@ -226,6 +228,8 @@ export class DreamCoordinator {
       this.state.lastResult = result;
       return result;
     } catch (error) {
+      const settled = this.#settleUnavailableEvidence(run, packet, started, error);
+      if (settled) return settled;
       this.store.finish(run.id, signal.aborted ? 'cancelled' : 'failed', {
         resultCode: signal.aborted ? 'activity_cancelled' : (error.code ?? 'project_memory_failed'),
         durationMs: performance.now() - started,
@@ -282,6 +286,8 @@ export class DreamCoordinator {
       this.state.lastResult = result;
       return result;
     } catch (error) {
+      const settled = this.#settleUnavailableEvidence(run, packet, started, error);
+      if (settled) return settled;
       this.store.finish(run.id, signal.aborted ? 'cancelled' : 'failed', {
         resultCode: signal.aborted ? 'activity_cancelled' : (error.code ?? 'nnm_reconciliation_failed'),
         durationMs: performance.now() - started,
@@ -328,6 +334,8 @@ export class DreamCoordinator {
         receipt, candidate, state: 'completed', fingerprint: receipt.receipt_id,
       });
     } catch (error) {
+      const settled = this.#settleUnavailableEvidence(run, packet, started, error);
+      if (settled) return settled;
       this.store.finish(run.id, signal.aborted ? 'cancelled' : 'failed', {
         resultCode: signal.aborted ? 'activity_cancelled' : (error.code ?? 'nnm_hygiene_failed'),
         durationMs: performance.now() - started,
@@ -365,6 +373,14 @@ export class DreamCoordinator {
       candidate_id: detail.candidate?.id ?? null,
     };
     this.state.lastResult = result;
+    return result;
+  }
+  #settleUnavailableEvidence(run, packet, started, error) {
+    const result = settleUnavailableEvidence(this.store, {
+      runtimeKey: this.runtimeKey, configVersion: this.config.version,
+      run, packet, started, error,
+    });
+    if (result) this.state.lastResult = result;
     return result;
   }
   async #newEvidence() {

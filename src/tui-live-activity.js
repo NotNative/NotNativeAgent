@@ -42,7 +42,9 @@ function runningToolLabel(session) {
   const detail = [first.tool, first.target ? `(${singleLine(first.target)})` : ''].filter(Boolean).join(' ');
   if (running.every((record) => record.tool === 'agent.run')) {
     if (running.length === 1) return `Sub-agent active · ${singleLine(first.target ?? 'delegated task')}…`;
-    return `${running.length} sub-agents active · ${singleLine(first.target ?? 'delegated work')}…`;
+    const visible = running.slice(0, 2).map((record) => clippedTarget(record.target));
+    const hidden = running.length - visible.length;
+    return `${running.length} sub-agents active · ${visible.join(' · ')}${hidden > 0 ? ` · +${hidden} more` : ''}…`;
   }
   if (running.length === 1) return `Running ${detail || 'tool'}…`;
   return `Running ${running.length} tools · ${detail || 'working'}…`;
@@ -50,4 +52,9 @@ function runningToolLabel(session) {
 
 function singleLine(value) {
   return String(value).replace(/\s+/gu, ' ').trim();
+}
+
+function clippedTarget(value) {
+  const text = singleLine(value ?? 'delegated work');
+  return text.length <= 72 ? text : `${text.slice(0, 69)}...`;
 }
