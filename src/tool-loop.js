@@ -11,6 +11,7 @@ import { ToolResultCache } from './tool-result-cache.js';
 import { assertTurnActive } from './turn-cancellation.js';
 import { ContractError } from './ids.js';
 import { buildReviewEvidence } from './review-evidence.js';
+import { WebUrlProvenance } from './web-url-provenance.js';
 
 export class ToolLoop {
   constructor(options) {
@@ -26,6 +27,7 @@ export class ToolLoop {
 
   async process(calls, active) {
     assertTurnActive(active);
+    active.webUrlProvenance ??= new WebUrlProvenance(active.prompt ?? '');
     assertMissionBudget(active, calls.length);
     active.authority = await reserveAndPersistMissionTools(
       this.engine.authority, this.engine.config, calls.length,
@@ -86,7 +88,17 @@ export class ToolLoop {
           continue;
         }
         if (call.invalid) throw new ContractError(call.invalid.code, call.invalid.message);
-        item.request = await this.tools.seal(call, this.toolContext(active));
+        const request = await this.tools.seal(call, this.toolContext(active));
+        if (request.toolName === 'web.fetch') {
+          item.urlProvenance = active.webUrlProvenance.classify(request.args.url);
+          if (active.webUrlProvenance.hasFailed(request.args.url)) {
+            throw new ContractError(
+              'web_fetch_url_already_failed',
+              'WebFetch already failed for this exact URL during the current turn. Use another exact URL returned by WebSearch or supplied by the user, or use WebBrowse to navigate from a verified page.',
+            );
+          }
+        }
+        item.request = request;
         item.child.move('review_pending');
         await this.persist('tool_request', toolRequestRecord(item.request, active.turnId, active.stepId));
       } catch (error) {
@@ -160,11 +172,13 @@ export class ToolLoop {
     this.telemetry?.record('tool.execution', 'started', {
       tool_name: item.request.toolName, args: item.request.args,
       resolved: item.request.resolved, decision: item.decision,
+      ...(item.urlProvenance ? { url_provenance: item.urlProvenance } : {}),
     }, correlation);
     try {
       await this.governor.beginExecution(item.request, item.decision, this.executionContext(active));
     } catch (error) {
       item.result = blockedResult(item.request, error);
+      active.webUrlProvenance.observe(item.request, item.result);
       item.child.move('failed');
       this.telemetry?.record('tool.execution', 'failed', {
         tool_name: item.request.toolName, result: item.result,
@@ -175,6 +189,7 @@ export class ToolLoop {
     await this.output(toolStatus(this.engine, active, item, 'running'));
     try {
       item.result = await this.governor.executePrepared(item.request, item.decision, active.controller.signal);
+      active.webUrlProvenance.observe(item.request, item.result);
       item.child.move(toolResultState(item.result));
       this.telemetry?.record('tool.execution', toolTelemetryStatus(item.result.status), {
         tool_name: item.request.toolName, result: item.result,
@@ -317,6 +332,11 @@ export function toolProgressEvidence(items, steeringApplied = []) {
 }
 
 export function toolContinuationHint(items, fallback = null) {
+  const failedFetch = items.find((item) => item.result?.tool_name === 'web.fetch'
+    && ['failed', 'invalid_request', 'timed_out'].includes(item.result?.status));
+  if (failedFetch) {
+    return 'WebFetch could not retrieve that exact URL. Do not retry the same URL during this turn and do not synthesize a replacement path. Use another exact URL returned by WebSearch or supplied by the user, or use WebBrowse to navigate from a verified page.';
+  }
   const invalid = items.filter((item) => item.result?.status === 'invalid_request');
   if (invalid.length > 0) {
     const failures = [...new Set(invalid.map((item) => `${item.result.tool_name ?? 'tool'}: ${item.result.reason_code ?? 'invalid_request'}`))];
