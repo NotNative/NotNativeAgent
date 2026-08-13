@@ -1780,6 +1780,26 @@ test('prompt history navigation never replaces a non-empty draft at vertical bou
   assert.equal(session.editor.isNavigatingHistory(), true);
 });
 
+test('up and down navigate lines after recalling a multiline prompt from history', async () => {
+  const projection = new TuiProjection();
+  projection.addSession('main', 'Main', { model: 'm', provider: 'p' });
+  const session = projection.active();
+  const workspace = { projection, onChange() {} };
+  const decoder = new TerminalInputDecoder();
+
+  session.editor.set('alpha\nbeta');
+  session.editor.take();
+  await handleActions([{ action: 'history_up' }], workspace, () => undefined, decoder);
+  assert.equal(session.editor.text, 'alpha\nbeta');
+  assert.equal(session.editor.cursor, session.editor.text.length);
+
+  await handleActions([{ action: 'history_up' }], workspace, () => undefined, decoder);
+  assert.equal(session.editor.cursor, 4);
+
+  await handleActions([{ action: 'history_down' }], workspace, () => undefined, decoder);
+  assert.equal(session.editor.cursor, session.editor.text.length);
+});
+
 test('TUI-003 editor restoration enforces its UTF-8 byte bound without silent truncation', () => {
   const editor = new EditorBuffer(4);
   editor.set('éé');

@@ -492,6 +492,6 @@ async function configCommand(argument, workspace) {
   throw new ContractError('config_read_only', 'Use /config without arguments; provider, model, MCP, and WebSearch have dedicated managers.');
 }
 function moveOrNavigate(editor, direction) {
-  if (editor.text.length === 0 || editor.isNavigatingHistory()) editor.navigateHistory(direction);
+  if (editor.text.length === 0) editor.navigateHistory(direction);
   else editor.moveVertical(direction);
 }
