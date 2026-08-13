@@ -170,6 +170,36 @@ test('modified Enter variants produce newlines when the terminal distinguishes t
   ]);
 });
 
+test('Kitty keyboard reporting preserves Enter, Shift+Enter, and configured Ctrl shortcuts', () => {
+  const decoder = new TerminalInputDecoder();
+  const actions = decoder.push(Buffer.from(
+    '\u001b[13u\u001b[13;2u\u001b[99;5u\u001b[106;5u\u001b[9u\u001b[27u',
+  ));
+  assert.deepEqual(actions.map((item) => item.action), [
+    'submit', 'newline', 'cancel', 'newline', 'complete_command', 'back',
+  ]);
+});
+
+test('fragmented Kitty keyboard sequences are retained until their final byte arrives', () => {
+  const decoder = new TerminalInputDecoder();
+  assert.deepEqual(decoder.push(Buffer.from('\u001b[13;')), []);
+  assert.deepEqual(decoder.push(Buffer.from('2u')), [{ action: 'newline', text: '\n' }]);
+});
+
+test('terminal mode negotiates and restores enhanced keyboard reporting', () => {
+  const input = new PassThrough(); const output = new PassThrough();
+  input.isTTY = true; output.isTTY = true; input.setRawMode = () => undefined;
+  let terminalBytes = '';
+  output.on('data', (chunk) => { terminalBytes += chunk; });
+  const terminal = new TerminalMode(input, output, {
+    tty: true, mouse: false, alternateScreen: false, height: 24, keyboardProtocol: 'kitty',
+  });
+  terminal.enter();
+  terminal.restore();
+  assert.match(terminalBytes, /\u001b\[>1u/u);
+  assert.match(terminalBytes, /\u001b\[<1u/u);
+});
+
 test('bare Escape is delayed for sequence disambiguation and then becomes Back', () => {
   const decoder = new TerminalInputDecoder();
   assert.deepEqual(decoder.push(Buffer.from('\u001b')), []);

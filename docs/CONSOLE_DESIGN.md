@@ -121,9 +121,10 @@ Unicode characters.
 ## Composer
 
 Enter submits or, during active work, sends authenticated steering at the next safe
-checkpoint. Ctrl+J is the portable multiline fallback. Shift+Enter may be accepted only
-when the terminal emits a distinguishable sequence; help must show the effective binding.
-Bracketed paste never submits.
+checkpoint. Ctrl+J is the portable multiline fallback. NNA negotiates enhanced keyboard
+reporting with supported terminals so Shift+Enter can be distinguished from Enter. Legacy
+hosts that collapse the chord retain Ctrl+J and backslash+Enter; help must show the effective
+binding. Bracketed paste never submits.
 
 The editor supports multiline vertical movement, selection where reported, Home, End,
 Delete, word movement, undo, history, bounded paste, and an optional external editor.

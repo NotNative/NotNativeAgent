@@ -16,8 +16,13 @@ test('AC-CONF-03 runtime environment booleans are typed and never silently coerc
     { environment: { NNA_REDUCED_MOTION: '1' } },
   );
   assert.equal(capabilities.reducedMotion, true);
+  assert.equal(capabilities.keyboardProtocol, 'none');
   assert.equal(capabilities.alternateScreen, false);
   assert.equal(terminalCapabilities(
     { isTTY: true }, { isTTY: true, columns: 80, rows: 24 }, { alternateScreen: true },
   ).alternateScreen, true);
+  assert.equal(terminalCapabilities(
+    { isTTY: true }, { isTTY: true, columns: 80, rows: 24 },
+    { environment: { WT_SESSION: 'windows-terminal-session' } },
+  ).keyboardProtocol, 'kitty');
 });

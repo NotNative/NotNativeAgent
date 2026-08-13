@@ -7,13 +7,24 @@ const ESC = '\u001b';
 export function terminalCapabilities(input, output, options = {}) {
   const tty = input.isTTY === true && output.isTTY === true;
   const environment = runtimeEnvironment(options.environment ?? process.env);
+  const keyboardProtocol = resolveKeyboardProtocol(tty, options, options.environment ?? process.env);
   return Object.freeze({
     tty, color: tty && options.color !== false && !environment.noColor,
     unicode: options.unicode !== false, alternateScreen: tty && options.alternateScreen === true,
     mouse: tty && options.mouse !== false, hyperlinks: false,
     reducedMotion: options.reducedMotion === true || environment.reducedMotion,
+    keyboardProtocol,
     width: output.columns ?? 80, height: output.rows ?? 24,
   });
+}
+
+function resolveKeyboardProtocol(tty, options, environment) {
+  if (!tty || options.keyboardProtocol === false) return 'none';
+  if (['kitty', 'xterm', 'none'].includes(options.keyboardProtocol)) return options.keyboardProtocol;
+  // Windows Terminal 1.25+ implements the Kitty keyboard protocol. Older
+  // versions safely ignore the negotiation sequence and retain the fallbacks.
+  if (environment.WT_SESSION) return 'kitty';
+  return 'none';
 }
 
 export class TerminalMode {
@@ -37,14 +48,14 @@ export class TerminalMode {
     this.input.resume();
     if (this.capabilities.alternateScreen) this.output.write(`${ESC}[?1049h`);
     const mouse = this.capabilities.mouse ? `${ESC}[?1000h${ESC}[?1002h${ESC}[?1006h` : '';
-    this.output.write(`${ESC}[?25l${ESC}[?2004h${mouse}${ESC}[2J${ESC}[H`);
+    this.output.write(`${keyboardProtocolEnter(this.capabilities.keyboardProtocol)}${ESC}[?25l${ESC}[?2004h${mouse}${ESC}[2J${ESC}[H`);
   }
 
   restore() {
     if (this.#restored) return;
     this.#restored = true;
     const mouse = this.capabilities.mouse ? `${ESC}[?1006l${ESC}[?1002l${ESC}[?1000l` : '';
-    safeCall(() => this.output.write(`${ESC}[?2004l${mouse}${ESC}[?25h`));
+    safeCall(() => this.output.write(`${ESC}[?2004l${mouse}${keyboardProtocolExit(this.capabilities.keyboardProtocol)}${ESC}[?25h`));
     if (this.capabilities.alternateScreen) safeCall(() => this.output.write(`${ESC}[?1049l`));
     else safeCall(() => this.output.write(`${ESC}[${this.capabilities.height};1H${ESC}[2K\n`));
     safeCall(() => this.input.setRawMode?.(false));
@@ -53,6 +64,18 @@ export class TerminalMode {
       safeCall(() => { process.title = this.#previousTitle; });
     }
   }
+}
+
+function keyboardProtocolEnter(protocol) {
+  if (protocol === 'kitty') return `${ESC}[>1u`;
+  if (protocol === 'xterm') return `${ESC}[>4;2m`;
+  return '';
+}
+
+function keyboardProtocolExit(protocol) {
+  if (protocol === 'kitty') return `${ESC}[<1u`;
+  if (protocol === 'xterm') return `${ESC}[>4m`;
+  return '';
 }
 
 function safeCall(operation) {
@@ -104,6 +127,17 @@ export class TerminalInputDecoder {
       this.#buffer = this.#buffer.slice(mouse.bytes); actions.push(mouse.action); return true;
     }
     if (this.#buffer.startsWith(`${ESC}[<`) && !/[Mm]/u.test(this.#buffer)) return false;
+    const enhancedKey = enhancedKeyboardSequence(this.#buffer, this.bindings);
+    if (enhancedKey?.pending) return false;
+    if (enhancedKey) {
+      this.#buffer = this.#buffer.slice(enhancedKey.bytes);
+      if (enhancedKey.action) {
+        actions.push(enhancedKey.action === 'newline'
+          ? { action: 'newline', text: '\n' }
+          : { action: enhancedKey.action });
+      }
+      return true;
+    }
     const sequence = keySequence(this.#buffer, this.bindings);
     if (sequence) {
       this.#buffer = this.#buffer.slice(sequence.bytes);
@@ -140,6 +174,36 @@ export class TerminalInputDecoder {
     this.#buffer = this.#buffer.slice(end + 6); this.#paste = false;
     return true;
   }
+}
+
+function enhancedKeyboardSequence(value, bindings) {
+  const match = /^\u001b\[(\d+)(?::[\d:]*)?(?:;(\d+)(?::[\d:]*)?)?(?:;[\d:]*)?u/u.exec(value);
+  if (!match) {
+    // Raw terminal input may split one escape sequence across multiple data
+    // events. Do not discard an incomplete CSI-u prefix before its final `u`.
+    if (/^\u001b\[[\d:;]*$/u.test(value)) return { pending: true };
+    return null;
+  }
+  const codepoint = Number(match[1]);
+  const modifierBits = Math.max(0, Number(match[2] ?? 1) - 1);
+  const shift = (modifierBits & 1) !== 0;
+  const alt = (modifierBits & 2) !== 0;
+  const ctrl = (modifierBits & 4) !== 0;
+  let action = null;
+  if (codepoint === 13) action = shift || alt ? 'newline' : 'submit';
+  else if (codepoint === 27) action = 'back';
+  else if (codepoint === 127) action = 'backspace';
+  else if (codepoint === 9) {
+    if (ctrl && shift) action = 'previous_tab';
+    else if (ctrl) action = 'next_tab';
+    else action = 'complete_command';
+  } else if (ctrl && codepoint >= 65 && codepoint <= 122) {
+    const letter = String.fromCodePoint(codepoint).toLowerCase().codePointAt(0);
+    if (letter >= 97 && letter <= 122) {
+      action = keySequence(String.fromCodePoint(letter - 96), bindings)?.action ?? null;
+    }
+  }
+  return { bytes: match[0].length, action };
 }
 
 function mouseSequence(value) {

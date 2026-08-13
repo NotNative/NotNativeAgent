@@ -45,9 +45,10 @@ Key actions:
 - `Enter`: submit the editor. `Ctrl+S` remains a compatibility shortcut.
 - `Ctrl+J`: insert a newline. Pasted newlines never submit.
 - `Shift+Enter` or `Alt+Enter`: insert a newline when the terminal emits a distinct
-  modified-Enter sequence. Windows console hosts that collapse the chord to ordinary Enter
-  cannot expose the modifier to NNA; `Ctrl+J` remains reliable. Backslash immediately
-  followed by Enter is retained as a compatibility fallback.
+  modified-Enter sequence. NNA negotiates enhanced keyboard reporting with modern Windows
+  Terminal sessions. Legacy Windows Console Host collapses the chord to ordinary Enter
+  before NNA can inspect it; `Ctrl+J` remains reliable there. Backslash immediately followed
+  by Enter is retained as a compatibility fallback.
 - `Ctrl+C`: press twice within one second to cancel a pending permission or active turn;
   when idle, press twice within one second to exit NNA and restore the terminal. The latch
   resets after the confirmed action, so exiting after a cancellation requires a new pair.
