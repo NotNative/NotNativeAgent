@@ -36,10 +36,10 @@ function stateStatus(session, now) {
   if (!session.activeTurnId || !Number.isFinite(session.turnStartedAt) || ['idle', 'needs_input', 'failed'].includes(session.state)) {
     return state;
   }
-  return `${state} ${formatElapsed(Math.max(0, now - session.turnStartedAt))}`;
+  return `${state} ${formatTurnElapsed(Math.max(0, now - session.turnStartedAt))}`;
 }
 
-function formatElapsed(elapsedMs) {
+export function formatTurnElapsed(elapsedMs) {
   const seconds = Math.floor(elapsedMs / 1_000);
   const hours = Math.floor(seconds / 3_600);
   const minutes = Math.floor((seconds % 3_600) / 60);

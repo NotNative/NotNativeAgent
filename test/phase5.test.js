@@ -1398,14 +1398,24 @@ test('active turns show a synthwave live activity indicator without persisting i
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
   projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
   projection.apply('s1', { type: 'state_status', semantic_state: 'waiting_provider', turn_id: 'turn-1' });
+  projection.active().turnStartedAt = 1_000;
   const renderer = new TuiRenderer();
-  const first = renderer.frame(projection, { width: 80, height: 24, color: true, unicode: true, animationFrame: 0 });
-  const second = renderer.frame(projection, { width: 80, height: 24, color: true, unicode: true, animationFrame: 2 });
-  assert.match(first, /\u001b\[1;38;2;120;240;255m⠋\u001b\[0m \u001b\[38;5;147mWaiting for model…/u);
-  assert.match(second, /\u001b\[1;38;2;255;120;220m⠹\u001b\[0m \u001b\[38;5;147mWaiting for model…/u);
+  const first = renderer.frame(projection, { width: 80, height: 24, color: true, unicode: true, animationFrame: 0, now: 126_000 });
+  const second = renderer.frame(projection, { width: 80, height: 24, color: true, unicode: true, animationFrame: 2, now: 126_000 });
+  assert.match(first, /\u001b\[1;38;2;120;240;255m⠋\u001b\[0m \u001b\[38;5;147mWaiting for model… · 2m 05s/u);
+  assert.match(second, /\u001b\[1;38;2;255;120;220m⠹\u001b\[0m \u001b\[38;5;147mWaiting for model… · 2m 05s/u);
   assert.equal(projection.active().records.some((record) => record.type === 'live_activity'), false);
   projection.apply('s1', { type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
   assert.doesNotMatch(renderer.frame(projection, { width: 80, height: 24, color: false }), /Waiting for model/u);
+});
+
+test('duplicate accepted lifecycle events do not restart the visible turn timer', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
+  projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
+  projection.active().turnStartedAt = 1_000;
+  projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
+  assert.equal(projection.active().turnStartedAt, 1_000);
 });
 
 test('active tool status identifies the currently running tool and its presentation target', () => {

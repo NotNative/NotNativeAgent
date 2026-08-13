@@ -343,8 +343,9 @@ function toggleDetailedActivity(session, turnId) {
 
 function applyEvent(session, event) {
   if (event.type === 'accepted' && event.accepted && event.turn_id) {
-    session.state = 'preparing'; session.activeTurnId = event.turn_id ?? session.activeTurnId;
-    session.turnStartedAt = Date.now();
+    const beginsNewTurn = session.activeTurnId !== event.turn_id || !Number.isFinite(session.turnStartedAt);
+    session.state = 'preparing'; session.activeTurnId = event.turn_id;
+    if (beginsNewTurn) session.turnStartedAt = Date.now();
   } else if (event.type === 'stream_delta') session.state = 'streaming';
   else if (event.type === 'review_status') session.state = 'awaiting_approval';
   else if (event.type === 'permission_prompt') {

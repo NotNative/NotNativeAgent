@@ -20,14 +20,14 @@ export function createRenderLoop(output, capabilities, screen, renderer, project
     } catch (error) { onError(error); }
   };
   const syncAnimation = () => {
-    const shouldAnimate = projection.active?.()?.activeTurnId && capabilities.reducedMotion !== true;
-    if (!shouldAnimate) { clearTimeout(animationTimer); animationTimer = null; return; }
+    const activeTurn = projection.active?.()?.activeTurnId;
+    if (!activeTurn) { clearTimeout(animationTimer); animationTimer = null; return; }
     if (animationTimer) return;
     animationTimer = setTimeout(() => {
       animationTimer = null;
-      animationFrame += 1;
+      if (capabilities.reducedMotion !== true) animationFrame += 1;
       now();
-    }, 120);
+    }, capabilities.reducedMotion === true ? 1_000 : 120);
   };
   return {
     now,

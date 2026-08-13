@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { synthwaveActivityIndicator } from './tui-colors.js';
+import { formatTurnElapsed } from './tui-status-line.js';
 
 const UNICODE_SPINNER = Object.freeze(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']);
 const ASCII_SPINNER = Object.freeze(['|', '/', '-', '\\']);
@@ -9,7 +10,11 @@ export function liveActivityLine(session, capabilities) {
   const frames = capabilities.unicode === false ? ASCII_SPINNER : UNICODE_SPINNER;
   const frame = capabilities.reducedMotion ? 0 : (capabilities.animationFrame ?? 0);
   const marker = capabilities.reducedMotion ? (capabilities.unicode === false ? '*' : '•') : frames[frame % frames.length];
-  return `  ${marker} ${liveActivityLabel(session)}`;
+  const now = Number.isFinite(capabilities.now) ? capabilities.now : Date.now();
+  const elapsed = Number.isFinite(session.turnStartedAt)
+    ? ` · ${formatTurnElapsed(Math.max(0, now - session.turnStartedAt))}`
+    : '';
+  return `  ${marker} ${liveActivityLabel(session)}${elapsed}`;
 }
 
 export function decorateLiveActivity(line, animationFrame) {
