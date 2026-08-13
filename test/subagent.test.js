@@ -60,6 +60,7 @@ test('each devteam specialist receives role-specific engineering standards direc
 
 test('subagent concurrency follows the loaded worker model parallel capacity', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-subagents-'));
+  const output = [];
   let workers = 0; let peakWorkers = 0; let parentCalls = 0;
   const parent = { async *stream(request) {
     parentCalls += 1;
@@ -96,12 +97,17 @@ test('subagent concurrency follows the loaded worker model parallel capacity', a
   });
   const engine = new SessionEngine({
     config, providerFactory: (profile) => profile.id === 'worker' ? worker : parent,
+    output: async (record) => output.push(record),
     semanticReviewer: { async review() { return { outcome: 'approve', confidence: 0.99, reason_code: 'delegation_matches_intent' }; } },
   });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'parallel-exploration', content: 'Delegate two independent exploration agents.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(peakWorkers, 2);
+  const progress = output.filter((record) => record.type === 'subagent_progress');
+  assert.equal(progress.filter((record) => record.phase === 'started').length, 2);
+  assert.equal(progress.filter((record) => record.phase === 'returned').length, 2);
+  assert.equal(progress.filter((record) => record.phase === 'returned').every((record) => record.text === 'Explored.'), true);
   assert.equal(engine.scheduler.snapshot().find((item) => item.resource === 'worker').discoveredLimit, 2);
   await engine.shutdown({ request_id: 'shutdown', type: 'shutdown' });
 });

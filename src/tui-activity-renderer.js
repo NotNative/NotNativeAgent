@@ -1,4 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
+import { displayWidth, wrapTerminalLine } from './terminal-markdown.js';
+
+export function subagentProgressLines(record, width) {
+  const direction = record.phase === 'returned' ? '<' : record.phase === 'failed' ? 'X' : '>';
+  const phase = { started: 'started', working: 'reports', returned: 'returned', failed: 'failed' }[record.phase] ?? record.phase;
+  const prefix = `    ${direction} ${record.agent_type ?? 'sub-agent'} ${phase} | `;
+  return wrapTerminalLine(record.text ?? '', width, prefix, ' '.repeat(displayWidth(prefix)));
+}
 
 export function compactActivityRows(records) {
   return toolCalls(records).map((item) => {
@@ -42,6 +50,9 @@ export function activityDetailRows(records, width, wrap) {
     if (item.arguments) lines.push(...wrap(`      Arguments: ${JSON.stringify(item.arguments)}`, width));
     if (item.review) lines.push(...wrap(`      Review: ${item.review.outcome} | ${item.review.reason_code ?? '--'}`, width));
     if (item.result) lines.push(...wrap(`      Result: ${resultDetail(item.result)}`, width));
+  }
+  for (const record of records.filter((item) => item.type === 'subagent_progress')) {
+    lines.push(...wrap(`      ${record.agent_type ?? 'sub-agent'} ${record.phase} | ${record.text ?? ''}`, width));
   }
   return lines;
 }

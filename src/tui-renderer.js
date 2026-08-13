@@ -3,10 +3,10 @@ import { sanitizeTerminal } from './terminal-adapter.js';
 import { commandPresentation, commandsByCategory } from './tui-commands.js';
 import { commandPickerLines } from './tui-command-picker.js';
 import { VERSION } from './product.js';
-import { activityDetailRows, collapsedFailureRows, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './tui-activity-renderer.js';
+import { activityDetailRows, collapsedFailureRows, subagentProgressLines, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './tui-activity-renderer.js';
 import { angledWordmarkGradient, decorateOverlay } from './tui-colors.js';
 import { decorateLiveActivity, liveActivityLine } from './tui-live-activity.js';
-import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLine, wrapTerminalLine } from './terminal-markdown.js';
+import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLine } from './terminal-markdown.js';
 import { sessionStatusLine } from './tui-status-line.js';
 import { decorateSelection, plainTerminalLine } from './tui-selection.js';
 import { contextCompactionText } from './tui-context-renderer.js';
@@ -16,8 +16,7 @@ export class TuiRenderer {
   frame(projection, capabilities) {
     const session = projection.active();
     if (!session) return `NotNativeAgent ${VERSION}\n[IDLE] No conversation\n`;
-    // Leave two cells unused: some Windows hosts render status glyphs one cell
-    // wider than reported and otherwise auto-wrap at column zero.
+    // Leave two cells unused because some Windows hosts render status glyphs wider than reported.
     const width = Math.max(23, capabilities.width - 2);
     const height = Math.max(8, capabilities.height);
     const header = headerLines(projection, session, width);
@@ -100,9 +99,9 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
       const summary = summarizeActivity(records);
       const mode = session.detailedTurns.has(record.turn_id) ? 'details'
         : session.expandedTurns.has(record.turn_id) ? 'summary' : 'collapsed';
-      if (mode === 'details') lines.push(...activityDetailRows(records, width, wrap));
-      else if (mode === 'summary') lines.push(...summaryActivityRows(records).flatMap((line) => wrap(line, width)));
-      else lines.push(...collapsedFailureRows(records).flatMap((line) => wrap(line, width)));
+      if (mode === 'details') lines.push(...activityDetailRows(records, width, wrapIndentedTerminalLine));
+      else if (mode === 'summary') lines.push(...summaryActivityRows(records).flatMap((line) => wrapIndentedTerminalLine(line, width)));
+      else lines.push(...collapsedFailureRows(records).flatMap((line) => wrapIndentedTerminalLine(line, width)));
       const receiptStart = lines.length;
       const receipt = turnReceipt(record, summary, mode, width);
       lines.push(...receipt, '');
@@ -268,8 +267,9 @@ function recordLines(record, width) {
   if (record.type === 'stream_delta') return renderMarkdown(record.text, width, '* ', '  ');
   if (record.type === 'tool_status') {
     if (record.status === 'running' && record.tool !== 'agent.run') return [];
-    return wrap(`    ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${record.status}${toolFailureSuffix(record)}`, width);
+    return wrapIndentedTerminalLine(`    ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${record.status}${toolFailureSuffix(record)}`, width);
   }
+  if (record.type === 'subagent_progress') return subagentProgressLines(record, width);
   if (record.type === 'review_status') return record.outcome === 'approve' ? [] : wrap(`    X REVIEW | ${record.outcome} | ${record.reason_code ?? ''}`, width);
   if (record.type === 'error') return wrap(`! ERROR ${record.code} | ${record.message}`, width);
   if (record.type === 'memory_status' || record.type === 'mcp_status') {
@@ -321,7 +321,7 @@ function tabState(session) {
 }
 
 function isActivity(record) {
-  return ['tool_status', 'review_status', 'state_status', 'queue_status'].includes(record.type);
+  return ['tool_status', 'review_status', 'state_status', 'queue_status', 'subagent_progress'].includes(record.type);
 }
 
 function activityByTurn(records, completed) {
@@ -445,6 +445,7 @@ function decorateContent(line, width, color, index, overlayKind, lineKind) {
   if (/^\s+(?:Review|Result):/u.test(line)) return paint('38;5;245', line);
   const succeededTool = line.match(/^(\s*)(\u2713)(.*)$/u); if (succeededTool) return `${succeededTool[1]}${paint('38;5;77', succeededTool[2])}${paint('38;5;245', succeededTool[3])}`;
   if (/^\s+\+/u.test(line)) return paint('38;5;245', line);
+  if (/^\s+>|^\s+</u.test(line)) return paint('38;5;147', line);
   if (/^\s+X|^!/u.test(line)) return paint('38;5;203', line);
   if (/^\s+Activity summary/u.test(line)) return paint('38;5;245', line);
   if (/^\s+v Activity detail/u.test(line)) return paint('38;5;141', line);

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
+import { createSubagentProgressRelay } from './subagent-progress.js';
 
 const ENGINEERING_BASELINE = [
   'NNA engineering standards apply directly to your work; they are not reserved for the final reviewer.',
@@ -45,19 +46,32 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
   if (engine.subagentDepth > 0) throw new ContractError('subagent_nesting_forbidden', 'sub-agents cannot launch nested sub-agents');
   if (signal.aborted) throw new ContractError('tool_cancelled', 'sub-agent execution was cancelled');
   const sessionId = newId(`agent_${input.type}`);
+  const parent = { turnId: engine.active?.turnId ?? null, stepId: engine.active?.stepId ?? null };
+  const relay = createSubagentProgressRelay(engine, {
+    ...parent, agentId: sessionId, agentType: input.type,
+  });
   const child = createEngine({
     ...engine.subagentOptions, config: subagentConfig(engine.config, input.type), sessionId,
     surface: 'subagent', reviewPosture: 'auto-review', dataPaths: engine.dataPaths,
     storeRoot: engine.storeRoot, scheduler: engine.scheduler, subagentDepth: engine.subagentDepth + 1,
-    output: async (record) => engine.telemetry?.record('subagent.output', subagentOutputStatus(record), {
-      agent_id: sessionId, agent_type: input.type, record,
-    }, { turnId: engine.active?.turnId, stepId: engine.active?.stepId, outcome: record?.outcome }),
+    output: async (record) => {
+      await relay.accept(record);
+      return engine.telemetry?.record('subagent.output', subagentOutputStatus(record), {
+        agent_id: sessionId, agent_type: input.type, record,
+      }, { turnId: parent.turnId, stepId: parent.stepId, outcome: record?.outcome });
+    },
   });
   const cancel = () => child.cancel({ request_id: newId('subagent_cancel'), type: 'cancel' }).catch(() => undefined);
   signal.addEventListener('abort', cancel, { once: true });
   try {
+    await relay.started(input.task);
     await child.initialize();
-    return await child.submit({ request_id: newId('subagent'), content: input.task }, `derived-subagent:${input.type}`);
+    const result = await child.submit({ request_id: newId('subagent'), content: input.task }, `derived-subagent:${input.type}`);
+    await relay.returned(result);
+    return result;
+  } catch (error) {
+    await relay.failed(error);
+    throw error;
   } finally {
     signal.removeEventListener('abort', cancel);
     await child.shutdown({ request_id: newId('subagent_shutdown'), type: 'shutdown' }).catch(() => undefined);

@@ -1426,6 +1426,26 @@ test('active agent runs remain visible with their inherited model and replace th
   assert.doesNotMatch(frame, /Sub-agent active/u);
 });
 
+test('live sub-agent progress is bounded, readable, and retains hanging indentation', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'primary-model', provider: 'p' });
+  projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
+  projection.apply('s1', {
+    type: 'subagent_progress', turn_id: 'turn-1', agent_id: 'agent-1', agent_type: 'general',
+    phase: 'working', text: 'Red reports that the service is stopped and is now inspecting the llama.cpp build configuration before changing anything.',
+  });
+  const frame = new TuiRenderer().frame(projection, {
+    width: 70, height: 24, color: false, unicode: false, reducedMotion: true,
+  });
+  const rows = frame.split('\n');
+  const first = rows.findIndex((line) => line.includes('general reports'));
+  assert.equal(first >= 0, true);
+  const prefix = '    > general reports | ';
+  assert.equal(rows[first].startsWith(prefix), true);
+  assert.equal(rows[first + 1].startsWith(' '.repeat(prefix.length)), true);
+  assert.match(frame, /inspecting the llama\.cpp build\s+configuration/u);
+});
+
 test('agent tool status records the effective sub-agent route and task', () => {
   const item = {
     request: {
