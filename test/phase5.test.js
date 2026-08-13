@@ -551,6 +551,10 @@ test('renderer reserves the terminal auto-wrap cell and retains tool indentation
   assert.equal(toolLines.length > 1, true);
   assert.equal(toolLines[0].startsWith('    X shell.run'), true);
   assert.equal(toolLines.slice(1).every((line) => line.startsWith(continuation) && line[continuation.length] !== ' '), true);
+  const colored = new TuiRenderer().frame(projection, { width: 48, height: 24, color: true });
+  const coloredToolLines = colored.split('\n').filter((line) => /shell\.run|ssh command|semantic_review|Reviewer guidance/u.test(line));
+  assert.equal(coloredToolLines.length, toolLines.length);
+  assert.equal(coloredToolLines.every((line) => line.includes('\u001b[38;5;203m')), true);
 });
 
 test('long shell tool targets wrap with a stable hanging indent', () => {
@@ -567,6 +571,11 @@ test('long shell tool targets wrap with a stable hanging indent', () => {
   assert.equal(toolLines[0].startsWith('    \u2713 shell.run'), true);
   assert.equal(toolLines.slice(1).every((line) => line.startsWith(continuation) && line[continuation.length] !== ' '), true);
   assert.equal(toolLines.every((line) => displayWidth(line) <= 95), true);
+  const colored = new TuiRenderer().frame(projection, { width: 96, height: 30, color: true });
+  const coloredToolLines = colored.split('\n').filter((line) => /shell\.run|systemctl|sleep\.target|connectivity check|succeeded/u.test(line));
+  assert.equal(coloredToolLines.length, toolLines.length);
+  assert.match(coloredToolLines[0], /\u001b\[38;5;77m\u2713\u001b\[0m\u001b\[38;5;245m/u);
+  assert.equal(coloredToolLines.slice(1).every((line) => line.startsWith('\u001b[38;5;245m')), true);
 });
 
 test('tool rows retain a two-cell terminal safety margin before hanging wraps', () => {

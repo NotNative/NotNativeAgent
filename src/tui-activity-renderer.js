@@ -1,6 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 import { displayWidth, wrapTerminalLine } from './terminal-markdown.js';
 
+export function decorateToolActivityLine(line, lineKind, paint) {
+  if (lineKind?.startsWith('tool_status:')) {
+    const status = lineKind.slice('tool_status:'.length);
+    if (status === 'succeeded') {
+      const match = line.match(/^(\s*)(\u2713)(.*)$/u);
+      return match ? `${match[1]}${paint('38;5;77', match[2])}${paint('38;5;245', match[3])}` : paint('38;5;245', line);
+    }
+    return paint(status === 'running' ? '38;5;245' : '38;5;203', line);
+  }
+  if (/^\s+(?:Review|Result):/u.test(line)) return paint('38;5;245', line);
+  const match = line.match(/^(\s*)(\u2713)(.*)$/u);
+  if (match) return `${match[1]}${paint('38;5;77', match[2])}${paint('38;5;245', match[3])}`;
+  if (/^\s+\+/u.test(line)) return paint('38;5;245', line);
+  if (/^\s+>|^\s+</u.test(line)) return paint('38;5;147', line);
+  if (/^\s+X|^!/u.test(line)) return paint('38;5;203', line);
+  return null;
+}
+
 export function subagentProgressLines(record, width) {
   const direction = record.phase === 'returned' ? '<' : record.phase === 'failed' ? 'X' : '>';
   const phase = { started: 'started', working: 'reports', returned: 'returned', failed: 'failed' }[record.phase] ?? record.phase;

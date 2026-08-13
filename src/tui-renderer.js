@@ -3,7 +3,7 @@ import { sanitizeTerminal } from './terminal-adapter.js';
 import { commandPresentation, commandsByCategory } from './tui-commands.js';
 import { commandPickerLines } from './tui-command-picker.js';
 import { VERSION } from './product.js';
-import { activityDetailRows, collapsedFailureRows, subagentProgressLines, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './tui-activity-renderer.js';
+import { activityDetailRows, collapsedFailureRows, decorateToolActivityLine, subagentProgressLines, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './tui-activity-renderer.js';
 import { angledWordmarkGradient, decorateOverlay } from './tui-colors.js';
 import { decorateLiveActivity, liveActivityLine } from './tui-live-activity.js';
 import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLine } from './terminal-markdown.js';
@@ -117,7 +117,10 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
     applyConversationSpacing(lines, record.type, lastMessageKind, lastVisibleKind);
     const start = lines.length;
     lines.push(...rendered);
-    for (let index = start; index < lines.length; index += 1) lineKinds.set(index, record.type);
+    const lineKind = record.type === 'tool_status'
+      ? `${record.type}:${record.status ?? 'unknown'}`
+      : record.type;
+    for (let index = start; index < lines.length; index += 1) lineKinds.set(index, lineKind);
     lastVisibleKind = isActivity(record) ? 'activity' : record.type;
     if (['user_input', 'stream_delta'].includes(record.type)) lastMessageKind = record.type;
   }
@@ -438,15 +441,12 @@ function decorateContent(line, width, color, index, overlayKind, lineKind) {
   // record kind keeps every continuation row inside the same message band while
   // leaving copied transcript text free of renderer-only markers.
   if (lineKind === 'user_input') return paint('38;5;255;48;5;236', padCells(line, width));
+  const toolActivity = decorateToolActivityLine(line, lineKind, paint);
+  if (toolActivity) return toolActivity;
   if (line.startsWith('* ')) return `${paint('1;38;5;213', '*')} ${line.slice(2)}`;
   if (/^\s*(?:STATE|REVIEW|DEPENDENCY|ATTACHMENT|\.\.\. WAITING FOR PROVIDER)\b/u.test(line)) {
     return paint('38;5;245', line);
   }
-  if (/^\s+(?:Review|Result):/u.test(line)) return paint('38;5;245', line);
-  const succeededTool = line.match(/^(\s*)(\u2713)(.*)$/u); if (succeededTool) return `${succeededTool[1]}${paint('38;5;77', succeededTool[2])}${paint('38;5;245', succeededTool[3])}`;
-  if (/^\s+\+/u.test(line)) return paint('38;5;245', line);
-  if (/^\s+>|^\s+</u.test(line)) return paint('38;5;147', line);
-  if (/^\s+X|^!/u.test(line)) return paint('38;5;203', line);
   if (/^\s+Activity summary/u.test(line)) return paint('38;5;245', line);
   if (/^\s+v Activity detail/u.test(line)) return paint('38;5;141', line);
   if (/^\s+[*-](?:\s|$)/u.test(line)) return paint('38;5;103', line);
