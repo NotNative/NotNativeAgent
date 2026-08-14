@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-export { validateKeyBindings } from '../tui/key-bindings.js';
-import { validateKeyBindings } from '../tui/key-bindings.js';
+export { validateKeyBindings } from './key-bindings.js';
+import { validateKeyBindings } from './key-bindings.js';
 
 const TUI_RECORD_LIMIT = 9_999;
 

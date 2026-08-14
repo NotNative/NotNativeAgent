@@ -27,7 +27,7 @@ import { prepareLineEdit, prepareTextEdit } from './stale-edit-recovery.js';
 import { providerSchema, schemaShapeValidator, schemaValidator } from './tools/schema.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { CORE_TOOL_NAMES } from './tools/core-names.js';
-import { telegramNotificationDefinition } from './gateway/notifications.js'; import { sessionHistoryDefinitions } from './session-history-tools.js';
+import { telegramNotificationDefinition } from './notifications/telegram.js'; import { sessionHistoryDefinitions } from './session-history-tools.js';
 const MAX_TEXT_BYTES = 1_048_576; const ALWAYS_EXPOSED = new Set(CORE_TOOL_NAMES);
 export class ToolRegistry {
   #definitions = new Map();

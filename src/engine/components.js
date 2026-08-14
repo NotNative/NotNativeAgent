@@ -26,7 +26,7 @@ import { GovernanceEngine } from '../governance-engine.js';
 import { GroundingPolicy } from '../governance/grounding-policy.js';
 import { join } from 'node:path';
 import { ConversationWork } from '../conversation-work.js';
-import { TelegramNotificationQueue } from '../gateway/notifications.js';
+import { TelegramNotificationQueue } from '../notifications/telegram.js';
 
 export function installEngineComponents(engine, options, storeRoot, hooks) {
   installRouting(engine, options);

@@ -21,7 +21,7 @@ import { restoreTranscript } from './experience/transcript.js';
 import { restorePresentation, tabPoolRecords } from './experience/presentation.js';
 import { createNextConversation, createWorkspaceConversation } from './experience/directory.js';
 import { restoreWorkspace } from './experience/restore.js';
-import { validateKeyBindings } from './tui/key-bindings.js';
+import { validateKeyBindings } from './experience/key-bindings.js';
 import { WorkspaceTabPersistence } from './experience/tab-persistence.js';
 import { boundedProviderCapabilities } from './provider/capabilities.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './experience/models.js';

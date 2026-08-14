@@ -11,7 +11,7 @@ import {
 import { splitTelegramText, TelegramApi } from '../src/gateway/telegram-api.js';
 import { gatewaySessionId, TelegramGateway } from '../src/gateway/telegram.js';
 import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-broker.js';
-import { readTelegramOutbox, TelegramNotificationQueue } from '../src/gateway/notifications.js';
+import { readTelegramOutbox, TelegramNotificationQueue } from '../src/notifications/telegram.js';
 import { commandDefinition } from '../src/tui/commands.js';
 import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui/overlays.js';
 import { runGatewayCommand } from '../src/gateway-cli.js';

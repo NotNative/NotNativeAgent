@@ -42,7 +42,7 @@ cannot become implicit state inside a renderer or input handler.
 
 Root files are composition roots or public engine entry points. Their private helpers live in
 short, responsibility-named directories such as `engine/`, `governance/`, `experience/`, `tui/`,
-and `gateway/`. Shared domains such as guidance, tools, providers, persistence, and observability
+and `gateway/`. Shared domains such as guidance, tools, providers, persistence, notifications, and observability
 remain separate rather than being placed under an engine merely because that engine consumes them.
 
 Moves are performed incrementally as path-only product slices whenever practical. Behavioral
