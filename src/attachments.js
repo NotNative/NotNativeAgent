@@ -239,9 +239,9 @@ async function observeWith(router, resolution, role, item, prompt, signal) {
     tools: [],
   };
   let text = '';
-  const deadline = AbortSignal.timeout(resolution.deadlineMs);
   const parentSignal = signal ?? new AbortController().signal;
-  const boundedSignal = AbortSignal.any([parentSignal, deadline]);
+  const deadline = resolution.deadlineMs == null ? null : AbortSignal.timeout(resolution.deadlineMs);
+  const boundedSignal = deadline == null ? parentSignal : AbortSignal.any([parentSignal, deadline]);
   const iterator = router.provider(resolution).stream(request, boundedSignal)[Symbol.asyncIterator]();
   let abortHandler;
   const aborted = new Promise((_, reject) => {
@@ -257,7 +257,7 @@ async function observeWith(router, resolution, role, item, prompt, signal) {
       if (event.type === 'text') text += event.text;
     }
   } catch (error) {
-    if (deadline.aborted && !parentSignal.aborted) {
+    if (deadline?.aborted && !parentSignal.aborted) {
       throw new ContractError('attachment_route_timeout', 'attachment route exceeded its deadline', true);
     }
     throw error;
@@ -267,7 +267,7 @@ async function observeWith(router, resolution, role, item, prompt, signal) {
     void Promise.resolve(iterator.return?.()).catch(() => undefined);
   }
   if (boundedSignal.aborted) {
-    if (deadline.aborted && !parentSignal.aborted) {
+    if (deadline?.aborted && !parentSignal.aborted) {
       throw new ContractError('attachment_route_timeout', 'attachment route exceeded its deadline', true);
     }
     throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);

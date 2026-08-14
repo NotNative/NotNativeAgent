@@ -7,7 +7,7 @@ const MIN_OUTPUT_RESERVE_TOKENS = 1024;
 const MAX_OUTPUT_RESERVE_TOKENS = 16_384;
 
 export function contextBudget(config, routes, runtime, retryScale = 1) {
-  const knownBytes = routes.slice(0, routes[0]?.budget ?? 1)
+  const knownBytes = routes.slice(0, routes[0]?.budget ?? routes.length)
     .map((route) => route.contextLimitBytes).filter(positive);
   if (positive(runtime?.contextLimitBytes)) knownBytes.push(runtime.contextLimitBytes);
   const hardLimitBytes = Math.min(config.limits.maxContextBytes, ...(knownBytes.length ? knownBytes : [config.limits.maxContextBytes]));

@@ -196,7 +196,8 @@ export function withRouteSetting(config, role, setting, value) {
   if (!fields[setting]) throw new ContractError('route_setting_invalid', `unknown route setting ${setting}`);
   if (!Object.hasOwn(config.routes, role)) throw new ContractError('route_role_invalid', `unknown route role ${role}`);
   const manifest = manifestFromConfig(config);
-  manifest.routes[role][fields[setting]] = value;
+  if (value === null) delete manifest.routes[role][fields[setting]];
+  else manifest.routes[role][fields[setting]] = value;
   return { manifest, config: resolveManifest(manifest) };
 }
 

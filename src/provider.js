@@ -63,7 +63,8 @@ export class OpenAICompatibleProvider {
         method: 'POST', headers: this.#headers(), signal: transport.signal,
         body: JSON.stringify({
           model: request.model, messages: normalizeSystemMessages(request.messages ?? []),
-          stream: true, temperature: request.temperature ?? 0.2,
+          stream: true,
+          ...(Number.isFinite(request.temperature) ? { temperature: request.temperature } : {}),
           ...(this.profile.capabilities?.usage === false ? {} : { stream_options: { include_usage: true } }),
           ...(Number.isInteger(request.maxOutputTokens) ? { max_tokens: request.maxOutputTokens } : {}),
           ...(request.tools?.length ? { tools: request.tools, tool_choice: 'auto' } : {}),

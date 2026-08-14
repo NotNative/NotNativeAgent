@@ -111,7 +111,8 @@ export function providerOverlay(engine, options = {}) {
 
 function globalProviderSettingsAction(config) {
   return {
-    id: 'global-settings', label: 'Global settings', badge: `${Math.round(config.limits.providerMs / 1_000).toLocaleString('en-US')}s timeout`,
+    id: 'global-settings', label: 'Global settings', badge: config.limits.providerMs == null
+      ? 'no route timeout' : `${Math.round(config.limits.providerMs / 1_000).toLocaleString('en-US')}s timeout`,
     detail: 'Configure the default route timeout inherited by routes without an override.', section: 'Workspace routing defaults',
   };
 }

@@ -129,6 +129,21 @@ test('AC-PROV-01 allows slow model admission to use the first-token deadline', a
   assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
 });
 
+test('provider requests omit unset sampling and output limits', async () => {
+  let body;
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'unbounded-model', capabilities: {},
+  }, { maxOutputBytes: 4096 }, { fetch: async (_url, options) => {
+    body = JSON.parse(options.body);
+    return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  for await (const _item of provider.stream({ model: 'unbounded-model', messages: [] }, new AbortController().signal)) { /* consume */ }
+  assert.equal(Object.hasOwn(body, 'temperature'), false);
+  assert.equal(Object.hasOwn(body, 'max_tokens'), false);
+});
+
 test('reasoning-disabled recovery sends compatible non-thinking controls', async () => {
   let body;
   const provider = new OpenAICompatibleProvider({

@@ -267,6 +267,33 @@ test('AC-FAIL-02 idle deadline is distinct and cancels a partial stalled stream'
   assert.equal(active.stepText, 'partial');
 });
 
+test('an unset overall route deadline does not create an immediate timeout', async () => {
+  const state = new StateAuthority();
+  state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-unbounded' });
+  const lifecycles = new LifecycleRegistry();
+  const turn = lifecycles.start('turn');
+  const step = lifecycles.start('model_step', turn.id);
+  const active = {
+    turnId: 'turn-unbounded', stepId: step.id, attemptId: null,
+    controller: new AbortController(), cancelled: false, stepText: '',
+    toolAssembler: new ToolCallAssembler(), providerTerminal: false,
+    recovery: new RecoverySupervisor(), reasoningBytes: 0, stepReasoningBytes: 0,
+    usage: null, finishReason: null,
+  };
+  const runner = new ProviderRunner({
+    state, lifecycles, publish: async () => undefined,
+    acceptText: async (text) => { active.stepText += text; },
+    settleAttempt: async () => undefined, recordRecovery: async () => undefined,
+  });
+  const provider = { async *stream() {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    yield { type: 'text', text: 'completed' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  await runner.run(provider, {}, { overallMs: null, firstTokenMs: 50, idleMs: 50 }, active);
+  assert.equal(active.stepText, 'completed');
+});
+
 test('AC-PROD-03/AC-ENGP-02/AC-FAIL-01/AC-FAIL-03/AC-FAIL-11/AC-FAIL-12 stalled output has bounded deterministic recovery', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-empty-'));
   let count = 0;

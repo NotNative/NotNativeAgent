@@ -73,7 +73,7 @@ export class ProviderRunner {
   }
 
   async runRoutes(router, candidates, requestFactory, deadlines, active) {
-    const bounded = candidates.slice(0, candidates[0]?.budget ?? 1);
+    const bounded = candidates.slice(0, candidates[0]?.budget ?? candidates.length);
     let lastError;
     for (const [index, route] of bounded.entries()) {
       active.logicalRequestId = route.logicalRequestId;
@@ -104,7 +104,8 @@ export class ProviderRunner {
     let timedOut = false;
     const cancel = () => controller.abort();
     active.controller.signal.addEventListener('abort', cancel, { once: true });
-    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, deadlines.overallMs);
+    const timer = Number.isFinite(deadlines.overallMs)
+      ? setTimeout(() => { timedOut = true; controller.abort(); }, deadlines.overallMs) : null;
     try {
       await this.#consume(provider, request, active, controller.signal, deadlines);
     } catch (error) {

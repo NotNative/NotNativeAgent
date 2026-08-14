@@ -7,10 +7,10 @@ const LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
 });
 const SETTINGS = Object.freeze({
-  timeout: Object.freeze({ label: 'Overall attempt timeout', detail: 'Seconds allowed for prompt processing and generation.' }),
-  temperature: Object.freeze({ label: 'Temperature', detail: 'Sampling temperature from 0 through 2.' }),
-  output: Object.freeze({ label: 'Maximum output tokens', detail: 'Maximum tokens requested from the provider.' }),
-  budget: Object.freeze({ label: 'Fallback attempt budget', detail: 'Maximum eligible route attempts from 1 through 64.' }),
+  timeout: Object.freeze({ label: 'Overall attempt timeout', detail: 'Seconds allowed for prompt processing and generation. Enter 0 for no timeout.' }),
+  temperature: Object.freeze({ label: 'Temperature', detail: 'Sampling temperature above 0 through 2. Enter 0 to use the provider default.' }),
+  output: Object.freeze({ label: 'Maximum output tokens', detail: 'Maximum tokens requested from the provider. Enter 0 for no explicit limit.' }),
+  budget: Object.freeze({ label: 'Fallback attempt budget', detail: 'Maximum eligible route attempts from 1 through 64. Enter 0 to use every eligible route.' }),
 });
 
 export function beginProviderRouteSettingsSelection(selected, workspace, overlay) {
@@ -78,7 +78,8 @@ async function handleGlobalSettings(action, workspace, overlay) {
     await workspace.configureRuntimeLimits({ providerMs: null });
     reopenGlobalSettings(workspace, overlay, 'Global route timeout now uses the built-in default.');
   } else {
-    const editor = editorWith(String(Math.round(overlay.config.limits.providerMs / 1_000)));
+    const editor = editorWith(overlay.config.limits.providerMs == null ? '0'
+      : String(Math.round(overlay.config.limits.providerMs / 1_000)));
     workspace.projection.openOverlay(globalSettingFormOverlay(overlay, editor));
   }
   return true;
@@ -106,7 +107,7 @@ async function handleGlobalForm(action, workspace, overlay) {
 function globalSettingFormOverlay(parentSettings, editor, error = null) {
   return Object.freeze({
     kind: 'global-provider-setting-form', title: 'Default route timeout',
-    lines: Object.freeze(['Seconds inherited by routes without an override.', '', ...(error ? [`Cannot save · ${error}`, ''] : []),
+    lines: Object.freeze(['Seconds inherited by routes without an override. Enter 0 for no timeout.', '', ...(error ? [`Cannot save · ${error}`, ''] : []),
       'Enter a value:', '', `  ${renderEditor(editor)}`]),
     items: Object.freeze([]), selected: 0, offset: 0, parentSettings, editor,
     actionLabel: 'Type value | Enter save | Ctrl+G back',
@@ -126,9 +127,9 @@ export function routeSettingsOverlay(config, role, options = {}) {
     `Provider                 ${route.providerId}`,
     `Model                    ${route.model}`,
     `Overall attempt timeout  ${formatMs(route.deadlineMs)} (${inherited ? 'global' : 'override'})`,
-    `Temperature              ${route.temperature}`,
-    `Maximum output tokens    ${route.maxOutputTokens.toLocaleString('en-US')}`,
-    `Fallback attempt budget  ${route.budget}`,
+    `Temperature              ${route.temperature ?? 'Provider default'}`,
+    `Maximum output tokens    ${route.maxOutputTokens?.toLocaleString('en-US') ?? 'No explicit limit'}`,
+    `Fallback attempt budget  ${route.budget ?? 'All eligible routes'}`,
     `Context limit            ${route.contextLimitBytes?.toLocaleString('en-US') ?? 'provider default'}`,
     `Required capabilities    ${route.requiredCapabilities.length ? route.requiredCapabilities.join(', ') : 'none'}`,
     `Fallback profiles        ${route.fallbacks.length ? route.fallbacks.join(', ') : 'none'}`,
@@ -187,34 +188,34 @@ function routeConfig(workspace, role) { return role === 'primary' ? workspace.ac
 
 function settingValue(route, setting) {
   if (setting === 'timeout') return route.deadlineOverrideMs === null ? `global · ${formatMs(route.deadlineMs)}` : formatMs(route.deadlineMs);
-  if (setting === 'temperature') return String(route.temperature);
-  if (setting === 'output') return route.maxOutputTokens.toLocaleString('en-US');
-  return String(route.budget);
+  if (setting === 'temperature') return route.temperature == null ? 'provider default' : String(route.temperature);
+  if (setting === 'output') return route.maxOutputTokens == null ? 'no limit' : route.maxOutputTokens.toLocaleString('en-US');
+  return route.budget == null ? 'all eligible' : String(route.budget);
 }
 
 function editValue(config, role, setting) {
   const route = config?.routes?.[role];
   if (!route) return '';
-  if (setting === 'timeout') return String(Math.round(route.deadlineMs / 1_000));
-  if (setting === 'temperature') return String(route.temperature);
-  if (setting === 'output') return String(route.maxOutputTokens);
-  return String(route.budget);
+  if (setting === 'timeout') return route.deadlineMs == null ? '0' : String(Math.round(route.deadlineMs / 1_000));
+  if (setting === 'temperature') return String(route.temperature ?? 0);
+  if (setting === 'output') return String(route.maxOutputTokens ?? 0);
+  return String(route.budget ?? 0);
 }
 
 function parseSetting(setting, raw) {
   const value = Number(String(raw).trim());
   if (setting === 'temperature') {
     if (!Number.isFinite(value) || value < 0 || value > 2) throw new ContractError('route_temperature_invalid', 'Temperature must be from 0 through 2.');
-    return value;
+    return value === 0 ? null : value;
   }
   if (!Number.isSafeInteger(value)) throw new ContractError('route_setting_invalid', 'Enter a whole number.');
   if (setting === 'timeout') {
-    if (value < 1 || value > 3_600) throw new ContractError('route_timeout_invalid', 'Timeout must be 1 through 3,600 seconds.');
+    if (value < 0 || value > 3_600) throw new ContractError('route_timeout_invalid', 'Timeout must be 0 through 3,600 seconds.');
     return value * 1_000;
   }
   const maximum = setting === 'output' ? 1_048_576 : 64;
-  if (value < 1 || value > maximum) throw new ContractError('route_setting_invalid', `Value must be 1 through ${maximum.toLocaleString('en-US')}.`);
-  return value;
+  if (value < 0 || value > maximum) throw new ContractError('route_setting_invalid', `Value must be 0 through ${maximum.toLocaleString('en-US')}.`);
+  return value === 0 ? null : value;
 }
 
 function editorWith(value) { const editor = new EditorBuffer(128); editor.set(value); return editor; }
@@ -228,4 +229,4 @@ function renderEditor(editor) {
 function singleLine(action) {
   return action.action === 'paste' ? { ...action, text: String(action.text).split(/\r?\n/u, 1)[0] } : action;
 }
-function formatMs(value) { return `${Math.round(value / 1_000).toLocaleString('en-US')}s`; }
+function formatMs(value) { return value == null ? 'No limit' : `${Math.round(value / 1_000).toLocaleString('en-US')}s`; }

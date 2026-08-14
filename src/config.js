@@ -5,7 +5,8 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { validateKeyBindings } from './key-bindings.js';
 import { validateNestedManifestKeys } from './configuration-shape.js';
-import { boundedInteger, boundedNumber, providerRouteDeadlineOverride, providerTimeouts, semanticReviewTimeout, telemetryDestination } from './config-bounds.js';
+import { boundedInteger, boundedNumber, optionalZeroUnsetInteger, optionalZeroUnsetNumber, providerRouteDeadlineOverride,
+  providerTimeouts, semanticReviewTimeout, telemetryDestination } from './config-bounds.js';
 import { resolveContextLimits } from './config-context.js';
 import { validateAllowedTools, validateHostIdentity } from './execution-policy.js';
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
@@ -254,11 +255,11 @@ function buildRoutes(value, profile, profiles, providerMs) {
       contextLimitBytes: optionalBoundedInteger(route.context_limit_bytes, 65_536, 16_777_216)
         ?? profiles[providerId]?.contextLimitBytes ?? null,
       requiredCapabilities: validateRouteCapabilities(route.required_capabilities),
-      temperature: boundedNumber(route.temperature, role === 'reviewer' ? 0 : 0.2, 0, 2),
-      maxOutputTokens: boundedInteger(route.max_output_tokens, 16_384, 1, 1_048_576),
-      budget: boundedInteger(route.budget, 1, 1, 64),
+      temperature: optionalZeroUnsetNumber(route.temperature, 0, 2),
+      maxOutputTokens: optionalZeroUnsetInteger(route.max_output_tokens, 1, 1_048_576),
+      budget: optionalZeroUnsetInteger(route.budget, 1, 64),
       fallbacks,
-      deadlineMs: deadlineOverrideMs ?? providerMs, deadlineOverrideMs,
+      deadlineMs: deadlineOverrideMs === null ? providerMs : deadlineOverrideMs || null, deadlineOverrideMs,
     });
     if (!profiles[result[role].providerId]) {
       throw new ContractError('route_profile_missing', `route ${role} references an unavailable provider`);
@@ -476,7 +477,6 @@ function endpointZone(url) {
 function optionalString(value) {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
-
 function optionalBoundedInteger(value, minimum, maximum) {
   if (value === undefined) return null;
   return boundedInteger(value, null, minimum, maximum);

@@ -24,7 +24,8 @@ export class ContinuationCompactor {
     const controller = new AbortController();
     const cancel = () => controller.abort();
     parentSignal?.addEventListener('abort', cancel, { once: true });
-    const timer = setTimeout(() => controller.abort(), Math.min(this.timeoutMs, route.deadlineMs));
+    const timer = setTimeout(() => controller.abort(), route.deadlineMs == null
+      ? this.timeoutMs : Math.min(this.timeoutMs, route.deadlineMs));
     let release = null;
     try {
       release = await this.scheduler.acquire(
@@ -57,7 +58,7 @@ export class ContinuationCompactor {
 
 function handoffRequest(route, fact) {
   return Object.freeze({
-    model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens, 1024), tools: [],
+    model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 1024, 1024), tools: [],
     messages: [
       { role: 'system', content: 'Create an extremely terse self-handoff from the supplied NNA record. Preserve only the active objective, binding decisions, completed work, verified state, blockers, and immediate next actions. Return only JSON. Never invent facts, work, or authority.' },
       { role: 'user', content: JSON.stringify(fact.continuation) },
@@ -80,7 +81,7 @@ function handoffArraySchema() { return { type: 'array', maxItems: 6, items: { ty
 
 function compactionRequest(route, fact) {
   return Object.freeze({
-    model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens, 2048), tools: [],
+    model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 2048, 2048), tools: [],
     messages: [
       { role: 'system', content: 'Summarize the supplied NNA continuation record for reliable task continuation. Return only JSON matching the schema. Do not invent completed work, facts, files, or authority.' },
       { role: 'user', content: JSON.stringify(fact.continuation) },

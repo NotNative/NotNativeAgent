@@ -17,6 +17,16 @@ export function boundedNumber(value, fallback, minimum, maximum) {
   return value;
 }
 
+export function optionalZeroUnsetInteger(value, minimum, maximum) {
+  if (value === undefined || value === null || value === 0) return null;
+  return boundedInteger(value, null, minimum, maximum);
+}
+
+export function optionalZeroUnsetNumber(value, minimum, maximum) {
+  if (value === undefined || value === null || value === 0) return null;
+  return boundedNumber(value, null, minimum, maximum);
+}
+
 export function migrateLegacyProviderTimeoutDefaults(manifest) {
   const migrated = { ...manifest };
   if (migrated.first_token_timeout_ms === 30_000) migrated.first_token_timeout_ms = undefined;
@@ -26,10 +36,11 @@ export function migrateLegacyProviderTimeoutDefaults(manifest) {
 
 export function providerTimeouts(manifest) {
   const input = migrateLegacyProviderTimeoutDefaults(manifest);
+  const configured = input.provider_timeout_ms;
   return {
-    providerMs: boundedInteger(input.provider_timeout_ms, 1_800_000, 100, 3_600_000),
-    providerOverrideMs: input.provider_timeout_ms === undefined ? null
-      : boundedInteger(input.provider_timeout_ms, null, 100, 3_600_000),
+    providerMs: configured === 0 ? null : boundedInteger(configured, 1_800_000, 100, 3_600_000),
+    providerOverrideMs: configured === undefined ? null
+      : configured === 0 ? 0 : boundedInteger(configured, null, 100, 3_600_000),
     firstTokenMs: boundedInteger(input.first_token_timeout_ms, 600_000, 100, 600_000),
     idleMs: boundedInteger(input.idle_timeout_ms, 300_000, 100, 600_000),
   };
@@ -37,6 +48,7 @@ export function providerTimeouts(manifest) {
 
 export function providerRouteDeadlineOverride(value) {
   if (value === undefined) return null;
+  if (value === 0) return 0;
   return boundedInteger(value, null, 100, 3_600_000);
 }
 
@@ -44,8 +56,8 @@ export function semanticReviewTimeout(manifest, providerMs) {
   const configured = manifest.semantic_review_timeout_ms;
   // Fifteen seconds was an early default that is too short for local models and
   // was persisted into existing manifests. Migrate that exact legacy value.
-  if (configured === undefined || configured === 15_000) return providerMs;
-  return boundedInteger(configured, providerMs, 100, 3_600_000);
+  if (configured === undefined || configured === 15_000) return providerMs ?? 1_800_000;
+  return boundedInteger(configured, providerMs ?? 1_800_000, 100, 3_600_000);
 }
 
 export function telemetryDestination(value) {

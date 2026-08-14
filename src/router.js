@@ -34,7 +34,7 @@ export class ModelRouter {
         contextLimitBytes: target.contextLimitBytes,
         requiredCapabilities: Object.freeze(required), deadlineMs: route.deadlineMs,
         budget: route.budget, temperature: route.temperature,
-        maxOutputTokens: Math.min(route.maxOutputTokens, profile.outputLimitTokens ?? route.maxOutputTokens),
+        maxOutputTokens: cappedOutput(route.maxOutputTokens, profile.outputLimitTokens),
       })];
     }));
   }
@@ -46,6 +46,11 @@ export class ModelRouter {
   providerForProfile(profile) {
     return this.providerFactory(profile, this.config.limits);
   }
+}
+
+function cappedOutput(configured, providerLimit) {
+  if (!Number.isSafeInteger(configured) || configured <= 0) return null;
+  return Number.isSafeInteger(providerLimit) && providerLimit > 0 ? Math.min(configured, providerLimit) : configured;
 }
 
 function orderedRoles(routes, role, seen = new Set()) {

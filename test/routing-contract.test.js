@@ -60,7 +60,7 @@ test('AC-TURN-07 route and provider context limits survive configuration round t
   assert.equal(manifest.providers[0].context_limit_bytes, 400_000);
   assert.equal(manifest.providers[0].output_limit_tokens, 4096);
   assert.equal(manifest.routes.primary.context_limit_bytes, 250_000);
-  assert.equal(candidate.maxOutputTokens, 4096);
+  assert.equal(candidate.maxOutputTokens, null);
 });
 
 test('legacy two-boundary context settings derive ordered compression levels', () => {
@@ -132,6 +132,32 @@ test('provider and route deadlines preserve explicit values without legacy infer
   assert.equal(fullyCustom.limits.providerMs, 121_000);
   assert.equal(fullyCustom.limits.firstTokenMs, 31_000);
   assert.equal(fullyCustom.limits.idleMs, 46_000);
+});
+
+test('zero removes provider route limits without inventing legacy defaults', () => {
+  const config = resolveManifest({
+    providers, provider_timeout_ms: 0,
+    routes: { primary: { deadline_ms: 0, temperature: 0, max_output_tokens: 0, budget: 0, fallbacks: ['reviewer'] } },
+  });
+  assert.equal(config.limits.providerMs, null);
+  assert.equal(config.limits.providerOverrideMs, 0);
+  assert.equal(config.routes.primary.deadlineMs, null);
+  assert.equal(config.routes.primary.deadlineOverrideMs, 0);
+  assert.equal(config.routes.primary.temperature, null);
+  assert.equal(config.routes.primary.maxOutputTokens, null);
+  assert.equal(config.routes.primary.budget, null);
+  const manifest = manifestFromConfig(config);
+  assert.equal(manifest.provider_timeout_ms, 0);
+  assert.equal(manifest.routes.primary.deadline_ms, 0);
+  assert.equal(manifest.routes.primary.temperature, null);
+  assert.equal(manifest.routes.primary.max_output_tokens, null);
+  assert.equal(manifest.routes.primary.budget, null);
+  const candidate = new ModelRouter(config).resolve('primary');
+  assert.equal(candidate.deadlineMs, null);
+  assert.equal(candidate.temperature, null);
+  assert.equal(candidate.maxOutputTokens, null);
+  assert.equal(candidate.budget, null);
+  assert.equal(new ModelRouter(config).candidates('primary').length, 2);
 });
 
 test('semantic review inherits the provider deadline and migrates the legacy fifteen-second default', () => {
