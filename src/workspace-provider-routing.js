@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
-import { withRoleRoute, withoutProvider, withoutRoleRoute } from './route-configuration.js';
+import { withRoleRoute, withRouteSetting, withoutProvider, withoutRoleRoute } from './route-configuration.js';
 import { assertProviderUnused } from './workspace-provider-catalog.js';
 import { publishWorkspaceConfiguration } from './workspace-configuration-publication.js';
 
@@ -41,6 +41,24 @@ export async function clearWorkspaceProviderRole(workspace, role) {
   workspace.onChange();
   await workspace._savePoolRecoverable();
   return { scope: workspace.projection.active().role === 'primary' ? 'workspace_default' : 'conversation', role, assigned: false };
+}
+
+export async function configureWorkspaceProviderRoute(workspace, role, setting, value) {
+  const active = workspace._active();
+  const current = active.engine.pendingConfig ?? active.engine.config;
+  if (role !== 'primary') {
+    workspace._requireMainSpecialistManagement();
+    await workspace._publishSpecialistRoutes(withRouteSetting(workspace.config, role, setting, value));
+    return { scope: 'workspace_global', role, setting, value };
+  }
+  const sessionNext = withRouteSetting(current, role, setting, value);
+  if (workspace.projection.active().role === 'primary') {
+    const globalNext = withRouteSetting(workspace.config, role, setting, value);
+    await publishWorkspaceConfiguration(workspace, [{ session: active, manifest: sessionNext.manifest }], globalNext);
+  } else await workspace._updateSession(active, sessionNext.manifest);
+  workspace.onChange();
+  await workspace._savePoolRecoverable();
+  return { scope: workspace.projection.active().role === 'primary' ? 'workspace_default' : 'conversation', role, setting, value };
 }
 
 export async function deleteWorkspaceProvider(workspace, id) {

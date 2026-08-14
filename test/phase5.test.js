@@ -1113,10 +1113,10 @@ test('provider and model overlays expose keyboard-selectable route choices', () 
   }) };
   const providers = providerOverlay(engine);
   const models = modelOverlay(engine, ['a', 'c']);
-  assert.deepEqual(providers.items.map((item) => item.id), ['one', 'two']);
-  assert.match(providers.items[0].detail, / · Active$/u);
-  assert.doesNotMatch(providers.items[0].detail, /loopback/u);
-  assert.equal(providers.items[0].section, 'Provider profiles');
+  assert.deepEqual(providers.items.map((item) => item.id), ['route-settings', 'one', 'two']);
+  assert.match(providers.items[1].detail, / · Active$/u);
+  assert.doesNotMatch(providers.items[1].detail, /loopback/u);
+  assert.equal(providers.items[1].section, 'Provider profiles');
   assert.equal(providers.tabs.find((tab) => tab.active).id, 'primary');
   assert.doesNotMatch(providers.lines.join('\n'), /\/provider add/u);
   assert.deepEqual(models.items.map((item) => item.id), ['a', 'c']);

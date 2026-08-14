@@ -55,8 +55,7 @@ export function providerOverlay(engine, options = {}) {
   const roleLabel = labels[role] ?? role;
   const assigned = role === 'primary' || active.assigned !== false;
   const manageProfiles = role === 'primary' && options.canManage;
-  const purpose = PROVIDER_ROLE_PURPOSES[role];
-  const scope = providerScope(role, options.isMain);
+  const purpose = PROVIDER_ROLE_PURPOSES[role], scope = providerScope(role, options.isMain);
   const lines = [
     purpose,
     '',
@@ -66,6 +65,10 @@ export function providerOverlay(engine, options = {}) {
     `Model     ${assigned ? active.model : "Requesting conversation's Primary is used"}`,
   ];
   const items = [];
+  items.push({
+    id: 'route-settings', label: 'Settings', badge: active.deadlineOverrideMs === null ? 'global timeout' : 'custom timeout',
+    detail: 'Inspect and configure this route; timeout overrides can return to global inheritance.', section: `${roleLabel} route`,
+  });
   if (role === 'primary' && options.inheritRoute) items.push({
     id: 'inherit', label: 'Copy Primary profile from Main',
     detail: 'One-time primary-route copy; global specialist roles remain shared.',

@@ -190,6 +190,16 @@ export function withRouteDeadline(config, role, deadlineMs = null) {
   return { manifest, config: resolveManifest(manifest) };
 }
 
+export function withRouteSetting(config, role, setting, value) {
+  if (setting === 'timeout') return withRouteDeadline(config, role, value);
+  const fields = { temperature: 'temperature', output: 'max_output_tokens', budget: 'budget' };
+  if (!fields[setting]) throw new ContractError('route_setting_invalid', `unknown route setting ${setting}`);
+  if (!Object.hasOwn(config.routes, role)) throw new ContractError('route_role_invalid', `unknown route role ${role}`);
+  const manifest = manifestFromConfig(config);
+  manifest.routes[role][fields[setting]] = value;
+  return { manifest, config: resolveManifest(manifest) };
+}
+
 export function withoutProvider(config, id) {
   if (!config.providerProfiles[id]) throw new ContractError('provider_missing', `provider ${id} is not configured`);
   if (Object.keys(config.providerProfiles).length === 1) {

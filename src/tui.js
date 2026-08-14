@@ -27,7 +27,7 @@ import { createTuiWorkspace } from './tui-runtime-workspace.js';
 import { handleEditorAction } from './tui-editor-actions.js';
 import { handleGatewayCommand, handleGatewaySelection } from './tui-gateway-command.js';
 import { handleWebFetchCommand } from './tui-webfetch-command.js';
-import { beginProviderManagementSelection, handleProviderRoleNavigation, handleProviderSetupAction } from './tui-provider-setup.js';
+import { beginProviderManagementSelection, handleProviderRoleNavigation, handleProviderSetupAction } from './tui-provider-setup.js'; import { beginProviderRouteSettingsSelection, handleProviderRouteSettingsAction } from './tui-provider-route-settings.js';
 import { beginMcpManagementSelection, handleMcpSetupAction } from './tui-mcp-setup.js';
 import { DestructiveKeyGuard, handleDestructiveCancel, handleDestructiveEscape } from './destructive-key-guard.js';
 import { handleResumeCommand, openRuntimeInspection } from './tui-runtime-inspection.js';
@@ -244,6 +244,7 @@ async function handleOverlayAction(action, workspace) {
     const overlay = projection.overlay;
     const selected = overlay.items[overlay.selected];
     if (await handleWorkSelection(selected, workspace, overlay)) return;
+    if (beginProviderRouteSettingsSelection(selected, workspace, overlay)) return;
     if (beginProviderManagementSelection(selected, workspace, overlay)) return;
     if (beginMcpManagementSelection(selected, workspace, overlay)) return;
     if (await beginSecretManagementSelection(selected, workspace, overlay)) return;
@@ -291,6 +292,7 @@ async function handleOverlayAction(action, workspace) {
   }
 }
 async function handleSpecialOverlayAction(action, workspace) {
+  if (await handleProviderRouteSettingsAction(action, workspace)) return true;
   if (await handleProviderSetupAction(action, workspace)) return true;
   if (await handleMcpSetupAction(action, workspace)) return true;
   if (await handleSecretSetupAction(action, workspace)) return true;

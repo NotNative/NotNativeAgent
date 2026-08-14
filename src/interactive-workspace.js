@@ -27,7 +27,7 @@ import { boundedProviderCapabilities } from './provider-capabilities.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './workspace-models.js';
 import { advanceWorkspaceConfig, publishWorkspaceConfiguration, writeWorkspaceManifest } from './workspace-configuration-publication.js';
 import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './workspace-provider-catalog.js';
-import { clearWorkspaceProviderRole, deleteWorkspaceProvider, selectWorkspaceProviderRole } from './workspace-provider-routing.js';
+import { clearWorkspaceProviderRole, configureWorkspaceProviderRoute, deleteWorkspaceProvider, selectWorkspaceProviderRole } from './workspace-provider-routing.js';
 import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
 import { discoverWorkspaceProviderModels } from './workspace-provider-discovery.js';
@@ -297,7 +297,7 @@ export class InteractiveWorkspace {
   }
   async followPrimaryRoute() { return this.usePrimaryRoute(); }
   selectProviderForRole(role, providerId) { return selectWorkspaceProviderRole(this, role, providerId); }
-  clearProviderForRole(role) { return clearWorkspaceProviderRole(this, role); }
+  clearProviderForRole(role) { return clearWorkspaceProviderRole(this, role); } configureProviderRoute(role, setting, value) { return configureWorkspaceProviderRoute(this, role, setting, value); }
   async addProvider(input) {
     if (this.projection.active().role !== 'primary') {
       throw new ContractError('provider_primary_required', 'add providers from the Main conversation');
