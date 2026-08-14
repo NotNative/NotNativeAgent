@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 const TELEGRAM_LIMIT = 4096;
 

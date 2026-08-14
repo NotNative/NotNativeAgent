@@ -5,9 +5,9 @@ import { join, resolve } from 'node:path';
 import { loadEffectiveStartupConfiguration, runtimeHookRoots, runtimeSkillRoots } from './startup-configuration.js';
 import {
   gatewayPublicStatus, gatewayToken, loadGatewayConfig, normalizeUserId, saveGatewayConfig,
-} from './gateway-config.js';
-import { TelegramApi } from './telegram-api.js';
-import { TelegramGateway } from './telegram-gateway.js';
+} from './gateway/config.js';
+import { TelegramApi } from './gateway/telegram-api.js';
+import { TelegramGateway } from './gateway/telegram.js';
 
 export async function runGatewayCommand(args, paths, options = {}) {
   const action = args[0] ?? 'status';

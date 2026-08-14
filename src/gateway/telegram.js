@@ -2,13 +2,13 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CanonicalIngress } from './ingress.js';
-import { SessionEngine } from './engine.js';
-import { newId } from './ids.js';
-import { StructuredLog } from './structured-log.js';
-import { FairScheduler } from './fair-scheduler.js';
-import { ConsoleSessionDirectory } from './session-broker.js';
-import { acknowledgeTelegramNotification, readTelegramOutbox } from './telegram-notifications.js';
+import { CanonicalIngress } from '../ingress.js';
+import { SessionEngine } from '../engine.js';
+import { newId } from '../ids.js';
+import { StructuredLog } from '../structured-log.js';
+import { FairScheduler } from '../fair-scheduler.js';
+import { ConsoleSessionDirectory } from '../session-broker.js';
+import { acknowledgeTelegramNotification, readTelegramOutbox } from './notifications.js';
 
 export class TelegramGateway {
   constructor(options) {

@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 export class TelegramNotificationQueue {
   constructor(root, sessionId) { this.root = root; this.sessionId = sessionId; this.pending = new Map(); }

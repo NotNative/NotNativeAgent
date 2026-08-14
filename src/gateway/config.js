@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve } from 'node:path';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 export const DEFAULT_GATEWAY_CONFIG = Object.freeze({
   version: 1, enabled: false, token: null, token_env: 'NNA_TELEGRAM_BOT_TOKEN',
