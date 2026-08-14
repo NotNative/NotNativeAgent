@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { settleEngineStep } from './engine-lifecycle-settlement.js';
-import { recoveryHint } from './recovery.js';
+import { settleEngineStep } from './lifecycle-settlement.js';
+import { recoveryHint } from '../recovery.js';
 
 export async function recoverProviderContextLimit(engine, error, active, operations) {
   const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;

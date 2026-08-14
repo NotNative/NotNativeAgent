@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { assertResumeProvenance } from './session-provenance.js';
-import { dispatchSessionHook } from './engine-hooks.js';
-import { ContractError } from './ids.js';
+import { assertResumeProvenance } from '../session-provenance.js';
+import { dispatchSessionHook } from './hooks.js';
+import { ContractError } from '../ids.js';
 
 export async function initializeEngine(engine, operations, options = {}) {
   await engine.lock?.acquire();

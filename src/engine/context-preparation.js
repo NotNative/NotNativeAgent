@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { attachTaskCheckpoint, compactTranscript } from './compaction.js';
-import { contextBudget } from './context-budget.js';
-import { buildReportedContext } from './engine-context-status.js';
-import { addHookContexts, hookPayload } from './engine-hooks.js';
-import { ContractError } from './ids.js';
-import { contextPressurePolicy, pressureTier, projectActiveTurn } from './active-context-pressure.js';
-import { longHorizonCompressionTrigger } from './long-horizon-context.js';
-import { writeTaskCheckpoint } from './task-checkpoint.js';
+import { attachTaskCheckpoint, compactTranscript } from '../compaction.js';
+import { contextBudget } from '../context-budget.js';
+import { buildReportedContext } from './context-status.js';
+import { addHookContexts, hookPayload } from './hooks.js';
+import { ContractError } from '../ids.js';
+import { contextPressurePolicy, pressureTier, projectActiveTurn } from '../active-context-pressure.js';
+import { longHorizonCompressionTrigger } from '../long-horizon-context.js';
+import { writeTaskCheckpoint } from '../task-checkpoint.js';
 
 export async function prepareEngineContext(engine, records, content, active, force, operations) {
   const routes = engine.router.candidates('primary', { requiredCapabilities: ['tools'] });

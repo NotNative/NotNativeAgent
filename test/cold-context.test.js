@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildColdEvidence } from '../src/cold-context.js';
 import { buildContext } from '../src/context.js';
-import { buildReportedContext } from '../src/engine-context-status.js';
+import { buildReportedContext } from '../src/engine/context-status.js';
 
 const config = Object.freeze({
   workspaceRoot: 'D:/work', limits: { maxContextBytes: 1_048_576 },

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ContractError } from './ids.js';
-import { failureEnvelope } from './failure-envelope.js';
-import { safeToolArguments } from './tool-presentation.js';
-import { requestsInput } from './completion-supervisor.js';
-import { redactText } from './redaction.js';
+import { ContractError } from '../ids.js';
+import { failureEnvelope } from '../failure-envelope.js';
+import { safeToolArguments } from '../tool-presentation.js';
+import { requestsInput } from '../completion-supervisor.js';
+import { redactText } from '../redaction.js';
 
 export function acceptedRecord(requestId, engine, turnId) {
   return { version: '1.0', type: 'accepted', request_id: requestId, accepted: true, session_id: engine.sessionId, turn_id: turnId };

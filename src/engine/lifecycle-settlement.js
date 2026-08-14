@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { emitCurrentContextUsage } from './engine-context-status.js';
+import { emitCurrentContextUsage } from './context-status.js';
 
 export async function settleEngineChildren(engine, active, outcome, publish) {
   const failures = [];

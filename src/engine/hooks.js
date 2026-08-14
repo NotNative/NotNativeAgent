@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { hookContexts } from './hook-runtime.js';
+import { hookContexts } from '../hook-runtime.js';
 
 export async function dispatchSessionHook(engine, name, phase) {
   const event = engine.eventFactory.create(name, 'session', phase, {}, hookPayload(engine));

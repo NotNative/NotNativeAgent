@@ -26,7 +26,7 @@ import { resolveConfiguration } from '../src/configuration-sources.js';
 import { SessionDataManager } from '../src/session-data.js';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { buildContext } from '../src/context.js';
-import { providerRequest } from '../src/engine-runtime-helpers.js';
+import { providerRequest } from '../src/engine/runtime-helpers.js';
 import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
 import { auditOverlay, configOverlay, modelOverlay, overlayCommandDraft, providerOverlay } from '../src/tui-overlays.js';
 import { ContractError } from '../src/ids.js';
@@ -35,7 +35,7 @@ import { safeToolArguments } from '../src/tool-presentation.js';
 import { ExtensionRegistry } from '../src/extensions.js';
 import { DestructiveKeyGuard } from '../src/destructive-key-guard.js';
 import { handleEditorAction } from '../src/tui-editor-actions.js';
-import { toolStatus } from '../src/engine-records.js';
+import { toolStatus } from '../src/engine/records.js';
 import { handleCommandPickerAction } from '../src/tui-command-picker.js';
 import { contextOverlay } from '../src/tui-context.js';
 

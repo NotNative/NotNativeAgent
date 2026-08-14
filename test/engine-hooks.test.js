@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { hookIdentityScope, hookPayload } from '../src/engine-hooks.js';
+import { hookIdentityScope, hookPayload } from '../src/engine/hooks.js';
 
 test('hook payload exposes a redacted local identity scope', () => {
   const engine = {

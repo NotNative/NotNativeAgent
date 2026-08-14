@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
-import { dispatchSessionHook } from './engine-hooks.js';
+import { dispatchSessionHook } from './engine/hooks.js';
 
 export async function boundedShutdown(engine, operation) {
   let timer;

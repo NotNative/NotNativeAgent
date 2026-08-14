@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { newId } from './ids.js';
+import { newId } from '../ids.js';
 
 const TRANSCRIPT_RECORDS = new Set(['message', 'tool_request', 'tool_result', 'compaction', 'attachment_fact']);
 

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { activeContextRecords, buildContext, measureContext } from './context.js';
-import { estimateContextTokens } from './context-budget.js';
-import { buildColdEvidence } from './cold-context.js';
-import { ContractError } from './ids.js';
-import { shouldInspectProject } from './project-intake.js';
+import { activeContextRecords, buildContext, measureContext } from '../context.js';
+import { estimateContextTokens } from '../context-budget.js';
+import { buildColdEvidence } from '../cold-context.js';
+import { ContractError } from '../ids.js';
+import { shouldInspectProject } from '../project-intake.js';
 
 export async function buildReportedContext(
   engine, records, content, enrichment, active, budgetBytes, limitBytes, budget = null, options = {},

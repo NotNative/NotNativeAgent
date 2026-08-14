@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { attachTaskCheckpoint, compactTranscript, createHandoffFact } from './compaction.js';
-import { ContractError } from './ids.js';
-import { writeTaskCheckpoint } from './task-checkpoint.js';
+import { attachTaskCheckpoint, compactTranscript, createHandoffFact } from '../compaction.js';
+import { ContractError } from '../ids.js';
+import { writeTaskCheckpoint } from '../task-checkpoint.js';
 
 export async function compactEngineConversation(engine) {
   if (engine.state.state !== 'idle') throw new ContractError('compaction_busy', 'wait for the active turn before compacting');
