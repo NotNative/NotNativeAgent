@@ -131,6 +131,54 @@ test('subagent concurrency follows the loaded worker model parallel capacity', a
   await engine.shutdown({ request_id: 'shutdown', type: 'shutdown' });
 });
 
+test('parallel sub-agent cancellation drains children and commits terminal tool lifecycles', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-subagent-cancel-'));
+  const output = [];
+  const parent = { async *stream() {
+    yield { type: 'tool_fragment', fragments: [
+      toolFragment(0, 'cancel-a', { type: 'reviewer', task: 'Review area A.' }),
+      toolFragment(1, 'cancel-b', { type: 'reviewer', task: 'Review area B.' }),
+    ] };
+    yield { type: 'terminal', finishReason: 'tool_calls', usage: null };
+  } };
+  const config = resolveManifest({
+    persistence: 'ephemeral', workspace_root: root, tool_concurrency: 2,
+    provider: { id: 'parent', endpoint: 'http://127.0.0.1:1234/v1', model: 'parent', trust_zone: 'loopback' },
+  });
+  const engine = new SessionEngine({
+    config, providerFactory: () => parent, output: async (record) => output.push(record),
+    semanticReviewer: { async review() { return { outcome: 'approve', confidence: 0.99, reason_code: 'delegation_matches_intent' }; } },
+  });
+  await engine.initialize();
+  engine.parallelToolLimit = async () => 2;
+  let started = 0; let settled = 0; let releaseStarted;
+  const bothStarted = new Promise((resolve) => { releaseStarted = resolve; });
+  engine.runSubagent = async (input, signal) => new Promise((resolve) => {
+    started += 1;
+    if (started === 2) releaseStarted();
+    const cancel = () => setTimeout(() => {
+      settled += 1;
+      resolve({ session_id: `agent_${input.type}_${settled}`, outcome: 'cancelled', text: '' });
+    }, 20);
+    if (signal.aborted) cancel();
+    else signal.addEventListener('abort', cancel, { once: true });
+  });
+  const turn = engine.submit({ request_id: 'parallel-cancel', content: 'Delegate both reviews.' }, 'operator');
+  await bothStarted;
+  await engine.cancel({ request_id: 'cancel-once' });
+  await engine.cancel({ request_id: 'cancel-twice' });
+  const result = await turn;
+  assert.equal(result.outcome, 'cancelled');
+  assert.equal(result.failure.code, 'turn_cancelled');
+  assert.deepEqual(result.secondary_failures, []);
+  assert.equal(settled, 2);
+  assert.deepEqual(engine.transcript.filter((item) => item.type === 'tool_result').map((item) => item.status), ['cancelled', 'cancelled']);
+  assert.equal(engine.state.transitions.some((item) => item.from === 'cancelling' && item.to === 'processing_tool_results'), false);
+  assert.equal(engine.lifecycles.snapshot().some((item) => item.outcome === null), false);
+  assert.equal(output.filter((item) => item.type === 'turn_result').length, 1);
+  await engine.shutdown({ request_id: 'shutdown-cancelled', type: 'shutdown' });
+});
+
 test('missing advertised parallel capacity preserves sequential subagent execution', async () => {
   const engine = {
     router: { resolve: () => ({ profile: { id: 'worker' }, model: 'worker' }) },

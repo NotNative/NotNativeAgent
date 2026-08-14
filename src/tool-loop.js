@@ -40,50 +40,45 @@ export class ToolLoop {
   }
 
   async process(calls, active) {
-    assertTurnActive(active);
-    active.webUrlProvenance ??= new WebUrlProvenance(active.prompt ?? '');
-    assertMissionBudget(active, calls.length);
-    active.authority = await reserveAndPersistMissionTools(
-      this.engine.authority, this.engine.config, calls.length,
-      (record) => this.persist('mission_tool_calls_reserved', record),
-    );
-    active.toolCalls += calls.length;
-    this.state.transition('validating_tool_requests', { trigger: 'tool_calls_sealed', turnId: active.turnId });
-    const items = await this.#validate(calls, active);
-    const valid = items.filter((item) => item.request);
-    if (valid.length > 0) {
-      this.state.transition('awaiting_tool_approval', { trigger: 'mandatory_review', turnId: active.turnId });
-      for (const item of valid) { assertTurnActive(active); await this.#review(item, active); }
-    }
-    assertTurnActive(active);
-    const approved = valid.filter((item) => item.decision?.outcome === 'approve');
-    if (approved.length > 0) {
-      this.state.transition('executing_tools', { trigger: 'approved_tools', turnId: active.turnId });
-      await this.#executeApproved(approved, active);
-    }
-    if (this.state.state !== 'processing_tool_results') {
-      this.state.transition('processing_tool_results', { trigger: 'tools_settled', turnId: active.turnId });
-    }
-    let firstError = null;
-    for (const item of items) {
-      try {
-        await this.#commit(item, active);
-      } catch (error) {
-        firstError ??= error;
-        if (!item.finished) {
-          this.lifecycles.finish(item.lifecycle.id, 'failed');
-          item.finished = true;
-        }
+    const items = [];
+    try {
+      assertTurnActive(active);
+      active.webUrlProvenance ??= new WebUrlProvenance(active.prompt ?? '');
+      assertMissionBudget(active, calls.length);
+      active.authority = await reserveAndPersistMissionTools(
+        this.engine.authority, this.engine.config, calls.length,
+        (record) => this.persist('mission_tool_calls_reserved', record),
+      );
+      active.toolCalls += calls.length;
+      this.state.transition('validating_tool_requests', { trigger: 'tool_calls_sealed', turnId: active.turnId });
+      await this.#validate(calls, active, items);
+      const valid = items.filter((item) => item.request);
+      if (valid.length > 0) {
+        this.state.transition('awaiting_tool_approval', { trigger: 'mandatory_review', turnId: active.turnId });
+        for (const item of valid) { assertTurnActive(active); await this.#review(item, active); }
       }
+      assertTurnActive(active);
+      const approved = valid.filter((item) => item.decision?.outcome === 'approve');
+      if (approved.length > 0) {
+        this.state.transition('executing_tools', { trigger: 'approved_tools', turnId: active.turnId });
+        await this.#executeApproved(approved, active);
+      }
+      assertTurnActive(active);
+      if (this.state.state !== 'processing_tool_results') {
+        this.state.transition('processing_tool_results', { trigger: 'tools_settled', turnId: active.turnId });
+      }
+      await this.#commitItems(items, active);
+      const missionFailure = missionToolDisposition(active, items);
+      if (missionFailure) throw missionFailure;
+      return items;
+    } catch (error) {
+      if (!active.cancelled && !active.controller.signal.aborted) throw error;
+      await this.#settleCancellation(items, active);
+      throw new ContractError('turn_cancelled', 'turn was cancelled');
     }
-    if (firstError) throw firstError;
-    const missionFailure = missionToolDisposition(active, items);
-    if (missionFailure) throw missionFailure;
-    return items;
   }
 
-  async #validate(calls, active) {
-    const items = [];
+  async #validate(calls, active, items) {
     for (const call of calls) {
       const lifecycle = this.lifecycles.start('tool_call', active.stepId);
       const item = {
@@ -125,7 +120,31 @@ export class ToolLoop {
       });
       items.push(item);
     }
-    return items;
+  }
+
+  async #commitItems(items, active) {
+    let firstError = null;
+    for (const item of items) {
+      if (item.finished) continue;
+      try {
+        await this.#commit(item, active);
+      } catch (error) {
+        firstError ??= error;
+        if (!item.finished) {
+          this.lifecycles.finish(item.lifecycle.id, 'failed');
+          item.finished = true;
+        }
+      }
+    }
+    if (firstError) throw firstError;
+  }
+
+  async #settleCancellation(items, active) {
+    for (const item of items) {
+      if (item.finished) continue;
+      item.result ??= cancelledToolResult(item);
+    }
+    await this.#commitItems(items, active);
   }
 
   async #review(item, active) {
@@ -295,6 +314,17 @@ function boundedConcurrency(value) {
     throw new ContractError('tool_concurrency_invalid', 'tool concurrency must be between one and sixteen');
   }
   return value;
+}
+
+function cancelledToolResult(item) {
+  return Object.freeze({
+    request_id: item.request?.id ?? null,
+    provider_call_id: item.request?.providerCallId ?? item.call.providerCallId ?? null,
+    tool_name: item.request?.toolName ?? item.call.name ?? null,
+    status: 'cancelled', content: 'tool execution was cancelled',
+    truncated: false, elapsed_ms: 0, effect_certainty: 'none',
+    untrusted: true, reason_code: 'tool_cancelled', ledger_started: false,
+  });
 }
 
 function missionToolDisposition(active, items) {

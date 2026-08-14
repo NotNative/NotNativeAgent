@@ -200,7 +200,11 @@ async function executeBounded(definition, request, parentSignal, executionContex
   try {
     const settled = await Promise.race([operation, timeout, cancelled]);
     if (settled.boundary === 'timeout') throw new ContractError('tool_timeout', 'tool execution timed out');
-    if (settled.boundary === 'cancelled') throw new ContractError('tool_cancelled', 'tool execution was cancelled');
+    if (settled.boundary === 'cancelled') {
+      // Sub-agent abort must close its child engine before parent settlement.
+      if (definition.scope === 'subagent') await operation;
+      throw new ContractError('tool_cancelled', 'tool execution was cancelled');
+    }
     if (settled.error) throw settled.error;
     return settled.value;
   } finally {
