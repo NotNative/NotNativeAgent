@@ -64,7 +64,7 @@ export function providerOverlay(engine, options = {}) {
     `Profile   ${assigned ? active.providerId : 'Not assigned'}`,
     `Model     ${assigned ? active.model : "Requesting conversation's Primary is used"}`,
   ];
-  const items = [];
+  const items = role === 'primary' && options.isMain ? [globalProviderSettingsAction(engine.config)] : [];
   items.push({
     id: 'route-settings', label: 'Settings', badge: active.deadlineOverrideMs === null ? 'global timeout' : 'custom timeout',
     detail: 'Inspect and configure this route; timeout overrides can return to global inheritance.', section: `${roleLabel} route`,
@@ -107,6 +107,13 @@ export function providerOverlay(engine, options = {}) {
       : role === 'primary' ? 'Left/Right role · Up/Down choose · Enter make active'
         : 'Left/Right role · Up/Down choose · Enter assign/clear',
   });
+}
+
+function globalProviderSettingsAction(config) {
+  return {
+    id: 'global-settings', label: 'Global settings', badge: `${Math.round(config.limits.providerMs / 1_000).toLocaleString('en-US')}s timeout`,
+    detail: 'Configure the default route timeout inherited by routes without an override.', section: 'Workspace routing defaults',
+  };
 }
 
 function providerScope(role, isMain) {

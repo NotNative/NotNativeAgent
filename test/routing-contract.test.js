@@ -101,17 +101,19 @@ test('AC-FAIL-02/AC-PERF-05 runtime deadlines and concurrency are independently 
   assert.throws(() => resolveManifest({ providers, tool_concurrency: 17 }), { code: 'invalid_limit' });
 });
 
-test('historical short provider defaults migrate to local-model-safe deadlines', () => {
+test('provider and route deadlines preserve explicit values without legacy inference', () => {
   const config = resolveManifest({
     providers, provider_timeout_ms: 120_000, first_token_timeout_ms: 30_000, idle_timeout_ms: 45_000,
     routes: { primary: { deadline_ms: 120_000 } },
   });
-  assert.equal(config.limits.providerMs, 1_800_000);
+  assert.equal(config.limits.providerMs, 120_000);
+  assert.equal(config.limits.providerOverrideMs, 120_000);
+  assert.equal(manifestFromConfig(config).provider_timeout_ms, 120_000);
   assert.equal(config.limits.firstTokenMs, 600_000);
   assert.equal(config.limits.idleMs, 300_000);
-  assert.equal(config.routes.primary.deadlineMs, 1_800_000);
-  assert.equal(config.routes.primary.deadlineOverrideMs, null);
-  assert.equal(manifestFromConfig(config).routes.primary.deadline_ms, undefined);
+  assert.equal(config.routes.primary.deadlineMs, 120_000);
+  assert.equal(config.routes.primary.deadlineOverrideMs, 120_000);
+  assert.equal(manifestFromConfig(config).routes.primary.deadline_ms, 120_000);
   const custom = resolveManifest({
     providers, provider_timeout_ms: 121_000, first_token_timeout_ms: 30_000, idle_timeout_ms: 45_000,
   });
@@ -134,6 +136,8 @@ test('historical short provider defaults migrate to local-model-safe deadlines',
 
 test('semantic review inherits the provider deadline and migrates the legacy fifteen-second default', () => {
   const defaults = resolveManifest({ providers });
+  assert.equal(defaults.limits.providerOverrideMs, null);
+  assert.equal(manifestFromConfig(defaults).provider_timeout_ms, undefined);
   assert.equal(defaults.limits.semanticReviewMs, defaults.limits.providerMs);
   assert.equal(defaults.limits.semanticReviewMs, 1_800_000);
 

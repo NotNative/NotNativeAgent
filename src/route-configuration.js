@@ -30,7 +30,7 @@ export function manifestFromConfig(config) {
     allowed_tools: config.executionManifest?.allowedTools ?? undefined,
     disconnect_policy: config.executionManifest?.disconnectPolicy,
     workspace_root: config.workspaceRoot,
-    provider_timeout_ms: config.limits.providerMs,
+    provider_timeout_ms: config.limits.providerOverrideMs ?? undefined,
     provider_connect_timeout_ms: config.limits.connectMs,
     first_token_timeout_ms: config.limits.firstTokenMs,
     idle_timeout_ms: config.limits.idleMs,
@@ -234,12 +234,16 @@ export function withBooleanSetting(config, setting, value) {
 export function withRuntimeLimits(config, values) {
   const manifest = manifestFromConfig(config);
   const fields = {
+    providerMs: 'provider_timeout_ms',
     connectMs: 'provider_connect_timeout_ms', semanticReviewMs: 'semantic_review_timeout_ms',
     approvalMs: 'approval_timeout_ms', providerConcurrency: 'provider_concurrency',
     providerQueueLimit: 'provider_queue_limit', toolConcurrency: 'tool_concurrency',
   };
   for (const [key, field] of Object.entries(fields)) {
-    if (values[key] !== undefined) manifest[field] = values[key];
+    if (values[key] !== undefined) {
+      if (values[key] === null) delete manifest[field];
+      else manifest[field] = values[key];
+    }
   }
   return { manifest, config: resolveManifest(manifest) };
 }

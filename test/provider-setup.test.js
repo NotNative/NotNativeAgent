@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveManifest } from '../src/config.js';
-import { withProvider, withRouteSetting } from '../src/route-configuration.js';
+import { withProvider, withRouteSetting, withRuntimeLimits } from '../src/route-configuration.js';
 import { TuiProjection } from '../src/tui-model.js';
 import { providerOverlay } from '../src/tui-overlays.js';
 import {
@@ -172,7 +172,6 @@ test('provider configuration fields reduce pasted clipboard content to one line'
 
 test('every provider role exposes settings and timeout overrides can return to global inheritance', async () => {
   let config = resolveManifest({
-    provider_timeout_ms: 1_800_000,
     provider: { id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'a', trust_zone: 'loopback' },
   });
   const projection = new TuiProjection();
@@ -182,19 +181,37 @@ test('every provider role exposes settings and timeout overrides can return to g
     async configureProviderRoute(role, setting, value) {
       config = withRouteSetting(config, role, setting, value).config; this.config = config;
     },
+    async configureRuntimeLimits(values) {
+      config = withRuntimeLimits(config, values).config; this.config = config;
+    },
   };
   for (const role of ['primary', 'subagent', 'reviewer', 'vision']) {
     assert.equal(providerOverlay({ config }, { role }).items.some((item) => item.id === 'route-settings'), true);
   }
+  const mainProviders = providerOverlay({ config }, { role: 'primary', canAssign: true, isMain: true });
+  const globalSettings = mainProviders.items.find((item) => item.id === 'global-settings');
+  assert.equal(beginProviderRouteSettingsSelection(globalSettings, workspace, mainProviders), true);
+  assert.equal(projection.overlay.kind, 'global-provider-settings');
+  assert.match(projection.overlay.lines.join('\n'), /1,800s \(built in\)/u);
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  projection.overlay.editor.set('120');
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.equal(config.limits.providerOverrideMs, 120_000);
+  assert.equal(config.routes.primary.deadlineMs, 120_000);
+  projection.moveOverlaySelection(1);
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.equal(config.limits.providerOverrideMs, null);
+  assert.equal(config.routes.primary.deadlineMs, 1_800_000);
+
   const providers = providerOverlay({ config }, { role: 'primary', canAssign: true });
   assert.equal(beginProviderRouteSettingsSelection(providers.items[0], workspace, providers), true);
   assert.equal(projection.overlay.kind, 'provider-route-settings');
   assert.match(projection.overlay.lines.join('\n'), /Overall attempt timeout  1,800s \(global\)/u);
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   assert.equal(projection.overlay.kind, 'provider-route-setting-form');
-  projection.overlay.editor.set('600');
+  projection.overlay.editor.set('120');
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
-  assert.equal(config.routes.primary.deadlineOverrideMs, 600_000);
+  assert.equal(config.routes.primary.deadlineOverrideMs, 120_000);
   assert.equal(projection.overlay.items.some((item) => item.id === 'timeout-inherit'), true);
   projection.moveOverlaySelection(projection.overlay.items.findIndex((item) => item.id === 'timeout-inherit'));
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);

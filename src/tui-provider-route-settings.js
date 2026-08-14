@@ -14,7 +14,12 @@ const SETTINGS = Object.freeze({
 });
 
 export function beginProviderRouteSettingsSelection(selected, workspace, overlay) {
-  if (overlay?.kind !== 'provider' || selected?.id !== 'route-settings') return false;
+  if (overlay?.kind !== 'provider') return false;
+  if (selected?.id === 'global-settings') {
+    workspace.projection.openOverlay(globalSettingsOverlay(workspace.config, { parentProvider: overlay }));
+    return true;
+  }
+  if (selected?.id !== 'route-settings') return false;
   const editable = overlay.role === 'primary' || overlay.canAssign !== false;
   workspace.projection.openOverlay(routeSettingsOverlay(routeConfig(workspace, overlay.role), overlay.role, {
     editable, parentProvider: overlay,
@@ -24,6 +29,8 @@ export function beginProviderRouteSettingsSelection(selected, workspace, overlay
 
 export async function handleProviderRouteSettingsAction(action, workspace) {
   const overlay = workspace.projection.overlay;
+  if (overlay?.kind === 'global-provider-setting-form') return handleGlobalForm(action, workspace, overlay);
+  if (overlay?.kind === 'global-provider-settings') return handleGlobalSettings(action, workspace, overlay);
   if (!['provider-route-settings', 'provider-route-setting-form'].includes(overlay?.kind)) return false;
   if (overlay.kind === 'provider-route-setting-form') return handleForm(action, workspace, overlay);
   if (['cancel', 'help'].includes(action.action)) { workspace.projection.closeOverlay(); return true; }
@@ -38,6 +45,76 @@ export async function handleProviderRouteSettingsAction(action, workspace) {
     reopenSettings(workspace, overlay, 'Timeout now inherits the global provider timeout.');
   } else workspace.projection.openOverlay(settingFormOverlay(overlay, selected.id));
   return true;
+}
+
+function globalSettingsOverlay(config, options = {}) {
+  const configured = config.limits.providerOverrideMs !== null;
+  const items = [{
+    id: 'global-timeout', label: 'Default route timeout', badge: `${formatMs(config.limits.providerMs)}${configured ? '' : ' · built in'}`,
+    detail: 'All routes without a timeout override inherit this value.', section: 'Routing defaults',
+  }];
+  if (configured) items.push({
+    id: 'global-timeout-remove', label: 'Remove configured timeout', badge: 'use built-in default',
+    detail: 'Return the global route timeout to the built-in default.', section: 'Routing defaults',
+  });
+  return Object.freeze({
+    kind: 'global-provider-settings', title: 'Global provider settings',
+    lines: Object.freeze(['Workspace routing defaults', '', `Default route timeout  ${formatMs(config.limits.providerMs)} (${configured ? 'configured' : 'built in'})`,
+      'Routes inherit this timeout unless their role settings define an override.']),
+    items: Object.freeze(items), selected: 0, offset: 0, config, parentProvider: options.parentProvider,
+    actionLabel: 'Up/Down choose | Enter edit | Ctrl+G back',
+  });
+}
+
+async function handleGlobalSettings(action, workspace, overlay) {
+  if (['cancel', 'help'].includes(action.action)) { workspace.projection.closeOverlay(); return true; }
+  if (action.action === 'back') { workspace.projection.openOverlay(overlay.parentProvider); return true; }
+  if (['history_up', 'history_down'].includes(action.action)) {
+    workspace.projection.moveOverlaySelection(action.action === 'history_up' ? -1 : 1); return true;
+  }
+  if (action.action !== 'submit') return true;
+  const selected = overlay.items[overlay.selected];
+  if (selected.id === 'global-timeout-remove') {
+    await workspace.configureRuntimeLimits({ providerMs: null });
+    reopenGlobalSettings(workspace, overlay, 'Global route timeout now uses the built-in default.');
+  } else {
+    const editor = editorWith(String(Math.round(overlay.config.limits.providerMs / 1_000)));
+    workspace.projection.openOverlay(globalSettingFormOverlay(overlay, editor));
+  }
+  return true;
+}
+
+async function handleGlobalForm(action, workspace, overlay) {
+  if (action.action === 'back') { workspace.projection.openOverlay(overlay.parentSettings); return true; }
+  if (['cancel', 'help'].includes(action.action)) { workspace.projection.closeOverlay(); return true; }
+  if (action.action === 'home') overlay.editor.moveLine('start');
+  else if (action.action === 'end') overlay.editor.moveLine('end');
+  else if (action.action === 'submit') {
+    try {
+      const value = parseSetting('timeout', overlay.editor.text);
+      await workspace.configureRuntimeLimits({ providerMs: value });
+      reopenGlobalSettings(workspace, overlay.parentSettings, 'Global route timeout saved.');
+    } catch (error) {
+      workspace.projection.openOverlay(globalSettingFormOverlay(overlay.parentSettings, overlay.editor, error.message));
+    }
+    return true;
+  } else if (action.action !== 'newline' && handleEditorAction(singleLine(action), overlay.editor)) { /* edited */ }
+  workspace.projection.openOverlay(globalSettingFormOverlay(overlay.parentSettings, overlay.editor));
+  return true;
+}
+
+function globalSettingFormOverlay(parentSettings, editor, error = null) {
+  return Object.freeze({
+    kind: 'global-provider-setting-form', title: 'Default route timeout',
+    lines: Object.freeze(['Seconds inherited by routes without an override.', '', ...(error ? [`Cannot save · ${error}`, ''] : []), 'Enter a value:']),
+    items: Object.freeze([]), selected: 0, offset: 0, parentSettings, editor,
+    actionLabel: 'Enter save | Ctrl+G back',
+  });
+}
+
+function reopenGlobalSettings(workspace, prior, notice) {
+  workspace.projection.openOverlay(globalSettingsOverlay(workspace.config, prior));
+  workspace.projection.showNotice('provider', notice);
 }
 
 export function routeSettingsOverlay(config, role, options = {}) {

@@ -19,7 +19,6 @@ export function boundedNumber(value, fallback, minimum, maximum) {
 
 export function migrateLegacyProviderTimeoutDefaults(manifest) {
   const migrated = { ...manifest };
-  if (migrated.provider_timeout_ms === 120_000) migrated.provider_timeout_ms = undefined;
   if (migrated.first_token_timeout_ms === 30_000) migrated.first_token_timeout_ms = undefined;
   if (migrated.idle_timeout_ms === 45_000) migrated.idle_timeout_ms = undefined;
   return migrated;
@@ -29,14 +28,15 @@ export function providerTimeouts(manifest) {
   const input = migrateLegacyProviderTimeoutDefaults(manifest);
   return {
     providerMs: boundedInteger(input.provider_timeout_ms, 1_800_000, 100, 3_600_000),
+    providerOverrideMs: input.provider_timeout_ms === undefined ? null
+      : boundedInteger(input.provider_timeout_ms, null, 100, 3_600_000),
     firstTokenMs: boundedInteger(input.first_token_timeout_ms, 600_000, 100, 600_000),
     idleMs: boundedInteger(input.idle_timeout_ms, 300_000, 100, 600_000),
   };
 }
 
 export function providerRouteDeadlineOverride(value) {
-  // 120 seconds was the legacy persisted route default.
-  if (value === undefined || value === 120_000) return null;
+  if (value === undefined) return null;
   return boundedInteger(value, null, 100, 3_600_000);
 }
 
