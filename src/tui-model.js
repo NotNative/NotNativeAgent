@@ -386,6 +386,12 @@ function applyEvent(session, event) {
     session.contextParallelCapacity = event.parallel_capacity;
     session.contextMeasurement = event.measurement;
     session.contextSource = event.source;
+  } else if (event.type === 'context_usage') {
+    session.contextBytes = event.current_bytes;
+    if (Number.isFinite(event.limit_bytes)) session.contextLimitBytes = event.limit_bytes;
+    session.rawContextTokens = event.current_estimated_tokens;
+    if (Number.isFinite(event.limit_tokens)) session.contextLimitTokens = event.limit_tokens;
+    session.contextMeasurement = event.measurement ?? session.contextMeasurement;
   } else if (event.type === 'context_compaction_status') {
     session.contextCompaction = event.status === 'started' ? {
       beforeTokens: event.before_estimated_tokens, targetTokens: event.target_tokens,
@@ -427,7 +433,7 @@ function observedEvent(session, event) {
 }
 
 function visibleEvent(event) {
-  return !['accepted', 'state_status', 'context_status'].includes(event.type);
+  return !['accepted', 'state_status', 'context_status', 'context_usage'].includes(event.type);
 }
 
 function previousCodePoint(value, index) {

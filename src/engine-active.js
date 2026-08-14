@@ -17,6 +17,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}) {
     prompt: '', modelName: '', unresolvedToolFailures: [], contextRetryScale: 1,
     contextBytes: 0, contextTokens: 0,
     rawContextBytes: 0, rawContextTokens: 0, contextPressureTier: 'none',
+    contextLimitTokens: null, contextMeasurementEnrichment: null,
     compactionAttempts: 0, compactionNoProgressAttempts: 0,
     lastCompactionSourceFingerprint: null, compactionFingerprints: new Set(),
     contextCheckpointFingerprints: new Set(),

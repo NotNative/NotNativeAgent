@@ -198,14 +198,15 @@ test('footer compact composition prioritizes state, model, context, and viewport
   const session = {
     metadata: { endpoint: 'http://provider.example/v1', model: 'small-model', workspace: 'D:\\long\\workspace' },
     usage: { total_tokens: 99 }, viewportEnd: 4, viewportLineCount: 10, pendingAttachments: [], state: 'idle',
-    reviewPosture: 'auto-review', contextTokens: 25, contextLimitTokens: 100, contextLimitBytes: null, work: null,
+    reviewPosture: 'auto-review', contextTokens: 25, rawContextTokens: 25,
+    contextLimitTokens: 100, contextLimitBytes: null, work: null,
   };
   const compact = sessionStatusLine(session, 60);
-  assert.match(compact, /^IDLE \| small-model \| prompt 25% \| 6 unseen$/u);
+  assert.match(compact, /^IDLE \| small-model \| context 25% \| 6 unseen$/u);
   assert.doesNotMatch(compact, /auto-review|workspace|provider|tokens/u);
 });
 
-test('footer distinguishes projected prompt from raw pressure and active compaction', () => {
+test('footer reports one current context percentage and active compaction', () => {
   const session = {
     metadata: { endpoint: 'local', model: 'model', workspace: 'D:\\work' }, usage: null,
     viewportEnd: null, viewportLineCount: 0, pendingAttachments: [], state: 'running_tool',
@@ -213,8 +214,8 @@ test('footer distinguishes projected prompt from raw pressure and active compact
     contextLimitTokens: 61_440, contextMeasurement: 'estimated', contextLimitBytes: null,
     contextCompaction: { beforeTokens: 222_000, targetTokens: 61_440 }, work: null,
   };
-  assert.match(sessionStatusLine(session, 180), /prompt ~10% \| raw ~361% \| compacting/u);
-  assert.doesNotMatch(sessionStatusLine(session, 80), /raw/u);
+  assert.match(sessionStatusLine(session, 180), /context ~361% \| compacting/u);
+  assert.doesNotMatch(sessionStatusLine(session, 180), /prompt|raw/u);
 });
 
 test('context projection tracks raw pressure and only marks active compaction', () => {
@@ -225,10 +226,14 @@ test('context projection tracks raw pressure and only marks active compaction', 
     estimated_tokens: 6_000, raw_estimated_tokens: 222_000, limit_tokens: 61_440,
   });
   projection.apply('main', {
+    type: 'context_usage', current_estimated_tokens: 240_000, limit_tokens: 61_440,
+    measurement: 'estimated',
+  });
+  projection.apply('main', {
     type: 'context_compaction_status', status: 'started',
     before_estimated_tokens: 222_000, target_tokens: 61_440,
   });
-  assert.equal(projection.active().rawContextTokens, 222_000);
+  assert.equal(projection.active().rawContextTokens, 240_000);
   assert.deepEqual(projection.active().contextCompaction, { beforeTokens: 222_000, targetTokens: 61_440 });
   projection.apply('main', {
     type: 'context_compaction_status', status: 'completed',

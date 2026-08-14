@@ -93,6 +93,38 @@ function toolCall(id, path) {
   ];
 }
 
+test('interactive context usage refreshes after every settled model step', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-context-usage-'));
+  await writeFile(join(root, 'target.txt'), 'verified evidence', 'utf8');
+  let count = 0;
+  const provider = { async *stream() {
+    count += 1;
+    if (count === 1) {
+      yield* toolCall('context-read', 'target.txt');
+      return;
+    }
+    yield { type: 'text', text: 'The target was verified.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const output = [];
+  const engine = new SessionEngine({
+    config: config(root), surface: 'interactive_tui', providerFactory: () => provider,
+    modelRuntime: { resolve: async () => ({
+      contextWindowTokens: 65_536, outputLimitTokens: 4_096, source: 'fixture',
+    }) },
+    output: async (record) => output.push(record),
+  });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'context-usage', content: 'Read target.txt.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  const usage = output.filter((record) => record.type === 'context_usage');
+  assert.equal(usage.length, 2);
+  assert.equal(usage.every((record) => Number.isFinite(record.current_bytes)), true);
+  assert.equal(usage.every((record) => Number.isFinite(record.current_estimated_tokens)), true);
+  assert.equal(usage.every((record) => record.limit_tokens > 0), true);
+  assert.ok(usage[1].current_estimated_tokens >= usage[0].current_estimated_tokens);
+});
+
 test('AC-FAIL-04/AC-TOOL-05 accepted cancellation wins over late provider success', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-cancel-'));
   let started;

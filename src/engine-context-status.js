@@ -20,6 +20,8 @@ export async function buildReportedContext(
   const baseEnrichment = {
     ...enrichment, projectGuidance, skillCatalog: engine.skills?.catalog() ?? [], work: engine.work?.snapshot(),
   };
+  active.contextMeasurementEnrichment = baseEnrichment;
+  active.contextLimitTokens = budget?.effectiveInputTokens ?? null;
   const rawContext = buildContext(engine.config, records, content, baseEnrichment, Number.MAX_SAFE_INTEGER);
   const rawContextBytes = measureContext(rawContext);
   const rawContextTokens = estimateContextTokens(rawContext);
@@ -63,6 +65,33 @@ export async function buildReportedContext(
     });
   }
   return context;
+}
+
+export async function emitCurrentContextUsage(engine, active, stepId = active.stepId) {
+  if (engine.surface !== 'interactive_tui') return;
+  const records = [...engine.transcript];
+  if (active.stepText.length > 0 && active.stepText !== active.committedStepText) {
+    records.push({
+      type: 'message', role: 'assistant', content: active.stepText, trust: 'model',
+      turnId: active.turnId, stepId, partial: false,
+    });
+  }
+  const enrichment = {
+    ...(active.contextMeasurementEnrichment ?? active.enrichment),
+    work: engine.work?.snapshot(),
+  };
+  const context = buildContext(engine.config, records, '', enrichment, Number.MAX_SAFE_INTEGER);
+  active.rawContextBytes = measureContext(context);
+  active.rawContextTokens = estimateContextTokens(context);
+  await engine.output({
+    version: '1.0', type: 'context_usage', session_id: engine.sessionId,
+    turn_id: active.turnId, step_id: stepId,
+    current_bytes: active.rawContextBytes,
+    limit_bytes: active.contextLimitBytes,
+    current_estimated_tokens: active.rawContextTokens,
+    limit_tokens: active.contextLimitTokens,
+    measurement: 'estimated',
+  });
 }
 
 function recordColdEvidence(engine, active, catalog) {
