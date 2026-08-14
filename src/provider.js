@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
-import { providerReasoningControls } from './provider-reasoning.js';
+import { providerReasoningControls } from './provider/reasoning.js';
 
 export class OpenAICompatibleProvider {
   constructor(profile, limits = {}, options = {}) {

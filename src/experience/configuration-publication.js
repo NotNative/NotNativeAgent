@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { newId } from '../ids.js';
 import { prepareEngineConfiguration, publishEngineConfiguration } from '../runtime-config.js';
-import { persistManifest } from '../route-configuration.js';
+import { persistManifest } from '../provider/route-configuration.js';
 
 export async function publishConfigurationBatch(entries, options = {}) {
   const prepare = options.prepare ?? prepareEngineConfiguration;

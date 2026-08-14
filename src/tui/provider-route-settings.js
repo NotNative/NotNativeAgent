@@ -2,7 +2,7 @@
 import { ContractError } from '../ids.js';
 import { EditorBuffer } from '../experience/projection.js';
 import { handleEditorAction } from './editor-actions.js';
-import { REASONING_EFFORTS } from '../provider-reasoning.js';
+import { REASONING_EFFORTS } from '../provider/reasoning.js';
 
 const LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',

@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { SecretBroker } from '../src/secret-broker.js';
 import { startIntegrationServer } from '../src/integration-server.js';
 import { validateNnoIntegrationActivation } from '../src/nno-integration-activation.js';
-import { ProviderProfileStore } from '../src/provider-profile-store.js';
+import { ProviderProfileStore } from '../src/provider/profile-store.js';
 
 const TOKEN = 'ephemeral-integration-token-with-at-least-32-characters';
 

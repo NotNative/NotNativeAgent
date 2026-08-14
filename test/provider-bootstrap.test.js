@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   configureInitialProvider, discoverProviderModels, loadManagedProviderCredentials, providerBootstrapStatus,
-} from '../src/provider-bootstrap.js';
+} from '../src/provider/bootstrap.js';
 
 test('installer provider bootstrap discovers, persists, injects, and then skips an existing profile', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-provider-bootstrap-'));

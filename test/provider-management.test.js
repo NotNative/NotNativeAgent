@@ -9,7 +9,7 @@ import { migrateManifestDocument, resolveManifest } from '../src/config.js';
 import {
   manifestFromConfig, persistManifest, withGlobalSpecialistRoutes, withRoleRoute, withRouteDeadline, withUpdatedProvider,
   withoutProvider, withoutRoleRoute,
-} from '../src/route-configuration.js';
+} from '../src/provider/route-configuration.js';
 import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
 import { prepareEngineConfiguration } from '../src/runtime-config.js';
 

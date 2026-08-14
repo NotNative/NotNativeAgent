@@ -4,7 +4,7 @@ import test from 'node:test';
 import { compactTranscript, createHandoffFact } from '../src/compaction.js';
 import { buildContext } from '../src/context.js';
 import { ContinuationCompactor } from '../src/continuation-compactor.js';
-import { FairScheduler } from '../src/fair-scheduler.js';
+import { FairScheduler } from '../src/provider/fair-scheduler.js';
 
 const config = {
   workspaceRoot: 'D:\\workspace', applicationPolicy: null,

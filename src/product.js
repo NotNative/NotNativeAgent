@@ -5,7 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
-export const VERSION = '20260814-36';
+export const VERSION = '20260814-37';
 
 export function userDataPaths(options = {}) {
   const environment = options.environment ?? process.env;
@@ -19,7 +19,7 @@ export function userDataPaths(options = {}) {
   return Object.freeze({
     root,
     projects: join(root, 'projects'),
-    modelDialects: join(root, 'model-dialects.json'),
+    modelDialects: join(root, 'provider/model-dialects.json'),
     dreamState: join(root, 'runtime', 'dream-state.db'),
     nnmGovernanceReceipts: join(root, 'runtime', 'nnm-turn-receipts.jsonl'),
     sessions: join(root, 'sessions'),

@@ -6,7 +6,7 @@ import { CanonicalIngress } from '../ingress.js';
 import { SessionEngine } from '../engine.js';
 import { newId } from '../ids.js';
 import { StructuredLog } from '../structured-log.js';
-import { FairScheduler } from '../fair-scheduler.js';
+import { FairScheduler } from '../provider/fair-scheduler.js';
 import { ConsoleSessionDirectory } from '../session-broker.js';
 import { acknowledgeTelegramNotification, readTelegramOutbox } from './notifications.js';
 

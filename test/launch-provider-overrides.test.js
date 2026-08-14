@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
-import { applyLaunchProviderOverrides } from '../src/launch-provider-overrides.js';
+import { applyLaunchProviderOverrides } from '../src/provider/launch-overrides.js';
 
 test('launch profile and model overrides are ephemeral and preserve saved configuration', () => {
   const original = configured();

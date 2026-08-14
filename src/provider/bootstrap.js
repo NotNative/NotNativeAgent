@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { resolveManifest } from './config.js';
-import { ContractError } from './ids.js';
+import { resolveManifest } from '../config.js';
+import { ContractError } from '../ids.js';
 import { persistManifest } from './route-configuration.js';
 
 const CREDENTIAL_ENV = 'NNA_PROVIDER_INITIAL_KEY';

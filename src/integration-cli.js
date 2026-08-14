@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { ContractError } from './ids.js';
 import { startIntegrationServer } from './integration-server.js';
 import { validateNnoIntegrationActivation } from './nno-integration-activation.js';
-import { ProviderProfileStore } from './provider-profile-store.js';
+import { ProviderProfileStore } from './provider/profile-store.js';
 import { SecretBroker } from './secret-broker.js';
 
 export async function runIntegrationCommand(args, paths, options = {}) {

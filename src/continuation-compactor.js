@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { enrichCompactionFact, enrichHandoffFact } from './compaction.js';
-import { routeReasoningFields } from './provider-reasoning.js';
+import { routeReasoningFields } from './provider/reasoning.js';
 
 const MAX_RESPONSE_BYTES = 65_536;
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
-import { manifestFromConfig } from './route-configuration.js';
+import { manifestFromConfig } from './provider/route-configuration.js';
 
 export function resolveConfiguration(sources, options = {}) {
   if (!Array.isArray(sources) || sources.length === 0 || sources.length > 8) {

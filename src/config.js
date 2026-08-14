@@ -12,7 +12,7 @@ import { validateAllowedTools, validateHostIdentity } from './execution-policy.j
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
 import { migrateRoutingInheritance } from './manifest-migration.js';
 import { validateDream } from './dream-config.js';
-import { validateEnableThinking, validateReasoningEffort } from './provider-reasoning.js';
+import { validateEnableThinking, validateReasoningEffort } from './provider/reasoning.js';
 const TRUST_ZONES = new Set(['loopback', 'private_network', 'public_network']);
 const ROUTE_CAPABILITIES = new Set(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']);
 const MISSION_EFFECTS = new Set(['read_only', 'reversible', 'irreversible', 'unknown']);

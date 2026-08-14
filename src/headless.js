@@ -8,8 +8,8 @@ import { SessionEngine } from './engine.js';
 import { CanonicalIngress } from './ingress.js';
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { userDataPaths } from './product.js';
-import { applyLaunchProviderOverrides } from './launch-provider-overrides.js';
-import { manifestFromConfig } from './route-configuration.js';
+import { applyLaunchProviderOverrides } from './provider/launch-overrides.js';
+import { manifestFromConfig } from './provider/route-configuration.js';
 import { StructuredLog } from './structured-log.js';
 
 export async function runHeadless(input, output, diagnostics, options = {}) {

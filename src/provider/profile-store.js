@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { resolveManifest } from './config.js';
-import { ContractError } from './ids.js';
+import { resolveManifest } from '../config.js';
+import { ContractError } from '../ids.js';
 import { persistManifest, withProvider, withUpdatedProvider, withoutProvider } from './route-configuration.js';
 
 const FILE_LIMIT = 1_048_576;

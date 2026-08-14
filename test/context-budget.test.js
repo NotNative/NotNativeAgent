@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { contextBudget, estimateContextTokens } from '../src/context-budget.js';
-import { ModelRuntimeRegistry } from '../src/model-runtime.js';
+import { ModelRuntimeRegistry } from '../src/provider/model-runtime.js';
 import { OpenAICompatibleProvider } from '../src/provider.js';
-import { FairScheduler } from '../src/fair-scheduler.js';
+import { FairScheduler } from '../src/provider/fair-scheduler.js';
 
 const route = Object.freeze({
   profile: { id: 'local' }, model: 'qwen', contextLimitBytes: null,

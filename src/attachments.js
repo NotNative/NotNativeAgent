@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { ContractError, newId } from './ids.js';
-import { routeReasoningFields } from './provider-reasoning.js';
+import { routeReasoningFields } from './provider/reasoning.js';
 import { CapabilityCache } from './capability-cache.js';
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);

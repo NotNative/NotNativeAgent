@@ -3,14 +3,14 @@ import { CanonicalIngress } from './ingress.js';
 import { SessionEngine } from './engine.js';
 import { ContractError, newId } from './ids.js';
 import { TuiProjection } from './experience/projection.js';
-import { FairScheduler } from './fair-scheduler.js';
+import { FairScheduler } from './provider/fair-scheduler.js';
 import { userDataPaths } from './product.js';
 import {
   booleanSettingValue, manifestFromConfig, withBooleanSetting, withContextSettings, withRecoverySettings,
   withPrimaryRoute, withUpdatedProvider,
   withGlobalSpecialistRoutes,
   withKeyBindings, withMcpEnabled, withMcpServer, withMcpServerUpdate, withoutMcpServer, withRuntimeLimits,
-} from './route-configuration.js';
+} from './provider/route-configuration.js';
 import { SearxngClient } from './searxng-client.js'; import { SearxngDeployment } from './searxng-deployment.js';
 import { configuredMcpStatus, testConfiguredMcpServer } from './experience/mcp.js';
 import {
@@ -23,7 +23,7 @@ import { createNextConversation, createWorkspaceConversation } from './experienc
 import { restoreWorkspace } from './experience/restore.js';
 import { validateKeyBindings } from './tui/key-bindings.js';
 import { WorkspaceTabPersistence } from './experience/tab-persistence.js';
-import { boundedProviderCapabilities } from './provider-capabilities.js';
+import { boundedProviderCapabilities } from './provider/capabilities.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './experience/models.js';
 import { advanceWorkspaceConfig, publishWorkspaceConfiguration, writeWorkspaceManifest } from './experience/configuration-publication.js';
 import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './experience/provider-catalog.js';

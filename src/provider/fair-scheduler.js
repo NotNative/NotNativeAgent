@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ContractError, newId } from './ids.js';
+import { ContractError, newId } from '../ids.js';
 
 export class FairScheduler {
   #resources = new Map();

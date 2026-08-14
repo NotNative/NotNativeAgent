@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
   manifestFromConfig, withGlobalSpecialistRoutes, withPrimaryRoute, withProvider, withoutProvider,
-} from '../route-configuration.js';
+} from '../provider/route-configuration.js';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
 

@@ -9,7 +9,7 @@ import { SessionEngine } from '../src/engine.js';
 import { ContractError } from '../src/ids.js';
 import { JournalStore } from '../src/store.js';
 import { LifecycleRegistry, StateAuthority } from '../src/lifecycle.js';
-import { ProviderRunner } from '../src/provider-runner.js';
+import { ProviderRunner } from '../src/provider/runner.js';
 import { RecoverySupervisor } from '../src/recovery.js';
 import { ToolCallAssembler } from '../src/tool-calls.js';
 import { contextPressureScale } from '../src/engine/provider-recovery.js';

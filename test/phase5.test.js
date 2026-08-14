@@ -11,7 +11,7 @@ import { resolveManifest } from '../src/config.js';
 import { parseProtocolLine } from '../src/contracts.js';
 import { DiagnosticBundle } from '../src/diagnostic-bundle.js';
 import { SessionEngine } from '../src/engine.js';
-import { FairScheduler } from '../src/fair-scheduler.js';
+import { FairScheduler } from '../src/provider/fair-scheduler.js';
 import { StructuredLog } from '../src/structured-log.js';
 import { TerminalInputDecoder, TerminalMode, sanitizeTerminal } from '../src/tui/terminal-adapter.js';
 import { RetainedTerminalScreen } from '../src/tui/terminal-screen.js';

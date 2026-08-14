@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveManifest } from '../src/config.js';
-import { ModelRouter } from '../src/router.js';
-import { manifestFromConfig } from '../src/route-configuration.js';
+import { ModelRouter } from '../src/provider/router.js';
+import { manifestFromConfig } from '../src/provider/route-configuration.js';
 import { SessionEngine } from '../src/engine.js';
 import { EventHub } from '../src/events.js';
 import { CapabilityCache } from '../src/capability-cache.js';

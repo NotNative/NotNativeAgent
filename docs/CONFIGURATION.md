@@ -12,7 +12,7 @@ rewrite saved provider profiles.
 ## Adaptive model dialects, project guidance, and optional LSP
 
 NNA maintains a bounded local dialect profile for each provider/model pair in
-`~/.nna/model-dialects.json`. It records compatibility outcomes, never credentials, and
+`~/.nna/provider/model-dialects.json`. It records compatibility outcomes, never credentials, and
 tightens schema/termination guidance after repeated observed failures. `/model qualify`
 runs two bounded inference probes (exact text and one synthetic native tool call); the
 synthetic tool is never executed. This is local qualification, not a benchmark.

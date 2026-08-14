@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ModelRouter } from '../router.js';
-import { boundedProviderCapabilities } from '../provider-capabilities.js';
-import { qualifyModel } from '../model-qualification.js';
+import { ModelRouter } from '../provider/router.js';
+import { boundedProviderCapabilities } from '../provider/capabilities.js';
+import { qualifyModel } from '../provider/model-qualification.js';
 
 export async function availableWorkspaceModels(workspace) {
   const engine = workspace.activeEngine();

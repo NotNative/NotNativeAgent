@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ModelDialectRegistry } from '../src/model-dialects.js';
-import { qualifyModel } from '../src/model-qualification.js';
+import { ModelDialectRegistry } from '../src/provider/model-dialects.js';
+import { qualifyModel } from '../src/provider/model-qualification.js';
 
 test('model dialect profiles persist observations and tighten guidance after repeated failures', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-dialect-'));

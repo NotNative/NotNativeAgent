@@ -2,7 +2,7 @@
 import { toProviderMessages } from '../context.js';
 import { ToolCallAssembler } from '../tool-calls.js';
 import { toolCatalogContext } from '../tool-catalog-context.js';
-import { routeReasoningFields } from '../provider-reasoning.js';
+import { routeReasoningFields } from '../provider/reasoning.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   const messages = toProviderMessages(context);

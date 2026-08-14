@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { withProvider } from '../route-configuration.js';
-import { boundedProviderCapabilities } from '../provider-capabilities.js';
+import { withProvider } from '../provider/route-configuration.js';
+import { boundedProviderCapabilities } from '../provider/capabilities.js';
 
 export async function discoverWorkspaceProviderModels(workspace, input) {
   let probeId = 'nna-provider-setup';

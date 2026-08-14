@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ContractError } from './ids.js';
-import { ToolCallAssembler } from './tool-calls.js';
+import { ContractError } from '../ids.js';
+import { ToolCallAssembler } from '../tool-calls.js';
 
 export async function qualifyModel(provider, route, options = {}) {
   const timeoutMs = options.timeoutMs ?? 20_000;

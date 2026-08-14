@@ -4,7 +4,7 @@ import { constants } from 'node:fs';
 import { VERSION } from './product.js';
 import { inspectDataPermissions } from './data-permissions.js';
 import { inspectNetworkDestinations } from './network-destinations.js';
-import { boundedProviderCapabilities } from './provider-capabilities.js';
+import { boundedProviderCapabilities } from './provider/capabilities.js';
 
 export class HealthInspector {
   constructor(engine) {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { withRoleRoute, withRouteSetting, withoutProvider, withoutRoleRoute } from '../route-configuration.js';
+import { withRoleRoute, withRouteSetting, withoutProvider, withoutRoleRoute } from '../provider/route-configuration.js';
 import { assertProviderUnused } from './provider-catalog.js';
 import { publishWorkspaceConfiguration } from './configuration-publication.js';
 

@@ -9,7 +9,7 @@ export { ExperienceEngine, ExperienceEngine as InteractiveWorkspace } from './ex
 export { TuiProjection, EditorBuffer, validateKeyBindings } from './experience/projection.js';
 export { StructuredLog } from './structured-log.js';
 export { DiagnosticBundle } from './diagnostic-bundle.js';
-export { FairScheduler } from './fair-scheduler.js';
+export { FairScheduler } from './provider/fair-scheduler.js';
 export { resolveConfiguration } from './configuration-sources.js';
 export { SessionDataManager } from './session-data.js';
 export { EventHub } from './events.js';

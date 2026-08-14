@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { manifestFromConfig } from '../route-configuration.js';
+import { manifestFromConfig } from '../provider/route-configuration.js';
 
 export function tabPoolRecords(sessions, projection) {
   return [...sessions.values()].map((session) => ({

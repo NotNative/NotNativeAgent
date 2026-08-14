@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ContractError, newId } from './ids.js';
-import { routeReasoningFields } from './provider-reasoning.js';
+import { ContractError, newId } from '../ids.js';
+import { routeReasoningFields } from './reasoning.js';
 
 export class RoutedSemanticReviewer {
   constructor(router, options = {}) {

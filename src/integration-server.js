@@ -5,7 +5,7 @@ import {
   authenticateIntegrationRequest, readIntegrationPrincipal, requireIntegrationPermission, requireToken,
 } from './integration-principal.js';
 import { assertNnoIntegrationActivation } from './nno-integration-activation.js';
-import { discoverProviderModels } from './provider-bootstrap.js';
+import { discoverProviderModels } from './provider/bootstrap.js';
 import { dispatchSecretBrokerRequest, readJsonBody, send, sendFailure } from './secret-broker-server.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);

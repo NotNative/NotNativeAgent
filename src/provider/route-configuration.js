@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { copyFile, mkdir, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { resolveManifest } from './config.js';
-import { ContractError } from './ids.js';
+import { resolveManifest } from '../config.js';
+import { ContractError } from '../ids.js';
 
 export const SPECIALIST_ROUTE_ROLES = Object.freeze(['subagent', 'reviewer', 'vision']);
 export function manifestFromConfig(config) {

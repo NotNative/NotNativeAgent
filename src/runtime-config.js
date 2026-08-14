@@ -2,7 +2,7 @@
 import { AttachmentObservationRouter } from './attachments.js';
 import { resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
-import { ModelRouter } from './router.js';
+import { ModelRouter } from './provider/router.js';
 
 export async function updateEngineConfiguration(engine, command, principal) {
   const prepared = prepareEngineConfiguration(engine, command.manifest, principal);

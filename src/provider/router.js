@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ContractError, newId } from './ids.js';
-import { OpenAICompatibleProvider } from './provider.js';
+import { ContractError, newId } from '../ids.js';
+import { OpenAICompatibleProvider } from '../provider.js';
 
 export class ModelRouter {
   constructor(config, providerFactory = defaultFactory) {

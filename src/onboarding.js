@@ -4,7 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { migrateManifestDocument, resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
-import { persistManifest } from './route-configuration.js';
+import { persistManifest } from './provider/route-configuration.js';
 
 const LOCAL_ENDPOINTS = Object.freeze([
   'http://127.0.0.1:11434/v1',
