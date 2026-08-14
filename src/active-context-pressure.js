@@ -178,9 +178,14 @@ function boundedMetadata(value) {
 
 function boundedHeadTail(value, limit) {
   const text = String(value ?? '');
-  if (Buffer.byteLength(text, 'utf8') <= limit) return text;
+  const encoded = Buffer.from(text, 'utf8');
+  if (encoded.byteLength <= limit) return text;
   const edge = Math.max(1, Math.floor(limit / 2));
-  return `${Buffer.from(text, 'utf8').subarray(0, edge).toString('utf8')}\n...[checkpoint excerpt]...\n${Buffer.from(text, 'utf8').subarray(-edge).toString('utf8')}`;
+  let headEnd = edge;
+  while (headEnd > 0 && (encoded[headEnd] & 0xc0) === 0x80) headEnd -= 1;
+  let tailStart = encoded.byteLength - edge;
+  while (tailStart < encoded.byteLength && (encoded[tailStart] & 0xc0) === 0x80) tailStart += 1;
+  return `${encoded.subarray(0, headEnd).toString('utf8')}\n...[checkpoint excerpt]...\n${encoded.subarray(tailStart).toString('utf8')}`;
 }
 
 function fingerprint(records) {

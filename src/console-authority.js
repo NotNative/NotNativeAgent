@@ -18,5 +18,8 @@ export class ConsoleAuthority {
     return this.owned;
   }
 
-  release() { return this.lock?.release(); }
+  async release() {
+    try { return await this.lock?.release(); }
+    finally { this.owned = false; }
+  }
 }

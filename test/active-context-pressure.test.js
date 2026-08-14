@@ -48,6 +48,14 @@ test('checkpoint pressure journals settled work and retains only hot active step
   assert.equal(records.length, 9, 'the durable source remains unchanged');
 });
 
+test('active pressure truncation preserves complete UTF-8 characters', () => {
+  const records = fixture();
+  records[2] = { ...records[2], content: '界'.repeat(2_000) };
+  const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'receipts' });
+  assert.equal(projected.records[2].content.includes('\uFFFD'), false);
+  assert.match(projected.records[2].content, /checkpoint excerpt/u);
+});
+
 function fixture() {
   return [
     { type: 'message', role: 'user', content: 'inspect the project', turnId: 'turn-1' },
