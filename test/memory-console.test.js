@@ -5,7 +5,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveManifest } from '../src/config.js';
-import { InteractiveWorkspace } from '../src/interactive-workspace.js';
+import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
 import { handleMemoryCommand } from '../src/tui-memory-command.js';
 
 function configuration(root, enabled = true) {

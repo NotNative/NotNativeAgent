@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { InteractiveWorkspace } from './interactive-workspace.js';
+import { ExperienceEngine } from './experience-engine.js';
 import { StructuredLog } from './structured-log.js';
 import { osc52Clipboard } from './terminal-clipboard.js';
 import { nativeClipboard } from './native-clipboard.js';
@@ -14,7 +14,7 @@ export async function createTuiWorkspace(options, output, onChange) {
   const clipboard = options.clipboard ?? (async (value) => {
     try { return await systemClipboard.write(value); } catch { return osc52(value); }
   });
-  const workspace = new InteractiveWorkspace({
+  const workspace = new ExperienceEngine({
     ...options, logger, onChange, clipboard, clipboardRead: options.clipboardRead ?? (() => systemClipboard.read()),
     clipboardImageRead: options.clipboardImageRead ?? ((path, maxBytes) => systemClipboard.readImage(path, maxBytes)),
     clipboardContentRead: options.clipboardContentRead ?? (systemClipboard.readContent

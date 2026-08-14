@@ -10,7 +10,7 @@ import {
   manifestFromConfig, persistManifest, withGlobalSpecialistRoutes, withRoleRoute, withRouteDeadline, withUpdatedProvider,
   withoutProvider, withoutRoleRoute,
 } from '../src/route-configuration.js';
-import { InteractiveWorkspace } from '../src/interactive-workspace.js';
+import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
 import { prepareEngineConfiguration } from '../src/runtime-config.js';
 
 function configuration(root) {

@@ -27,7 +27,7 @@ import { SessionDataManager } from '../src/session-data.js';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { buildContext } from '../src/context.js';
 import { providerRequest } from '../src/engine-runtime-helpers.js';
-import { InteractiveWorkspace } from '../src/interactive-workspace.js';
+import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
 import { auditOverlay, configOverlay, modelOverlay, overlayCommandDraft, providerOverlay } from '../src/tui-overlays.js';
 import { ContractError } from '../src/ids.js';
 import { trustWorkspace } from '../src/workspace-trust.js';

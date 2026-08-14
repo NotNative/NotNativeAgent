@@ -37,7 +37,7 @@ import { resumeWorkspaceConversation } from './workspace-resume.js';
 import { SecretBroker } from './secret-broker.js';
 import { ConsoleAuthority } from './console-authority.js';
 import { cancelWorkspaceSession, clearWorkspaceSession, compactWorkspaceSession, handoffWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './workspace-session-broker.js';
-export class InteractiveWorkspace {
+export class ExperienceEngine {
   #tasks = new Set();
   constructor(options) {
     this.config = options.config;
