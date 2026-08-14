@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
-import { join, matchesGlob, relative } from 'node:path';
+import { basename, dirname, join, matchesGlob, relative } from 'node:path';
 import { ContractError } from './ids.js';
 
 const DEFAULT_SKIPS = new Set(['.git', 'node_modules']);
@@ -16,13 +16,13 @@ export function filesystemDiscoveryDefinitions(paths) {
 function globDefinition(paths) {
   return {
     name: 'fs.glob', version: 1,
-    purpose: 'Discover files by a bounded cross-platform glob. Root NNA may search any host path it can read; hosted sessions remain workspace-bounded.',
+    purpose: 'List file paths beneath an optional root directory whose relative paths match the required glob pattern. Example: {"path":"src","pattern":"**/*.js"}.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
     inputSchema: objectSchema({
-      path: { type: 'string', maxLength: 4096 },
-      pattern: { type: 'string', minLength: 1, maxLength: 1024 },
-      max_depth: { type: 'integer', minimum: 0, maximum: 64 },
-      max_results: { type: 'integer', minimum: 1, maximum: 1000 },
+      path: { type: 'string', maxLength: 4096, description: 'Root directory to search. Do not put glob syntax here. Defaults to the working directory.' },
+      pattern: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required glob matched against relative file paths, for example **/*.js or src/**/test-*.js.' },
+      max_depth: { type: 'integer', minimum: 0, maximum: 64, description: 'Maximum directory depth below path. Defaults to 32.' },
+      max_results: { type: 'integer', minimum: 1, maximum: 1000, description: 'Maximum matching paths to return. Defaults to 200.' },
     }, ['pattern']),
     validate: async (args) => {
       shape(args, ['pattern'], ['path', 'max_depth', 'max_results']);
@@ -46,16 +46,16 @@ function globDefinition(paths) {
 function searchDefinition(paths) {
   return {
     name: 'fs.search_text', version: 1,
-    purpose: 'Search bounded UTF-8 files with line-numbered snippets. Matching is literal by default; set match_mode to regex for expressions such as foo|bar. The runtime may transparently accelerate compatible searches with ripgrep.',
+    purpose: 'Search inside bounded UTF-8 files and return line-numbered matches. Path may name one file or a root directory; omit it to search from the working directory. Matching is literal unless match_mode is regex.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
     inputSchema: objectSchema({
-      path: { type: 'string', maxLength: 4096 },
-      query: { type: 'string', minLength: 1, maxLength: 4096 },
-      match_mode: { type: 'string', enum: ['literal', 'regex'] },
-      file_glob: { type: 'string', minLength: 1, maxLength: 1024 },
-      case_sensitive: { type: 'boolean' },
-      max_depth: { type: 'integer', minimum: 0, maximum: 64 },
-      max_results: { type: 'integer', minimum: 1, maximum: 1000 },
+      path: { type: 'string', maxLength: 4096, description: 'Exact file or root directory to search. Defaults to the working directory.' },
+      query: { type: 'string', minLength: 1, maxLength: 4096, description: 'Required literal text, or a regular expression when match_mode is regex.' },
+      match_mode: { type: 'string', enum: ['literal', 'regex'], description: 'Interpret query as literal text (default) or a regular expression.' },
+      file_glob: { type: 'string', minLength: 1, maxLength: 1024, description: 'Optional file-path filter when path is a directory, for example **/*.js.' },
+      case_sensitive: { type: 'boolean', description: 'Whether matching respects case. Defaults to false.' },
+      max_depth: { type: 'integer', minimum: 0, maximum: 64, description: 'Maximum directory depth when path is a directory. Defaults to 32.' },
+      max_results: { type: 'integer', minimum: 1, maximum: 1000, description: 'Maximum line matches to return. Defaults to 200.' },
     }, ['query']),
     validate: async (args) => {
       shape(args, ['query'], ['path', 'match_mode', 'file_glob', 'case_sensitive', 'max_depth', 'max_results']);
@@ -63,7 +63,9 @@ function searchDefinition(paths) {
       if (args.match_mode !== undefined && !['literal', 'regex'].includes(args.match_mode)) invalid('match_mode must be literal or regex');
       if (args.file_glob !== undefined) requireString(args.file_glob, 'file_glob');
       if (args.case_sensitive !== undefined && typeof args.case_sensitive !== 'boolean') invalid('case_sensitive must be boolean');
-      const resolved = await paths.resolveDirectory(args.path ?? '.');
+      const resolved = await paths.resolveMetadata(args.path ?? '.');
+      if (!['file', 'directory'].includes(resolved.kind)) invalid('path must identify a regular file or directory');
+      if (resolved.kind === 'file' && args.file_glob !== undefined) invalid('file_glob is only valid when path identifies a directory');
       return {
         args: {
           path: args.path ?? '.', query: args.query, match_mode: args.match_mode ?? 'literal', file_glob: args.file_glob ?? '**/*',
@@ -84,7 +86,8 @@ async function ripgrepSearch(request, signal) {
     const matches = [];
     let child;
     try {
-      child = spawn('rg', args, { cwd: request.resolved.path, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      const cwd = request.resolved.kind === 'file' ? dirname(request.resolved.path) : request.resolved.path;
+      child = spawn('rg', args, { cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     } catch (error) {
       if (['ENOENT', 'EACCES', 'EPERM'].includes(error.code)) { resolve(null); return; }
       reject(error); return;
@@ -105,13 +108,14 @@ async function ripgrepSearch(request, signal) {
 }
 
 function ripgrepArguments(request) {
+  const exactFile = request.resolved.kind === 'file';
   return [
     '--json', '--no-config', '--no-ignore', '--color', 'never', '--max-filesize', '1M',
-    '--max-depth', String(request.args.max_depth), '--glob', request.args.file_glob,
-    '--glob', '!.git/**', '--glob', '!node_modules/**',
+    ...(!exactFile ? ['--max-depth', String(request.args.max_depth), '--glob', request.args.file_glob,
+      '--glob', '!.git/**', '--glob', '!node_modules/**'] : []),
     request.args.case_sensitive ? '--case-sensitive' : '--ignore-case',
     ...(request.args.match_mode === 'literal' ? ['--fixed-strings'] : []),
-    '--', request.args.query, '.',
+    '--', request.args.query, exactFile ? basename(request.resolved.path) : '.',
   ];
 }
 
@@ -142,8 +146,10 @@ function finishRipgrep(code, stopped, stderr, matches, request, finish, resolve,
 }
 
 async function searchFiles(request, signal) {
-  const candidates = await walkFiles(request.resolved.path, request.args.max_depth, MAX_FILES, signal,
-    (relativePath) => globMatch(relativePath, request.args.file_glob));
+  const candidates = request.resolved.kind === 'file'
+    ? { files: [request.resolved.path], examined: 1, skipped: 0, truncated: false }
+    : await walkFiles(request.resolved.path, request.args.max_depth, MAX_FILES, signal,
+      (relativePath) => globMatch(relativePath, request.args.file_glob));
   const matches = [];
   let bytesExamined = 0;
   let binarySkipped = 0;
@@ -228,7 +234,7 @@ function globMatch(relativePath, pattern) {
 }
 
 function displayPath(root, path) {
-  return relative(root, path).replaceAll('\\', '/') || '.';
+  return relative(root, path).replaceAll('\\', '/') || (root === path ? basename(path) : '.');
 }
 
 function boundedLine(value) {
@@ -239,7 +245,10 @@ function boundedLine(value) {
 function shape(args, required, optional) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) invalid('tool arguments must be an object');
   const allowed = new Set([...required, ...optional]);
-  if (required.some((key) => !Object.hasOwn(args, key)) || Object.keys(args).some((key) => !allowed.has(key))) invalid('tool arguments do not match the schema');
+  const missing = required.find((key) => !Object.hasOwn(args, key));
+  if (missing) invalid(`required argument "${missing}" is missing`);
+  const unknown = Object.keys(args).find((key) => !allowed.has(key));
+  if (unknown) invalid(`unknown argument "${unknown}"`);
   if (args.path !== undefined && typeof args.path !== 'string') invalid('path must be a string');
 }
 

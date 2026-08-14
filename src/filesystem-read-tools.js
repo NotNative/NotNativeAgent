@@ -69,7 +69,9 @@ function readDefinition(paths, receipts) {
   return {
     name: 'fs.read_text', version: 1, purpose: 'Read bounded UTF-8 text from one accessible file. Relative paths start at the working directory; root NNA may use absolute host paths.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
-    inputSchema: objectSchema({ path: { type: 'string', maxLength: 4096 } }, ['path']),
+    inputSchema: objectSchema({
+      path: { type: 'string', maxLength: 4096, description: 'Required path to one UTF-8 text file.' },
+    }, ['path']),
     validate: async (args) => {
       requireShape(args, ['path']);
       const resolved = await paths.resolveRead(args.path);
@@ -98,9 +100,9 @@ function readLinesDefinition(paths, receipts) {
     purpose: 'Read a bounded numbered line window with an exact snapshot tag for anchored edits.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
-      path: { type: 'string', maxLength: 4096 },
-      start_line: { type: 'integer', minimum: 1, maximum: 10_000_000 },
-      line_count: { type: 'integer', minimum: 1, maximum: 400 },
+      path: { type: 'string', maxLength: 4096, description: 'Required path to one UTF-8 text file.' },
+      start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'First one-based line to return. Defaults to 1.' },
+      line_count: { type: 'integer', minimum: 1, maximum: 400, description: 'Maximum number of lines to return. Defaults to 200.' },
     }, ['path']),
     validate: async (args) => {
       requireShape(args, ['path'], ['start_line', 'line_count']);
@@ -143,8 +145,8 @@ function listDefinition(paths) {
     purpose: 'List a bounded accessible directory tree. Relative paths start at the working directory; root NNA may use absolute host paths.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
-      path: { type: 'string', maxLength: 4096 },
-      depth: { type: 'integer', minimum: 1, maximum: 4 },
+      path: { type: 'string', maxLength: 4096, description: 'Directory to list. Defaults to the working directory.' },
+      depth: { type: 'integer', minimum: 1, maximum: 4, description: 'Number of directory levels to include. Defaults to 2.' },
     }, []),
     validate: async (args) => {
       requireListShape(args);
@@ -206,9 +208,10 @@ function requireShape(value, required, optional = []) {
     throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');
   }
   const allowed = new Set([...required, ...optional]);
-  if (required.some((key) => !Object.hasOwn(value, key)) || Object.keys(value).some((key) => !allowed.has(key))) {
-    throw new ContractError('tool_schema_invalid', 'tool arguments do not match the schema');
-  }
+  const missing = required.find((key) => !Object.hasOwn(value, key));
+  if (missing) throw new ContractError('tool_schema_invalid', `required argument "${missing}" is missing`);
+  const unknown = Object.keys(value).find((key) => !allowed.has(key));
+  if (unknown) throw new ContractError('tool_schema_invalid', `unknown argument "${unknown}"`);
   if (typeof value.path !== 'string') throw new ContractError('tool_schema_invalid', 'tool argument types are invalid');
 }
 

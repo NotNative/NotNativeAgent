@@ -184,9 +184,9 @@ function writeDefinition(paths, changes) {
     name: 'fs.write_text', version: 1, purpose: 'Atomically write bounded UTF-8 text to one accessible file after reading existing content.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
-      path: { type: 'string', maxLength: 4096 },
-      content: { type: 'string', maxLength: MAX_TEXT_BYTES },
-      expected_sha256: { type: ['string', 'null'], pattern: '^[0-9a-f]{64}$' },
+      path: { type: 'string', maxLength: 4096, description: 'Required destination file path.' },
+      content: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required complete UTF-8 content to write.' },
+      expected_sha256: { type: ['string', 'null'], pattern: '^[0-9a-f]{64}$', description: 'SHA-256 from the latest fs.read_text result when overwriting; omit or use null only for a new file.' },
     }, ['path', 'content']),
     validate: async (args) => {
       requireShape(args, ['path', 'content'], ['expected_sha256']);
@@ -209,11 +209,11 @@ function editDefinition(paths, changes, receipts) {
     purpose: 'Replace exact text in one existing accessible file without rewriting unrelated content.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
-      path: { type: 'string', maxLength: 4096 },
-      old_text: { type: 'string', minLength: 1, maxLength: MAX_TEXT_BYTES },
-      new_text: { type: 'string', maxLength: MAX_TEXT_BYTES },
-      replace_all: { type: 'boolean' },
-      expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      path: { type: 'string', maxLength: 4096, description: 'Required path to the existing UTF-8 file.' },
+      old_text: { type: 'string', minLength: 1, maxLength: MAX_TEXT_BYTES, description: 'Required exact text previously observed in the file.' },
+      new_text: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required replacement text; use an empty string to remove old_text.' },
+      replace_all: { type: 'boolean', description: 'Replace every exact occurrence. Defaults to false and requires old_text to be unique.' },
+      expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Required SHA-256 snapshot from fs.read_text or fs.read_lines.' },
     }, ['path', 'old_text', 'new_text', 'expected_sha256']),
     validate: async (args) => validateEdit(paths, args, receipts),
     executor: (request, signal) => executeEdit(request, signal, changes),
@@ -226,11 +226,11 @@ function editLinesDefinition(paths, changes, receipts) {
     purpose: 'Replace an inclusive line range previously shown by fs.read_lines in the same exact file snapshot.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
-      path: { type: 'string', maxLength: 4096 },
-      start_line: { type: 'integer', minimum: 1, maximum: 10_000_000 },
-      end_line: { type: 'integer', minimum: 1, maximum: 10_000_000 },
-      replacement: { type: 'string', maxLength: MAX_TEXT_BYTES },
-      expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      path: { type: 'string', maxLength: 4096, description: 'Required path previously read with fs.read_lines.' },
+      start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required first one-based line in the inclusive replacement range.' },
+      end_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required last one-based line in the inclusive replacement range.' },
+      replacement: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required replacement text; use an empty string to remove the selected lines.' },
+      expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Required SHA-256 snapshot returned by fs.read_lines.' },
     }, ['path', 'start_line', 'end_line', 'replacement', 'expected_sha256']),
     validate: async (args) => {
       requireShape(args, ['path', 'start_line', 'end_line', 'replacement', 'expected_sha256']);
@@ -314,8 +314,8 @@ function deleteDefinition(paths, changes) {
     purpose: 'Permanently delete one accessible regular file after exact-content revalidation and mandatory review.',
     sideEffect: 'irreversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
-      path: { type: 'string', maxLength: 4096 },
-      expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+      path: { type: 'string', maxLength: 4096, description: 'Required path to the existing regular file.' },
+      expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Required SHA-256 from the latest fs.read_text result.' },
     }, ['path', 'expected_sha256']),
     validate: async (args) => {
       requireShape(args, ['path', 'expected_sha256']);
@@ -425,9 +425,10 @@ function requireShape(value, required, optional = []) {
     throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');
   }
   const allowed = new Set([...required, ...optional]);
-  if (required.some((key) => !Object.hasOwn(value, key)) || Object.keys(value).some((key) => !allowed.has(key))) {
-    throw new ContractError('tool_schema_invalid', 'tool arguments do not match the schema');
-  }
+  const missing = required.find((key) => !Object.hasOwn(value, key));
+  if (missing) throw new ContractError('tool_schema_invalid', `required argument "${missing}" is missing`);
+  const unknown = Object.keys(value).find((key) => !allowed.has(key));
+  if (unknown) throw new ContractError('tool_schema_invalid', `unknown argument "${unknown}"`);
   if (typeof value.path !== 'string' || (Object.hasOwn(value, 'content') && typeof value.content !== 'string')) {
     throw new ContractError('tool_schema_invalid', 'tool argument types are invalid');
   }

@@ -9,14 +9,14 @@ export function filesystemExtraDefinitions(paths, changes) {
 
 function metadataDefinition(paths) {
   return definition('fs.metadata', 'Inspect bounded metadata for one accessible file or directory.', 'read_only', {
-    path: { type: 'string', maxLength: 4096 },
+    path: { type: 'string', maxLength: 4096, description: 'Required path to one existing file or directory.' },
   }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveMetadata(args.path) }),
   async (request) => ({ content: JSON.stringify({ ...request.resolved, path: request.args.path }), metadata: { path: request.args.path } }));
 }
 
 function directoryDefinition(paths) {
   return definition('fs.create_directory', 'Create one new directory beneath an accessible existing directory.', 'reversible', {
-    path: { type: 'string', maxLength: 4096 },
+    path: { type: 'string', maxLength: 4096, description: 'Required path for the new directory. Its parent must already exist.' },
   }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveNew(args.path) }),
   async (request, signal) => {
     abort(signal); await assertAbsent(request.resolved.path); await mkdir(request.resolved.path);
@@ -34,8 +34,9 @@ function moveDefinition(paths, changes) {
 
 function fileTransferDefinition(paths, name, purpose, operation, changes) {
   return definition(name, purpose, 'reversible', {
-    source: { type: 'string', maxLength: 4096 }, destination: { type: 'string', maxLength: 4096 },
-    expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+    source: { type: 'string', maxLength: 4096, description: 'Required path to the existing source file.' },
+    destination: { type: 'string', maxLength: 4096, description: 'Required new destination path; it must not already exist.' },
+    expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Required SHA-256 from the latest fs.read_text result for source.' },
   }, ['source', 'destination', 'expected_sha256'], async (args) => {
     const normalized = shape(args, ['source', 'destination', 'expected_sha256']);
     if (!/^[0-9a-f]{64}$/u.test(args.expected_sha256)) throw invalid();
@@ -63,8 +64,13 @@ function definition(name, purpose, sideEffect, properties, required, validate, e
 }
 
 function shape(args, required) {
-  if (!args || typeof args !== 'object' || Array.isArray(args)
-    || Object.keys(args).length !== required.length || required.some((key) => typeof args[key] !== 'string')) throw invalid();
+  if (!args || typeof args !== 'object' || Array.isArray(args)) throw invalid('tool arguments must be an object');
+  const missing = required.find((key) => !Object.hasOwn(args, key));
+  if (missing) throw invalid(`required argument "${missing}" is missing`);
+  const unknown = Object.keys(args).find((key) => !required.includes(key));
+  if (unknown) throw invalid(`unknown argument "${unknown}"`);
+  const invalidType = required.find((key) => typeof args[key] !== 'string');
+  if (invalidType) throw invalid(`argument "${invalidType}" must be a string`);
   return Object.fromEntries(required.map((key) => [key, args[key]]));
 }
 
@@ -79,4 +85,6 @@ async function assertAbsent(path) {
 }
 
 function abort(signal) { if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled'); }
-function invalid() { return new ContractError('tool_schema_invalid', 'filesystem operation arguments do not match the schema'); }
+function invalid(message = 'filesystem operation arguments do not match the schema') {
+  return new ContractError('tool_schema_invalid', message);
+}

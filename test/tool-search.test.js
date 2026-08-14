@@ -93,4 +93,19 @@ test('provider tool schemas omit grammar-hostile bounds while runtime schemas re
   assert.equal(Object.hasOwn(wire.function.parameters.properties.start_line, 'maximum'), false);
   assert.equal(Object.hasOwn(wire.function.parameters.properties.path, 'maxLength'), false);
   assert.equal(wire.function.parameters.properties.start_line.type, 'integer');
+  assert.match(wire.function.parameters.properties.path.description, /UTF-8 text file/u);
+});
+
+test('every bundled filesystem argument has provider-visible semantic guidance', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  const filesystemTools = registry.snapshot().filter((item) => item.name.startsWith('fs.'));
+  assert.ok(filesystemTools.length >= 13);
+  for (const tool of filesystemTools) {
+    for (const [name, property] of Object.entries(tool.inputSchema.properties ?? {})) {
+      assert.equal(typeof property.description, 'string', `${tool.name}.${name} lacks a description`);
+      assert.ok(property.description.length > 0, `${tool.name}.${name} has an empty description`);
+    }
+  }
+  await registry.close();
 });

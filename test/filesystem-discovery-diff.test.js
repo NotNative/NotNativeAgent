@@ -34,6 +34,26 @@ test('fs.glob and fs.search_text discover bounded files without a platform shell
   const regexResult = await search.executor(regexRequest, new AbortController().signal);
   assert.match(regexResult.content, /src\/alpha\.js:2:1: Needle here/u);
   assert.match(regexResult.content, /src\/beta\.txt:1:1: needle elsewhere/u);
+
+  const exactFileRequest = await search.validate({ path: join(root, 'src', 'alpha.js'), query: 'Needle' });
+  const exactFileResult = await search.executor(exactFileRequest, new AbortController().signal);
+  assert.match(exactFileResult.content, /alpha\.js:2:1: Needle here/u);
+});
+
+test('filesystem discovery schemas explain path and pattern roles with actionable repair errors', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-discovery-schema-'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const glob = registry.definition('fs.glob');
+  const search = registry.definition('fs.search_text');
+  assert.match(glob.inputSchema.properties.path.description, /Do not put glob syntax here/u);
+  assert.match(glob.inputSchema.properties.pattern.description, /Required glob/u);
+  assert.match(search.inputSchema.properties.path.description, /Exact file or root directory/u);
+  assert.match(search.inputSchema.properties.query.description, /Required literal text/u);
+  await assert.rejects(glob.validate({ path: root }), {
+    code: 'tool_schema_invalid', message: 'required argument "pattern" is missing',
+  });
+  await registry.close();
 });
 
 test('root tools can inspect host paths while hosted tools retain the manifest workspace ceiling', async () => {
