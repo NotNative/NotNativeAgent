@@ -12,6 +12,7 @@ import { contextCompactionText } from './tui-context-renderer.js';
 import { applyConversationSpacing } from './tui-conversation-spacing.js';
 import { permissionControlLine, permissionLines } from './tui-permission-renderer.js';
 import { decorateContent, decorateFooter, decorateHeader } from './tui-decoration.js';
+import { workSummaryRows } from './tui-work-summary.js';
 export class TuiRenderer {
   frame(projection, capabilities) {
     const session = projection.active();
@@ -206,6 +207,7 @@ function footerLines(projection, session, width, capabilities = {}, suggestionCa
   add(commandPickerLines(session, projection, suggestionCapacity).map((line) => crop(line, width)), 'suggestion');
   const activity = liveActivityLine(session, capabilities);
   if (activity) add(crop(activity, width), 'activity');
+  for (const row of workSummaryRows(session.work, width, capabilities.height ?? 24)) add(crop(row.text, width), row.kind);
   add(editorLines(session, width), 'editor');
   add(rule(width), 'rule');
   add(crop(controlLine(session, projection.bindings), width), 'controls');

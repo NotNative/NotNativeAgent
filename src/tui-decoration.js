@@ -47,6 +47,13 @@ export function decorateFooter(line, index, length, color, animationFrame = 0, l
     return status.replace(/^(?:prompt|auto-review|unattended)/u, (posture) => paint(TUI_THEME.accent, posture));
   }
   if (lineKind === 'controls' || index === length - 2) return paint(TUI_THEME.mutedStrong, line);
+  if (lineKind === 'work:goal:active') return paint(TUI_THEME.accent, line);
+  if (lineKind === 'work:goal:completed' || lineKind === 'work:task:completed' || lineKind === 'work:hint') {
+    return paint(TUI_THEME.mutedDark, line);
+  }
+  if (lineKind === 'work:task:in_progress' || lineKind === 'work:compact') return paint(TUI_THEME.activity, line);
+  if (lineKind === 'work:task:blocked') return paint(TUI_THEME.danger, line);
+  if (lineKind === 'work:task:pending') return paint(TUI_THEME.primary, line);
   if (lineKind === 'editor') {
     if (!line.startsWith('> ')) return line;
     const body = line.slice(2).replace(/^\[pasted \d+ images?\]/u, (marker) => paint(TUI_THEME.accentSoft, marker));

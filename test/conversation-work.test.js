@@ -6,6 +6,9 @@ import { conversationWorkDefinitions } from '../src/conversation-work-tools.js';
 import { buildContext } from '../src/context.js';
 import { planOverlay, taskOverlay } from '../src/tui-overlays.js';
 import { sessionStatusLine } from '../src/tui-status-line.js';
+import { workSummaryRows } from '../src/tui-work-summary.js';
+import { TuiProjection } from '../src/tui-model.js';
+import { TuiRenderer } from '../src/tui-renderer.js';
 
 test('conversation work enforces one active task and evidence-based completion', async () => {
   const records = [];
@@ -87,6 +90,39 @@ test('plan and task overlays expose structured progress with a compact footer in
     contextLimitBytes: null, work,
   }, 240);
   assert.match(status, /plan 1\/2/u);
+});
+
+test('responsive work shelf keeps goal and ordered tasks visible beside the composer', () => {
+  const work = { revision: 5, goal: { objective: 'Ship visible conversation work', status: 'active' }, tasks: [
+    { id: 'T1', title: 'Persist the goal', status: 'completed' },
+    { id: 'T2', title: 'Render the task list', status: 'in_progress' },
+    { id: 'T3', title: 'Verify compact mode', status: 'pending' },
+  ] };
+  const rows = workSummaryRows(work, 100, 30);
+  assert.deepEqual(rows.map((row) => row.kind), [
+    'work:goal:active', 'work:task:completed', 'work:task:in_progress', 'work:task:pending', 'work:hint',
+  ]);
+  assert.match(rows.map((row) => row.text).join('\n'), /GOAL ACTIVE · Ship visible conversation work · 1\/3 tasks complete/u);
+  assert.match(rows.map((row) => row.text).join('\n'), /\[>\] T2  Render the task list/u);
+  assert.equal(rows.at(-1).text.trim(), '/plan manage');
+
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { provider: 'local', model: 'model' });
+  projection.active().work = work;
+  const frame = new TuiRenderer().frame(projection, { width: 100, height: 30, color: false });
+  assert.match(frame, /GOAL ACTIVE · Ship visible conversation work/u);
+  assert.match(frame, /\[x\] T1  Persist the goal/u);
+  assert.match(frame, /\[>\] T2  Render the task list/u);
+  assert.match(frame, /\/plan manage\n> \|/u);
+});
+
+test('compact work shelf exposes goal-only state and preserves the plan affordance', () => {
+  const goalOnly = workSummaryRows({ goal: { objective: 'A very long durable goal that cannot fit in one narrow terminal row', status: 'active' }, tasks: [] }, 44, 20);
+  assert.equal(goalOnly.length, 1);
+  assert.match(goalOnly[0].text, /^Goal active/u);
+  assert.match(goalOnly[0].text, /… · \/plan$/u);
+  assert.equal(goalOnly[0].text.endsWith(' · /plan'), true);
+  assert.equal(workSummaryRows({ goal: { objective: 'Hidden only when no safe room exists', status: 'active' }, tasks: [] }, 80, 8).length, 0);
 });
 
 test('footer uses deliberate wide and medium compositions', () => {
