@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { governanceFingerprint } from './governance-contracts.js';
+import { governanceFingerprint } from './governance/contracts.js';
 import { LearningCandidateRegistry } from './learning-candidates.js';
 
 const DIRECT = /\b(?:build|create|develop|design|make)\b[^\r\n]{0,240}\bskill\b/iu;

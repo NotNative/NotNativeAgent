@@ -5,7 +5,7 @@ import { IdleArbiter } from './idle-arbiter.js';
 import { userDataPaths } from './product.js';
 import { diagnoseDreamEvidence } from './dream-diagnosis.js';
 import { LearningCandidateRegistry } from './learning-candidates.js';
-import { governanceFingerprint } from './governance-contracts.js';
+import { governanceFingerprint } from './governance/contracts.js';
 import { NnmGovernanceReceipts } from './nnm-governance-receipts.js';
 import { NnmHygieneReceipts } from './nnm-hygiene-receipts.js';
 import { admitHygieneReceipt, admitNnmReceipt } from './dream-governance-admission.js';

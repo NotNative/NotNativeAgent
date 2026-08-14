@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { governanceFingerprint } from './governance-contracts.js';
+import { governanceFingerprint } from './governance/contracts.js';
 
 export async function admitNnmReceipt(engine, receipt, workspaceRoot) {
   const evidence = await engine.governance.registerEvidence({

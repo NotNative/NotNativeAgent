@@ -11,7 +11,7 @@ import { DreamCoordinator } from '../src/dream-coordinator.js';
 import { ForensicTelemetry } from '../src/forensic-telemetry.js';
 import { GovernanceEngine } from '../src/governance-engine.js';
 import { LearningCandidateRegistry } from '../src/learning-candidates.js';
-import { governanceFingerprint } from '../src/governance-contracts.js';
+import { governanceFingerprint } from '../src/governance/contracts.js';
 
 test('dream defaults are standalone-only and preserve explicit operator disablement', () => {
   assert.equal(resolveManifest(manifest()).dream.enabled, true);

@@ -2,9 +2,9 @@
 import { readFile, readdir, realpath, stat } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
-const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs');
+const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs');
 const MAX_DOCUMENT_BYTES = 262_144;
 const MAX_CATALOG_BYTES = 2_097_152;
 

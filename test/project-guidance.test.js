@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ProjectGuidance } from '../src/project-guidance.js';
+import { ProjectGuidance } from '../src/guidance/project.js';
 import { buildContext } from '../src/context.js';
 
 test('project guidance resolves root-to-target hierarchy and ignores outside paths', async () => {

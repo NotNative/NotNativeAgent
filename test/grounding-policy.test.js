@@ -5,7 +5,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GovernanceEngine } from '../src/governance-engine.js';
-import { GroundingPolicy } from '../src/grounding-policy.js';
+import { GroundingPolicy } from '../src/governance/grounding-policy.js';
 
 test('memory grounding admits current evidence, qualifies stale evidence, and quarantines conflicts', async () => {
   const governance = new GovernanceEngine({ durable: false, sessionId: 'grounding-session' });

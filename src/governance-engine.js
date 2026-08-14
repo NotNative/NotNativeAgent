@@ -4,7 +4,7 @@ import { JournalStore } from './store.js';
 import {
   assertEvidenceTransition, governanceFingerprint, normalizeGovernanceDecision,
   normalizeGovernanceEvidence, normalizeGovernanceTerminal,
-} from './governance-contracts.js';
+} from './governance/contracts.js';
 
 export class GovernanceEngine {
   #evidence = new Map();

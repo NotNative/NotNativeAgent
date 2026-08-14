@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { GovernanceEngine } from '../src/governance-engine.js';
-import { normalizeGovernanceEvidence } from '../src/governance-contracts.js';
+import { normalizeGovernanceEvidence } from '../src/governance/contracts.js';
 
 test('governance persists evidence lifecycle, decisions, and terminal effects', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-governance-'));

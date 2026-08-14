@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
-import { governanceFingerprint } from './governance-contracts.js';
+import { governanceFingerprint } from './governance/contracts.js';
 
 export const LEARNING_POLICY_VERSION = 'learning-promotion/1';
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { governanceFingerprint } from './governance-contracts.js';
-import { newId } from './ids.js';
+import { governanceFingerprint } from './contracts.js';
+import { newId } from '../ids.js';
 
 export const GROUNDING_POLICY_VERSION = 'grounding/1';
 
