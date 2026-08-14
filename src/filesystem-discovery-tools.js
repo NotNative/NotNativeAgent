@@ -52,7 +52,7 @@ function searchDefinition(paths) {
       path: { type: 'string', maxLength: 4096, description: 'Exact file or root directory to search. Defaults to the working directory.' },
       query: { type: 'string', minLength: 1, maxLength: 4096, description: 'Required literal text, or a regular expression when match_mode is regex.' },
       match_mode: { type: 'string', enum: ['literal', 'regex'], description: 'Interpret query as literal text (default) or a regular expression.' },
-      file_glob: { type: 'string', minLength: 1, maxLength: 1024, description: 'Optional file-path filter when path is a directory, for example **/*.js.' },
+      file_glob: { type: 'string', minLength: 1, maxLength: 1024, description: 'Optional file filter. For a directory it matches descendant paths; for one exact file it matches the basename. A non-match returns no results.' },
       case_sensitive: { type: 'boolean', description: 'Whether matching respects case. Defaults to false.' },
       max_depth: { type: 'integer', minimum: 0, maximum: 64, description: 'Maximum directory depth when path is a directory. Defaults to 32.' },
       max_results: { type: 'integer', minimum: 1, maximum: 1000, description: 'Maximum line matches to return. Defaults to 200.' },
@@ -63,9 +63,8 @@ function searchDefinition(paths) {
       if (args.match_mode !== undefined && !['literal', 'regex'].includes(args.match_mode)) invalid('match_mode must be literal or regex');
       if (args.file_glob !== undefined) requireString(args.file_glob, 'file_glob');
       if (args.case_sensitive !== undefined && typeof args.case_sensitive !== 'boolean') invalid('case_sensitive must be boolean');
-      const resolved = await paths.resolveMetadata(args.path ?? '.');
+      const resolved = await resolveSearchTarget(paths, args.path ?? '.');
       if (!['file', 'directory'].includes(resolved.kind)) invalid('path must identify a regular file or directory');
-      if (resolved.kind === 'file' && args.file_glob !== undefined) invalid('file_glob is only valid when path identifies a directory');
       return {
         args: {
           path: args.path ?? '.', query: args.query, match_mode: args.match_mode ?? 'literal', file_glob: args.file_glob ?? '**/*',
@@ -75,7 +74,9 @@ function searchDefinition(paths) {
         resolved,
       };
     },
-    executor: async (request, signal) => (await ripgrepSearch(request, signal)) ?? searchFiles(request, signal),
+    executor: async (request, signal) => exactFileMatchesGlob(request)
+      ? (await ripgrepSearch(request, signal)) ?? searchFiles(request, signal)
+      : emptySearchResult(request),
   };
 }
 
@@ -231,6 +232,31 @@ async function walkFiles(root, maxDepth, limit, signal, accept) {
 function globMatch(relativePath, pattern) {
   try { return matchesGlob(relativePath, pattern.replaceAll('\\', '/')); }
   catch { throw new ContractError('tool_pattern_invalid', 'glob pattern is invalid'); }
+}
+
+function exactFileMatchesGlob(request) {
+  return request.resolved.kind !== 'file' || globMatch(basename(request.resolved.path), request.args.file_glob);
+}
+
+function emptySearchResult(request) {
+  return {
+    content: 'no text matches',
+    metadata: {
+      root: request.args.path, query: request.args.query, match_mode: request.args.match_mode,
+      matches: 0, files_examined: 0, bytes_examined: 0, binary_skipped: 0,
+      oversized_skipped: 0, inaccessible_skipped: 0, truncated: false,
+    },
+  };
+}
+
+async function resolveSearchTarget(paths, path) {
+  try { return await paths.resolveMetadata(path); }
+  catch (error) {
+    if (['ENOENT', 'ENOTDIR'].includes(error?.code)) {
+      throw new ContractError('tool_target_not_found', `search path does not exist: ${path}`);
+    }
+    throw error;
+  }
 }
 
 function displayPath(root, path) {

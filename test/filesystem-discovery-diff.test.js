@@ -38,6 +38,18 @@ test('fs.glob and fs.search_text discover bounded files without a platform shell
   const exactFileRequest = await search.validate({ path: join(root, 'src', 'alpha.js'), query: 'Needle' });
   const exactFileResult = await search.executor(exactFileRequest, new AbortController().signal);
   assert.match(exactFileResult.content, /alpha\.js:2:1: Needle here/u);
+
+  const exactFileWithBroadGlob = await search.validate({
+    path: join(root, 'src', 'alpha.js'), query: 'Needle', file_glob: '**/*',
+  });
+  assert.match((await search.executor(exactFileWithBroadGlob, new AbortController().signal)).content, /Needle here/u);
+
+  const filteredExactFile = await search.validate({
+    path: join(root, 'src', 'alpha.js'), query: 'Needle', file_glob: '*.txt',
+  });
+  const filteredResult = await search.executor(filteredExactFile, new AbortController().signal);
+  assert.equal(filteredResult.content, 'no text matches');
+  assert.equal(filteredResult.metadata.files_examined, 0);
 });
 
 test('filesystem discovery schemas explain path and pattern roles with actionable repair errors', async () => {
@@ -50,8 +62,12 @@ test('filesystem discovery schemas explain path and pattern roles with actionabl
   assert.match(glob.inputSchema.properties.pattern.description, /Required glob/u);
   assert.match(search.inputSchema.properties.path.description, /Exact file or root directory/u);
   assert.match(search.inputSchema.properties.query.description, /Required literal text/u);
+  assert.match(search.inputSchema.properties.file_glob.description, /exact file/u);
   await assert.rejects(glob.validate({ path: root }), {
     code: 'tool_schema_invalid', message: 'required argument "pattern" is missing',
+  });
+  await assert.rejects(search.validate({ path: 'missing.js', query: 'needle' }), {
+    code: 'tool_target_not_found', message: 'search path does not exist: missing.js',
   });
   await registry.close();
 });
