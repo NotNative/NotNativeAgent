@@ -60,6 +60,16 @@ test('telemetry bounds oversized content and support projection excludes free-fo
   assert.equal(projected.payload_summary.model_name, 'local-model');
 });
 
+test('telemetry preserves repeated aliases while marking only active traversal cycles', () => {
+  const shared = { category: 'tool_no_progress', action: 'nudge' };
+  const cyclic = { label: 'cycle' };
+  cyclic.self = cyclic;
+  const sanitized = sanitizeTelemetry({ completed_progress: [shared], recovery: [shared], cyclic });
+  assert.deepEqual(sanitized.completed_progress[0], shared);
+  assert.deepEqual(sanitized.recovery[0], shared);
+  assert.equal(sanitized.cyclic.self._nna_telemetry, 'circular_reference');
+});
+
 test('state transitions and lifecycle records produce paired forensic spans', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-forensic-phases-'));
   const telemetry = telemetryAt(root);

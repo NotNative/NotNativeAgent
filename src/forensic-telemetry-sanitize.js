@@ -7,7 +7,7 @@ const DEFAULTS = Object.freeze({ maxDepth: 16, maxNodes: 20_000, maxStringBytes:
 
 export function sanitizeTelemetry(value, options = {}) {
   const limits = { ...DEFAULTS, ...options };
-  const state = { nodes: 0, seen: new WeakSet() };
+  const state = { nodes: 0, active: new WeakSet() };
   return visit(value, 0, limits, state);
 }
 
@@ -20,20 +20,22 @@ function visit(value, depth, limits, state) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : String(value);
   if (typeof value === 'boolean' || value === null || value === undefined) return value ?? null;
   if (typeof value !== 'object') return String(value);
-  if (state.seen.has(value)) return marker('circular_reference', null);
-  state.seen.add(value);
-  if (Array.isArray(value)) {
-    const result = value.slice(0, limits.maxArray).map((item) => visit(item, depth + 1, limits, state));
-    if (value.length > limits.maxArray) result.push(marker('array_limit', { omitted: value.length - limits.maxArray }));
+  if (state.active.has(value)) return marker('circular_reference', null);
+  state.active.add(value);
+  try {
+    if (Array.isArray(value)) {
+      const result = value.slice(0, limits.maxArray).map((item) => visit(item, depth + 1, limits, state));
+      if (value.length > limits.maxArray) result.push(marker('array_limit', { omitted: value.length - limits.maxArray }));
+      return result;
+    }
+    const result = {};
+    const entries = Object.entries(value);
+    for (const [key, child] of entries.slice(0, limits.maxKeys)) {
+      result[key] = SECRET_KEY.test(key) ? '[redacted]' : visit(child, depth + 1, limits, state);
+    }
+    if (entries.length > limits.maxKeys) result._nna_omitted_keys = entries.length - limits.maxKeys;
     return result;
-  }
-  const result = {};
-  const entries = Object.entries(value);
-  for (const [key, child] of entries.slice(0, limits.maxKeys)) {
-    result[key] = SECRET_KEY.test(key) ? '[redacted]' : visit(child, depth + 1, limits, state);
-  }
-  if (entries.length > limits.maxKeys) result._nna_omitted_keys = entries.length - limits.maxKeys;
-  return result;
+  } finally { state.active.delete(value); }
 }
 
 function boundedText(value, maximum) {
