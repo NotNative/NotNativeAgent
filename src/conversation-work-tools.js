@@ -32,7 +32,7 @@ function taskUpdateDefinition(work) {
   return definition('work.task_update', 'Move one durable conversation task to pending, in_progress, completed, or blocked. Completion requires evidence and blocking requires a reason.', 'reversible', {
     id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Required task id such as T1, returned by work.status or work.task_add.' },
     status: { type: 'string', enum: ['pending', 'in_progress', 'completed', 'blocked'], description: 'Required next task status.' },
-    detail: { type: 'string', minLength: 1, maxLength: 1024, description: 'Completion evidence for completed or blocking reason for blocked; omit for pending or in_progress.' },
+    detail: { type: 'string', minLength: 1, maxLength: 1024, description: 'Concise completion evidence for completed or blocking reason for blocked, limited to 1,024 characters; omit for pending or in_progress.' },
   }, ['id', 'status'], async (args) => mutationResult(await work.updateTask(args.id, args.status, args.detail), { taskId: args.id }));
 }
 

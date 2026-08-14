@@ -51,5 +51,13 @@ test('bundled tool shape failures identify the argument the model must repair', 
     await assert.rejects(registry.definition('web.fetch').validate({ url: 'https://example.com', extra: true }), {
       code: 'tool_schema_invalid', message: 'unknown argument "extra"',
     });
+    const taskUpdate = registry.definition('work.task_update');
+    assert.match(taskUpdate.inputSchema.properties.detail.description, /1,024 characters/u);
+    await assert.rejects(taskUpdate.validate({ id: 'T4', status: 'completed', detail: 'x'.repeat(1778) }), {
+      code: 'tool_schema_invalid', message: 'argument "detail" must contain at most 1024 characters; received 1778',
+    });
+    await assert.rejects(taskUpdate.validate({ id: 'T4', status: 'done' }), {
+      code: 'tool_schema_invalid', message: 'argument "status" must be one of "pending", "in_progress", "completed", "blocked"; received "done"',
+    });
   } finally { await registry.close(); }
 });
