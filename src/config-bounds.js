@@ -34,6 +34,11 @@ export function providerTimeouts(manifest) {
   };
 }
 
+export function providerRouteDeadline(value, providerMs) {
+  // 120 seconds was the legacy persisted route default.
+  return boundedInteger(value === 120_000 ? undefined : value, providerMs, 100, 3_600_000);
+}
+
 export function semanticReviewTimeout(manifest, providerMs) {
   const configured = manifest.semantic_review_timeout_ms;
   // Fifteen seconds was an early default that is too short for local models and

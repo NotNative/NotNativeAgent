@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { validateKeyBindings } from './key-bindings.js';
 import { validateNestedManifestKeys } from './configuration-shape.js';
-import { boundedInteger, boundedNumber, providerTimeouts, semanticReviewTimeout, telemetryDestination } from './config-bounds.js';
+import { boundedInteger, boundedNumber, providerRouteDeadline, providerTimeouts, semanticReviewTimeout, telemetryDestination } from './config-bounds.js';
 import { resolveContextLimits } from './config-context.js';
 import { validateAllowedTools, validateHostIdentity } from './execution-policy.js';
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
@@ -258,7 +258,7 @@ function buildRoutes(value, profile, profiles, providerMs) {
       maxOutputTokens: boundedInteger(route.max_output_tokens, 16_384, 1, 1_048_576),
       budget: boundedInteger(route.budget, 1, 1, 64),
       fallbacks,
-      deadlineMs: boundedInteger(route.deadline_ms, providerMs, 100, 3_600_000),
+      deadlineMs: providerRouteDeadline(route.deadline_ms, providerMs),
     });
     if (!profiles[result[role].providerId]) {
       throw new ContractError('route_profile_missing', `route ${role} references an unavailable provider`);

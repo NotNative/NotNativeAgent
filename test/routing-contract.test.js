@@ -104,16 +104,22 @@ test('AC-FAIL-02/AC-PERF-05 runtime deadlines and concurrency are independently 
 test('historical short provider defaults migrate to local-model-safe deadlines', () => {
   const config = resolveManifest({
     providers, provider_timeout_ms: 120_000, first_token_timeout_ms: 30_000, idle_timeout_ms: 45_000,
+    routes: { primary: { deadline_ms: 120_000 } },
   });
   assert.equal(config.limits.providerMs, 1_800_000);
   assert.equal(config.limits.firstTokenMs, 600_000);
   assert.equal(config.limits.idleMs, 300_000);
+  assert.equal(config.routes.primary.deadlineMs, 1_800_000);
   const custom = resolveManifest({
     providers, provider_timeout_ms: 121_000, first_token_timeout_ms: 30_000, idle_timeout_ms: 45_000,
   });
   assert.equal(custom.limits.providerMs, 121_000);
   assert.equal(custom.limits.firstTokenMs, 600_000);
   assert.equal(custom.limits.idleMs, 300_000);
+  const customRoute = resolveManifest({
+    providers, provider_timeout_ms: 1_800_000, routes: { primary: { deadline_ms: 121_000 } },
+  });
+  assert.equal(customRoute.routes.primary.deadlineMs, 121_000);
   const fullyCustom = resolveManifest({
     providers, provider_timeout_ms: 121_000, first_token_timeout_ms: 31_000, idle_timeout_ms: 46_000,
   });
