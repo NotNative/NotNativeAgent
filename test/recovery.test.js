@@ -72,6 +72,18 @@ test('low-pressure no-progress recovery does not substitute compaction for corre
   assert.equal(recovery.noProgress('schema', null, {}, { allowCompaction: false }).action.action, 'nudge');
 });
 
+test('tool recovery budgets are isolated by stable failure fingerprint', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  assert.equal(recovery.noProgress('tool_no_progress', null, {}, { failureFingerprint: 'search-glob' }).count, 1);
+  assert.equal(recovery.noProgress('tool_no_progress', null, {}, { failureFingerprint: 'search-glob' }).count, 2);
+  const different = recovery.noProgress('tool_no_progress', null, {}, { failureFingerprint: 'task-detail' });
+  assert.equal(different.count, 1);
+  assert.equal(different.action.failure_fingerprint, 'task-detail');
+  assert.deepEqual(recovery.noProgress('tool_no_progress', null, {}, { failureFingerprint: 'search-glob' }), {
+    continue: false, exhausted: true, count: 3,
+  });
+});
+
 function toolCall(id, path) {
   return [
     { type: 'tool_fragment', fragments: [{

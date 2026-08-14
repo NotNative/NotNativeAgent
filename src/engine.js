@@ -12,7 +12,7 @@ import { recoveryExhaustionDetail, recoveryExhaustionText, recoveryHint } from '
 import { JournalStore } from './store.js';
 import { SessionLock } from './session-lock.js';
 import { restoreSessionRecords } from './session-history.js';
-import { toolContinuationHint, toolProgressEvidence } from './tool-loop.js';
+import { toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from './tool-loop.js';
 import { installEngineComponents } from './engine-components.js';
 import { applyPendingConfiguration, updateEngineConfiguration } from './runtime-config.js';
 import { userDataPaths } from './product.js';
@@ -302,9 +302,9 @@ export class SessionEngine {
       .map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
     const steeringApplied = await this.#consumeSteering(active);
     const evidence = toolProgressEvidence(items, steeringApplied);
-    const progress = active.recovery.noProgress(
-      'tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact' },
-    );
+    const progress = active.recovery.noProgress('tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact',
+      failureFingerprint: toolFailureFingerprint(items),
+    });
     if (progress.action) await this.#recordRecovery(progress.action, active);
     await this.#settleStep(active, 'continued');
     if (!progress.continue) return { exhausted: true, category: 'tool_no_progress', count: progress.count };

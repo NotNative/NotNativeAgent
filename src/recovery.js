@@ -42,17 +42,21 @@ export class RecoverySupervisor {
   noProgress(category, evidence = null, detail = {}, options = {}) {
     const observedDetail = evidenceDetail(evidence, detail);
     if (evidence && this.observeProgress(evidenceValue(evidence), observedDetail)) {
-      this.#episodes.delete(category);
+      this.#clearEpisodes(category);
       return Object.freeze({ continue: true, progress: true, action: null });
     }
-    const count = (this.#episodes.get(category) ?? 0) + 1;
-    this.#episodes.set(category, count);
+    const episode = episodeKey(category, options.failureFingerprint);
+    const count = (this.#episodes.get(episode) ?? 0) + 1;
+    this.#episodes.set(episode, count);
     if (count >= this.localLimit) return Object.freeze({ continue: false, exhausted: true, count });
     const configuredAction = this.ladder[count - 1];
     const action = configuredAction === 'compact' && options.allowCompaction === false ? 'nudge' : configuredAction;
     return Object.freeze({
       continue: true, progress: false, count,
-      action: this.#record(category, action, count, repeatedEvidenceDetail(observedDetail)),
+      action: this.#record(category, action, count, {
+        ...repeatedEvidenceDetail(observedDetail),
+        ...(options.failureFingerprint ? { failure_fingerprint: options.failureFingerprint } : {}),
+      }),
     });
   }
 
@@ -111,6 +115,16 @@ export class RecoverySupervisor {
     if (this.#actions.length > 256) this.#actions.shift();
     return record;
   }
+
+  #clearEpisodes(category) {
+    for (const key of this.#episodes.keys()) {
+      if (key === category || key.startsWith(`${category}\0`)) this.#episodes.delete(key);
+    }
+  }
+}
+
+function episodeKey(category, failureFingerprint) {
+  return failureFingerprint ? `${category}\0${failureFingerprint}` : category;
 }
 
 function repeatedEvidenceDetail(detail) {

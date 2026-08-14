@@ -377,6 +377,17 @@ export function toolProgressEvidence(items, steeringApplied = []) {
   };
 }
 
+export function toolFailureFingerprint(items) {
+  const shapes = items.filter((item) => item.result?.status !== 'succeeded').map((item) => stableJson({
+    tool: item.result?.tool_name ?? item.request?.toolName ?? 'unknown',
+    status: item.result?.status ?? 'unknown',
+    reason: item.result?.reason_code ?? item.result?.reasonCode ?? 'unknown',
+    message: item.result?.content ?? '',
+  }));
+  if (shapes.length === 0) return null;
+  return createHash('sha256').update([...new Set(shapes)].sort().join('\n')).digest('hex');
+}
+
 export function toolContinuationHint(items, fallback = null) {
   const failedFetch = items.find((item) => item.result?.tool_name === 'web.fetch'
     && ['failed', 'invalid_request', 'timed_out'].includes(item.result?.status));
@@ -386,7 +397,7 @@ export function toolContinuationHint(items, fallback = null) {
   const invalid = items.filter((item) => item.result?.status === 'invalid_request');
   if (invalid.length > 0) {
     const failures = [...new Set(invalid.map((item) => `${item.result.tool_name ?? 'tool'}: ${item.result.reason_code ?? 'invalid_request'}`))];
-    return `The tool request was invalid (${failures.join(', ')}). Correct the arguments to exactly match the supplied tool schema; do not repeat the unchanged arguments. Context reduction cannot repair a schema mismatch.`;
+    return `The tool request was invalid (${failures.join(', ')}). Read the returned tool error for the exact field, expected value, and received value; correct that argument and retry the operation. Do not repeat unchanged arguments. Context reduction cannot repair a schema mismatch.`;
   }
   const denied = items.filter((item) => ['deny_with_guidance', 'hard_deny'].includes(item.result?.status));
   if (denied.length === 0) {

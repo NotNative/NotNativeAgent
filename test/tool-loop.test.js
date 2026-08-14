@@ -15,7 +15,7 @@ import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/reviewer-ledger.js';
 import { denialResult } from '../src/tool-governor.js';
 import { declaredSubscription } from './event-fixture.js';
-import { ToolLoop, toolContinuationHint, toolProgressEvidence } from '../src/tool-loop.js';
+import { ToolLoop, toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from '../src/tool-loop.js';
 import { selfDiagnosticsDefinitions } from '../src/self-diagnostics-tool.js';
 import { openRuntimeInspection } from '../src/tui-runtime-inspection.js';
 
@@ -31,6 +31,17 @@ test('different search arguments count as progress even when their results are i
     result: { status: 'succeeded', tool_name: 'fs.search_text', content: 'no text matches' },
   });
   assert.notEqual(toolProgressEvidence([item('alpha')], 0).value, toolProgressEvidence([item('beta')], 0).value);
+});
+
+test('failure fingerprints group the same repair condition but isolate different tools and messages', () => {
+  const failed = (tool, content) => ({ result: {
+    status: 'invalid_request', tool_name: tool, reason_code: 'tool_schema_invalid', content,
+  } });
+  const first = toolFailureFingerprint([failed('fs.search_text', 'file_glob is invalid')]);
+  assert.equal(first, toolFailureFingerprint([
+    failed('fs.search_text', 'file_glob is invalid'), failed('fs.search_text', 'file_glob is invalid'),
+  ]));
+  assert.notEqual(first, toolFailureFingerprint([failed('work.task_update', 'detail exceeds 1024 characters')]));
 });
 
 test('successful tool evidence is retained and combined with unique steering identity', () => {
