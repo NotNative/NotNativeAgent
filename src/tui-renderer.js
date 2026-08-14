@@ -301,7 +301,7 @@ function recordLines(record, width) {
   if (record.type === 'user_input') return renderMarkdown(record.text, width, '> ', '  ');
   if (record.type === 'stream_delta') return renderMarkdown(record.text, width, '* ', '  ');
   if (record.type === 'tool_status') {
-    if (record.status === 'running' && record.tool !== 'agent.run') return [];
+    if ((record.tool === 'agent.run' && ['running', 'succeeded'].includes(record.status)) || record.status === 'running') return [];
     return wrapIndentedTerminalLine(`    ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${record.status}${toolFailureSuffix(record)}`, width);
   }
   if (record.type === 'subagent_progress') return subagentProgressLines(record, width);

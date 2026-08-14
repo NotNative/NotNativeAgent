@@ -11,15 +11,20 @@ import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
 import { subagentStatus } from '../src/tui-runtime-inspection.js';
 
-test('sub-agent progress reports bounded tool starts and outcomes', async () => {
+test('sub-agent progress emits compact lifecycle milestones without child tool chatter', async () => {
   const output = [];
   const relay = createSubagentProgressRelay({
     sessionId: 'parent', output: async (record) => output.push(record),
   }, { turnId: 'turn-1', stepId: 'step-1', agentId: 'agent-1', agentType: 'general' });
   await relay.accept({ type: 'tool_status', status: 'running', tool: 'fs.read_text', target: 'README.md' });
   await relay.accept({ type: 'tool_status', status: 'succeeded', tool: 'fs.read_text', target: 'README.md' });
-  assert.match(output[0].text, /fs\.read_text \(README\.md\)$/u);
-  assert.match(output[1].text, /fs\.read_text \(README\.md\) · succeeded$/u);
+  assert.equal(output.length, 0);
+  await relay.started('Review src/subagent-progress.js and src/tui-activity-renderer.js.');
+  await relay.returned({ text: 'A deliberately verbose report remains available to the parent model.' });
+  assert.deepEqual(output.map((record) => [record.phase, record.text]), [
+    ['started', 'working on src/subagent-progress.js and 1 more file'],
+    ['returned', 'working on src/subagent-progress.js and 1 more file'],
+  ]);
 });
 
 test('agent.run validates a bounded specialist request and returns its terminal result', async () => {
@@ -119,7 +124,9 @@ test('subagent concurrency follows the loaded worker model parallel capacity', a
   const progress = output.filter((record) => record.type === 'subagent_progress');
   assert.equal(progress.filter((record) => record.phase === 'started').length, 2);
   assert.equal(progress.filter((record) => record.phase === 'returned').length, 2);
-  assert.equal(progress.filter((record) => record.phase === 'returned').every((record) => record.text === 'Explored.'), true);
+  assert.deepEqual(progress.filter((record) => record.phase === 'returned').map((record) => record.text).sort(), [
+    'Explore area A.', 'Explore area B.',
+  ]);
   assert.equal(engine.scheduler.snapshot().find((item) => item.resource === 'worker').discoveredLimit, 2);
   await engine.shutdown({ request_id: 'shutdown', type: 'shutdown' });
 });

@@ -22,9 +22,17 @@ export function decorateToolActivityLine(line, lineKind, paint) {
 
 export function subagentProgressLines(record, width) {
   const direction = record.phase === 'returned' ? '<' : record.phase === 'failed' ? 'X' : '>';
-  const phase = { started: 'started', working: 'reports', returned: 'returned', failed: 'failed' }[record.phase] ?? record.phase;
-  const prefix = `    ${direction} ${record.agent_type ?? 'sub-agent'} ${phase} | `;
-  return wrapTerminalLine(record.text ?? '', width, prefix, ' '.repeat(displayWidth(prefix)));
+  const phase = { started: 'started', returned: 'completed', failed: 'failed' }[record.phase];
+  if (!phase) return [];
+  const text = record.phase === 'returned' ? completedTask(record.text) : record.text;
+  const prefix = `    ${direction} ${record.agent_type ?? 'sub-agent'} ${phase} · `;
+  return wrapTerminalLine(text ?? '', width, prefix, ' '.repeat(displayWidth(prefix)));
+}
+
+function completedTask(value) {
+  return String(value ?? '').replace(/^(reviewing|updating|testing|planning|working on)\b/u, (verb) => ({
+    reviewing: 'reviewed', updating: 'updated', testing: 'tested', planning: 'planned', 'working on': 'finished',
+  })[verb]);
 }
 
 export function compactActivityRows(records) {

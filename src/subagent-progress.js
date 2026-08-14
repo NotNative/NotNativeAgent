@@ -1,36 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const MAX_PROGRESS_UPDATES = 12;
-const MAX_PROGRESS_TEXT = 640;
+const MAX_PROGRESS_TEXT = 120;
 
 export function createSubagentProgressRelay(engine, identity) {
-  let narrative = '';
-  let updates = 0;
-  let suppressionReported = false;
+  let taskSummary = 'delegated work';
   return Object.freeze({
-    accept: async (record) => {
-      if (record?.type === 'stream_delta' && record.delta_type === 'text') {
-        narrative = bounded(`${narrative}${record.text ?? ''}`);
-        return;
-      }
-      if (record?.type !== 'tool_status'
-        || !['running', 'succeeded', 'failed', 'denied'].includes(record.status)) return;
-      if (updates >= MAX_PROGRESS_UPDATES) {
-        if (!suppressionReported) await emitProgress(engine, identity, 'working', 'Additional child activity continues; detailed events remain in telemetry.');
-        suppressionReported = true;
-        return;
-      }
-      const tool = `${record.tool ?? 'tool'}${record.target ? ` (${record.target})` : ''}`;
-      const context = clean(narrative);
-      narrative = '';
-      updates += 1;
-      const status = record.status === 'running' ? '' : ` · ${record.status}`;
-      await emitProgress(engine, identity, 'working', context ? `${context} -> ${tool}${status}` : `${tool}${status}`);
+    accept: async () => undefined,
+    started: (task) => {
+      taskSummary = summarizeTask(task, identity.agentType);
+      return emitProgress(engine, identity, 'started', taskSummary);
     },
-    started: (task) => emitProgress(engine, identity, 'started', bounded(task)),
-    returned: (result) => emitProgress(engine, identity, 'returned', bounded(result?.text || narrative || result?.outcome || 'No summary returned.')),
-    failed: (error) => emitProgress(engine, identity, 'failed', bounded(error?.message ?? error?.code ?? 'Sub-agent failed.')),
+    returned: () => emitProgress(engine, identity, 'returned', taskSummary),
+    failed: (error) => emitProgress(engine, identity, 'failed', bounded(`${taskSummary} · ${error?.message ?? error?.code ?? 'failed'}`)),
   });
+}
+
+function summarizeTask(value, agentType) {
+  const text = clean(value);
+  const files = [...new Set(text.match(/[A-Za-z0-9_.-]+(?:[\\/][A-Za-z0-9_.-]+)*\.[A-Za-z0-9]{1,8}/gu) ?? [])]
+    .map((item) => item.replaceAll('\\', '/'));
+  const verb = { reviewer: 'reviewing', coder: 'updating', tester: 'testing', planner: 'planning' }[agentType] ?? 'working on';
+  if (files.length > 0) return bounded(`${verb} ${files[0]}${files.length > 1 ? ` and ${files.length - 1} more file${files.length === 2 ? '' : 's'}` : ''}`);
+  return bounded(text || 'delegated work');
 }
 
 async function emitProgress(engine, identity, phase, text) {

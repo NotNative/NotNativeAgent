@@ -46,10 +46,8 @@ function runningToolLabel(session) {
   const first = running[0];
   const detail = [first.tool, first.target ? `(${singleLine(first.target)})` : ''].filter(Boolean).join(' ');
   if (running.every((record) => record.tool === 'agent.run')) {
-    if (running.length === 1) return `Sub-agent active · ${singleLine(first.target ?? 'delegated task')}…`;
-    const visible = running.slice(0, 2).map((record) => clippedTarget(record.target));
-    const hidden = running.length - visible.length;
-    return `${running.length} sub-agents active · ${visible.join(' · ')}${hidden > 0 ? ` · +${hidden} more` : ''}…`;
+    const roles = agentRoleCounts(running);
+    return `${running.length === 1 ? 'Sub-agent active' : `${running.length} sub-agents active`} · ${roles}…`;
   }
   if (running.length === 1) return `Running ${detail || 'tool'}…`;
   return `Running ${running.length} tools · ${detail || 'working'}…`;
@@ -59,7 +57,11 @@ function singleLine(value) {
   return String(value).replace(/\s+/gu, ' ').trim();
 }
 
-function clippedTarget(value) {
-  const text = singleLine(value ?? 'delegated work');
-  return text.length <= 72 ? text : `${text.slice(0, 69)}...`;
+function agentRoleCounts(records) {
+  const roles = new Map();
+  for (const record of records) {
+    const role = (singleLine(record.target ?? '').split(' · ', 1)[0] || 'agent').slice(0, 24);
+    roles.set(role, (roles.get(role) ?? 0) + 1);
+  }
+  return [...roles].slice(0, 3).map(([role, count]) => `${role}${count > 1 ? ` x${count}` : ''}`).join(' · ');
 }

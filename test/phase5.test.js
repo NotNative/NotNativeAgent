@@ -1462,7 +1462,7 @@ test('active tool status identifies the currently running tool and its presentat
   }), /Running shell\.run/u);
 });
 
-test('active agent runs remain visible with their inherited model and replace their running row when settled', () => {
+test('active agent runs use a compact footer and omit duplicate tool rows', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'primary-model', provider: 'p' });
   projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
@@ -1474,8 +1474,8 @@ test('active agent runs remain visible with their inherited model and replace th
   let frame = new TuiRenderer().frame(projection, {
     width: 120, height: 24, color: false, unicode: false, reducedMotion: true,
   });
-  assert.match(frame, /\+ agent\.run \(coder · worker-model · inherits Primary: configure yellow host\) \| running/u);
-  assert.match(frame, /Sub-agent active · coder · worker-model · inherits Primary: configure yellow host/u);
+  assert.doesNotMatch(frame, /agent\.run .* \| running/u);
+  assert.match(frame, /Sub-agent active · coder/u);
   projection.apply('s1', {
     type: 'tool_status', status: 'succeeded', tool: 'agent.run',
     target: 'coder · worker-model · inherits Primary: configure yellow host',
@@ -1485,28 +1485,44 @@ test('active agent runs remain visible with their inherited model and replace th
     width: 120, height: 24, color: false, unicode: false, reducedMotion: true,
   });
   assert.doesNotMatch(frame, /agent\.run .* \| running/u);
-  assert.match(frame, /agent\.run .* \| succeeded/u);
+  assert.doesNotMatch(frame, /agent\.run .* \| succeeded/u);
   assert.doesNotMatch(frame, /Sub-agent active/u);
+  projection.apply('s1', {
+    type: 'tool_status', status: 'denied', tool: 'agent.run', target: 'reviewer · blocked task',
+    tool_request_id: 'agent-2', turn_id: 'turn-1', reason_code: 'review_denied',
+  });
+  frame = new TuiRenderer().frame(projection, {
+    width: 120, height: 24, color: false, unicode: false, reducedMotion: true,
+  });
+  assert.match(frame, /agent\.run \(reviewer · blocked task\) \| denied \| review_denied/u);
 });
 
-test('live sub-agent progress is bounded, readable, and retains hanging indentation', () => {
+test('sub-agent transcript progress shows compact start and completion milestones only', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'primary-model', provider: 'p' });
   projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
   projection.apply('s1', {
     type: 'subagent_progress', turn_id: 'turn-1', agent_id: 'agent-1', agent_type: 'general',
-    phase: 'working', text: 'Red reports that the service is stopped and is now inspecting the llama.cpp build configuration before changing anything.',
+    phase: 'working', text: 'fs.read_text (src/engine.js) · succeeded',
+  });
+  projection.apply('s1', {
+    type: 'subagent_progress', turn_id: 'turn-1', agent_id: 'agent-1', agent_type: 'reviewer',
+    phase: 'started', text: 'reviewing src/engine.js and 3 more files',
+  });
+  projection.apply('s1', {
+    type: 'subagent_progress', turn_id: 'turn-1', agent_id: 'agent-1', agent_type: 'reviewer',
+    phase: 'returned', text: 'reviewing src/engine.js and 3 more files',
   });
   const frame = new TuiRenderer().frame(projection, {
     width: 70, height: 24, color: false, unicode: false, reducedMotion: true,
   });
   const rows = frame.split('\n');
-  const first = rows.findIndex((line) => line.includes('general reports'));
+  const first = rows.findIndex((line) => line.includes('reviewer started'));
   assert.equal(first >= 0, true);
-  const prefix = '    > general reports | ';
+  const prefix = '    > reviewer started · ';
   assert.equal(rows[first].startsWith(prefix), true);
-  assert.equal(rows[first + 1].startsWith(' '.repeat(prefix.length)), true);
-  assert.match(frame, /inspecting the llama\.cpp build\s+configuration/u);
+  assert.match(frame, /reviewer completed · reviewed src\/engine\.js and 3 more files/u);
+  assert.doesNotMatch(frame, /fs\.read_text/u);
 });
 
 test('agent tool status records the effective sub-agent route and task', () => {
