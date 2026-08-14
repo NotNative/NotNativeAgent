@@ -922,7 +922,7 @@ test('terminal decoder maps Ctrl+V to clipboard paste and reports drag motion', 
   }]);
 });
 
-test('session bar exposes primary, activity, unread state, route, usage, and navigation', () => {
+test('session bar exposes primary, activity, unread state, responsive status, and navigation', () => {
   const projection = new TuiProjection();
   projection.addSession('main', 'Main', { model: 'm1', provider: 'p1' });
   projection.addSession('other', 'Other', { model: 'm2', provider: 'p2' });
@@ -931,7 +931,7 @@ test('session bar exposes primary, activity, unread state, route, usage, and nav
   let frame = new TuiRenderer().frame(projection, { width: 120, height: 24 });
   assert.match(frame, /\[\* Main \*\]/u);
   assert.match(frame, /\[\+ Other\]/u);
-  assert.match(frame, /auto-review \| IDLE \| p1\/m1/u);
+  assert.match(frame, /auto-review \| IDLE \| m1 \| context -- \| tokens -- \| following/u);
   projection.cycleActive(1);
   assert.equal(projection.activeId, 'other');
   assert.equal(projection.active().unread, false);
@@ -1515,13 +1515,15 @@ test('agent tool status records the effective sub-agent route and task', () => {
   assert.equal(record.target, 'coder · worker-model · inherits Primary: Configure the yellow host.');
 });
 
-test('new conversations show a responsive splash while the tab strip contains only navigation', () => {
+test('new conversations adapt splash density to terminal height and width', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', {
     model: 'model-one', provider: 'provider-one', endpoint: 'http://model-host:1234/v1', workspace: 'D:\\ProjectRepo\\NotNativeAgent',
   });
   const renderer = new TuiRenderer();
-  const wide = renderer.frame(projection, { width: 80, height: 24, color: false });
+  const wide = renderer.frame(projection, { width: 80, height: 32, color: false });
+  const mediumHeight = renderer.frame(projection, { width: 80, height: 20, color: false });
+  const compactHeight = renderer.frame(projection, { width: 80, height: 16, color: false });
   const narrow = renderer.frame(projection, { width: 40, height: 24, color: false });
   assert.equal(wide.split('\n')[0], '[* Main *]  [+]');
   assert.doesNotMatch(wide.split('\n')[0], new RegExp(VERSION, 'u'));
@@ -1529,19 +1531,41 @@ test('new conversations show a responsive splash while the tab strip contains on
   assert.match(wide, /Provider\s+http:\/\/model-host:1234\/v1/u);
   assert.doesNotMatch(wide, /Provider\s+provider-one/u);
   assert.match(wide, /Model\s+model-one/u);
-  const footer = wide.split('\n').find((line) => line.startsWith('auto-review'));
-  assert.match(footer, /D:\\ProjectRepo\\NotNativeAgent \| model-one/u);
+  const footer = wide.split('\n').find((line) => line.startsWith('IDLE'));
+  assert.match(footer, /IDLE \| model-one \| context -- \| following/u);
   assert.doesNotMatch(footer, /model-host/u);
   assert.match(wide, /Workspace\s+D:\\ProjectRepo\\NotNativeAgent/u);
   assert.match(wide, /███╗/u);
   assert.match(wide, /╚═╝  ╚═══╝ ╚═╝  ╚═══╝ ╚═╝  ╚═╝/u);
+  assert.doesNotMatch(mediumHeight, /███╗/u);
+  assert.doesNotMatch(mediumHeight, /Provider\s+/u);
+  assert.match(mediumHeight, /model-one · D:\\ProjectRepo\\NotNativeAgent/u);
+  assert.doesNotMatch(compactHeight, /Provider\s+/u);
+  assert.match(compactHeight, /model-one · D:\\ProjectRepo\\NotNativeAgent/u);
   assert.doesNotMatch(narrow, /███╗/u);
-  const gradient = renderer.frame(projection, { width: 80, height: 24, color: true });
+  const gradient = renderer.frame(projection, { width: 80, height: 32, color: true });
   const logo = gradient.split('\n').filter((line) => /[█╚]/u.test(line));
   assert.equal(logo.length, 6);
   assert.match(logo[0], /\u001b\[38;2;120;240;255m█.*\u001b\[38;2;248;100;210m/u);
   assert.match(logo[5], /\u001b\[38;2;248;100;210m╚.*\u001b\[38;2;110;40;180m/u);
   assert.doesNotMatch(logo.join('\n'), /\u001b\[1;38;5;(?:81|117|183|213|201|135)m/u);
+});
+
+test('wrapped selected menu rows retain one continuous semantic selection', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
+  projection.openOverlay(Object.freeze({
+    kind: 'test-menu', title: 'Test menu', lines: Object.freeze([]), selected: 0,
+    items: Object.freeze([Object.freeze({
+      id: 'long',
+      label: 'A deliberately long selectable menu label that must wrap cleanly',
+      detail: 'Selection formatting also follows this deliberately long detail across continuation rows.',
+    })]),
+  }));
+  const colored = new TuiRenderer().frame(projection, { width: 38, height: 24, color: true });
+  const selectedRows = colored.split('\n').filter((line) => /deliberately|selectable|wrap cleanly|Selection formatting|continuation rows/u.test(line));
+  assert.equal(selectedRows.length >= 4, true);
+  assert.equal(selectedRows.every((line) => line.includes('\u001b[1;38;5;255;48;5;236m')), true);
 });
 
 test('primary session is identified independently of active selection', () => {

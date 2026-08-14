@@ -89,7 +89,7 @@ test('plan and task overlays expose structured progress with a compact footer in
   assert.match(status, /plan 1\/2/u);
 });
 
-test('footer keeps the active workspace visible and collapses a long provider route before the model', () => {
+test('footer uses deliberate wide and medium compositions', () => {
   const session = {
     metadata: { endpoint: 'http://provider-host.example:1234/v1', model: 'qwen-model', workspace: 'D:\\ProjectRepo\\NotNativeAgent' },
     usage: null, viewportEnd: null, viewportLineCount: 0, pendingAttachments: [], state: 'idle',
@@ -98,8 +98,20 @@ test('footer keeps the active workspace visible and collapses a long provider ro
   const wide = sessionStatusLine(session, 240);
   assert.match(wide, /IDLE \| D:\\ProjectRepo\\NotNativeAgent \| http:\/\/provider-host\.example:1234\/v1\/qwen-model/u);
   const narrow = sessionStatusLine(session, 100);
-  assert.match(narrow, /IDLE \| D:\\ProjectRepo\\NotNativeAgent \| qwen-model/u);
+  assert.match(narrow, /IDLE \| NotNativeAgent \| qwen-model/u);
   assert.doesNotMatch(narrow, /provider-host/u);
+  assert.doesNotMatch(narrow, /D:\\ProjectRepo/u);
+});
+
+test('footer compact composition prioritizes state, model, context, and viewport', () => {
+  const session = {
+    metadata: { endpoint: 'http://provider.example/v1', model: 'small-model', workspace: 'D:\\long\\workspace' },
+    usage: { total_tokens: 99 }, viewportEnd: 4, viewportLineCount: 10, pendingAttachments: [], state: 'idle',
+    reviewPosture: 'auto-review', contextTokens: 25, contextLimitTokens: 100, contextLimitBytes: null, work: null,
+  };
+  const compact = sessionStatusLine(session, 60);
+  assert.match(compact, /^IDLE \| small-model \| context 25% \| 6 unseen$/u);
+  assert.doesNotMatch(compact, /auto-review|workspace|provider|tokens/u);
 });
 
 test('footer quietly right-aligns an update notice only when room is available', () => {

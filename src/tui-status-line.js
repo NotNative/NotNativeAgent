@@ -4,17 +4,14 @@ import { displayWidth, truncateTerminal } from './terminal-markdown.js';
 
 export function sessionStatusLine(session, width, rightStatus = '', now = Date.now()) {
   const state = stateStatus(session, now);
-  const route = responsiveRoute(session, width, state);
-  const usage = totalTokens(session.usage);
   const context = contextUsage(session);
   const view = session.viewportEnd === null ? 'following' : `${Math.max(0, session.viewportLineCount - session.viewportEnd)} unseen`;
   const attachments = session.pendingAttachments.length > 0
     ? ` | ${session.pendingAttachments.length} attachment${session.pendingAttachments.length === 1 ? '' : 's'}` : '';
   const work = workProgress(session.work);
-  const workspace = session.metadata.workspace ? ` | ${session.metadata.workspace}` : '';
-  const left = truncateTerminal(sanitizeTerminal(
-    `${session.reviewPosture} | ${state}${workspace} | ${route}${attachments}${work} | ${context} | ${usage} | ${view}`,
-  ), width);
+  const left = truncateTerminal(sanitizeTerminal(statusForWidth(
+    session, width, state, context, view, attachments, work,
+  )), width);
   const right = sanitizeTerminal(rightStatus).trim();
   if (!right || width < displayWidth(right) + 24) return left;
   const available = width - displayWidth(right) - 2;
@@ -22,13 +19,21 @@ export function sessionStatusLine(session, width, rightStatus = '', now = Date.n
   return `${compactLeft}${' '.repeat(Math.max(2, width - displayWidth(compactLeft) - displayWidth(right)))}${right}`;
 }
 
-function responsiveRoute(session, width, state) {
+function statusForWidth(session, width, state, context, view, attachments, work) {
   const model = session.metadata.model;
+  if (width < 96) return `${state} | ${model} | ${context} | ${view}`;
+  if (width < 140) {
+    const workspace = compactWorkspace(session.metadata.workspace);
+    return `${session.reviewPosture} | ${state}${workspace ? ` | ${workspace}` : ''} | ${model}${attachments}${work} | ${context} | ${totalTokens(session.usage)} | ${view}`;
+  }
   const route = `${session.metadata.endpoint ?? session.metadata.provider}/${model}`;
   const workspace = session.metadata.workspace ? ` | ${session.metadata.workspace}` : '';
-  const fixedPrefix = `${session.reviewPosture} | ${state}${workspace} | `;
-  const minimumSuffix = ' | context --';
-  return displayWidth(`${fixedPrefix}${route}${minimumSuffix}`) <= width ? route : model;
+  return `${session.reviewPosture} | ${state}${workspace} | ${route}${attachments}${work} | ${context} | ${totalTokens(session.usage)} | ${view}`;
+}
+
+function compactWorkspace(value) {
+  const parts = String(value ?? '').split(/[\\/]/u).filter(Boolean);
+  return parts.at(-1) ?? '';
 }
 
 function stateStatus(session, now) {

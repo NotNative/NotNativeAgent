@@ -1,35 +1,42 @@
 // SPDX-License-Identifier: Apache-2.0
 import { displayWidth } from './terminal-markdown.js';
+import { paint, TUI_THEME } from './tui-theme.js';
 
-export function decorateOverlay(line, width, kind) {
-  if (/^─+$/u.test(line)) return paint('38;5;238', line);
+export function decorateOverlay(line, width, kind, lineKind = '') {
+  if (lineKind.endsWith(':selected')) return decorateSelectedOverlayLine(line, width);
+  if (/^─+$/u.test(line)) return paint(TUI_THEME.border, line);
   if (kind === 'provider' && line.includes('[ ')) return decorateRoleTabs(line);
-  if (line === line.toUpperCase() && /[A-Z]/u.test(line)) return paint('1;38;5;141', line);
-  if (line.startsWith('› ')) {
-    const styled = decorateOverlayItem(line, kind, true);
-    const padding = ' '.repeat(Math.max(0, width - displayWidth(line)));
-    return `${paint('1;38;5;213;48;5;236', '›')} ${styled.slice(2)}${paint('48;5;236', padding)}`;
-  }
-  if (line.startsWith('    ')) return paint('38;5;245', line);
-  if (line.startsWith('  ')) return decorateOverlayItem(line, kind, false);
+  if (line === line.toUpperCase() && /[A-Z]/u.test(line)) return paint(TUI_THEME.accentSoft, line);
+  if (line.startsWith('    ')) return paint(TUI_THEME.muted, line);
+  if (line.startsWith('  ')) return decorateOverlayItem(line, kind);
   if (/^(?:Role|Profile|Model|Provider|Current|Default)\s{2,}/u.test(line)) {
     return line.replace(/^(Role|Profile|Model|Provider|Current|Default)(\s+)(.*)$/u, (_, label, gap, value) => (
-      `${paint('38;5;245', label)}${gap}${paint(label === 'Current' ? '1;38;5;213' : '38;5;252', value)}`
+      `${paint(TUI_THEME.muted, label)}${gap}${paint(label === 'Current' ? TUI_THEME.accent : TUI_THEME.primary, value)}`
     ));
   }
-  if (/^(?:Choose|Available models)/u.test(line)) return paint('38;5;250', line);
-  if (/^(?:Discovery unavailable|No model catalog)/u.test(line)) return paint('38;5;203', line);
-  return paint('38;5;248', line);
+  if (/^(?:Choose|Available models)/u.test(line)) return paint(TUI_THEME.secondaryStrong, line);
+  if (/^(?:Discovery unavailable|No model catalog)/u.test(line)) return paint(TUI_THEME.danger, line);
+  return paint(TUI_THEME.secondary, line);
+}
+
+function decorateSelectedOverlayLine(line, width) {
+  const marker = line.startsWith('› ');
+  const body = marker ? line.slice(2) : line;
+  const prefixWidth = marker ? 2 : 0;
+  const padded = `${marker ? ' ' : ''}${body}${' '.repeat(Math.max(0, width - prefixWidth - displayWidth(body)))}`;
+  return marker
+    ? `${paint(TUI_THEME.selectedMarker, '›')}${paint(TUI_THEME.selected, padded)}`
+    : paint(TUI_THEME.selected, padded);
 }
 
 function decorateRoleTabs(line) {
   const opening = line.indexOf('[');
   const closing = line.indexOf(']');
-  if (opening < 0 || closing < opening) return paint('38;5;103', line);
+  if (opening < 0 || closing < opening) return paint(TUI_THEME.mutedDark, line);
   const prefix = line.slice(0, opening);
   const active = line.slice(opening, closing + 1);
   const remaining = line.slice(closing + 1);
-  return `${paint('38;5;103', prefix)}${paint('1;38;5;255;48;5;54', active)}${paint('38;5;103', remaining)}`;
+  return `${paint(TUI_THEME.mutedDark, prefix)}${paint(TUI_THEME.activeTab, active)}${paint(TUI_THEME.mutedDark, remaining)}`;
 }
 
 export function angledWordmarkGradient(value, row) {
@@ -63,19 +70,17 @@ const SYNTHWAVE_ACTIVITY_STOPS = Object.freeze([
 export function synthwaveActivityIndicator(marker, label, frame = 0) {
   const index = Number.isInteger(frame) ? Math.abs(frame) % SYNTHWAVE_ACTIVITY_STOPS.length : 0;
   const [red, green, blue] = SYNTHWAVE_ACTIVITY_STOPS[index];
-  return `  ${paint(`1;38;2;${red};${green};${blue}`, marker)} ${paint('38;5;147', label)}`;
+  return `  ${paint(`1;38;2;${red};${green};${blue}`, marker)} ${paint(TUI_THEME.activity, label)}`;
 }
 
-function decorateOverlayItem(line, kind, selected) {
-  if (kind !== 'model') return selected ? line : paint('38;5;252', line);
+function decorateOverlayItem(line, kind) {
+  if (kind !== 'model') return paint(TUI_THEME.primary, line);
   const badgeStart = line.lastIndexOf('  [');
   const modelEnd = badgeStart >= 0 ? badgeStart : line.length;
   const prefix = line.slice(0, 2);
   const model = line.slice(2, modelEnd);
   const badge = badgeStart >= 0 ? line.slice(badgeStart) : '';
-  const background = selected ? ';48;5;236' : '';
-  const modelColor = selected ? `1;38;5;255${background}` : '38;5;252';
-  return `${prefix}${paint(modelColor, model)}${badge ? paint(`38;5;103${background}`, badge) : ''}`;
+  return `${prefix}${paint(TUI_THEME.primary, model)}${badge ? paint(TUI_THEME.mutedDark, badge) : ''}`;
 }
 
 function gradientColor(stops, position) {
@@ -86,8 +91,4 @@ function gradientColor(stops, position) {
   return stops[index].map((value, channel) => Math.round(
     value + ((stops[index + 1][channel] - value) * amount),
   ));
-}
-
-function paint(codes, value) {
-  return `\u001b[${codes}m${value}\u001b[0m`;
 }

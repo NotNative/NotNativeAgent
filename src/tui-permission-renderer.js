@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { paint, TUI_THEME } from './tui-theme.js';
 import { wrapIndentedTerminalLine } from './terminal-markdown.js';
 
 export function permissionControlLine(permission, bindings) {
@@ -26,14 +27,14 @@ export function permissionLines(record, width, bindings) {
 }
 
 export function decoratePermissionLine(line) {
-  if (line === 'ELEVATED COMMAND APPROVAL') return paint('1;38;5;213', line);
-  if (line.startsWith('Ctrl+Y')) return paint('1;38;5;77', line);
-  if (line.startsWith('Ctrl+C')) return paint('1;38;5;203', line);
+  if (line === 'ELEVATED COMMAND APPROVAL') return paint(TUI_THEME.accent, line);
+  if (line.startsWith('Ctrl+Y')) return paint(TUI_THEME.successStrong, line);
+  if (line.startsWith('Ctrl+C')) return paint(TUI_THEME.dangerStrong, line);
   if (/^(?:Reason|Expected effect|Command|Working directory|Reviewer):/u.test(line)) {
-    return line.replace(/^([^:]+:)(.*)$/u, (_, label, value) => `${paint('1;38;5;147', label)}${value}`);
+    return line.replace(/^([^:]+:)(.*)$/u, (_, label, value) => `${paint(`1;${TUI_THEME.activity}`, label)}${value}`);
   }
-  if (/^(?:This approval|NNA is requesting)/u.test(line)) return paint('38;5;250', line);
-  return paint('38;5;245', line);
+  if (/^(?:This approval|NNA is requesting)/u.test(line)) return paint(TUI_THEME.secondaryStrong, line);
+  return paint(TUI_THEME.muted, line);
 }
 
 function elevationLines(record, width, bindings) {
@@ -93,8 +94,4 @@ function keyLabel(value) {
 
 function wrap(value, width) {
   return wrapIndentedTerminalLine(String(value), width).slice(0, 64);
-}
-
-function paint(codes, value) {
-  return `\u001b[${codes}m${value}\u001b[0m`;
 }

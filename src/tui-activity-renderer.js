@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 import { displayWidth, wrapTerminalLine } from './terminal-markdown.js';
+import { TUI_THEME } from './tui-theme.js';
 
 export function decorateToolActivityLine(line, lineKind, paint) {
   if (lineKind?.startsWith('tool_status:')) {
     const status = lineKind.slice('tool_status:'.length);
     if (status === 'succeeded') {
       const match = line.match(/^(\s*)(\u2713)(.*)$/u);
-      return match ? `${match[1]}${paint('38;5;77', match[2])}${paint('38;5;245', match[3])}` : paint('38;5;245', line);
+      return match ? `${match[1]}${paint(TUI_THEME.success, match[2])}${paint(TUI_THEME.muted, match[3])}` : paint(TUI_THEME.muted, line);
     }
-    return paint(status === 'running' ? '38;5;245' : '38;5;203', line);
+    return paint(status === 'running' ? TUI_THEME.muted : TUI_THEME.danger, line);
   }
-  if (/^\s+(?:Review|Result):/u.test(line)) return paint('38;5;245', line);
+  if (/^\s+(?:Review|Result):/u.test(line)) return paint(TUI_THEME.muted, line);
   const match = line.match(/^(\s*)(\u2713)(.*)$/u);
-  if (match) return `${match[1]}${paint('38;5;77', match[2])}${paint('38;5;245', match[3])}`;
-  if (/^\s+\+/u.test(line)) return paint('38;5;245', line);
-  if (/^\s+>|^\s+</u.test(line)) return paint('38;5;147', line);
-  if (/^\s+X|^!/u.test(line)) return paint('38;5;203', line);
+  if (match) return `${match[1]}${paint(TUI_THEME.success, match[2])}${paint(TUI_THEME.muted, match[3])}`;
+  if (/^\s+\+/u.test(line)) return paint(TUI_THEME.muted, line);
+  if (/^\s+>|^\s+</u.test(line)) return paint(TUI_THEME.activity, line);
+  if (/^\s+X|^!/u.test(line)) return paint(TUI_THEME.danger, line);
   return null;
 }
 

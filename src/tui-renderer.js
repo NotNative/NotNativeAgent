@@ -3,15 +3,15 @@ import { sanitizeTerminal } from './terminal-adapter.js';
 import { commandPresentation, commandsByCategory } from './tui-commands.js';
 import { commandPickerLines } from './tui-command-picker.js';
 import { VERSION } from './product.js';
-import { activityDetailRows, collapsedFailureRows, decorateToolActivityLine, subagentProgressLines, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './tui-activity-renderer.js';
-import { angledWordmarkGradient, decorateOverlay } from './tui-colors.js';
-import { decorateLiveActivity, liveActivityLine } from './tui-live-activity.js';
-import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLine } from './terminal-markdown.js';
+import { activityDetailRows, collapsedFailureRows, subagentProgressLines, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './tui-activity-renderer.js';
+import { liveActivityLine } from './tui-live-activity.js';
+import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLine, wrapTerminalLine } from './terminal-markdown.js';
 import { sessionStatusLine } from './tui-status-line.js';
 import { decorateSelection, plainTerminalLine } from './tui-selection.js';
 import { contextCompactionText } from './tui-context-renderer.js';
 import { applyConversationSpacing } from './tui-conversation-spacing.js';
-import { decoratePermissionLine, permissionControlLine, permissionLines } from './tui-permission-renderer.js';
+import { permissionControlLine, permissionLines } from './tui-permission-renderer.js';
+import { decorateContent, decorateFooter, decorateHeader } from './tui-decoration.js';
 export class TuiRenderer {
   frame(projection, capabilities) {
     const session = projection.active();
@@ -21,11 +21,12 @@ export class TuiRenderer {
     const height = Math.max(8, capabilities.height);
     const header = headerLines(projection, session, width);
     const suggestionCapacity = Math.max(3, height - header.length - 8);
-    const footer = footerLines(projection, session, width, capabilities, suggestionCapacity);
+    const footerKinds = [];
+    const footer = footerLines(projection, session, width, capabilities, suggestionCapacity, footerKinds);
     const room = Math.max(1, height - header.length - footer.length);
     const targets = new Map();
     const lineKinds = new Map();
-    const available = contentLines(projection, session, width, targets, lineKinds);
+    const available = contentLines(projection, session, width, targets, lineKinds, height);
     restoreHistoryAnchor(session, available.length);
     if (!session.pendingPermission && !projection.help && !projection.overlay) session.viewportLineCount = available.length;
     const permissionStart = Math.min(session.permissionOffset, Math.max(0, available.length - room));
@@ -52,7 +53,9 @@ export class TuiRenderer {
         line, width, color, index, session.pendingPermission ? 'permission' : projection.overlay?.kind,
         lineKinds.get(contentStart + index),
       )),
-      ...footer.map((line, index) => decorateFooter(line, index, footer.length, color, capabilities.animationFrame)),
+      ...footer.map((line, index) => decorateFooter(
+        line, index, footer.length, color, capabilities.animationFrame, footerKinds[index],
+      )),
     ];
     const visible = frame.slice(0, height);
     projection.visibleFrame = Object.freeze(visible.map(plainTerminalLine));
@@ -79,11 +82,11 @@ function headerLines(projection, session, width) {
   ];
 }
 
-function contentLines(projection, session, width, targets = new Map(), lineKinds = new Map()) {
+function contentLines(projection, session, width, targets = new Map(), lineKinds = new Map(), height = 24) {
   if (session.pendingPermission) return permissionLines(session.pendingPermission, width, projection.bindings);
-  if (projection.overlay) return overlayLines(projection.overlay, width, targets);
+  if (projection.overlay) return overlayLines(projection.overlay, width, targets, lineKinds);
   if (projection.help) return helpLines(width, projection.bindings, session);
-  const lines = [...sessionBanner(session, width), ''];
+  const lines = [...sessionBanner(session, width, height), ''];
   const records = [...session.historyRecords, ...session.records];
   const completed = new Set(records.filter((record) => record.type === 'turn_result').map((record) => record.turn_id));
   const activity = activityByTurn(records, completed);
@@ -134,9 +137,13 @@ function restoreHistoryAnchor(session, nextLineCount) {
   session.historyAnchor = null;
 }
 
-function sessionBanner(session, width) {
-  const values = [
-    ...wordmark(width),
+function sessionBanner(session, width, height) {
+  const compact = height < 24;
+  const values = compact ? [
+    `NotNativeAgent · v${VERSION}`,
+    `${session.metadata.model} · ${session.metadata.workspace ?? '--'}`,
+  ] : [
+    ...wordmark(width, height),
     `NotNativeAgent · v${VERSION}`,
     '',
     `Provider   ${session.metadata.endpoint ?? session.metadata.provider}${session.metadata.temporaryRoute ? ' (temporary)' : ''}`,
@@ -148,8 +155,8 @@ function sessionBanner(session, width) {
   return [boxTop('NNA CONSOLE', width), ...values.map((line) => boxLine(line, width)), boxBottom(width)];
 }
 
-function wordmark(width) {
-  if (width < 52) return [];
+function wordmark(width, height) {
+  if (width < 52 || height < 24) return [];
   return [
     '  ███╗   ██╗ ███╗   ██╗  █████╗ ',
     '  ████╗  ██║ ████╗  ██║ ██╔══██╗',
@@ -176,28 +183,33 @@ function boxBottom(width) {
   return `╰${'─'.repeat(Math.max(1, width - 2))}╯`;
 }
 
-function footerLines(projection, session, width, capabilities = {}, suggestionCapacity = 3) {
+function footerLines(projection, session, width, capabilities = {}, suggestionCapacity = 3, lineKinds = []) {
   const lines = [rule(width)];
+  lineKinds.push('rule');
+  const add = (values, kind) => {
+    const rows = Array.isArray(values) ? values : [values];
+    lines.push(...rows); lineKinds.push(...rows.map(() => kind));
+  };
   if (session.pendingPermission) {
-    lines.push(crop(permissionControlLine(session.pendingPermission, projection.bindings), width));
-    lines.push(footerStatusLine(projection, session, width));
+    add(crop(permissionControlLine(session.pendingPermission, projection.bindings), width), 'controls');
+    add(footerStatusLine(projection, session, width), 'status');
     return lines;
   }
   if (projection.overlay) {
     const action = projection.overlay.actionLabel
       ?? (projection.overlay.items?.length ? '↑↓ choose · Enter select' : '↑↓ scroll');
-    lines.push(crop(`${action} · Esc back · Ctrl+G/Ctrl+C close · ${projection.overlay.kind}`, width));
-    lines.push(footerStatusLine(projection, session, width));
+    add(crop(`${action} · Esc back · Ctrl+G/Ctrl+C close · ${projection.overlay.kind}`, width), 'controls');
+    add(footerStatusLine(projection, session, width), 'status');
     return lines;
   }
-  if (projection.notice && projection.notice.kind !== 'confirmation') lines.push(crop(`[${projection.notice.kind.toUpperCase()}] ${projection.notice.text}`, width));
-  lines.push(...commandPickerLines(session, projection, suggestionCapacity).map((line) => crop(line, width)));
+  if (projection.notice && projection.notice.kind !== 'confirmation') add(crop(`[${projection.notice.kind.toUpperCase()}] ${projection.notice.text}`, width), 'notice');
+  add(commandPickerLines(session, projection, suggestionCapacity).map((line) => crop(line, width)), 'suggestion');
   const activity = liveActivityLine(session, capabilities);
-  if (activity) lines.push(crop(activity, width));
-  lines.push(...editorLines(session, width));
-  lines.push(rule(width));
-  lines.push(crop(controlLine(session, projection.bindings), width));
-  lines.push(footerStatusLine(projection, session, width));
+  if (activity) add(crop(activity, width), 'activity');
+  add(editorLines(session, width), 'editor');
+  add(rule(width), 'rule');
+  add(crop(controlLine(session, projection.bindings), width), 'controls');
+  add(footerStatusLine(projection, session, width), 'status');
   return lines;
 }
 
@@ -206,25 +218,35 @@ function footerStatusLine(projection, session, width) {
   return sessionStatusLine(session, width, projection.updateAvailable ? 'update available' : '');
 }
 
-function overlayLines(overlay, width, targets = new Map()) {
+function overlayLines(overlay, width, targets = new Map(), lineKinds = new Map()) {
   const lines = [crop(overlay.title.toUpperCase(), width), rule(width)];
+  lineKinds.set(0, 'overlay:title'); lineKinds.set(1, 'overlay:rule');
   if (overlay.tabs?.length) {
     const tabs = overlay.tabs.map((tab) => tab.active ? `[ ${tab.label.toUpperCase()} ]` : tab.label.toUpperCase()).join('   ');
     lines.push(crop(tabs, width), '');
+    lineKinds.set(lines.length - 2, 'overlay:tabs');
   }
-  for (const line of overlay.lines) lines.push(...wrap(line, width));
+  for (const line of overlay.lines) {
+    const start = lines.length;
+    lines.push(...wrap(line, width));
+    for (let row = start; row < lines.length; row += 1) lineKinds.set(row, 'overlay:body');
+  }
   let section = null;
   for (const [index, item] of (overlay.items ?? []).entries()) {
     if (item.section && item.section !== section) {
       lines.push('', crop(item.section.toUpperCase(), width));
+      lineKinds.set(lines.length - 1, 'overlay:section');
       section = item.section;
     }
     const start = lines.length;
     const marker = index === overlay.selected ? '›' : ' ';
     const badge = item.badge ? `  [${item.badge}]` : '';
-    lines.push(...wrap(`${marker} ${item.label}${badge}`, width));
+    lines.push(...wrapTerminalLine(`${item.label}${badge}`, width, `${marker} `, '  '));
     if (item.detail) lines.push(...wrap(`    ${item.detail}`, width));
-    for (let row = start; row < lines.length; row += 1) targets.set(row, { type: 'overlay-item', index });
+    for (let row = start; row < lines.length; row += 1) {
+      targets.set(row, { type: 'overlay-item', index });
+      lineKinds.set(row, `overlay:item${index === overlay.selected ? ':selected' : ''}`);
+    }
   }
   return lines;
 }
@@ -305,8 +327,13 @@ function controlLine(session, bindings) {
   const cancel = keyLabel(bindings.cancel);
   const help = keyLabel(bindings.help);
   const view = session.viewportEnd === null ? 'PgUp scroll' : 'PgDn scroll · End follow';
-  if (session.activeTurnId) return `Enter steer · Ctrl+J newline · ${view} · double ${cancel} cancel`;
-  return `Enter send · Ctrl+J newline · Ctrl+O activity · ${view} · ${help} help`;
+  if (session.activeTurnId) return `Enter steer · ${view} · double ${cancel} cancel · ${help} help`;
+  if (session.viewportEnd !== null) return `Enter send · ${view} · ${help} help`;
+  const hasConversation = [...session.historyRecords, ...session.records]
+    .some((record) => ['user_input', 'stream_delta'].includes(record.type));
+  return hasConversation
+    ? `Enter send · ${help} help`
+    : `Enter send · Ctrl+J newline · Ctrl+O activity · ${view} · ${help} help`;
 }
 
 function tabLabel(session, activeId) {
@@ -420,70 +447,8 @@ function formatDuration(milliseconds) {
   const seconds = milliseconds / 1000;
   return seconds < 60 ? `${seconds.toFixed(seconds < 10 ? 1 : 0)}s` : `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
 }
-function decorateHeader(line, index, color) {
-  if (!color) return line;
-  if (index > 0) return paint('38;5;238', line);
-  let result = line.replace(/\[[^\]]+\]/gu, (tab) => {
-    if (/^\[(?:\*|@)/u.test(tab)) return paint('1;38;5;255;48;5;54', tab);
-    if (/^\[\+/u.test(tab)) return paint('1;38;5;213', tab);
-    return paint('38;5;103', tab);
-  });
-  return result;
-}
-function decorateContent(line, width, color, index, overlayKind, lineKind) {
-  if (!color) return line;
-  if (/^[╭╰]/u.test(line)) return paint('38;5;93', line);
-  if (line.startsWith('│') && line.endsWith('│')) return decorateBanner(line, index);
-  if (overlayKind === 'permission') return decoratePermissionLine(line);
-  if (overlayKind) return decorateOverlay(line, width, overlayKind);
-  // Record identity, rather than the visible prefix, owns presentation. Wrapped
-  // user messages only carry `> ` on their first physical row; retaining the
-  // record kind keeps every continuation row inside the same message band while
-  // leaving copied transcript text free of renderer-only markers.
-  if (lineKind === 'user_input') return paint('38;5;255;48;5;236', padCells(line, width));
-  const toolActivity = decorateToolActivityLine(line, lineKind, paint);
-  if (toolActivity) return toolActivity;
-  if (line.startsWith('* ')) return `${paint('1;38;5;213', '*')} ${line.slice(2)}`;
-  if (/^\s*(?:STATE|REVIEW|DEPENDENCY|ATTACHMENT|\.\.\. WAITING FOR PROVIDER)\b/u.test(line)) {
-    return paint('38;5;245', line);
-  }
-  if (/^\s+Activity summary/u.test(line)) return paint('38;5;245', line);
-  if (/^\s+v Activity detail/u.test(line)) return paint('38;5;141', line);
-  if (/^\s+[*-](?:\s|$)/u.test(line)) return paint('38;5;103', line);
-  return line;
-}
-
-function decorateBanner(line, contentIndex) {
-  const middle = line.slice(1, -1);
-  const wordmark = /[█╗╔║═╝]/u.test(middle);
-  const styled = wordmark ? angledWordmarkGradient(middle, contentIndex - 1) : middle;
-  return `${paint('38;5;93', '│')}${styled}${paint('38;5;93', '│')}`;
-}
-
-function decorateFooter(line, index, length, color, animationFrame = 0) {
-  if (!color) return line;
-  const activity = decorateLiveActivity(line, animationFrame);
-  if (activity) return activity;
-  if (/^─+$/u.test(line)) return paint('38;5;238', line);
-  if (index === length - 1) {
-    const status = paint('38;5;103', line);
-    return status.replace(/^(?:prompt|auto-review|unattended)/u, (posture) => paint('1;38;5;213', posture));
-  }
-  if (index === length - 2) return paint('38;5;244', line);
-  if (line.startsWith('> ')) {
-    const body = line.slice(2).replace(/^\[pasted \d+ images?\]/u, (marker) => paint('38;5;141', marker));
-    return `${paint('1;38;5;81', '>')} ${body}`;
-  }
-  if (line.startsWith('/')) return paint('38;5;141', line);
-  return line;
-}
-
 function padCells(value, width) {
   return `${value}${' '.repeat(Math.max(0, width - displayWidth(value)))}`;
-}
-
-function paint(codes, value) {
-  return `\u001b[${codes}m${value}\u001b[0m`;
 }
 
 function wrap(value, width) {
