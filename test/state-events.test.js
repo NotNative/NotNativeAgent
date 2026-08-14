@@ -147,7 +147,7 @@ test('AC-EVENT-07 bounds nonblocking observers and reports overflow without dela
   const result = await hub.dispatch({ category: 'diagnostic', phase: 'committed' });
   assert.deepEqual(result.observers, { scheduled: 2, queued: 2, dropped: 1 });
   assert.deepEqual(hub.health(), {
-    status: 'ready', queued: 2, running: 2, capacity: 2, dropped: 1, overflowPolicy: 'drop_newest_noncritical',
+    status: 'degraded', queued: 2, running: 2, capacity: 2, dropped: 1, overflowPolicy: 'drop_newest_noncritical',
   });
   release();
   await hub.close();

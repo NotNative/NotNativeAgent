@@ -81,6 +81,21 @@ test('state transitions and lifecycle records produce paired forensic spans', as
   await telemetry.close();
 });
 
+test('continued hook failures retain their real terminal telemetry status', () => {
+  const telemetry = telemetryAt(process.cwd());
+  const records = [];
+  telemetry.record = (...args) => { records.push(args); return true; };
+  const observer = telemetry.eventObserver();
+  const event = { event_id: 'event-1', event_name: 'context_checkpoint.terminal', category: 'context_checkpoint', phase: 'terminal' };
+  const subscription = { id: 'hook.user.memory.1' };
+  observer.subscriberFinished(event, subscription, 'span-1', { decision: 'continue', code: 'hook_timeout' }, 30_000);
+  observer.subscriberFinished(event, subscription, 'span-2', { decision: 'continue', code: 'hook_spawn_failed' }, 2);
+  observer.subscriberFinished(event, subscription, 'span-3', { decision: 'continue', code: 'hook_completed' }, 3);
+  assert.deepEqual(records.map(([, status]) => status), ['timed_out', 'failed', 'succeeded']);
+  assert.deepEqual(records.map(([, , , correlation]) => correlation.reasonCode), ['hook_timeout', 'hook_spawn_failed', undefined]);
+  assert.deepEqual(records.map(([, , , correlation]) => correlation.outcome), ['continue', 'continue', 'continue']);
+});
+
 test('volatile TUI telemetry expires independently after its short retention window', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-forensic-volatile-'));
   const dbPath = join(root, 'events.db');

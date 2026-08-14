@@ -104,7 +104,7 @@ export class EventHub {
 
   health() {
     return Object.freeze({
-      status: this.#closed ? 'closed' : 'ready', queued: this.#background.size,
+      status: this.#closed ? 'closed' : this.#dropped > 0 ? 'degraded' : 'ready', queued: this.#background.size,
       running: [...this.#running.values()].reduce((sum, count) => sum + count, 0),
       capacity: this.maxBackground, dropped: this.#dropped, overflowPolicy: 'drop_newest_noncritical',
     });

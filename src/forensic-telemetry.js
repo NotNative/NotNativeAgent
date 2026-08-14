@@ -78,8 +78,9 @@ export class ForensicTelemetry {
         { ...eventCorrelation(event), spanId, parentSpanId: event.event_id },
       ),
       subscriberFinished: (event, subscription, spanId, result, durationMs) => this.record(
-        'engine.subscriber', terminalStatus(result?.decision), { event_name: event.event_name, subscription, result },
-        { ...eventCorrelation(event), spanId, parentSpanId: event.event_id, durationMs, outcome: result?.decision },
+        'engine.subscriber', subscriberStatus(result), { event_name: event.event_name, subscription, result },
+        { ...eventCorrelation(event), spanId, parentSpanId: event.event_id, durationMs,
+          outcome: result?.decision, reasonCode: subscriberReason(result) },
       ),
       subscriberFailed: (event, subscription, spanId, error, durationMs) => this.record(
         'engine.subscriber', 'failed', { event_name: event.event_name, subscription, failure: failureShape(error) },
@@ -200,6 +201,19 @@ export class ForensicTelemetry {
     }
     this.#requests.clear();
   }
+}
+
+function subscriberStatus(result) {
+  if (result?.code === 'hook_timeout') return 'timed_out';
+  if (result?.code === 'hook_cancelled') return 'cancelled';
+  if (typeof result?.code === 'string' && result.code.startsWith('hook_')
+    && !['hook_completed', 'hook_context', 'hook_event_filtered', 'hook_denied'].includes(result.code)) return 'failed';
+  return terminalStatus(result?.decision);
+}
+
+function subscriberReason(result) {
+  const status = subscriberStatus(result);
+  return ['failed', 'cancelled', 'timed_out'].includes(status) ? result?.code : undefined;
 }
 
 export class NullTelemetry {
