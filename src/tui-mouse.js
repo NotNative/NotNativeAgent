@@ -40,6 +40,11 @@ export async function handleMouse(action, workspace, headerTargetAt, activateOve
       workspace.projection.toggleActivity(contentTarget.turnId);
       return;
     }
+    if (contentTarget?.type === 'work-summary') {
+      clearSelection(workspace.projection);
+      await workspace.toggleWorkSummary();
+      return;
+    }
   }
   if (action.button === 0 && action.row !== 1) {
     beginSelection(workspace.projection, action);

@@ -30,6 +30,7 @@ test('durable tab pool restores conversation presentation but opens with fresh M
   projected.viewportEnd = 0;
   projected.expandedTurns.add('turn-example');
   projected.detailedTurns.add('turn-example');
+  projected.workCollapsed = true;
   projected.pendingAttachments.push(Object.freeze({
     path: join(root, 'pending.png'), mime_type: 'image/png', size: 8,
   }));
@@ -46,6 +47,7 @@ test('durable tab pool restores conversation presentation but opens with fresh M
   assert.equal(restored.viewportEnd, 0);
   assert.deepEqual([...restored.expandedTurns], ['turn-example']);
   assert.deepEqual([...restored.detailedTurns], ['turn-example']);
+  assert.equal(restored.workCollapsed, true);
   assert.equal(restored.reviewPosture, 'unattended');
   assert.equal(restored.pendingAttachments[0].mime_type, 'image/png');
   assert.equal(second.sessions.get(other).engine.reviewPosture, 'unattended');

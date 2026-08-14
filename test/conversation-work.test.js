@@ -9,6 +9,7 @@ import { sessionStatusLine } from '../src/tui-status-line.js';
 import { workSummaryRows } from '../src/tui-work-summary.js';
 import { TuiProjection } from '../src/tui-model.js';
 import { TuiRenderer } from '../src/tui-renderer.js';
+import { handleMouse } from '../src/tui-mouse.js';
 
 test('conversation work enforces one active task and evidence-based completion', async () => {
   const records = [];
@@ -124,13 +125,59 @@ test('responsive work shelf keeps goal and ordered tasks visible beside the comp
   assert.match(frame, /\/plan manage\n> \|/u);
 });
 
-test('compact work shelf exposes goal-only state and preserves the plan affordance', () => {
-  const goalOnly = workSummaryRows({ goal: { objective: 'A very long durable goal that cannot fit in one narrow terminal row', status: 'active' }, tasks: [] }, 44, 20);
-  assert.equal(goalOnly.length, 1);
-  assert.match(goalOnly[0].text, /^Goal active/u);
-  assert.match(goalOnly[0].text, /… · \/plan$/u);
-  assert.equal(goalOnly[0].text.endsWith(' · /plan'), true);
+test('narrow work shelf stays open by default and provides a live collapsed summary', () => {
+  const work = { goal: { objective: 'A very long durable goal that cannot fit in one narrow terminal row', status: 'active' }, tasks: [
+    { id: 'T1', title: 'Completed setup', status: 'completed' },
+    { id: 'T2', title: 'Render a compact live summary', status: 'in_progress' },
+  ] };
+  const expanded = workSummaryRows(work, 44, 20);
+  assert.ok(expanded.length > 1);
+  assert.match(expanded[0].text, /^▾ GOAL ACTIVE/u);
+  const collapsed = workSummaryRows(work, 44, 20, true);
+  assert.equal(collapsed.length, 1);
+  assert.match(collapsed[0].text, /^▸ GOAL ACTIVE · task 2\/2/u);
+  assert.match(collapsed[0].text, /…$/u);
   assert.equal(workSummaryRows({ goal: { objective: 'Hidden only when no safe room exists', status: 'active' }, tasks: [] }, 80, 8).length, 0);
+});
+
+test('collapsed work summary reflects pending, blocked, and completed progress', () => {
+  const goal = { objective: 'Complete every slice', status: 'active' };
+  const pending = workSummaryRows({ goal, tasks: [
+    { id: 'T1', title: 'Start the next slice', status: 'pending' },
+  ] }, 100, 24, true);
+  assert.match(pending[0].text, /next 1\/1 · Start the next slice/u);
+  const blocked = workSummaryRows({ goal, tasks: [
+    { id: 'T1', title: 'Finished', status: 'completed' },
+    { id: 'T2', title: 'Waiting for evidence', status: 'blocked' },
+  ] }, 100, 24, true);
+  assert.match(blocked[0].text, /blocked 2\/2 · Waiting for evidence/u);
+  const completed = workSummaryRows({ goal, tasks: [
+    { id: 'T1', title: 'Finished', status: 'completed' },
+  ] }, 100, 24, true);
+  assert.match(completed[0].text, /1\/1 complete · Complete every slice/u);
+});
+
+test('goal header click toggles the per-conversation shelf and updates its hint', async () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { provider: 'local', model: 'model' });
+  projection.active().work = { goal: { objective: 'Ship the interface', status: 'active' }, tasks: [
+    { id: 'T1', title: 'Implement the toggle', status: 'in_progress' },
+  ] };
+  const renderer = new TuiRenderer();
+  const capabilities = { width: 100, height: 24, color: false };
+  const expanded = renderer.frame(projection, capabilities);
+  assert.match(expanded, /Click GOAL to collapse/u);
+  const target = projection.mouseTargets.find((item) => item.type === 'work-summary');
+  assert.ok(target);
+  const workspace = {
+    projection, async toggleWorkSummary() { return projection.toggleWorkSummary(); },
+  };
+  await handleMouse({ action: 'mouse', pressed: true, button: 0, wheel: false, row: target.row },
+    workspace, () => null, async () => undefined, { async rightClick() {} });
+  const collapsed = renderer.frame(projection, capabilities);
+  assert.equal(projection.active().workCollapsed, true);
+  assert.match(collapsed, /▸ GOAL ACTIVE · task 1\/1 · Implement the toggle/u);
+  assert.match(collapsed, /Click GOAL to expand/u);
 });
 
 test('footer uses deliberate wide and medium compositions', () => {

@@ -79,11 +79,11 @@ export class InteractiveWorkspace {
   initializeSessionBroker() { return initializeWorkspaceSessionBroker(this); }
   dreamCommand(action) { return runWorkspaceDreamCommand(this, action); }
   async restore() {
-    const result = await restoreWorkspace(this);
-    if (result.complete) await this._savePoolRecoverable();
+    const result = await restoreWorkspace(this); if (result.complete) await this._savePoolRecoverable();
     return result.mainId;
   }
   acquireConsoleAuthority() { return this.consoleAuthority.acquire(); }
+  async toggleWorkSummary() { if (!this.projection.toggleWorkSummary()) return false; this.onChange(); await this._savePoolRecoverable(); return true; }
   async create(name = 'Main', sessionId = newId('session'), options = {}) {
     if (this.sessions.has(sessionId)) throw new ContractError('session_duplicate', 'conversation is already attached');
     const output = async (event) => {

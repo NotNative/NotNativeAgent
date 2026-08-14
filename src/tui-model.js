@@ -202,7 +202,7 @@ export class TuiProjection {
       contextParallelCapacity: null, contextMeasurement: null, contextSource: null,
       lastOutcome: null, turnStartedAt: null, reviewPosture: 'auto-review', pendingAttachments: [],
       historyRecords: [], beforeSequence: null, hasMore: false, historyAnchor: null,
-      work: null,
+      work: null, workCollapsed: false,
     });
     this.activeId ??= id;
   }
@@ -294,6 +294,13 @@ export class TuiProjection {
     if (session.detailedTurns.has(turnId)) return false;
     if (session.expandedTurns.has(turnId)) session.expandedTurns.delete(turnId);
     else session.expandedTurns.add(turnId);
+    return true;
+  }
+
+  toggleWorkSummary() {
+    const session = this.active();
+    if (!session || (!session.work?.goal && !session.work?.tasks?.length)) return false;
+    session.workCollapsed = !session.workCollapsed;
     return true;
   }
 

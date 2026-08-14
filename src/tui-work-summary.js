@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { displayWidth, truncateTerminal } from './terminal-markdown.js';
 
-export function workSummaryRows(work, width, height) {
+export function workSummaryRows(work, width, height, collapsed = false) {
   if (!work?.goal && !work?.tasks?.length) return [];
   if (height < 10) return [];
   const tasks = work.tasks ?? [];
   const completed = tasks.filter((task) => task.status === 'completed').length;
   const progress = `${completed}/${tasks.length}`;
-  const compact = width < 60 || height < 24;
-  if (compact) return [compactRow(compactSummary(work.goal, tasks, progress), 'work:compact', width)];
+  if (collapsed) return [compactRow(collapsedSummary(work.goal, tasks), 'work:compact', width)];
 
-  const rows = [row(goalSummary(work.goal, progress), goalKind(work.goal), width)];
-  const limit = height >= 36 ? 8 : height >= 28 ? 5 : 3;
+  const rows = [row(`▾ ${goalSummary(work.goal, progress)}`, goalKind(work.goal), width)];
+  const limit = height >= 36 ? 8 : height >= 28 ? 5 : height >= 20 ? 3 : 1;
   const visible = visibleTasks(tasks, limit);
   for (const task of visible) rows.push(row(`  ${taskMarker(task.status)} ${task.id}  ${task.title}`, `work:task:${task.status}`, width));
   const hidden = tasks.length - visible.length;
@@ -19,13 +18,18 @@ export function workSummaryRows(work, width, height) {
   return rows;
 }
 
-function compactSummary(goal, tasks, progress) {
+function collapsedSummary(goal, tasks) {
   const active = tasks.find((task) => task.status === 'in_progress')
     ?? tasks.find((task) => task.status === 'blocked')
     ?? tasks.find((task) => task.status === 'pending');
-  const goalText = goal ? `Goal ${goal.status} · ${goal.objective}` : 'Tasks';
-  const taskText = active ? ` · ${active.id} ${active.title}` : '';
-  return `${goalText} · ${progress}${taskText}`;
+  const label = goal ? `GOAL ${goal.status.toUpperCase()}` : 'TASKS';
+  if (active) {
+    const position = tasks.indexOf(active) + 1;
+    const state = active.status === 'in_progress' ? 'task' : active.status === 'blocked' ? 'blocked' : 'next';
+    return `▸ ${label} · ${state} ${position}/${tasks.length} · ${active.title}`;
+  }
+  if (tasks.length > 0) return `▸ ${label} · ${tasks.length}/${tasks.length} complete · ${goal?.objective ?? 'All tasks complete'}`;
+  return `▸ ${label} · ${goal?.objective ?? 'No tasks'}`;
 }
 
 function goalSummary(goal, progress) {
@@ -56,10 +60,8 @@ function row(text, kind, width) {
 }
 
 function compactRow(text, kind, width) {
-  const suffix = ' · /plan';
-  const bodyWidth = Math.max(0, width - displayWidth(suffix));
-  const clipped = displayWidth(text) > bodyWidth && bodyWidth > 0
-    ? `${truncateTerminal(text, Math.max(0, bodyWidth - 1))}…`
-    : truncateTerminal(text, bodyWidth);
-  return Object.freeze({ text: `${clipped}${suffix}`, kind });
+  const clipped = displayWidth(text) > width
+    ? `${truncateTerminal(text, Math.max(0, width - 1))}…`
+    : text;
+  return Object.freeze({ text: clipped, kind });
 }

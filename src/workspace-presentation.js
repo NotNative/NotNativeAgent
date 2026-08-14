@@ -16,6 +16,7 @@ export function presentationState(session) {
     draft: session.editor.text, viewport_end: session.viewportEnd,
     expanded_turn_ids: [...session.expandedTurns], review_posture: session.reviewPosture,
     detailed_turn_ids: [...session.detailedTurns],
+    work_collapsed: session.workCollapsed === true,
     pending_attachments: session.pendingAttachments,
   };
 }
@@ -26,6 +27,7 @@ export function restorePresentation(session, engine, value) {
   session.viewportEnd = value.viewport_end;
   session.expandedTurns = new Set(value.expanded_turn_ids ?? []);
   session.detailedTurns = new Set(value.detailed_turn_ids ?? []);
+  session.workCollapsed = value.work_collapsed === true;
   session.reviewPosture = value.review_posture;
   session.pendingAttachments = value.pending_attachments.map((item) => Object.freeze({ ...item }));
   engine.reviewPosture = value.review_posture;

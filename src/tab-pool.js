@@ -4,7 +4,7 @@ import { dirname } from 'node:path';
 import { ContractError } from './ids.js';
 import { SessionLock } from './session-lock.js';
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const MAX_TABS = 64;
 
 export async function loadTabPool(path) {
@@ -18,6 +18,7 @@ export async function loadTabPool(path) {
   }
   if (value?.schema_version === 1) value = migrateV1(value);
   if (value?.schema_version === 2) value = migrateV2(value);
+  if (value?.schema_version === 3) value = migrateV3(value);
   validate(value);
   return value;
 }
@@ -91,6 +92,7 @@ function validatePresentation(value) {
     || !Array.isArray(value.expanded_turn_ids) || value.expanded_turn_ids.length > 128
     || value.expanded_turn_ids.some((id) => typeof id !== 'string' || id.length > 128)
     || !['prompt', 'auto-review', 'unattended'].includes(value.review_posture)
+    || typeof value.work_collapsed !== 'boolean'
     || !Array.isArray(value.pending_attachments) || value.pending_attachments.length > 16
     || value.pending_attachments.some(invalidAttachment)) {
     throw new ContractError('tab_pool_invalid', 'saved Console presentation state is invalid');
@@ -112,11 +114,20 @@ function migrateV1(value) {
 }
 
 function migrateV2(value) {
-  return { ...value, schema_version: SCHEMA_VERSION, tabs: value.tabs.map((tab) => ({
+  return { ...value, schema_version: 3, tabs: value.tabs.map((tab) => ({
     ...tab, main: tab.role === 'primary', console_id: null,
   })) };
 }
 
+function migrateV3(value) {
+  return { ...value, schema_version: SCHEMA_VERSION, tabs: value.tabs.map((tab) => ({
+    ...tab, presentation: { ...tab.presentation, work_collapsed: false },
+  })) };
+}
+
 function defaultPresentation() {
-  return { draft: '', viewport_end: null, expanded_turn_ids: [], review_posture: 'auto-review', pending_attachments: [] };
+  return {
+    draft: '', viewport_end: null, expanded_turn_ids: [], review_posture: 'auto-review',
+    pending_attachments: [], work_collapsed: false,
+  };
 }

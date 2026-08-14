@@ -44,9 +44,15 @@ export class TuiRenderer {
     projection.selectionDocumentLines = available.map(plainTerminalLine);
     projection.selectionRowMap = new Map(content.map((_line, index) => [header.length + index + 1, contentStart + index]));
     projection.selectionContentBounds = { first: header.length + 1, last: header.length + content.length };
-    projection.mouseTargets = Object.freeze([...targets.entries()]
+    const visibleTargets = [...targets.entries()]
       .filter(([index]) => index >= contentStart && index < contentStart + content.length)
-      .map(([index, target]) => Object.freeze({ ...target, row: header.length + index - contentStart + 1 })));
+      .map(([index, target]) => Object.freeze({ ...target, row: header.length + index - contentStart + 1 }));
+    const workRow = footerKinds.findIndex((kind) => kind === 'work:compact' || kind?.startsWith('work:goal:'));
+    const workTargetRow = header.length + content.length + workRow + 1;
+    if (workRow >= 0 && workTargetRow <= height) {
+      visibleTargets.push(Object.freeze({ type: 'work-summary', row: workTargetRow }));
+    }
+    projection.mouseTargets = Object.freeze(visibleTargets);
     const color = capabilities.color === true;
     const frame = [
       ...header.map((line, index) => decorateHeader(line, index, color)),
@@ -207,7 +213,9 @@ function footerLines(projection, session, width, capabilities = {}, suggestionCa
   add(commandPickerLines(session, projection, suggestionCapacity).map((line) => crop(line, width)), 'suggestion');
   const activity = liveActivityLine(session, capabilities);
   if (activity) add(crop(activity, width), 'activity');
-  for (const row of workSummaryRows(session.work, width, capabilities.height ?? 24)) add(crop(row.text, width), row.kind);
+  for (const row of workSummaryRows(session.work, width, capabilities.height ?? 24, session.workCollapsed)) {
+    add(crop(row.text, width), row.kind);
+  }
   add(editorLines(session, width), 'editor');
   add(rule(width), 'rule');
   add(crop(controlLine(session, projection.bindings), width), 'controls');
@@ -329,13 +337,15 @@ function controlLine(session, bindings) {
   const cancel = keyLabel(bindings.cancel);
   const help = keyLabel(bindings.help);
   const view = session.viewportEnd === null ? 'PgUp scroll' : 'PgDn scroll · End follow';
-  if (session.activeTurnId) return `Enter steer · ${view} · double ${cancel} cancel · ${help} help`;
-  if (session.viewportEnd !== null) return `Enter send · ${view} · ${help} help`;
+  const work = session.work?.goal || session.work?.tasks?.length
+    ? ` · Click GOAL to ${session.workCollapsed ? 'expand' : 'collapse'}` : '';
+  if (session.activeTurnId) return `Enter steer${work} · ${view} · double ${cancel} cancel · ${help} help`;
+  if (session.viewportEnd !== null) return `Enter send${work} · ${view} · ${help} help`;
   const hasConversation = [...session.historyRecords, ...session.records]
     .some((record) => ['user_input', 'stream_delta'].includes(record.type));
   return hasConversation
-    ? `Enter send · ${help} help`
-    : `Enter send · Ctrl+J newline · Ctrl+O activity · ${view} · ${help} help`;
+    ? `Enter send${work} · ${help} help`
+    : `Enter send${work} · Ctrl+J newline · Ctrl+O activity · ${view} · ${help} help`;
 }
 
 function tabLabel(session, activeId) {
