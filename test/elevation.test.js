@@ -2,12 +2,15 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import { mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { elevationInvocation, elevationNotice } from '../src/elevation-broker.js';
+import { runExact } from '../src/elevation-helper.js';
 import { assertNonInteractiveElevation } from '../src/elevation-tool.js';
 import { InteractivePermissionBroker } from '../src/permission-broker.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
@@ -173,6 +176,17 @@ test('sealed helper observes cancellation and terminates the elevated process tr
   const result = JSON.parse(await readFile(resultPath, 'utf8'));
   assert.equal(result.status, 'failed');
   assert.equal(result.reason_code, 'elevated_process_cancelled');
+});
+
+test('elevation timeout settles even when process-tree termination fails', async () => {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough(); child.stderr = new PassThrough();
+  child.exitCode = null; child.pid = 42;
+  const request = { executable: process.execPath, args: [], cwd: process.cwd(), timeout_ms: 1 };
+  await assert.rejects(runExact(request, 'unused', {
+    spawnProcess: () => child,
+    terminateTree: async () => { throw new Error('termination failed'); },
+  }), /timeout/u);
 });
 
 function runHelper(executable, args) {

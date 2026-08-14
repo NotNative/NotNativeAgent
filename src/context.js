@@ -131,7 +131,7 @@ function latestAttachments(transcript) {
   for (const item of transcript) {
     if (item.type === 'attachment_fact') latest.set(item.id, item);
   }
-  return [...latest.values()].filter((item) => item.state === 'admitted');
+  return [...latest.values()].filter((item) => ['admitted', 'cleanup_failed'].includes(item.state) && item.admittedAt);
 }
 
 function memoryMessage(item) {

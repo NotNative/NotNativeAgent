@@ -25,9 +25,10 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}) {
 }
 
 export function admissionFromRetry(item) {
+  const admitted = Boolean(item.admittedAt);
   return Object.freeze({
-    admitted: Object.freeze(item.state === 'admitted' ? [item] : []),
-    failures: Object.freeze(item.state === 'admitted' ? [] : [item]),
+    admitted: Object.freeze(admitted ? [item] : []),
+    failures: Object.freeze(admitted ? [] : [item]),
   });
 }
 

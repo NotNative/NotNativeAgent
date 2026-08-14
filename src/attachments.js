@@ -33,7 +33,7 @@ export class AttachmentManager {
     const failures = [];
     for (const item of staged) {
       const result = await this.#admit(item, prompt, signal);
-      if (result.state === 'admitted') admitted.push(result);
+      if (result.admittedAt) admitted.push(result);
       else failures.push(result);
     }
     return Object.freeze({ admitted: Object.freeze(admitted), failures: Object.freeze(failures) });
@@ -124,7 +124,7 @@ export class AttachmentManager {
       await this.status(fact);
       if (!this.config.retain) {
         try { await this.#removeManaged(item.managedPath); }
-        catch (error) { await this.#recordCleanupFailure(item, error, true); }
+        catch (error) { return this.#recordCleanupFailure(fact, error, true); }
       }
       return fact;
     } catch (error) {
@@ -163,6 +163,7 @@ export class AttachmentManager {
     this.#items.set(item.id, fact);
     await this.persist('attachment_fact', fact);
     await this.status(fact);
+    return fact;
   }
 
   async #removeManaged(path) {

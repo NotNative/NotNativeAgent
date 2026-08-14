@@ -29,7 +29,7 @@ export class ConversationWork {
     const text = boundedText(objective, 'goal objective', MAX_GOAL_TEXT);
     const now = new Date().toISOString();
     const prior = this.state.goal;
-    this.state = {
+    const next = {
       ...this.state,
       revision: this.state.revision + 1,
       goal: Object.freeze({
@@ -37,7 +37,7 @@ export class ConversationWork {
         createdAt: prior?.createdAt ?? now, updatedAt: now, evidence: null,
       }),
     };
-    return this.#commit('goal_set');
+    return this.#commit(next, 'goal_set');
   }
 
   async completeGoal(evidence) {
@@ -45,26 +45,26 @@ export class ConversationWork {
     const unfinished = this.state.tasks.filter((task) => task.status !== 'completed');
     if (unfinished.length > 0) throw new ContractError('goal_tasks_unfinished', `${unfinished.length} task(s) are not complete`);
     const proof = boundedText(evidence, 'goal completion evidence', MAX_DETAIL);
-    this.state = {
+    const next = {
       ...this.state, revision: this.state.revision + 1,
       goal: Object.freeze({ ...this.state.goal, status: 'completed', evidence: proof, updatedAt: new Date().toISOString() }),
     };
-    return this.#commit('goal_completed');
+    return this.#commit(next, 'goal_completed');
   }
 
   async reopenGoal() {
     if (!this.state.goal) throw new ContractError('goal_missing', 'this conversation has no goal to reopen');
-    this.state = {
+    const next = {
       ...this.state, revision: this.state.revision + 1,
       goal: Object.freeze({ ...this.state.goal, status: 'active', evidence: null, updatedAt: new Date().toISOString() }),
     };
-    return this.#commit('goal_reopened');
+    return this.#commit(next, 'goal_reopened');
   }
 
   async clear() {
     const revision = this.state.revision + 1;
-    this.state = Object.freeze({ ...emptyState(), revision });
-    return this.#commit('work_cleared');
+    const next = Object.freeze({ ...emptyState(), revision });
+    return this.#commit(next, 'work_cleared');
   }
 
   async addTask(title) {
@@ -76,11 +76,11 @@ export class ConversationWork {
       id: `T${number}`, title: text, status: 'pending', evidence: null, blockedReason: null,
       createdAt: now, updatedAt: now,
     });
-    this.state = {
+    const next = {
       ...this.state, revision: this.state.revision + 1, nextTaskNumber: number + 1,
       tasks: Object.freeze([...this.state.tasks, task]),
     };
-    return this.#commit('task_added', task.id);
+    return this.#commit(next, 'task_added', task.id);
   }
 
   async updateTask(id, status, detail = null) {
@@ -97,13 +97,14 @@ export class ConversationWork {
     tasks[index] = Object.freeze({
       ...tasks[index], status, evidence, blockedReason, updatedAt: new Date().toISOString(),
     });
-    this.state = { ...this.state, revision: this.state.revision + 1, tasks: Object.freeze(tasks) };
-    return this.#commit(`task_${status}`, taskId);
+    const next = { ...this.state, revision: this.state.revision + 1, tasks: Object.freeze(tasks) };
+    return this.#commit(next, `task_${status}`, taskId);
   }
 
-  async #commit(action, taskId = null) {
-    const snapshot = this.snapshot();
+  async #commit(next, action, taskId = null) {
+    const snapshot = deepFreeze(structuredClone(next));
     await this.persist('work_state', snapshot);
+    this.state = snapshot;
     this.telemetry?.record('work.state', 'succeeded', {
       action, revision: snapshot.revision, goal_status: snapshot.goal?.status ?? null,
       task_id: taskId, task_counts: taskCounts(snapshot.tasks),

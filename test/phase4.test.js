@@ -205,6 +205,33 @@ test('AC-ATT-02/SESS-015 failed managed cleanup is persisted and never presented
   assert.notEqual(statuses.at(-1).state, 'removed');
 });
 
+test('analyzed attachment cleanup failure preserves its observation and authoritative state', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-attachment-admitted-cleanup-'));
+  const image = join(root, 'sample.png');
+  await writeFile(image, Buffer.from('89504e470d0a1a0a00', 'hex'));
+  const statuses = [], requests = [];
+  const engine = new SessionEngine({
+    config: base(root), attachmentRoot: join(root, '.managed'),
+    providerFactory: () => ({ async *stream(request) {
+      requests.push(request);
+      yield { type: 'text', text: Array.isArray(request.messages[0]?.content) ? 'observed image' : 'used observation' };
+      yield { type: 'terminal', finishReason: 'stop' };
+    } }),
+    attachmentRemoveFile: async () => { throw Object.assign(new Error('locked'), { code: 'EBUSY' }); },
+    output: async (event) => { if (event.type === 'attachment_status') statuses.push(event); },
+  });
+  const result = await engine.submit({
+    request_id: 'admitted-cleanup-image', content: 'Inspect this image',
+    attachments: [{ path: image, mime_type: 'image/png' }],
+  }, 'operator');
+  const admitted = result.attachment_admission.admitted[0];
+  assert.equal(result.outcome, 'completed');
+  assert.equal(admitted.state, 'cleanup_failed');
+  assert.equal(admitted.observation, 'observed image');
+  assert.deepEqual(statuses.map((item) => item.state), ['staged', 'admitted', 'cleanup_failed']);
+  assert.match(JSON.stringify(requests[1].messages), /observed image/u);
+});
+
 test('AC-STATE-04 attachment cancellation does not await or admit a late provider result', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-attachment-cancel-'));
   const image = join(root, 'sample.png');

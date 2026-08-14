@@ -78,9 +78,12 @@ function elevationFailureCode(error) {
   return 'elevated_process_failed';
 }
 
-function runExact(request, cancelPath) {
+export function runExact(request, cancelPath, options = {}) {
+  const spawnProcess = options.spawnProcess ?? spawn;
+  const terminate = options.terminateTree ?? terminateTree;
+  const checkAccess = options.access ?? access;
   return new Promise((resolve, reject) => {
-    const child = spawn(request.executable, request.args, {
+    const child = spawnProcess(request.executable, request.args, {
       cwd: request.cwd, shell: false, windowsHide: true, detached: process.platform !== 'win32',
       env: safeEnvironment(process.env),
     });
@@ -88,22 +91,25 @@ function runExact(request, cancelPath) {
     const consume = (kind, chunk) => {
       if (settled) return;
       bytes += chunk.length;
-      if (bytes > MAX_OUTPUT_BYTES) { void rejectOnce(new Error('output_too_large')); return; }
+      if (bytes > MAX_OUTPUT_BYTES) { rejectOnce(new Error('output_too_large')); return; }
       if (kind === 'stdout') stdout += chunk.toString('utf8'); else stderr += chunk.toString('utf8');
     };
-    const rejectOnce = async (error) => {
+    const rejectOnce = (error) => {
       if (settled) return; settled = true; cleanup();
-      await terminateTree(child); reject(error);
+      Promise.resolve().then(() => terminate(child)).then(
+        () => reject(error),
+        () => reject(error),
+      );
     };
-    const timer = setTimeout(() => { void rejectOnce(new Error('timeout')); }, request.timeout_ms);
+    const timer = setTimeout(() => rejectOnce(new Error('timeout')), request.timeout_ms);
     const cancellation = setInterval(async () => {
-      try { await access(cancelPath); void rejectOnce(new Error('cancelled')); } catch { /* not cancelled */ }
+      try { await checkAccess(cancelPath); rejectOnce(new Error('cancelled')); } catch { /* not cancelled */ }
     }, 100);
     cancellation.unref?.();
     const cleanup = () => { clearTimeout(timer); clearInterval(cancellation); };
     child.stdout.on('data', (chunk) => consume('stdout', chunk));
     child.stderr.on('data', (chunk) => consume('stderr', chunk));
-    child.once('error', (error) => { void rejectOnce(error); });
+    child.once('error', (error) => rejectOnce(error));
     child.once('exit', (code, signal) => {
       if (settled) return; settled = true; cleanup();
       resolve({ exit_code: code, signal, stdout, stderr });

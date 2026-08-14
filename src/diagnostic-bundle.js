@@ -144,26 +144,26 @@ function safeConfiguration(config) {
   };
 }
 
-async function atomicWrite(path, content) {
+export async function atomicWrite(path, content, operations = {}) {
+  const openFile = operations.open ?? open;
+  const linkFile = operations.link ?? link;
+  const removeFile = operations.unlink ?? unlink;
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   const temporary = join(dirname(path), `.nna-diagnostic-${randomUUID()}.tmp`);
-  const handle = await open(temporary, 'wx', 0o600);
-  let published = false;
+  const handle = await openFile(temporary, 'wx', 0o600);
   try {
     await handle.writeFile(content); await handle.sync(); await handle.close();
-    await link(temporary, path);
-    published = true;
-    await unlink(temporary);
+    await linkFile(temporary, path);
   } catch (error) {
-    // Cleanup failures cannot replace the publication result.
     await handle.close().catch(() => undefined);
-    if (published) await unlink(path).catch(() => undefined);
-    await unlink(temporary).catch(() => undefined);
+    await removeFile(temporary).catch(() => undefined);
     if (error.code === 'EEXIST') {
       throw new ContractError('bundle_exists', 'support bundle destination already exists; choose a new .zip path');
     }
     throw error;
   }
+  // Cleanup failures cannot replace the publication result.
+  await removeFile(temporary).catch(() => undefined);
 }
 
 function supportFileName() {

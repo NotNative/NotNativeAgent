@@ -64,6 +64,14 @@ test('clearing conversation work records a durable empty revision', async () => 
   assert.equal(records.at(-1).payload.revision, 3);
 });
 
+test('failed work persistence leaves authoritative in-memory state unchanged', async () => {
+  const work = new ConversationWork({ persist: async () => { throw new Error('disk unavailable'); } });
+  await assert.rejects(work.addTask('Must remain uncommitted'), /disk unavailable/u);
+  assert.deepEqual(work.snapshot(), {
+    schema: 'nna.conversation_work.v1', revision: 0, nextTaskNumber: 1, goal: null, tasks: [],
+  });
+});
+
 test('durable work state is kernel-grounded independently of compacted transcript records', () => {
   const config = { workspaceRoot: 'D:/work', limits: { maxContextBytes: 1_000_000 }, executionManifest: null, applicationPolicy: null };
   const work = { schema: 'nna.conversation_work.v1', revision: 4, nextTaskNumber: 2,
