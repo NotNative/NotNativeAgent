@@ -34,9 +34,10 @@ export function providerTimeouts(manifest) {
   };
 }
 
-export function providerRouteDeadline(value, providerMs) {
+export function providerRouteDeadlineOverride(value) {
   // 120 seconds was the legacy persisted route default.
-  return boundedInteger(value === 120_000 ? undefined : value, providerMs, 100, 3_600_000);
+  if (value === undefined || value === 120_000) return null;
+  return boundedInteger(value, null, 100, 3_600_000);
 }
 
 export function semanticReviewTimeout(manifest, providerMs) {

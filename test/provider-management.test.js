@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { migrateManifestDocument, resolveManifest } from '../src/config.js';
 import {
-  manifestFromConfig, persistManifest, withGlobalSpecialistRoutes, withRoleRoute, withUpdatedProvider,
+  manifestFromConfig, persistManifest, withGlobalSpecialistRoutes, withRoleRoute, withRouteDeadline, withUpdatedProvider,
   withoutProvider, withoutRoleRoute,
 } from '../src/route-configuration.js';
 import { InteractiveWorkspace } from '../src/interactive-workspace.js';
@@ -73,6 +73,19 @@ test('global specialist synchronization preserves a conversation primary route',
   assert.equal(synchronized.routes.primary.model, 'tab-model');
   assert.equal(synchronized.routes.reviewer.providerId, 'two');
   assert.equal(synchronized.routes.reviewer.model, 'reviewer-override');
+});
+
+test('route deadlines inherit globally until explicitly set and can return to inheritance', () => {
+  const current = configuration(process.cwd());
+  assert.equal(current.routes.primary.deadlineOverrideMs, null);
+  assert.equal(current.routes.primary.deadlineMs, current.limits.providerMs);
+  const overridden = withRouteDeadline(current, 'primary', 600_000);
+  assert.equal(overridden.config.routes.primary.deadlineOverrideMs, 600_000);
+  assert.equal(overridden.manifest.routes.primary.deadline_ms, 600_000);
+  const inherited = withRouteDeadline(overridden.config, 'primary', null);
+  assert.equal(inherited.config.routes.primary.deadlineOverrideMs, null);
+  assert.equal(inherited.config.routes.primary.deadlineMs, current.limits.providerMs);
+  assert.equal(inherited.manifest.routes.primary.deadline_ms, undefined);
 });
 
 test('restored conversation configuration discards stale specialist assignments', async () => {

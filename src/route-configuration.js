@@ -18,7 +18,7 @@ export function manifestFromConfig(config) {
       fallbacks: [...route.fallbacks],
       context_limit_bytes: route.contextLimitBytes ?? undefined,
       required_capabilities: [...route.requiredCapabilities], temperature: route.temperature,
-      max_output_tokens: route.maxOutputTokens, budget: route.budget, deadline_ms: route.deadlineMs,
+      max_output_tokens: route.maxOutputTokens, budget: route.budget, deadline_ms: route.deadlineOverrideMs ?? undefined,
     })])),
     application_system_prompt: config.applicationPolicy || undefined,
     skills: config.executionManifest ? config.skills?.map((item) => ({
@@ -179,6 +179,14 @@ export function withRecoverySettings(config, maxModelSteps, localLimit, ladder) 
   manifest.recovery = {
     max_model_steps: maxModelSteps, local_retry_limit: localLimit, ladder,
   };
+  return { manifest, config: resolveManifest(manifest) };
+}
+
+export function withRouteDeadline(config, role, deadlineMs = null) {
+  if (!Object.hasOwn(config.routes, role)) throw new ContractError('route_role_invalid', `unknown route role ${role}`);
+  const manifest = manifestFromConfig(config);
+  if (deadlineMs === null) delete manifest.routes[role].deadline_ms;
+  else manifest.routes[role].deadline_ms = deadlineMs;
   return { manifest, config: resolveManifest(manifest) };
 }
 

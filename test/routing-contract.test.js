@@ -110,6 +110,8 @@ test('historical short provider defaults migrate to local-model-safe deadlines',
   assert.equal(config.limits.firstTokenMs, 600_000);
   assert.equal(config.limits.idleMs, 300_000);
   assert.equal(config.routes.primary.deadlineMs, 1_800_000);
+  assert.equal(config.routes.primary.deadlineOverrideMs, null);
+  assert.equal(manifestFromConfig(config).routes.primary.deadline_ms, undefined);
   const custom = resolveManifest({
     providers, provider_timeout_ms: 121_000, first_token_timeout_ms: 30_000, idle_timeout_ms: 45_000,
   });
@@ -120,6 +122,8 @@ test('historical short provider defaults migrate to local-model-safe deadlines',
     providers, provider_timeout_ms: 1_800_000, routes: { primary: { deadline_ms: 121_000 } },
   });
   assert.equal(customRoute.routes.primary.deadlineMs, 121_000);
+  assert.equal(customRoute.routes.primary.deadlineOverrideMs, 121_000);
+  assert.equal(manifestFromConfig(customRoute).routes.primary.deadline_ms, 121_000);
   const fullyCustom = resolveManifest({
     providers, provider_timeout_ms: 121_000, first_token_timeout_ms: 31_000, idle_timeout_ms: 46_000,
   });

@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { validateKeyBindings } from './key-bindings.js';
 import { validateNestedManifestKeys } from './configuration-shape.js';
-import { boundedInteger, boundedNumber, providerRouteDeadline, providerTimeouts, semanticReviewTimeout, telemetryDestination } from './config-bounds.js';
+import { boundedInteger, boundedNumber, providerRouteDeadlineOverride, providerTimeouts, semanticReviewTimeout, telemetryDestination } from './config-bounds.js';
 import { resolveContextLimits } from './config-context.js';
 import { validateAllowedTools, validateHostIdentity } from './execution-policy.js';
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
@@ -240,11 +240,11 @@ function validateTelemetry(value) {
   return { enabled, destination, retention: enabled ? optionalString(input.retention) : null };
 }
 function buildRoutes(value, profile, profiles, providerMs) {
-  const input = isRecord(value) ? value : {};
-  const result = {};
+  const input = isRecord(value) ? value : {}, result = {};
   for (const role of ROLES) {
     const route = isRecord(input[role]) ? input[role] : {};
     const assigned = role === 'primary' || route.provider_id != null || route.model != null;
+    const deadlineOverrideMs = providerRouteDeadlineOverride(route.deadline_ms);
     const inherited = role === 'primary' ? null : result.primary;
     const providerId = assigned ? (route.provider_id ?? profile.id) : inherited.providerId;
     const model = assigned ? (route.model ?? profiles[providerId]?.model ?? profile.model) : inherited.model;
@@ -258,7 +258,7 @@ function buildRoutes(value, profile, profiles, providerMs) {
       maxOutputTokens: boundedInteger(route.max_output_tokens, 16_384, 1, 1_048_576),
       budget: boundedInteger(route.budget, 1, 1, 64),
       fallbacks,
-      deadlineMs: providerRouteDeadline(route.deadline_ms, providerMs),
+      deadlineMs: deadlineOverrideMs ?? providerMs, deadlineOverrideMs,
     });
     if (!profiles[result[role].providerId]) {
       throw new ContractError('route_profile_missing', `route ${role} references an unavailable provider`);
