@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ensureUserDataPaths, userDataPaths } from '../src/product.js';
 import { loadEffectiveStartupConfiguration, runtimeHookRoots } from '../src/startup-configuration.js';
-import { trustWorkspace, workspaceIsTrusted } from '../src/workspace-trust.js';
+import { trustWorkspace, workspaceIsTrusted } from '../src/experience/trust.js';
 
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
 

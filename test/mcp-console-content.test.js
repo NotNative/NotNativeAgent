@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TuiProjection } from '../src/tui-model.js';
-import { handleMcpCommand } from '../src/tui-mcp-command.js';
+import { TuiProjection } from '../src/experience/projection.js';
+import { handleMcpCommand } from '../src/tui/mcp-command.js';
 
 function workspace() {
   const calls = [];

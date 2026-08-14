@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { filesView } from '../src/tui-files-view.js';
+import { filesView } from '../src/tui/files-view.js';
 
 test('conversation files deduplicate reads and retain actionable failure details', () => {
   const value = filesView({ historyRecords: [], records: [

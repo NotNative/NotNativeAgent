@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { healthDetailOverlay, healthOverlay } from '../src/tui-health.js';
+import { healthDetailOverlay, healthOverlay } from '../src/tui/health.js';
 
 function fixtureHealth() {
   return {

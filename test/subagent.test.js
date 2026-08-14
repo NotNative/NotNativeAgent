@@ -10,7 +10,7 @@ import { createSubagentProgressRelay } from '../src/subagent-progress.js';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
 import { recoverJournal } from '../src/store.js';
-import { subagentStatus } from '../src/tui-runtime-inspection.js';
+import { subagentStatus } from '../src/tui/runtime-inspection.js';
 
 test('sub-agent progress emits compact lifecycle milestones without child tool chatter', async () => {
   const output = [];
@@ -20,7 +20,7 @@ test('sub-agent progress emits compact lifecycle milestones without child tool c
   await relay.accept({ type: 'tool_status', status: 'running', tool: 'fs.read_text', target: 'README.md' });
   await relay.accept({ type: 'tool_status', status: 'succeeded', tool: 'fs.read_text', target: 'README.md' });
   assert.equal(output.length, 0);
-  await relay.started('Review src/subagent-progress.js and src/tui-activity-renderer.js.');
+  await relay.started('Review src/subagent-progress.js and src/tui/activity-renderer.js.');
   await relay.returned({ text: 'A deliberately verbose report remains available to the parent model.' });
   assert.deepEqual(output.map((record) => [record.phase, record.text]), [
     ['started', 'working on src/subagent-progress.js and 1 more file'],

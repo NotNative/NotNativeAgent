@@ -6,10 +6,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveManifest } from '../src/config.js';
 import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
-import { mcpOverlay } from '../src/tui-overlays.js';
+import { mcpOverlay } from '../src/tui/overlays.js';
 import {
   availableMcpId, beginMcpManagementSelection, handleMcpSetupAction,
-} from '../src/tui-mcp-setup.js';
+} from '../src/tui/mcp-setup.js';
 import { managedMcpCredentialReference } from '../src/mcp-credentials.js';
 
 function configuration(root) {

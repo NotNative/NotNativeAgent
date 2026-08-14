@@ -2,7 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import { performance } from 'node:perf_hooks';
-import { TuiProjection } from '../src/tui-model.js';
+import { TuiProjection } from '../src/experience/projection.js';
 
 const startup = [];
 for (let index = 0; index < 30; index += 1) {

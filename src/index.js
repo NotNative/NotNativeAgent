@@ -6,7 +6,7 @@ export { MemoryBoundary } from './memory.js';
 export { McpManager } from './mcp-manager.js';
 export { EXTENSION_HOST_CONTRACT, ExtensionRegistry } from './extensions.js';
 export { ExperienceEngine, ExperienceEngine as InteractiveWorkspace } from './experience-engine.js';
-export { TuiProjection, EditorBuffer, validateKeyBindings } from './tui-model.js';
+export { TuiProjection, EditorBuffer, validateKeyBindings } from './experience/projection.js';
 export { StructuredLog } from './structured-log.js';
 export { DiagnosticBundle } from './diagnostic-bundle.js';
 export { FairScheduler } from './fair-scheduler.js';

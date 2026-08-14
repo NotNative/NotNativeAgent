@@ -5,7 +5,7 @@ import { EventHub } from '../src/events.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/reviewer-ledger.js';
 import { nextReviewPosture } from '../src/review-posture.js';
-import { TerminalInputDecoder } from '../src/terminal-adapter.js';
+import { TerminalInputDecoder } from '../src/tui/terminal-adapter.js';
 import { MANDATORY_REVIEW_EVENT_TIMEOUT_MS, ToolGovernor } from '../src/tool-governor.js';
 import { semanticReviewTimeout } from '../src/config-bounds.js';
 

@@ -3,7 +3,7 @@ import { ContractError } from './ids.js';
 import { ROLES } from './contracts.js';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { validateKeyBindings } from './key-bindings.js';
+import { validateKeyBindings } from './tui/key-bindings.js';
 import { validateNestedManifestKeys } from './configuration-shape.js';
 import { boundedInteger, boundedNumber, optionalZeroUnsetInteger, providerRouteDeadlineOverride,
   providerTimeouts, semanticReviewTimeout, telemetryDestination } from './config-bounds.js';

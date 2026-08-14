@@ -2,7 +2,7 @@
 import { CanonicalIngress } from './ingress.js';
 import { SessionEngine } from './engine.js';
 import { ContractError, newId } from './ids.js';
-import { TuiProjection } from './tui-model.js';
+import { TuiProjection } from './experience/projection.js';
 import { FairScheduler } from './fair-scheduler.js';
 import { userDataPaths } from './product.js';
 import {
@@ -12,31 +12,31 @@ import {
   withKeyBindings, withMcpEnabled, withMcpServer, withMcpServerUpdate, withoutMcpServer, withRuntimeLimits,
 } from './route-configuration.js';
 import { SearxngClient } from './searxng-client.js'; import { SearxngDeployment } from './searxng-deployment.js';
-import { configuredMcpStatus, testConfiguredMcpServer } from './workspace-mcp.js';
+import { configuredMcpStatus, testConfiguredMcpServer } from './experience/mcp.js';
 import {
   configureWebSearch, deployWebSearch, disableWebSearch, manageWebSearch, removeWebSearchDeployment, resetWebSearch, webSearchStatus,
-} from './workspace-websearch.js';
+} from './experience/websearch.js';
 import { nextReviewPosture, reviewPostureNotice } from './review-posture.js';
-import { restoreTranscript } from './workspace-transcript.js';
-import { restorePresentation, tabPoolRecords } from './workspace-presentation.js';
-import { createNextConversation, createWorkspaceConversation } from './workspace-directory.js';
-import { restoreWorkspace } from './workspace-restore.js';
-import { validateKeyBindings } from './key-bindings.js';
-import { WorkspaceTabPersistence } from './workspace-tab-persistence.js';
+import { restoreTranscript } from './experience/transcript.js';
+import { restorePresentation, tabPoolRecords } from './experience/presentation.js';
+import { createNextConversation, createWorkspaceConversation } from './experience/directory.js';
+import { restoreWorkspace } from './experience/restore.js';
+import { validateKeyBindings } from './tui/key-bindings.js';
+import { WorkspaceTabPersistence } from './experience/tab-persistence.js';
 import { boundedProviderCapabilities } from './provider-capabilities.js';
-import { availableWorkspaceModels, qualifyWorkspaceModel } from './workspace-models.js';
-import { advanceWorkspaceConfig, publishWorkspaceConfiguration, writeWorkspaceManifest } from './workspace-configuration-publication.js';
-import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './workspace-provider-catalog.js';
-import { clearWorkspaceProviderRole, configureWorkspaceProviderRoute, deleteWorkspaceProvider, selectWorkspaceProviderRole } from './workspace-provider-routing.js';
+import { availableWorkspaceModels, qualifyWorkspaceModel } from './experience/models.js';
+import { advanceWorkspaceConfig, publishWorkspaceConfiguration, writeWorkspaceManifest } from './experience/configuration-publication.js';
+import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './experience/provider-catalog.js';
+import { clearWorkspaceProviderRole, configureWorkspaceProviderRoute, deleteWorkspaceProvider, selectWorkspaceProviderRole } from './experience/provider-routing.js';
 import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
-import { discoverWorkspaceProviderModels } from './workspace-provider-discovery.js';
+import { discoverWorkspaceProviderModels } from './experience/provider-discovery.js';
 import { deleteManagedMcpCredential, saveManagedMcpCredential } from './mcp-credentials.js';
-import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './workspace-dream.js';
-import { resumeWorkspaceConversation } from './workspace-resume.js';
+import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './experience/dream.js';
+import { resumeWorkspaceConversation } from './experience/resume.js';
 import { SecretBroker } from './secret-broker.js';
-import { ConsoleAuthority } from './console-authority.js';
-import { cancelWorkspaceSession, clearWorkspaceSession, compactWorkspaceSession, handoffWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './workspace-session-broker.js';
+import { ConsoleAuthority } from './experience/console-authority.js';
+import { cancelWorkspaceSession, clearWorkspaceSession, compactWorkspaceSession, handoffWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './experience/session-broker.js';
 export class ExperienceEngine {
   #tasks = new Set();
   constructor(options) {

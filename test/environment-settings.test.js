@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { runtimeEnvironment } from '../src/environment-settings.js';
-import { terminalCapabilities } from '../src/terminal-adapter.js';
+import { terminalCapabilities } from '../src/tui/terminal-adapter.js';
 
 test('AC-CONF-03 runtime environment booleans are typed and never silently coerced', () => {
   assert.deepEqual(runtimeEnvironment({}), { reducedMotion: false, noColor: false });

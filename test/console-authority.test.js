@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ConsoleAuthority } from '../src/console-authority.js';
+import { ConsoleAuthority } from '../src/experience/console-authority.js';
 
 test('console authority clears ownership after release', async () => {
   let releases = 0;

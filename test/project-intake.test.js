@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildContext } from '../src/context.js';
 import { ProjectIntake, shouldInspectProject } from '../src/project-intake.js';
-import { openRuntimeInspection } from '../src/tui-runtime-inspection.js';
+import { openRuntimeInspection } from '../src/tui/runtime-inspection.js';
 
 test('project intake reports bounded repository structure and package metadata', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-project-intake-'));

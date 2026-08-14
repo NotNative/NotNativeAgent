@@ -6,9 +6,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { JournalStore, readJournalPage, recoverJournal } from '../src/store.js';
-import { TuiProjection } from '../src/tui-model.js';
-import { TuiRenderer } from '../src/tui-renderer.js';
-import { loadEarlierTranscriptPage } from '../src/workspace-history.js';
+import { TuiProjection } from '../src/experience/projection.js';
+import { TuiRenderer } from '../src/tui/renderer.js';
+import { loadEarlierTranscriptPage } from '../src/experience/history.js';
 
 test('AC-FAIL-02 persistence flush has an independent typed deadline and latches failure', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-journal-timeout-'));

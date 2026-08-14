@@ -12,8 +12,8 @@ import { splitTelegramText, TelegramApi } from '../src/telegram-api.js';
 import { gatewaySessionId, TelegramGateway } from '../src/telegram-gateway.js';
 import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-broker.js';
 import { readTelegramOutbox, TelegramNotificationQueue } from '../src/telegram-notifications.js';
-import { commandDefinition } from '../src/tui-commands.js';
-import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui-overlays.js';
+import { commandDefinition } from '../src/tui/commands.js';
+import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui/overlays.js';
 import { runGatewayCommand } from '../src/gateway-cli.js';
 
 test('gateway config is absent-safe, bounded, durable, and redacted', async () => {

@@ -9,8 +9,8 @@ import { SearxngDeployment, MANAGED_SEARXNG_ENDPOINT } from '../src/searxng-depl
 import { ToolRegistry } from '../src/tool-registry.js';
 import { loadWebSearchConfig, saveWebSearchConfig } from '../src/web-search-config.js';
 import { runWebSearchCommand } from '../src/web-search-cli.js';
-import { commandDefinition } from '../src/tui-commands.js';
-import { webSearchOverlay } from '../src/tui-overlays.js';
+import { commandDefinition } from '../src/tui/commands.js';
+import { webSearchOverlay } from '../src/tui/overlays.js';
 
 test('global WebSearch configuration is absent-safe, normalized, and durable', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-web-config-'));

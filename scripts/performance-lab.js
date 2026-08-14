@@ -10,8 +10,8 @@ import { SessionEngine } from '../src/engine.js';
 import { EventHub } from '../src/events.js';
 import { RecoverySupervisor } from '../src/recovery.js';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { TuiProjection } from '../src/tui-model.js';
-import { TuiRenderer } from '../src/tui-renderer.js';
+import { TuiProjection } from '../src/experience/projection.js';
+import { TuiRenderer } from '../src/tui/renderer.js';
 import { VERSION } from '../src/product.js';
 
 const quick = process.argv.includes('--quick');

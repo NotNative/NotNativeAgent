@@ -3,15 +3,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveManifest } from '../src/config.js';
 import { withProvider, withRouteSetting, withRuntimeLimits } from '../src/route-configuration.js';
-import { TuiProjection } from '../src/tui-model.js';
-import { providerOverlay } from '../src/tui-overlays.js';
+import { TuiProjection } from '../src/experience/projection.js';
+import { providerOverlay } from '../src/tui/overlays.js';
 import { handleActions } from '../src/tui.js';
 import {
   beginProviderRouteSettingsSelection, handleProviderRouteSettingsAction,
-} from '../src/tui-provider-route-settings.js';
+} from '../src/tui/provider-route-settings.js';
 import {
   availableProfileId, beginProviderManagement, handleProviderSetupAction, isProviderSetupOverlay,
-} from '../src/tui-provider-setup.js';
+} from '../src/tui/provider-setup.js';
 
 test('provider add is a guided form with discovery and a model picker', async () => {
   let config = resolveManifest({

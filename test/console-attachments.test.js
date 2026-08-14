@@ -8,7 +8,7 @@ import { resolveManifest } from '../src/config.js';
 import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
 import {
   detachConsoleAttachment, queueClipboardImage, queueConsoleAttachment, queuePastedImagePaths,
-} from '../src/workspace-attachments.js';
+} from '../src/experience/attachments.js';
 
 function configuration(root) {
   return resolveManifest({

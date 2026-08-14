@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TuiProjection } from '../src/tui-model.js';
-import { handleSecretsCommand } from '../src/tui-secret-command.js';
-import { beginSecretManagementSelection, handleSecretSetupAction } from '../src/tui-secret-setup.js';
+import { TuiProjection } from '../src/experience/projection.js';
+import { handleSecretsCommand } from '../src/tui/secret-command.js';
+import { beginSecretManagementSelection, handleSecretSetupAction } from '../src/tui/secret-setup.js';
 
 function fixture() {
   const projection = new TuiProjection();

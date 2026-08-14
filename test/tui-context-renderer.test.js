@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { contextCompactionText } from '../src/tui-context-renderer.js';
+import { contextCompactionText } from '../src/tui/context-renderer.js';
 
 test('context compaction status is concise and visible', () => {
   assert.match(contextCompactionText({ status: 'started', before_estimated_tokens: 220000, target_tokens: 209000 }), /CONTEXT \| compacting/u);

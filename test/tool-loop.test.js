@@ -17,7 +17,7 @@ import { denialResult } from '../src/tool-governor.js';
 import { declaredSubscription } from './event-fixture.js';
 import { ToolLoop, toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from '../src/tool-loop.js';
 import { selfDiagnosticsDefinitions } from '../src/self-diagnostics-tool.js';
-import { openRuntimeInspection } from '../src/tui-runtime-inspection.js';
+import { openRuntimeInspection } from '../src/tui/runtime-inspection.js';
 
 test('tool loop accepts only declared constructor dependencies', () => {
   const loop = new ToolLoop({ process: null, unexpected: true });

@@ -2,7 +2,7 @@
 import { resolve } from 'node:path';
 import { SkillRegistry } from './skill-registry.js';
 import { runtimeSkillRoots } from './startup-configuration.js';
-import { workspaceIsTrusted } from './workspace-trust.js';
+import { workspaceIsTrusted } from './experience/trust.js';
 
 export async function runSkillsCommand(args, paths, output, workspaceRoot = process.cwd()) {
   const action = args.find((item) => !item.startsWith('-')) ?? 'list';

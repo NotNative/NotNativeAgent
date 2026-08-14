@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { dreamOverlay } from '../src/tui-overlays.js';
-import { runWorkspaceDreamCommand } from '../src/workspace-dream.js';
+import { dreamOverlay } from '../src/tui/overlays.js';
+import { runWorkspaceDreamCommand } from '../src/experience/dream.js';
 
 test('dream manager exposes bounded stages and learning candidates without payload content', () => {
   const overlay = dreamOverlay({

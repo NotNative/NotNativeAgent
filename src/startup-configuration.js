@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveConfiguration } from './configuration-sources.js';
 import { loadStartupManifestDocument } from './onboarding.js';
-import { workspaceIsTrusted } from './workspace-trust.js';
+import { workspaceIsTrusted } from './experience/trust.js';
 import { ContractError } from './ids.js';
 
 const BUNDLED_SKILL_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'resources', 'skills');

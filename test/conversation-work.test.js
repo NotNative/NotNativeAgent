@@ -4,12 +4,12 @@ import test from 'node:test';
 import { ConversationWork } from '../src/conversation-work.js';
 import { conversationWorkDefinitions } from '../src/conversation-work-tools.js';
 import { buildContext } from '../src/context.js';
-import { planOverlay, taskOverlay } from '../src/tui-overlays.js';
-import { sessionStatusLine } from '../src/tui-status-line.js';
-import { workSummaryRows } from '../src/tui-work-summary.js';
-import { TuiProjection } from '../src/tui-model.js';
-import { TuiRenderer } from '../src/tui-renderer.js';
-import { handleMouse } from '../src/tui-mouse.js';
+import { planOverlay, taskOverlay } from '../src/tui/overlays.js';
+import { sessionStatusLine } from '../src/tui/status-line.js';
+import { workSummaryRows } from '../src/tui/work-summary.js';
+import { TuiProjection } from '../src/experience/projection.js';
+import { TuiRenderer } from '../src/tui/renderer.js';
+import { handleMouse } from '../src/tui/mouse.js';
 
 test('conversation work enforces one active task and evidence-based completion', async () => {
   const records = [];
