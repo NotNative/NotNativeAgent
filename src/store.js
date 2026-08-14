@@ -9,6 +9,7 @@ export class JournalStore {
   #handle = null;
   #previousHash = '0'.repeat(64);
   #sequence = 0;
+  #tail = Promise.resolve();
 
   constructor(root, sessionId, options = {}) {
     this.root = root;
@@ -43,6 +44,10 @@ export class JournalStore {
   }
 
   async append(type, payload) {
+    return this.#enqueue(() => this.#append(type, payload));
+  }
+
+  async #append(type, payload) {
     if (!this.#handle) throw new ContractError('store_closed', 'journal is not open');
     if (this.persistenceFailed) throw new ContractError('persistence_unavailable', 'journal persistence is unavailable after a failed flush');
     const base = { format: 1, sequence: this.#sequence + 1, type, payload, previous: this.#previousHash };
@@ -56,6 +61,10 @@ export class JournalStore {
   }
 
   async close() {
+    return this.#enqueue(() => this.#close());
+  }
+
+  async #close() {
     if (!this.#handle) return;
     if (!this.persistenceFailed) await this.#flush(() => this.#handle.sync());
     await this.#flush(() => this.#handle.close());
@@ -66,7 +75,11 @@ export class JournalStore {
     if (!Array.isArray(records) || records.length > 100_000) {
       throw new ContractError('journal_replace_invalid', 'replacement journal records are invalid');
     }
-    await this.close();
+    return this.#enqueue(() => this.#replace(records));
+  }
+
+  async #replace(records) {
+    await this.#close();
     const temporary = `${this.path}.replace-${process.pid}`;
     const lines = encodeRecords(records);
     await writeFile(temporary, lines.length ? `${lines.join('\n')}\n` : '', { flag: 'wx', mode: 0o600 });
@@ -75,6 +88,12 @@ export class JournalStore {
     this.#sequence = recovered.lastSequence;
     this.#previousHash = recovered.lastHash;
     this.#handle = await this.openFile(this.path, 'a', 0o600);
+  }
+
+  #enqueue(operation) {
+    const pending = this.#tail.then(operation);
+    this.#tail = pending.catch(() => undefined);
+    return pending;
   }
 
   async #flush(operation) {

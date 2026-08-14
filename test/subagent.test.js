@@ -9,6 +9,7 @@ import { subagentConfig, subagentParallelLimit } from '../src/subagent-runtime.j
 import { createSubagentProgressRelay } from '../src/subagent-progress.js';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
+import { recoverJournal } from '../src/store.js';
 import { subagentStatus } from '../src/tui-runtime-inspection.js';
 
 test('sub-agent progress emits compact lifecycle milestones without child tool chatter', async () => {
@@ -133,6 +134,7 @@ test('subagent concurrency follows the loaded worker model parallel capacity', a
 
 test('parallel sub-agent cancellation drains children and commits terminal tool lifecycles', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-subagent-cancel-'));
+  const reviewerRoot = join(root, 'reviewer');
   const output = [];
   const parent = { async *stream() {
     yield { type: 'text', text: 'I am delegating both reviews.' };
@@ -143,11 +145,12 @@ test('parallel sub-agent cancellation drains children and commits terminal tool 
     yield { type: 'terminal', finishReason: 'tool_calls', usage: null };
   } };
   const config = resolveManifest({
-    persistence: 'ephemeral', workspace_root: root, tool_concurrency: 2,
+    persistence: 'durable', workspace_root: root, tool_concurrency: 2,
     provider: { id: 'parent', endpoint: 'http://127.0.0.1:1234/v1', model: 'parent', trust_zone: 'loopback' },
   });
   const engine = new SessionEngine({
     config, providerFactory: () => parent, output: async (record) => output.push(record),
+    storeRoot: join(root, 'sessions'), reviewerRoot,
     semanticReviewer: { async review() { return { outcome: 'approve', confidence: 0.99, reason_code: 'delegation_matches_intent' }; } },
   });
   await engine.initialize();
@@ -180,6 +183,10 @@ test('parallel sub-agent cancellation drains children and commits terminal tool 
   assert.equal(engine.lifecycles.snapshot().some((item) => item.outcome === null), false);
   assert.equal(output.filter((item) => item.type === 'turn_result').length, 1);
   await engine.shutdown({ request_id: 'shutdown-cancelled', type: 'shutdown' });
+  const ledger = await recoverJournal(join(reviewerRoot, `${engine.sessionId}.review.journal.ndjson`));
+  assert.equal(ledger.corruptTail, false);
+  assert.equal(ledger.records.filter((record) => record.type === 'execution_started').length, 2);
+  assert.equal(ledger.records.filter((record) => record.type === 'execution_terminal').length, 2);
 });
 
 test('missing advertised parallel capacity preserves sequential subagent execution', async () => {

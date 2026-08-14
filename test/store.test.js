@@ -26,6 +26,24 @@ test('AC-FAIL-02 persistence flush has an independent typed deadline and latches
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('concurrent journal appends serialize sequence and hash-chain ownership', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-journal-concurrent-'));
+  const store = new JournalStore(root, 'concurrent');
+  try {
+    await store.open();
+    await Promise.all(Array.from({ length: 32 }, (_, index) => (
+      store.append('message', { type: 'message', role: 'user', content: `record-${index + 1}` })
+    )));
+    await store.close();
+    const recovered = await recoverJournal(store.path);
+    assert.equal(recovered.corruptTail, false);
+    assert.deepEqual(recovered.records.map((record) => record.sequence),
+      Array.from({ length: 32 }, (_, index) => index + 1));
+    assert.deepEqual(recovered.records.map((record) => record.payload.content),
+      Array.from({ length: 32 }, (_, index) => `record-${index + 1}`));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('AC-SESS-06 journal preserves a corrupt original tail and writes a separate verified prefix', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-journal-'));
   const store = new JournalStore(root, 'session-test');
