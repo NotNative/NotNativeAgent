@@ -19,10 +19,10 @@ export function projectVerifyDefinition(paths) {
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
-        scope: { type: 'string', enum: ['focused', 'affected', 'full'] },
-        checks: { type: 'array', items: { type: 'string', enum: CHECK_ORDER }, maxItems: 5 },
-        paths: { type: 'array', items: { type: 'string', maxLength: 4096 }, maxItems: 64 },
-        timeout_ms: { type: 'integer', minimum: 1000, maximum: 3_600_000 },
+        scope: { type: 'string', enum: ['focused', 'affected', 'full'], description: 'Verification breadth. Defaults to full; focused uses supplied test paths when supported.' },
+        checks: { type: 'array', items: { type: 'string', enum: CHECK_ORDER }, maxItems: 5, description: 'Checks to run in canonical order. Omit to discover the project defaults.' },
+        paths: { type: 'array', items: { type: 'string', maxLength: 4096 }, maxItems: 64, description: 'Existing test-file paths used only for focused verification.' },
+        timeout_ms: { type: 'integer', minimum: 1000, maximum: 3_600_000, description: 'Deadline per resolved verification command in milliseconds. Defaults to 1800000.' },
       }, additionalProperties: false,
     },
     validate: (args) => validateVerification(paths, args),

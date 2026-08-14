@@ -24,7 +24,7 @@ import { mcpControlDefinitions } from './mcp-control-tools.js';
 import { subagentDefinition } from './subagent-tool.js';
 import { gitInspectionDefinition } from './git-inspection-tool.js';
 import { prepareLineEdit, prepareTextEdit } from './stale-edit-recovery.js';
-import { providerSchema, schemaValidator } from './tool-schema.js';
+import { providerSchema, schemaShapeValidator, schemaValidator } from './tool-schema.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { CORE_TOOL_NAMES } from './core-tool-names.js';
 import { telegramNotificationDefinition } from './telegram-notifications.js'; import { sessionHistoryDefinitions } from './session-history-tools.js';
@@ -173,7 +173,12 @@ export class ToolRegistry {
     if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1 || maxOutputBytes > 2_097_152) {
       throw new ContractError('invalid_tool_output_bound', 'tool output policy must be 1 to 2097152 bytes');
     }
-    const frozen = Object.freeze({ ...definition, maxOutputBytes });
+    const validate = definition.validate ?? schemaValidator(definition.inputSchema);
+    const validateShape = schemaShapeValidator(definition.inputSchema);
+    const frozen = Object.freeze({
+      ...definition, maxOutputBytes,
+      validate: async (args) => { await validateShape(args); return validate(args); },
+    });
     this.#definitions.set(definition.name, frozen);
     this.#history.set(`${definition.name}@${definition.version}`, frozen);
     return true;

@@ -11,9 +11,9 @@ export function gitInspectionDefinition(paths, options = {}) {
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 30_000,
     inputSchema: {
       type: 'object', properties: {
-        path: { type: 'string', maxLength: 4096 },
-        operation: { type: 'string', enum: [...OPERATIONS] },
-        max_entries: { type: 'integer', minimum: 1, maximum: 100 },
+        path: { type: 'string', maxLength: 4096, description: 'Git working-tree directory. Defaults to the agent working directory.' },
+        operation: { type: 'string', enum: [...OPERATIONS], description: 'Required inspection: status, unstaged diff, staged diff, or recent log.' },
+        max_entries: { type: 'integer', minimum: 1, maximum: 100, description: 'Maximum commits for the log operation. Defaults to 20.' },
       }, required: ['operation'], additionalProperties: false,
     },
     validate: async (input) => validate(paths, input),

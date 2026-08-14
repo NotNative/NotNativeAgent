@@ -10,12 +10,12 @@ export function processRunDefinition(paths) {
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
     inputSchema: {
       type: 'object', properties: {
-        executable: { type: 'string', minLength: 1, maxLength: 4096 },
+        executable: { type: 'string', minLength: 1, maxLength: 4096, description: 'Required installed command name or executable path. Do not include arguments in this field.' },
         // Keep the item-length boundary in local validation. Some otherwise compatible
         // llama.cpp grammar compilers reject maxLength when nested below array items.
-        args: { type: 'array', items: { type: 'string' }, maxItems: 64 },
-        cwd: { type: 'string', minLength: 1, maxLength: 4096 },
-        timeout_ms: { type: 'integer', minimum: 100, maximum: 120000 },
+        args: { type: 'array', items: { type: 'string' }, maxItems: 64, description: 'Ordered argument vector without the executable. Defaults to an empty array.' },
+        cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the process. Defaults to the agent working directory.' },
+        timeout_ms: { type: 'integer', minimum: 100, maximum: 120000, description: 'Process deadline in milliseconds. Defaults to 60000.' },
       }, required: ['executable'], additionalProperties: false,
     },
     validate: async (args) => validateProcessRequest(paths, args),
@@ -30,10 +30,10 @@ export function shellRunDefinition(paths) {
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
-        script: { type: 'string', minLength: 1, maxLength: 32768 },
-        shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'] },
-        cwd: { type: 'string', minLength: 1, maxLength: 4096 },
-        timeout_ms: { type: 'integer', minimum: 100, maximum: 3600000 },
+        script: { type: 'string', minLength: 1, maxLength: 32768, description: 'Required complete shell script, including any pipelines, redirection, or multiple commands.' },
+        shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'], description: 'Shell interpreter. Defaults to the native platform shell through auto.' },
+        cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the script. Defaults to the agent working directory.' },
+        timeout_ms: { type: 'integer', minimum: 100, maximum: 3600000, description: 'Script deadline in milliseconds. Defaults to 600000.' },
       }, required: ['script'], additionalProperties: false,
     },
     validate: async (args) => validateShellRequest(paths, args),

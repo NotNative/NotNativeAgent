@@ -10,7 +10,9 @@ function searchDefinition(catalog) {
     name: 'nna.search_guidance', version: 1,
     purpose: 'Search canonical packaged NotNativeAgent documentation before answering questions about NNA itself.',
     sideEffect: 'read_only', scope: 'product_guidance', cancellation: true, timeoutMs: 5_000,
-    inputSchema: objectSchema({ query: { type: 'string', minLength: 2, maxLength: 512 } }, ['query']),
+    inputSchema: objectSchema({
+      query: { type: 'string', minLength: 2, maxLength: 512, description: 'Required question or topic about NotNativeAgent.' },
+    }, ['query']),
     validate: async (args) => {
       requireExactStrings(args, ['query']);
       if (args.query.trim().length < 2) throw new ContractError('guidance_query_invalid', 'guidance query is too short');
@@ -32,7 +34,9 @@ function readDefinition(catalog) {
     name: 'nna.read_guidance', version: 1,
     purpose: 'Read one canonical packaged NotNativeAgent guidance document selected by nna.search_guidance.',
     sideEffect: 'read_only', scope: 'product_guidance', cancellation: true, timeoutMs: 5_000,
-    inputSchema: objectSchema({ id: { type: 'string', minLength: 1, maxLength: 256 } }, ['id']),
+    inputSchema: objectSchema({
+      id: { type: 'string', minLength: 1, maxLength: 256, description: 'Required exact document id returned by nna.search_guidance.' },
+    }, ['id']),
     validate: async (args) => {
       requireExactStrings(args, ['id']);
       const document = catalog.read(args.id);

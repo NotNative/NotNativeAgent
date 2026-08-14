@@ -144,7 +144,9 @@ function searchSkillDefinition(registry) {
     name: 'skill.search', version: 1,
     purpose: 'Search the bounded skill catalog for an agent-invocable workflow relevant to the task.',
     sideEffect: 'read_only', scope: 'skill_catalog', cancellation: true, timeoutMs: 2_000,
-    inputSchema: objectSchema({ query: { type: 'string', minLength: 2, maxLength: 512 } }, ['query']),
+    inputSchema: objectSchema({
+      query: { type: 'string', minLength: 2, maxLength: 512, description: 'Required workflow or capability description to match against installed skills.' },
+    }, ['query']),
     validate: async (args) => exactStringArgument(args, 'query', 2, 512, 'skill_search_invalid'),
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'skill search was cancelled');
@@ -159,7 +161,9 @@ function loadSkillDefinition(registry) {
     name: 'skill.load', version: 1,
     purpose: 'Load one exact agent-invocable skill body after selecting it from the bounded skill catalog.',
     sideEffect: 'read_only', scope: 'skill_catalog', cancellation: true, timeoutMs: 2_000,
-    inputSchema: objectSchema({ id: { type: 'string', minLength: 1, maxLength: 128 } }, ['id']),
+    inputSchema: objectSchema({
+      id: { type: 'string', minLength: 1, maxLength: 128, description: 'Required exact skill id returned by skill.search.' },
+    }, ['id']),
     validate: async (args) => exactStringArgument(args, 'id', 1, 128, 'skill_load_invalid'),
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'skill load was cancelled');

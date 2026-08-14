@@ -14,9 +14,9 @@ export function sessionHistoryDefinitions(control) {
 function searchDefinition(control) {
   return definition('session.search_history',
     'Search older records in this conversation, including history omitted from the active model context. Returns stable record indexes for session.read_history.', {
-      query: { type: 'string', minLength: 1, maxLength: MAX_QUERY },
-      limit: { type: 'integer', minimum: 1, maximum: 20 },
-      types: { type: 'array', items: { type: 'string' }, maxItems: 8 },
+      query: { type: 'string', minLength: 1, maxLength: MAX_QUERY, description: 'Required words or phrase to find in older conversation records.' },
+      limit: { type: 'integer', minimum: 1, maximum: 20, description: 'Maximum matching records to return. Defaults to 8.' },
+      types: { type: 'array', items: { type: 'string' }, maxItems: 8, description: 'Optional exact record-type filters, such as message or tool_result.' },
     }, ['query'], async (args) => {
       const records = transcript(control);
       const result = searchHistory(records, args);
@@ -31,8 +31,8 @@ function searchDefinition(control) {
 function readDefinition(control) {
   return definition('session.read_history',
     'Read one exact record from this conversation by the record_index returned from session.search_history. Optionally include up to three neighboring records on each side.', {
-      record_index: { type: 'integer', minimum: 0 },
-      surrounding: { type: 'integer', minimum: 0, maximum: 3 },
+      record_index: { type: 'integer', minimum: 0, description: 'Required exact record_index returned by session.search_history.' },
+      surrounding: { type: 'integer', minimum: 0, maximum: 3, description: 'Neighboring records to include on each side. Defaults to 0.' },
     }, ['record_index'], async (args) => {
       const records = transcript(control);
       if (args.record_index >= records.length) {

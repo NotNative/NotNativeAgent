@@ -15,12 +15,12 @@ export function elevationDefinition(paths, broker, options = {}) {
     operatorConfirmation: 'one_shot',
     inputSchema: {
       type: 'object', properties: {
-        executable: { type: 'string', minLength: 1, maxLength: 4096 },
-        args: { type: 'array', items: { type: 'string' }, maxItems: 64 },
-        cwd: { type: 'string', minLength: 1, maxLength: 4096 },
-        reason: { type: 'string', minLength: 1, maxLength: 1024 },
-        expected_effect: { type: 'string', minLength: 1, maxLength: 2048 },
-        timeout_ms: { type: 'integer', minimum: 100, maximum: MAX_TIMEOUT_MS },
+        executable: { type: 'string', minLength: 1, maxLength: 4096, description: 'Required installed command name or absolute executable path. Do not include arguments here.' },
+        args: { type: 'array', items: { type: 'string' }, maxItems: 64, description: 'Ordered non-interactive argument vector. Defaults to an empty array.' },
+        cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the elevated process. Defaults to the agent working directory.' },
+        reason: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required concise explanation of why operating-system elevation is necessary.' },
+        expected_effect: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required concrete description of the privileged change or observation expected.' },
+        timeout_ms: { type: 'integer', minimum: 100, maximum: MAX_TIMEOUT_MS, description: 'Elevated-process deadline in milliseconds. Defaults to 600000.' },
       }, required: ['executable', 'reason', 'expected_effect'], additionalProperties: false,
     },
     validate: (args) => validateElevation(paths, args, options),

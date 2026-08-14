@@ -12,7 +12,9 @@ export function providerSchema(value) {
   const result = {};
   for (const [key, child] of Object.entries(value)) {
     if (PROVIDER_GRAMMAR_CONSTRAINTS.has(key)) continue;
-    result[key] = providerSchema(child);
+    if (key === 'properties' && child && typeof child === 'object' && !Array.isArray(child)) {
+      result[key] = Object.fromEntries(Object.entries(child).map(([name, rule]) => [name, providerSchema(rule)]));
+    } else result[key] = providerSchema(child);
   }
   return result;
 }
@@ -27,15 +29,33 @@ export function schemaValidator(schema) {
       throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');
     }
     const required = Array.isArray(schema.required) ? schema.required : [];
-    if (required.some((key) => !Object.hasOwn(args, key))) {
-      throw new ContractError('tool_schema_invalid', 'tool arguments omit a required property');
-    }
-    if (schema.additionalProperties === false
-      && Object.keys(args).some((key) => !Object.hasOwn(schema.properties ?? {}, key))) {
-      throw new ContractError('tool_schema_invalid', 'tool arguments contain an unknown property');
+    const missing = required.find((key) => !Object.hasOwn(args, key));
+    if (missing) throw new ContractError('tool_schema_invalid', `required argument "${missing}" is missing`);
+    if (schema.additionalProperties === false) {
+      const unknown = Object.keys(args).find((key) => !Object.hasOwn(schema.properties ?? {}, key));
+      if (unknown) throw new ContractError('tool_schema_invalid', `unknown argument "${unknown}"`);
     }
     for (const [key, value] of Object.entries(args)) validateValue(value, schema.properties?.[key], 0);
     return { args: structuredClone(args), resolved: { source: 'external' } };
+  };
+}
+
+export function schemaShapeValidator(schema) {
+  if (!schema || schema.type !== 'object' || (schema.properties && typeof schema.properties !== 'object')) {
+    throw new ContractError('invalid_external_schema', 'tool input schema must describe an object');
+  }
+  const required = Array.isArray(schema.required) ? schema.required : [];
+  const properties = schema.properties ?? {};
+  return async (args) => {
+    if (!args || typeof args !== 'object' || Array.isArray(args)) {
+      throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');
+    }
+    const missing = required.find((key) => !Object.hasOwn(args, key));
+    if (missing) throw new ContractError('tool_schema_invalid', `required argument "${missing}" is missing`);
+    if (schema.additionalProperties === false) {
+      const unknown = Object.keys(args).find((key) => !Object.hasOwn(properties, key));
+      if (unknown) throw new ContractError('tool_schema_invalid', `unknown argument "${unknown}"`);
+    }
   };
 }
 

@@ -40,7 +40,9 @@ function testDefinition(control) {
     name: 'nna.mcp_test', version: 1,
     purpose: 'Test one configured MCP server and list its discovered tools without invoking any of those tools.',
     sideEffect: 'read_only', scope: 'mcp_control', cancellation: false, timeoutMs: 65_000,
-    inputSchema: objectSchema({ id: { type: 'string', minLength: 1, maxLength: 64 } }, ['id']),
+    inputSchema: objectSchema({
+      id: { type: 'string', minLength: 1, maxLength: 64, description: 'Required configured MCP server id returned by nna.mcp_status.' },
+    }, ['id']),
     validate: async (args) => {
       requireExactObject(args, ['id']);
       if (typeof args.id !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u.test(args.id)) {

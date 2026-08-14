@@ -17,7 +17,7 @@ export function webFetchDefinition(options = {}) {
     sideEffect: 'read_only', scope: 'network', cancellation: true, timeoutMs: 20_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['url'], properties: {
-        url: { type: 'string', minLength: 1, maxLength: 4096 },
+        url: { type: 'string', minLength: 1, maxLength: 4096, description: 'Required complete HTTP(S) URL without embedded credentials.' },
       },
     },
     validate: async (args) => {

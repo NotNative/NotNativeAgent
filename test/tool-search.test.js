@@ -94,6 +94,10 @@ test('provider tool schemas omit grammar-hostile bounds while runtime schemas re
   assert.equal(Object.hasOwn(wire.function.parameters.properties.path, 'maxLength'), false);
   assert.equal(wire.function.parameters.properties.start_line.type, 'integer');
   assert.match(wire.function.parameters.properties.path.description, /UTF-8 text file/u);
+  const globWire = registry.providerDefinitions('glob files').find((item) => item.function.name === 'fs.glob');
+  assert.equal(globWire.function.parameters.required.includes('pattern'), true);
+  assert.equal(globWire.function.parameters.properties.pattern.type, 'string');
+  assert.match(globWire.function.parameters.properties.pattern.description, /Required glob/u);
 });
 
 test('every bundled filesystem argument has provider-visible semantic guidance', async () => {

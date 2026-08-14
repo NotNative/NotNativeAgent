@@ -17,13 +17,13 @@ export function webBrowseDefinition(options = {}) {
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 60_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['action'], properties: {
-        action: { type: 'string', enum: [...ACTIONS] },
-        url: { type: 'string', maxLength: 4096 },
+        action: { type: 'string', enum: [...ACTIONS], description: 'Required browser operation.' },
+        url: { type: 'string', maxLength: 4096, description: 'Required complete HTTP(S) URL only for navigate.' },
         target: { type: 'string', maxLength: 1024, description: 'Element reference from inspect (for example e1) or a CSS selector.' },
         value: { type: 'string', maxLength: 20_000, description: 'Non-secret text for fill.' },
-        key: { type: 'string', maxLength: 64 },
-        secret_id: { type: 'string', maxLength: 128 },
-        secret_field: { type: 'string', maxLength: 64 },
+        key: { type: 'string', maxLength: 64, description: 'Keyboard key or chord required for press, for example Enter or Control+A.' },
+        secret_id: { type: 'string', maxLength: 128, description: 'Configured secret-broker id required for fill_secret.' },
+        secret_field: { type: 'string', maxLength: 64, description: 'Named field within secret_id required for fill_secret.' },
       },
     },
     validate: async (args) => validateBrowseArgs(args, manager),
@@ -154,10 +154,13 @@ async function validateBrowseArgs(args, manager) {
     || Object.keys(args).some((key) => !['action', 'url', 'target', 'value', 'key', 'secret_id', 'secret_field'].includes(key))) throw invalid();
   const limits = { url: 4096, target: 1024, value: 20_000, key: 64, secret_id: 128, secret_field: 64 };
   for (const [key, maximum] of Object.entries(limits)) {
-    if (args[key] !== undefined && (typeof args[key] !== 'string' || args[key].length > maximum || /\u0000/u.test(args[key]))) throw invalid();
+    if (args[key] !== undefined && (typeof args[key] !== 'string' || args[key].length > maximum || /\u0000/u.test(args[key]))) {
+      throw invalid(`browser argument "${key}" is invalid`);
+    }
   }
   const required = { navigate: ['url'], click: ['target'], fill: ['target', 'value'], fill_secret: ['target', 'secret_id', 'secret_field'], press: ['target', 'key'] }[args.action] ?? [];
-  if (required.some((key) => typeof args[key] !== 'string' || !args[key].length)) throw invalid();
+  const missing = required.find((key) => typeof args[key] !== 'string' || !args[key].length);
+  if (missing) throw invalid(`browser action "${args.action}" requires argument "${missing}"`);
   const normalized = Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined));
   let destination = null; let origin = null;
   if (args.action === 'navigate') { const checked = await manager.classifyUrl(args.url); normalized.url = checked.url.href; destination = checked.destination; origin = checked.url.origin; }
@@ -175,4 +178,6 @@ function normalizeRoot(value) {
 }
 function result(content, metadata) { return { content, metadata }; }
 function metadata(action, page, extra = {}) { return { action, url: page.url(), ...extra }; }
-function invalid() { return new ContractError('tool_schema_invalid', 'web.browse arguments do not match the requested browser action'); }
+function invalid(message = 'web.browse arguments do not match the requested browser action') {
+  return new ContractError('tool_schema_invalid', message);
+}

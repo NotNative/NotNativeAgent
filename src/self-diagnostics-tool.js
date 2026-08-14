@@ -18,8 +18,8 @@ function diagnoseTurnDefinition(contextProvider) {
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        session_id: { type: 'string', minLength: 1, maxLength: 256 },
-        turn_id: { type: 'string', minLength: 1, maxLength: 256 },
+        session_id: { type: 'string', minLength: 1, maxLength: 256, description: 'Optional durable session id from nna.list_sessions. Defaults to the current session.' },
+        turn_id: { type: 'string', minLength: 1, maxLength: 256, description: 'Optional turn id. Defaults to the active or latest turn in the selected session.' },
       },
     },
     validate: async (args) => {
@@ -59,7 +59,9 @@ function listSessionsDefinition(contextProvider) {
     sideEffect: 'read_only', scope: 'runtime_diagnostics', cancellation: true, timeoutMs: 10_000,
     inputSchema: {
       type: 'object', additionalProperties: false,
-      properties: { limit: { type: 'integer', minimum: 1, maximum: 64 } },
+      properties: {
+        limit: { type: 'integer', minimum: 1, maximum: 64, description: 'Maximum recent durable sessions to return. Defaults to 20.' },
+      },
     },
     validate: async (args) => {
       if (!args || typeof args !== 'object' || Array.isArray(args)

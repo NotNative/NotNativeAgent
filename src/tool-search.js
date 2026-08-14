@@ -7,7 +7,9 @@ export function toolSearchDefinition(registry) {
     purpose: 'Search the bounded NNA tool catalog for capabilities relevant to the current task.',
     sideEffect: 'read_only', scope: 'tool_catalog', cancellation: true, timeoutMs: 2_000,
     inputSchema: {
-      type: 'object', properties: { query: { type: 'string', minLength: 2, maxLength: 512 } },
+      type: 'object', properties: {
+        query: { type: 'string', minLength: 2, maxLength: 512, description: 'Required capability description, such as search session history or inspect Git changes.' },
+      },
       required: ['query'], additionalProperties: false,
     },
     validate: async (args) => {

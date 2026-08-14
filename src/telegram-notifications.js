@@ -31,7 +31,9 @@ export function telegramNotificationDefinition(control, activeTurnId) {
     purpose: 'Ask the NNA gateway to notify the operator on Telegram after the current turn reaches a terminal outcome.',
     sideEffect: 'external_communication', scope: 'operator_notification', cancellation: true, timeoutMs: 2_000,
     inputSchema: {
-      type: 'object', properties: { message: { type: 'string', minLength: 1, maxLength: 1000 } },
+      type: 'object', properties: {
+        message: { type: 'string', minLength: 1, maxLength: 1000, description: 'Required message to send to the configured operator after this turn finishes.' },
+      },
       required: ['message'], additionalProperties: false,
     },
     validate: async (args) => {

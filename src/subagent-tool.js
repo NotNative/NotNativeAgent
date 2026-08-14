@@ -12,8 +12,8 @@ export function subagentDefinition(control) {
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['type', 'task'],
       properties: {
-        type: { type: 'string', enum: [...AGENT_TYPES] },
-        task: { type: 'string', minLength: 1, maxLength: 131_072 },
+        type: { type: 'string', enum: [...AGENT_TYPES], description: 'Required specialist role for the bounded foreground sub-agent.' },
+        task: { type: 'string', minLength: 1, maxLength: 131_072, description: 'Required self-contained assignment, including relevant scope, constraints, and desired result.' },
       },
     },
     validate: async (args) => {

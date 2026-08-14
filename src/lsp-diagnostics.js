@@ -17,7 +17,9 @@ export function lspDiagnosticsDefinition(paths, options = {}) {
     purpose: 'Ask an explicitly configured local language server for bounded diagnostics on one accessible file.',
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 15_000, maxOutputBytes: 262_144,
     inputSchema: {
-      type: 'object', properties: { path: { type: 'string', maxLength: 4096 } },
+      type: 'object', properties: {
+        path: { type: 'string', maxLength: 4096, description: 'Required path to one source file handled by a configured language server.' },
+      },
       required: ['path'], additionalProperties: false,
     },
     validate: async (args) => {

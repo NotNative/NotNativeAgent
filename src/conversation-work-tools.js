@@ -12,9 +12,9 @@ function statusDefinition(work) {
 
 function goalDefinition(work) {
   return definition('work.goal', 'Create, update, complete, or reopen the one durable goal for this conversation.', 'reversible', {
-    action: { type: 'string', enum: ['set', 'complete', 'reopen'] },
-    objective: { type: 'string', minLength: 1, maxLength: 2048 },
-    evidence: { type: 'string', minLength: 1, maxLength: 1024 },
+    action: { type: 'string', enum: ['set', 'complete', 'reopen'], description: 'Required goal transition.' },
+    objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required goal text when action is set; omit for complete or reopen.' },
+    evidence: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required completion evidence when action is complete; omit otherwise.' },
   }, ['action'], async (args) => {
     if (args.action === 'set') return mutationResult(await work.setGoal(required(args.objective, 'objective')));
     if (args.action === 'complete') return mutationResult(await work.completeGoal(required(args.evidence, 'evidence')));
@@ -24,15 +24,15 @@ function goalDefinition(work) {
 
 function taskAddDefinition(work) {
   return definition('work.task_add', 'Add one ordered pending task to the durable conversation work list.', 'reversible', {
-    title: { type: 'string', minLength: 1, maxLength: 512 },
+    title: { type: 'string', minLength: 1, maxLength: 512, description: 'Required concise description of the new pending task.' },
   }, ['title'], async (args) => mutationResult(await work.addTask(args.title), { task: 'last' }));
 }
 
 function taskUpdateDefinition(work) {
   return definition('work.task_update', 'Move one durable conversation task to pending, in_progress, completed, or blocked. Completion requires evidence and blocking requires a reason.', 'reversible', {
-    id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$' },
-    status: { type: 'string', enum: ['pending', 'in_progress', 'completed', 'blocked'] },
-    detail: { type: 'string', minLength: 1, maxLength: 1024 },
+    id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Required task id such as T1, returned by work.status or work.task_add.' },
+    status: { type: 'string', enum: ['pending', 'in_progress', 'completed', 'blocked'], description: 'Required next task status.' },
+    detail: { type: 'string', minLength: 1, maxLength: 1024, description: 'Completion evidence for completed or blocking reason for blocked; omit for pending or in_progress.' },
   }, ['id', 'status'], async (args) => mutationResult(await work.updateTask(args.id, args.status, args.detail), { taskId: args.id }));
 }
 

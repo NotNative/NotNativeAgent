@@ -54,6 +54,14 @@ test('web.browse validates destinations and exposes bounded element references',
   assert.equal(state.browserClosed, true);
 });
 
+test('web.browse identifies the action-specific argument that needs repair', async () => {
+  const { manager, definition } = await fixture();
+  await assert.rejects(definition.validate({ action: 'click' }), {
+    code: 'tool_schema_invalid', message: 'browser action "click" requires argument "target"',
+  });
+  await manager.close();
+});
+
 test('web.browse injects a secret field only inside the trusted browser consumer', async () => {
   const calls = [];
   const secretBroker = { async withSecret(id, request, consumer) {
