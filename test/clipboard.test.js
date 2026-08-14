@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import test from 'node:test';
+import { PassThrough, Writable } from 'node:stream';
 import { osc52Clipboard } from '../src/terminal-clipboard.js';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { nativeClipboard } from '../src/native-clipboard.js';
+import { WindowsClipboardBroker } from '../src/clipboard-broker.js';
 import { beginSelection, decorateSelection, selectedText } from '../src/tui-selection.js';
 import { handleCopyCommand } from '../src/tui-copy-command.js';
 import { clipboardPasteAction, pasteClipboard } from '../src/tui-clipboard-actions.js';
@@ -42,6 +45,38 @@ test('Windows clipboard normalization removes only its transport newline', async
   assert.equal(await clipboard.read(), 'first\r\nsecond\r\n');
 });
 
+test('Windows clipboard broker keeps one helper alive and serializes clipboard operations', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-clipboard-broker-'));
+  const target = join(root, 'broker image.png');
+  let spawns = 0; let active = 0; let maximum = 0; let observedArgs;
+  const broker = new WindowsClipboardBroker({ spawnProcess: (_command, args) => {
+    spawns += 1; observedArgs = args;
+    return fakeClipboardChild(async (request) => {
+      active += 1; maximum = Math.max(maximum, active);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      active -= 1;
+      if (request.operation === 'read_text') {
+        return { id: request.id, ok: true, kind: 'text', content: Buffer.from('broker text').toString('base64') };
+      }
+      if (request.operation === 'read_content') {
+        await writeFile(request.path, Buffer.from('89504e470d0a1a0a00000000', 'hex'));
+        return { id: request.id, ok: true, kind: 'image', size: 12 };
+      }
+      return { id: request.id, ok: true };
+    });
+  } });
+  await broker.initialize();
+  const [written, text] = await Promise.all([broker.write('private broker value'), broker.read()]);
+  assert.deepEqual(written, { copied: true, bytes: 20 });
+  assert.equal(text, 'broker text');
+  assert.deepEqual(await broker.readContent(target, 1024), { kind: 'image', path: target, mime_type: 'image/png', size: 12 });
+  assert.equal(spawns, 1);
+  assert.equal(maximum, 1);
+  assert.equal(observedArgs.includes('-STA'), true);
+  assert.equal(observedArgs.join(' ').includes('private broker value'), false);
+  await broker.close();
+});
+
 test('native clipboard image ingestion validates a bounded PNG', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-clipboard-image-'));
   const target = join(root, 'image.png');
@@ -73,6 +108,24 @@ test('Windows image extraction passes the destination outside PowerShell source 
 test('clipboard image takes precedence over incidental text and text remains the fallback', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-clipboard-priority-'));
   const session = { pendingAttachments: [] };
+  let combinedReads = 0;
+  const combinedWorkspace = {
+    options: {
+      clipboardRead: async () => { throw new Error('separate text read must not run'); },
+      clipboardContentRead: async (path) => {
+        combinedReads += 1;
+        await writeFile(path, Buffer.from('89504e470d0a1a0a00000000', 'hex'));
+        return { kind: 'image', path, mime_type: 'image/png', size: 12 };
+      },
+    },
+    projection: { overlay: null, active: () => session },
+    activeConfig: () => ({ workspaceRoot: root, attachments: { enabled: true, maxBytes: 1024 } }),
+    activeEngine: () => ({ attachments: { root: join(root, 'combined-attachments') } }),
+    onChange() {},
+  };
+  assert.equal((await clipboardPasteAction(combinedWorkspace)).action, 'attachment');
+  assert.equal(combinedReads, 1);
+  session.pendingAttachments.length = 0;
   let textRead = false;
   const imageWorkspace = {
     options: {
@@ -203,3 +256,27 @@ test('/copy selects only an assistant response and reports metadata', async () =
   assert.equal(copied, 'first response');
   assert.deepEqual(notice, { kind: 'clipboard', text: 'Copied assistant response 2 (14 bytes).' });
 });
+
+function fakeClipboardChild(handler) {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  let buffered = ''; let closed = false;
+  child.stdin = new Writable({
+    write(chunk, _encoding, callback) {
+      buffered += chunk.toString('utf8');
+      const lines = buffered.split('\n'); buffered = lines.pop();
+      Promise.all(lines.filter(Boolean).map(async (line) => {
+        const response = await handler(JSON.parse(line));
+        child.stdout.write(`${JSON.stringify(response)}\n`);
+      })).then(() => callback(), callback);
+    },
+    final(callback) { callback(); queueMicrotask(() => close()); },
+  });
+  const close = () => { if (!closed) { closed = true; child.emit('close', 0); } };
+  child.kill = close;
+  queueMicrotask(() => {
+    child.emit('spawn');
+    child.stdout.write(`${JSON.stringify({ id: 0, ok: true, kind: 'ready' })}\n`);
+  });
+  return child;
+}

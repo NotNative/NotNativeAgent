@@ -2,11 +2,14 @@
 import { ContractError } from './ids.js';
 import { clearSelection, selectedText } from './tui-selection.js';
 import { recordClipboard } from './tui-telemetry.js';
-import { queueClipboardImage, queuePastedImagePaths } from './workspace-attachments.js';
+import { queueClipboardContent, queueClipboardImage, queuePastedImagePaths } from './workspace-attachments.js';
 
 export async function clipboardPasteAction(workspace) {
   const read = workspace.options.clipboardRead;
   if (typeof read !== 'function') throw new ContractError('clipboard_unavailable', 'clipboard paste is unavailable');
+  if (!workspace.projection?.overlay && typeof workspace.options.clipboardContentRead === 'function') {
+    return normalizeClipboardAction(await queueClipboardContent(workspace));
+  }
   if (!workspace.projection?.overlay && typeof workspace.options.clipboardImageRead === 'function') {
     try {
       const attachment = await queueClipboardImage(workspace);
@@ -84,4 +87,8 @@ export function clearTerminalSelection(workspace) {
 
 function normalizeClipboardText(value) {
   return String(value).replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+}
+
+function normalizeClipboardAction(action) {
+  return action.action === 'paste' ? { ...action, text: normalizeClipboardText(action.text) } : action;
 }

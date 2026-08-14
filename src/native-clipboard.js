@@ -3,12 +3,16 @@ import { spawn } from 'node:child_process';
 import { mkdir, readFile, rm, stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from './ids.js';
+import { WindowsClipboardBroker } from './clipboard-broker.js';
 
 const MAX_CLIPBOARD_BYTES = 100_000;
 const TIMEOUT_MS = 10_000;
 
 export function nativeClipboard(options = {}) {
   const platform = options.platform ?? process.platform;
+  if (platform === 'win32' && !options.runner && !options.imageRunner && !options.imageProcessRunner) {
+    return new WindowsClipboardBroker(options);
+  }
   const runner = options.runner ?? runClipboardProcess;
   const commands = clipboardCommands(platform);
   return Object.freeze({

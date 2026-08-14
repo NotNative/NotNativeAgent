@@ -46,6 +46,26 @@ export async function queueClipboardImage(workspace) {
   }
 }
 
+export async function queueClipboardContent(workspace) {
+  const reader = workspace.options.clipboardContentRead;
+  if (typeof reader !== 'function') throw new ContractError('clipboard_unavailable', 'clipboard paste is unavailable');
+  const config = workspace.activeConfig();
+  const managedRoot = workspace.activeEngine?.().attachments?.root;
+  const root = managedRoot ? join(managedRoot, 'clipboard-ingress') : null;
+  if (root) await mkdir(root, { recursive: true, mode: 0o700 });
+  const path = root ? join(root, `clipboard-${Date.now()}-${randomUUID()}.png`) : null;
+  try {
+    const content = await reader(config.attachments.enabled ? path : null, config.attachments.maxBytes);
+    if (content.kind !== 'image') return { action: 'paste', text: content.text };
+    requireAttachmentCapacity(config, workspace.projection.active());
+    return { action: 'attachment', attachment: await queueConsoleAttachment(workspace, path) };
+  } finally {
+    if (path && !workspace.projection.active().pendingAttachments.some((item) => item.path === path)) {
+      await rm(path, { force: true }).catch(() => undefined);
+    }
+  }
+}
+
 export async function queuePastedImagePaths(workspace, text) {
   const paths = pastedPaths(text);
   if (paths.length === 0) return [];

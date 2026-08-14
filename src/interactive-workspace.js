@@ -250,7 +250,7 @@ export class InteractiveWorkspace {
     const shutdowns = await Promise.allSettled([...this.sessions.values()].map((session) => session.engine.shutdown({
       request_id: newId('tui_shutdown'), type: 'shutdown',
     })));
-    await Promise.allSettled([...this.#tasks]);
+    await Promise.allSettled([...this.#tasks]); await this.options.clipboardClose?.();
     await this.tabPersistence.wait();
     await this.consoleAuthority.release();
     if (poolFailure) throw poolFailure;
