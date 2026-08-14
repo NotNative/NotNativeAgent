@@ -13,6 +13,8 @@ import { ContractError } from './ids.js';
 import { buildReviewEvidence } from './review-evidence.js';
 import { WebUrlProvenance } from './web-url-provenance.js';
 
+const SUCCESSFUL_TOOL_CONTINUATION = 'Continue the existing active request from the newly committed tool results. Do not greet, re-acknowledge the request, or repeat the existing plan. If a progress note is useful, state only what materially changed, then continue the work.';
+
 export class ToolLoop {
   constructor(options) {
     this.engine = options.engine;
@@ -387,7 +389,10 @@ export function toolContinuationHint(items, fallback = null) {
     return `The tool request was invalid (${failures.join(', ')}). Correct the arguments to exactly match the supplied tool schema; do not repeat the unchanged arguments. Context reduction cannot repair a schema mismatch.`;
   }
   const denied = items.filter((item) => ['deny_with_guidance', 'hard_deny'].includes(item.result?.status));
-  if (denied.length === 0) return fallback;
+  if (denied.length === 0) {
+    return items.length > 0 && items.every((item) => item.result?.status === 'succeeded')
+      ? SUCCESSFUL_TOOL_CONTINUATION : fallback;
+  }
   const immutable = denied.some((item) => item.result.status === 'hard_deny');
   return immutable
     ? 'A tool reached an immutable policy boundary. Do not retry it or ask for authorization to bypass it. Continue the active task within the remaining capabilities, and report the boundary only if it prevents the objective.'
