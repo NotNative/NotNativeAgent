@@ -43,6 +43,7 @@ export function resetStep(active) {
   const reasoningMode = active.reasoningFallbackPending ? 'off' : undefined;
   active.reasoningFallbackPending = false;
   active.stepText = '';
+  active.committedStepText = null;
   active.stepReasoningBytes = 0;
   active.finishReason = null;
   active.providerTerminal = false;

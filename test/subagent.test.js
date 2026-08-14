@@ -135,6 +135,7 @@ test('parallel sub-agent cancellation drains children and commits terminal tool 
   const root = await mkdtemp(join(tmpdir(), 'nna-subagent-cancel-'));
   const output = [];
   const parent = { async *stream() {
+    yield { type: 'text', text: 'I am delegating both reviews.' };
     yield { type: 'tool_fragment', fragments: [
       toolFragment(0, 'cancel-a', { type: 'reviewer', task: 'Review area A.' }),
       toolFragment(1, 'cancel-b', { type: 'reviewer', task: 'Review area B.' }),
@@ -172,6 +173,8 @@ test('parallel sub-agent cancellation drains children and commits terminal tool 
   assert.equal(result.failure.code, 'turn_cancelled');
   assert.deepEqual(result.secondary_failures, []);
   assert.equal(settled, 2);
+  assert.equal(engine.transcript.filter((item) => item.role === 'assistant'
+    && item.content === 'I am delegating both reviews.').length, 1);
   assert.deepEqual(engine.transcript.filter((item) => item.type === 'tool_result').map((item) => item.status), ['cancelled', 'cancelled']);
   assert.equal(engine.state.transitions.some((item) => item.from === 'cancelling' && item.to === 'processing_tool_results'), false);
   assert.equal(engine.lifecycles.snapshot().some((item) => item.outcome === null), false);

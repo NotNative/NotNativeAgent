@@ -239,6 +239,28 @@ test('AC-STATE-05 provider failure preserves partial output and finalizes exactl
   assert.equal(engine.state.state, 'idle');
 });
 
+test('streaming cancellation persists genuinely uncommitted assistant text once', async () => {
+  let releaseStarted;
+  const started = new Promise((resolve) => { releaseStarted = resolve; });
+  const provider = { async *stream(_request, signal) {
+    yield { type: 'text', text: 'Useful partial analysis.' };
+    releaseStarted();
+    await new Promise((resolve, reject) => signal.addEventListener('abort', () => {
+      reject(Object.assign(new Error('cancelled'), { code: 'provider_cancelled' }));
+    }, { once: true }));
+  } };
+  const engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  const turn = engine.submit({ request_id: 'stream-cancel', content: 'Analyze this.' }, 'operator');
+  await started;
+  await engine.cancel({ request_id: 'cancel-stream' });
+  const result = await turn;
+  assert.equal(result.outcome, 'cancelled');
+  const messages = engine.transcript.filter((item) => item.role === 'assistant');
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].content, 'Useful partial analysis.');
+  assert.equal(messages[0].partial, true);
+});
+
 test('AC-FAIL-05 primary failure survives secondary finalization failures', async () => {
   class FailingProvider {
     async *stream() {

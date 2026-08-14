@@ -293,9 +293,10 @@ export class SessionEngine {
     if (active.stepText.length > 0 || calls.length > 0) active.reasoningFallbackUsed = false;
     if (calls.length === 0) return this.#afterTextStep(active);
     await this.#settleAttempt(active, 'completed');
-    if (active.stepText.length > 0) await this.#persist('message', assistantMessage(
-      active.turnId, active.stepText, { stepId: active.stepId },
-    ));
+    if (active.stepText.length > 0) {
+      await this.#persist('message', assistantMessage(active.turnId, active.stepText, { stepId: active.stepId }));
+      active.committedStepText = active.stepText;
+    }
     const items = await this.toolLoop.process(calls, active);
     active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded')
       .map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
@@ -346,6 +347,7 @@ export class SessionEngine {
     await this.#persist('message', assistantMessage(active.turnId, active.stepText, {
       partial: true, stepId: active.stepId,
     }));
+    active.committedStepText = active.stepText;
     this.state.transition('recovering', { trigger: supervised.category, turnId: active.turnId });
     const plan = active.recovery.continuation(
       supervised.category, supervised.progressEvidence, partialOutputProgress(active.stepText),
@@ -414,9 +416,8 @@ export class SessionEngine {
     await faults.capture('lifecycle', () => settleEngineChildren(
       this, active, faults.outcome, (...args) => this.#publish(...args),
     ));
-    if (text.length > 0) await faults.capture('persistence', () => this.#persist(
-      'message', assistantMessage(active.turnId, text, { ...faults.primary, stepId: active.stepId }),
-    ));
+    if (text.length > 0 && text !== active.committedStepText) await faults.capture('persistence',
+      () => this.#persist('message', assistantMessage(active.turnId, text, { ...faults.primary, stepId: active.stepId })));
     if (text.length > 0 && options.emitText === true) await faults.capture('output', () => emitEngineText(this, text, active, 'recovery_explanation'));
     await faults.capture('lifecycle', () => this.lifecycles.finish(active.turnId, faults.outcome));
     await faults.capture('event', () => this.#publish(

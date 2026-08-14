@@ -7,7 +7,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}) {
   return {
     turnId, requestId, stepId: null, attemptId: null, authority: null,
     controller: new AbortController(), cancelled: false, finalized: false,
-    text: '', stepText: '', finalText: '', usage: null, finishReason: null, reasoningBytes: 0,
+    text: '', stepText: '', committedStepText: null, finalText: '', usage: null, finishReason: null, reasoningBytes: 0,
     stepReasoningBytes: 0, reasoningFallbackPending: false, reasoningFallbackUsed: false,
     startedAt: Date.now(), toolCalls: 0,
     providerTerminal: false, toolAssembler: new ToolCallAssembler(),
