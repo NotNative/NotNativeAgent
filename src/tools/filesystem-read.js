@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ContractError, newId } from './ids.js';
+import { ContractError, newId } from '../ids.js';
 
 const MAX_TEXT_BYTES = 1_048_576;
 

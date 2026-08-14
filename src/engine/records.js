@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
 import { failureEnvelope } from '../failure-envelope.js';
-import { safeToolArguments } from '../tool-presentation.js';
+import { safeToolArguments } from '../tools/presentation.js';
 import { requestsInput } from '../completion-supervisor.js';
 import { redactText } from '../redaction.js';
 

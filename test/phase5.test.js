@@ -31,7 +31,7 @@ import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engi
 import { auditOverlay, configOverlay, modelOverlay, overlayCommandDraft, providerOverlay } from '../src/tui/overlays.js';
 import { ContractError } from '../src/ids.js';
 import { trustWorkspace } from '../src/experience/trust.js';
-import { safeToolArguments } from '../src/tool-presentation.js';
+import { safeToolArguments } from '../src/tools/presentation.js';
 import { ExtensionRegistry } from '../src/extensions.js';
 import { DestructiveKeyGuard } from '../src/tui/destructive-key-guard.js';
 import { handleEditorAction } from '../src/tui/editor-actions.js';

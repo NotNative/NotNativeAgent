@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 const OPERATIONS = new Set(['status', 'diff', 'diff_staged', 'log']);
 

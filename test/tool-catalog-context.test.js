@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { toolCatalogContext } from '../src/tool-catalog-context.js';
+import { toolCatalogContext } from '../src/tools/catalog-context.js';
 
 test('compact tool catalog lists only unloaded authorized names in deterministic order', () => {
   const content = toolCatalogContext([

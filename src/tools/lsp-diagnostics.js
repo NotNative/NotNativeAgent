@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 const MAX_MESSAGE_BYTES = 2_097_152;
 

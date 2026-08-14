@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { filesystemExtraDefinitions } from '../src/filesystem-extra-tools.js';
+import { filesystemExtraDefinitions } from '../src/tools/filesystem-extra.js';
 import { PathPolicy } from '../src/path-policy.js';
 
 async function fixture(options = {}) {

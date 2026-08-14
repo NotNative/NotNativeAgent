@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { readJournalPage, readJournalPrefix } from './store.js';
-import { ContractError } from './ids.js';
+import { readJournalPage, readJournalPrefix } from '../store.js';
+import { ContractError } from '../ids.js';
 
 const SESSION_ID = /^[A-Za-z0-9_-]{1,256}$/u;
 

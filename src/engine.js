@@ -12,7 +12,7 @@ import { recoveryExhaustionDetail, recoveryExhaustionText, recoveryHint } from '
 import { JournalStore } from './store.js';
 import { SessionLock } from './session-lock.js';
 import { restoreSessionRecords } from './session-history.js';
-import { toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from './tool-loop.js';
+import { toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from './tools/loop.js';
 import { installEngineComponents } from './engine/components.js';
 import { applyPendingConfiguration, updateEngineConfiguration } from './runtime-config.js';
 import { userDataPaths } from './product.js';

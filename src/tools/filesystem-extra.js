@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, rename, stat } from 'node:fs/promises';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 export function filesystemExtraDefinitions(paths, changes) {
   return [metadataDefinition(paths), directoryDefinition(paths), copyDefinition(paths, changes), moveDefinition(paths, changes)];

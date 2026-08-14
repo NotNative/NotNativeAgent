@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PathPolicy } from '../src/path-policy.js';
-import { discoverVerificationPlan, projectVerifyDefinition } from '../src/project-verification.js';
+import { discoverVerificationPlan, projectVerifyDefinition } from '../src/tools/project-verification.js';
 import { toolStatus } from '../src/engine/records.js';
 
 async function fixture(scripts, extra = {}) {

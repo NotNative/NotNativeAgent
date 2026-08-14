@@ -2,7 +2,7 @@
 import { ContractError, newId } from './ids.js';
 import { requestDigest } from './reviewer-ledger.js';
 import { PreauthorizationRegistry } from './preauthorization.js';
-import { safeToolArguments } from './tool-presentation.js';
+import { safeToolArguments } from './tools/presentation.js';
 
 export class InteractivePermissionBroker {
   #pending = new Map();

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { gitInspectionDefinition } from '../src/git-inspection-tool.js';
+import { gitInspectionDefinition } from '../src/tools/git-inspection.js';
 
 test('git.inspect validates a host path and runs bounded shell-free status', async () => {
   let invocation;

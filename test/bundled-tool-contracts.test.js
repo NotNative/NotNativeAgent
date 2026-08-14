@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { providerSchema } from '../src/tool-schema.js';
+import { providerSchema } from '../src/tools/schema.js';
 
 function optionalControls() {
   const snapshot = { revision: 0, goal: null, tasks: [] };

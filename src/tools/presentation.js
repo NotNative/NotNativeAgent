@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { redactExtensionData, redactText } from './redaction.js';
+import { redactExtensionData, redactText } from '../redaction.js';
 
 const SENSITIVE_KEY = /token|secret|password|credential|authorization|bearer|api.?key/iu;
 

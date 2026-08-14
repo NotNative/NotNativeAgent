@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { redactText } from './redaction.js';
+import { redactText } from '../redaction.js';
 
 const SUMMARY_BYTES = Object.freeze({ filesystem: 768, search: 1024, shell: 1024, web: 1024, mcp: 1024, subagent: 1536, other: 768 });
 

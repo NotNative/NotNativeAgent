@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { toProviderMessages } from '../context.js';
-import { ToolCallAssembler } from '../tool-calls.js';
-import { toolCatalogContext } from '../tool-catalog-context.js';
+import { ToolCallAssembler } from '../tools/calls.js';
+import { toolCatalogContext } from '../tools/catalog-context.js';
 import { routeReasoningFields } from '../provider/reasoning.js';
 
 export function providerRequest(engine, route, context, options = {}) {

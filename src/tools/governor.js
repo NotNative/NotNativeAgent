@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ContractError } from './ids.js';
-import { requestDigest } from './reviewer-ledger.js';
+import { ContractError } from '../ids.js';
+import { requestDigest } from '../reviewer-ledger.js';
 
 // This outer event boundary must remain above the largest configured semantic-review
 // deadline. The reviewer owns the operative timeout; this is only a stuck-handler backstop.

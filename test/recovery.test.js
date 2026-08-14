@@ -11,7 +11,7 @@ import { JournalStore } from '../src/store.js';
 import { LifecycleRegistry, StateAuthority } from '../src/lifecycle.js';
 import { ProviderRunner } from '../src/provider/runner.js';
 import { RecoverySupervisor } from '../src/recovery.js';
-import { ToolCallAssembler } from '../src/tool-calls.js';
+import { ToolCallAssembler } from '../src/tools/calls.js';
 import { contextPressureScale } from '../src/engine/provider-recovery.js';
 
 function config(root, persistence = 'ephemeral', extra = {}) {

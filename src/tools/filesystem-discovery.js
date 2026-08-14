@@ -2,7 +2,7 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { basename, dirname, join, matchesGlob, relative } from 'node:path';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 const DEFAULT_SKIPS = new Set(['.git', 'node_modules']);
 const MAX_FILES = 10_000;

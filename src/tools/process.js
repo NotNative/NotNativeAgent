@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
 import { basename } from 'node:path';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 export function processRunDefinition(paths) {
   return {

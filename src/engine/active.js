@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { RecoverySupervisor } from '../recovery.js';
-import { ToolCallAssembler } from '../tool-calls.js';
+import { ToolCallAssembler } from '../tools/calls.js';
 
 export function createActiveTurn(turnId, requestId, recoveryOptions = {}) {
   const deferred = createDeferred();

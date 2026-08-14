@@ -5,7 +5,7 @@ import { access, mkdtemp, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { operationalEnvironment, shellInvocation } from '../src/process-tool.js';
+import { operationalEnvironment, shellInvocation } from '../src/tools/process.js';
 
 test('process.run executes bounded shell-free argv inside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-'));

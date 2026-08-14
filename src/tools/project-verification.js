@@ -2,8 +2,8 @@
 import { createHash } from 'node:crypto';
 import { lstat, readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ContractError } from './ids.js';
-import { runProcess } from './process-tool.js';
+import { ContractError } from '../ids.js';
+import { runProcess } from './process.js';
 
 const MAX_MANIFEST_BYTES = 131_072;
 const CHECK_ORDER = Object.freeze(['quality', 'test', 'lint', 'typecheck', 'build']);

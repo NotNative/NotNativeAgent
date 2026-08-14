@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { ToolChildState } from './lifecycle.js';
+import { ToolChildState } from '../lifecycle.js';
 import {
   invalidRequestRecord, reviewStatus, toolDecisionState, toolRequestRecord,
   toolResultRecord, toolResultState, toolStatus,
-} from './engine/records.js';
-import { blockedResult, denialResult, invalidResult } from './tool-governor.js';
-import { assertMissionBudget, missionConditionFailure, reserveAndPersistMissionTools } from './authority.js';
-import { ToolResultCache } from './tool-result-cache.js';
-import { assertTurnActive } from './turn-cancellation.js';
-import { ContractError } from './ids.js';
-import { buildReviewEvidence } from './review-evidence.js';
-import { WebUrlProvenance } from './web-url-provenance.js';
+} from '../engine/records.js';
+import { blockedResult, denialResult, invalidResult } from './governor.js';
+import { assertMissionBudget, missionConditionFailure, reserveAndPersistMissionTools } from '../authority.js';
+import { ToolResultCache } from './result-cache.js';
+import { assertTurnActive } from '../turn-cancellation.js';
+import { ContractError } from '../ids.js';
+import { buildReviewEvidence } from '../review-evidence.js';
+import { WebUrlProvenance } from '../web-url-provenance.js';
 
 const SUCCESSFUL_TOOL_CONTINUATION = 'Continue the existing active request from the newly committed tool results. Do not greet, re-acknowledge the request, or repeat the existing plan. If a progress note is useful, state only what materially changed, then continue the work.';
 

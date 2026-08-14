@@ -5,7 +5,7 @@ import {
   renderHandoff, terseTail,
 } from './continuation-artifact.js';
 import { retainedRecordsFingerprint } from './long-horizon-context.js';
-import { compactToolRequest, createToolContextReceipt } from './tool-context-receipt.js';
+import { compactToolRequest, createToolContextReceipt } from './tools/context-receipt.js';
 
 export { attachTaskCheckpoint, enrichCompactionFact, enrichHandoffFact } from './continuation-artifact.js';
 

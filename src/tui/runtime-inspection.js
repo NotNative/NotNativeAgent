@@ -3,7 +3,7 @@ import { ContractError } from '../ids.js';
 import { resumeOverlay, valueOverlay } from './overlays.js';
 import { openSessionStats } from './session-stats.js';
 import { openFilesView } from './files-view.js';
-import { listDurableSessions } from '../self-diagnostics-tool.js';
+import { listDurableSessions } from '../tools/self-diagnostics.js';
 
 export async function openRuntimeInspection(kind, workspace) {
   if (kind === 'stats') return openSessionStats(workspace);

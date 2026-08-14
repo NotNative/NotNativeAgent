@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 export class ToolResultCache {
   #entries = new Map();
