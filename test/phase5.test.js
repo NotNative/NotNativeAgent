@@ -470,6 +470,16 @@ test('streaming fragments render as one assistant message with a visible editor 
   assert.match(frame, /> \|/u);
 });
 
+test('TUI retains 9,999 recent events by default', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  for (let sequence = 0; sequence < 10_005; sequence += 1) {
+    projection.apply('s1', { type: 'memory_status', sequence });
+  }
+  assert.equal(projection.active().records.length, 9_999);
+  assert.equal(projection.active().records[0].sequence, 6);
+});
+
 test('assistant markdown preserves structure without exposing formatting markers', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });

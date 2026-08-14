@@ -3,6 +3,8 @@ import { ContractError } from './ids.js';
 export { validateKeyBindings } from './key-bindings.js';
 import { validateKeyBindings } from './key-bindings.js';
 
+const TUI_RECORD_LIMIT = 9_999;
+
 const STATES = new Set([
   'idle', 'preparing', 'waiting_provider', 'streaming', 'awaiting_approval',
   'running_tool', 'recovering', 'cancelling', 'failed', 'needs_input',
@@ -162,7 +164,7 @@ export class EditorBuffer {
 }
 
 export class TuiProjection {
-  constructor(limit = 512) {
+  constructor(limit = TUI_RECORD_LIMIT) {
     this.limit = limit;
     this.sessions = new Map();
     this.activeId = null;
@@ -269,7 +271,9 @@ export class TuiProjection {
     if (!session || records.length === 0) return false;
     session.historyAnchor = { lineCount: session.viewportLineCount, end: session.viewportEnd ?? 0 };
     session.historyRecords.unshift(...records.map((record) => Object.freeze(record)));
-    if (session.historyRecords.length > 4096) session.historyRecords.splice(0, session.historyRecords.length - 4096);
+    if (session.historyRecords.length > TUI_RECORD_LIMIT) {
+      session.historyRecords.splice(0, session.historyRecords.length - TUI_RECORD_LIMIT);
+    }
     return true;
   }
 
