@@ -1728,6 +1728,7 @@ test('pending permission preserves draft and command catalog uses canonical vers
   assert.deepEqual(new TerminalInputDecoder().push('\t'), [{ action: 'complete_command' }]);
   const context = contextOverlay({
     contextTokens: 40_000, contextLimitTokens: 100_000,
+    rawContextTokens: 125_000,
     contextCompressionThresholdTokens: 40_000,
     contextCompressionLevel2ThresholdTokens: 55_000,
     contextCompressionLevel3ThresholdTokens: 70_000,
@@ -1742,6 +1743,7 @@ test('pending permission preserves draft and command catalog uses canonical vers
   assert.match(context.lines.join('\n'), /Compression level 2: 55% \| 55,000 estimated tokens/u);
   assert.match(context.lines.join('\n'), /Compression level 3: 70% \| 70,000 estimated tokens/u);
   assert.match(context.lines.join('\n'), /Full compaction starts: 75% \| 75,000 estimated tokens/u);
+  assert.match(context.lines.join('\n'), /Projected provider prompt: 40,000.*Raw conversation estimate: 125,000 tokens \| 125%/su);
   assert.deepEqual(context.items.map((item) => item.badge), ['40%', '55%', '70%', '75%']);
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });

@@ -192,12 +192,12 @@ export class TuiProjection {
       state: 'idle', records: [], editor: new EditorBuffer(), unread: false,
       pendingPermission: null, permissionOffset: 0, activeTurnId: null, confirmClose: false, confirmClear: false,
       viewportEnd: null, viewportLineCount: 0, expandedTurns: new Set(), detailedTurns: new Set(), usage: null,
-      contextBytes: 0, contextLimitBytes: null, contextTokens: null, contextLimitTokens: null,
+      contextBytes: 0, contextLimitBytes: null, contextTokens: null, rawContextTokens: null, contextLimitTokens: null,
       contextThresholdTokens: null, contextOutputReserveTokens: null,
       contextCompressionThresholdTokens: null, contextCompressionThreshold: null,
       contextCompressionLevel2ThresholdTokens: null, contextCompressionLevel2Threshold: null,
       contextCompressionLevel3ThresholdTokens: null, contextCompressionLevel3Threshold: null,
-      contextCompactionThreshold: null, lastContextReduction: null,
+      contextCompactionThreshold: null, contextCompaction: null, lastContextReduction: null,
       commandSuggestionIndex: 0, commandSuggestionItems: null,
       contextParallelCapacity: null, contextMeasurement: null, contextSource: null,
       lastOutcome: null, turnStartedAt: null, reviewPosture: 'auto-review', pendingAttachments: [],
@@ -368,6 +368,7 @@ function applyEvent(session, event) {
     session.contextBytes = event.bytes;
     session.contextLimitBytes = event.limit_bytes;
     session.contextTokens = event.estimated_tokens;
+    session.rawContextTokens = event.raw_estimated_tokens;
     session.contextLimitTokens = event.limit_tokens;
     session.contextThresholdTokens = event.compaction_threshold_tokens;
     session.contextCompressionThresholdTokens = event.compression_threshold_tokens;
@@ -381,10 +382,12 @@ function applyEvent(session, event) {
     session.contextParallelCapacity = event.parallel_capacity;
     session.contextMeasurement = event.measurement;
     session.contextSource = event.source;
-  } else if (event.type === 'context_compaction_status' && event.status === 'completed') {
-    session.lastContextReduction = {
-      beforeTokens: event.before_estimated_tokens,
-      afterTokens: event.after_estimated_tokens,
+  } else if (event.type === 'context_compaction_status') {
+    session.contextCompaction = event.status === 'started' ? {
+      beforeTokens: event.before_estimated_tokens, targetTokens: event.target_tokens,
+    } : null;
+    if (event.status === 'completed') session.lastContextReduction = {
+      beforeTokens: event.before_estimated_tokens, afterTokens: event.after_estimated_tokens,
     };
   }
   else if (event.type === 'turn_result') finishTurn(session, event);

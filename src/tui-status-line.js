@@ -4,7 +4,7 @@ import { displayWidth, truncateTerminal } from './terminal-markdown.js';
 
 export function sessionStatusLine(session, width, rightStatus = '', now = Date.now()) {
   const state = stateStatus(session, now);
-  const context = contextUsage(session);
+  const context = contextUsage(session, width);
   const view = session.viewportEnd === null ? 'following' : `${Math.max(0, session.viewportLineCount - session.viewportEnd)} unseen`;
   const attachments = session.pendingAttachments.length > 0
     ? ` | ${session.pendingAttachments.length} attachment${session.pendingAttachments.length === 1 ? '' : 's'}` : '';
@@ -65,15 +65,23 @@ function totalTokens(usage) {
   return Number.isFinite(total) ? `${total} tokens` : 'tokens --';
 }
 
-function contextUsage(session) {
+function contextUsage(session, width) {
   if (Number.isFinite(session.contextLimitTokens) && session.contextLimitTokens > 0) {
     const ratio = Math.min(1, session.contextTokens / session.contextLimitTokens);
     const marker = session.contextMeasurement === 'estimated' ? '~' : '';
-    if (ratio > 0 && ratio < 0.01) return `context ${marker}<1%`;
-    return `context ${marker}${Math.round(ratio * 100)}%`;
+    const projected = ratio > 0 && ratio < 0.01 ? `prompt ${marker}<1%` : `prompt ${marker}${Math.round(ratio * 100)}%`;
+    const raw = width >= 140 && Number.isFinite(session.rawContextTokens)
+      ? ` | raw ~${formatPercent(session.rawContextTokens / session.contextLimitTokens)}` : '';
+    const compacting = session.contextCompaction ? ' | compacting' : '';
+    return `${projected}${raw}${compacting}`;
   }
   if (!Number.isFinite(session.contextLimitBytes) || session.contextLimitBytes <= 0) return 'context --';
   const ratio = Math.min(1, session.contextBytes / session.contextLimitBytes);
   if (ratio > 0 && ratio < 0.01) return 'context <1%';
   return `context ${Math.round(ratio * 100)}%`;
+}
+
+function formatPercent(ratio) {
+  if (ratio > 0 && ratio < 0.01) return '<1%';
+  return `${Math.max(0, Math.round(ratio * 100))}%`;
 }

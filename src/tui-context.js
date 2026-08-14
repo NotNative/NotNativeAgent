@@ -10,9 +10,10 @@ export function contextOverlay(session, config, options = {}) {
   const compaction = config?.limits?.contextCompactionThreshold ?? session.contextCompactionThreshold ?? 0.75;
   const lines = [
     tokenAware
-      ? `Prompt estimate: ${count(session.contextTokens)} / ${count(session.contextLimitTokens)} usable input tokens`
+      ? `Projected provider prompt: ${count(session.contextTokens)} / ${count(session.contextLimitTokens)} usable input tokens`
       : `Conservative context: ${bytes(session.contextBytes)} / ${bytes(session.contextLimitBytes)}`,
-    `Utilization: ${utilization === null ? '--' : `${utilization}%`}`,
+    `Projected utilization: ${utilization === null ? '--' : `${utilization}%`}`,
+    `Raw conversation estimate: ${count(session.rawContextTokens)} tokens${rawPressure(session)}`,
     `Compression level 1: ${contextPercentText(level1)} | ${thresholdCount(session, level1, session.contextCompressionThresholdTokens)} estimated tokens`,
     `Compression level 2: ${contextPercentText(level2)} | ${thresholdCount(session, level2, session.contextCompressionLevel2ThresholdTokens)} estimated tokens`,
     `Compression level 3: ${contextPercentText(level3)} | ${thresholdCount(session, level3, session.contextCompressionLevel3ThresholdTokens)} estimated tokens`,
@@ -22,6 +23,9 @@ export function contextOverlay(session, config, options = {}) {
     `Runtime source: ${session.contextSource ?? 'configured byte fallback'}`,
     `Hard byte ceiling: ${bytes(session.contextLimitBytes)}`,
   ];
+  if (session.contextCompaction) lines.push(
+    `Compaction active: ${count(session.contextCompaction.beforeTokens)} -> target <= ${count(session.contextCompaction.targetTokens)} tokens`,
+  );
   if (session.lastContextReduction) lines.push(
     `Last reduction: ${count(session.lastContextReduction.beforeTokens)} -> ${count(session.lastContextReduction.afterTokens)} tokens`,
   );
@@ -74,6 +78,11 @@ function contextUtilization(session, tokenAware) {
   if (tokenAware) return Math.min(100, Math.round((session.contextTokens / session.contextLimitTokens) * 100));
   if (session.contextLimitBytes > 0) return Math.min(100, Math.round((session.contextBytes / session.contextLimitBytes) * 100));
   return null;
+}
+
+function rawPressure(session) {
+  if (!Number.isFinite(session.rawContextTokens) || !(session.contextLimitTokens > 0)) return '';
+  return ` | ${Math.max(0, Math.round((session.rawContextTokens / session.contextLimitTokens) * 100))}% of usable input`;
 }
 
 function contextItem(id, label, value, detail) {

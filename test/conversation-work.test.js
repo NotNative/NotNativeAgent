@@ -201,8 +201,41 @@ test('footer compact composition prioritizes state, model, context, and viewport
     reviewPosture: 'auto-review', contextTokens: 25, contextLimitTokens: 100, contextLimitBytes: null, work: null,
   };
   const compact = sessionStatusLine(session, 60);
-  assert.match(compact, /^IDLE \| small-model \| context 25% \| 6 unseen$/u);
+  assert.match(compact, /^IDLE \| small-model \| prompt 25% \| 6 unseen$/u);
   assert.doesNotMatch(compact, /auto-review|workspace|provider|tokens/u);
+});
+
+test('footer distinguishes projected prompt from raw pressure and active compaction', () => {
+  const session = {
+    metadata: { endpoint: 'local', model: 'model', workspace: 'D:\\work' }, usage: null,
+    viewportEnd: null, viewportLineCount: 0, pendingAttachments: [], state: 'running_tool',
+    reviewPosture: 'auto-review', contextTokens: 6_000, rawContextTokens: 222_000,
+    contextLimitTokens: 61_440, contextMeasurement: 'estimated', contextLimitBytes: null,
+    contextCompaction: { beforeTokens: 222_000, targetTokens: 61_440 }, work: null,
+  };
+  assert.match(sessionStatusLine(session, 180), /prompt ~10% \| raw ~361% \| compacting/u);
+  assert.doesNotMatch(sessionStatusLine(session, 80), /raw/u);
+});
+
+test('context projection tracks raw pressure and only marks active compaction', () => {
+  const projection = new TuiProjection();
+  projection.addSession('main', 'Main', { endpoint: 'local', model: 'model' });
+  projection.apply('main', {
+    type: 'context_status', bytes: 18_000, limit_bytes: 1_000_000,
+    estimated_tokens: 6_000, raw_estimated_tokens: 222_000, limit_tokens: 61_440,
+  });
+  projection.apply('main', {
+    type: 'context_compaction_status', status: 'started',
+    before_estimated_tokens: 222_000, target_tokens: 61_440,
+  });
+  assert.equal(projection.active().rawContextTokens, 222_000);
+  assert.deepEqual(projection.active().contextCompaction, { beforeTokens: 222_000, targetTokens: 61_440 });
+  projection.apply('main', {
+    type: 'context_compaction_status', status: 'completed',
+    before_estimated_tokens: 222_000, after_estimated_tokens: 48_000,
+  });
+  assert.equal(projection.active().contextCompaction, null);
+  assert.deepEqual(projection.active().lastContextReduction, { beforeTokens: 222_000, afterTokens: 48_000 });
 });
 
 test('footer quietly right-aligns an update notice only when room is available', () => {
