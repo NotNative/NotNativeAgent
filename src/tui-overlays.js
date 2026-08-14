@@ -64,11 +64,7 @@ export function providerOverlay(engine, options = {}) {
     `Profile   ${assigned ? active.providerId : 'Not assigned'}`,
     `Model     ${assigned ? active.model : "Requesting conversation's Primary is used"}`,
   ];
-  const items = role === 'primary' && options.isMain ? [globalProviderSettingsAction(engine.config)] : [];
-  items.push({
-    id: 'route-settings', label: 'Settings', badge: active.deadlineOverrideMs === null ? 'global timeout' : 'custom timeout',
-    detail: 'Inspect and configure this route; timeout overrides can return to global inheritance.', section: `${roleLabel} route`,
-  });
+  const items = [providerRouteSettingsAction(engine.config, role, active, roleLabel)];
   if (role === 'primary' && options.inheritRoute) items.push({
     id: 'inherit', label: 'Copy Primary profile from Main',
     detail: 'One-time primary-route copy; global specialist roles remain shared.',
@@ -109,11 +105,13 @@ export function providerOverlay(engine, options = {}) {
   });
 }
 
-function globalProviderSettingsAction(config) {
+function providerRouteSettingsAction(config, role, route, roleLabel) {
   return {
-    id: 'global-settings', label: 'Global settings', badge: config.limits.providerMs == null
-      ? 'no route timeout' : `${Math.round(config.limits.providerMs / 1_000).toLocaleString('en-US')}s timeout`,
-    detail: 'Configure the default route timeout inherited by routes without an override.', section: 'Workspace routing defaults',
+    id: 'route-settings', label: 'Settings', badge: role === 'primary'
+      ? (config.limits.providerOverrideMs === null ? 'defaults' : 'configured')
+      : (route.deadlineOverrideMs === null ? 'Primary timeout' : 'custom timeout'),
+    detail: role === 'primary' ? 'Inspect and configure the Primary route settings.'
+      : 'Inspect and configure this route; timeout overrides can return to Primary.', section: `${roleLabel} route`,
   };
 }
 

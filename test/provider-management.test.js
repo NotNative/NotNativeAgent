@@ -75,17 +75,26 @@ test('global specialist synchronization preserves a conversation primary route',
   assert.equal(synchronized.routes.reviewer.model, 'reviewer-override');
 });
 
-test('route deadlines inherit globally until explicitly set and can return to inheritance', () => {
+test('Primary owns the provider deadline while specialist overrides return to Primary', () => {
   const current = configuration(process.cwd());
   assert.equal(current.routes.primary.deadlineOverrideMs, null);
   assert.equal(current.routes.primary.deadlineMs, current.limits.providerMs);
   const overridden = withRouteDeadline(current, 'primary', 600_000);
-  assert.equal(overridden.config.routes.primary.deadlineOverrideMs, 600_000);
-  assert.equal(overridden.manifest.routes.primary.deadline_ms, 600_000);
+  assert.equal(overridden.config.limits.providerOverrideMs, 600_000);
+  assert.equal(overridden.config.routes.primary.deadlineOverrideMs, null);
+  assert.equal(overridden.manifest.provider_timeout_ms, 600_000);
+  assert.equal(overridden.manifest.routes.primary.deadline_ms, undefined);
   const inherited = withRouteDeadline(overridden.config, 'primary', null);
+  assert.equal(inherited.config.limits.providerOverrideMs, null);
   assert.equal(inherited.config.routes.primary.deadlineOverrideMs, null);
   assert.equal(inherited.config.routes.primary.deadlineMs, current.limits.providerMs);
   assert.equal(inherited.manifest.routes.primary.deadline_ms, undefined);
+  const specialist = withRouteDeadline(current, 'reviewer', 600_000);
+  assert.equal(specialist.config.routes.reviewer.deadlineOverrideMs, 600_000);
+  assert.equal(specialist.manifest.routes.reviewer.deadline_ms, 600_000);
+  const primary = withRouteDeadline(specialist.config, 'reviewer', null);
+  assert.equal(primary.config.routes.reviewer.deadlineOverrideMs, null);
+  assert.equal(primary.config.routes.reviewer.deadlineMs, current.routes.primary.deadlineMs);
 });
 
 test('restored conversation configuration discards stale specialist assignments', async () => {

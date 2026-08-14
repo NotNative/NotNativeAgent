@@ -36,7 +36,8 @@ export function migrateLegacyProviderTimeoutDefaults(manifest) {
 
 export function providerTimeouts(manifest) {
   const input = migrateLegacyProviderTimeoutDefaults(manifest);
-  const configured = input.provider_timeout_ms;
+  const primaryDeadline = input.routes?.primary?.deadline_ms;
+  const configured = primaryDeadline === undefined ? input.provider_timeout_ms : primaryDeadline;
   return {
     providerMs: configured === 0 ? null : boundedInteger(configured, 1_800_000, 100, 3_600_000),
     providerOverrideMs: configured === undefined ? null

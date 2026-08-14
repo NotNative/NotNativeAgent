@@ -9,7 +9,7 @@ const LABELS = Object.freeze({
 });
 const SETTINGS = Object.freeze({
   timeout: Object.freeze({ label: 'Overall attempt timeout', detail: 'Seconds allowed for prompt processing and generation. Enter 0 for no timeout.' }),
-  temperature: Object.freeze({ label: 'Temperature', detail: 'Sampling temperature above 0 through 2. Enter 0 to use the provider default.' }),
+  temperature: Object.freeze({ label: 'Temperature', detail: 'Sampling temperature from 0 through 2. The built-in default is 1.0; enter 0 to use the provider default.' }),
   output: Object.freeze({ label: 'Maximum output tokens', detail: 'Maximum tokens requested from the provider. Enter 0 for no explicit limit.' }),
   budget: Object.freeze({ label: 'Fallback attempt budget', detail: 'Maximum eligible route attempts from 1 through 64. Enter 0 to use every eligible route.' }),
   reasoning_effort: Object.freeze({ label: 'Reasoning effort', detail: 'OpenAI-compatible reasoning_effort. Availability depends on the model.', options: true }),
@@ -17,12 +17,7 @@ const SETTINGS = Object.freeze({
 });
 
 export function beginProviderRouteSettingsSelection(selected, workspace, overlay) {
-  if (overlay?.kind !== 'provider') return false;
-  if (selected?.id === 'global-settings') {
-    workspace.projection.openOverlay(globalSettingsOverlay(workspace.config, { parentProvider: overlay }));
-    return true;
-  }
-  if (selected?.id !== 'route-settings') return false;
+  if (overlay?.kind !== 'provider' || selected?.id !== 'route-settings') return false;
   const editable = overlay.role === 'primary' || overlay.canAssign !== false;
   workspace.projection.openOverlay(routeSettingsOverlay(routeConfig(workspace, overlay.role), overlay.role, {
     editable, parentProvider: overlay,
@@ -32,8 +27,6 @@ export function beginProviderRouteSettingsSelection(selected, workspace, overlay
 
 export async function handleProviderRouteSettingsAction(action, workspace) {
   const overlay = workspace.projection.overlay;
-  if (overlay?.kind === 'global-provider-setting-form') return handleGlobalForm(action, workspace, overlay);
-  if (overlay?.kind === 'global-provider-settings') return handleGlobalSettings(action, workspace, overlay);
   if (overlay?.kind === 'provider-route-setting-options') return handleSettingOptions(action, workspace, overlay);
   if (!['provider-route-settings', 'provider-route-setting-form'].includes(overlay?.kind)) return false;
   if (overlay.kind === 'provider-route-setting-form') return handleForm(action, workspace, overlay);
@@ -44,9 +37,15 @@ export async function handleProviderRouteSettingsAction(action, workspace) {
   }
   if (action.action !== 'submit' || !overlay.editable) return true;
   const selected = overlay.items[overlay.selected];
-  if (selected.id === 'timeout-inherit') {
+  if (selected.id === 'timeout-default') {
     await workspace.configureProviderRoute(overlay.role, 'timeout', null);
-    reopenSettings(workspace, overlay, 'Timeout now inherits the global provider timeout.');
+    reopenSettings(workspace, overlay, 'Overall attempt timeout restored to the 1,800-second default.');
+  } else if (selected.id === 'timeout-inherit') {
+    await workspace.configureProviderRoute(overlay.role, 'timeout', null);
+    reopenSettings(workspace, overlay, 'Timeout now uses the Primary setting.');
+  } else if (selected.id === 'temperature-default') {
+    await workspace.configureProviderRoute(overlay.role, 'temperature', null);
+    reopenSettings(workspace, overlay, 'Temperature restored to the 1.0 default.');
   } else if (SETTINGS[selected.id]?.options) {
     workspace.projection.openOverlay(settingOptionsOverlay(overlay, selected.id));
   } else workspace.projection.openOverlay(settingFormOverlay(overlay, selected.id));
@@ -85,87 +84,17 @@ function settingOptionsOverlay(parentSettings, setting) {
   });
 }
 
-function globalSettingsOverlay(config, options = {}) {
-  const configured = config.limits.providerOverrideMs !== null;
-  const items = [{
-    id: 'global-timeout', label: 'Default route timeout', badge: `${formatMs(config.limits.providerMs)}${configured ? '' : ' · built in'}`,
-    detail: 'All routes without a timeout override inherit this value.', section: 'Routing defaults',
-  }];
-  if (configured) items.push({
-    id: 'global-timeout-remove', label: 'Remove configured timeout', badge: 'use built-in default',
-    detail: 'Return the global route timeout to the built-in default.', section: 'Routing defaults',
-  });
-  return Object.freeze({
-    kind: 'global-provider-settings', title: 'Global provider settings',
-    lines: Object.freeze(['Workspace routing defaults', '', `Default route timeout  ${formatMs(config.limits.providerMs)} (${configured ? 'configured' : 'built in'})`,
-      'Routes inherit this timeout unless their role settings define an override.']),
-    items: Object.freeze(items), selected: 0, offset: 0, config, parentProvider: options.parentProvider,
-    actionLabel: 'Up/Down choose | Enter edit | Ctrl+G back',
-  });
-}
-
-async function handleGlobalSettings(action, workspace, overlay) {
-  if (['cancel', 'help'].includes(action.action)) { workspace.projection.closeOverlay(); return true; }
-  if (action.action === 'back') { workspace.projection.openOverlay(overlay.parentProvider); return true; }
-  if (['history_up', 'history_down'].includes(action.action)) {
-    workspace.projection.moveOverlaySelection(action.action === 'history_up' ? -1 : 1); return true;
-  }
-  if (action.action !== 'submit') return true;
-  const selected = overlay.items[overlay.selected];
-  if (selected.id === 'global-timeout-remove') {
-    await workspace.configureRuntimeLimits({ providerMs: null });
-    reopenGlobalSettings(workspace, overlay, 'Global route timeout now uses the built-in default.');
-  } else {
-    const editor = editorWith(overlay.config.limits.providerMs == null ? '0'
-      : String(Math.round(overlay.config.limits.providerMs / 1_000)));
-    workspace.projection.openOverlay(globalSettingFormOverlay(overlay, editor));
-  }
-  return true;
-}
-
-async function handleGlobalForm(action, workspace, overlay) {
-  if (action.action === 'back') { workspace.projection.openOverlay(overlay.parentSettings); return true; }
-  if (['cancel', 'help'].includes(action.action)) { workspace.projection.closeOverlay(); return true; }
-  if (action.action === 'home') overlay.editor.moveLine('start');
-  else if (action.action === 'end') overlay.editor.moveLine('end');
-  else if (action.action === 'submit') {
-    try {
-      const value = parseSetting('timeout', overlay.editor.text);
-      await workspace.configureRuntimeLimits({ providerMs: value });
-      reopenGlobalSettings(workspace, overlay.parentSettings, 'Global route timeout saved.');
-    } catch (error) {
-      workspace.projection.openOverlay(globalSettingFormOverlay(overlay.parentSettings, overlay.editor, error.message));
-    }
-    return true;
-  } else if (action.action !== 'newline' && handleEditorAction(singleLine(action), overlay.editor)) { /* edited */ }
-  workspace.projection.openOverlay(globalSettingFormOverlay(overlay.parentSettings, overlay.editor));
-  return true;
-}
-
-function globalSettingFormOverlay(parentSettings, editor, error = null) {
-  return Object.freeze({
-    kind: 'global-provider-setting-form', title: 'Default route timeout',
-    lines: Object.freeze(['Seconds inherited by routes without an override. Enter 0 for no timeout.', '', ...(error ? [`Cannot save · ${error}`, ''] : []),
-      'Enter a value:', '', `  ${renderEditor(editor)}`]),
-    items: Object.freeze([]), selected: 0, offset: 0, parentSettings, editor,
-    actionLabel: 'Type value | Enter save | Ctrl+G back',
-  });
-}
-
-function reopenGlobalSettings(workspace, prior, notice) {
-  workspace.projection.openOverlay(globalSettingsOverlay(workspace.config, prior));
-  workspace.projection.showNotice('provider', notice);
-}
-
 export function routeSettingsOverlay(config, role, options = {}) {
-  const route = config.routes[role], inherited = route.deadlineOverrideMs === null;
+  const route = config.routes[role], primary = role === 'primary';
+  const timeoutConfigured = primary ? config.limits.providerOverrideMs !== null : route.deadlineOverrideMs !== null;
   const editable = options.editable !== false;
   const lines = [
     `${LABELS[role] ?? role} route settings`, '',
     `Provider                 ${route.providerId}`,
     `Model                    ${route.model}`,
-    `Overall attempt timeout  ${formatMs(route.deadlineMs)} (${inherited ? 'global' : 'override'})`,
-    `Temperature              ${route.temperature ?? 'Provider default'}`,
+    `Overall attempt timeout  ${formatMs(route.deadlineMs)} (${primary
+      ? (timeoutConfigured ? 'configured' : 'default') : (timeoutConfigured ? 'override' : 'Primary')})`,
+    `Temperature              ${temperatureLabel(route)}`,
     `Maximum output tokens    ${route.maxOutputTokens?.toLocaleString('en-US') ?? 'No explicit limit'}`,
     `Fallback attempt budget  ${route.budget ?? 'All eligible routes'}`,
     `Reasoning effort         ${route.reasoningEffort ?? 'Provider default'}`,
@@ -175,11 +104,18 @@ export function routeSettingsOverlay(config, role, options = {}) {
     `Fallback profiles        ${route.fallbacks.length ? route.fallbacks.join(', ') : 'none'}`,
   ];
   const items = editable ? Object.entries(SETTINGS).map(([id, definition]) => ({
-    id, label: definition.label, detail: definition.detail, badge: settingValue(route, id), section: 'Configurable settings',
+    id, label: definition.label, detail: definition.detail, badge: settingValue(config, role, id), section: 'Configurable settings',
   })) : [];
-  if (editable && !inherited) items.push({
-    id: 'timeout-inherit', label: 'Remove timeout override', badge: 'use global',
-    detail: `Return this route to the global ${formatMs(config.limits.providerMs)} provider timeout.`, section: 'Timeout inheritance',
+  if (editable && timeoutConfigured) items.push(primary ? {
+    id: 'timeout-default', label: 'Restore default timeout', badge: '1,800s',
+    detail: 'Return Primary to the built-in 1,800-second timeout.', section: 'Setting defaults',
+  } : {
+    id: 'timeout-inherit', label: 'Remove timeout override', badge: 'use Primary',
+    detail: `Return this route to the Primary ${formatMs(config.routes.primary.deadlineMs)} timeout.`, section: 'Setting inheritance',
+  });
+  if (editable && route.temperatureOverride !== null) items.push({
+    id: 'temperature-default', label: 'Restore default temperature', badge: '1.0',
+    detail: 'Remove the configured temperature and restore the built-in default.', section: 'Setting defaults',
   });
   return Object.freeze({
     kind: 'provider-route-settings', title: `${LABELS[role] ?? role} settings`, lines: Object.freeze(lines),
@@ -226,9 +162,13 @@ function reopenSettings(workspace, prior, notice) {
 
 function routeConfig(workspace, role) { return role === 'primary' ? workspace.activeConfig() : workspace.config; }
 
-function settingValue(route, setting) {
-  if (setting === 'timeout') return route.deadlineOverrideMs === null ? `global · ${formatMs(route.deadlineMs)}` : formatMs(route.deadlineMs);
-  if (setting === 'temperature') return route.temperature == null ? 'provider default' : String(route.temperature);
+function settingValue(config, role, setting) {
+  const route = config.routes[role];
+  if (setting === 'timeout') {
+    if (role === 'primary') return `${formatMs(route.deadlineMs)} · ${config.limits.providerOverrideMs === null ? 'default' : 'configured'}`;
+    return route.deadlineOverrideMs === null ? `Primary · ${formatMs(route.deadlineMs)}` : formatMs(route.deadlineMs);
+  }
+  if (setting === 'temperature') return temperatureLabel(route).toLowerCase();
   if (setting === 'output') return route.maxOutputTokens == null ? 'no limit' : route.maxOutputTokens.toLocaleString('en-US');
   if (setting === 'budget') return route.budget == null ? 'all eligible' : String(route.budget);
   if (setting === 'reasoning_effort') return route.reasoningEffort ?? 'provider default';
@@ -243,11 +183,17 @@ function thinkingLabel(value) {
   return value == null ? 'Provider default' : value ? 'Enabled' : 'Disabled';
 }
 
+function temperatureLabel(route) {
+  if (route.temperatureOverride === null) return '1 (default)';
+  if (route.temperatureOverride === 0) return 'Provider default (configured)';
+  return `${route.temperatureOverride} (configured)`;
+}
+
 function editValue(config, role, setting) {
   const route = config?.routes?.[role];
   if (!route) return '';
   if (setting === 'timeout') return route.deadlineMs == null ? '0' : String(Math.round(route.deadlineMs / 1_000));
-  if (setting === 'temperature') return String(route.temperature ?? 0);
+  if (setting === 'temperature') return String(route.temperatureOverride ?? route.temperature ?? 1);
   if (setting === 'output') return String(route.maxOutputTokens ?? 0);
   return String(route.budget ?? 0);
 }
@@ -256,7 +202,7 @@ function parseSetting(setting, raw) {
   const value = Number(String(raw).trim());
   if (setting === 'temperature') {
     if (!Number.isFinite(value) || value < 0 || value > 2) throw new ContractError('route_temperature_invalid', 'Temperature must be from 0 through 2.');
-    return value === 0 ? null : value;
+    return value;
   }
   if (!Number.isSafeInteger(value)) throw new ContractError('route_setting_invalid', 'Enter a whole number.');
   if (setting === 'timeout') {

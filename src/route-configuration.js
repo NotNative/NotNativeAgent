@@ -64,8 +64,9 @@ function routeManifests(routes) {
     provider_id: role === 'primary' || route.assigned !== false ? route.providerId : undefined,
     model: role === 'primary' || route.assigned !== false ? route.model : undefined,
     fallbacks: [...route.fallbacks], context_limit_bytes: route.contextLimitBytes ?? undefined,
-    required_capabilities: [...route.requiredCapabilities], temperature: route.temperature,
-    max_output_tokens: route.maxOutputTokens, budget: route.budget, deadline_ms: route.deadlineOverrideMs ?? undefined,
+    required_capabilities: [...route.requiredCapabilities], temperature: route.temperatureOverride,
+    max_output_tokens: route.maxOutputTokens, budget: route.budget,
+    deadline_ms: role === 'primary' ? undefined : (route.deadlineOverrideMs ?? undefined),
     reasoning_effort: route.reasoningEffort, enable_thinking: route.enableThinking,
   })]));
 }
@@ -188,7 +189,11 @@ export function withRecoverySettings(config, maxModelSteps, localLimit, ladder) 
 export function withRouteDeadline(config, role, deadlineMs = null) {
   if (!Object.hasOwn(config.routes, role)) throw new ContractError('route_role_invalid', `unknown route role ${role}`);
   const manifest = manifestFromConfig(config);
-  if (deadlineMs === null) delete manifest.routes[role].deadline_ms;
+  if (role === 'primary') {
+    if (deadlineMs === null) delete manifest.provider_timeout_ms;
+    else manifest.provider_timeout_ms = deadlineMs;
+    delete manifest.routes.primary.deadline_ms;
+  } else if (deadlineMs === null) delete manifest.routes[role].deadline_ms;
   else manifest.routes[role].deadline_ms = deadlineMs;
   return { manifest, config: resolveManifest(manifest) };
 }

@@ -171,7 +171,7 @@ test('provider configuration fields reduce pasted clipboard content to one line'
   assert.doesNotMatch(projection.overlay.lines.join('\n'), /ignored second line/u);
 });
 
-test('every provider role exposes settings and timeout overrides can return to global inheritance', async () => {
+test('Primary owns route defaults while specialist timeout overrides can return to Primary', async () => {
   let config = resolveManifest({
     provider: { id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'a', trust_zone: 'loopback' },
   });
@@ -190,30 +190,11 @@ test('every provider role exposes settings and timeout overrides can return to g
     assert.equal(providerOverlay({ config }, { role }).items.some((item) => item.id === 'route-settings'), true);
   }
   const mainProviders = providerOverlay({ config }, { role: 'primary', canAssign: true, isMain: true });
-  const globalSettings = mainProviders.items.find((item) => item.id === 'global-settings');
-  assert.equal(beginProviderRouteSettingsSelection(globalSettings, workspace, mainProviders), true);
-  assert.equal(projection.overlay.kind, 'global-provider-settings');
-  assert.match(projection.overlay.lines.join('\n'), /1,800s \(built in\)/u);
-  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
-  projection.overlay.editor.set('120');
-  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
-  assert.equal(config.limits.providerOverrideMs, 120_000);
-  assert.equal(config.routes.primary.deadlineMs, 120_000);
-  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
-  projection.overlay.editor.set('0');
-  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
-  assert.equal(config.limits.providerOverrideMs, 0);
-  assert.equal(config.limits.providerMs, null);
-  assert.equal(config.routes.primary.deadlineMs, null);
-  projection.moveOverlaySelection(1);
-  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
-  assert.equal(config.limits.providerOverrideMs, null);
-  assert.equal(config.routes.primary.deadlineMs, 1_800_000);
-
-  const providers = providerOverlay({ config }, { role: 'primary', canAssign: true });
-  assert.equal(beginProviderRouteSettingsSelection(providers.items[0], workspace, providers), true);
+  const routeSettings = mainProviders.items.find((item) => item.id === 'route-settings');
+  assert.equal(beginProviderRouteSettingsSelection(routeSettings, workspace, mainProviders), true);
   assert.equal(projection.overlay.kind, 'provider-route-settings');
-  assert.match(projection.overlay.lines.join('\n'), /Overall attempt timeout  1,800s \(global\)/u);
+  assert.match(projection.overlay.lines.join('\n'), /Overall attempt timeout  1,800s \(default\)/u);
+  assert.match(projection.overlay.lines.join('\n'), /Temperature {14}1 \(default\)/u);
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   assert.equal(projection.overlay.kind, 'provider-route-setting-form');
   projection.overlay.editor.set('');
@@ -222,22 +203,32 @@ test('every provider role exposes settings and timeout overrides can return to g
   assert.match(projection.overlay.lines.join('\n'), /120/u);
   projection.overlay.editor.set('120');
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
-  assert.equal(config.routes.primary.deadlineOverrideMs, 120_000);
-  assert.equal(projection.overlay.items.some((item) => item.id === 'timeout-inherit'), true);
-  projection.moveOverlaySelection(projection.overlay.items.findIndex((item) => item.id === 'timeout-inherit'));
-  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.equal(config.limits.providerOverrideMs, 120_000);
   assert.equal(config.routes.primary.deadlineOverrideMs, null);
+  assert.match(projection.overlay.lines.join('\n'), /120s \(configured\)/u);
+  assert.equal(projection.overlay.items.some((item) => item.id === 'timeout-default'), true);
+  projection.moveOverlaySelection(projection.overlay.items.findIndex((item) => item.id === 'timeout-default'));
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.equal(config.limits.providerOverrideMs, null);
   assert.equal(config.routes.primary.deadlineMs, 1_800_000);
+
   projection.moveOverlaySelection(1);
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   projection.overlay.editor.set('0.35');
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   assert.equal(config.routes.primary.temperature, 0.35);
+  assert.equal(config.routes.primary.temperatureOverride, 0.35);
   projection.moveOverlaySelection(1);
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   projection.overlay.editor.set('0');
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   assert.equal(config.routes.primary.temperature, null);
+  assert.equal(config.routes.primary.temperatureOverride, 0);
+  projection.moveOverlaySelection(projection.overlay.items.findIndex((item) => item.id === 'temperature-default'));
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.equal(config.routes.primary.temperature, 1);
+  assert.equal(config.routes.primary.temperatureOverride, null);
+
   projection.moveOverlaySelection(2);
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   projection.overlay.editor.set('0');
@@ -271,4 +262,16 @@ test('every provider role exposes settings and timeout overrides can return to g
   await handleProviderRouteSettingsAction({ action: 'history_down' }, workspace);
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   assert.equal(config.routes.primary.enableThinking, false);
+
+  const reviewerProviders = providerOverlay({ config }, { role: 'reviewer', canAssign: true, isMain: true });
+  assert.equal(beginProviderRouteSettingsSelection(reviewerProviders.items[0], workspace, reviewerProviders), true);
+  assert.match(projection.overlay.lines.join('\n'), /1,800s \(Primary\)/u);
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  projection.overlay.editor.set('120');
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.equal(config.routes.reviewer.deadlineOverrideMs, 120_000);
+  projection.moveOverlaySelection(projection.overlay.items.findIndex((item) => item.id === 'timeout-inherit'));
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.equal(config.routes.reviewer.deadlineOverrideMs, null);
+  assert.equal(config.routes.reviewer.deadlineMs, config.routes.primary.deadlineMs);
 });

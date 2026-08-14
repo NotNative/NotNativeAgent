@@ -113,7 +113,7 @@ test('AC-FAIL-02/AC-PERF-05 runtime deadlines and concurrency are independently 
   assert.throws(() => resolveManifest({ providers, tool_concurrency: 17 }), { code: 'invalid_limit' });
 });
 
-test('provider and route deadlines preserve explicit values without legacy inference', () => {
+test('Primary deadline values canonicalize to the provider timeout setting', () => {
   const config = resolveManifest({
     providers, provider_timeout_ms: 120_000, first_token_timeout_ms: 30_000, idle_timeout_ms: 45_000,
     routes: { primary: { deadline_ms: 120_000 } },
@@ -124,8 +124,8 @@ test('provider and route deadlines preserve explicit values without legacy infer
   assert.equal(config.limits.firstTokenMs, 600_000);
   assert.equal(config.limits.idleMs, 300_000);
   assert.equal(config.routes.primary.deadlineMs, 120_000);
-  assert.equal(config.routes.primary.deadlineOverrideMs, 120_000);
-  assert.equal(manifestFromConfig(config).routes.primary.deadline_ms, 120_000);
+  assert.equal(config.routes.primary.deadlineOverrideMs, null);
+  assert.equal(manifestFromConfig(config).routes.primary.deadline_ms, undefined);
   const custom = resolveManifest({
     providers, provider_timeout_ms: 121_000, first_token_timeout_ms: 30_000, idle_timeout_ms: 45_000,
   });
@@ -135,9 +135,12 @@ test('provider and route deadlines preserve explicit values without legacy infer
   const customRoute = resolveManifest({
     providers, provider_timeout_ms: 1_800_000, routes: { primary: { deadline_ms: 121_000 } },
   });
+  assert.equal(customRoute.limits.providerMs, 121_000);
+  assert.equal(customRoute.limits.providerOverrideMs, 121_000);
   assert.equal(customRoute.routes.primary.deadlineMs, 121_000);
-  assert.equal(customRoute.routes.primary.deadlineOverrideMs, 121_000);
-  assert.equal(manifestFromConfig(customRoute).routes.primary.deadline_ms, 121_000);
+  assert.equal(customRoute.routes.primary.deadlineOverrideMs, null);
+  assert.equal(manifestFromConfig(customRoute).provider_timeout_ms, 121_000);
+  assert.equal(manifestFromConfig(customRoute).routes.primary.deadline_ms, undefined);
   const fullyCustom = resolveManifest({
     providers, provider_timeout_ms: 121_000, first_token_timeout_ms: 31_000, idle_timeout_ms: 46_000,
   });
@@ -154,14 +157,15 @@ test('zero removes provider route limits without inventing legacy defaults', () 
   assert.equal(config.limits.providerMs, null);
   assert.equal(config.limits.providerOverrideMs, 0);
   assert.equal(config.routes.primary.deadlineMs, null);
-  assert.equal(config.routes.primary.deadlineOverrideMs, 0);
+  assert.equal(config.routes.primary.deadlineOverrideMs, null);
   assert.equal(config.routes.primary.temperature, null);
+  assert.equal(config.routes.primary.temperatureOverride, 0);
   assert.equal(config.routes.primary.maxOutputTokens, null);
   assert.equal(config.routes.primary.budget, null);
   const manifest = manifestFromConfig(config);
   assert.equal(manifest.provider_timeout_ms, 0);
-  assert.equal(manifest.routes.primary.deadline_ms, 0);
-  assert.equal(manifest.routes.primary.temperature, null);
+  assert.equal(manifest.routes.primary.deadline_ms, undefined);
+  assert.equal(manifest.routes.primary.temperature, 0);
   assert.equal(manifest.routes.primary.max_output_tokens, null);
   assert.equal(manifest.routes.primary.budget, null);
   const candidate = new ModelRouter(config).resolve('primary');
@@ -175,6 +179,8 @@ test('zero removes provider route limits without inventing legacy defaults', () 
 test('semantic review inherits the provider deadline and migrates the legacy fifteen-second default', () => {
   const defaults = resolveManifest({ providers });
   assert.equal(defaults.limits.providerOverrideMs, null);
+  assert.equal(defaults.routes.primary.temperature, 1);
+  assert.equal(defaults.routes.primary.temperatureOverride, null);
   assert.equal(manifestFromConfig(defaults).provider_timeout_ms, undefined);
   assert.equal(defaults.limits.semanticReviewMs, defaults.limits.providerMs);
   assert.equal(defaults.limits.semanticReviewMs, 1_800_000);
