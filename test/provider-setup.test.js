@@ -5,6 +5,7 @@ import { resolveManifest } from '../src/config.js';
 import { withProvider, withRouteSetting, withRuntimeLimits } from '../src/route-configuration.js';
 import { TuiProjection } from '../src/tui-model.js';
 import { providerOverlay } from '../src/tui-overlays.js';
+import { handleActions } from '../src/tui.js';
 import {
   beginProviderRouteSettingsSelection, handleProviderRouteSettingsAction,
 } from '../src/tui-provider-route-settings.js';
@@ -177,7 +178,7 @@ test('every provider role exposes settings and timeout overrides can return to g
   const projection = new TuiProjection();
   projection.addSession('main', 'Main', { provider: 'one', model: 'a' }, 'primary');
   const workspace = {
-    projection, config, activeConfig: () => config,
+    projection, config, activeConfig: () => config, onChange() {},
     async configureProviderRoute(role, setting, value) {
       config = withRouteSetting(config, role, setting, value).config; this.config = config;
     },
@@ -209,6 +210,10 @@ test('every provider role exposes settings and timeout overrides can return to g
   assert.match(projection.overlay.lines.join('\n'), /Overall attempt timeout  1,800s \(global\)/u);
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   assert.equal(projection.overlay.kind, 'provider-route-setting-form');
+  projection.overlay.editor.set('');
+  await handleActions([{ action: 'insert', text: '120' }], workspace, () => undefined, { setBindings() {} });
+  assert.equal(projection.overlay.editor.text, '120');
+  assert.match(projection.overlay.lines.join('\n'), /120/u);
   projection.overlay.editor.set('120');
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   assert.equal(config.routes.primary.deadlineOverrideMs, 120_000);

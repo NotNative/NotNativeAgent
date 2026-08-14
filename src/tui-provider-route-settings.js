@@ -106,9 +106,10 @@ async function handleGlobalForm(action, workspace, overlay) {
 function globalSettingFormOverlay(parentSettings, editor, error = null) {
   return Object.freeze({
     kind: 'global-provider-setting-form', title: 'Default route timeout',
-    lines: Object.freeze(['Seconds inherited by routes without an override.', '', ...(error ? [`Cannot save · ${error}`, ''] : []), 'Enter a value:']),
+    lines: Object.freeze(['Seconds inherited by routes without an override.', '', ...(error ? [`Cannot save · ${error}`, ''] : []),
+      'Enter a value:', '', `  ${renderEditor(editor)}`]),
     items: Object.freeze([]), selected: 0, offset: 0, parentSettings, editor,
-    actionLabel: 'Enter save | Ctrl+G back',
+    actionLabel: 'Type value | Enter save | Ctrl+G back',
   });
 }
 
@@ -170,9 +171,10 @@ function settingFormOverlay(parentSettings, setting, existingEditor = null, erro
   const editor = existingEditor ?? editorWith(editValue(parentSettings.config, parentSettings.role, setting));
   return Object.freeze({
     kind: 'provider-route-setting-form', title: SETTINGS[setting].label,
-    lines: Object.freeze([SETTINGS[setting].detail, '', ...(error ? [`Cannot save · ${error}`, ''] : []), 'Enter a value:']),
+    lines: Object.freeze([SETTINGS[setting].detail, '', ...(error ? [`Cannot save · ${error}`, ''] : []),
+      'Enter a value:', '', `  ${renderEditor(editor)}`]),
     items: Object.freeze([]), selected: 0, offset: 0, role: parentSettings.role, setting, parentSettings, editor,
-    actionLabel: 'Enter save | Ctrl+G back',
+    actionLabel: 'Type value | Enter save | Ctrl+G back',
   });
 }
 
@@ -216,6 +218,13 @@ function parseSetting(setting, raw) {
 }
 
 function editorWith(value) { const editor = new EditorBuffer(128); editor.set(value); return editor; }
+function renderEditor(editor) {
+  const selection = editor.selection();
+  const before = editor.text.slice(0, selection.start);
+  const selected = editor.text.slice(selection.start, selection.end);
+  const after = editor.text.slice(selection.end);
+  return `${before}${selected ? `⟦${selected}⟧` : '│'}${after}`;
+}
 function singleLine(action) {
   return action.action === 'paste' ? { ...action, text: String(action.text).split(/\r?\n/u, 1)[0] } : action;
 }
