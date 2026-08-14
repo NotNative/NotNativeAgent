@@ -24,6 +24,12 @@ function config(root, persistence = 'ephemeral', extra = {}) {
   });
 }
 
+test('provider runner accepts only declared constructor dependencies', () => {
+  const runner = new ProviderRunner({ run: null, unexpected: true });
+  assert.equal(typeof runner.run, 'function');
+  assert.equal(Object.hasOwn(runner, 'unexpected'), false);
+});
+
 test('AC-FAIL-12 exhaustion record identifies bounded completed evidence and actual effect uncertainty', () => {
   const recovery = new RecoverySupervisor();
   recovery.observeProgress('first completed observation', {

@@ -88,6 +88,7 @@ export class StdioMcpTransport {
       if (this.#closed) return;
       newline = this.#buffer.indexOf('\n');
     }
+    // Bound incomplete lines before a newline arrives.
     if (Buffer.byteLength(this.#buffer, 'utf8') > MAX_MCP_MESSAGE_BYTES) {
       this.#protocolFailure(new ContractError('mcp_output_too_large', 'MCP output exceeded bound'));
     }

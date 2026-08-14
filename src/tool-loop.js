@@ -15,7 +15,21 @@ import { WebUrlProvenance } from './web-url-provenance.js';
 
 export class ToolLoop {
   constructor(options) {
-    Object.assign(this, options);
+    this.engine = options.engine;
+    this.state = options.state;
+    this.lifecycles = options.lifecycles;
+    this.tools = options.tools;
+    this.governor = options.governor;
+    this.events = options.events;
+    this.eventFactory = options.eventFactory;
+    this.output = options.output;
+    this.telemetry = options.telemetry;
+    this.persist = options.persist;
+    this.publish = options.publish;
+    this.toolContext = options.toolContext;
+    this.executionContext = options.executionContext;
+    this.surface = options.surface;
+    this.parallelLimit = options.parallelLimit;
     this.concurrency = boundedConcurrency(options.concurrency ?? 1);
     this.parallelLimit ??= async () => 1;
     this.results = new ToolResultCache();

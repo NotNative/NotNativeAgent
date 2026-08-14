@@ -14,6 +14,7 @@ export class WorkspaceTabPersistence {
     const write = this.#tail.then(() => (this.options.writer ?? saveTabPool)(
       this.options.path, tabs, activeId, { consoleId: this.options.consoleId },
     ));
+    // The original write reports failure; this tail only preserves sequencing.
     this.#tail = write.catch(() => undefined);
     return write;
   }

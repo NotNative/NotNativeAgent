@@ -32,6 +32,7 @@ export class DreamStore {
   setObserver(observer) { this.observe = typeof observer === 'function' ? observer : null; }
   async initialize() {
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
+    // This local maintenance store intentionally uses synchronous SQLite.
     this.db = new DatabaseSync(this.path);
     this.db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=3000;');
     this.db.exec(SCHEMA);
@@ -336,6 +337,7 @@ function storedArray(text, maximum) {
 }
 
 function storedObject(text, maximumBytes) {
+  // Stored JSON is size-bounded and shape-checked.
   if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > maximumBytes) return null;
   try {
     const value = JSON.parse(text);

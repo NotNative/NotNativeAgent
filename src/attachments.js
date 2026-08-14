@@ -262,6 +262,7 @@ async function observeWith(router, resolution, role, item, prompt, signal) {
     throw error;
   } finally {
     boundedSignal.removeEventListener('abort', abortHandler);
+    // Iterator cleanup cannot replace the admission outcome.
     void Promise.resolve(iterator.return?.()).catch(() => undefined);
   }
   if (boundedSignal.aborted) {

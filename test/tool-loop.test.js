@@ -15,9 +15,15 @@ import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/reviewer-ledger.js';
 import { denialResult } from '../src/tool-governor.js';
 import { declaredSubscription } from './event-fixture.js';
-import { toolContinuationHint, toolProgressEvidence } from '../src/tool-loop.js';
+import { ToolLoop, toolContinuationHint, toolProgressEvidence } from '../src/tool-loop.js';
 import { selfDiagnosticsDefinitions } from '../src/self-diagnostics-tool.js';
 import { openRuntimeInspection } from '../src/tui-runtime-inspection.js';
+
+test('tool loop accepts only declared constructor dependencies', () => {
+  const loop = new ToolLoop({ process: null, unexpected: true });
+  assert.equal(typeof loop.process, 'function');
+  assert.equal(Object.hasOwn(loop, 'unexpected'), false);
+});
 
 test('different search arguments count as progress even when their results are identical', () => {
   const item = (query) => ({

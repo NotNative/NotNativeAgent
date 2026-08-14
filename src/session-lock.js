@@ -15,6 +15,7 @@ export class SessionLock {
 
   async acquire() {
     await mkdir(this.root, { recursive: true, mode: 0o700 });
+    // Atomic creation precedes owner inspection; live locks do not expire by age.
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         await this.#create();
@@ -38,7 +39,7 @@ export class SessionLock {
       this.#owned = false;
       return;
     }
-    if (record.token === this.#token) await unlink(this.path).catch(() => undefined);
+    if (validLockRecord(record) && record.token === this.#token) await unlink(this.path).catch(() => undefined);
     this.#owned = false;
   }
 
@@ -67,7 +68,7 @@ export class SessionLock {
   async #ownerIsLive() {
     try {
       const record = JSON.parse(await readFile(this.path, 'utf8'));
-      if (!Number.isInteger(record.pid) || record.pid <= 0) return false;
+      if (!validLockRecord(record)) return false;
       process.kill(record.pid, 0);
       return true;
     } catch (error) {
@@ -83,4 +84,11 @@ export class SessionLock {
       if (!['ENOENT', 'EEXIST'].includes(error.code)) throw error;
     }
   }
+}
+
+function validLockRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && Number.isInteger(value.pid) && value.pid > 0
+    && typeof value.token === 'string' && value.token.length > 0
+    && typeof value.created_at === 'string';
 }

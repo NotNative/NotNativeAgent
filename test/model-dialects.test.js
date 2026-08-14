@@ -29,6 +29,18 @@ test('model dialect profiles persist observations and tighten guidance after rep
   await restored.close();
 });
 
+test('detached dialect flush records an unexpected rejection', async () => {
+  const records = [];
+  const registry = new ModelDialectRegistry({
+    telemetry: { record: (...args) => records.push(args) },
+  });
+  registry.flush = async () => { throw Object.assign(new Error('unexpected'), { code: 'EIO' }); };
+  registry.observe({ profile: { id: 'local' }, model: 'fixture' }, { status: 'succeeded' });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(records.some(([, status, detail]) => status === 'failed'
+    && detail.code === 'dialect_store_flush_failed'));
+});
+
 test('qualification lab probes text and native tool-call compatibility without executing the tool', async () => {
   let calls = 0;
   const provider = { async *stream() {

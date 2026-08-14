@@ -24,6 +24,7 @@ export function parseProtocolLine(line, limits = {}) {
   } catch {
     throw new ContractError('malformed_json', 'input is not valid JSON');
   }
+  // Parsed input is bounded and schema-checked below.
   validateTree(value, limits);
   return validateCommand(value);
 }

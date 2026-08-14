@@ -62,7 +62,13 @@ export class ModelDialectRegistry {
       profile_key: profile.key, family: profile.family, observation: outcome,
       learned_guidance_active: Object.values(profile.failures).some((count) => count >= 2),
     }, { reasonCode: outcome.code });
-    void this.flush();
+    // Observation persistence is non-blocking; unexpected rejection is recorded.
+    void this.flush().catch((error) => {
+      this.dirty = true;
+      this.telemetry?.record('model.dialect', 'failed', {
+        code: 'dialect_store_flush_failed',
+      }, { reasonCode: error?.code ?? 'dialect_store_flush_failed' });
+    });
   }
 
   snapshot(route) { return structuredClone(this.#profile(route)); }

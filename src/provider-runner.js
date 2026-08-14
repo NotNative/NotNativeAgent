@@ -4,7 +4,17 @@ import { FairScheduler } from './fair-scheduler.js';
 
 export class ProviderRunner {
   constructor(options) {
-    Object.assign(this, options);
+    this.state = options.state;
+    this.lifecycles = options.lifecycles;
+    this.telemetry = options.telemetry;
+    this.dialects = options.dialects;
+    this.publish = options.publish;
+    this.acceptText = options.acceptText;
+    this.settleAttempt = options.settleAttempt;
+    this.recordRecovery = options.recordRecovery;
+    this.scheduler = options.scheduler;
+    this.queueStatus = options.queueStatus;
+    this.runtimeResolver = options.runtimeResolver;
     this.scheduler ??= new FairScheduler();
     this.queueStatus ??= () => undefined;
   }

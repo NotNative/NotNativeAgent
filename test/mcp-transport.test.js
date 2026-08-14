@@ -69,6 +69,19 @@ test('AC-MCP-02 stdio rejects an oversized complete line before JSON parsing', a
   assert.equal(child.ended, true);
 });
 
+test('AC-MCP-02 stdio bounds an oversized line before its newline arrives', async () => {
+  const child = fakeChild();
+  const transport = new StdioMcpTransport(stdioConfig(), () => child);
+  await transport.open();
+  const request = transport.request('tools/list');
+  child.stdout.write('x'.repeat(1_048_577));
+  child.stdout.write('x'.repeat(1_048_577));
+
+  await assert.rejects(request, { code: 'mcp_output_too_large' });
+  await assert.rejects(transport.request('tools/list'), { code: 'mcp_closed' });
+  assert.equal(child.ended, true);
+});
+
 test('AC-MCP-04 remote error text is not surfaced across the MCP boundary', async () => {
   const child = fakeChild();
   const transport = new StdioMcpTransport(stdioConfig(), () => child);

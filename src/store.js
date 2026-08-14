@@ -294,6 +294,7 @@ function boundedLimit(value, fallback) {
 }
 
 function parseRecord(line) {
+  // Callers verify record format, sequence, and hash.
   try {
     return JSON.parse(line);
   } catch {

@@ -155,6 +155,7 @@ async function atomicWrite(path, content) {
     published = true;
     await unlink(temporary);
   } catch (error) {
+    // Cleanup failures cannot replace the publication result.
     await handle.close().catch(() => undefined);
     if (published) await unlink(path).catch(() => undefined);
     await unlink(temporary).catch(() => undefined);
