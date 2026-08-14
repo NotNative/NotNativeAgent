@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { ContractError, newId } from './ids.js';
+import { routeReasoningFields } from './provider-reasoning.js';
 import { CapabilityCache } from './capability-cache.js';
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
@@ -232,6 +233,7 @@ async function observeWith(router, resolution, role, item, prompt, signal) {
   if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
   const request = {
     model: resolution.model, temperature: 0,
+    ...routeReasoningFields(resolution),
     messages: [{ role: 'user', content: [
       { type: 'text', text: `Observe this image for the primary agent. User context: ${prompt.slice(0, 4096)}` },
       { type: 'image_url', image_url: { url: `data:${item.mimeType};base64,${bytes.toString('base64')}` } },

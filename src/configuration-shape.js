@@ -4,7 +4,10 @@ import { ContractError } from './ids.js';
 const SECURITY_KEY = /review|permission|ledger|revalid|auto.?approv|security|sandbox|secret|credential|token|auth|redact|sensitive|encrypt/iu;
 const PROVIDER = ['id', 'display_name', 'endpoint', 'model', 'trust_zone', 'credential_env', 'context_limit_bytes', 'output_limit_tokens', 'capabilities'];
 const CAPABILITIES = ['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation'];
-const ROUTE = ['provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature', 'max_output_tokens', 'budget', 'fallbacks', 'deadline_ms'];
+const ROUTE = [
+  'provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature',
+  'max_output_tokens', 'budget', 'fallbacks', 'deadline_ms', 'reasoning_effort', 'enable_thinking',
+];
 const MCP = [
   'id', 'transport', 'enabled', 'timeout_ms', 'connect_timeout_ms', 'list_timeout_ms',
   'call_timeout_ms', 'shutdown_timeout_ms', 'tool_effects', 'credential_env', 'header_env',

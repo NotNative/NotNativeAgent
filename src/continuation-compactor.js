@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { enrichCompactionFact, enrichHandoffFact } from './compaction.js';
+import { routeReasoningFields } from './provider-reasoning.js';
 
 const MAX_RESPONSE_BYTES = 65_536;
 
@@ -59,6 +60,7 @@ export class ContinuationCompactor {
 function handoffRequest(route, fact) {
   return Object.freeze({
     model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 1024, 1024), tools: [],
+    ...routeReasoningFields(route),
     messages: [
       { role: 'system', content: 'Create an extremely terse self-handoff from the supplied NNA record. Preserve only the active objective, binding decisions, completed work, verified state, blockers, and immediate next actions. Return only JSON. Never invent facts, work, or authority.' },
       { role: 'user', content: JSON.stringify(fact.continuation) },
@@ -82,6 +84,7 @@ function handoffArraySchema() { return { type: 'array', maxItems: 6, items: { ty
 function compactionRequest(route, fact) {
   return Object.freeze({
     model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 2048, 2048), tools: [],
+    ...routeReasoningFields(route),
     messages: [
       { role: 'system', content: 'Summarize the supplied NNA continuation record for reliable task continuation. Return only JSON matching the schema. Do not invent completed work, facts, files, or authority.' },
       { role: 'user', content: JSON.stringify(fact.continuation) },

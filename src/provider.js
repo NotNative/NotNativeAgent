@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
+import { providerReasoningControls } from './provider-reasoning.js';
 
 export class OpenAICompatibleProvider {
   constructor(profile, limits = {}, options = {}) {
@@ -55,7 +56,7 @@ export class OpenAICompatibleProvider {
     let response;
     try {
       const responseFormat = validateResponseFormat(request.responseFormat);
-      const reasoningControls = validateReasoningMode(request.reasoningMode);
+      const reasoningControls = providerReasoningControls(request);
       // OpenAI-compatible hosts may load a model before returning response headers.
       // The ProviderRunner owns this whole admission phase with its first-token
       // deadline; a short fetch timer here would abort legitimate local model loads.
@@ -97,17 +98,6 @@ export class OpenAICompatibleProvider {
     }
     return headers;
   }
-}
-
-function validateReasoningMode(value) {
-  if (value === undefined || value === null) return {};
-  if (value !== 'off') {
-    throw new ContractError('provider_reasoning_mode_invalid', 'provider reasoning mode is invalid');
-  }
-  return {
-    reasoning_effort: 'none',
-    chat_template_kwargs: { enable_thinking: false },
-  };
 }
 
 function normalizeSystemMessages(messages) {

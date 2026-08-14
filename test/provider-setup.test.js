@@ -248,4 +248,27 @@ test('every provider role exposes settings and timeout overrides can return to g
   projection.overlay.editor.set('0');
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   assert.equal(config.routes.primary.budget, null);
+  for (let index = 0; index < 4; index += 1) {
+    await handleProviderRouteSettingsAction({ action: 'history_down' }, workspace);
+  }
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.equal(projection.overlay.kind, 'provider-route-setting-options');
+  assert.deepEqual(projection.overlay.items.map((item) => item.id), [
+    'default', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh',
+  ]);
+  assert.equal(projection.overlay.editor, undefined);
+  for (let index = 0; index < 5; index += 1) {
+    await handleProviderRouteSettingsAction({ action: 'history_down' }, workspace);
+  }
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.equal(config.routes.primary.reasoningEffort, 'high');
+  for (let index = 0; index < 5; index += 1) {
+    await handleProviderRouteSettingsAction({ action: 'history_down' }, workspace);
+  }
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.deepEqual(projection.overlay.items.map((item) => item.id), ['default', 'enabled', 'disabled']);
+  await handleProviderRouteSettingsAction({ action: 'history_down' }, workspace);
+  await handleProviderRouteSettingsAction({ action: 'history_down' }, workspace);
+  await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
+  assert.equal(config.routes.primary.enableThinking, false);
 });

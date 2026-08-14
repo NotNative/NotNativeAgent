@@ -715,10 +715,14 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
       providerDefinitions(query) { selectedQuery = query; return [{ type: 'function', function: { name: 'fs.read_text' } }]; },
       snapshot() { return [{ name: 'fs.read_text' }, { name: 'mcp.memory.search' }, { name: 'git.inspect' }]; },
     },
-  }, { model: 'fixture', temperature: 0, maxOutputTokens: 128 }, context);
+  }, {
+    model: 'fixture', temperature: 0, maxOutputTokens: 128, reasoningEffort: 'medium', enableThinking: true,
+  }, context);
   assert.equal(selectedQuery, 'Current request');
   assert.equal(request.tools.length, 1);
   assert.equal(request.maxOutputTokens, 128);
+  assert.equal(request.reasoningEffort, 'medium');
+  assert.equal(request.enableThinking, true);
   assert.match(request.messages[0].content, /\["git\.inspect","mcp\.memory\.search"\]/u);
   assert.match(request.messages[0].content, /Use tool\.search/u);
   assert.doesNotMatch(request.messages[0].content, /fs\.read_text/u);

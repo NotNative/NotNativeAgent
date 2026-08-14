@@ -26,8 +26,14 @@ const providers = [
 
 test('AC-ROUTE-01 validates role settings and returns bounded capability-eligible candidates', () => {
   const config = resolveManifest({ providers, routes: {
-    primary: { provider_id: 'lan', required_capabilities: ['tools'], temperature: 0.3, budget: 4 },
-    vision: { provider_id: 'lan', required_capabilities: ['images'], fallbacks: ['subagent'] },
+    primary: {
+      provider_id: 'lan', required_capabilities: ['tools'], temperature: 0.3, budget: 4,
+      reasoning_effort: 'xhigh', enable_thinking: false,
+    },
+    vision: {
+      provider_id: 'lan', required_capabilities: ['images'], fallbacks: ['subagent'],
+      reasoning_effort: 'xhigh', enable_thinking: false,
+    },
     subagent: { provider_id: 'local-vision' },
   } });
   const candidates = new ModelRouter(config).candidates('vision', { logicalRequestId: 'logical-1' });
@@ -37,6 +43,12 @@ test('AC-ROUTE-01 validates role settings and returns bounded capability-eligibl
   assert.equal(candidates[0].logicalRequestId, 'logical-1');
   assert.equal(config.routes.primary.temperature, 0.3);
   assert.equal(config.routes.primary.budget, 4);
+  assert.equal(config.routes.primary.reasoningEffort, 'xhigh');
+  assert.equal(config.routes.primary.enableThinking, false);
+  assert.equal(candidates[0].reasoningEffort, 'xhigh');
+  assert.equal(candidates[0].enableThinking, false);
+  assert.equal(manifestFromConfig(config).routes.primary.reasoning_effort, 'xhigh');
+  assert.equal(manifestFromConfig(config).routes.primary.enable_thinking, false);
   assert.deepEqual(manifestFromConfig(config).routes.vision.required_capabilities, ['images']);
 });
 
@@ -203,6 +215,15 @@ test('AC-ROUTE-01 rejects recursive route graphs and malformed capability requir
   assert.throws(() => resolveManifest({ providers, routes: {
     primary: { provider_id: 'lan', required_capabilities: ['telepathy'] },
   } }), { code: 'invalid_route_capability' });
+});
+
+test('reasoning route settings reject values outside their documented closed sets', () => {
+  assert.throws(() => resolveManifest({ providers, routes: { primary: { reasoning_effort: 'a smidge' } } }), {
+    code: 'provider_reasoning_effort_invalid',
+  });
+  assert.throws(() => resolveManifest({ providers, routes: { primary: { enable_thinking: 'sometimes' } } }), {
+    code: 'provider_thinking_mode_invalid',
+  });
 });
 
 test('AC-ROUTE-05 classified failure falls back without partial output and preserves logical identity', async () => {

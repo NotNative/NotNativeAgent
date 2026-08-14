@@ -12,6 +12,7 @@ import { validateAllowedTools, validateHostIdentity } from './execution-policy.j
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
 import { migrateRoutingInheritance } from './manifest-migration.js';
 import { validateDream } from './dream-config.js';
+import { validateEnableThinking, validateReasoningEffort } from './provider-reasoning.js';
 const TRUST_ZONES = new Set(['loopback', 'private_network', 'public_network']);
 const ROUTE_CAPABILITIES = new Set(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']);
 const MISSION_EFFECTS = new Set(['read_only', 'reversible', 'irreversible', 'unknown']);
@@ -258,6 +259,7 @@ function buildRoutes(value, profile, profiles, providerMs) {
       temperature: optionalZeroUnsetNumber(route.temperature, 0, 2),
       maxOutputTokens: optionalZeroUnsetInteger(route.max_output_tokens, 1, 1_048_576),
       budget: optionalZeroUnsetInteger(route.budget, 1, 64),
+      reasoningEffort: validateReasoningEffort(route.reasoning_effort), enableThinking: validateEnableThinking(route.enable_thinking),
       fallbacks,
       deadlineMs: deadlineOverrideMs === null ? providerMs : deadlineOverrideMs || null, deadlineOverrideMs,
     });
@@ -481,11 +483,9 @@ function optionalBoundedInteger(value, minimum, maximum) {
   if (value === undefined) return null;
   return boundedInteger(value, null, minimum, maximum);
 }
-
 function stringOrEmpty(value) {
   return typeof value === 'string' ? value : '';
 }
-
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

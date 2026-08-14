@@ -2,6 +2,7 @@
 import { ContractError } from './ids.js';
 import { EditorBuffer } from './tui-model.js';
 import { handleEditorAction } from './tui-editor-actions.js';
+import { REASONING_EFFORTS } from './provider-reasoning.js';
 
 const LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
@@ -11,6 +12,8 @@ const SETTINGS = Object.freeze({
   temperature: Object.freeze({ label: 'Temperature', detail: 'Sampling temperature above 0 through 2. Enter 0 to use the provider default.' }),
   output: Object.freeze({ label: 'Maximum output tokens', detail: 'Maximum tokens requested from the provider. Enter 0 for no explicit limit.' }),
   budget: Object.freeze({ label: 'Fallback attempt budget', detail: 'Maximum eligible route attempts from 1 through 64. Enter 0 to use every eligible route.' }),
+  reasoning_effort: Object.freeze({ label: 'Reasoning effort', detail: 'OpenAI-compatible reasoning_effort. Availability depends on the model.', options: true }),
+  enable_thinking: Object.freeze({ label: 'Thinking mode', detail: 'Qwen-compatible chat_template_kwargs.enable_thinking.', options: true }),
 });
 
 export function beginProviderRouteSettingsSelection(selected, workspace, overlay) {
@@ -31,6 +34,7 @@ export async function handleProviderRouteSettingsAction(action, workspace) {
   const overlay = workspace.projection.overlay;
   if (overlay?.kind === 'global-provider-setting-form') return handleGlobalForm(action, workspace, overlay);
   if (overlay?.kind === 'global-provider-settings') return handleGlobalSettings(action, workspace, overlay);
+  if (overlay?.kind === 'provider-route-setting-options') return handleSettingOptions(action, workspace, overlay);
   if (!['provider-route-settings', 'provider-route-setting-form'].includes(overlay?.kind)) return false;
   if (overlay.kind === 'provider-route-setting-form') return handleForm(action, workspace, overlay);
   if (['cancel', 'help'].includes(action.action)) { workspace.projection.closeOverlay(); return true; }
@@ -43,8 +47,42 @@ export async function handleProviderRouteSettingsAction(action, workspace) {
   if (selected.id === 'timeout-inherit') {
     await workspace.configureProviderRoute(overlay.role, 'timeout', null);
     reopenSettings(workspace, overlay, 'Timeout now inherits the global provider timeout.');
+  } else if (SETTINGS[selected.id]?.options) {
+    workspace.projection.openOverlay(settingOptionsOverlay(overlay, selected.id));
   } else workspace.projection.openOverlay(settingFormOverlay(overlay, selected.id));
   return true;
+}
+
+async function handleSettingOptions(action, workspace, overlay) {
+  if (['cancel', 'help'].includes(action.action)) { workspace.projection.closeOverlay(); return true; }
+  if (action.action === 'back') { workspace.projection.openOverlay(overlay.parentSettings); return true; }
+  if (['history_up', 'history_down'].includes(action.action)) {
+    workspace.projection.moveOverlaySelection(action.action === 'history_up' ? -1 : 1); return true;
+  }
+  if (action.action !== 'submit') return true;
+  const selected = overlay.items[overlay.selected];
+  await workspace.configureProviderRoute(overlay.role, overlay.setting, selected.value);
+  reopenSettings(workspace, overlay.parentSettings, `${SETTINGS[overlay.setting].label} saved.`);
+  return true;
+}
+
+function settingOptionsOverlay(parentSettings, setting) {
+  const current = routeSetting(parentSettings.config.routes[parentSettings.role], setting);
+  const choices = setting === 'reasoning_effort'
+    ? [{ id: 'default', label: 'Provider default', value: null },
+      ...REASONING_EFFORTS.map((value) => ({ id: value, label: value, value }))]
+    : [{ id: 'default', label: 'Provider default', value: null },
+      { id: 'enabled', label: 'Enabled', value: true }, { id: 'disabled', label: 'Disabled', value: false }];
+  const items = choices.map((choice) => ({
+    ...choice, badge: choice.value === current ? 'active' : '', section: SETTINGS[setting].label,
+  }));
+  return Object.freeze({
+    kind: 'provider-route-setting-options', title: SETTINGS[setting].label,
+    lines: Object.freeze([SETTINGS[setting].detail, '', 'Choose one of the supported values.']),
+    items: Object.freeze(items), selected: Math.max(0, items.findIndex((item) => item.value === current)), offset: 0,
+    role: parentSettings.role, setting, parentSettings,
+    actionLabel: 'Up/Down choose | Enter save | Ctrl+G back',
+  });
 }
 
 function globalSettingsOverlay(config, options = {}) {
@@ -130,6 +168,8 @@ export function routeSettingsOverlay(config, role, options = {}) {
     `Temperature              ${route.temperature ?? 'Provider default'}`,
     `Maximum output tokens    ${route.maxOutputTokens?.toLocaleString('en-US') ?? 'No explicit limit'}`,
     `Fallback attempt budget  ${route.budget ?? 'All eligible routes'}`,
+    `Reasoning effort         ${route.reasoningEffort ?? 'Provider default'}`,
+    `Thinking mode            ${thinkingLabel(route.enableThinking)}`,
     `Context limit            ${route.contextLimitBytes?.toLocaleString('en-US') ?? 'provider default'}`,
     `Required capabilities    ${route.requiredCapabilities.length ? route.requiredCapabilities.join(', ') : 'none'}`,
     `Fallback profiles        ${route.fallbacks.length ? route.fallbacks.join(', ') : 'none'}`,
@@ -190,7 +230,17 @@ function settingValue(route, setting) {
   if (setting === 'timeout') return route.deadlineOverrideMs === null ? `global · ${formatMs(route.deadlineMs)}` : formatMs(route.deadlineMs);
   if (setting === 'temperature') return route.temperature == null ? 'provider default' : String(route.temperature);
   if (setting === 'output') return route.maxOutputTokens == null ? 'no limit' : route.maxOutputTokens.toLocaleString('en-US');
-  return route.budget == null ? 'all eligible' : String(route.budget);
+  if (setting === 'budget') return route.budget == null ? 'all eligible' : String(route.budget);
+  if (setting === 'reasoning_effort') return route.reasoningEffort ?? 'provider default';
+  return thinkingLabel(route.enableThinking).toLowerCase();
+}
+
+function routeSetting(route, setting) {
+  return setting === 'reasoning_effort' ? route.reasoningEffort : route.enableThinking;
+}
+
+function thinkingLabel(value) {
+  return value == null ? 'Provider default' : value ? 'Enabled' : 'Disabled';
 }
 
 function editValue(config, role, setting) {

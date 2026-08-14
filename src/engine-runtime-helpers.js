@@ -2,6 +2,7 @@
 import { toProviderMessages } from './context.js';
 import { ToolCallAssembler } from './tool-calls.js';
 import { toolCatalogContext } from './tool-catalog-context.js';
+import { routeReasoningFields } from './provider-reasoning.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   const messages = toProviderMessages(context);
@@ -13,6 +14,7 @@ export function providerRequest(engine, route, context, options = {}) {
     model: route.model, messages: [...system, ...messages],
     tools, temperature: route.temperature,
     maxOutputTokens: route.maxOutputTokens,
+    ...routeReasoningFields(route),
     ...(options.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
   });
 }

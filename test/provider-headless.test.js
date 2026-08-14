@@ -155,10 +155,27 @@ test('reasoning-disabled recovery sends compatible non-thinking controls', async
     });
   } });
   for await (const _item of provider.stream({
-    model: 'fixture', messages: [], reasoningMode: 'off',
+    model: 'fixture', messages: [], reasoningMode: 'off', reasoningEffort: 'high', enableThinking: true,
   }, new AbortController().signal)) { /* consume */ }
   assert.equal(body.reasoning_effort, 'none');
   assert.deepEqual(body.chat_template_kwargs, { enable_thinking: false });
+});
+
+test('configured reasoning controls use documented OpenAI and Qwen fields', async () => {
+  let body;
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'fixture', capabilities: {},
+  }, { maxOutputBytes: 4096 }, { fetch: async (_url, options) => {
+    body = JSON.parse(options.body);
+    return new Response('data: {"choices":[{"delta":{"content":"visible"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  for await (const _item of provider.stream({
+    model: 'fixture', messages: [], reasoningEffort: 'high', enableThinking: true,
+  }, new AbortController().signal)) { /* consume */ }
+  assert.equal(body.reasoning_effort, 'high');
+  assert.deepEqual(body.chat_template_kwargs, { enable_thinking: true });
 });
 
 test('AC-PROV-01 capability metadata is byte-bounded before JSON parsing', async () => {

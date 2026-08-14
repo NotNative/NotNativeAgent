@@ -5,21 +5,13 @@ import { resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
 
 export const SPECIALIST_ROUTE_ROLES = Object.freeze(['subagent', 'reviewer', 'vision']);
-
 export function manifestFromConfig(config) {
   return compact({
     format_version: 1,
     routing_inheritance_version: 1,
     persistence: config.persistence,
     providers: Object.values(config.providerProfiles).map(providerManifest),
-    routes: Object.fromEntries(Object.entries(config.routes).map(([role, route]) => [role, compact({
-      provider_id: role === 'primary' || route.assigned !== false ? route.providerId : undefined,
-      model: role === 'primary' || route.assigned !== false ? route.model : undefined,
-      fallbacks: [...route.fallbacks],
-      context_limit_bytes: route.contextLimitBytes ?? undefined,
-      required_capabilities: [...route.requiredCapabilities], temperature: route.temperature,
-      max_output_tokens: route.maxOutputTokens, budget: route.budget, deadline_ms: route.deadlineOverrideMs ?? undefined,
-    })])),
+    routes: routeManifests(config.routes),
     application_system_prompt: config.applicationPolicy || undefined,
     skills: config.executionManifest ? config.skills?.map((item) => ({
       id: item.id, version: item.version, description: item.description, invocation: item.invocation,
@@ -65,6 +57,17 @@ export function manifestFromConfig(config) {
       local_retry_limit: config.recovery.localLimit, ladder: config.recovery.ladder,
     },
   });
+}
+
+function routeManifests(routes) {
+  return Object.fromEntries(Object.entries(routes).map(([role, route]) => [role, compact({
+    provider_id: role === 'primary' || route.assigned !== false ? route.providerId : undefined,
+    model: role === 'primary' || route.assigned !== false ? route.model : undefined,
+    fallbacks: [...route.fallbacks], context_limit_bytes: route.contextLimitBytes ?? undefined,
+    required_capabilities: [...route.requiredCapabilities], temperature: route.temperature,
+    max_output_tokens: route.maxOutputTokens, budget: route.budget, deadline_ms: route.deadlineOverrideMs ?? undefined,
+    reasoning_effort: route.reasoningEffort, enable_thinking: route.enableThinking,
+  })]));
 }
 
 function dreamManifest(dream) {
@@ -192,7 +195,10 @@ export function withRouteDeadline(config, role, deadlineMs = null) {
 
 export function withRouteSetting(config, role, setting, value) {
   if (setting === 'timeout') return withRouteDeadline(config, role, value);
-  const fields = { temperature: 'temperature', output: 'max_output_tokens', budget: 'budget' };
+  const fields = {
+    temperature: 'temperature', output: 'max_output_tokens', budget: 'budget',
+    reasoning_effort: 'reasoning_effort', enable_thinking: 'enable_thinking',
+  };
   if (!fields[setting]) throw new ContractError('route_setting_invalid', `unknown route setting ${setting}`);
   if (!Object.hasOwn(config.routes, role)) throw new ContractError('route_role_invalid', `unknown route role ${role}`);
   const manifest = manifestFromConfig(config);
