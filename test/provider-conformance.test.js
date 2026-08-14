@@ -72,3 +72,23 @@ test('PROV-012 harness records stable failure codes without provider content', a
     'provider_empty_text', 'provider_empty_text',
   ]);
 });
+
+test('PROV-012 harness rejects a tool call with the wrong conformance value', async () => {
+  const fetch = async (url, options = {}) => {
+    const model = url.includes('10001') ? 'model-alpha' : 'model-beta';
+    if (url.endsWith('/models')) return Response.json({ data: [{ id: model }] });
+    const body = JSON.parse(options.body);
+    const delta = body.tools ? { tool_calls: [{ index: 0, id: `call-${model}`, function: {
+      name: 'nna_conformance_echo', arguments: '{"text":"wrong"}',
+    } }] } : { content: 'ok' };
+    return new Response([
+      `data: ${JSON.stringify({ choices: [{ delta, finish_reason: body.tools ? 'tool_calls' : 'stop' }] })}`,
+      '', 'data: [DONE]', '',
+    ].join('\n'), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  };
+  const report = await runProviderConformance(document(), { fetch });
+  assert.equal(report.passed, false);
+  assert.deepEqual(report.providers.map((item) => item.cases[2].error_code), [
+    'provider_tool_call_missing', 'provider_tool_call_missing',
+  ]);
+});

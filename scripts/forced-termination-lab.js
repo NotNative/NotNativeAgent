@@ -146,12 +146,28 @@ function journalPath(root) { return join(root, 'sessions', 'force-kill-session.j
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }
 function emit(value) { process.stdout.write(`${JSON.stringify(value)}\n`); }
 
-async function runChild(args, expectedKind) {
-  const child = spawn(process.execPath, [script, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
-  const result = await waitForRecord(child, (item) => item.kind === expectedKind, 30_000);
-  await waitForExit(child, 10_000);
-  if (child.exitCode !== 0) throw coded('forced_termination_child_failed');
-  return result;
+export async function runChild(args, expectedKind, options = {}) {
+  const spawnProcess = options.spawn ?? spawn;
+  const child = spawnProcess(process.execPath, [script, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
+  try {
+    const result = await waitForRecord(child, (item) => item.kind === expectedKind, options.recordTimeoutMs ?? 30_000);
+    await waitForExit(child, options.exitTimeoutMs ?? 10_000);
+    if (child.exitCode !== 0) throw coded('forced_termination_child_failed');
+    return result;
+  } catch (error) {
+    try { await terminateChild(child, options.cleanupTimeoutMs ?? 10_000); }
+    catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'forced-termination child cleanup failed', { cause: error });
+    }
+    throw error;
+  }
+}
+
+async function terminateChild(child, timeoutMs) {
+  if (child.exitCode !== null) return;
+  const exited = waitForExit(child, timeoutMs);
+  child.kill('SIGKILL');
+  await exited;
 }
 
 function waitForRecord(child, predicate, timeoutMs) {

@@ -92,7 +92,7 @@ async function consume(adapter, providerRequest, signal) {
   if (terminalEvents !== 1) throw coded('provider_terminal_count_invalid');
   const calls = assembler.complete();
   const valid = calls.some((call) => !call.invalid && call.name === 'nna_conformance_echo'
-    && typeof call.args?.text === 'string');
+    && call.args?.text === 'provider-ok');
   return {
     text_bytes: textBytes, reasoning_bytes: reasoningBytes, usage_events: usageEvents,
     terminal_events: terminalEvents, tool_call_count: calls.length, valid_tool_call: valid,
