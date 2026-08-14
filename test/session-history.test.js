@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { restoreSessionRecords } from '../src/session-history.js';
+import { restoreSessionRecords } from '../src/persistence/session-history.js';
 import { transcriptEvents } from '../src/experience/transcript.js';
 
 test('AC-SESS-02 semantic transcript preserves partial text, tool pairs, compaction, and exact outcome order', () => {

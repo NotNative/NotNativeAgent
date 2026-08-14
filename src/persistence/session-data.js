@@ -2,7 +2,7 @@
 import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { ContractError, requireExternalId } from './ids.js';
+import { ContractError, requireExternalId } from '../ids.js';
 
 export class SessionDataManager {
   constructor(options) {

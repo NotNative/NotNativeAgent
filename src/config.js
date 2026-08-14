@@ -10,7 +10,7 @@ import { boundedInteger, boundedNumber, optionalZeroUnsetInteger, providerRouteD
 import { resolveContextLimits } from './config-context.js';
 import { validateAllowedTools, validateHostIdentity } from './execution-policy.js';
 import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
-import { migrateRoutingInheritance } from './manifest-migration.js';
+import { migrateRoutingInheritance } from './persistence/manifest-migration.js';
 import { validateDream } from './dream-config.js';
 import { validateEnableThinking, validateReasoningEffort } from './provider/reasoning.js';
 const TRUST_ZONES = new Set(['loopback', 'private_network', 'public_network']);

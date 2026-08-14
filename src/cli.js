@@ -4,7 +4,7 @@ import { parseCli, readPrompt } from './cli-options.js';
 import { runHeadless } from './headless.js';
 import { runPlainText } from './plain-text.js';
 import { runTui } from './tui.js';
-import { SessionDataManager } from './session-data.js';
+import { SessionDataManager } from './persistence/session-data.js';
 import { join, resolve } from 'node:path';
 import { ensureUserDataPaths, userDataPaths, VERSION } from './product.js';
 import { runWebSearchCommand } from './web-search-cli.js';

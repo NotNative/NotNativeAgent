@@ -18,7 +18,7 @@ import { lspDiagnosticsDefinition } from './tools/lsp-diagnostics.js';
 import { filesystemReadDefinitions, ReadReceiptLedger } from './tools/filesystem-read.js';
 import { filesystemDiscoveryDefinitions } from './tools/filesystem-discovery.js';
 import { skillToolDefinitions } from './skill-registry.js';
-import { FileChangeLedger } from './file-change-ledger.js';
+import { FileChangeLedger } from './persistence/file-change-ledger.js';
 import { selfDiagnosticsDefinitions } from './tools/self-diagnostics.js';
 import { mcpControlDefinitions } from './mcp-control-tools.js';
 import { subagentDefinition } from './subagent-tool.js';

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { isAbsolute, relative } from 'node:path';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 const MAX_SNAPSHOT_BYTES = 1_048_576;
 const MAX_FILES = 256;

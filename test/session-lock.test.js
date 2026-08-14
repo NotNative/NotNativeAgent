@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { SessionLock } from '../src/session-lock.js';
+import { SessionLock } from '../src/persistence/session-lock.js';
 
 test('session lock preserves malformed stale evidence before atomic acquisition', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-lock-shape-'));

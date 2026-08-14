@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { ContractError, newId } from './ids.js';
-import { requestDigest } from './reviewer-ledger.js';
+import { requestDigest } from './persistence/reviewer-ledger.js';
 
 export class PreauthorizationRegistry {
   #grants = [];

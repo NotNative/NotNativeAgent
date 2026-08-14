@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { ContractError } from './ids.js';
-import { JournalStore } from './store.js';
+import { ContractError } from '../ids.js';
+import { JournalStore } from '../store.js';
 
 export class ReviewerLedger {
   #entries = new Map();

@@ -5,7 +5,7 @@ import { parseProtocolLine } from '../src/contracts.js';
 import { EventHub } from '../src/events.js';
 import { RoutedSemanticReviewer } from '../src/provider/model-reviewer.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
-import { ReviewerLedger } from '../src/reviewer-ledger.js';
+import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { declaredSubscription } from './event-fixture.js';
 
 function mutationRequest(id) {

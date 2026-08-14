@@ -3,9 +3,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AuthorityRecord, assertMissionBudget, authorizeAndPersistTurn, missionConditionFailure, reserveAndPersistMissionTools } from '../src/authority.js';
 import { resolveManifest } from '../src/config.js';
-import { assertResumeProvenance } from '../src/session-provenance.js';
+import { assertResumeProvenance } from '../src/persistence/session-provenance.js';
 import { assertRuntimeConfigurationCompatible } from '../src/runtime-config.js';
-import { restoreSessionRecords } from '../src/session-history.js';
+import { restoreSessionRecords } from '../src/persistence/session-history.js';
 
 const provider = { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'test', trust_zone: 'loopback' };
 

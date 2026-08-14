@@ -12,7 +12,7 @@ import { ToolRegistry } from '../src/tool-registry.js';
 import { JournalStore } from '../src/store.js';
 import { ContractError } from '../src/ids.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
-import { ReviewerLedger } from '../src/reviewer-ledger.js';
+import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { denialResult } from '../src/tools/governor.js';
 import { declaredSubscription } from './event-fixture.js';
 import { ToolLoop, toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from '../src/tools/loop.js';

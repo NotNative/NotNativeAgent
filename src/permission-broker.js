@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
-import { requestDigest } from './reviewer-ledger.js';
+import { requestDigest } from './persistence/reviewer-ledger.js';
 import { PreauthorizationRegistry } from './preauthorization.js';
 import { safeToolArguments } from './tools/presentation.js';
 

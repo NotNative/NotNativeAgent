@@ -23,7 +23,7 @@ import { adaptiveRenderDelay, createRenderLoop, finalizeTui, handleActions, runT
 import { commandDefinition, commandSuggestions, TUI_COMMANDS } from '../src/tui/commands.js';
 import { VERSION } from '../src/product.js';
 import { resolveConfiguration } from '../src/configuration-sources.js';
-import { SessionDataManager } from '../src/session-data.js';
+import { SessionDataManager } from '../src/persistence/session-data.js';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { buildContext } from '../src/context.js';
 import { providerRequest } from '../src/engine/runtime-helpers.js';

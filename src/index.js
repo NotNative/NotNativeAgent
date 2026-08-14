@@ -11,7 +11,7 @@ export { StructuredLog } from './structured-log.js';
 export { DiagnosticBundle } from './diagnostic-bundle.js';
 export { FairScheduler } from './provider/fair-scheduler.js';
 export { resolveConfiguration } from './configuration-sources.js';
-export { SessionDataManager } from './session-data.js';
+export { SessionDataManager } from './persistence/session-data.js';
 export { EventHub } from './events.js';
 export { CanonicalIngress } from './ingress.js';
 export { StateAuthority, LifecycleRegistry } from './lifecycle.js';

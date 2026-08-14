@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventHub } from '../src/events.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
-import { ReviewerLedger } from '../src/reviewer-ledger.js';
+import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { nextReviewPosture } from '../src/review-posture.js';
 import { TerminalInputDecoder } from '../src/tui/terminal-adapter.js';
 import { MANDATORY_REVIEW_EVENT_TIMEOUT_MS, ToolGovernor } from '../src/tools/governor.js';

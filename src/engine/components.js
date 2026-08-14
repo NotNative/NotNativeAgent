@@ -6,7 +6,7 @@ import { ModelRouter } from '../provider/router.js';
 import { InteractivePermissionBroker } from '../permission-broker.js';
 import { ProviderRunner } from '../provider/runner.js';
 import { RoutedSemanticReviewer } from '../provider/model-reviewer.js';
-import { ReviewerLedger } from '../reviewer-ledger.js';
+import { ReviewerLedger } from '../persistence/reviewer-ledger.js';
 import { MandatoryReviewer } from '../reviewer.js';
 import { ToolGovernor } from '../tools/governor.js';
 import { ToolLoop } from '../tools/loop.js';

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readJournalPage } from '../store.js';
-import { restoreSessionRecords } from '../session-history.js';
+import { restoreSessionRecords } from '../persistence/session-history.js';
 import { transcriptEvents } from './transcript.js';
 
 export async function loadEarlierTranscriptPage(workspace, limit = 100) {

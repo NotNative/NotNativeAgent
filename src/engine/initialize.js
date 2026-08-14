@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { assertResumeProvenance } from '../session-provenance.js';
+import { assertResumeProvenance } from '../persistence/session-provenance.js';
 import { dispatchSessionHook } from './hooks.js';
 import { ContractError } from '../ids.js';
 

@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ContractError } from './ids.js';
+import { ContractError } from '../ids.js';
 
 export class SessionLock {
   #token = randomUUID();

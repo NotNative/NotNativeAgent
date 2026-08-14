@@ -3,7 +3,7 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from 'node:cr
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from './ids.js';
-import { SessionLock } from './session-lock.js';
+import { SessionLock } from './persistence/session-lock.js';
 
 const EMPTY = Object.freeze({ format: 1, keyVersion: 1, records: [] });
 const PATH_TAILS = new Map();

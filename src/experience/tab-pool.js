@@ -2,7 +2,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from '../ids.js';
-import { SessionLock } from '../session-lock.js';
+import { SessionLock } from '../persistence/session-lock.js';
 
 const SCHEMA_VERSION = 4;
 const MAX_TABS = 64;

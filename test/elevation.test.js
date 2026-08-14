@@ -14,7 +14,7 @@ import { runExact } from '../src/elevation-helper.js';
 import { assertNonInteractiveElevation } from '../src/elevation-tool.js';
 import { InteractivePermissionBroker } from '../src/permission-broker.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
-import { ReviewerLedger } from '../src/reviewer-ledger.js';
+import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { ToolRegistry } from '../src/tool-registry.js';
 
 test('system.elevate is an interactive root capability with exact resolved argv', async () => {

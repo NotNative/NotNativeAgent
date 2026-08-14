@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { dirname } from 'node:path';
-import { SessionLock } from '../session-lock.js';
+import { SessionLock } from '../persistence/session-lock.js';
 
 export class ConsoleAuthority {
   constructor(path, lock = undefined) {

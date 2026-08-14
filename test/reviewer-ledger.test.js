@@ -4,7 +4,7 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { ReviewerLedger, requestDigest } from '../src/reviewer-ledger.js';
+import { ReviewerLedger, requestDigest } from '../src/persistence/reviewer-ledger.js';
 
 function request(id = 'tool-request-1') {
   return Object.freeze({
