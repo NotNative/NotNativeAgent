@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { providerSchema } from '../src/tools/schema.js';
+import { providerSchema, schemaShapeValidator } from '../src/tools/schema.js';
 
 function optionalControls() {
   const snapshot = { revision: 0, goal: null, tasks: [] };
@@ -49,7 +49,8 @@ test('bundled tool shape failures identify the argument the model must repair', 
       code: 'tool_schema_invalid', message: 'required argument "executable" is missing',
     });
     await assert.rejects(registry.definition('web.fetch').validate({ url: 'https://example.com', extra: true }), {
-      code: 'tool_schema_invalid', message: 'unknown argument "extra"',
+      code: 'tool_schema_invalid',
+      message: 'unknown argument "extra"; allowed arguments: url',
     });
     const taskUpdate = registry.definition('work.task_update');
     assert.match(taskUpdate.inputSchema.properties.detail.description, /1,024 characters/u);
@@ -59,5 +60,28 @@ test('bundled tool shape failures identify the argument the model must repair', 
     await assert.rejects(taskUpdate.validate({ id: 'T4', status: 'done' }), {
       code: 'tool_schema_invalid', message: 'argument "status" must be one of "pending", "in_progress", "completed", "blocked"; received "done"',
     });
+    await assert.rejects(taskUpdate.validate({ id: 'T0', status: 'pending' }), {
+      code: 'tool_schema_invalid',
+      message: /argument "id" must match this format .*; received "T0"/u,
+    });
   } finally { await registry.close(); }
+});
+
+test('repair-complete format errors bound ordinary values and redact sensitive values', async () => {
+  const ordinary = schemaShapeValidator({
+    type: 'object', additionalProperties: false, required: ['id'],
+    properties: { id: { type: 'string', pattern: '^T[1-9][0-9]*$', description: 'a task id such as T1' } },
+  });
+  await assert.rejects(ordinary({ id: 'not-a-task' }), {
+    code: 'tool_schema_invalid',
+    message: 'argument "id" must match this format (a task id such as T1); received "not-a-task"',
+  });
+  const sensitive = schemaShapeValidator({
+    type: 'object', additionalProperties: false, required: ['api_key'],
+    properties: { api_key: { type: 'string', pattern: '^key_[a-z]+$', description: 'a key_ prefix followed by lowercase letters' } },
+  });
+  await assert.rejects(sensitive({ api_key: 'wrong-secret-value' }), {
+    code: 'tool_schema_invalid',
+    message: /received \[redacted string; 18 characters\]$/u,
+  });
 });

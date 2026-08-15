@@ -26,14 +26,14 @@ export function schemaValidator(schema) {
   validateSchema(schema);
   return async (args) => {
     if (!args || typeof args !== 'object' || Array.isArray(args)) {
-      throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');
+      throw new ContractError('tool_schema_invalid', `tool arguments must be an object; received ${valueType(args)}`);
     }
     const required = Array.isArray(schema.required) ? schema.required : [];
     const missing = required.find((key) => !Object.hasOwn(args, key));
     if (missing) throw new ContractError('tool_schema_invalid', `required argument "${missing}" is missing`);
     if (schema.additionalProperties === false) {
       const unknown = Object.keys(args).find((key) => !Object.hasOwn(schema.properties ?? {}, key));
-      if (unknown) throw new ContractError('tool_schema_invalid', `unknown argument "${unknown}"`);
+      if (unknown) throw unknownArgument(unknown, schema.properties);
     }
     for (const [key, value] of Object.entries(args)) validateValue(value, schema.properties?.[key], 0, `argument "${key}"`);
     return { args: structuredClone(args), resolved: { source: 'external' } };
@@ -48,13 +48,13 @@ export function schemaShapeValidator(schema) {
   const properties = schema.properties ?? {};
   return async (args) => {
     if (!args || typeof args !== 'object' || Array.isArray(args)) {
-      throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');
+      throw new ContractError('tool_schema_invalid', `tool arguments must be an object; received ${valueType(args)}`);
     }
     const missing = required.find((key) => !Object.hasOwn(args, key));
     if (missing) throw new ContractError('tool_schema_invalid', `required argument "${missing}" is missing`);
     if (schema.additionalProperties === false) {
       const unknown = Object.keys(args).find((key) => !Object.hasOwn(properties, key));
-      if (unknown) throw new ContractError('tool_schema_invalid', `unknown argument "${unknown}"`);
+      if (unknown) throw unknownArgument(unknown, properties);
     }
     for (const [key, value] of Object.entries(args)) validateValue(value, properties[key], 0, `argument "${key}"`);
   };
@@ -69,7 +69,7 @@ function validateValue(value, rule, depth, path) {
     throw new ContractError('tool_schema_invalid', `${path} must be ${describeTypes(types)}; received ${actual}`);
   }
   if (Array.isArray(rule.enum) && !rule.enum.some((item) => Object.is(item, value))) {
-    throw new ContractError('tool_schema_invalid', `${path} must be one of ${rule.enum.map((item) => JSON.stringify(item)).join(', ')}; received ${JSON.stringify(value)}`);
+    throw new ContractError('tool_schema_invalid', `${path} must be one of ${rule.enum.map((item) => JSON.stringify(item)).join(', ')}; received ${receivedValue(value, path)}`);
   }
   if (typeof value === 'string') validateString(value, rule, path);
   if (typeof value === 'number') validateNumber(value, rule, path);
@@ -86,7 +86,10 @@ function validateString(value, rule, path) {
     throw new ContractError('tool_schema_invalid', `${path} must contain at most ${maximum} characters; received ${value.length}`);
   }
   if (typeof rule.pattern === 'string' && !(new RegExp(rule.pattern, 'u')).test(value)) {
-    throw new ContractError('tool_schema_invalid', `${path} does not match the required format`);
+    throw new ContractError(
+      'tool_schema_invalid',
+      `${path} must match ${acceptedFormat(rule)}; received ${receivedValue(value, path)}`,
+    );
   }
 }
 
@@ -112,12 +115,51 @@ function validateObject(value, rule, depth, path) {
   if (missing) throw new ContractError('tool_schema_invalid', `${path} is missing required property "${missing}"`);
   const unknown = rule.additionalProperties === false
     ? Object.keys(value).find((key) => !Object.hasOwn(rule.properties ?? {}, key)) : null;
-  if (unknown) throw new ContractError('tool_schema_invalid', `${path} contains unknown property "${unknown}"`);
+  if (unknown) {
+    const allowed = Object.keys(rule.properties ?? {});
+    throw new ContractError(
+      'tool_schema_invalid',
+      `${path} contains unknown property "${unknown}"; allowed properties: ${allowed.length > 0 ? allowed.join(', ') : 'none'}`,
+    );
+  }
   for (const [key, item] of Object.entries(value)) validateValue(item, rule.properties?.[key], depth + 1, `${path}.${key}`);
 }
 
 function describeTypes(types) {
   return types.map((type) => type === 'integer' ? 'an integer' : type === 'array' ? 'an array' : type === 'object' ? 'an object' : type === 'string' ? 'a string' : type).join(' or ');
+}
+
+function acceptedFormat(rule) {
+  const description = typeof rule.description === 'string' ? rule.description.trim().replace(/\s+/gu, ' ') : '';
+  if (description) return `this format (${bounded(description, 240)})`;
+  return `pattern ${JSON.stringify(bounded(rule.pattern, 160))}`;
+}
+
+function receivedValue(value, path) {
+  if (typeof value === 'string') {
+    if (/(?:secret|token|password|credential|authorization|api[_ -]?key)/iu.test(path)) {
+      return `[redacted string; ${value.length} characters]`;
+    }
+    return `${JSON.stringify(bounded(value, 160))}${value.length > 160 ? ` (${value.length} characters)` : ''}`;
+  }
+  const encoded = JSON.stringify(value);
+  return typeof encoded === 'string' ? bounded(encoded, 160) : valueType(value);
+}
+
+function unknownArgument(name, properties = {}) {
+  const allowed = Object.keys(properties ?? {});
+  return new ContractError(
+    'tool_schema_invalid',
+    `unknown argument "${name}"; allowed arguments: ${allowed.length > 0 ? allowed.join(', ') : 'none'}`,
+  );
+}
+
+function bounded(value, maximum) {
+  return value.length <= maximum ? value : `${value.slice(0, maximum - 1)}…`;
+}
+
+function valueType(value) {
+  return value === null ? 'null' : Array.isArray(value) ? 'an array' : typeof value;
 }
 
 function validateSchema(schema) {
