@@ -27,9 +27,10 @@ function globDefinition(paths) {
     validate: async (args) => {
       shape(args, ['pattern'], ['path', 'max_depth', 'max_results']);
       requireString(args.pattern, 'pattern');
-      const resolved = await paths.resolveDirectory(args.path ?? '.');
+      const path = optionalRoot(args.path);
+      const resolved = await paths.resolveDirectory(path);
       return {
-        args: { path: args.path ?? '.', pattern: args.pattern, max_depth: integer(args.max_depth, 32, 0, 64), max_results: integer(args.max_results, 200, 1, 1000) },
+        args: { path, pattern: args.pattern, max_depth: integer(args.max_depth, 32, 0, 64), max_results: integer(args.max_results, 200, 1, 1000) },
         resolved,
       };
     },
@@ -63,11 +64,12 @@ function searchDefinition(paths) {
       if (args.match_mode !== undefined && !['literal', 'regex'].includes(args.match_mode)) invalid('match_mode must be literal or regex');
       if (args.file_glob !== undefined) requireString(args.file_glob, 'file_glob');
       if (args.case_sensitive !== undefined && typeof args.case_sensitive !== 'boolean') invalid('case_sensitive must be boolean');
-      const resolved = await resolveSearchTarget(paths, args.path ?? '.');
+      const path = optionalRoot(args.path);
+      const resolved = await resolveSearchTarget(paths, path);
       if (!['file', 'directory'].includes(resolved.kind)) invalid('path must identify a regular file or directory');
       return {
         args: {
-          path: args.path ?? '.', query: args.query, match_mode: args.match_mode ?? 'literal', file_glob: args.file_glob ?? '**/*',
+          path, query: args.query, match_mode: args.match_mode ?? 'literal', file_glob: args.file_glob ?? '**/*',
           case_sensitive: args.case_sensitive ?? false, max_depth: integer(args.max_depth, 32, 0, 64),
           max_results: integer(args.max_results, 200, 1, 1000),
         },
@@ -253,10 +255,14 @@ async function resolveSearchTarget(paths, path) {
   try { return await paths.resolveMetadata(path); }
   catch (error) {
     if (['ENOENT', 'ENOTDIR'].includes(error?.code)) {
-      throw new ContractError('tool_target_not_found', `search path does not exist: ${path}`);
+      throw new ContractError('tool_target_not_found', `search path does not exist: ${path}. Use fs.glob to locate it, or omit path to search the working directory`);
     }
     throw error;
   }
+}
+
+function optionalRoot(value) {
+  return value === undefined || (typeof value === 'string' && value.trim().length === 0) ? '.' : value;
 }
 
 function displayPath(root, path) {

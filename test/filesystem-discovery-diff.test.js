@@ -21,6 +21,11 @@ test('fs.glob and fs.search_text discover bounded files without a platform shell
   const globResult = await glob.executor(globRequest, new AbortController().signal);
   assert.equal(globResult.content, 'src/alpha.js');
   assert.equal(globResult.metadata.matches, 1);
+  assert.equal((await glob.validate({ path: '  ', pattern: '**/*.js' })).args.path, '.');
+
+  const listRequest = await registry.definition('fs.list_directory').validate({ path: '', depth: 1 });
+  assert.equal(listRequest.args.path, '.');
+  assert.match((await registry.definition('fs.list_directory').executor(listRequest, new AbortController().signal)).content, /directory\tsrc/u);
 
   const search = registry.definition('fs.search_text');
   const searchRequest = await search.validate({ query: 'needle', file_glob: '**/*', max_results: 10 });
@@ -28,6 +33,7 @@ test('fs.glob and fs.search_text discover bounded files without a platform shell
   assert.match(searchResult.content, /src\/alpha\.js:2:1: Needle here/u);
   assert.match(searchResult.content, /src\/beta\.txt:1:1: needle elsewhere/u);
   assert.doesNotMatch(searchResult.content, /hidden/u);
+  assert.equal((await search.validate({ path: '', query: 'needle' })).args.path, '.');
 
   const regexRequest = await search.validate({ query: 'Needle|elsewhere', match_mode: 'regex', file_glob: '**/*' });
   const regexResult = await search.executor(regexRequest, new AbortController().signal);
@@ -66,7 +72,7 @@ test('filesystem discovery schemas explain path and pattern roles with actionabl
     code: 'tool_schema_invalid', message: 'required argument "pattern" is missing',
   });
   await assert.rejects(search.validate({ path: 'missing.js', query: 'needle' }), {
-    code: 'tool_target_not_found', message: 'search path does not exist: missing.js',
+    code: 'tool_target_not_found', message: 'search path does not exist: missing.js. Use fs.glob to locate it, or omit path to search the working directory',
   });
   await registry.close();
 });

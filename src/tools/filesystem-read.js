@@ -174,8 +174,9 @@ function listDefinition(paths) {
     }, []),
     validate: async (args) => {
       requireListShape(args);
-      const resolved = await paths.resolveDirectory(args.path ?? '.');
-      return { args: { path: args.path ?? '.', depth: args.depth ?? 2 }, resolved };
+      const path = args.path === undefined || (typeof args.path === 'string' && args.path.trim().length === 0) ? '.' : args.path;
+      const resolved = await paths.resolveDirectory(path);
+      return { args: { path, depth: args.depth ?? 2 }, resolved };
     },
     executor: async (request, signal) => ({
       content: await directoryTree(request.resolved.path, request.args.depth, signal),
