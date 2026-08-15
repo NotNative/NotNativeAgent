@@ -13,6 +13,7 @@ import { JournalStore } from './store.js';
 import { SessionLock } from './persistence/session-lock.js';
 import { restoreSessionRecords } from './persistence/session-history.js';
 import { toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from './tools/loop.js';
+import { clearAuthorityConstraints, mergeToolConstraints } from './tools/active-constraints.js';
 import { installEngineComponents } from './engine/components.js';
 import { applyPendingConfiguration, updateEngineConfiguration } from './runtime-config.js';
 import { userDataPaths } from './product.js';
@@ -198,7 +199,6 @@ export class SessionEngine {
   reopenGoal() { return this.work.reopenGoal(); }
   addTask(title) { return this.work.addTask(title); }
   updateTask(id, status, detail) { return this.work.updateTask(id, status, detail); }
-
   deleteMemory(id, expectedVersion) {
     return this.memory.delete(id, this.config.workspaceRoot, expectedVersion);
   }
@@ -298,6 +298,7 @@ export class SessionEngine {
       active.committedStepText = active.stepText;
     }
     const items = await this.toolLoop.process(calls, active);
+    active.toolConstraints = mergeToolConstraints(active.toolConstraints, items);
     active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded')
       .map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
     const steeringApplied = await this.#consumeSteering(active);
@@ -384,6 +385,7 @@ export class SessionEngine {
       if (this.store) await this.store.append('steering_consumed', consumedRecord);
       this.transcript.push(message);
       active.recovery.externalEvidence(steering.id);
+      active.toolConstraints = clearAuthorityConstraints(active.toolConstraints);
       this.lifecycles.finish(lifecycle.id, 'consumed');
       await this.#publish('steering.terminal', 'steering', 'terminal', active, 'consumed');
       consumed.push(steering.id);
@@ -481,12 +483,10 @@ export class SessionEngine {
     await this.store.append('turn_interrupted', record);
     this.recoveryNotices.push(Object.freeze(record));
   }
-
   async #rejectBusy(command) {
     await this.output({ type: 'accepted', request_id: command.request_id, accepted: false, reason: 'busy' });
     return { accepted: false, reason: 'busy' };
   }
-
   #restore(records, truncated = false) {
     const restored = restoreSessionRecords(records);
     this.work.restore(records);

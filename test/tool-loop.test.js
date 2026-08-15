@@ -394,6 +394,25 @@ test('AC-TOOL-01 unknown tool never reaches review or execution', async () => {
   assert.match(terminal.failure_reason, /unavailable/u);
 });
 
+test('schema repair constraints are injected into the next model continuation', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tool-constraint-context-'));
+  const provider = new TwoStepProvider(
+    { name: 'fs.glob', args: { path: '.' } },
+    (request) => {
+      const constraint = request.messages.find((item) => item.role === 'system'
+        && item.content.includes('Active tool constraints'));
+      assert.match(constraint.content, /"kind":"schema_repair"/u);
+      assert.match(constraint.content, /required argument \\"pattern\\" is missing/u);
+      assert.match(constraint.content, /request_fingerprint/u);
+    },
+  );
+  const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'constraint-turn', content: 'List matching project files.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(provider.count, 2);
+});
+
 test('AC-AUTH-03 semantic approval permits a receipt-bound write', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-write-'));
   const path = join(root, 'target.txt');

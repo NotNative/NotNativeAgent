@@ -19,6 +19,7 @@ export async function buildReportedContext(
   }
   const baseEnrichment = {
     ...enrichment, projectGuidance, skillCatalog: engine.skills?.catalog() ?? [], work: engine.work?.snapshot(),
+    toolConstraints: active.toolConstraints ?? [],
   };
   active.contextMeasurementEnrichment = baseEnrichment;
   active.contextLimitTokens = budget?.effectiveInputTokens ?? null;
@@ -78,7 +79,7 @@ export async function emitCurrentContextUsage(engine, active, stepId = active.st
   }
   const enrichment = {
     ...(active.contextMeasurementEnrichment ?? active.enrichment),
-    work: engine.work?.snapshot(),
+    work: engine.work?.snapshot(), toolConstraints: active.toolConstraints ?? [],
   };
   const context = buildContext(engine.config, records, '', enrichment, Number.MAX_SAFE_INTEGER);
   active.rawContextBytes = measureContext(context);

@@ -10,6 +10,7 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
   }
   if (enrichment.skillCatalog?.length > 0) messages.push(skillCatalogMessage(enrichment.skillCatalog));
   if (enrichment.work?.goal || enrichment.work?.tasks?.length > 0) messages.push(conversationWorkMessage(enrichment.work));
+  if (enrichment.toolConstraints?.length > 0) messages.push(toolConstraintsMessage(enrichment.toolConstraints));
   for (const item of activeContextRecords(transcript).slice(-512)) {
     if (item.type === 'message') {
       messages.push({ role: item.role, content: item.content, provenance: 'transcript', trust: item.trust });
@@ -197,6 +198,14 @@ function conversationWorkMessage(work) {
     role: 'system',
     content: `Durable conversation work state (engine-maintained, revision ${work.revision}). Use work.status, work.goal, work.task_add, and work.task_update to keep it accurate as meaningful progress occurs. Do not mark a task or goal complete without concrete evidence. This state survives context compaction and session resume:\n${JSON.stringify(work)}`,
     provenance: 'conversation_work', trust: 'kernel',
+  };
+}
+
+function toolConstraintsMessage(constraints) {
+  return {
+    role: 'system',
+    content: `Active tool constraints (kernel-maintained, machine-readable). These remain operative across continuations and context reduction. Follow each instruction; a prior failure or denial is not successful evidence:\n${JSON.stringify(constraints.slice(-64))}`,
+    provenance: 'active_tool_constraints', trust: 'kernel',
   };
 }
 

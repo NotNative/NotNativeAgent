@@ -14,7 +14,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}) {
     deltaSequence: 1, origin: 'engine', completion: deferred.promise,
     resolveCompletion: deferred.resolve, recovery: new RecoverySupervisor(recoveryOptions),
     enrichment: { memory: [], attachments: [], hooks: [], skills: [], projectIntake: null }, admission: null,
-    prompt: '', modelName: '', unresolvedToolFailures: [], contextRetryScale: 1,
+    prompt: '', modelName: '', unresolvedToolFailures: [], toolConstraints: [], contextRetryScale: 1,
     contextBytes: 0, contextTokens: 0,
     rawContextBytes: 0, rawContextTokens: 0, contextPressureTier: 'none',
     contextLimitTokens: null, contextMeasurementEnrichment: null,
