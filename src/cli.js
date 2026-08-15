@@ -23,7 +23,11 @@ import { runSecretBrokerCommand } from './secret-broker-cli.js';
 import { runWebBrowseCommand } from './web-browse-cli.js';
 import { runUpdateCommand } from './update-cli.js';
 import { runIntegrationCommand } from './integration-cli.js';
+import { installProcessFatalBoundary } from './process-fatal-boundary.js';
 
+const fatalBoundary = installProcessFatalBoundary({
+  logPath: (() => { try { return join(userDataPaths().logs, 'fatal.ndjson'); } catch { return null; } })(), version: VERSION,
+});
 try {
   const options = parseCli(process.argv.slice(2));
   if (['help', '--help', '-h'].includes(options.mode)) process.stdout.write(help());
@@ -38,7 +42,7 @@ try {
       return operatorConfig;
     };
     await runHeadless(process.stdin, process.stdout, process.stderr, {
-      ...productOptions(paths), providerProfile: options.providerProfile, loadOperatorConfig,
+      ...productOptions(paths), providerProfile: options.providerProfile, loadOperatorConfig, fatalBoundary,
     });
   }
   else if (options.mode === 'websearch') {
@@ -92,7 +96,7 @@ try {
     const config = applyLaunchProviderOverrides(effective.config, options);
     const configPath = options.manifestPath ? resolve(options.manifestPath) : join(paths.config, 'manifest.json');
     await runTui(process.stdin, process.stdout, process.stderr, {
-      ...options, ...productOptions(paths), config, configPath, startupProject: effective.project,
+      ...options, ...productOptions(paths), config, configPath, startupProject: effective.project, fatalBoundary,
       hookRoots: runtimeHookRoots(paths, effective.project),
       skillRoots: runtimeSkillRoots(paths, effective.project),
     });
@@ -107,7 +111,7 @@ try {
     await startupLog.flush();
     const prompt = await readPrompt(process.stdin, options.prompt);
     process.exitCode = await runPlainText(prompt, process.stdout, process.stderr, {
-      ...options, ...productOptions(paths), config,
+      ...options, ...productOptions(paths), config, fatalBoundary,
     });
   } else if (options.mode === 'sessions') {
     await sessionCommand(options.prompt, await runtimePaths());
@@ -117,6 +121,8 @@ try {
 } catch (error) {
   process.stderr.write(`nna: ${error.code ?? 'internal_failure'}\n`);
   process.exitCode = 2;
+} finally {
+  fatalBoundary.dispose();
 }
 
 function help() {

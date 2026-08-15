@@ -13,6 +13,7 @@ export async function runPlainText(prompt, output, diagnostics, options) {
     reviewerRoot: options.reviewerRoot, semanticReviewer: options.semanticReviewer,
     output: async (record) => { logger?.record(record, { sessionId }); },
   });
+  const unregisterFatalCleanup = options.fatalBoundary?.registerCleanup(() => engine.shutdown({ request_id: 'fatal_process_shutdown', type: 'shutdown' })) ?? (() => undefined);
   try {
     await engine.initialize();
     const ingress = new CanonicalIngress(engine);
@@ -25,6 +26,7 @@ export async function runPlainText(prompt, output, diagnostics, options) {
     diagnostics.write(`nna text: ${error.code ?? 'internal_failure'}\n`);
     return 4;
   } finally {
+    unregisterFatalCleanup();
     if (engine.state.state !== 'shutting_down') {
       await engine.shutdown({ request_id: newId('text_shutdown'), type: 'shutdown' }).catch(() => undefined);
     }

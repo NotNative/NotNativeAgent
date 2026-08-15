@@ -35,7 +35,7 @@ import { handleSupportCommand } from './tui/support-command.js';
 import { handleWorkCommand, handleWorkSelection, openPlan } from './tui/work-command.js';
 import { modelNotice, routeNotice, strictInteger } from './tui/command-support.js';
 import { handleSecretsCommand } from './tui/secret-command.js';
-import { beginSecretManagementSelection, handleSecretSetupAction } from './tui/secret-setup.js'; import { invokeProjectVerification } from './tui/verification-command.js';
+import { beginSecretManagementSelection, handleSecretSetupAction } from './tui/secret-setup.js'; import { invokeProjectVerification } from './tui/verification-command.js'; import { registerFatalTuiCleanup } from './tui/fatal-cleanup.js';
 export async function runTui(input, output, diagnostics, options) {
   const { capabilities, bindings } = prepareTui(input, output, options);
   const terminal = new TerminalMode(input, output, capabilities), renderer = options.renderer ?? new TuiRenderer(),
@@ -48,7 +48,7 @@ export async function runTui(input, output, diagnostics, options) {
     input, output, terminal, state: () => ({ onData, stopping, renderLoop }),
     disarmEscape: () => { clearTimeout(escapeTimer); escapeTimer = null; },
   });
-  const { logger, workspace } = await workspaceFactory({ ...options, elevationControl }, output, render);
+  const { logger, workspace } = await workspaceFactory({ ...options, elevationControl }, output, render); const unregisterFatalCleanup = registerFatalTuiCleanup(options.fatalBoundary, terminal, workspace, logger);
   workspace.projection.bindings = bindings;
   const stop = async () => {
     if (stopping) return;
@@ -93,7 +93,7 @@ export async function runTui(input, output, diagnostics, options) {
     terminal.restore(); safeDiagnostic(diagnostics, error);
     throw error;
   } finally {
-    removeTuiListeners(input, output, { onData, resize, signal, suspend, resume });
+    unregisterFatalCleanup(); removeTuiListeners(input, output, { onData, resize, signal, suspend, resume });
   }
 }
 export async function finalizeTui(terminal, workspace, logger, finish) {

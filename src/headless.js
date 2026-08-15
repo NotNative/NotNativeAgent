@@ -18,7 +18,7 @@ export async function runHeadless(input, output, diagnostics, options = {}) {
   let engine = null;
   let ingress = null;
   let cleanShutdown = false;
-  let activeRequestId = null;
+  let activeRequestId = null; let unregisterFatalCleanup = () => undefined;
   const owned = new Set();
   try {
     for await (const line of interruptibleLines(input, writer, options.maxLineBytes ?? 262_144)) {
@@ -28,7 +28,7 @@ export async function runHeadless(input, output, diagnostics, options = {}) {
       activeRequestId = command.request_id;
       if (!engine) {
         const initialized = await initialize(command, writer, logger, options);
-        engine = initialized.engine;
+        engine = initialized.engine; unregisterFatalCleanup = options.fatalBoundary?.registerCleanup(() => engine.shutdown({ request_id: 'fatal_process_shutdown', type: 'shutdown' })) ?? unregisterFatalCleanup;
         ingress = initialized.ingress;
         continue;
       }
@@ -63,7 +63,7 @@ export async function runHeadless(input, output, diagnostics, options = {}) {
     diagnostics.write(`nna: ${safeError(error, 'headless_protocol').code}\n`);
     process.exitCode = 4;
   } finally {
-    if (engine && !cleanShutdown && engine.state.state !== 'shutting_down') {
+    unregisterFatalCleanup(); if (engine && !cleanShutdown && engine.state.state !== 'shutting_down') {
       await engine.shutdown({ request_id: newId('disconnect'), type: 'shutdown' }).catch(() => undefined);
     }
     await Promise.allSettled([...owned]);
