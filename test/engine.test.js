@@ -317,6 +317,53 @@ test('a conversational offer ending in a question completes without claiming a b
   assert.equal(result.outcome, 'completed');
 });
 
+test('active durable work forces model continuation until tasks and goal are complete', async () => {
+  let calls = 0;
+  let engine;
+  const provider = { async *stream() {
+    calls += 1;
+    if (calls === 1) {
+      yield { type: 'text', text: 'The report is ready. Want me to go deeper?' };
+    } else {
+      await engine.updateTask('T1', 'completed', 'verified report delivered');
+      await engine.completeGoal('all durable tasks verified');
+      yield { type: 'text', text: 'The report and durable work state are complete.' };
+    }
+    yield { type: 'terminal', finishReason: 'stop', usage: null };
+  } };
+  engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  await engine.setGoal('Deliver the verified report');
+  await engine.addTask('Compile the final report');
+
+  const result = await engine.submit({ request_id: 'work-gated-turn', content: 'Finish the report' }, 'operator');
+
+  assert.equal(calls, 2);
+  assert.equal(result.outcome, 'completed');
+  assert.equal(engine.workStatus().goal.status, 'completed');
+  assert.equal(engine.workStatus().tasks[0].status, 'completed');
+  assert.equal(result.recovery.some((item) => item.category === 'unfinished_conversation_work'), true);
+});
+
+test('active durable work accepts input requests only for a typed blocked task', async () => {
+  let calls = 0;
+  let engine;
+  const provider = { async *stream() {
+    calls += 1;
+    if (calls === 2) await engine.updateTask('T1', 'blocked', 'operator must choose the deployment target');
+    yield { type: 'text', text: 'Which deployment target should I use?' };
+    yield { type: 'terminal', finishReason: 'stop', usage: null };
+  } };
+  engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  await engine.setGoal('Deploy the application');
+  await engine.addTask('Choose and use the deployment target');
+
+  const result = await engine.submit({ request_id: 'work-input-turn', content: 'Deploy it' }, 'operator');
+
+  assert.equal(calls, 2);
+  assert.equal(result.outcome, 'needs_input');
+  assert.equal(engine.workStatus().tasks[0].status, 'blocked');
+});
+
 test('AC-EVENT-04/AC-STATE-05 a failing terminal observer cannot prevent one outcome or another observer', async () => {
   const events = new EventHub();
   let remainingObserverRuns = 0;

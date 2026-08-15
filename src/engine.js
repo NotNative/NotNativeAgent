@@ -340,7 +340,7 @@ export class SessionEngine {
       this.state.transition('preparing_continuation', { trigger: 'steering_applied', turnId: active.turnId });
       return { continue: true };
     }
-    const supervised = evaluateCompletion(active, active.stepText);
+    const supervised = evaluateCompletion(active, active.stepText, this.work?.snapshot());
     if (supervised.disposition !== 'continue') {
       return { continue: false, text: active.stepText, outcome: supervised.disposition };
     }
@@ -358,7 +358,7 @@ export class SessionEngine {
     await this.#settleStep(active, plan.continue ? 'recovering' : 'incomplete');
     if (!plan.continue) return { exhausted: true, category: supervised.category, count: plan.count };
     this.state.transition('preparing_continuation', { trigger: supervised.category, turnId: active.turnId });
-    return { continue: true, hint: recoveryHint(plan.action) };
+    return { continue: true, hint: supervised.hint ?? recoveryHint(plan.action) };
   }
 
   async #recordRecovery(action, active) {

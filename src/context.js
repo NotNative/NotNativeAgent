@@ -196,7 +196,7 @@ function skillCatalogMessage(items) {
 function conversationWorkMessage(work) {
   return {
     role: 'system',
-    content: `Durable conversation work state (engine-maintained, revision ${work.revision}). Use work.status, work.goal, work.task_add, and work.task_update to keep it accurate as meaningful progress occurs. Do not mark a task or goal complete without concrete evidence. This state survives context compaction and session resume:\n${JSON.stringify(work)}`,
+    content: `Durable conversation work state (engine-maintained, revision ${work.revision}). Use work.status, work.goal, work.task_add, and work.task_update to keep it accurate as meaningful progress occurs. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: complete every task and then the goal before finishing. If operator input is genuinely required, mark the relevant task blocked with the exact reason and ask one concrete question. Optional follow-up offers are not input requests. This state survives context compaction and session resume:\n${JSON.stringify(work)}`,
     provenance: 'conversation_work', trust: 'kernel',
   };
 }
