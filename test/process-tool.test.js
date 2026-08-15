@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { access, mkdtemp, realpath, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ToolRegistry } from '../src/tool-registry.js';
@@ -42,6 +42,29 @@ test('AC-FAIL-07 process timeout returns promptly after requesting tree terminat
     { code: 'tool_timeout' },
   );
   assert.ok(performance.now() - started < 1_000);
+});
+
+test('AC-FAIL-07 Windows process timeout terminates descendants', { skip: process.platform !== 'win32' }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-process-tree-'));
+  await writeFile(join(root, 'parent.js'), [
+    "const { spawn } = require('node:child_process');",
+    "const { writeFileSync } = require('node:fs');",
+    "const child = spawn(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { stdio: 'ignore', windowsHide: true });",
+    "writeFileSync('grandchild.pid', String(child.pid));",
+    'setInterval(()=>{},1000);',
+  ].join('\n'));
+  const registry = new ToolRegistry(root); await registry.initialize();
+  const definition = registry.definition('process.run');
+  const normalized = await definition.validate({ executable: 'node', args: ['parent.js'], timeout_ms: 500 });
+  let pid = null;
+  try {
+    await assert.rejects(definition.executor({ args: normalized.args }, new AbortController().signal), { code: 'tool_timeout' });
+    pid = Number(await readFile(join(root, 'grandchild.pid'), 'utf8'));
+    await waitForProcessExit(pid, 3_000);
+  } finally {
+    if (Number.isInteger(pid) && processExists(pid)) try { process.kill(pid, 'SIGKILL'); } catch { /* already exited */ }
+    await registry.close();
+  }
 });
 
 test('nonzero process exits preserve diagnostics while reporting failed evidence', async () => {
@@ -187,3 +210,15 @@ test('shell.run classifies compound and destructive scripts for semantic review 
   await hosted.initialize();
   assert.equal(hosted.definition('shell.run'), undefined);
 });
+
+async function waitForProcessExit(pid, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (processExists(pid) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.equal(processExists(pid), false, `descendant process ${pid} remained live`);
+}
+
+function processExists(pid) {
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}

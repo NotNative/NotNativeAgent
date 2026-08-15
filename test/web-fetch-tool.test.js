@@ -6,6 +6,13 @@ import { saveWebFetchConfig } from '../src/web-fetch-config.js';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pinnedHttpRequest } from '../src/pinned-http.js';
+
+test('pinned HTTP primitive rejects callers without an explicit deadline signal', () => {
+  assert.throws(() => pinnedHttpRequest(new URL('https://example.test/'), '93.184.216.34'), {
+    code: 'pinned_http_signal_required',
+  });
+});
 
 test('web.fetch follows bounded redirects and returns attributed UTF-8 text', async () => {
   const requested = [];
