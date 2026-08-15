@@ -4,6 +4,7 @@ import { ContractError } from './ids.js';
 export const LOCAL_SECRET_REALM = 'nna.local';
 export const SECRET_KINDS = Object.freeze(['api_key', 'token', 'username_password', 'text']);
 export const SECRET_SCOPE_KINDS = Object.freeze(['deployment', 'workspace', 'group', 'role', 'user']);
+const SECRET_FIELD_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u;
 
 export function normalizeSecretLabel(value) {
   const label = String(value ?? '').trim();
@@ -25,7 +26,7 @@ export function validateSecretFields(kind, fields) {
   const entries = Object.entries(fields);
   if (entries.length < 1 || entries.length > 16) throw new ContractError('secret_fields_invalid', 'a secret requires 1-16 fields');
   for (const [name, value] of entries) {
-    if (!/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u.test(name)) throw new ContractError('secret_field_name_invalid', 'secret field name is invalid');
+    if (!SECRET_FIELD_NAME_PATTERN.test(name)) throw new ContractError('secret_field_name_invalid', 'secret field name is invalid');
     if (typeof value !== 'string' || !value || value.length > 20_000 || /\u0000/u.test(value)) {
       throw new ContractError('secret_field_value_invalid', `secret field ${name} is empty or exceeds its bound`);
     }
@@ -37,7 +38,7 @@ export function validateSecretFields(kind, fields) {
 }
 
 export function normalizeSecretScope(value, realm) {
-  if (realm === LOCAL_SECRET_REALM && value == null) return null;
+  if (realm === LOCAL_SECRET_REALM && (value === null || value === undefined)) return null;
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ContractError('secret_scope_invalid', 'managed secrets require an ownership scope');
   }
@@ -50,7 +51,7 @@ export function normalizeSecretScope(value, realm) {
 }
 
 export function normalizeSecretMetadata(value) {
-  if (value == null) return Object.freeze({});
+  if (value === null || value === undefined) return Object.freeze({});
   if (typeof value !== 'object' || Array.isArray(value)) {
     throw new ContractError('secret_metadata_invalid', 'secret metadata must be an object');
   }
@@ -58,14 +59,10 @@ export function normalizeSecretMetadata(value) {
   if (entries.length > 32) throw new ContractError('secret_metadata_invalid', 'secret metadata exceeds its field bound');
   const normalized = {};
   for (const [name, item] of entries) {
-    if (!/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u.test(name)) {
+    if (!SECRET_FIELD_NAME_PATTERN.test(name)) {
       throw new ContractError('secret_metadata_invalid', 'secret metadata field name is invalid');
     }
-    if (item === null || typeof item === 'boolean') normalized[name] = item;
-    else if (typeof item === 'string' && item.length <= 2_000 && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u.test(item)) normalized[name] = item;
-    else if (Array.isArray(item) && item.length <= 64 && item.every((entry) => typeof entry === 'string' && entry.length <= 256)) {
-      normalized[name] = [...new Set(item)];
-    } else throw new ContractError('secret_metadata_invalid', `secret metadata field ${name} is invalid`);
+    normalized[name] = normalizeMetadataValue(name, item);
   }
   return Object.freeze(normalized);
 }
@@ -74,9 +71,25 @@ export function publicSecret(record) {
   return Object.freeze({
     id: record.id, realm: record.realm, label: record.label, kind: record.kind,
     scope: record.scope ? Object.freeze({ ...record.scope }) : null,
-    metadata: Object.freeze({ ...(record.metadata ?? {}) }),
+    metadata: cloneFrozenMetadata(record.metadata),
     fields: Object.freeze(Object.keys(record.encryptedFields).sort()), enabled: record.enabled,
     createdAt: record.createdAt, updatedAt: record.updatedAt, rotatedAt: record.rotatedAt,
     lastUsedAt: record.lastUsedAt, useCount: record.useCount,
   });
+}
+
+function normalizeMetadataValue(name, value) {
+  if (value === null || typeof value === 'boolean') return value;
+  if (typeof value === 'string' && value.length <= 2_000 && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/u.test(value)) return value;
+  if (Array.isArray(value) && value.length <= 64
+    && value.every((entry) => typeof entry === 'string' && entry.length <= 256)) {
+    return Object.freeze([...new Set(value)].sort((left, right) => left.localeCompare(right)));
+  }
+  throw new ContractError('secret_metadata_invalid', `secret metadata field ${name} is invalid`);
+}
+
+function cloneFrozenMetadata(metadata) {
+  return Object.freeze(Object.fromEntries(Object.entries(metadata ?? {}).map(([name, value]) => [
+    name, Array.isArray(value) ? Object.freeze([...value]) : value,
+  ])));
 }

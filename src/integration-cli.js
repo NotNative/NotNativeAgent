@@ -24,9 +24,17 @@ export async function runIntegrationCommand(args, paths, options = {}) {
   });
   const endpoint = `http://127.0.0.1:${service.address.port}`;
   const output = options.output ?? process.stdout;
-  output.write(`${JSON.stringify({ type: 'ready', protocol: '1.0', endpoint, instance_id: instanceId, token })}\n`);
-  try { await waitForShutdown(options.signal, service.server); }
-  finally { await service.close().catch(() => undefined); }
+  let failure = null;
+  try {
+    // This single protocol frame is consumed directly by the authenticated NNO parent; the token is required for IPC.
+    output.write(`${JSON.stringify({ type: 'ready', protocol: '1.0', endpoint, instance_id: instanceId, token })}\n`);
+    await waitForShutdown(options.signal, service.server);
+  } catch (error) { failure = error; }
+  try { await service.close(); } catch (error) {
+    if (!failure) failure = error;
+    else if (Object.isExtensible(failure)) failure.secondaryFailures = [...(failure.secondaryFailures ?? []), error];
+  }
+  if (failure) throw failure;
   return { stopped: true };
 }
 

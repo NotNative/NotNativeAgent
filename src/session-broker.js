@@ -6,6 +6,11 @@ import { join } from 'node:path';
 import { ContractError } from './ids.js';
 
 const MAX_BODY = 262_144;
+const MAX_RECORD_FILES = 1_024;
+const MAX_RECENT_BROKERS = 128;
+const RECORD_READ_CONCURRENCY = 32;
+const MAX_RESPONSE_BYTES = 4_194_304;
+const BROKER_TIMEOUT_MS = 10_000;
 
 export class ConsoleSessionBroker {
   constructor(workspace, options = {}) {
@@ -43,8 +48,17 @@ export class ConsoleSessionBroker {
       }
       const match = /^\/sessions\/([^/]+)\/(submit|cancel|compact|handoff|clear)$/u.exec(url.pathname);
       if (request.method !== 'POST' || !match) return reply(response, 404, { code: 'broker_route_missing' });
+      if (!/^application\/json(?:\s*;|$)/iu.test(request.headers['content-type'] ?? '')) {
+        throw new ContractError('broker_content_type_invalid', 'session broker requests require application/json');
+      }
       const sessionId = decodeURIComponent(match[1]);
       const body = await readJsonBody(request);
+      if (!body || typeof body !== 'object' || Array.isArray(body)
+        || Object.keys(body).some((key) => key !== 'content')
+        || (match[2] === 'submit' && typeof body.content !== 'string')
+        || (match[2] !== 'submit' && Object.keys(body).length > 0)) {
+        throw new ContractError('broker_request_invalid', 'session broker request has an invalid shape');
+      }
       const operations = {
         submit: () => this.workspace.submitSession(sessionId, body.content),
         cancel: () => this.workspace.cancelSession(sessionId),
@@ -67,10 +81,14 @@ export class ConsoleSessionDirectory {
   async list() {
     let names;
     try { names = await readdir(this.root); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
-    const records = await Promise.all(names.filter((name) => name.endsWith('.json')).slice(0, 1024)
-      .map((name) => this.#read(join(this.root, name))));
+    const recordPaths = names.filter((name) => name.endsWith('.json')).slice(0, MAX_RECORD_FILES)
+      .map((name) => join(this.root, name));
+    const records = await mapBatches(recordPaths, RECORD_READ_CONCURRENCY,
+      (path) => this.#read(path));
     const discovered = [];
-    const recent = records.filter(Boolean).sort((left, right) => String(right.started_at).localeCompare(String(left.started_at))).slice(0, 128);
+    const recent = records.filter(Boolean)
+      .sort((left, right) => String(right.started_at).localeCompare(String(left.started_at)))
+      .slice(0, MAX_RECENT_BROKERS);
     for (const item of recent) {
       try {
         const envelope = await this.#call(item, '/sessions', { method: 'GET' });
@@ -116,10 +134,12 @@ export class ConsoleSessionDirectory {
   async #call(record, path, init) {
     const response = await this.fetch(`http://127.0.0.1:${record.port}${path}`, {
       ...init, headers: { authorization: `Bearer ${record.token}`, 'content-type': 'application/json' },
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(BROKER_TIMEOUT_MS),
     });
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.length > 4_194_304) throw new ContractError('broker_response_too_large', 'session broker response is too large');
+    if (bytes.length > MAX_RESPONSE_BYTES) {
+      throw new ContractError('broker_response_too_large', 'session broker response is too large');
+    }
     const value = JSON.parse(new TextDecoder().decode(bytes));
     if (!response.ok) throw new ContractError(value.code ?? 'broker_unavailable', value.message ?? 'session broker rejected the request');
     return value;
@@ -138,6 +158,13 @@ function uniqueAliases(items) {
     const count = (used.get(base.toLowerCase()) ?? 0) + 1; used.set(base.toLowerCase(), count);
     return { ...item, alias: count === 1 ? base : `${base}${count}` };
   });
+}
+async function mapBatches(items, batchSize, operation) {
+  const results = [];
+  for (let offset = 0; offset < items.length; offset += batchSize) {
+    results.push(...await Promise.all(items.slice(offset, offset + batchSize).map(operation)));
+  }
+  return results;
 }
 async function readJsonBody(request) {
   const chunks = []; let size = 0;

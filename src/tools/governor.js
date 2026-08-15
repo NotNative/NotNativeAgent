@@ -97,16 +97,20 @@ export class ToolGovernor {
     });
     const decisionId = this.#activeDecisions.get(result.request_id);
     if (decisionId) {
-      await this.governance?.settleDecision(decisionId, {
-        status: governanceTerminal(result.status), effectCertainty: result.effect_certainty,
-        resultFingerprint: fingerprintResult(result), reasonCode: result.reason_code ?? null,
-      });
-      this.#activeDecisions.delete(result.request_id);
+      try {
+        await this.governance?.settleDecision(decisionId, {
+          status: governanceTerminal(result.status), effectCertainty: result.effect_certainty,
+          resultFingerprint: fingerprintResult(result), reasonCode: result.reason_code ?? null,
+        });
+      } finally { this.#activeDecisions.delete(result.request_id); }
     }
     return terminal;
   }
 
   #revalidate(request, decision, current) {
+    if (!current?.authority) {
+      throw new ContractError('tool_revalidation_drift', 'approval authority is unavailable at the execution boundary');
+    }
     const exact = decision.outcome === 'approve'
       && decision.requestId === request.id
       && decision.requestDigest === requestDigest(request)
@@ -185,13 +189,11 @@ async function executeBounded(definition, request, parentSignal, executionContex
   const controller = new AbortController();
   let timeoutId;
   let parentAbort;
-  const abort = () => controller.abort();
-  parentSignal.addEventListener('abort', abort, { once: true });
   const timeout = new Promise((resolve) => {
     timeoutId = setTimeout(() => { controller.abort(); resolve({ boundary: 'timeout' }); }, definition.timeoutMs);
   });
   const cancelled = new Promise((resolve) => {
-    parentAbort = () => resolve({ boundary: 'cancelled' });
+    parentAbort = () => { controller.abort(); resolve({ boundary: 'cancelled' }); };
     parentSignal.addEventListener('abort', parentAbort, { once: true });
   });
   const operation = Promise.resolve()
@@ -209,7 +211,6 @@ async function executeBounded(definition, request, parentSignal, executionContex
     return settled.value;
   } finally {
     clearTimeout(timeoutId);
-    parentSignal.removeEventListener('abort', abort);
     parentSignal.removeEventListener('abort', parentAbort);
   }
 }
@@ -247,6 +248,7 @@ function normalizeFailure(request, definition, error, started) {
 }
 
 function normalizeReasonCode(value, fallback) {
+  if (value && typeof value === 'object' && 'code' in value) return normalizeReasonCode(value.code, fallback);
   if (typeof value === 'string') {
     const normalized = value.trim().replace(/[^A-Za-z0-9_.:@/-]+/gu, '_').slice(0, 160);
     if (/^[A-Za-z0-9]/u.test(normalized)) return normalized;
@@ -262,7 +264,7 @@ function effectCertainty(definition, error) {
 }
 
 function fingerprintResult(result) {
-  return `${result.status}:${result.content.length}:${result.truncated}`;
+  return `${result.status}:${Buffer.byteLength(result.content, 'utf8')}:${result.truncated}`;
 }
 
 function governanceTerminal(status) {

@@ -1,6 +1,9 @@
-# Local development planning artifacts, including docs/planning/resolved/.
+# All local development planning artifacts.
 /docs/planning/
+# Local research notes and scratch data.
 /.research/
+# Local AI development-team workspace.
 /.devteam/
+# Repository-root package-manager caches.
 /.tmp-npm-cache/
 /.npm-cache/

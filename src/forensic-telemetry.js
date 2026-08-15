@@ -2,11 +2,15 @@
 import { createHash } from 'node:crypto';
 import { basename, join } from 'node:path';
 import { Worker } from 'node:worker_threads';
-import { newId } from './ids.js';
+import { ContractError, newId } from './ids.js';
 import { userDataPaths, VERSION } from './product.js';
 import { sanitizeTelemetry, supportTelemetryProjection } from './forensic-telemetry-sanitize.js';
 
 const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'timed_out', 'denied', 'skipped', 'superseded', 'unknown_effect']);
+const DEFAULT_MAX_AGE_MS = 30 * 86_400_000;
+const DEFAULT_VOLATILE_MAX_AGE_MS = 3 * 86_400_000;
+const DEFAULT_MAX_BYTES = 1_073_741_824;
+const REQUEST_TIMEOUT_MS = 5_000;
 
 export class ForensicTelemetry {
   #worker = null;
@@ -16,17 +20,20 @@ export class ForensicTelemetry {
   #recordSequence = 0;
   #health;
   #closed = false;
+  #closing = null;
 
   constructor(options) {
+    assertTelemetryOptions(options);
     this.workspaceRoot = options.workspaceRoot;
     this.sessionId = options.sessionId;
     this.runtimeId = options.runtimeId;
     this.conversationId = options.conversationId ?? options.sessionId;
     this.dbPath = options.dbPath ?? join(options.root ?? userDataPaths().projects, workspaceIdentity(options.workspaceRoot), 'events.db');
-    this.maxAgeMs = options.maxAgeMs ?? 30 * 86_400_000;
-    this.volatileMaxAgeMs = options.volatileMaxAgeMs ?? 3 * 86_400_000;
-    this.maxBytes = options.maxBytes ?? 1_073_741_824;
-    this.#health = { status: 'starting', dbPath: this.dbPath, writes: 0, lastWriteAt: null, bytes: 0, retentionDays: 30, maxBytes: this.maxBytes };
+    this.maxAgeMs = options.maxAgeMs ?? DEFAULT_MAX_AGE_MS;
+    this.volatileMaxAgeMs = options.volatileMaxAgeMs ?? DEFAULT_VOLATILE_MAX_AGE_MS;
+    this.maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+    this.#health = { status: 'starting', dbPath: this.dbPath, writes: 0, lastWriteAt: null, bytes: 0,
+      retentionDays: this.maxAgeMs / 86_400_000, maxBytes: this.maxBytes };
   }
 
   async initialize() {
@@ -123,8 +130,12 @@ export class ForensicTelemetry {
 
   async supportSnapshot(options = {}) {
     const sessionId = options.sessionId ?? this.sessionId;
-    const rows = await this.query({ sessionId, limit: options.limit ?? 2000 });
-    const open = (await this.openSpans(200)).filter((row) => row.session_id === sessionId);
+    const [rowsResult, openResult] = await Promise.allSettled([
+      this.query({ sessionId, limit: options.limit ?? 2000 }), this.openSpans(200),
+    ]);
+    const rows = rowsResult.status === 'fulfilled' && Array.isArray(rowsResult.value) ? rowsResult.value : [];
+    const openRows = openResult.status === 'fulfilled' && Array.isArray(openResult.value) ? openResult.value : [];
+    const open = openRows.filter((row) => row.session_id === sessionId);
     return Object.freeze({
       format: 1, local_source: this.dbPath, rows: Object.freeze(rows.map(supportTelemetryProjection)),
       open_spans: Object.freeze(open.map(supportTelemetryProjection)),
@@ -146,6 +157,12 @@ export class ForensicTelemetry {
   }
 
   async close() {
+    if (this.#closing) return this.#closing;
+    this.#closing = this.#closeOnce();
+    return this.#closing;
+  }
+
+  async #closeOnce() {
     if (this.#closed) return;
     if (!this.#worker) { this.#closed = true; return; }
     if (this.#health.status !== 'degraded') {
@@ -154,7 +171,8 @@ export class ForensicTelemetry {
       await this.#request('close', {}, { closed: false });
     }
     this.#closed = true;
-    await this.#worker.terminate().catch(() => undefined);
+    try { await this.#worker.terminate(); }
+    catch (error) { this.#degrade('telemetry_termination_failed', undefined, error?.code ?? error?.name); }
     this.#worker = null;
   }
 
@@ -166,7 +184,7 @@ export class ForensicTelemetry {
         this.#requests.delete(id);
         this.#degrade('telemetry_timeout');
         resolve(fallback);
-      }, 5000);
+      }, REQUEST_TIMEOUT_MS);
       this.#requests.set(id, { resolve, timer, fallback });
       try { this.#worker.postMessage({ type, id, ...payload }); }
       catch {
@@ -219,9 +237,9 @@ function subscriberReason(result) {
 export class NullTelemetry {
   async initialize() { return this.health(); }
   record() { return false; }
-  eventObserver() { return null; }
-  stateObserver() { return null; }
-  lifecycleObserver() { return null; }
+  eventObserver() { return NULL_EVENT_OBSERVER; }
+  stateObserver() { return NULL_STATE_OBSERVER; }
+  lifecycleObserver() { return NULL_LIFECYCLE_OBSERVER; }
   async query() { return []; }
   async openSpans() { return []; }
   async supportSnapshot() { return { format: 1, rows: [], open_spans: [], disabled: true }; }
@@ -229,6 +247,15 @@ export class NullTelemetry {
   async flush() { return this.health(); }
   async close() {}
 }
+
+const NULL_EVENT_OBSERVER = Object.freeze({
+  dispatchStarted() {}, dispatchFinished() {}, dispatchFailed() {},
+  subscriberStarted() {}, subscriberFinished() {}, subscriberFailed() {},
+});
+const NULL_STATE_OBSERVER = Object.freeze({
+  transitionStarted() {}, transitionFinished() {}, transitionFailed() {},
+});
+const NULL_LIFECYCLE_OBSERVER = Object.freeze({ lifecycleStarted() {}, lifecycleFinished() {} });
 
 export function createForensicTelemetry(options) {
   if (options.telemetry === false || process.env.NODE_TEST_CONTEXT) return new NullTelemetry();
@@ -301,4 +328,13 @@ function workspaceIdentity(path) {
   const label = basename(path).replace(/[^A-Za-z0-9._-]+/gu, '-').slice(0, 48) || 'workspace';
   const digest = createHash('sha256').update(path.toLowerCase()).digest('hex').slice(0, 16);
   return `${label}-${digest}`;
+}
+
+function assertTelemetryOptions(options) {
+  if (!options || typeof options !== 'object') throw new ContractError('telemetry_options_invalid', 'telemetry options are required');
+  for (const field of ['workspaceRoot', 'sessionId', 'runtimeId']) {
+    if (typeof options[field] !== 'string' || options[field].length === 0) {
+      throw new ContractError('telemetry_identity_invalid', `telemetry ${field} must be a non-empty string`);
+    }
+  }
 }

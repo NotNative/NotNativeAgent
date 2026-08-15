@@ -75,7 +75,8 @@ async function validateVerification(paths, input = {}) {
   };
   const plan = await discoverVerificationPlan(cwd.path, normalized);
   if (!plan.runtime.available) {
-    throw new ContractError('verification_runtime_unavailable', `${plan.adapter} was selected by the project but its runtime was not found on the host`);
+    throw new ContractError('verification_runtime_unavailable',
+      `${plan.adapter} was selected by the project but its runtime was not found on the host (${plan.runtime.reason ?? 'executable unavailable'})`);
   }
   return {
     args: normalized,
@@ -100,7 +101,7 @@ async function executeVerification(request, signal) {
       executable: command.executable, args: command.argv, cwd: request.resolved.path,
       timeout_ms: request.args.timeout_ms,
     }, signal);
-    const parsed = JSON.parse(result.content);
+    const parsed = parseProcessResult(result.content);
     results.push({ check: command.check, script: command.script, command: command.display, ...parsed });
     if (parsed.exit_code !== 0) break;
   }
@@ -133,21 +134,23 @@ async function commandFor(runtime, check, script, source, scope, paths) {
 async function verificationRuntime(adapter) {
   if (adapter === 'bun') {
     const executable = await executableOnPath(process.platform === 'win32' ? ['bun.exe', 'bun'] : ['bun']);
-    return runtimeRecord(adapter, Boolean(executable), executable ?? 'bun', [], null);
+    return runtimeRecord(adapter, Boolean(executable), executable ?? 'bun', [], null,
+      executable ? null : 'bun_executable_not_found');
   }
   if (process.platform !== 'win32') {
     const executable = await executableOnPath(['npm']);
-    return runtimeRecord(adapter, Boolean(executable), executable ?? 'npm', [], process.version);
+    return runtimeRecord(adapter, Boolean(executable), executable ?? 'npm', [], process.version,
+      executable ? null : 'npm_executable_not_found');
   }
   for (const directory of String(process.env.PATH ?? process.env.Path ?? '').split(';').filter(Boolean)) {
     const cli = join(directory, 'node_modules', 'npm', 'bin', 'npm-cli.js');
-    if (await exists(cli)) return runtimeRecord(adapter, true, process.execPath, [await realpath(cli)], process.version);
+    if (await exists(cli)) return runtimeRecord(adapter, true, process.execPath, [await realpath(cli)], process.version, null);
   }
-  return runtimeRecord(adapter, false, process.execPath, [], process.version);
+  return runtimeRecord(adapter, false, process.execPath, [], process.version, 'npm_cli_not_found_on_path');
 }
 
-function runtimeRecord(adapter, available, executable, prefix, nodeVersion) {
-  return Object.freeze({ adapter, available, executable, prefix: Object.freeze(prefix), node_version: nodeVersion });
+function runtimeRecord(adapter, available, executable, prefix, nodeVersion, reason) {
+  return Object.freeze({ adapter, available, executable, prefix: Object.freeze(prefix), node_version: nodeVersion, reason });
 }
 
 async function executableOnPath(names) {
@@ -212,8 +215,22 @@ function requireInput(input) {
 
 function stringScripts(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  return Object.fromEntries(Object.entries(value).filter(([name, command]) => name.length <= 128
-    && typeof command === 'string' && command.length <= 32768).slice(0, 128));
+  const scripts = Object.entries(value).filter(([name, command]) => name.length <= 128
+    && typeof command === 'string' && command.length <= 32768);
+  if (scripts.length > 128) {
+    throw new ContractError('verification_scripts_exceeded', 'package.json defines more than 128 bounded verification scripts');
+  }
+  return Object.fromEntries(scripts);
+}
+
+function parseProcessResult(content) {
+  try {
+    const value = JSON.parse(content);
+    if (!value || typeof value !== 'object' || !Number.isInteger(value.exit_code)) throw new Error('invalid result');
+    return value;
+  } catch {
+    throw new ContractError('verification_result_invalid', 'verification process returned an invalid result envelope');
+  }
 }
 
 async function regularBoundedFile(path, code) {

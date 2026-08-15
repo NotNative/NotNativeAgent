@@ -5,6 +5,12 @@ import { safeToolArguments } from '../tools/presentation.js';
 import { requestsInput } from '../completion-supervisor.js';
 import { redactText } from '../redaction.js';
 
+const MAX_TARGET_LENGTH = 512;
+const MAX_TASK_LENGTH = 180;
+const MAX_EXECUTABLE_LENGTH = 128;
+const MAX_ARG_COUNT = 64;
+const MAX_ARG_LENGTH = 256;
+
 export function acceptedRecord(requestId, engine, turnId) {
   return { version: '1.0', type: 'accepted', request_id: requestId, accepted: true, session_id: engine.sessionId, turn_id: turnId };
 }
@@ -35,14 +41,15 @@ export function invalidRequestRecord(call, lifecycleId, turnId, stepId = null) {
 }
 
 export function toolResultRecord(item, turnId, stepId = null) {
+  const result = item.result ?? {};
   return {
-    type: 'tool_result', turnId, stepId, requestId: item.result.request_id ?? item.lifecycle.id,
-    providerCallId: item.result.provider_call_id, toolName: item.result.tool_name,
-    status: item.result.status, content: item.result.content,
-    metadata: item.result.metadata ?? null,
-    reasonCode: item.result.reason_code ?? null, untrusted: true,
-    effectCertainty: item.result.effect_certainty,
-    elapsedMs: item.result.elapsed_ms, truncated: item.result.truncated,
+    type: 'tool_result', turnId, stepId, requestId: result.request_id ?? item.lifecycle?.id ?? null,
+    providerCallId: result.provider_call_id, toolName: result.tool_name,
+    status: result.status, content: result.content,
+    metadata: result.metadata ?? null,
+    reasonCode: result.reason_code ?? null, untrusted: true,
+    effectCertainty: result.effect_certainty,
+    elapsedMs: result.elapsed_ms, truncated: result.truncated,
   };
 }
 
@@ -69,15 +76,16 @@ export function reviewStatus(engine, active, item) {
 
 export function toolStatus(engine, active, item, status) {
   const definition = item.request ? engine.tools.definition(item.request.toolName, item.request.definitionVersion) : null;
-  const args = item.request?.args ?? item.call.args;
+  const args = item.request?.args ?? item.call?.args;
   const presentedArgs = args && typeof args === 'object' ? safeToolArguments(args) : null;
   const failed = !['running', 'succeeded', 'duplicate_ignored'].includes(status);
-  const agentRoute = item.call.name === 'agent.run' ? presentedAgentRoute(engine, presentedArgs) : null;
+  const toolName = item.call?.name ?? item.request?.toolName ?? null;
+  const agentRoute = toolName === 'agent.run' ? presentedAgentRoute(engine, presentedArgs) : null;
   return {
     version: '1.0', type: 'tool_status', session_id: engine.sessionId,
     turn_id: active.turnId, tool_request_id: item.request?.id ?? null,
-    provider_call_id: item.call.providerCallId, tool: item.call.name, status,
-    target: boundedTarget(item.call.name, presentedArgs, item.request?.resolved, agentRoute),
+    provider_call_id: item.call?.providerCallId ?? null, tool: toolName, status,
+    target: boundedTarget(toolName, presentedArgs, item.request?.resolved, agentRoute),
     arguments: presentedArgs,
     agent_route: agentRoute,
     effect: definition?.sideEffect ?? null, scope: definition?.scope ?? null,
@@ -95,25 +103,25 @@ function boundedTarget(tool, args, resolved = null, agentRoute = null) {
   if (tool === 'shell.run') return shellInvocation(args);
   if (tool === 'project.verify') {
     const commands = Array.isArray(resolved?.commands) ? resolved.commands.map((item) => item.display).filter(Boolean) : [];
-    const invocation = redactText(commands.join(' && ')).replace(/\s+/gu, ' ').trim().slice(0, 512);
+    const invocation = sanitizedText(commands.join(' && '), MAX_TARGET_LENGTH);
     return invocation || `${args.scope ?? 'full'} verification`;
   }
   const candidate = ['path', 'file_path', 'file', 'filename', 'target']
     .find((key) => typeof args[key] === 'string' && args[key].length > 0);
   const path = candidate ? args[candidate] : '';
   const selector = tool === 'fs.search_text' ? args.query : tool === 'fs.glob' ? args.pattern : null;
-  if (typeof selector === 'string') return `${path || '.'} :: ${JSON.stringify(selector)}`.slice(0, 512);
-  return path ? `${candidate === 'path' ? '' : `${candidate}=`}${path}`.slice(0, 512) : null;
+  if (typeof selector === 'string') return `${path || '.'} :: ${JSON.stringify(selector)}`.slice(0, MAX_TARGET_LENGTH);
+  return path ? `${candidate === 'path' ? '' : `${candidate}=`}${path}`.slice(0, MAX_TARGET_LENGTH) : null;
 }
 
 function agentInvocation(args, route) {
   const type = typeof args.type === 'string' ? args.type : 'general';
   const task = typeof args.task === 'string'
-    ? redactText(args.task).replace(/\s+/gu, ' ').trim().slice(0, 180)
+    ? sanitizedText(args.task, MAX_TASK_LENGTH)
     : 'delegated task';
   const model = route?.model ? ` · ${route.model}` : '';
   const inherited = route?.inherited ? ' · inherits Primary' : '';
-  return `${type}${model}${inherited}: ${task}`.slice(0, 512);
+  return `${type}${model}${inherited}: ${task}`.slice(0, MAX_TARGET_LENGTH);
 }
 
 function presentedAgentRoute(engine, args) {
@@ -134,22 +142,26 @@ function presentedAgentRoute(engine, args) {
 function shellInvocation(args) {
   if (typeof args.script !== 'string' || args.script.length === 0) return null;
   const shell = typeof args.shell === 'string' ? args.shell : 'auto';
-  const script = redactText(args.script).replace(/\s+/gu, ' ').trim();
-  return `${shell}: ${script}`.slice(0, 512);
+  const script = sanitizedText(args.script);
+  return `${shell}: ${script}`.slice(0, MAX_TARGET_LENGTH);
 }
 
 function processInvocation(args) {
   if (typeof args.executable !== 'string' || args.executable.length === 0) return null;
-  const executable = redactText(args.executable).replace(/\s+/gu, ' ').trim().slice(0, 128);
+  const executable = sanitizedText(args.executable, MAX_EXECUTABLE_LENGTH);
   const argv = Array.isArray(args.args)
-    ? args.args.slice(0, 64).map((value) => redactText(String(value)).slice(0, 256))
+    ? args.args.slice(0, MAX_ARG_COUNT).map((value) => sanitizedText(String(value), MAX_ARG_LENGTH))
     : [];
-  return `${executable}${argv.length ? ` ${JSON.stringify(argv)}` : ''}`.slice(0, 512);
+  return `${executable}${argv.length ? ` ${JSON.stringify(argv)}` : ''}`.slice(0, MAX_TARGET_LENGTH);
 }
 
 function boundedFailureReason(value) {
   if (typeof value !== 'string' || value.length === 0) return null;
-  return redactText(value).replace(/\s+/gu, ' ').trim().slice(0, 512) || null;
+  return sanitizedText(value, MAX_TARGET_LENGTH) || null;
+}
+
+function sanitizedText(value, maximum = Number.MAX_SAFE_INTEGER) {
+  return redactText(value).replace(/\s+/gu, ' ').trim().slice(0, maximum);
 }
 
 export function toolDecisionState(outcome) {
@@ -168,7 +180,9 @@ export function toolResultState(result) {
 }
 
 export function classifyCompletion(text) {
-  if (text.trim().length === 0) throw new ContractError('empty_model_output', 'model produced no text', true);
+  if (typeof text !== 'string' || text.trim().length === 0) {
+    throw new ContractError('empty_model_output', 'model produced no text', true);
+  }
   return requestsInput(text) ? 'needs_input' : 'completed';
 }
 

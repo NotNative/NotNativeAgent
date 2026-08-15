@@ -122,7 +122,8 @@ async function gitTracks(root, target) {
 }
 
 function assertPortablePath(input) {
-  if (/^(?:\\\\[.?]\\|\\[.?]\\)/u.test(input)) {
+  if (input.startsWith('\\\\.\\') || input.startsWith('\\\\?\\')
+    || input.startsWith('\\.\\') || input.startsWith('\\?\\')) {
     throw new ContractError('tool_path_reserved', 'device namespace paths are not permitted');
   }
   const segments = input.split(/[\\/]/u).filter(Boolean);

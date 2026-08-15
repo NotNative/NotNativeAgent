@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readdir, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { readJournalPage, readJournalPrefix } from '../store.js';
 import { ContractError } from '../ids.js';
 
 const SESSION_ID = /^[A-Za-z0-9_-]{1,256}$/u;
+const DEFAULT_SESSION_LIMIT = 20;
+const MAX_SESSION_LIMIT = 64;
+const MAX_SESSION_CANDIDATES = 512;
+const SESSION_DIAGNOSTIC_RECORD_LIMIT = 256;
 
 export function selfDiagnosticsDefinitions(contextProvider) {
   return [diagnoseTurnDefinition(contextProvider), listSessionsDefinition(contextProvider)];
@@ -23,13 +27,12 @@ function diagnoseTurnDefinition(contextProvider) {
       },
     },
     validate: async (args) => {
-      if (!args || typeof args !== 'object' || Array.isArray(args)
-        || Object.keys(args).some((key) => !['session_id', 'turn_id'].includes(key))
+      if (!hasOnlyKeys(args, ['session_id', 'turn_id'])
         || !optionalIdentifier(args.session_id) || !optionalIdentifier(args.turn_id)
         || (args.session_id !== undefined && !SESSION_ID.test(args.session_id))) {
         throw new ContractError('tool_schema_invalid', 'session_id and turn_id must be optional bounded identifiers');
       }
-      return { args: { session_id: args.session_id ?? null, turn_id: args.turn_id ?? null }, resolved: null };
+      return { args: { session_id: args.session_id ?? null, turn_id: args.turn_id ?? null } };
     },
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
@@ -37,7 +40,7 @@ function diagnoseTurnDefinition(contextProvider) {
       if (!context?.journalPath) throw new ContractError('diagnostics_unavailable', 'the current runtime has no readable durable journal');
       const sessionId = request.args.session_id ?? context.sessionId;
       const journalPath = request.args.session_id
-        ? join(context.sessionsRoot, `${request.args.session_id}.journal.ndjson`) : context.journalPath;
+        ? containedSessionJournalPath(context.sessionsRoot, request.args.session_id) : context.journalPath;
       const page = await readDiagnosticPage(journalPath);
       const turnId = request.args.turn_id
         ?? (sessionId === context.sessionId ? context.activeTurnId : null) ?? latestTurnId(page.records);
@@ -64,12 +67,11 @@ function listSessionsDefinition(contextProvider) {
       },
     },
     validate: async (args) => {
-      if (!args || typeof args !== 'object' || Array.isArray(args)
-        || Object.keys(args).some((key) => key !== 'limit')
-        || (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 64))) {
-        throw new ContractError('tool_schema_invalid', 'limit must be an optional integer from 1 to 64');
+      if (!hasOnlyKeys(args, ['limit'])
+        || (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > MAX_SESSION_LIMIT))) {
+        throw new ContractError('tool_schema_invalid', `limit must be an optional integer from 1 to ${MAX_SESSION_LIMIT}`);
       }
-      return { args: { limit: args.limit ?? 20 }, resolved: null };
+      return { args: { limit: args.limit ?? DEFAULT_SESSION_LIMIT } };
     },
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
@@ -81,39 +83,61 @@ function listSessionsDefinition(contextProvider) {
   };
 }
 
-export async function listDurableSessions(context, limit = 20, signal = null) {
+export async function listDurableSessions(context, limit = DEFAULT_SESSION_LIMIT, signal = null) {
   if (!context?.sessionsRoot) throw new ContractError('diagnostics_unavailable', 'the runtime session catalog is unavailable');
-  const bounded = Number.isInteger(limit) ? Math.max(1, Math.min(64, limit)) : 20;
+  const bounded = Number.isInteger(limit) ? Math.max(1, Math.min(MAX_SESSION_LIMIT, limit)) : DEFAULT_SESSION_LIMIT;
   let entries;
   try { entries = await readdir(context.sessionsRoot, { withFileTypes: true }); }
   catch (error) { if (error.code === 'ENOENT') return Object.freeze([]); throw error; }
+  throwIfCancelled(signal);
   const candidates = await Promise.all(entries.filter((entry) => entry.isFile() && entry.name.endsWith('.journal.ndjson'))
-    .slice(0, 512).map(async (entry) => {
+    .slice(0, MAX_SESSION_CANDIDATES).map(async (entry) => {
       const path = join(context.sessionsRoot, entry.name);
       const info = await stat(path);
       return { path, sessionId: entry.name.slice(0, -'.journal.ndjson'.length), modifiedMs: info.mtimeMs };
     }));
+  throwIfCancelled(signal);
   const selected = candidates.sort((a, b) => b.modifiedMs - a.modifiedMs).slice(0, bounded);
-  const sessions = [];
-  for (const candidate of selected) {
-    if (signal?.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
-    const page = await readDiagnosticPage(candidate.path, 256);
+  const sessions = await Promise.all(selected.map(async (candidate) => {
+    throwIfCancelled(signal);
+    const page = await readDiagnosticPage(candidate.path, SESSION_DIAGNOSTIC_RECORD_LIMIT);
     const header = (await readJournalPrefix(candidate.path, 1))[0]?.payload ?? {};
+    throwIfCancelled(signal);
     const turnId = latestTurnId(page.records);
     const records = turnId ? page.records.filter((record) => recordTurnId(record) === turnId) : [];
     const terminal = [...records].reverse().find((record) => record.type === 'turn_outcome')?.payload ?? null;
     const hosted = header.executionManifest != null;
     const mission = header.mission != null;
-    sessions.push(Object.freeze({
+    return Object.freeze({
       session_id: candidate.sessionId, current: candidate.sessionId === context.sessionId,
       updated_at: new Date(candidate.modifiedMs).toISOString(), latest_turn_id: turnId,
       latest_outcome: terminal?.outcome ?? (turnId ? 'active_or_interrupted' : null),
       latest_failure_code: terminal?.failure?.code ?? null,
       resumable: !hosted && !mission,
       resume_blocked_reason: hosted ? 'authenticated_host_session' : mission ? 'mission_session' : null,
-    }));
-  }
+    });
+  }));
   return Object.freeze(sessions);
+}
+
+function hasOnlyKeys(args, allowedKeys) {
+  return Boolean(args) && typeof args === 'object' && !Array.isArray(args)
+    && Object.keys(args).every((key) => allowedKeys.includes(key));
+}
+
+function containedSessionJournalPath(sessionsRoot, sessionId) {
+  if (!sessionsRoot) throw new ContractError('diagnostics_unavailable', 'the runtime session catalog is unavailable');
+  const root = resolve(sessionsRoot);
+  const candidate = resolve(root, `${sessionId}.journal.ndjson`);
+  const fromRoot = relative(root, candidate);
+  if (fromRoot === '' || fromRoot === '..' || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)) {
+    throw new ContractError('tool_schema_invalid', 'session_id resolves outside the durable session catalog');
+  }
+  return candidate;
+}
+
+function throwIfCancelled(signal) {
+  if (signal?.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
 }
 
 function optionalIdentifier(value) {

@@ -37,13 +37,13 @@ export class ContinuationCompactor {
       const text = await collect(provider.stream(request, controller.signal));
       const semantic = mode === 'handoff' ? validateHandoff(parseJson(text)) : validateSemantic(parseJson(text));
       const enriched = mode === 'handoff' ? enrichHandoffFact(fact, semantic) : enrichCompactionFact(fact, semantic);
-      this.telemetry?.record(`context.semantic_${mode}`, 'succeeded', {
+      recordTelemetry(this.telemetry, `context.semantic_${mode}`, 'succeeded', {
         provider_profile: route.profile.id, model: route.model,
         source_fingerprint: fact.sourceFingerprint,
       });
       return enriched;
     } catch (error) {
-      this.telemetry?.record(`context.semantic_${mode}`, 'failed', {
+      recordTelemetry(this.telemetry, `context.semantic_${mode}`, 'failed', {
         provider_profile: route.profile.id, model: route.model,
         source_fingerprint: fact.sourceFingerprint,
         failure: { code: error?.code ?? 'semantic_compaction_failed' },
@@ -52,7 +52,6 @@ export class ContinuationCompactor {
     } finally {
       release?.(); clearTimeout(timer);
       parentSignal?.removeEventListener('abort', cancel);
-      controller.abort();
     }
   }
 }
@@ -123,7 +122,9 @@ async function collect(stream) {
 }
 
 function parseJson(text) {
-  const trimmed = text.trim().replace(/^```(?:json)?\s*/u, '').replace(/\s*```$/u, '');
+  const source = text.trim();
+  const fenced = /^```(?:json)?\s*\n([\s\S]*)\n```$/u.exec(source);
+  const trimmed = fenced ? fenced[1].trim() : source;
   try { return JSON.parse(trimmed); } catch { throw codeError('semantic_compaction_invalid_json'); }
 }
 
@@ -165,3 +166,7 @@ function boundedArray(value) {
 function toCamel(value) { return value.replace(/_([a-z])/gu, (_, letter) => letter.toUpperCase()); }
 
 function codeError(code) { const error = new Error(code); error.code = code; return error; }
+
+function recordTelemetry(telemetry, event, status, fields) {
+  try { telemetry?.record(event, status, fields); } catch { /* telemetry cannot change compaction outcome */ }
+}

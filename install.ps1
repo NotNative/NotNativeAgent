@@ -159,6 +159,28 @@ function Protect-UserDataRoot([string]$Path) {
     if ($LASTEXITCODE -ne 0) { throw "Unable to grant SYSTEM access to $Path" }
 }
 
+function Add-UserPathEntry([string]$Entry) {
+    $CurrentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $Mutex = New-Object Threading.Mutex($false, "Local\NotNativeAgent-UserPath-$CurrentSid")
+    $Acquired = $false
+    try {
+        try { $Acquired = $Mutex.WaitOne([TimeSpan]::FromSeconds(30)) }
+        catch [Threading.AbandonedMutexException] { $Acquired = $true }
+        if (-not $Acquired) { throw 'Timed out waiting to update the user PATH.' }
+        $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+        $Entries = @($UserPath -split ';' | Where-Object { $_ })
+        if (-not ($Entries | Where-Object { $_.TrimEnd('\') -ieq $Entry.TrimEnd('\') })) {
+            [Environment]::SetEnvironmentVariable('Path', ((@($Entries) + $Entry) -join ';'), 'User')
+        }
+        if (-not (($env:Path -split ';') | Where-Object { $_.TrimEnd('\') -ieq $Entry.TrimEnd('\') })) {
+            $env:Path = "$env:Path;$Entry"
+        }
+    } finally {
+        if ($Acquired) { $Mutex.ReleaseMutex() }
+        $Mutex.Dispose()
+    }
+}
+
 function Test-LegacyGatewayTask([object]$Task, [string]$ExpectedScript) {
     $Actions = @($Task.Actions)
     if ($Actions.Count -ne 1) { return $false }
@@ -271,7 +293,7 @@ function Get-CompatibleNode {
     $Command = Get-Command node -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $Command) { return $null }
     try {
-        $Major = [int]((& $Command.Source -p "process.versions.node.split('.')[0]").Trim())
+        $Major = Get-NodeMajorVersion $Command.Source
         if ($Major -ge 24) { return [string]$Command.Source }
     } catch { return $null }
     return $null
@@ -283,11 +305,15 @@ function Get-ManagedNode([string]$Root) {
     foreach ($Candidate in Get-ChildItem -LiteralPath $RuntimeRoot -Filter node.exe -File -Recurse -ErrorAction SilentlyContinue) {
         Assert-ChildPath $Candidate.FullName $RuntimeRoot
         try {
-            $Major = [int]((& $Candidate.FullName -p "process.versions.node.split('.')[0]").Trim())
+            $Major = Get-NodeMajorVersion $Candidate.FullName
             if ($Major -ge 24) { return [string]$Candidate.FullName }
         } catch { continue }
     }
     return $null
+}
+
+function Get-NodeMajorVersion([string]$NodeExecutable) {
+    return [int]((& $NodeExecutable -p "process.versions.node.split('.')[0]").Trim())
 }
 
 function Install-UserNode([string]$Root, [string]$DownloadBase) {
@@ -334,7 +360,7 @@ function Install-UserNode([string]$Root, [string]$DownloadBase) {
 
 $PackagePath = Join-Path $SourceRoot 'package.json'
 if (-not (Test-Path -LiteralPath $PackagePath)) { throw 'package.json was not found in the source root.' }
-$Package = Get-Content -LiteralPath $PackagePath -Raw | ConvertFrom-Json
+$Package = Get-Content -LiteralPath $PackagePath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($Package.name -ne 'not-native-agent') { throw 'The source directory is not a NotNativeAgent release.' }
 $Version = if ($Package.nna_version) { [string]$Package.nna_version } else { [string]$Package.version }
 Write-InstallerBrand $Version
@@ -350,7 +376,7 @@ if (-not $NodePath) {
     $NodePath = Install-UserNode $InstallRoot $NodeDownloadBase
     $NodeSource = 'new managed'
 }
-$NodeMajor = [int]((& $NodePath -p "process.versions.node.split('.')[0]").Trim())
+$NodeMajor = Get-NodeMajorVersion $NodePath
 if ($NodeMajor -lt 24) { throw 'Installed Node.js dependency validation failed.' }
 $NodeVersion = (& $NodePath -p 'process.versions.node').Trim()
 Write-InstallerOk "Node.js v$NodeVersion ($NodeSource)"
@@ -380,7 +406,7 @@ try {
     if (Test-Path -LiteralPath $Target) {
         $ExistingPackagePath = Join-Path $Target 'package.json'
         if (-not (Test-Path -LiteralPath $ExistingPackagePath)) { throw 'Refusing to replace an unmarked version directory.' }
-        $ExistingPackage = Get-Content -LiteralPath $ExistingPackagePath -Raw | ConvertFrom-Json
+        $ExistingPackage = Get-Content -LiteralPath $ExistingPackagePath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($ExistingPackage.name -ne 'not-native-agent') { throw 'Refusing to replace a foreign version directory.' }
         Remove-Item -LiteralPath $Target -Recurse -Force
     }
@@ -399,7 +425,7 @@ Write-InstallerStep 'Preparing durable sessions, configuration, logs, and suppor
 $DataMarkerPath = Join-Path $DataRoot '.nna-install.json'
 $DeleteAllowed = -not (Test-Path -LiteralPath $DataRoot)
 if (Test-Path -LiteralPath $DataMarkerPath) {
-    $ExistingDataMarker = Get-Content -LiteralPath $DataMarkerPath -Raw | ConvertFrom-Json
+    $ExistingDataMarker = Get-Content -LiteralPath $DataMarkerPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $DeleteAllowed = $ExistingDataMarker.product -eq $Product -and $ExistingDataMarker.deletable -eq $true
 }
 foreach ($Directory in @($DataRoot, (Join-Path $DataRoot 'sessions'), (Join-Path $DataRoot 'reviewer-ledger'), (Join-Path $DataRoot 'config'), (Join-Path $DataRoot 'logs'), (Join-Path $DataRoot 'support'))) {
@@ -609,15 +635,7 @@ try {
 }
 
 if (-not $SkipPathUpdate) {
-    $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $Entries = @($UserPath -split ';' | Where-Object { $_ })
-    if (-not ($Entries | Where-Object { $_.TrimEnd('\') -ieq $BinRoot.TrimEnd('\') })) {
-        $Updated = (@($Entries) + $BinRoot) -join ';'
-        [Environment]::SetEnvironmentVariable('Path', $Updated, 'User')
-    }
-    if (-not (($env:Path -split ';') | Where-Object { $_.TrimEnd('\') -ieq $BinRoot.TrimEnd('\') })) {
-        $env:Path = "$env:Path;$BinRoot"
-    }
+    Add-UserPathEntry $BinRoot
     Write-InstallerOk 'User PATH contains the NNA launcher directory'
 } else {
     Write-InstallerSkip 'PATH update skipped by request'

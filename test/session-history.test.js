@@ -26,6 +26,11 @@ test('AC-SESS-02 semantic transcript preserves partial text, tool pairs, compact
   assert.equal(projection.at(-1).failure.code, 'turn_cancelled');
 });
 
+test('transcript projection rejects malformed records with a stable error', () => {
+  assert.throws(() => transcriptEvents([null]), { code: 'transcript_record_invalid' });
+  assert.throws(() => transcriptEvents(null), { code: 'transcript_invalid' });
+});
+
 test('bounded-tail recovery identifies an authoritative conversation reset', () => {
   const incomplete = restoreSessionRecords([record('authority_intent', { content: 'later', origin: 'operator' })]);
   assert.equal(incomplete.authorityReset, false);

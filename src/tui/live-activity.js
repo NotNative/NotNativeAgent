@@ -4,6 +4,9 @@ import { formatTurnElapsed } from './status-line.js';
 
 const UNICODE_SPINNER = Object.freeze(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']);
 const ASCII_SPINNER = Object.freeze(['|', '/', '-', '\\']);
+const MAX_AGENT_ROLE_GRAPHEMES = 24;
+const GRAPHEME_SEGMENTER = typeof Intl.Segmenter === 'function'
+  ? new Intl.Segmenter(undefined, { granularity: 'grapheme' }) : null;
 
 export function liveActivityLine(session, capabilities) {
   if (!session.activeTurnId || ['idle', 'needs_input', 'failed'].includes(session.state)) return null;
@@ -19,7 +22,7 @@ export function liveActivityLine(session, capabilities) {
 
 export function decorateLiveActivity(line, animationFrame) {
   const activity = line.match(/^  ([⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏•|/\\*-]) (.+)$/u);
-  return activity ? synthwaveActivityIndicator(activity[1], activity[2], animationFrame) : null;
+  return activity?.[1] && activity[2] ? synthwaveActivityIndicator(activity[1], activity[2], animationFrame) : null;
 }
 
 function liveActivityLabel(session) {
@@ -39,7 +42,7 @@ function runningToolLabel(session) {
   for (const record of session.records ?? []) {
     if (record.type !== 'tool_status' || record.turn_id !== session.activeTurnId) continue;
     const id = record.tool_request_id ?? record.provider_call_id ?? record.tool;
-    if (id) latest.set(id, record);
+    if (id !== null && id !== undefined) latest.set(id, record);
   }
   const running = [...latest.values()].filter((record) => record.status === 'running');
   if (running.length === 0) return 'Running tool…';
@@ -60,8 +63,17 @@ function singleLine(value) {
 function agentRoleCounts(records) {
   const roles = new Map();
   for (const record of records) {
-    const role = (singleLine(record.target ?? '').split(' · ', 1)[0] || 'agent').slice(0, 24);
+    const role = truncateGraphemes(
+      singleLine(record.target ?? '').split(' · ', 1)[0] || 'agent', MAX_AGENT_ROLE_GRAPHEMES,
+    );
     roles.set(role, (roles.get(role) ?? 0) + 1);
   }
   return [...roles].slice(0, 3).map(([role, count]) => `${role}${count > 1 ? ` x${count}` : ''}`).join(' · ');
+}
+
+function truncateGraphemes(value, maximum) {
+  const graphemes = GRAPHEME_SEGMENTER
+    ? [...GRAPHEME_SEGMENTER.segment(value)].map((entry) => entry.segment)
+    : Array.from(value);
+  return graphemes.slice(0, maximum).join('');
 }

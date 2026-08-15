@@ -2,7 +2,7 @@
 import { sanitizeTerminal } from './terminal-adapter.js';
 import { commandPresentation, commandsByCategory } from './commands.js';
 import { commandPickerLines } from './command-picker.js';
-import { VERSION } from '../product.js';
+import { PRODUCT_NAME, VERSION } from '../product.js';
 import { activityDetailRows, collapsedFailureRows, subagentProgressLines, summaryActivityRows, toolFailureSuffix, toolTargetSuffix } from './activity-renderer.js';
 import { liveActivityLine } from './live-activity.js';
 import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLine, wrapTerminalLine } from './terminal-markdown.js';
@@ -16,7 +16,7 @@ import { workSummaryRows } from './work-summary.js';
 export class TuiRenderer {
   frame(projection, capabilities) {
     const session = projection.active();
-    if (!session) return `NotNativeAgent ${VERSION}\n[IDLE] No conversation\n`;
+    if (!session) return `${PRODUCT_NAME} ${VERSION}\n[IDLE] No conversation\n`;
     // Leave two cells unused because some Windows hosts render status glyphs wider than reported.
     const width = Math.max(23, capabilities.width - 2);
     const height = Math.max(8, capabilities.height);
@@ -37,9 +37,10 @@ export class TuiRenderer {
     const overlayStart = projection.overlay
       ? visibleOverlayStart(projection.overlay, targets, room, available.length)
       : 0;
-    const contentStart = session.pendingPermission ? permissionStart
-      : projection.overlay ? overlayStart
-        : projection.help ? 0 : Math.max(0, viewportEnd - room);
+    const contentStart = visibleContentStart({
+      pendingPermission: session.pendingPermission, permissionStart, overlay: projection.overlay,
+      overlayStart, help: projection.help, viewportEnd, room,
+    });
     const content = available.slice(contentStart, contentStart + room);
     projection.selectionDocumentLines = available.map(plainTerminalLine);
     projection.selectionRowMap = new Map(content.map((_line, index) => [header.length + index + 1, contentStart + index]));
@@ -105,13 +106,13 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
     if (isActivity(record) && completed.has(record.turn_id)) continue;
     if (record.type === 'tool_status' && record.status === 'running' && settledTools.has(record.tool_request_id ?? record.provider_call_id)) continue;
     if (record.type === 'turn_result') {
-      const records = activity.get(record.turn_id) ?? [];
-      const summary = summarizeActivity(records);
+      const activityRecords = activity.get(record.turn_id) ?? [];
+      const summary = summarizeActivity(activityRecords);
       const mode = session.detailedTurns.has(record.turn_id) ? 'details'
         : session.expandedTurns.has(record.turn_id) ? 'summary' : 'collapsed';
-      if (mode === 'details') lines.push(...activityDetailRows(records, width, wrapIndentedTerminalLine));
-      else if (mode === 'summary') lines.push(...summaryActivityRows(records).flatMap((line) => wrapIndentedTerminalLine(line, width)));
-      else lines.push(...collapsedFailureRows(records).flatMap((line) => wrapIndentedTerminalLine(line, width)));
+      if (mode === 'details') lines.push(...activityDetailRows(activityRecords, width, wrapIndentedTerminalLine));
+      else if (mode === 'summary') lines.push(...summaryActivityRows(activityRecords).flatMap((line) => wrapIndentedTerminalLine(line, width)));
+      else lines.push(...collapsedFailureRows(activityRecords).flatMap((line) => wrapIndentedTerminalLine(line, width)));
       const receiptStart = lines.length;
       const receipt = turnReceipt(record, summary, mode, width);
       lines.push(...receipt, '');
@@ -147,11 +148,11 @@ function restoreHistoryAnchor(session, nextLineCount) {
 function sessionBanner(session, width, height) {
   const compact = height < 24;
   const values = compact ? [
-    `NotNativeAgent · v${VERSION}`,
+    `${PRODUCT_NAME} · v${VERSION}`,
     `${session.metadata.model} · ${session.metadata.workspace ?? '--'}`,
   ] : [
     ...wordmark(width, height),
-    `NotNativeAgent · v${VERSION}`,
+    `${PRODUCT_NAME} · v${VERSION}`,
     '',
     `Provider   ${session.metadata.endpoint ?? session.metadata.provider}${session.metadata.temporaryRoute ? ' (temporary)' : ''}`,
     `Model      ${session.metadata.model}`,
@@ -352,7 +353,14 @@ function tabLabel(session, activeId) {
   const selected = session.id === activeId ? (session.role === 'primary' ? '*' : '@') : session.unread ? '+' : ' ';
   const state = tabState(session);
   const authority = session.role === 'primary' ? ' *' : '';
-  return `[${selected} ${sanitizeTerminal(session.name).slice(0, 18)}${state}${authority}]`;
+  return `[${selected} ${sanitizeTerminal(session.name ?? 'Conversation').slice(0, 18)}${state}${authority}]`;
+}
+
+function visibleContentStart(options) {
+  if (options.pendingPermission) return options.permissionStart;
+  if (options.overlay) return options.overlayStart;
+  if (options.help) return 0;
+  return Math.max(0, options.viewportEnd - options.room);
 }
 
 function tabState(session) {

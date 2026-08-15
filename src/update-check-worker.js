@@ -5,4 +5,6 @@ import { ensureUserDataPaths, VERSION } from './product.js';
 try {
   const paths = await ensureUserDataPaths();
   await checkForUpdate({ statePath: paths.updateState, currentVersion: VERSION });
-} catch { /* startup update discovery is deliberately silent */ }
+} catch {
+  // This detached, stdio-free best-effort worker has no safe diagnostic channel. Interactive checks report failures.
+}

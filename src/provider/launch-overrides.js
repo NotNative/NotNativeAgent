@@ -2,9 +2,16 @@
 import { ContractError } from '../ids.js';
 import { withPrimaryRoute, withProvider } from './route-configuration.js';
 
+const MAX_LAUNCH_OVERRIDE_ATTEMPTS = 1_000;
+
 export function applyLaunchProviderOverrides(config, options = {}) {
-  const profileSelector = options.providerProfile, endpoint = options.providerEndpoint;
-  const model = options.model, credentialEnv = options.providerCredentialEnv;
+  if (!config?.routes?.primary || !config.providerProfiles || typeof config.providerProfiles !== 'object') {
+    throw new ContractError('provider_configuration_invalid', 'launch overrides require a resolved provider configuration');
+  }
+  const profileSelector = options.providerProfile;
+  const endpoint = options.providerEndpoint;
+  const model = options.model;
+  const credentialEnv = options.providerCredentialEnv;
   if (!profileSelector && !endpoint && !model && !credentialEnv) return config;
   if (profileSelector && endpoint) {
     throw new ContractError('provider_override_conflict', '--provider-profile and --provider-endpoint are mutually exclusive');
@@ -27,15 +34,21 @@ export function applyLaunchProviderOverrides(config, options = {}) {
 
 function resolveProfileId(profiles, selector) {
   if (profiles[selector]) return selector;
-  const exact = Object.values(profiles).filter((profile) => profile.displayName === selector);
-  if (exact.length === 1) return exact[0].id;
-  if (exact.length > 1) throw ambiguous(selector);
+  const values = Object.values(profiles);
+  const exact = values.filter((profile) => profile.displayName === selector);
+  const exactId = uniqueMatch(exact, selector);
+  if (exactId) return exactId;
   const folded = selector.toLocaleLowerCase('en-US');
-  const insensitive = Object.values(profiles)
+  const insensitive = values
     .filter((profile) => profile.displayName.toLocaleLowerCase('en-US') === folded);
-  if (insensitive.length === 1) return insensitive[0].id;
-  if (insensitive.length > 1) throw ambiguous(selector);
+  const insensitiveId = uniqueMatch(insensitive, selector);
+  if (insensitiveId) return insensitiveId;
   throw new ContractError('provider_missing', `provider profile ${selector} is not configured`);
+}
+
+function uniqueMatch(matches, selector) {
+  if (matches.length > 1) throw ambiguous(selector);
+  return matches[0]?.id ?? null;
 }
 
 function ambiguous(selector) {
@@ -54,7 +67,7 @@ function tagged(config, options) {
 }
 
 function availableId(profiles) {
-  for (let index = 0; index < 1000; index += 1) {
+  for (let index = 0; index < MAX_LAUNCH_OVERRIDE_ATTEMPTS; index += 1) {
     const id = index === 0 ? 'launch-override' : `launch-override-${index}`;
     if (!profiles[id]) return id;
   }

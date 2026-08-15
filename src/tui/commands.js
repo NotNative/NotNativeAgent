@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
+const COMMAND_ALIASES = new Map([
+  ['/bundle', '/support'],
+  ['/search-config', '/websearch'],
+  ['/search_config', '/websearch'],
+]);
+
 export const TUI_COMMANDS = Object.freeze([
   command('/attach PATH', 'Queue an image for the next message', 'conversation'),
   command('/attachments', 'Inspect images queued in this conversation', 'conversation'),
@@ -101,13 +107,16 @@ export function commandSuggestions(input, limit = 6) {
 
 function deduplicateCommands(candidates) {
   const seen = new Set();
-  return candidates.filter(({ item }) => seen.has(item.name) ? false : (seen.add(item.name), true));
+  return candidates.filter(({ item }) => {
+    if (seen.has(item.name)) return false;
+    seen.add(item.name);
+    return true;
+  });
 }
 
 export function commandDefinition(name) {
-  if (name === '/bundle') return TUI_COMMANDS.find((item) => item.name === '/support') ?? null;
-  if (['/search-config', '/search_config'].includes(name)) return TUI_COMMANDS.find((item) => item.name === '/websearch') ?? null;
-  return TUI_COMMANDS.find((item) => item.name === name) ?? null;
+  const canonicalName = COMMAND_ALIASES.get(name) ?? name;
+  return TUI_COMMANDS.find((item) => item.name === canonicalName) ?? null;
 }
 
 export function commandsByCategory() {
@@ -121,10 +130,11 @@ export function commandsByCategory() {
 }
 
 export function commandPresentation(item, session, bindings) {
+  if (!item || typeof item !== 'object' || !session || typeof session !== 'object') return null;
   const unavailable = unavailableReason(item, session);
   return Object.freeze({
     ...item, available: unavailable === null, unavailableReason: unavailable,
-    effectiveBinding: item.bindingAction ? bindings[item.bindingAction] ?? null : null,
+    effectiveBinding: item.bindingAction ? bindings?.[item.bindingAction] ?? null : null,
   });
 }
 
@@ -155,6 +165,7 @@ function bindingAction(name) {
 }
 
 function unavailableReason(item, session) {
+  if (!session || typeof session !== 'object') return 'no active conversation';
   const mainOnly = /^(?:\/provider (?:add|edit|test|delete)|\/mcp (?:add-|test|enable|disable|delete))/u.test(item.usage);
   if (mainOnly && session.role !== 'primary') return 'manage this from Main';
   if (item.name === '/close' && session.role === 'primary') return 'Main remains attached until exit';

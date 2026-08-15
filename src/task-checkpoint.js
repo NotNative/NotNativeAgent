@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { rename, unlink, writeFile } from 'node:fs/promises';
-import { redactText } from './redaction.js';
+import { redactExtensionData, redactText } from './redaction.js';
 
 const MAX_ITEM = 1_024;
 const MAX_ITEMS = 12;
@@ -18,7 +18,11 @@ export async function writeTaskCheckpoint(engine, fact) {
     await writeFile(temporary, content, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
     await rename(temporary, path);
   } catch (error) {
-    await unlink(temporary).catch(() => undefined);
+    try { await unlink(temporary); } catch (cleanupError) {
+      if (cleanupError.code !== 'ENOENT' && Object.isExtensible(error)) {
+        error.secondaryFailures = [...(error.secondaryFailures ?? []), cleanupError];
+      }
+    }
     throw error;
   }
   return path;
@@ -76,5 +80,12 @@ function toolLine(item) {
 }
 
 function safe(value) {
-  return redactText(String(value ?? '')).replaceAll(/\s+/gu, ' ').trim().slice(0, MAX_ITEM) || '(not recorded)';
+  const text = value && typeof value === 'object' ? serializeCheckpointValue(value) : String(value ?? '');
+  return redactText(text).replaceAll(/\s+/gu, ' ').trim().slice(0, MAX_ITEM) || '(not recorded)';
+}
+
+function serializeCheckpointValue(value) {
+  try {
+    return JSON.stringify(redactExtensionData(value), (_key, child) => typeof child === 'bigint' ? String(child) : child);
+  } catch { return '[unserializable]'; }
 }

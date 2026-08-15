@@ -335,6 +335,7 @@ function safeReviewDefinition(definition) {
 
 function safeArguments(args) {
   if (!Object.hasOwn(args, 'content')) return redactReviewValue(args);
+  if (typeof args.content !== 'string') return redactReviewValue(args);
   return Object.freeze({
     path: args.path, expected_sha256: args.expected_sha256,
     content_bytes: Buffer.byteLength(args.content, 'utf8'),
@@ -358,14 +359,15 @@ function authenticatedIntentRelation(request, authority, definition) {
   if (definition.sideEffect === 'read_only') return 'covered';
   if (['process.run', 'shell.run', 'system.elevate'].includes(request.toolName)) return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
   if (!request.toolName.startsWith('fs.')) return 'uncertain';
-  const mission = authority.mission?.outcome?.toLowerCase() ?? '';
+  const mission = authority?.mission?.outcome?.toLowerCase() ?? '';
   const targets = resolvedTargets(request);
   const action = filesystemActionPattern(request.toolName);
-  if (authority.mission) {
-    const namesTargets = targets.every((target) => authority.mission.targets.some((item) => missionTargetMatches(item, request, { scope: 'workspace' }, target)));
+  if (authority?.mission) {
+    const namesTargets = targets.every((target) => (authority.mission.targets ?? [])
+      .some((item) => missionTargetMatches(item, request, { scope: 'workspace' }, target)));
     return namesTargets && action.test(mission) ? 'covered' : 'conflict';
   }
-  const relevant = [...authority.intent].reverse().find((item) => {
+  const relevant = [...(authority?.intent ?? [])].reverse().find((item) => {
     const evidence = item.content.toLowerCase();
     return targets.some((target) => evidenceNamesTarget(evidence, target));
   });
@@ -414,13 +416,14 @@ function tokenSet(value) {
 
 function missionBoundaryViolation(request, definition, mission) {
   if (!mission) return null;
-  if (!mission.resources.includes(definition.scope)) return 'mission_resource_denied';
-  if (!mission.sideEffects.includes(definition.sideEffect)) return 'mission_side_effect_denied';
-  if (!resolvedTargets(request).every((resolved) => mission.targets.some((target) => missionTargetMatches(target, request, definition, resolved)))) {
+  if (!(mission.resources ?? []).includes(definition.scope)) return 'mission_resource_denied';
+  if (!(mission.sideEffects ?? []).includes(definition.sideEffect)) return 'mission_side_effect_denied';
+  if (!resolvedTargets(request).every((resolved) => (mission.targets ?? [])
+    .some((target) => missionTargetMatches(target, request, definition, resolved)))) {
     return 'mission_target_denied';
   }
   const refs = definition.credentialRefs ?? [];
-  if (refs.some((reference) => !mission.credentialRefs.includes(reference))) return 'mission_credential_denied';
+  if (refs.some((reference) => !(mission.credentialRefs ?? []).includes(reference))) return 'mission_credential_denied';
   return null;
 }
 

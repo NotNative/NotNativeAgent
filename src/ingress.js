@@ -8,18 +8,23 @@ export class CanonicalIngress {
   constructor(engine, options = {}) {
     this.engine = engine;
     this.maxIdentities = options.maxIdentities ?? 4096;
+    if (!Number.isSafeInteger(this.maxIdentities) || this.maxIdentities < 1) {
+      throw new ContractError('ingress_capacity_invalid', 'idempotency capacity must be a positive integer');
+    }
     this.interactive = options.interactive === true;
   }
 
   async submit(rawCommand, principal = 'stdio-host') {
     const command = validateCommand(rawCommand, { interactive: this.interactive });
     const prior = this.#seen.get(command.request_id);
-    if (prior) return { accepted: false, duplicate: true, pending: true };
+    if (prior) return { accepted: false, duplicate: true, pending: !prior.settled };
     if (this.#seen.size >= this.maxIdentities) {
       throw new ContractError('ingress_capacity', 'idempotency window is full');
     }
     const operation = this.#route(command, principal);
-    this.#seen.set(command.request_id, { operation, type: command.type });
+    const entry = { operation, type: command.type, settled: false };
+    this.#seen.set(command.request_id, entry);
+    operation.then(() => { entry.settled = true; }, () => { entry.settled = true; });
     return operation;
   }
 

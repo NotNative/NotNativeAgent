@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { copyFile, mkdir, readFile, rename, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { constants } from 'node:fs';
+import { copyFile, mkdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { ContractError } from '../ids.js';
 
 export function filesystemExtraDefinitions(paths, changes, receipts) {
@@ -25,7 +27,8 @@ function directoryDefinition(paths) {
 }
 
 function copyDefinition(paths, changes, receipts) {
-  return fileTransferDefinition(paths, 'fs.copy_file', 'Copy one exact accessible file to a new destination.', async (source, destination) => copyFile(source, destination), changes, receipts);
+  return fileTransferDefinition(paths, 'fs.copy_file', 'Copy one exact accessible file to a new destination.',
+    async (source, destination) => copyFile(source, destination, constants.COPYFILE_EXCL), changes, receipts);
 }
 
 function moveDefinition(paths, changes, receipts) {
@@ -42,18 +45,32 @@ function fileTransferDefinition(paths, name, purpose, operation, changes, receip
     if (source.size > 16_777_216) throw new ContractError('tool_target_too_large', 'file transfer exceeds 16 MiB');
     const destination = await paths.resolveNew(args.destination);
     const receipt = receipts.latest(source.path, { full: true });
+    if (!receipt || typeof receipt.digest !== 'string' || typeof receipt.id !== 'string') {
+      throw new ContractError('read_receipt_required', 'read the complete source file before transferring it');
+    }
     return {
       args: { ...normalized, expected_sha256: receipt.digest },
       resolved: { source, destination, readReceiptId: receipt.id },
     };
   }, async (request, signal) => {
-    abort(signal); await assertHash(request.resolved.source.path, request.args.expected_sha256);
+    abort(signal); await assertHash(request.resolved.source.path, request.args.expected_sha256, signal);
+    abort(signal);
     await assertAbsent(request.resolved.destination.path); abort(signal);
-    const before = await readFile(request.resolved.source.path);
-    await operation(request.resolved.source.path, request.resolved.destination.path);
-    changes?.record(request.resolved.destination.path, null, before, name);
-    if (name === 'fs.move_file') changes?.record(request.resolved.source.path, before, null, name);
-    return { content: `${name === 'fs.move_file' ? 'move' : 'copy'} completed`, metadata: { source: request.args.source, destination: request.args.destination } };
+    const before = changes ? await readFile(request.resolved.source.path) : null;
+    abort(signal);
+    let completed = false;
+    try {
+      await operation(request.resolved.source.path, request.resolved.destination.path);
+      completed = true;
+      abort(signal);
+      changes?.record(request.resolved.destination.path, null, before, name);
+      if (name === 'fs.move_file') changes?.record(request.resolved.source.path, before, null, name);
+    } catch (error) {
+      if (completed) await rollbackTransfer(name, request.resolved.source.path, request.resolved.destination.path, error);
+      throw error;
+    }
+    const transferLabel = name === 'fs.move_file' ? 'move' : 'copy';
+    return { content: `${transferLabel} completed`, metadata: { source: request.args.source, destination: request.args.destination } };
   });
 }
 
@@ -75,9 +92,25 @@ function shape(args, required) {
   return Object.fromEntries(required.map((key) => [key, args[key]]));
 }
 
-async function assertHash(path, expected) {
-  const actual = createHash('sha256').update(await readFile(path)).digest('hex');
+async function assertHash(path, expected, signal) {
+  const hash = createHash('sha256');
+  try {
+    for await (const chunk of createReadStream(path, { signal })) hash.update(chunk);
+  } catch (error) {
+    if (signal.aborted || error.name === 'AbortError') throw new ContractError('tool_cancelled', 'tool was cancelled');
+    throw error;
+  }
+  const actual = hash.digest('hex');
   if (actual !== expected) throw new ContractError('tool_revalidation_drift', 'source changed after review');
+}
+
+async function rollbackTransfer(name, source, destination, originalError) {
+  try {
+    if (name === 'fs.move_file') await rename(destination, source);
+    else await rm(destination, { force: true });
+  } catch (rollbackError) {
+    originalError.rollbackCode = rollbackError.code ?? 'tool_transfer_rollback_failed';
+  }
 }
 
 async function assertAbsent(path) {
@@ -85,7 +118,7 @@ async function assertAbsent(path) {
   catch (error) { if (error.code !== 'ENOENT') throw error; }
 }
 
-function abort(signal) { if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled'); }
+function abort(signal) { if (signal?.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled'); }
 function invalid(message = 'filesystem operation arguments do not match the schema') {
   return new ContractError('tool_schema_invalid', message);
 }

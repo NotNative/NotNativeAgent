@@ -90,10 +90,10 @@ function markdownLine(raw) {
   line = line.replace(/^\s*>\s?/u, '| ');
   line = line.replace(/^(\s*)[-*+]\s+/u, '$1- ');
   line = line.replace(/^(\s*)\[(?: |x|X)\]\s+/u, '$1[ ] ');
-  line = line.replace(/!\[([^\]]*)\]\(([^)]+)\)/gu, '[image: $1] <$2>');
-  line = line.replace(/\[([^\]]+)\]\(([^)]+)\)/gu, '$1 <$2>');
-  line = line.replace(/\*\*([^*]+)\*\*|__([^_]+)__/gu, '$1$2');
-  line = line.replace(/~~([^~]+)~~/gu, '$1');
+  line = line.replace(/!\[([^\]]*)\]\(((?:[^()]|\([^()]*\))+)\)/gu, '[image: $1] <$2>');
+  line = line.replace(/\[([^\]]+)\]\(((?:[^()]|\([^()]*\))+)\)/gu, '$1 <$2>');
+  line = line.replace(/\*\*([^*]*)\*\*|__([^_]*)__/gu, '$1$2');
+  line = line.replace(/~~([^~]*)~~/gu, '$1');
   line = line.replace(/`([^`]+)`/gu, '$1');
   return line.replace(/\\([\\`*_[\]{}()#+.!>-])/gu, '$1');
 }
@@ -106,6 +106,7 @@ function hangingPrefix(prefix, value) {
 }
 
 function splitAtWidth(value, maximum) {
+  if (!value) return { head: '', tail: '' };
   let width = 0;
   let index = 0;
   let breakAt = -1;

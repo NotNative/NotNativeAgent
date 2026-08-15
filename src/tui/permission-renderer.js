@@ -2,6 +2,13 @@
 import { paint, TUI_THEME } from './theme.js';
 import { wrapIndentedTerminalLine } from './terminal-markdown.js';
 
+const ALLOW_ONCE = 'allow_once';
+const DENY = 'deny';
+const CANCEL = 'cancel';
+const DEFAULT_PERMISSION_CHOICES = Object.freeze([
+  ALLOW_ONCE, 'allow_session', 'allow_workspace', DENY, CANCEL,
+]);
+
 export function permissionControlLine(permission, bindings) {
   if (isOneShot(permission)) return 'Awaiting your decision';
   const labels = {
@@ -19,8 +26,8 @@ export function permissionLines(record, width, bindings) {
     ['APPROVAL REQUIRED', `${record.tool}`], ['Action', record.action],
     ['Scope', record.scope], ['Effect', record.effect], ['Reversible', record.reversibility],
     ['Blast radius', record.blast_radius], ['Risk', `${record.risk}: ${record.reason_code}`],
-    ['Reviewer', record.guidance], ['Arguments', JSON.stringify(record.arguments)],
-    ['Expires', new Date(record.expires_at).toISOString()],
+    ['Reviewer', record.guidance], ['Arguments', safeJson(record.arguments ?? {})],
+    ['Expires', formatExpiration(record.expires_at)],
   ];
   const lines = values.flatMap(([label, value]) => wrap(`${label}: ${value ?? 'not provided'}`, width));
   return isOneShot(record) ? [...lines, ...decisionLines(bindings)] : lines;
@@ -77,19 +84,29 @@ function displayArgument(value) {
 
 function choicesFor(permission) {
   return Array.isArray(permission.choices)
-    ? permission.choices : ['allow_once', 'allow_session', 'allow_workspace', 'deny', 'cancel'];
+    ? permission.choices : DEFAULT_PERMISSION_CHOICES;
 }
 
 function isOneShot(permission) {
   const choices = choicesFor(permission);
-  return choices.length === 3 && choices.includes('allow_once') && choices.includes('cancel');
+  return choices.length === 3 && choices.includes(ALLOW_ONCE) && choices.includes(DENY) && choices.includes(CANCEL);
 }
 
 function keyLabel(value) {
   if (!value) return 'unbound';
-  return value.split('+').map((part) => (
-    part.length === 1 ? part.toUpperCase() : `${part[0].toUpperCase()}${part.slice(1)}`
-  )).join('+');
+  return value.split('+').map((part) => {
+    return part.length === 1 ? part.toUpperCase() : `${part[0].toUpperCase()}${part.slice(1)}`;
+  }).join('+');
+}
+
+function formatExpiration(value) {
+  const timestamp = new Date(value);
+  return Number.isFinite(timestamp.valueOf()) ? timestamp.toISOString() : 'not provided';
+}
+
+function safeJson(value) {
+  try { return JSON.stringify(value) ?? '{}'; }
+  catch { return '[unavailable]'; }
 }
 
 function wrap(value, width) {

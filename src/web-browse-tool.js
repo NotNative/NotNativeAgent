@@ -42,7 +42,8 @@ export class BrowserSessionManager {
     this.resolveHost = options.resolveHost;
     this.secretBroker = options.secretBroker ?? null;
     this.sessionId = options.sessionId ?? 'session';
-    this.browser = null; this.context = null; this.page = null; this.refs = new Map(); this.secretValues = new Set();
+    this.browser = null; this.context = null; this.page = null; this.pagePromise = null;
+    this.refs = new Map(); this.secretValues = new Set();
   }
 
   async classifyUrl(value) {
@@ -80,7 +81,8 @@ export class BrowserSessionManager {
 
   async close() {
     const context = this.context; const browser = this.browser;
-    this.page = null; this.context = null; this.browser = null; this.refs.clear(); this.secretValues.clear();
+    this.page = null; this.pagePromise = null; this.context = null; this.browser = null;
+    this.refs.clear(); this.secretValues.clear();
     await context?.close().catch(() => undefined);
     await browser?.close().catch(() => undefined);
     if (this.root) await rm(this.root, { recursive: true, force: true }).catch(() => undefined);
@@ -88,6 +90,13 @@ export class BrowserSessionManager {
 
   async #page() {
     if (this.page) return this.page;
+    if (this.pagePromise) return this.pagePromise;
+    this.pagePromise = this.#openPage();
+    try { return await this.pagePromise; }
+    finally { this.pagePromise = null; }
+  }
+
+  async #openPage() {
     const loaded = await this.loadPlaywright(this.managedPlaywrightRoot);
     this.browser = await loaded.playwright.chromium.launch({ headless: true });
     this.context = await this.browser.newContext({ acceptDownloads: false });

@@ -11,7 +11,8 @@ import {
   withGlobalSpecialistRoutes,
   withKeyBindings, withMcpEnabled, withMcpServer, withMcpServerUpdate, withoutMcpServer, withRuntimeLimits,
 } from './provider/route-configuration.js';
-import { SearxngClient } from './searxng-client.js'; import { SearxngDeployment } from './searxng-deployment.js';
+import { SearxngClient } from './searxng-client.js';
+import { SearxngDeployment } from './searxng-deployment.js';
 import { configuredMcpStatus, testConfiguredMcpServer } from './experience/mcp.js';
 import {
   configureWebSearch, deployWebSearch, disableWebSearch, manageWebSearch, removeWebSearchDeployment, resetWebSearch, webSearchStatus,
@@ -23,6 +24,8 @@ import { createNextConversation, createWorkspaceConversation } from './experienc
 import { restoreWorkspace } from './experience/restore.js';
 import { validateKeyBindings } from './experience/key-bindings.js';
 import { WorkspaceTabPersistence } from './experience/tab-persistence.js';
+
+const INTERACTIVE_OPERATOR = 'authenticated-interactive-operator';
 import { boundedProviderCapabilities } from './provider/capabilities.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './experience/models.js';
 import { advanceWorkspaceConfig, publishWorkspaceConfiguration, writeWorkspaceManifest } from './experience/configuration-publication.js';
@@ -75,8 +78,7 @@ export class ExperienceEngine {
       },
     });
   }
-  initializeDream() { return initializeWorkspaceDream(this); }
-  initializeSessionBroker() { return initializeWorkspaceSessionBroker(this); }
+  initializeDream() { return initializeWorkspaceDream(this); } initializeSessionBroker() { return initializeWorkspaceSessionBroker(this); }
   dreamCommand(action) { return runWorkspaceDreamCommand(this, action); }
   async restore() {
     const result = await restoreWorkspace(this); if (result.complete) await this._savePoolRecoverable();
@@ -145,7 +147,7 @@ export class ExperienceEngine {
     this.tabPersistence.observe(this.#savePool(), this.#tasks);
     return this.#own(session.ingress.submit({
       version: '1.0', type: 'submit', request_id: newId('tui'), content, attachments,
-    }, 'authenticated-interactive-operator'));
+    }, INTERACTIVE_OPERATOR));
   }
   brokerSessions() { return workspaceBrokerSessions(this); }
   submitSession(sessionId, content) { return submitWorkspaceSession(this, sessionId, content); }
@@ -157,7 +159,7 @@ export class ExperienceEngine {
     const session = this._active();
     return session.ingress.submit({
       version: '1.0', type: 'steer', request_id: newId('tui'), content,
-    }, 'authenticated-interactive-operator').then((result) => {
+    }, INTERACTIVE_OPERATOR).then((result) => {
       if (result.accepted) this.projection.apply(session.id, {
         type: 'user_input', text: content, steering: true,
       });
@@ -172,27 +174,27 @@ export class ExperienceEngine {
     return session.ingress.submit({
       version: '1.0', type: 'permission_decision', request_id: newId('tui'),
       permission_token: pending.permission_token, tool_request_id: pending.tool_request_id, choice,
-    }, 'authenticated-interactive-operator');
+    }, INTERACTIVE_OPERATOR);
   }
   cancelActive() {
     const session = this._active();
     if (this.projection.active().pendingPermission) return this.decideActive('cancel');
     return session.ingress.submit({
       version: '1.0', type: 'cancel', request_id: newId('tui'),
-    }, 'authenticated-interactive-operator');
+    }, INTERACTIVE_OPERATOR);
   }
   retryActiveAttachment(id, content) {
     const session = this._active();
     this.projection.apply(session.id, { type: 'user_input', text: content });
     return this.#own(session.ingress.submit({
       version: '1.0', type: 'attachment_retry', request_id: newId('tui'), attachment_id: id, content,
-    }, 'authenticated-interactive-operator'));
+    }, INTERACTIVE_OPERATOR));
   }
   removeActiveAttachment(id) {
     const session = this._active();
     return session.ingress.submit({
       version: '1.0', type: 'attachment_remove', request_id: newId('tui'), attachment_id: id,
-    }, 'authenticated-interactive-operator');
+    }, INTERACTIVE_OPERATOR);
   }
   cycleReviewPosture() {
     const session = this._active();
@@ -206,16 +208,14 @@ export class ExperienceEngine {
   switch(idOrName) {
     const session = [...this.sessions.values()].find((item) => item.id === idOrName || item.name === idOrName);
     if (!session) throw new ContractError('session_missing', 'conversation was not found');
-    this.projection.activate(session.id);
-    this.onChange();
+    this.projection.activate(session.id); this.onChange(); return { sessionId: session.id, name: session.name };
   }
   renameActive(name) {
     if (!name || name.length > 128) throw new ContractError('session_name_invalid', 'conversation name is invalid');
     const session = this._active();
-    session.name = name;
-    this.projection.active().name = name;
+    session.name = name; this.projection.active().name = name;
     this.tabPersistence.observe(this.#savePool(), this.#tasks);
-    this.onChange();
+    this.onChange(); return { sessionId: session.id, name };
   }
   async closeActive(confirm = false) {
     const session = this._active();
@@ -239,7 +239,7 @@ export class ExperienceEngine {
     return { closed: true };
   }
   async shutdown() {
-    this.dream?.close();
+    this.projection.dispose(); this.dream?.close();
     await this.sessionBroker?.close?.();
     let poolFailure = null;
     try {

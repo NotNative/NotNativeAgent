@@ -6,6 +6,10 @@ import { SessionLock } from '../persistence/session-lock.js';
 
 const SCHEMA_VERSION = 4;
 const MAX_TABS = 64;
+const POOL_LOCK_ATTEMPTS = 200;
+const POOL_LOCK_RETRY_MS = 10;
+const REVIEW_POSTURES = new Set(['prompt', 'auto-review', 'unattended']);
+const ATTACHMENT_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 
 export async function loadTabPool(path) {
   if (!path) return null;
@@ -46,11 +50,12 @@ export async function saveTabPool(path, tabs, activeSessionId = null, options = 
 }
 
 async function acquirePoolLock(lock) {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
+  // Wait for at most two seconds so concurrent Consoles can finish one atomic merge.
+  for (let attempt = 0; attempt < POOL_LOCK_ATTEMPTS; attempt += 1) {
     try { await lock.acquire(); return; }
     catch (error) {
       if (error?.code !== 'session_locked') throw error;
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, POOL_LOCK_RETRY_MS));
     }
   }
   throw new ContractError('tab_pool_busy', 'another Console kept the shared tab pool busy');
@@ -71,11 +76,7 @@ function validate(value) {
   }
   const ids = new Set();
   for (const tab of value.tabs) {
-    if (!tab || !/^[A-Za-z0-9_-]{1,128}$/u.test(tab.session_id ?? '') || ids.has(tab.session_id)
-      || !['primary', 'standard'].includes(tab.role) || typeof tab.name !== 'string'
-      || tab.name.length === 0 || tab.name.length > 128 || typeof tab.main !== 'boolean'
-      || !tab.manifest || typeof tab.manifest !== 'object'
-      || (tab.console_id !== null && tab.console_id !== undefined && !/^[A-Za-z0-9_-]{1,128}$/u.test(tab.console_id))) {
+    if (!validTabRecord(tab, ids)) {
       throw new ContractError('tab_pool_invalid', 'saved Console tab record is invalid');
     }
     ids.add(tab.session_id);
@@ -86,12 +87,23 @@ function validate(value) {
   }
 }
 
+function validTabRecord(tab, ids) {
+  if (!tab || !/^[A-Za-z0-9_-]{1,128}$/u.test(tab.session_id ?? '') || ids.has(tab.session_id)) {
+    return false;
+  }
+  if (!['primary', 'standard'].includes(tab.role) || typeof tab.name !== 'string'
+    || tab.name.length === 0 || tab.name.length > 128 || typeof tab.main !== 'boolean') return false;
+  if (!tab.manifest || typeof tab.manifest !== 'object' || Array.isArray(tab.manifest)) return false;
+  return tab.console_id === null || tab.console_id === undefined
+    || /^[A-Za-z0-9_-]{1,128}$/u.test(tab.console_id);
+}
+
 function validatePresentation(value) {
   if (!value || typeof value.draft !== 'string' || Buffer.byteLength(value.draft) > 131_072
     || (value.viewport_end !== null && (!Number.isSafeInteger(value.viewport_end) || value.viewport_end < 0))
     || !Array.isArray(value.expanded_turn_ids) || value.expanded_turn_ids.length > 128
     || value.expanded_turn_ids.some((id) => typeof id !== 'string' || id.length > 128)
-    || !['prompt', 'auto-review', 'unattended'].includes(value.review_posture)
+    || !REVIEW_POSTURES.has(value.review_posture)
     || typeof value.work_collapsed !== 'boolean'
     || !Array.isArray(value.pending_attachments) || value.pending_attachments.length > 16
     || value.pending_attachments.some(invalidAttachment)) {
@@ -101,28 +113,36 @@ function validatePresentation(value) {
 
 function invalidAttachment(item) {
   return !item || typeof item.path !== 'string' || item.path.length > 4096
-    || !['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(item.mime_type)
+    || !ATTACHMENT_MIME_TYPES.has(item.mime_type)
     || !Number.isSafeInteger(item.size) || item.size < 0;
 }
 
 function migrateV1(value) {
+  const tabs = migrationTabs(value);
   return migrateV2({
     schema_version: 2, saved_at: value.saved_at,
-    active_session_id: value.tabs.find((tab) => tab.role === 'primary')?.session_id ?? null,
-    tabs: value.tabs.map((tab) => ({ ...tab, presentation: defaultPresentation() })),
+    active_session_id: tabs.find((tab) => tab?.role === 'primary')?.session_id ?? null,
+    tabs: tabs.map((tab) => ({ ...tab, presentation: defaultPresentation() })),
   });
 }
 
 function migrateV2(value) {
-  return { ...value, schema_version: 3, tabs: value.tabs.map((tab) => ({
+  return { ...value, schema_version: 3, tabs: migrationTabs(value).map((tab) => ({
     ...tab, main: tab.role === 'primary', console_id: null,
   })) };
 }
 
 function migrateV3(value) {
-  return { ...value, schema_version: SCHEMA_VERSION, tabs: value.tabs.map((tab) => ({
+  return { ...value, schema_version: SCHEMA_VERSION, tabs: migrationTabs(value).map((tab) => ({
     ...tab, presentation: { ...tab.presentation, work_collapsed: false },
   })) };
+}
+
+function migrationTabs(value) {
+  if (!Array.isArray(value?.tabs)) {
+    throw new ContractError('tab_pool_invalid', 'saved Console tab pool has no migratable tabs');
+  }
+  return value.tabs;
 }
 
 function defaultPresentation() {

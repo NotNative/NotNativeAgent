@@ -3,12 +3,14 @@ import { spawn } from 'node:child_process';
 import { ContractError } from '../ids.js';
 
 const OPERATIONS = new Set(['status', 'diff', 'diff_staged', 'log']);
+const GIT_INSPECTION_TIMEOUT_MS = 30_000;
+const MAX_GIT_OUTPUT_BYTES = 256 * 1024;
 
 export function gitInspectionDefinition(paths, options = {}) {
   return {
     name: 'git.inspect', version: 1,
     purpose: 'Inspect bounded Git status, working or staged changes, and recent history without constructing a shell command.',
-    sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 30_000,
+    sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: GIT_INSPECTION_TIMEOUT_MS,
     inputSchema: {
       type: 'object', properties: {
         path: { type: 'string', maxLength: 4096, description: 'Git working-tree directory. Defaults to the agent working directory.' },
@@ -57,17 +59,28 @@ function gitArguments(input) {
 function collect(child, operation, signal) {
   return new Promise((resolve, reject) => {
     let stdout = ''; let stderr = ''; let bytes = 0; let settled = false;
-    const finish = (action) => { if (settled) return; settled = true; clearTimeout(timer); signal.removeEventListener('abort', cancel); action(); };
+    const cleanup = () => {
+      clearTimeout(timer); signal.removeEventListener('abort', cancel);
+      child.stdout.removeListener('data', consumeStdout); child.stdout.removeListener('error', streamError);
+      child.stderr.removeListener('data', consumeStderr); child.stderr.removeListener('error', streamError);
+    };
+    const finish = (action) => { if (settled) return; settled = true; cleanup(); action(); };
+    const terminate = () => { if (!child.killed) child.kill('SIGKILL'); };
     const consume = (kind, chunk) => {
       bytes += chunk.length;
-      if (bytes > 262_144) { child.kill(); finish(() => reject(new ContractError('git_output_too_large', 'Git inspection output exceeded 256 KiB'))); return; }
+      if (bytes > MAX_GIT_OUTPUT_BYTES) { terminate(); finish(() => reject(new ContractError('git_output_too_large', 'Git inspection output exceeded 256 KiB'))); return; }
       if (kind === 'stdout') stdout += chunk.toString('utf8'); else stderr += chunk.toString('utf8');
     };
-    const cancel = () => { child.kill(); finish(() => reject(new ContractError('tool_cancelled', 'Git inspection was cancelled'))); };
-    const timer = setTimeout(() => { child.kill(); finish(() => reject(new ContractError('tool_timeout', 'Git inspection exceeded 30 seconds'))); }, 30_000);
+    const consumeStdout = (chunk) => consume('stdout', chunk);
+    const consumeStderr = (chunk) => consume('stderr', chunk);
+    const streamError = () => {
+      terminate(); finish(() => reject(new ContractError('git_stream_failed', 'Git inspection output could not be read')));
+    };
+    const cancel = () => { terminate(); finish(() => reject(new ContractError('tool_cancelled', 'Git inspection was cancelled'))); };
+    const timer = setTimeout(() => { terminate(); finish(() => reject(new ContractError('tool_timeout', 'Git inspection exceeded 30 seconds'))); }, GIT_INSPECTION_TIMEOUT_MS);
     signal.addEventListener('abort', cancel, { once: true });
-    child.stdout.on('data', (chunk) => consume('stdout', chunk));
-    child.stderr.on('data', (chunk) => consume('stderr', chunk));
+    child.stdout.on('data', consumeStdout); child.stdout.on('error', streamError);
+    child.stderr.on('data', consumeStderr); child.stderr.on('error', streamError);
     child.on('error', (error) => finish(() => reject(new ContractError('git_unavailable', error.code === 'ENOENT' ? 'Git is not installed or not available on PATH' : 'Git inspection could not start'))));
     child.on('close', (code) => finish(() => {
       if (code !== 0) { reject(new ContractError('git_repository_unavailable', 'The target is not an accessible Git repository')); return; }

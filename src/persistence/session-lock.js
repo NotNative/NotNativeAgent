@@ -4,6 +4,8 @@ import { mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises
 import { join } from 'node:path';
 import { ContractError } from '../ids.js';
 
+const MAX_STALE_LOCK_ARTIFACTS = 1024;
+
 export class SessionLock {
   #token = randomUUID();
   #owned = false;
@@ -39,7 +41,11 @@ export class SessionLock {
       this.#owned = false;
       return;
     }
-    if (validLockRecord(record) && record.token === this.#token) await unlink(this.path).catch(() => undefined);
+    if (validLockRecord(record) && record.token !== this.#token) {
+      this.#owned = false;
+      throw new ContractError('session_lock_ownership_lost', 'session lock ownership changed before release');
+    }
+    if (validLockRecord(record)) await unlink(this.path).catch(() => undefined);
     this.#owned = false;
   }
 
@@ -80,9 +86,19 @@ export class SessionLock {
     const stale = `${this.path}.stale.${Date.now()}.${attempt}.${randomUUID()}`;
     try {
       await rename(this.path, stale);
+      await this.#pruneStaleEvidence();
     } catch (error) {
       if (!['ENOENT', 'EEXIST'].includes(error.code)) throw error;
     }
+  }
+
+  async #pruneStaleEvidence() {
+    const prefix = `${this.path.slice(this.root.length + 1)}.stale.`;
+    const names = (await readdir(this.root)).filter((name) => name.startsWith(prefix));
+    if (names.length <= MAX_STALE_LOCK_ARTIFACTS) return;
+    names.sort((left, right) => staleTimestamp(left, prefix) - staleTimestamp(right, prefix));
+    await Promise.allSettled(names.slice(0, names.length - MAX_STALE_LOCK_ARTIFACTS)
+      .map((name) => unlink(join(this.root, name))));
   }
 }
 
@@ -90,5 +106,10 @@ function validLockRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     && Number.isInteger(value.pid) && value.pid > 0
     && typeof value.token === 'string' && value.token.length > 0
-    && typeof value.created_at === 'string';
+    && typeof value.created_at === 'string' && Number.isFinite(Date.parse(value.created_at));
+}
+
+function staleTimestamp(name, prefix) {
+  const timestamp = Number(name.slice(prefix.length).split('.', 1)[0]);
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }

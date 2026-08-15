@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const SOURCE_PRIORITY = Object.freeze({
-  model_unverified: 0, fetch: 1, browser: 2, search: 3, user: 4,
+const TOOL = Object.freeze({ SEARCH: 'web.search', BROWSE: 'web.browse', FETCH: 'web.fetch' });
+const SOURCE = Object.freeze({
+  INVALID: 'invalid', MODEL: 'model_unverified', FETCH: 'fetch', BROWSER: 'browser', SEARCH: 'search', USER: 'user',
 });
+const SOURCE_PRIORITY = Object.freeze({
+  [SOURCE.MODEL]: 0, [SOURCE.FETCH]: 1, [SOURCE.BROWSER]: 2, [SOURCE.SEARCH]: 3, [SOURCE.USER]: 4,
+});
+const NONTERMINAL_STATUSES = new Set(['running']);
+const SUCCESS_STATUSES = new Set(['succeeded', 'duplicate_ignored']);
 
 export class WebUrlProvenance {
   constructor(prompt = '') {
     this.sources = new Map();
     this.failed = new Set();
-    for (const url of extractWebUrls(prompt)) this.remember(url, 'user');
+    for (const url of extractWebUrls(prompt)) this.remember(url, SOURCE.USER);
   }
 
   remember(value, source) {
@@ -23,9 +29,9 @@ export class WebUrlProvenance {
 
   classify(value) {
     const url = normalizeWebUrl(value);
-    if (!url) return { url: null, source: 'invalid', verified: false };
-    const source = this.sources.get(url) ?? 'model_unverified';
-    return { url, source, verified: source !== 'model_unverified' };
+    if (!url) return { url: null, source: SOURCE.INVALID, verified: false };
+    const source = this.sources.get(url) ?? SOURCE.MODEL;
+    return { url, source, verified: source !== SOURCE.MODEL };
   }
 
   hasFailed(value) {
@@ -35,20 +41,20 @@ export class WebUrlProvenance {
 
   observe(request, result) {
     const toolName = request?.toolName;
-    if (toolName === 'web.search' && result?.status === 'succeeded') {
-      for (const url of searchResultUrls(result.content)) this.remember(url, 'search');
+    if (toolName === TOOL.SEARCH && result?.status === 'succeeded') {
+      for (const url of searchResultUrls(result.content)) this.remember(url, SOURCE.SEARCH);
       return;
     }
-    if (toolName === 'web.browse' && result?.status === 'succeeded') {
-      this.remember(result.metadata?.url ?? request.args?.url, 'browser');
+    if (toolName === TOOL.BROWSE && result?.status === 'succeeded') {
+      this.remember(result.metadata?.url ?? request.args?.url, SOURCE.BROWSER);
       return;
     }
-    if (toolName !== 'web.fetch') return;
+    if (toolName !== TOOL.FETCH) return;
     const url = this.remember(request.args?.url, this.classify(request.args?.url).source);
     if (!url) return;
     if (result?.status === 'succeeded') {
-      this.remember(result.metadata?.finalUrl ?? result.metadata?.url ?? url, 'fetch');
-    } else if (['failed', 'invalid_request', 'timed_out'].includes(result?.status)) {
+      this.remember(result.metadata?.finalUrl ?? result.metadata?.url ?? url, SOURCE.FETCH);
+    } else if (result?.status && !NONTERMINAL_STATUSES.has(result.status) && !SUCCESS_STATUSES.has(result.status)) {
       this.failed.add(url);
     }
   }
@@ -59,6 +65,7 @@ export function normalizeWebUrl(value) {
   try {
     const parsed = new URL(value.trim().replace(/[),.;!?]+$/u, ''));
     if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) return null;
+    // Fragments identify a client-side view, not a distinct network resource, so provenance is resource-scoped.
     parsed.hash = '';
     return parsed.href;
   } catch {

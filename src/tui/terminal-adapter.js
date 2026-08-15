@@ -4,6 +4,9 @@ import { runtimeEnvironment } from '../environment-settings.js';
 import { bindingBytes, DEFAULT_KEY_BINDINGS } from './key-bindings.js';
 
 const ESC = '\u001b';
+const MAX_INPUT_BYTES = 262_144;
+const PASTE_START = `${ESC}[200~`;
+const PASTE_END = `${ESC}[201~`;
 export function terminalCapabilities(input, output, options = {}) {
   const tty = input.isTTY === true && output.isTTY === true;
   const environment = runtimeEnvironment(options.environment ?? process.env);
@@ -96,7 +99,7 @@ export class TerminalInputDecoder {
 
   push(chunk) {
     this.#buffer += Buffer.from(chunk).toString('utf8');
-    if (Buffer.byteLength(this.#buffer) > 262_144) {
+    if (Buffer.byteLength(this.#buffer) > MAX_INPUT_BYTES) {
       this.#buffer = ''; this.#paste = false;
       return [{ action: 'input_rejected', reason: 'paste_too_large' }];
     }
@@ -119,8 +122,8 @@ export class TerminalInputDecoder {
 
   #consumeOne(actions) {
     if (this.#paste) return this.#consumePaste(actions);
-    if (this.#buffer.startsWith(`${ESC}[200~`)) {
-      this.#buffer = this.#buffer.slice(6); this.#paste = true; return true;
+    if (this.#buffer.startsWith(PASTE_START)) {
+      this.#buffer = this.#buffer.slice(PASTE_START.length); this.#paste = true; return true;
     }
     const mouse = mouseSequence(this.#buffer);
     if (mouse) {
@@ -168,10 +171,10 @@ export class TerminalInputDecoder {
   }
 
   #consumePaste(actions) {
-    const end = this.#buffer.indexOf(`${ESC}[201~`);
+    const end = this.#buffer.indexOf(PASTE_END);
     if (end < 0) return false;
     actions.push({ action: 'paste', text: this.#buffer.slice(0, end) });
-    this.#buffer = this.#buffer.slice(end + 6); this.#paste = false;
+    this.#buffer = this.#buffer.slice(end + PASTE_END.length); this.#paste = false;
     return true;
   }
 }
@@ -210,12 +213,14 @@ function mouseSequence(value) {
   const match = /^\u001b\[<(\d{1,3});(\d{1,5});(\d{1,5})([Mm])/u.exec(value);
   if (!match) return null;
   const code = Number(match[1]);
+  const wheel = (code & 64) !== 0;
   return {
     bytes: match[0].length,
     action: {
       action: 'mouse', button: code & 3, column: Number(match[2]), row: Number(match[3]),
       pressed: match[4] === 'M', shift: (code & 4) !== 0, alt: (code & 8) !== 0,
-      ctrl: (code & 16) !== 0, motion: (code & 32) !== 0, wheel: (code & 64) !== 0,
+      ctrl: (code & 16) !== 0, motion: (code & 32) !== 0, wheel,
+      wheelDirection: wheel ? (code & 1) === 0 ? 'up' : 'down' : null,
     },
   };
 }

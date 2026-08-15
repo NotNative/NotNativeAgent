@@ -8,6 +8,8 @@ import { workspaceIsTrusted } from './experience/trust.js';
 import { ContractError } from './ids.js';
 
 const BUNDLED_SKILL_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'resources', 'skills');
+const PROJECT_CONFIG_DIRECTORY = '.nna';
+const MAX_MANIFEST_BYTES = 1024 * 1024;
 
 export async function loadEffectiveStartupConfiguration(options) {
   const root = resolve(options.workspaceRoot ?? process.cwd());
@@ -16,7 +18,7 @@ export async function loadEffectiveStartupConfiguration(options) {
     { name: 'user', manifest: user },
     { name: 'workspace', manifest: { workspace_root: root } },
   ];
-  const projectPath = join(root, '.nna', 'settings.json');
+  const projectPath = join(root, PROJECT_CONFIG_DIRECTORY, 'settings.json');
   const trusted = await workspaceIsTrusted(options.paths.trustedWorkspaces, root);
   const project = trusted ? await readOptionalManifest(projectPath) : null;
   if (project) {
@@ -27,9 +29,10 @@ export async function loadEffectiveStartupConfiguration(options) {
   }
   if (options.explicitPath) sources.push({ name: 'explicit', manifest: await readManifest(options.explicitPath) });
   const resolved = resolveConfiguration(sources, { securityAudit: options.securityAudit });
-  return Object.freeze({ ...resolved, project: Object.freeze({
-    path: projectPath, hookRoot: join(root, '.nna', 'hooks'), skillRoot: join(root, '.nna', 'skills'), present: project !== null, trusted,
-  }) });
+  return deepFreeze({ ...resolved, project: {
+    path: projectPath, hookRoot: join(root, PROJECT_CONFIG_DIRECTORY, 'hooks'),
+    skillRoot: join(root, PROJECT_CONFIG_DIRECTORY, 'skills'), present: project !== null, trusted,
+  } });
 }
 
 export function runtimeHookRoots(paths, project) {
@@ -53,12 +56,22 @@ async function readOptionalManifest(path) {
 
 async function readManifest(path) {
   const bytes = await readFile(path);
-  if (bytes.length > 1_048_576) throw new ContractError('manifest_too_large', 'configuration file exceeds bound');
+  if (bytes.length > MAX_MANIFEST_BYTES) throw new ContractError('manifest_too_large', 'configuration file exceeds bound');
+  let value;
   try {
-    const value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
-    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('shape');
-    return value;
+    value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
   } catch {
     throw new ContractError('manifest_invalid', 'configuration file is not valid UTF-8 JSON');
   }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new ContractError('manifest_invalid', 'configuration file must contain a JSON object');
+  }
+  return value;
+}
+
+function deepFreeze(value, seen = new WeakSet()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) return value;
+  seen.add(value);
+  for (const child of Object.values(value)) deepFreeze(child, seen);
+  return Object.freeze(value);
 }

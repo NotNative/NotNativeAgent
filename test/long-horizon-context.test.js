@@ -25,6 +25,14 @@ test('historical tool payload budget scales with the effective model input windo
   assert.equal(longHorizonCompressionTrigger(records, { effectiveInputTokens: 20_000 }), null);
 });
 
+test('tool payload pressure measures structured content and rejects cycles explicitly', () => {
+  const records = [{ type: 'tool_result', content: { text: 'x'.repeat(5_000) } }];
+  assert.equal(longHorizonCompressionTrigger(records, { effectiveInputTokens: 10_000 })?.reason, 'tool_payload_budget');
+  const cyclic = {};
+  cyclic.self = cyclic;
+  assert.throws(() => retainedRecordsFingerprint([cyclic]), { code: 'long_horizon_records_invalid' });
+});
+
 test('unknown context capacity does not turn an empty payload into a compression trigger', () => {
   assert.equal(longHorizonCompressionTrigger([
     { type: 'message', role: 'user', turnId: 'active', content: 'hello' },

@@ -8,7 +8,7 @@ export function evaluateCompletion(active, text, work = null) {
   if (TRUNCATED.has(finishReason)) {
     return Object.freeze({ disposition: 'continue', category: 'truncated_output', progressEvidence: text });
   }
-  if (TOOL_SIGNAL.has(finishReason) && active.toolAssembler.size === 0) {
+  if (TOOL_SIGNAL.has(finishReason) && (active.toolAssembler?.size ?? 0) === 0) {
     return Object.freeze({ disposition: 'continue', category: 'missing_tool_call', progressEvidence: null });
   }
   if (lostActiveTask(active, text)) {
@@ -51,17 +51,20 @@ export function partialOutputProgress(text) {
 }
 
 function claimsCompletion(text) {
+  // Require an explicit task noun or a terse terminal-only acknowledgement; ordinary optimism is not completion.
   return /\b(?:task|work|request|operation|change)\s+(?:is\s+)?(?:now\s+)?(?:complete|completed|done|finished|successful)\b/iu.test(text)
     || /^\s*(?:done|completed|finished|success)\b[.!]?\s*$/iu.test(text);
 }
 
 export function requestsInput(text) {
-  const normalized = text.trim().toLowerCase();
+  const normalized = String(text ?? '').trim().toLowerCase();
   if (!normalized) return false;
-  if (/\b(?:need|requires?|missing|blocked|cannot continue|can't continue|please provide|please supply|please clarify)\b[^.!?]{0,160}[.!?]?$/u.test(normalized)) {
+  // Only the bounded output tail can represent the model's current terminal request; this also bounds regex work.
+  const tail = normalized.slice(-512);
+  if (/\b(?:need|requires?|missing|blocked|cannot continue|can't continue|please provide|please supply|please clarify)\b[^.!?]{0,160}[.!?]?$/u.test(tail)) {
     return true;
   }
-  const last = normalized.split(/(?<=[.!?])\s+/u).at(-1) ?? normalized;
+  const last = tail.split(/(?<=[.!?])\s+/u).at(-1) ?? tail;
   if (!last.endsWith('?')) return false;
   if (/^(?:how|what) can i help\b|^what would you like me to (?:help|assist)\b|^is there anything (?:else )?(?:i can|you(?:'d| would) like me to)\b|^would you like me to\b/u.test(last)) {
     return false;
@@ -72,6 +75,7 @@ export function requestsInput(text) {
 function lostActiveTask(active, text) {
   if (!(active.recovery?.actions?.length > 0)) return false;
   const normalized = text.trim().toLowerCase();
+  // Both halves together identify a reset-style greeting, and only after recovery has already begun.
   return /\bi(?:'m| am) (?:ready|here) to help\b/u.test(normalized)
     && /\bwhat would you like me to (?:help|assist)\b/u.test(normalized);
 }

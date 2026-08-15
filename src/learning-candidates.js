@@ -6,6 +6,7 @@ export const LEARNING_POLICY_VERSION = 'learning-promotion/1';
 
 export class LearningCandidateRegistry {
   constructor(options) {
+    assertDependencies(options);
     this.store = options.store;
     this.governance = options.governance;
     this.runtimeKey = options.runtimeKey;
@@ -24,7 +25,7 @@ export class LearningCandidateRegistry {
       conflict: 'none', sourceRef: candidate.id,
       sourceFingerprint: candidate.payload_fingerprint,
       contentFingerprint: candidate.payload_fingerprint,
-      scope: input.scope ?? this.scope, observedAt: Date.parse(candidate.created_at),
+      scope: input.scope ?? this.scope, observedAt: requiredTimestamp(candidate.created_at, 'candidate creation'),
       attributes: { candidate_kind: candidate.kind, risk_class: candidate.risk_class },
     });
     const observationKey = governanceFingerprint(sources.map((item) => item.id).sort().join(':')).slice(0, 24);
@@ -35,7 +36,7 @@ export class LearningCandidateRegistry {
       reasonCode: 'candidate_requires_validation', policyVersion: LEARNING_POLICY_VERSION,
       evidenceRefs: [...sources.map((item) => item.id), evidence.id], authorityRefs: [],
       decidedAt: Math.max(...sources.map((item) => item.observedAt)),
-      expiresAt: candidate.expires_at ? Date.parse(candidate.expires_at) : null,
+      expiresAt: optionalTimestamp(candidate.expires_at, 'candidate expiration'),
       attributes: { candidate_state: candidate.state, candidate_kind: candidate.kind },
     });
     await this.governance.settleDecision(decision.id, {
@@ -69,21 +70,23 @@ export class LearningCandidateRegistry {
       policyVersion: LEARNING_POLICY_VERSION,
       evidenceRefs: [...sources.map((item) => item.id), candidateEvidenceId(candidate.id)],
       authorityRefs: authorities.map((item) => item.id), decidedAt: Date.now(),
-      expiresAt: candidate.expires_at ? Date.parse(candidate.expires_at) : null,
+      expiresAt: optionalTimestamp(candidate.expires_at, 'candidate expiration'),
       attributes: { candidate_kind: candidate.kind, risk_class: candidate.risk_class },
     });
+    const evidenceId = candidateEvidenceId(id);
+    let active;
     try {
-      const active = this.store.transitionCandidate(id, 'active');
-      await this.governance.transitionEvidence(candidateEvidenceId(id), 'active', {
+      await this.governance.transitionEvidence(evidenceId, 'active', {
         reasonCode: 'candidate_promoted', evidenceRefs: sources.map((item) => item.id),
       });
-      await this.governance.settleDecision(decision.id, {
-        status: 'applied', effectCertainty: 'completed',
-        resultFingerprint: governanceFingerprint(`${id}:active`), reasonCode: 'candidate_activated',
-      });
-      this.#telemetry('learning.promotion', 'succeeded', active, 'candidate_activated');
-      return active;
+      active = this.store.transitionCandidate(id, 'active');
     } catch (error) {
+      const evidence = this.governance.evidence(evidenceId);
+      if (evidence?.state === 'active' && this.store.candidate(id)?.state !== 'active') {
+        await this.governance.transitionEvidence(evidenceId, 'quarantined', {
+          reasonCode: 'candidate_promotion_compensated', evidenceRefs: sources.map((item) => item.id),
+        }).catch(() => undefined);
+      }
       await this.governance.settleDecision(decision.id, {
         status: 'failed', effectCertainty: 'unknown',
         resultFingerprint: governanceFingerprint(`${id}:promotion_failed`),
@@ -91,6 +94,9 @@ export class LearningCandidateRegistry {
       });
       throw error;
     }
+    await settlePromotionApplied(this.governance, decision.id, id);
+    this.#telemetry('learning.promotion', 'succeeded', active, 'candidate_activated');
+    return active;
   }
 
   async reject(id, reason) {
@@ -149,3 +155,30 @@ export class LearningCandidateRegistry {
 
 function candidateEvidenceId(id) { return `evidence:candidate:${id}`; }
 function domainFor(kind) { return kind.startsWith('guidance.') ? 'guidance_promotion' : 'learning_promotion'; }
+
+async function settlePromotionApplied(governance, decisionId, candidateId) {
+  await governance.settleDecision(decisionId, {
+    status: 'applied', effectCertainty: 'completed',
+    resultFingerprint: governanceFingerprint(`${candidateId}:active`), reasonCode: 'candidate_activated',
+  });
+}
+
+function optionalTimestamp(value, label) {
+  return value === null || value === undefined ? null : requiredTimestamp(value, label);
+}
+
+function requiredTimestamp(value, label) {
+  const timestamp = typeof value === 'string' ? Date.parse(value) : Number.NaN;
+  if (!Number.isFinite(timestamp)) throw new ContractError('learning_timestamp_invalid', `${label} timestamp is invalid`);
+  return timestamp;
+}
+
+function assertDependencies(options) {
+  if (!options?.store || typeof options.store.observeCandidate !== 'function' || typeof options.store.transitionCandidate !== 'function') {
+    throw new ContractError('learning_store_required', 'learning candidate store is required');
+  }
+  if (!options.governance || typeof options.governance.evidence !== 'function'
+      || typeof options.governance.registerEvidence !== 'function' || typeof options.governance.decide !== 'function') {
+    throw new ContractError('learning_governance_required', 'learning governance engine is required');
+  }
+}

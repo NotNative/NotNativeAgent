@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
 
+const MIN_TIMEOUT_MS = 100;
+const MAX_TIMEOUT_MS = 3_600_000;
+const DEFAULT_PROVIDER_TIMEOUT_MS = 1_800_000;
+const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = 600_000;
+const DEFAULT_IDLE_TIMEOUT_MS = 300_000;
+const MAX_STREAM_TIMEOUT_MS = 600_000;
+const LEGACY_FIRST_TOKEN_TIMEOUT_MS = 30_000;
+const LEGACY_IDLE_TIMEOUT_MS = 45_000;
+const LEGACY_SEMANTIC_REVIEW_TIMEOUT_MS = 15_000;
+
 export function boundedInteger(value, fallback, minimum, maximum) {
   if (value === undefined) return fallback;
   if (!Number.isInteger(value) || value < minimum || value > maximum) {
@@ -29,8 +39,8 @@ export function optionalZeroUnsetNumber(value, minimum, maximum) {
 
 export function migrateLegacyProviderTimeoutDefaults(manifest) {
   const migrated = { ...manifest };
-  if (migrated.first_token_timeout_ms === 30_000) migrated.first_token_timeout_ms = undefined;
-  if (migrated.idle_timeout_ms === 45_000) migrated.idle_timeout_ms = undefined;
+  if (migrated.first_token_timeout_ms === LEGACY_FIRST_TOKEN_TIMEOUT_MS) migrated.first_token_timeout_ms = undefined;
+  if (migrated.idle_timeout_ms === LEGACY_IDLE_TIMEOUT_MS) migrated.idle_timeout_ms = undefined;
   return migrated;
 }
 
@@ -39,26 +49,31 @@ export function providerTimeouts(manifest) {
   const primaryDeadline = input.routes?.primary?.deadline_ms;
   const configured = primaryDeadline === undefined ? input.provider_timeout_ms : primaryDeadline;
   return {
-    providerMs: configured === 0 ? null : boundedInteger(configured, 1_800_000, 100, 3_600_000),
-    providerOverrideMs: configured === undefined ? null
-      : configured === 0 ? 0 : boundedInteger(configured, null, 100, 3_600_000),
-    firstTokenMs: boundedInteger(input.first_token_timeout_ms, 600_000, 100, 600_000),
-    idleMs: boundedInteger(input.idle_timeout_ms, 300_000, 100, 600_000),
+    providerMs: configured === 0 ? null : boundedInteger(configured, DEFAULT_PROVIDER_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS),
+    providerOverrideMs: providerOverride(configured),
+    firstTokenMs: boundedInteger(input.first_token_timeout_ms, DEFAULT_FIRST_TOKEN_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_STREAM_TIMEOUT_MS),
+    idleMs: boundedInteger(input.idle_timeout_ms, DEFAULT_IDLE_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_STREAM_TIMEOUT_MS),
   };
 }
 
 export function providerRouteDeadlineOverride(value) {
   if (value === undefined) return null;
   if (value === 0) return 0;
-  return boundedInteger(value, null, 100, 3_600_000);
+  return boundedInteger(value, null, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
 }
 
 export function semanticReviewTimeout(manifest, providerMs) {
   const configured = manifest.semantic_review_timeout_ms;
   // Fifteen seconds was an early default that is too short for local models and
   // was persisted into existing manifests. Migrate that exact legacy value.
-  if (configured === undefined || configured === 15_000) return providerMs ?? 1_800_000;
-  return boundedInteger(configured, providerMs ?? 1_800_000, 100, 3_600_000);
+  if (configured === undefined || configured === LEGACY_SEMANTIC_REVIEW_TIMEOUT_MS) return providerMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
+  return boundedInteger(configured, providerMs ?? DEFAULT_PROVIDER_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
+}
+
+function providerOverride(configured) {
+  if (configured === undefined) return null;
+  if (configured === 0) return 0;
+  return boundedInteger(configured, null, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
 }
 
 export function telemetryDestination(value) {

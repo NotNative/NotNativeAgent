@@ -21,6 +21,10 @@ export function explicitSkillRequests(records, turnRefs) {
 
 export async function observeSkillRequests(options) {
   const requests = explicitSkillRequests(options.records, options.turnRefs), candidates = [];
+  const registry = new LearningCandidateRegistry({
+    store: options.store, governance: options.engine.governance,
+    runtimeKey: options.runtimeKey, scope: options.scope, telemetry: options.engine.telemetry,
+  });
   for (const request of requests) {
     if (options.signal?.aborted) throw cancelled();
     const statementFingerprint = governanceFingerprint(request.request);
@@ -31,10 +35,6 @@ export async function observeSkillRequests(options) {
       sourceFingerprint: request.turnId, contentFingerprint: statementFingerprint,
       scope: options.scope, observedAt: Date.now(),
       attributes: { authority_limit: 'proposal_only', candidate_kind: 'skill.workflow_opportunity' },
-    });
-    const registry = new LearningCandidateRegistry({
-      store: options.store, governance: options.engine.governance,
-      runtimeKey: options.runtimeKey, scope: options.scope, telemetry: options.engine.telemetry,
     });
     candidates.push(await registry.observe(skillCandidate(request, evidence.id, statementFingerprint)));
   }
@@ -64,5 +64,5 @@ function eligible(record, allowed) {
     && allowed.has(record.turnId) && typeof record.content === 'string';
 }
 function cancelled() {
-  return Object.assign(new Error('skill opportunity scan cancelled'), { code: 'dream_cancelled' });
+  return Object.assign(new Error('skill opportunity scan cancelled'), { code: 'dream_cancelled', isCancellationError: true });
 }

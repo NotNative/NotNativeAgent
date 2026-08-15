@@ -4,6 +4,9 @@ import { clearSelection, selectedText } from './selection.js';
 import { recordClipboard } from './telemetry.js';
 import { queueClipboardContent, queueClipboardImage, queuePastedImagePaths } from '../experience/attachments.js';
 
+const ACTION = Object.freeze({ attachment: 'attachment', paste: 'paste' });
+const OUTCOME = Object.freeze({ started: 'started', succeeded: 'succeeded', failed: 'failed' });
+
 export async function clipboardPasteAction(workspace) {
   const read = workspace.options.clipboardRead;
   if (typeof read !== 'function') throw new ContractError('clipboard_unavailable', 'clipboard paste is unavailable');
@@ -13,21 +16,24 @@ export async function clipboardPasteAction(workspace) {
   if (!workspace.projection?.overlay && typeof workspace.options.clipboardImageRead === 'function') {
     try {
       const attachment = await queueClipboardImage(workspace);
-      return { action: 'attachment', attachment };
+      return normalizeClipboardAction({ action: ACTION.attachment, attachment });
     } catch (error) {
       if (!imageFallbackError(error)) throw error;
     }
   }
   let text = '';
-  try { text = await read(); } catch { /* an image clipboard commonly has no text representation */ }
+  let textReadError = null;
+  try { text = await read(); }
+  catch (error) { textReadError = error; }
   if (!text) {
     if (typeof workspace.options.clipboardImageRead !== 'function') {
+      if (textReadError) throw textReadError;
       throw new ContractError('clipboard_empty', 'The clipboard does not contain text or a supported image.');
     }
     const attachment = await queueClipboardImage(workspace);
-    return { action: 'attachment', attachment };
+    return normalizeClipboardAction({ action: ACTION.attachment, attachment });
   }
-  return { action: 'paste', text: normalizeClipboardText(text) };
+  return normalizeClipboardAction({ action: ACTION.paste, text });
 }
 
 function imageFallbackError(error) {
@@ -36,26 +42,37 @@ function imageFallbackError(error) {
 
 export async function pasteClipboard(workspace, handleOverlayAction, handleEditorAction, source = 'keyboard') {
   const started = performance.now();
-  recordClipboard(workspace, 'started', { type: 'paste', source });
+  recordClipboard(workspace, OUTCOME.started, { type: ACTION.paste, source });
   try {
     const action = await clipboardPasteAction(workspace);
-    const target = workspace.projection.overlay?.kind ?? 'conversation';
+    const projection = workspace?.projection;
+    if (!projection) throw new ContractError('clipboard_target_unavailable', 'clipboard paste has no active projection');
+    const target = projection.overlay?.kind ?? 'conversation';
     let dropped = [];
-    if (action.action === 'paste' && !workspace.projection.overlay) dropped = await queuePastedImagePaths(workspace, action.text);
-    if (action.action === 'attachment') {
-      workspace.projection.showNotice('attachment', `Queued ${action.attachment.path} for the next message.`);
+    if (action.action === ACTION.paste && !projection.overlay) {
+      dropped = await queuePastedImagePaths(workspace, action.text);
+    }
+    if (action.action === ACTION.attachment) {
+      projection.showNotice(ACTION.attachment, `Queued ${action.attachment.path} for the next message.`);
     } else if (dropped.length > 0) {
-      workspace.projection.showNotice('attachment', `Queued ${dropped.length} dropped image${dropped.length === 1 ? '' : 's'} for the next message.`);
-    } else if (workspace.projection.overlay) await handleOverlayAction(action, workspace);
-    else handleEditorAction(action, workspace.projection.active().editor);
-    recordClipboard(workspace, 'succeeded', {
-      type: action.action === 'attachment' || dropped.length > 0 ? 'image' : 'paste', source, target,
-      bytes: action.action === 'attachment' ? action.attachment.size : Buffer.byteLength(action.text),
-      characters: action.action === 'attachment' || dropped.length > 0 ? 0 : action.text.length,
-      lines: action.action === 'attachment' || dropped.length > 0 ? 0 : action.text.split('\n').length,
+      projection.showNotice(ACTION.attachment, `Queued ${dropped.length} dropped image${dropped.length === 1 ? '' : 's'} for the next message.`);
+    } else if (projection.overlay) {
+      await handleOverlayAction(action, workspace);
+    } else {
+      const editor = projection.active?.()?.editor;
+      if (!editor) throw new ContractError('clipboard_target_unavailable', 'clipboard paste has no active editor');
+      await handleEditorAction(action, editor);
+    }
+    recordClipboard(workspace, OUTCOME.succeeded, {
+      type: action.action === ACTION.attachment || dropped.length > 0 ? 'image' : ACTION.paste, source, target,
+      bytes: action.action === ACTION.attachment ? action.attachment.size : Buffer.byteLength(action.text),
+      characters: action.action === ACTION.attachment || dropped.length > 0 ? 0 : action.text.length,
+      lines: action.action === ACTION.attachment || dropped.length > 0 ? 0 : action.text.split('\n').length,
     }, performance.now() - started);
   } catch (error) {
-    recordClipboard(workspace, 'failed', { type: 'paste', source, code: error.code ?? 'clipboard_failed' }, performance.now() - started);
+    recordClipboard(workspace, OUTCOME.failed, {
+      type: ACTION.paste, source, code: error.code ?? 'clipboard_failed',
+    }, performance.now() - started);
     throw error;
   }
 }
@@ -90,5 +107,21 @@ function normalizeClipboardText(value) {
 }
 
 function normalizeClipboardAction(action) {
-  return action.action === 'paste' ? { ...action, text: normalizeClipboardText(action.text) } : action;
+  if (!action || typeof action !== 'object') {
+    throw new ContractError('clipboard_content_invalid', 'clipboard reader returned an invalid result');
+  }
+  if (action.action === ACTION.paste) {
+    if (typeof action.text !== 'string') {
+      throw new ContractError('clipboard_content_invalid', 'clipboard text is invalid');
+    }
+    return { ...action, text: normalizeClipboardText(action.text) };
+  }
+  if (action.action === ACTION.attachment) {
+    if (typeof action.attachment?.path !== 'string'
+      || !Number.isSafeInteger(action.attachment.size) || action.attachment.size < 0) {
+      throw new ContractError('clipboard_content_invalid', 'clipboard attachment is invalid');
+    }
+    return action;
+  }
+  throw new ContractError('clipboard_content_invalid', 'clipboard action is unsupported');
 }

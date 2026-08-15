@@ -4,6 +4,13 @@ import { HttpMcpTransport, MCP_CURRENT_VERSION, StdioMcpTransport } from './mcp-
 import { VERSION } from './product.js';
 
 const STATES = new Set(['disabled', 'connecting', 'authenticating', 'ready', 'degraded', 'failed', 'reconnecting', 'closed']);
+const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_BASE_DELAY_MS = 50;
+const MAX_MCP_PAGES = 64;
+const MAX_MCP_TOOLS = 4_096;
+const MAX_MCP_OUTPUT_BYTES = 1_048_576;
+const MAX_TOOL_NAME_BYTES = 128;
+const MAX_TOOL_DESCRIPTION_BYTES = 4_096;
 
 export class McpManager {
   constructor(options) {
@@ -56,15 +63,15 @@ export class McpManager {
     return this.#attributedRequest(id, 'prompts/get', { name, arguments: args }, signal);
   }
 
-  async reconnect(id, attempts = 3, signal) {
+  async reconnect(id, attempts = MAX_RECONNECT_ATTEMPTS, signal) {
     const prior = this.connections.get(id);
     if (!prior || !prior.config.enabled) throw new ContractError('mcp_unavailable', 'MCP server is unavailable');
     prior.state = 'reconnecting';
     this.registry.revokeSource(`mcp:${id}`);
     await bounded((closeSignal) => prior.transport?.close(closeSignal), prior.config.shutdownTimeoutMs, signal).catch(() => undefined);
-    for (let attempt = 0; attempt < Math.min(3, attempts); attempt += 1) {
-      if (attempt > 0) await reconnectDelay(50 * (2 ** (attempt - 1)), signal);
-      try { await this.#connect(prior.config); return this.connections.get(id); } catch (error) {
+    for (let attempt = 0; attempt < Math.min(MAX_RECONNECT_ATTEMPTS, attempts); attempt += 1) {
+      if (attempt > 0) await reconnectDelay(RECONNECT_BASE_DELAY_MS * (2 ** (attempt - 1)), signal);
+      try { await this.#connect(prior.config, signal); return this.connections.get(id); } catch (error) {
         if (error.retryable !== true) break;
       }
     }
@@ -92,7 +99,6 @@ export class McpManager {
       this.registry.revokeSource(`mcp:${connection.config.id}`);
       try { await bounded((signal) => connection.transport?.close(signal), connection.config.shutdownTimeoutMs); }
       catch (error) { connection.lastError = error.code ?? 'mcp_shutdown_failed'; }
-      finally { this.registry.revokeSource(`mcp:${connection.config.id}`); }
     }));
   }
 
@@ -145,7 +151,7 @@ export class McpManager {
       throw error;
     }
     const serialized = JSON.stringify(result);
-    if (Buffer.byteLength(serialized) > 1_048_576) {
+    if (Buffer.byteLength(serialized) > MAX_MCP_OUTPUT_BYTES) {
       throw new ContractError('mcp_output_too_large', 'MCP context response exceeded bound');
     }
     return Object.freeze({ serverId: id, method, untrusted: true, result: structuredClone(result) });
@@ -155,9 +161,9 @@ export class McpManager {
     const version = (connection.toolGeneration ?? 0) + 1;
     for (const tool of tools) {
       const prefix = `mcp.${connection.config.id}.`;
-      const localName = `${prefix}${safeName(tool.name, 128 - prefix.length)}`;
+      const localName = `${prefix}${safeName(tool.name, MAX_TOOL_NAME_BYTES - prefix.length)}`;
       try { this.registry.installExternal({
-        name: localName, version, purpose: boundedText(tool.description ?? tool.name, 4096),
+        name: localName, version, purpose: boundedText(tool.description ?? tool.name, MAX_TOOL_DESCRIPTION_BYTES),
         sideEffect: effectFor(connection.config, tool.name), scope: 'external',
         cancellation: true, timeoutMs: connection.config.callTimeoutMs,
         inputSchema: tool.inputSchema, source: `mcp:${connection.config.id}`,
@@ -169,7 +175,10 @@ export class McpManager {
           try { return await executeTool(connection, tool.name, request.args, signal); }
           catch (error) { this.#recordCallFailure(connection, error); throw error; }
         },
-      }); } catch { /* one malformed or colliding remote tool is isolated */ }
+      }); } catch (error) {
+        connection.toolInstallFailures = (connection.toolInstallFailures ?? 0) + 1;
+        connection.lastError ??= error?.code ?? 'mcp_tool_install_failed';
+      }
     }
     connection.toolGeneration = version;
   }
@@ -203,13 +212,16 @@ async function negotiate(connection, timeoutMs, parentSignal) {
 async function discoverTools(connection, timeoutMs, parentSignal) {
   const result = [];
   let cursor;
-  for (let page = 0; page < 64; page += 1) {
+  for (let page = 0; page < MAX_MCP_PAGES; page += 1) {
     const listed = await bounded(
       (signal) => connection.transport.request('tools/list', cursor ? { cursor } : {}, signal),
       timeoutMs, parentSignal,
     );
-    result.push(...listTools(listed));
-    if (result.length > 4096) throw new ContractError('mcp_tool_limit', 'MCP tool count exceeded bound');
+    const pageTools = listTools(listed);
+    if (pageTools.length > MAX_MCP_TOOLS - result.length) {
+      throw new ContractError('mcp_tool_limit', 'MCP tool count exceeded bound');
+    }
+    result.push(...pageTools);
     cursor = listed?.nextCursor;
     if (!cursor) return result;
   }
@@ -229,14 +241,14 @@ async function executeTool(connection, name, args, signal) {
       server: connection.config.id, untrusted: true,
       content: result?.content ?? [], structuredContent: result?.structuredContent ?? null,
       isError: result?.isError === true,
-    }), 1_048_576),
+    }), MAX_MCP_OUTPUT_BYTES),
     metadata: { serverId: connection.config.id, remoteTool: name, untrusted: true },
   };
 }
 
 function listTools(result) {
   const tools = result?.tools;
-  if (!Array.isArray(tools) || tools.length > 4096) throw new ContractError('mcp_malformed', 'MCP tools/list result is malformed');
+  if (!Array.isArray(tools) || tools.length > MAX_MCP_TOOLS) throw new ContractError('mcp_malformed', 'MCP tools/list result is malformed');
   return tools.filter((tool) => tool && typeof tool.name === 'string' && tool.inputSchema?.type === 'object');
 }
 

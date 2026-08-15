@@ -4,8 +4,9 @@ import { attachmentsOverlay } from './overlays.js';
 import { detachConsoleAttachment, queueConsoleAttachment } from '../experience/attachments.js';
 
 export async function handleAttachmentCommand(name, argument, workspace) {
+  const normalizedArgument = typeof argument === 'string' ? argument : '';
   if (name === '/attach') {
-    const item = await queueConsoleAttachment(workspace, argument);
+    const item = await queueConsoleAttachment(workspace, normalizedArgument);
     workspace.projection.showNotice('attachment', `Queued ${item.path} for the next message.`);
     return;
   }
@@ -14,11 +15,11 @@ export async function handleAttachmentCommand(name, argument, workspace) {
     return;
   }
   if (name === '/detach') {
-    const removed = detachConsoleAttachment(workspace, argument);
+    const removed = detachConsoleAttachment(workspace, normalizedArgument);
     workspace.projection.showNotice('attachment', `Removed ${removed} queued attachment${removed === 1 ? '' : 's'}.`);
     return;
   }
-  const [action, id, ...message] = argument.split(/\s+/u).filter(Boolean);
+  const [action, id, ...message] = normalizedArgument.split(/\s+/u).filter(Boolean);
   if (action === 'remove' && id && message.length === 0) {
     await workspace.removeActiveAttachment(id);
     workspace.projection.showNotice('attachment', `Removed managed attachment ${id}.`);

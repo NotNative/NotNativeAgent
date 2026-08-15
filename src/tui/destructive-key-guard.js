@@ -46,7 +46,7 @@ export async function handleDestructiveEscape(workspace, guard) {
     const description = attachmentCount > 0 ? 'input and queued attachments' : 'input';
     if (confirmOrWarn(workspace, guard, 'escape:clear_input', `Press Esc again within 1 second to clear the ${description}.`)) {
       session.editor.take();
-      session.pendingAttachments?.splice(0);
+      if (session.pendingAttachments) session.pendingAttachments.length = 0;
     }
     return;
   }

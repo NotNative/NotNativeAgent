@@ -6,6 +6,23 @@ import { decoratePermissionLine } from './permission-renderer.js';
 import { displayWidth } from './terminal-markdown.js';
 import { paint, TUI_THEME } from './theme.js';
 
+const TRANSCRIPT_STATUS = /^\s*(?:STATE|REVIEW|DEPENDENCY|ATTACHMENT|\.\.\. WAITING FOR PROVIDER)\b/u;
+const ACTIVITY_SUMMARY = /^\s+Activity summary/u;
+const ACTIVITY_DETAIL = /^\s+v Activity detail/u;
+const BULLET_LINE = /^\s+[*-](?:\s|$)/u;
+const FOOTER_POSTURE = /^(?:prompt|auto-review|unattended)/iu;
+const PASTED_IMAGES = /^\[pasted \d+ images?\]/u;
+const FOOTER_STYLE_BY_KIND = Object.freeze({
+  'work:goal:active': TUI_THEME.accent,
+  'work:goal:completed': TUI_THEME.mutedDark,
+  'work:task:completed': TUI_THEME.mutedDark,
+  'work:hint': TUI_THEME.mutedDark,
+  'work:task:in_progress': TUI_THEME.activity,
+  'work:compact': TUI_THEME.activity,
+  'work:task:blocked': TUI_THEME.danger,
+  'work:task:pending': TUI_THEME.primary,
+});
+
 export function decorateHeader(line, index, color) {
   if (!color) return line;
   if (index > 0) return paint(TUI_THEME.border, line);
@@ -28,12 +45,12 @@ export function decorateContent(line, width, color, index, overlayKind, lineKind
   const toolActivity = decorateToolActivityLine(line, lineKind, paint);
   if (toolActivity) return toolActivity;
   if (lineKind === 'stream_delta' && line.startsWith('* ')) return `${paint(TUI_THEME.accent, '*')} ${line.slice(2)}`;
-  if (/^\s*(?:STATE|REVIEW|DEPENDENCY|ATTACHMENT|\.\.\. WAITING FOR PROVIDER)\b/u.test(line)) {
+  if (TRANSCRIPT_STATUS.test(line)) {
     return paint(TUI_THEME.muted, line);
   }
-  if (/^\s+Activity summary/u.test(line)) return paint(TUI_THEME.muted, line);
-  if (/^\s+v Activity detail/u.test(line)) return paint(TUI_THEME.accentSoft, line);
-  if (/^\s+[*-](?:\s|$)/u.test(line)) return paint(TUI_THEME.mutedDark, line);
+  if (ACTIVITY_SUMMARY.test(line)) return paint(TUI_THEME.muted, line);
+  if (ACTIVITY_DETAIL.test(line)) return paint(TUI_THEME.accentSoft, line);
+  if (BULLET_LINE.test(line)) return paint(TUI_THEME.mutedDark, line);
   return line;
 }
 
@@ -43,20 +60,16 @@ export function decorateFooter(line, index, length, color, animationFrame = 0, l
   if (activity) return activity;
   if (lineKind === 'rule' || /^─+$/u.test(line)) return paint(TUI_THEME.border, line);
   if (lineKind === 'status' || index === length - 1) {
-    const status = paint(TUI_THEME.mutedDark, line);
-    return status.replace(/^(?:prompt|auto-review|unattended)/u, (posture) => paint(TUI_THEME.accent, posture));
+    const posture = line.match(FOOTER_POSTURE)?.[0];
+    if (!posture) return paint(TUI_THEME.mutedDark, line);
+    return `${paint(TUI_THEME.accent, posture)}${paint(TUI_THEME.mutedDark, line.slice(posture.length))}`;
   }
   if (lineKind === 'controls' || index === length - 2) return paint(TUI_THEME.mutedStrong, line);
-  if (lineKind === 'work:goal:active') return paint(TUI_THEME.accent, line);
-  if (lineKind === 'work:goal:completed' || lineKind === 'work:task:completed' || lineKind === 'work:hint') {
-    return paint(TUI_THEME.mutedDark, line);
-  }
-  if (lineKind === 'work:task:in_progress' || lineKind === 'work:compact') return paint(TUI_THEME.activity, line);
-  if (lineKind === 'work:task:blocked') return paint(TUI_THEME.danger, line);
-  if (lineKind === 'work:task:pending') return paint(TUI_THEME.primary, line);
+  const footerStyle = FOOTER_STYLE_BY_KIND[lineKind];
+  if (footerStyle) return paint(footerStyle, line);
   if (lineKind === 'editor') {
     if (!line.startsWith('> ')) return line;
-    const body = line.slice(2).replace(/^\[pasted \d+ images?\]/u, (marker) => paint(TUI_THEME.accentSoft, marker));
+    const body = line.slice(2).replace(PASTED_IMAGES, (marker) => paint(TUI_THEME.accentSoft, marker));
     return `${paint(TUI_THEME.inputMarker, '>')} ${body}`;
   }
   if (line.startsWith('/')) return paint(TUI_THEME.accentSoft, line);
@@ -64,6 +77,7 @@ export function decorateFooter(line, index, length, color, animationFrame = 0, l
 }
 
 function decorateBanner(line, contentIndex) {
+  if (typeof line !== 'string' || line.length < 2) return line;
   const middle = line.slice(1, -1);
   const wordmark = /[█╗╔║═╝]/u.test(middle);
   const styled = wordmark ? angledWordmarkGradient(middle, contentIndex - 1) : middle;
@@ -71,5 +85,7 @@ function decorateBanner(line, contentIndex) {
 }
 
 function padCells(value, width) {
-  return `${value}${' '.repeat(Math.max(0, width - displayWidth(value)))}`;
+  const currentWidth = displayWidth(value);
+  if (!Number.isFinite(width) || !Number.isFinite(currentWidth)) return value;
+  return `${value}${' '.repeat(Math.max(0, width - currentWidth))}`;
 }

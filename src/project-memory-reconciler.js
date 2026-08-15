@@ -10,6 +10,10 @@ const SECTIONS = Object.freeze([
   'Current architecture', 'Decisions and rationale', 'Working conventions',
   'Verified environment', 'Known problems', 'Unresolved work',
 ]);
+const MAX_PROJECT_MEMORY_ITEMS = 64;
+const MAX_PROJECT_MEMORY_ITEM_BYTES = 512;
+const MAX_EVIDENCE_REFS = 64;
+const MAX_EVIDENCE_REF_LENGTH = 160;
 
 export class ProjectMemoryReconciler {
   constructor(workspaceRoot, options = {}) {
@@ -69,9 +73,9 @@ export function explicitProjectKnowledge(records, turnRefs) {
     if (record?.type !== 'message' || record.role !== 'user' || record.trust !== 'operator'
         || !allowed.has(record.turnId) || typeof record.content !== 'string') continue;
     for (const statement of projectKnowledgeStatements(record.content)) {
-      if (secretLike(statement) || Buffer.byteLength(statement, 'utf8') > 512) continue;
+      if (secretLike(statement) || Buffer.byteLength(statement, 'utf8') > MAX_PROJECT_MEMORY_ITEM_BYTES) continue;
       found.push(Object.freeze({ turnId: record.turnId, statement, section: decisionSection(statement) }));
-      if (found.length >= 64) return Object.freeze(found);
+      if (found.length >= MAX_PROJECT_MEMORY_ITEMS) return Object.freeze(found);
     }
   }
   return Object.freeze(found);
@@ -127,13 +131,6 @@ function parseManagedRegion(region) {
   return result;
 }
 
-function decisionStatements(content) {
-  const normalized = content.replace(/\r\n?/gu, '\n').split(/\n+/u)
-    .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/u, '').trim())
-    .filter(Boolean);
-  return normalized.filter((line) => /^(?:decision\s*:|we (?:decided|agreed|will|must|should|need to)|i (?:decided|want|need|prefer|would like)|let(?:'|’)s|from now on|always\b|never\b)/iu.test(line));
-}
-
 function projectKnowledgeStatements(content) {
   const normalized = content.replace(/\r\n?/gu, '\n').split(/\n+|(?<=[.!?])\s+(?=[A-Z])/u)
     .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/u, '').trim())
@@ -158,8 +155,13 @@ function decisionSection(statement) {
 }
 
 function replaceManaged(content, managed) {
+  if (typeof managed !== 'string') throw new ContractError('project_memory_region_invalid', 'managed project memory must be text');
   const bounds = managedBounds(content);
-  if (!bounds) return content.length === 0 ? `${managed}\n` : `${content.replace(/\s*$/u, '')}\n\n${managed}\n`;
+  if (!bounds) {
+    if (content.length === 0) return `${managed}\n`;
+    const separator = content.endsWith('\n\n') ? '' : content.endsWith('\n') ? '\n' : '\n\n';
+    return `${content}${separator}${managed}\n`;
+  }
   return `${content.slice(0, bounds.start)}${managed}${content.slice(bounds.end)}`;
 }
 
@@ -178,10 +180,11 @@ function managedBounds(content) {
 }
 
 function normalizeItems(value) {
-  if (!Array.isArray(value) || value.length > 64) throw new ContractError('project_memory_sections_invalid', 'each project-memory section must be an array of at most 64 items');
+  if (!Array.isArray(value) || value.length > MAX_PROJECT_MEMORY_ITEMS) throw new ContractError('project_memory_sections_invalid', `each project-memory section must be an array of at most ${MAX_PROJECT_MEMORY_ITEMS} items`);
   const items = [];
   for (const item of value) {
-    if (typeof item !== 'string' || item.trim().length === 0 || Buffer.byteLength(item, 'utf8') > 512 || /[\r\n]/u.test(item)) {
+    if (typeof item !== 'string' || item.trim().length === 0
+      || Buffer.byteLength(item, 'utf8') > MAX_PROJECT_MEMORY_ITEM_BYTES || /[\r\n]/u.test(item)) {
       throw new ContractError('project_memory_item_invalid', 'project-memory items must be bounded single-line text');
     }
     if (secretLike(item)) throw new ContractError('project_memory_secret_forbidden', 'project memory may not contain secret material');
@@ -193,9 +196,9 @@ function normalizeItems(value) {
 }
 
 function boundedRefs(value) {
-  if (!Array.isArray(value) || value.length === 0 || value.length > 64) throw new ContractError('project_memory_evidence_required', 'project-memory proposals require evidence references');
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_EVIDENCE_REFS) throw new ContractError('project_memory_evidence_required', 'project-memory proposals require evidence references');
   return Object.freeze([...new Set(value.map((item) => {
-    if (typeof item !== 'string' || item.length === 0 || item.length > 160) throw new ContractError('project_memory_evidence_invalid', 'project-memory evidence reference is invalid');
+    if (typeof item !== 'string' || item.length === 0 || item.length > MAX_EVIDENCE_REF_LENGTH) throw new ContractError('project_memory_evidence_invalid', 'project-memory evidence reference is invalid');
     return item;
   }))]);
 }
@@ -206,13 +209,13 @@ function indexes(content, marker) {
   return result;
 }
 function secretLike(value) {
-  return /-----BEGIN [A-Z ]+PRIVATE KEY-----|\bBearer\s+[A-Za-z0-9._~+/-]+=*|\b(?:password|passwd|api[_-]?key|token|secret)\s*[:=]/iu.test(value);
+  return /-----BEGIN [A-Z ]+PRIVATE KEY-----|\bBearer\s+[A-Za-z0-9._~+/-]+=*|\b(?:password|passwd|api[_-]?key|apikey|token|secret)\s*[:=]|\bAKIA[A-Z0-9]{16}\b|\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/iu.test(value);
 }
 const PROJECT_SUBJECT = /\b(?:NNA|NotNativeAgent|agent|harness|runtime|engine|repository|repo|project|workspace|source|code|docs?|tests?|config(?:uration)?|installer|command|tool|hook|provider|model|routing|module|package|schema|API|UI|TUI|GUI|file|folder|directory|path|release|build|deployment)\b/iu;
-const EXPLICIT_DECISION = /^(?:decision\s*:|we (?:decided|agreed|will|must|should|need to)|i (?:decided|want|need|prefer|would like)|let(?:'|’|â€™)s|from now on|always\b|never\b)/iu;
+const EXPLICIT_DECISION = /^(?:decision\s*:|we (?:decided|agreed|will|must|should|need to)|i (?:decided|want|need|prefer|would like)|let(?:'|\u2019)s|from now on|always\b|never\b)/iu;
 const PROJECT_RULE = /\b(?:must|should|shall|always|never|is required to|needs? to|prefer(?:s|red)?|convention|policy|standard|rule|owned by|belongs? to)\b/iu;
 const PROJECT_STATE = /\b(?:is|are|uses?|contains?|lives?|located|configured|installed|routes?|stores?|loads?|exposes?|supports?)\b/iu;
 function semanticIdentity(value) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/gu, ' ').trim();
+  return value.toLocaleLowerCase('en-US').replace(/\s+/gu, ' ').trim();
 }
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }

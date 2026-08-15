@@ -3,6 +3,10 @@ import { loadEarlierTranscriptPage } from '../experience/history.js';
 import { tabMenuOverlay } from './overlays.js';
 import { beginSelection, clearSelection, extendDocumentSelection, updateSelection } from './selection.js';
 
+const APPROVAL_NOTICE = 'approval';
+const PENDING_DECISION_MESSAGE = 'Resolve the pending decision before switching conversations.';
+const SELECTION_SCROLL_INTERVAL_MS = 65;
+
 export async function scrollPageUp(workspace) {
   workspace.projection.scrollActive(-10);
   if (workspace.projection.active()?.viewportEnd === 0) await loadEarlierTranscriptPage(workspace);
@@ -23,8 +27,9 @@ export async function handleMouse(action, workspace, headerTargetAt, activateOve
     await clipboard.rightClick();
     return;
   }
-  if (workspace.projection.active()?.pendingPermission) {
-    workspace.projection.showNotice('approval', 'Resolve the pending decision before switching conversations.');
+  const activeSession = workspace.projection.active();
+  if (activeSession?.pendingPermission) {
+    workspace.projection.showNotice(APPROVAL_NOTICE, PENDING_DECISION_MESSAGE);
     return;
   }
   if (action.button === 0) {
@@ -55,7 +60,10 @@ export async function handleMouse(action, workspace, headerTargetAt, activateOve
   const target = headerTargetAt(workspace.projection, action.column);
   if (target?.type === 'session') {
     workspace.projection.activate(target.id);
-    if (action.button === 2) workspace.projection.openOverlay(tabMenuOverlay(workspace.projection.active()));
+    if (action.button === 2) {
+      const selectedSession = workspace.projection.active();
+      if (selectedSession) workspace.projection.openOverlay(tabMenuOverlay(selectedSession));
+    }
   }
   else if (target?.type === 'new_tab') await workspace.createNext();
 }
@@ -66,7 +74,11 @@ function updateSelectionAutoScroll(workspace, action) {
   const bounds = workspace.projection.selectionContentBounds;
   const direction = action.row <= bounds?.first ? -1 : action.row >= bounds?.last ? 1 : 0;
   if (direction === 0) return;
+  let tickRunning = false;
   const tick = async () => {
+    if (tickRunning) return;
+    tickRunning = true;
+    try {
     if (!workspace.projection.terminalSelection || workspace.projection.terminalSelection.complete) {
       stopSelectionAutoScroll(workspace.projection);
       return;
@@ -75,8 +87,15 @@ function updateSelectionAutoScroll(workspace, action) {
     workspace.projection.scrollActive(direction);
     extendDocumentSelection(workspace.projection, direction);
     workspace.onChange();
+    } catch (error) {
+      stopSelectionAutoScroll(workspace.projection);
+      workspace.projection.showNotice('history', `Cannot load earlier transcript (${error?.code ?? 'history_read_failed'}).`);
+      workspace.onChange();
+    } finally {
+      tickRunning = false;
+    }
   };
-  workspace.projection.selectionScrollTimer = setInterval(() => void tick(), 65);
+  workspace.projection.selectionScrollTimer = setInterval(() => void tick(), SELECTION_SCROLL_INTERVAL_MS);
   workspace.projection.selectionScrollTimer.unref?.();
 }
 

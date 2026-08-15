@@ -2,6 +2,9 @@
 import { ContractError, newId } from '../ids.js';
 import { OpenAICompatibleProvider } from '../provider.js';
 
+// Fallback may stay within the originating trust zone or move inward, never toward broader egress.
+const TRUST_ZONE_RANK = Object.freeze({ loopback: 0, private_network: 1, public_network: 2 });
+
 export class ModelRouter {
   constructor(config, providerFactory = defaultFactory) {
     this.config = config;
@@ -17,9 +20,14 @@ export class ModelRouter {
   }
 
   candidates(role, options = {}) {
-    const route = this.config.routes[role];
+    const route = this.config?.routes?.[role];
     if (!route) throw new ContractError('route_unavailable', `route ${role} is unavailable`);
-    const required = [...new Set([...route.requiredCapabilities, ...(options.requiredCapabilities ?? [])])];
+    const routeCapabilities = route.requiredCapabilities ?? [];
+    const optionCapabilities = options.requiredCapabilities ?? [];
+    if (!Array.isArray(routeCapabilities) || !Array.isArray(optionCapabilities)) {
+      throw new ContractError('route_capability_invalid', 'required route capabilities must be arrays');
+    }
+    const required = [...new Set([...routeCapabilities, ...optionCapabilities])];
     const roles = orderedRoles(this.config.routes, role);
     const originZone = this.config.providerProfiles[route.providerId]?.trustZone;
     const logicalRequestId = options.logicalRequestId ?? newId('route');
@@ -45,7 +53,13 @@ export class ModelRouter {
   }
 
   providerForProfile(profile) {
-    return this.providerFactory(profile, this.config.limits);
+    try { return this.providerFactory(profile, this.config.limits); }
+    catch (error) {
+      if (error instanceof ContractError) throw error;
+      const failure = new ContractError('route_provider_invalid', 'provider adapter creation failed for the selected route');
+      failure.cause = error;
+      throw failure;
+    }
   }
 }
 
@@ -54,24 +68,33 @@ function cappedOutput(configured, providerLimit) {
   return Number.isSafeInteger(providerLimit) && providerLimit > 0 ? Math.min(configured, providerLimit) : configured;
 }
 
-function orderedRoles(routes, role, seen = new Set()) {
-  if (seen.has(role)) return [];
-  seen.add(role);
-  const route = routes[role];
-  return [role, ...route.fallbacks.flatMap((fallback) => orderedRoles(routes, fallback, seen))];
+function orderedRoles(routes, role) {
+  const ordered = [];
+  const seen = new Set();
+  const pending = [role];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (seen.has(current)) continue;
+    seen.add(current);
+    const route = routes[current];
+    if (!route) throw new ContractError('route_unavailable', `fallback route ${current} is unavailable`);
+    ordered.push(current);
+    const fallbacks = Array.isArray(route.fallbacks) ? route.fallbacks : [];
+    for (let index = fallbacks.length - 1; index >= 0; index -= 1) pending.push(fallbacks[index]);
+  }
+  return ordered;
 }
 
 function incompatible(profile, required) {
-  return required.some((name) => profile.capabilities[capabilityKey(name)] === false);
+  return required.some((name) => profile.capabilities?.[capabilityKey(name)] === false);
 }
 
 function capabilityKey(name) {
-  return name === 'structured_output' ? 'structuredOutput' : name;
+  return name.replace(/_([a-z])/gu, (_, character) => character.toUpperCase());
 }
 
 function trustCompatible(origin, candidate) {
-  const rank = { loopback: 0, private_network: 1, public_network: 2 };
-  return rank[candidate] <= rank[origin];
+  return TRUST_ZONE_RANK[candidate] <= TRUST_ZONE_RANK[origin];
 }
 
 function defaultFactory(profile, limits) {

@@ -10,28 +10,34 @@ import { compactToolRequest, createToolContextReceipt } from './tools/context-re
 export { attachTaskCheckpoint, enrichCompactionFact, enrichHandoffFact } from './continuation-artifact.js';
 
 const DEFAULT_PROTECTED_COMPLETED_TURNS = 5;
+const RECORD_BUDGET_RATIO = 0.55;
+const EMERGENCY_THRESHOLD_RATIO = 0.65;
+const SUMMARY_BUDGET_RATIO = 0.35;
+const MINIMUM_SUMMARY_BYTES = 1_024;
+const COLD_MESSAGE_BYTES = 32_768;
 export function compactTranscript(transcript, maxBytes, options = {}) {
   const source = latestCompactionProjection(transcript);
-  const budget = Math.floor(maxBytes * 0.55);
+  const budget = Math.floor(maxBytes * RECORD_BUDGET_RATIO);
   let selected = selectRecentRecords(source, budget, options);
   let policy = 'protected_recency_v1';
   if (options.requireProgress && source.length > 2 && selected.length === source.length) {
     const originalBytes = source.reduce((sum, item) => sum + recordBytes(item), 0);
-    const adaptiveBudget = Math.max(16_384, Math.min(budget, Math.floor(originalBytes * 0.55)));
+    const adaptiveBudget = Math.max(16_384, Math.min(budget, Math.floor(originalBytes * RECORD_BUDGET_RATIO)));
     selected = selectRecentRecords(source, adaptiveBudget, {
       ...options, protectedCompletedTurns: 0,
     });
     policy = 'adaptive_recent_history_v2';
   }
   let bytes = selected.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
-  if (bytes > maxBytes * 0.65) {
+  if (bytes > maxBytes * EMERGENCY_THRESHOLD_RATIO) {
     selected = emergencyContinuationRecords(source, maxBytes, selected.metrics);
     bytes = selected.reduce((sum, entry) => sum + recordBytes(entry.item), 0);
     policy = 'hierarchical_continuation_v1';
   }
   const omitted = Math.max(0, source.length - selected.length);
   const continuation = hierarchicalContinuationArtifact(source, omitted);
-  const summary = renderContinuation(continuation, Math.max(1_024, Math.floor(maxBytes * 0.35)));
+  const summaryBudget = Math.min(maxBytes, Math.max(MINIMUM_SUMMARY_BYTES, Math.floor(maxBytes * SUMMARY_BUDGET_RATIO)));
+  const summary = renderContinuation(continuation, summaryBudget);
   const fact = Object.freeze({
     type: 'compaction', version: 2, omitted,
     sourceFingerprint: fingerprint(source),
@@ -51,7 +57,7 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
       projectedBytes: bytes + Buffer.byteLength(summary, 'utf8'),
       retainedFingerprint: retainedRecordsFingerprint(selected.map((entry) => entry.item)),
       hierarchyChunks: continuation.hierarchyChunks ?? 1,
-      summaryBudgetBytes: Math.max(1_024, Math.floor(maxBytes * 0.35)),
+      summaryBudgetBytes: summaryBudget,
     }),
   });
   return Object.freeze({ records: fact.retainedRecords, fact });
@@ -265,22 +271,31 @@ function compactRecord(item, budget, protectedRecord = false, request = null) {
   if (item.type === 'tool_request' && !protectedRecord) return compactToolRequest(item);
   if (item.type === 'message') {
     if (protectedRecord) return { ...item };
-    return { ...item, content: boundedHeadTail(item.content ?? '', 32_768) };
+    const content = boundedHeadTail(item.content ?? '', COLD_MESSAGE_BYTES);
+    return content === (item.content ?? '') ? { ...item } : {
+      ...item, content,
+      metadata: { ...boundedMetadata(item.metadata), compacted: true, reason: 'cold_message' },
+    };
   }
   if (item.type === 'compaction') {
     const { retainedRecords: _retainedRecords, ...checkpoint } = item;
     return checkpoint;
   }
-  return item;
+  if (typeof item.content !== 'string') return item;
+  const content = boundedHeadTail(item.content, COLD_MESSAGE_BYTES);
+  return content === item.content ? item : {
+    ...item, content,
+    metadata: { ...boundedMetadata(item.metadata), compacted: true, reason: 'unknown_record_content' },
+  };
 }
 
 function protectedRecency(transcript, options) {
   const completedLimit = Number.isInteger(options.protectedCompletedTurns)
     ? Math.max(0, options.protectedCompletedTurns) : DEFAULT_PROTECTED_COMPLETED_TURNS;
   const entries = turnEntries(transcript);
-  const ordered = [];
+  const ordered = []; const seen = new Set();
   for (const entry of entries) {
-    if (entry.turnKey && !ordered.includes(entry.turnKey)) ordered.push(entry.turnKey);
+    if (entry.turnKey && !seen.has(entry.turnKey)) { seen.add(entry.turnKey); ordered.push(entry.turnKey); }
   }
   const explicitActive = options.activeTurnId ? `id:${options.activeTurnId}` : null;
   const active = explicitActive && ordered.includes(explicitActive) ? explicitActive : null;

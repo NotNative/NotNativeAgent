@@ -31,7 +31,8 @@ export async function dispatchSecretBrokerRequest(request, response, context) {
   const { broker, principal, url } = context;
   if (request.method === 'GET' && url.pathname === '/v1/secrets/audit') {
     requireIntegrationPermission(principal, 'secret.audit');
-    return send(response, 200, { events: await broker.auditEvents(Number(url.searchParams.get('limit') ?? 500)) });
+    const events = await broker.auditEvents(Number(url.searchParams.get('limit') ?? 500));
+    return send(response, 200, { events: events.filter((event) => canAccessSecretScope(principal, event.scope)) });
   }
   const match = /^\/v1\/secrets(?:\/([^/]+))?(?:\/(values|status|use))?$/u.exec(url.pathname);
   if (!match) return false;
@@ -54,26 +55,23 @@ export async function dispatchSecretBrokerRequest(request, response, context) {
   }
   if (request.method === 'PATCH' && id && !subresource) {
     requireIntegrationPermission(principal, 'secret.manage');
-    await manageable(broker, principal, id);
     const body = await readJsonBody(request);
     if (body.scope !== undefined) requireScope(principal, body.scope);
-    return send(response, 200, { secret: await broker.update(id, body) });
+    return send(response, 200, { secret: await broker.update(id, body, authorizeSecret(principal)) });
   }
   if (request.method === 'PUT' && id && subresource === 'values') {
     requireIntegrationPermission(principal, 'secret.manage');
-    await manageable(broker, principal, id);
-    return send(response, 200, { secret: await broker.rotate(id, (await readJsonBody(request)).fields) });
+    return send(response, 200, { secret: await broker.rotate(id, (await readJsonBody(request)).fields, authorizeSecret(principal)) });
   }
   if (request.method === 'PATCH' && id && subresource === 'status') {
     requireIntegrationPermission(principal, 'secret.manage');
-    await manageable(broker, principal, id);
     const body = await readJsonBody(request);
     if (typeof body.enabled !== 'boolean') throw new ContractError('secret_status_invalid', 'enabled must be boolean');
-    return send(response, 200, { secret: await broker.setEnabled(id, body.enabled) });
+    return send(response, 200, { secret: await broker.setEnabled(id, body.enabled, authorizeSecret(principal)) });
   }
   if (request.method === 'DELETE' && id && !subresource) {
     requireIntegrationPermission(principal, 'secret.manage');
-    await manageable(broker, principal, id); await broker.remove(id);
+    await broker.remove(id, authorizeSecret(principal));
     return send(response, 200, { ok: true });
   }
   if (request.method === 'POST' && id && subresource === 'use') {
@@ -98,10 +96,7 @@ export async function readJsonBody(request) {
 
 export function sendFailure(response, error) {
   const code = error?.code ?? 'internal_failure';
-  const status = code === 'principal_required' || code === 'principal_invalid' || code === 'principal_stale' ? 401
-    : code.includes('permission') || code.includes('forbidden') ? 403
-    : code.includes('not_found') || code === 'provider_missing' ? 404
-      : code === 'internal_failure' ? 500 : 400;
+  const status = failureStatus(code);
   return send(response, status, failure(code, status === 500 ? 'integration request failed' : error.message));
 }
 
@@ -121,15 +116,21 @@ async function visible(broker, principal, id) {
   const secret = await broker.get(id);
   return secret && canAccessSecretScope(principal, secret.scope) ? secret : null;
 }
-async function manageable(broker, principal, id) {
-  const secret = await visible(broker, principal, id);
-  if (!secret) throw new ContractError('secret_not_found', 'secret not found');
-  return secret;
+function authorizeSecret(principal) {
+  return (secret) => {
+    if (!canAccessSecretScope(principal, secret.scope)) throw new ContractError('secret_not_found', 'secret not found');
+  };
 }
 function requireScope(principal, scope) {
   if (!canAccessSecretScope(principal, scope)) throw new ContractError('secret_scope_forbidden', 'principal cannot manage the requested secret scope');
 }
 function failure(code, message) { return { error: { code, message } }; }
+function failureStatus(code) {
+  if (['principal_required', 'principal_invalid', 'principal_stale'].includes(code)) return 401;
+  if (code.includes('permission') || code.includes('forbidden')) return 403;
+  if (code.includes('not_found') || code === 'provider_missing') return 404;
+  return code === 'internal_failure' ? 500 : 400;
+}
 function securityHeaders(response) {
   response.setHeader('Content-Type', 'application/json; charset=utf-8'); response.setHeader('Cache-Control', 'no-store');
   response.setHeader('Pragma', 'no-cache'); response.setHeader('X-Content-Type-Options', 'nosniff'); response.setHeader('Referrer-Policy', 'no-referrer');

@@ -2,6 +2,10 @@
 import { ContractError } from '../ids.js';
 
 const TELEGRAM_LIMIT = 4096;
+const DEFAULT_LONG_POLL_SECONDS = 30;
+const LONG_POLL_GRACE_SECONDS = 10;
+const EMPTY_MESSAGE_FALLBACK = '(NNA returned no text.)';
+const MAX_RESPONSE_BYTES = 1_048_576;
 
 export class TelegramApi {
   constructor(token, options = {}) {
@@ -12,18 +16,30 @@ export class TelegramApi {
 
   getMe(signal) { return this.#call('getMe', {}, signal); }
 
-  getUpdates(offset, timeout, signal) {
+  getUpdates(offset, timeout = DEFAULT_LONG_POLL_SECONDS, signal) {
+    if (!Number.isSafeInteger(timeout) || timeout < 0 || timeout > 50) {
+      throw new ContractError('telegram_timeout_invalid', 'Telegram long-poll timeout must be an integer from 0 to 50 seconds');
+    }
     return this.#call('getUpdates', {
       offset, timeout, limit: 20, allowed_updates: ['message', 'callback_query'],
-    }, signal, (timeout + 10) * 1000);
+    }, signal, (timeout + LONG_POLL_GRACE_SECONDS) * 1000);
   }
 
   async sendMessage(chatId, text, signal, options = {}) {
     const chunks = splitTelegramText(String(text));
-    for (const [index, chunk] of chunks.entries()) await this.#call('sendMessage', {
-      chat_id: chatId, text: chunk,
-      ...(index === chunks.length - 1 && options.replyMarkup ? { reply_markup: options.replyMarkup } : {}),
-    }, signal);
+    let sentChunks = 0;
+    try {
+      for (const [index, chunk] of chunks.entries()) {
+        const body = { chat_id: chatId, text: chunk };
+        if (index === chunks.length - 1 && options.replyMarkup) body.reply_markup = options.replyMarkup;
+        await this.#call('sendMessage', body, signal);
+        sentChunks += 1;
+      }
+    } catch (error) {
+      error.sentChunks = sentChunks;
+      error.totalChunks = chunks.length;
+      throw error;
+    }
     return { chunks: chunks.length };
   }
 
@@ -40,10 +56,12 @@ export class TelegramApi {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal,
       });
     } catch (error) {
+      if (outerSignal?.aborted) throw new ContractError('telegram_cancelled', `Telegram ${method} request was cancelled`, { cause: error });
+      if (timeout.aborted || error?.name === 'TimeoutError') throw new ContractError('telegram_timeout', `Telegram ${method} request timed out`, { cause: error });
       throw new ContractError('telegram_unavailable', `Telegram ${method} request failed`, { cause: error });
     }
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.length > 1_048_576) throw new ContractError('telegram_response_too_large', 'Telegram response exceeded its size bound');
+    if (bytes.length > MAX_RESPONSE_BYTES) throw new ContractError('telegram_response_too_large', 'Telegram response exceeded its size bound');
     let envelope;
     try { envelope = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch {
       throw new ContractError('telegram_response_invalid', 'Telegram returned invalid JSON');
@@ -57,7 +75,7 @@ export class TelegramApi {
 }
 
 export function splitTelegramText(text, limit = TELEGRAM_LIMIT) {
-  if (!text) return ['(NNA returned no text.)'];
+  if (!text) return [EMPTY_MESSAGE_FALLBACK];
   const chunks = [];
   let rest = text;
   while (rest.length > limit) {

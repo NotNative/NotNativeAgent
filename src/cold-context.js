@@ -13,6 +13,7 @@ const STOP_WORDS = new Set([
 ]);
 
 export function buildColdEvidence(fullRecords, providerRecords, currentContent) {
+  if (!Array.isArray(fullRecords) || !Array.isArray(providerRecords)) return null;
   const hot = fingerprintCounts(providerRecords.filter(isEvidence));
   const cold = [];
   for (let index = 0; index < fullRecords.length; index += 1) {
@@ -109,4 +110,4 @@ function recordFingerprint(record) {
 
 function isEvidence(record) { return record && typeof record === 'object' && EVIDENCE_TYPES.has(record.type); }
 function turnId(record) { return record.turn_id ?? record.turnId ?? null; }
-function safeJson(value) { try { return JSON.stringify(value) ?? ''; } catch { return '[unserializable]'; } }
+function safeJson(value) { try { return JSON.stringify(value); } catch { return '[unserializable]'; } }

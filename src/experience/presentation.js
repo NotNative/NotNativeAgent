@@ -1,17 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 import { manifestFromConfig } from '../provider/route-configuration.js';
+import { ContractError } from '../ids.js';
 
 export function tabPoolRecords(sessions, projection) {
-  return [...sessions.values()].map((session) => ({
-    sessionId: session.sessionId, name: session.name,
-    main: session.main === true,
-    role: projection.sessions.get(session.id)?.role ?? 'standard', meaningful: session.meaningful,
-    manifest: manifestFromConfig(session.engine.pendingConfig ?? session.engine.config),
-    presentation: presentationState(projection.sessions.get(session.id)),
-  }));
+  return [...sessions.values()].map((session) => {
+    if (!session?.sessionId || !session.engine) throw invalidPresentation('engine session');
+    const projected = projection?.sessions?.get(session.sessionId);
+    return {
+      sessionId: session.sessionId, name: session.name,
+      main: session.main === true,
+      role: projected?.role ?? 'standard', meaningful: session.meaningful,
+      manifest: manifestFromConfig(session.engine.pendingConfig ?? session.engine.config),
+      presentation: presentationState(projected),
+    };
+  });
 }
 
 export function presentationState(session) {
+  if (!session?.editor || !Array.isArray(session.pendingAttachments)
+    || !(session.expandedTurns instanceof Set) || !(session.detailedTurns instanceof Set)) {
+    throw invalidPresentation('projected session');
+  }
   return {
     draft: session.editor.text, viewport_end: session.viewportEnd,
     expanded_turn_ids: [...session.expandedTurns], review_posture: session.reviewPosture,
@@ -23,6 +32,11 @@ export function presentationState(session) {
 
 export function restorePresentation(session, engine, value) {
   if (!value) return;
+  if (typeof session?.editor?.set !== 'function' || !engine) throw invalidPresentation('restore target');
+  if (typeof value.draft !== 'string' || !Array.isArray(value.expanded_turn_ids)
+    || (value.detailed_turn_ids !== undefined && !Array.isArray(value.detailed_turn_ids))
+    || !Array.isArray(value.pending_attachments)
+    || typeof value.review_posture !== 'string') throw invalidPresentation('saved state');
   session.editor.set(value.draft);
   session.viewportEnd = value.viewport_end;
   session.expandedTurns = new Set(value.expanded_turn_ids ?? []);
@@ -31,4 +45,8 @@ export function restorePresentation(session, engine, value) {
   session.reviewPosture = value.review_posture;
   session.pendingAttachments = value.pending_attachments.map((item) => Object.freeze({ ...item }));
   engine.reviewPosture = value.review_posture;
+}
+
+function invalidPresentation(subject) {
+  return new ContractError('presentation_state_invalid', `${subject} presentation state is unavailable or malformed`);
 }

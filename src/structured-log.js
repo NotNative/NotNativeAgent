@@ -15,6 +15,9 @@ export class StructuredLog {
   #records = [];
   #sequence = 0;
   #dropped = 0;
+  #writeFailures = 0;
+  #corruptedLines = 0;
+  #pendingWrites = 0;
   #writes = Promise.resolve();
 
   constructor(options = {}) {
@@ -22,12 +25,17 @@ export class StructuredLog {
     this.limit = options.limit ?? 4096;
     this.path = options.path ?? null;
     this.maxBytes = options.maxBytes ?? 4_194_304;
+    this.maxPendingWrites = options.maxPendingWrites ?? 1_024;
+    this.onWriteError = typeof options.onWriteError === 'function' ? options.onWriteError : null;
   }
 
   async initialize() {
     if (!this.path) return this;
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
-    const records = [...await readRecords(`${this.path}.1`, this.maxBytes), ...await readRecords(this.path, this.maxBytes)];
+    const prior = await readRecords(`${this.path}.1`, this.maxBytes);
+    const current = await readRecords(this.path, this.maxBytes);
+    const records = [...prior.records, ...current.records];
+    this.#corruptedLines = prior.corruptedLines + current.corruptedLines;
     this.#records = records.slice(-this.limit);
     this.#dropped = Math.max(0, records.length - this.#records.length);
     this.#sequence = this.#records.reduce((maximum, item) => Math.max(maximum, item.monotonic_sequence ?? 0), 0);
@@ -35,6 +43,7 @@ export class StructuredLog {
   }
 
   record(event, context = {}) {
+    if (!event || typeof event !== 'object' || Array.isArray(event)) return null;
     const safe = {};
     for (const [key, value] of Object.entries(event)) {
       if (SAFE_KEYS.has(key) && ['string', 'number', 'boolean'].includes(typeof value)) safe[key] = value;
@@ -50,7 +59,7 @@ export class StructuredLog {
       this.#records.shift(); this.#dropped += 1;
     }
     this.#records.push(record);
-    if (this.path) this.#writes = this.#writes.then(() => this.#append(record)).catch(() => { this.#dropped += 1; });
+    if (this.path) this.#queueWrite(record);
     return record;
   }
 
@@ -62,6 +71,7 @@ export class StructuredLog {
     return Object.freeze({
       product: Object.freeze({ name: 'NotNativeAgent', version: VERSION }),
       records: Object.freeze([...this.#records]), dropped: this.#dropped,
+      write_failures: this.#writeFailures, corrupted_lines: this.#corruptedLines,
     });
   }
 
@@ -74,18 +84,45 @@ export class StructuredLog {
     }
     await appendFile(this.path, line, { encoding: 'utf8', mode: 0o600 });
   }
+
+  #queueWrite(record) {
+    if (this.#pendingWrites >= this.maxPendingWrites) {
+      this.#writeFailure(new Error('structured log write backlog exceeded its bound'), 'log_write_backpressure');
+      return;
+    }
+    this.#pendingWrites += 1;
+    this.#writes = this.#writes.then(() => this.#append(record))
+      .catch((error) => this.#writeFailure(error, error.code ?? 'log_write_failed'))
+      .finally(() => { this.#pendingWrites -= 1; });
+  }
+
+  #writeFailure(error, code) {
+    this.#writeFailures += 1;
+    try { this.onWriteError?.({ code, error }); } catch { /* diagnostics cannot break logging */ }
+  }
 }
 
 async function readRecords(path, maximum) {
   let bytes;
-  try { bytes = await readFile(path); } catch (error) { if (error.code === 'ENOENT') return []; throw error; }
-  if (bytes.length > maximum) bytes = bytes.subarray(bytes.length - maximum);
-  return bytes.toString('utf8').split(/\r?\n/u).filter(Boolean).flatMap((line) => {
+  try { bytes = await readFile(path); } catch (error) {
+    if (error.code === 'ENOENT') return { records: [], corruptedLines: 0 };
+    throw error;
+  }
+  if (bytes.length > maximum) {
+    const cutoff = bytes.length - maximum;
+    const newline = bytes.indexOf(0x0a, cutoff);
+    bytes = newline < 0 ? Buffer.alloc(0) : bytes.subarray(newline + 1);
+  }
+  let corruptedLines = 0;
+  const records = bytes.toString('utf8').split(/\r?\n/u).filter(Boolean).flatMap((line) => {
     try {
       const value = JSON.parse(line);
-      return value && typeof value === 'object' && value.product_version ? [Object.freeze(value)] : [];
-    } catch { return []; }
+      if (value && typeof value === 'object' && value.product_version) return [Object.freeze(value)];
+    } catch { /* counted below */ }
+    corruptedLines += 1;
+    return [];
   });
+  return { records, corruptedLines };
 }
 
 function severity(event) {

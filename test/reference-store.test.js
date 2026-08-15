@@ -5,11 +5,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { ToolRegistry } from '../src/tool-registry.js';
+import { ReferenceStore } from '../src/tools/reference-store.js';
 
 const context = {
   policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
   stepId: 'step', caller: 'primary', surface: 'test',
 };
+
+test('reference binding preserves untouched arguments and clear releases stored references', () => {
+  const store = new ReferenceStore();
+  const args = { path: 'ordinary.txt', nested: { value: true } };
+  assert.equal(store.bindArguments(args).args, args);
+  const entry = store.remember('draft', 'temporary');
+  store.clear();
+  assert.throws(() => store.resolve(entry.id), { code: 'reference_missing' });
+});
 
 test('filesystem observations expose typed path and snapshot references for exact reuse', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reference-file-'));

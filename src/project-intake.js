@@ -2,10 +2,9 @@
 import { lstat, readFile, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 
-const ROOT_FILES = [
-  'README.md', 'README', 'NNA.md', 'AGENTS.md', 'CONTRIBUTING.md', 'SECURITY.md', 'LICENSE',
-  'package.json', 'pyproject.toml', 'Cargo.toml', 'go.mod', 'pom.xml', 'build.gradle',
-];
+const GUIDANCE_FILES = Object.freeze(['README.md', 'README', 'NNA.md', 'AGENTS.md', 'CONTRIBUTING.md', 'SECURITY.md', 'LICENSE']);
+const MANIFEST_FILES = Object.freeze(['package.json', 'pyproject.toml', 'Cargo.toml', 'go.mod', 'pom.xml', 'build.gradle']);
+const ROOT_FILES = Object.freeze([...GUIDANCE_FILES, ...MANIFEST_FILES]);
 const SOURCE_DIRECTORIES = ['src', 'lib', 'app', 'packages', 'apps', 'cmd', 'internal'];
 const TEST_DIRECTORIES = ['test', 'tests', '__tests__', 'spec'];
 const ENTRY_FILES = ['index.js', 'index.ts', 'main.js', 'main.ts', 'app.js', 'app.ts', 'cli.js', 'cli.ts'];
@@ -16,12 +15,14 @@ export class ProjectIntake {
   constructor(workspaceRoot, options = {}) {
     this.root = resolve(workspaceRoot);
     this.telemetry = options.telemetry;
+    this.maxDirectoryEntries = Number.isSafeInteger(options.maxDirectoryEntries) && options.maxDirectoryEntries > 0
+      ? options.maxDirectoryEntries : MAX_DIRECTORY_ENTRIES;
   }
 
   async inspect() {
     const started = Date.now();
     try {
-      const rootEntries = await boundedRootEntries(this.root);
+      const rootEntries = await boundedRootEntries(this.root, this.maxDirectoryEntries);
       const names = new Set(rootEntries.map((entry) => entry.name));
       const result = Object.freeze({
         workspace: this.root,
@@ -33,7 +34,7 @@ export class ProjectIntake {
         entry_points: await entryPoints(this.root, names),
         package: names.has('package.json') ? await packageFacts(this.root) : null,
         root_entries_examined: rootEntries.length,
-        truncated: rootEntries.length >= MAX_DIRECTORY_ENTRIES,
+        truncated: rootEntries.length >= this.maxDirectoryEntries,
       });
       this.telemetry?.record('project.intake', 'succeeded', summary(result), { durationMs: Date.now() - started });
       return result;
@@ -54,9 +55,9 @@ export function shouldInspectProject(content) {
   return /\b(?:project|repo(?:sitory)?|codebase|workspace|working\s+(?:directory|folder)|current\s+(?:directory|folder))\b/iu.test(content);
 }
 
-async function boundedRootEntries(root) {
+async function boundedRootEntries(root, limit) {
   const entries = await readdir(root, { withFileTypes: true });
-  return entries.sort((left, right) => left.name.localeCompare(right.name)).slice(0, MAX_DIRECTORY_ENTRIES);
+  return entries.sort((left, right) => left.name.localeCompare(right.name)).slice(0, limit);
 }
 
 function repositoryKind(names) {
@@ -67,20 +68,20 @@ function repositoryKind(names) {
 }
 
 function guidanceFile(name) {
-  return ['README.md', 'README', 'NNA.md', 'AGENTS.md', 'CONTRIBUTING.md', 'SECURITY.md', 'LICENSE'].includes(name);
+  return GUIDANCE_FILES.includes(name);
 }
 
 function manifestFile(name) {
-  return ['package.json', 'pyproject.toml', 'Cargo.toml', 'go.mod', 'pom.xml', 'build.gradle'].includes(name);
+  return MANIFEST_FILES.includes(name);
 }
 
 async function entryPoints(root, names) {
   const found = ENTRY_FILES.filter((name) => names.has(name));
-  for (const directory of SOURCE_DIRECTORIES.filter((name) => names.has(name))) {
-    for (const name of ENTRY_FILES) {
-      const path = join(root, directory, name);
-      if (await regularFile(path)) found.push(relative(root, path).replaceAll('\\', '/'));
-    }
+  const candidates = SOURCE_DIRECTORIES.filter((name) => names.has(name))
+    .flatMap((directory) => ENTRY_FILES.map((name) => join(root, directory, name)));
+  const present = await Promise.all(candidates.map(async (path) => await regularFile(path) ? path : null));
+  for (const path of present.filter(Boolean)) {
+    found.push(relative(root, path).replaceAll('\\', '/'));
   }
   return found.slice(0, 32);
 }
@@ -91,6 +92,7 @@ async function packageFacts(root) {
     const info = await lstat(path);
     if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_PACKAGE_BYTES) return null;
     const value = JSON.parse(await readFile(path, 'utf8'));
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     return Object.freeze({
       name: text(value.name), type: text(value.type), main: text(value.main),
       bin: stringKeys(value.bin), scripts: stringKeys(value.scripts),

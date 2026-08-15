@@ -4,6 +4,7 @@ export { validateKeyBindings } from './key-bindings.js';
 import { validateKeyBindings } from './key-bindings.js';
 
 const TUI_RECORD_LIMIT = 9_999;
+const MAX_TUI_SESSIONS = 8;
 
 const STATES = new Set([
   'idle', 'preparing', 'waiting_provider', 'streaming', 'awaiting_approval',
@@ -182,8 +183,14 @@ export class TuiProjection {
     this.bindings = validateKeyBindings();
   }
 
+  dispose() {
+    clearInterval(this.selectionScrollTimer);
+    this.selectionScrollTimer = null;
+    this.terminalSelection = null;
+  }
+
   addSession(id, name, metadata, role = undefined) {
-    if (this.sessions.size >= 8) throw new ContractError('tui_session_limit', 'interactive session limit reached');
+    if (this.sessions.size >= MAX_TUI_SESSIONS) throw new ContractError('tui_session_limit', 'interactive session limit reached');
     role ??= this.sessions.size === 0 ? 'primary' : 'standard';
     if (!['primary', 'standard'].includes(role)) throw new ContractError('tui_session_role', 'invalid session role');
     if (role === 'primary' && [...this.sessions.values()].some((session) => session.role === 'primary')) {
@@ -366,8 +373,7 @@ function applyEvent(session, event) {
   else if (event.type === 'state_status' && STATES.has(event.semantic_state)) session.state = event.semantic_state;
   else if (event.type === 'mcp_status') {
     if (event.status === 'ready' && session.commandCapabilities) session.commandCapabilities.mcpReady = true;
-  } else if (event.type === 'memory_status') session.state = session.state;
-  else if (event.type === 'work_status') session.work = event.work;
+  } else if (event.type === 'work_status') session.work = event.work;
   else if (event.type === 'context_status') {
     session.contextBytes = event.bytes;
     session.contextLimitBytes = event.limit_bytes;

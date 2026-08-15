@@ -8,6 +8,13 @@ const SETUP_KINDS = new Set([
   'provider-preset', 'provider-profile-select', 'provider-form',
   'provider-auth-select', 'provider-model-select', 'provider-delete-confirm',
 ]);
+const PROFILE_OPERATIONS = new Set(['edit', 'limits', 'test', 'delete']);
+const MIN_CONTEXT_LIMIT_BYTES = 65_536;
+const MAX_CONTEXT_LIMIT_BYTES = 16_777_216;
+const DEFAULT_CONTEXT_LIMIT_BYTES = 2_097_152;
+const MIN_OUTPUT_LIMIT_TOKENS = 1;
+const MAX_OUTPUT_LIMIT_TOKENS = 1_048_576;
+const DEFAULT_OUTPUT_LIMIT_TOKENS = 16_384;
 
 const PRESETS = Object.freeze({
   'lm-studio': Object.freeze({ displayName: 'LM Studio', endpoint: 'http://127.0.0.1:1234/v1' }),
@@ -24,6 +31,9 @@ export function beginProviderManagement(action, workspace, sourceOverlay = {}) {
   if (action === 'add') {
     workspace.projection.openOverlay(presetOverlay(returnParent));
     return;
+  }
+  if (!PROFILE_OPERATIONS.has(action)) {
+    throw new ContractError('provider_operation_invalid', `unknown provider operation: ${action}`);
   }
   const profiles = Object.values(workspace.activeConfig().providerProfiles);
   if (profiles.length === 0) {
@@ -48,8 +58,9 @@ export function handleProviderRoleNavigation(action, workspace) {
   const role = roles[(current + direction + roles.length) % roles.length];
   const projected = workspace.projection.active();
   const config = role === 'primary' ? workspace.activeConfig() : workspace.config;
+  if (!config?.routes) throw new ContractError('provider_config_unavailable', 'provider routing configuration is unavailable');
   workspace.projection.openOverlay(providerOverlay({ config }, {
-    role, inheritRoute: projected.role === 'primary' ? null : workspace.config.routes.primary,
+    role, inheritRoute: projected.role === 'primary' ? null : workspace.config?.routes?.primary ?? null,
     canManage: projected.role === 'primary' && role === 'primary',
     canAssign: projected.role === 'primary', isMain: projected.role === 'primary',
   }));
@@ -111,6 +122,10 @@ export async function handleProviderSetupAction(action, workspace) {
 
 async function selectProfileAction(profileId, overlay, workspace) {
   const profile = workspace.activeConfig().providerProfiles[profileId];
+  if (!profile) throw new ContractError('provider_profile_missing', `provider profile does not exist: ${profileId}`);
+  if (!PROFILE_OPERATIONS.has(overlay.operation)) {
+    throw new ContractError('provider_operation_invalid', `unknown provider operation: ${overlay.operation}`);
+  }
   if (overlay.operation === 'test') {
     const result = await workspace.testProvider(profileId);
     workspace.projection.openOverlay(valueOverlay('provider-test', `Provider test · ${profileId}`, result));
@@ -120,11 +135,11 @@ async function selectProfileAction(profileId, overlay, workspace) {
     workspace.projection.openOverlay(limitsFormOverlay({
       operation: 'limits', profileId, returnParent: overlay.returnParent,
       draft: {
-        contextLimitBytes: String(profile.contextLimitBytes ?? 2_097_152),
-        outputLimitTokens: String(profile.outputLimitTokens ?? 16_384),
+        contextLimitBytes: String(profile.contextLimitBytes ?? DEFAULT_CONTEXT_LIMIT_BYTES),
+        outputLimitTokens: String(profile.outputLimitTokens ?? DEFAULT_OUTPUT_LIMIT_TOKENS),
       }, stepIndex: 0,
     }));
-  } else {
+  } else if (overlay.operation === 'edit') {
     workspace.projection.openOverlay(profileFormOverlay({
       operation: 'edit', profileId, returnParent: overlay.returnParent,
       draft: {
@@ -234,10 +249,10 @@ function validateField(key, value) {
   if (key === 'model' && (value.length < 1 || value.length > 256)) {
     throw new ContractError('invalid_model', 'Model name must contain 1–256 characters.');
   }
-  if (key === 'contextLimitBytes' && !boundedInteger(value, 65_536, 16_777_216)) {
+  if (key === 'contextLimitBytes' && !boundedInteger(value, MIN_CONTEXT_LIMIT_BYTES, MAX_CONTEXT_LIMIT_BYTES)) {
     throw new ContractError('provider_context_limit_invalid', 'Context byte limit must be an integer from 65,536 through 16,777,216.');
   }
-  if (key === 'outputLimitTokens' && !boundedInteger(value, 1, 1_048_576)) {
+  if (key === 'outputLimitTokens' && !boundedInteger(value, MIN_OUTPUT_LIMIT_TOKENS, MAX_OUTPUT_LIMIT_TOKENS)) {
     throw new ContractError('provider_output_limit_invalid', 'Output-token limit must be an integer from 1 through 1,048,576.');
   }
 }
@@ -406,8 +421,9 @@ function openSetupBack(workspace, overlay) {
 
 function openProviderManager(workspace, returnParent, selectedId) {
   const projected = workspace.projection.active();
+  if (!projected) throw new ContractError('provider_session_missing', 'no active conversation is available');
   const view = providerOverlay({ config: workspace.activeConfig() }, {
-    role: 'primary', inheritRoute: projected.role === 'primary' ? null : workspace.config.routes.primary,
+    role: 'primary', inheritRoute: projected.role === 'primary' ? null : workspace.config?.routes?.primary ?? null,
     canManage: projected.role === 'primary', canAssign: true,
     isMain: projected.role === 'primary', selectedId,
   });

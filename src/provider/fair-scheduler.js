@@ -18,13 +18,18 @@ export class FairScheduler {
   }
 
   acquire(resource, owner, signal, onQueued = () => undefined, resourceLimit = null) {
+    if (signal.aborted) {
+      return Promise.reject(new ContractError('scheduler_cancelled', 'queued provider work was cancelled'));
+    }
     const state = this.#state(resource);
     state.limit = effectiveLimit(this.limit, state.discoveredLimit, resourceLimit);
     if (state.running < state.limit && state.queue.length === 0) return Promise.resolve(this.#grant(state, owner));
     if (state.queue.length >= this.maxQueued) throw new ContractError('scheduler_queue_full', 'provider queue is full');
     return new Promise((resolve, reject) => {
-      const item = { id: newId('queue'), owner, resolve, reject, signal, onQueued };
+      const item = { id: newId('queue'), owner, resolve, reject, signal, onQueued, settled: false };
       const cancel = () => {
+        if (item.settled) return;
+        item.settled = true;
         state.queue = state.queue.filter((queued) => queued !== item);
         reject(new ContractError('scheduler_cancelled', 'queued provider work was cancelled'));
       };
@@ -68,7 +73,11 @@ export class FairScheduler {
       const index = nextFairIndex(state.queue, state.lastOwner);
       const [item] = state.queue.splice(index, 1);
       item.signal.removeEventListener('abort', item.cancel);
-      if (item.signal.aborted) continue;
+      if (item.signal.aborted) {
+        item.cancel();
+        continue;
+      }
+      item.settled = true;
       item.resolve(this.#grant(state, item.owner));
     }
     state.queue.forEach((item, index) => item.onQueued(index + 1));

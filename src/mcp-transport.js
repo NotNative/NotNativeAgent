@@ -5,6 +5,9 @@ import { VERSION } from './product.js';
 
 export const MCP_CURRENT_VERSION = '2026-07-28';
 const MAX_MCP_MESSAGE_BYTES = 2_097_152;
+const MAX_MCP_DIAGNOSTIC_CHARS = 4_096;
+const GRACEFUL_SHUTDOWN_TIMEOUT_MS = 250;
+const FORCE_KILL_TIMEOUT_MS = 500;
 
 export class StdioMcpTransport {
   #nextId = 1;
@@ -12,9 +15,10 @@ export class StdioMcpTransport {
   #buffer = '';
   #closed = false;
 
-  constructor(config, spawnProcess = spawn) {
+  constructor(config, spawnProcess = spawn, onDiagnostic = null) {
     this.config = config;
     this.spawnProcess = spawnProcess;
+    this.onDiagnostic = typeof onDiagnostic === 'function' ? onDiagnostic : null;
     this.protocolVersion = config.protocolVersion ?? MCP_CURRENT_VERSION;
   }
 
@@ -26,7 +30,10 @@ export class StdioMcpTransport {
     });
     this.child.stdout.setEncoding('utf8');
     this.child.stdout.on('data', (chunk) => this.#consume(chunk));
-    this.child.stderr.on('data', () => undefined);
+    this.child.stderr.setEncoding?.('utf8');
+    this.child.stderr.on('data', (chunk) => this.onDiagnostic?.({
+      type: 'stderr', text: String(chunk).slice(0, MAX_MCP_DIAGNOSTIC_CHARS),
+    }));
     this.child.stdin.on?.('error', (error) => this.#failAll(error, true));
     this.child.on('error', (error) => this.#failAll(error, true));
     this.child.on('exit', () => this.#failAll(new ContractError('mcp_closed', 'MCP subprocess closed'), true));
@@ -68,30 +75,38 @@ export class StdioMcpTransport {
     this.#closed = true;
     this.#failAll(new ContractError('mcp_closed', 'MCP transport closed'));
     this.child?.stdin.end();
-    if (!this.child || await waitForExit(this.child, 250)) return;
+    if (!this.child || await waitForExit(this.child, GRACEFUL_SHUTDOWN_TIMEOUT_MS)) return;
     this.child.kill('SIGTERM');
-    if (await waitForExit(this.child, 500)) return;
+    if (await waitForExit(this.child, FORCE_KILL_TIMEOUT_MS)) return;
     this.child.kill('SIGKILL');
   }
 
   #consume(chunk) {
-    this.#buffer += chunk;
-    let newline = this.#buffer.indexOf('\n');
+    let offset = 0;
+    let newline = chunk.indexOf('\n', offset);
     while (newline >= 0) {
-      const line = this.#buffer.slice(0, newline);
-      this.#buffer = this.#buffer.slice(newline + 1);
-      if (Buffer.byteLength(line, 'utf8') > MAX_MCP_MESSAGE_BYTES) {
+      const segment = chunk.slice(offset, newline);
+      const segmentBytes = Buffer.byteLength(segment, 'utf8');
+      const bufferedBytes = Buffer.byteLength(this.#buffer, 'utf8');
+      if (segmentBytes > MAX_MCP_MESSAGE_BYTES || bufferedBytes > MAX_MCP_MESSAGE_BYTES - segmentBytes) {
         this.#protocolFailure(new ContractError('mcp_output_too_large', 'MCP output exceeded bound'));
         return;
       }
+      const line = this.#buffer + segment;
+      this.#buffer = '';
       if (line.trim()) this.#message(line);
       if (this.#closed) return;
-      newline = this.#buffer.indexOf('\n');
+      offset = newline + 1;
+      newline = chunk.indexOf('\n', offset);
     }
-    // Bound incomplete lines before a newline arrives.
-    if (Buffer.byteLength(this.#buffer, 'utf8') > MAX_MCP_MESSAGE_BYTES) {
+    const tail = chunk.slice(offset);
+    const tailBytes = Buffer.byteLength(tail, 'utf8');
+    const bufferedBytes = Buffer.byteLength(this.#buffer, 'utf8');
+    if (tailBytes > MAX_MCP_MESSAGE_BYTES || bufferedBytes > MAX_MCP_MESSAGE_BYTES - tailBytes) {
       this.#protocolFailure(new ContractError('mcp_output_too_large', 'MCP output exceeded bound'));
+      return;
     }
+    this.#buffer += tail;
   }
 
   #message(line) {
@@ -106,7 +121,10 @@ export class StdioMcpTransport {
       Promise.resolve(this.notificationHandler?.(value)).catch(() => undefined);
       return;
     }
-    if (!pending) return;
+    if (!pending) {
+      this.onDiagnostic?.({ type: 'unmatched_response', id: value.id ?? null });
+      return;
+    }
     this.#settle(value.id, value.error
       ? new ContractError('mcp_remote_error', 'MCP server returned an error')
       : null, value.result);
@@ -152,6 +170,8 @@ export class HttpMcpTransport {
       method: 'POST', signal, headers: this.#headers(method, params), body: JSON.stringify(message),
     });
     if (!response.ok) throw new ContractError('mcp_http_error', `MCP HTTP request failed (${response.status})`, response.status >= 500);
+    // The current protocol is deliberately stateless; legacy negotiated versions
+    // may still establish a server-owned session that must be echoed and closed.
     if (this.protocolVersion !== MCP_CURRENT_VERSION) {
       this.sessionId ??= response.headers.get('mcp-session-id');
     }
@@ -181,6 +201,7 @@ export class HttpMcpTransport {
       method: 'POST', signal, headers: this.#headers(method, params), body: JSON.stringify(message),
     });
     if (!response.ok) throw new ContractError('mcp_http_error', `MCP HTTP notification failed (${response.status})`);
+    if (response.body) await readBounded(response);
   }
 
   #headers(method, params) {
@@ -221,10 +242,14 @@ function withMetadata(message, protocolVersion) {
 
 async function readSseResult(response) {
   const text = await readBounded(response);
-  const data = text.split(/\r?\n/u).filter((line) => line.startsWith('data:'))
-    .map((line) => line.slice(5).trim()).filter(Boolean).at(-1);
-  if (!data) throw new ContractError('mcp_malformed', 'MCP SSE response contained no message');
-  return parseJson(data);
+  const messages = text.split(/\r?\n\r?\n/u).map((event) => event.split(/\r?\n/u)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart()).join('\n').trim())
+    .filter(Boolean).map(parseJson);
+  const responseMessage = messages.findLast((message) => message
+    && typeof message === 'object' && ('result' in message || 'error' in message));
+  if (!responseMessage) throw new ContractError('mcp_malformed', 'MCP SSE response contained no result message');
+  return responseMessage;
 }
 
 async function readBounded(response) {
@@ -234,7 +259,7 @@ async function readBounded(response) {
   let bytes = 0;
   for await (const chunk of response.body) {
     bytes += chunk.byteLength;
-    if (bytes > 2_097_152) throw new ContractError('mcp_output_too_large', 'MCP response exceeded bound');
+    if (bytes > MAX_MCP_MESSAGE_BYTES) throw new ContractError('mcp_output_too_large', 'MCP response exceeded bound');
     result += decoder.decode(chunk, { stream: true });
   }
   return result + decoder.decode();

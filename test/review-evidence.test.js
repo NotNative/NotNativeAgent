@@ -26,6 +26,25 @@ test('review evidence is record- and byte-bounded', () => {
   assert.ok(Buffer.byteLength(JSON.stringify(evidence), 'utf8') < 13_500);
 });
 
+test('review evidence ignores content-free records in legacy turn-less transcripts', () => {
+  const packet = buildReviewEvidence([
+    { type: 'message', role: 'assistant' },
+    { type: 'tool_result', requestId: 'old', toolName: 'process.run', status: 'succeeded' },
+    { type: 'message', role: 'assistant', content: 'legacy historical output' },
+  ], { request: { resolved: 'needle' } });
+  assert.deepEqual(packet.evidence.map((item) => item.content), ['legacy historical output']);
+  assert.equal(packet.metadata.recentRecords, 1);
+});
+
+test('review evidence truncates UTF-8 content without splitting code points or exceeding its budget', () => {
+  const packet = buildReviewEvidence([
+    { type: 'message', role: 'assistant', turnId: 'recent', content: '😀'.repeat(4_000) },
+  ], { currentTurnId: 'recent' });
+  assert.ok(packet.metadata.packetBytes <= 12_288);
+  assert.ok(Buffer.byteLength(packet.evidence[0].content, 'utf8') <= 2_048);
+  assert.doesNotMatch(packet.evidence[0].content, /\uFFFD/u);
+});
+
 test('review evidence combines recent turns with relevant older causal history', () => {
   const transcript = [
     { type: 'message', role: 'assistant', turnId: 'old', content: 'fixture-host resolved to 192.0.2.15' },

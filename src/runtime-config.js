@@ -3,6 +3,9 @@ import { AttachmentObservationRouter } from './attachments.js';
 import { resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
 import { ModelRouter } from './provider/router.js';
+import { isDeepStrictEqual } from 'node:util';
+
+const CONFIGURATION_UPDATE_COMMAND = 'configuration_update';
 
 export async function updateEngineConfiguration(engine, command, principal) {
   const prepared = prepareEngineConfiguration(engine, command.manifest, principal);
@@ -10,6 +13,9 @@ export async function updateEngineConfiguration(engine, command, principal) {
 }
 
 export function prepareEngineConfiguration(engine, manifest, principal) {
+  if (!Number.isSafeInteger(engine?.config?.version) || engine.config.version < 1) {
+    throw new ContractError('configuration_version_invalid', 'current runtime configuration version is invalid');
+  }
   const next = resolveManifest(manifest, {
     missionPrincipal: principal === 'authenticated-stdio-host' ? principal : undefined,
     principal,
@@ -23,13 +29,24 @@ export function prepareEngineConfiguration(engine, manifest, principal) {
 
 export async function publishEngineConfiguration(engine, versioned, requestId) {
   const immediate = engine.state.state === 'idle';
-  if (immediate) applyConfiguration(engine, versioned, null);
-  else engine.pendingConfig = versioned;
-  await engine.output({
-    version: '1.0', type: 'accepted', request_id: requestId,
-    command_type: 'configuration_update', accepted: true,
-    configuration_version: versioned.version, applies: immediate ? 'immediate' : 'next_model_step',
-  });
+  const previous = immediate ? engine.config : engine.pendingConfig;
+  try {
+    if (immediate) applyConfiguration(engine, versioned, null);
+    else engine.pendingConfig = versioned;
+    await engine.output({
+      version: '1.0', type: 'accepted', request_id: requestId,
+      command_type: CONFIGURATION_UPDATE_COMMAND, accepted: true,
+      configuration_version: versioned.version, applies: immediate ? 'immediate' : 'next_model_step',
+    });
+  } catch (error) {
+    try {
+      if (immediate) applyConfiguration(engine, previous, null);
+      else engine.pendingConfig = previous;
+    } catch (rollbackError) {
+      error.rollbackFailureCode = rollbackError.code ?? 'configuration_rollback_failed';
+    }
+    throw error;
+  }
   return { accepted: true, configuration_version: versioned.version };
 }
 
@@ -40,6 +57,7 @@ export function applyPendingConfiguration(engine, active) {
 }
 
 function applyConfiguration(engine, config, active) {
+  assertConfigurationDependencies(engine, active);
   engine.config = config;
   engine.router = new ModelRouter(config, engine.providerFactory);
   engine.attachments.config = config.attachments;
@@ -53,17 +71,25 @@ function applyConfiguration(engine, config, active) {
   if (active) active.authority = engine.authority.snapshot(config);
 }
 
+function assertConfigurationDependencies(engine, active) {
+  if (!engine || !engine.attachments || !engine.memory
+    || !engine.reviewer?.semantic || !engine.toolLoop || typeof engine.scheduler?.configure !== 'function'
+    || (active && typeof engine.authority?.snapshot !== 'function')) {
+    throw new ContractError('configuration_runtime_unavailable', 'runtime configuration dependencies are unavailable');
+  }
+}
+
 export function assertRuntimeConfigurationCompatible(current, next) {
   if (current.workspaceRoot !== next.workspaceRoot || current.persistence !== next.persistence) {
     throw new ContractError('configuration_scope_change', 'workspace and persistence changes require a new session');
   }
-  if (JSON.stringify(current.mcpServers) !== JSON.stringify(next.mcpServers)) {
+  if (!isDeepStrictEqual(current.mcpServers, next.mcpServers)) {
     throw new ContractError('configuration_mcp_change', 'MCP changes require a new session');
   }
-  if (JSON.stringify(current.executionManifest) !== JSON.stringify(next.executionManifest)) {
+  if (!isDeepStrictEqual(current.executionManifest, next.executionManifest)) {
     throw new ContractError('configuration_execution_scope_change', 'host capability and disconnect policy changes require a new session');
   }
-  if (JSON.stringify(current.mission) !== JSON.stringify(next.mission)) {
+  if (!isDeepStrictEqual(current.mission, next.mission)) {
     throw new ContractError('configuration_mission_change', 'mission authority is immutable for a session; start a newly authenticated session');
   }
 }

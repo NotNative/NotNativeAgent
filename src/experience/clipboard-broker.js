@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
-import { readFile, rm, stat } from 'node:fs/promises';
+import { open, rm } from 'node:fs/promises';
 import { ContractError } from '../ids.js';
 
 const MAX_CLIPBOARD_BYTES = 100_000;
@@ -40,6 +40,7 @@ export class WindowsClipboardBroker {
   }
 
   async readContent(path, maxBytes) {
+    assertImageTarget(path, maxBytes, true);
     const response = await this.#enqueue('read_content', { path: path ?? null, max_bytes: maxBytes });
     if (response.kind !== 'image') {
       const text = decodeText(response.content); assertTextBound(text);
@@ -49,6 +50,7 @@ export class WindowsClipboardBroker {
   }
 
   async readImage(path, maxBytes) {
+    assertImageTarget(path, maxBytes);
     const response = await this.#enqueue('read_image', { path, max_bytes: maxBytes });
     if (response.kind !== 'image') throw new ContractError('clipboard_image_unavailable', 'the clipboard does not contain an image');
     return validateImage(path, maxBytes);
@@ -120,11 +122,12 @@ export class WindowsClipboardBroker {
   }
 
   #accept(chunk) {
-    this.#buffer += chunk.toString('utf8');
-    if (Buffer.byteLength(this.#buffer, 'utf8') > MAX_BROKER_RESPONSE_BYTES) {
+    const chunkBytes = Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(String(chunk), 'utf8');
+    if (Buffer.byteLength(this.#buffer, 'utf8') + chunkBytes > MAX_BROKER_RESPONSE_BYTES) {
       this.#settlePending(new ContractError('clipboard_protocol_invalid', 'the clipboard broker response exceeds its bound'));
       this.#child?.kill(); return;
     }
+    this.#buffer += chunk.toString('utf8');
     let end;
     while ((end = this.#buffer.indexOf('\n')) >= 0) {
       const line = this.#buffer.slice(0, end); this.#buffer = this.#buffer.slice(end + 1);
@@ -178,15 +181,31 @@ function assertTextBound(value) {
 }
 
 async function validateImage(path, maxBytes) {
+  let handle;
   try {
-    const details = await stat(path);
+    handle = await open(path, 'r');
+    const details = await handle.stat();
     if (!details.isFile() || details.size === 0 || details.size > maxBytes) throw new Error('invalid image size');
-    const signature = (await readFile(path)).subarray(0, 8);
-    if (!signature.equals(PNG_SIGNATURE)) throw new Error('invalid PNG signature');
+    const signature = Buffer.alloc(PNG_SIGNATURE.length);
+    const { bytesRead } = await handle.read(signature, 0, signature.length, 0);
+    if (bytesRead !== PNG_SIGNATURE.length || !signature.equals(PNG_SIGNATURE)) throw new Error('invalid PNG signature');
     return { path, mime_type: 'image/png', size: details.size };
   } catch (error) {
+    await handle?.close().catch(() => undefined);
+    handle = null;
     if (path) await rm(path, { force: true }).catch(() => undefined);
     throw new ContractError('clipboard_image_invalid', 'clipboard image could not be encoded as a bounded PNG', { cause: error });
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
+}
+
+function assertImageTarget(path, maxBytes, optional = false) {
+  if ((!optional || path !== null && path !== undefined) && (typeof path !== 'string' || path.length === 0 || path.includes('\0'))) {
+    throw new ContractError('clipboard_image_path_invalid', 'clipboard image destination must be a non-empty path');
+  }
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
+    throw new ContractError('clipboard_image_size_invalid', 'clipboard image limit must be a positive integer');
   }
 }
 

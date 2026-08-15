@@ -6,6 +6,13 @@ import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
 export const VERSION = '20260814-51';
+// scripts/bump-version.js updates this canonical date-iteration version and all distribution mirrors atomically.
+
+const USER_DATA_FILE_KEYS = new Set([
+  'modelDialects', 'dreamState', 'nnmGovernanceReceipts', 'webSearchConfig', 'webFetchConfig',
+  'gatewayConfig', 'providerCredentials', 'mcpCredentials', 'secretVault', 'secretKey', 'secretAudit',
+  'trustedWorkspaces', 'updateState',
+]);
 
 export function userDataPaths(options = {}) {
   const environment = options.environment ?? process.env;
@@ -54,8 +61,15 @@ export function userDataPaths(options = {}) {
 }
 
 export async function ensureUserDataPaths(paths = userDataPaths()) {
-  for (const path of [paths.root, paths.projects, paths.sessions, paths.governanceLedger, paths.reviewerLedger, paths.config, paths.secrets, paths.logs, paths.support, paths.hooks, paths.skills, paths.managedSearxng, paths.managedPlaywright, paths.rootTui, paths.gateway, paths.sessionBrokers, paths.telegramOutbox, paths.elevation, paths.gatewayWorkspace, paths.updateRoot]) {
-    await mkdir(path, { recursive: true, mode: 0o700 });
+  const directories = [...new Set(Object.entries(paths)
+    .filter(([key, value]) => key !== 'root' && typeof value === 'string' && !USER_DATA_FILE_KEYS.has(key))
+    .map(([, value]) => value))];
+  if (typeof paths.root === 'string') directories.unshift(paths.root);
+  const results = await Promise.allSettled(directories.map((path) => mkdir(path, { recursive: true, mode: 0o700 })));
+  const failures = results.flatMap((result, index) => result.status === 'rejected'
+    ? [Object.assign(result.reason, { dataPath: directories[index] })] : []);
+  if (failures.length > 0) {
+    throw new AggregateError(failures, `failed to create ${failures.length} user data director${failures.length === 1 ? 'y' : 'ies'}`);
   }
   return paths;
 }

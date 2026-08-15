@@ -2,12 +2,15 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 
+const MAX_TOOL_CALLS = 64;
+const MAX_ARGUMENT_BYTES = 262_144;
+
 export class ToolCallAssembler {
   #calls = new Map();
-  #bytes = 0;
+  #argumentBytes = 0;
 
   add(fragments) {
-    if (!Array.isArray(fragments) || fragments.length > 64) {
+    if (!Array.isArray(fragments) || fragments.length > MAX_TOOL_CALLS) {
       throw new ContractError('tool_fragments_invalid', 'tool fragments exceed bounds');
     }
     for (const fragment of fragments) this.#addOne(fragment);
@@ -33,7 +36,7 @@ export class ToolCallAssembler {
   }
 
   #addOne(fragment) {
-    if (!Number.isInteger(fragment?.index) || fragment.index < 0 || fragment.index >= 64) {
+    if (!Number.isInteger(fragment?.index) || fragment.index < 0 || fragment.index >= MAX_TOOL_CALLS) {
       throw new ContractError('tool_fragment_index', 'tool fragment index is invalid');
     }
     const current = this.#calls.get(fragment.index) ?? {
@@ -42,8 +45,10 @@ export class ToolCallAssembler {
     current.providerCallId = appendStable(current.providerCallId, fragment.id);
     if (typeof fragment.function?.name === 'string') current.name += fragment.function.name;
     const addition = typeof fragment.function?.arguments === 'string' ? fragment.function.arguments : '';
-    this.#bytes += Buffer.byteLength(addition, 'utf8');
-    if (this.#bytes > 262_144) throw new ContractError('tool_arguments_too_large', 'tool arguments exceed bound');
+    this.#argumentBytes += Buffer.byteLength(addition, 'utf8');
+    if (this.#argumentBytes > MAX_ARGUMENT_BYTES) {
+      throw new ContractError('tool_arguments_too_large', 'tool arguments exceed bound');
+    }
     current.arguments += addition;
     this.#calls.set(fragment.index, current);
   }
@@ -68,10 +73,11 @@ function appendStable(current, fragment) {
   throw new ContractError('tool_identity_drift', 'tool identity changed across fragments');
 }
 
-function deepFreeze(value) {
-  if (value && typeof value === 'object') {
+function deepFreeze(value, visited = new WeakSet()) {
+  if (value && typeof value === 'object' && !visited.has(value)) {
+    visited.add(value);
     Object.freeze(value);
-    for (const child of Object.values(value)) deepFreeze(child);
+    for (const child of Object.values(value)) deepFreeze(child, visited);
   }
   return value;
 }

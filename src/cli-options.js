@@ -3,6 +3,9 @@ import { readFile } from 'node:fs/promises';
 import { resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
 
+const MAX_MANIFEST_BYTES = 1_048_576;
+const MAX_PROMPT_BYTES = 131_072;
+
 export function parseCli(argv) {
   let mode = 'tui';
   let modeSelected = false;
@@ -51,10 +54,10 @@ const MODES = new Set([
 export async function loadManifest(path) {
   if (!path) throw new ContractError('manifest_required', '--manifest PATH is required');
   const bytes = await readFile(path);
-  if (bytes.length > 1_048_576) throw new ContractError('manifest_too_large', 'manifest file exceeds bound');
+  if (bytes.length > MAX_MANIFEST_BYTES) throw new ContractError('manifest_too_large', 'manifest file exceeds bound');
   let value;
   try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch {
-    throw new ContractError('manifest_invalid', 'manifest file is not valid UTF-8 JSON');
+    throw new ContractError('manifest_invalid', 'manifest file must contain valid UTF-8 encoded JSON');
   }
   return resolveManifest(value);
 }
@@ -62,9 +65,11 @@ export async function loadManifest(path) {
 export async function readPrompt(input, arguments_) {
   if (arguments_.length > 0) return arguments_.join(' ');
   let result = '';
+  let totalBytes = 0;
   for await (const chunk of input) {
+    totalBytes += Buffer.byteLength(chunk);
+    if (totalBytes > MAX_PROMPT_BYTES) throw new ContractError('content_too_large', 'prompt exceeds bound');
     result += chunk.toString('utf8');
-    if (Buffer.byteLength(result) > 131_072) throw new ContractError('content_too_large', 'prompt exceeds bound');
   }
   if (!result.trim()) throw new ContractError('invalid_content', 'prompt is required');
   return result;

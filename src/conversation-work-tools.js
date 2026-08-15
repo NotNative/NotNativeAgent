@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
 
+const TASK_STATUSES = Object.freeze(['pending', 'in_progress', 'completed', 'blocked']);
+
 export function conversationWorkDefinitions(work) {
   return [statusDefinition(work), goalDefinition(work), taskAddDefinition(work), taskUpdateDefinition(work)];
 }
@@ -31,12 +33,15 @@ function taskAddDefinition(work) {
 function taskUpdateDefinition(work) {
   return definition('work.task_update', 'Move one durable conversation task to pending, in_progress, completed, or blocked. Completion requires evidence and blocking requires a reason.', 'reversible', {
     id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Required task id such as T1, returned by work.status or work.task_add.' },
-    status: { type: 'string', enum: ['pending', 'in_progress', 'completed', 'blocked'], description: 'Required next task status.' },
+    status: { type: 'string', enum: TASK_STATUSES, description: 'Required next task status.' },
     detail: { type: 'string', minLength: 1, maxLength: 1024, description: 'Concise completion evidence for completed or blocking reason for blocked, limited to 1,024 characters; omit for pending or in_progress.' },
   }, ['id', 'status'], async (args) => mutationResult(await work.updateTask(args.id, args.status, args.detail), { taskId: args.id }));
 }
 
 function definition(name, purpose, sideEffect, properties, requiredKeys, executor) {
+  const patterns = Object.fromEntries(Object.entries(properties)
+    .filter(([, schema]) => typeof schema.pattern === 'string')
+    .map(([key, schema]) => [key, new RegExp(schema.pattern, 'u')]));
   return {
     name, version: 1, purpose, sideEffect, scope: 'conversation_work', cancellation: true, timeoutMs: 2_000,
     inputSchema: { type: 'object', properties, required: requiredKeys, additionalProperties: false },
@@ -46,7 +51,7 @@ function definition(name, purpose, sideEffect, properties, requiredKeys, executo
         || requiredKeys.some((key) => args[key] === undefined)) {
         throw new ContractError('tool_schema_invalid', `${name} received invalid arguments`);
       }
-      for (const [key, value] of Object.entries(args)) validateProperty(name, key, value, properties[key]);
+      for (const [key, value] of Object.entries(args)) validateProperty(name, key, value, properties[key], patterns[key]);
       return { args: { ...args }, resolved: { scope: 'conversation_work' } };
     },
     executor: async (request, signal) => {
@@ -57,10 +62,12 @@ function definition(name, purpose, sideEffect, properties, requiredKeys, executo
 }
 
 function result(snapshot) {
+  requireSnapshot(snapshot);
   return { content: JSON.stringify(snapshot, null, 2), metadata: { revision: snapshot.revision, tasks: snapshot.tasks.length } };
 }
 function mutationResult(snapshot, options = {}) {
-  const counts = Object.fromEntries(['pending', 'in_progress', 'completed', 'blocked']
+  requireSnapshot(snapshot);
+  const counts = Object.fromEntries(TASK_STATUSES
     .map((status) => [status, snapshot.tasks.filter((task) => task.status === status).length]));
   const task = options.task === 'last' ? snapshot.tasks.at(-1)
     : snapshot.tasks.find((item) => item.id === String(options.taskId ?? '').toUpperCase());
@@ -71,12 +78,18 @@ function mutationResult(snapshot, options = {}) {
   };
   return { content: JSON.stringify(summary), metadata: { revision: snapshot.revision, tasks: snapshot.tasks.length } };
 }
-function validateProperty(tool, key, value, schema) {
+function validateProperty(tool, key, value, schema, pattern) {
   if (schema.type === 'string' && typeof value !== 'string') invalid(tool, key);
   if (schema.enum && !schema.enum.includes(value)) invalid(tool, key);
   if (schema.minLength && value.length < schema.minLength) invalid(tool, key);
   if (schema.maxLength && value.length > schema.maxLength) invalid(tool, key);
-  if (schema.pattern && !(new RegExp(schema.pattern, 'u')).test(value)) invalid(tool, key);
+  if (pattern && !pattern.test(value)) invalid(tool, key);
+}
+function requireSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object' || !Array.isArray(snapshot.tasks)
+    || !Number.isSafeInteger(snapshot.revision)) {
+    throw new ContractError('work_snapshot_invalid', 'conversation work returned an invalid snapshot');
+  }
 }
 function invalid(tool, key) { throw new ContractError('tool_schema_invalid', `${tool} received an invalid ${key}`); }
 function required(value, name) {

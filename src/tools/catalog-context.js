@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
+// A model step receives at most 512 discovery names and 32 KiB of exact compact JSON,
+// leaving the bulk of its context budget for task evidence and loaded schemas.
 const MAX_NAMES = 512;
 const MAX_BYTES = 32 * 1024;
 
@@ -26,6 +28,9 @@ function boundedNames(names) {
     if (bytes + addition > MAX_BYTES) break;
     selected.push(name);
     bytes += addition;
+  }
+  if (Buffer.byteLength(JSON.stringify(selected), 'utf8') > MAX_BYTES) {
+    throw new RangeError('bounded tool catalog exceeded its serialized byte budget');
   }
   return selected;
 }

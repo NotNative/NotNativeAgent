@@ -7,6 +7,9 @@ import { persistManifest } from './route-configuration.js';
 
 const CREDENTIAL_ENV = 'NNA_PROVIDER_INITIAL_KEY';
 const MAX_RESPONSE_BYTES = 1_048_576;
+const MAX_KEY_BYTES = 16_384;
+const DEFAULT_DISCOVERY_TIMEOUT_MS = 10_000;
+const MAX_DISCOVERY_TIMEOUT_MS = 300_000;
 
 export async function runProviderBootstrapCommand(args, paths, options = {}) {
   const [action, endpoint, model] = args;
@@ -28,7 +31,7 @@ export async function providerBootstrapStatus(paths) {
     throw error;
   }
   resolveManifest(manifest);
-  const providers = Array.isArray(manifest.providers) ? manifest.providers : [manifest.provider].filter(Boolean);
+  const providers = Array.isArray(manifest.providers) ? manifest.providers : manifest.provider ? [manifest.provider] : [];
   return { configured: providers.length > 0, count: providers.length };
 }
 
@@ -39,10 +42,10 @@ export async function discoverProviderModels(endpoint, key = '', options = {}) {
   let response;
   try {
     response = await (options.fetch ?? globalThis.fetch)(`${normalized}/models`, {
-      headers, redirect: 'error', signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
+      headers, redirect: 'error', signal: AbortSignal.timeout(discoveryTimeout(options.timeoutMs)),
     });
-  } catch {
-    throw new ContractError('provider_discovery_unreachable', 'unable to reach the provider model catalog');
+  } catch (error) {
+    throw new ContractError('provider_discovery_unreachable', 'unable to reach the provider model catalog', { cause: error });
   }
   if (!response.ok) throw new ContractError('provider_discovery_failed', `provider model catalog returned HTTP ${response.status}`);
   const body = JSON.parse(await boundedResponseText(response));
@@ -84,7 +87,7 @@ export async function loadManagedProviderCredentials(paths, environment = proces
   }
   let count = 0;
   for (const [name, value] of Object.entries(document.credentials)) {
-    if (name !== CREDENTIAL_ENV || typeof value !== 'string' || value.length > 16_384) {
+    if (name !== CREDENTIAL_ENV || typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > MAX_KEY_BYTES) {
       throw new ContractError('provider_credentials_invalid', 'provider credential store contains an invalid entry');
     }
     if (environment[name] === undefined) environment[name] = value;
@@ -94,7 +97,7 @@ export async function loadManagedProviderCredentials(paths, environment = proces
 }
 
 async function persistCredential(path, name, value) {
-  if (typeof value !== 'string' || value.length > 16_384) throw new ContractError('provider_key_invalid', 'provider API key exceeds its bound');
+  if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > MAX_KEY_BYTES) throw new ContractError('provider_key_invalid', 'provider API key exceeds its bound');
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   await writeFile(path, `${JSON.stringify({ format_version: 1, credentials: { [name]: value } }, null, 2)}\n`, { mode: 0o600 });
 }
@@ -102,9 +105,17 @@ async function persistCredential(path, name, value) {
 async function readKey(input) {
   if (!input) return '';
   let value = '';
-  for await (const chunk of input) {
-    value += chunk.toString('utf8');
-    if (Buffer.byteLength(value) > 16_385) throw new ContractError('provider_key_invalid', 'provider API key exceeds its bound');
+  let bytes = 0;
+  try {
+    for await (const chunk of input) {
+      const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+      bytes += Buffer.byteLength(text, 'utf8');
+      if (bytes > MAX_KEY_BYTES + 1) throw new ContractError('provider_key_invalid', 'provider API key exceeds its bound');
+      value += text;
+    }
+  } catch (error) {
+    if (error instanceof ContractError) throw error;
+    throw new ContractError('provider_key_read_failed', 'provider API key input could not be read', { cause: error });
   }
   return value.replace(/[\r\n]+$/u, '');
 }
@@ -118,15 +129,17 @@ async function readJson(path, label) {
 }
 
 async function boundedResponseText(response) {
-  const reader = response.body?.getReader();
-  if (!reader) throw new ContractError('provider_discovery_failed', 'provider model catalog returned no body');
+  if (typeof response.body?.getReader !== 'function') {
+    throw new ContractError('provider_discovery_failed', 'provider model catalog returned no readable body');
+  }
+  const reader = response.body.getReader();
   const chunks = []; let length = 0;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
     length += value.length;
     if (length > MAX_RESPONSE_BYTES) {
-      await reader.cancel();
+      await reader.cancel().catch(() => undefined);
       throw new ContractError('provider_discovery_too_large', 'provider model catalog exceeds its bound');
     }
     chunks.push(value);
@@ -156,4 +169,12 @@ function endpointTrustZone(endpoint) {
 
 function validModel(value) {
   return typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+
+function discoveryTimeout(value) {
+  const timeout = value ?? DEFAULT_DISCOVERY_TIMEOUT_MS;
+  if (!Number.isSafeInteger(timeout) || timeout < 100 || timeout > MAX_DISCOVERY_TIMEOUT_MS) {
+    throw new ContractError('provider_discovery_timeout_invalid', 'provider discovery timeout is outside the supported range');
+  }
+  return timeout;
 }

@@ -4,30 +4,41 @@ import os from 'node:os';
 import { performance } from 'node:perf_hooks';
 import { TuiProjection } from '../src/experience/projection.js';
 
-const startup = [];
-for (let index = 0; index < 30; index += 1) {
-  const began = performance.now();
-  const result = spawnSync(process.execPath, ['src/cli.js', '--help'], { encoding: 'utf8' });
-  if (result.status !== 0) throw new Error('help benchmark invocation failed');
-  startup.push(performance.now() - began);
+const HELP_SAMPLES = 30;
+const PROJECTION_CAPACITY = 512;
+const PROJECTION_EVENTS = 100_000;
+
+try { run(); } catch (error) {
+  process.stderr.write(`benchmark failed: ${error?.message ?? 'unknown error'}\n`);
+  process.exitCode = 1;
 }
 
-const projection = new TuiProjection(512);
-projection.addSession('benchmark', 'Benchmark', { model: 'fixture', provider: 'fixture' });
-const beganProjection = performance.now();
-for (let sequence = 0; sequence < 100_000; sequence += 1) {
-  projection.apply('benchmark', { type: 'stream_delta', sequence, text: 'x' });
-}
-const projectionMs = performance.now() - beganProjection;
+function run() {
+  const startup = [];
+  for (let index = 0; index < HELP_SAMPLES; index += 1) {
+    const startTime = performance.now();
+    const result = spawnSync(process.execPath, ['src/cli.js', '--help'], { encoding: 'utf8' });
+    if (result.status !== 0) throw new Error(`help invocation exited with ${result.status}: ${result.stderr?.trim() || 'no diagnostics'}`);
+    startup.push(performance.now() - startTime);
+  }
 
-process.stdout.write(`${JSON.stringify({
-  measured_at: new Date().toISOString(), node: process.version,
-  platform: process.platform, arch: process.arch,
-  cpus: os.cpus().length, cpu_model: os.cpus()[0]?.model ?? 'unknown',
-  memory_bytes: os.totalmem(), samples: startup.length,
-  help_ms: summarize(startup), projection_100k_ms: projectionMs,
-  projection_retained_records: projection.active().records.length,
-}, null, 2)}\n`);
+  const projection = new TuiProjection(PROJECTION_CAPACITY);
+  projection.addSession('benchmark', 'Benchmark', { model: 'fixture', provider: 'fixture' });
+  const projectionStartTime = performance.now();
+  for (let eventIndex = 0; eventIndex < PROJECTION_EVENTS; eventIndex += 1) {
+    projection.apply('benchmark', { type: 'stream_delta', sequence: eventIndex, text: 'x' });
+  }
+  const projectionMs = performance.now() - projectionStartTime;
+
+  process.stdout.write(`${JSON.stringify({
+    measured_at: new Date().toISOString(), node: process.version,
+    platform: process.platform, arch: process.arch,
+    cpus: os.cpus().length, cpu_model: os.cpus()[0]?.model ?? 'unknown',
+    memory_bytes: os.totalmem(), samples: startup.length,
+    help_ms: summarize(startup), projection_100k_ms: projectionMs,
+    projection_retained_records: projection.active().records.length,
+  }, null, 2)}\n`);
+}
 
 function summarize(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -37,4 +48,3 @@ function summarize(values) {
 function percentile(sorted, fraction) {
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
 }
-

@@ -3,6 +3,8 @@ import { attachTaskCheckpoint, compactTranscript, createHandoffFact } from '../c
 import { ContractError } from '../ids.js';
 import { writeTaskCheckpoint } from '../task-checkpoint.js';
 
+const CONTEXT_OPERATION_TIMEOUT_MS = 300_000;
+
 export async function compactEngineConversation(engine) {
   if (engine.state.state !== 'idle') throw new ContractError('compaction_busy', 'wait for the active turn before compacting');
   engine.telemetry?.record('context.compaction', 'started', { trigger: 'operator_command' });
@@ -11,7 +13,7 @@ export async function compactEngineConversation(engine) {
       requireProgress: true,
     });
     const route = engine.router.resolve('primary');
-    const signal = new AbortController().signal;
+    const signal = AbortSignal.timeout(CONTEXT_OPERATION_TIMEOUT_MS);
     const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
     let fact = await engine.continuationCompactor.refine(compacted.fact, engine.router, route, runtime, signal);
     try {
@@ -63,19 +65,21 @@ export async function handoffEngineConversation(engine) {
   try {
     const base = createHandoffFact(engine.transcript);
     const route = engine.router.resolve('primary');
-    const signal = new AbortController().signal;
+    const signal = AbortSignal.timeout(CONTEXT_OPERATION_TIMEOUT_MS);
     const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
     const fact = await engine.continuationCompactor.handoff(base, engine.router, route, runtime, signal);
     if (engine.store) await engine.store.append('compaction_snapshot', { records: engine.transcript, fact });
     engine.transcript.push(fact);
     engine.telemetry?.record('context.handoff', 'succeeded', {
       trigger: 'operator_command', omitted_records: fact.omitted,
-      original_bytes: fact.projection.originalBytes, projected_bytes: fact.projection.projectedBytes,
+      original_bytes: fact.projection?.originalBytes ?? null,
+      projected_bytes: fact.projection?.projectedBytes ?? null,
       source_fingerprint: fact.sourceFingerprint,
     });
     return Object.freeze({
       omitted: fact.omitted, retained: 0, reduced: 0,
-      beforeBytes: fact.projection.originalBytes, afterBytes: fact.projection.projectedBytes, fact,
+      beforeBytes: fact.projection?.originalBytes ?? null,
+      afterBytes: fact.projection?.projectedBytes ?? null, fact,
     });
   } catch (error) {
     engine.telemetry?.record('context.handoff', 'failed', {
@@ -87,10 +91,22 @@ export async function handoffEngineConversation(engine) {
 
 export async function clearEngineConversation(engine) {
   if (engine.state.state !== 'idle') throw new ContractError('clear_busy', 'wait for the active turn before clearing context');
-  const removed = engine.transcript.length;
-  if (engine.store) await engine.store.append('conversation_cleared', { removed, clearedAt: new Date().toISOString() });
-  await engine.work?.clear();
-  engine.transcript = [];
-  engine.authority.clearConversation();
-  return Object.freeze({ removed, cleared: true });
+  if (!Array.isArray(engine.transcript) || typeof engine.authority?.clearConversation !== 'function') {
+    throw new ContractError('clear_unavailable', 'conversation context cannot be cleared in the current runtime');
+  }
+  engine.telemetry?.record('context.clear', 'started', { trigger: 'operator_command' });
+  try {
+    const removed = engine.transcript.length;
+    if (engine.store) await engine.store.append('conversation_cleared', { removed, clearedAt: new Date().toISOString() });
+    await engine.work?.clear();
+    engine.transcript = [];
+    engine.authority.clearConversation();
+    engine.telemetry?.record('context.clear', 'succeeded', { trigger: 'operator_command', removed_records: removed });
+    return Object.freeze({ removed, cleared: true });
+  } catch (error) {
+    engine.telemetry?.record('context.clear', 'failed', {
+      trigger: 'operator_command', reason_code: error.code ?? 'clear_failed',
+    }, { reasonCode: error.code ?? 'clear_failed' });
+    throw error;
+  }
 }

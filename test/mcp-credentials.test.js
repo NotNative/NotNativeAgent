@@ -30,3 +30,15 @@ test('managed MCP credential storage rejects multiline secrets', async () => {
   const paths = { mcpCredentials: join(root, 'credentials.json') };
   await assert.rejects(saveManagedMcpCredential(paths, 'memory', 'first\nsecond', {}), { code: 'mcp_token_invalid' });
 });
+
+test('concurrent managed MCP credential saves preserve both updates', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-mcp-credentials-concurrent-'));
+  const paths = { mcpCredentials: join(root, 'credentials.json') };
+  await Promise.all([
+    saveManagedMcpCredential(paths, 'one', 'first-secret', {}),
+    saveManagedMcpCredential(paths, 'two', 'second-secret', {}),
+  ]);
+  const restored = {};
+  assert.equal(await loadManagedMcpCredentials(paths, restored), 2);
+  assert.equal(Object.keys(restored).length, 2);
+});

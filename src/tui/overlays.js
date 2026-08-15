@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import { contextPercentText } from './context.js';
-
 const PROVIDER_ROLE_LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
 });
@@ -47,10 +46,9 @@ export function auditOverlay(entries, governance = [], health = null) {
   }
   return overlay('audit', 'Governance audit', lines);
 }
-
 export function providerOverlay(engine, options = {}) {
   const role = options.role ?? 'primary';
-  const active = engine.config.routes[role];
+  const active = engine.config.routes?.[role] ?? {};
   const labels = PROVIDER_ROLE_LABELS;
   const roleLabel = labels[role] ?? role;
   const assigned = role === 'primary' || active.assigned !== false;
@@ -97,14 +95,15 @@ export function providerOverlay(engine, options = {}) {
     ...menuOverlay('provider', 'Providers', lines, items, options.selectedId ?? (assigned ? active.providerId : 'clear-role')),
     tabs: Object.freeze(Object.entries(labels).map(([id, label]) => Object.freeze({ id, label, active: id === role }))),
     role,
-    actionLabel: role !== 'primary' && options.canAssign === false
-      ? 'Left/Right role · Global assignments are managed from Main'
-      : manageProfiles ? 'Left/Right role · Up/Down choose · Enter make active/manage'
-      : role === 'primary' ? 'Left/Right role · Up/Down choose · Enter make active'
-        : 'Left/Right role · Up/Down choose · Enter assign/clear',
+    actionLabel: providerActionLabel(role, options.canAssign, manageProfiles),
   });
 }
-
+function providerActionLabel(role, canAssign, manageProfiles) {
+  if (role !== 'primary' && canAssign === false) return 'Left/Right role · Global assignments are managed from Main';
+  if (manageProfiles) return 'Left/Right role · Up/Down choose · Enter make active/manage';
+  return role === 'primary' ? 'Left/Right role · Up/Down choose · Enter make active'
+    : 'Left/Right role · Up/Down choose · Enter assign/clear';
+}
 function providerRouteSettingsAction(config, role, route, roleLabel) {
   return {
     id: 'route-settings', label: 'Settings', badge: role === 'primary'
@@ -114,7 +113,6 @@ function providerRouteSettingsAction(config, role, route, roleLabel) {
       : 'Inspect and configure this route; timeout overrides can return to Primary.', section: `${roleLabel} route`,
   };
 }
-
 function providerScope(role, isMain) {
   if (role !== 'primary') return 'Global workspace role (shared by every conversation)';
   return isMain ? 'Main workspace default (new conversations copy this once)' : 'This conversation only';
@@ -151,7 +149,6 @@ export function modelOverlay(engine, models = [], options = {}) {
     actionLabel: 'Up/Down choose · Enter use model',
   });
 }
-
 export function configOverlay(engine, options = {}) {
   const config = engine.config ?? engine;
   const limits = config.limits ?? {};
@@ -166,7 +163,7 @@ export function configOverlay(engine, options = {}) {
   const items = [
     { id: 'provider', label: 'Provider profiles and role routing', detail: `${Object.keys(config.providerProfiles).length} configured profiles` },
     { id: 'model', label: 'Active model', detail: 'Choose a conversation-local model from the active provider' },
-    { id: 'mcp', label: 'MCP servers', detail: `${config.mcpServers.length} configured servers` },
+    { id: 'mcp', label: 'MCP servers', detail: `${config.mcpServers?.length ?? 0} configured servers` },
     { id: 'secrets', label: 'Secrets', detail: 'Manage write-only credentials in the local NNA broker' },
     { id: 'websearch', label: 'WebSearch', detail: 'Configure, test, or locally deploy SearXNG' },
     { id: 'webfetch', label: 'WebFetch destinations', detail: 'Trust exact private-network origins for bounded fetching' },
@@ -181,8 +178,8 @@ export function configOverlay(engine, options = {}) {
     actionLabel: 'Up/Down choose · Enter open',
   });
 }
-
 export function secretsOverlay(secrets, options = {}) {
+  secrets = Array.isArray(secrets) ? secrets : [];
   const lines = [
     'Managed values are write-only. NNA shows labels and field names, never stored values.',
     'Local secrets belong only to this NNA installation and are invisible to NNO realms.',
@@ -190,7 +187,7 @@ export function secretsOverlay(secrets, options = {}) {
   if (options.message) lines.push('', options.message);
   const items = secrets.map((secret) => ({
     id: secret.id, label: secret.label, badge: secret.enabled ? 'available' : 'revoked',
-    detail: `${secret.kind.replaceAll('_', ' ')} · ${secret.fields.join(', ')}${secret.rotatedAt ? ` · rotated ${secret.rotatedAt.slice(0, 10)}` : ''}`,
+    detail: `${String(secret.kind ?? 'unknown').replaceAll('_', ' ')} · ${(secret.fields ?? []).join(', ')}${secret.rotatedAt ? ` · rotated ${secret.rotatedAt.slice(0, 10)}` : ''}`,
     section: 'Local secrets',
   }));
   items.push({ id: 'action:add', label: '+ Add secret', detail: 'Store a new write-only value', section: 'Manage secrets' });
@@ -202,6 +199,7 @@ export function secretsOverlay(secrets, options = {}) {
   });
 }
 export function gatewayOverlay(status, options = {}) {
+  status = status ?? {};
   const runtime = status.runtime ?? { running: false };
   const lines = [
     'Telegram is a trusted remote operator surface. Unknown user IDs receive no response.',
@@ -209,7 +207,7 @@ export function gatewayOverlay(status, options = {}) {
     `State       ${status.enabled ? 'enabled' : 'disabled'}`,
     `Runtime     ${runtime.running ? `running (PID ${runtime.pid})` : 'stopped'}`,
     `Bot token   ${status.configured ? `configured via ${status.token_source}` : 'not configured'}`,
-    `Operators   ${status.authorized_user_ids.length ? status.authorized_user_ids.join(', ') : 'none'}`,
+    `Operators   ${status.authorized_user_ids?.length ? status.authorized_user_ids.join(', ') : 'none'}`,
     `Workspace   ${status.workspace_root ?? 'inherits the launch workspace'}`,
   ];
   if (options.message) lines.push('', options.message);
@@ -240,11 +238,12 @@ export function workspaceTrustOverlay(workspaceRoot) {
 }
 
 export function webSearchOverlay(status, options = {}) {
+  status = status ?? {}; const config = status.config ?? {};
   const lines = [
-    `State: ${status.config.enabled ? 'enabled' : 'disabled'}`,
-    `Provider: ${status.config.provider}`,
-    `Endpoint: ${status.config.endpoint ?? '--'}`,
-    `Ownership: ${status.config.managed ? 'managed by NNA' : 'user supplied'}`,
+    `State: ${config.enabled ? 'enabled' : 'disabled'}`,
+    `Provider: ${config.provider ?? '--'}`,
+    `Endpoint: ${config.endpoint ?? '--'}`,
+    `Ownership: ${config.managed ? 'managed by NNA' : 'user supplied'}`,
   ];
   if (status.test) lines.push(`Health: ${status.test.ok ? `ready (${status.test.results} test results)` : `unavailable (${status.test.error})`}`);
   if (options.message) lines.push('', options.message);
@@ -252,13 +251,13 @@ export function webSearchOverlay(status, options = {}) {
   const items = [
     { id: 'action:configure', label: 'Configure endpoint', detail: 'Set or replace the URL of an existing SearXNG service' },
   ];
-  if (status.config.enabled) items.push({ id: 'test', label: 'Test endpoint', detail: 'Run a bounded JSON search health check' });
-  items.push({ id: 'deploy', label: status.config.managed ? 'Redeploy local SearXNG' : 'Deploy local SearXNG', detail: 'Preflight Docker, recreate the local service, then validate' });
-  if (status.config.managed) {
+  if (config.enabled) items.push({ id: 'test', label: 'Test endpoint', detail: 'Run a bounded JSON search health check' });
+  items.push({ id: 'deploy', label: config.managed ? 'Redeploy local SearXNG' : 'Deploy local SearXNG', detail: 'Preflight Docker, recreate the local service, then validate' });
+  if (config.managed) {
     items.push({ id: 'start', label: 'Start managed SearXNG', detail: 'Start the preserved local deployment' });
     items.push({ id: 'stop', label: 'Stop managed SearXNG', detail: 'Stop without deleting its container or data' });
   }
-  if (status.config.enabled || status.config.endpoint) items.push({
+  if (config.enabled || config.endpoint) items.push({
     id: 'disable', label: 'Disable and clear WebSearch', detail: 'Remove the active WebSearch configuration; preserve any local deployment',
   });
   items.push({ id: 'remove', label: 'Remove local deployment', detail: 'Stop and delete NNA-managed SearXNG containers and local deployment data' });
@@ -266,13 +265,14 @@ export function webSearchOverlay(status, options = {}) {
 }
 
 export function webFetchOverlay(config, options = {}) {
+  const trustedOrigins = config?.trusted_origins ?? [];
   const lines = [
     'Public HTTP(S) text is available by default. Private and loopback destinations require exact origin trust.',
     'Redirects and resolved addresses are revalidated on every request.',
   ];
   if (options.message) lines.push('', options.message);
-  if (config.trusted_origins.length === 0) lines.push('', 'No private origins are trusted.');
-  const items = config.trusted_origins.map((origin) => ({ id: origin, label: origin, badge: 'trusted' }));
+  if (trustedOrigins.length === 0) lines.push('', 'No private origins are trusted.');
+  const items = trustedOrigins.map((origin) => ({ id: origin, label: origin, badge: 'trusted' }));
   items.push(
     actionItem('trust', 'Trust exact origin', '/webfetch trust http://host:port'),
     actionItem('revoke', 'Revoke trusted origin', '/webfetch revoke http://host:port'),
@@ -281,6 +281,7 @@ export function webFetchOverlay(config, options = {}) {
 }
 
 export function mcpOverlay(servers, options = {}) {
+  servers = Array.isArray(servers) ? servers.filter((server) => server && typeof server === 'object') : [];
   const lines = [
     'MCP servers extend NNA with externally supplied tools, resources, and prompts.',
     'Choose a server to inspect, test, edit, enable, disable, or remove it.',
@@ -292,7 +293,7 @@ export function mcpOverlay(servers, options = {}) {
     id: server.id,
     label: server.id,
     badge: server.enabled ? 'enabled' : 'disabled',
-    detail: `${server.transport === 'streamable_http' ? 'HTTP' : 'stdio'} · ${server.endpoint ?? server.command} · ${server.runtime}`,
+    detail: `${server.transport === 'streamable_http' ? 'HTTP' : 'stdio'} · ${server.endpoint ?? server.command ?? '--'} · ${server.runtime ?? '--'}`,
   }));
   if (options.canManage) items.push(
     { id: 'action:add', label: 'Add MCP server', detail: 'Connect an HTTP endpoint or a local stdio process' },
@@ -304,14 +305,15 @@ export function mcpOverlay(servers, options = {}) {
 }
 
 export function skillsOverlay(skills, options = {}) {
+  skills = Array.isArray(skills) ? skills.filter((skill) => skill && typeof skill === 'object') : [];
   const lines = [
     'Skills are bounded workflow guidance. They never grant tools, permissions, secrets, or broader scope.',
     skills.length > 0 ? `${skills.length} registered skill${skills.length === 1 ? '' : 's'}.` : 'No skills are registered.',
   ];
   if (options.message) lines.push('', options.message);
   const items = skills.map((skill) => ({
-    id: skill.id, label: skill.id, badge: skill.invocation,
-    detail: `${skill.description} · v${skill.version} · ${skill.source}`,
+    id: skill.id ?? 'unknown', label: skill.id ?? 'unknown', badge: skill.invocation ?? '',
+    detail: `${skill.description ?? '--'} · v${skill.version ?? '--'} · ${skill.source ?? '--'}`,
   }));
   return Object.freeze({
     ...menuOverlay('skills', 'Skills', lines, items, options.selectedId ?? items[0]?.id),
@@ -320,6 +322,7 @@ export function skillsOverlay(skills, options = {}) {
 }
 
 export function dreamOverlay(status, candidates = [], options = {}) {
+  status = status ?? {}; candidates = Array.isArray(candidates) ? candidates : [];
   const pending = status.pending;
   const lines = [
     'Idle maintenance learns only from governed evidence. Foreground activity always cancels maintenance.',
@@ -337,7 +340,7 @@ export function dreamOverlay(status, candidates = [], options = {}) {
       : { id: 'action:pause', label: 'Pause idle maintenance', detail: 'Stop scheduling new idle stages' },
     ...candidates.map((candidate) => ({
       id: `candidate:${candidate.id}`, label: candidate.kind, badge: candidate.state,
-      detail: `${candidate.id} · confidence ${candidate.confidence.toFixed(2)} · observed ${candidate.recurrence_count}x`,
+      detail: `${candidate.id ?? 'unknown'} · confidence ${Number.isFinite(candidate.confidence) ? candidate.confidence.toFixed(2) : '--'} · observed ${candidate.recurrence_count ?? 0}x`,
       section: 'Learning candidates',
     })),
   ];
@@ -370,11 +373,12 @@ export function overlayCommandDraft(kind, id) {
 }
 
 export function planOverlay(work, options = {}) {
+  const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
   const goal = work.goal;
-  const complete = work.tasks.filter((task) => task.status === 'completed').length;
+  const complete = tasks.filter((task) => task.status === 'completed').length;
   const lines = [
     goal ? goal.objective : 'No goal has been defined for this conversation.',
-    goal ? `Status: ${goal.status} | Progress: ${complete}/${work.tasks.length} tasks complete | Revision: ${work.revision}`
+    goal ? `Status: ${goal.status ?? 'unknown'} | Progress: ${complete}/${tasks.length} tasks complete | Revision: ${work.revision ?? 0}`
       : 'Planning is optional. Add a goal only when structured progress helps the work.',
   ];
   const items = [];
@@ -382,15 +386,17 @@ export function planOverlay(work, options = {}) {
   if (goal?.status === 'active') items.push({ id: 'action:complete-goal', label: 'Complete goal', detail: 'Requires concrete completion evidence', section: 'Goal' });
   if (goal?.status === 'completed') items.push({ id: 'action:goal-reopen', label: 'Reopen goal', detail: 'Return this goal to active work', section: 'Goal' });
   items.push({ id: 'action:add-task', label: 'Add task', detail: 'Append one ordered pending task', section: 'Tasks' });
-  for (const task of work.tasks) items.push({
+  for (const task of tasks) items.push({
     id: `task:${task.id}`, label: `${taskMarker(task.status)} ${task.id}  ${task.title}`,
     badge: task.status.replace('_', ' '), detail: task.evidence ?? task.blockedReason ?? 'Open task details', section: 'Tasks',
   });
   return Object.freeze({
-    ...menuOverlay('plan', 'Plan', lines, items, options.selectedId ?? (work.tasks.find((task) => task.status === 'in_progress') ? `task:${work.tasks.find((task) => task.status === 'in_progress').id}` : 'action:add-task')),
+    ...menuOverlay('plan', 'Plan', lines, items, options.selectedId ?? selectedTaskId(tasks)),
     actionLabel: 'Up/Down choose · Enter manage',
   });
 }
+
+function selectedTaskId(tasks) { const active = tasks.find((task) => task.status === 'in_progress'); return active ? `task:${active.id}` : 'action:add-task'; }
 
 export function taskOverlay(work, id) {
   const task = work.tasks.find((item) => item.id === id);
@@ -409,10 +415,11 @@ function taskMarker(status) {
 }
 
 export function attachmentsOverlay(session) {
-  const lines = session.pendingAttachments.length === 0
+  const attachments = session?.pendingAttachments ?? [];
+  const lines = attachments.length === 0
     ? ['No images are queued for the next message.']
-    : session.pendingAttachments.flatMap((item, index) => [
-      `${index + 1}. ${item.path}`, `   ${item.mime_type} · ${formatBytes(item.size)}`,
+    : attachments.flatMap((item, index) => [
+      `${index + 1}. ${item?.path ?? '--'}`, `   ${item?.mime_type ?? '--'} · ${formatBytes(item?.size)}`,
     ]);
   lines.push('', 'Use /attach PATH to add an image or /detach INDEX|all to remove one.');
   lines.push('Queued images are copied into managed storage only when the message is submitted.');
@@ -424,6 +431,7 @@ export function valueOverlay(kind, title, value) {
 }
 
 export function resumeOverlay(sessions, attachedIds = []) {
+  sessions = Array.isArray(sessions) ? sessions.filter((item) => item && typeof item === 'object') : [];
   const attached = new Set(attachedIds);
   const eligible = sessions.filter((item) => item.resumable && !attached.has(item.session_id));
   const hosted = sessions.filter((item) => !item.resumable).length;
@@ -442,12 +450,13 @@ export function resumeOverlay(sessions, attachedIds = []) {
 }
 
 export function tabMenuOverlay(session) {
+  session = session ?? {};
   const items = [{ id: 'action:rename', label: 'Rename conversation', detail: 'Enter a new tab name' }];
   if (session.role !== 'primary') {
     const detail = session.activeTurnId ? 'Requires confirmation while work is active' : 'Close this tab';
     items.push({ id: 'action:close', label: 'Close conversation', detail });
   }
-  return menuOverlay('tab', session.name, ['Conversation actions'], items, 'action:rename');
+  return menuOverlay('tab', session.name ?? 'Conversation', ['Conversation actions'], items, 'action:rename');
 }
 
 function overlay(kind, title, lines) {
@@ -470,21 +479,21 @@ function providerAction(id, label, detail) {
   return { ...actionItem(id, label, detail), section: 'Manage profiles' };
 }
 
-function flatten(value, prefix = '', depth = 0) {
+function flatten(value, prefix = '', depth = 0, seen = new WeakSet()) {
   if (depth > 5) return [`${prefix}: [bounded]`];
   if (value === null || typeof value !== 'object') return [`${prefix || 'value'}: ${String(value)}`];
+  if (seen.has(value)) return [`${prefix || 'value'}: [circular]`]; seen.add(value);
   const lines = [];
   for (const [key, item] of Object.entries(value).slice(0, 64)) {
     const label = prefix ? `${prefix}.${key}` : key;
-    if (item !== null && typeof item === 'object') lines.push(...flatten(item, label, depth + 1));
+    if (item !== null && typeof item === 'object') lines.push(...flatten(item, label, depth + 1, seen));
     else lines.push(`${label}: ${String(item)}`);
   }
   return lines.length > 0 ? lines : ['No data.'];
 }
 
 function formatBytes(value) {
-  if (!Number.isFinite(value)) return '--';
-  if (value < 1024) return `${value} B`;
+  if (!Number.isFinite(value)) return '--'; if (value < 1024) return `${value} B`;
   if (value < 1_048_576) return `${(value / 1024).toFixed(1)} KiB`;
   return `${(value / 1_048_576).toFixed(1)} MiB`;
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { appendFile, mkdtemp, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { SecretBroker } from '../src/secret-broker.js';
@@ -85,4 +85,25 @@ test('authenticated encryption binds ciphertext to its record metadata', async (
   await assert.rejects(() => broker.withSecret(first.id, {
     consumer: 'test', destination: 'https://example.test', purpose: 'test', reviewerDecisionId: 'review_1',
   }, async () => undefined), { code: 'secret_vault_integrity_failed' });
+});
+
+test('durable secret mutations succeed when audit observation fails', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-secret-audit-failure-'));
+  const broker = new SecretBroker({
+    vaultPath: join(root, 'vault.json'),
+    keyPath: join(root, 'key.json'),
+    audit: async () => { throw Object.assign(new Error('observer unavailable'), { code: 'observer_unavailable' }); },
+  });
+  const created = await broker.create({ label: 'Still durable', kind: 'token', fields: { token: 'durable-secret' } });
+  assert.equal((await broker.get(created.id)).label, 'Still durable');
+  assert.equal(broker.lastAuditFailure, 'observer_unavailable');
+});
+
+test('audit reads skip malformed ledger lines while retaining valid events', async () => {
+  const { root, broker } = await fixture();
+  await broker.create({ label: 'Audited', kind: 'token', fields: { token: 'audit-secret' } });
+  await appendFile(join(root, 'audit.ndjson'), '{malformed-json}\n', 'utf8');
+  const events = await broker.auditEvents();
+  assert.equal(events.length, 1);
+  assert.equal(events[0].event, 'secret.created');
 });

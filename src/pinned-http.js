@@ -12,7 +12,15 @@ export function pinnedHttpRequest(url, address, options = {}) {
       protocol: url.protocol, hostname: address, port: url.port || undefined,
       method: options.method ?? 'GET', path: `${url.pathname}${url.search}`,
       servername: url.hostname, headers: { ...options.headers, host: url.host },
-    }, (response) => resolve(responseView(response)));
+    }, (response) => {
+      const cleanup = () => options.signal.removeEventListener('abort', abort);
+      response.once('end', cleanup);
+      response.once('close', cleanup);
+      // Keep an unconsumed response failure from becoming an uncaught EventEmitter error;
+      // consumers using events or async iteration still receive the same error themselves.
+      response.on('error', () => undefined);
+      resolve(responseView(response));
+    });
     const abort = () => request.destroy(options.signal.reason ?? new Error('aborted'));
     if (options.signal.aborted) abort();
     else options.signal.addEventListener('abort', abort, { once: true });

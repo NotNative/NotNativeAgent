@@ -3,12 +3,16 @@ import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { JournalStore } from '../store.js';
 
+const DEFAULT_RETENTION_ENTRIES = 10_000;
+const MAX_REPLAY_RECORDS = 1_000_000;
+
 export class ReviewerLedger {
   #entries = new Map();
+  #signatureCounts = new Map();
   #store = null;
 
   constructor(options) {
-    this.retentionEntries = options.retentionEntries ?? 10_000;
+    this.retentionEntries = options.retentionEntries ?? DEFAULT_RETENTION_ENTRIES;
     if (options.durable) this.#store = new JournalStore(options.root, `${options.sessionId}.review`, {
       persistenceDeadlineMs: options.persistenceDeadlineMs,
     });
@@ -20,7 +24,7 @@ export class ReviewerLedger {
     if (recovered.corruptTail) {
       throw new ContractError('reviewer_ledger_corrupt', 'reviewer ledger has a corrupt tail');
     }
-    for (const record of recovered.records.slice(0, 1_000_000)) this.#apply(record.type, record.payload);
+    for (const record of recovered.records.slice(0, MAX_REPLAY_RECORDS)) this.#apply(record.type, record.payload);
     await this.#enforceRetention();
   }
 
@@ -33,7 +37,7 @@ export class ReviewerLedger {
       decision: null, execution: null, repetition: this.#repetitionCount(request),
     };
     await this.#record('proposal', entry);
-    this.#entries.set(request.id, entry);
+    this.#addEntry(entry);
     return entry;
   }
 
@@ -111,7 +115,18 @@ export class ReviewerLedger {
 
   #repetitionCount(request) {
     const signature = operationSignature(request);
-    return [...this.#entries.values()].filter((entry) => entry.signature === signature).length;
+    return this.#signatureCounts.get(signature) ?? 0;
+  }
+
+  #addEntry(entry) {
+    const replaced = this.#entries.get(entry.requestId);
+    if (replaced) {
+      const priorCount = this.#signatureCounts.get(replaced.signature) ?? 1;
+      if (priorCount <= 1) this.#signatureCounts.delete(replaced.signature);
+      else this.#signatureCounts.set(replaced.signature, priorCount - 1);
+    }
+    this.#entries.set(entry.requestId, entry);
+    this.#signatureCounts.set(entry.signature, (this.#signatureCounts.get(entry.signature) ?? 0) + 1);
   }
 
   #require(requestId) {
@@ -128,24 +143,53 @@ export class ReviewerLedger {
     if (this.#entries.size <= this.retentionEntries) return;
     const retained = [...this.#entries.values()].slice(-this.retentionEntries);
     if (this.#store) await this.#store.replace(retained.flatMap(entryRecords));
-    this.#entries = new Map(retained.map((entry) => [entry.requestId, entry]));
+    const retainedEntries = new Map(retained.map((entry) => [entry.requestId, entry]));
+    const retainedSignatureCounts = new Map();
+    for (const entry of retained) {
+      retainedSignatureCounts.set(entry.signature, (retainedSignatureCounts.get(entry.signature) ?? 0) + 1);
+    }
+    this.#entries = retainedEntries;
+    this.#signatureCounts = retainedSignatureCounts;
   }
 
   #apply(type, payload) {
-    if (type === 'proposal') this.#entries.set(payload.requestId, payload);
-    if (type === 'decision') this.#require(payload.requestId).decision = payload.decision;
-    if (type === 'operator_decision') this.#require(payload.requestId).decision = payload.decision;
-    if (type === 'execution_started') this.#require(payload.requestId).execution = payload.execution;
-    if (type === 'execution_terminal') {
-      const execution = this.#require(payload.requestId).execution;
-      execution.status = payload.terminal.status;
-      execution.terminal = payload.terminal;
+    switch (type) {
+      case 'proposal':
+        this.#addEntry(payload);
+        break;
+      case 'decision':
+      case 'operator_decision':
+        this.#require(payload.requestId).decision = payload.decision;
+        break;
+      case 'execution_started':
+        this.#require(payload.requestId).execution = payload.execution;
+        break;
+      case 'execution_terminal': {
+        const execution = this.#require(payload.requestId).execution;
+        if (!execution) {
+          throw new ContractError('ledger_start_missing', 'execution terminal has no preceding execution start');
+        }
+        execution.status = payload.terminal.status;
+        execution.terminal = payload.terminal;
+        break;
+      }
+      default:
+        throw new ContractError('reviewer_record_unknown', `unknown reviewer ledger record type: ${type}`);
     }
   }
 }
 
 function entryRecords(entry) {
-  const records = [{ type: 'proposal', payload: { ...entry, decision: null, execution: null } }];
+  const records = [{ type: 'proposal', payload: {
+    requestId: entry.requestId,
+    signature: entry.signature,
+    toolName: entry.toolName,
+    targetFingerprint: entry.targetFingerprint,
+    classification: entry.classification,
+    repetition: entry.repetition,
+    decision: null,
+    execution: null,
+  } }];
   if (entry.decision) records.push({ type: 'decision', payload: { requestId: entry.requestId, decision: entry.decision } });
   if (entry.execution) {
     records.push({ type: 'execution_started', payload: {
@@ -179,12 +223,21 @@ export function operationSignature(request) {
   return createHash('sha256').update(stableJson(value)).digest('hex');
 }
 
-function stableJson(value) {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+function stableJson(value, ancestors = new WeakSet()) {
+  if (!value || typeof value !== 'object') return JSON.stringify(value);
+  if (ancestors.has(value)) {
+    throw new ContractError('reviewer_request_circular', 'reviewer request contains a circular reference');
   }
-  return JSON.stringify(value);
+  ancestors.add(value);
+  let serialized;
+  if (Array.isArray(value)) {
+    serialized = `[${value.map((item) => stableJson(item, ancestors)).join(',')}]`;
+  } else {
+    serialized = `{${Object.keys(value).sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key], ancestors)}`).join(',')}}`;
+  }
+  ancestors.delete(value);
+  return serialized;
 }
 
 function fingerprint(value) {

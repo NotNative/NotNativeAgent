@@ -70,6 +70,18 @@ test('telemetry preserves repeated aliases while marking only active traversal c
   assert.equal(sanitized.cyclic.self._nna_telemetry, 'circular_reference');
 });
 
+test('telemetry sanitizer handles built-in objects and sensitive key variants', () => {
+  const sanitized = sanitizeTelemetry({
+    at: new Date('2026-08-15T00:00:00.000Z'), values: new Set(['one']),
+    secrets: new Map([['api_key_hash', 'hidden']]), password_reset: 'hidden-too',
+  });
+  assert.equal(sanitized.at, '2026-08-15T00:00:00.000Z');
+  assert.deepEqual(sanitized.values, ['one']);
+  assert.equal(sanitized.secrets[0][1], '[redacted]');
+  assert.equal(sanitized.password_reset, '[redacted]');
+  assert.throws(() => supportTelemetryProjection(null), { code: 'telemetry_row_invalid' });
+});
+
 test('state transitions and lifecycle records produce paired forensic spans', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-forensic-phases-'));
   const telemetry = telemetryAt(root);

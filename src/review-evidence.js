@@ -9,6 +9,8 @@ const MAX_ITEM_BYTES = 2_048;
 const MAX_TOTAL_BYTES = 12_288;
 const MAX_SCAN_RECORDS = 50_000;
 const MAX_QUERY_TERMS = 32;
+const MAX_SEARCH_DEPTH = 10;
+const MAX_SEARCH_CHILDREN = 64;
 const IGNORED_KEYS = /(?:auth|credential|password|secret|token|key)/iu;
 const STOP_WORDS = new Set([
   'about', 'after', 'again', 'could', 'from', 'have', 'into', 'just', 'more', 'only',
@@ -53,8 +55,10 @@ export function buildReviewEvidence(transcript, options = {}) {
   for (const item of selected) {
     const content = takeBytes(item.content, Math.min(MAX_ITEM_BYTES, remaining));
     if (content.length === 0) continue;
+    const contentBytes = Buffer.byteLength(content, 'utf8');
+    if (contentBytes > remaining) continue;
     evidence.push(Object.freeze({ ...item, content }));
-    remaining -= Buffer.byteLength(content, 'utf8');
+    remaining -= contentBytes;
     if (remaining <= 0) break;
   }
 
@@ -79,12 +83,14 @@ export function recentReviewEvidence(transcript, currentRequestId) {
 function evidenceItem(record, currentRequestId, recordIndex) {
   if (!record || record.requestId === currentRequestId) return null;
   if (record.type === 'message' && record.role === 'assistant' && !record.partial) {
+    if (record.content === null || record.content === undefined) return null;
     return {
       type: 'assistant_message', trust: 'untrusted_model', turnId: record.turnId ?? null,
       recordIndex, content: redactText(record.content),
     };
   }
   if (record.type === 'tool_result') {
+    if (record.content === null || record.content === undefined) return null;
     return {
       type: 'tool_result', trust: 'untrusted_tool', turnId: record.turnId ?? null,
       recordIndex, tool: record.toolName, status: record.status, content: redactText(record.content),
@@ -105,6 +111,7 @@ function newestTurnIds(records, currentTurnId) {
     const turnId = records[index]?.turnId;
     if (turnId) result.add(turnId);
   }
+  // Legacy transcripts may not carry turn IDs; treat their bounded newest records as recent.
   if (result.size === 0) result.add(null);
   return result;
 }
@@ -126,19 +133,22 @@ function queryTerms(request, authenticatedIntent, justification) {
   return terms;
 }
 
-function collectSearchValues(value, output, key = '') {
+function collectSearchValues(value, output, key = '', depth = 0) {
+  if (depth > MAX_SEARCH_DEPTH) return;
   if (IGNORED_KEYS.test(key) || value === null || value === undefined) return;
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     output.push(String(value));
     return;
   }
   if (Array.isArray(value)) {
-    for (const item of value.slice(0, 64)) collectSearchValues(item, output);
+    for (const item of value.slice(0, MAX_SEARCH_CHILDREN)) {
+      collectSearchValues(item, output, '', depth + 1);
+    }
     return;
   }
   if (typeof value === 'object') {
-    for (const [childKey, childValue] of Object.entries(value).slice(0, 64)) {
-      collectSearchValues(childValue, output, childKey);
+    for (const [childKey, childValue] of Object.entries(value).slice(0, MAX_SEARCH_CHILDREN)) {
+      collectSearchValues(childValue, output, childKey, depth + 1);
     }
   }
 }
@@ -159,9 +169,12 @@ function takeBytes(value, maximum) {
   const source = String(value);
   if (Buffer.byteLength(source, 'utf8') <= maximum) return source;
   let result = '';
+  let resultBytes = 0;
   for (const character of source) {
-    if (Buffer.byteLength(result + character, 'utf8') > maximum) break;
+    const characterBytes = Buffer.byteLength(character, 'utf8');
+    if (resultBytes + characterBytes > maximum) break;
     result += character;
+    resultBytes += characterBytes;
   }
   return result;
 }

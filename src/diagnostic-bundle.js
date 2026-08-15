@@ -3,11 +3,12 @@ import { link, mkdir, open, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { ContractError } from './ids.js';
-import { userDataPaths, VERSION } from './product.js';
+import { PRODUCT_NAME, userDataPaths, VERSION } from './product.js';
 import { createZip } from './zip-archive.js';
 
 export class DiagnosticBundle {
   constructor(options) {
+    if (!options?.engine) throw new ContractError('bundle_engine_required', 'diagnostic bundle requires an engine');
     this.engine = options.engine;
     this.logger = options.logger;
     this.maintenance = options.maintenance ?? null;
@@ -44,7 +45,7 @@ export class DiagnosticBundle {
       const folder = sessionFolder(sessionId, index);
       const forensicTrace = await safeForensicTrace(session.engine);
       const diagnostics = {
-        format: 2, created_at: createdAt, product: { name: 'NotNativeAgent', version: VERSION },
+        format: 2, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
         session_id: sessionId, active: sessionId === this.activeSessionId,
         statistics: session.statistics ?? null,
         health: await session.engine.health(), configuration: safeConfiguration(session.engine.config),
@@ -64,7 +65,7 @@ export class DiagnosticBundle {
       manifestSessions.push({ session_id: sessionId, folder, active: sessionId === this.activeSessionId });
     }
     const manifest = {
-      format: 2, created_at: createdAt, product: { name: 'NotNativeAgent', version: VERSION },
+      format: 2, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
       preview, sessions: manifestSessions, uploaded: false,
     };
     entries.unshift({ name: 'manifest.json', content: `${JSON.stringify(manifest, null, 2)}\n` });
@@ -78,12 +79,12 @@ export class DiagnosticBundle {
 }
 
 function emptyLogs() {
-  return { product: { name: 'NotNativeAgent', version: VERSION }, records: [], dropped: 0 };
+  return { product: { name: PRODUCT_NAME, version: VERSION }, records: [], dropped: 0 };
 }
 
 function sessionLogs(snapshot, sessionId) {
   return {
-    product: snapshot.product ?? { name: 'NotNativeAgent', version: VERSION },
+    product: snapshot.product ?? { name: PRODUCT_NAME, version: VERSION },
     records: (snapshot.records ?? []).filter((record) => record.session_id === sessionId),
     dropped: snapshot.dropped ?? 0,
   };
@@ -123,7 +124,7 @@ function safeMaintenance(source) {
 async function safeForensicTrace(engine) {
   try { return await engine.telemetry?.supportSnapshot?.({ sessionId: engine.sessionId, limit: 5000 }) ?? emptyTrace(); }
   catch (error) {
-    return { ...emptyTrace(), degraded: true, code: error.code ?? 'telemetry_export_failed' };
+    return { ...emptyTrace(), degraded: true, code: error?.code ?? 'telemetry_export_failed' };
   }
 }
 
@@ -132,15 +133,21 @@ function emptyTrace() {
 }
 
 function safeConfiguration(config) {
+  if (!config || typeof config !== 'object') return { status: 'unavailable' };
+  const profiles = config.providerProfiles && typeof config.providerProfiles === 'object'
+    ? Object.values(config.providerProfiles) : [];
+  const memory = config.memory && typeof config.memory === 'object' ? config.memory : {};
+  const mcpServers = Array.isArray(config.mcpServers) ? config.mcpServers : [];
   return {
     version: config.version, persistence: config.persistence, provenance: config.provenance,
     workspaceRoot: config.workspaceRoot, routes: config.routes,
-    providers: Object.values(config.providerProfiles).map((profile) => ({
+    providers: profiles.filter((profile) => profile && typeof profile === 'object').map((profile) => ({
       id: profile.id, endpoint: profile.endpoint, model: profile.model, trustZone: profile.trustZone,
       credential: profile.credentialEnv ? '[reference configured]' : '[none]',
     })),
-    memory: { ...config.memory, enabled: config.memory.enabled },
-    mcp: config.mcpServers.map((server) => ({ id: server.id, transport: server.transport, enabled: server.enabled })),
+    memory: { ...memory, enabled: memory.enabled === true },
+    mcp: mcpServers.filter((server) => server && typeof server === 'object')
+      .map((server) => ({ id: server.id, transport: server.transport, enabled: server.enabled })),
   };
 }
 
@@ -168,23 +175,23 @@ export async function atomicWrite(path, content, operations = {}) {
 
 function supportFileName() {
   const stamp = new Date().toISOString().replace(/[:.]/gu, '-');
-  return `NotNativeAgent-support-${VERSION}-${stamp}.zip`;
+  return `${PRODUCT_NAME}-support-${VERSION}-${stamp}.zip`;
 }
 
 function supportReadme(createdAt) {
   return [
-    'NotNativeAgent Support Bundle',
+    `${PRODUCT_NAME} Support Bundle`,
     `Version: ${VERSION}`,
     `Created: ${createdAt}`,
     '',
     'This archive was generated locally for troubleshooting and was not uploaded automatically.',
     'manifest.json lists the included conversations. Each sessions/<id>/ folder contains that conversation\'s diagnostics.json and forensic-trace.json.',
     'Raw transcript, prompt, tool-result, memory, and credential content are excluded.',
-    'Review the archive before sending it to the NotNativeAgent maintainers.',
+    `Review the archive before sending it to the ${PRODUCT_NAME} maintainers.`,
     '',
   ].join('\n');
 }
 
 function containsSecret(value) {
-  return /(?:bearer\s+[A-Za-z0-9._-]{16,}|api[_-]?key\s*[=:]\s*[^"\s]+|-----BEGIN [A-Z ]+PRIVATE KEY-----)/iu.test(value);
+  return /(?:bearer\s+[A-Za-z0-9._~+/-]{16,}|(?:api[_-]?key|password|secret|token)\s*["']?\s*[=:]\s*["']?[^"'\s]{8,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b|[a-z][a-z0-9+.-]*:\/\/[^\s/:]+:[^\s/@]+@)/iu.test(value);
 }

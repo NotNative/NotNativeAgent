@@ -4,61 +4,70 @@ import { withRoleRoute, withRouteSetting, withoutProvider, withoutRoleRoute } fr
 import { assertProviderUnused } from './provider-catalog.js';
 import { publishWorkspaceConfiguration } from './configuration-publication.js';
 
+const PRIMARY_ROLE = 'primary';
+const SCOPES = Object.freeze({ global: 'workspace_global', conversation: 'conversation', default: 'workspace_default' });
+
 export async function selectWorkspaceProviderRole(workspace, role, providerId) {
   const active = workspace._active();
-  const current = active.engine.pendingConfig ?? active.engine.config;
+  const current = routeConfiguration(active);
   const profile = current.providerProfiles[providerId];
   if (!profile) throw new ContractError('provider_missing', `provider ${providerId} is not configured`);
-  if (role !== 'primary') {
+  if (role !== PRIMARY_ROLE) {
     workspace._requireMainSpecialistManagement();
     await workspace._publishSpecialistRoutes(withRoleRoute(workspace.config, role, providerId, profile.model));
-    return { scope: 'workspace_global', role, providerId, model: profile.model };
+    return { scope: SCOPES.global, role, providerId, model: profile.model };
   }
   const sessionNext = withRoleRoute(current, role, providerId, profile.model);
-  if (workspace.projection.active().role === 'primary') {
-    const globalNext = withRoleRoute(workspace.config, role, providerId, profile.model);
-    await publishWorkspaceConfiguration(workspace, [{ session: active, manifest: sessionNext.manifest }], globalNext);
-  } else await workspace._updateSession(active, sessionNext.manifest);
-  workspace._projectRoute(active.id, sessionNext.config.routes.primary);
-  workspace.onChange();
-  await workspace._savePoolRecoverable();
-  return { scope: workspace.projection.active().role === 'primary' ? 'workspace_default' : 'conversation', role, providerId, model: profile.model };
+  const scope = await updatePrimaryRoute(workspace, active, sessionNext,
+    withRoleRoute(workspace.config, role, providerId, profile.model),
+    () => workspace._projectRoute(active.id, sessionNext.config.routes.primary));
+  return { scope, role, providerId, model: profile.model };
 }
 
 export async function clearWorkspaceProviderRole(workspace, role) {
-  if (role !== 'primary') {
+  if (role !== PRIMARY_ROLE) {
     workspace._requireMainSpecialistManagement();
     await workspace._publishSpecialistRoutes(withoutRoleRoute(workspace.config, role));
-    return { scope: 'workspace_global', role, assigned: false };
+    return { scope: SCOPES.global, role, assigned: false };
   }
   const active = workspace._active();
-  const current = active.engine.pendingConfig ?? active.engine.config;
+  const current = routeConfiguration(active);
   const sessionNext = withoutRoleRoute(current, role);
-  if (workspace.projection.active().role === 'primary') {
-    const globalNext = withoutRoleRoute(workspace.config, role);
-    await publishWorkspaceConfiguration(workspace, [{ session: active, manifest: sessionNext.manifest }], globalNext);
-  } else await workspace._updateSession(active, sessionNext.manifest);
-  workspace.onChange();
-  await workspace._savePoolRecoverable();
-  return { scope: workspace.projection.active().role === 'primary' ? 'workspace_default' : 'conversation', role, assigned: false };
+  const scope = await updatePrimaryRoute(workspace, active, sessionNext, withoutRoleRoute(workspace.config, role));
+  return { scope, role, assigned: false };
 }
 
 export async function configureWorkspaceProviderRoute(workspace, role, setting, value) {
   const active = workspace._active();
-  const current = active.engine.pendingConfig ?? active.engine.config;
-  if (role !== 'primary') {
+  const current = routeConfiguration(active);
+  if (role !== PRIMARY_ROLE) {
     workspace._requireMainSpecialistManagement();
     await workspace._publishSpecialistRoutes(withRouteSetting(workspace.config, role, setting, value));
-    return { scope: 'workspace_global', role, setting, value };
+    return { scope: SCOPES.global, role, setting, value };
   }
   const sessionNext = withRouteSetting(current, role, setting, value);
-  if (workspace.projection.active().role === 'primary') {
-    const globalNext = withRouteSetting(workspace.config, role, setting, value);
+  const scope = await updatePrimaryRoute(workspace, active, sessionNext,
+    withRouteSetting(workspace.config, role, setting, value));
+  return { scope, role, setting, value };
+}
+
+async function updatePrimaryRoute(workspace, active, sessionNext, globalNext, project = null) {
+  const activeProjection = workspace.projection.active();
+  if (!activeProjection) throw new ContractError('tui_session_missing', 'no active provider route is available');
+  const isWorkspaceDefault = activeProjection.role === PRIMARY_ROLE;
+  if (isWorkspaceDefault) {
     await publishWorkspaceConfiguration(workspace, [{ session: active, manifest: sessionNext.manifest }], globalNext);
   } else await workspace._updateSession(active, sessionNext.manifest);
+  project?.();
   workspace.onChange();
   await workspace._savePoolRecoverable();
-  return { scope: workspace.projection.active().role === 'primary' ? 'workspace_default' : 'conversation', role, setting, value };
+  return isWorkspaceDefault ? SCOPES.default : SCOPES.conversation;
+}
+
+function routeConfiguration(active) {
+  const config = active.engine.pendingConfig ?? active.engine.config;
+  if (!config) throw new ContractError('provider_configuration_missing', 'the active provider configuration is unavailable');
+  return config;
 }
 
 export async function deleteWorkspaceProvider(workspace, id) {

@@ -7,6 +7,9 @@ import { ContractError } from '../ids.js';
 const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs');
 const MAX_DOCUMENT_BYTES = 262_144;
 const MAX_CATALOG_BYTES = 2_097_152;
+const MAX_CATALOG_FILES = 64;
+const EXCERPT_LEADING_CONTEXT = 180;
+const MAX_EXCERPT_CHARACTERS = 700;
 
 export class GuidanceCatalog {
   constructor(root = DEFAULT_ROOT) {
@@ -18,15 +21,27 @@ export class GuidanceCatalog {
   async initialize() {
     this.root = await realpath(this.inputRoot);
     const paths = await markdownFiles(this.root);
+    const inspected = await Promise.all(paths.slice(0, MAX_CATALOG_FILES).map(async (path) => {
+      try { return { path, info: await stat(path) }; } catch { return null; }
+    }));
     let total = 0;
-    for (const path of paths.slice(0, 64)) {
-      const info = await stat(path);
+    const selected = [];
+    for (const item of inspected.filter(Boolean)) {
+      const { path, info } = item;
       if (!info.isFile() || info.size > MAX_DOCUMENT_BYTES) continue;
       total += info.size;
       if (total > MAX_CATALOG_BYTES) throw new ContractError('guidance_catalog_too_large', 'packaged guidance exceeds bound');
+      selected.push(path);
+    }
+    const documents = await Promise.all(selected.map(async (path) => {
       const id = relative(this.root, path).split(sep).join('/').replace(/\.md$/u, '');
-      const content = await readFile(path, 'utf8');
-      this.documents.set(id, Object.freeze({ id, path: `docs/${id}.md`, content, tokens: tokenize(`${id} ${content}`) }));
+      try {
+        const content = await readFile(path, 'utf8');
+        return Object.freeze({ id, path: `docs/${id}.md`, content, tokens: tokenize(`${id} ${content}`) });
+      } catch { return null; }
+    }));
+    for (const document of documents.filter(Boolean)) {
+      this.documents.set(document.id, document);
     }
     if (this.documents.size === 0) throw new ContractError('guidance_missing', 'packaged NNA guidance is unavailable');
   }
@@ -57,7 +72,13 @@ async function markdownFiles(root) {
   const pending = [root];
   while (pending.length > 0) {
     const directory = pending.shift();
-    for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+    let entries;
+    try { entries = await readdir(directory, { withFileTypes: true }); }
+    catch (error) {
+      if (directory === root) throw new ContractError('guidance_missing', 'packaged NNA guidance cannot be read', { cause: error });
+      continue;
+    }
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
       const path = join(directory, entry.name);
       if (entry.isDirectory()) pending.push(path);
       else if (entry.isFile() && entry.name.endsWith('.md')) found.push(path);
@@ -75,7 +96,7 @@ function scoreDocument(document, terms) {
   let score = 0;
   for (const term of terms) {
     if (id.includes(term)) score += 12;
-    const occurrences = document.tokens.filter((token) => token === term || token.includes(term)).length;
+    const occurrences = document.tokens.filter((token) => token === term).length;
     score += Math.min(occurrences, 8);
   }
   return score;
@@ -84,7 +105,7 @@ function scoreDocument(document, terms) {
 function excerptFor(content, terms) {
   const lower = content.toLowerCase();
   let index = terms.map((term) => lower.indexOf(term)).filter((value) => value >= 0).sort((a, b) => a - b)[0] ?? 0;
-  index = Math.max(0, index - 180);
-  const excerpt = content.slice(index, index + 700).replace(/\s+/gu, ' ').trim();
-  return `${index > 0 ? '…' : ''}${excerpt}${index + 700 < content.length ? '…' : ''}`;
+  index = Math.max(0, index - EXCERPT_LEADING_CONTEXT);
+  const excerpt = content.slice(index, index + MAX_EXCERPT_CHARACTERS).replace(/\s+/gu, ' ').trim();
+  return `${index > 0 ? '…' : ''}${excerpt}${index + MAX_EXCERPT_CHARACTERS < content.length ? '…' : ''}`;
 }

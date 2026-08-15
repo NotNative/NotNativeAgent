@@ -25,18 +25,19 @@
     {
       "name": "Node.js",
       "SPDXID": "SPDXRef-Package-NodeJS",
-      "versionInfo": ">=24 (installer fallback resolves latest 24.x LTS)",
+      "versionInfo": ">=24.0.0",
       "downloadLocation": "https://nodejs.org/dist/latest-v24.x/",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
       "licenseDeclared": "MIT",
       "copyrightText": "NOASSERTION",
-      "externalRefs": []
+      "externalRefs": [],
+      "comment": "The installer fallback resolves a current Node.js 24.x LTS release."
     },
     {
       "name": "SearXNG",
       "SPDXID": "SPDXRef-Package-SearXNG",
-      "versionInfo": "2026.7.26-b060c780d (optional managed container)",
+      "versionInfo": "2026.7.26-b060c780d",
       "downloadLocation": "https://hub.docker.com/r/searxng/searxng/tags?name=2026.7.26-b060c780d",
       "filesAnalyzed": false,
       "licenseConcluded": "AGPL-3.0-or-later",
@@ -48,29 +49,31 @@
           "checksumValue": "d0aaeb14880e6e92bde1518fcc7261e995783367d63d95203383607bef9c6516"
         }
       ],
-      "externalRefs": []
+      "externalRefs": [],
+      "comment": "Optional managed search container."
     },
     {
       "name": "ripgrep",
       "SPDXID": "SPDXRef-Package-ripgrep",
-      "versionInfo": "operator package-manager selection (optional search accelerator)",
       "downloadLocation": "https://github.com/BurntSushi/ripgrep",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Unlicense",
       "licenseDeclared": "MIT OR Unlicense",
       "copyrightText": "NOASSERTION",
-      "externalRefs": []
+      "externalRefs": [],
+      "comment": "Optional search accelerator; the concrete version is selected by the operator's package manager."
     },
     {
       "name": "Playwright",
       "SPDXID": "SPDXRef-Package-Playwright",
-      "versionInfo": "1.61.1 (optional managed browser automation runtime)",
+      "versionInfo": "1.61.1",
       "downloadLocation": "https://www.npmjs.com/package/playwright/v/1.61.1",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
       "licenseDeclared": "Apache-2.0",
       "copyrightText": "NOASSERTION",
-      "externalRefs": []
+      "externalRefs": [],
+      "comment": "Optional managed browser automation runtime."
     }
   ],
   "relationships": [

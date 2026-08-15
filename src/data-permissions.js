@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { stat } from 'node:fs/promises';
 
+// Any permission bit for group or other users degrades the private data-root posture.
+const GROUP_OR_OTHER_PERMISSION_BITS = 0o077;
+
 export async function inspectDataPermissions(root, options = {}) {
   const platform = options.platform ?? process.platform;
   if (platform === 'win32') {
@@ -11,13 +14,16 @@ export async function inspectDataPermissions(root, options = {}) {
   }
   try {
     const info = await (options.stat ?? stat)(root);
-    const exposed = info.mode & 0o077;
+    const exposed = info.mode & GROUP_OR_OTHER_PERMISSION_BITS;
     return Object.freeze({
       status: exposed === 0 ? 'ready' : 'degraded', root,
-      mode: `0${(info.mode & 0o777).toString(8)}`,
+      mode: `0${(info.mode & 0o777).toString(8).padStart(3, '0')}`,
       ...(exposed === 0 ? {} : { warning: 'data root permits group or other access' }),
     });
   } catch (error) {
-    return Object.freeze({ status: 'degraded', root, code: error.code ?? 'permission_check_failed' });
+    return Object.freeze({
+      status: 'degraded', root, code: error.code ?? 'permission_check_failed',
+      warning: 'data-root permissions could not be inspected; consult local diagnostics for the underlying failure',
+    });
   }
 }

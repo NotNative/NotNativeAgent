@@ -5,16 +5,26 @@ import { spawnSync } from 'node:child_process';
 
 const root = new URL('..', import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/u, (value) => value.slice(1));
 const productionRoot = join(root, 'src');
-const files = await collect(productionRoot, 2000);
-const errors = [];
+const MAX_SOURCE_FILES = 2_000;
+const MAX_FILE_LINES = 500;
+const MAX_FUNCTION_LINES = 60;
+const SKIPPED_DIRECTORIES = new Set(['.git', 'coverage', 'dist', 'node_modules']);
 
+await main().catch((error) => {
+  process.stderr.write(`quality gates failed: ${error?.message ?? 'unknown error'}\n`);
+  process.exitCode = 1;
+});
+
+async function main() {
+const files = await collect(productionRoot, MAX_SOURCE_FILES);
+const errors = [];
 for (const path of files) {
   if (extname(path) !== '.js') continue;
   const source = await readFile(path, 'utf8');
   const lines = source.split(/\r?\n/u);
-  if (lines.length > 500) errors.push(`${relative(root, path)} has ${lines.length} lines (max 500)`);
+  if (lines.length > MAX_FILE_LINES) errors.push(`${relative(root, path)} has ${lines.length} lines (max ${MAX_FILE_LINES})`);
   for (const span of functionSpans(lines)) {
-    if (span.length > 60) errors.push(`${relative(root, path)}:${span.start} function has ${span.length} lines (max 60)`);
+    if (span.length > MAX_FUNCTION_LINES) errors.push(`${relative(root, path)}:${span.start} function has ${span.length} lines (max ${MAX_FUNCTION_LINES})`);
   }
   if (lines.some((line) => /[ \t]+$/u.test(line))) errors.push(`${relative(root, path)} has trailing whitespace`);
   if (!source.includes('SPDX-License-Identifier: Apache-2.0')) errors.push(`${relative(root, path)} lacks SPDX identifier`);
@@ -33,15 +43,19 @@ if (errors.length > 0) {
 } else {
   process.stdout.write(`quality gates passed for ${files.length} production files\n`);
 }
+}
 
 async function collect(directory, maxFiles) {
   const pending = [directory];
   const result = [];
   while (pending.length > 0) {
     const current = pending.pop();
-    for (const entry of await readdir(current, { withFileTypes: true })) {
+    let entries;
+    try { entries = await readdir(current, { withFileTypes: true }); }
+    catch (error) { throw new Error(`cannot inspect ${current}: ${error.code ?? error.message}`, { cause: error }); }
+    for (const entry of entries) {
       const path = join(current, entry.name);
-      if (entry.isDirectory()) pending.push(path);
+      if (entry.isDirectory() && !SKIPPED_DIRECTORIES.has(entry.name)) pending.push(path);
       else result.push(path);
       if (result.length > maxFiles) throw new Error(`source file count exceeds ${maxFiles}`);
     }

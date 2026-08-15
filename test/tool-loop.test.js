@@ -167,6 +167,14 @@ test('turn diagnostics can enumerate and inspect another durable session', async
   assert.doesNotMatch(JSON.stringify(overlay), /file_missing/u);
 });
 
+test('self diagnostics reject invalid optional values', async () => {
+  const definitions = selfDiagnosticsDefinitions(() => ({}));
+  const list = definitions.find((item) => item.name === 'nna.list_sessions');
+  const diagnose = definitions.find((item) => item.name === 'nna.diagnose_turn');
+  await assert.rejects(list.validate({ limit: null }), /limit must be an optional integer/u);
+  await assert.rejects(diagnose.validate({ session_id: '../outside' }), /optional bounded identifiers/u);
+});
+
 function manifest(workspaceRoot) {
   return resolveManifest({
     persistence: 'ephemeral', workspace_root: workspaceRoot,

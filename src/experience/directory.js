@@ -6,8 +6,11 @@ import {
   loadEffectiveStartupConfiguration, runtimeHookRoots, runtimeSkillRoots,
 } from '../startup-configuration.js';
 
+const PENDING_CONVERSATION_NAMES = new WeakMap();
+
 export async function createWorkspaceConversation(workspace, value) {
-  if (!value.trim()) throw new ContractError('workspace_path_required', 'use /workspace PATH');
+  requireWorkspace(workspace);
+  if (typeof value !== 'string' || !value.trim()) throw new ContractError('workspace_path_required', 'use /workspace PATH');
   const root = await canonicalDirectory(value);
   const paths = workspace.options.dataPaths;
   if (!paths) throw new ContractError('workspace_change_unavailable', 'runtime data paths are unavailable');
@@ -20,19 +23,39 @@ export async function createWorkspaceConversation(workspace, value) {
 }
 
 export function createNextConversation(workspace) {
+  requireWorkspace(workspace);
   let ordinal = workspace.sessions.size + 1;
   const names = new Set([...workspace.sessions.values()].map((session) => session.name));
+  const pending = PENDING_CONVERSATION_NAMES.get(workspace) ?? new Set();
+  for (const name of pending) names.add(name);
   while (names.has(`Conversation ${ordinal}`)) ordinal += 1;
-  return workspace.create(`Conversation ${ordinal}`, newId('session'), { role: 'standard' });
+  const name = `Conversation ${ordinal}`;
+  pending.add(name); PENDING_CONVERSATION_NAMES.set(workspace, pending);
+  return Promise.resolve(workspace.create(name, newId('session'), { role: 'standard' }))
+    .finally(() => {
+      pending.delete(name);
+      if (pending.size === 0) PENDING_CONVERSATION_NAMES.delete(workspace);
+    });
 }
 
 async function canonicalDirectory(value) {
   let root;
-  try { root = await realpath(resolve(value)); } catch {
-    throw new ContractError('workspace_path_invalid', 'workspace path does not exist');
+  try { root = await realpath(resolve(value)); } catch (error) {
+    const message = error?.code === 'ENOENT' ? 'workspace path does not exist' : 'workspace path could not be resolved';
+    throw new ContractError('workspace_path_invalid', message);
   }
-  if (!(await stat(root)).isDirectory()) {
+  let details;
+  try { details = await stat(root); } catch {
+    throw new ContractError('workspace_path_invalid', 'workspace path could not be inspected');
+  }
+  if (!details.isDirectory()) {
     throw new ContractError('workspace_path_invalid', 'workspace path is not a directory');
   }
   return root;
+}
+
+function requireWorkspace(workspace) {
+  if (!workspace || !(workspace.sessions instanceof Map) || typeof workspace.create !== 'function') {
+    throw new ContractError('workspace_change_unavailable', 'workspace conversation management is unavailable');
+  }
 }

@@ -5,7 +5,9 @@ export function hierarchicalContinuationArtifact(transcript, omitted) {
   if (chunks.length <= 1) return Object.freeze({
     ...baseContinuationArtifact(transcript, omitted), hierarchyChunks: Math.max(1, chunks.length),
   });
-  const artifacts = chunks.map((chunk) => baseContinuationArtifact(chunk, chunk.length));
+  // Chunk artifacts are intermediate projections. Only the final aggregate can
+  // truthfully report how many durable records the caller omitted.
+  const artifacts = chunks.map((chunk) => baseContinuationArtifact(chunk, 0));
   const objective = [...artifacts].reverse().find((item) => item.objective)?.objective ?? '';
   return Object.freeze({
     schema: 'nna.continuation.v1', objective,

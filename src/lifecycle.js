@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
 
+const MAX_TRANSITION_HISTORY = 4_096;
+
 const TRANSITIONS = Object.freeze({
   idle: ['preparing_turn', 'shutting_down'],
   preparing_turn: ['invoking_model', 'compacting_context', 'finalizing_turn', 'cancelling'],
@@ -20,22 +22,26 @@ const TRANSITIONS = Object.freeze({
 });
 
 export class StateAuthority {
-  state = 'idle';
-  transitions = [];
+  #state = 'idle';
+  #transitions = [];
   observer = null;
+
+  get state() { return this.#state; }
+  get transitions() { return Object.freeze([...this.#transitions]); }
 
   setObserver(observer) {
     this.observer = observer ?? null;
   }
 
   transition(to, context) {
-    const from = this.state;
+    const from = this.#state;
     const allowed = TRANSITIONS[from]?.includes(to) === true;
     const fact = Object.freeze({
       id: newId('transition'), from, to, trigger: context.trigger,
       turnId: context.turnId ?? null, guard: allowed ? 'passed' : 'rejected',
     });
-    this.transitions.push(fact);
+    this.#transitions.push(fact);
+    if (this.#transitions.length > MAX_TRANSITION_HISTORY) this.#transitions.shift();
     observe(this.observer, 'transitionStarted', fact);
     if (!allowed) {
       observe(this.observer, 'transitionFinished', fact, 'rejected');
@@ -43,11 +49,12 @@ export class StateAuthority {
     }
     try {
       context.exitEffect?.(from);
-      this.state = to;
+      this.#state = to;
       context.entryEffect?.(to);
     } catch (error) {
       observe(this.observer, 'transitionFailed', fact, error);
-      if (this.state !== to) throw error;
+      if (this.#state !== to) throw error;
+      // Entry owns the destination state; recovery must clean up from that committed state.
       throw new TransitionEntryError(fact, error);
     }
     observe(this.observer, 'transitionFinished', fact, 'succeeded');
@@ -57,6 +64,7 @@ export class StateAuthority {
 
 export class LifecycleRegistry {
   #records = new Map();
+  #activeChildren = new Map();
   observer = null;
 
   setObserver(observer) {
@@ -64,28 +72,37 @@ export class LifecycleRegistry {
   }
 
   start(kind, parentId = null) {
-    if (parentId !== null && !this.#records.has(parentId)) {
+    const parent = parentId === null ? null : this.#records.get(parentId);
+    if (parentId !== null && !parent) {
       throw new ContractError('missing_parent', 'lifecycle parent does not exist');
     }
+    if (parent && parent.outcome !== null) throw new ContractError('terminal_parent', 'lifecycle parent is already terminal');
     const record = { id: newId(kind), kind, parentId, phase: 'active', outcome: null };
     this.#records.set(record.id, record);
-    observe(this.observer, 'lifecycleStarted', record);
-    return Object.freeze({ ...record });
+    if (parentId !== null) this.#activeChildren.set(parentId, (this.#activeChildren.get(parentId) ?? 0) + 1);
+    const snapshot = Object.freeze({ ...record });
+    observe(this.observer, 'lifecycleStarted', snapshot);
+    return snapshot;
   }
 
   finish(id, outcome) {
+    if (typeof id !== 'string' || id.length === 0) throw new ContractError('lifecycle_id_invalid', 'lifecycle id is required');
+    if (typeof outcome !== 'string' || outcome.length === 0) throw new ContractError('lifecycle_outcome_invalid', 'lifecycle outcome is required');
     const record = this.#records.get(id);
     if (!record || record.outcome !== null) {
       throw new ContractError('lifecycle_already_terminal', 'lifecycle cannot finish twice');
     }
-    const activeChild = [...this.#records.values()].find((item) => (
-      item.parentId === id && item.outcome === null
-    ));
-    if (activeChild) throw new ContractError('active_child', 'child must finish before parent');
+    if ((this.#activeChildren.get(id) ?? 0) > 0) throw new ContractError('active_child', 'child must finish before parent');
     record.phase = 'terminal';
     record.outcome = outcome;
-    observe(this.observer, 'lifecycleFinished', record);
-    return Object.freeze({ ...record });
+    if (record.parentId !== null) {
+      const remaining = (this.#activeChildren.get(record.parentId) ?? 1) - 1;
+      if (remaining === 0) this.#activeChildren.delete(record.parentId);
+      else this.#activeChildren.set(record.parentId, remaining);
+    }
+    const snapshot = Object.freeze({ ...record });
+    observe(this.observer, 'lifecycleFinished', snapshot);
+    return snapshot;
   }
 
   snapshot() {
@@ -107,13 +124,15 @@ const TOOL_TRANSITIONS = Object.freeze({
 });
 
 export class ToolChildState {
-  state = 'proposed';
+  #state = 'proposed';
+
+  get state() { return this.#state; }
 
   move(next) {
-    if (!TOOL_TRANSITIONS[this.state]?.includes(next)) {
-      throw new ContractError('illegal_tool_transition', `${this.state} cannot transition to ${next}`);
+    if (!TOOL_TRANSITIONS[this.#state]?.includes(next)) {
+      throw new ContractError('illegal_tool_transition', `${this.#state} cannot transition to ${next}`);
     }
-    this.state = next;
+    this.#state = next;
     return next;
   }
 }

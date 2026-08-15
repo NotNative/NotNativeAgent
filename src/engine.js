@@ -4,7 +4,7 @@ import { appendRecoveryHint } from './context.js';
 import { EventFactory } from './event-factory.js';
 import { EventHub, phaseIsCancelable } from './events.js';
 import { ContractError, newId } from './ids.js';
-import { acceptedRecord, assistantMessage, classifyCompletion, failure, normalizeFailure, terminalRecord, userMessage } from './engine/records.js';
+import { acceptedRecord, assistantMessage, classifyCompletion, failure, normalizeFailure, userMessage } from './engine/records.js';
 import { admissionFromRetry, createActiveTurn } from './engine/active.js';
 import { LifecycleRegistry, StateAuthority } from './lifecycle.js';
 import { HealthInspector } from './health.js';
@@ -17,28 +17,32 @@ import { clearAuthorityConstraints, mergeToolConstraints } from './tools/active-
 import { installEngineComponents } from './engine/components.js';
 import { applyPendingConfiguration, updateEngineConfiguration } from './runtime-config.js';
 import { userDataPaths } from './product.js';
-import { dispatchTurnPreHook, hookPayload } from './engine/hooks.js';
+import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import { executionContext, providerRequest, resetStep, toolContext } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
-import { FinalizationFaults } from './finalization-faults.js';
 import { evaluateCompletion, partialOutputProgress } from './completion-supervisor.js';
 import { recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
-import { settleEngineAttempt, settleEngineChildren, settleEngineStep } from './engine/lifecycle-settlement.js';
-import { acceptEngineText, emitEngineStatus, emitEngineText } from './engine/output.js';
+import { settleEngineAttempt, settleEngineStep } from './engine/lifecycle-settlement.js';
+import { acceptEngineText, emitEngineStatus } from './engine/output.js';
 import { assertTurnActive } from './turn-cancellation.js';
 import { createForensicTelemetry } from './forensic-telemetry.js';
 import { prepareEngineContext } from './engine/context-preparation.js';
 import { initializeEngine } from './engine/initialize.js';
 import { persistEngineRecord } from './engine/persistence.js';
 import { runEngineSubagent, subagentParallelLimit } from './subagent-runtime.js';
+import { finalizeEngineTurn } from './engine/finalization.js';
+
+const MAX_MODEL_STEPS_PER_TURN = 256;
+
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
   authority = new AuthorityRecord();
   transcript = [];
   steering = [];
-  recoveryNotices = []; active = null;
+  recoveryNotices = [];
+  active = null;
   constructor(options) {
     this.config = options.config;
     this.reviewPosture = options.reviewPosture ?? 'auto-review';
@@ -122,7 +126,10 @@ export class SessionEngine {
     } catch (error) {
       operation = this.#finalize('failed', '', normalizeFailure(missionFailureForError(active, error), false, this.active?.turnId));
     }
-    operation.then(active.resolveCompletion, active.resolveCompletion);
+    operation.then(
+      (result) => active.resolveCompletion(result),
+      (error) => active.resolveCompletion(error),
+    );
     return operation;
   }
 
@@ -237,7 +244,7 @@ export class SessionEngine {
       }
       const recall = await this.memory.recall(content, this.config.workspaceRoot, active.controller.signal);
       assertTurnActive(active);
-      active.enrichment.memory = recall.items;
+      active.enrichment.memory = recall.items ?? [];
       if (!['disabled', 'ready'].includes(recall.status)) {
         await this.output({ type: 'memory_status', status: recall.status, reason: recall.reason ?? null, turn_id: active.turnId });
       }
@@ -245,7 +252,7 @@ export class SessionEngine {
         && item.role === 'user' && item.turnId === active.turnId));
       applyPendingConfiguration(this, active);
       let context = await this.#prepareContext(prior, content, active);
-      while (true) {
+      for (let modelStepIndex = 0; modelStepIndex < MAX_MODEL_STEPS_PER_TURN; modelStepIndex += 1) {
         const result = await this.#runModelStep(context, active);
         if (result.exhausted) {
           const detail = recoveryExhaustionDetail(active.recovery, this.transcript, active.unresolvedToolFailures, result);
@@ -258,6 +265,12 @@ export class SessionEngine {
         context = await this.#prepareContext(this.transcript, '', active, result.forceCompact);
         context = appendRecoveryHint(context, result.hint);
       }
+      const detail = recoveryExhaustionDetail(active.recovery, this.transcript, active.unresolvedToolFailures, {
+        category: 'model_step_limit', count: MAX_MODEL_STEPS_PER_TURN,
+      });
+      return this.#finalize('incomplete', recoveryExhaustionText(detail, {
+        transcript: this.transcript, turnId: active.turnId,
+      }), detail, { emitText: true });
     } catch (error) {
       error = missionFailureForError(active, error);
       const outcome = active.cancelled ? 'cancelled' : 'failed';
@@ -273,7 +286,9 @@ export class SessionEngine {
     active.stepId = step.id;
     await this.#publish('model_step.started', 'model_step', 'active', active);
     const routes = this.router.candidates('primary', { requiredCapabilities: ['tools'] });
-    if (routes.length === 0) this.router.resolve('primary', { requiredCapabilities: ['tools'] });
+    if (routes.length === 0) {
+      throw new ContractError('route_capability_unavailable', 'no Primary provider route supports tool calls');
+    }
     active.sessionId = this.sessionId;
     await emitEngineStatus(this, 'waiting_provider', active);
     try {
@@ -406,41 +421,11 @@ export class SessionEngine {
     return this.#finalize(result.outcome ?? classifyCompletion(result.text), result.text, null);
   }
   async #finalize(outcome, text, failureDetail, options = {}) {
-    const active = this.active;
-    if (!active || active.finalized) throw new ContractError('duplicate_finalization', 'turn already finalized');
-    active.finalized = true; clearTimeout(active.missionTimer);
-    const faults = new FinalizationFaults(failureDetail, outcome, active.turnId);
-    if (this.state.state !== 'finalizing_turn') {
-      await faults.capture('state', () => this.state.transition(
-        'finalizing_turn', { trigger: `terminal_${outcome}`, turnId: active.turnId },
-      ));
-    }
-    await faults.capture('lifecycle', () => settleEngineChildren(
-      this, active, faults.outcome, (...args) => this.#publish(...args),
-    ));
-    if (text.length > 0 && text !== active.committedStepText) await faults.capture('persistence',
-      () => this.#persist('message', assistantMessage(active.turnId, text, { ...faults.primary, stepId: active.stepId })));
-    if (text.length > 0 && options.emitText === true) await faults.capture('output', () => emitEngineText(this, text, active, 'recovery_explanation'));
-    await faults.capture('lifecycle', () => this.lifecycles.finish(active.turnId, faults.outcome));
-    await faults.capture('event', () => this.#publish(
-      'turn.terminal', 'turn', 'terminal', active, faults.outcome, hookPayload(this, active, {
-      model_response: text,
-      }),
-    ));
-    await faults.capture('state', () => this.state.transition(
-      'idle', { trigger: 'finalization_committed', turnId: active.turnId },
-    ));
-    this.active = null;
-    const work = this.work?.snapshot();
-    if (work && (work.goal || work.tasks.length > 0)) {
-      await faults.capture('persistence', () => this.#persist('work_state', work));
-    }
-    let terminal = terminalRecord(this, active, faults.outcome, text, faults.primary, faults.secondary);
-    await faults.capture('persistence', () => this.#persist('turn_outcome', terminal));
-    faults.latchCommit();
-    terminal = terminalRecord(this, active, faults.outcome, text, faults.primary, faults.secondary);
-    await faults.capture('output', () => this.output(terminal));
-    return terminalRecord(this, active, faults.outcome, text, faults.primary, faults.secondary);
+    return finalizeEngineTurn(this, outcome, text, failureDetail, options, {
+      persist: (type, payload) => this.#persist(type, payload),
+      publish: (...args) => this.#publish(...args),
+      rejectDuplicate: () => { throw new ContractError('duplicate_finalization', 'turn already finalized'); },
+    });
   }
 
   #settleAttempt(active, outcome) {

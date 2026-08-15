@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
 
+const STATUS_TIMEOUT_MS = 5_000;
+const TEST_TIMEOUT_MS = 65_000;
+const MAX_SERVERS = 128;
+const MAX_SERVER_ID_CHARACTERS = 64;
+const MAX_TARGET_CHARACTERS = 2_048;
+const MAX_TOOLS = 512;
+const MAX_TOOL_NAME_CHARACTERS = 256;
+
 export function mcpControlDefinitions(control) {
   if (!control) return [];
   return [statusDefinition(control), testDefinition(control)];
@@ -10,7 +18,7 @@ function statusDefinition(control) {
   return {
     name: 'nna.mcp_status', version: 1,
     purpose: 'Inspect configured MCP servers and whether each is active in this conversation. Use this instead of searching the workspace for NNA configuration.',
-    sideEffect: 'read_only', scope: 'mcp_control', cancellation: true, timeoutMs: 5_000,
+    sideEffect: 'read_only', scope: 'mcp_control', cancellation: true, timeoutMs: STATUS_TIMEOUT_MS,
     inputSchema: objectSchema({}, []),
     validate: async (args) => {
       requireExactObject(args, []);
@@ -18,7 +26,7 @@ function statusDefinition(control) {
     },
     executor: async (_request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
-      const snapshot = await control.status();
+      const snapshot = await control.status(signal);
       const configured = boundedServers(snapshot?.configured);
       const activeIds = new Set(boundedServers(snapshot?.active).map((server) => server.id));
       const servers = configured.map((server) => ({
@@ -39,9 +47,9 @@ function testDefinition(control) {
   return {
     name: 'nna.mcp_test', version: 1,
     purpose: 'Test one configured MCP server and list its discovered tools without invoking any of those tools.',
-    sideEffect: 'read_only', scope: 'mcp_control', cancellation: false, timeoutMs: 65_000,
+    sideEffect: 'read_only', scope: 'mcp_control', cancellation: false, timeoutMs: TEST_TIMEOUT_MS,
     inputSchema: objectSchema({
-      id: { type: 'string', minLength: 1, maxLength: 64, description: 'Required configured MCP server id returned by nna.mcp_status.' },
+      id: { type: 'string', minLength: 1, maxLength: MAX_SERVER_ID_CHARACTERS, description: 'Required configured MCP server id returned by nna.mcp_status.' },
     }, ['id']),
     validate: async (args) => {
       requireExactObject(args, ['id']);
@@ -53,12 +61,13 @@ function testDefinition(control) {
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
       const result = await control.test(request.args.id, signal);
+      const tools = boundedToolNames(result.tools);
       return {
         content: JSON.stringify({
           id: request.args.id, status: result.status, protocol_version: result.protocolVersion ?? null,
-          capabilities: result.capabilities ?? {}, tools: boundedToolNames(result.tools),
+          capabilities: result.capabilities ?? {}, tools,
         }, null, 2),
-        metadata: { id: request.args.id, status: result.status, tools: boundedToolNames(result.tools).length },
+        metadata: { id: request.args.id, status: result.status, tools: tools.length },
       };
     },
   };
@@ -66,16 +75,24 @@ function testDefinition(control) {
 
 function boundedServers(value) {
   if (!Array.isArray(value)) return [];
-  return value.slice(0, 128).map((server) => ({
-    id: String(server.id).slice(0, 64), enabled: server.enabled !== false,
+  return value.slice(0, MAX_SERVERS).filter((server) => server && typeof server === 'object')
+    .map((server) => ({
+    id: String(server.id).slice(0, MAX_SERVER_ID_CHARACTERS), enabled: server.enabled !== false,
     transport: server.transport === 'stdio' ? 'stdio' : 'streamable_http',
-    target: String(server.endpoint ?? server.command ?? '').slice(0, 2048),
-    authentication: server.credentialEnv || Object.keys(server.headerEnv ?? {}).length > 0 ? 'configured' : 'none',
+    target: String(server.endpoint ?? server.command ?? '').slice(0, MAX_TARGET_CHARACTERS),
+    authentication: hasAuthentication(server) ? 'configured' : 'none',
   }));
 }
 
 function boundedToolNames(value) {
-  return Array.isArray(value) ? value.filter((item) => typeof item === 'string').slice(0, 512) : [];
+  return Array.isArray(value) ? value.filter((item) => typeof item === 'string')
+    .slice(0, MAX_TOOLS).map((item) => item.slice(0, MAX_TOOL_NAME_CHARACTERS)) : [];
+}
+
+function hasAuthentication(server) {
+  if (typeof server.credentialEnv === 'string' && server.credentialEnv.length > 0) return true;
+  return server.headerEnv && typeof server.headerEnv === 'object'
+    && !Array.isArray(server.headerEnv) && Object.keys(server.headerEnv).length > 0;
 }
 
 function requireExactObject(value, keys) {

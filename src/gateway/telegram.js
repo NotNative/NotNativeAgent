@@ -10,6 +10,9 @@ import { FairScheduler } from '../provider/fair-scheduler.js';
 import { ConsoleSessionDirectory } from '../session-broker.js';
 import { acknowledgeTelegramNotification, readTelegramOutbox } from '../notifications/telegram.js';
 
+const MAX_PENDING_CHAT_UPDATES = 16;
+const GATEWAY_HELP = 'NNA gateway ready. Send a request, use /sessions to attach to a Console conversation, /compact to reduce older context, /handoff for a terse continuation, /clear to start fresh, or /cancel to stop active work.';
+
 export class TelegramGateway {
   constructor(options) {
     this.api = options.api;
@@ -21,7 +24,6 @@ export class TelegramGateway {
     this.sessions = new Map();
     this.attachments = new Map();
     this.pendingClears = new Map();
-    this.catalogs = new Map();
     this.queues = new Map();
     this.offset = 0;
     this.running = false;
@@ -80,6 +82,9 @@ export class TelegramGateway {
       version: '1.0', type: 'shutdown', request_id: newId('gateway_shutdown'),
     })));
     this.sessions.clear();
+    this.attachments.clear();
+    this.pendingClears.clear();
+    this.queues.clear();
     this.logger.record({ type: 'gateway_stopped', status: 'completed' });
     await this.logger.flush();
   }
@@ -92,7 +97,7 @@ export class TelegramGateway {
       return;
     }
     const queue = this.queues.get(chatId) ?? { operation: Promise.resolve(), pending: 0 };
-    if (queue.pending >= 16) {
+    if (queue.pending >= MAX_PENDING_CHAT_UPDATES) {
       this.logger.record({ type: 'gateway_queue_full', code: 'gateway_chat_queue_full', outcome: 'failed' });
       return;
     }
@@ -119,7 +124,7 @@ export class TelegramGateway {
       this.logger.record({ type: 'gateway_access_denied', reason_code: 'telegram_user_not_authorized', outcome: 'denied' });
       return;
     }
-    if (callback) return this.#callback(callback, chatId, userId);
+    if (callback) return this.#callback(callback, chatId);
     if (typeof message.text !== 'string') return;
     const text = message.text.trim();
     if (!text) return;
@@ -136,7 +141,7 @@ export class TelegramGateway {
       return;
     }
     if (text === '/start' || text === '/help') {
-      await this.api.sendMessage(chatId, 'NNA gateway ready. Send a request, use /sessions to attach to a Console conversation, /compact to reduce older context, /handoff for a terse continuation, /clear to start fresh, or /cancel to stop active work.', this.controller.signal);
+      await this.api.sendMessage(chatId, GATEWAY_HELP, this.controller.signal);
       return;
     }
     if (text === '/sessions') return this.#showSessions(chatId);
@@ -164,7 +169,6 @@ export class TelegramGateway {
 
   async #showSessions(chatId) {
     const catalog = await this.sessionDirectory.list();
-    this.catalogs.set(chatId, catalog);
     if (catalog.length === 0) {
       await this.api.sendMessage(chatId, 'No active NNA Console conversations are available.', this.controller.signal);
       return;
@@ -180,7 +184,6 @@ export class TelegramGateway {
   async #attachFromText(chatId, selector) {
     if (!selector?.trim()) return this.#showSessions(chatId);
     const catalog = await this.sessionDirectory.list();
-    this.catalogs.set(chatId, catalog);
     const number = Number(selector);
     const target = Number.isSafeInteger(number) && number > 0 ? catalog[number - 1]
       : catalog.find((item) => item.alias.toLowerCase() === selector.trim().toLowerCase());

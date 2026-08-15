@@ -7,6 +7,15 @@ import { SessionLock } from './persistence/session-lock.js';
 
 const EMPTY = Object.freeze({ format: 1, keyVersion: 1, records: [] });
 const PATH_TAILS = new Map();
+const MASTER_KEY_BYTES = 32;
+const MASTER_KEY_CREATE_ATTEMPTS = 8;
+// Stable HKDF domain separator; changing it would make existing vault data unreadable.
+const REALM_KEY_INFO_PREFIX = 'nna-secret-realm-v';
+const ERROR = Object.freeze({
+  corrupt: 'secret_vault_corrupt',
+  integrity: 'secret_vault_integrity_failed',
+  invalidKey: 'secret_key_invalid',
+});
 
 export class SecretVault {
   constructor(options) {
@@ -41,6 +50,11 @@ export class SecretVault {
   }
 
   async decryptFields(record) {
+    if (!record || typeof record !== 'object' || !record.realm || !record.id
+      || !record.encryptedFields || typeof record.encryptedFields !== 'object'
+      || Array.isArray(record.encryptedFields)) {
+      throw new ContractError(ERROR.corrupt, 'secret vault record is invalid');
+    }
     const output = {};
     for (const [name, field] of Object.entries(record.encryptedFields)) {
       const key = await this.#realmKey(record.realm, field.keyVersion);
@@ -52,7 +66,7 @@ export class SecretVault {
           decipher.update(Buffer.from(field.ciphertext, 'base64')), decipher.final(),
         ]).toString('utf8');
       } catch {
-        throw new ContractError('secret_vault_integrity_failed', 'secret value failed authenticated decryption');
+        throw new ContractError(ERROR.integrity, 'secret value failed authenticated decryption');
       }
     }
     return output;
@@ -66,44 +80,60 @@ export class SecretVault {
     } catch (error) {
       if (error.code === 'ENOENT') return structuredClone(EMPTY);
       if (error instanceof ContractError) throw error;
-      throw new ContractError('secret_vault_corrupt', 'secret vault is unreadable or malformed');
+      throw new ContractError(ERROR.corrupt, 'secret vault is unreadable or malformed');
     }
   }
 
   async #masterKey() {
-    try {
-      const value = JSON.parse(await readFile(this.keyPath, 'utf8'));
-      const key = Buffer.from(value.key, 'base64');
-      if (value.format !== 1 || value.protection !== 'portable-file-v1' || key.length !== 32) throw new Error('invalid');
-      return key;
-    } catch (error) {
-      if (error.code !== 'ENOENT') throw new ContractError('secret_key_invalid', 'secret vault key file is invalid');
+    for (let attempt = 0; attempt < MASTER_KEY_CREATE_ATTEMPTS; attempt += 1) {
+      try {
+        return decodeMasterKey(JSON.parse(await readFile(this.keyPath, 'utf8')));
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          throw new ContractError(ERROR.invalidKey, 'secret vault key file is invalid', { cause: error });
+        }
+      }
       await mkdir(dirname(this.keyPath), { recursive: true, mode: 0o700 });
-      const value = { format: 1, protection: 'portable-file-v1', key: randomBytes(32).toString('base64') };
-      try { await writeFile(this.keyPath, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx', mode: 0o600 }); }
-      catch (writeError) { if (writeError.code !== 'EEXIST') throw writeError; }
-      return this.#masterKey();
+      const key = randomBytes(MASTER_KEY_BYTES);
+      const value = { format: 1, protection: 'portable-file-v1', key: key.toString('base64') };
+      try {
+        await writeFile(this.keyPath, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+        return key;
+      } catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+      }
     }
+    throw new ContractError(ERROR.invalidKey, 'secret vault key file could not be initialized');
   }
 
   async #realmKey(realm, version) {
-    return Buffer.from(hkdfSync('sha256', await this.#masterKey(), Buffer.from(realm), Buffer.from(`nna-secret-realm-v${version}`), 32));
+    const info = Buffer.from(`${REALM_KEY_INFO_PREFIX}${version}`);
+    return Buffer.from(hkdfSync('sha256', await this.#masterKey(), Buffer.from(realm), info, 32));
   }
 
-  #serialized(operation) {
+  async #serialized(operation) {
     const prior = PATH_TAILS.get(this.path) ?? Promise.resolve();
-    const run = prior.then(async () => {
+    let releaseTurn;
+    const turn = new Promise((resolve) => { releaseTurn = resolve; });
+    PATH_TAILS.set(this.path, turn);
+    await prior;
+    try {
       const lock = new SessionLock(dirname(this.path), 'secret-vault');
       await lock.acquire();
       try { return await operation(); } finally { await lock.release(); }
-    });
-    const settled = run.catch(() => undefined);
-    PATH_TAILS.set(this.path, settled);
-    void settled.finally(() => {
-      if (PATH_TAILS.get(this.path) === settled) PATH_TAILS.delete(this.path);
-    });
-    return run;
+    } finally {
+      releaseTurn();
+      if (PATH_TAILS.get(this.path) === turn) PATH_TAILS.delete(this.path);
+    }
   }
+}
+
+function decodeMasterKey(value) {
+  const key = Buffer.from(value?.key ?? '', 'base64');
+  if (value?.format !== 1 || value.protection !== 'portable-file-v1' || key.length !== MASTER_KEY_BYTES) {
+    throw new Error('invalid master key');
+  }
+  return key;
 }
 
 function aad(realm, recordId, field, keyVersion) {
@@ -112,11 +142,12 @@ function aad(realm, recordId, field, keyVersion) {
 
 function validateVault(value) {
   if (!value || value.format !== 1 || value.keyVersion !== 1 || !Array.isArray(value.records) || value.records.length > 10_000) {
-    throw new ContractError('secret_vault_corrupt', 'secret vault schema is invalid');
+    throw new ContractError(ERROR.corrupt, 'secret vault schema is invalid');
   }
   for (const record of value.records) {
-    if (!record?.id || !record.realm || !record.label || !record.encryptedFields || typeof record.encryptedFields !== 'object') {
-      throw new ContractError('secret_vault_corrupt', 'secret vault record is invalid');
+    if (!record?.id || !record.realm || !record.label || !record.encryptedFields
+      || typeof record.encryptedFields !== 'object' || Array.isArray(record.encryptedFields)) {
+      throw new ContractError(ERROR.corrupt, 'secret vault record is invalid');
     }
   }
 }

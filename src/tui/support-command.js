@@ -5,6 +5,7 @@ import { valueOverlay } from './overlays.js';
 import { sessionStats } from './session-stats.js';
 
 export async function handleSupportCommand(name, argument, workspace) {
+  const normalizedArgument = typeof argument === 'string' ? argument : '';
   const bundle = new DiagnosticBundle({
     engine: workspace.activeEngine(), logger: workspace.options.logger,
     sessions: [...workspace.sessions.values()].map((session) => ({
@@ -14,14 +15,16 @@ export async function handleSupportCommand(name, argument, workspace) {
     activeSessionId: workspace.projection.activeId,
     maintenance: () => workspace.dream?.status() ?? null,
   });
-  const legacyPath = name === '/bundle' && argument.startsWith('create ') ? argument.slice(7).trim() : null;
-  if (argument === 'preview') {
+  // `/bundle create PATH` remains a compatibility alias; `/support PATH` is the canonical syntax.
+  const legacyPath = name === '/bundle' && normalizedArgument.startsWith('create ')
+    ? normalizedArgument.slice(7).trim() : null;
+  if (normalizedArgument === 'preview') {
     workspace.projection.openOverlay(valueOverlay('support', 'Support bundle preview', await bundle.preview()));
     return;
   }
-  if (name === '/bundle' && argument && !legacyPath) {
+  if (name === '/bundle' && normalizedArgument && !legacyPath) {
     throw new ContractError('bundle_command_invalid', 'use /support, /support preview, or /support PATH.zip');
   }
-  const result = await bundle.create(legacyPath || argument || null);
+  const result = await bundle.create(legacyPath || normalizedArgument || null);
   workspace.projection.openOverlay(valueOverlay('support', 'Support bundle ready to send', result));
 }

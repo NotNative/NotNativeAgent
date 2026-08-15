@@ -22,3 +22,17 @@ test('console authority clears ownership when lock release fails', async () => {
   await assert.rejects(authority.release(), /release failed/u);
   assert.equal(authority.owned, false);
 });
+
+test('console authority serializes concurrent acquire and release calls', async () => {
+  let acquisitions = 0;
+  let releases = 0;
+  const authority = new ConsoleAuthority(null, {
+    async acquire() { acquisitions += 1; await new Promise((resolve) => setTimeout(resolve, 5)); },
+    async release() { releases += 1; },
+  });
+  assert.deepEqual(await Promise.all([authority.acquire(), authority.acquire()]), [true, true]);
+  await Promise.all([authority.release(), authority.release()]);
+  assert.equal(acquisitions, 1);
+  assert.equal(releases, 1);
+  assert.equal(authority.owned, false);
+});

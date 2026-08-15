@@ -26,6 +26,14 @@ export const TUI_THEME = Object.freeze({
   activity: '38;5;147',
 });
 
+const SGR_CODES = /^\d+(?:;\d+)*$/u;
+
+for (const codes of Object.values(TUI_THEME)) {
+  if (!SGR_CODES.test(codes)) throw new Error('TUI theme contains an invalid SGR code');
+}
+
 export function paint(codes, value) {
-  return `\u001b[${codes}m${value}\u001b[0m`;
+  if (typeof codes !== 'string' || !SGR_CODES.test(codes)) throw new TypeError('paint requires valid SGR codes');
+  // Text is sanitized at the terminal projection boundary; nested styling is intentionally preserved here.
+  return `\u001b[${codes}m${String(value ?? '')}\u001b[0m`;
 }

@@ -2,9 +2,12 @@
 import { ContractError } from '../ids.js';
 import { modelOverlay, providerOverlay, valueOverlay } from './overlays.js';
 
+const PRIMARY_ROLE = 'primary';
+const PROVIDER_MUTATIONS = new Set(['add', 'edit', 'limits']);
+
 export async function handleProviderCommand(argument, workspace, helpers) {
   const values = argument.split(/\s+/u).filter(Boolean);
-  if (['add', 'edit', 'limits'].includes(values[0])) return mutateProvider(values, workspace, helpers);
+  if (PROVIDER_MUTATIONS.has(values[0])) return mutateProvider(values, workspace, helpers);
   if (values[0] === 'delete') {
     requireLength(values, 2, 'use /provider delete ID');
     await workspace.deleteProvider(values[1]);
@@ -21,21 +24,19 @@ export async function handleProviderCommand(argument, workspace, helpers) {
   if (values.length === 2) {
     if (values[1] === 'clear') await workspace.clearProviderForRole(values[0]);
     else await workspace.selectProviderForRole(values[0], values[1]);
-    const scope = values[0] === 'primary'
-      ? (workspace.projection.active().role === 'primary' ? 'the Main workspace default' : 'this conversation')
-      : 'all conversations';
+    const scope = providerRouteScope(values[0], workspace.projection.active()?.role);
     workspace.projection.showNotice('route', `${values[0]} assignment ${values[1] === 'clear' ? 'cleared' : 'updated'} for ${scope}.`);
     return;
   }
   if (values.length === 1) {
-    await workspace.selectProviderForRole('primary', values[0]);
+    await workspace.selectProviderForRole(PRIMARY_ROLE, values[0]);
     workspace.projection.showNotice('route', helpers.routeNotice(workspace));
     return;
   }
   const projected = workspace.projection.active();
   workspace.projection.openOverlay(providerOverlay({ config: workspace.activeConfig() }, {
-    role: 'primary', inheritRoute: projected.role === 'primary' ? null : workspace.config.routes.primary,
-    canManage: projected.role === 'primary', isMain: projected.role === 'primary', canAssign: true,
+    role: PRIMARY_ROLE, inheritRoute: projected.role === PRIMARY_ROLE ? null : workspace.config.routes.primary,
+    canManage: projected.role === PRIMARY_ROLE, isMain: projected.role === PRIMARY_ROLE, canAssign: true,
   }));
 }
 
@@ -57,7 +58,7 @@ export async function handleModelCommand(argument, workspace, helpers) {
   }
   const projected = workspace.projection.active();
   workspace.projection.openOverlay(modelOverlay({ config: workspace.activeConfig() }, models, {
-    discoveryError, inheritRoute: projected.role === 'primary' ? null : workspace.config.routes.primary,
+    discoveryError, inheritRoute: projected.role === PRIMARY_ROLE ? null : workspace.config.routes.primary,
   }));
 }
 
@@ -88,4 +89,9 @@ function requireLength(values, length, message) {
 
 function invalid(message) {
   return new ContractError('provider_command_invalid', message);
+}
+
+function providerRouteScope(role, activeRole) {
+  if (role !== PRIMARY_ROLE) return 'all conversations';
+  return activeRole === PRIMARY_ROLE ? 'the Main workspace default' : 'this conversation';
 }

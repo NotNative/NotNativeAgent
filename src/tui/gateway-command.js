@@ -1,28 +1,36 @@
 // SPDX-License-Identifier: Apache-2.0
 import { gatewayOverlay } from './overlays.js';
 
+const GATEWAY_ACTIONS = Object.freeze({
+  status: 'status', test: 'test', start: 'start', stop: 'stop', authorize: 'authorize', revoke: 'revoke',
+});
+
 export async function handleGatewayCommand(argument, workspace) {
-  const values = argument.trim() ? argument.trim().split(/\s+/u) : ['status'];
+  const normalized = typeof argument === 'string' ? argument.trim() : '';
+  const values = normalized ? normalized.split(/\s+/u) : [GATEWAY_ACTIONS.status];
   const result = await workspace.gatewayCommand(values);
-  const status = values[0] === 'status' ? result : await workspace.gatewayCommand(['status']);
+  const status = values[0] === GATEWAY_ACTIONS.status ? result : await workspace.gatewayCommand([GATEWAY_ACTIONS.status]);
   workspace.projection.openOverlay(gatewayOverlay(status, {
-    message: values[0] === 'status' ? null : gatewayMessage(values[0], result),
+    message: values[0] === GATEWAY_ACTIONS.status ? null : gatewayMessage(values[0], result),
   }));
 }
 
 export async function handleGatewaySelection(selectedId, workspace) {
   const result = await workspace.gatewayCommand([selectedId]);
-  const current = await workspace.gatewayCommand(['status']);
+  const current = await workspace.gatewayCommand([GATEWAY_ACTIONS.status]);
   workspace.projection.openOverlay(gatewayOverlay(current, {
     selectedId, message: gatewayMessage(selectedId, result),
   }));
 }
 
 function gatewayMessage(action, result) {
-  if (action === 'test') return `Telegram connection ready for @${result.bot.username ?? result.bot.id}.`;
-  if (action === 'start') return result.started === false ? 'Gateway was already running.' : 'Gateway started.';
-  if (action === 'stop') return result.stopped === false ? 'Gateway was already stopped.' : 'Gateway stop requested.';
-  if (action === 'authorize') return 'Telegram operator authorized.';
-  if (action === 'revoke') return 'Telegram operator revoked.';
+  if (action === GATEWAY_ACTIONS.test) {
+    const bot = result?.bot;
+    return bot?.username || bot?.id ? `Telegram connection ready for @${bot.username ?? bot.id}.` : 'Telegram connection test completed without bot identity.';
+  }
+  if (action === GATEWAY_ACTIONS.start) return result?.started === false ? 'Gateway was already running.' : 'Gateway started.';
+  if (action === GATEWAY_ACTIONS.stop) return result?.stopped === false ? 'Gateway was already stopped.' : 'Gateway stop requested.';
+  if (action === GATEWAY_ACTIONS.authorize) return 'Telegram operator authorized.';
+  if (action === GATEWAY_ACTIONS.revoke) return 'Telegram operator revoked.';
   return 'Gateway configuration updated.';
 }

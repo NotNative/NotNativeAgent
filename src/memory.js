@@ -2,6 +2,10 @@
 import { createHash } from 'node:crypto';
 import { ContractError, newId } from './ids.js';
 
+const MAX_MEMORY_CONTENT_BYTES = 131_072;
+const MAX_MEMORY_ITEM_CONTENT_CHARS = 65_536;
+const MAX_MEMORY_QUERY_CHARS = 4_096;
+
 export class MemoryBoundary {
   #generation = 0;
 
@@ -40,17 +44,19 @@ export class MemoryBoundary {
 
   async saveExplicit(content, projectRoot, options = {}) {
     if (!this.enabled) throw new ContractError('memory_disabled', 'memory is not enabled');
-    if (typeof content !== 'string' || content.length === 0 || Buffer.byteLength(content) > 131_072) {
+    if (typeof content !== 'string' || content.length === 0 || Buffer.byteLength(content) > MAX_MEMORY_CONTENT_BYTES) {
       throw new ContractError('memory_content_invalid', 'memory content must be bounded non-empty text');
     }
     if (containsSecret(content)) throw new ContractError('memory_secret_rejected', 'secret-like content cannot be saved');
     if (options.id !== undefined && options.expectedVersion === undefined) {
       throw new ContractError('memory_version_required', 'updating an existing memory requires its expected version');
     }
+    const scope = projectScope(projectRoot);
     const record = {
-      id: options.id ?? newId('memory'), scope: projectScope(projectRoot), content,
+      id: options.id ?? newId('memory'), scope, content,
       pinned: options.pinned === true, expectedVersion: options.expectedVersion ?? null,
-      idempotencyKey: options.idempotencyKey ?? createHash('sha256').update(content).digest('hex'),
+      idempotencyKey: options.idempotencyKey
+        ?? createHash('sha256').update(scope).update('\0').update(content).digest('hex'),
     };
     const requestId = newId('memory_request');
     return boundedCall((signal) => this.adapter.save({ ...record, requestId }, signal), this.config.timeoutMs);
@@ -107,9 +113,9 @@ function validateItem(item) {
     throw new ContractError('memory_malformed', 'memory item lacks required attribution');
   }
   return {
-    id: item.id, scope: item.scope, content: item.content.slice(0, 65_536),
-    relevance: number(item.relevance ?? item.confidence), pinned: item.pinned === true,
-    createdAt: number(item.createdAt), updatedAt: number(item.updatedAt),
+    id: item.id, scope: item.scope, content: item.content.slice(0, MAX_MEMORY_ITEM_CONTENT_CHARS),
+    relevance: number(item.relevance ?? item.confidence, 'relevance'), pinned: item.pinned === true,
+    createdAt: number(item.createdAt, 'createdAt'), updatedAt: number(item.updatedAt, 'updatedAt'),
     source: typeof item.source === 'string' ? item.source : 'memory_adapter',
     stale: item.stale === true, conflict: item.conflict === true,
     labels: Object.freeze([
@@ -129,16 +135,17 @@ function compareItems(left, right) {
 function scopeSpecificity(scope) { return scope.startsWith('project:') ? 2 : scope === 'user' ? 1 : 0; }
 
 function boundedQuery(text) {
-  return redactSecrets(String(text)).slice(0, 4096);
+  return redactSecrets(String(text)).slice(0, MAX_MEMORY_QUERY_CHARS);
 }
 
 function containsSecret(text) {
-  return /(?:bearer\s+[A-Za-z0-9._-]{16,}|api[_-]?key\s*[=:]\s*\S+|-----BEGIN [A-Z ]+PRIVATE KEY-----)/iu.test(text);
+  return /(?:bearer\s+[A-Za-z0-9._-]{16,}|basic\s+[A-Za-z0-9+/=]{16,}|api[_-]?key\s*[=:]\s*\S+|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|-----BEGIN [A-Z ]+PRIVATE KEY-----)/iu.test(text);
 }
 
 function redactSecrets(text) {
   return text
-    .replaceAll(/(?:bearer\s+|api[_-]?key\s*[=:]\s*)\S+/giu, '[redacted]')
+    .replaceAll(/(?:bearer\s+|basic\s+|api[_-]?key\s*[=:]\s*)\S+/giu, '[redacted]')
+    .replaceAll(/AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36,}|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gu, '[redacted]')
     .replaceAll(/-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+PRIVATE KEY-----/gu, '[redacted private key]');
 }
 
@@ -146,8 +153,10 @@ function projectScope(root) {
   return `project:${createHash('sha256').update(root).digest('hex')}`;
 }
 
-function number(value) {
-  return Number.isFinite(value) ? value : 0;
+function number(value, field) {
+  if (value === undefined || value === null) return 0;
+  if (Number.isFinite(value)) return value;
+  throw new ContractError('memory_malformed', `memory item ${field} must be a finite number`);
 }
 
 async function boundedCall(operation, timeoutMs, parentSignal = null) {

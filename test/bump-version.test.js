@@ -6,7 +6,9 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { argumentsFrom, bumpVersion } from '../scripts/bump-version.js';
 
-async function fixture(sbom = { name: 'old', packages: [{ versionInfo: '20260101-1' }] }) {
+async function fixture(sbom = {
+  name: 'old', packages: [{ name: 'NotNativeAgent', SPDXID: 'SPDXRef-Package-NotNativeAgent', versionInfo: '20260101-1' }],
+}) {
   const root = await mkdtemp(join(tmpdir(), 'nna-bump-rollback-'));
   await mkdir(join(root, 'src'));
   await writeFile(join(root, 'VERSION'), '20260101-1\n', 'utf8');
@@ -48,4 +50,6 @@ test('version bump validates the primary SBOM package before writing', async () 
 test('version bump CLI parser rejects options without values', () => {
   assert.throws(() => argumentsFrom(['--date']), /missing value for --date/u);
   assert.throws(() => argumentsFrom(['--iteration', '--date', '20261231']), /missing value for --iteration/u);
+  assert.throws(() => argumentsFrom(['--iteration', 'abc']), /safe integer/u);
+  assert.throws(() => argumentsFrom(['--date', '20261231', '--date', '20270101']), /duplicate option/u);
 });

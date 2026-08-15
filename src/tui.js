@@ -100,7 +100,10 @@ export async function finalizeTui(terminal, workspace, logger, finish) {
   terminal.restore();
   let failure = null;
   try { await workspace.shutdown(); } catch (error) { failure = error; }
-  try { await logger.flush?.(); } catch (error) { failure ??= error; }
+  try { await logger.flush?.(); } catch (error) {
+    if (!failure) failure = error;
+    else failure.secondaryFailures = [...(failure.secondaryFailures ?? []), error];
+  }
   finally { finish(); }
   if (failure) throw failure;
 }
@@ -115,19 +118,19 @@ async function initializeWorkspace(workspace, options) {
 }
 function removeTuiListeners(input, output, listeners) {
   process.removeListener('SIGINT', listeners.signal); process.removeListener('SIGTERM', listeners.signal);
-  process.removeListener('SIGTSTP', listeners.suspend); process.removeListener('SIGCONT', listeners.resume);
+  if (process.platform !== 'win32') {
+    process.removeListener('SIGTSTP', listeners.suspend); process.removeListener('SIGCONT', listeners.resume);
+  }
   if (listeners.onData) input.removeListener('data', listeners.onData);
   if (listeners.resize) output.removeListener('resize', listeners.resize);
 }
 function consumeInput(tail, chunk, decoder, workspace, stop, destructiveKeys) {
   return consumeActions(tail, decoder.push(chunk), workspace, stop, decoder, destructiveKeys);
 }
-
 function consumeActions(tail, actions, workspace, stop, decoder, destructiveKeys) {
   return tail.then(() => handleActions(actions, workspace, stop, decoder, destructiveKeys))
     .catch((error) => workspace.reportError(error));
 }
-
 function prepareTui(input, output, options) {
   const effectiveOptions = {
     ...options.config.tui, ...options,
@@ -143,16 +146,15 @@ function prepareTui(input, output, options) {
     bindings: validateKeyBindings(options.keyBindings ?? options.config.tui.keyBindings),
   };
 }
-
 export async function handleActions(actions, workspace, stop, decoder, destructiveKeys = new DestructiveKeyGuard()) {
-  workspace.dream?.activity(actions[0]?.action ?? 'input'); for (const action of actions.slice(0, 4096)) {
-    const session = workspace.projection.active();
+  workspace.dream?.activity(actions[0]?.action ?? 'input'); const actionCount = Math.min(actions.length, 4096);
+  for (let index = 0; index < actionCount; index += 1) {
+    const action = actions[index]; const session = workspace.projection.active();
     if (!session) return;
     if (!['back', 'cancel'].includes(action.action)) destructiveKeys.reset();
     if (!['mouse', 'cancel'].includes(action.action)) clearTerminalSelection(workspace); workspace.projection.clearNotice();
     if (action.action === 'reset_keys') await resetKeys(workspace, decoder);
-    else if (session.pendingPermission && action.action === 'insert' && selectedPermission(action, session))
-      await workspace.decideActive(selectedPermission(action, session));
+    else if (session.pendingPermission && action.action === 'insert' && selectedPermission(action, session)) await workspace.decideActive(selectedPermission(action, session));
     else if (session.pendingPermission && ['history_up', 'history_down'].includes(action.action)) {
       session.permissionOffset = Math.max(0, session.permissionOffset + (action.action === 'history_up' ? -1 : 1));
     }
@@ -201,10 +203,9 @@ export async function handleActions(actions, workspace, stop, decoder, destructi
     else if (action.action === 'deny') await workspace.decideActive('deny');
     else if (action.action === 'submit') await submitEditor(workspace, stop);
     else if (action.action === 'input_rejected') throw new ContractError(action.reason, 'terminal input was rejected');
-    decoder.setBindings(workspace.projection.bindings); workspace.onChange();
   }
+  decoder.setBindings(workspace.projection.bindings); workspace.onChange();
 }
-
 function createElevationControl(options) {
   return { run: async (operation, notice) => {
     const { onData, stopping, renderLoop } = options.state();
@@ -219,7 +220,6 @@ function createElevationControl(options) {
     }
   } };
 }
-
 function selectedPermission(action, session) {
   return permissionChoice(action.text, session.pendingPermission.choices);
 }
@@ -319,18 +319,16 @@ async function openConfigurationSection(section, workspace) {
     ...workspace.projection.overlay, parent: 'config', configSection: section,
   }));
 }
-
 async function updateWorkspaceTrust(selection, workspace) {
   await handleWorkspaceTrust(selection === 'trust', workspace);
   workspace.projection.closeOverlay();
 }
-
 export function shouldExitOnCancel(session) {
   return !session.pendingPermission && !session.activeTurnId;
 }
-
 export async function submitEditor(workspace, stop) {
   const session = workspace.projection.active();
+  if (!session) throw new ContractError('tui_session_missing', 'no active conversation is available');
   const content = session.editor.text;
   if (!content.trim()) return;
   if (session.pendingPermission) {
@@ -416,15 +414,14 @@ async function invokeSkill(argument, workspace) {
   if (!id) throw new ContractError('skill_id_required', '/skill requires a registered skill id');
   return invokeNamedSkill(id, request.join(' '), workspace);
 }
-
 async function invokeNamedSkill(id, request, workspace) {
   const session = workspace.projection.active();
+  if (!session) throw new ContractError('tui_session_missing', 'no active conversation is available');
   if (session.activeTurnId) throw new ContractError('turn_active', 'wait for or cancel the active turn before invoking a skill');
   const skill = workspace.activeEngine().skills.queueUser(id);
   const content = request.trim() || `Run the ${skill.id} workflow using the current conversation as the request and report the result.`;
   workspace.submitActive(content);
 }
-
 async function traceCommand(argument, workspace) {
   const engine = workspace.activeEngine();
   let rows;
@@ -451,7 +448,6 @@ function traceView(rows) {
     tool: row.tool_request_id, reason: row.reason_code, span: row.span_id,
   }));
 }
-
 async function webSearchCommand(argument, workspace) {
   if (!argument || argument === 'status') {
     workspace.projection.openOverlay(webSearchOverlay(await workspace.webSearchStatus(false)));

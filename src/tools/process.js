@@ -3,6 +3,15 @@ import { spawn } from 'node:child_process';
 import { basename } from 'node:path';
 import { ContractError } from '../ids.js';
 
+const MAX_SCRIPT_LENGTH = 32_768;
+const MAX_FIELD_LENGTH = 4_096;
+const MAX_ARG_COUNT = 64;
+const MAX_PROCESS_TIMEOUT_MS = 120_000;
+const MAX_SHELL_TIMEOUT_MS = 3_600_000;
+const MAX_OUTPUT_BYTES = 1_048_576;
+const TERMINATION_ESCALATION_MS = 250;
+const SECRET_LITERAL = /(?:bearer\s*[:=]?\s+|(?:api[_-]?key|token|password)\s*["']?\s*[:=]\s*["']?)/iu;
+
 export function processRunDefinition(paths, references = null) {
   return {
     name: 'process.run', version: 1,
@@ -46,11 +55,11 @@ export function shellRunDefinition(paths, references = null) {
 async function validateShellRequest(paths, input, references) {
   const allowed = new Set(['script', 'shell', 'cwd', 'timeout_ms', 'stdin_ref']);
   if (!input || typeof input.script !== 'string' || input.script.trim().length < 1
-    || input.script.length > 32768 || input.script.includes('\0')
+    || input.script.length > MAX_SCRIPT_LENGTH || input.script.includes('\0')
     || Object.keys(input).some((key) => !allowed.has(key))) {
     throw new ContractError('shell_request_invalid', 'shell requires one non-empty bounded script');
   }
-  if (/(?:bearer\s+|api[_-]?key\s*[=:]|token\s*[=:]|password\s*[=:])/iu.test(input.script)) {
+  if (SECRET_LITERAL.test(input.script)) {
     throw new ContractError('shell_secret_argument_forbidden', 'secret-like literal values cannot be placed in shell scripts');
   }
   const shell = input.shell ?? 'auto';
@@ -59,7 +68,7 @@ async function validateShellRequest(paths, input, references) {
   }
   const cwd = await paths.resolveDirectory(input.cwd ?? '.');
   const timeoutMs = input.timeout_ms ?? 600_000;
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 3_600_000) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > MAX_SHELL_TIMEOUT_MS) {
     throw new ContractError('shell_timeout_invalid', 'shell timeout must be 100 to 3600000 milliseconds');
   }
   const invocation = shellInvocation(shell, input.script, process.platform);
@@ -101,22 +110,23 @@ function shellReviewPurpose(script) {
 
 async function validateProcessRequest(paths, input, references) {
   const allowed = new Set(['executable', 'args', 'cwd', 'timeout_ms', 'stdin_ref']);
-  if (!input || typeof input.executable !== 'string' || input.executable.length < 1 || input.executable.length > 4096
+  if (!input || typeof input.executable !== 'string' || input.executable.length < 1 || input.executable.length > MAX_FIELD_LENGTH
     || input.executable.includes('\0')
     || Object.keys(input).some((key) => !allowed.has(key))) {
     throw new ContractError('process_request_invalid', 'process requires a simple executable name and bounded options');
   }
   const executable = normalizedExecutable(input.executable);
   const args = input.args ?? [];
-  if (!Array.isArray(args) || args.length > 64 || args.some((item) => typeof item !== 'string' || item.length > 4096 || item.includes('\0'))) {
+  if (!Array.isArray(args) || args.length > MAX_ARG_COUNT
+    || args.some((item) => typeof item !== 'string' || item.length > MAX_FIELD_LENGTH || item.includes('\0'))) {
     throw new ContractError('process_args_invalid', 'process argv is invalid or exceeds bounds');
   }
-  if (args.some((item) => /(?:bearer\s+|api[_-]?key\s*[=:]|token\s*[=:]|password\s*[=:])/iu.test(item))) {
+  if (args.some((item) => SECRET_LITERAL.test(item))) {
     throw new ContractError('process_secret_argument_forbidden', 'secret-like values cannot be placed in process argv');
   }
   const cwd = await paths.resolveDirectory(input.cwd ?? '.');
   const timeoutMs = input.timeout_ms ?? 60_000;
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120_000) {
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > MAX_PROCESS_TIMEOUT_MS) {
     throw new ContractError('process_timeout_invalid', 'process timeout must be 100 to 120000 milliseconds');
   }
   const stdinRef = validateStdinReference(input.stdin_ref, references);
@@ -162,7 +172,7 @@ export async function runProcess(input, signal, shellTool = false, references = 
   });
   child.stdin.on('error', () => undefined);
   child.stdin.end(stdin ?? '');
-  const output = collectOutput(child, 1_048_576);
+  const output = collectOutput(child, MAX_OUTPUT_BYTES);
   const abort = () => terminateTree(child);
   signal.addEventListener('abort', abort, { once: true });
   let timer;
@@ -206,20 +216,22 @@ function collectOutput(child, limit) {
 }
 
 function terminateTree(child) {
+  if (child.terminationStarted) return;
+  child.terminationStarted = true;
   child.markTimedOut?.();
-  if (child.exitCode !== null) return;
+  if (child.exitCode !== null || !Number.isSafeInteger(child.pid)) return;
   if (process.platform === 'win32') {
     const killer = spawn('taskkill.exe', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true, stdio: 'ignore', shell: false });
     killer.on('error', () => child.kill('SIGKILL'));
     killer.unref();
-    const escalation = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, 250);
+    const escalation = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, TERMINATION_ESCALATION_MS);
     escalation.unref();
   } else {
     try { process.kill(-child.pid, 'SIGTERM'); } catch { child.kill('SIGTERM'); }
     const escalation = setTimeout(() => {
       if (child.exitCode !== null) return;
       try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); }
-    }, 250);
+    }, TERMINATION_ESCALATION_MS);
     escalation.unref();
   }
 }

@@ -4,6 +4,9 @@ import { requestDigest } from './persistence/reviewer-ledger.js';
 import { PreauthorizationRegistry } from './preauthorization.js';
 import { safeToolArguments } from './tools/presentation.js';
 
+const ONE_SHOT_CHOICES = Object.freeze(['allow_once', 'deny', 'cancel']);
+const PERMISSION_CHOICES = Object.freeze(['allow_once', 'allow_session', 'allow_workspace', 'deny', 'cancel']);
+
 export class InteractivePermissionBroker {
   #pending = new Map();
 
@@ -26,13 +29,16 @@ export class InteractivePermissionBroker {
     const token = newId('permission');
     const expiresAt = Date.now() + this.timeoutMs;
     const deferred = createDeferred();
-    const pending = { token, request, escalation, context, expiresAt, deferred, oneShot };
+    const pending = { token, request, escalation, context, expiresAt, deferred, oneShot, settled: false };
     this.#pending.set(token, pending);
     const abort = () => this.#resolveDenied(pending, 'operator_cancelled');
     signal.addEventListener('abort', abort, { once: true });
     const timer = setTimeout(() => this.#resolveDenied(pending, 'operator_timeout'), this.timeoutMs);
-    await this.output(promptRecord(pending));
-    try { return await deferred.promise; } finally {
+    try {
+      if (signal.aborted) this.#resolveDenied(pending, 'operator_cancelled');
+      else await this.output(promptRecord(pending));
+      return await deferred.promise;
+    } finally {
       clearTimeout(timer);
       signal.removeEventListener('abort', abort);
       this.#pending.delete(token);
@@ -41,20 +47,21 @@ export class InteractivePermissionBroker {
 
   decide(command, principal) {
     const pending = this.#pending.get(command.permission_token);
-    if (!pending || pending.expiresAt < Date.now()) {
+    if (!pending || pending.settled || pending.expiresAt <= Date.now()) {
       throw new ContractError('permission_stale', 'permission request is stale or unavailable');
     }
     if (command.tool_request_id !== pending.request.id) {
       throw new ContractError('permission_mismatch', 'permission decision does not match the pending tool request');
     }
-    if (pending.oneShot && !['allow_once', 'deny', 'cancel'].includes(command.choice)) {
+    if (!PERMISSION_CHOICES.includes(command.choice)
+      || (pending.oneShot && !ONE_SHOT_CHOICES.includes(command.choice))) {
       throw new ContractError('permission_choice_invalid', 'this operation only supports one-time approval, denial, or cancellation');
     }
     const grant = ['allow_session', 'allow_workspace'].includes(command.choice)
       ? this.preauthorizations.grant(command.choice, pending.request, pending.context, principal) : null;
     const decision = grant ? this.preauthorizations.decision(grant, pending.request)
       : operatorDecision(command.choice, pending.request, principal, null, this.timeoutMs);
-    pending.deferred.resolve(decision);
+    if (!this.#settle(pending, decision)) throw new ContractError('permission_stale', 'permission request is stale or unavailable');
     return { accepted: true, permission_token: pending.token, outcome: decision.outcome };
   }
 
@@ -70,7 +77,14 @@ export class InteractivePermissionBroker {
   revoke(id, principal) { return this.preauthorizations.revoke(id, principal); }
 
   #resolveDenied(pending, reason) {
-    pending.deferred.resolve(operatorDecision('cancel', pending.request, 'engine', reason, this.timeoutMs));
+    this.#settle(pending, operatorDecision('cancel', pending.request, 'engine', reason, this.timeoutMs));
+  }
+
+  #settle(pending, decision) {
+    if (pending.settled) return false;
+    pending.settled = true;
+    pending.deferred.resolve(decision);
+    return true;
   }
 }
 
@@ -84,8 +98,7 @@ function promptRecord(pending) {
     blast_radius: definition.scope, risk: 'review_required',
     reason_code: pending.escalation.reasonCode, guidance: pending.escalation.guidance,
     arguments: safeToolArguments(pending.request.args), expires_at: pending.expiresAt,
-    choices: pending.oneShot ? ['allow_once', 'deny', 'cancel']
-      : ['allow_once', 'allow_session', 'allow_workspace', 'deny', 'cancel'],
+    choices: pending.oneShot ? ONE_SHOT_CHOICES : PERMISSION_CHOICES,
   };
 }
 

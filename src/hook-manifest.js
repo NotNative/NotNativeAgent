@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readdir, readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { readdir, readFile, realpath } from 'node:fs/promises';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 const SUBSCRIPTIONS = new Set([
@@ -23,20 +23,33 @@ export async function discoverHookBundles(root) {
     if (error.code === 'ENOENT') return { bundles, diagnostics };
     throw error;
   }
-  const directories = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
-    .sort((left, right) => left.name.localeCompare(right.name)).slice(0, MAX_BUNDLES);
-  for (const entry of directories) {
-    try {
-      bundles.push(await loadBundle(root, entry.name));
-    } catch (error) {
-      diagnostics.push(Object.freeze({ bundle: entry.name, status: 'skipped', code: error.code ?? 'invalid_hook_bundle' }));
-    }
+  const allDirectories = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const directories = allDirectories.slice(0, MAX_BUNDLES);
+  if (allDirectories.length > directories.length) {
+    diagnostics.push(Object.freeze({
+      bundle: null, status: 'limit_reached', code: 'hook_bundle_limit_reached',
+      omitted: allDirectories.length - directories.length,
+    }));
+  }
+  const canonicalRoot = await realpath(root);
+  const loaded = await Promise.allSettled(directories.map((entry) => loadBundle(canonicalRoot, entry.name)));
+  for (let index = 0; index < loaded.length; index += 1) {
+    const result = loaded[index];
+    if (result.status === 'fulfilled') bundles.push(result.value);
+    else diagnostics.push(Object.freeze({
+      bundle: directories[index].name, status: 'skipped', code: result.reason?.code ?? 'invalid_hook_bundle',
+    }));
   }
   return { bundles: Object.freeze(bundles), diagnostics: Object.freeze(diagnostics) };
 }
 
 async function loadBundle(root, directoryName) {
-  const directory = resolve(root, directoryName);
+  const directory = await realpath(resolve(root, directoryName));
+  const fromRoot = relative(root, directory);
+  if (fromRoot.startsWith('..') || isAbsolute(fromRoot)) {
+    throw new ContractError('invalid_hook_bundle_path', 'hook bundle resolves outside its configured root');
+  }
   const path = join(directory, 'manifest.json');
   const text = await readBounded(path);
   let value;

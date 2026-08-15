@@ -923,6 +923,8 @@ test('terminal decoder accepts bounded SGR mouse press and release events', () =
   ]);
   assert.equal(actions[0].column, 12);
   assert.equal(actions[0].row, 1);
+  assert.deepEqual(decoder.push('\u001b[<64;12;1M\u001b[<65;12;1M')
+    .map((item) => [item.button, item.wheelDirection]), [[0, 'up'], [1, 'down']]);
 });
 
 test('terminal decoder maps Ctrl+V to clipboard paste and reports drag motion', () => {
@@ -930,7 +932,7 @@ test('terminal decoder maps Ctrl+V to clipboard paste and reports drag motion', 
   assert.deepEqual(decoder.push('\u0016'), [{ action: 'paste_clipboard' }]);
   assert.deepEqual(decoder.push('\u001b[<32;8;4M'), [{
     action: 'mouse', button: 0, column: 8, row: 4, pressed: true,
-    shift: false, alt: false, ctrl: false, motion: true, wheel: false,
+    shift: false, alt: false, ctrl: false, motion: true, wheel: false, wheelDirection: null,
   }]);
 });
 
@@ -1927,6 +1929,16 @@ test('AC-PERF-03 fair scheduler exposes queue and does not starve another owner'
   await Promise.all([nextA, nextB]);
   assert.deepEqual(order, ['b', 'a']);
   assert.equal(scheduler.snapshot()[0].queued.length, 0);
+});
+
+test('fair scheduler promptly rejects work cancelled before queue admission', async () => {
+  const scheduler = new FairScheduler({ limit: 1 });
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(scheduler.acquire('local', 'cancelled', controller.signal), {
+    code: 'scheduler_cancelled',
+  });
+  assert.equal(scheduler.snapshot().length, 0);
 });
 
 test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content-redacted', async () => {

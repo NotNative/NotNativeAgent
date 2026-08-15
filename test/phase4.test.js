@@ -571,6 +571,22 @@ test('AC-PLUG-02 extension registry close cancels and closes every active extens
   assert.deepEqual(registry.capabilities(), []);
 });
 
+test('extension disable and unload serialize one close transition', async () => {
+  const registry = new ExtensionRegistry();
+  let closes = 0;
+  registry.install({
+    id: 'race.ext', origin: 'local-test', version: '1.0.0', license: 'Apache-2.0',
+    host_contract_version: '1.0', capabilities: [], permissions: [],
+    configuration_schema: {}, lifecycle: { shutdown_timeout_ms: 500 },
+  }, () => ({ async close() { closes += 1; await new Promise((resolve) => setTimeout(resolve, 5)); } }));
+  registry.enable('race.ext', 'enable:race.ext');
+  const [disabled, unloaded] = await Promise.all([registry.disable('race.ext'), registry.unload('race.ext')]);
+  assert.equal(disabled.state, 'disabled');
+  assert.equal(unloaded, true);
+  assert.equal(closes, 1);
+  assert.deepEqual(registry.list(), []);
+});
+
 test('AC-PLUG-02 failed engine initialization still revokes active extensions', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-extension-init-failure-'));
   const invalidHookRoot = join(root, 'not-a-directory');

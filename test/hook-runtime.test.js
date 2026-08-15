@@ -125,8 +125,12 @@ test('hook command parser permits argv but rejects shell composition', () => {
   assert.deepEqual(parseCommand('python "some script.py" --flag'), {
     command: 'python', args: ['some script.py', '--flag'],
   });
+  assert.deepEqual(parseCommand('python "say \\"hello\\" now"'), {
+    command: 'python', args: ['say "hello" now'],
+  });
   assert.throws(() => parseCommand('python hook.py | more'), { code: 'unsafe_hook_command' });
   assert.throws(() => parseCommand('python hook.py && echo bad'), { code: 'unsafe_hook_command' });
+  assert.throws(() => parseCommand('python "bad\0token" next'), { code: 'invalid_hook_command' });
 });
 
 test('extension payload redaction removes structured and free-form credentials', () => {

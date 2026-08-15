@@ -76,5 +76,5 @@ function inside(root, target) {
   return path === '' || (!path.startsWith('..') && !isAbsolute(path));
 }
 
-function samePath(left, right) { return left.toLowerCase() === right.toLowerCase(); }
+function samePath(left, right) { return left === right; }
 function pathDepth(root, path) { const value = relative(root, path); return value ? value.split(/[\\/]/u).length : 0; }

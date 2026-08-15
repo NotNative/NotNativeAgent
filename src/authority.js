@@ -69,14 +69,20 @@ export class AuthorityRecord {
 
   snapshot(config) {
     const mission = config.mission ? { ...structuredClone(config.mission), usage: this.missionUsage(config.mission.id) } : null;
-    if (mission && Date.parse(mission.schedule.notBefore) > Date.now()) {
+    const now = Date.now();
+    const notBefore = mission ? Date.parse(mission.schedule?.notBefore ?? '') : null;
+    const expiresAt = mission ? Date.parse(mission.expiresAt ?? '') : null;
+    if (mission && (!Number.isFinite(notBefore) || !Number.isFinite(expiresAt))) {
+      throw new ContractError('mission_time_invalid', 'mission authority requires valid activation and expiration timestamps');
+    }
+    if (mission && notBefore > now) {
       throw new ContractError('mission_not_started', 'mission authority is not active yet');
     }
-    if (mission && Date.parse(mission.expiresAt) <= Date.now()) {
+    if (mission && expiresAt <= now) {
       throw new ContractError('mission_expired', 'mission authority has expired and must be renewed by the authenticated host');
     }
     if (mission && mission.usage.startedAt !== null
-      && Date.now() - mission.usage.startedAt >= mission.bounds.maxDurationMs) {
+      && now - mission.usage.startedAt >= mission.bounds.maxDurationMs) {
       throw new ContractError('mission_duration_limit', 'mission duration budget is exhausted');
     }
     return Object.freeze({
@@ -96,7 +102,8 @@ export class AuthorityRecord {
     const mission = config.mission;
     if (mission) {
       this.snapshot(config);
-      const credential = config.providerProfiles[config.routes.primary.providerId]?.credentialEnv;
+      const primaryProviderId = config.routes?.primary?.providerId;
+      const credential = primaryProviderId ? config.providerProfiles?.[primaryProviderId]?.credentialEnv : null;
       if (credential && !mission.credentialRefs.includes(credential)) {
         throw new ContractError('mission_credential_denied', 'primary provider credential is outside the mission envelope');
       }

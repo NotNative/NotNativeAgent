@@ -1,39 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export function createRenderLoop(output, capabilities, screen, renderer, projection, onError) {
+  const terminalOutput = output ?? {};
+  const renderingCapabilities = capabilities ?? {};
   let timer = null;
   let animationTimer = null;
   let animationFrame = 0;
   let closed = false;
-  let lastRenderMs = 0;
+  let lastRenderMs;
   const now = () => {
     if (closed) return;
     if (timer) { clearTimeout(timer); timer = null; }
     try {
       const started = performance.now();
       screen.paint(renderer.frame(projection, {
-        ...capabilities, width: output.columns ?? capabilities.width, height: output.rows ?? capabilities.height,
+        ...renderingCapabilities,
+        width: terminalOutput.columns ?? renderingCapabilities.width,
+        height: terminalOutput.rows ?? renderingCapabilities.height,
         animationFrame,
       }));
       lastRenderMs = Math.max(0, performance.now() - started);
       syncAnimation();
-    } catch (error) { onError(error); }
+    } catch (error) {
+      try { onError?.(error); } catch { /* Error reporting must not recursively crash rendering. */ }
+    }
   };
   const syncAnimation = () => {
-    const activeTurn = projection.active?.()?.activeTurnId;
+    const activeTurn = projection?.active?.()?.activeTurnId;
     if (!activeTurn) { clearTimeout(animationTimer); animationTimer = null; return; }
-    if (animationTimer) return;
+    if (animationTimer) return; // Coalesce invalidations into the already scheduled animation frame.
     animationTimer = setTimeout(() => {
       animationTimer = null;
       if (capabilities.reducedMotion !== true) animationFrame += 1;
       now();
-    }, capabilities.reducedMotion === true ? 1_000 : 120);
+    }, renderingCapabilities.reducedMotion === true ? 1_000 : 50);
   };
   return {
     now,
     schedule() {
       if (closed || timer) return;
-      timer = setTimeout(now, adaptiveRenderDelay(lastRenderMs, capabilities.reducedMotion));
+      timer = setTimeout(now, adaptiveRenderDelay(lastRenderMs, renderingCapabilities.reducedMotion));
     },
     invalidate() { if (!closed) screen.invalidate(); },
     cancel() {

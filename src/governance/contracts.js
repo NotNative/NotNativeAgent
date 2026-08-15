@@ -25,6 +25,12 @@ const OUTCOMES = new Set([
   'escalate_to_operator', 'promote', 'supersede', 'invalidate', 'defer',
 ]);
 const TERMINALS = new Set(['applied', 'not_applied', 'failed', 'cancelled', 'unknown_effect']);
+const MAX_ATTRIBUTES = 32;
+const MAX_REFERENCES = 64;
+const MAX_REFERENCE_BYTES = 512;
+const MAX_IDENTIFIER_BYTES = 160;
+const MAX_DIGEST_SOURCE_BYTES = 1_048_576;
+const MAX_STABLE_JSON_DEPTH = 64;
 
 export function normalizeGovernanceEvidence(input) {
   object(input, 'governance_evidence_invalid');
@@ -34,9 +40,9 @@ export function normalizeGovernanceEvidence(input) {
     kind: identifier(input.kind, 'evidence kind'),
     origin: member(input.origin, ORIGINS, 'evidence origin'),
     trust: member(input.trust, TRUST, 'evidence trust'),
-    state: member(input.state ?? 'active', STATES, 'evidence state'),
-    freshness: member(input.freshness ?? 'unknown', FRESHNESS, 'evidence freshness'),
-    conflict: member(input.conflict ?? 'none', CONFLICT, 'evidence conflict'),
+    state: member(input.state === undefined ? 'active' : input.state, STATES, 'evidence state'),
+    freshness: member(input.freshness === undefined ? 'unknown' : input.freshness, FRESHNESS, 'evidence freshness'),
+    conflict: member(input.conflict === undefined ? 'none' : input.conflict, CONFLICT, 'evidence conflict'),
     sourceRef: reference(input.sourceRef, 'source reference'),
     sourceFingerprint: digestValue(input.sourceFingerprint ?? input.sourceRef),
     contentFingerprint: digestValue(input.contentFingerprint),
@@ -95,7 +101,7 @@ export function assertEvidenceTransition(current, next) {
 }
 
 export function governanceFingerprint(value) {
-  return createHash('sha256').update(stableJson(value)).digest('hex');
+  return createHash('sha256').update(stableJson(value, 0, new WeakSet())).digest('hex');
 }
 
 const TRANSITIONS = Object.freeze({
@@ -132,31 +138,31 @@ function normalizeScope(value) {
 function scalarAttributes(value = {}) {
   object(value, 'governance_attributes_invalid');
   const entries = Object.entries(value);
-  if (entries.length > 32) throw new ContractError('governance_attributes_invalid', 'governance attributes exceed 32 fields');
+  if (entries.length > MAX_ATTRIBUTES) throw new ContractError('governance_attributes_invalid', `governance attributes exceed ${MAX_ATTRIBUTES} fields`);
   const result = {};
   for (const [key, item] of entries) {
     identifier(key, 'attribute name');
     if (!['string', 'number', 'boolean'].includes(typeof item) && item !== null) {
       throw new ContractError('governance_attributes_invalid', 'governance attributes must be scalar');
     }
-    result[key] = typeof item === 'string' ? bounded(item, 512, 'attribute value') : item;
+    result[key] = typeof item === 'string' ? bounded(item, MAX_REFERENCE_BYTES, 'attribute value') : item;
   }
   return Object.freeze(result);
 }
 
 function references(value = []) {
-  if (!Array.isArray(value) || value.length > 64) {
-    throw new ContractError('governance_references_invalid', 'governance references must be an array of at most 64 values');
+  if (!Array.isArray(value) || value.length > MAX_REFERENCES) {
+    throw new ContractError('governance_references_invalid', `governance references must be an array of at most ${MAX_REFERENCES} values`);
   }
   return Object.freeze([...new Set(value.map((item) => reference(item, 'evidence reference')))]);
 }
 
 function reference(value, label) {
-  return bounded(value, 512, label);
+  return bounded(value, MAX_REFERENCE_BYTES, label);
 }
 
 function identifier(value, label) {
-  const text = bounded(value, 160, label);
+  const text = bounded(value, MAX_IDENTIFIER_BYTES, label);
   if (!/^[A-Za-z0-9][A-Za-z0-9_.:@/-]*$/u.test(text)) {
     throw new ContractError('governance_identifier_invalid', `${label} has an invalid format`);
   }
@@ -171,7 +177,7 @@ function bounded(value, maximum, label) {
 }
 
 function digestValue(value) {
-  if (typeof value !== 'string' || value.length === 0) {
+  if (typeof value !== 'string' || value.length === 0 || Buffer.byteLength(value, 'utf8') > MAX_DIGEST_SOURCE_BYTES) {
     throw new ContractError('governance_fingerprint_invalid', 'governance fingerprints require source material');
   }
   return /^[a-f0-9]{64}$/u.test(value) ? value : governanceFingerprint(value);
@@ -192,7 +198,9 @@ function nullableTimestamp(value) {
 }
 
 function object(value, code) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ContractError(code, 'governance record must be an object');
+  const prototype = value && typeof value === 'object' ? Object.getPrototypeOf(value) : null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || (prototype !== Object.prototype && prototype !== null)) throw new ContractError(code, 'governance record must be a plain object');
 }
 
 function exactKeys(value, allowed, label) {
@@ -202,10 +210,21 @@ function exactKeys(value, allowed, label) {
   }
 }
 
-function stableJson(value) {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+function stableJson(value, depth, seen) {
+  if (depth > MAX_STABLE_JSON_DEPTH) throw new ContractError('governance_fingerprint_invalid', 'governance fingerprint input is too deeply nested');
   if (value && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+    if (seen.has(value)) throw new ContractError('governance_fingerprint_invalid', 'governance fingerprint input contains a cycle');
+    seen.add(value);
   }
-  return JSON.stringify(value);
+  try {
+    if (Array.isArray(value)) return `[${value.map((item) => stableJson(item, depth + 1, seen)).join(',')}]`;
+    if (value && typeof value === 'object') {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key], depth + 1, seen)}`).join(',')}}`;
+    }
+    const encoded = JSON.stringify(value);
+    if (encoded === undefined) throw new ContractError('governance_fingerprint_invalid', 'governance fingerprint input contains an unsupported value');
+    return encoded;
+  } finally {
+    if (value && typeof value === 'object') seen.delete(value);
+  }
 }

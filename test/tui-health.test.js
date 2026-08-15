@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { healthDetailOverlay, healthOverlay } from '../src/tui/health.js';
+import { handleHealthOverlayAction, healthDetailOverlay, healthOverlay } from '../src/tui/health.js';
 
 function fixtureHealth() {
   return {
@@ -51,4 +51,23 @@ test('health dashboard sections expand into bounded operator detail', () => {
   const runtime = healthDetailOverlay('runtime', health, session);
   assert.match(runtime.lines.join('\n'), /20260807-2/u);
   assert.doesNotMatch(runtime.lines.join('\n'), /\none\n|\ntwo\n|\nthree\n/u);
+});
+
+test('health overlay ignores a stale selection index', () => {
+  let opened = false;
+  const overlay = { ...healthOverlay(fixtureHealth(), fixtureSession()), selected: 99 };
+  const handled = handleHealthOverlayAction({ action: 'submit' }, {
+    projection: { overlay, active: () => fixtureSession(), openOverlay: () => { opened = true; } },
+  });
+  assert.equal(handled, false);
+  assert.equal(opened, false);
+});
+
+test('health errors disclose when the bounded view omits issues', () => {
+  const session = { records: Array.from({ length: 20 }, (_, index) => ({
+    type: 'turn_result', turn_id: `turn-${index}`, outcome: 'failed', failure: { code: `failure-${index}` },
+  })) };
+  const detail = healthDetailOverlay('errors', fixtureHealth(), session);
+  assert.equal(detail.lines.length, 12);
+  assert.match(detail.lines.at(-1), /^\+\d+ more issues not shown$/u);
 });

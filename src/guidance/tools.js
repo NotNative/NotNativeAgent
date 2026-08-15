@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
 
+const GUIDANCE_TOOL_TIMEOUT_MS = 5_000;
+const MAX_QUERY_LENGTH = 512;
+const MAX_DOCUMENT_ID_LENGTH = 256;
+const TOOL_BASE = Object.freeze({ sideEffect: 'read_only', scope: 'product_guidance', cancellation: true, timeoutMs: GUIDANCE_TOOL_TIMEOUT_MS });
+
 export function guidanceDefinitions(catalog) {
   return [searchDefinition(catalog), readDefinition(catalog)];
 }
@@ -9,9 +14,9 @@ function searchDefinition(catalog) {
   return {
     name: 'nna.search_guidance', version: 1,
     purpose: 'Search canonical packaged NotNativeAgent documentation before answering questions about NNA itself.',
-    sideEffect: 'read_only', scope: 'product_guidance', cancellation: true, timeoutMs: 5_000,
+    ...TOOL_BASE,
     inputSchema: objectSchema({
-      query: { type: 'string', minLength: 2, maxLength: 512, description: 'Required question or topic about NotNativeAgent.' },
+      query: { type: 'string', minLength: 2, maxLength: MAX_QUERY_LENGTH, description: 'Required question or topic about NotNativeAgent.' },
     }, ['query']),
     validate: async (args) => {
       requireExactStrings(args, ['query']);
@@ -33,9 +38,9 @@ function readDefinition(catalog) {
   return {
     name: 'nna.read_guidance', version: 1,
     purpose: 'Read one canonical packaged NotNativeAgent guidance document selected by nna.search_guidance.',
-    sideEffect: 'read_only', scope: 'product_guidance', cancellation: true, timeoutMs: 5_000,
+    ...TOOL_BASE,
     inputSchema: objectSchema({
-      id: { type: 'string', minLength: 1, maxLength: 256, description: 'Required exact document id returned by nna.search_guidance.' },
+      id: { type: 'string', minLength: 1, maxLength: MAX_DOCUMENT_ID_LENGTH, description: 'Required exact document id returned by nna.search_guidance.' },
     }, ['id']),
     validate: async (args) => {
       requireExactStrings(args, ['id']);

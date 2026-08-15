@@ -2,6 +2,12 @@
 import { ContractError, newId } from '../ids.js';
 import { routeReasoningFields } from './reasoning.js';
 
+const MAX_REVIEWER_OUTPUT_BYTES = 32_768;
+const MAX_REASON_CODE_CHARACTERS = 128;
+const MAX_GUIDANCE_CHARACTERS = 2_048;
+const REVIEW_OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
+const DECISION_KEYS = new Set(['outcome', 'confidence', 'reason_code', 'guidance']);
+
 export class RoutedSemanticReviewer {
   constructor(router, options = {}) {
     this.router = router;
@@ -33,30 +39,18 @@ export class RoutedSemanticReviewer {
     const requestId = newId('reviewer_route');
     const spanId = `provider-request:${requestId}`;
     const started = process.hrtime.bigint();
-    const runtime = this.modelRuntime ? await this.modelRuntime.resolve(this.router, route, signal) : null;
+    const capacityInfo = this.modelRuntime
+      ? await this.modelRuntime.resolve(this.router, route, signal) : null;
     const release = this.scheduler
-      ? await this.scheduler.acquire(profileId, this.sessionId, signal, () => undefined, runtime?.parallelCapacity ?? null)
+      ? await this.scheduler.acquire(
+        profileId, this.sessionId, signal, () => undefined, capacityInfo?.parallelCapacity ?? null,
+      )
       : () => undefined;
-    let text = '';
-    let terminal = false;
-    let usage = null;
     this.telemetry?.record('provider.request', 'started', {
       request, role: 'reviewer', model: route.model, provider_profile: profileId,
     }, { ...correlation, spanId, providerRequestId: requestId });
     try {
-      for await (const item of provider.stream(request, signal)) {
-        if (item.type === 'text') {
-          text += item.text;
-          if (Buffer.byteLength(text, 'utf8') > 32_768) {
-            throw new ContractError('reviewer_output_too_large', 'reviewer output exceeds bound');
-          }
-        } else if (item.type === 'tool_fragment') {
-          throw new ContractError('reviewer_role_violation', 'reviewer attempted a tool call');
-        } else if (item.type === 'usage') usage = item.usage;
-        else if (item.type === 'terminal') terminal = true;
-      }
-      if (!terminal) throw new ContractError('reviewer_missing_terminal', 'reviewer stream did not terminate');
-      const decision = parseDecision(text);
+      const { decision, usage } = await collectReviewerDecision(provider, request, signal);
       this.telemetry?.record('provider.request', 'succeeded', {
         role: 'reviewer', model: route.model, provider_profile: profileId, usage,
       }, { ...correlation, spanId, providerRequestId: requestId, durationMs: elapsedMs(started), outcome: 'completed' });
@@ -73,6 +67,29 @@ export class RoutedSemanticReviewer {
       release();
     }
   }
+}
+
+async function collectReviewerDecision(provider, request, signal) {
+  let text = '';
+  let textBytes = 0;
+  let terminal = false;
+  let usage = null;
+  for await (const item of provider.stream(request, signal)) {
+    if (item.type === 'text') {
+      const itemBytes = Buffer.byteLength(item.text, 'utf8');
+      if (textBytes + itemBytes > MAX_REVIEWER_OUTPUT_BYTES) {
+        throw new ContractError('reviewer_output_too_large', 'reviewer output exceeds bound');
+      }
+      text += item.text;
+      textBytes += itemBytes;
+    } else if (item.type === 'tool_fragment') {
+      throw new ContractError('reviewer_role_violation', 'reviewer attempted a tool call');
+    } else if (item.type === 'usage') usage = item.usage;
+    else if (item.type === 'terminal') terminal = true;
+  }
+  if (signal?.aborted) throw new ContractError('reviewer_cancelled', 'reviewer request was cancelled');
+  if (!terminal) throw new ContractError('reviewer_missing_terminal', 'reviewer stream did not terminate');
+  return { decision: parseDecision(text), usage };
 }
 
 function elapsedMs(started) {
@@ -125,5 +142,20 @@ function parseDecision(text) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ContractError('reviewer_output_malformed', 'reviewer decision must be an object');
   }
-  return value;
+  if (Object.keys(value).some((key) => !DECISION_KEYS.has(key))
+    || !REVIEW_OUTCOMES.has(value.outcome)
+    || !Number.isFinite(value.confidence) || value.confidence < 0 || value.confidence > 1
+    || typeof value.reason_code !== 'string' || value.reason_code.length < 1
+    || value.reason_code.length > MAX_REASON_CODE_CHARACTERS
+    || !/^[a-z0-9][a-z0-9_:-]*$/u.test(value.reason_code)
+    || (value.guidance !== undefined && (typeof value.guidance !== 'string'
+      || value.guidance.length > MAX_GUIDANCE_CHARACTERS))) {
+    throw new ContractError('reviewer_output_malformed', 'reviewer decision failed schema validation');
+  }
+  return Object.freeze({
+    outcome: value.outcome,
+    confidence: value.confidence,
+    reason_code: value.reason_code,
+    ...(value.guidance !== undefined ? { guidance: value.guidance } : {}),
+  });
 }

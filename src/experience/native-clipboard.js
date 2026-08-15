@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, open, rm, stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from '../ids.js';
 import { WindowsClipboardBroker } from './clipboard-broker.js';
 
 const MAX_CLIPBOARD_BYTES = 100_000;
 const TIMEOUT_MS = 10_000;
+const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
 export function nativeClipboard(options = {}) {
   const platform = options.platform ?? process.platform;
@@ -39,7 +40,7 @@ export function nativeClipboard(options = {}) {
         if (!details.isFile() || details.size === 0 || details.size > maxBytes) {
           throw new ContractError('clipboard_image_size_invalid', 'clipboard image is empty or exceeds the attachment limit');
         }
-        const signature = await readFile(path);
+        const signature = await readFilePrefix(path, PNG_SIGNATURE.length);
         if (!isPng(signature)) throw new ContractError('clipboard_image_invalid', 'clipboard image could not be encoded as PNG');
         return { path, mime_type: 'image/png', size: details.size };
       } catch (error) {
@@ -94,7 +95,18 @@ function runImageProcess(command, args, path, maxBytes, captureStdout, extraEnv 
 }
 
 function isPng(value) {
-  return value.length >= 8 && value.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  return value.length >= PNG_SIGNATURE.length && value.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE);
+}
+
+async function readFilePrefix(path, length) {
+  const handle = await open(path, 'r');
+  try {
+    const value = Buffer.alloc(length);
+    const { bytesRead } = await handle.read(value, 0, length, 0);
+    return value.subarray(0, bytesRead);
+  } finally {
+    await handle.close();
+  }
 }
 
 function clipboardCommands(platform) {
@@ -123,11 +135,13 @@ function windowsClipboardWriteCommand() {
 }
 
 async function tryCommands(commands, runner, input = undefined) {
-  let failure;
+  const failures = [];
   for (const [command, args] of commands) {
-    try { return await runner(command, args, input); } catch (error) { failure = error; }
+    try { return await runner(command, args, input); } catch (error) { failures.push(error); }
   }
-  throw new ContractError('clipboard_unavailable', 'the operating-system clipboard is unavailable', { cause: failure });
+  throw new ContractError('clipboard_unavailable', 'the operating-system clipboard is unavailable', {
+    cause: new AggregateError(failures, 'all clipboard commands failed'),
+  });
 }
 
 export function runClipboardProcess(command, args, input) {

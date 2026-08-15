@@ -15,6 +15,8 @@ import { validateDream } from './dream-config.js';
 import { validateEnableThinking, validateReasoningEffort } from './provider/reasoning.js';
 const TRUST_ZONES = new Set(['loopback', 'private_network', 'public_network']);
 const ROUTE_CAPABILITIES = new Set(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']);
+const PRINCIPAL_IDS = Object.freeze({ host: 'authenticated-stdio-host', localOperator: 'authenticated-local-operator' });
+const MAX_MISSION_OUTCOME_BYTES = 131_072;
 const MISSION_EFFECTS = new Set(['read_only', 'reversible', 'irreversible', 'unknown']);
 const MISSION_CONDITIONS = new Set([
   'review_denial', 'provider_failure', 'tool_failure', 'unknown_effect', 'cancellation',
@@ -81,7 +83,7 @@ export function resolveManifest(manifest = {}, options = {}) {
       maxOutputBytes: 2_097_152, maxModelSteps: recovery.maxModelSteps,
       ...context, maxSteering: 32,
     },
-    provenance: options.principal ?? 'authenticated-local-operator',
+    provenance: options.principal ?? PRINCIPAL_IDS.localOperator,
     executionManifest,
     reviewerLedger: validateReviewerLedger(manifest.reviewer_ledger),
     recovery,
@@ -110,7 +112,7 @@ function validateReviewerLedger(value) {
 }
 function validateManifestSkills(value, options) {
   if (value === undefined) return Object.freeze([]);
-  if (options.principal !== 'authenticated-stdio-host') {
+  if (options.principal !== PRINCIPAL_IDS.host) {
     throw new ContractError('hosted_skills_forbidden', 'only an authenticated headless host may supply inline skills');
   }
   return validateHostedSkills(value);
@@ -119,7 +121,7 @@ function validateExecutionManifest(manifest, options, routes, profiles, skills) 
   const supplied = manifest.allowed_capabilities !== undefined || manifest.allowed_tools !== undefined
     || manifest.disconnect_policy !== undefined || manifest.skills !== undefined;
   if (!options.executionManifestId && !supplied) return null;
-  if (options.principal !== 'authenticated-stdio-host') {
+  if (options.principal !== PRINCIPAL_IDS.host) {
     throw new ContractError('execution_manifest_forbidden', 'only an authenticated headless host may supply execution policy');
   }
   const allowed = manifest.allowed_capabilities ?? ['tools', 'steering', 'attachments', 'memory', 'mcp', 'skills'];
@@ -154,7 +156,7 @@ function validateExecutionManifest(manifest, options, routes, profiles, skills) 
 }
 function capabilityConfig(value, executionManifest, capabilityName) {
   if (!executionManifest || executionManifest.allowedCapabilities.includes(capabilityName)) return value;
-  return { ...value, enabled: false, required: false };
+  return Object.freeze({ ...value, enabled: false, required: false });
 }
 export function migrateManifestDocument(manifest) {
   if (!isRecord(manifest)) throw new ContractError('invalid_manifest', 'manifest must be an object');
@@ -169,6 +171,9 @@ function assertManifestVersion(value) {
   throw new ContractError('manifest_version_invalid', 'configuration format_version must be the integer 1');
 }
 function validateProviders(manifest) {
+  if (!Array.isArray(manifest.providers) && manifest.provider === undefined) {
+    throw new ContractError('missing_provider', 'manifest requires a provider or providers array');
+  }
   const values = Array.isArray(manifest.providers) ? manifest.providers : [manifest.provider];
   if (values.length === 0 || values.length > 16) {
     throw new ContractError('invalid_providers', 'one to sixteen providers are required');
@@ -249,6 +254,7 @@ function buildRoutes(value, profile, profiles, providerMs) {
     const deadlineOverrideMs = role === 'primary' ? null : providerRouteDeadlineOverride(route.deadline_ms);
     const temperatureOverride = route.temperature == null ? null : boundedNumber(route.temperature, null, 0, 2);
     const inherited = role === 'primary' ? null : result.primary;
+    if (!assigned && !inherited) throw new ContractError('route_inheritance_invalid', `route ${role} has no Primary route to inherit`);
     const providerId = assigned ? (route.provider_id ?? profile.id) : inherited.providerId;
     const model = assigned ? (route.model ?? profiles[providerId]?.model ?? profile.model) : inherited.model;
     const fallbacks = validateFallbacks(route.fallbacks);
@@ -279,7 +285,6 @@ function validateAttachments(value) {
     retain: input.retain === true,
   };
 }
-
 function validateMemory(value) {
   const input = isRecord(value) ? value : {};
   return {
@@ -290,7 +295,6 @@ function validateMemory(value) {
     maxBytes: boundedInteger(input.max_bytes, 16_384, 1_024, 262_144),
   };
 }
-
 function validateMcpServers(value) {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > 16) {
@@ -305,17 +309,17 @@ function validateMcpServers(value) {
     return validateMcpServer(entry);
   });
 }
-
 function validateMcpServer(entry) {
   if (!['stdio', 'streamable_http'].includes(entry.transport)) {
     throw new ContractError('invalid_mcp_transport', 'MCP transport must be stdio or streamable_http');
   }
+  const timeoutMs = entry.timeout_ms ?? 20_000;
   const common = {
     id: entry.id, transport: entry.transport, enabled: entry.enabled === true,
-    timeoutMs: boundedInteger(entry.timeout_ms, 20_000, 100, 120_000),
-    connectTimeoutMs: boundedInteger(entry.connect_timeout_ms, entry.timeout_ms ?? 20_000, 100, 120_000),
-    listTimeoutMs: boundedInteger(entry.list_timeout_ms, entry.timeout_ms ?? 20_000, 100, 120_000),
-    callTimeoutMs: boundedInteger(entry.call_timeout_ms, entry.timeout_ms ?? 20_000, 100, 120_000),
+    timeoutMs: boundedInteger(entry.timeout_ms, timeoutMs, 100, 120_000),
+    connectTimeoutMs: boundedInteger(entry.connect_timeout_ms, timeoutMs, 100, 120_000),
+    listTimeoutMs: boundedInteger(entry.list_timeout_ms, timeoutMs, 100, 120_000),
+    callTimeoutMs: boundedInteger(entry.call_timeout_ms, timeoutMs, 100, 120_000),
     shutdownTimeoutMs: boundedInteger(entry.shutdown_timeout_ms, 2_000, 100, 30_000),
     effects: isRecord(entry.tool_effects) ? { ...entry.tool_effects } : {},
     credentialEnv: optionalString(entry.credential_env),
@@ -329,10 +333,9 @@ function validateMcpServer(entry) {
     }
     return { ...common, command: entry.command, args: stringArray(entry.args), cwd: optionalString(entry.cwd) };
   }
-  const endpoint = parseEndpoint(entry.endpoint);
+  const endpoint = parseEndpoint(entry.endpoint, 'MCP server');
   return { ...common, endpoint: endpoint.href };
 }
-
 function validateHeaderEnvironment(value) {
   if (value === undefined) return {};
   if (!isRecord(value) || Object.keys(value).length > 16) {
@@ -350,7 +353,6 @@ function validateHeaderEnvironment(value) {
   }
   return result;
 }
-
 function stringArray(value) {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > 64 || value.some((item) => typeof item !== 'string')) {
@@ -358,11 +360,9 @@ function stringArray(value) {
   }
   return [...value];
 }
-
 function capability(value) {
   return value === true ? true : value === false ? false : 'unknown';
 }
-
 function validateRouteGraph(routes) {
   const visit = (role, path = []) => {
     if (path.includes(role)) throw new ContractError('route_cycle', `route cycle includes ${[...path, role].join(' -> ')}`);
@@ -370,7 +370,6 @@ function validateRouteGraph(routes) {
   };
   for (const role of Object.keys(routes)) visit(role);
 }
-
 function validateFallbacks(value) {
   if (value === undefined) return Object.freeze([]);
   if (!Array.isArray(value) || value.length > 4 || value.some((item) => !ROLES.includes(item))) {
@@ -379,19 +378,17 @@ function validateFallbacks(value) {
   if (new Set(value).size !== value.length) throw new ContractError('invalid_route_fallback', 'route fallbacks must be unique');
   return Object.freeze([...value]);
 }
-
 function validateRouteCapabilities(value) {
   if (value === undefined) return Object.freeze([]);
   if (!Array.isArray(value) || value.length > ROUTE_CAPABILITIES.size
-    || value.some((item) => !ROUTE_CAPABILITIES.has(item))) {
+    || value.some((item) => !ROUTE_CAPABILITIES.has(item)) || new Set(value).size !== value.length) {
     throw new ContractError('invalid_route_capability', 'route capability requirements are invalid');
   }
-  return Object.freeze([...new Set(value)]);
+  return Object.freeze([...value]);
 }
-
 function validateMission(value, principal) {
   if (value === undefined) return null;
-  if (principal !== 'authenticated-stdio-host') {
+  if (principal !== PRINCIPAL_IDS.host) {
     throw new ContractError('mission_authority_forbidden', 'only an authenticated headless host may supply mission authority');
   }
   if (!isRecord(value) || typeof value.outcome !== 'string' || value.outcome.length === 0) {
@@ -400,8 +397,9 @@ function validateMission(value, principal) {
   if (!/^[A-Za-z0-9_-]{1,128}$/u.test(value.id ?? '') || !/^[A-Za-z0-9_-]{1,128}$/u.test(value.revocation_id ?? '')) {
     throw new ContractError('invalid_mission', 'mission and revocation identities must be bounded safe identifiers');
   }
-  const notBefore = Date.parse(value.not_before);
-  const expiresAt = Date.parse(value.expires_at);
+  const isoTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
+  const notBefore = isoTimestamp.test(value.not_before ?? '') ? Date.parse(value.not_before) : Number.NaN;
+  const expiresAt = isoTimestamp.test(value.expires_at ?? '') ? Date.parse(value.expires_at) : Number.NaN;
   if (!Number.isFinite(notBefore) || !Number.isFinite(expiresAt) || notBefore >= expiresAt) {
     throw new ContractError('invalid_mission', 'mission requires an ordered not_before and expires_at schedule');
   }
@@ -421,8 +419,11 @@ function validateMission(value, principal) {
   for (const required of ['budget_exhaustion', 'expiration', 'disconnect']) {
     if (!terminateOn.includes(required)) throw new ContractError('invalid_mission', `mission termination must include ${required}`);
   }
+  if (Buffer.byteLength(value.outcome, 'utf8') > MAX_MISSION_OUTCOME_BYTES) {
+    throw new ContractError('invalid_mission', 'mission outcome exceeds its supported bound');
+  }
   return {
-    id: value.id, outcome: value.outcome.slice(0, 131_072), revocationId: value.revocation_id,
+    id: value.id, outcome: value.outcome, revocationId: value.revocation_id,
     resources, targets, sideEffects, credentialRefs,
     schedule: { notBefore: new Date(notBefore).toISOString(), expiresAt: new Date(expiresAt).toISOString() },
     expiresAt: new Date(expiresAt).toISOString(),
@@ -435,7 +436,6 @@ function validateMission(value, principal) {
     provenance: principal,
   };
 }
-
 function missionStrings(value, field, maximum, pattern = null, choices = null, allowEmpty = false) {
   if (!Array.isArray(value) || value.length > maximum || (!allowEmpty && value.length === 0)
     || value.some((item) => typeof item !== 'string' || (pattern && !pattern.test(item)) || (choices && !choices.has(item)))
@@ -444,38 +444,33 @@ function missionStrings(value, field, maximum, pattern = null, choices = null, a
   }
   return Object.freeze([...value]);
 }
-
 function rejectReviewOverrides(manifest) {
   const forbidden = ['skip_review', 'disable_review', 'permission_mode', 'review_history'];
   for (const key of forbidden) {
     if (Object.hasOwn(manifest, key)) throw configurationError('review_floor_violation', `${key} is forbidden`, key);
   }
 }
-
 function configurationError(code, message, key) {
   const error = new ContractError(code, message);
   error.configurationKey = key;
   return error;
 }
-
-function parseEndpoint(value) {
+function parseEndpoint(value, label = 'provider') {
   try {
     const url = new URL(value);
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('scheme');
     if (url.username || url.password) throw new Error('credentials');
     return url;
   } catch {
-    throw new ContractError('invalid_endpoint', 'provider endpoint must be HTTP(S)');
+    throw new ContractError('invalid_endpoint', `${label} endpoint must be credential-free HTTP(S)`);
   }
 }
-
 function endpointZone(url) {
   const host = url.hostname.toLowerCase();
   if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return 'loopback';
   if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/u.test(host)) return 'private_network';
   return 'public_network';
 }
-
 function optionalString(value) {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
@@ -489,11 +484,12 @@ function stringOrEmpty(value) {
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
-
-function deepFreeze(value) {
+function deepFreeze(value, seen = new WeakSet()) {
+  if (seen.has(value)) return value;
+  seen.add(value);
   Object.freeze(value);
   for (const child of Object.values(value)) {
-    if (child && typeof child === 'object' && !Object.isFrozen(child)) deepFreeze(child);
+    if (child && typeof child === 'object' && !Object.isFrozen(child)) deepFreeze(child, seen);
   }
   return value;
 }

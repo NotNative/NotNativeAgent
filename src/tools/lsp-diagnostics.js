@@ -7,6 +7,10 @@ import { pathToFileURL } from 'node:url';
 import { ContractError } from '../ids.js';
 
 const MAX_MESSAGE_BYTES = 2_097_152;
+const MAX_BUFFER_BYTES = MAX_MESSAGE_BYTES * 2;
+const MAX_DIAGNOSTICS_PER_FILE = 1_000;
+const MAX_LEDGER_FILES = 1_024;
+const FORCE_KILL_DELAY_MS = 1_000;
 
 export function lspDiagnosticsDefinition(paths, options = {}) {
   const configPath = options.configPath;
@@ -54,13 +58,18 @@ export class DiagnosticLedger {
   #files = new Map();
 
   observe(path, diagnostics) {
+    if (!Array.isArray(diagnostics)) {
+      throw new ContractError('lsp_diagnostics_invalid', 'diagnostic ledger input must be an array');
+    }
     const prior = this.#files.get(path) ?? new Map();
-    const current = new Map(diagnostics.map((item) => [diagnosticFingerprint(item), item]));
+    const current = new Map(diagnostics.slice(0, MAX_DIAGNOSTICS_PER_FILE)
+      .map((item) => [diagnosticFingerprint(item), item]));
     const fresh = [...current].filter(([key]) => !prior.has(key)).map(([, item]) => item);
     const resolved = [...prior].filter(([key]) => !current.has(key)).map(([, item]) => item);
     const unchanged = [...current.keys()].filter((key) => prior.has(key)).length;
+    this.#files.delete(path);
     this.#files.set(path, current);
-    if (this.#files.size > 1024) this.#files.delete(this.#files.keys().next().value);
+    if (this.#files.size > MAX_LEDGER_FILES) this.#files.delete(this.#files.keys().next().value);
     return Object.freeze({
       new: Object.freeze(fresh), resolved: Object.freeze(resolved),
       unchanged_count: unchanged, total_count: current.size,
@@ -80,57 +89,86 @@ export async function runLspDiagnostics(options) {
     cwd: options.workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
   });
   const uri = pathToFileURL(resolve(options.path)).href;
-  const responses = new Map();
-  let diagnostics = null; let buffer = Buffer.alloc(0); let stderrBytes = 0;
-  const done = deferred();
-  done.promise.catch(() => undefined);
-  const fail = (error) => done.reject(error instanceof ContractError ? error
-    : new ContractError('lsp_transport_failed', 'language server transport failed', true));
-  child.on('error', fail);
-  child.stderr.on('data', (chunk) => { stderrBytes += chunk.length; if (stderrBytes > MAX_MESSAGE_BYTES) fail(new ContractError('lsp_stderr_too_large', 'language server error output exceeded its bound')); });
-  child.stdout.on('data', (chunk) => {
-    buffer = Buffer.concat([buffer, chunk]);
-    if (buffer.length > MAX_MESSAGE_BYTES * 2) return fail(new ContractError('lsp_output_too_large', 'language server output exceeded its bound'));
-    try {
-      const parsed = parseFrames(buffer); buffer = parsed.rest;
-      for (const message of parsed.messages) {
-        if (message.id !== undefined) responses.set(message.id, message);
-        if (message.method === 'textDocument/publishDiagnostics' && message.params?.uri === uri) {
-          diagnostics = normalizeDiagnostics(message.params.diagnostics);
-          done.resolve(diagnostics);
-        }
-      }
-    } catch (error) { fail(error); }
-  });
+  const transport = observeTransport(child, uri);
+  const { done, fail, responses } = transport;
   const abort = () => fail(new ContractError('lsp_cancelled', 'language diagnostics were cancelled'));
   options.signal?.addEventListener('abort', abort, { once: true });
   try {
     send(child, { jsonrpc: '2.0', id: 1, method: 'initialize', params: {
       processId: process.pid, rootUri: pathToFileURL(options.workspaceRoot).href,
       capabilities: { textDocument: { publishDiagnostics: { relatedInformation: false } } },
-    } });
+    } }, fail);
     await waitFor(() => responses.get(1), 5_000, options.signal, 'lsp_initialize_timeout');
-    send(child, { jsonrpc: '2.0', method: 'initialized', params: {} });
+    send(child, { jsonrpc: '2.0', method: 'initialized', params: {} }, fail);
     send(child, { jsonrpc: '2.0', method: 'textDocument/didOpen', params: {
       textDocument: { uri, languageId: options.server.language_id, version: 1, text: options.text },
-    } });
+    } }, fail);
     return await Promise.race([
       done.promise,
-      waitFor(() => diagnostics, 7_500, options.signal, 'lsp_diagnostics_timeout'),
+      waitFor(transport.diagnostics, 7_500, options.signal, 'lsp_diagnostics_timeout'),
     ]);
   } finally {
     options.signal?.removeEventListener('abort', abort);
-    try { send(child, { jsonrpc: '2.0', id: 2, method: 'shutdown', params: null }); } catch { /* already closed */ }
-    child.kill();
+    closeTransport(child, transport);
   }
 }
 
+function observeTransport(child, uri) {
+  const responses = new Map();
+  let diagnostics = null; let buffer = Buffer.alloc(0); let stderrBytes = 0;
+  const done = deferred();
+  const fail = (error) => done.reject(error instanceof ContractError ? error
+    : new ContractError('lsp_transport_failed', 'language server transport failed', true));
+  const onStderr = (chunk) => {
+    stderrBytes += chunk.length;
+    if (stderrBytes > MAX_MESSAGE_BYTES) fail(new ContractError('lsp_stderr_too_large', 'language server error output exceeded its bound'));
+  };
+  const onStdout = (chunk) => {
+    if (chunk.length > MAX_BUFFER_BYTES || buffer.length > MAX_BUFFER_BYTES - chunk.length) {
+      fail(new ContractError('lsp_output_too_large', 'language server output exceeded its bound')); return;
+    }
+    buffer = Buffer.concat([buffer, chunk], buffer.length + chunk.length);
+    try {
+      const parsed = parseFrames(buffer); buffer = parsed.rest;
+      for (const message of parsed.messages) {
+        if (message.id !== undefined) responses.set(message.id, message);
+        if (message.method === 'textDocument/publishDiagnostics' && message.params?.uri === uri) {
+          diagnostics = normalizeDiagnostics(message.params.diagnostics); done.resolve(diagnostics);
+        }
+      }
+    } catch (error) { fail(error); }
+  };
+  child.on('error', fail); child.stdin.on('error', fail);
+  child.stderr.on('data', onStderr); child.stdout.on('data', onStdout);
+  return { responses, done, fail, onStderr, onStdout, diagnostics: () => diagnostics };
+}
+
+function closeTransport(child, transport) {
+  child.stderr.removeListener('data', transport.onStderr);
+  child.stdout.removeListener('data', transport.onStdout);
+  const removeErrorListeners = () => {
+    child.removeListener('error', transport.fail); child.stdin.removeListener('error', transport.fail);
+  };
+  child.once('exit', removeErrorListeners);
+  try { send(child, { jsonrpc: '2.0', id: 2, method: 'shutdown', params: null }, transport.fail); }
+  catch { /* already closed */ }
+  terminateChild(child);
+  if (child.exitCode !== null || child.signalCode !== null) removeErrorListeners();
+}
+
 async function matchingServer(path, extension) {
-  let value;
-  try { value = JSON.parse(await readFile(path, 'utf8')); }
-  catch (error) {
+  let source;
+  try { source = await readFile(path, 'utf8'); } catch (error) {
     if (error.code === 'ENOENT') throw new ContractError('lsp_not_configured', 'configure a local language server before requesting diagnostics');
-    throw new ContractError('lsp_config_invalid', 'language server configuration is invalid');
+    const failure = new ContractError('lsp_config_unreadable', 'language server configuration could not be read');
+    failure.cause = error;
+    throw failure;
+  }
+  let value;
+  try { value = JSON.parse(source); } catch (error) {
+    const failure = new ContractError('lsp_config_invalid', 'language server configuration is invalid');
+    failure.cause = error;
+    throw failure;
   }
   const servers = Array.isArray(value?.servers) ? value.servers.slice(0, 32).map(validateServer) : [];
   const match = servers.find((server) => server.extensions.includes(extension));
@@ -149,9 +187,23 @@ function validateServer(value) {
   });
 }
 
-function send(child, message) {
+function send(child, message, onError = null) {
+  if (!child.stdin.writable || child.stdin.destroyed || child.stdin.writableEnded) {
+    throw new ContractError('lsp_transport_closed', 'language server input is closed', true);
+  }
   const body = Buffer.from(JSON.stringify(message));
-  child.stdin.write(`Content-Length: ${body.length}\r\n\r\n`); child.stdin.write(body);
+  const frame = Buffer.concat([Buffer.from(`Content-Length: ${body.length}\r\n\r\n`), body]);
+  child.stdin.write(frame, (error) => { if (error) onError?.(error); });
+}
+
+function terminateChild(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  child.kill();
+  const forceKill = setTimeout(() => {
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  }, FORCE_KILL_DELAY_MS);
+  forceKill.unref();
+  child.once('exit', () => clearTimeout(forceKill));
 }
 
 function parseFrames(input) {
@@ -174,7 +226,7 @@ function parseFrames(input) {
 
 function normalizeDiagnostics(value) {
   if (!Array.isArray(value)) throw new ContractError('lsp_protocol_invalid', 'language server diagnostics were malformed');
-  return value.slice(0, 1000).map((item) => ({
+  return value.slice(0, MAX_DIAGNOSTICS_PER_FILE).map((item) => ({
     message: String(item?.message ?? '').slice(0, 4096), severity: Number.isSafeInteger(item?.severity) ? item.severity : null,
     code: typeof item?.code === 'string' || typeof item?.code === 'number' ? item.code : null,
     range: item?.range ?? null, source: typeof item?.source === 'string' ? item.source.slice(0, 128) : null,

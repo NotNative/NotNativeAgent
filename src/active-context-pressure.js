@@ -39,7 +39,7 @@ export function projectActiveTurn(records, options) {
     .filter((entry) => recordTurnId(entry.item) === options.turnId);
   if (active.length === 0) return unchanged(records, tier);
   const steps = orderedSteps(active);
-  const keepCount = tier === 'receipts' ? 3 : tier === 'checkpoint' ? 2 : 1;
+  const keepCount = ({ receipts: 3, checkpoint: 2 }[tier] ?? 1);
   const hotSteps = new Set(steps.slice(-keepCount));
   const cold = new Set(active.filter((entry) => isCold(entry.item, hotSteps)).map((entry) => entry.index));
   if (cold.size === 0) return unchanged(records, tier);
@@ -77,7 +77,7 @@ function checkpointProjection(records, cold, checkpoint) {
 
 function createActiveCheckpoint(records, cold, options, tier) {
   const selected = [...cold].sort((a, b) => a - b).map((index) => records[index]);
-  const requests = new Map(selected.filter((item) => item.type === 'tool_request')
+  const requests = new Map(selected.filter((item) => item.type === 'tool_request' && item.providerCallId)
     .map((item) => [item.providerCallId, item]));
   const operator = records.filter((item) => recordTurnId(item) === options.turnId
     && item.type === 'message' && item.role === 'user').at(0);
@@ -104,21 +104,21 @@ function createActiveCheckpoint(records, cold, options, tier) {
   });
 }
 
-function renderCheckpoint(item) {
+function renderCheckpoint(checkpointData) {
   const lines = [
     'NNA active-turn checkpoint. This is a deterministic working-context projection; full attributed records remain in the durable session journal.',
-    `Authenticated objective: ${boundedHeadTail(item.operator, 2_048) || '(not recorded)'}`,
+    `Authenticated objective: ${boundedHeadTail(checkpointData.operator, 2_048) || '(not recorded)'}`,
   ];
-  if (item.progress.length > 0) lines.push(`Recent model-reported progress:\n- ${item.progress.join('\n- ')}`);
-  if (item.tools.length > 0) {
-    lines.push(`Settled tool receipts:\n${item.tools.map((entry) => {
+  if (checkpointData.progress.length > 0) lines.push(`Recent model-reported progress:\n- ${checkpointData.progress.join('\n- ')}`);
+  if (checkpointData.tools.length > 0) {
+    lines.push(`Settled tool receipts:\n${checkpointData.tools.map((entry) => {
       const target = entry.target ? ` ${entry.target}` : '';
       const excerpt = entry.excerpt ? `: ${entry.excerpt}` : '';
       return `- ${entry.status} ${entry.tool}${target} [${entry.requestId ?? 'no-id'}]${excerpt}`;
     }).join('\n')}`);
   }
   lines.push('Use session.search_history and session.read_history when complete omitted evidence is needed.');
-  return boundedHeadTail(lines.join('\n\n'), item.tier === 'aggressive' ? 16_384 : 24_576);
+  return boundedHeadTail(lines.join('\n\n'), checkpointData.tier === 'aggressive' ? 16_384 : 24_576);
 }
 
 function toolResultReceipt(item) {

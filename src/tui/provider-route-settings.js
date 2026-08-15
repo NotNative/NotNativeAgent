@@ -7,6 +7,13 @@ import { REASONING_EFFORTS } from '../provider/reasoning.js';
 const LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
 });
+const DEFAULT_TIMEOUT_SECONDS = 1_800;
+const DEFAULT_TEMPERATURE = 1;
+const MAX_TIMEOUT_SECONDS = 3_600;
+const MAX_OUTPUT_TOKENS = 1_048_576;
+const MAX_ROUTE_BUDGET = 64;
+const SETTING_EDITOR_BYTES = 128;
+const PROVIDER_DEFAULT = 'Provider default';
 const SETTINGS = Object.freeze({
   timeout: Object.freeze({ label: 'Overall attempt timeout', detail: 'Seconds allowed for prompt processing and generation. Enter 0 for no timeout.' }),
   temperature: Object.freeze({ label: 'Temperature', detail: 'Sampling temperature from 0 through 2. The built-in default is 1.0; enter 0 to use the provider default.' }),
@@ -36,19 +43,24 @@ export async function handleProviderRouteSettingsAction(action, workspace) {
     workspace.projection.moveOverlaySelection(action.action === 'history_up' ? -1 : 1); return true;
   }
   if (action.action !== 'submit' || !overlay.editable) return true;
-  const selected = overlay.items[overlay.selected];
-  if (selected.id === 'timeout-default') {
-    await workspace.configureProviderRoute(overlay.role, 'timeout', null);
-    reopenSettings(workspace, overlay, 'Overall attempt timeout restored to the 1,800-second default.');
-  } else if (selected.id === 'timeout-inherit') {
-    await workspace.configureProviderRoute(overlay.role, 'timeout', null);
-    reopenSettings(workspace, overlay, 'Timeout now uses the Primary setting.');
-  } else if (selected.id === 'temperature-default') {
-    await workspace.configureProviderRoute(overlay.role, 'temperature', null);
-    reopenSettings(workspace, overlay, 'Temperature restored to the 1.0 default.');
-  } else if (SETTINGS[selected.id]?.options) {
-    workspace.projection.openOverlay(settingOptionsOverlay(overlay, selected.id));
-  } else workspace.projection.openOverlay(settingFormOverlay(overlay, selected.id));
+  const selected = overlay.items?.[overlay.selected];
+  if (!selected) return true;
+  try {
+    if (selected.id === 'timeout-default') {
+      await workspace.configureProviderRoute(overlay.role, 'timeout', null);
+      reopenSettings(workspace, overlay, `Overall attempt timeout restored to the ${DEFAULT_TIMEOUT_SECONDS.toLocaleString('en-US')}-second default.`);
+    } else if (selected.id === 'timeout-inherit') {
+      await workspace.configureProviderRoute(overlay.role, 'timeout', null);
+      reopenSettings(workspace, overlay, 'Timeout now uses the Primary setting.');
+    } else if (selected.id === 'temperature-default') {
+      await workspace.configureProviderRoute(overlay.role, 'temperature', null);
+      reopenSettings(workspace, overlay, `Temperature restored to the ${DEFAULT_TEMPERATURE.toFixed(1)} default.`);
+    } else if (SETTINGS[selected.id]?.options) {
+      workspace.projection.openOverlay(settingOptionsOverlay(overlay, selected.id));
+    } else workspace.projection.openOverlay(settingFormOverlay(overlay, selected.id));
+  } catch (error) {
+    workspace.projection.showNotice('provider', `Cannot save · ${error.message}`);
+  }
   return true;
 }
 
@@ -59,18 +71,23 @@ async function handleSettingOptions(action, workspace, overlay) {
     workspace.projection.moveOverlaySelection(action.action === 'history_up' ? -1 : 1); return true;
   }
   if (action.action !== 'submit') return true;
-  const selected = overlay.items[overlay.selected];
-  await workspace.configureProviderRoute(overlay.role, overlay.setting, selected.value);
-  reopenSettings(workspace, overlay.parentSettings, `${SETTINGS[overlay.setting].label} saved.`);
+  const selected = overlay.items?.[overlay.selected];
+  if (!selected) return true;
+  try {
+    await workspace.configureProviderRoute(overlay.role, overlay.setting, selected.value);
+    reopenSettings(workspace, overlay.parentSettings, `${SETTINGS[overlay.setting].label} saved.`);
+  } catch (error) {
+    workspace.projection.showNotice('provider', `Cannot save · ${error.message}`);
+  }
   return true;
 }
 
 function settingOptionsOverlay(parentSettings, setting) {
   const current = routeSetting(parentSettings.config.routes[parentSettings.role], setting);
   const choices = setting === 'reasoning_effort'
-    ? [{ id: 'default', label: 'Provider default', value: null },
+    ? [{ id: 'default', label: PROVIDER_DEFAULT, value: null },
       ...REASONING_EFFORTS.map((value) => ({ id: value, label: value, value }))]
-    : [{ id: 'default', label: 'Provider default', value: null },
+    : [{ id: 'default', label: PROVIDER_DEFAULT, value: null },
       { id: 'enabled', label: 'Enabled', value: true }, { id: 'disabled', label: 'Disabled', value: false }];
   const items = choices.map((choice) => ({
     ...choice, badge: choice.value === current ? 'active' : '', section: SETTINGS[setting].label,
@@ -97,7 +114,7 @@ export function routeSettingsOverlay(config, role, options = {}) {
     `Temperature              ${temperatureLabel(route)}`,
     `Maximum output tokens    ${route.maxOutputTokens?.toLocaleString('en-US') ?? 'No explicit limit'}`,
     `Fallback attempt budget  ${route.budget ?? 'All eligible routes'}`,
-    `Reasoning effort         ${route.reasoningEffort ?? 'Provider default'}`,
+    `Reasoning effort         ${route.reasoningEffort ?? PROVIDER_DEFAULT}`,
     `Thinking mode            ${thinkingLabel(route.enableThinking)}`,
     `Context limit            ${route.contextLimitBytes?.toLocaleString('en-US') ?? 'provider default'}`,
     `Required capabilities    ${route.requiredCapabilities.length ? route.requiredCapabilities.join(', ') : 'none'}`,
@@ -107,14 +124,14 @@ export function routeSettingsOverlay(config, role, options = {}) {
     id, label: definition.label, detail: definition.detail, badge: settingValue(config, role, id), section: 'Configurable settings',
   })) : [];
   if (editable && timeoutConfigured) items.push(primary ? {
-    id: 'timeout-default', label: 'Restore default timeout', badge: '1,800s',
-    detail: 'Return Primary to the built-in 1,800-second timeout.', section: 'Setting defaults',
+    id: 'timeout-default', label: 'Restore default timeout', badge: `${DEFAULT_TIMEOUT_SECONDS.toLocaleString('en-US')}s`,
+    detail: `Return Primary to the built-in ${DEFAULT_TIMEOUT_SECONDS.toLocaleString('en-US')}-second timeout.`, section: 'Setting defaults',
   } : {
     id: 'timeout-inherit', label: 'Remove timeout override', badge: 'use Primary',
     detail: `Return this route to the Primary ${formatMs(config.routes.primary.deadlineMs)} timeout.`, section: 'Setting inheritance',
   });
   if (editable && route.temperatureOverride !== null) items.push({
-    id: 'temperature-default', label: 'Restore default temperature', badge: '1.0',
+    id: 'temperature-default', label: 'Restore default temperature', badge: DEFAULT_TEMPERATURE.toFixed(1),
     detail: 'Remove the configured temperature and restore the built-in default.', section: 'Setting defaults',
   });
   return Object.freeze({
@@ -160,7 +177,11 @@ function reopenSettings(workspace, prior, notice) {
   workspace.projection.openOverlay(next); workspace.projection.showNotice('provider', notice);
 }
 
-function routeConfig(workspace, role) { return role === 'primary' ? workspace.activeConfig() : workspace.config; }
+function routeConfig(workspace, role) {
+  const config = role === 'primary' ? workspace.activeConfig() : workspace.config;
+  if (!config?.routes?.[role]) throw new ContractError('provider_route_missing', `the ${role} provider route is unavailable`);
+  return config;
+}
 
 function settingValue(config, role, setting) {
   const route = config.routes[role];
@@ -169,8 +190,8 @@ function settingValue(config, role, setting) {
     return route.deadlineOverrideMs === null ? `Primary · ${formatMs(route.deadlineMs)}` : formatMs(route.deadlineMs);
   }
   if (setting === 'temperature') return temperatureLabel(route).toLowerCase();
-  if (setting === 'output') return route.maxOutputTokens == null ? 'no limit' : route.maxOutputTokens.toLocaleString('en-US');
-  if (setting === 'budget') return route.budget == null ? 'all eligible' : String(route.budget);
+  if (setting === 'output') return route.maxOutputTokens === null || route.maxOutputTokens === undefined ? 'no limit' : route.maxOutputTokens.toLocaleString('en-US');
+  if (setting === 'budget') return route.budget === null || route.budget === undefined ? 'all eligible' : String(route.budget);
   if (setting === 'reasoning_effort') return route.reasoningEffort ?? 'provider default';
   return thinkingLabel(route.enableThinking).toLowerCase();
 }
@@ -180,7 +201,7 @@ function routeSetting(route, setting) {
 }
 
 function thinkingLabel(value) {
-  return value == null ? 'Provider default' : value ? 'Enabled' : 'Disabled';
+  return value === null || value === undefined ? PROVIDER_DEFAULT : value ? 'Enabled' : 'Disabled';
 }
 
 function temperatureLabel(route) {
@@ -192,13 +213,16 @@ function temperatureLabel(route) {
 function editValue(config, role, setting) {
   const route = config?.routes?.[role];
   if (!route) return '';
-  if (setting === 'timeout') return route.deadlineMs == null ? '0' : String(Math.round(route.deadlineMs / 1_000));
-  if (setting === 'temperature') return String(route.temperatureOverride ?? route.temperature ?? 1);
+  if (setting === 'timeout') return route.deadlineMs === null || route.deadlineMs === undefined ? '0' : String(Math.round(route.deadlineMs / 1_000));
+  if (setting === 'temperature') return String(route.temperatureOverride ?? route.temperature ?? DEFAULT_TEMPERATURE);
   if (setting === 'output') return String(route.maxOutputTokens ?? 0);
   return String(route.budget ?? 0);
 }
 
 function parseSetting(setting, raw) {
+  if (raw === null || raw === undefined || String(raw).trim().length === 0) {
+    throw new ContractError('route_setting_invalid', 'Enter a value.');
+  }
   const value = Number(String(raw).trim());
   if (setting === 'temperature') {
     if (!Number.isFinite(value) || value < 0 || value > 2) throw new ContractError('route_temperature_invalid', 'Temperature must be from 0 through 2.');
@@ -206,15 +230,15 @@ function parseSetting(setting, raw) {
   }
   if (!Number.isSafeInteger(value)) throw new ContractError('route_setting_invalid', 'Enter a whole number.');
   if (setting === 'timeout') {
-    if (value < 0 || value > 3_600) throw new ContractError('route_timeout_invalid', 'Timeout must be 0 through 3,600 seconds.');
+    if (value < 0 || value > MAX_TIMEOUT_SECONDS) throw new ContractError('route_timeout_invalid', `Timeout must be 0 through ${MAX_TIMEOUT_SECONDS.toLocaleString('en-US')} seconds.`);
     return value * 1_000;
   }
-  const maximum = setting === 'output' ? 1_048_576 : 64;
+  const maximum = setting === 'output' ? MAX_OUTPUT_TOKENS : MAX_ROUTE_BUDGET;
   if (value < 0 || value > maximum) throw new ContractError('route_setting_invalid', `Value must be 0 through ${maximum.toLocaleString('en-US')}.`);
   return value === 0 ? null : value;
 }
 
-function editorWith(value) { const editor = new EditorBuffer(128); editor.set(value); return editor; }
+function editorWith(value) { const editor = new EditorBuffer(SETTING_EDITOR_BYTES); editor.set(value); return editor; }
 function renderEditor(editor) {
   const selection = editor.selection();
   const before = editor.text.slice(0, selection.start);
@@ -225,4 +249,6 @@ function renderEditor(editor) {
 function singleLine(action) {
   return action.action === 'paste' ? { ...action, text: String(action.text).split(/\r?\n/u, 1)[0] } : action;
 }
-function formatMs(value) { return value == null ? 'No limit' : `${Math.round(value / 1_000).toLocaleString('en-US')}s`; }
+function formatMs(value) {
+  return value === null || value === undefined ? 'No limit' : `${Math.round(value / 1_000).toLocaleString('en-US')}s`;
+}

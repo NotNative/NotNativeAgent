@@ -2,6 +2,8 @@
 import { ContractError } from '../ids.js';
 import { FairScheduler } from './fair-scheduler.js';
 
+const ITERATOR_CLOSE_TIMEOUT_MS = 25;
+
 export class ProviderRunner {
   constructor(options) {
     this.state = options.state;
@@ -20,6 +22,7 @@ export class ProviderRunner {
   }
 
   async run(provider, request, deadlines, active) {
+    // The owning engine sets active.cancelled when its turn controller accepts cancellation.
     for (let attempt = 0; attempt < active.recovery.localLimit; attempt += 1) {
       const lifecycle = this.lifecycles.start('provider_attempt', active.stepId);
       active.attemptId = lifecycle.id;
@@ -76,6 +79,9 @@ export class ProviderRunner {
     const bounded = candidates.slice(0, candidates[0]?.budget ?? candidates.length);
     let lastError;
     for (const [index, route] of bounded.entries()) {
+      if (!route || !route.profile?.id || typeof route.model !== 'string') {
+        throw new ContractError('provider_route_invalid', 'provider routing produced an invalid candidate');
+      }
       active.logicalRequestId = route.logicalRequestId;
       active.modelName = route.model;
       active.providerResource = route.profile.id;
@@ -122,7 +128,11 @@ export class ProviderRunner {
   async #consume(provider, request, active, signal, deadlines) {
     let opened = false;
     let attemptUsage = null;
-    const iterator = provider.stream(request, signal)[Symbol.asyncIterator]();
+    const stream = provider.stream(request, signal);
+    if (!stream || typeof stream[Symbol.asyncIterator] !== 'function') {
+      throw new ContractError('provider_stream_invalid', 'provider did not return an asynchronous event stream');
+    }
+    const iterator = stream[Symbol.asyncIterator]();
     try {
       while (true) {
         const boundary = opened ? 'provider_idle_timeout' : 'provider_first_token_timeout';
@@ -196,8 +206,10 @@ function assertProviderEvent(item, terminalSeen) {
   if (terminalSeen) {
     throw new ContractError('provider_conflicting_terminal', 'provider emitted data after its terminal event');
   }
-  if (item.type === 'text' && typeof item.text === 'string' && item.text.length > 0) return;
-  if (item.type === 'reasoning' && typeof item.text === 'string' && item.text.length > 0) return;
+  if (item.type === 'text' || item.type === 'reasoning') {
+    if (typeof item.text === 'string' && item.text.length > 0) return;
+    throw new ContractError('provider_event_invalid', `provider emitted empty ${item.type} content`);
+  }
   if (item.type === 'tool_fragment' && Array.isArray(item.fragments)) return;
   if (item.type === 'usage' && item.usage && typeof item.usage === 'object') return;
   if (item.type === 'metadata' && typeof item.finishReason === 'string') return;
@@ -208,7 +220,7 @@ function assertProviderEvent(item, terminalSeen) {
 async function closeIterator(iterator) {
   if (typeof iterator.return !== 'function') return;
   let timer;
-  const deadline = new Promise((resolve) => { timer = setTimeout(resolve, 25); });
+  const deadline = new Promise((resolve) => { timer = setTimeout(resolve, ITERATOR_CLOSE_TIMEOUT_MS); });
   try { await Promise.race([iterator.return().catch(() => undefined), deadline]); }
   finally { clearTimeout(timer); }
 }

@@ -28,6 +28,9 @@ import { installProcessFatalBoundary } from './process-fatal-boundary.js';
 const fatalBoundary = installProcessFatalBoundary({
   logPath: (() => { try { return join(userDataPaths().logs, 'fatal.ndjson'); } catch { return null; } })(), version: VERSION,
 });
+const RUNTIME_LOG_FILE = 'runtime.ndjson';
+const MANIFEST_FILE = 'manifest.json';
+const TAB_POOL_FILE = 'pool.json';
 try {
   const options = parseCli(process.argv.slice(2));
   if (['help', '--help', '-h'].includes(options.mode)) process.stdout.write(help());
@@ -54,7 +57,7 @@ try {
   }
   else if (options.mode === 'gateway') {
     const result = await runGatewayCommand(options.prompt, await runtimePaths(), { input: process.stdin });
-    if (options.prompt[0] !== 'run') process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    if (options.prompt?.[0] !== 'run') process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   }
   else if (options.mode === 'webfetch') {
     const result = await runWebFetchCommand(options.prompt, await runtimePaths());
@@ -87,14 +90,14 @@ try {
   else if (options.mode === 'tui') {
     if (!process.stdin.isTTY || !process.stdout.isTTY) throw Object.assign(new Error('interactive terminal required'), { code: 'interactive_terminal_required' });
     const paths = await runtimePaths();
-    const startupLog = await new StructuredLog({ path: join(paths.logs, 'runtime.ndjson') }).initialize();
+    const startupLog = await new StructuredLog({ path: join(paths.logs, RUNTIME_LOG_FILE) }).initialize();
     const effective = await loadEffectiveStartupConfiguration({
       paths, input: process.stdin, output: process.stdout, diagnostics: process.stderr,
       explicitPath: options.manifestPath, workspaceRoot: process.cwd(), securityAudit: (event) => startupLog.record(event),
     });
     await startupLog.flush();
     const config = applyLaunchProviderOverrides(effective.config, options);
-    const configPath = options.manifestPath ? resolve(options.manifestPath) : join(paths.config, 'manifest.json');
+    const configPath = options.manifestPath ? resolve(options.manifestPath) : join(paths.config, MANIFEST_FILE);
     await runTui(process.stdin, process.stdout, process.stderr, {
       ...options, ...productOptions(paths), config, configPath, startupProject: effective.project, fatalBoundary,
       hookRoots: runtimeHookRoots(paths, effective.project),
@@ -102,7 +105,7 @@ try {
     });
   } else if (options.mode === 'text') {
     const paths = await runtimePaths();
-    const startupLog = await new StructuredLog({ path: join(paths.logs, 'runtime.ndjson') }).initialize();
+    const startupLog = await new StructuredLog({ path: join(paths.logs, RUNTIME_LOG_FILE) }).initialize();
     const loadedConfig = (await loadEffectiveStartupConfiguration({
       paths, input: process.stdin, output: process.stderr, diagnostics: process.stderr,
       explicitPath: options.manifestPath, workspaceRoot: process.cwd(), securityAudit: (event) => startupLog.record(event),
@@ -166,6 +169,9 @@ async function runtimePaths() {
 }
 
 async function sessionCommand(args, paths = userDataPaths()) {
+  if (!Array.isArray(args) || args.length === 0) {
+    throw Object.assign(new Error('sessions command requires an action'), { code: 'session_action_required' });
+  }
   const [action, id, value] = args;
   const manager = new SessionDataManager({
     sessionRoot: paths.sessions, reviewerRoot: paths.reviewerLedger, diagnosticsRoot: paths.logs,
@@ -181,12 +187,12 @@ async function sessionCommand(args, paths = userDataPaths()) {
 function productOptions(paths) {
   return {
     dataPaths: paths,
-    storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger, tabPoolPath: join(paths.rootTui, 'pool.json'),
+    storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger, tabPoolPath: join(paths.rootTui, TAB_POOL_FILE),
     webSearchConfigPath: paths.webSearchConfig, managedSearxngRoot: paths.managedSearxng,
     webFetchConfigPath: paths.webFetchConfig,
     gatewayConfigPath: paths.gatewayConfig,
     updateState: paths.updateState,
-    logPath: join(paths.logs, 'runtime.ndjson'),
+    logPath: join(paths.logs, RUNTIME_LOG_FILE),
     trustedWorkspacesPath: paths.trustedWorkspaces,
     hookRoot: paths.hooks,
     skillRoots: [{ scope: 'user', path: paths.skills }],

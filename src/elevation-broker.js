@@ -172,7 +172,7 @@ function validResult(value) {
     && (value.exit_code === null || Number.isSafeInteger(value.exit_code))
     && (value.signal === null || typeof value.signal === 'string')
     && typeof value.stdout === 'string' && typeof value.stderr === 'string'
-    && typeof value.reason_code === 'string';
+    && (value.status === 'succeeded' || typeof value.reason_code === 'string');
 }
 
 async function exists(path) {

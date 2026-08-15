@@ -5,6 +5,9 @@ import { join } from 'node:path';
 import { ContractError, newId } from '../ids.js';
 
 const MAX_TEXT_BYTES = 1_048_576;
+const MAX_READ_RECEIPTS = 2_048;
+const MAX_SNAPSHOT_BYTES = 16_777_216;
+const MAX_RECEIPT_RANGES = 2_048;
 
 export function filesystemReadDefinitions(paths, receipts, references = null) {
   return [listDefinition(paths), readDefinition(paths, receipts, references), readLinesDefinition(paths, receipts, references)];
@@ -29,7 +32,7 @@ export class ReadReceiptLedger {
     this.#receipts.delete(path);
     this.#receipts.set(path, receipt);
     this.#snapshotBytes += snapshotBytes(retainedSnapshot);
-    while (this.#receipts.size > 2048 || this.#snapshotBytes > 16_777_216) this.#evictOldest();
+    while (this.#receipts.size > MAX_READ_RECEIPTS || this.#snapshotBytes > MAX_SNAPSHOT_BYTES) this.#evictOldest();
     return receipt;
   }
 
@@ -64,7 +67,7 @@ export class ReadReceiptLedger {
 
   #requireCoverage(receipt, coverage) {
     const rangeCovered = coverage.start === undefined || receipt?.full === true
-      || receipt?.ranges.some(([start, end]) => start <= coverage.start && end >= coverage.end);
+      || receipt?.ranges?.some(([start, end]) => start <= coverage.start && end >= coverage.end);
     if (!receipt || (coverage.full === true && !receipt.full) || !rangeCovered) throw receiptRequired();
   }
 }
@@ -88,12 +91,13 @@ function readDefinition(paths, receipts, references) {
     validate: async (args) => {
       requireShape(args, ['path']);
       const resolved = await paths.resolveRead(args.path);
+      requireResolvedFile(resolved);
       if (resolved.size > MAX_TEXT_BYTES) throw new ContractError('tool_target_too_large', 'file exceeds read bound');
       return { args: { path: args.path }, resolved };
     },
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
-      const content = await readFile(request.resolved.path, 'utf8');
+      const content = await readTextFile(request.resolved.path);
       const digest = sha256(content);
       const receipt = receipts.record(request.resolved.path, digest, { full: true }, content);
       const refs = observedFileReferences(references, request.resolved.path, receipt, { full: true });
@@ -127,12 +131,13 @@ function readLinesDefinition(paths, receipts, references) {
         throw new ContractError('tool_schema_invalid', 'line_count must be between 1 and 400');
       }
       const resolved = await paths.resolveRead(args.path);
+      requireResolvedFile(resolved);
       if (resolved.size > MAX_TEXT_BYTES) throw new ContractError('tool_target_too_large', 'file exceeds structured read bound');
       return { args: { path: args.path, start_line: args.start_line ?? 1, line_count: args.line_count ?? 200 }, resolved };
     },
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
-      const content = await readFile(request.resolved.path, 'utf8');
+      const content = await readTextFile(request.resolved.path);
       const digest = sha256(content);
       const lines = logicalLines(content);
       if (request.args.start_line > Math.max(1, lines.length)) {
@@ -208,14 +213,32 @@ async function directoryTree(root, depth, signal) {
 }
 
 function mergeRanges(ranges) {
-  const sorted = ranges.slice(0, 2048).sort((left, right) => left[0] - right[0]);
+  const sorted = [...ranges].sort((left, right) => left[0] - right[0]);
   const merged = [];
   for (const range of sorted) {
     const prior = merged.at(-1);
     if (prior && range[0] <= prior[1] + 1) prior[1] = Math.max(prior[1], range[1]);
     else merged.push([...range]);
   }
+  if (merged.length > MAX_RECEIPT_RANGES) {
+    throw new ContractError('read_receipt_range_limit', 'too many disjoint read ranges; read the full file to refresh coverage');
+  }
   return merged;
+}
+
+async function readTextFile(path) {
+  try { return await readFile(path, 'utf8'); } catch (error) {
+    const failure = new ContractError('tool_target_unavailable', 'file could not be read',
+      ['EBUSY', 'EMFILE', 'ENFILE', 'EIO'].includes(error.code));
+    failure.cause = error;
+    throw failure;
+  }
+}
+
+function requireResolvedFile(resolved) {
+  if (!resolved || typeof resolved.path !== 'string' || !Number.isSafeInteger(resolved.size) || resolved.size < 0) {
+    throw new ContractError('tool_target_invalid', 'resolved file metadata is invalid');
+  }
 }
 
 function sha256(content) {

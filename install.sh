@@ -116,7 +116,7 @@ ensure_download_tools() {
 
 find_npm() {
   node_dir=$(dirname -- "$node_path")
-  if [ -x "$node_dir/npm" ]; then printf '%s\n' "$node_dir/npm"; return; fi
+  if [ -f "$node_dir/npm" ] && [ -x "$node_dir/npm" ]; then printf '%s\n' "$node_dir/npm"; return; fi
   command -v npm 2>/dev/null || true
 }
 
@@ -125,6 +125,7 @@ nna_runtime() {
 }
 
 install_managed_playwright() {
+  playwright_version=1.61.1 # Keep aligned with the runtime compatibility tests before updating.
   managed_root="$data_root/managed/playwright"
   browser_root="$managed_root/browsers"
   node_dir=$(dirname -- "$node_path")
@@ -133,7 +134,7 @@ install_managed_playwright() {
   mkdir -p "$managed_root" "$browser_root"
   chmod 700 "$data_root/managed" "$managed_root" "$browser_root" 2>/dev/null || true
   step 'Installing the optional Playwright library'
-  PATH="$node_dir:$PATH" PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 "$npm_path" install --prefix "$managed_root" --no-audit --no-fund --omit=dev --loglevel=error 'playwright@1.61.1' || {
+  PATH="$node_dir:$PATH" PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 "$npm_path" install --prefix "$managed_root" --no-audit --no-fund --omit=dev --loglevel=error "playwright@$playwright_version" || {
     warn 'Playwright package installation failed'; return 1;
   }
   step 'Downloading Playwright Chromium'
@@ -143,7 +144,7 @@ install_managed_playwright() {
   verified=$(PLAYWRIGHT_BROWSERS_PATH="$browser_root" nna_runtime webbrowse verify) || {
     warn 'Playwright installed but Chromium launch validation failed'; return 1;
   }
-  version=$(printf '%s' "$verified" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).version||''))")
+  version=$(printf '%s' "$verified" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s).version||'unknown')}catch{process.stdout.write('unknown')}})")
   ok "Playwright Chromium ready (v$version)"
 }
 
@@ -168,11 +169,15 @@ install_user_node() {
   archive=$(awk -v a="$node_arch" -v p="$platform_name" -v e="$archive_extension" '$2 ~ ("^node-v[0-9.]+-" p "-" a "\\." e "$") { print $2; exit }' "$download_root/SHASUMS256.txt")
   expected=$(awk -v f="$archive" '$2 == f { print $1; exit }' "$download_root/SHASUMS256.txt")
   [ -n "$archive" ] && [ -n "$expected" ] || { printf '%s\n' "Official Node.js checksums do not contain a $platform_name $node_arch archive." >&2; exit 1; }
+  case "$archive" in node-v*-"$platform_name"-"$node_arch"."$archive_extension") ;; *) printf '%s\n' 'Unsafe Node.js archive name.' >&2; exit 1 ;; esac
   curl --fail --silent --show-error --location "$node_base/$archive" --output "$download_root/$archive"
   actual=$(archive_checksum "$download_root/$archive")
   [ "$actual" = "$expected" ] || { printf '%s\n' 'Downloaded Node.js archive failed SHA-256 verification.' >&2; exit 1; }
   if [ "$platform_name" = darwin ]; then tar -xzf "$download_root/$archive" -C "$download_root"; else tar -xJf "$download_root/$archive" -C "$download_root"; fi
   directory=${archive%.$archive_extension}
+  [ -d "$download_root/$directory" ] && [ ! -L "$download_root/$directory" ] && [ -x "$download_root/$directory/bin/node" ] || {
+    printf '%s\n' 'Downloaded Node.js archive has an invalid runtime layout.' >&2; exit 1;
+  }
   runtime_target="$runtime_root/$directory"
   case "$runtime_target" in "$runtime_root"/*) ;; *) printf '%s\n' 'Unsafe runtime path.' >&2; exit 1 ;; esac
   if [ -e "$runtime_target" ]; then
@@ -180,8 +185,8 @@ install_user_node() {
     rm -rf -- "$runtime_target"
   fi
   mv "$download_root/$directory" "$runtime_target"
-  rm -rf -- "$download_root"
   trap - EXIT HUP INT TERM
+  rm -rf -- "$download_root"
   printf '%s\n' "$runtime_target/bin/node"
 }
 
@@ -331,7 +336,7 @@ elif [ "$provider_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
   configured_json=$(printf '%s\n' "$provider_key" | nna_runtime provider configure "$provider_endpoint" "$selected_model")
   configured_endpoint=$(printf '%s' "$configured_json" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).endpoint))")
   ok "Provider configured: $configured_endpoint / $selected_model"
-  provider_key=''
+  unset provider_key
 else
   skip 'Interactive provider setup skipped; run NNA to configure a provider later'
 fi
@@ -437,7 +442,7 @@ EOF
   else
     nna_runtime gateway start >/dev/null
   fi
-  telegram_token=''
+  unset telegram_token
   ok 'Telegram bot validated and gateway started'
 elif [ "$gateway_mode" = skip ]; then
   skip 'Telegram gateway setup not requested'

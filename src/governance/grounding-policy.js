@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { governanceFingerprint } from './contracts.js';
-import { newId } from '../ids.js';
+import { ContractError, newId } from '../ids.js';
 
 export const GROUNDING_POLICY_VERSION = 'grounding/1';
 
@@ -71,18 +71,20 @@ export class GroundingPolicy {
         kind: policy.kind, origin: policy.origin, trust: policy.trust,
         state: 'active', freshness: policy.origin === 'hook' ? 'unknown' : 'not_applicable', conflict: 'none',
         sourceRef, sourceFingerprint: sourceRef, contentFingerprint,
-        scope: scopeRecord(policy.scope(item)), observedAt: observedAt(item),
+        scope: scopeRecord(policy.scope()), observedAt: observedAt(item),
         attributes: { assertion_mode: policy.assertionMode, turn_id: context.turnId ?? null },
       }) : null;
       if (evidence) {
+        validateEvidence(evidence);
         await this.#supersedePrior(sourceRef, evidence);
-        await this.governance.decide({
+        const decision = await this.governance.decide({
           domain: 'evidence_admission', subjectRef: sourceRef,
           subjectFingerprint: contentFingerprint, outcome: 'admit', reasonCode: policy.reasonCode,
           policyVersion: GROUNDING_POLICY_VERSION, evidenceRefs: [evidence.id],
           authorityRefs: context.authorityRef ? [context.authorityRef] : [],
           attributes: { assertion_mode: policy.assertionMode, turn_id: context.turnId ?? null },
         });
+        validateDecision(decision);
       }
       admitted.push(Object.freeze({
         ...item,
@@ -120,13 +122,14 @@ export class GroundingPolicy {
         assertion_mode: assessment.assertionMode,
       },
     });
+    validateEvidence(evidence);
     await this.#supersedePrior(`memory:${item.id}`, evidence);
     return evidence;
   }
 
   async #recordDecision(item, assessment, evidence, context) {
     if (!this.governance || !evidence) return null;
-    return this.governance.decide({
+    const decision = await this.governance.decide({
       id: newId('governance_decision'), domain: 'memory_eligibility',
       subjectRef: `memory:${item.id}`, subjectFingerprint: evidence.contentFingerprint,
       outcome: assessment.admit ? 'admit' : assessment.outcome,
@@ -139,15 +142,33 @@ export class GroundingPolicy {
         assertion_mode: assessment.assertionMode,
       },
     });
+    validateDecision(decision);
+    return decision;
   }
 
   async #supersedePrior(sourceRef, current) {
-    for (const prior of this.governance.evidenceBySource(sourceRef)) {
+    const priorEvidence = this.governance.evidenceBySource(sourceRef);
+    if (!Array.isArray(priorEvidence)) {
+      throw new ContractError('governance_evidence_invalid', 'governance evidence lookup returned an invalid result');
+    }
+    for (const prior of priorEvidence) {
       if (prior.id === current.id || ['superseded', 'invalidated', 'expired'].includes(prior.state)) continue;
       await this.governance.transitionEvidence(prior.id, 'superseded', {
         reasonCode: 'source_version_replaced', evidenceRefs: [current.id],
       });
     }
+  }
+}
+
+function validateEvidence(value) {
+  if (!value || typeof value.id !== 'string' || typeof value.contentFingerprint !== 'string') {
+    throw new ContractError('governance_evidence_invalid', 'governance evidence registration returned an invalid result');
+  }
+}
+
+function validateDecision(value) {
+  if (!value || typeof value.id !== 'string') {
+    throw new ContractError('governance_decision_invalid', 'governance decision registration returned an invalid result');
   }
 }
 

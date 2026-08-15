@@ -19,13 +19,28 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$install_root" in /|"$HOME"|'') printf '%s\n' 'Unsafe install root.' >&2; exit 1 ;; /*) ;; *) printf '%s\n' 'Install root must be absolute.' >&2; exit 1 ;; esac
+if [ ! -d "$install_root" ]; then
+  printf '%s\n' 'Refusing to uninstall: install root is not a directory.' >&2
+  exit 1
+fi
+install_root=$(CDPATH= cd -P "$install_root" 2>/dev/null && pwd) || {
+  printf '%s\n' 'Refusing to uninstall: install root cannot be resolved safely.' >&2
+  exit 1
+}
+case "$install_root" in /|"$HOME"|'') printf '%s\n' 'Unsafe resolved install root.' >&2; exit 1 ;; esac
 
 marker="$install_root/install.json"
-[ -f "$marker" ] || { printf '%s\n' 'Refusing to uninstall: NotNativeAgent install marker is missing.' >&2; exit 1; }
+if [ ! -f "$marker" ]; then
+  printf '%s\n' 'Refusing to uninstall: NotNativeAgent install marker is missing.' >&2
+  exit 1
+fi
 node_path=''
 if command -v node >/dev/null 2>&1; then node_path=$(command -v node); fi
 if [ -z "$node_path" ]; then node_path=$(find "$install_root/runtime" -type f -path '*/bin/node' -perm -u+x 2>/dev/null | head -n 1 || true); fi
-[ -n "$node_path" ] && [ -x "$node_path" ] || { printf '%s\n' 'Refusing to uninstall: no usable Node.js runtime can validate the install marker.' >&2; exit 1; }
+if [ -z "$node_path" ] || [ ! -x "$node_path" ]; then
+  printf '%s\n' 'Refusing to uninstall: no usable Node.js runtime can validate the install marker.' >&2
+  exit 1
+fi
 product=$("$node_path" -e "const p=require(process.argv[1]);process.stdout.write(p.product)" "$marker")
 marked_install_root=$("$node_path" -e "const p=require(process.argv[1]);process.stdout.write(p.install_root)" "$marker")
 data_root=$("$node_path" -e "const p=require(process.argv[1]);process.stdout.write(p.data_root)" "$marker")
@@ -56,7 +71,13 @@ fi
 
 if [ "$(uname -s)" = Linux ] && command -v systemctl >/dev/null 2>&1; then
   systemctl --user disable --now notnativeagent-telegram.service >/dev/null 2>&1 || true
-  rm -f -- "$HOME/.config/systemd/user/notnativeagent-telegram.service"
+  service_file="$HOME/.config/systemd/user/notnativeagent-telegram.service"
+  if [ -f "$service_file" ] && grep -Fq 'Description=NotNativeAgent Telegram gateway' "$service_file" \
+    && grep -Fq "$install_root/installed/src/cli.js" "$service_file"; then
+    rm -f -- "$service_file"
+  elif [ -e "$service_file" ]; then
+    printf '%s\n' "Preserved unrecognized service file at $service_file" >&2
+  fi
   systemctl --user daemon-reload >/dev/null 2>&1 || true
 fi
 if [ -f "$install_root/installed/src/cli.js" ]; then
@@ -64,6 +85,14 @@ if [ -f "$install_root/installed/src/cli.js" ]; then
 fi
 
 if [ "$delete_data" -eq 1 ]; then
+  if [ ! -d "$data_root" ]; then
+    printf '%s\n' 'Refusing full uninstall because the user-data root is not a directory.' >&2
+    exit 1
+  fi
+  data_root=$(CDPATH= cd -P "$data_root" 2>/dev/null && pwd) || {
+    printf '%s\n' 'Refusing full uninstall because the user-data root cannot be resolved safely.' >&2
+    exit 1
+  }
   data_marker="$data_root/.nna-install.json"
   [ -f "$data_marker" ] || { printf '%s\n' 'Refusing full uninstall because the user-data marker is missing.' >&2; exit 1; }
   data_product=$("$node_path" -e "const p=require(process.argv[1]);process.stdout.write(p.product)" "$data_marker")
@@ -72,7 +101,10 @@ if [ "$delete_data" -eq 1 ]; then
   [ "$data_product" = 'NotNativeAgent' ] || { printf '%s\n' 'Refusing full uninstall because the user-data marker is invalid.' >&2; exit 1; }
   [ "$marked_data_root" = "$data_root" ] || { printf '%s\n' 'Refusing full uninstall because the user-data marker does not match.' >&2; exit 1; }
   [ "$data_deletable" = 'true' ] || { printf '%s\n' 'Refusing full uninstall because the user-data directory predates this NNA installation.' >&2; exit 1; }
-  case "$data_root" in /|"$HOME"|'') printf '%s\n' 'Refusing an unsafe user data root.' >&2; exit 1 ;; esac
+  case "$data_root" in
+    /|"$HOME"|"$HOME/.local"|"$HOME/.local/share"|"$HOME/.config"|"$HOME/Library"|"$HOME/Library/Application Support"|'')
+      printf '%s\n' 'Refusing an unsafe user data root.' >&2; exit 1 ;;
+  esac
 fi
 
 rm -f -- "$HOME/.local/bin/nna"

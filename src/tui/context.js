@@ -40,7 +40,8 @@ export function contextOverlay(session, config, options = {}) {
 }
 
 export async function runContextCommand(argument, workspace) {
-  const [action, rawValue, ...extra] = argument.trim().split(/\s+/u).filter(Boolean);
+  const normalizedArgument = typeof argument === 'string' ? argument.trim() : '';
+  const [action, rawValue, ...extra] = normalizedArgument.split(/\s+/u).filter(Boolean);
   if (!action) return openContext(workspace);
   const normalizedAction = action === 'compression' ? 'level1' : action;
   if (!['level1', 'level2', 'level3', 'compaction'].includes(normalizedAction) || !rawValue || extra.length > 0) {
@@ -48,10 +49,14 @@ export async function runContextCommand(argument, workspace) {
       'Use /context, /context level1 PERCENT, /context level2 PERCENT, /context level3 PERCENT, or /context compaction PERCENT.');
   }
   const value = parseContextPercent(rawValue), limits = workspace.activeConfig().limits;
-  const level1 = normalizedAction === 'level1' ? value : limits.contextCompressionThreshold;
-  const level2 = normalizedAction === 'level2' ? value : limits.contextCompressionLevel2Threshold;
-  const level3 = normalizedAction === 'level3' ? value : limits.contextCompressionLevel3Threshold;
-  const compaction = normalizedAction === 'compaction' ? value : limits.contextCompactionThreshold;
+  const thresholds = {
+    level1: limits.contextCompressionThreshold,
+    level2: limits.contextCompressionLevel2Threshold,
+    level3: limits.contextCompressionLevel3Threshold,
+    compaction: limits.contextCompactionThreshold,
+  };
+  thresholds[normalizedAction] = value;
+  const { level1, level2, level3, compaction } = thresholds;
   await workspace.configureContext(limits.maxContextBytes, compaction, level1, level2, level3);
   workspace.projection.openOverlay(contextOverlay(workspace.projection.active(), workspace.activeConfig(), {
     selectedId: `action:${normalizedAction}`,
@@ -90,7 +95,7 @@ function contextItem(id, label, value, detail) {
 }
 
 function menu(kind, title, lines, items, activeId) {
-  return Object.freeze({ kind, title, lines: Object.freeze(lines), items: Object.freeze(items),
+  return Object.freeze({ kind, title, lines: Object.freeze(lines), items: Object.freeze(items.map((item) => Object.freeze(item))),
     selected: Math.max(0, items.findIndex((item) => item.id === activeId)), actionLabel: 'Up/Down choose | Enter edit' });
 }
 

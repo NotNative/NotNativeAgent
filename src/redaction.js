@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { ContractError } from './ids.js';
 
 const SENSITIVE_KEY = /(?:api[_-]?key|authorization|bearer|credential|password|private[_-]?key|secret|token)/iu;
 const TEXT_PATTERNS = Object.freeze([
@@ -7,12 +8,20 @@ const TEXT_PATTERNS = Object.freeze([
   /-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+PRIVATE KEY-----/gu,
 ]);
 const EXACT_VALUES = new Map();
+const MIN_SECRET_LENGTH = 4;
+const MAX_SECRET_LENGTH = 65_536;
+const MAX_REGISTERED_SECRETS = 4096;
+const MAX_COLLECTION_ITEMS = 512;
 
 export function registerSecretValue(value, secretId = 'managed') {
   const text = String(value ?? '');
-  if (text.length < 4 || text.length > 65_536) return false;
-  const entry = EXACT_VALUES.get(text) ?? { ids: new Set(), count: 0 };
-  entry.ids.add(String(secretId));
+  if (text.length < MIN_SECRET_LENGTH || text.length > MAX_SECRET_LENGTH) return false;
+  if (!EXACT_VALUES.has(text) && EXACT_VALUES.size >= MAX_REGISTERED_SECRETS) {
+    throw new ContractError('secret_redaction_capacity', 'too many secret values are active for exact redaction');
+  }
+  const entry = EXACT_VALUES.get(text) ?? {
+    id: String(secretId), encoded: Buffer.from(text, 'utf8').toString('base64'), count: 0,
+  };
   entry.count += 1;
   EXACT_VALUES.set(text, entry);
   return true;
@@ -29,21 +38,28 @@ export function releaseSecretValue(value) {
 export function redactExtensionData(value, depth = 0) {
   if (depth > 12) return '[redacted:depth-limit]';
   if (typeof value === 'string') return redactText(value);
-  if (Array.isArray(value)) return value.slice(0, 512).map((item) => redactExtensionData(item, depth + 1));
+  if (Array.isArray(value)) {
+    const result = value.slice(0, MAX_COLLECTION_ITEMS).map((item) => redactExtensionData(item, depth + 1));
+    if (value.length > MAX_COLLECTION_ITEMS) result.push(`[redacted:${value.length - MAX_COLLECTION_ITEMS}-items-omitted]`);
+    return result;
+  }
   if (!value || typeof value !== 'object') return value;
   const result = {};
-  for (const [key, child] of Object.entries(value).slice(0, 512)) {
+  const entries = Object.entries(value);
+  for (const [key, child] of entries.slice(0, MAX_COLLECTION_ITEMS)) {
     result[key] = SENSITIVE_KEY.test(key) ? '[redacted]' : redactExtensionData(child, depth + 1);
   }
+  if (entries.length > MAX_COLLECTION_ITEMS) result._nna_omitted_keys = entries.length - MAX_COLLECTION_ITEMS;
   return result;
 }
 
 export function redactText(value) {
   let result = String(value);
   for (const [secret, entry] of EXACT_VALUES) {
-    if (result.includes(secret)) result = result.replaceAll(secret, `[nna-redacted:${[...entry.ids][0]}]`);
-    const encoded = Buffer.from(secret, 'utf8').toString('base64');
-    if (encoded.length >= 8 && result.includes(encoded)) result = result.replaceAll(encoded, `[nna-redacted-encoded:${[...entry.ids][0]}]`);
+    if (result.includes(secret)) result = result.replaceAll(secret, `[nna-redacted:${entry.id}]`);
+    if (entry.encoded.length >= 8 && result.includes(entry.encoded)) {
+      result = result.replaceAll(entry.encoded, `[nna-redacted-encoded:${entry.id}]`);
+    }
   }
   result = result.replaceAll(TEXT_PATTERNS[0], 'Bearer [redacted]');
   result = result.replaceAll(TEXT_PATTERNS[1], '$1$2[redacted]');

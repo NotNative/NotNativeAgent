@@ -6,6 +6,20 @@ import {
   normalizeGovernanceEvidence, normalizeGovernanceTerminal,
 } from './governance/contracts.js';
 
+const DEFAULT_RETENTION_ENTRIES = 20_000;
+const MINIMUM_RESUME_RECORDS = 10_000;
+const MAX_AUDIT_ENTRIES = 1_000;
+const DEFAULT_AUDIT_ENTRIES = 100;
+const MAX_GOVERNANCE_ATTRIBUTES = 32;
+const POLICY_TRANSITION_REASON = 'policy_transition';
+const ACTION_AUTHORIZATION_DOMAIN = 'action_authorization';
+const GUIDANCE_PROMOTION_DOMAIN = 'guidance_promotion';
+const LEARNING_PROMOTION_DOMAIN = 'learning_promotion';
+const QUARANTINED_STATE = 'quarantined';
+const CONFLICTING_STATE = 'conflicting';
+const APPROVED_OUTCOMES = Object.freeze(['approve', 'admit', 'promote']);
+const DENIED_OUTCOMES = Object.freeze(['deny_with_guidance', 'hard_deny', 'reject', 'quarantine']);
+
 export class GovernanceEngine {
   #evidence = new Map();
   #decisions = new Map();
@@ -14,10 +28,10 @@ export class GovernanceEngine {
   constructor(options) {
     this.telemetry = options.telemetry ?? null;
     this.sessionId = options.sessionId;
-    this.retentionEntries = options.retentionEntries ?? 20_000;
+    this.retentionEntries = options.retentionEntries ?? DEFAULT_RETENTION_ENTRIES;
     if (options.durable) this.#store = new JournalStore(options.root, `${this.sessionId}.governance`, {
       persistenceDeadlineMs: options.persistenceDeadlineMs,
-      resumeRecordLimit: Math.max(this.retentionEntries * 4, 10_000),
+      resumeRecordLimit: Math.max(this.retentionEntries * 4, MINIMUM_RESUME_RECORDS),
     });
   }
 
@@ -53,7 +67,7 @@ export class GovernanceEngine {
     assertEvidenceTransition(entry.record.state, state);
     const transition = Object.freeze({
       id, from: entry.record.state, to: state, at: Date.now(),
-      reasonCode: detail.reasonCode ?? 'policy_transition',
+      reasonCode: detail.reasonCode ?? POLICY_TRANSITION_REASON,
       evidenceRefs: Object.freeze([...(detail.evidenceRefs ?? [])]),
     });
     await this.#record('evidence_transitioned', { transition });
@@ -124,7 +138,7 @@ export class GovernanceEngine {
     });
     return this.decide({
       id: decision.id,
-      domain: 'action_authorization',
+      domain: ACTION_AUTHORIZATION_DOMAIN,
       subjectRef: request.id,
       subjectFingerprint: decision.requestDigest,
       outcome: decision.outcome,
@@ -149,8 +163,10 @@ export class GovernanceEngine {
   }
   decision(id) { return this.#decisions.get(id)?.record ?? null; }
 
-  audit(limit = 100) {
-    const bounded = Number.isSafeInteger(limit) ? Math.max(1, Math.min(1000, limit)) : 100;
+  audit(limit = DEFAULT_AUDIT_ENTRIES) {
+    const bounded = Number.isSafeInteger(limit)
+      ? Math.max(1, Math.min(MAX_AUDIT_ENTRIES, limit))
+      : DEFAULT_AUDIT_ENTRIES;
     return Object.freeze([...this.#decisions.values()].slice(-bounded).map((entry) => Object.freeze({
       ...entry.record, terminal: entry.terminal,
     })));
@@ -175,8 +191,9 @@ export class GovernanceEngine {
       }
     }
     const pendingEvidence = [...this.#evidence.values()].filter((entry) =>
-      entry.record.state === 'quarantined' && entry.record.kind === 'improvement_candidate').length;
-    const attentionEvidence = (states.quarantined ?? 0) - pendingEvidence + (states.conflicting ?? 0);
+      entry.record.state === QUARANTINED_STATE && entry.record.kind === 'improvement_candidate').length;
+    const attentionEvidence = (states[QUARANTINED_STATE] ?? 0) - pendingEvidence
+      + (states[CONFLICTING_STATE] ?? 0);
     return Object.freeze({
       status: attentionEvidence > 0 || uncertainEffects > 0 || unsettled > 0 ? 'attention' : 'ready',
       durable: this.#store !== null, evidence: this.#evidence.size,
@@ -217,8 +234,10 @@ export class GovernanceEngine {
     this.#telemetry('governance.decision', 'recovered', decision, {
       governance_decision_id: driftId, reason_code: 'governance_decision_drift',
     });
-    const attributes = Object.keys(decision.attributes).length < 32
-      ? { ...decision.attributes, drift_of: decision.id } : decision.attributes;
+    const retainedAttributes = Object.entries(decision.attributes)
+      .filter(([key]) => key !== 'drift_of')
+      .slice(0, MAX_GOVERNANCE_ATTRIBUTES - 1);
+    const attributes = { ...Object.fromEntries(retainedAttributes), drift_of: decision.id };
     return this.decide({ ...decision, id: driftId, attributes });
   }
 
@@ -237,14 +256,25 @@ export class GovernanceEngine {
   async #record(type, payload) { if (this.#store) await this.#store.append(type, payload); }
 
   #apply(type, payload) {
-    if (type === 'evidence_registered') this.#evidence.set(payload.evidence.id, { record: payload.evidence, history: [] });
-    if (type === 'evidence_transitioned') {
-      const entry = this.#requireEvidence(payload.transition.id);
-      entry.history.push(payload.transition);
-      entry.record = Object.freeze({ ...entry.record, state: payload.transition.to });
+    switch (type) {
+      case 'evidence_registered':
+        this.#evidence.set(payload.evidence.id, { record: payload.evidence, history: [] });
+        break;
+      case 'evidence_transitioned': {
+        const entry = this.#requireEvidence(payload.transition.id);
+        entry.history.push(payload.transition);
+        entry.record = Object.freeze({ ...entry.record, state: payload.transition.to });
+        break;
+      }
+      case 'decision_committed':
+        this.#decisions.set(payload.decision.id, { record: payload.decision, terminal: null });
+        break;
+      case 'decision_settled':
+        this.#requireDecision(payload.id).terminal = payload.terminal;
+        break;
+      default:
+        throw new ContractError('governance_record_unknown', `unknown governance record type: ${type}`);
     }
-    if (type === 'decision_committed') this.#decisions.set(payload.decision.id, { record: payload.decision, terminal: null });
-    if (type === 'decision_settled') this.#requireDecision(payload.id).terminal = payload.terminal;
   }
 
   async #enforceRetention(pinnedEvidenceId = null) {
@@ -260,8 +290,8 @@ export class GovernanceEngine {
       decisions.push(candidate);
       for (const id of additions) requiredEvidence.add(id);
     }
-    decisions.reverse();
-    const evidenceBudget = this.retentionEntries - decisions.length;
+    const retainedDecisions = decisions.toReversed();
+    const evidenceBudget = this.retentionEntries - retainedDecisions.length;
     const allEvidence = [...this.#evidence.values()];
     const optional = allEvidence.filter((entry) => !requiredEvidence.has(entry.record.id));
     const optionalBudget = Math.max(0, evidenceBudget - requiredEvidence.size);
@@ -271,10 +301,10 @@ export class GovernanceEngine {
     ]);
     const evidence = allEvidence.filter((entry) => retainedIds.has(entry.record.id));
     if (this.#store) await this.#store.replace([
-      ...evidence.flatMap(evidenceRecords), ...decisions.flatMap(decisionRecords),
+      ...evidence.flatMap(evidenceRecords), ...retainedDecisions.flatMap(decisionRecords),
     ]);
     this.#evidence = new Map(evidence.map((entry) => [entry.record.id, entry]));
-    this.#decisions = new Map(decisions.map((entry) => [entry.record.id, entry]));
+    this.#decisions = new Map(retainedDecisions.map((entry) => [entry.record.id, entry]));
   }
 
   #telemetry(event, status, payload, correlation) {
@@ -296,8 +326,8 @@ function decisionRecords(entry) {
 }
 
 function decisionStatus(outcome) {
-  return ['approve', 'admit', 'promote'].includes(outcome) ? 'succeeded'
-    : ['deny_with_guidance', 'hard_deny', 'reject', 'quarantine'].includes(outcome) ? 'denied' : 'skipped';
+  return APPROVED_OUTCOMES.includes(outcome) ? 'succeeded'
+    : DENIED_OUTCOMES.includes(outcome) ? 'denied' : 'skipped';
 }
 
 function terminalStatus(status) {
@@ -307,7 +337,7 @@ function terminalStatus(status) {
 }
 
 function settlementRequired(decision) {
-  if (decision.domain === 'action_authorization') return true;
-  return ['guidance_promotion', 'learning_promotion'].includes(decision.domain)
+  if (decision.domain === ACTION_AUTHORIZATION_DOMAIN) return true;
+  return [GUIDANCE_PROMOTION_DOMAIN, LEARNING_PROMOTION_DOMAIN].includes(decision.domain)
     && decision.outcome === 'promote';
 }

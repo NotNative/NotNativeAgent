@@ -13,16 +13,25 @@ export class PreauthorizationRegistry {
   }
 
   grant(choice, request, context, principal) {
-    this.#purge();
+    assertPreauthorizationInput(request, context);
+    if (!['allow_session', 'allow_workspace'].includes(choice)) throw new ContractError('preauthorization_choice_invalid', 'preauthorization choice is invalid');
+    if (typeof principal !== 'string' || principal.length === 0 || principal.length > 256) {
+      throw new ContractError('preauthorization_principal_invalid', 'authenticated preauthorization principal is required');
+    }
+    const now = Date.now();
+    this.#purge(now);
     if (this.#grants.length >= this.maxGrants) throw new ContractError('preauthorization_full', 'conversation preauthorization limit reached');
+    if (!Number.isFinite(request.expiresAt) || request.expiresAt < now) {
+      throw new ContractError('preauthorization_request_expired', 'preauthorization request is expired or invalid');
+    }
     const scope = choice === 'allow_session' ? 'operation' : 'workspace';
     const grant = Object.freeze({
       id: newId('grant'), scope, toolName: request.toolName,
       definitionVersion: request.definitionVersion, sideEffect: context.definition.sideEffect,
       workspaceRoot: request.workspaceRoot, authorityId: request.authorityId,
-      authorityRestrictionVersion: request.authorityRestrictionVersion ?? context.authority?.restrictionVersion ?? 0,
-      policyVersion: request.policyVersion, principal, createdAt: Date.now(),
-      expiresAt: Math.min(request.expiresAt + this.lifetimeMs, Date.now() + this.lifetimeMs),
+      authorityRestrictionVersion: restrictionVersion(request, context),
+      policyVersion: request.policyVersion, principal, createdAt: now,
+      expiresAt: Math.min(request.expiresAt + this.lifetimeMs, now + this.lifetimeMs),
       targetFingerprint: operationTargetFingerprint(request),
       operationFamilyFingerprint: operationFamilyFingerprint(request),
     });
@@ -31,9 +40,10 @@ export class PreauthorizationRegistry {
   }
 
   match(request, context) {
-    this.#purge();
+    assertPreauthorizationInput(request, context);
+    this.#purge(Date.now());
     return this.#grants.find((grant) => grant.authorityId === request.authorityId
-      && grant.authorityRestrictionVersion === (request.authorityRestrictionVersion ?? context.authority?.restrictionVersion ?? 0)
+      && grant.authorityRestrictionVersion === restrictionVersion(request, context)
       && grant.policyVersion === request.policyVersion && grant.workspaceRoot === request.workspaceRoot
       && grant.toolName === request.toolName && grant.definitionVersion === request.definitionVersion
       && grant.sideEffect === context.definition.sideEffect
@@ -43,7 +53,7 @@ export class PreauthorizationRegistry {
   }
 
   snapshot() {
-    this.#purge();
+    this.#purge(Date.now());
     return Object.freeze(this.#grants.map((grant) => Object.freeze({
       id: grant.id, scope: grant.scope, tool: grant.toolName, effect: grant.sideEffect,
       target_fingerprint: grant.targetFingerprint, restriction_version: grant.authorityRestrictionVersion,
@@ -60,17 +70,21 @@ export class PreauthorizationRegistry {
   }
 
   decision(grant, request) {
+    if (!grant || typeof grant !== 'object' || !request || typeof request !== 'object') {
+      throw new ContractError('preauthorization_decision_invalid', 'preauthorization grant and request are required');
+    }
+    const now = Date.now();
     return Object.freeze({
       id: newId('decision'), outcome: 'approve', reasonCode: `operator_preauthorized_${grant.scope}`,
       guidance: null, requestId: request.id, requestDigest: requestDigest(request),
       authorityId: request.authorityId, authorityVersion: request.authorityVersion,
-      authorityRestrictionVersion: request.authorityRestrictionVersion ?? 0, policyVersion: request.policyVersion,
+      authorityRestrictionVersion: grant.authorityRestrictionVersion, policyVersion: request.policyVersion,
       provenance: 'authenticated_interactive_operator', principal: grant.principal,
-      grantId: grant.id, committedAt: Date.now(), expiresAt: Date.now() + this.decisionTtlMs,
+      grantId: grant.id, committedAt: now, expiresAt: now + this.decisionTtlMs,
     });
   }
 
-  #purge() { this.#grants = this.#grants.filter((grant) => grant.expiresAt >= Date.now()); }
+  #purge(now) { this.#grants = this.#grants.filter((grant) => grant.expiresAt >= now); }
 }
 
 function fingerprint(value) {
@@ -85,7 +99,7 @@ function operationTargetFingerprint(request) {
     ? { targets, executable: resolved.executable, argv: resolved.argv }
     : request.toolName === 'shell.run'
       ? { targets, shell: resolved.shell, script: resolved.script }
-    : targets.length > 0 ? { targets } : { args: request.args };
+    : targets.length > 0 ? { targets } : { args: request.args ?? null };
   return fingerprint(JSON.stringify(canonical(identity)));
 }
 
@@ -114,7 +128,8 @@ function operationFamilyFingerprint(request) {
 
 function processOperation(executable, argv) {
   if (['cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh', 'sh', 'bash', 'zsh', 'fish'].includes(executable)) {
-    return shellCommandFamily(argv.at(-1));
+    const family = shellCommandFamily(argv.at(-1));
+    return family.length > 0 ? family : ['shell_invocation_without_command'];
   }
   const significant = argv.filter((value) => typeof value === 'string' && !value.startsWith('-'));
   return significant.slice(0, 2).map((value) => value.toLowerCase());
@@ -139,4 +154,15 @@ function canonical(value) {
     return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
   }
   return value;
+}
+
+function restrictionVersion(request, context) {
+  return request.authorityRestrictionVersion ?? context.authority?.restrictionVersion ?? 0;
+}
+
+function assertPreauthorizationInput(request, context) {
+  if (!request || typeof request !== 'object' || typeof request.toolName !== 'string'
+      || !context || typeof context !== 'object' || typeof context.definition?.sideEffect !== 'string') {
+    throw new ContractError('preauthorization_input_invalid', 'preauthorization requires a valid request and tool context');
+  }
 }

@@ -16,6 +16,10 @@ const TOOL = Object.freeze({
     },
   },
 });
+const TOOL_SYSTEM_PROMPT = 'Call nna_conformance_echo exactly once with text set to provider-ok. Do not answer in prose.';
+const TOOL_USER_PROMPT = 'Run the conformance tool now.';
+const TEXT_SYSTEM_PROMPT = 'Reply with a brief plain-text acknowledgement.';
+const TEXT_USER_PROMPT = 'Provider conformance check.';
 
 export async function runProviderConformance(document, options = {}) {
   const input = validateDocument(document);
@@ -68,11 +72,11 @@ function request(model, tools) {
   return Object.freeze({
     model, temperature: 0, maxOutputTokens: 256,
     messages: tools ? [
-      { role: 'system', content: 'Call nna_conformance_echo exactly once with text set to provider-ok. Do not answer in prose.' },
-      { role: 'user', content: 'Run the conformance tool now.' },
+      { role: 'system', content: TOOL_SYSTEM_PROMPT },
+      { role: 'user', content: TOOL_USER_PROMPT },
     ] : [
-      { role: 'system', content: 'Reply with a brief plain-text acknowledgement.' },
-      { role: 'user', content: 'Provider conformance check.' },
+      { role: 'system', content: TEXT_SYSTEM_PROMPT },
+      { role: 'user', content: TEXT_USER_PROMPT },
     ],
     tools: tools ? [TOOL] : [],
   });
@@ -91,8 +95,8 @@ async function consume(adapter, providerRequest, signal) {
   }
   if (terminalEvents !== 1) throw coded('provider_terminal_count_invalid');
   const calls = assembler.complete();
-  const valid = calls.some((call) => !call.invalid && call.name === 'nna_conformance_echo'
-    && call.args?.text === 'provider-ok');
+  const valid = calls.length === 1 && !calls[0].invalid && calls[0].name === 'nna_conformance_echo'
+    && calls[0].args?.text === 'provider-ok';
   return {
     text_bytes: textBytes, reasoning_bytes: reasoningBytes, usage_events: usageEvents,
     terminal_events: terminalEvents, tool_call_count: calls.length, valid_tool_call: valid,
@@ -111,7 +115,7 @@ async function measuredCase(name, timeoutMs, operation) {
       name, passed: false, elapsed_ms: round(performance.now() - started),
       error_code: safeCode(controller.signal.aborted ? 'provider_conformance_timeout' : error?.code),
     });
-  } finally { clearTimeout(timer); controller.abort(); }
+  } finally { clearTimeout(timer); }
 }
 
 function validateDocument(value) {
@@ -123,8 +127,8 @@ function validateDocument(value) {
   const providers = value.providers.map((item) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)
       || !/^[a-z0-9][a-z0-9_-]{0,63}$/u.test(item.id ?? '')
-      || !boundedText(item.implementation, 128) || !boundedText(item.implementation_version, 128)
-      || !boundedText(item.endpoint, 2048) || !boundedText(item.model, 256)
+      || !isValidBoundedText(item.implementation, 128) || !isValidBoundedText(item.implementation_version, 128)
+      || !isValidBoundedText(item.endpoint, 2048) || !isValidBoundedText(item.model, 256)
       || !['loopback', 'private_network', 'public_network'].includes(item.trust_zone)
       || (item.credential_env !== undefined && !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/u.test(item.credential_env))) {
       throw coded('provider_conformance_config_invalid');
@@ -144,7 +148,7 @@ function boundedTimeout(value) {
   return value;
 }
 
-function boundedText(value, maximum) {
+function isValidBoundedText(value, maximum) {
   return typeof value === 'string' && value.length > 0 && value.length <= maximum;
 }
 

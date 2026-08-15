@@ -5,12 +5,13 @@ import { randomUUID } from 'node:crypto';
 import { ContractError } from '../ids.js';
 
 const TYPES = Object.freeze({ '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' });
+const MAX_ATTACHMENTS_PER_TURN = 16;
 
 export async function queueConsoleAttachment(workspace, input) {
-  const session = workspace.projection.active();
+  const session = activeSession(workspace);
   const config = workspace.activeConfig();
   if (!config.attachments.enabled) throw new ContractError('attachments_disabled', 'enable attachments in /config first');
-  if (session.pendingAttachments.length >= 16) throw new ContractError('attachment_limit', 'a turn accepts at most sixteen attachments');
+  if (session.pendingAttachments.length >= MAX_ATTACHMENTS_PER_TURN) throw new ContractError('attachment_limit', 'a turn accepts at most sixteen attachments');
   const supplied = unquote(input.trim());
   if (!supplied) throw new ContractError('attachment_path_missing', 'use /attach PATH');
   const path = isAbsolute(supplied) ? resolve(supplied) : resolve(config.workspaceRoot, supplied);
@@ -28,7 +29,7 @@ export async function queueConsoleAttachment(workspace, input) {
 
 export async function queueClipboardImage(workspace) {
   const config = workspace.activeConfig();
-  const session = workspace.projection.active();
+  const session = activeSession(workspace);
   requireAttachmentCapacity(config, session);
   const reader = workspace.options.clipboardImageRead;
   if (typeof reader !== 'function') throw new ContractError('clipboard_image_unavailable', 'clipboard image paste is unavailable');
@@ -57,10 +58,10 @@ export async function queueClipboardContent(workspace) {
   try {
     const content = await reader(config.attachments.enabled ? path : null, config.attachments.maxBytes);
     if (content.kind !== 'image') return { action: 'paste', text: content.text };
-    requireAttachmentCapacity(config, workspace.projection.active());
+    requireAttachmentCapacity(config, activeSession(workspace));
     return { action: 'attachment', attachment: await queueConsoleAttachment(workspace, path) };
   } finally {
-    if (path && !workspace.projection.active().pendingAttachments.some((item) => item.path === path)) {
+    if (path && !workspace.projection.active()?.pendingAttachments.some((item) => item.path === path)) {
       await rm(path, { force: true }).catch(() => undefined);
     }
   }
@@ -69,12 +70,14 @@ export async function queueClipboardContent(workspace) {
 export async function queuePastedImagePaths(workspace, text) {
   const paths = pastedPaths(text);
   if (paths.length === 0) return [];
-  const start = workspace.projection.active().pendingAttachments.length;
+  const session = activeSession(workspace);
+  const start = session.pendingAttachments.length;
   const queued = [];
   for (const path of paths) {
     try { queued.push(await queueConsoleAttachment(workspace, path)); }
     catch (error) {
-      workspace.projection.active().pendingAttachments.splice(start);
+      session.pendingAttachments.length = start;
+      workspace.onChange();
       if (error.code === 'ENOENT' || error.code === 'attachment_type_unsupported') return [];
       throw error;
     }
@@ -83,8 +86,12 @@ export async function queuePastedImagePaths(workspace, text) {
 }
 
 export function detachConsoleAttachment(workspace, selector) {
-  const session = workspace.projection.active();
-  if (selector === 'all') return session.pendingAttachments.splice(0).length;
+  const session = activeSession(workspace);
+  if (selector === 'all') {
+    const removed = session.pendingAttachments.splice(0).length;
+    if (removed > 0) workspace.onChange();
+    return removed;
+  }
   const index = Number(selector) - 1;
   if (!Number.isInteger(index) || index < 0 || index >= session.pendingAttachments.length) {
     throw new ContractError('attachment_selection_invalid', 'use /detach INDEX or /detach all');
@@ -100,7 +107,7 @@ function unquote(value) {
 
 function requireAttachmentCapacity(config, session) {
   if (!config.attachments.enabled) throw new ContractError('attachments_disabled', 'enable attachments in /config first');
-  if (session.pendingAttachments.length >= 16) throw new ContractError('attachment_limit', 'a turn accepts at most sixteen attachments');
+  if (session.pendingAttachments.length >= MAX_ATTACHMENTS_PER_TURN) throw new ContractError('attachment_limit', 'a turn accepts at most sixteen attachments');
 }
 
 function pastedPaths(value) {
@@ -112,6 +119,12 @@ function pastedPaths(value) {
   const matches = quoted.length > 0
     ? quoted.map((item) => (item[1] ?? item[2]).trim())
     : text.split(/\r?\n|\t/gu).map((item) => item.trim()).filter(Boolean);
-  if (matches.length === 0 || matches.length > 16) return [];
+  if (matches.length === 0 || matches.length > MAX_ATTACHMENTS_PER_TURN) return [];
   return matches.every((item) => TYPES[extname(item).toLowerCase()]) ? matches : [];
+}
+
+function activeSession(workspace) {
+  const session = workspace.projection.active();
+  if (!session) throw new ContractError('tui_session_missing', 'no active session is available for attachments');
+  return session;
 }

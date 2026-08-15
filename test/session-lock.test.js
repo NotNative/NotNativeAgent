@@ -27,3 +27,17 @@ test('session lock does not expire a live owner by timestamp', async () => {
     await assert.rejects(new SessionLock(root, 'session').acquire(), { code: 'session_locked' });
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('session lock reports ownership replacement instead of deleting another owner', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-lock-owner-'));
+  try {
+    const path = join(root, 'session.lock');
+    const lock = new SessionLock(root, 'session');
+    await lock.acquire();
+    await writeFile(path, JSON.stringify({
+      version: 1, pid: process.pid, token: 'replacement-owner', created_at: new Date().toISOString(),
+    }), 'utf8');
+    await assert.rejects(lock.release(), { code: 'session_lock_ownership_lost' });
+    assert.equal(JSON.parse(await readFile(path, 'utf8')).token, 'replacement-owner');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

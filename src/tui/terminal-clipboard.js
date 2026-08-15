@@ -10,7 +10,10 @@ export function osc52Clipboard(output) {
     if (bytes > MAX_CLIPBOARD_BYTES) {
       throw new ContractError('clipboard_content_too_large', `clipboard content exceeds ${MAX_CLIPBOARD_BYTES} bytes`);
     }
-    if (!output?.isTTY) throw new ContractError('clipboard_unavailable', 'terminal clipboard requires an interactive terminal');
+    if (!output?.isTTY || typeof output.write !== 'function') {
+      throw new ContractError('clipboard_unavailable', 'terminal clipboard requires an interactive writable terminal');
+    }
+    // Bounded Base64 has no control bytes, so clipboard content cannot terminate or inject another OSC sequence.
     output.write(`\u001b]52;c;${Buffer.from(text, 'utf8').toString('base64')}\u0007`);
     return { copied: true, bytes };
   };

@@ -76,10 +76,15 @@ function searchDefinition(paths) {
         resolved,
       };
     },
-    executor: async (request, signal) => exactFileMatchesGlob(request)
-      ? (await ripgrepSearch(request, signal)) ?? searchFiles(request, signal)
-      : emptySearchResult(request),
+    executor: (request, signal) => executeSearch(request, signal),
   };
+}
+
+async function executeSearch(request, signal) {
+  if (!exactFileMatchesGlob(request)) return emptySearchResult(request);
+  const ripgrep = await ripgrepSearch(request, signal);
+  if (ripgrep) return ripgrep;
+  return searchFiles(request, signal);
 }
 
 async function ripgrepSearch(request, signal) {
@@ -122,8 +127,8 @@ function ripgrepArguments(request) {
   ];
 }
 
-function readRipgrepEvents(chunk, matches, request, child, stop, updatePending, prior) {
-  const lines = `${prior}${chunk.toString('utf8')}`.split('\n'); updatePending(lines.pop() ?? '');
+function readRipgrepEvents(chunk, matches, request, child, stop, updatePending, pending) {
+  const lines = `${pending}${chunk.toString('utf8')}`.split('\n'); updatePending(lines.pop() ?? '');
   for (const line of lines) {
     let event; try { event = JSON.parse(line); } catch { continue; }
     if (event.type !== 'match') continue;
@@ -183,6 +188,7 @@ async function searchFiles(request, signal) {
     content: matches.join('\n') || 'no text matches',
     metadata: {
       root: request.args.path, query: request.args.query, match_mode: request.args.match_mode, matches: matches.length,
+      backend: 'javascript',
       files_examined: candidates.examined, bytes_examined: bytesExamined,
       binary_skipped: binarySkipped, oversized_skipped: oversizedSkipped, inaccessible_skipped: candidates.skipped,
       truncated,
@@ -192,6 +198,7 @@ async function searchFiles(request, signal) {
 
 function textMatcher(args) {
   if (args.match_mode === 'regex') {
+    assertSafeFallbackRegex(args.query);
     let expression;
     try { expression = new RegExp(args.query, args.case_sensitive ? 'u' : 'iu'); }
     catch { throw new ContractError('tool_pattern_invalid', 'search regular expression is invalid'); }
@@ -199,6 +206,42 @@ function textMatcher(args) {
   }
   const needle = args.case_sensitive ? args.query : args.query.toLocaleLowerCase();
   return (line) => (args.case_sensitive ? line : line.toLocaleLowerCase()).indexOf(needle);
+}
+
+function assertSafeFallbackRegex(pattern) {
+  if (/\\[1-9]|\(\?(?:[=!]|<[=!])/u.test(pattern)) {
+    throw new ContractError('tool_pattern_unsafe', 'fallback regex does not allow backreferences or lookarounds');
+  }
+  for (const match of pattern.matchAll(/\{(\d+)(?:,(\d*))?\}/gu)) {
+    if (Number(match[1]) > 10_000 || (match[2] && Number(match[2]) > 10_000)) {
+      throw new ContractError('tool_pattern_unsafe', 'fallback regex repetition exceeds the safe bound');
+    }
+  }
+  const groups = [{ quantified: false, alternation: false }];
+  let escaped = false; let inClass = false; let closedGroup = null;
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
+    if (escaped) { escaped = false; closedGroup = null; continue; }
+    if (character === '\\') { escaped = true; continue; }
+    if (character === '[') { inClass = true; closedGroup = null; continue; }
+    if (character === ']' && inClass) { inClass = false; continue; }
+    if (inClass) continue;
+    if (character === '(') { groups.push({ quantified: false, alternation: false }); closedGroup = null; continue; }
+    if (character === ')' && groups.length > 1) {
+      closedGroup = groups.pop();
+      groups.at(-1).quantified ||= closedGroup.quantified;
+      groups.at(-1).alternation ||= closedGroup.alternation;
+      continue;
+    }
+    if (character === '|') { groups.at(-1).alternation = true; closedGroup = null; continue; }
+    if (character === '*' || character === '+' || character === '{') {
+      if (closedGroup?.quantified || closedGroup?.alternation) {
+        throw new ContractError('tool_pattern_unsafe', 'fallback regex contains a potentially exponential quantified group');
+      }
+      groups.at(-1).quantified = true;
+    }
+    closedGroup = null;
+  }
 }
 
 async function walkFiles(root, maxDepth, limit, signal, accept) {

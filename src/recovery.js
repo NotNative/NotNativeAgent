@@ -2,6 +2,17 @@
 import { createHash } from 'node:crypto';
 import { randomInt } from 'node:crypto';
 
+const MAX_ACTION_HISTORY = 256;
+const MAX_PROGRESS_RECORDS = 4_096;
+const MAX_EPISODES = 4_096;
+const MAX_EXHAUSTION_EVIDENCE = 32;
+const MAX_REASON_CODES = 16;
+const MAX_REPEATED_FINGERPRINTS = 16;
+const MIN_USEFUL_CHECKPOINT_CHARACTERS = 160;
+const MAX_CHECKPOINT_CHARACTERS = 2_400;
+const CHECKPOINT_HEAD_RATIO = 0.7;
+const CHECKPOINT_SEPARATOR_RESERVE = 32;
+
 export class RecoverySupervisor {
   #episodes = new Map();
   #progress = new Map();
@@ -10,7 +21,7 @@ export class RecoverySupervisor {
   constructor(options = {}) {
     this.localLimit = options.localLimit ?? 3;
     this.ladder = options.ladder ?? ['nudge', 'compact'];
-    this.#actions = (options.restoredActions ?? []).slice(-256);
+    this.#actions = (options.restoredActions ?? []).slice(-MAX_ACTION_HISTORY);
   }
 
   providerRetry(category, attempt, partial) {
@@ -47,9 +58,12 @@ export class RecoverySupervisor {
     }
     const episode = episodeKey(category, options.failureFingerprint);
     const count = (this.#episodes.get(episode) ?? 0) + 1;
+    if (!this.#episodes.has(episode) && this.#episodes.size >= MAX_EPISODES) {
+      this.#episodes.delete(this.#episodes.keys().next().value);
+    }
     this.#episodes.set(episode, count);
     if (count >= this.localLimit) return Object.freeze({ continue: false, exhausted: true, count });
-    const configuredAction = this.ladder[count - 1];
+    const configuredAction = this.ladder[count - 1] ?? this.ladder.at(-1) ?? 'nudge';
     const action = configuredAction === 'compact' && options.allowCompaction === false ? 'nudge' : configuredAction;
     return Object.freeze({
       continue: true, progress: false, count,
@@ -72,7 +86,7 @@ export class RecoverySupervisor {
   observeProgress(value, detail = {}) {
     const fingerprint = digest(value);
     if (this.#progress.has(fingerprint)) return false;
-    if (this.#progress.size >= 4096) this.#progress.delete(this.#progress.keys().next().value);
+    if (this.#progress.size >= MAX_PROGRESS_RECORDS) this.#progress.delete(this.#progress.keys().next().value);
     this.#progress.set(fingerprint, progressRecord(fingerprint, value, detail));
     return true;
   }
@@ -82,8 +96,8 @@ export class RecoverySupervisor {
     this.#episodes.clear();
   }
 
-  exhaustion(toolResults = [], reasonCodes = []) {
-    const evidence = [...this.#progress.values()].slice(-32);
+  exhaustion(records = [], reasonCodes = []) {
+    const evidence = [...this.#progress.values()].slice(-MAX_EXHAUSTION_EVIDENCE);
     const checkpoint = evidence.at(-1)?.checkpoint ?? 'turn_start';
     return Object.freeze({
       code: 'recovery_exhausted', retryable: true, partial: evidence.length > 0,
@@ -93,13 +107,13 @@ export class RecoverySupervisor {
         fingerprints: Object.freeze(evidence.map((item) => item.fingerprint)),
         evidence: Object.freeze(evidence),
       }),
-      recovery_actions: Object.freeze(this.#actions.slice(-32)),
+      recovery_actions: Object.freeze(this.#actions.slice(-MAX_EXHAUSTION_EVIDENCE)),
       last_checkpoint: checkpoint,
       last_verified_checkpoint: checkpoint,
       remaining_work: 'model continuation did not demonstrate forward progress',
       resume_condition: 'new authenticated input or changed external evidence',
-      reason_codes: Object.freeze([...new Set(reasonCodes.filter(Boolean))].slice(0, 16)),
-      side_effect_certainty: effectCertainty(toolResults),
+      reason_codes: Object.freeze([...new Set(reasonCodes.filter(Boolean))].slice(0, MAX_REASON_CODES)),
+      side_effect_certainty: effectCertainty(records),
     });
   }
 
@@ -112,7 +126,7 @@ export class RecoverySupervisor {
       category, action, count, ...detail, timestamp: new Date().toISOString(),
     });
     this.#actions.push(record);
-    if (this.#actions.length > 256) this.#actions.shift();
+    if (this.#actions.length > MAX_ACTION_HISTORY) this.#actions.shift();
     return record;
   }
 
@@ -130,7 +144,7 @@ function episodeKey(category, failureFingerprint) {
 function repeatedEvidenceDetail(detail) {
   const fingerprints = detail?.summary?.request_fingerprints;
   if (!Array.isArray(fingerprints) || fingerprints.length === 0) return {};
-  return { repeated_request_fingerprints: Object.freeze(fingerprints.slice(0, 16)) };
+  return { repeated_request_fingerprints: Object.freeze(fingerprints.slice(0, MAX_REPEATED_FINGERPRINTS)) };
 }
 
 export function recoveryExhaustionText(detail, options = {}) {
@@ -168,15 +182,15 @@ function usefulAssistantCheckpoint(transcript, turnId) {
     && item.content.trim().length > 0);
   if (messages.length === 0) return null;
   const recent = messages.slice(-5).reverse();
-  const selected = recent.find((item) => item.content.trim().length >= 160) ?? recent[0];
+  const selected = recent.find((item) => item.content.trim().length >= MIN_USEFUL_CHECKPOINT_CHARACTERS) ?? recent[0];
   return boundedCheckpoint(selected.content.trim());
 }
 
 function boundedCheckpoint(content) {
-  const limit = 2400;
+  const limit = MAX_CHECKPOINT_CHARACTERS;
   if (content.length <= limit) return content;
-  const head = content.slice(0, Math.floor(limit * 0.7)).trimEnd();
-  const tail = content.slice(-(limit - head.length - 32)).trimStart();
+  const head = content.slice(0, Math.floor(limit * CHECKPOINT_HEAD_RATIO)).trimEnd();
+  const tail = content.slice(-(limit - head.length - CHECKPOINT_SEPARATOR_RESERVE)).trimStart();
   return `${head}\n...[checkpoint shortened]...\n${tail}`;
 }
 

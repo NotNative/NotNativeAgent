@@ -24,6 +24,7 @@ export class EventHub {
   #running = new Map();
   #closed = false;
   #dropped = 0;
+  #invariantFailures = 0;
   #observer = null;
 
   constructor(options = {}) {
@@ -104,9 +105,13 @@ export class EventHub {
 
   health() {
     return Object.freeze({
-      status: this.#closed ? 'closed' : this.#dropped > 0 ? 'degraded' : 'ready', queued: this.#background.size,
+      status: this.#closed ? 'closed'
+        : this.#dropped > 0 || this.#invariantFailures > 0 ? 'degraded' : 'ready',
+      queued: this.#background.size,
       running: [...this.#running.values()].reduce((sum, count) => sum + count, 0),
-      capacity: this.maxBackground, dropped: this.#dropped, overflowPolicy: 'drop_newest_noncritical',
+      capacity: this.maxBackground, dropped: this.#dropped,
+      invariantFailures: this.#invariantFailures,
+      overflowPolicy: 'drop_newest_noncritical',
     });
   }
 
@@ -141,7 +146,13 @@ export class EventHub {
   }
 
   #release(item) {
-    const remaining = (this.#running.get(item.record.id) ?? 1) - 1;
+    const running = this.#running.get(item.record.id);
+    if (!Number.isSafeInteger(running) || running < 1) {
+      this.#invariantFailures += 1;
+      observe(this.#observer, 'hubInvariantFailed', item.record, 'release_without_reservation');
+      return;
+    }
+    const remaining = running - 1;
     if (remaining <= 0) this.#running.delete(item.record.id);
     else this.#running.set(item.record.id, remaining);
   }
@@ -151,7 +162,10 @@ export class EventHub {
   }
 
   #remove(id) {
-    this.#subscriptions = this.#subscriptions.filter(({ record }) => record.id !== id);
+    const index = this.#subscriptions.findIndex(({ record }) => record.id === id);
+    if (index < 0) return false;
+    this.#subscriptions.splice(index, 1);
+    return true;
   }
 }
 
@@ -185,7 +199,7 @@ function validateDeclaration(value, handler) {
     throw new ContractError('invalid_subscription', 'blocking mode is required');
   }
   if (!Number.isInteger(value.priority)) throw new ContractError('invalid_subscription', 'subscription priority is required');
-  boundedInteger(value.timeoutMs, undefined, 1, 3_605_000);
+  requiredInteger(value.timeoutMs, 1, 3_605_000);
   if (!['continue', 'deny'].includes(value.failurePolicy)) throw new ContractError('invalid_subscription', 'subscription failure policy is required');
   if (!['propagate', 'detach'].includes(value.cancellation)) throw new ContractError('invalid_subscription', 'subscription cancellation behavior is required');
   if (value.blocking && value.cancellation !== 'propagate') throw new ContractError('invalid_subscription', 'blocking subscriptions must propagate cancellation');
@@ -197,8 +211,8 @@ function validateDeclaration(value, handler) {
   if (!value.resourceBounds || typeof value.resourceBounds !== 'object' || Array.isArray(value.resourceBounds)) {
     throw new ContractError('invalid_subscription', 'subscription resource bounds are required');
   }
-  boundedInteger(value.resourceBounds.maxOutputBytes, undefined, 1, 1_048_576);
-  boundedInteger(value.resourceBounds.maxConcurrent, undefined, 1, 1024);
+  requiredInteger(value.resourceBounds.maxOutputBytes, 1, 1_048_576);
+  requiredInteger(value.resourceBounds.maxConcurrent, 1, 1024);
 }
 
 function validatePhase(category, phase) {
@@ -266,6 +280,13 @@ function boundedInteger(value, fallback, minimum, maximum) {
     throw new ContractError('invalid_subscription_bound', `event bound must be an integer from ${minimum} to ${maximum}`);
   }
   return number;
+}
+
+function requiredInteger(value, minimum, maximum) {
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new ContractError('invalid_subscription_bound', `event bound must be an integer from ${minimum} to ${maximum}`);
+  }
+  return value;
 }
 
 function boundedText(value) {

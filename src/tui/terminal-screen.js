@@ -6,6 +6,9 @@ const SYNC_END = `${ESC}[?2026l`;
 
 export class RetainedTerminalScreen {
   constructor(output) {
+    if (!output || typeof output.write !== 'function') {
+      throw new TypeError('RetainedTerminalScreen requires a writable output');
+    }
     this.output = output;
     this.lines = null;
   }
@@ -15,22 +18,22 @@ export class RetainedTerminalScreen {
   }
 
   paint(frame) {
+    if (typeof frame !== 'string') throw new TypeError('terminal frame must be a string');
     const next = frame.replace(/\n$/u, '').split('\n');
     const previous = this.lines ?? [];
     const changed = [];
     const count = Math.max(previous.length, next.length);
     for (let index = 0; index < count; index += 1) {
-      if (this.lines === null || previous[index] !== next[index]) changed.push(index);
+      if (previous[index] !== next[index]) changed.push(index);
     }
     if (changed.length === 0) return false;
-    let output = SYNC_START;
+    const output = [SYNC_START];
     for (const index of changed) {
-      output += `${ESC}[${index + 1};1H${ESC}[2K${next[index] ?? ''}`;
+      output.push(`${ESC}[${index + 1};1H${ESC}[2K${next[index] ?? ''}`);
     }
-    output += SYNC_END;
-    this.output.write(output);
+    output.push(SYNC_END);
+    this.output.write(output.join(''));
     this.lines = next;
     return true;
   }
 }
-

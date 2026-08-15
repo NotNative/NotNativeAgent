@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { failureEnvelope } from './failure-envelope.js';
 
+const TERMINAL_OUTCOMES = new Set(['completed', 'needs_input', 'cancelled', 'denied', 'incomplete', 'failed']);
+
 export class FinalizationFaults {
   constructor(primary, outcome, causeId) {
+    if (!TERMINAL_OUTCOMES.has(outcome) || typeof causeId !== 'string' || !causeId) {
+      throw new TypeError('finalization faults require a terminal outcome and cause id');
+    }
     this.primary = primary;
     this.outcome = outcome;
     this.causeId = causeId;
@@ -25,7 +30,7 @@ export class FinalizationFaults {
     const detail = failureEnvelope(error, {
       boundary, operation: 'turn_finalization', causeId: this.causeId,
     });
-    if (this.primary || this.committed) {
+    if (this.primary !== null && this.primary !== undefined || this.committed) {
       this.secondary.push(detail);
       return;
     }

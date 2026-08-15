@@ -3,10 +3,19 @@ import { ContractError, requireExternalId } from './ids.js';
 import { failureEnvelope } from './failure-envelope.js';
 
 export const PROTOCOL_VERSION = Object.freeze({ major: 1, minor: 0 });
+/** Terminal turn outcomes exposed to protocol consumers and configuration validation. */
 export const TURN_OUTCOMES = Object.freeze([
   'completed', 'incomplete', 'needs_input', 'denied', 'cancelled', 'failed', 'limit_reached',
 ]);
+/** Execution roles accepted by manifests and route configuration. */
 export const ROLES = Object.freeze(['primary', 'reviewer', 'subagent', 'vision']);
+
+const PROTOCOL_LIMITS = Object.freeze({
+  lineBytes: 262_144, contentBytes: 131_072, depth: 24, nodes: 20_000,
+  stringChars: 131_072, collectionItems: 4_096, attachments: 16,
+  attachmentPathChars: 4_096, mimeTypeChars: 128,
+});
+const PERMISSION_CHOICES = Object.freeze(['allow_once', 'allow_session', 'allow_workspace', 'deny', 'cancel']);
 
 const INPUT_TYPES = new Set([
   'initialize', 'submit', 'steer', 'cancel', 'configuration_update', 'shutdown',
@@ -14,7 +23,7 @@ const INPUT_TYPES = new Set([
 ]);
 
 export function parseProtocolLine(line, limits = {}) {
-  const maxBytes = limits.maxLineBytes ?? 262_144;
+  const maxBytes = limits.maxLineBytes ?? PROTOCOL_LIMITS.lineBytes;
   if (Buffer.byteLength(line, 'utf8') > maxBytes) {
     throw new ContractError('line_too_large', `input exceeds ${maxBytes} bytes`);
   }
@@ -59,6 +68,10 @@ function validateInitialization(value) {
   if (!isRecord(value.manifest)) throw new ContractError('initialization_manifest_invalid', 'initialize requires an execution manifest');
   validateProviderProfileId(value.manifest.provider_profile_id, 'manifest.provider_profile_id');
   validateProviderProfileId(value.provider_profile_id, 'provider_profile_id');
+  if (value.manifest.provider_profile_id !== undefined && value.provider_profile_id !== undefined
+    && value.manifest.provider_profile_id !== value.provider_profile_id) {
+    throw new ContractError('provider_profile_mismatch', 'provider_profile_id must match manifest.provider_profile_id');
+  }
   if (value.provider_profile !== undefined && (typeof value.provider_profile !== 'string'
     || value.provider_profile.length === 0 || value.provider_profile.length > 256
     || /[\u0000-\u001f\u007f]/u.test(value.provider_profile))) {
@@ -84,7 +97,7 @@ function validateProviderProfileId(value, field) {
 
 function validatePermissionDecision(value) {
   for (const field of ['permission_token', 'tool_request_id']) requireExternalId(value[field]);
-  if (!['allow_once', 'allow_session', 'allow_workspace', 'deny', 'cancel'].includes(value.choice)) {
+  if (!PERMISSION_CHOICES.includes(value.choice)) {
     throw new ContractError('invalid_permission_choice', 'permission choice is invalid');
   }
 }
@@ -97,12 +110,12 @@ function validateAttachmentId(value) {
 
 function validateAttachments(value) {
   if (value === undefined) return;
-  if (!Array.isArray(value) || value.length > 16) {
+  if (!Array.isArray(value) || value.length > PROTOCOL_LIMITS.attachments) {
     throw new ContractError('invalid_attachments', 'attachments must be an array of at most sixteen items');
   }
   for (const item of value) {
-    if (!isRecord(item) || typeof item.path !== 'string' || item.path.length > 4096
-      || typeof item.mime_type !== 'string' || item.mime_type.length > 128) {
+    if (!isRecord(item) || typeof item.path !== 'string' || item.path.length > PROTOCOL_LIMITS.attachmentPathChars
+      || typeof item.mime_type !== 'string' || item.mime_type.length > PROTOCOL_LIMITS.mimeTypeChars) {
       throw new ContractError('invalid_attachment', 'attachment descriptors require bounded path and mime_type');
     }
   }
@@ -114,9 +127,10 @@ export function safeError(error, operation) {
 }
 
 function nextAction(code, retryable) {
-  if (code.includes('credential')) return 'Configure the referenced credential and retry.';
-  if (code.includes('permission')) return 'Review the request in an authenticated interactive session.';
-  if (code.includes('config') || code.includes('manifest')) return 'Correct the configuration and initialize again.';
+  const parts = new Set(String(code).split('_'));
+  if (parts.has('credential') || parts.has('credentials')) return 'Configure the referenced credential and retry.';
+  if (parts.has('permission') || parts.has('permissions')) return 'Review the request in an authenticated interactive session.';
+  if (parts.has('config') || parts.has('configuration') || parts.has('manifest')) return 'Correct the configuration and initialize again.';
   if (retryable) return 'Retry after checking the affected dependency.';
   return 'Inspect local health and diagnostics using the stable error code.';
 }
@@ -133,23 +147,28 @@ function validateContent(value) {
   if (typeof value !== 'string' || value.length === 0) {
     throw new ContractError('invalid_content', 'submit content must be non-empty text');
   }
-  if (Buffer.byteLength(value, 'utf8') > 131_072) {
+  if (Buffer.byteLength(value, 'utf8') > PROTOCOL_LIMITS.contentBytes) {
     throw new ContractError('content_too_large', 'submit content exceeds 131072 bytes');
   }
 }
 
 function validateTree(root, limits = {}) {
-  const maxDepth = limits.maxDepth ?? 24;
-  const maxNodes = limits.maxNodes ?? 20_000;
+  const maxDepth = limits.maxDepth ?? PROTOCOL_LIMITS.depth;
+  const maxNodes = limits.maxNodes ?? PROTOCOL_LIMITS.nodes;
   const stack = [{ value: root, depth: 0 }];
+  const visited = new WeakSet();
   let count = 0;
   while (stack.length > 0) {
     const item = stack.pop();
+    if (item.value && typeof item.value === 'object') {
+      if (visited.has(item.value)) continue;
+      visited.add(item.value);
+    }
     count += 1;
     if (count > maxNodes || item.depth > maxDepth) {
       throw new ContractError('structure_too_large', 'input structure exceeds bounds');
     }
-    if (typeof item.value === 'string' && item.value.length > 131_072) {
+    if (typeof item.value === 'string' && item.value.length > PROTOCOL_LIMITS.stringChars) {
       throw new ContractError('string_too_large', 'input string exceeds bound');
     }
     if (Array.isArray(item.value)) pushChildren(stack, item.value, item.depth);
@@ -158,7 +177,7 @@ function validateTree(root, limits = {}) {
 }
 
 function pushChildren(stack, values, depth) {
-  if (values.length > 4096) throw new ContractError('collection_too_large', 'collection exceeds bound');
+  if (values.length > PROTOCOL_LIMITS.collectionItems) throw new ContractError('collection_too_large', 'collection exceeds bound');
   for (const value of values) stack.push({ value, depth: depth + 1 });
 }
 

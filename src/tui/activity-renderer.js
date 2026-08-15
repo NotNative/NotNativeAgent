@@ -2,14 +2,21 @@
 import { displayWidth, wrapTerminalLine } from './terminal-markdown.js';
 import { TUI_THEME } from './theme.js';
 
+const TOOL_STATUS = Object.freeze({ RUNNING: 'running', SUCCEEDED: 'succeeded', DUPLICATE: 'duplicate_ignored' });
+const COMPLETED_TASK_VERBS = Object.freeze({
+  reviewing: 'reviewed', updating: 'updated', testing: 'tested', planning: 'planned', 'working on': 'finished',
+});
+const MAX_TARGET_LENGTH = 56;
+const TARGET_ELLIPSIS_LENGTH = 3;
+
 export function decorateToolActivityLine(line, lineKind, paint) {
   if (lineKind?.startsWith('tool_status:')) {
     const status = lineKind.slice('tool_status:'.length);
-    if (status === 'succeeded') {
+    if (status === TOOL_STATUS.SUCCEEDED) {
       const match = line.match(/^(\s*)(\u2713)(.*)$/u);
       return match ? `${match[1]}${paint(TUI_THEME.success, match[2])}${paint(TUI_THEME.muted, match[3])}` : paint(TUI_THEME.muted, line);
     }
-    return paint(status === 'running' ? TUI_THEME.muted : TUI_THEME.danger, line);
+    return paint(status === TOOL_STATUS.RUNNING ? TUI_THEME.muted : TUI_THEME.danger, line);
   }
   if (/^\s+(?:Review|Result):/u.test(line)) return paint(TUI_THEME.muted, line);
   const match = line.match(/^(\s*)(\u2713)(.*)$/u);
@@ -30,14 +37,12 @@ export function subagentProgressLines(record, width) {
 }
 
 function completedTask(value) {
-  return String(value ?? '').replace(/^(reviewing|updating|testing|planning|working on)\b/u, (verb) => ({
-    reviewing: 'reviewed', updating: 'updated', testing: 'tested', planning: 'planned', 'working on': 'finished',
-  })[verb]);
+  return String(value ?? '').replace(/^(reviewing|updating|testing|planning|working on)\b/u, (verb) => COMPLETED_TASK_VERBS[verb]);
 }
 
 export function compactActivityRows(records) {
   return toolCalls(records).map((item) => {
-    const timing = Number.isFinite(item.result?.elapsed_ms) ? ` | ${Math.round(item.result.elapsed_ms)} ms` : '';
+    const timing = formatElapsed(item.result?.elapsed_ms);
     const target = toolTargetSuffix(item);
     const failure = toolFailureSuffix(item.result);
     return `    ${toolSymbol(item.result?.status)} ${item.tool}${target}${timing}${failure}`;
@@ -45,9 +50,9 @@ export function compactActivityRows(records) {
 }
 
 export function collapsedFailureRows(records) {
-  const failed = toolCalls(records).filter((item) => !['succeeded', 'duplicate_ignored'].includes(item.result?.status));
+  const failed = toolCalls(records).filter((item) => !successfulToolStatus(item.result?.status));
   const rows = failed.slice(0, 2).map((item) => {
-    const timing = Number.isFinite(item.result?.elapsed_ms) ? ` | ${Math.round(item.result.elapsed_ms)} ms` : '';
+    const timing = formatElapsed(item.result?.elapsed_ms);
     return `    X ${item.tool}${toolTargetSuffix(item)}${timing}${toolFailureSuffix(item.result)}`;
   });
   if (failed.length > rows.length) rows.push(`    X ${failed.length - rows.length} more failed call${failed.length - rows.length === 1 ? '' : 's'}`);
@@ -59,7 +64,7 @@ export function summaryActivityRows(records) {
   for (const item of toolCalls(records)) {
     const group = groups.get(item.tool) ?? { tool: item.tool, count: 0, failed: 0, elapsed: 0, targets: [] };
     group.count += 1;
-    if (!['succeeded', 'duplicate_ignored'].includes(item.result?.status)) group.failed += 1;
+    if (!successfulToolStatus(item.result?.status)) group.failed += 1;
     if (Number.isFinite(item.result?.elapsed_ms)) group.elapsed += item.result.elapsed_ms;
     if (item.target && !group.targets.includes(item.target)) group.targets.push(item.target);
     groups.set(item.tool, group);
@@ -75,7 +80,7 @@ export function activityDetailRows(records, width, wrap) {
     const boundary = [item.effect, item.scope].filter(Boolean).join(' | ');
     lines.push(...wrap(`    ${toolSymbol(item.result?.status)} ${item.tool}${item.target ? ` (${item.target})` : ''}${boundary ? ` | ${boundary}` : ''}`, width));
     if (item.arguments) lines.push(...wrap(`      Arguments: ${JSON.stringify(item.arguments)}`, width));
-    if (item.review) lines.push(...wrap(`      Review: ${item.review.outcome} | ${item.review.reason_code ?? '--'}`, width));
+    if (item.review) lines.push(...wrap(`      Review: ${item.review.outcome ?? '--'} | ${item.review.reason_code ?? '--'}`, width));
     if (item.result) lines.push(...wrap(`      Result: ${resultDetail(item.result)}`, width));
   }
   for (const record of records.filter((item) => item.type === 'subagent_progress')) {
@@ -95,7 +100,7 @@ function summaryGroupRow(group) {
 
 function compactTarget(value) {
   const text = String(value).replace(/\s+/gu, ' ').trim();
-  return text.length > 56 ? `${text.slice(0, 53)}...` : text;
+  return text.length > MAX_TARGET_LENGTH ? `${text.slice(0, MAX_TARGET_LENGTH - TARGET_ELLIPSIS_LENGTH)}...` : text;
 }
 
 function toolCalls(records) {
@@ -117,7 +122,7 @@ export function toolTargetSuffix(item) {
 }
 
 export function toolFailureSuffix(record) {
-  if (!record || ['running', 'succeeded', 'duplicate_ignored'].includes(record.status)) return '';
+  if (!record || record.status === TOOL_STATUS.RUNNING || successfulToolStatus(record.status)) return '';
   const reason = [record.reason_code, record.failure_reason].filter(Boolean).join(': ');
   return reason ? ` | ${reason}` : ` | ${record.status}`;
 }
@@ -136,7 +141,15 @@ function resultDetail(record) {
 
 function toolSymbol(status) {
   if (!status) return '-';
-  if (status === 'running') return '+';
-  if (status === 'succeeded') return '\u2713';
+  if (status === TOOL_STATUS.RUNNING) return '+';
+  if (status === TOOL_STATUS.SUCCEEDED) return '\u2713';
   return 'X';
+}
+
+function successfulToolStatus(status) {
+  return status === TOOL_STATUS.SUCCEEDED || status === TOOL_STATUS.DUPLICATE;
+}
+
+function formatElapsed(elapsedMs) {
+  return Number.isFinite(elapsedMs) ? ` | ${Math.round(elapsedMs)} ms` : '';
 }

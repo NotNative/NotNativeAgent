@@ -6,6 +6,7 @@ import { normalizeWebUrl } from '../web-url-provenance.js';
 const KINDS = new Set(['path', 'url', 'snapshot', 'draft']);
 const MAX_ENTRIES = 2048;
 const MAX_BYTES = 16_777_216;
+const MAX_VALUE_BYTES = 1_048_576;
 
 export class ReferenceStore {
   #entries = new Map();
@@ -16,10 +17,12 @@ export class ReferenceStore {
     if (!KINDS.has(kind)) throw new ContractError('reference_kind_invalid', 'reference kind is unsupported');
     const encoded = encodeValue(value);
     const bytes = Buffer.byteLength(encoded, 'utf8');
-    if (bytes > 1_048_576) throw new ContractError('reference_value_too_large', 'reference value exceeds 1 MiB');
+    if (bytes > MAX_VALUE_BYTES) {
+      throw new ContractError('reference_value_too_large', 'reference value exceeds 1 MiB');
+    }
     const fingerprint = `${kind}:${createHash('sha256').update(encoded).digest('hex')}`;
     const existing = this.#fingerprints.get(fingerprint);
-    if (existing && this.#entries.has(existing)) return this.#entries.get(existing);
+    if (existing && this.#entries.has(existing)) return this.#touch(existing);
     const entry = Object.freeze({
       id: newId(`nna_ref_${kind}`), kind, value: structuredClone(value), source,
       bytes, sha256: fingerprint.slice(kind.length + 1), createdAt: Date.now(),
@@ -32,7 +35,7 @@ export class ReferenceStore {
   }
 
   resolve(id, kind = null) {
-    const entry = this.#entries.get(id);
+    const entry = this.#touch(id);
     if (!entry) throw new ContractError('reference_missing', 'reference is unavailable or expired; observe or store the value again');
     if (kind && entry.kind !== kind) {
       throw new ContractError('reference_kind_mismatch', `reference must identify ${kind}; received ${entry.kind}`);
@@ -42,11 +45,15 @@ export class ReferenceStore {
 
   bindArguments(args) {
     if (!args || typeof args !== 'object' || Array.isArray(args)) return { args, bindings: [] };
+    const fields = Object.entries(REFERENCE_FIELDS).filter(([field]) => {
+      const value = args[field];
+      return typeof value === 'string' && value.startsWith('nna_ref_');
+    });
+    if (fields.length === 0) return { args, bindings: [] };
     const bound = structuredClone(args);
     const bindings = [];
-    for (const [field, kind] of Object.entries(REFERENCE_FIELDS)) {
+    for (const [field, kind] of fields) {
       const value = bound[field];
-      if (typeof value !== 'string' || !value.startsWith('nna_ref_')) continue;
       const entry = this.resolve(value, kind);
       bound[field] = entry.value;
       bindings.push(Object.freeze({ field, reference: entry.id, kind: entry.kind, source: entry.source }));
@@ -60,6 +67,20 @@ export class ReferenceStore {
       reference: entry.id, kind: entry.kind, source: entry.source,
       bytes: entry.bytes, sha256: entry.sha256, created_at: entry.createdAt,
     });
+  }
+
+  clear() {
+    this.#entries.clear();
+    this.#fingerprints.clear();
+    this.#bytes = 0;
+  }
+
+  #touch(id) {
+    const entry = this.#entries.get(id);
+    if (!entry) return undefined;
+    this.#entries.delete(id);
+    this.#entries.set(id, entry);
+    return entry;
   }
 
   #evictOldest() {

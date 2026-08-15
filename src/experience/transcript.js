@@ -1,29 +1,56 @@
 // SPDX-License-Identifier: Apache-2.0
+import { ContractError } from '../ids.js';
+
+const RECORD = Object.freeze({ message: 'message', outcome: 'turn_outcome' });
+const ROLE = Object.freeze({ assistant: 'assistant', user: 'user' });
+const EVENT = Object.freeze({ input: 'user_input', delta: 'stream_delta', result: 'turn_result' });
+
 export function restoreTranscript(projection, sessionId, transcript) {
   for (const event of transcriptEvents(transcript)) projection.apply(sessionId, event);
 }
 
 export function transcriptEvents(transcript) {
+  if (!Array.isArray(transcript)) {
+    throw new ContractError('transcript_invalid', 'saved transcript must be an array');
+  }
   const lastAssistant = new Map();
   const terminalTurns = new Set();
   transcript.forEach((item, index) => {
-    if (item.type === 'message' && item.role === 'assistant' && item.turnId) lastAssistant.set(item.turnId, index);
-    if (item.type === 'turn_outcome') terminalTurns.add(item.turn_id);
+    validateTranscriptItem(item);
+    const turnId = turnIdentity(item);
+    if (item.type === RECORD.message && item.role === ROLE.assistant && turnId) {
+      lastAssistant.set(turnId, index);
+    }
+    if (item.type === RECORD.outcome && turnId) terminalTurns.add(turnId);
   });
   const events = [];
   for (const [index, item] of transcript.entries()) {
-    if (item.type === 'turn_outcome') {
-      events.push({ ...item, type: 'turn_result' });
+    const turnId = turnIdentity(item);
+    if (item.type === RECORD.outcome) {
+      events.push({ ...item, type: EVENT.result, turn_id: turnId });
       continue;
     }
-    if (item.type !== 'message') continue;
-    if (item.role === 'user') events.push({ type: 'user_input', text: item.content });
-    else if (item.role === 'assistant') {
-      events.push({ type: 'stream_delta', turn_id: item.turnId, text: item.content });
-      if (item.turnId && lastAssistant.get(item.turnId) === index && !terminalTurns.has(item.turnId)) {
-        events.push({ type: 'turn_result', turn_id: item.turnId, outcome: item.partial ? 'failed' : 'completed' });
+    if (item.type !== RECORD.message) continue;
+    if (item.role === ROLE.user) events.push({ type: EVENT.input, text: item.content });
+    else if (item.role === ROLE.assistant) {
+      events.push({ type: EVENT.delta, turn_id: turnId, text: item.content });
+      if (turnId && lastAssistant.get(turnId) === index && !terminalTurns.has(turnId)) {
+        events.push({
+          type: EVENT.result, turn_id: turnId,
+          outcome: item.partial ? 'failed' : 'completed',
+        });
       }
     }
   }
   return events;
+}
+
+function turnIdentity(item) {
+  return item.turnId ?? item.turn_id ?? null;
+}
+
+function validateTranscriptItem(item) {
+  if (!item || typeof item !== 'object' || Array.isArray(item) || typeof item.type !== 'string') {
+    throw new ContractError('transcript_record_invalid', 'saved transcript contains an invalid record');
+  }
 }

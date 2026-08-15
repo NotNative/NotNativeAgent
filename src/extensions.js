@@ -2,10 +2,18 @@
 import { ContractError } from './ids.js';
 
 export const EXTENSION_HOST_CONTRACT = '1.0';
+const MAX_DIAGNOSTICS = 256;
+const MAX_NAMES = 128;
+const MIN_SHUTDOWN_TIMEOUT_MS = 100;
+const MAX_SHUTDOWN_TIMEOUT_MS = 30_000;
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 2_000;
+const MAX_JSON_BYTES = 65_536;
+const MAX_TEXT_LENGTH = 512;
 
 export class ExtensionRegistry {
   #extensions = new Map();
   #diagnostics = [];
+  #operations = new Map();
 
   install(manifest, factory) {
     const normalized = normalizeManifest(manifest);
@@ -27,6 +35,9 @@ export class ExtensionRegistry {
     }
     if (extension.state === 'incompatible') return this.inspect(id);
     if (extension.state === 'ready') return this.inspect(id);
+    if (['disabling', 'unloading'].includes(extension.state)) {
+      throw new ContractError('extension_transition_busy', 'extension lifecycle transition is already in progress');
+    }
     const controller = new AbortController();
     const api = Object.freeze({
       host_contract_version: EXTENSION_HOST_CONTRACT,
@@ -58,23 +69,17 @@ export class ExtensionRegistry {
   }
 
   async disable(id) {
-    const extension = this.#required(id);
-    extension.controller?.abort('extension_disabled');
-    const closeFailure = await closeBounded(extension);
-    extension.instance = null;
-    extension.controller = null;
-    extension.state = closeFailure ? 'failed' : 'disabled';
-    extension.diagnostic = closeFailure;
-    if (closeFailure) this.#recordDiagnostic(id, 'extension_close_failed', { message: closeFailure });
-    return this.inspect(id);
+    return this.#enqueue(id, () => this.#disable(id));
   }
 
   async unload(id) {
-    const extension = this.#extensions.get(id);
-    if (!extension) return false;
-    if (extension.state === 'ready' || extension.instance) await this.disable(id);
-    this.#extensions.delete(id);
-    return true;
+    return this.#enqueue(id, async () => {
+      const extension = this.#extensions.get(id);
+      if (!extension) return false;
+      if (extension.state === 'ready' || extension.instance) await this.#disable(id, 'unloading');
+      this.#extensions.delete(id);
+      return true;
+    });
   }
 
   inspect(id) { return present(this.#required(id)); }
@@ -83,7 +88,7 @@ export class ExtensionRegistry {
 
   capabilities() {
     return Object.freeze([...this.#extensions.values()]
-      .filter((extension) => extension.state === 'ready')
+      .filter((extension) => extension.state === 'ready' && extension.instance)
       .flatMap((extension) => extension.manifest.capabilities.map((capability) => Object.freeze({
         extension_id: extension.manifest.id, capability,
       }))));
@@ -102,13 +107,35 @@ export class ExtensionRegistry {
   #recordDiagnostic(id, code, details) {
     const safe = Object.freeze({ extension_id: id, code: boundedText(code), details: safeDetails(details) });
     this.#diagnostics.push(safe);
-    if (this.#diagnostics.length > 256) this.#diagnostics.shift();
+    if (this.#diagnostics.length > MAX_DIAGNOSTICS) this.#diagnostics.shift();
   }
 
   #required(id) {
     const value = this.#extensions.get(id);
     if (!value) throw new ContractError('extension_missing', `extension ${id} is not installed`);
     return value;
+  }
+
+  async #disable(id, transition = 'disabling') {
+    const extension = this.#required(id);
+    extension.state = transition;
+    extension.controller?.abort('extension_disabled');
+    const closeFailure = await closeBounded(extension);
+    extension.instance = null;
+    extension.controller = null;
+    extension.state = closeFailure ? 'failed' : 'disabled';
+    extension.diagnostic = closeFailure;
+    if (closeFailure) this.#recordDiagnostic(id, 'extension_close_failed', { message: closeFailure });
+    return this.inspect(id);
+  }
+
+  #enqueue(id, operation) {
+    const prior = this.#operations.get(id) ?? Promise.resolve();
+    const pending = prior.then(operation, operation);
+    this.#operations.set(id, pending);
+    return pending.finally(() => {
+      if (this.#operations.get(id) === pending) this.#operations.delete(id);
+    });
   }
 }
 
@@ -125,8 +152,8 @@ function normalizeManifest(value) {
   }
   const capabilities = boundedNames(value.capabilities, 'capability');
   const permissions = boundedNames(value.permissions, 'permission');
-  const shutdown = value.lifecycle.shutdown_timeout_ms ?? 2_000;
-  if (!Number.isSafeInteger(shutdown) || shutdown < 100 || shutdown > 30_000) {
+  const shutdown = value.lifecycle.shutdown_timeout_ms ?? DEFAULT_SHUTDOWN_TIMEOUT_MS;
+  if (!Number.isSafeInteger(shutdown) || shutdown < MIN_SHUTDOWN_TIMEOUT_MS || shutdown > MAX_SHUTDOWN_TIMEOUT_MS) {
     throw new ContractError('invalid_extension_manifest', 'extension shutdown timeout must be 100 to 30000 milliseconds');
   }
   const configuration = cloneJson(value.configuration_schema, 'configuration schema');
@@ -166,7 +193,7 @@ async function closeBounded(extension) {
 }
 
 function boundedNames(values, label) {
-  if (values.length > 128 || values.some((item) => !/^[A-Za-z0-9_.:-]{1,128}$/u.test(item ?? ''))) {
+  if (values.length > MAX_NAMES || values.some((item) => !/^[A-Za-z0-9_.:-]{1,128}$/u.test(item ?? ''))) {
     throw new ContractError('invalid_extension_manifest', `extension ${label} list is invalid or unbounded`);
   }
   return [...new Set(values)];
@@ -175,13 +202,13 @@ function boundedNames(values, label) {
 function cloneJson(value, label) {
   try {
     const encoded = JSON.stringify(value);
-    if (Buffer.byteLength(encoded) > 65_536) throw new Error(`${label} is too large`);
+    if (Buffer.byteLength(encoded) > MAX_JSON_BYTES) throw new Error(`${label} is too large`);
     return deepFreeze(JSON.parse(encoded));
   } catch (error) { throw new ContractError('invalid_extension_manifest', `${label} must be bounded JSON: ${safeFailure(error)}`); }
 }
 
 function deepFreeze(value) {
-  if (value && typeof value === 'object') for (const child of Object.values(value)) deepFreeze(child);
+  if (value && typeof value === 'object') for (const key of Reflect.ownKeys(value)) deepFreeze(value[key]);
   return value && typeof value === 'object' ? Object.freeze(value) : value;
 }
 
@@ -190,6 +217,6 @@ function safeDetails(value) {
   catch { return Object.freeze({ message: 'diagnostic details rejected' }); }
 }
 function safeFailure(error) { return boundedText(error?.message ?? 'extension operation failed'); }
-function boundedText(value) { return String(value).replace(/[\r\n\t]/gu, ' ').slice(0, 512); }
-function bounded(value) { return typeof value === 'string' && value.length > 0 && value.length <= 512; }
-function plainObject(value) { return value && typeof value === 'object' && !Array.isArray(value); }
+function boundedText(value) { return String(value).replace(/[\r\n\t]/gu, ' ').slice(0, MAX_TEXT_LENGTH); }
+function bounded(value) { return typeof value === 'string' && value.length > 0 && value.length <= MAX_TEXT_LENGTH; }
+function plainObject(value) { return value !== null && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype; }

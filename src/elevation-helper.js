@@ -9,7 +9,11 @@ import { fileURLToPath } from 'node:url';
 const MAX_OUTPUT_BYTES = 1_048_576;
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  main().catch(() => { process.exitCode = 1; });
+  main().catch((error) => {
+    const code = /^[a-z_]+(?::[a-z_]+)?$/u.test(error?.message) ? error.message : 'elevation_helper_failed';
+    process.stderr.write(`${code}\n`);
+    process.exitCode = 1;
+  });
 }
 
 async function main() {
@@ -43,16 +47,25 @@ async function consumeRequest(envelope) {
 }
 
 function validateRequest(value) {
-  const exact = value && value.version === '1.0' && typeof value.request_id === 'string'
-    && Number.isSafeInteger(value.issued_at) && Number.isSafeInteger(value.expires_at)
-    && value.expires_at >= Date.now() && value.expires_at - value.issued_at <= 120_000
-    && isAbsolute(value.executable) && isAbsolute(value.cwd)
-    && typeof value.expected_effect === 'string' && value.expected_effect.length > 0
-    && value.expected_effect.length <= 2048 && !value.expected_effect.includes('\0')
-    && Array.isArray(value.args) && value.args.length <= 64
-    && value.args.every((item) => typeof item === 'string' && item.length <= 4096 && !item.includes('\0'))
-    && Number.isSafeInteger(value.timeout_ms) && value.timeout_ms >= 100 && value.timeout_ms <= 3_600_000;
-  if (!exact) throw new Error('invalid_request');
+  if (!value || value.version !== '1.0') throw new Error('invalid_request:version');
+  if (typeof value.request_id !== 'string' || value.request_id.length < 1
+    || value.request_id.length > 180 || value.request_id.includes('\0')) {
+    throw new Error('invalid_request:request_id');
+  }
+  if (!Number.isSafeInteger(value.issued_at) || !Number.isSafeInteger(value.expires_at)
+    || value.expires_at >= value.issued_at + 120_001 || value.expires_at < Date.now()) {
+    throw new Error('invalid_request:validity');
+  }
+  if (!isAbsolute(value.executable) || !isAbsolute(value.cwd)) throw new Error('invalid_request:path');
+  if (typeof value.expected_effect !== 'string' || value.expected_effect.length < 1
+    || value.expected_effect.length > 2048 || value.expected_effect.includes('\0')) {
+    throw new Error('invalid_request:expected_effect');
+  }
+  if (!Array.isArray(value.args) || value.args.length > 64
+    || value.args.some((item) => typeof item !== 'string'
+      || item.length > 4096 || item.includes('\0'))) throw new Error('invalid_request:args');
+  if (!Number.isSafeInteger(value.timeout_ms)
+    || value.timeout_ms < 100 || value.timeout_ms > 3_600_000) throw new Error('invalid_request:timeout');
 }
 
 async function execute(request, cancelPath) {
@@ -87,12 +100,16 @@ export function runExact(request, cancelPath, options = {}) {
       cwd: request.cwd, shell: false, windowsHide: true, detached: process.platform !== 'win32',
       env: safeEnvironment(process.env),
     });
-    let stdout = '', stderr = '', bytes = 0, settled = false;
+    const stdout = [];
+    const stderr = [];
+    let bytes = 0;
+    let settled = false;
     const consume = (kind, chunk) => {
       if (settled) return;
-      bytes += chunk.length;
+      const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      bytes += value.byteLength;
       if (bytes > MAX_OUTPUT_BYTES) { rejectOnce(new Error('output_too_large')); return; }
-      if (kind === 'stdout') stdout += chunk.toString('utf8'); else stderr += chunk.toString('utf8');
+      if (kind === 'stdout') stdout.push(value); else stderr.push(value);
     };
     const rejectOnce = (error) => {
       if (settled) return; settled = true; cleanup();
@@ -106,14 +123,30 @@ export function runExact(request, cancelPath, options = {}) {
       try { await checkAccess(cancelPath); rejectOnce(new Error('cancelled')); } catch { /* not cancelled */ }
     }, 100);
     cancellation.unref?.();
-    const cleanup = () => { clearTimeout(timer); clearInterval(cancellation); };
-    child.stdout.on('data', (chunk) => consume('stdout', chunk));
-    child.stderr.on('data', (chunk) => consume('stderr', chunk));
-    child.once('error', (error) => rejectOnce(error));
-    child.once('exit', (code, signal) => {
+    const onStdout = (chunk) => consume('stdout', chunk);
+    const onStderr = (chunk) => consume('stderr', chunk);
+    const onError = (error) => rejectOnce(error);
+    const onExit = (code, signal) => {
       if (settled) return; settled = true; cleanup();
-      resolve({ exit_code: code, signal, stdout, stderr });
-    });
+      resolve({
+        exit_code: code,
+        signal,
+        stdout: Buffer.concat(stdout).toString('utf8'),
+        stderr: Buffer.concat(stderr).toString('utf8'),
+      });
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      clearInterval(cancellation);
+      child.stdout.removeListener('data', onStdout);
+      child.stderr.removeListener('data', onStderr);
+      child.removeListener('error', onError);
+      child.removeListener('exit', onExit);
+    };
+    child.stdout.on('data', onStdout);
+    child.stderr.on('data', onStderr);
+    child.once('error', onError);
+    child.once('exit', onExit);
   });
 }
 

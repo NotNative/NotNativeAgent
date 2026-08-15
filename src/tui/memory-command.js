@@ -3,8 +3,10 @@ import { ContractError } from '../ids.js';
 import { valueOverlay } from './overlays.js';
 
 export async function handleMemoryCommand(argument, workspace) {
-  const [action = 'inspect', id, ...rest] = argument.split(/\s+/u).filter(Boolean);
-  const engine = workspace.activeEngine();
+  const normalizedArgument = typeof argument === 'string' ? argument : '';
+  const [action = 'inspect', id, ...rest] = normalizedArgument.split(/\s+/u).filter(Boolean);
+  const engine = workspace?.activeEngine?.();
+  if (!engine || !engine.memory) throw new ContractError('memory_unavailable', 'conversation memory is unavailable');
   if (action === 'inspect') {
     const [health, memories] = await Promise.all([engine.memory.health(), engine.inspectMemory()]);
     workspace.projection.openOverlay(valueOverlay('memory', 'Memory', { health, memories }));

@@ -8,10 +8,7 @@ export class CapabilityCache {
   }
 
   record(resolution, operation, configVersion, supported) {
-    this.#entries.set(keyFor(resolution, operation, configVersion), Object.freeze({
-      supported, recordedAt: Date.now(), profileId: resolution.profile.id,
-      endpoint: resolution.profile.endpoint, model: resolution.model, operation, configVersion,
-    }));
+    this.#entries.set(keyFor(resolution, operation, configVersion), Object.freeze({ supported }));
   }
 
   invalidate() {
@@ -24,4 +21,3 @@ function keyFor(resolution, operation, configVersion) {
     resolution.profile.id, resolution.profile.endpoint, resolution.model, operation, configVersion,
   ]);
 }
-

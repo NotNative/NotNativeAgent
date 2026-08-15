@@ -9,8 +9,13 @@ import { contextPressurePolicy, pressureTier, projectActiveTurn } from '../activ
 import { longHorizonCompressionTrigger } from '../long-horizon-context.js';
 import { writeTaskCheckpoint } from '../task-checkpoint.js';
 
+const MIN_COMPACTION_BUDGET_BYTES = 8_192;
+const COMPACTION_REDUCTION_FACTOR = 0.6;
+const ESTIMATED_BYTES_PER_TOKEN = 3;
+
 export async function prepareEngineContext(engine, records, content, active, force, operations) {
   const routes = engine.router.candidates('primary', { requiredCapabilities: ['tools'] });
+  if (routes.length === 0) throw new ContractError('provider_route_missing', 'no Primary provider route can satisfy the required capabilities');
   const runtime = await engine.modelRuntime.resolve(engine.router, routes[0], active.controller.signal);
   active.runtimeModel = runtime;
   const planned = contextBudget(engine.config, routes, runtime, active.contextRetryScale);
@@ -37,7 +42,7 @@ async function compactContext(engine, records, content, active, operations, plan
   engine.state.transition('compacting_context', { trigger: 'context_preflight', turnId: active.turnId });
   const beforeEstimatedTokens = estimatedTranscriptTokens(records, content);
   const targetTokens = desiredCompactionTarget(planned, beforeEstimatedTokens);
-  const budget = Math.min(plan.budget, Math.max(8_192, targetTokens * 3));
+  const budget = Math.min(plan.budget, Math.max(MIN_COMPACTION_BUDGET_BYTES, targetTokens * ESTIMATED_BYTES_PER_TOKEN));
   const started = compactionStartedDetail(active, planned, beforeEstimatedTokens, targetTokens);
   await emitCompactionStatus(engine, active, 'started', started);
   recordCompactionTelemetry(engine, active, 'started', started);
@@ -94,7 +99,8 @@ async function fitCompactedContext(engine, records, active, operations, plan) {
       return { fact, context };
     } catch (error) {
       if (error.code !== 'context_too_large') throw error;
-      lastError = error; budget = Math.max(8_192, Math.floor(budget * 0.6));
+      lastError = error;
+      budget = Math.max(MIN_COMPACTION_BUDGET_BYTES, Math.floor(budget * COMPACTION_REDUCTION_FACTOR));
     }
   }
   throw lastError;
@@ -274,7 +280,7 @@ function emitCompactionStatus(engine, active, status, detail) {
 
 function estimatedTranscriptTokens(records, content) {
   const bytes = Buffer.byteLength(JSON.stringify(records), 'utf8') + Buffer.byteLength(content, 'utf8');
-  return Math.ceil(bytes / 3);
+  return Math.ceil(bytes / ESTIMATED_BYTES_PER_TOKEN);
 }
 
 function recordBudget(engine, runtime, planned, active) {

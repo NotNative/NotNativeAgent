@@ -29,6 +29,16 @@ test('managed Playwright status validates both package and Chromium binary', asy
   assert.equal(status.browserPath, browserPath);
 });
 
+test('managed Playwright status rejects a valid but unpinned package version', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-playwright-version-'));
+  const packageRoot = join(root, 'node_modules', 'playwright');
+  await mkdir(packageRoot, { recursive: true });
+  await writeFile(join(packageRoot, 'package.json'), JSON.stringify({ name: 'playwright', version: '1.60.0' }));
+  const status = await playwrightStatus(root, { require: () => ({}) });
+  assert.equal(status.available, false);
+  assert.equal(status.reason, 'version_mismatch');
+});
+
 test('webbrowse CLI exposes only bounded status and validation operations', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-playwright-'));
   assert.equal((await runWebBrowseCommand(['status'], { managedPlaywright: root })).available, false);

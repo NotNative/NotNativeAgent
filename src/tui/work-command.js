@@ -2,6 +2,16 @@
 import { ContractError } from '../ids.js';
 import { planOverlay, taskOverlay } from './overlays.js';
 
+const WORK_NOTICE_CATEGORY = 'work';
+const TASK_PREFIX = 'task:';
+const ACTION_PREFIX = 'action:';
+const TASK_STATUS = Object.freeze({
+  start: 'in_progress',
+  pending: 'pending',
+  complete: 'completed',
+  block: 'blocked',
+});
+
 export async function handleWorkCommand(name, argument, workspace) {
   const engine = workspace.activeEngine();
   const value = argument.trim();
@@ -21,41 +31,48 @@ export async function handleWorkCommand(name, argument, workspace) {
     const [action = '', id = '', ...rest] = value.split(/\s+/u);
     const detail = rest.join(' ').trim();
     if (action === 'add') await engine.addTask([id, ...rest].join(' ').trim());
-    else if (action === 'start') await engine.updateTask(id, 'in_progress');
-    else if (action === 'pending') await engine.updateTask(id, 'pending');
-    else if (action === 'complete') await engine.updateTask(id, 'completed', detail);
-    else if (action === 'block') await engine.updateTask(id, 'blocked', detail);
+    else if (action === 'start') await engine.updateTask(id, TASK_STATUS.start);
+    else if (action === 'pending') await engine.updateTask(id, TASK_STATUS.pending);
+    else if (action === 'complete') await engine.updateTask(id, TASK_STATUS.complete, detail);
+    else if (action === 'block') await engine.updateTask(id, TASK_STATUS.block, detail);
     else throw new ContractError('task_command_invalid', 'use /task add TEXT, /task start ID, /task pending ID, /task complete ID EVIDENCE, or /task block ID REASON');
     return showWorkNotice(workspace, `Task ${action === 'add' ? 'added' : `${id.toUpperCase()} updated`}.`);
   }
 }
 
-export function openPlan(workspace, selectedId = null) {
-  workspace.projection.openOverlay(planOverlay(workspace.activeEngine().workStatus(), { selectedId }));
+export function openPlan(workspace, selectedId = null, engine = workspace.activeEngine()) {
+  workspace.projection.openOverlay(planOverlay(engine.workStatus(), { selectedId }));
 }
 
 export async function handleWorkSelection(selected, workspace, overlay) {
-  if (overlay.kind === 'plan' && selected.id.startsWith('task:')) {
-    const id = selected.id.slice(5);
-    workspace.projection.openOverlay(taskOverlay(workspace.activeEngine().workStatus(), id));
+  if (!selected || typeof selected.id !== 'string') return false;
+  if (!['plan', 'work-task'].includes(overlay.kind)) return false;
+  const engine = workspace.activeEngine();
+  if (overlay.kind === 'plan' && selected.id.startsWith(TASK_PREFIX)) {
+    const id = selected.id.slice(TASK_PREFIX.length);
+    workspace.projection.openOverlay(taskOverlay(engine.workStatus(), id));
     return true;
   }
   if (overlay.kind === 'plan' && selected.id === 'action:goal-reopen') {
-    await workspace.activeEngine().reopenGoal();
-    openPlan(workspace);
+    await engine.reopenGoal();
+    openPlan(workspace, null, engine);
     return true;
   }
   if (overlay.kind === 'work-task') {
-    const [action, id] = selected.id.slice('action:'.length).split(':');
+    const [action, id] = selected.id.slice(ACTION_PREFIX.length).split(':');
     if (action === 'start' || action === 'pending') {
-      await workspace.activeEngine().updateTask(id, action === 'start' ? 'in_progress' : 'pending');
-      openPlan(workspace, `task:${id}`);
+      await engine.updateTask(id, TASK_STATUS[action]);
+      openPlan(workspace, `${TASK_PREFIX}${id}`, engine);
       return true;
     }
     if (action === 'complete' || action === 'block') {
       workspace.projection.closeOverlay();
-      workspace.projection.active().editor.set(`/task ${action} ${id} `);
-      workspace.projection.showNotice('work', action === 'complete' ? 'Describe the completion evidence, then press Enter.' : 'Describe the blocking reason, then press Enter.');
+      const editor = workspace.projection.active?.()?.editor;
+      if (!editor) throw new ContractError('work_editor_unavailable', 'no active editor is available');
+      editor.set(`/task ${action} ${id} `);
+      workspace.projection.showNotice(WORK_NOTICE_CATEGORY, action === 'complete'
+        ? 'Describe the completion evidence, then press Enter.'
+        : 'Describe the blocking reason, then press Enter.');
       return true;
     }
   }
@@ -63,6 +80,6 @@ export async function handleWorkSelection(selected, workspace, overlay) {
 }
 
 function showWorkNotice(workspace, text) {
-  workspace.projection.showNotice('work', text);
+  workspace.projection.showNotice(WORK_NOTICE_CATEGORY, text);
   workspace.onChange();
 }

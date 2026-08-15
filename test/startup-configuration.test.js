@@ -40,6 +40,15 @@ test('project configuration is ignored until the exact resolved workspace is tru
   assert.equal(runtimeHookRoots(paths, after.project)[1].path, join(workspace, '.nna', 'hooks'));
 });
 
+test('workspace trust cannot be granted to a path that does not exist', async () => {
+  const { paths, home } = await fixture();
+  const missing = join(home, 'not-created');
+  await assert.rejects(trustWorkspace(paths.trustedWorkspaces, missing), {
+    code: 'workspace_trust_target_missing',
+  });
+  assert.equal(await workspaceIsTrusted(paths.trustedWorkspaces, missing), false);
+});
+
 test('explicit configuration has deterministic precedence above trusted project configuration', async () => {
   const { paths, workspace, home } = await fixture();
   await trustWorkspace(paths.trustedWorkspaces, workspace);

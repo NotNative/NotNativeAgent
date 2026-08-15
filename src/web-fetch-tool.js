@@ -7,6 +7,9 @@ import { pinnedHttpRequest } from './pinned-http.js';
 import { loadWebFetchConfig } from './web-fetch-config.js';
 
 const MAX_BYTES = 1_048_576;
+const MAX_REDIRECTS = 5;
+const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
+const TOOL_TIMEOUT_MS = 20_000;
 
 export function webFetchDefinition(options = {}) {
   const policy = options.policy ?? new WebFetchDestinationPolicy(options.configPath);
@@ -14,7 +17,7 @@ export function webFetchDefinition(options = {}) {
   return {
     name: 'web.fetch', version: 1,
     purpose: 'Fetch bounded HTTP(S) text from a public URL or an explicitly trusted private origin without browser execution. Use this to read an authoritative source found through web.search before making a detailed current factual claim.',
-    sideEffect: 'read_only', scope: 'network', cancellation: true, timeoutMs: 20_000,
+    sideEffect: 'read_only', scope: 'network', cancellation: true, timeoutMs: TOOL_TIMEOUT_MS,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['url'], properties: {
         url: { type: 'string', minLength: 1, maxLength: 4096, description: 'Required complete HTTP(S) URL without embedded credentials.' },
@@ -42,13 +45,17 @@ export class WebFetchClient {
   constructor(options = {}) {
     this.transport = options.transport ?? pinnedHttpRequest;
     this.resolve = options.resolve ?? resolveHost;
-    this.timeoutMs = options.timeoutMs ?? 15_000;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+    if (!Number.isSafeInteger(this.timeoutMs) || this.timeoutMs < 1) {
+      throw new ContractError('web_fetch_timeout_invalid', 'WebFetch timeout must be a positive integer');
+    }
     this.policy = options.policy ?? new WebFetchDestinationPolicy(options.configPath);
   }
 
   async fetchText(input, signal) {
     let url = normalizeUrl(input);
-    for (let redirect = 0; redirect <= 5; redirect += 1) {
+    let redirectCount = 0;
+    while (true) {
       const destination = await this.policy.classify(url);
       const addresses = await allowedWebAddresses(url, this.resolve, destination);
       const response = await this.transport(url, addresses[0], {
@@ -57,7 +64,13 @@ export class WebFetchClient {
       });
       if (isRedirect(response.status)) {
         const location = response.headers.get('location');
-        if (!location || redirect === 5) throw new ContractError('web_fetch_redirect_invalid', 'WebFetch redirect was missing or exceeded its bound');
+        if (!location) {
+          throw new ContractError('web_fetch_redirect_invalid', 'WebFetch redirect did not include a location');
+        }
+        if (redirectCount >= MAX_REDIRECTS) {
+          throw new ContractError('web_fetch_redirect_invalid', 'WebFetch redirect bound was exceeded');
+        }
+        redirectCount += 1;
         url = normalizeUrl(new URL(location, url).href);
         continue;
       }
@@ -71,7 +84,6 @@ export class WebFetchClient {
       }
       return Object.freeze({ url: url.href, status: response.status, contentType, bytes: bytes.length, text });
     }
-    throw new ContractError('web_fetch_redirect_invalid', 'WebFetch redirect bound was exceeded');
   }
 }
 
@@ -129,14 +141,17 @@ function privateAddress(address) {
 
 async function readBounded(response) {
   if (!response.body) throw new ContractError('web_fetch_response_invalid', 'WebFetch response had no body');
-  const chunks = [];
+  const output = Buffer.allocUnsafe(MAX_BYTES);
   let length = 0;
   for await (const chunk of response.body) {
-    length += chunk.byteLength;
-    if (length > MAX_BYTES) throw new ContractError('web_fetch_response_too_large', 'WebFetch response exceeded 1 MiB');
-    chunks.push(Buffer.from(chunk));
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    if (length + bytes.byteLength > MAX_BYTES) {
+      throw new ContractError('web_fetch_response_too_large', 'WebFetch response exceeded 1 MiB');
+    }
+    bytes.copy(output, length);
+    length += bytes.byteLength;
   }
-  return Buffer.concat(chunks, length);
+  return output.subarray(0, length);
 }
 
 function combinedSignal(signal, timeoutMs) {

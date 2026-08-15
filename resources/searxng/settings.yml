@@ -13,12 +13,15 @@ general:
 
 search:
   safe_search: 0
+  # Autocomplete is intentionally disabled for this private local deployment.
   autocomplete: ""
   formats:
     - html
     - json
 
 server:
+  # Compose publishes only to 127.0.0.1; public deployments must enable a limiter.
   limiter: false
   public_instance: false
+  # Preserve image results without exposing the browser directly to remote image hosts.
   image_proxy: true

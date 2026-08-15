@@ -8,6 +8,9 @@ import {
 } from './gateway/config.js';
 import { TelegramApi } from './gateway/telegram-api.js';
 import { TelegramGateway } from './gateway/telegram.js';
+import { SessionLock } from './persistence/session-lock.js';
+
+const MAX_TOKEN_BYTES = 1_024;
 
 export async function runGatewayCommand(args, paths, options = {}) {
   const action = args[0] ?? 'status';
@@ -56,12 +59,21 @@ async function runForeground(config, paths, options) {
       ...options.engineOptions,
     },
   });
-  const stop = () => gateway.shutdown().catch((error) => {
-    process.exitCode = 1; process.stderr.write(gatewayShutdownDiagnostic(error));
-  });
-  process.once('SIGINT', stop); process.once('SIGTERM', stop);
+  let shutdown = null;
+  const stop = () => {
+    shutdown ??= gateway.shutdown().catch((error) => {
+      process.exitCode = 1; process.stderr.write(gatewayShutdownDiagnostic(error));
+    });
+    return shutdown;
+  };
+  const signalStop = () => { void stop(); };
+  process.once('SIGINT', signalStop); process.once('SIGTERM', signalStop);
   try { return await gateway.run(); }
-  finally { await unlink(pidPath(paths)).catch(() => undefined); }
+  finally {
+    process.removeListener('SIGINT', signalStop); process.removeListener('SIGTERM', signalStop);
+    await stop();
+    await unlink(pidPath(paths)).catch(() => undefined);
+  }
 }
 
 export function gatewayShutdownDiagnostic(error) {
@@ -72,20 +84,28 @@ export function gatewayShutdownDiagnostic(error) {
 
 async function startDetached(config, paths, options) {
   assertRunnable(config, options.environment);
-  const status = await runtimeStatus(paths);
-  if (status.running) return { started: false, reason: 'already_running', runtime: status };
+  const startLock = new SessionLock(paths.gateway, 'gateway-start');
+  try {
+    await startLock.acquire();
+  } catch (error) {
+    if (error?.code !== 'session_locked') throw error;
+    return { started: false, reason: 'already_starting', runtime: await runtimeStatus(paths) };
+  }
+  try {
+    const status = await runtimeStatus(paths);
+    if (status.running) return { started: false, reason: 'already_running', runtime: status };
+    return await spawnDetachedGateway(paths, options);
+  } finally { await startLock.release(); }
+}
+
+async function spawnDetachedGateway(paths, options) {
   const log = await open(join(paths.logs, 'gateway-console.log'), 'a');
   const child = (options.spawnProcess ?? spawn)(process.execPath, ['--disable-warning=ExperimentalWarning', process.argv[1], 'gateway', 'run'], {
-    detached: true, windowsHide: true, stdio: ['ignore', log.fd, log.fd],
-    env: { ...process.env, NNA_HOME: paths.root },
+    detached: true, windowsHide: true, stdio: ['ignore', log.fd, log.fd], env: { ...process.env, NNA_HOME: paths.root },
   });
-  try {
-    await childStarted(child);
-    await writePid(paths, child.pid);
-  } catch (error) {
-    child.kill?.();
-    throw error;
-  } finally { await log.close(); }
+  try { await childStarted(child); await writePid(paths, child.pid); }
+  catch (error) { child.kill?.(); throw error; }
+  finally { await log.close(); }
   child.unref();
   return { started: true, pid: child.pid };
 }
@@ -133,9 +153,12 @@ function required(value, label) { if (!value) throw Object.assign(new Error(`${l
 async function readToken(input) {
   if (!input) throw Object.assign(new Error('token input required'), { code: 'gateway_value_required' });
   let value = '';
+  let bytes = 0;
   for await (const chunk of input) {
-    value += chunk.toString('utf8');
-    if (Buffer.byteLength(value) > 1024) throw Object.assign(new Error('token input too large'), { code: 'telegram_token_invalid' });
+    const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+    bytes += Buffer.byteLength(text, 'utf8');
+    if (bytes > MAX_TOKEN_BYTES) throw Object.assign(new Error('token input too large'), { code: 'telegram_token_invalid' });
+    value += text;
   }
   return required(value.trim(), 'telegram token');
 }

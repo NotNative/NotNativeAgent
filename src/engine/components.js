@@ -63,7 +63,7 @@ function installRouting(engine, options) {
 function installOutput(engine, options) {
   const output = options.output ?? (async () => undefined);
   engine.output = async (record) => {
-    engine.telemetry?.record('runtime.output', outputStatus(record), record, {
+    engine.telemetry?.record('runtime.output', outputStatus(record), outputTelemetry(record), {
       turnId: record?.turn_id ?? engine.active?.turnId,
       stepId: record?.step_id ?? engine.active?.stepId,
       attemptId: record?.attempt_id ?? engine.active?.attemptId,
@@ -103,7 +103,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
   engine.tools = new ToolRegistry(engine.config.workspaceRoot, {
     hosted: engine.config.executionManifest !== null,
     boundedToWorkspace: engine.config.executionManifest !== null,
-    enabled: engine.config.executionManifest?.allowedCapabilities.includes('tools') !== false,
+    enabled: toolsAllowed(engine.config.executionManifest),
     allowedTools: engine.config.executionManifest?.allowedTools,
     webSearchConfigPath: options.webSearchConfigPath ?? userDataPaths().webSearchConfig,
     webSearchClient: options.webSearchClient,
@@ -223,6 +223,20 @@ function outputStatus(record) {
   if (record?.outcome === 'cancelled' || record?.status === 'cancelled') return 'cancelled';
   if (record?.outcome === 'denied' || record?.decision === 'deny') return 'denied';
   return 'succeeded';
+}
+
+function outputTelemetry(record) {
+  return {
+    type: typeof record?.type === 'string' ? record.type : 'unknown',
+    status: typeof record?.status === 'string' ? record.status : null,
+    outcome: typeof record?.outcome === 'string' ? record.outcome : null,
+    reason_code: typeof record?.reason_code === 'string' ? record.reason_code : null,
+    effect_certainty: typeof record?.effect_certainty === 'string' ? record.effect_certainty : null,
+  };
+}
+
+function toolsAllowed(executionManifest) {
+  return executionManifest === null || executionManifest.allowedCapabilities.includes('tools');
 }
 
 function permissionBroker(engine, options) {

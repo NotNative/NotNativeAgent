@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveManifest } from '../src/config.js';
 import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
+import { loadTabPool } from '../src/experience/tab-pool.js';
 
 function configuration(root) {
   return resolveManifest({
@@ -13,6 +14,13 @@ function configuration(root) {
     provider: { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'model', trust_zone: 'loopback' },
   });
 }
+
+test('legacy tab-pool migrations reject missing tab arrays with a stable contract error', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tab-migration-'));
+  const path = join(root, 'pool.json');
+  await writeFile(path, JSON.stringify({ schema_version: 2 }), 'utf8');
+  await assert.rejects(loadTabPool(path), { code: 'tab_pool_invalid' });
+});
 
 test('durable tab pool restores conversation presentation but opens with fresh Main focused', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-tab-state-'));

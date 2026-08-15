@@ -1,7 +1,6 @@
-/install.sh text eol=lf
-/uninstall.sh text eol=lf
-/install.ps1 text eol=crlf
-/uninstall.ps1 text eol=crlf
+* text=auto
+*.sh text eol=lf
+*.ps1 text eol=crlf
 *.js text eol=lf
 *.json text eol=lf
 *.md text eol=lf

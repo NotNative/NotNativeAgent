@@ -15,6 +15,13 @@ const EVENT_MAP = Object.freeze({
   'context.checkpoint:post': ['context_checkpoint', 'terminal', 'context_checkpoint.terminal'],
   'maintenance:idle': ['maintenance', 'active', 'maintenance.idle'],
 });
+const MAX_HOOK_ROOTS = 2;
+const MAX_LOADED_BUNDLES = 32;
+const DEFAULT_HOOK_TIMEOUT_MS = 10_000;
+const HOOK_TIMEOUT_GRACE_MS = 250;
+const MAX_HOOK_TIMEOUT_MS = 300_000;
+const DEFAULT_HOOK_CONCURRENCY = 1;
+const MAX_HOOK_OUTPUT_BYTES = 262_144;
 
 export class HookRuntime {
   #unregister = [];
@@ -32,11 +39,17 @@ export class HookRuntime {
     const statuses = [];
     const identities = new Set();
     let loaded = 0;
-    for (const source of this.roots.slice(0, 2)) {
+    for (const source of this.roots.slice(MAX_HOOK_ROOTS)) {
+      statuses.push(Object.freeze({ bundle: '*', scope: source.scope, status: 'skipped', code: 'hook_root_limit' }));
+    }
+    for (const source of this.roots.slice(0, MAX_HOOK_ROOTS)) {
       const discovered = await discoverHookBundles(source.path);
       statuses.push(...discovered.diagnostics.map((item) => Object.freeze({ ...item, scope: source.scope })));
       for (const bundle of discovered.bundles) {
-        if (loaded >= 32) break;
+        if (loaded >= MAX_LOADED_BUNDLES) {
+          statuses.push(Object.freeze({ bundle: bundle.name, scope: source.scope, status: 'skipped', code: 'hook_bundle_limit' }));
+          continue;
+        }
         if (identities.has(bundle.name)) {
           statuses.push(Object.freeze({ bundle: bundle.name, scope: source.scope, status: 'skipped', code: 'hook_identity_conflict' }));
           continue;
@@ -73,15 +86,17 @@ export class HookRuntime {
       const mapped = EVENT_MAP[`${subscription.event}:${subscription.phase}`];
       if (!mapped) { skipped += 1; return; }
       const [category, phase, eventName] = mapped;
+      const timeoutMs = Number.isInteger(subscription.timeoutMs) ? subscription.timeoutMs : DEFAULT_HOOK_TIMEOUT_MS;
+      const maxConcurrent = Number.isInteger(subscription.maxConcurrent) ? subscription.maxConcurrent : DEFAULT_HOOK_CONCURRENCY;
       const unregister = this.events.register({
         id: `hook.${scope}.${bundle.name}.${index}`, category, phase,
         blocking: subscription.blocking, priority: subscription.priority,
-        timeoutMs: Math.min(subscription.timeoutMs + 250, 300_000), failurePolicy: 'continue',
+        timeoutMs: Math.min(timeoutMs + HOOK_TIMEOUT_GRACE_MS, MAX_HOOK_TIMEOUT_MS), failurePolicy: 'continue',
         cancellation: subscription.blocking ? 'propagate' : 'detach',
         origin: `hook:${scope}:${bundle.name}`, trust: 'operator_configured',
         inputContract: 'nna.hook-event/1.0', outputContract: 'nna.hook-result/1.0',
         resourceBounds: Object.freeze({
-          maxOutputBytes: 262_144, maxConcurrent: subscription.maxConcurrent,
+          maxOutputBytes: MAX_HOOK_OUTPUT_BYTES, maxConcurrent,
         }),
       }, (event, signal) => this.#invoke(bundle, subscription, eventName, event, signal, scope));
       this.#unregister.push(unregister); registered += 1;
@@ -139,6 +154,7 @@ function legacyPayload(subscription, event) {
 }
 
 export function hookContexts(dispatch) {
-  return Object.freeze((dispatch?.results ?? []).filter((item) => typeof item?.additionalContext === 'string')
-    .map((item) => Object.freeze({ source: item.hook, content: redactText(item.additionalContext) })));
+  const results = Array.isArray(dispatch?.results) ? dispatch.results : [];
+  return Object.freeze(results.filter((item) => typeof item?.additionalContext === 'string')
+    .map((item) => Object.freeze({ source: typeof item.hook === 'string' ? item.hook : 'hook', content: redactText(item.additionalContext) })));
 }

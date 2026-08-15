@@ -2,16 +2,19 @@
 import { RecoverySupervisor } from '../recovery.js';
 import { ToolCallAssembler } from '../tools/calls.js';
 
+const ENGINE_ORIGIN = 'engine';
+
 export function createActiveTurn(turnId, requestId, recoveryOptions = {}) {
   const deferred = createDeferred();
   return {
+    // Lifecycle and cancellation ownership.
     turnId, requestId, stepId: null, attemptId: null, authority: null,
     controller: new AbortController(), cancelled: false, finalized: false,
     text: '', stepText: '', committedStepText: null, finalText: '', usage: null, finishReason: null, reasoningBytes: 0,
     stepReasoningBytes: 0, reasoningFallbackPending: false, reasoningFallbackUsed: false,
     startedAt: Date.now(), toolCalls: 0,
     providerTerminal: false, toolAssembler: new ToolCallAssembler(),
-    deltaSequence: 1, origin: 'engine', completion: deferred.promise,
+    deltaSequence: 1, origin: ENGINE_ORIGIN, completion: deferred.promise,
     resolveCompletion: deferred.resolve, recovery: new RecoverySupervisor(recoveryOptions),
     enrichment: { memory: [], attachments: [], hooks: [], skills: [], projectIntake: null }, admission: null,
     prompt: '', modelName: '', unresolvedToolFailures: [], toolConstraints: [], contextRetryScale: 1,
@@ -35,6 +38,14 @@ export function admissionFromRetry(item) {
 
 function createDeferred() {
   let resolve;
-  const promise = new Promise((yes) => { resolve = yes; });
+  let settled = false;
+  const promise = new Promise((yes) => {
+    resolve = (value) => {
+      if (settled) return false;
+      settled = true;
+      yes(value);
+      return true;
+    };
+  });
   return { promise, resolve };
 }

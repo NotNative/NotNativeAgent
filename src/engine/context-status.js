@@ -5,6 +5,11 @@ import { buildColdEvidence } from '../cold-context.js';
 import { ContractError } from '../ids.js';
 import { shouldInspectProject } from '../project-intake.js';
 
+const INTERACTIVE_SURFACE = 'interactive_tui';
+const CONTEXT_STATUS_EVENT = 'context_status';
+const CONTEXT_USAGE_EVENT = 'context_usage';
+const COLD_EVIDENCE_TELEMETRY = 'context.cold_evidence';
+
 export async function buildReportedContext(
   engine, records, content, enrichment, active, budgetBytes, limitBytes, budget = null, options = {},
 ) {
@@ -23,6 +28,7 @@ export async function buildReportedContext(
   };
   active.contextMeasurementEnrichment = baseEnrichment;
   active.contextLimitTokens = budget?.effectiveInputTokens ?? null;
+  active.contextLimitBytes = limitBytes;
   const rawContext = buildContext(engine.config, records, content, baseEnrichment, Number.MAX_SAFE_INTEGER);
   const rawContextBytes = measureContext(rawContext);
   const rawContextTokens = estimateContextTokens(rawContext);
@@ -40,12 +46,13 @@ export async function buildReportedContext(
   active.contextTokens = estimateContextTokens(context);
   active.rawContextBytes = rawContextBytes;
   active.rawContextTokens = rawContextTokens;
-  if (budget?.scaledTokens && active.contextTokens > budget.scaledTokens) {
+  if (budget?.scaledTokens !== undefined && budget?.scaledTokens !== null
+    && active.contextTokens > budget.scaledTokens) {
     throw new ContractError('context_too_large', 'context exceeds conservative token bound');
   }
-  if (engine.surface === 'interactive_tui') {
+  if (engine.surface === INTERACTIVE_SURFACE) {
     await engine.output({
-      version: '1.0', type: 'context_status', session_id: engine.sessionId,
+      version: '1.0', type: CONTEXT_STATUS_EVENT, session_id: engine.sessionId,
       turn_id: active.turnId, bytes: active.contextBytes,
       limit_bytes: limitBytes,
       estimated_tokens: active.contextTokens,
@@ -69,9 +76,10 @@ export async function buildReportedContext(
 }
 
 export async function emitCurrentContextUsage(engine, active, stepId = active.stepId) {
-  if (engine.surface !== 'interactive_tui') return;
+  if (engine.surface !== INTERACTIVE_SURFACE) return;
   const records = [...engine.transcript];
-  if (active.stepText.length > 0 && active.stepText !== active.committedStepText) {
+  if (typeof active.stepText === 'string' && active.stepText.length > 0
+    && active.stepText !== active.committedStepText) {
     records.push({
       type: 'message', role: 'assistant', content: active.stepText, trust: 'model',
       turnId: active.turnId, stepId, partial: false,
@@ -85,7 +93,7 @@ export async function emitCurrentContextUsage(engine, active, stepId = active.st
   active.rawContextBytes = measureContext(context);
   active.rawContextTokens = estimateContextTokens(context);
   await engine.output({
-    version: '1.0', type: 'context_usage', session_id: engine.sessionId,
+    version: '1.0', type: CONTEXT_USAGE_EVENT, session_id: engine.sessionId,
     turn_id: active.turnId, step_id: stepId,
     current_bytes: active.rawContextBytes,
     limit_bytes: active.contextLimitBytes,
@@ -100,7 +108,7 @@ function recordColdEvidence(engine, active, catalog) {
   active.coldEvidenceFingerprints ??= new Set();
   if (active.coldEvidenceFingerprints.has(catalog.fingerprint)) return;
   active.coldEvidenceFingerprints.add(catalog.fingerprint);
-  engine.telemetry?.record('context.cold_evidence', 'indexed', {
+  engine.telemetry?.record(COLD_EVIDENCE_TELEMETRY, 'indexed', {
     available_records: catalog.available_records, available_turns: catalog.available_turns,
     record_types: catalog.record_types, relevant_hints: catalog.hints.length,
     catalog_fingerprint: catalog.fingerprint,

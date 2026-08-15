@@ -29,6 +29,8 @@ export class ConversationWork {
     const text = boundedText(objective, 'goal objective', MAX_GOAL_TEXT);
     const now = new Date().toISOString();
     const prior = this.state.goal;
+    // Setting a goal is also the explicit edit operation: preserve its stable
+    // identity and creation time while replacing the objective and prior proof.
     const next = {
       ...this.state,
       revision: this.state.revision + 1,
@@ -42,6 +44,9 @@ export class ConversationWork {
 
   async completeGoal(evidence) {
     if (!this.state.goal) throw new ContractError('goal_missing', 'this conversation has no active goal');
+    if (this.state.goal.status === 'completed') {
+      throw new ContractError('goal_already_completed', 'the conversation goal is already completed');
+    }
     const unfinished = this.state.tasks.filter((task) => task.status !== 'completed');
     if (unfinished.length > 0) throw new ContractError('goal_tasks_unfinished', `${unfinished.length} task(s) are not complete`);
     const proof = boundedText(evidence, 'goal completion evidence', MAX_DETAIL);
@@ -54,6 +59,9 @@ export class ConversationWork {
 
   async reopenGoal() {
     if (!this.state.goal) throw new ContractError('goal_missing', 'this conversation has no goal to reopen');
+    if (this.state.goal.status !== 'completed') {
+      throw new ContractError('goal_not_completed', 'only a completed conversation goal can be reopened');
+    }
     const next = {
       ...this.state, revision: this.state.revision + 1,
       goal: Object.freeze({ ...this.state.goal, status: 'active', evidence: null, updatedAt: new Date().toISOString() }),
@@ -122,6 +130,8 @@ function emptyState() {
 }
 
 function validateSnapshot(value) {
+  // A snapshot is the durable state-machine boundary. Reject structural drift
+  // rather than coercing it so corrupt state cannot silently acquire authority.
   if (!value || value.schema !== 'nna.conversation_work.v1' || !Number.isInteger(value.revision)
     || value.revision < 0 || !Number.isInteger(value.nextTaskNumber) || value.nextTaskNumber < 1
     || !Array.isArray(value.tasks) || value.tasks.length > MAX_TASKS) {
@@ -138,9 +148,13 @@ function validateSnapshot(value) {
       createdAt: String(task.createdAt), updatedAt: String(task.updatedAt),
     });
   });
+  if (value.goal !== null && (!value.goal || typeof value.goal !== 'object'
+    || !['active', 'completed'].includes(value.goal.status))) {
+    throw new ContractError('work_state_invalid', 'durable goal status is invalid');
+  }
   const goal = value.goal === null ? null : Object.freeze({
     id: String(value.goal.id), objective: boundedText(value.goal.objective, 'goal objective', MAX_GOAL_TEXT),
-    status: value.goal.status === 'completed' ? 'completed' : 'active',
+    status: value.goal.status,
     evidence: optionalText(value.goal.evidence), createdAt: String(value.goal.createdAt), updatedAt: String(value.goal.updatedAt),
   });
   return Object.freeze({ ...emptyState(), revision: value.revision, nextTaskNumber: value.nextTaskNumber, goal, tasks: Object.freeze(tasks) });
@@ -153,10 +167,11 @@ function boundedText(value, label, maximum) {
   return value.trim();
 }
 
-function optionalText(value) { return value == null ? null : boundedText(value, 'work detail', MAX_DETAIL); }
+function optionalText(value) { return value === null || value === undefined ? null : boundedText(value, 'work detail', MAX_DETAIL); }
 function normalizeTaskId(value) {
   const id = String(value ?? '').toUpperCase();
-  if (!/^T[1-9][0-9]{0,5}$/u.test(id)) throw new ContractError('task_id_invalid', 'task id must look like T1');
+  const match = /^T([1-9][0-9]{0,5})$/u.exec(id);
+  if (!match || Number(match[1]) > MAX_TASKS) throw new ContractError('task_id_invalid', `task id must be between T1 and T${MAX_TASKS}`);
   return id;
 }
 function taskCounts(tasks) {

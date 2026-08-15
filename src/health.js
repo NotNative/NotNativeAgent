@@ -6,41 +6,51 @@ import { inspectDataPermissions } from './data-permissions.js';
 import { inspectNetworkDestinations } from './network-destinations.js';
 import { boundedProviderCapabilities } from './provider/capabilities.js';
 
+const MAX_TRANSCRIPT_RECORDS = 512;
+const CONTEXT_PRESSURE_WARNING_RATIO = 0.8;
+const DEFAULT_PROVIDER_HEALTH_DEADLINE_MS = 2_000;
+const HEALTH = Object.freeze({
+  READY: 'ready', UNKNOWN: 'unknown', DEGRADED: 'degraded', UNAVAILABLE: 'unavailable',
+  DISABLED: 'disabled', WARNING: 'warning',
+});
+
 export class HealthInspector {
   constructor(engine) {
     this.engine = engine;
   }
 
   async inspect(options = {}) {
-    const provider = await providerHealth(this.engine, options.providerDeadlineMs ?? 2_000);
-    const contextBytes = Buffer.byteLength(JSON.stringify(this.engine.transcript.slice(-512)));
+    const engine = this.engine;
+    const [provider, persistence, dataPermissions, networkDestinations, memory, telemetry, staleLocks] = await Promise.all([
+      safeInspection(() => providerHealth(engine, options.providerDeadlineMs ?? DEFAULT_PROVIDER_HEALTH_DEADLINE_MS), 'provider_health_failed'),
+      safeInspection(() => persistenceHealth(engine), 'persistence_health_failed'),
+      safeInspection(() => inspectDataPermissions(engine.dataPaths.root), 'data_permissions_health_failed'),
+      safeInspection(() => inspectNetworkDestinations(engine), 'network_health_failed'),
+      safeInspection(() => engine.memory.health(), 'memory_health_failed'),
+      safeInspection(() => engine.telemetry.health(), 'telemetry_health_failed'),
+      engine.lock ? safeInspection(() => engine.lock.health(), 'lock_health_failed') : status(HEALTH.DISABLED, { mode: 'ephemeral' }),
+    ]);
+    const contextBytes = Buffer.byteLength(JSON.stringify(engine.transcript.slice(-MAX_TRANSCRIPT_RECORDS)));
     return Object.freeze({
       checked_at: new Date().toISOString(), read_only: true,
-      installation: status('ready', { version: VERSION, runtime: process.version, platform: process.platform, arch: process.arch }),
-      configuration: status('ready', {
-        version: this.engine.config.version, provenance: this.engine.config.provenance,
-        winning_sources: this.engine.config.configurationProvenance ?? {}, warnings: this.engine.config.warnings,
-        launch_overrides: this.engine.config.launchOverrides ?? null,
+      installation: status(HEALTH.READY, { version: VERSION, runtime: process.version, platform: process.platform, arch: process.arch }),
+      configuration: status(HEALTH.READY, {
+        version: engine.config.version, provenance: engine.config.provenance,
+        winning_sources: engine.config.configurationProvenance ?? {}, warnings: engine.config.warnings,
+        launch_overrides: engine.config.launchOverrides ?? null,
       }),
-      runtime_bounds: status('ready', runtimeBounds(this.engine.config.limits)),
+      runtime_bounds: status(HEALTH.READY, runtimeBounds(engine.config.limits)),
       provider,
-      model_capability: status(provider.models?.length ? 'ready' : 'unknown', { models: provider.models ?? [] }),
-      persistence: await persistenceHealth(this.engine),
-      data_permissions: await inspectDataPermissions(this.engine.dataPaths.root),
-      reviewer: status('ready', this.engine.reviewer.health()),
-      network_destinations: await inspectNetworkDestinations(this.engine),
-      reviewer_llm: reviewerModelHealth(this.engine),
-      ledger: status('ready', this.engine.ledger.health()),
-      governance: governanceHealth(this.engine.governance.health()),
-      sandbox: status(this.engine.tools?.paths?.root ? 'ready' : 'unavailable', { root: this.engine.tools?.paths?.root ?? null }),
-      memory: await this.engine.memory.health(),
-      skills: skillHealth(this.engine.skills),
-      hooks: this.engine.hooks.health(), events: this.engine.events.health(),
-      forensic_telemetry: await this.engine.telemetry.health(),
-      mcp: this.engine.mcp.status(), extensions: extensionHealth(this.engine.extensions),
-      stale_locks: this.engine.lock ? await this.engine.lock.health() : status('disabled', { mode: 'ephemeral' }),
-      context_pressure: status(contextBytes > this.engine.config.limits.maxContextBytes * 0.8 ? 'warning' : 'ready', {
-        bytes: contextBytes, limit: this.engine.config.limits.maxContextBytes,
+      model_capability: status(provider.models?.length ? HEALTH.READY : HEALTH.UNKNOWN, { models: provider.models ?? [] }),
+      persistence, data_permissions: dataPermissions,
+      reviewer: status(HEALTH.READY, engine.reviewer.health()), network_destinations: networkDestinations,
+      reviewer_llm: reviewerModelHealth(engine), ledger: status(HEALTH.READY, engine.ledger.health()),
+      governance: governanceHealth(engine.governance.health()),
+      sandbox: status(engine.tools?.paths?.root ? HEALTH.READY : HEALTH.UNAVAILABLE, { root: engine.tools?.paths?.root ?? null }),
+      memory, skills: skillHealth(engine.skills), hooks: engine.hooks.health(), events: engine.events.health(),
+      forensic_telemetry: telemetry, mcp: engine.mcp.status(), extensions: extensionHealth(engine.extensions), stale_locks: staleLocks,
+      context_pressure: status(contextBytes > engine.config.limits.maxContextBytes * CONTEXT_PRESSURE_WARNING_RATIO ? HEALTH.WARNING : HEALTH.READY, {
+        bytes: contextBytes, limit: engine.config.limits.maxContextBytes,
       }),
     });
   }
@@ -58,10 +68,10 @@ function runtimeBounds(limits) {
 }
 
 function extensionHealth(registry) {
-  if (!registry) return status('disabled', { installed: 0, errors: [] });
+  if (!registry) return status(HEALTH.DISABLED, { installed: 0, errors: [] });
   const installed = registry.list();
   const errors = installed.filter((item) => ['failed', 'incompatible'].includes(item.state));
-  return status(errors.length > 0 ? 'degraded' : 'ready', {
+  return status(errors.length > 0 ? HEALTH.DEGRADED : HEALTH.READY, {
     installed: installed.length, errors, diagnostics: registry.diagnostics(),
   });
 }
@@ -70,13 +80,14 @@ async function providerHealth(engine, deadlineMs) {
   let endpoint = null;
   try {
     const route = engine.router.resolve('primary');
-    endpoint = route.profile.endpoint;
+    endpoint = route?.profile?.endpoint ?? null;
+    if (!endpoint) throw Object.assign(new Error('primary route profile is invalid'), { code: 'provider_route_invalid' });
     const provider = engine.router.provider(route);
-    if (typeof provider.capabilities !== 'function') return status('unknown', { reason: 'adapter has no health capability' });
+    if (typeof provider.capabilities !== 'function') return status(HEALTH.UNKNOWN, { reason: 'adapter has no health capability' });
     const capabilities = await boundedProviderCapabilities(provider, deadlineMs);
-    return status('ready', { endpoint: route.profile.endpoint, models: capabilities.models ?? [] });
+    return status(HEALTH.READY, { endpoint, models: capabilities.models ?? [] });
   } catch (error) {
-    return status('degraded', { endpoint, code: error.code ?? 'provider_unreachable' });
+    return status(HEALTH.DEGRADED, { endpoint, code: error.code ?? 'provider_unreachable' });
   }
 }
 
@@ -84,21 +95,23 @@ function reviewerModelHealth(engine) {
   const health = engine.reviewer.health();
   try {
     const route = engine.router.resolve('reviewer', { requiredCapabilities: ['structured_output'] });
-    return status(health.semantic_status === 'configured' ? 'ready' : 'unavailable', {
+    if (!route?.profile?.id || typeof route.model !== 'string') throw Object.assign(new Error('reviewer route is invalid'), { code: 'reviewer_route_invalid' });
+    return status(health.semantic_status === 'configured' ? HEALTH.READY : HEALTH.UNAVAILABLE, {
       component: health.semantic_component, provider: route.profile.id, model: route.model,
     });
   } catch (error) {
-    return status('unavailable', { component: health.semantic_component, code: error.code ?? 'reviewer_route_unavailable' });
+    return status(HEALTH.UNAVAILABLE, { component: health.semantic_component, code: error.code ?? 'reviewer_route_unavailable' });
   }
 }
 
 async function persistenceHealth(engine) {
-  if (!engine.store) return status('disabled', { mode: 'ephemeral' });
+  if (!engine.store) return status(HEALTH.DISABLED, { mode: 'ephemeral' });
   try {
+    if (typeof engine.store.root !== 'string') throw Object.assign(new Error('store root is unavailable'), { code: 'store_root_invalid' });
     await access(engine.store.root, constants.R_OK | constants.W_OK);
-    return status('ready', { mode: 'durable', root: engine.store.root });
+    return status(HEALTH.READY, { mode: 'durable', root: engine.store.root });
   } catch (error) {
-    return status('degraded', { mode: 'durable', code: error.code ?? 'store_unavailable' });
+    return status(HEALTH.DEGRADED, { mode: 'durable', code: error.code ?? 'store_unavailable' });
   }
 }
 
@@ -108,7 +121,7 @@ function status(state, details) {
 
 function skillHealth(registry) {
   const diagnostics = registry?.diagnostics?.() ?? [];
-  return status(diagnostics.length > 0 ? 'degraded' : 'ready', {
+  return status(diagnostics.length > 0 ? HEALTH.DEGRADED : HEALTH.READY, {
     loaded: registry?.catalog?.().length ?? 0,
     skipped: diagnostics.length,
     diagnostics,
@@ -116,5 +129,10 @@ function skillHealth(registry) {
 }
 
 function governanceHealth(details) {
-  return status(details.status === 'attention' ? 'degraded' : 'ready', details);
+  return status(details.status === 'attention' ? HEALTH.DEGRADED : HEALTH.READY, details);
+}
+
+async function safeInspection(operation, code) {
+  try { return await operation(); }
+  catch (error) { return status(HEALTH.DEGRADED, { code: error?.code ?? code }); }
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-export function declaredSubscription(overrides) {
+export function declaredSubscription(overrides = {}) {
   return {
     priority: 0,
     timeoutMs: 100,

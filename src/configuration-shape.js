@@ -15,10 +15,13 @@ const MCP = [
 ];
 
 export function validateNestedManifestKeys(manifest) {
+  if (!record(manifest)) {
+    throw new ContractError('manifest_shape_invalid', 'configuration manifest must be an object');
+  }
   const warnings = [];
   inspectObject(manifest.provider, 'provider', PROVIDER, warnings);
-  inspectArray(manifest.providers, 'providers', PROVIDER, warnings, inspectProviderChildren);
-  inspectProviderChildren(manifest.provider, 'provider', warnings);
+  inspectArray(manifest.providers, 'providers', PROVIDER, warnings, inspectProviderCapabilities);
+  inspectProviderCapabilities(manifest.provider, 'provider', warnings);
   inspectRoutes(manifest.routes, warnings);
   inspectObject(manifest.attachments, 'attachments', ['enabled', 'max_bytes', 'retain'], warnings);
   inspectObject(manifest.memory, 'memory', ['enabled', 'required', 'timeout_ms', 'max_items', 'max_bytes'], warnings);
@@ -33,7 +36,7 @@ export function validateNestedManifestKeys(manifest) {
   return warnings;
 }
 
-function inspectProviderChildren(value, path, warnings) {
+function inspectProviderCapabilities(value, path, warnings) {
   if (record(value)) inspectObject(value.capabilities, `${path}.capabilities`, CAPABILITIES, warnings);
 }
 
@@ -56,21 +59,25 @@ function inspectMission(value, warnings) {
     'id', 'outcome', 'revocation_id', 'not_before', 'expires_at', 'resources', 'targets',
     'side_effects', 'credential_refs', 'bounds', 'termination',
   ], warnings);
-  if (record(value)) inspectObject(value.bounds, 'mission.bounds', ['max_turns', 'max_tool_calls', 'max_duration_ms'], warnings);
-  if (record(value)) inspectObject(value.termination, 'mission.termination', ['suspend_on', 'terminate_on'], warnings);
+  if (!record(value)) return;
+  inspectObject(value.bounds, 'mission.bounds', ['max_turns', 'max_tool_calls', 'max_duration_ms'], warnings);
+  inspectObject(value.termination, 'mission.termination', ['suspend_on', 'terminate_on'], warnings);
 }
 
 function inspectArray(value, path, allowed, warnings, children) {
-  if (!Array.isArray(value)) return;
+  if (value === undefined) return;
+  if (!Array.isArray(value)) { warnings.push(`unknown manifest shape ignored: ${path}`); return; }
   value.forEach((item, index) => {
     const itemPath = `${path}[${index}]`;
+    if (!record(item)) { warnings.push(`unknown manifest shape ignored: ${itemPath}`); return; }
     inspectObject(item, itemPath, allowed, warnings);
     children?.(item, itemPath, warnings);
   });
 }
 
 function inspectObject(value, path, allowed, warnings) {
-  if (!record(value)) return;
+  if (value === undefined) return;
+  if (!record(value)) { warnings.push(`unknown manifest shape ignored: ${path}`); return; }
   const known = new Set(allowed);
   for (const key of Object.keys(value)) {
     if (!known.has(key)) unknown(`${path}.${key}`, key, warnings);

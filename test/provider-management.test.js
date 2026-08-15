@@ -328,6 +328,24 @@ test('AC-CONF-07 workspace configuration versions advance and seed new conversat
   await workspace.shutdown();
 });
 
+test('provider profiles publish with the production default provider factory', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-provider-default-factory-'));
+  const workspace = new InteractiveWorkspace({
+    config: configuration(root), configPath: join(root, 'settings.json'),
+    manifestWriter: async () => undefined,
+  });
+  const main = await workspace.create('Main', 'main');
+
+  await workspace.addProvider({
+    id: 'three', displayName: 'Third', endpoint: 'http://127.0.0.1:3/v1', model: 'new-model',
+    credentialEnv: '', trustZone: 'loopback',
+  });
+
+  assert.equal(workspace.config.providerProfiles.three.model, 'new-model');
+  assert.equal(typeof workspace.sessions.get(main).engine.router.providerFactory, 'function');
+  await workspace.shutdown();
+});
+
 test('provider menus hard-timeout uncooperative capability discovery', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-provider-capability-timeout-'));
   const workspace = new InteractiveWorkspace({

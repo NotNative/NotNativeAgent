@@ -4,44 +4,49 @@ import { DEFAULT_WEB_FETCH_CONFIG, loadWebFetchConfig } from './web-fetch-config
 
 export async function inspectNetworkDestinations(engine) {
   const destinations = [];
-  addProviders(destinations, engine.config);
-  addMcp(destinations, engine.config.mcpServers);
-  addTelemetry(destinations, engine.config.telemetry);
+  const synchronousErrors = [];
+  captureInspection(synchronousErrors, 'provider_configuration_invalid', () => addProviders(destinations, engine?.config));
+  captureInspection(synchronousErrors, 'mcp_configuration_invalid', () => addMcp(destinations, engine?.config?.mcpServers));
+  captureInspection(synchronousErrors, 'telemetry_configuration_invalid', () => addTelemetry(destinations, engine?.config?.telemetry));
   let webSearchError = null;
-  try { addWebSearch(destinations, await loadWebSearchConfig(engine.tools.webSearchConfigPath)); }
+  try { addWebSearch(destinations, await loadWebSearchConfig(engine?.tools?.webSearchConfigPath)); }
   catch (error) { webSearchError = safeCode(error?.code); }
   let webFetchError = null;
   try {
-    addTrustedWebFetch(destinations, engine.tools.webFetchConfigPath
+    addTrustedWebFetch(destinations, engine?.tools?.webFetchConfigPath
       ? await loadWebFetchConfig(engine.tools.webFetchConfigPath) : DEFAULT_WEB_FETCH_CONFIG);
   }
   catch (error) { webFetchError = safeCode(error?.code, 'web_fetch_config_invalid'); }
-  addGovernedTools(destinations, engine.tools?.enabled !== false);
-  addHooks(destinations, engine.hooks?.health?.());
-  addExtensions(destinations, engine.extensions?.list?.() ?? []);
+  captureInspection(synchronousErrors, 'governed_tools_invalid', () => addGovernedTools(destinations, engine?.tools?.enabled !== false));
+  captureInspection(synchronousErrors, 'hook_health_invalid', () => addHooks(destinations, engine?.hooks?.health?.()));
+  captureInspection(synchronousErrors, 'extension_status_invalid', () => addExtensions(destinations, engine?.extensions?.list?.() ?? []));
   return Object.freeze({
-    status: webSearchError || webFetchError ? 'degraded' : 'ready', inspectable: true,
+    status: webSearchError || webFetchError || synchronousErrors.length > 0 ? 'degraded' : 'ready', inspectable: true,
     default_unrelated_egress: false, web_search_error: webSearchError,
-    web_fetch_error: webFetchError,
+    web_fetch_error: webFetchError, inspection_errors: Object.freeze(synchronousErrors),
     destinations: Object.freeze(destinations.map((item) => Object.freeze(item))),
   });
 }
 
 function addProviders(result, config) {
   const roles = new Map();
-  for (const [role, route] of Object.entries(config.routes)) {
+  for (const [role, route] of Object.entries(config?.routes ?? {})) {
+    if (!route || typeof route.providerId !== 'string') continue;
     const list = roles.get(route.providerId) ?? []; list.push(role); roles.set(route.providerId, list);
   }
-  for (const profile of Object.values(config.providerProfiles)) result.push({
+  for (const profile of Object.values(config?.providerProfiles ?? {})) {
+    if (!profile || typeof profile.id !== 'string' || typeof profile.endpoint !== 'string') continue;
+    result.push({
     kind: 'provider', id: profile.id, destination: profile.endpoint,
     trust_zone: profile.trustZone, purpose: 'model_data',
     state: roles.has(profile.id) ? 'routed' : 'configured', active_roles: roles.get(profile.id) ?? [],
     credential_reference: profile.credentialEnv ?? null,
-  });
+    });
+  }
 }
 
 function addMcp(result, servers) {
-  for (const server of servers.filter((item) => item.enabled)) result.push({
+  for (const server of (Array.isArray(servers) ? servers : []).filter((item) => item?.enabled)) result.push({
     kind: 'mcp', id: server.id,
     destination: server.transport === 'streamable_http' ? server.endpoint : `process:${server.command}`,
     trust_zone: server.transport === 'streamable_http' ? zone(server.endpoint) : 'operator_process',
@@ -51,7 +56,7 @@ function addMcp(result, servers) {
 }
 
 function addTelemetry(result, telemetry) {
-  if (!telemetry?.enabled) return;
+  if (!telemetry?.enabled || typeof telemetry.destination !== 'string') return;
   result.push({
     kind: 'telemetry', id: 'telemetry', destination: telemetry.destination,
     trust_zone: zone(telemetry.destination), purpose: 'operator_configured_telemetry',
@@ -104,11 +109,16 @@ function addHooks(result, health) {
 }
 
 function addExtensions(result, extensions) {
-  for (const item of extensions.filter((entry) => entry.state === 'ready')) result.push({
+  for (const item of (Array.isArray(extensions) ? extensions : []).filter((entry) => entry?.state === 'ready')) result.push({
     kind: 'extension', id: item.id, destination: 'extension_managed',
     trust_zone: 'operator_extension', purpose: 'declared_extension_capabilities', state: 'ready',
     credential_reference: null,
   });
+}
+
+function captureInspection(errors, code, operation) {
+  try { operation(); }
+  catch { errors.push(code); }
 }
 
 function zone(value) {

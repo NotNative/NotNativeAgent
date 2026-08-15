@@ -7,6 +7,7 @@ import { userDataPaths } from './product.js';
 
 const CONTRACT = 'nnm.turn-analysis-receipt/1.0';
 const MAX_BYTES = 4_194_304;
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 const KEYS = new Set([
   'contract', 'receipt_id', 'session_id', 'turn_id', 'status', 'stored',
   'facts_stored', 'relationships_stored', 'summary_stored', 'candidates',
@@ -17,9 +18,13 @@ export class NnmGovernanceReceipts {
   constructor(options = {}) {
     this.path = options.path ?? userDataPaths().nnmGovernanceReceipts;
     this.read = options.read ?? readFile;
+    this.lastMalformedLines = 0;
   }
 
   async matching(input) {
+    if (!input || typeof input !== 'object' || typeof input.workspaceRoot !== 'string' || !input.workspaceRoot) {
+      throw new ContractError('nnm_receipt_query_invalid', 'NNM receipt matching requires a workspace root');
+    }
     const turns = new Set(input.turnIds ?? []);
     const sessions = new Set(input.sessionIds ?? []);
     const project = digest(input.workspaceRoot);
@@ -30,14 +35,17 @@ export class NnmGovernanceReceipts {
       throw new ContractError('nnm_receipts_too_large', 'NNM governance receipt journal exceeds 4 MiB');
     }
     const found = new Map();
-    for (const line of content.split(/\r?\n/u)) {
+    let malformedLines = 0;
+    for (const match of content.matchAll(/[^\r\n]+/gu)) {
+      const line = match[0];
       if (!line.trim()) continue;
       let parsed;
-      try { parsed = normalize(JSON.parse(line)); } catch { continue; }
+      try { parsed = normalize(JSON.parse(line)); } catch { malformedLines += 1; continue; }
       if (parsed.project_fingerprint !== project || !turns.has(parsed.turn_id)
           || (sessions.size > 0 && !sessions.has(parsed.session_id))) continue;
       found.set(parsed.receipt_id, parsed);
     }
+    this.lastMalformedLines = malformedLines;
     return Object.freeze([...found.values()]);
   }
 }
@@ -49,7 +57,8 @@ function normalize(value) {
   }
   for (const key of ['receipt_id', 'session_id', 'turn_id', 'project_fingerprint']) bounded(value[key], key);
   if (!/^[a-f0-9]{64}$/u.test(value.receipt_id) || !/^[a-f0-9]{64}$/u.test(value.project_fingerprint)
-      || value.status !== 'completed' || Number.isNaN(Date.parse(value.completed_at))) {
+      || value.status !== 'completed' || typeof value.completed_at !== 'string'
+      || !ISO_TIMESTAMP.test(value.completed_at) || new Date(value.completed_at).toISOString() !== value.completed_at) {
     throw new ContractError('nnm_receipt_invalid', 'NNM governance receipt attribution is invalid');
   }
   const result = { ...value };

@@ -108,7 +108,7 @@ function rejectSecretLiterals(values) {
 async function resolveExecutable(value, options) {
   const platform = options.platform ?? process.platform;
   if (isAbsolute(value)) return executableFile(value);
-  if (parse(value).dir) {
+  if (parse(value).dir || /[\\/]/u.test(value)) {
     throw new ContractError('elevation_executable_invalid', 'elevated executables must use an absolute path or an installed command name');
   }
   const environment = options.environment ?? process.env;

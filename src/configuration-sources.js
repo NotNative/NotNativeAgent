@@ -3,6 +3,10 @@ import { resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
 import { manifestFromConfig } from './provider/route-configuration.js';
 
+// These bounds comfortably exceed the supported manifest while containing hostile programmatic input.
+const MAX_PROVENANCE_PATHS = 4_096;
+const MAX_PROVENANCE_DEPTH = 16;
+
 export function resolveConfiguration(sources, options = {}) {
   if (!Array.isArray(sources) || sources.length === 0 || sources.length > 8) {
     throw new ContractError('configuration_sources_invalid', 'configuration requires one to eight ordered sources');
@@ -32,22 +36,29 @@ function attributeSecurityRejection(error, winners, audit) {
   const key = error.configurationKey ?? 'unknown';
   const source = winners[key] ?? 'unknown';
   error.configurationSource = source;
-  audit?.({
-    type: 'configuration_security_rejected', outcome: 'failed', code: error.code,
-    reason_code: error.code, configuration_key: key, configuration_source: source,
-  });
+  try {
+    audit?.({
+      type: 'configuration_security_rejected', outcome: 'failed', code: error.code,
+      reason_code: error.code, configuration_key: key, configuration_source: source,
+    });
+  } catch (auditError) {
+    error.auditFailureCode = auditError?.code ?? 'configuration_audit_failed';
+  }
 }
 
-function merge(base, incoming, prefix, source, winners) {
+function merge(base, incoming, prefix, source, winners, ancestors = new Set()) {
+  if (ancestors.has(incoming)) throw new ContractError('configuration_cycle', 'configuration sources must not contain cycles');
+  ancestors.add(incoming);
   const result = isRecord(base) ? { ...base } : {};
   for (const [key, value] of Object.entries(incoming)) {
     const path = prefix ? `${prefix}.${key}` : key;
-    if (isRecord(value)) result[key] = merge(isRecord(result[key]) ? result[key] : {}, value, path, source, winners);
+    if (isRecord(value)) result[key] = merge(isRecord(result[key]) ? result[key] : {}, value, path, source, winners, ancestors);
     else {
       result[key] = structuredClone(value);
       winners[path] = source;
     }
   }
+  ancestors.delete(incoming);
   return result;
 }
 
@@ -59,14 +70,19 @@ function effectiveProvenance(manifest, winners) {
 
 function leafPaths(value) {
   const paths = [];
-  const pending = [{ value, path: '', depth: 0 }];
-  while (pending.length > 0 && paths.length < 4096) {
+  const pending = [{ value, path: '', depth: 0, ancestors: new Set() }];
+  while (pending.length > 0 && paths.length < MAX_PROVENANCE_PATHS) {
     const item = pending.pop();
-    if (item.depth > 16) throw new ContractError('configuration_depth', 'effective configuration exceeds provenance depth');
+    if (item.depth > MAX_PROVENANCE_DEPTH) throw new ContractError('configuration_depth', 'effective configuration exceeds provenance depth');
+    if (item.value && typeof item.value === 'object' && item.ancestors.has(item.value)) {
+      throw new ContractError('configuration_cycle', 'effective configuration must not contain cycles');
+    }
+    const ancestors = new Set(item.ancestors);
+    if (item.value && typeof item.value === 'object') ancestors.add(item.value);
     if (isRecord(item.value)) {
-      for (const [key, child] of Object.entries(item.value)) pending.push({ value: child, path: joinPath(item.path, key), depth: item.depth + 1 });
+      for (const [key, child] of Object.entries(item.value)) pending.push({ value: child, path: joinPath(item.path, key), depth: item.depth + 1, ancestors });
     } else if (Array.isArray(item.value)) {
-      item.value.forEach((child, index) => pending.push({ value: child, path: joinPath(item.path, index), depth: item.depth + 1 }));
+      item.value.forEach((child, index) => pending.push({ value: child, path: joinPath(item.path, index), depth: item.depth + 1, ancestors }));
     } else paths.push(item.path);
   }
   if (pending.length > 0) throw new ContractError('configuration_size', 'effective configuration exceeds provenance bound');
@@ -90,5 +106,7 @@ function winningSource(path, winners) {
 function joinPath(base, key) { return base ? `${base}.${key}` : String(key); }
 
 function isRecord(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (value === null || typeof value !== 'object') return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }

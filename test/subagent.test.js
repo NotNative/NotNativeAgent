@@ -5,7 +5,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { subagentDefinition } from '../src/subagent-tool.js';
-import { subagentConfig, subagentParallelLimit } from '../src/subagent-runtime.js';
+import { subagentConfig, subagentOutputStatus, subagentParallelLimit } from '../src/subagent-runtime.js';
 import { createSubagentProgressRelay } from '../src/subagent-progress.js';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
@@ -74,6 +74,13 @@ test('each devteam specialist receives role-specific engineering standards direc
     assert.match(policy, pattern);
   }
   assert.doesNotMatch(subagentConfig(config, 'general').applicationPolicy, /Power of Ten/u);
+  assert.throws(() => subagentConfig(config, 'manager'), { code: 'subagent_type_invalid' });
+});
+
+test('sub-agent output status treats malformed output as failed', () => {
+  assert.equal(subagentOutputStatus(null), 'failed');
+  assert.equal(subagentOutputStatus('unexpected output'), 'failed');
+  assert.equal(subagentOutputStatus({ outcome: 'completed' }), 'succeeded');
 });
 
 test('subagent concurrency follows the loaded worker model parallel capacity', async () => {
@@ -196,6 +203,17 @@ test('missing advertised parallel capacity preserves sequential subagent executi
     scheduler: { setDiscoveredLimit(_resource, limit) { this.limit = limit; } },
   };
   assert.equal(await subagentParallelLimit(engine, 'subagent', new AbortController().signal), 1);
+});
+
+test('sub-agent capacity discovery rejects missing routes and runtimes explicitly', async () => {
+  const signal = new AbortController().signal;
+  await assert.rejects(() => subagentParallelLimit({
+    router: { resolve: () => null },
+  }, 'subagent', signal), { code: 'subagent_route_missing' });
+  await assert.rejects(() => subagentParallelLimit({
+    router: { resolve: () => ({ profile: { id: 'worker' }, model: 'worker' }) },
+    modelRuntime: { resolve: async () => null },
+  }, 'subagent', signal), { code: 'subagent_runtime_missing' });
 });
 
 test('sub-agent status exposes routing and capacity without leaking profile labels', () => {

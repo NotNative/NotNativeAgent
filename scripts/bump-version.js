@@ -26,11 +26,13 @@ export async function bumpVersion(root, options = {}, io = {}) {
   const version = `${date}-${iteration}`;
   const packageVersion = `${date}.0.${iteration}`;
   const packageJson = JSON.parse(originals[1]);
-  const nextProduct = originals[2].replace(/export const VERSION = '[^']+';/u, `export const VERSION = '${version}';`);
+  const nextProduct = originals[2].replace(/export const VERSION = ['"][^'"]*['"];/u, `export const VERSION = '${version}';`);
   if (nextProduct === originals[2]) throw new Error('runtime VERSION declaration was not found');
   const sbom = JSON.parse(originals[3]);
   if (!Array.isArray(sbom.packages) || !sbom.packages[0]
-    || typeof sbom.packages[0] !== 'object' || Array.isArray(sbom.packages[0])) {
+    || typeof sbom.packages[0] !== 'object' || Array.isArray(sbom.packages[0])
+    || typeof sbom.packages[0].name !== 'string' || typeof sbom.packages[0].SPDXID !== 'string'
+    || typeof sbom.packages[0].versionInfo !== 'string') {
     throw new Error('SBOM must contain a primary package');
   }
   packageJson.version = packageVersion;
@@ -61,21 +63,29 @@ export async function writeSynchronized(entries, write = writeFile) {
       catch (rollbackError) { rollbackFailures.push(rollbackError); }
     }
     if (rollbackFailures.length > 0) {
-      throw new AggregateError([error, ...rollbackFailures], 'version update and rollback failed', { cause: error });
+      const affected = completed.map((entry) => entry.path).join(', ');
+      throw new AggregateError([error, ...rollbackFailures], `version update and rollback failed for: ${affected}`, { cause: error });
     }
     throw error;
   }
 }
 
 export function argumentsFrom(values) {
-  const result = {};
+  const result = {}; const seen = new Set();
   for (let index = 0; index < values.length; index += 1) {
     const option = values[index];
     if (option !== '--date' && option !== '--iteration') throw new Error(`unknown option ${option}`);
+    if (seen.has(option)) throw new Error(`duplicate option ${option}`);
+    seen.add(option);
     if (index + 1 >= values.length || values[index + 1].startsWith('--')) throw new Error(`missing value for ${option}`);
     const value = values[++index];
     if (option === '--date') result.date = value;
-    else result.iteration = Number(value);
+    else {
+      if (!/^\d+$/u.test(value) || !Number.isSafeInteger(Number(value))) {
+        throw new Error('--iteration must be a non-negative safe integer');
+      }
+      result.iteration = Number(value);
+    }
   }
   return result;
 }
@@ -101,4 +111,9 @@ async function main() {
   process.stdout.write('Platform conformance and release hashes intentionally remain stale until rerun.\n');
 }
 
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) await main();
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  main().catch((error) => {
+    process.stderr.write(`version bump failed: ${error?.message ?? 'unknown error'}\n`);
+    process.exitCode = 1;
+  });
+}

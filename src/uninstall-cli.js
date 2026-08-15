@@ -5,6 +5,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ContractError } from './ids.js';
 
+const WINDOWS_ARGUMENTS = new Map([
+  ['--delete-user-data', '-DeleteUserData'],
+  ['--keep-user-data', '-KeepUserData'],
+]);
+
 export async function runUninstallCommand(args, output = process.stdout, platform = process.platform) {
   const forwarded = validateArguments(args, platform);
   const { script, installRoot } = await installedUninstaller(platform);
@@ -14,6 +19,10 @@ export async function runUninstallCommand(args, output = process.stdout, platfor
       ...(installRoot ? ['-InstallRoot', installRoot] : []),
       '-ParentProcessId', String(process.pid), ...forwarded,
     ], { detached: true, stdio: 'ignore', windowsHide: false });
+    await new Promise((resolveLaunch, rejectLaunch) => {
+      child.once('spawn', resolveLaunch);
+      child.once('error', (error) => rejectLaunch(new ContractError('uninstaller_launch_failed', 'PowerShell uninstaller could not be launched', { cause: error })));
+    });
     child.unref();
     output.write('NotNativeAgent uninstaller opened in a separate PowerShell window.\n');
     return 0;
@@ -32,7 +41,7 @@ function validateArguments(args, platform) {
     throw new ContractError('uninstall_option_conflict', 'choose either --delete-user-data or --keep-user-data');
   }
   if (platform === 'win32') {
-    return args.map((value) => value === '--delete-user-data' ? '-DeleteUserData' : '-KeepUserData');
+    return args.map((value) => WINDOWS_ARGUMENTS.get(value));
   }
   return [...args];
 }
@@ -45,8 +54,14 @@ async function installedUninstaller(platform) {
   try {
     await access(installedScript); await access(resolve(installRoot, 'install.json'));
     return { script: installedScript, installRoot };
-  } catch { /* try the source-tree recovery script */ }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw new ContractError('uninstaller_inspection_failed', 'installed uninstaller could not be inspected', { cause: error });
+    // Try the source-tree recovery script when the installed copy is absent.
+  }
   const sourceScript = resolve(sourceDirectory, '..', name);
-  try { await access(sourceScript); return { script: sourceScript, installRoot: null }; } catch { /* report below */ }
+  try { await access(sourceScript); return { script: sourceScript, installRoot: null }; }
+  catch (error) {
+    if (error.code !== 'ENOENT') throw new ContractError('uninstaller_inspection_failed', 'source-tree uninstaller could not be inspected', { cause: error });
+  }
   throw new ContractError('uninstaller_missing', 'the installed uninstaller is missing; rerun the NNA installer to repair it');
 }

@@ -13,6 +13,9 @@ export async function playwrightStatus(root, options = {}) {
   try {
     const manifest = JSON.parse(await readFile(packagePath, 'utf8'));
     if (manifest.name !== 'playwright' || !/^\d+\.\d+\.\d+(?:[-+].+)?$/u.test(manifest.version)) throw new Error('invalid package');
+    if (manifest.version !== MANAGED_PLAYWRIGHT_VERSION) {
+      throw new ContractError('playwright_version_mismatch', 'managed Playwright version does not match this NNA release');
+    }
     const runtime = loadFrom(location, options.require ?? createRequire(import.meta.url));
     const browserPath = runtime.chromium.executablePath();
     if (!isAbsolute(browserPath)) throw new Error('invalid browser path');
@@ -33,6 +36,7 @@ export async function loadManagedPlaywright(root, options = {}) {
 }
 
 function loadFrom(root, require) {
+  // `require` is synchronous, so there is no event-loop yield while the process-global path is changed.
   const prior = process.env.PLAYWRIGHT_BROWSERS_PATH;
   try {
     process.env.PLAYWRIGHT_BROWSERS_PATH = join(root, 'browsers');
@@ -44,19 +48,34 @@ function loadFrom(root, require) {
 }
 async function launchProbe(runtime) {
   const browser = await runtime.chromium.launch({ headless: true });
+  let primaryFailure = null;
   try {
     const page = await browser.newPage();
     await page.goto('data:text/html,<title>NNA browser validation</title>', { waitUntil: 'domcontentloaded', timeout: 10_000 });
     if (await page.title() !== 'NNA browser validation') throw new Error('browser validation failed');
-  } finally { await browser.close(); }
+  } catch (error) {
+    primaryFailure = error;
+    throw error;
+  } finally {
+    try { await browser.close(); }
+    catch (error) {
+      if (!primaryFailure) throw error;
+      primaryFailure.cleanupFailureCode = error?.code ?? 'browser_close_failed';
+    }
+  }
 }
 function normalizeRoot(value) {
-  if (typeof value !== 'string' || !value.trim() || !isAbsolute(value.trim())) {
+  if (typeof value !== 'string') {
     throw new ContractError('playwright_root_invalid', 'managed Playwright root must be absolute');
   }
-  return resolve(value.trim());
+  const trimmed = value.trim();
+  if (!trimmed || !isAbsolute(trimmed)) {
+    throw new ContractError('playwright_root_invalid', 'managed Playwright root must be absolute');
+  }
+  return resolve(trimmed);
 }
 function classify(error) {
   if (error?.code === 'ENOENT' || error?.code === 'MODULE_NOT_FOUND') return 'not_installed';
+  if (error?.code === 'playwright_version_mismatch') return 'version_mismatch';
   return 'validation_failed';
 }

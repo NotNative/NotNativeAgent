@@ -15,8 +15,16 @@ const ROLE_STANDARD = Object.freeze({
   tester: 'Verify applicable bounds, malformed input, cancellation, partial failure, recovery, state ownership, and interface invariants in addition to happy paths.',
   reviewer: 'Independently audit every touched file against the applicable standards and report concrete evidence for each failure or NOT_APPLICABLE disposition.',
 });
+export const SUBAGENT_TYPES = Object.freeze(['general', 'planner', 'coder', 'tester', 'reviewer']);
+const SUPPORTED_SUBAGENT_TYPES = new Set(SUBAGENT_TYPES);
 
 export function subagentConfig(config, type) {
+  if (!SUPPORTED_SUBAGENT_TYPES.has(type)) {
+    throw new ContractError('subagent_type_invalid', `unsupported sub-agent type: ${String(type)}`);
+  }
+  if (!config?.routes?.subagent) {
+    throw new ContractError('subagent_route_missing', 'a sub-agent route is required');
+  }
   const primary = Object.freeze({ ...config.routes.subagent, role: 'primary' });
   const rolePolicy = {
     planner: 'You are the planning stage of a software delivery pipeline. Inspect the repository and write only the requested planning artifacts; do not modify product code or tests.',
@@ -33,6 +41,7 @@ export function subagentConfig(config, type) {
 }
 
 export function subagentOutputStatus(record) {
+  if (!record || typeof record !== 'object') return 'failed';
   if (record?.outcome === 'failed' || record?.type === 'error') return 'failed';
   if (record?.outcome === 'cancelled') return 'cancelled';
   if (record?.outcome === 'denied') return 'denied';
@@ -65,7 +74,19 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
       }, { turnId: parent.turnId, stepId: parent.stepId, outcome: record?.outcome });
     },
   });
-  const cancel = () => child.cancel({ request_id: newId('subagent_cancel'), type: 'cancel' }).catch(() => undefined);
+  let cancellation = null;
+  const reportCleanupFailure = (operation, error) => {
+    engine.telemetry?.record('subagent.cleanup', 'failed', {
+      agent_id: sessionId,
+      agent_type: input.type,
+      operation,
+      error_code: typeof error?.code === 'string' ? error.code : 'subagent_cleanup_failed',
+    }, { turnId: parent.turnId, stepId: parent.stepId, outcome: 'failed' });
+  };
+  const cancel = () => {
+    cancellation ??= child.cancel({ request_id: newId('subagent_cancel'), type: 'cancel' });
+    void cancellation.catch((error) => reportCleanupFailure('cancel', error));
+  };
   signal.addEventListener('abort', cancel, { once: true });
   try {
     await relay.started(input.task);
@@ -78,15 +99,27 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
     throw error;
   } finally {
     signal.removeEventListener('abort', cancel);
-    await child.shutdown({ request_id: newId('subagent_shutdown'), type: 'shutdown' }).catch(() => undefined);
+    if (cancellation) await cancellation.catch(() => undefined);
+    try {
+      await child.shutdown({ request_id: newId('subagent_shutdown'), type: 'shutdown' });
+    } catch (error) {
+      reportCleanupFailure('shutdown', error);
+    }
   }
 }
 
 export async function subagentParallelLimit(engine, group, signal) {
   if (group !== 'subagent') return 1;
   const route = engine.router.resolve('subagent');
+  if (!route?.profile?.id || !route.model) {
+    throw new ContractError('subagent_route_missing', 'a valid sub-agent route is required');
+  }
   const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
-  const capacity = runtime.parallelCapacity ?? 1;
+  if (!runtime || typeof runtime !== 'object') {
+    throw new ContractError('subagent_runtime_missing', 'sub-agent model runtime discovery returned no result');
+  }
+  const capacity = Number.isSafeInteger(runtime.parallelCapacity) && runtime.parallelCapacity > 0
+    ? runtime.parallelCapacity : 1;
   engine.scheduler.setDiscoveredLimit(route.profile.id, capacity);
   engine.telemetry?.record('subagent.capacity', 'succeeded', {
     provider_profile: route.profile.id, model: route.model, capacity,

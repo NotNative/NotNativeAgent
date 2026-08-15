@@ -17,11 +17,12 @@ export class FileChangeLedger {
     const entry = Object.freeze({
       path,
       displayPath: displayPath(this.#root, path),
-      before: prior?.before ?? snapshot(before),
-      after: snapshot(after),
+      before: prior?.before ?? captureContentSnapshot(before),
+      after: captureContentSnapshot(after),
       operations: Object.freeze([...(prior?.operations ?? []), operation].slice(-64)),
       updatedAt: Date.now(),
     });
+    // Delete/reinsert makes the Map's insertion order an LRU order.
     this.#entries.delete(path);
     this.#entries.set(path, entry);
     while (this.#entries.size > MAX_FILES) this.#entries.delete(this.#entries.keys().next().value);
@@ -43,7 +44,7 @@ export class FileChangeLedger {
   }
 }
 
-function snapshot(value) {
+function captureContentSnapshot(value) {
   if (value === null || value === undefined) return Object.freeze({ exists: false, bytes: 0, sha256: null, content: null, binary: false, truncated: false });
   const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value);
   return Object.freeze({
@@ -93,7 +94,13 @@ function displayPath(root, path) {
 }
 
 function matches(entry, requested) {
-  const normalized = requested.replaceAll('\\', '/').toLowerCase();
-  return entry.displayPath.toLowerCase() === normalized || entry.path.replaceAll('\\', '/').toLowerCase() === normalized
-    || entry.displayPath.toLowerCase().endsWith(`/${normalized}`);
+  const normalized = comparablePath(requested);
+  const display = comparablePath(entry.displayPath);
+  const absolute = comparablePath(entry.path);
+  return display === normalized || absolute === normalized || display.endsWith(`/${normalized}`);
+}
+
+function comparablePath(value) {
+  const normalized = String(value).replaceAll('\\', '/');
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
 }

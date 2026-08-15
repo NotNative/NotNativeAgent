@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { measureContext } from './context.js';
 
+// Conservative empirical approximation used only when a provider tokenizer is unavailable.
 const TOKEN_BYTE_RATIO = 3;
+const MESSAGE_OVERHEAD_TOKENS = 8;
+// Reserve 12.5% for output, targeting at least 1K tokens without consuming more
+// than 25% of a small context window or exceeding provider/window constraints.
 const OUTPUT_RESERVE_RATIO = 0.125;
-const MIN_OUTPUT_RESERVE_TOKENS = 1024;
+const TARGET_MIN_OUTPUT_RESERVE_TOKENS = 1024;
 const MAX_OUTPUT_RESERVE_TOKENS = 16_384;
 
 export function contextBudget(config, routes, runtime, retryScale = 1) {
@@ -44,21 +48,23 @@ export function contextBudget(config, routes, runtime, retryScale = 1) {
 }
 
 function adaptiveOutputReserve(windowTokens, declaredOutputLimit) {
-  const proportional = Math.floor(windowTokens * OUTPUT_RESERVE_RATIO);
-  const smallWindowFloor = Math.max(1, Math.floor(windowTokens * 0.25));
-  const floor = Math.min(MIN_OUTPUT_RESERVE_TOKENS, smallWindowFloor);
-  return Math.max(1, Math.min(
-    windowTokens - 1,
-    declaredOutputLimit,
-    MAX_OUTPUT_RESERVE_TOKENS,
-    Math.max(floor, proportional),
-  ));
+  const proportionalReserve = Math.floor(windowTokens * OUTPUT_RESERVE_RATIO);
+  const smallWindowSafetyCap = Math.max(1, Math.floor(windowTokens * 0.25));
+  const constrainedMinimum = Math.min(
+    TARGET_MIN_OUTPUT_RESERVE_TOKENS,
+    smallWindowSafetyCap,
+  );
+  const desiredReserve = Math.max(constrainedMinimum, proportionalReserve);
+  const providerReserveCap = Math.min(declaredOutputLimit, MAX_OUTPUT_RESERVE_TOKENS);
+  const inputPreservingCap = windowTokens - 1;
+  return Math.max(1, Math.min(inputPreservingCap, providerReserveCap, desiredReserve));
 }
 
 export function estimateContextTokens(messages) {
   return messages.reduce((total, item) => {
     const content = typeof item.content === 'string' ? item.content : JSON.stringify(item);
-    return total + Math.ceil(Buffer.byteLength(content, 'utf8') / TOKEN_BYTE_RATIO) + 8;
+    return total + Math.ceil(Buffer.byteLength(content, 'utf8') / TOKEN_BYTE_RATIO)
+      + MESSAGE_OVERHEAD_TOKENS;
   }, 0);
 }
 

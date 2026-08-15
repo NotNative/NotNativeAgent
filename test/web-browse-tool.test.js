@@ -25,7 +25,10 @@ function fakeRuntime(state) {
     route: async (_pattern, handler) => { state.route = handler; }, newPage: async () => page,
     close: async () => { state.contextClosed = true; },
   };
-  return { playwright: { chromium: { launch: async () => ({ newContext: async () => context, close: async () => { state.browserClosed = true; } }) } } };
+  return { playwright: { chromium: { launch: async () => {
+    state.launches = (state.launches ?? 0) + 1;
+    return { newContext: async () => context, close: async () => { state.browserClosed = true; } };
+  } } } };
 }
 
 async function fixture(extra = {}) {
@@ -52,6 +55,16 @@ test('web.browse validates destinations and exposes bounded element references',
   assert.match(state.clicked, /:0$/u);
   await manager.close();
   assert.equal(state.browserClosed, true);
+});
+
+test('concurrent browser operations share one initialization', async () => {
+  const { state, manager } = await fixture();
+  await Promise.all([
+    manager.execute({ action: 'inspect' }, new AbortController().signal),
+    manager.execute({ action: 'inspect' }, new AbortController().signal),
+  ]);
+  assert.equal(state.launches, 1);
+  await manager.close();
 });
 
 test('web.browse identifies the action-specific argument that needs repair', async () => {

@@ -19,9 +19,17 @@ const samples = quick ? 3 : 30;
 const streamEvents = quick ? 2_000 : 100_000;
 const observerEvents = quick ? 256 : 10_000;
 const soakTurns = quick ? 5 : 100;
-const root = await mkdtemp(join(tmpdir(), 'nna-performance-lab-'));
+const FIXTURE_ENDPOINT = 'http://127.0.0.1:9/v1'; // Deliberately unreachable, test-only endpoint.
+const FIXTURE_MODEL = 'fixture';
 
-try {
+await main().catch((error) => {
+  process.stderr.write(`performance lab failed: ${error?.message ?? 'unknown error'}\n`);
+  process.exitCode = 1;
+});
+
+async function main() {
+  const root = await mkdtemp(join(tmpdir(), 'nna-performance-lab-'));
+  try {
   const report = {
     schema_version: 1, product_version: VERSION, measured_at: new Date().toISOString(),
     environment: environment(), parameters: { quick, samples, streamEvents, observerEvents, soakTurns },
@@ -34,14 +42,17 @@ try {
     resource_soak: await benchmarkSoak(root, soakTurns),
   };
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-} finally {
-  await rm(root, { recursive: true, force: true });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 }
 
 function benchmarkHelp(count) {
   return summarize(measure(count, () => {
     const result = spawnSync(process.execPath, ['src/cli.js', '--help'], { encoding: 'utf8' });
-    if (result.status !== 0) throw new Error('help benchmark invocation failed');
+    if (result.status !== 0) {
+      throw new Error(`help benchmark exited with ${result.status}: ${result.stderr?.trim() || 'no diagnostics'}`);
+    }
   }));
 }
 
@@ -49,9 +60,9 @@ async function benchmarkInitialization(workspace, count) {
   const values = [];
   for (let index = 0; index < count; index += 1) {
     const engine = fixtureEngine(workspace, `init-${index}`);
-    const began = performance.now();
+    const startTime = performance.now();
     await engine.initialize();
-    values.push(performance.now() - began);
+    values.push(performance.now() - startTime);
     await engine.shutdown({ version: '1.0', type: 'shutdown', request_id: `stop-${index}` });
   }
   return summarize(values);
@@ -68,14 +79,16 @@ function benchmarkFirstFrame(count) {
 function benchmarkProjection(count) {
   const projection = new TuiProjection(512);
   projection.addSession('benchmark', 'Benchmark', { provider: 'fixture', model: 'fixture' });
-  const began = performance.now();
-  for (let sequence = 0; sequence < count; sequence += 1) {
-    projection.apply('benchmark', { type: 'stream_delta', sequence, text: 'x' });
+  const startTime = performance.now();
+  for (let eventIndex = 0; eventIndex < count; eventIndex += 1) {
+    projection.apply('benchmark', { type: 'stream_delta', sequence: eventIndex, text: 'x' });
   }
-  return { events: count, elapsed_ms: performance.now() - began, retained_records: projection.active().records.length };
+  return { events: count, elapsed_ms: performance.now() - startTime, retained_records: projection.active().records.length };
 }
 
 async function benchmarkObserverQueue(count) {
+  // Dispatches are intentionally sequential: this measures foreground forwarding
+  // latency while the registered observer itself remains detached/non-blocking.
   const hub = new EventHub({ maxBackground: 64 });
   hub.register({
     id: 'lab.slow-observer', category: 'turn', phase: 'active', blocking: false,
@@ -86,9 +99,9 @@ async function benchmarkObserverQueue(count) {
   }, async () => new Promise((resolve) => setTimeout(resolve, 2)));
   const latencies = [];
   for (let sequence = 0; sequence < count; sequence += 1) {
-    const began = performance.now();
+    const startTime = performance.now();
     await hub.dispatch({ category: 'turn', phase: 'active', sequence });
-    latencies.push(performance.now() - began);
+    latencies.push(performance.now() - startTime);
   }
   const beforeDrain = hub.health();
   await hub.close();
@@ -99,9 +112,9 @@ async function benchmarkDetectorAndContext(workspace, isQuick) {
   const sizes = isQuick ? [100, 1_000] : [1_000, 10_000, 100_000];
   const detector = sizes.map((size) => {
     const supervisor = new RecoverySupervisor();
-    const began = performance.now();
+    const startTime = performance.now();
     for (let index = 0; index < size; index += 1) supervisor.observeProgress(`evidence-${index}`);
-    return { inputs: size, elapsed_ms: performance.now() - began, retained: supervisor.exhaustion().progress_fingerprints };
+    return { inputs: size, elapsed_ms: performance.now() - startTime, retained: supervisor.exhaustion().progress_fingerprints };
   });
   const registry = new ToolRegistry(workspace);
   await registry.initialize();
@@ -111,22 +124,25 @@ async function benchmarkDetectorAndContext(workspace, isQuick) {
 
 async function benchmarkSoak(workspace, count) {
   const before = resourceCounts();
-  const began = performance.now();
+  const startTime = performance.now();
   for (let index = 0; index < count; index += 1) {
     const engine = fixtureEngine(workspace, `soak-${index}`);
-    await engine.initialize();
-    await engine.submit({ version: '1.0', type: 'submit', request_id: `turn-${index}`, content: 'respond' }, 'lab');
-    await engine.shutdown({ version: '1.0', type: 'shutdown', request_id: `shutdown-${index}` });
+    try {
+      await engine.initialize();
+      await engine.submit({ version: '1.0', type: 'submit', request_id: `turn-${index}`, content: 'respond' }, 'lab');
+    } finally {
+      await engine.shutdown({ version: '1.0', type: 'shutdown', request_id: `shutdown-${index}` }).catch(() => undefined);
+    }
   }
   await new Promise((resolve) => setImmediate(resolve));
   const after = resourceCounts();
-  return { turns: count, elapsed_ms: performance.now() - began, before, after, delta: resourceDelta(before, after) };
+  return { turns: count, elapsed_ms: performance.now() - startTime, before, after, delta: resourceDelta(before, after) };
 }
 
 function fixtureEngine(workspace, sessionId) {
   const config = resolveManifest({
     persistence: 'ephemeral', workspace_root: workspace,
-    provider: { endpoint: 'http://127.0.0.1:9/v1', model: 'fixture', trust_zone: 'loopback' },
+    provider: { endpoint: FIXTURE_ENDPOINT, model: FIXTURE_MODEL, trust_zone: 'loopback' },
   });
   return new SessionEngine({
     config, sessionId, hookRoot: join(workspace, 'hooks'),
@@ -137,7 +153,9 @@ function fixtureEngine(workspace, sessionId) {
 function measure(count, operation) {
   const values = [];
   for (let index = 0; index < count; index += 1) {
-    const began = performance.now(); operation(); values.push(performance.now() - began);
+    const startTime = performance.now();
+    operation();
+    values.push(performance.now() - startTime);
   }
   return values;
 }

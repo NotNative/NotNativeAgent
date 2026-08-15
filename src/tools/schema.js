@@ -7,62 +7,73 @@ const PROVIDER_GRAMMAR_CONSTRAINTS = new Set([
 ]);
 
 export function providerSchema(value) {
-  if (Array.isArray(value)) return value.map(providerSchema);
+  return projectProviderSchema(value, new WeakSet(), 0, { nodes: 0 });
+}
+
+function projectProviderSchema(value, ancestors, depth, state) {
   if (!value || typeof value !== 'object') return value;
+  state.nodes += 1;
+  if (depth > 24 || state.nodes > 10_000 || ancestors.has(value)) {
+    throw new ContractError('invalid_external_schema', 'external tool schema structure exceeds bound');
+  }
+  ancestors.add(value);
+  if (Array.isArray(value)) {
+    const result = value.map((item) => projectProviderSchema(item, ancestors, depth + 1, state));
+    ancestors.delete(value);
+    return result;
+  }
   const result = {};
   for (const [key, child] of Object.entries(value)) {
     if (PROVIDER_GRAMMAR_CONSTRAINTS.has(key)) continue;
     if (key === 'properties' && child && typeof child === 'object' && !Array.isArray(child)) {
-      result[key] = Object.fromEntries(Object.entries(child).map(([name, rule]) => [name, providerSchema(rule)]));
-    } else result[key] = providerSchema(child);
+      result[key] = Object.fromEntries(Object.entries(child)
+        .map(([name, rule]) => [name, projectProviderSchema(rule, ancestors, depth + 1, state)]));
+    } else result[key] = projectProviderSchema(child, ancestors, depth + 1, state);
   }
+  ancestors.delete(value);
   return result;
 }
 
 export function schemaValidator(schema) {
-  if (!schema || schema.type !== 'object' || (schema.properties && typeof schema.properties !== 'object')) {
-    throw new ContractError('invalid_external_schema', 'external tool input schema must describe an object');
-  }
-  validateSchema(schema);
+  const prepared = prepareObjectSchema(schema);
   return async (args) => {
-    if (!args || typeof args !== 'object' || Array.isArray(args)) {
-      throw new ContractError('tool_schema_invalid', `tool arguments must be an object; received ${valueType(args)}`);
-    }
-    const required = Array.isArray(schema.required) ? schema.required : [];
-    const missing = required.find((key) => !Object.hasOwn(args, key));
-    if (missing) throw new ContractError('tool_schema_invalid', `required argument "${missing}" is missing`);
-    if (schema.additionalProperties === false) {
-      const unknown = Object.keys(args).find((key) => !Object.hasOwn(schema.properties ?? {}, key));
-      if (unknown) throw unknownArgument(unknown, schema.properties);
-    }
-    for (const [key, value] of Object.entries(args)) validateValue(value, schema.properties?.[key], 0, `argument "${key}"`);
+    validateArguments(args, schema, prepared);
     return { args: structuredClone(args), resolved: { source: 'external' } };
   };
 }
 
 export function schemaShapeValidator(schema) {
-  if (!schema || schema.type !== 'object' || (schema.properties && typeof schema.properties !== 'object')) {
-    throw new ContractError('invalid_external_schema', 'tool input schema must describe an object');
-  }
-  const required = Array.isArray(schema.required) ? schema.required : [];
-  const properties = schema.properties ?? {};
+  const prepared = prepareObjectSchema(schema);
   return async (args) => {
-    if (!args || typeof args !== 'object' || Array.isArray(args)) {
-      throw new ContractError('tool_schema_invalid', `tool arguments must be an object; received ${valueType(args)}`);
-    }
-    const missing = required.find((key) => !Object.hasOwn(args, key));
-    if (missing) throw new ContractError('tool_schema_invalid', `required argument "${missing}" is missing`);
-    if (schema.additionalProperties === false) {
-      const unknown = Object.keys(args).find((key) => !Object.hasOwn(properties, key));
-      if (unknown) throw unknownArgument(unknown, properties);
-    }
-    for (const [key, value] of Object.entries(args)) validateValue(value, properties[key], 0, `argument "${key}"`);
+    validateArguments(args, schema, prepared);
   };
 }
 
+function prepareObjectSchema(schema) {
+  if (!schema || schema.type !== 'object' || (schema.properties && typeof schema.properties !== 'object')) {
+    throw new ContractError('invalid_external_schema', 'tool input schema must describe an object');
+  }
+  validateSchema(schema);
+  return { required: Array.isArray(schema.required) ? schema.required : [], properties: schema.properties ?? {} };
+}
+
+function validateArguments(args, schema, prepared) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) {
+    throw new ContractError('tool_schema_invalid', `tool arguments must be an object; received ${valueType(args)}`);
+  }
+  validateInputStructure(args);
+  const missing = prepared.required.find((key) => !Object.hasOwn(args, key));
+  if (missing) throw new ContractError('tool_schema_invalid', `required argument "${missing}" is missing`);
+  if (schema.additionalProperties === false) {
+    const unknown = Object.keys(args).find((key) => !Object.hasOwn(prepared.properties, key));
+    if (unknown) throw unknownArgument(unknown, prepared.properties);
+  }
+  for (const [key, value] of Object.entries(args)) validateValue(value, prepared.properties[key], 0, `argument "${key}"`);
+}
+
 function validateValue(value, rule, depth, path) {
-  if (!rule?.type) return;
   if (depth > 12) throw new ContractError('tool_schema_invalid', `${path} nesting exceeds 12 levels`);
+  if (!rule?.type) return;
   const types = Array.isArray(rule.type) ? rule.type : [rule.type];
   const actual = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
   if (!types.includes(actual) && !(actual === 'number' && types.includes('integer') && Number.isInteger(value))) {
@@ -162,6 +173,21 @@ function valueType(value) {
   return value === null ? 'null' : Array.isArray(value) ? 'an array' : typeof value;
 }
 
+function validateInputStructure(input) {
+  const stack = [{ value: input, depth: 0 }];
+  const visited = new WeakSet();
+  let nodes = 0;
+  while (stack.length > 0) {
+    const { value, depth } = stack.pop();
+    if (!value || typeof value !== 'object' || visited.has(value)) continue;
+    visited.add(value); nodes += 1;
+    if (depth > 12 || nodes > 10_000) {
+      throw new ContractError('tool_schema_invalid', 'tool argument structure exceeds its nesting or node bound');
+    }
+    for (const child of Object.values(value)) stack.push({ value: child, depth: depth + 1 });
+  }
+}
+
 function validateSchema(schema) {
   let encoded;
   try { encoded = JSON.stringify(schema); } catch {
@@ -171,12 +197,20 @@ function validateSchema(schema) {
     throw new ContractError('invalid_external_schema', 'external tool schema exceeds bound');
   }
   const stack = [{ value: schema, depth: 0 }];
+  const visited = new WeakSet();
   let nodes = 0;
   while (stack.length > 0) {
     const { value, depth } = stack.pop();
+    if (value && typeof value === 'object' && visited.has(value)) continue;
+    if (value && typeof value === 'object') visited.add(value);
     nodes += 1;
     if (nodes > 10_000 || depth > 24) throw new ContractError('invalid_external_schema', 'external schema structure exceeds bound');
     if (value && typeof value === 'object') {
+      if (typeof value.pattern === 'string') {
+        try { new RegExp(value.pattern, 'u'); } catch {
+          throw new ContractError('invalid_external_schema', 'external tool schema contains an invalid pattern');
+        }
+      }
       for (const child of Object.values(value)) stack.push({ value: child, depth: depth + 1 });
     }
   }

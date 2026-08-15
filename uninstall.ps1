@@ -22,7 +22,7 @@ if ($DeleteUserData -and $KeepUserData) { throw 'Choose either -DeleteUserData o
 if ([Console]::IsInputRedirected -or -not [Environment]::UserInteractive) {
     throw 'Refusing to uninstall without a directly attached interactive terminal. Run "nna uninstall" yourself and complete its confirmation challenge.'
 }
-$Challenge = Get-Random -Minimum 100000 -Maximum 1000000
+$Challenge = [Security.Cryptography.RandomNumberGenerator]::GetInt32(100000, 1000000)
 Write-Host ''
 Write-Host "This will remove the NotNativeAgent application from '$InstallRoot'."
 Write-Host 'An agent, script, redirected command, or command-line flag cannot approve this action.'
@@ -41,6 +41,11 @@ if (-not $DeleteUserData -and -not $KeepUserData) {
 }
 
 $DataRoot = [IO.Path]::GetFullPath([string]$Marker.data_root)
+$InstallPrefix = $InstallRoot.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+$DataInsideInstall = $DataRoot.Equals($InstallRoot, [StringComparison]::OrdinalIgnoreCase) -or $DataRoot.StartsWith($InstallPrefix, [StringComparison]::OrdinalIgnoreCase)
+if ($DataInsideInstall -and -not $ShouldDeleteUserData) {
+    throw 'Refusing to uninstall because user data is inside the installation directory and cannot be retained safely.'
+}
 if ($ShouldDeleteUserData) {
     $DataMarkerPath = Join-Path $DataRoot '.nna-install.json'
     if (-not (Test-Path -LiteralPath $DataMarkerPath)) { throw 'Refusing full uninstall because the user-data marker is missing.' }
@@ -50,6 +55,14 @@ if ($ShouldDeleteUserData) {
     }
 }
 
+$MutexHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($InstallRoot))).Substring(0, 24)
+$UninstallMutex = [Threading.Mutex]::new($false, "Local\NotNativeAgent-Uninstall-$MutexHash")
+if (-not $UninstallMutex.WaitOne(0)) {
+    $UninstallMutex.Dispose()
+    throw 'Another uninstall is already operating on this NotNativeAgent installation.'
+}
+
+try {
 $BinRoot = Join-Path $InstallRoot 'bin'
 $InstalledCli = Join-Path $InstallRoot 'installed\src\cli.js'
 if (Test-Path -LiteralPath $InstalledCli) {
@@ -71,22 +84,32 @@ if (Test-Path -LiteralPath $GatewayStartup) {
 }
 if (-not $SkipPathUpdate) {
     $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $Entries = @($UserPath -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ine $BinRoot.TrimEnd('\') })
+    # Split only on semicolons outside quoted entries and preserve empty entries verbatim.
+    $Entries = @([regex]::Split([string]$UserPath, ';(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)'))
+    $NormalizedBinRoot = $BinRoot.Trim().Trim('"').TrimEnd('\', '/')
+    $Entries = @($Entries | Where-Object { $_.Trim().Trim('"').TrimEnd('\', '/') -ine $NormalizedBinRoot })
     [Environment]::SetEnvironmentVariable('Path', ($Entries -join ';'), 'User')
 }
 if ($ParentProcessId -gt 0) {
-    try { Wait-Process -Id $ParentProcessId -Timeout 15 -ErrorAction Stop } catch {
-        if (Get-Process -Id $ParentProcessId -ErrorAction SilentlyContinue) {
-            throw 'Refusing to remove the application while the NNA launcher is still running.'
-        }
+    $ParentProcess = Get-Process -Id $ParentProcessId -ErrorAction SilentlyContinue
+    if ($ParentProcess -and -not $ParentProcess.WaitForExit(15000)) {
+        throw 'Refusing to remove the application while the NNA launcher is still running.'
     }
 }
-Remove-Item -LiteralPath $InstallRoot -Recurse -Force
+try { Remove-Item -LiteralPath $InstallRoot -Recurse -Force }
+catch { throw "Failed to remove NotNativeAgent from '$InstallRoot'. Close running NNA processes and, if access was denied, run the uninstaller with sufficient privileges. $($_.Exception.Message)" }
 Write-Output "Removed NotNativeAgent from $InstallRoot"
 
-if ($ShouldDeleteUserData) {
-    Remove-Item -LiteralPath $DataRoot -Recurse -Force
+if ($ShouldDeleteUserData -and -not $DataInsideInstall) {
+    try { Remove-Item -LiteralPath $DataRoot -Recurse -Force }
+    catch { throw "The application was removed, but user data at '$DataRoot' could not be deleted. Remove it manually with sufficient privileges. $($_.Exception.Message)" }
     Write-Output "Deleted NotNativeAgent user data from $DataRoot; this cannot be recovered by the uninstaller."
+} elseif ($ShouldDeleteUserData) {
+    Write-Output "Deleted NotNativeAgent user data with the installation at $DataRoot; this cannot be recovered by the uninstaller."
 } else {
     Write-Output "Retained user data at $($Marker.data_root)"
+}
+} finally {
+    $UninstallMutex.ReleaseMutex()
+    $UninstallMutex.Dispose()
 }

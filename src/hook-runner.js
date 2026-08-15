@@ -30,17 +30,25 @@ function execute(invocation, subscription, bundle, input, parentSignal) {
     });
     const finish = (value) => {
       if (settled) return;
-      settled = true; clearTimeout(timer); parentSignal?.removeEventListener('abort', abort);
+      settled = true; clearTimeout(timeoutId); parentSignal?.removeEventListener('abort', abort);
       resolve(value);
     };
     const abort = () => { child.kill(); finish(result('continue', 'hook_cancelled')); };
-    const timer = setTimeout(() => { child.kill(); finish(result('continue', 'hook_timeout')); }, subscription.timeoutMs);
+    const timeoutId = setTimeout(() => { child.kill(); finish(result('continue', 'hook_timeout')); }, subscription.timeoutMs);
     parentSignal?.addEventListener('abort', abort, { once: true });
-    child.stdout.on('data', (chunk) => { stdout = appendBounded(stdout, chunk); });
-    child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
-    child.on('error', () => finish(result('continue', 'hook_spawn_failed')));
+    child.stdout.on('data', (chunk) => {
+      const appended = appendBounded(stdout, chunk); stdout = appended.value;
+      if (appended.truncated) { child.kill(); finish(result('continue', 'hook_output_too_large')); }
+    });
+    child.stderr.on('data', (chunk) => {
+      const appended = appendBounded(stderr, chunk); stderr = appended.value;
+      if (appended.truncated) { child.kill(); finish(result('continue', 'hook_output_too_large')); }
+    });
+    child.on('error', (error) => finish(result('continue', 'hook_spawn_failed', null, stableErrorCode(error))));
     child.on('close', (code) => finish(interpret(code, stdout.toString('utf8'), stderr.toString('utf8'), subscription)));
-    child.stdin.on('error', () => undefined);
+    child.stdin.on('error', (error) => {
+      child.kill(); finish(result('continue', 'hook_input_failed', null, stableErrorCode(error)));
+    });
     child.stdin.end(input, 'utf8');
   });
 }
@@ -61,26 +69,39 @@ function interpret(code, stdout, stderr, subscription) {
 }
 
 export function parseCommand(value) {
+  if (typeof value !== 'string' || value.includes('\0')) {
+    throw new ContractError('invalid_hook_command', 'hook command contains invalid data');
+  }
   if (FORBIDDEN_SHELL.test(value)) throw new ContractError('unsafe_hook_command', 'shell operators are forbidden in hook commands');
   const tokens = [];
   let current = '';
   let quote = null;
-  for (const character of value.trim()) {
+  const input = value.trim();
+  for (let index = 0; index < input.length; index += 1) {
+    const character = input[index];
+    const next = input[index + 1];
+    if (character === '\\' && next && (next === quote || next === '\\' || (!quote && (/\s/u.test(next) || next === '"' || next === "'")))) {
+      current += next; index += 1; continue;
+    }
     if (quote) {
       if (character === quote) quote = null; else current += character;
     } else if (character === '"' || character === "'") quote = character;
     else if (/\s/u.test(character)) { if (current) { tokens.push(current); current = ''; } }
     else current += character;
   }
-  if (quote || current.includes('\0')) throw new ContractError('invalid_hook_command', 'hook command quoting is invalid');
+  if (quote) throw new ContractError('invalid_hook_command', 'hook command quoting is invalid');
   if (current) tokens.push(current);
   if (tokens.length === 0 || tokens.length > 65) throw new ContractError('invalid_hook_command', 'hook command is empty or excessive');
   return Object.freeze({ command: tokens[0], args: Object.freeze(tokens.slice(1)) });
 }
 
 function appendBounded(existing, chunk) {
-  if (existing.length >= MAX_OUTPUT_BYTES) return existing;
-  return Buffer.concat([existing, Buffer.from(chunk).subarray(0, MAX_OUTPUT_BYTES - existing.length)]);
+  const incoming = Buffer.from(chunk);
+  const remaining = Math.max(0, MAX_OUTPUT_BYTES - existing.length);
+  return {
+    value: remaining === 0 ? existing : Buffer.concat([existing, incoming.subarray(0, remaining)]),
+    truncated: incoming.length > remaining,
+  };
 }
 
 function result(decision, code, additionalContext = null, reason = null) {
@@ -93,6 +114,10 @@ function boundedContext(value) {
 
 function boundedReason(value) {
   return typeof value === 'string' && value.trim() ? value.trim().slice(0, 2048) : null;
+}
+
+function stableErrorCode(error) {
+  return typeof error?.code === 'string' && /^[A-Za-z0-9_.-]{1,64}$/u.test(error.code) ? error.code : null;
 }
 
 function payloadEnvironment(bundle, input) {
