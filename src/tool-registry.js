@@ -82,7 +82,7 @@ export class ToolRegistry {
       managedPlaywrightRoot: this.managedPlaywrightRoot, configPath: this.webFetchConfigPath,
       secretBroker: this.secretBroker, sessionId: this.sessionId }));
     this.#install(toolSearchDefinition(this));
-    this.#install(processRunDefinition(this.paths)); if (!this.hosted) this.#install(shellRunDefinition(this.paths));
+    this.#install(processRunDefinition(this.paths, this.#references)); if (!this.hosted) this.#install(shellRunDefinition(this.paths, this.#references));
     if (!this.hosted && this.elevationBroker) this.#install(elevationDefinition(this.paths, this.elevationBroker));
     this.#install(projectVerifyDefinition(this.paths));
     this.#install(gitInspectionDefinition(this.paths));

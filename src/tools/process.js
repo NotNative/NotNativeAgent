@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { basename } from 'node:path';
 import { ContractError } from '../ids.js';
 
-export function processRunDefinition(paths) {
+export function processRunDefinition(paths, references = null) {
   return {
     name: 'process.run', version: 1,
     purpose: 'Run one bounded installed host program with explicit argv for local or remote tasks. Prefer a direct executable; shell interpreters are optional host software and receive semantic review. Root NNA may target host paths; hosted sessions remain workspace-bounded.',
@@ -15,15 +15,16 @@ export function processRunDefinition(paths) {
         // llama.cpp grammar compilers reject maxLength when nested below array items.
         args: { type: 'array', items: { type: 'string' }, maxItems: 64, description: 'Ordered argument vector without the executable. Defaults to an empty array.' },
         cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the process. Defaults to the agent working directory.' },
+        stdin_ref: { type: 'string', maxLength: 180, description: 'Optional nna_ref_draft identifier whose exact stored text is sent to standard input.' },
         timeout_ms: { type: 'integer', minimum: 100, maximum: 120000, description: 'Process deadline in milliseconds. Defaults to 60000.' },
       }, required: ['executable'], additionalProperties: false,
     },
-    validate: async (args) => validateProcessRequest(paths, args),
-    executor: (request, signal) => runProcess(request.args, signal),
+    validate: async (args) => validateProcessRequest(paths, args, references),
+    executor: (request, signal) => runProcess(request.args, signal, false, references),
   };
 }
 
-export function shellRunDefinition(paths) {
+export function shellRunDefinition(paths, references = null) {
   return {
     name: 'shell.run', version: 1,
     purpose: 'Run a bounded script in the host platform shell. Use this for pipelines, redirection, environment expansion, and multi-command terminal work; use process.run for one exact executable and argv. The complete script is reviewed before execution.',
@@ -33,16 +34,17 @@ export function shellRunDefinition(paths) {
         script: { type: 'string', minLength: 1, maxLength: 32768, description: 'Required complete shell script, including any pipelines, redirection, or multiple commands.' },
         shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'], description: 'Shell interpreter. Defaults to the native platform shell through auto.' },
         cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the script. Defaults to the agent working directory.' },
+        stdin_ref: { type: 'string', maxLength: 180, description: 'Optional nna_ref_draft identifier whose exact stored text is sent to standard input.' },
         timeout_ms: { type: 'integer', minimum: 100, maximum: 3600000, description: 'Script deadline in milliseconds. Defaults to 600000.' },
       }, required: ['script'], additionalProperties: false,
     },
-    validate: async (args) => validateShellRequest(paths, args),
-    executor: (request, signal) => runShell(request.args, signal),
+    validate: async (args) => validateShellRequest(paths, args, references),
+    executor: (request, signal) => runShell(request.args, signal, references),
   };
 }
 
-async function validateShellRequest(paths, input) {
-  const allowed = new Set(['script', 'shell', 'cwd', 'timeout_ms']);
+async function validateShellRequest(paths, input, references) {
+  const allowed = new Set(['script', 'shell', 'cwd', 'timeout_ms', 'stdin_ref']);
   if (!input || typeof input.script !== 'string' || input.script.trim().length < 1
     || input.script.length > 32768 || input.script.includes('\0')
     || Object.keys(input).some((key) => !allowed.has(key))) {
@@ -61,8 +63,9 @@ async function validateShellRequest(paths, input) {
     throw new ContractError('shell_timeout_invalid', 'shell timeout must be 100 to 3600000 milliseconds');
   }
   const invocation = shellInvocation(shell, input.script, process.platform);
+  const stdinRef = validateStdinReference(input.stdin_ref, references);
   return {
-    args: { script: input.script, shell: invocation.shell, cwd: cwd.path, timeout_ms: timeoutMs },
+    args: { script: input.script, shell: invocation.shell, cwd: cwd.path, timeout_ms: timeoutMs, ...(stdinRef ? { stdin_ref: stdinRef } : {}) },
     resolved: {
       path: cwd.path, executable: invocation.executable, shell: invocation.shell, script: input.script,
       reviewComplexity: shellComplexity(input.script), reviewPurpose: shellReviewPurpose(input.script),
@@ -71,9 +74,9 @@ async function validateShellRequest(paths, input) {
   };
 }
 
-function runShell(input, signal) {
+function runShell(input, signal, references) {
   const invocation = shellInvocation(input.shell, input.script);
-  return runProcess({ ...input, executable: invocation.executable, args: invocation.args }, signal, true);
+  return runProcess({ ...input, executable: invocation.executable, args: invocation.args }, signal, true, references);
 }
 
 export function shellInvocation(requested, script, platform = process.platform) {
@@ -96,8 +99,8 @@ function shellReviewPurpose(script) {
     ? 'network_diagnostic' : null;
 }
 
-async function validateProcessRequest(paths, input) {
-  const allowed = new Set(['executable', 'args', 'cwd', 'timeout_ms']);
+async function validateProcessRequest(paths, input, references) {
+  const allowed = new Set(['executable', 'args', 'cwd', 'timeout_ms', 'stdin_ref']);
   if (!input || typeof input.executable !== 'string' || input.executable.length < 1 || input.executable.length > 4096
     || input.executable.includes('\0')
     || Object.keys(input).some((key) => !allowed.has(key))) {
@@ -116,7 +119,8 @@ async function validateProcessRequest(paths, input) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > 120_000) {
     throw new ContractError('process_timeout_invalid', 'process timeout must be 100 to 120000 milliseconds');
   }
-  return { args: { executable: input.executable, args: [...args], cwd: cwd.path, timeout_ms: timeoutMs }, resolved: {
+  const stdinRef = validateStdinReference(input.stdin_ref, references);
+  return { args: { executable: input.executable, args: [...args], cwd: cwd.path, timeout_ms: timeoutMs, ...(stdinRef ? { stdin_ref: stdinRef } : {}) }, resolved: {
     path: cwd.path, executable: input.executable, argv: [...args], shell: false,
     reviewComplexity: processComplexity(executable, args), insideWorkspace: cwd.insideWorkspace,
     reviewPurpose: processReviewPurpose(executable, args), recovery: cwd.recovery,
@@ -148,11 +152,16 @@ function processComplexity(executable, args) {
   return 'simple_argv';
 }
 
-export async function runProcess(input, signal, shellTool = false) {
+export async function runProcess(input, signal, shellTool = false, references = null) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'process was cancelled');
+  const stdin = input.stdin_ref ? references?.resolve(input.stdin_ref, 'draft').value : null;
+  if (input.stdin_ref && typeof stdin !== 'string') throw new ContractError('reference_missing', 'stdin draft reference is unavailable or expired');
   const child = spawn(input.executable, input.args, {
     cwd: input.cwd, shell: false, windowsHide: true, detached: process.platform !== 'win32', env: operationalEnvironment(),
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
+  child.stdin.on('error', () => undefined);
+  child.stdin.end(stdin ?? '');
   const output = collectOutput(child, 1_048_576);
   const abort = () => terminateTree(child);
   signal.addEventListener('abort', abort, { once: true });
@@ -234,4 +243,12 @@ export function operationalEnvironment(environment = process.env) {
 
 function normalizedExecutable(value) {
   return basename(value).toLowerCase().replace(/\.(?:exe|cmd|bat)$/u, '');
+}
+
+function validateStdinReference(value, references) {
+  if (value === undefined) return null;
+  if (typeof value !== 'string') throw new ContractError('process_stdin_ref_invalid', 'stdin_ref must be an nna_ref_draft identifier');
+  if (!references) throw new ContractError('reference_unavailable', 'draft references are unavailable for this process tool');
+  references.resolve(value, 'draft');
+  return value;
 }

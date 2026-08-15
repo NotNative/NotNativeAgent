@@ -61,6 +61,27 @@ test('nonzero process exits preserve diagnostics while reporting failed evidence
   assert.equal(toolProgressEvidence([{ request: normalized, result }]), null);
 });
 
+test('process.run consumes exact draft stdin without filesystem staging', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-process-stdin-ref-'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const store = registry.definition('ref.store');
+  const stored = await store.executor(
+    await store.validate({ kind: 'draft', value: "process.stdout.write('stdin-ref-ok')\n" }),
+    new AbortController().signal,
+  );
+  const stdinRef = JSON.parse(stored.content).reference;
+  const processTool = registry.definition('process.run');
+  const normalized = await processTool.validate({ executable: 'node', args: ['-'], stdin_ref: stdinRef });
+  assert.equal(Object.hasOwn(normalized.args, 'stdin'), false);
+  assert.equal(normalized.args.stdin_ref, stdinRef);
+  const result = await processTool.executor({ args: normalized.args }, new AbortController().signal);
+  assert.equal(JSON.parse(result.content).stdout, 'stdin-ref-ok');
+  await assert.rejects(processTool.validate({ executable: 'node', args: ['-'], stdin_ref: 'nna_ref_draft_missing' }), {
+    code: 'reference_missing',
+  });
+});
+
 test('AC-AUTH-04 process.run seals shells and destructive commands for semantic review instead of hard-blocking them', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-policy-'));
   const registry = new ToolRegistry(root);
