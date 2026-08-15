@@ -26,6 +26,7 @@ import { gitInspectionDefinition } from './tools/git-inspection.js';
 import { prepareLineEdit, prepareTextEdit } from './stale-edit-recovery.js';
 import { providerSchema, schemaShapeValidator, schemaValidator } from './tools/schema.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
+import { ReferenceStore, referenceDefinitions } from './tools/reference-store.js';
 import { CORE_TOOL_NAMES } from './tools/core-names.js';
 import { telegramNotificationDefinition } from './notifications/telegram.js'; import { sessionHistoryDefinitions } from './session-history-tools.js';
 const MAX_TEXT_BYTES = 1_048_576; const ALWAYS_EXPOSED = new Set(CORE_TOOL_NAMES);
@@ -35,6 +36,7 @@ export class ToolRegistry {
   #providerIds = new Set();
   #exposed = new Map();
   #readReceipts = new ReadReceiptLedger();
+  #references = new ReferenceStore();
   #changes;
   constructor(workspaceRoot, options = {}) {
     this.enabled = options.enabled !== false;
@@ -63,7 +65,8 @@ export class ToolRegistry {
     await this.paths.initialize();
     await this.guidance.initialize();
     if (!this.enabled) return;
-    for (const definition of filesystemReadDefinitions(this.paths, this.#readReceipts)) this.#install(definition);
+    for (const definition of referenceDefinitions(this.#references, this.paths)) this.#install(definition);
+    for (const definition of filesystemReadDefinitions(this.paths, this.#readReceipts, this.#references)) this.#install(definition);
     for (const definition of filesystemDiscoveryDefinitions(this.paths)) this.#install(definition);
     this.#install(writeDefinition(this.paths, this.#changes, this.#readReceipts));
     this.#install(editDefinition(this.paths, this.#changes, this.#readReceipts));
@@ -73,8 +76,8 @@ export class ToolRegistry {
     for (const definition of guidanceDefinitions(this.guidance)) this.#install(definition);
     for (const definition of selfDiagnosticsDefinitions(this.diagnosticContext)) this.#install(definition);
     for (const definition of mcpControlDefinitions(this.mcpControl)) this.#install(definition);
-    this.#install(webSearchDefinition({ configPath: this.webSearchConfigPath, client: this.webSearchClient }));
-    this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath }));
+    this.#install(webSearchDefinition({ configPath: this.webSearchConfigPath, client: this.webSearchClient, references: this.#references }));
+    this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath, references: this.#references }));
     if (!this.hosted) this.#install(webBrowseDefinition({ manager: this.browserManager, root: this.browserRoot,
       managedPlaywrightRoot: this.managedPlaywrightRoot, configPath: this.webFetchConfigPath,
       secretBroker: this.secretBroker, sessionId: this.sessionId }));
@@ -121,7 +124,12 @@ export class ToolRegistry {
     }
     const definition = this.#definitions.get(call.name);
     if (!definition) throw new ContractError('unknown_tool', `tool ${call.name} is unavailable`);
-    const normalized = await definition.validate(call.args);
+    const binding = call.name.startsWith('ref.')
+      ? { args: call.args, bindings: [] } : this.#references.bindArguments(call.args);
+    const validated = await definition.validate(binding.args);
+    const normalized = binding.bindings.length === 0 ? validated : {
+      ...validated, resolved: { ...validated.resolved, referenceBindings: binding.bindings },
+    };
     this.#assertReadBeforeMutation(call.name, normalized);
     this.#providerIds.add(call.providerCallId);
     return deepFreeze({

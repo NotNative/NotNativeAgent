@@ -165,6 +165,7 @@ function classify(request, definition) {
   if (definition.sideEffect === 'read_only' && definition.scope === 'tool_catalog' && definition.name === 'tool.search') {
     return Object.freeze({ risk: 'safe', reason: 'bounded_tool_catalog', effect: 'read_only', scope: 'tool_catalog', complexity: 'simple' });
   }
+  if (definition.scope === 'ephemeral_reference' && definition.name.startsWith('ref.')) return ephemeralReferenceClassification(definition);
   if (definition.scope === 'conversation_work' && definition.name.startsWith('work.')) {
     return Object.freeze({ risk: 'safe', reason: 'bounded_conversation_work', effect: definition.sideEffect, scope: 'conversation_work', complexity: 'simple' });
   }
@@ -189,6 +190,10 @@ function classify(request, definition) {
     });
   }
   return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
+}
+
+function ephemeralReferenceClassification(definition) {
+  return Object.freeze({ risk: 'safe', reason: 'bounded_ephemeral_reference', effect: definition.sideEffect, scope: 'ephemeral_reference', complexity: 'simple' });
 }
 
 function requireOneShotConfirmation(decision, definition, request) {

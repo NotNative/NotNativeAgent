@@ -6,8 +6,8 @@ import { ContractError, newId } from '../ids.js';
 
 const MAX_TEXT_BYTES = 1_048_576;
 
-export function filesystemReadDefinitions(paths, receipts) {
-  return [listDefinition(paths), readDefinition(paths, receipts), readLinesDefinition(paths, receipts)];
+export function filesystemReadDefinitions(paths, receipts, references = null) {
+  return [listDefinition(paths), readDefinition(paths, receipts, references), readLinesDefinition(paths, receipts, references)];
 }
 
 export class ReadReceiptLedger {
@@ -78,7 +78,7 @@ function receiptRequired() {
 
 function snapshotBytes(value) { return typeof value === 'string' ? Buffer.byteLength(value, 'utf8') : 0; }
 
-function readDefinition(paths, receipts) {
+function readDefinition(paths, receipts, references) {
   return {
     name: 'fs.read_text', version: 1, purpose: 'Read bounded UTF-8 text from one accessible file. Relative paths start at the working directory; root NNA may use absolute host paths.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
@@ -96,18 +96,19 @@ function readDefinition(paths, receipts) {
       const content = await readFile(request.resolved.path, 'utf8');
       const digest = sha256(content);
       const receipt = receipts.record(request.resolved.path, digest, { full: true }, content);
+      const refs = observedFileReferences(references, request.resolved.path, receipt, { full: true });
       return {
         content,
         metadata: {
           bytes: Buffer.byteLength(content), path: request.args.path,
-          sha256: digest, snapshot_id: `sha256:${digest}`, read_receipt: receipt.id,
+          sha256: digest, snapshot_id: `sha256:${digest}`, read_receipt: receipt.id, ...refs,
         },
       };
     },
   };
 }
 
-function readLinesDefinition(paths, receipts) {
+function readLinesDefinition(paths, receipts, references) {
   return {
     name: 'fs.read_lines', version: 1,
     purpose: 'Read a bounded numbered line window with an exact snapshot tag for anchored edits.',
@@ -141,15 +142,25 @@ function readLinesDefinition(paths, receipts) {
       const end = Math.min(lines.length, start + request.args.line_count - 1);
       const shown = lines.slice(start - 1, end).map((line, index) => `${start + index}: ${line}`).join('\n');
       const receipt = receipts.record(request.resolved.path, digest, { start, end, full: start === 1 && end === lines.length }, content);
+      const refs = observedFileReferences(references, request.resolved.path, receipt, { start, end });
       return {
         content: `snapshot sha256:${digest} lines ${start}-${end} of ${lines.length}\n${shown}`,
         metadata: {
           path: request.args.path, sha256: digest, snapshot_id: `sha256:${digest}`,
-          read_receipt: receipt.id, start_line: start, end_line: end, total_lines: lines.length,
+          read_receipt: receipt.id, start_line: start, end_line: end, total_lines: lines.length, ...refs,
         },
       };
     },
   };
+}
+
+function observedFileReferences(references, path, receipt, coverage) {
+  if (!references) return {};
+  const pathRef = references.remember('path', path, 'filesystem_observation');
+  const snapshotRef = references.remember('snapshot', {
+    path_ref: pathRef.id, sha256: receipt.digest, read_receipt: receipt.id, coverage,
+  }, 'filesystem_observation');
+  return { path_ref: pathRef.id, snapshot_ref: snapshotRef.id };
 }
 
 function listDefinition(paths) {

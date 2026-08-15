@@ -23,7 +23,11 @@ export function webSearchDefinition(options) {
     validate: async (args) => validate(args, options.configPath),
     executor: async (request, signal) => {
       const result = await client.search(request.resolved.endpoint, request.args, signal);
-      return { content: JSON.stringify(result), metadata: { endpoint: result.endpoint, result_count: result.results.length } };
+      const results = result.results.map((item) => ({
+        ...item,
+        ...(options.references ? { url_ref: options.references.remember('url', item.url, 'web_search').id } : {}),
+      }));
+      return { content: JSON.stringify({ ...result, results }), metadata: { endpoint: result.endpoint, result_count: results.length } };
     },
   };
 }

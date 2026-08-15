@@ -29,7 +29,11 @@ export function webFetchDefinition(options = {}) {
     },
     executor: async (request, signal) => {
       const result = await client.fetchText(request.args.url, signal);
-      return { content: result.text, metadata: { finalUrl: result.url, status: result.status, contentType: result.contentType, bytes: result.bytes } };
+      const urlRef = options.references?.remember('url', result.url, 'web_fetch');
+      return { content: result.text, metadata: {
+        finalUrl: result.url, status: result.status, contentType: result.contentType, bytes: result.bytes,
+        ...(urlRef ? { url_ref: urlRef.id } : {}),
+      } };
     },
   };
 }
