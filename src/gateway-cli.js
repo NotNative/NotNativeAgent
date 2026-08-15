@@ -56,10 +56,18 @@ async function runForeground(config, paths, options) {
       ...options.engineOptions,
     },
   });
-  const stop = () => gateway.shutdown().catch(() => undefined);
+  const stop = () => gateway.shutdown().catch((error) => {
+    process.exitCode = 1; process.stderr.write(gatewayShutdownDiagnostic(error));
+  });
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   try { return await gateway.run(); }
   finally { await unlink(pidPath(paths)).catch(() => undefined); }
+}
+
+export function gatewayShutdownDiagnostic(error) {
+  const value = typeof error?.code === 'string' ? error.code : 'gateway_shutdown_failed';
+  const code = value.trim().replace(/[^A-Za-z0-9_.:@/-]+/gu, '_').slice(0, 96);
+  return `nna gateway: ${/^[A-Za-z0-9]/u.test(code) ? code : 'gateway_shutdown_failed'}\n`;
 }
 
 async function startDetached(config, paths, options) {

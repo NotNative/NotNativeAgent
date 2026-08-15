@@ -10,8 +10,10 @@ export async function launchTuiUpdateCheck(projection, options, onChange) {
   const child = spawn(process.execPath, ['--disable-warning=ExperimentalWarning', fileURLToPath(new URL('../update-check-worker.js', import.meta.url))], {
     detached: false, windowsHide: true, stdio: 'ignore', env: process.env,
   });
-  child.once('error', () => undefined);
-  child.once('exit', () => { projectCachedStatus(projection, options.updateState, onChange).catch(() => undefined); });
+  child.once('error', () => undefined); // Optional discovery remains absent on worker launch failure.
+  child.once('exit', () => { // Cached status remains authoritative if refresh projection fails.
+    projectCachedStatus(projection, options.updateState, onChange).catch(() => undefined);
+  });
   child.unref();
   return true;
 }

@@ -21,6 +21,7 @@ export async function createTuiWorkspace(options, output, onChange) {
       ? ((path, maxBytes) => systemClipboard.readContent(path, maxBytes)) : undefined),
     clipboardClose: options.clipboardClose ?? (() => systemClipboard.close?.()),
   });
+  // Update discovery is optional and never affects Console readiness.
   launchTuiUpdateCheck(workspace.projection, options, onChange).catch(() => undefined);
   return { logger, workspace };
 }

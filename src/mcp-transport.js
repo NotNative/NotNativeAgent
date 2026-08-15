@@ -102,6 +102,7 @@ export class StdioMcpTransport {
     }
     const pending = this.#pending.get(value.id);
     if (!pending && typeof value.method === 'string') {
+      // The notification owner records capability-refresh failure; transport stays isolated.
       Promise.resolve(this.notificationHandler?.(value)).catch(() => undefined);
       return;
     }

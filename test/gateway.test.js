@@ -14,7 +14,13 @@ import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-br
 import { readTelegramOutbox, TelegramNotificationQueue } from '../src/notifications/telegram.js';
 import { commandDefinition } from '../src/tui/commands.js';
 import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui/overlays.js';
-import { runGatewayCommand } from '../src/gateway-cli.js';
+import { gatewayShutdownDiagnostic, runGatewayCommand } from '../src/gateway-cli.js';
+
+test('gateway shutdown diagnostics expose only a stable code', () => {
+  const diagnostic = gatewayShutdownDiagnostic({ code: 'close failed', message: 'private token detail' });
+  assert.equal(diagnostic, 'nna gateway: close_failed\n');
+  assert.doesNotMatch(diagnostic, /private|token/u);
+});
 
 test('gateway config is absent-safe, bounded, durable, and redacted', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-gateway-'));
