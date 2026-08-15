@@ -35,14 +35,14 @@ export class ReadReceiptLedger {
 
   require(path, digest, coverage = {}) {
     const receipt = this.#receipts.get(path);
-    const rangeCovered = coverage.start === undefined || receipt?.full === true
-      || receipt?.ranges.some(([start, end]) => start <= coverage.start && end >= coverage.end);
-    if (!receipt || receipt.digest !== digest || (coverage.full === true && !receipt.full) || !rangeCovered) {
-      throw new ContractError(
-        'read_receipt_required',
-        'read the current file with fs.read_text before changing, moving, copying, or deleting it',
-      );
-    }
+    this.#requireCoverage(receipt, coverage);
+    if (receipt.digest !== digest) throw receiptRequired();
+    return receipt;
+  }
+
+  latest(path, coverage = {}) {
+    const receipt = this.#receipts.get(path);
+    this.#requireCoverage(receipt, coverage);
     return receipt;
   }
 
@@ -61,6 +61,19 @@ export class ReadReceiptLedger {
     this.#snapshotBytes -= snapshotBytes(receipt?.snapshot);
     this.#receipts.delete(key);
   }
+
+  #requireCoverage(receipt, coverage) {
+    const rangeCovered = coverage.start === undefined || receipt?.full === true
+      || receipt?.ranges.some(([start, end]) => start <= coverage.start && end >= coverage.end);
+    if (!receipt || (coverage.full === true && !receipt.full) || !rangeCovered) throw receiptRequired();
+  }
+}
+
+function receiptRequired() {
+  return new ContractError(
+    'read_receipt_required',
+    'read the current file with fs.read_text before changing, moving, copying, or deleting it',
+  );
 }
 
 function snapshotBytes(value) { return typeof value === 'string' ? Buffer.byteLength(value, 'utf8') : 0; }

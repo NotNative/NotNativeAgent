@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -101,7 +100,7 @@ test('file change ledger renders conversation-local changes for /diff', async ()
   await read.executor(readRequest, new AbortController().signal);
   const write = registry.definition('fs.write_text');
   const writeRequest = await write.validate({
-    path: 'note.txt', content: 'one\nthree\n', expected_sha256: createHash('sha256').update(before).digest('hex'),
+    path: 'note.txt', content: 'one\nthree\n',
   });
   await write.executor({ ...writeRequest, toolName: 'fs.write_text' }, new AbortController().signal);
 

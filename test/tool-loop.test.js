@@ -277,9 +277,8 @@ test('Unattended posture converts semantic escalation to guidance without openin
   const root = await mkdtemp(join(tmpdir(), 'nna-unattended-posture-'));
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
-  const expected = createHash('sha256').update('before').digest('hex');
   const provider = new TwoStepProvider({
-    name: 'fs.write_text', args: { path: 'target.txt', content: 'after', expected_sha256: expected },
+    name: 'fs.write_text', args: { path: 'target.txt', content: 'after' },
   });
   const outputs = [];
   const semanticReviewer = { async review() {
@@ -385,14 +384,13 @@ test('AC-TOOL-01 unknown tool never reaches review or execution', async () => {
   assert.match(terminal.failure_reason, /unavailable/u);
 });
 
-test('AC-AUTH-03 semantic approval permits exact expected-hash write', async () => {
+test('AC-AUTH-03 semantic approval permits a receipt-bound write', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-write-'));
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
-  const expected = createHash('sha256').update('before').digest('hex');
   const provider = new TwoStepProvider({
     name: 'fs.write_text',
-    args: { path: 'target.txt', content: 'after', expected_sha256: expected },
+    args: { path: 'target.txt', content: 'after' },
   });
   const semanticReviewer = { async review() {
     return { outcome: 'approve', confidence: 0.99, reason_code: 'intent_match' };
@@ -415,10 +413,9 @@ test('AC-REV-05/AC-TOOL-04 semantic timeout denies write and leaves file unchang
   const root = await mkdtemp(join(tmpdir(), 'nna-deny-'));
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
-  const expected = createHash('sha256').update('before').digest('hex');
   const provider = new TwoStepProvider({
     name: 'fs.write_text',
-    args: { path: 'target.txt', content: 'after', expected_sha256: expected },
+    args: { path: 'target.txt', content: 'after' },
   });
   const semanticReviewer = { async review() { return new Promise(() => {}); } };
   const engine = new SessionEngine({
@@ -438,9 +435,8 @@ test('AC-STATE-04 cancellation interrupts semantic review and cannot begin an ap
   const root = await mkdtemp(join(tmpdir(), 'nna-review-cancel-'));
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
-  const expected = createHash('sha256').update('before').digest('hex');
   const provider = new TwoStepProvider({
-    name: 'fs.write_text', args: { path: 'target.txt', content: 'after', expected_sha256: expected },
+    name: 'fs.write_text', args: { path: 'target.txt', content: 'after' },
   });
   let reviewStarted;
   const started = new Promise((resolve) => { reviewStarted = resolve; });
@@ -466,14 +462,13 @@ test('AC-TOOL-03 execution-boundary drift blocks an approved write', async () =>
   const root = await mkdtemp(join(tmpdir(), 'nna-drift-'));
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
-  const expected = createHash('sha256').update('before').digest('hex');
   const events = new EventHub();
   events.register(declaredSubscription({
     id: 'test.drift', category: 'permission', phase: 'pre', blocking: true,
     priority: 0, timeoutMs: 1000, failurePolicy: 'deny',
   }), async () => { await writeFile(path, 'external-change', 'utf8'); return { decision: 'continue' }; });
   const provider = new TwoStepProvider({
-    name: 'fs.write_text', args: { path: 'target.txt', content: 'after', expected_sha256: expected },
+    name: 'fs.write_text', args: { path: 'target.txt', content: 'after' },
   });
   const semanticReviewer = { async review() {
     return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
@@ -521,7 +516,7 @@ test('AC-SEC-03 hostile tool output remains untrusted and cannot authorize a lat
     step += 1;
     if (step === 1) { yield* toolFragments('read-injection', 'fs.read_text', { path: 'note.txt' }); return; }
     if (step === 2) {
-      yield* toolFragments('write-injection', 'fs.write_text', { path: 'hacked.txt', content: 'owned', expected_sha256: null });
+      yield* toolFragments('write-injection', 'fs.write_text', { path: 'hacked.txt', content: 'owned' });
       return;
     }
     yield { type: 'text', text: 'The injected mutation was denied.' };
@@ -545,9 +540,8 @@ test('AC-REV-05 permissive semantic reviewer cannot invent mutation authority', 
   const root = await mkdtemp(join(tmpdir(), 'nna-authority-'));
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
-  const expected = createHash('sha256').update('before').digest('hex');
   const provider = new TwoStepProvider({
-    name: 'fs.write_text', args: { path: 'target.txt', content: 'after', expected_sha256: expected },
+    name: 'fs.write_text', args: { path: 'target.txt', content: 'after' },
   });
   let reviewerCalls = 0;
   const semanticReviewer = { async review() {
@@ -570,6 +564,8 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   const root = await mkdtemp(join(tmpdir(), 'nna-registry-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
+  const providerWrite = registry.providerDefinitions().find((item) => item.function.name === 'fs.write_text');
+  assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
     'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.search_text', 'fs.write_text', 'git.inspect',
@@ -584,10 +580,7 @@ test('existing-file mutation requires a receipt for the exact read snapshot', as
   await writeFile(join(root, 'target.txt'), before, 'utf8');
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const args = {
-    path: 'target.txt', content: 'after',
-    expected_sha256: createHash('sha256').update(before).digest('hex'),
-  };
+  const args = { path: 'target.txt', content: 'after' };
   const context = {
     policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
     stepId: 'step', caller: 'primary', surface: 'test',
@@ -596,10 +589,18 @@ test('existing-file mutation requires a receipt for the exact read snapshot', as
     registry.seal({ providerCallId: 'write-before-read', name: 'fs.write_text', args }, context),
     { code: 'read_receipt_required' },
   );
+  await assert.rejects(
+    registry.seal({
+      providerCallId: 'write-model-hash', name: 'fs.write_text',
+      args: { ...args, expected_sha256: createHash('sha256').update(before).digest('hex') },
+    }, context),
+    { code: 'tool_schema_invalid' },
+  );
   const read = registry.definition('fs.read_text');
   await read.executor(await read.validate({ path: 'target.txt' }), new AbortController().signal);
   const sealed = await registry.seal({ providerCallId: 'write-after-read', name: 'fs.write_text', args }, context);
-  assert.equal(sealed.args.expected_sha256, args.expected_sha256);
+  assert.equal(sealed.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
+  assert.match(sealed.resolved.readReceiptId, /^read_receipt_/u);
 });
 
 test('numbered reads authorize anchored edits only inside the displayed snapshot window', async () => {
@@ -618,10 +619,9 @@ test('numbered reads authorize anchored edits only inside the displayed snapshot
     policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
     stepId: 'step', caller: 'primary', surface: 'test',
   };
-  const digest = createHash('sha256').update(before).digest('hex');
   const edit = await registry.seal({
     providerCallId: 'anchored-visible', name: 'fs.edit_lines',
-    args: { path: 'target.txt', start_line: 2, end_line: 3, replacement: 'TWO\nTHREE', expected_sha256: digest },
+    args: { path: 'target.txt', start_line: 2, end_line: 3, replacement: 'TWO\nTHREE' },
   }, context);
   await registry.definition('fs.edit_lines').executor(edit, new AbortController().signal);
   assert.equal(await readFile(join(root, 'target.txt'), 'utf8'), 'one\nTWO\nTHREE\nfour\n');
@@ -629,7 +629,7 @@ test('numbered reads authorize anchored edits only inside the displayed snapshot
   await writeFile(join(root, 'target.txt'), before, 'utf8');
   await assert.rejects(registry.seal({
     providerCallId: 'anchored-unseen', name: 'fs.edit_lines',
-    args: { path: 'target.txt', start_line: 4, end_line: 4, replacement: 'FOUR', expected_sha256: digest },
+    args: { path: 'target.txt', start_line: 4, end_line: 4, replacement: 'FOUR' },
   }, context), { code: 'read_receipt_required' });
 });
 
@@ -645,7 +645,7 @@ test('anchored line edits recover across an unrelated unambiguous line shift', a
   const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
   const sealed = await registry.seal({
     providerCallId: 'shifted-lines', name: 'fs.edit_lines',
-    args: { path: 'target.txt', start_line: 2, end_line: 3, replacement: 'changed one\nchanged two', expected_sha256: createHash('sha256').update(before).digest('hex') },
+    args: { path: 'target.txt', start_line: 2, end_line: 3, replacement: 'changed one\nchanged two' },
   }, context);
   assert.deepEqual([sealed.args.start_line, sealed.args.end_line], [3, 4]);
   assert.notEqual(sealed.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
@@ -665,7 +665,7 @@ test('stale line recovery rejects an ambiguous live mapping', async () => {
   const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
   await assert.rejects(registry.seal({
     providerCallId: 'ambiguous-lines', name: 'fs.edit_lines',
-    args: { path: 'target.txt', start_line: 2, end_line: 2, replacement: 'changed', expected_sha256: createHash('sha256').update(before).digest('hex') },
+    args: { path: 'target.txt', start_line: 2, end_line: 2, replacement: 'changed' },
   }, context), { code: 'tool_revalidation_drift' });
 });
 
@@ -681,7 +681,7 @@ test('exact text edits preserve unrelated external changes when the old target r
   const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
   const sealed = await registry.seal({
     providerCallId: 'shifted-text', name: 'fs.edit_text',
-    args: { path: 'target.txt', old_text: 'old target', new_text: 'new target', expected_sha256: createHash('sha256').update(before).digest('hex') },
+    args: { path: 'target.txt', old_text: 'old target', new_text: 'new target' },
   }, context);
   await registry.definition('fs.edit_text').executor(sealed, new AbortController().signal);
   assert.equal(await readFile(path, 'utf8'), 'header\nnew target\nfooter\nexternal tail\n');
@@ -741,7 +741,6 @@ test('exact text edit changes only the uniquely matched text', async () => {
     name: 'fs.edit_text',
     args: {
       path: 'target.txt', old_text: 'old value', new_text: 'new value',
-      expected_sha256: createHash('sha256').update(before).digest('hex'),
     },
   });
   const semanticReviewer = { async review() {
@@ -764,7 +763,6 @@ test('ambiguous exact edit is rejected before semantic review', async () => {
     name: 'fs.edit_text',
     args: {
       path: 'target.txt', old_text: 'repeat', new_text: 'changed',
-      expected_sha256: createHash('sha256').update(before).digest('hex'),
     },
   });
   const semanticReviewer = { async review() { reviewerCalls += 1; return { outcome: 'approve' }; } };
@@ -777,14 +775,14 @@ test('ambiguous exact edit is rejected before semantic review', async () => {
   assert.equal(engine.transcript.find((item) => item.type === 'tool_result').reasonCode, 'edit_match_ambiguous');
 });
 
-test('permanent file deletion requires semantic approval and exact content hash', async () => {
+test('permanent file deletion requires semantic approval and a bound read receipt', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-delete-'));
   const path = join(root, 'obsolete.txt');
   const content = 'remove me';
   await writeFile(path, content, 'utf8');
   const provider = new TwoStepProvider({
     name: 'fs.delete_file',
-    args: { path: 'obsolete.txt', expected_sha256: createHash('sha256').update(content).digest('hex') },
+    args: { path: 'obsolete.txt' },
   });
   let reviewerCalls = 0;
   const semanticReviewer = { async review() {

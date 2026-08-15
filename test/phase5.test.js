@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -57,11 +56,10 @@ test('AC-TUI-03/AC-REV-04/AC-TOOL-04 authenticated allow-once settles escalation
   const root = await mkdtemp(join(tmpdir(), 'nna-interactive-review-'));
   const path = join(root, 'target.txt');
   await writeFile(path, 'before');
-  const expected = createHash('sha256').update('before').digest('hex');
   let step = 0;
   const provider = { async *stream() {
     step += 1;
-    if (step === 1) { yield* toolFragments('fs.write_text', { path: 'target.txt', content: 'after', expected_sha256: expected }); return; }
+    if (step === 1) { yield* toolFragments('fs.write_text', { path: 'target.txt', content: 'after' }); return; }
     yield { type: 'text', text: 'changed' }; yield { type: 'terminal' };
   } };
   const semanticReviewer = { async review() {
@@ -104,7 +102,7 @@ test('AC-HEAD-10 host business policy remains usable but cannot bypass mandatory
   const provider = { async *stream(request) {
     requests.push(request); step += 1;
     if (step === 1) {
-      yield* toolFragments('fs.write_text', { path: 'unauthorized.txt', content: 'changed', expected_sha256: null });
+      yield* toolFragments('fs.write_text', { path: 'unauthorized.txt', content: 'changed' });
       return;
     }
     yield { type: 'text', text: 'Business response completed without the denied mutation.' };

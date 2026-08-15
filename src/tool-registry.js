@@ -65,11 +65,11 @@ export class ToolRegistry {
     if (!this.enabled) return;
     for (const definition of filesystemReadDefinitions(this.paths, this.#readReceipts)) this.#install(definition);
     for (const definition of filesystemDiscoveryDefinitions(this.paths)) this.#install(definition);
-    this.#install(writeDefinition(this.paths, this.#changes));
+    this.#install(writeDefinition(this.paths, this.#changes, this.#readReceipts));
     this.#install(editDefinition(this.paths, this.#changes, this.#readReceipts));
     this.#install(editLinesDefinition(this.paths, this.#changes, this.#readReceipts));
-    this.#install(deleteDefinition(this.paths, this.#changes));
-    for (const definition of filesystemExtraDefinitions(this.paths, this.#changes)) this.#install(definition);
+    this.#install(deleteDefinition(this.paths, this.#changes, this.#readReceipts));
+    for (const definition of filesystemExtraDefinitions(this.paths, this.#changes, this.#readReceipts)) this.#install(definition);
     for (const definition of guidanceDefinitions(this.guidance)) this.#install(definition);
     for (const definition of selfDiagnosticsDefinitions(this.diagnosticContext)) this.#install(definition);
     for (const definition of mcpControlDefinitions(this.mcpControl)) this.#install(definition);
@@ -184,26 +184,25 @@ export class ToolRegistry {
     return true;
   }
 }
-function writeDefinition(paths, changes) {
+function writeDefinition(paths, changes, receipts) {
   return {
     name: 'fs.write_text', version: 1, purpose: 'Atomically write bounded UTF-8 text to one accessible file after reading existing content.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required destination file path.' },
       content: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required complete UTF-8 content to write.' },
-      expected_sha256: { type: ['string', 'null'], pattern: '^[0-9a-f]{64}$', description: 'SHA-256 from the latest fs.read_text result when overwriting; omit or use null only for a new file.' },
     }, ['path', 'content']),
     validate: async (args) => {
-      requireShape(args, ['path', 'content'], ['expected_sha256']);
+      requireShape(args, ['path', 'content']);
       if (Buffer.byteLength(args.content, 'utf8') > MAX_TEXT_BYTES) {
         throw new ContractError('tool_arguments_too_large', 'write content exceeds bound');
       }
       const resolved = await paths.withRecovery(await paths.resolveWrite(args.path));
-      const expected = args.expected_sha256 ?? null;
-      if (resolved.exists && !/^[0-9a-f]{64}$/u.test(expected ?? '')) {
-        throw new ContractError('expected_hash_required', 'existing file write requires expected_sha256');
-      }
-      return { args: { path: args.path, content: args.content, expected_sha256: expected }, resolved };
+      const receipt = resolved.exists ? receipts.latest(resolved.path, { full: true }) : null;
+      return {
+        args: { path: args.path, content: args.content, expected_sha256: receipt?.digest ?? null },
+        resolved: { ...resolved, readReceiptId: receipt?.id ?? null },
+      };
     },
     executor: (request, signal) => atomicWrite(request, signal, {}, changes),
   };
@@ -218,8 +217,7 @@ function editDefinition(paths, changes, receipts) {
       old_text: { type: 'string', minLength: 1, maxLength: MAX_TEXT_BYTES, description: 'Required exact text previously observed in the file.' },
       new_text: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required replacement text; use an empty string to remove old_text.' },
       replace_all: { type: 'boolean', description: 'Replace every exact occurrence. Defaults to false and requires old_text to be unique.' },
-      expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Required SHA-256 snapshot from fs.read_text or fs.read_lines.' },
-    }, ['path', 'old_text', 'new_text', 'expected_sha256']),
+    }, ['path', 'old_text', 'new_text']),
     validate: async (args) => validateEdit(paths, args, receipts),
     executor: (request, signal) => executeEdit(request, signal, changes),
   };
@@ -235,11 +233,9 @@ function editLinesDefinition(paths, changes, receipts) {
       start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required first one-based line in the inclusive replacement range.' },
       end_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required last one-based line in the inclusive replacement range.' },
       replacement: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required replacement text; use an empty string to remove the selected lines.' },
-      expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Required SHA-256 snapshot returned by fs.read_lines.' },
-    }, ['path', 'start_line', 'end_line', 'replacement', 'expected_sha256']),
+    }, ['path', 'start_line', 'end_line', 'replacement']),
     validate: async (args) => {
-      requireShape(args, ['path', 'start_line', 'end_line', 'replacement', 'expected_sha256']);
-      requireHash(args.expected_sha256);
+      requireShape(args, ['path', 'start_line', 'end_line', 'replacement']);
       if (!Number.isSafeInteger(args.start_line) || !Number.isSafeInteger(args.end_line)
         || args.start_line < 1 || args.end_line < args.start_line || args.end_line - args.start_line >= 400) {
         throw new ContractError('tool_schema_invalid', 'line range must be ordered, positive, and at most 400 lines');
@@ -248,15 +244,17 @@ function editLinesDefinition(paths, changes, receipts) {
         throw new ContractError('tool_arguments_too_large', 'replacement exceeds the text bound');
       }
       const resolved = await paths.withRecovery(await paths.resolveRead(args.path));
+      const receipt = receipts.latest(resolved.path, { start: args.start_line, end: args.end_line });
       const content = await readFile(resolved.path, 'utf8');
       const actual = sha256(content);
-      const prepared = prepareLineEdit(receipts, resolved.path, args, content, actual);
+      const boundArgs = { ...args, expected_sha256: receipt.digest };
+      const prepared = prepareLineEdit(receipts, resolved.path, boundArgs, content, actual);
       if (prepared.endLine > logicalLines(content).length) {
         throw new ContractError('edit_line_out_of_range', 'line range exceeds the file snapshot');
       }
       return {
-        args: { ...args, start_line: prepared.startLine, end_line: prepared.endLine, expected_sha256: prepared.expectedSha256 },
-        resolved: { ...resolved, staleEditRecovered: prepared.recovered, requestedExpectedSha256: args.expected_sha256 },
+        args: { ...boundArgs, start_line: prepared.startLine, end_line: prepared.endLine, expected_sha256: prepared.expectedSha256 },
+        resolved: { ...resolved, staleEditRecovered: prepared.recovered, readReceiptId: receipt.id, readReceiptSha256: receipt.digest },
       };
     },
     executor: async (request, signal) => {
@@ -275,17 +273,18 @@ function editLinesDefinition(paths, changes, receipts) {
 }
 
 async function validateEdit(paths, args, receipts) {
-  requireShape(args, ['path', 'old_text', 'new_text', 'expected_sha256'], ['replace_all']);
-  requireHash(args.expected_sha256);
+  requireShape(args, ['path', 'old_text', 'new_text'], ['replace_all']);
   if (typeof args.old_text !== 'string' || args.old_text.length === 0
     || typeof args.new_text !== 'string' || (args.replace_all !== undefined && typeof args.replace_all !== 'boolean')) {
     throw new ContractError('tool_schema_invalid', 'text edit arguments are invalid');
   }
   const resolved = await paths.withRecovery(await paths.resolveRead(args.path));
   if (resolved.size > MAX_TEXT_BYTES) throw new ContractError('tool_target_too_large', 'file exceeds edit bound');
+  const receipt = receipts.latest(resolved.path, { full: true });
   const content = await readFile(resolved.path, 'utf8');
   const actual = sha256(content);
-  const prepared = prepareTextEdit(receipts, resolved.path, args, content, actual);
+  const boundArgs = { ...args, expected_sha256: receipt.digest };
+  const prepared = prepareTextEdit(receipts, resolved.path, boundArgs, content, actual);
   const updated = replaceText(content, args.old_text, args.new_text, Boolean(args.replace_all));
   if (Buffer.byteLength(updated, 'utf8') > MAX_TEXT_BYTES) {
     throw new ContractError('tool_arguments_too_large', 'edited content exceeds bound');
@@ -295,7 +294,7 @@ async function validateEdit(paths, args, receipts) {
       path: args.path, old_text: args.old_text, new_text: args.new_text,
       replace_all: Boolean(args.replace_all), expected_sha256: prepared.expectedSha256,
     },
-    resolved: { ...resolved, staleEditRecovered: prepared.recovered, requestedExpectedSha256: args.expected_sha256 },
+    resolved: { ...resolved, staleEditRecovered: prepared.recovered, readReceiptId: receipt.id, readReceiptSha256: receipt.digest },
   };
 }
 
@@ -313,22 +312,22 @@ async function executeEdit(request, signal, changes) {
   }, changes);
 }
 
-function deleteDefinition(paths, changes) {
+function deleteDefinition(paths, changes, receipts) {
   return {
     name: 'fs.delete_file', version: 1,
     purpose: 'Permanently delete one accessible regular file after exact-content revalidation and mandatory review.',
     sideEffect: 'irreversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path to the existing regular file.' },
-      expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Required SHA-256 from the latest fs.read_text result.' },
-    }, ['path', 'expected_sha256']),
+    }, ['path']),
     validate: async (args) => {
-      requireShape(args, ['path', 'expected_sha256']);
-      requireHash(args.expected_sha256);
+      requireShape(args, ['path']);
       const resolved = await paths.withRecovery(await paths.resolveRead(args.path));
-      const content = await readFile(resolved.path);
-      requireExpectedContent(content, args.expected_sha256);
-      return { args: { path: args.path, expected_sha256: args.expected_sha256 }, resolved };
+      const receipt = receipts.latest(resolved.path, { full: true });
+      return {
+        args: { path: args.path, expected_sha256: receipt.digest },
+        resolved: { ...resolved, readReceiptId: receipt.id },
+      };
     },
     executor: (request, signal) => executeDelete(request, signal, changes),
   };
@@ -385,16 +384,6 @@ async function verifyExpectedState(request) {
   const actual = createHash('sha256').update(current).digest('hex');
   if (actual !== request.args.expected_sha256) {
     throw new ContractError('tool_revalidation_drift', 'target changed after review');
-  }
-}
-function requireHash(value) {
-  if (typeof value !== 'string' || !/^[0-9a-f]{64}$/u.test(value)) {
-    throw new ContractError('expected_hash_required', 'operation requires a lowercase expected_sha256');
-  }
-}
-function requireExpectedContent(content, expected) {
-  if (sha256(content) !== expected) {
-    throw new ContractError('tool_revalidation_drift', 'target does not match expected_sha256');
   }
 }
 function sha256(content) {

@@ -6,13 +6,16 @@ import { mkdtemp, readFile, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { filesystemExtraDefinitions } from '../src/tools/filesystem-extra.js';
+import { ReadReceiptLedger } from '../src/tools/filesystem-read.js';
 import { PathPolicy } from '../src/path-policy.js';
 
 async function fixture(options = {}) {
   const root = await mkdtemp(join(tmpdir(), 'nna-fs-extra-'));
   await writeFile(join(root, 'source.txt'), 'original');
   const paths = new PathPolicy(root, options); await paths.initialize();
-  return { root, definitions: new Map(filesystemExtraDefinitions(paths).map((item) => [item.name, item])) };
+  const receipts = new ReadReceiptLedger();
+  receipts.record(join(root, 'source.txt'), createHash('sha256').update('original').digest('hex'), { full: true }, 'original');
+  return { root, definitions: new Map(filesystemExtraDefinitions(paths, null, receipts).map((item) => [item.name, item])) };
 }
 
 test('root metadata and directory tools may target host paths while hosted tools remain bounded', async () => {
@@ -35,14 +38,13 @@ test('root metadata and directory tools may target host paths while hosted tools
 
 test('copy and move require exact source state and a new destination', async () => {
   const { root, definitions } = await fixture();
-  const hash = createHash('sha256').update('original').digest('hex');
   const copy = definitions.get('fs.copy_file');
-  const copyRequest = await copy.validate({ source: 'source.txt', destination: 'copy.txt', expected_sha256: hash });
+  const copyRequest = await copy.validate({ source: 'source.txt', destination: 'copy.txt' });
   await copy.executor(copyRequest, new AbortController().signal);
   assert.equal(await readFile(join(root, 'copy.txt'), 'utf8'), 'original');
-  await assert.rejects(copy.validate({ source: 'source.txt', destination: 'copy.txt', expected_sha256: hash }), { code: 'tool_target_exists' });
+  await assert.rejects(copy.validate({ source: 'source.txt', destination: 'copy.txt' }), { code: 'tool_target_exists' });
   const move = definitions.get('fs.move_file');
-  const moveRequest = await move.validate({ source: 'source.txt', destination: 'moved.txt', expected_sha256: hash });
+  const moveRequest = await move.validate({ source: 'source.txt', destination: 'moved.txt' });
   await writeFile(join(root, 'source.txt'), 'changed');
   await assert.rejects(move.executor(moveRequest, new AbortController().signal), { code: 'tool_revalidation_drift' });
 });

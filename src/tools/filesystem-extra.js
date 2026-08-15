@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, rename, stat } from 'node:fs/promises';
 import { ContractError } from '../ids.js';
 
-export function filesystemExtraDefinitions(paths, changes) {
-  return [metadataDefinition(paths), directoryDefinition(paths), copyDefinition(paths, changes), moveDefinition(paths, changes)];
+export function filesystemExtraDefinitions(paths, changes, receipts) {
+  return [metadataDefinition(paths), directoryDefinition(paths), copyDefinition(paths, changes, receipts), moveDefinition(paths, changes, receipts)];
 }
 
 function metadataDefinition(paths) {
@@ -24,27 +24,28 @@ function directoryDefinition(paths) {
   });
 }
 
-function copyDefinition(paths, changes) {
-  return fileTransferDefinition(paths, 'fs.copy_file', 'Copy one exact accessible file to a new destination.', async (source, destination) => copyFile(source, destination), changes);
+function copyDefinition(paths, changes, receipts) {
+  return fileTransferDefinition(paths, 'fs.copy_file', 'Copy one exact accessible file to a new destination.', async (source, destination) => copyFile(source, destination), changes, receipts);
 }
 
-function moveDefinition(paths, changes) {
-  return fileTransferDefinition(paths, 'fs.move_file', 'Move one exact accessible file to a new destination.', async (source, destination) => rename(source, destination), changes);
+function moveDefinition(paths, changes, receipts) {
+  return fileTransferDefinition(paths, 'fs.move_file', 'Move one exact accessible file to a new destination.', async (source, destination) => rename(source, destination), changes, receipts);
 }
 
-function fileTransferDefinition(paths, name, purpose, operation, changes) {
+function fileTransferDefinition(paths, name, purpose, operation, changes, receipts) {
   return definition(name, purpose, 'reversible', {
     source: { type: 'string', maxLength: 4096, description: 'Required path to the existing source file.' },
     destination: { type: 'string', maxLength: 4096, description: 'Required new destination path; it must not already exist.' },
-    expected_sha256: { type: 'string', pattern: '^[0-9a-f]{64}$', description: 'Required SHA-256 from the latest fs.read_text result for source.' },
-  }, ['source', 'destination', 'expected_sha256'], async (args) => {
-    const normalized = shape(args, ['source', 'destination', 'expected_sha256']);
-    if (!/^[0-9a-f]{64}$/u.test(args.expected_sha256)) throw invalid();
+  }, ['source', 'destination'], async (args) => {
+    const normalized = shape(args, ['source', 'destination']);
     const source = await paths.withRecovery(await paths.resolveRead(args.source));
     if (source.size > 16_777_216) throw new ContractError('tool_target_too_large', 'file transfer exceeds 16 MiB');
     const destination = await paths.resolveNew(args.destination);
-    await assertHash(source.path, args.expected_sha256);
-    return { args: normalized, resolved: { source, destination } };
+    const receipt = receipts.latest(source.path, { full: true });
+    return {
+      args: { ...normalized, expected_sha256: receipt.digest },
+      resolved: { source, destination, readReceiptId: receipt.id },
+    };
   }, async (request, signal) => {
     abort(signal); await assertHash(request.resolved.source.path, request.args.expected_sha256);
     await assertAbsent(request.resolved.destination.path); abort(signal);

@@ -67,7 +67,6 @@ async function forceAt(root, boundary) {
 
 async function childRun(root, targetSequence) {
   let calls = 0;
-  const expected = digest(await readFile(join(root, 'target.txt'), 'utf8'));
   const provider = { async *stream() {
     calls += 1;
     if (calls === 1) yield { type: 'tool_fragment', fragments: [{
@@ -78,7 +77,7 @@ async function childRun(root, targetSequence) {
     else if (calls === 2) yield { type: 'tool_fragment', fragments: [{
       index: 0, id: 'force-kill-write', function: {
         name: 'fs.write_text', arguments: JSON.stringify({
-          path: 'target.txt', content: 'after', expected_sha256: expected,
+          path: 'target.txt', content: 'after',
         }),
       },
     }] };
