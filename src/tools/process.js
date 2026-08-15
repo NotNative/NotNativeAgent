@@ -168,7 +168,15 @@ export async function runProcess(input, signal, shellTool = false) {
     if (signal.aborted) throw new ContractError('tool_cancelled', 'process was cancelled');
     if (settled.boundary === 'timeout') throw new ContractError('tool_timeout', 'process exceeded its deadline');
     const result = settled.value;
-    return { content: JSON.stringify(result, null, 2), metadata: { exitCode: result.exit_code, shell: shellTool ? input.shell : false } };
+    const succeeded = result.exit_code === 0 && result.signal === null;
+    return {
+      ...(succeeded ? {} : {
+        status: 'failed',
+        reasonCode: result.signal === null ? 'process_exit_nonzero' : 'process_signal_exit',
+      }),
+      content: JSON.stringify(result, null, 2),
+      metadata: { exitCode: result.exit_code, signal: result.signal, shell: shellTool ? input.shell : false },
+    };
   } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
 }
 

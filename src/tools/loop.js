@@ -394,6 +394,16 @@ export function toolContinuationHint(items, fallback = null) {
   if (failedFetch) {
     return 'WebFetch could not retrieve that exact URL. Do not retry the same URL during this turn and do not synthesize a replacement path. Use another exact URL returned by WebSearch or supplied by the user, or use WebBrowse to navigate from a verified page.';
   }
+  const failedProcess = items.filter((item) => ['process.run', 'shell.run'].includes(item.result?.tool_name)
+    && item.result?.status === 'failed');
+  if (failedProcess.length > 0) {
+    const exits = failedProcess.map((item) => {
+      const code = item.result?.metadata?.exitCode;
+      const signal = item.result?.metadata?.signal;
+      return `${item.result.tool_name}: ${signal ? `signal ${signal}` : `exit ${code ?? 'nonzero'}`}`;
+    });
+    return `The command ran but failed (${exits.join(', ')}). Treat its stdout and stderr as diagnostic output, not successful evidence. Correct the command, arguments, or underlying condition before retrying; do not repeat the same failing invocation unchanged.`;
+  }
   const invalid = items.filter((item) => item.result?.status === 'invalid_request');
   if (invalid.length > 0) {
     const failures = [...new Set(invalid.map((item) => `${item.result.tool_name ?? 'tool'}: ${item.result.reason_code ?? 'invalid_request'}`))];

@@ -78,6 +78,16 @@ test('failed web fetch continuation redirects away from the exact failed URL', (
   assert.match(hint, /Do not retry the same URL[^]*another exact URL[^]*WebBrowse/iu);
 });
 
+test('failed process continuation treats captured output as diagnostics instead of progress', () => {
+  const hint = toolContinuationHint([{
+    result: {
+      status: 'failed', tool_name: 'shell.run', reason_code: 'process_exit_nonzero',
+      metadata: { exitCode: 1, signal: null },
+    },
+  }], 'generic recovery');
+  assert.match(hint, /shell\.run: exit 1[^]*diagnostic output, not successful evidence[^]*do not repeat/iu);
+});
+
 test('denial results distinguish recoverable review constraints from policy and availability failures', () => {
   const request = { id: 'tool-1', providerCallId: 'call-1', toolName: 'process.run' };
   const ordinary = denialResult(request, {

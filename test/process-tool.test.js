@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { operationalEnvironment, shellInvocation } from '../src/tools/process.js';
+import { toolProgressEvidence } from '../src/tools/loop.js';
 
 test('process.run executes bounded shell-free argv inside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-'));
@@ -41,6 +42,23 @@ test('AC-FAIL-07 process timeout returns promptly after requesting tree terminat
     { code: 'tool_timeout' },
   );
   assert.ok(performance.now() - started < 1_000);
+});
+
+test('nonzero process exits preserve diagnostics while reporting failed evidence', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-process-failure-'));
+  await writeFile(join(root, 'fail.js'), "process.stdout.write('partial output');process.stderr.write('diagnostic');process.exitCode=7;\n");
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const definition = registry.definition('process.run');
+  const normalized = await definition.validate({ executable: 'node', args: ['fail.js'] });
+  const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
+  const output = JSON.parse(result.content);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.reasonCode, 'process_exit_nonzero');
+  assert.deepEqual(result.metadata, { exitCode: 7, signal: null, shell: false });
+  assert.equal(output.stdout, 'partial output');
+  assert.equal(output.stderr, 'diagnostic');
+  assert.equal(toolProgressEvidence([{ request: normalized, result }]), null);
 });
 
 test('AC-AUTH-04 process.run seals shells and destructive commands for semantic review instead of hard-blocking them', async () => {
