@@ -79,7 +79,7 @@ test('AC-PROV-01/AC-PROV-02 discovers local models and preserves fragmented SSE 
     }
     response.writeHead(200, { 'content-type': 'text/event-stream' });
     response.write('data: {"choices":[{"delta":{"role":"assistant","reasoning_content":"private-thought","content":"hel"},"finish_reason":null}]}\n');
-    response.write('\ndata: {"choices":[{"delta":{"content":"lo"},"finish_reason":"stop"}]}\n\n');
+    response.write('\ndata: {"choices":[{"delta":{"reasoning":"current-private-thought","content":"lo"},"finish_reason":"stop"}]}\n\n');
     response.end('data: [DONE]\n\n');
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -99,7 +99,8 @@ test('AC-PROV-01/AC-PROV-02 discovers local models and preserves fragmented SSE 
     items.push(item);
   }
   assert.equal(items.filter((item) => item.type === 'text').map((item) => item.text).join(''), 'hello');
-  assert.equal(items.filter((item) => item.type === 'reasoning').map((item) => item.text).join(''), 'private-thought');
+  assert.equal(items.filter((item) => item.type === 'reasoning').map((item) => item.text).join(''),
+    'private-thoughtcurrent-private-thought');
   assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
 });
 

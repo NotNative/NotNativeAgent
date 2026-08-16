@@ -290,8 +290,10 @@ function decodeChunk(value) {
     if (delta.role !== undefined && delta.role !== 'assistant') {
       throw new ContractError('provider_role_invalid', 'provider emitted a non-assistant response role');
     }
-    if (typeof delta.reasoning_content === 'string' && delta.reasoning_content.length > 0) {
-      items.push({ type: 'reasoning', text: delta.reasoning_content });
+    const reasoning = typeof delta.reasoning === 'string' && delta.reasoning.length > 0
+      ? delta.reasoning : delta.reasoning_content;
+    if (typeof reasoning === 'string' && reasoning.length > 0) {
+      items.push({ type: 'reasoning', text: reasoning });
     }
     if (typeof delta.content === 'string' && delta.content.length > 0) {
       items.push({ type: 'text', text: delta.content });
