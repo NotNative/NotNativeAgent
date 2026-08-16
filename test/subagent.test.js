@@ -87,6 +87,8 @@ test('subagent concurrency follows the loaded worker model parallel capacity', a
   const root = await mkdtemp(join(tmpdir(), 'nna-subagents-'));
   const output = [];
   let workers = 0; let peakWorkers = 0; let parentCalls = 0;
+  let releaseParallelWorkers;
+  const parallelWorkersStarted = new Promise((resolve) => { releaseParallelWorkers = resolve; });
   const parent = { async *stream(request) {
     parentCalls += 1;
     if (parentCalls === 1) {
@@ -106,7 +108,13 @@ test('subagent concurrency follows the loaded worker model parallel capacity', a
     async *stream() {
       workers += 1; peakWorkers = Math.max(peakWorkers, workers);
       try {
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        if (workers === 2) releaseParallelWorkers();
+        let timer;
+        await Promise.race([
+          parallelWorkersStarted,
+          new Promise((resolve) => { timer = setTimeout(resolve, 1_000); }),
+        ]);
+        clearTimeout(timer);
         yield { type: 'text', text: 'Explored.' };
         yield { type: 'terminal', finishReason: 'stop', usage: null };
       } finally { workers -= 1; }
