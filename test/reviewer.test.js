@@ -70,6 +70,51 @@ test('authenticated tracked-file mutations auto-approve as reversible without we
   assert.equal(denied.reasonCode, 'authenticated_intent_mismatch');
 });
 
+test('a requested audit authorizes only a clearly named new in-workspace report artifact', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'audit-report-artifact' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
+  const auditContext = {
+    ...context,
+    authority: { ...context.authority, intent: [{
+      content: 'Perform an autopsy on this codebase and identify potential failure points.',
+      sequence: 1, kind: 'instruction',
+    }] },
+  };
+  const report = {
+    ...mutationRequest('audit-report'),
+    args: { path: 'docs/planning/CODEBASE_AUTOPSY.md', content: '# Findings', expected_sha256: null },
+    resolved: {
+      path: 'D:/workspace/docs/planning/CODEBASE_AUTOPSY.md', exists: false,
+      insideWorkspace: true, recovery: 'new_target',
+    },
+  };
+  const approved = await reviewer.review(report, auditContext);
+  assert.equal(approved.outcome, 'approve');
+  assert.equal(approved.reasonCode, 'deterministic_reversible');
+
+  const sourceWrite = await reviewer.review({
+    ...report, id: 'audit-source', providerCallId: 'provider-audit-source',
+    args: { path: 'src/audit-helper.js', content: 'export default true;', expected_sha256: null },
+    resolved: {
+      path: 'D:/workspace/src/audit-helper.js', exists: false,
+      insideWorkspace: true, recovery: 'new_target',
+    },
+  }, auditContext);
+  assert.equal(sourceWrite.reasonCode, 'authenticated_intent_mismatch');
+
+  const restricted = await reviewer.review({
+    ...report, id: 'audit-report-restricted', providerCallId: 'provider-audit-report-restricted',
+  }, {
+    ...auditContext, authority: { ...auditContext.authority, intent: [
+      ...auditContext.authority.intent,
+      { content: 'Do not write any files.', sequence: 2, kind: 'restriction' },
+    ] },
+  });
+  assert.equal(restricted.reasonCode, 'authenticated_intent_mismatch');
+  assert.equal(semanticCalls, 0);
+});
+
 test('approval execution window begins when a slow review finishes', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'slow-review-window' });
   const reviewer = new MandatoryReviewer({

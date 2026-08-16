@@ -372,10 +372,31 @@ function authenticatedIntentRelation(request, authority, definition) {
     return targets.some((target) => evidenceNamesTarget(evidence, target));
   });
   if (relevant?.kind === 'restriction') return 'conflict';
+  if (taskResultArtifactCovered(request, authority, targets)) return 'covered';
   if (!relevant) return clearlyReadOnlyIntent(authority) ? 'conflict' : 'uncertain';
   const evidence = relevant.content.toLowerCase();
   if (targets.every((target) => evidenceNamesTarget(evidence, target)) && action.test(evidence)) return 'covered';
   return clearlyReadOnlyText(evidence) ? 'conflict' : 'uncertain';
+}
+
+function taskResultArtifactCovered(request, authority, targets) {
+  if (request.toolName !== 'fs.write_text' || resolvedRecovery(request) !== 'new_target'
+    || resolvedOutsideWorkspace(request) || targets.length !== 1) return false;
+  const target = targets[0];
+  const extension = /\.([a-z0-9]+)$/u.exec(target)?.[1] ?? '';
+  if (!new Set(['md', 'txt', 'json', 'csv']).has(extension)) return false;
+  const artifactTerms = new Set(['audit', 'autopsy', 'report', 'finding', 'analysis', 'assessment', 'review', 'summary', 'result']);
+  if (![...tokenSet(target)].some((token) => artifactTerms.has(token))) return false;
+  const intent = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction'
+    && /\b(?:audit|autopsy|review|analy(?:s|z)e|analysis|assess|diagnose|investigate|research)\b/iu.test(item.content));
+  if (!intent) return false;
+  return ![...(authority?.intent ?? [])].some((item) => item.kind === 'restriction'
+    && broadFilesystemMutationRestriction(item.content));
+}
+
+function broadFilesystemMutationRestriction(value) {
+  return /\b(?:write|change|replace|create|update|edit|modify|delete|remove|move|rename|copy)\b/iu.test(value)
+    && /\b(?:any(?:thing)?|files?|workspace|repository|repo|codebase|reports?|artifacts?|documents?)\b/iu.test(value);
 }
 
 function clearlyReadOnlyIntent(authority) {
@@ -384,7 +405,7 @@ function clearlyReadOnlyIntent(authority) {
 }
 
 function clearlyReadOnlyText(value) {
-  return /\b(?:read|inspect|audit|review|summarize|explain|show|list|search|find|check|diagnose|answer|respond|tell)\b/iu.test(value)
+  return /\b(?:read|inspect|audit|autopsy|review|summarize|explain|show|list|search|find|check|diagnose|answer|respond|tell)\b/iu.test(value)
     && !/\b(?:write|change|replace|create|update|edit|modify|delete|remove|move|rename|copy|fix|build|implement|install)\b/iu.test(value);
 }
 
