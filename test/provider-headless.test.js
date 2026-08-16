@@ -14,13 +14,15 @@ import { tmpdir } from 'node:os';
 
 const EMPTY_HOOK_ROOT = join(process.cwd(), '.nna-test-hooks-none');
 
-test('AC-HEAD-07 output writer bounds queued bytes and resumes after backpressure', async () => {
+test('AC-HEAD-07 output writer bounds admitted bytes and rejects excess concurrent output', async () => {
   const output = new PassThrough({ highWaterMark: 1 });
   const writer = new ProtocolWriter(output, { maxQueuedBytes: 256, maxLineBytes: 128 });
   const writes = Array.from({ length: 12 }, (_, index) => writer.write({ type: 'stream_delta', text: `delta-${index}` }));
   assert.ok(writer.pendingBytes <= 256);
   output.resume();
-  await Promise.all(writes);
+  const settled = await Promise.allSettled(writes);
+  assert.ok(settled.some((item) => item.status === 'rejected' && item.reason.code === 'output_queue_full'));
+  assert.ok(settled.some((item) => item.status === 'fulfilled'));
   await writer.close();
   output.destroy();
 });

@@ -226,7 +226,7 @@ export class ProtocolWriter {
     if (bytes > this.maxLineBytes) return Promise.reject(outputError('output_line_too_large'));
     if (this.#failure) return Promise.reject(this.#failure);
     if (this.#pendingBytes + bytes > this.maxQueuedBytes) {
-      return this.#tail.then(() => this.write(value));
+      return Promise.reject(outputError('output_queue_full'));
     }
     this.#pendingBytes += bytes;
     const operation = this.#tail.then(() => this.#send(line))
