@@ -109,13 +109,7 @@ export class McpManager {
     try {
       connection.transport = this.transportFactory(config);
       connection.transport.onNotification?.((notification) => {
-        connection.refresh = Promise.resolve(connection.refresh)
-          .then(() => this.handleNotification(config.id, notification)).catch((error) => {
-          this.registry.revokeSource(`mcp:${config.id}`);
-          connection.lastError = error.code ?? 'mcp_capability_refresh_failed';
-          connection.state = error.retryable === true ? 'degraded' : 'failed';
-        });
-        return connection.refresh;
+        return this.#queueCapabilityRefresh(connection, notification);
       });
       await bounded((signal) => connection.transport.open(signal), config.connectTimeoutMs, parentSignal);
       if (config.credentialEnv || Object.keys(config.headerEnv).length > 0) connection.state = 'authenticating';
@@ -181,6 +175,27 @@ export class McpManager {
       }
     }
     connection.toolGeneration = version;
+  }
+
+  #queueCapabilityRefresh(connection, notification) {
+    if (notification?.method !== 'notifications/tools/list_changed') return Promise.resolve(false);
+    connection.refreshPending = true;
+    if (connection.refresh) return connection.refresh;
+    connection.refresh = Promise.resolve().then(async () => {
+      let refreshed = false;
+      for (let pass = 0; pass < 2 && connection.refreshPending; pass += 1) {
+        connection.refreshPending = false;
+        refreshed = await this.handleNotification(connection.config.id, notification) || refreshed;
+      }
+      return refreshed;
+    }).catch((error) => {
+      connection.refreshPending = false;
+      this.registry.revokeSource(`mcp:${connection.config.id}`);
+      connection.lastError = error.code ?? 'mcp_capability_refresh_failed';
+      connection.state = error.retryable === true ? 'degraded' : 'failed';
+      return false;
+    }).finally(() => { connection.refresh = null; });
+    return connection.refresh;
   }
 
   #recordCallFailure(connection, error) {

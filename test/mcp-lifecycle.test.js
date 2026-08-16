@@ -175,6 +175,35 @@ test('AC-MCP-03 failed capability refresh revokes stale tools and degrades only 
   assert.equal(revoked, 1);
 });
 
+test('MCP capability notification bursts coalesce into a bounded refresh sequence', async () => {
+  let notification; let markRefreshStarted; let finishRefresh; let listCalls = 0;
+  const refreshStarted = new Promise((resolve) => { markRefreshStarted = resolve; });
+  const refreshGate = new Promise((resolve) => { finishRefresh = resolve; });
+  const transport = {
+    protocolVersion: MCP_CURRENT_VERSION, async open() {}, async close() {}, async notify() {},
+    onNotification(handler) { notification = handler; },
+    async request(method) {
+      if (method === 'initialize') return { protocolVersion: MCP_CURRENT_VERSION, capabilities: { tools: { listChanged: true } } };
+      listCalls += 1;
+      if (listCalls === 2) { markRefreshStarted(); await refreshGate; }
+      return { tools: [] };
+    },
+  };
+  const manager = new McpManager({
+    registry: registry(), configs: mcpConfig().mcpServers, transportFactory: () => transport,
+  });
+  await manager.initialize();
+  const first = notification({ method: 'notifications/tools/list_changed' });
+  await refreshStarted;
+  const notifications = Array.from({ length: 99 }, () => (
+    notification({ method: 'notifications/tools/list_changed' })
+  ));
+  finishRefresh();
+  await Promise.all([first, ...notifications]);
+  assert.equal(listCalls, 3);
+  await manager.close();
+});
+
 test('AC-MCP-05 in-flight transport failure revokes capabilities and reconnect never replays the call', async () => {
   let transportGeneration = 0; let toolCalls = 0;
   const active = new Map();
