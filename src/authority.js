@@ -151,7 +151,9 @@ export class AuthorityRecord {
 
 function authorityStatementKind(content) {
   const text = String(content);
-  if (/\b(?:do\s+not|don't|never|stop|revoke|withdraw|cancel)\b/iu.test(text)) return 'restriction';
+  if (/\b(?:do\s+not|don't|must\s+not|mustn't|should\s+not|shouldn't|never|stop|revoke|withdraw|cancel|avoid|refrain\s+from)\b/iu.test(text)) {
+    return 'restriction';
+  }
   if (/^\s*(?:clarification|actually|only|instead)\b/iu.test(text)) return 'clarification';
   return 'instruction';
 }

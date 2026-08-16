@@ -50,6 +50,20 @@ test('authenticated conversational restrictions are typed, ordered, and conversa
   assert.equal(snapshot.restrictionVersion, 1);
 });
 
+test('common negative phrasings advance the authenticated restriction epoch', () => {
+  const authority = new AuthorityRecord();
+  const statements = [
+    'You must not delete production data.',
+    'Please avoid touching generated files.',
+    'Refrain from changing the release manifest.',
+    'You should not update dependencies.',
+  ];
+  for (const statement of statements) authority.addAuthenticatedIntent(statement, 'authenticated-operator');
+  const snapshot = authority.snapshot(resolveManifest({ provider }));
+  assert.deepEqual(snapshot.intent.map((item) => item.kind), statements.map(() => 'restriction'));
+  assert.equal(snapshot.restrictionVersion, statements.length);
+});
+
 test('conversation authority identity is stable while restriction epochs advance independently', () => {
   const authority = new AuthorityRecord();
   authority.addAuthenticatedIntent('Read alpha.txt', 'authenticated-operator');
