@@ -601,13 +601,34 @@ test('AC-FAIL-13 distinct progressing tool steps continue beyond the legacy ceil
     count += 1;
   } };
   const engine = new SessionEngine({
-    config: config(root, 'ephemeral', { recovery: { max_model_steps: 16 } }), providerFactory: () => provider,
+    config: config(root, 'ephemeral', { recovery: { max_model_steps: 32 } }), providerFactory: () => provider,
   });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'horizon-turn', content: 'Read all item files' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(count, 21);
   assert.equal(engine.lifecycles.snapshot().filter((item) => item.kind === 'model_step').length, 21);
+});
+
+test('configured model-step ceiling terminates a still-progressing turn at the declared boundary', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-model-step-limit-'));
+  for (let index = 0; index < 20; index += 1) {
+    await writeFile(join(root, `bounded-${index}.txt`), `unique-${index}`, 'utf8');
+  }
+  let count = 0;
+  const provider = { async *stream() {
+    yield* toolCall(`bounded-call-${count}`, `bounded-${count}.txt`);
+    count += 1;
+  } };
+  const engine = new SessionEngine({
+    config: config(root, 'ephemeral', { recovery: { max_model_steps: 16 } }), providerFactory: () => provider,
+  });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'bounded-turn', content: 'Read all bounded files' }, 'operator');
+  assert.equal(result.outcome, 'incomplete');
+  assert.equal(count, 16);
+  assert.equal(result.failure.exhaustion_category, 'model_step_limit');
+  assert.equal(result.failure.exhaustion_count, 16);
 });
 
 test('AC-REV-09 unchanged successful polling is stopped as no progress', async () => {

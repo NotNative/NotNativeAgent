@@ -33,8 +33,6 @@ import { persistEngineRecord } from './engine/persistence.js';
 import { runEngineSubagent, subagentParallelLimit } from './subagent-runtime.js';
 import { finalizeEngineTurn } from './engine/finalization.js';
 
-const MAX_MODEL_STEPS_PER_TURN = 256;
-
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -252,7 +250,8 @@ export class SessionEngine {
         && item.role === 'user' && item.turnId === active.turnId));
       applyPendingConfiguration(this, active);
       let context = await this.#prepareContext(prior, content, active);
-      for (let modelStepIndex = 0; modelStepIndex < MAX_MODEL_STEPS_PER_TURN; modelStepIndex += 1) {
+      const maxModelSteps = this.config.limits.maxModelSteps;
+      for (let modelStepIndex = 0; modelStepIndex < maxModelSteps; modelStepIndex += 1) {
         const result = await this.#runModelStep(context, active);
         if (result.exhausted) {
           const detail = recoveryExhaustionDetail(active.recovery, this.transcript, active.unresolvedToolFailures, result);
@@ -266,7 +265,7 @@ export class SessionEngine {
         context = appendRecoveryHint(context, result.hint);
       }
       const detail = recoveryExhaustionDetail(active.recovery, this.transcript, active.unresolvedToolFailures, {
-        category: 'model_step_limit', count: MAX_MODEL_STEPS_PER_TURN,
+        category: 'model_step_limit', count: maxModelSteps,
       });
       return this.#finalize('incomplete', recoveryExhaustionText(detail, {
         transcript: this.transcript, turnId: active.turnId,
