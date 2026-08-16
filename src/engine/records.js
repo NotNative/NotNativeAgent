@@ -79,6 +79,8 @@ export function toolStatus(engine, active, item, status) {
   const args = item.request?.args ?? item.call?.args;
   const presentedArgs = args && typeof args === 'object' ? safeToolArguments(args) : null;
   const failed = !['running', 'succeeded', 'duplicate_ignored'].includes(status);
+  const completedNonzero = status === 'completed_nonzero';
+  const processSignalExit = item.result?.reason_code === 'process_signal_exit';
   const toolName = item.call?.name ?? item.request?.toolName ?? null;
   const agentRoute = toolName === 'agent.run' ? presentedAgentRoute(engine, presentedArgs) : null;
   return {
@@ -91,8 +93,10 @@ export function toolStatus(engine, active, item, status) {
     effect: definition?.sideEffect ?? null, scope: definition?.scope ?? null,
     elapsed_ms: item.result?.elapsed_ms ?? null,
     effect_certainty: item.result?.effect_certainty ?? null,
+    exit_code: Number.isSafeInteger(item.result?.metadata?.exitCode) ? item.result.metadata.exitCode : null,
+    signal: typeof item.result?.metadata?.signal === 'string' ? item.result.metadata.signal : null,
     reason_code: failed ? item.result?.reason_code ?? null : null,
-    failure_reason: failed ? boundedFailureReason(item.result?.content) : null,
+    failure_reason: failed && !completedNonzero && !processSignalExit ? boundedFailureReason(item.result?.content) : null,
   };
 }
 

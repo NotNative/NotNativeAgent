@@ -47,6 +47,13 @@ redirection, expansion, or multiple commands. It selects Windows PowerShell 5.1 
 and `sh` on Unix-like hosts unless the caller explicitly chooses another supported interpreter.
 The complete script, working directory, and interpreter are sealed into the reviewer request;
 NNA then owns interpreter argv, cancellation, output bounds, and process-tree cleanup.
+Both process tools accept a bounded `accepted_exit_codes` list that must contain zero. The
+default is `[0]`; additional codes are appropriate only for focused commands whose documented
+result protocol uses them, such as `diff` or `grep` returning one for a negative predicate.
+An unexpected nonzero exit is recorded as completed nonzero rather than a launch failure, remains
+unsuccessful evidence, and is shown as an amber Console result. Compound scripts should keep
+mutations separate from verification, and `pipefail` pipelines should avoid early-closing consumers
+such as `head` when an upstream `SIGPIPE` would be mistaken for a failed check.
 
 Installed programs such as SSH, Git, Docker, and native system utilities may be invoked through
 `process.run` for exact argv or `shell.run` for terminal workflows. The agent should not wrap a

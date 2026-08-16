@@ -336,7 +336,7 @@ function missionToolDisposition(active, items) {
   if (items.some((item) => item.decision && item.decision.outcome !== 'approve')) {
     return missionConditionFailure(active, 'review_denial');
   }
-  if (items.some((item) => ['failed', 'timed_out'].includes(item.result?.status))) {
+  if (items.some((item) => ['failed', 'completed_nonzero', 'timed_out'].includes(item.result?.status))) {
     return missionConditionFailure(active, 'tool_failure');
   }
   if (items.some((item) => item.result?.status === 'cancelled')) {
@@ -395,14 +395,14 @@ export function toolContinuationHint(items, fallback = null) {
     return 'WebFetch could not retrieve that exact URL. Do not retry the same URL during this turn and do not synthesize a replacement path. Use another exact URL returned by WebSearch or supplied by the user, or use WebBrowse to navigate from a verified page.';
   }
   const failedProcess = items.filter((item) => ['process.run', 'shell.run'].includes(item.result?.tool_name)
-    && item.result?.status === 'failed');
+    && ['failed', 'completed_nonzero'].includes(item.result?.status));
   if (failedProcess.length > 0) {
     const exits = failedProcess.map((item) => {
       const code = item.result?.metadata?.exitCode;
       const signal = item.result?.metadata?.signal;
       return `${item.result.tool_name}: ${signal ? `signal ${signal}` : `exit ${code ?? 'nonzero'}`}`;
     });
-    return `The command ran but failed (${exits.join(', ')}). Treat its stdout and stderr as diagnostic output, not successful evidence. Correct the command, arguments, or underlying condition before retrying; do not repeat the same failing invocation unchanged.`;
+    return `The command completed without an accepted success status (${exits.join(', ')}). Treat its stdout and stderr as diagnostic output, not successful evidence. If the program documents that exit code as an expected result, declare it in accepted_exit_codes on a focused call. Otherwise correct the command, arguments, or underlying condition before retrying; do not repeat the same invocation unchanged.`;
   }
   const invalid = items.filter((item) => item.result?.status === 'invalid_request');
   if (invalid.length > 0) {

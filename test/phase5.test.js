@@ -586,6 +586,21 @@ test('long shell tool targets wrap with a stable hanging indent', () => {
   assert.equal(coloredToolLines.slice(1).every((line) => line.startsWith('\u001b[38;5;245m')), true);
 });
 
+test('completed nonzero shell calls render as amber completion instead of red failure', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', {
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell.run',
+    status: 'completed_nonzero', reason_code: 'process_exit_nonzero', exit_code: 1,
+  });
+  const plain = new TuiRenderer().frame(projection, { width: 96, height: 24, color: false });
+  assert.match(plain, /^    ! shell\.run \| completed · exit 1$/mu);
+  assert.doesNotMatch(plain, /^    X shell\.run/mu);
+  const colored = new TuiRenderer().frame(projection, { width: 96, height: 24, color: true });
+  assert.match(colored, /\u001b\[38;5;214m {4}! shell\.run/u);
+  assert.doesNotMatch(colored, /\u001b\[38;5;203m {4}! shell\.run/u);
+});
+
 test('tool rows retain a two-cell terminal safety margin before hanging wraps', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });

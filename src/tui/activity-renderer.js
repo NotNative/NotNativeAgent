@@ -2,7 +2,9 @@
 import { displayWidth, wrapTerminalLine } from './terminal-markdown.js';
 import { TUI_THEME } from './theme.js';
 
-const TOOL_STATUS = Object.freeze({ RUNNING: 'running', SUCCEEDED: 'succeeded', DUPLICATE: 'duplicate_ignored' });
+const TOOL_STATUS = Object.freeze({
+  RUNNING: 'running', SUCCEEDED: 'succeeded', DUPLICATE: 'duplicate_ignored', COMPLETED_NONZERO: 'completed_nonzero',
+});
 const COMPLETED_TASK_VERBS = Object.freeze({
   reviewing: 'reviewed', updating: 'updated', testing: 'tested', planning: 'planned', 'working on': 'finished',
 });
@@ -16,6 +18,7 @@ export function decorateToolActivityLine(line, lineKind, paint) {
       const match = line.match(/^(\s*)(\u2713)(.*)$/u);
       return match ? `${match[1]}${paint(TUI_THEME.success, match[2])}${paint(TUI_THEME.muted, match[3])}` : paint(TUI_THEME.muted, line);
     }
+    if (status === TOOL_STATUS.COMPLETED_NONZERO) return paint(TUI_THEME.warning, line);
     return paint(status === TOOL_STATUS.RUNNING ? TUI_THEME.muted : TUI_THEME.danger, line);
   }
   if (/^\s+(?:Review|Result):/u.test(line)) return paint(TUI_THEME.muted, line);
@@ -62,9 +65,10 @@ export function collapsedFailureRows(records) {
 export function summaryActivityRows(records) {
   const groups = new Map();
   for (const item of toolCalls(records)) {
-    const group = groups.get(item.tool) ?? { tool: item.tool, count: 0, failed: 0, elapsed: 0, targets: [] };
+    const group = groups.get(item.tool) ?? { tool: item.tool, count: 0, failed: 0, nonzero: 0, elapsed: 0, targets: [] };
     group.count += 1;
-    if (!successfulToolStatus(item.result?.status)) group.failed += 1;
+    if (item.result?.status === TOOL_STATUS.COMPLETED_NONZERO) group.nonzero += 1;
+    else if (!successfulToolStatus(item.result?.status)) group.failed += 1;
     if (Number.isFinite(item.result?.elapsed_ms)) group.elapsed += item.result.elapsed_ms;
     if (item.target && !group.targets.includes(item.target)) group.targets.push(item.target);
     groups.set(item.tool, group);
@@ -90,12 +94,15 @@ export function activityDetailRows(records, width, wrap) {
 }
 
 function summaryGroupRow(group) {
-  const succeeded = group.count - group.failed;
-  const status = group.failed ? `${succeeded} succeeded | ${group.failed} failed` : 'all succeeded';
+  const succeeded = group.count - group.failed - group.nonzero;
+  const parts = [`${succeeded} succeeded`];
+  if (group.nonzero) parts.push(`${group.nonzero} completed nonzero`);
+  if (group.failed) parts.push(`${group.failed} failed`);
+  const status = group.failed || group.nonzero ? parts.join(' | ') : 'all succeeded';
   const elapsed = group.elapsed ? ` | ${Math.round(group.elapsed)} ms` : '';
   const targets = group.targets.slice(0, 2).map((value) => compactTarget(value));
   const target = targets.length ? ` | ${targets.join('; ')}${group.targets.length > 2 ? '; ...' : ''}` : '';
-  return `      ${group.failed ? 'X' : '\u2713'} ${group.tool} x${group.count} | ${status}${elapsed}${target}`;
+  return `      ${group.failed ? 'X' : group.nonzero ? '!' : '\u2713'} ${group.tool} x${group.count} | ${status}${elapsed}${target}`;
 }
 
 function compactTarget(value) {
@@ -123,6 +130,8 @@ export function toolTargetSuffix(item) {
 
 export function toolFailureSuffix(record) {
   if (!record || record.status === TOOL_STATUS.RUNNING || successfulToolStatus(record.status)) return '';
+  if (record.status === TOOL_STATUS.COMPLETED_NONZERO) return ` | completed · exit ${record.exit_code ?? 'nonzero'}`;
+  if (record.reason_code === 'process_signal_exit') return ` | signal ${record.signal ?? 'unknown'}`;
   const reason = [record.reason_code, record.failure_reason].filter(Boolean).join(': ');
   return reason ? ` | ${reason}` : ` | ${record.status}`;
 }
@@ -132,17 +141,18 @@ export function toolFailureText(record) {
 }
 
 function resultDetail(record) {
-  const values = [record.status];
+  const values = [record.status === TOOL_STATUS.COMPLETED_NONZERO ? `completed · exit ${record.exit_code ?? 'nonzero'}` : record.status];
   if (Number.isFinite(record.elapsed_ms)) values.push(`${Math.round(record.elapsed_ms)} ms`);
   if (record.effect_certainty) values.push(`effect ${record.effect_certainty}`);
   const failure = toolFailureText(record); if (failure) values.push(failure);
   return values.join(' | ');
 }
 
-function toolSymbol(status) {
+export function toolSymbol(status) {
   if (!status) return '-';
   if (status === TOOL_STATUS.RUNNING) return '+';
   if (status === TOOL_STATUS.SUCCEEDED) return '\u2713';
+  if (status === TOOL_STATUS.COMPLETED_NONZERO) return '!';
   return 'X';
 }
 

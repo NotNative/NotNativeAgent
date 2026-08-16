@@ -23,6 +23,7 @@ export const TUI_THEME = Object.freeze({
   selectedMarker: '1;38;5;213;48;5;236',
   success: '38;5;77',
   successStrong: '1;38;5;77',
+  warning: '38;5;214',
   activity: '38;5;147',
 });
 

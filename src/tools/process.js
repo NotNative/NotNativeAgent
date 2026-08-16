@@ -6,6 +6,8 @@ import { ContractError } from '../ids.js';
 const MAX_SCRIPT_LENGTH = 32_768;
 const MAX_FIELD_LENGTH = 4_096;
 const MAX_ARG_COUNT = 64;
+const MAX_ACCEPTED_EXIT_CODES = 16;
+const MAX_EXIT_CODE = 255;
 const MAX_PROCESS_TIMEOUT_MS = 120_000;
 const MAX_SHELL_TIMEOUT_MS = 3_600_000;
 const MAX_OUTPUT_BYTES = 1_048_576;
@@ -25,6 +27,7 @@ export function processRunDefinition(paths, references = null) {
         args: { type: 'array', items: { type: 'string' }, maxItems: 64, description: 'Ordered argument vector without the executable. Defaults to an empty array.' },
         cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the process. Defaults to the agent working directory.' },
         stdin_ref: { type: 'string', maxLength: 180, description: 'Optional nna_ref_draft identifier whose exact stored text is sent to standard input.' },
+        accepted_exit_codes: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 255 }, maxItems: 16, description: 'Exit codes that count as successful completion. Must include 0 and defaults to [0]. Add codes only when the invoked program documents them as expected results.' },
         timeout_ms: { type: 'integer', minimum: 100, maximum: 120000, description: 'Process deadline in milliseconds. Defaults to 60000.' },
       }, required: ['executable'], additionalProperties: false,
     },
@@ -36,7 +39,7 @@ export function processRunDefinition(paths, references = null) {
 export function shellRunDefinition(paths, references = null) {
   return {
     name: 'shell.run', version: 1,
-    purpose: 'Run a bounded script in the host platform shell. Use this for pipelines, redirection, environment expansion, and multi-command terminal work; use process.run for one exact executable and argv. The complete script is reviewed before execution.',
+    purpose: 'Run a bounded script in the host platform shell. Use this for pipelines, redirection, environment expansion, and multi-command terminal work; use process.run for one exact executable and argv. The complete script is reviewed before execution. Keep mutations separate from verification when practical. Handle expected predicate statuses explicitly: diff and no-match grep commonly exit 1, while pipefail can expose an upstream SIGPIPE from pipelines ending in head.',
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
@@ -44,6 +47,7 @@ export function shellRunDefinition(paths, references = null) {
         shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'], description: 'Shell interpreter. Defaults to the native platform shell through auto.' },
         cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the script. Defaults to the agent working directory.' },
         stdin_ref: { type: 'string', maxLength: 180, description: 'Optional nna_ref_draft identifier whose exact stored text is sent to standard input.' },
+        accepted_exit_codes: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 255 }, maxItems: 16, description: 'Exit codes that count as successful completion. Must include 0 and defaults to [0]. For example, [0, 1] may be appropriate for a documented comparison result; do not use it to mask unrelated failures in a compound script.' },
         timeout_ms: { type: 'integer', minimum: 100, maximum: 3600000, description: 'Script deadline in milliseconds. Defaults to 600000.' },
       }, required: ['script'], additionalProperties: false,
     },
@@ -53,7 +57,7 @@ export function shellRunDefinition(paths, references = null) {
 }
 
 async function validateShellRequest(paths, input, references) {
-  const allowed = new Set(['script', 'shell', 'cwd', 'timeout_ms', 'stdin_ref']);
+  const allowed = new Set(['script', 'shell', 'cwd', 'timeout_ms', 'stdin_ref', 'accepted_exit_codes']);
   if (!input || typeof input.script !== 'string' || input.script.trim().length < 1
     || input.script.length > MAX_SCRIPT_LENGTH || input.script.includes('\0')
     || Object.keys(input).some((key) => !allowed.has(key))) {
@@ -73,8 +77,10 @@ async function validateShellRequest(paths, input, references) {
   }
   const invocation = shellInvocation(shell, input.script, process.platform);
   const stdinRef = validateStdinReference(input.stdin_ref, references);
+  const acceptedExitCodes = validateAcceptedExitCodes(input.accepted_exit_codes, 'shell_exit_codes_invalid');
   return {
-    args: { script: input.script, shell: invocation.shell, cwd: cwd.path, timeout_ms: timeoutMs, ...(stdinRef ? { stdin_ref: stdinRef } : {}) },
+    args: { script: input.script, shell: invocation.shell, cwd: cwd.path, timeout_ms: timeoutMs,
+      accepted_exit_codes: acceptedExitCodes, ...(stdinRef ? { stdin_ref: stdinRef } : {}) },
     resolved: {
       path: cwd.path, executable: invocation.executable, shell: invocation.shell, script: input.script,
       reviewComplexity: shellComplexity(input.script), reviewPurpose: shellReviewPurpose(input.script),
@@ -109,7 +115,7 @@ function shellReviewPurpose(script) {
 }
 
 async function validateProcessRequest(paths, input, references) {
-  const allowed = new Set(['executable', 'args', 'cwd', 'timeout_ms', 'stdin_ref']);
+  const allowed = new Set(['executable', 'args', 'cwd', 'timeout_ms', 'stdin_ref', 'accepted_exit_codes']);
   if (!input || typeof input.executable !== 'string' || input.executable.length < 1 || input.executable.length > MAX_FIELD_LENGTH
     || input.executable.includes('\0')
     || Object.keys(input).some((key) => !allowed.has(key))) {
@@ -130,7 +136,9 @@ async function validateProcessRequest(paths, input, references) {
     throw new ContractError('process_timeout_invalid', 'process timeout must be 100 to 120000 milliseconds');
   }
   const stdinRef = validateStdinReference(input.stdin_ref, references);
-  return { args: { executable: input.executable, args: [...args], cwd: cwd.path, timeout_ms: timeoutMs, ...(stdinRef ? { stdin_ref: stdinRef } : {}) }, resolved: {
+  const acceptedExitCodes = validateAcceptedExitCodes(input.accepted_exit_codes, 'process_exit_codes_invalid');
+  return { args: { executable: input.executable, args: [...args], cwd: cwd.path, timeout_ms: timeoutMs,
+    accepted_exit_codes: acceptedExitCodes, ...(stdinRef ? { stdin_ref: stdinRef } : {}) }, resolved: {
     path: cwd.path, executable: input.executable, argv: [...args], shell: false,
     reviewComplexity: processComplexity(executable, args), insideWorkspace: cwd.insideWorkspace,
     reviewPurpose: processReviewPurpose(executable, args), recovery: cwd.recovery,
@@ -187,14 +195,17 @@ export async function runProcess(input, signal, shellTool = false, references = 
     if (signal.aborted) throw new ContractError('tool_cancelled', 'process was cancelled');
     if (settled.boundary === 'timeout') throw new ContractError('tool_timeout', 'process exceeded its deadline');
     const result = settled.value;
-    const succeeded = result.exit_code === 0 && result.signal === null;
+    const acceptedExitCodes = input.accepted_exit_codes ?? [0];
+    const succeeded = result.signal === null && acceptedExitCodes.includes(result.exit_code);
+    const completedNonzero = result.signal === null && Number.isSafeInteger(result.exit_code);
     return {
       ...(succeeded ? {} : {
-        status: 'failed',
+        status: completedNonzero ? 'completed_nonzero' : 'failed',
         reasonCode: result.signal === null ? 'process_exit_nonzero' : 'process_signal_exit',
       }),
       content: JSON.stringify(result, null, 2),
-      metadata: { exitCode: result.exit_code, signal: result.signal, shell: shellTool ? input.shell : false },
+      metadata: { exitCode: result.exit_code, signal: result.signal,
+        acceptedExitCodes: [...acceptedExitCodes], shell: shellTool ? input.shell : false },
     };
   } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
 }
@@ -263,4 +274,14 @@ function validateStdinReference(value, references) {
   if (!references) throw new ContractError('reference_unavailable', 'draft references are unavailable for this process tool');
   references.resolve(value, 'draft');
   return value;
+}
+
+function validateAcceptedExitCodes(value, code) {
+  const exitCodes = value ?? [0];
+  if (!Array.isArray(exitCodes) || exitCodes.length < 1 || exitCodes.length > MAX_ACCEPTED_EXIT_CODES
+    || !exitCodes.includes(0) || new Set(exitCodes).size !== exitCodes.length
+    || exitCodes.some((item) => !Number.isSafeInteger(item) || item < 0 || item > MAX_EXIT_CODE)) {
+    throw new ContractError(code, 'accepted exit codes must be 1 to 16 unique integers from 0 through 255 and include 0');
+  }
+  return Object.freeze([...exitCodes]);
 }

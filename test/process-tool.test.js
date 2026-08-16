@@ -67,7 +67,7 @@ test('AC-FAIL-07 Windows process timeout terminates descendants', { skip: proces
   }
 });
 
-test('nonzero process exits preserve diagnostics while reporting failed evidence', async () => {
+test('unexpected nonzero process exits preserve diagnostics as completed unsuccessful evidence', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-failure-'));
   await writeFile(join(root, 'fail.js'), "process.stdout.write('partial output');process.stderr.write('diagnostic');process.exitCode=7;\n");
   const registry = new ToolRegistry(root);
@@ -76,12 +76,27 @@ test('nonzero process exits preserve diagnostics while reporting failed evidence
   const normalized = await definition.validate({ executable: 'node', args: ['fail.js'] });
   const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
   const output = JSON.parse(result.content);
-  assert.equal(result.status, 'failed');
+  assert.equal(result.status, 'completed_nonzero');
   assert.equal(result.reasonCode, 'process_exit_nonzero');
-  assert.deepEqual(result.metadata, { exitCode: 7, signal: null, shell: false });
+  assert.deepEqual(result.metadata, { exitCode: 7, signal: null, acceptedExitCodes: [0], shell: false });
   assert.equal(output.stdout, 'partial output');
   assert.equal(output.stderr, 'diagnostic');
   assert.equal(toolProgressEvidence([{ request: normalized, result }]), null);
+});
+
+test('process tools accept only explicit bounded exit-code protocols containing zero', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-process-exit-codes-'));
+  await writeFile(join(root, 'predicate.js'), 'process.exitCode=1;\n');
+  const registry = new ToolRegistry(root); await registry.initialize();
+  const definition = registry.definition('process.run');
+  await assert.rejects(definition.validate({ executable: 'node', accepted_exit_codes: [1] }), { code: 'process_exit_codes_invalid' });
+  await assert.rejects(definition.validate({ executable: 'node', accepted_exit_codes: [0, 0] }), { code: 'process_exit_codes_invalid' });
+  await assert.rejects(definition.validate({ executable: 'node', accepted_exit_codes: [0, 256] }), { code: 'tool_schema_invalid' });
+  const normalized = await definition.validate({ executable: 'node', args: ['predicate.js'], accepted_exit_codes: [0, 1] });
+  const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
+  assert.equal(result.status, undefined);
+  assert.deepEqual(result.metadata.acceptedExitCodes, [0, 1]);
+  assert.equal(JSON.parse(result.content).exit_code, 1);
 });
 
 test('process.run consumes exact draft stdin without filesystem staging', async () => {
@@ -195,6 +210,48 @@ test('shell.run owns platform interpreter argv and executes a readable reviewed 
   const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
   assert.equal(JSON.parse(result.content).stdout, 'shell-ok');
   assert.equal(result.metadata.shell, normalized.resolved.shell);
+});
+
+test('shell.run reports completed nonzero when earlier compound-script effects occurred', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-shell-partial-effect-'));
+  const registry = new ToolRegistry(root); await registry.initialize();
+  const definition = registry.definition('shell.run');
+  const script = process.platform === 'win32'
+    ? "[IO.File]::WriteAllText('partial.txt','done'); exit 9"
+    : "printf done > partial.txt; exit 9";
+  const normalized = await definition.validate({ script, timeout_ms: 5_000 });
+  const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
+  assert.equal(result.status, 'completed_nonzero');
+  assert.equal(result.reasonCode, 'process_exit_nonzero');
+  assert.equal(result.metadata.exitCode, 9);
+  assert.equal(await readFile(join(root, 'partial.txt'), 'utf8'), 'done');
+  assert.equal(toolProgressEvidence([{ request: normalized, result }]), null);
+});
+
+test('Unix predicate commands can explicitly accept documented negative results', { skip: process.platform === 'win32' }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-shell-predicates-'));
+  await writeFile(join(root, 'first.txt'), 'first\n');
+  await writeFile(join(root, 'second.txt'), 'second\n');
+  const registry = new ToolRegistry(root); await registry.initialize();
+  const definition = registry.definition('shell.run');
+  for (const script of ["diff -q first.txt second.txt", "grep -q absent first.txt"]) {
+    const normalized = await definition.validate({ script, accepted_exit_codes: [0, 1] });
+    const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
+    assert.equal(result.status, undefined);
+    assert.equal(JSON.parse(result.content).exit_code, 1);
+  }
+});
+
+test('bash pipefail exposes and can explicitly classify an expected upstream SIGPIPE', { skip: process.platform === 'win32' }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-shell-pipefail-'));
+  const registry = new ToolRegistry(root); await registry.initialize();
+  const definition = registry.definition('shell.run');
+  const normalized = await definition.validate({
+    script: 'set -o pipefail; yes value | head -n 1', shell: 'bash', accepted_exit_codes: [0, 141],
+  });
+  const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
+  assert.equal(result.status, undefined);
+  assert.equal(JSON.parse(result.content).exit_code, 141);
 });
 
 test('shell.run classifies compound and destructive scripts for semantic review and stays out of hosted sessions', async () => {

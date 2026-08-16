@@ -82,9 +82,9 @@ export class ToolGovernor {
     const started = performance.now();
     try {
       const raw = await executeBounded(definition, request, signal, { reviewerDecisionId: decision.id });
-      const status = raw.status === 'failed' ? 'failed' : 'succeeded';
+      const status = ['failed', 'completed_nonzero'].includes(raw.status) ? raw.status : 'succeeded';
       return normalizeResult(request, status, raw.content, raw.metadata, started, definition.maxOutputBytes,
-        status === 'failed' ? normalizeReasonCode(raw.reasonCode, 'tool_reported_failure') : null);
+        status !== 'succeeded' ? normalizeReasonCode(raw.reasonCode, 'tool_reported_failure') : null);
     } catch (error) {
       return normalizeFailure(request, definition, error, started);
     }
