@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { copyFile, mkdir, open, readFile, rename, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
 
@@ -80,10 +80,20 @@ export class JournalStore {
 
   async #replace(records) {
     await this.#close();
-    const temporary = `${this.path}.replace-${process.pid}`;
+    const temporary = `${this.path}.replace-${process.pid}-${randomUUID()}`;
     const lines = encodeRecords(records);
-    await writeFile(temporary, lines.length ? `${lines.join('\n')}\n` : '', { flag: 'wx', mode: 0o600 });
-    await rename(temporary, this.path);
+    try {
+      const replacement = await open(temporary, 'wx', 0o600);
+      try {
+        await replacement.writeFile(lines.length ? `${lines.join('\n')}\n` : '', 'utf8');
+        await replacement.sync();
+      } finally { await replacement.close(); }
+      await rename(temporary, this.path);
+      await syncDirectory(this.root);
+    } catch (error) {
+      await rm(temporary, { force: true }).catch(() => undefined);
+      throw error;
+    }
     const recovered = await recoverJournal(this.path, { tailLimit: this.resumeRecordLimit });
     this.#sequence = recovered.lastSequence;
     this.#previousHash = recovered.lastHash;
@@ -110,6 +120,12 @@ export class JournalStore {
       throw error;
     } finally { clearTimeout(timer); work.catch(() => undefined); }
   }
+}
+
+async function syncDirectory(path) {
+  if (process.platform === 'win32') return;
+  const directory = await open(path, 'r');
+  try { await directory.sync(); } finally { await directory.close(); }
 }
 
 export async function recoverJournal(path, options = {}) {

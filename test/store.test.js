@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, mkdtemp, open, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -41,6 +41,23 @@ test('concurrent journal appends serialize sequence and hash-chain ownership', a
       Array.from({ length: 32 }, (_, index) => index + 1));
     assert.deepEqual(recovered.records.map((record) => record.payload.content),
       Array.from({ length: 32 }, (_, index) => `record-${index + 1}`));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('journal replacement preserves a durable chain and leaves no temporary artifact', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-journal-replace-'));
+  const store = new JournalStore(root, 'replace');
+  try {
+    await store.open();
+    await store.append('message', { role: 'user', content: 'expired' });
+    await store.replace([{ type: 'message', payload: { role: 'user', content: 'retained' } }]);
+    await store.append('message', { role: 'assistant', content: 'continued' });
+    await store.close();
+    const recovered = await recoverJournal(store.path);
+    assert.equal(recovered.corruptTail, false);
+    assert.deepEqual(recovered.records.map((record) => record.sequence), [1, 2]);
+    assert.deepEqual(recovered.records.map((record) => record.payload.content), ['retained', 'continued']);
+    assert.equal((await readdir(root)).some((name) => name.includes('.replace-')), false);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
