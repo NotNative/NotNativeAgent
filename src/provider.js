@@ -2,6 +2,11 @@
 import { ContractError } from './ids.js';
 import { providerReasoningControls } from './provider/reasoning.js';
 
+const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
+const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
+const MAX_PROVIDER_STREAM_BYTES = 268_435_456;
+const PROVIDER_STREAM_BYTES_PER_OUTPUT_TOKEN = 1_024;
+
 export class OpenAICompatibleProvider {
   constructor(profile, limits = {}, options = {}) {
     this.profile = profile;
@@ -81,7 +86,7 @@ export class OpenAICompatibleProvider {
     try {
       if (!response.ok) throw await providerErrorResponse(response);
       if (!response.body) throw new ContractError('provider_empty_body', 'provider returned no stream');
-      yield* parseSse(response.body, this.limits.maxOutputBytes, signal);
+      yield* parseSse(response.body, providerStreamByteLimit(this.limits, request), signal);
     } finally {
       signal.removeEventListener('abort', cancel);
       transport.abort();
@@ -212,6 +217,21 @@ function knownPositiveInteger(value) {
   return Number.isInteger(value) && value > 0 ? value : null;
 }
 
+function providerStreamByteLimit(limits, request) {
+  const configuredFloor = knownPositiveInteger(limits?.maxOutputBytes) ?? MIN_PROVIDER_STREAM_BYTES;
+  const outputTokens = knownPositiveInteger(request?.maxOutputTokens);
+  // SSE transports commonly repeat a substantial JSON envelope for every generated
+  // token. Bound that untrusted wire traffic independently from decoded model output
+  // so legitimate token-by-token reasoning is not rejected merely for framing cost.
+  const workloadAllowance = outputTokens === null
+    ? UNDECLARED_PROVIDER_STREAM_BYTES
+    : Math.min(MAX_PROVIDER_STREAM_BYTES, outputTokens * PROVIDER_STREAM_BYTES_PER_OUTPUT_TOKEN);
+  return Math.min(
+    MAX_PROVIDER_STREAM_BYTES,
+    Math.max(MIN_PROVIDER_STREAM_BYTES, configuredFloor, workloadAllowance),
+  );
+}
+
 async function* parseSse(body, maxBytes, signal) {
   const decoder = new TextDecoder('utf-8', { fatal: true });
   let buffer = '';
@@ -220,7 +240,12 @@ async function* parseSse(body, maxBytes, signal) {
   for await (const chunk of body) {
     if (signal.aborted) throw new ContractError('provider_cancelled', 'provider request cancelled');
     total += chunk.byteLength;
-    if (total > maxBytes) throw new ContractError('provider_output_too_large', 'provider stream exceeded bound');
+    if (total > maxBytes) {
+      throw new ContractError(
+        'provider_output_too_large',
+        `provider stream exceeded its ${maxBytes}-byte transport safety allowance`,
+      );
+    }
     buffer += decoder.decode(chunk, { stream: true });
     const split = splitEvents(buffer);
     buffer = split.remainder;

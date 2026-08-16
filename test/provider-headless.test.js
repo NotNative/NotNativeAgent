@@ -104,6 +104,56 @@ test('AC-PROV-01/AC-PROV-02 discovers local models and preserves fragmented SSE 
   assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
 });
 
+test('derived and undeclared transport allowances admit verbose vLLM per-token SSE framing', async () => {
+  const events = Array.from({ length: 12_000 }, (_, index) => `data: ${JSON.stringify({
+    id: `chatcmpl-${String(index).padStart(12, '0')}`,
+    object: 'chat.completion.chunk', created: 1_786_896_000, model: 'qwen3.8-27b',
+    choices: [{ index: 0, delta: { reasoning_content: 'r' }, logprobs: null, finish_reason: null }],
+    usage: null,
+  })}\n\n`).join('');
+  const stream = `${events}data: ${JSON.stringify({
+    id: 'chatcmpl-terminal', object: 'chat.completion.chunk', created: 1_786_896_000,
+    model: 'qwen3.8-27b', choices: [{ index: 0, delta: {}, logprobs: null, finish_reason: 'stop' }],
+  })}\n\ndata: [DONE]\n\n`;
+  assert.ok(Buffer.byteLength(stream, 'utf8') > 2_097_152);
+  for (const maxOutputTokens of [16_384, undefined]) {
+    const provider = new OpenAICompatibleProvider({
+      endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'qwen3.8-27b', capabilities: {},
+    }, { maxOutputBytes: 2_097_152 }, { fetch: async () => new Response(stream, {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    }) });
+    let reasoningBytes = 0;
+    let terminals = 0;
+    for await (const item of provider.stream({
+      model: 'qwen3.8-27b', messages: [], maxOutputTokens,
+    }, new AbortController().signal)) {
+      if (item.type === 'reasoning') reasoningBytes += Buffer.byteLength(item.text, 'utf8');
+      if (item.type === 'terminal') terminals += 1;
+    }
+    assert.equal(reasoningBytes, 12_000);
+    assert.equal(terminals, 1);
+  }
+});
+
+test('provider transport still rejects a runaway stream at its bounded allowance', async () => {
+  const oversized = `data: ${JSON.stringify({
+    choices: [{ delta: { reasoning_content: 'x'.repeat(2_100_000) }, finish_reason: null }],
+  })}\n\n`;
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'fixture', capabilities: {},
+  }, { maxOutputBytes: 4096 }, { fetch: async () => new Response(oversized, {
+    status: 200, headers: { 'content-type': 'text/event-stream' },
+  }) });
+  await assert.rejects(async () => {
+    for await (const _item of provider.stream({
+      model: 'fixture', messages: [], maxOutputTokens: 1,
+    }, new AbortController().signal)) { /* consume */ }
+  }, {
+    code: 'provider_output_too_large',
+    message: 'provider stream exceeded its 2097152-byte transport safety allowance',
+  });
+});
+
 test('AC-PROV-01 allows slow model admission to use the first-token deadline', async () => {
   let requestSignal;
   const provider = new OpenAICompatibleProvider({
