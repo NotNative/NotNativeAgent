@@ -57,7 +57,7 @@ test('Unattended posture converts unresolved escalation into actionable denial',
   assert.equal(result.reasonCode, 'unattended_escalation_denied');
 });
 
-test('governor preserves a completed verification failure and its reason code', async () => {
+test('governor preserves a returned failure without claiming its side effects completed', async () => {
   const events = new EventHub();
   const definition = {
     name: 'project.verify', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
@@ -74,8 +74,28 @@ test('governor preserves a completed verification failure and its reason code', 
   const result = await governor.executePrepared(request, { id: 'decision-1' }, new AbortController().signal);
   assert.equal(result.status, 'failed');
   assert.equal(result.reason_code, 'verification_failed');
-  assert.equal(result.effect_certainty, 'completed');
+  assert.equal(result.effect_certainty, 'unknown');
   assert.deepEqual(result.metadata, { passed: false });
+});
+
+test('governor accepts an executor-owned effect certainty for a returned failure', async () => {
+  const definition = {
+    name: 'project.verify', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
+    async executor() {
+      return {
+        status: 'failed', reasonCode: 'verification_failed', effectCertainty: 'none',
+        content: '{"passed":false}', metadata: { passed: false },
+      };
+    },
+  };
+  const governor = new ToolGovernor({
+    events: new EventHub(),
+    reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
+    registry: { definition: () => definition },
+  });
+  const request = { id: 'verify-none', providerCallId: 'provider-none', toolName: 'project.verify', definitionVersion: 1 };
+  const result = await governor.executePrepared(request, { id: 'decision-none' }, new AbortController().signal);
+  assert.equal(result.effect_certainty, 'none');
 });
 
 test('governor converts numeric executor error codes into governance-safe reason identifiers', async () => {

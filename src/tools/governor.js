@@ -83,7 +83,8 @@ export class ToolGovernor {
     try {
       const raw = await executeBounded(definition, request, signal, { reviewerDecisionId: decision.id });
       const status = ['failed', 'completed_nonzero'].includes(raw.status) ? raw.status : 'succeeded';
-      return normalizeResult(request, status, raw.content, raw.metadata, started, definition.maxOutputBytes,
+      return normalizeResult(request, definition, status, raw.content, raw.metadata, started, definition.maxOutputBytes,
+        raw.effectCertainty,
         status !== 'succeeded' ? normalizeReasonCode(raw.reasonCode, 'tool_reported_failure') : null);
     } catch (error) {
       return normalizeFailure(request, definition, error, started);
@@ -215,7 +216,8 @@ async function executeBounded(definition, request, parentSignal, executionContex
   }
 }
 
-function normalizeResult(request, status, content, metadata, started, maxOutputBytes, reasonCode = null) {
+function normalizeResult(request, definition, status, content, metadata, started, maxOutputBytes,
+  reportedEffectCertainty = null, reasonCode = null) {
   const source = String(content);
   const bounded = truncateUtf8(source, maxOutputBytes);
   return Object.freeze({
@@ -223,9 +225,16 @@ function normalizeResult(request, status, content, metadata, started, maxOutputB
     tool_name: request.toolName, status, content: bounded,
     truncated: Buffer.byteLength(bounded) !== Buffer.byteLength(source),
     elapsed_ms: Math.max(0, performance.now() - started),
-    effect_certainty: 'completed', untrusted: true, metadata, ledger_started: true,
+    effect_certainty: returnedEffectCertainty(definition, status, reportedEffectCertainty),
+    untrusted: true, metadata, ledger_started: true,
     ...(reasonCode ? { reason_code: reasonCode } : {}),
   });
+}
+
+function returnedEffectCertainty(definition, status, reported) {
+  if (['none', 'completed', 'unknown'].includes(reported)) return reported;
+  if (status === 'succeeded') return 'completed';
+  return definition?.sideEffect === 'read_only' ? 'none' : 'unknown';
 }
 
 function truncateUtf8(value, maximum) {
