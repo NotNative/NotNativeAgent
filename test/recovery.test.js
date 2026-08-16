@@ -84,6 +84,66 @@ test('tool recovery budgets are isolated by stable failure fingerprint', () => {
   });
 });
 
+test('new verified progress settles stale no-progress budgets across categories', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  const unchangedWork = '2 unfinished task(s); goal active; work revision 10';
+  assert.equal(recovery.continuation('unfinished_conversation_work', unchangedWork).progress, true);
+  assert.equal(recovery.continuation('unfinished_conversation_work', unchangedWork).count, 1);
+
+  const toolProgress = recovery.noProgress('tool_no_progress', {
+    value: 'unique committed tool result',
+    detail: {
+      kind: 'tool_results', checkpoint: 'tool_results_committed',
+      summary: { successful_tool_calls: 1 },
+    },
+  });
+  assert.equal(toolProgress.progress, true);
+
+  const resumedWork = recovery.continuation('unfinished_conversation_work', unchangedWork);
+  assert.equal(resumedWork.count, 1);
+  assert.equal(resumedWork.action.action, 'nudge');
+});
+
+test('successful tool work prevents nonconsecutive narration checkpoints from exhausting the turn', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-cross-category-progress-'));
+  for (let index = 0; index < 3; index += 1) {
+    await writeFile(join(root, `evidence-${index}.txt`), `verified-${index}`, 'utf8');
+  }
+  let calls = 0;
+  let engine;
+  const provider = { async *stream() {
+    calls += 1;
+    if ([1, 2, 4, 6].includes(calls)) {
+      yield { type: 'text', text: `Progress checkpoint ${calls}; more verified work remains.` };
+      yield { type: 'terminal', finishReason: 'stop' };
+      return;
+    }
+    if ([3, 5, 7].includes(calls)) {
+      yield* toolCall(`progress-${calls}`, `evidence-${Math.floor(calls / 2) - 1}.txt`);
+      return;
+    }
+    await engine.updateTask('T1', 'completed', 'three distinct files verified');
+    await engine.completeGoal('all evidence verified');
+    yield { type: 'text', text: 'The verified audit is complete.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  engine = new SessionEngine({
+    config: config(root, 'ephemeral', { recovery: { max_model_steps: 16 } }),
+    providerFactory: () => provider,
+  });
+  await engine.initialize();
+  await engine.setGoal('Verify all evidence files');
+  await engine.addTask('Read each evidence file');
+
+  const result = await engine.submit({ request_id: 'cross-category-progress', content: 'Run the audit.' }, 'operator');
+
+  assert.equal(result.outcome, 'completed');
+  assert.equal(calls, 8);
+  const workRecovery = result.recovery.filter((item) => item.category === 'unfinished_conversation_work');
+  assert.deepEqual(workRecovery.map((item) => item.action), ['retry_continuation', 'nudge', 'nudge', 'nudge']);
+  assert.deepEqual(workRecovery.map((item) => item.count), [1, 1, 1, 1]);
+});
+
 function toolCall(id, path) {
   return [
     { type: 'tool_fragment', fragments: [{

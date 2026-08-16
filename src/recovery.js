@@ -53,7 +53,7 @@ export class RecoverySupervisor {
   noProgress(category, evidence = null, detail = {}, options = {}) {
     const observedDetail = evidenceDetail(evidence, detail);
     if (evidence && this.observeProgress(evidenceValue(evidence), observedDetail)) {
-      this.#clearEpisodes(category);
+      this.#episodes.clear();
       return Object.freeze({ continue: true, progress: true, action: null });
     }
     const episode = episodeKey(category, options.failureFingerprint);
@@ -130,11 +130,6 @@ export class RecoverySupervisor {
     return record;
   }
 
-  #clearEpisodes(category) {
-    for (const key of this.#episodes.keys()) {
-      if (key === category || key.startsWith(`${category}\0`)) this.#episodes.delete(key);
-    }
-  }
 }
 
 function episodeKey(category, failureFingerprint) {
