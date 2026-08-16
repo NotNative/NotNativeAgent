@@ -15,13 +15,6 @@ export async function boundedShutdown(engine, operation) {
     }, engine.config.limits.shutdownMs);
   });
   try { return await Promise.race([work, timeout]); }
-  catch (error) {
-    if (error.code === 'shutdown_timeout') {
-      try { await engine.lock?.release(); }
-      catch (releaseError) { recordShutdownFailure(engine, 'lock_release', releaseError); }
-    }
-    throw error;
-  }
   // Observe the losing promise after the timeout remains primary.
   finally { clearTimeout(timer); work.catch(() => undefined); }
 }

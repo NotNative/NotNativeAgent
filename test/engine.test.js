@@ -127,7 +127,7 @@ test('AC-FAIL-02 whole-runtime shutdown has its own typed deadline', async () =>
   assert.equal(output.some((item) => item.type === 'shutdown_complete'), false);
 });
 
-test('AC-FAIL-02 shutdown timeout releases a durable session lock for recovery', async () => {
+test('AC-FAIL-02 shutdown timeout retains the durable lock until journal cleanup settles', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-shutdown-lock-'));
   const options = {
     config: resolveManifest({
@@ -139,10 +139,18 @@ test('AC-FAIL-02 shutdown timeout releases a durable session lock for recovery',
   };
   const first = new SessionEngine(options);
   await first.initialize();
-  first.events.close = () => new Promise(() => undefined);
+  let finishEventCleanup;
+  first.events.close = () => new Promise((resolve) => { finishEventCleanup = resolve; });
+  const originalRelease = first.lock.release.bind(first.lock);
+  let observeRelease;
+  const released = new Promise((resolve) => { observeRelease = resolve; });
+  first.lock.release = async () => { await originalRelease(); observeRelease(); };
   await assert.rejects(first.shutdown({ request_id: 'bounded-durable-shutdown' }), { code: 'shutdown_timeout' });
 
   const recovered = new SessionEngine(options);
+  await assert.rejects(recovered.initialize(), { code: 'session_locked' });
+  finishEventCleanup();
+  await released;
   await recovered.initialize();
   await recovered.shutdown({ request_id: 'recovered-shutdown' });
 });

@@ -59,6 +59,7 @@ async function closeAfterInitializationFailure(engine) {
   await Promise.allSettled([
     () => engine.hooks.close(), () => engine.extensions?.close(), () => engine.ledger.close(),
     () => engine.governance?.close(),
-    () => engine.dialects?.close(), () => engine.store?.close(), () => engine.lock?.release(),
+    () => engine.dialects?.close(), () => engine.store?.close(),
   ].map((operation) => Promise.resolve().then(operation)));
+  await engine.lock?.release().catch(() => undefined);
 }
