@@ -158,15 +158,15 @@ export async function readJournalPage(path, options = {}) {
   } finally { await handle.close(); }
 }
 
-export async function readJournalPrefix(path, limit) {
-  const handle = await open(path, 'r');
+export async function readJournalPrefix(path, limit, options = {}) {
+  const handle = await (options.openFile ?? open)(path, 'r');
   try {
     const { size } = await handle.stat();
     let bytes = Math.min(size, 64 * 1024);
     while (true) {
       const buffer = Buffer.allocUnsafe(bytes);
-      await handle.read(buffer, 0, bytes, 0);
-      const lines = buffer.toString('utf8').split('\n').filter(Boolean);
+      const window = await readWindow(handle, buffer, 0);
+      const lines = window.toString('utf8').split('\n').filter(Boolean);
       if (lines.length >= limit || bytes === size) return verifyPrefix(lines.slice(0, limit));
       bytes = Math.min(size, bytes * 2);
     }
@@ -212,13 +212,23 @@ async function recoverJournalTail(path, tailLimit) {
 async function readTailLines(handle, size, bytes) {
   if (size === 0) return [];
   const buffer = Buffer.allocUnsafe(bytes);
-  await handle.read(buffer, 0, bytes, size - bytes);
-  let text = buffer.toString('utf8');
+  const window = await readWindow(handle, buffer, size - bytes);
+  let text = window.toString('utf8');
   if (bytes < size) {
     const newline = text.indexOf('\n');
     text = newline < 0 ? '' : text.slice(newline + 1);
   }
   return text.split('\n').filter((line) => line.length > 0);
+}
+
+async function readWindow(handle, buffer, position) {
+  let offset = 0;
+  while (offset < buffer.length) {
+    const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, position + offset);
+    if (bytesRead === 0) break;
+    offset += bytesRead;
+  }
+  return buffer.subarray(0, offset);
 }
 
 function verifyTail(lines, truncated) {

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { JournalStore, readJournalPage, recoverJournal } from '../src/store.js';
+import { JournalStore, readJournalPage, readJournalPrefix, recoverJournal } from '../src/store.js';
 import { TuiProjection } from '../src/experience/projection.js';
 import { TuiRenderer } from '../src/tui/renderer.js';
 import { loadEarlierTranscriptPage } from '../src/experience/history.js';
@@ -83,6 +83,22 @@ test('AC-PERF-04 large journals resume from a bounded tail and page older record
     assert.deepEqual(latest.records.map((record) => record.sequence), [99_992, 99_993, 99_994, 99_995, 99_996, 99_997, 99_998, 99_999, 100_000, 100_001]);
     const older = await readJournalPage(store.path, { beforeSequence: 99_992, limit: 5 });
     assert.deepEqual(older.records.map((record) => record.sequence), [99_987, 99_988, 99_989, 99_990, 99_991]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('journal prefix verification consumes short file reads without zero-filled corruption', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-journal-short-read-'));
+  const path = join(root, 'short-read.journal.ndjson');
+  try {
+    await writeJournalFixture(path, 3);
+    const records = await readJournalPrefix(path, 2, { openFile: async (...args) => {
+      const handle = await open(...args);
+      return {
+        stat: () => handle.stat(), close: () => handle.close(),
+        read: (buffer, offset, length, position) => handle.read(buffer, offset, Math.min(length, 7), position),
+      };
+    } });
+    assert.deepEqual(records.map((record) => record.sequence), [1, 2]);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
