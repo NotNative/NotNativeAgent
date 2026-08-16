@@ -70,6 +70,31 @@ test('authenticated tracked-file mutations auto-approve as reversible without we
   assert.equal(denied.reasonCode, 'authenticated_intent_mismatch');
 });
 
+test('deterministic mutation authority requires an exact filename boundary', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'target-boundary' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({
+    ledger,
+    semanticReviewer: { async review() {
+      semanticCalls += 1;
+      return { outcome: 'deny_with_guidance', confidence: 0.99, reason_code: 'target_ambiguous' };
+    } },
+  });
+  const result = await reviewer.review({
+    ...mutationRequest('target-boundary'),
+    args: { path: 'plan.md', content: 'after', expected_sha256: null },
+    resolved: { path: 'D:/workspace/plan.md', exists: true, insideWorkspace: true, recovery: 'git_tracked' },
+  }, {
+    ...context,
+    authority: { ...context.authority, intent: [{
+      content: 'Update plan.md.backup after reviewing it.', sequence: 1, kind: 'instruction',
+    }] },
+  });
+  assert.equal(result.outcome, 'deny_with_guidance');
+  assert.equal(result.reasonCode, 'target_ambiguous');
+  assert.equal(semanticCalls, 1);
+});
+
 test('a requested audit authorizes only a clearly named new in-workspace report artifact', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'audit-report-artifact' });
   let semanticCalls = 0;

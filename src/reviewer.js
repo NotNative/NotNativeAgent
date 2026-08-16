@@ -467,8 +467,22 @@ function resolvedTargets(request) {
 }
 
 function evidenceNamesTarget(evidence, target) {
+  const normalizedEvidence = evidence.replaceAll('\\', '/');
   const name = target.split('/').at(-1);
-  return evidence.includes(target) || (name.length > 0 && evidence.includes(name));
+  return containsPathReference(normalizedEvidence, target)
+    || (name.length > 0 && containsPathReference(normalizedEvidence, name));
+}
+
+function containsPathReference(evidence, reference) {
+  let offset = evidence.indexOf(reference);
+  while (offset >= 0) {
+    const before = offset === 0 ? '' : evidence[offset - 1];
+    const afterIndex = offset + reference.length;
+    const after = afterIndex >= evidence.length ? '' : evidence[afterIndex];
+    if (!/[a-z0-9._/-]/u.test(before) && !/[a-z0-9._/-]/u.test(after)) return true;
+    offset = evidence.indexOf(reference, offset + 1);
+  }
+  return false;
 }
 
 function filesystemActionPattern(toolName) {
