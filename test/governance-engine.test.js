@@ -162,6 +162,18 @@ test('governance retention never leaves a retained decision with dangling eviden
   assert.ok(governance.health().evidence + governance.health().decisions <= 4);
 });
 
+test('large governance retention compacts with bounded headroom', async () => {
+  const governance = new GovernanceEngine({ durable: false, sessionId: 'headroom', retentionEntries: 100 });
+  for (let index = 0; index < 101; index += 1) {
+    await governance.registerEvidence(evidenceRecord(`headroom-${index}`, `content-${index}`));
+  }
+  assert.equal(governance.health().evidence, 90);
+  for (let index = 101; index < 106; index += 1) {
+    await governance.registerEvidence(evidenceRecord(`headroom-${index}`, `content-${index}`));
+  }
+  assert.equal(governance.health().evidence, 95);
+});
+
 test('authorization governance binds decisions to fingerprinted request and intent evidence without raw intent', async () => {
   const governance = new GovernanceEngine({ durable: false, sessionId: 'authorization' });
   const request = {

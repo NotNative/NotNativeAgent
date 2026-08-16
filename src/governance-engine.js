@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
 import { JournalStore } from './store.js';
+import { retentionCompactionTarget } from './persistence/retention.js';
 import {
   assertEvidenceTransition, governanceFingerprint, normalizeGovernanceDecision,
   normalizeGovernanceEvidence, normalizeGovernanceTerminal,
@@ -280,18 +281,19 @@ export class GovernanceEngine {
   async #enforceRetention(pinnedEvidenceId = null) {
     const total = this.#evidence.size + this.#decisions.size;
     if (total <= this.retentionEntries) return;
+    const retentionTarget = retentionCompactionTarget(this.retentionEntries);
     const allDecisions = [...this.#decisions.values()];
     const decisions = [];
     const requiredEvidence = new Set(pinnedEvidenceId ? [pinnedEvidenceId] : []);
     for (let index = allDecisions.length - 1; index >= 0; index -= 1) {
       const candidate = allDecisions[index];
       const additions = candidate.record.evidenceRefs.filter((id) => !requiredEvidence.has(id));
-      if (decisions.length + requiredEvidence.size + additions.length + 1 > this.retentionEntries) break;
+      if (decisions.length + requiredEvidence.size + additions.length + 1 > retentionTarget) break;
       decisions.push(candidate);
       for (const id of additions) requiredEvidence.add(id);
     }
     const retainedDecisions = decisions.toReversed();
-    const evidenceBudget = this.retentionEntries - retainedDecisions.length;
+    const evidenceBudget = retentionTarget - retainedDecisions.length;
     const allEvidence = [...this.#evidence.values()];
     const optional = allEvidence.filter((entry) => !requiredEvidence.has(entry.record.id));
     const optionalBudget = Math.max(0, evidenceBudget - requiredEvidence.size);

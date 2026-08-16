@@ -76,3 +76,28 @@ test('reviewer retention atomically removes expired durable entries', async () =
   assert.deepEqual(restored.audit().map((item) => item.request_id), ['retention-request-2', 'retention-request-3']);
   await restored.close();
 });
+
+test('large reviewer retention compacts with headroom instead of rewriting every settle', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ledger-headroom-'));
+  const ledger = new ReviewerLedger({
+    durable: true, root, sessionId: 'headroom', retentionEntries: 100,
+  });
+  await ledger.initialize();
+  for (let index = 1; index <= 101; index += 1) {
+    const item = request(`headroom-request-${index}`);
+    await ledger.propose(item, { risk: 'review_required', scope: 'workspace' });
+    await ledger.commitDecision(item.id, { id: `headroom-decision-${index}`, outcome: 'approve', reasonCode: 'test' });
+    await ledger.executionStarted(item.id, `headroom-decision-${index}`);
+    await ledger.settle(item.id, { status: 'succeeded', effect_certainty: 'completed' });
+  }
+  assert.equal(ledger.health().entries, 90);
+  for (let index = 102; index <= 106; index += 1) {
+    const item = request(`headroom-request-${index}`);
+    await ledger.propose(item, { risk: 'review_required', scope: 'workspace' });
+    await ledger.commitDecision(item.id, { id: `headroom-decision-${index}`, outcome: 'approve', reasonCode: 'test' });
+    await ledger.executionStarted(item.id, `headroom-decision-${index}`);
+    await ledger.settle(item.id, { status: 'succeeded', effect_certainty: 'completed' });
+  }
+  assert.equal(ledger.health().entries, 95);
+  await ledger.close();
+});

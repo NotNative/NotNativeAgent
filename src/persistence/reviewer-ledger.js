@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { JournalStore } from '../store.js';
+import { retentionCompactionTarget } from './retention.js';
 
 const DEFAULT_RETENTION_ENTRIES = 10_000;
 const MAX_REPLAY_RECORDS = 1_000_000;
@@ -141,7 +142,7 @@ export class ReviewerLedger {
 
   async #enforceRetention() {
     if (this.#entries.size <= this.retentionEntries) return;
-    const retained = [...this.#entries.values()].slice(-this.retentionEntries);
+    const retained = [...this.#entries.values()].slice(-retentionCompactionTarget(this.retentionEntries));
     if (this.#store) await this.#store.replace(retained.flatMap(entryRecords));
     const retainedEntries = new Map(retained.map((entry) => [entry.requestId, entry]));
     const retainedSignatureCounts = new Map();
