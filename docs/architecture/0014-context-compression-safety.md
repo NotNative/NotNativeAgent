@@ -32,8 +32,8 @@ successful tool results. When an older cold payload is byte-identical to a later
 the receipt saves at least 512 bytes, the provider projection may replace the older payload
 with `nna.duplicate-result-receipt.v1`.
 
-The receipt identifies the original and later record through stable record indexes,
-request/provider-call identifiers, ledger references, and a SHA-256 content digest. The
+The receipt identifies the original and later record through request/provider-call
+identifiers, ledger references, and a SHA-256 content digest. The
 newest result and all protected records remain unchanged. Failed results, small payloads,
 and unresolved exchanges are not content-deduplicated. Request/result structural pairing is
 preserved, and the source transcript is never mutated.

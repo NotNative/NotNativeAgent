@@ -26,7 +26,7 @@ export function projectDuplicateToolResults(records, protectedIndexes = new Set(
     const duplicateOfIndex = digest === undefined ? index : latestByDigest.get(digest);
     if (duplicateOfIndex === index) return record;
     const duplicateOf = records[duplicateOfIndex];
-    const receipt = duplicateReceipt(record, duplicateOf, duplicateOfIndex, digest);
+    const receipt = duplicateReceipt(record, duplicateOf, digest);
     const originalBytes = recordBytes(record);
     const projectedBytes = recordBytes(receipt);
     if (originalBytes - projectedBytes < minimumSavingsBytes) return record;
@@ -39,7 +39,7 @@ export function projectDuplicateToolResults(records, protectedIndexes = new Set(
 
 export function duplicateResultContentDigest(content) { return contentDigest(content); }
 
-function duplicateReceipt(record, duplicateOf, duplicateOfIndex, digest) {
+function duplicateReceipt(record, duplicateOf, digest) {
   const ledgerRef = ledgerReference(record);
   const duplicateOfRef = ledgerReference(duplicateOf);
   const receipt = Object.freeze({
@@ -50,7 +50,6 @@ function duplicateReceipt(record, duplicateOf, duplicateOfIndex, digest) {
     original_bytes: Buffer.byteLength(record.content, 'utf8'),
     ledger_ref: ledgerRef,
     duplicate_of: Object.freeze({
-      record_index: duplicateOfIndex,
       ledger_ref: duplicateOfRef,
       provider_call_id: duplicateOf.providerCallId ?? null,
       request_id: duplicateOf.requestId ?? null,
@@ -64,7 +63,7 @@ function duplicateReceipt(record, duplicateOf, duplicateOfIndex, digest) {
       reason: 'duplicate_result', compressionClass: 'recoverable',
       reducer: 'content_identity_dedup_v1', ledgerRef,
       resultFingerprint: digest, receiptSchema: RECEIPT_SCHEMA,
-      duplicateOfLedgerRef: duplicateOfRef, duplicateOfRecordIndex: duplicateOfIndex,
+      duplicateOfLedgerRef: duplicateOfRef,
     },
   };
 }

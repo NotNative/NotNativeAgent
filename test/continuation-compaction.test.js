@@ -144,7 +144,7 @@ test('compaction replaces cold byte-identical successful results with recoverabl
   assert.equal(receipt.schema, 'nna.duplicate-result-receipt.v1');
   assert.equal(receipt.ledger_ref, 'request-old');
   assert.equal(receipt.duplicate_of.ledger_ref, 'request-new');
-  assert.equal(receipt.duplicate_of.record_index, transcript.length - 1);
+  assert.equal(receipt.duplicate_of.provider_call_id, 'call-new');
   assert.match(receipt.content_sha256, /^[a-f0-9]{64}$/u);
   assert.equal(oldResult.metadata.compressionClass, 'recoverable');
   assert.equal(newestResult.content, repeated);
