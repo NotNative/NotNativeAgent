@@ -10,7 +10,7 @@ export async function persistAtomicJson(path, value, options = {}) {
   try {
     await writeSynced(temporary, serialized(value));
     if (options.backup) await copyExisting(path, `${path}.bak`);
-    await rename(temporary, path);
+    await replaceFile(temporary, path);
   } finally { await rm(temporary, { force: true }).catch(() => undefined); }
 }
 
@@ -47,3 +47,13 @@ async function copyExisting(source, destination) {
 
 function serialized(value) { return `${JSON.stringify(value, null, 2)}\n`; }
 function temporaryPath(path) { return `${path}.tmp-${process.pid}-${randomUUID()}`; }
+
+async function replaceFile(source, destination) {
+  for (let attempt = 0; ; attempt += 1) {
+    try { await rename(source, destination); return; }
+    catch (error) {
+      if (process.platform !== 'win32' || !['EPERM', 'EBUSY', 'EACCES'].includes(error.code) || attempt >= 40) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+}

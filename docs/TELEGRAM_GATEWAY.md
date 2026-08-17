@@ -32,6 +32,21 @@ chat while sharing NNA's bounded provider scheduler. `/cancel` bypasses the chat
 reaches an active engine turn immediately. Replies are plain text and split at Telegram's
 message-size boundary.
 
+Telegram ingress is explicitly at-least-once with harness deduplication. Before advancing
+the Bot API offset, the gateway atomically persists each accepted `update_id` and its bounded
+update in a durable inbox. Queue saturation leaves the update in that inbox instead of
+consuming it; completion removes it only after handling settles. A hard stop therefore
+replays unacknowledged inbox entries, while the stable `gateway_update_UPDATE_ID` request
+identity lets the session ingress recognize a previously accepted update rather than create
+unattributed duplicate work. The inbox is capped at 256 updates and 1 MiB; when full, the
+gateway does not advance beyond the first update it could not preserve.
+
+Detached gateway control records bind the PID to its operating-system process-start
+identity. `status` reports stale identity evidence instead of mistaking a recycled PID for
+the gateway, and `stop` refuses legacy or otherwise unverifiable PID records rather than
+signalling an unrelated process. Starting after a stale record preserves that record under
+a timestamped `.stale.*` name before publishing the new verified identity.
+
 `/compact` explicitly compacts the conversation currently controlled by Telegram. `/clear`
 asks for inline confirmation before removing that conversation's context; `/clear confirm`
 and `/clear cancel` are text fallbacks. Confirmations expire after one minute and are bound

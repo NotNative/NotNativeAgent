@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { CanonicalIngress } from '../ingress.js';
 import { SessionEngine } from '../engine.js';
@@ -9,8 +9,11 @@ import { StructuredLog } from '../structured-log.js';
 import { FairScheduler } from '../provider/fair-scheduler.js';
 import { ConsoleSessionDirectory } from '../session-broker.js';
 import { acknowledgeTelegramNotification, readTelegramOutbox } from '../notifications/telegram.js';
+import { persistAtomicJson } from '../persistence/atomic-json.js';
 
 const MAX_PENDING_CHAT_UPDATES = 16;
+const MAX_DURABLE_UPDATES = 256;
+const MAX_GATEWAY_STATE_BYTES = 1_048_576;
 const GATEWAY_HELP = 'NNA gateway ready. Send a request, use /sessions to attach to a Console conversation, /compact to reduce older context, /handoff for a terse continuation, /clear to start fresh, or /cancel to stop active work.';
 
 export class TelegramGateway {
@@ -26,6 +29,10 @@ export class TelegramGateway {
     this.pendingClears = new Map();
     this.queues = new Map();
     this.offset = 0;
+    this.inbox = [];
+    this.activeUpdates = new Set();
+    this.updateOperations = new Set();
+    this.stateWrites = Promise.resolve();
     this.running = false;
     this.controller = new AbortController();
     this.logger = options.logger ?? new StructuredLog({ path: join(this.paths.logs, 'gateway.ndjson') });
@@ -38,7 +45,10 @@ export class TelegramGateway {
   async initialize() {
     await mkdir(this.paths.gateway, { recursive: true, mode: 0o700 });
     await this.logger.initialize();
-    this.offset = await loadOffset(join(this.paths.gateway, 'state.json'));
+    this.statePath = join(this.paths.gateway, 'state.json');
+    const state = await loadGatewayState(this.statePath);
+    this.offset = state.offset;
+    this.inbox = state.inbox;
     const bot = await this.api.getMe(this.controller.signal);
     this.logger.record({ type: 'gateway_initialized', status: 'ready' });
     return { id: bot.id, username: bot.username ?? null };
@@ -48,6 +58,7 @@ export class TelegramGateway {
     const bot = await this.initialize();
     this.running = true;
     while (this.running && !this.controller.signal.aborted) {
+      this.#dispatchPending();
       let updates;
       try {
         updates = await this.api.getUpdates(this.offset, this.config.polling_timeout_seconds, this.controller.signal);
@@ -57,14 +68,11 @@ export class TelegramGateway {
         await delay(1_000, this.controller.signal).catch(() => undefined);
         continue;
       }
-      for (const update of updates) {
-        this.offset = Math.max(this.offset, Number(update.update_id) + 1);
-        this.#dispatch(update);
-      }
+      await this.#acceptUpdates(updates);
+      this.#dispatchPending();
       await this.#drainNotifications().catch((error) => this.logger.record({
         type: 'gateway_notification_failed', code: error.code ?? 'notification_delivery_failed', outcome: 'failed',
       }));
-      await saveOffset(join(this.paths.gateway, 'state.json'), this.offset);
     }
     await this.shutdown();
     return bot;
@@ -78,6 +86,8 @@ export class TelegramGateway {
       version: '1.0', type: 'cancel', request_id: newId('gateway_shutdown_cancel'),
     }, 'authenticated-gateway-runtime')));
     await Promise.allSettled([...this.queues.values()].map((item) => item.operation));
+    await Promise.allSettled([...this.updateOperations]);
+    await this.stateWrites;
     await Promise.allSettled([...this.sessions.values()].map((item) => item.engine.shutdown({
       version: '1.0', type: 'shutdown', request_id: newId('gateway_shutdown'),
     })));
@@ -90,23 +100,78 @@ export class TelegramGateway {
   }
 
   #dispatch(update) {
+    const updateId = Number(update?.update_id);
+    if (!Number.isSafeInteger(updateId) || this.activeUpdates.has(updateId)) return false;
     const message = update?.message ?? update?.callback_query?.message;
     const chatId = message?.chat ? String(message.chat.id) : null;
     if (!chatId || message?.text?.trim() === '/cancel') {
-      this.#handle(update).catch((error) => this.#recordUpdateFailure(error));
-      return;
+      this.activeUpdates.add(updateId);
+      this.#track(this.#handle(update).catch((error) => this.#recordUpdateFailure(error))
+        .finally(() => this.#settleUpdate(updateId)));
+      return true;
     }
     const queue = this.queues.get(chatId) ?? { operation: Promise.resolve(), pending: 0 };
     if (queue.pending >= MAX_PENDING_CHAT_UPDATES) {
       this.logger.record({ type: 'gateway_queue_full', code: 'gateway_chat_queue_full', outcome: 'failed' });
-      return;
+      return false;
     }
+    this.activeUpdates.add(updateId);
     queue.pending += 1;
-    queue.operation = queue.operation.then(() => this.#handle(update)).catch((error) => this.#recordUpdateFailure(error)).finally(() => {
+    queue.operation = queue.operation.then(() => this.#handle(update)).catch((error) => this.#recordUpdateFailure(error)).finally(async () => {
       queue.pending -= 1;
       if (queue.pending === 0) this.queues.delete(chatId);
+      await this.#settleUpdate(updateId);
     });
     this.queues.set(chatId, queue);
+    this.#track(queue.operation);
+    return true;
+  }
+
+  #dispatchPending() { for (const update of this.inbox) this.#dispatch(update); }
+
+  async #acceptUpdates(updates) {
+    const known = new Set(this.inbox.map((item) => Number(item.update_id)));
+    for (const update of updates) {
+      const updateId = Number(update?.update_id);
+      if (!Number.isSafeInteger(updateId) || updateId < this.offset) continue;
+      if (this.inbox.length >= MAX_DURABLE_UPDATES) break;
+      if (!known.has(updateId)) {
+        const candidate = [...this.inbox, update];
+        if (Buffer.byteLength(JSON.stringify({ version: 2, offset: updateId + 1, inbox: candidate })) > MAX_GATEWAY_STATE_BYTES) break;
+        this.inbox = candidate; known.add(updateId);
+      }
+      this.offset = updateId + 1;
+    }
+    await this.#saveState();
+  }
+
+  async #ackUpdate(updateId) {
+    const prior = this.inbox;
+    this.inbox = prior.filter((item) => Number(item.update_id) !== updateId);
+    try { await this.#saveState(); }
+    catch (error) { this.inbox = prior; throw error; }
+    this.activeUpdates.delete(updateId);
+    if (this.running) this.#dispatchPending();
+  }
+
+  async #settleUpdate(updateId) {
+    try { await this.#ackUpdate(updateId); }
+    catch (error) {
+      this.logger.record({ type: 'gateway_state_failed', code: error.code ?? 'gateway_state_write_failed', outcome: 'failed' });
+      this.running = false; this.controller.abort();
+    }
+  }
+
+  #saveState() {
+    this.stateWrites = this.stateWrites.then(() => persistAtomicJson(this.statePath, {
+      version: 2, offset: this.offset, inbox: this.inbox,
+    }));
+    return this.stateWrites;
+  }
+
+  #track(operation) {
+    this.updateOperations.add(operation);
+    operation.then(() => this.updateOperations.delete(operation), () => this.updateOperations.delete(operation));
   }
 
   #recordUpdateFailure(error) {
@@ -161,7 +226,7 @@ export class TelegramGateway {
     }
     const session = await this.#session(chatId);
     const result = await session.ingress.submit({
-      version: '1.0', type: 'submit', request_id: newId('gateway'), content: text,
+      version: '1.0', type: 'submit', request_id: `gateway_update_${update.update_id}`, content: text,
     }, gatewayPrincipal(userId));
     const response = result.text || turnFallback(result);
     await this.api.sendMessage(chatId, response, this.controller.signal);
@@ -383,14 +448,12 @@ function delay(ms, signal) { return new Promise((resolve, reject) => {
   const timer = setTimeout(resolve, ms);
   signal?.addEventListener('abort', () => { clearTimeout(timer); reject(signal.reason); }, { once: true });
 }); }
-async function loadOffset(path) {
+async function loadGatewayState(path) {
   try {
     const value = JSON.parse(await readFile(path, 'utf8'));
-    return Number.isSafeInteger(value.offset) && value.offset >= 0 ? value.offset : 0;
-  } catch (error) { if (error.code === 'ENOENT') return 0; return 0; }
-}
-async function saveOffset(path, offset) {
-  const temporary = `${path}.tmp-${process.pid}`;
-  await writeFile(temporary, `${JSON.stringify({ version: 1, offset })}\n`, { mode: 0o600 });
-  await rename(temporary, path);
+    const offset = Number.isSafeInteger(value.offset) && value.offset >= 0 ? value.offset : 0;
+    const inbox = value.version === 2 && Array.isArray(value.inbox)
+      ? value.inbox.filter((item) => Number.isSafeInteger(Number(item?.update_id))).slice(0, MAX_DURABLE_UPDATES) : [];
+    return { offset, inbox };
+  } catch (error) { if (error.code === 'ENOENT') return { offset: 0, inbox: [] }; return { offset: 0, inbox: [] }; }
 }

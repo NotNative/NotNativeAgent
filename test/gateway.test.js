@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,7 +14,16 @@ import { ConsoleSessionBroker, ConsoleSessionDirectory } from '../src/session-br
 import { readTelegramOutbox, TelegramNotificationQueue } from '../src/notifications/telegram.js';
 import { commandDefinition } from '../src/tui/commands.js';
 import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui/overlays.js';
-import { gatewayShutdownDiagnostic, runGatewayCommand } from '../src/gateway-cli.js';
+import { gatewayShutdownDiagnostic, runGatewayCommand, runtimeStatus } from '../src/gateway-cli.js';
+
+async function waitUntil(predicate, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try { if (await predicate()) return; } catch { /* State may not be published yet. */ }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.fail('condition did not settle before deadline');
+}
 
 test('gateway shutdown diagnostics expose only a stable code', () => {
   const diagnostic = gatewayShutdownDiagnostic({ code: 'close failed', message: 'private token detail' });
@@ -107,6 +116,68 @@ test('gateway start failure is reported without publishing a false pid', async (
     },
   }), { code: 'gateway_start_failed' });
   await assert.rejects(readFile(join(paths.gateway, 'gateway.pid')), { code: 'ENOENT' });
+});
+
+test('gateway status and stop require the recorded process instance rather than PID liveness alone', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-identity-'));
+  const paths = { root, gateway: join(root, 'gateway'), gatewayConfig: join(root, 'gateway', 'config.json') };
+  await mkdir(paths.gateway, { recursive: true });
+  await writeFile(join(paths.gateway, 'gateway.pid'), JSON.stringify({
+    version: 2, pid: 44,
+    process_identity: { version: 1, pid: 44, platform: 'fixture', start_id: 'original' },
+  }));
+  const different = { compare: async () => 'different', live: () => true };
+  assert.deepEqual(await runtimeStatus(paths, { processIdentity: different }), {
+    running: false, stale: true, pid: 44, reason: 'different',
+  });
+  const killed = [];
+  const same = { compare: async () => 'same', live: () => true };
+  assert.deepEqual(await runtimeStatus(paths, { processIdentity: same }), { running: true, verified: true, pid: 44 });
+  assert.deepEqual(await runGatewayCommand(['stop'], paths, { processIdentity: same, kill: (...args) => killed.push(args) }), {
+    stopped: true, pid: 44,
+  });
+  assert.deepEqual(killed, [[44, 'SIGTERM']]);
+  await writeFile(join(paths.gateway, 'gateway.pid'), '44\n');
+  await assert.rejects(runGatewayCommand(['stop'], paths, { processIdentity: same, kill: () => assert.fail('must not kill') }), {
+    code: 'gateway_identity_unverifiable',
+  });
+});
+
+test('Telegram durably retains queue-full updates and eventually submits each update exactly once', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-inbox-'));
+  let polls = 0, release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const updates = Array.from({ length: 17 }, (_, index) => ({
+    update_id: index + 1, message: { text: `message-${index + 1}`, from: { id: 42 }, chat: { id: 420 } },
+  }));
+  const api = {
+    async getMe() { return { id: 1 }; },
+    async getUpdates(_offset, _timeout, signal) {
+      polls += 1;
+      if (polls === 1) return updates;
+      return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    },
+    async sendMessage() {},
+  };
+  const submitted = [];
+  const paths = { gateway: join(root, 'gateway'), logs: join(root, 'logs'), sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer') };
+  const gateway = new TelegramGateway({
+    api, paths, engineConfig: { limits: { providerConcurrency: 1, providerQueueLimit: 32 } },
+    config: { authorized_user_ids: ['42'], polling_timeout_seconds: 5 },
+    engineFactory: () => ({
+      config: { executionManifest: null }, initialize: async () => undefined,
+      submit: async (command) => { submitted.push(command.request_id); await gate; return { outcome: 'completed', text: 'ok' }; },
+      cancel: async () => ({ accepted: true }), shutdown: async () => ({ complete: true }),
+    }),
+  });
+  const running = gateway.run();
+  await waitUntil(async () => JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length === 17);
+  release();
+  await waitUntil(() => submitted.length === 17);
+  await waitUntil(async () => JSON.parse(await readFile(join(paths.gateway, 'state.json'), 'utf8')).inbox.length === 0);
+  await gateway.shutdown(); await running;
+  assert.equal(new Set(submitted).size, 17);
+  assert.deepEqual(submitted.sort(), updates.map((item) => `gateway_update_${item.update_id}`).sort());
 });
 
 test('authorized Telegram messages enter a durable chat session while unknown users are silent', async () => {

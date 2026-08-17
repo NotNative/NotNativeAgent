@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { open, readFile, unlink, writeFile } from 'node:fs/promises';
+import { open, readFile, rename, unlink } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { loadEffectiveStartupConfiguration, runtimeHookRoots, runtimeSkillRoots } from './startup-configuration.js';
 import {
@@ -9,13 +10,15 @@ import {
 import { TelegramApi } from './gateway/telegram-api.js';
 import { TelegramGateway } from './gateway/telegram.js';
 import { SessionLock } from './persistence/session-lock.js';
+import { ProcessIdentity, validIdentity } from './reliability/process-identity.js';
+import { persistAtomicJson } from './persistence/atomic-json.js';
 
 const MAX_TOKEN_BYTES = 1_024;
 
 export async function runGatewayCommand(args, paths, options = {}) {
   const action = args[0] ?? 'status';
   const config = await loadGatewayConfig(paths.gatewayConfig);
-  if (action === 'status') return { ...gatewayPublicStatus(config), runtime: await runtimeStatus(paths) };
+  if (action === 'status') return { ...gatewayPublicStatus(config), runtime: await runtimeStatus(paths, options) };
   if (action === 'token') return update(config, paths, { token: required(args[1], 'telegram token'), enabled: config.enabled });
   if (action === 'token-stdin') return update(config, paths, { token: await readToken(options.input), enabled: config.enabled });
   if (action === 'token-env') return update(config, paths, { token_env: required(args[1], 'token environment name'), token: null });
@@ -89,11 +92,12 @@ async function startDetached(config, paths, options) {
     await startLock.acquire();
   } catch (error) {
     if (error?.code !== 'session_locked') throw error;
-    return { started: false, reason: 'already_starting', runtime: await runtimeStatus(paths) };
+    return { started: false, reason: 'already_starting', runtime: await runtimeStatus(paths, options) };
   }
   try {
-    const status = await runtimeStatus(paths);
+    const status = await runtimeStatus(paths, options);
     if (status.running) return { started: false, reason: 'already_running', runtime: status };
+    if (status.stale) await preserveStaleGatewayIdentity(paths);
     return await spawnDetachedGateway(paths, options);
   } finally { await startLock.release(); }
 }
@@ -103,7 +107,7 @@ async function spawnDetachedGateway(paths, options) {
   const child = (options.spawnProcess ?? spawn)(process.execPath, ['--disable-warning=ExperimentalWarning', process.argv[1], 'gateway', 'run'], {
     detached: true, windowsHide: true, stdio: ['ignore', log.fd, log.fd], env: { ...process.env, NNA_HOME: paths.root },
   });
-  try { await childStarted(child); await writePid(paths, child.pid); }
+  try { await childStarted(child); await writePid(paths, child.pid, options); }
   catch (error) { child.kill?.(); throw error; }
   finally { await log.close(); }
   child.unref();
@@ -127,19 +131,27 @@ function childStarted(child) {
 }
 
 async function stopGateway(paths, options) {
-  const status = await runtimeStatus(paths);
+  const status = await runtimeStatus(paths, options);
   if (!status.running) return { stopped: false, reason: 'not_running' };
+  if (!status.verified) throw Object.assign(new Error('gateway process identity could not be verified'), { code: 'gateway_identity_unverifiable' });
   (options.kill ?? process.kill)(status.pid, 'SIGTERM');
   return { stopped: true, pid: status.pid };
 }
 
-export async function runtimeStatus(paths) {
-  let pid;
-  try { pid = Number((await readFile(pidPath(paths), 'utf8')).trim()); }
+export async function runtimeStatus(paths, options = {}) {
+  let record;
+  try { record = parsePidRecord(await readFile(pidPath(paths), 'utf8')); }
   catch (error) { if (error.code === 'ENOENT') return { running: false }; throw error; }
-  if (!Number.isSafeInteger(pid) || pid < 1) return { running: false, stale: true };
-  try { process.kill(pid, 0); return { running: true, pid }; }
-  catch { return { running: false, stale: true, pid }; }
+  if (!record) return { running: false, stale: true };
+  const identity = options.processIdentity ?? new ProcessIdentity();
+  if (!validIdentity(record.process_identity)) {
+    return identity.live(record.pid) ? { running: true, verified: false, pid: record.pid, legacy: true }
+      : { running: false, stale: true, pid: record.pid };
+  }
+  const comparison = await identity.compare(record.process_identity);
+  if (comparison === 'same') return { running: true, verified: true, pid: record.pid };
+  if (comparison === 'unknown') return { running: true, verified: false, pid: record.pid };
+  return { running: false, stale: true, pid: record.pid, reason: comparison };
 }
 
 function assertRunnable(config, environment) {
@@ -147,7 +159,27 @@ function assertRunnable(config, environment) {
   if (!gatewayToken(config, environment).value) throw Object.assign(new Error('Telegram token is missing'), { code: 'telegram_token_missing' });
   if (config.authorized_user_ids.length === 0) throw Object.assign(new Error('no Telegram users are authorized'), { code: 'gateway_authorization_required' });
 }
-async function writePid(paths, pid) { await writeFile(pidPath(paths), `${pid}\n`, { mode: 0o600 }); }
+async function writePid(paths, pid, options) {
+  const identity = options.processIdentity ?? new ProcessIdentity();
+  const captured = await identity.capture(pid);
+  if (!captured?.start_id) throw Object.assign(new Error('gateway process identity unavailable'), { code: 'gateway_identity_unavailable' });
+  await persistAtomicJson(pidPath(paths), { version: 2, pid, process_identity: captured });
+}
+async function preserveStaleGatewayIdentity(paths) {
+  await rename(pidPath(paths), `${pidPath(paths)}.stale.${Date.now()}.${randomUUID()}`).catch((error) => {
+    if (error.code !== 'ENOENT') throw error;
+  });
+}
+function parsePidRecord(text) {
+  try {
+    const value = JSON.parse(text);
+    if (Number.isSafeInteger(value) && value > 0) return { version: 1, pid: value };
+    return value?.version === 2 && Number.isSafeInteger(value.pid) && value.pid > 0 ? value : null;
+  } catch {
+    const pid = Number(text.trim());
+    return Number.isSafeInteger(pid) && pid > 0 ? { version: 1, pid } : null;
+  }
+}
 function pidPath(paths) { return join(paths.gateway, 'gateway.pid'); }
 function required(value, label) { if (!value) throw Object.assign(new Error(`${label} required`), { code: 'gateway_value_required' }); return value; }
 async function readToken(input) {
