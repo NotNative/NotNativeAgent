@@ -60,6 +60,9 @@ function installReliability(engine, options) {
     continuationCompactor: options.continuationCompactor,
     scheduler: engine.scheduler,
     telemetry: engine.telemetry,
+    contextTokenCounter: options.contextTokenCounter,
+    contextTokenizerIdentity: options.contextTokenizerIdentity,
+    contextTokenizerExact: options.contextTokenizerExact,
   });
   // Transitional aliases preserve extension and test contracts while canonical ownership moves.
   engine.dialects = engine.reliability.modelDialects;
@@ -164,7 +167,14 @@ function elevationBrokerFor(engine, options) {
 }
 
 function historyToolOptions(engine) {
-  return { transcript: () => engine.transcript, telemetry: engine.telemetry };
+  return {
+    transcript: () => engine.transcript,
+    telemetry: engine.telemetry,
+    compressionState: () => ({
+      tier: engine.active?.contextPressureTier ?? 'none',
+      compactionAttempts: engine.active?.compactionAttempts ?? 0,
+    }),
+  };
 }
 
 function installNotifications(engine, options) {

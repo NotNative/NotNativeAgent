@@ -26,6 +26,7 @@ test('history tools redact secrets and read exact neighboring records', async ()
   const definitions = sessionHistoryDefinitions({
     transcript: () => records,
     telemetry: { record: (...args) => telemetry.push(args) },
+    compressionState: () => ({ tier: 'checkpoint', compactionAttempts: 1 }),
   });
   const search = definitions.find((item) => item.name === 'session.search_history');
   const read = definitions.find((item) => item.name === 'session.read_history');
@@ -38,6 +39,13 @@ test('history tools redact secrets and read exact neighboring records', async ()
   assert.equal(parsed.records[1].record_index, 1);
   assert.doesNotMatch(readResult.content, /very-secret-value/u);
   assert.deepEqual(telemetry.map(([event]) => event), ['session.history_search', 'session.history_read']);
+  for (const [, , detail] of telemetry) {
+    assert.equal(detail.compression_induced, true);
+    assert.equal(detail.compression_tier, 'checkpoint');
+    assert.equal(detail.compaction_attempts, 1);
+    assert.ok(detail.rediscovery_bytes > 0);
+    assert.ok(detail.rediscovery_estimated_tokens > 0);
+  }
 });
 
 test('history search bounds scanning to the newest fifty thousand records', () => {

@@ -32,11 +32,13 @@ function searchDefinition(control) {
     }, ['query'], async (args) => {
       const records = transcript(control);
       const result = searchHistory(records, args);
+      const projected = output(result, { matches: result.matches.length, records_scanned: result.scanned });
+      const rediscovery = rediscoveryDetail(control, projected.content);
       control.telemetry?.record('session.history_search', 'succeeded', {
         query_bytes: Buffer.byteLength(args.query, 'utf8'), records_scanned: result.scanned,
-        matches: result.matches.length, truncated_scan: result.truncated,
+        matches: result.matches.length, truncated_scan: result.truncated, ...rediscovery,
       });
-      return output(result, { matches: result.matches.length, records_scanned: result.scanned });
+      return projected;
     });
 }
 
@@ -54,10 +56,12 @@ function readDefinition(control) {
       const start = Math.max(0, args.record_index - surrounding);
       const end = Math.min(records.length, args.record_index + surrounding + 1);
       const selected = records.slice(start, end).map((record, offset) => projectRecord(record, start + offset, false));
+      const projected = output({ records: selected, total_records: records.length }, { records: selected.length });
       control.telemetry?.record('session.history_read', 'succeeded', {
         record_index: args.record_index, records_returned: selected.length,
+        ...rediscoveryDetail(control, projected.content),
       });
-      return output({ records: selected, total_records: records.length }, { records: selected.length });
+      return projected;
     });
 }
 
@@ -195,5 +199,18 @@ function boundValue(value, budget, depth) {
 }
 
 function output(value, metadata) { return { content: JSON.stringify(value, null, 2), metadata }; }
+function rediscoveryDetail(control, content) {
+  const state = typeof control.compressionState === 'function' ? control.compressionState() : null;
+  const bytes = Buffer.byteLength(content, 'utf8');
+  const tier = typeof state?.tier === 'string' ? state.tier : 'none';
+  const compactionAttempts = Number.isSafeInteger(state?.compactionAttempts) ? state.compactionAttempts : 0;
+  return {
+    compression_induced: tier !== 'none' || compactionAttempts > 0,
+    compression_tier: tier,
+    compaction_attempts: compactionAttempts,
+    rediscovery_bytes: bytes,
+    rediscovery_estimated_tokens: Math.ceil(bytes / 4),
+  };
+}
 function safeJson(value) { try { return JSON.stringify(value) ?? ''; } catch { return ''; } }
 function invalid(name) { throw new ContractError('tool_schema_invalid', `${name} received invalid arguments`); }

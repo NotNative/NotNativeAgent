@@ -58,6 +58,15 @@ async function compactContext(engine, records, content, active, operations, plan
     engine.lifecycles.finish(lifecycle.id, 'completed');
     await emitCompactionStatus(engine, active, 'completed', compactionCompletedDetail(active, fact, beforeEstimatedTokens));
     recordCompactionTelemetry(engine, active, 'succeeded', compactionProjectionDetail(active, fact));
+    recordCompressionEfficacy(engine, active, records, [
+      { type: 'message', role: 'system', content: fact.summary ?? '' },
+      ...(fact.retainedRecords ?? []),
+    ], [
+      { name: 'content_identity_dedup_v1', class: 'recoverable', records: fact.projection?.duplicateResultRecords, bytesSaved: fact.projection?.duplicateResultBytesSaved },
+      { name: 'same_target_supersession_v1', class: 'recoverable', records: fact.projection?.supersededRecords },
+      { name: 'ledger_backed_receipt_v1', class: 'recoverable', records: fact.projection?.semanticReceiptRecords },
+      { name: 'validated_continuation_v1', class: 'semantic', records: 1 },
+    ], 'full_compaction');
     active.contextCompressionTrigger = null;
     return context;
   } catch (error) {
@@ -184,6 +193,12 @@ async function pressureProjection(engine, active, operations, measurement) {
   const projection = engine.reliability.projectActiveTurn(measurement.records, {
     turnId: active.turnId, stepId: active.stepId, tier,
   });
+  if (tier !== 'none') {
+    recordCompressionEfficacy(engine, active, measurement.records, projection.records, [
+      { name: 'content_identity_dedup_v1', class: 'recoverable', records: projection.duplicateResultRecords, bytesSaved: projection.duplicateResultBytesSaved },
+      { name: `active_pressure_${tier}_v1`, class: 'recoverable', records: projection.coldRecords },
+    ], `active_pressure_${tier}`);
+  }
   if (projection.checkpoint && tier !== 'receipts'
     && !active.contextCheckpointFingerprints.has(projection.sourceFingerprint)) {
     await operations.persist('context_checkpoint', projection.checkpoint);
@@ -268,6 +283,29 @@ function recordCompactionTelemetry(engine, active, status, detail, reasonCode = 
   engine.telemetry?.record('context.compaction', status, detail, {
     turnId: active.turnId, stepId: active.stepId, ...(reasonCode ? { reasonCode } : {}),
   });
+}
+
+function recordCompressionEfficacy(engine, active, before, after, reducers, trigger) {
+  const measurement = engine.reliability.measureContextCompression(before, after, { reducers });
+  engine.telemetry?.record('context.compression_efficacy', 'measured', {
+    trigger,
+    before_bytes: measurement.before_bytes,
+    after_bytes: measurement.after_bytes,
+    bytes_saved: measurement.bytes_saved,
+    byte_reduction_ratio: measurement.byte_reduction_ratio,
+    before_tokens: measurement.before_tokens,
+    after_tokens: measurement.after_tokens,
+    tokens_saved: measurement.tokens_saved,
+    token_reduction_ratio: measurement.token_reduction_ratio,
+    net_tokens_saved: measurement.net_tokens_saved,
+    tokenizer_identity: measurement.tokenizer.identity,
+    tokenizer_requested_identity: measurement.tokenizer.requested_identity,
+    tokenizer_exact: measurement.tokenizer.exact,
+    tokenizer_degraded: measurement.tokenizer.degraded,
+    reducers: measurement.reducers,
+    source_fingerprint: measurement.source_fingerprint,
+    projection_fingerprint: measurement.projection_fingerprint,
+  }, { turnId: active.turnId, stepId: active.stepId });
 }
 
 function emitCompactionStatus(engine, active, status, detail) {

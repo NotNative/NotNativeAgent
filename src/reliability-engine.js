@@ -17,6 +17,9 @@ import {
 } from './reliability/host-environment.js';
 import { ProcessIdentity } from './reliability/process-identity.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from './reliability/command-shaping.js';
+import {
+  compareCompressionOutcomes, contextCompressionPolicy, measureContextCompression,
+} from './reliability/context-compression.js';
 
 export class ReliabilityEngine {
   constructor(options = {}) {
@@ -28,6 +31,9 @@ export class ReliabilityEngine {
       scheduler: options.scheduler,
       telemetry: options.telemetry,
     });
+    this.contextTokenCounter = options.contextTokenCounter ?? null;
+    this.contextTokenizerIdentity = options.contextTokenizerIdentity ?? null;
+    this.contextTokenizerExact = options.contextTokenizerExact === true;
   }
 
   async initialize() { await this.modelDialects.initialize(); }
@@ -63,6 +69,16 @@ export class ReliabilityEngine {
     return contextBudget(config, routes, runtime, retryScale);
   }
   estimateContextTokens(context) { return estimateContextTokens(context); }
+  contextCompressionPolicy(record, options = {}) { return contextCompressionPolicy(record, options); }
+  measureContextCompression(before, after, options = {}) {
+    return measureContextCompression(before, after, {
+      tokenCounter: this.contextTokenCounter,
+      tokenizerIdentity: this.contextTokenizerIdentity,
+      tokenizerExact: this.contextTokenizerExact,
+      ...options,
+    });
+  }
+  compareCompressionOutcomes(baseline, compressed) { return compareCompressionOutcomes(baseline, compressed); }
   longHorizonTrigger(records, options = {}) { return longHorizonCompressionTrigger(records, options); }
   compactTranscript(records, maxBytes, options = {}) { return compactTranscript(records, maxBytes, options); }
   createHandoffFact(records) { return createHandoffFact(records); }
@@ -95,6 +111,8 @@ export class ReliabilityEngine {
       recovery: 'bounded',
       completion_supervision: true,
       context_fitness: true,
+      context_compression_policy: true,
+      context_compression_measurement: true,
       continuation_compaction: true,
       model_observation: true,
       host_command_shaping: true,

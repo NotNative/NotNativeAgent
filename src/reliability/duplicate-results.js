@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
+import { contextCompressionPolicy } from './context-compression.js';
 
 const DEFAULT_MINIMUM_SAVINGS_BYTES = 512;
 const RECEIPT_SCHEMA = 'nna.duplicate-result-receipt.v1';
@@ -72,7 +73,8 @@ function eligible(record) {
   return record?.type === 'tool_result'
     && record.status === 'succeeded'
     && typeof record.content === 'string'
-    && record.metadata?.reason !== 'duplicate_result';
+    && record.metadata?.reason !== 'duplicate_result'
+    && contextCompressionPolicy(record).allowedReducers.includes('content_identity_dedup_v1');
 }
 
 function contentDigest(content) {
