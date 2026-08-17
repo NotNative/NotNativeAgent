@@ -5,6 +5,8 @@ import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'no
 import { dirname, join } from 'node:path';
 import { ContractError } from './ids.js';
 
+const MAX_FULL_JOURNAL_SCAN_BYTES = 104_857_600;
+
 export class JournalStore {
   #handle = null;
   #previousHash = '0'.repeat(64);
@@ -130,6 +132,14 @@ async function syncDirectory(path) {
 
 export async function recoverJournal(path, options = {}) {
   if (options.tailLimit !== undefined) return recoverJournalTail(path, options.tailLimit);
+  let details;
+  try { details = await stat(path); } catch (error) {
+    if (error.code === 'ENOENT') return emptyRecovery();
+    throw error;
+  }
+  if (details.size > (options.maxBytes ?? MAX_FULL_JOURNAL_SCAN_BYTES)) {
+    throw new ContractError('journal_too_large_to_repair_in_process', 'journal exceeds the bounded full-scan limit; use an explicit offline repair or archival workflow');
+  }
   let text;
   try {
     text = await readFile(path, 'utf8');
@@ -156,6 +166,21 @@ export async function recoverJournal(path, options = {}) {
     previous = record.hash;
   }
   return recoveryResult(records, previous, corruptTail, false, legacyFormat);
+}
+
+export async function rewriteJournal(path, records) {
+  if (!Array.isArray(records) || records.length > 100_000) throw new ContractError('journal_replace_invalid', 'replacement journal records are invalid');
+  const temporary = `${path}.rewrite-${process.pid}-${randomUUID()}`;
+  try {
+    const replacement = await open(temporary, 'wx', 0o600);
+    try {
+      const lines = encodeRecords(records);
+      await replacement.writeFile(lines.length ? `${lines.join('\n')}\n` : '', 'utf8');
+      await replacement.sync();
+    } finally { await replacement.close(); }
+    await rename(temporary, path);
+    await syncDirectory(dirname(path));
+  } finally { await rm(temporary, { force: true }).catch(() => undefined); }
 }
 
 export async function restoreJournalFromVerifiedPrefix(path, prefixPath, options = {}) {

@@ -4,7 +4,7 @@ import { basename, dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ContractError, requireExternalId } from '../ids.js';
 import { inspectSessionLock, preserveStaleSessionLock } from './session-lock.js';
-import { inspectJournalRepairPrefix, recoverJournal, restoreJournalFromVerifiedPrefix } from '../store.js';
+import { inspectJournalRepairPrefix, recoverJournal, restoreJournalFromVerifiedPrefix, rewriteJournal } from '../store.js';
 import { StructuredLog } from '../structured-log.js';
 
 export class SessionDataManager {
@@ -97,6 +97,29 @@ export class SessionDataManager {
     return Object.freeze({ session_id: sessionId, repaired: actions.length > 0, actions: Object.freeze(actions) });
   }
 
+  async compact(sessionId, confirmation) {
+    requireExternalId(sessionId, 'session_id');
+    if (confirmation !== `compact:${sessionId}`) {
+      throw new ContractError('compaction_confirmation_required', 'exact session compaction confirmation is required');
+    }
+    const lock = await safeStat(join(this.sessionRoot, `${sessionId}.lock`));
+    if (lock) throw new ContractError('session_locked', 'session must be detached and repaired before journal compaction');
+    const path = join(this.sessionRoot, `${sessionId}.journal.ndjson`);
+    const before = await safeStat(path);
+    if (!before) throw new ContractError('session_missing', 'session journal does not exist');
+    const recovered = await recoverJournal(path);
+    if (recovered.corruptTail) throw new ContractError('journal_corrupt', 'repair the corrupt journal before compaction');
+    const plan = physicalCompactionPlan(recovered.records);
+    await rewriteJournal(path, plan.records);
+    const after = await safeStat(path);
+    await this.#recordRepair(sessionId, [{ type: 'journal_compacted' }]);
+    return Object.freeze({
+      session_id: sessionId, before_bytes: before.size, after_bytes: after.size,
+      removed_records: recovered.records.length - plan.records.length,
+      retained_records: plan.records.length, boundary_sequence: plan.boundarySequence,
+    });
+  }
+
   async #recordRepair(sessionId, actions) {
     if (!this.diagnosticsRoot) return;
     const log = await new StructuredLog({ path: join(this.diagnosticsRoot, 'repair.ndjson') }).initialize();
@@ -112,6 +135,17 @@ async function latestVerifiedPrefix(root, base) {
   const prefix = `${base}.verified-prefix.`;
   const candidates = names.filter((name) => name.startsWith(prefix)).sort().reverse();
   return candidates[0] ? join(root, candidates[0]) : null;
+}
+
+function physicalCompactionPlan(records) {
+  let boundary = -1;
+  for (let index = records.length - 1; index >= 0; index -= 1) {
+    if (records[index].type === 'compaction_snapshot') { boundary = index; break; }
+  }
+  if (boundary < 0) throw new ContractError('journal_compaction_snapshot_missing', 'journal has no durable compaction snapshot');
+  const superseded = new Set(['message', 'tool_request', 'tool_result', 'compaction', 'compaction_snapshot']);
+  const recordsBefore = records.slice(0, boundary).filter((record) => !superseded.has(record.type));
+  return Object.freeze({ records: Object.freeze([...recordsBefore, ...records.slice(boundary)]), boundarySequence: records[boundary].sequence });
 }
 
 async function candidatePaths(manager, id) {

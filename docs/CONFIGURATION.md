@@ -147,6 +147,17 @@ stale locks, and restores a corrupt journal only from a separately preserved ver
 that hash-chains from genesis. The corrupt original and verified prefix both remain available,
 and the repair is recorded in `logs/repair.ndjson`.
 
+`nna sessions preview SESSION_ID` reports the exact transcript-journal byte size before any
+maintenance. Physical journal compaction is never automatic. After an idle conversation has
+a durable in-band `compaction_snapshot`, the operator may run
+`nna sessions compact SESSION_ID compact:SESSION_ID`. The command refuses any lock file,
+requires exact confirmation, retains non-transcript state and all records at or after the newest
+snapshot, rewrites a fresh hash chain atomically, and reports before/after bytes and record counts.
+This intentionally discards superseded pre-snapshot transcript payloads, so the confirmation is
+an explicit audit-retention decision rather than ordinary context compression. Full-file journal
+repair and compaction scans are capped at 100 MiB; larger input returns
+`journal_too_large_to_repair_in_process` instead of allocating an unbounded recovery buffer.
+
 The installed CLI loads the user manifest, binds the active workspace to the resolved
 launch directory, then merges a trusted `.nna/settings.json` project file and an explicit
 `--manifest` file in that order. Project configuration is ignored until the operator runs
