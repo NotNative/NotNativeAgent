@@ -123,6 +123,55 @@ test('compaction projection replaces only older large successful results for the
   assert.match(transcript[2].content, /old-marker/u);
 });
 
+test('compaction replaces cold byte-identical successful results with recoverable duplicate receipts', () => {
+  const repeated = `identical-evidence-${'x'.repeat(5_000)}`;
+  const transcript = [
+    message('user', 'Compare independent evidence.', 'turn-old'),
+    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'call-old', toolName: 'fs.read_text', args: { path: 'src/a.js' } },
+    { type: 'tool_result', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'call-old', toolName: 'fs.read_text', status: 'succeeded', content: repeated },
+    ...Array.from({ length: 5 }, (_, index) => [
+      message('user', `Intervening request ${index}`, `turn-${index}`),
+      message('assistant', `Intervening answer ${index}`, `turn-${index}`),
+    ]).flat(),
+    message('user', 'Read the independently addressed evidence.', 'turn-new'),
+    { type: 'tool_request', turnId: 'turn-new', requestId: 'request-new', providerCallId: 'call-new', toolName: 'web.fetch', args: { url: 'https://example.invalid/evidence' } },
+    { type: 'tool_result', turnId: 'turn-new', requestId: 'request-new', providerCallId: 'call-new', toolName: 'web.fetch', status: 'succeeded', content: repeated },
+  ];
+  const compacted = compactTranscript(transcript, 80_000);
+  const oldResult = compacted.records.find((item) => item.providerCallId === 'call-old' && item.type === 'tool_result');
+  const newestResult = compacted.records.find((item) => item.providerCallId === 'call-new' && item.type === 'tool_result');
+  const receipt = JSON.parse(oldResult.content);
+  assert.equal(receipt.schema, 'nna.duplicate-result-receipt.v1');
+  assert.equal(receipt.ledger_ref, 'request-old');
+  assert.equal(receipt.duplicate_of.ledger_ref, 'request-new');
+  assert.equal(receipt.duplicate_of.record_index, transcript.length - 1);
+  assert.match(receipt.content_sha256, /^[a-f0-9]{64}$/u);
+  assert.equal(oldResult.metadata.compressionClass, 'recoverable');
+  assert.equal(newestResult.content, repeated);
+  assert.equal(transcript[2].content, repeated, 'the durable source remains unchanged');
+  assert.equal(compacted.fact.projection.duplicateResultRecords, 1);
+  assert.ok(compacted.fact.projection.duplicateResultBytesSaved > 4_000);
+});
+
+test('duplicate projection never collapses failures, small payloads, or protected active results', () => {
+  const large = `same-${'z'.repeat(4_000)}`;
+  const transcript = [
+    message('user', 'Keep active evidence.', 'turn-active'),
+    { type: 'tool_request', turnId: 'turn-active', providerCallId: 'active-a', toolName: 'fs.read_text', args: { path: 'a' } },
+    { type: 'tool_result', turnId: 'turn-active', providerCallId: 'active-a', toolName: 'fs.read_text', status: 'succeeded', content: large },
+    { type: 'tool_request', turnId: 'turn-active', providerCallId: 'active-b', toolName: 'fs.read_text', args: { path: 'b' } },
+    { type: 'tool_result', turnId: 'turn-active', providerCallId: 'active-b', toolName: 'fs.read_text', status: 'succeeded', content: large },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-a', toolName: 'process.run', status: 'failed', content: large },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-b', toolName: 'process.run', status: 'failed', content: large },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'small-a', toolName: 'fs.read_text', status: 'succeeded', content: 'same small result' },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'small-b', toolName: 'fs.read_text', status: 'succeeded', content: 'same small result' },
+  ];
+  const compacted = compactTranscript(transcript, 80_000, { activeTurnId: 'turn-active' });
+  assert.equal(compacted.fact.projection.duplicateResultRecords, 0);
+  assert.equal(compacted.records.find((item) => item.providerCallId === 'active-a' && item.type === 'tool_result').content, large);
+  assert.equal(compacted.records.find((item) => item.providerCallId === 'active-b' && item.type === 'tool_result').content, large);
+});
+
 test('normal compaction leaves the active turn and five newest completed turns unchanged', () => {
   const transcript = [];
   for (let index = 0; index < 8; index += 1) {

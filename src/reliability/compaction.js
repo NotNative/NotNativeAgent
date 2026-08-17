@@ -5,6 +5,7 @@ import {
   renderHandoff, terseTail,
 } from './continuation-artifact.js';
 import { retainedRecordsFingerprint } from './long-horizon-context.js';
+import { projectDuplicateToolResults } from './duplicate-results.js';
 import { compactToolRequest, createToolContextReceipt } from '../tools/context-receipt.js';
 
 export { attachTaskCheckpoint, enrichCompactionFact, enrichHandoffFact } from './continuation-artifact.js';
@@ -53,6 +54,8 @@ export function compactTranscript(transcript, maxBytes, options = {}) {
       semanticReceiptRecords: selected.metrics.semanticReceiptRecords,
       oversizedProtectedRecords: selected.metrics.oversizedProtectedRecords,
       supersededRecords: selected.metrics.supersededRecords,
+      duplicateResultRecords: selected.metrics.duplicateResultRecords,
+      duplicateResultBytesSaved: selected.metrics.duplicateResultBytesSaved,
       originalBytes: selected.metrics.originalBytes,
       projectedBytes: bytes + Buffer.byteLength(summary, 'utf8'),
       retainedFingerprint: retainedRecordsFingerprint(selected.map((entry) => entry.item)),
@@ -101,6 +104,7 @@ export function createHandoffFact(transcript) {
       payloadCompactedRecords: 0, oversizedProtectedRecords: 0,
       semanticReceiptRecords: 0,
       supersededRecords: 0,
+      duplicateResultRecords: 0, duplicateResultBytesSaved: 0,
       originalBytes: transcript.reduce((sum, item) => sum + recordBytes(item), 0),
       projectedBytes: Buffer.byteLength(summary, 'utf8'),
     }),
@@ -139,7 +143,8 @@ function emergencyContinuationRecords(transcript, maxBytes, priorMetrics) {
 
 function selectRecentRecords(transcript, budget, options) {
   const protection = protectedRecency(transcript, options);
-  const projection = supersedeColdToolResults(transcript, protection.indexes);
+  const duplicates = projectDuplicateToolResults(transcript, protection.indexes);
+  const projection = supersedeColdToolResults(duplicates.records, protection.indexes);
   const turns = turnEntries(projection.records);
   const requests = new Map(projection.records.filter((item) => item.type === 'tool_request').map((item) => [item.providerCallId, item]));
   const normalized = projection.records.map((item, index) => ({
@@ -191,6 +196,8 @@ function selectRecentRecords(transcript, budget, options) {
     oversizedProtectedRecords: retained.filter((entry) => entry.item.metadata?.reason === 'oversized_protected_record').length
       + (retained.oversizedRemoved ?? 0),
     supersededRecords: projection.superseded,
+    duplicateResultRecords: duplicates.duplicateRecords,
+    duplicateResultBytesSaved: duplicates.bytesSaved,
     originalBytes: transcript.reduce((sum, item) => sum + recordBytes(item), 0),
   });
   return retained;
@@ -214,6 +221,7 @@ function supersedeColdToolResults(transcript, protectedIndexes) {
   let superseded = 0;
   const records = transcript.map((item, index) => {
     if (protectedIndexes.has(index)) return item;
+    if (item.metadata?.reason === 'duplicate_result') return item;
     const key = keys.get(index);
     if (!key || latest.get(key) === index) return item;
     const notice = '[Older successful tool output superseded by a newer result for the same target; full output remains in the session journal.]';
@@ -249,6 +257,7 @@ function keyed(name, values) {
 
 function compactRecord(item, budget, protectedRecord = false, request = null) {
   if (item.type === 'tool_result') {
+    if (item.metadata?.reason === 'duplicate_result') return { ...item };
     const cap = protectedRecord
       ? Math.max(16_384, Math.min(131_072, Math.floor(budget / 4)))
       : Math.max(2_048, Math.min(16_384, Math.floor(budget / 8)));

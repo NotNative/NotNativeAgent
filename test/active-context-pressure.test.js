@@ -56,6 +56,27 @@ test('active pressure truncation preserves complete UTF-8 characters', () => {
   assert.match(projected.records[2].content, /checkpoint excerpt/u);
 });
 
+test('receipt pressure identifies duplicate cold results across different tool requests', () => {
+  const repeated = `shared evidence ${'x'.repeat(5_000)}`;
+  const records = [
+    { type: 'message', role: 'user', content: 'compare evidence', turnId: 'turn-1' },
+    { type: 'tool_request', toolName: 'fs.read_text', args: { path: 'a.txt' }, providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_result', toolName: 'fs.read_text', content: repeated, status: 'succeeded', providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'message', role: 'assistant', content: 'Compare another source.', turnId: 'turn-1', stepId: 'step-2' },
+    { type: 'message', role: 'assistant', content: 'One more comparison.', turnId: 'turn-1', stepId: 'step-3' },
+    { type: 'tool_request', toolName: 'web.fetch', args: { url: 'https://example.invalid/a' }, providerCallId: 'call-2', requestId: 'req-2', turnId: 'turn-1', stepId: 'step-4' },
+    { type: 'tool_result', toolName: 'web.fetch', content: repeated, status: 'succeeded', providerCallId: 'call-2', requestId: 'req-2', turnId: 'turn-1', stepId: 'step-4' },
+  ];
+  const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'receipts' });
+  const receipt = JSON.parse(projected.records[2].content);
+  assert.equal(receipt.schema, 'nna.duplicate-result-receipt.v1');
+  assert.equal(receipt.duplicate_of.ledger_ref, 'req-2');
+  assert.equal(projected.records[6].content, repeated);
+  assert.equal(projected.duplicateResultRecords, 1);
+  assert.ok(projected.duplicateResultBytesSaved > 4_000);
+  assert.equal(records[2].content, repeated);
+});
+
 function fixture() {
   return [
     { type: 'message', role: 'user', content: 'inspect the project', turnId: 'turn-1' },

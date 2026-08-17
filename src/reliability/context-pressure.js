@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
+import { projectDuplicateToolResults } from './duplicate-results.js';
 
 export const CONTEXT_PRESSURE = Object.freeze({
   receipts: 0.40,
@@ -44,12 +45,18 @@ export function projectActiveTurn(records, options) {
   const cold = new Set(active.filter((entry) => isCold(entry.item, hotSteps)).map((entry) => entry.index));
   if (cold.size === 0) return unchanged(records, tier);
   const checkpoint = createActiveCheckpoint(records, cold, options, tier);
+  const protectedIndexes = new Set(records.map((_item, index) => index).filter((index) => !cold.has(index)));
+  const duplicates = tier === 'receipts'
+    ? projectDuplicateToolResults(records, protectedIndexes)
+    : { records, duplicateRecords: 0, bytesSaved: 0 };
   const projected = tier === 'receipts'
-    ? receiptProjection(records, cold)
+    ? receiptProjection(duplicates.records, cold)
     : checkpointProjection(records, cold, checkpoint);
   return Object.freeze({
     records: Object.freeze(projected), checkpoint, tier,
     coldRecords: cold.size, retainedActiveSteps: hotSteps.size,
+    duplicateResultRecords: duplicates.duplicateRecords,
+    duplicateResultBytesSaved: duplicates.bytesSaved,
     sourceFingerprint: checkpoint.sourceFingerprint,
   });
 }
@@ -57,7 +64,9 @@ export function projectActiveTurn(records, options) {
 function receiptProjection(records, cold) {
   return records.map((item, index) => {
     if (!cold.has(index)) return item;
-    if (item.type === 'tool_result') return toolResultReceipt(item);
+    if (item.type === 'tool_result') {
+      return item.metadata?.reason === 'duplicate_result' ? item : toolResultReceipt(item);
+    }
     if (item.type === 'tool_request') return toolRequestReceipt(item);
     if (item.type === 'message' && item.role === 'assistant') {
       return { ...item, content: boundedHeadTail(item.content ?? '', 4_096), pressureCompacted: true };
@@ -193,5 +202,8 @@ function fingerprint(records) {
 }
 
 function unchanged(records, tier) {
-  return Object.freeze({ records, checkpoint: null, tier, coldRecords: 0, retainedActiveSteps: 0, sourceFingerprint: null });
+  return Object.freeze({
+    records, checkpoint: null, tier, coldRecords: 0, retainedActiveSteps: 0,
+    duplicateResultRecords: 0, duplicateResultBytesSaved: 0, sourceFingerprint: null,
+  });
 }

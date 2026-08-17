@@ -202,6 +202,8 @@ async function pressureProjection(engine, active, operations, measurement) {
     effective_input_tokens: measurement.effectiveInputTokens,
     cold_records: projection.coldRecords,
     retained_active_steps: projection.retainedActiveSteps,
+    duplicate_result_records: projection.duplicateResultRecords,
+    duplicate_result_bytes_saved: projection.duplicateResultBytesSaved,
     source_fingerprint: projection.sourceFingerprint,
   }, { turnId: active.turnId, stepId: active.stepId });
   if (tier === 'compact') {
@@ -246,6 +248,8 @@ function compactionProjectionDetail(active, fact) {
     payload_compacted_records: fact.projection?.payloadCompactedRecords ?? 0,
     oversized_protected_records: fact.projection?.oversizedProtectedRecords ?? 0,
     superseded_records: fact.projection?.supersededRecords ?? 0,
+    duplicate_result_records: fact.projection?.duplicateResultRecords ?? 0,
+    duplicate_result_bytes_saved: fact.projection?.duplicateResultBytesSaved ?? 0,
     original_bytes: fact.projection?.originalBytes ?? null,
     projected_bytes: fact.projection?.projectedBytes ?? null,
     summary_budget_bytes: fact.projection?.summaryBudgetBytes ?? null,
