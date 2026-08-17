@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
-import { basename } from 'node:path';
 import { ContractError } from '../ids.js';
 import { normalizeShellExecutionError, shellReliabilitySignals, shellToolGuidance } from '../reliability/host-environment.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
+import { portableExecutableName } from '../reliability/executable-name.js';
 
 const MAX_SCRIPT_LENGTH = 32_768;
 const MAX_FIELD_LENGTH = 4_096;
@@ -277,7 +277,7 @@ export function operationalEnvironment(environment = process.env) {
 }
 
 function normalizedExecutable(value) {
-  return basename(value).toLowerCase().replace(/\.(?:exe|cmd|bat)$/u, '');
+  return portableExecutableName(value);
 }
 
 function validateStdinReference(value, references) {

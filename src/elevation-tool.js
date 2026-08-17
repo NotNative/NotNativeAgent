@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { access } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import { basename, delimiter, extname, isAbsolute, join, parse } from 'node:path';
+import { delimiter, extname, isAbsolute, join, parse } from 'node:path';
 import { ContractError } from './ids.js';
+import { portableExecutableName } from './reliability/executable-name.js';
 
 const MAX_TIMEOUT_MS = 3_600_000;
 
@@ -52,7 +53,7 @@ async function validateElevation(paths, input, options) {
 }
 
 export function assertNonInteractiveElevation(executable, args) {
-  const name = basename(executable).toLowerCase().replace(/\.exe$/u, '');
+  const name = portableExecutableName(executable);
   if (['powershell', 'pwsh'].includes(name)) {
     requireCommandArgument(args, ['-command', '-c', '-encodedcommand', '-e', '-file', '-f']);
     return;

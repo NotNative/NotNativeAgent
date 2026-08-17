@@ -5,6 +5,8 @@ import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../src/r
 
 test('inline interpreter shaping recognizes fragile source argv without blocking stdin forms', () => {
   assert.equal(inlineInterpreterInvocation('node.exe', ['-e', 'console.log(1)']), true);
+  assert.equal(inlineInterpreterInvocation('C:\\Program Files\\nodejs\\node.exe', ['-e', 'console.log(1)']), true);
+  assert.equal(inlineInterpreterInvocation('/usr/local/bin/python3', ['-c', 'print(1)']), true);
   assert.equal(inlineInterpreterInvocation('python3', ['-c', 'print(1)']), true);
   assert.equal(inlineInterpreterInvocation('node', ['-', 'argument']), false);
   assert.equal(inlineInterpreterInvocation('python', ['-', 'argument']), false);

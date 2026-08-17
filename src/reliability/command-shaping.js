@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { basename } from 'node:path';
+import { portableExecutableName } from './executable-name.js';
 
 const INLINE_FLAGS = Object.freeze({
   node: new Set(['-e', '--eval']), bun: new Set(['-e', '--eval']), deno: new Set(['eval']),
@@ -8,7 +8,7 @@ const INLINE_FLAGS = Object.freeze({
 });
 
 export function inlineInterpreterInvocation(executable, args = []) {
-  const name = basename(String(executable ?? '')).toLowerCase().replace(/\.(?:exe|cmd|bat)$/u, '');
+  const name = portableExecutableName(executable);
   const flags = INLINE_FLAGS[name];
   if (!flags || !Array.isArray(args) || !flags.has(String(args[0] ?? '').toLowerCase())) return false;
   return typeof args[1] === 'string' && args[1].length > 0;
