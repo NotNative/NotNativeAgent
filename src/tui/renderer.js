@@ -13,6 +13,7 @@ import { applyConversationSpacing } from './conversation-spacing.js';
 import { permissionControlLine, permissionLines } from './permission-renderer.js';
 import { decorateContent, decorateFooter, decorateHeader } from './decoration.js';
 import { workSummaryRows } from './work-summary.js';
+import { latestToolStatusIndexes, toolStatusIdentity } from '../experience/tool-lifecycle.js';
 export class TuiRenderer {
   frame(projection, capabilities) {
     const session = projection.active();
@@ -98,13 +99,15 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
   const records = [...session.historyRecords, ...session.records];
   const completed = new Set(records.filter((record) => record.type === 'turn_result').map((record) => record.turn_id));
   const activity = activityByTurn(records, completed);
-  const settledTools = new Set(records.filter((record) => record.type === 'tool_status' && record.status !== 'running')
-    .map((record) => record.tool_request_id ?? record.provider_call_id).filter(Boolean));
+  const latestToolStatuses = latestToolStatusIndexes(records);
   let lastVisibleKind = null;
   let lastMessageKind = null;
-  for (const record of records) {
+  for (let recordIndex = 0; recordIndex < records.length; recordIndex += 1) {
+    const record = records[recordIndex];
     if (isActivity(record) && completed.has(record.turn_id)) continue;
-    if (record.type === 'tool_status' && record.status === 'running' && settledTools.has(record.tool_request_id ?? record.provider_call_id)) continue;
+    const toolIdentity = toolStatusIdentity(record);
+    if (record.type === 'tool_status' && toolIdentity
+      && latestToolStatuses.get(toolIdentity) !== recordIndex) continue;
     if (record.type === 'turn_result') {
       const activityRecords = activity.get(record.turn_id) ?? [];
       const summary = summarizeActivity(activityRecords);
@@ -302,9 +305,8 @@ function recordLines(record, width) {
   if (record.type === 'user_input') return renderMarkdown(record.text, width, '> ', '  ');
   if (record.type === 'stream_delta') return renderMarkdown(record.text, width, '* ', '  ');
   if (record.type === 'tool_status') {
-    if ((record.tool === 'agent.run' && ['running', 'succeeded'].includes(record.status)) || record.status === 'running') return [];
-    const outcome = record.status === 'completed_nonzero'
-      ? `completed · exit ${record.exit_code ?? 'nonzero'}` : `${record.status}${toolFailureSuffix(record)}`;
+    if (record.tool === 'agent.run' && ['running', 'succeeded'].includes(record.status)) return [];
+    const outcome = toolOutcome(record);
     return wrapIndentedTerminalLine(`    ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${outcome}`, width);
   }
   if (record.type === 'subagent_progress') return subagentProgressLines(record, width);
@@ -320,6 +322,14 @@ function recordLines(record, width) {
   if (record.type === 'state_status') return [];
   if (record.type === 'context_compaction_status') return wrap(contextCompactionText(record), width);
   return [];
+}
+
+function toolOutcome(record) {
+  if (record.status === 'review_pending') return 'awaiting review';
+  if (record.status === 'approved') return 'approved';
+  if (record.status === 'running') return 'running';
+  if (record.status === 'completed_nonzero') return `completed · exit ${record.exit_code ?? 'nonzero'}`;
+  return `${record.status}${toolFailureSuffix(record)}`;
 }
 
 function editorLines(session, width) {

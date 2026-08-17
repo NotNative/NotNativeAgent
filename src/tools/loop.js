@@ -119,6 +119,7 @@ export class ToolLoop {
       await this.publish('tool_request.started', 'tool_request', 'active', {
         ...active, toolRequestId: item.request?.id ?? lifecycle.id,
       });
+      if (item.request) await this.output(toolStatus(this.engine, active, item, 'review_pending'));
       items.push(item);
     }
   }
@@ -185,6 +186,9 @@ export class ToolLoop {
     await this.persist('lifecycle_event', event);
     await this.#permissionTerminal(item, active);
     await this.output(reviewStatus(this.engine, active, item));
+    if (item.decision.outcome === 'approve') {
+      await this.output(toolStatus(this.engine, active, item, 'approved'));
+    }
   }
 
   async #permissionTerminal(item, active) {

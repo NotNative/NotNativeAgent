@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
+import { isIntermediateToolStatus } from './tool-lifecycle.js';
 export { validateKeyBindings } from './key-bindings.js';
 import { validateKeyBindings } from './key-bindings.js';
 
@@ -365,10 +366,15 @@ function applyEvent(session, event) {
     session.state = 'preparing'; session.activeTurnId = event.turn_id;
     if (beginsNewTurn) session.turnStartedAt = Date.now();
   } else if (event.type === 'stream_delta') session.state = 'streaming';
-  else if (event.type === 'review_status') session.state = 'awaiting_approval';
+  else if (event.type === 'review_status') {
+    session.state = event.outcome === 'approve' ? 'preparing' : 'recovering';
+  }
   else if (event.type === 'permission_prompt') {
     session.state = 'awaiting_approval'; session.pendingPermission = event; session.permissionOffset = 0;
-  } else if (event.type === 'tool_status' && event.status === 'running') session.state = 'running_tool';
+  } else if (event.type === 'tool_status' && event.status === 'review_pending') session.state = 'awaiting_approval';
+  else if (event.type === 'tool_status' && event.status === 'approved') session.state = 'preparing';
+  else if (event.type === 'tool_status' && event.status === 'running') session.state = 'running_tool';
+  else if (event.type === 'tool_status' && isIntermediateToolStatus(event.status)) session.state = 'preparing';
   else if (event.type === 'queue_status') session.state = 'waiting_provider';
   else if (event.type === 'state_status' && STATES.has(event.semantic_state)) session.state = event.semantic_state;
   else if (event.type === 'mcp_status') {

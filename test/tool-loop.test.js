@@ -257,7 +257,9 @@ test('AC-TURN-03 safe read is reviewed, executed, reinjected, and completed', as
   assert.equal(result.outcome, 'completed');
   assert.equal(provider.count, 2);
   assert.equal(outputs.find((item) => item.type === 'review_status').outcome, 'approve');
-  assert.deepEqual(outputs.filter((item) => item.type === 'tool_status').map((item) => item.status), ['running', 'succeeded']);
+  assert.deepEqual(outputs.filter((item) => item.type === 'tool_status').map((item) => item.status), [
+    'review_pending', 'approved', 'running', 'succeeded',
+  ]);
   const running = outputs.find((item) => item.type === 'tool_status' && item.status === 'running');
   assert.deepEqual(running.arguments, { path: 'note.txt' });
   assert.equal(running.effect, 'read_only');
@@ -312,6 +314,9 @@ test('Unattended posture converts semantic escalation to guidance without openin
   assert.equal(result.outcome, 'completed');
   assert.equal(outputs.some((item) => item.type === 'permission_prompt'), false);
   assert.equal(outputs.find((item) => item.type === 'review_status').outcome, 'deny_with_guidance');
+  assert.deepEqual(outputs.filter((item) => item.type === 'tool_status').map((item) => item.status), [
+    'review_pending', 'deny_with_guidance',
+  ]);
   assert.equal(await readFile(path, 'utf8'), 'before');
 });
 

@@ -813,6 +813,44 @@ test('AC-TUI-01 completed activity remains visible without color, compacts, expa
   assert.equal(projection.active().viewportEnd, null);
 });
 
+test('tool lifecycle appears before review and updates one truthful correlated row', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
+  projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
+  const base = {
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1',
+    tool: 'fs.search_text', target: '. :: "SIGINT|SIGTERM|sigint|sigterm"',
+  };
+  const renderer = new TuiRenderer();
+
+  projection.apply('s1', { ...base, status: 'review_pending' });
+  assert.equal(projection.active().state, 'awaiting_approval');
+  let plain = renderer.frame(projection, { width: 100, height: 24, color: false });
+  let colored = renderer.frame(projection, { width: 100, height: 24, color: true });
+  assert.match(plain, /^    ● fs\.search_text \(\. :: "SIGINT\|SIGTERM\|sigint\|sigterm"\) \| awaiting review$/mu);
+  assert.match(colored, /\u001b\[38;5;214m●\u001b\[0m/u);
+
+  projection.apply('s1', { type: 'review_status', turn_id: 'turn-1', tool_request_id: 'tool-1', outcome: 'approve', reason_code: 'deterministic_safe' });
+  projection.apply('s1', { ...base, status: 'approved' });
+  assert.equal(projection.active().state, 'preparing');
+  plain = renderer.frame(projection, { width: 100, height: 24, color: false });
+  colored = renderer.frame(projection, { width: 100, height: 24, color: true });
+  assert.doesNotMatch(plain, /awaiting review/u);
+  assert.match(plain, /^    ● fs\.search_text .* \| approved$/mu);
+  assert.match(colored, /\u001b\[38;5;77m●\u001b\[0m/u);
+
+  projection.apply('s1', { ...base, status: 'running' });
+  assert.equal(projection.active().state, 'running_tool');
+  plain = renderer.frame(projection, { width: 100, height: 24, color: false });
+  assert.doesNotMatch(plain, /awaiting review| \| approved$/mu);
+  assert.match(plain, /^    \+ fs\.search_text .* \| running$/mu);
+
+  projection.apply('s1', { ...base, status: 'succeeded', elapsed_ms: 4, effect_certainty: 'completed' });
+  plain = renderer.frame(projection, { width: 100, height: 24, color: false });
+  assert.doesNotMatch(plain, /awaiting review| \| approved$| \| running$/mu);
+  assert.match(plain, /^    ✓ fs\.search_text .* \| succeeded$/mu);
+});
+
 test('failed tool rows show the attempted target and actionable failure reason', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });

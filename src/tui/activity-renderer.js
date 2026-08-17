@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { displayWidth, wrapTerminalLine } from './terminal-markdown.js';
 import { TUI_THEME } from './theme.js';
+import { isIntermediateToolStatus } from '../experience/tool-lifecycle.js';
 
 const TOOL_STATUS = Object.freeze({
-  RUNNING: 'running', SUCCEEDED: 'succeeded', DUPLICATE: 'duplicate_ignored', COMPLETED_NONZERO: 'completed_nonzero',
+  REVIEW_PENDING: 'review_pending', APPROVED: 'approved', RUNNING: 'running',
+  SUCCEEDED: 'succeeded', DUPLICATE: 'duplicate_ignored', COMPLETED_NONZERO: 'completed_nonzero',
 });
 const COMPLETED_TASK_VERBS = Object.freeze({
   reviewing: 'reviewed', updating: 'updated', testing: 'tested', planning: 'planned', 'working on': 'finished',
@@ -17,6 +19,11 @@ export function decorateToolActivityLine(line, lineKind, paint) {
     if (status === TOOL_STATUS.SUCCEEDED) {
       const match = line.match(/^(\s*)(\u2713)(.*)$/u);
       return match ? `${match[1]}${paint(TUI_THEME.success, match[2])}${paint(TUI_THEME.muted, match[3])}` : paint(TUI_THEME.muted, line);
+    }
+    if ([TOOL_STATUS.REVIEW_PENDING, TOOL_STATUS.APPROVED, TOOL_STATUS.RUNNING].includes(status)) {
+      const style = status === TOOL_STATUS.REVIEW_PENDING ? TUI_THEME.warning : TUI_THEME.success;
+      const match = line.match(/^(\s*)(●|\+)(.*)$/u);
+      return match ? `${match[1]}${paint(style, match[2])}${paint(TUI_THEME.muted, match[3])}` : paint(TUI_THEME.muted, line);
     }
     if (status === TOOL_STATUS.COMPLETED_NONZERO) return paint(TUI_THEME.warning, line);
     return paint(status === TOOL_STATUS.RUNNING ? TUI_THEME.muted : TUI_THEME.danger, line);
@@ -125,11 +132,12 @@ function toolCalls(records) {
 
 export function toolTargetSuffix(item) {
   if (item.target) return ` (${item.target})`;
-  return item.result?.status !== 'succeeded' && item.tool.startsWith('fs.') ? ' (path unavailable)' : '';
+  return !isIntermediateToolStatus(item.result?.status)
+    && item.result?.status !== 'succeeded' && item.tool.startsWith('fs.') ? ' (path unavailable)' : '';
 }
 
 export function toolFailureSuffix(record) {
-  if (!record || record.status === TOOL_STATUS.RUNNING || successfulToolStatus(record.status)) return '';
+  if (!record || isIntermediateToolStatus(record.status) || successfulToolStatus(record.status)) return '';
   if (record.status === TOOL_STATUS.COMPLETED_NONZERO) return ` | completed · exit ${record.exit_code ?? 'nonzero'}`;
   if (record.reason_code === 'process_signal_exit') return ` | signal ${record.signal ?? 'unknown'}`;
   const reason = [record.reason_code, record.failure_reason].filter(Boolean).join(': ');
@@ -150,6 +158,7 @@ function resultDetail(record) {
 
 export function toolSymbol(status) {
   if (!status) return '-';
+  if (status === TOOL_STATUS.REVIEW_PENDING || status === TOOL_STATUS.APPROVED) return '\u25cf';
   if (status === TOOL_STATUS.RUNNING) return '+';
   if (status === TOOL_STATUS.SUCCEEDED) return '\u2713';
   if (status === TOOL_STATUS.COMPLETED_NONZERO) return '!';

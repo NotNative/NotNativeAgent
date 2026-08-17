@@ -13,6 +13,8 @@ test('conversation statistics summarize terminal outcomes without counting runni
         { category: 'malformed_tool_arguments', action: 'nudge' },
       ] },
       { type: 'tool_status', status: 'running' },
+      { type: 'tool_status', status: 'review_pending' },
+      { type: 'tool_status', status: 'approved' },
       { type: 'tool_status', status: 'succeeded' },
       { type: 'tool_status', status: 'failed' },
       { type: 'review_status', outcome: 'approve' },

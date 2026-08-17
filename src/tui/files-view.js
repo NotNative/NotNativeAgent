@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { valueOverlay } from './overlays.js';
+import { isTerminalToolStatus } from '../experience/tool-lifecycle.js';
 
 const MUTATIONS = new Set([
   'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file', 'fs.copy', 'fs.move',
@@ -15,7 +16,8 @@ export function openFilesView(workspace) {
 
 export function filesView(session, changes = []) {
   const records = [...(session?.historyRecords ?? []), ...(session?.records ?? [])]
-    .filter((record) => record.type === 'tool_status' && record.tool?.startsWith('fs.') && record.status !== 'running');
+    .filter((record) => record.type === 'tool_status' && record.tool?.startsWith('fs.')
+      && isTerminalToolStatus(record.status));
   const failed = records.filter((record) => record.status !== 'succeeded' && record.status !== 'duplicate_ignored');
   const read = unique(records.filter((record) => !MUTATIONS.has(record.tool) && record.status === 'succeeded'));
   const lines = [

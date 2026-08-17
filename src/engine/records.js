@@ -78,7 +78,7 @@ export function toolStatus(engine, active, item, status) {
   const definition = item.request ? engine.tools.definition(item.request.toolName, item.request.definitionVersion) : null;
   const args = item.request?.args ?? item.call?.args;
   const presentedArgs = args && typeof args === 'object' ? safeToolArguments(args) : null;
-  const failed = !['running', 'succeeded', 'duplicate_ignored'].includes(status);
+  const failed = !['review_pending', 'approved', 'running', 'succeeded', 'duplicate_ignored'].includes(status);
   const completedNonzero = status === 'completed_nonzero';
   const processSignalExit = item.result?.reason_code === 'process_signal_exit';
   const toolName = item.call?.name ?? item.request?.toolName ?? null;

@@ -41,6 +41,19 @@ Operating-system integrations such as the clipboard are injected, bounded servic
 own a helper process, but its protocol, serialization, shutdown, and failures remain explicit and
 cannot become implicit state inside a renderer or input handler.
 
+## Tool lifecycle projection
+
+The Session Engine publishes bounded, presentation-safe tool lifecycle facts after a model call is
+sealed: `review_pending`, `approved`, `running`, and one terminal status. Raw malformed model output
+is never presented as an executable request. Every fact retains the same tool-request identity.
+
+Experience projections correlate those facts into one evolving activity row instead of revealing
+the request only after review or execution. A pending review is amber, approval is green, execution
+is visibly active, successful completion receives a green check, and denial or failure remains
+explicit. Intermediate facts are not terminal tool results and cannot affect Files, Health,
+statistics, governance evidence, or effect certainty. Rendering may coalesce transitions but must
+never delay review or execution merely to keep a transient visual state on screen.
+
 ## Source ownership
 
 Root files are composition roots or public engine entry points. Their private helpers live in

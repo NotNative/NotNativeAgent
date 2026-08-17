@@ -57,8 +57,8 @@ export function wrapIndentedTerminalLine(value, width) {
   // wrapped target/task text beneath the start of that target instead of only
   // beneath the status marker. This keeps long shell and agent.run rows
   // visually distinct from assistant transcript text.
-  const activityLead = /^(?:\u2713|X|\+)\s+[\w.:-]+(?:\s+\()?/u.exec(content)?.[0]
-    ?? /^(?:\u2713|X|\+)\s+/u.exec(content)?.[0]
+  const activityLead = /^(?:\u2713|\u25cf|X|\+)\s+[\w.:-]+(?:\s+\()?/u.exec(content)?.[0]
+    ?? /^(?:\u2713|\u25cf|X|\+)\s+/u.exec(content)?.[0]
     ?? '';
   const continuation = `${indentation}${' '.repeat(displayWidth(activityLead))}`;
   return wrapTerminalLine(content, width, indentation, continuation);

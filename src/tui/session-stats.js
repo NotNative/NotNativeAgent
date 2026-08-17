@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { valueOverlay } from './overlays.js';
+import { isTerminalToolStatus } from '../experience/tool-lifecycle.js';
 
 const UNKNOWN = 'unknown';
 const UNAVAILABLE = 'unavailable';
@@ -17,7 +18,7 @@ export function sessionStats(session) {
   const records = [...(session?.historyRecords ?? []), ...(session?.records ?? [])]
     .filter((record) => record && typeof record === 'object');
   const turns = records.filter((record) => record.type === 'turn_result');
-  const tools = records.filter((record) => record.type === 'tool_status' && record.status !== 'running');
+  const tools = records.filter((record) => record.type === 'tool_status' && isTerminalToolStatus(record.status));
   const reviews = records.filter((record) => record.type === 'review_status');
   const repair = repairStats(turns);
   const usage = session?.usage ?? {};
