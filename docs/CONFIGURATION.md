@@ -134,6 +134,18 @@ narrower where configured.
 The canonical persisted manifest uses `format_version: 1`. A legacy manifest without
 that field is validated, backed up to `manifest.json.bak`, and atomically upgraded once.
 An unknown future format is rejected before configuration can affect the runtime.
+Initial manifests and managed provider credentials are written to a private temporary file,
+fsynced, and published atomically. Malformed UTF-8/JSON is renamed to a timestamped
+`.corrupt-*` evidence file and startup reports that exact path; valid but unsupported formats
+remain in place and fail closed without quarantine.
+
+Session locks bind both a PID and the operating system's process-start identity, so a recycled
+PID is preserved as stale evidence rather than mistaken for the original writer. Guarded
+operator recovery uses `nna sessions repair SESSION_ID repair:SESSION_ID`. It first revalidates
+the lock and journal evidence without mutation, refuses live or unverifiable owners, preserves
+stale locks, and restores a corrupt journal only from a separately preserved verified prefix
+that hash-chains from genesis. The corrupt original and verified prefix both remain available,
+and the repair is recorded in `logs/repair.ndjson`.
 
 The installed CLI loads the user manifest, binds the active workspace to the resolved
 launch directory, then merges a trusted `.nna/settings.json` project file and an explicit

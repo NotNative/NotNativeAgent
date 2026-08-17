@@ -143,6 +143,7 @@ function help() {
     '  nna headless                              Compatibility alias for host',
     '  nna text [--config PATH] [PROMPT]          Compatibility alias for prompt mode',
     '  nna sessions preview SESSION_ID',
+    '  nna sessions repair SESSION_ID repair:SESSION_ID',
     '  nna sessions export SESSION_ID PATH',
     '  nna sessions delete SESSION_ID delete:SESSION_ID',
     '  nna websearch status|configure URL|deploy|reset',
@@ -178,6 +179,7 @@ async function sessionCommand(args, paths = userDataPaths()) {
   });
   let result;
   if (action === 'preview' && id) result = await manager.preview(id);
+  else if (action === 'repair' && id && value) result = await manager.repair(id, value);
   else if (action === 'export' && id && value) result = await manager.exportRedacted(id, resolve(value));
   else if (action === 'delete' && id && value) result = await manager.deleteToTrash(id, value);
   else throw Object.assign(new Error('invalid sessions command'), { code: 'invalid_session_command' });

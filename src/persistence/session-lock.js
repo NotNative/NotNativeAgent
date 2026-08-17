@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from '../ids.js';
+import { ProcessIdentity, validIdentity } from '../reliability/process-identity.js';
 
 const MAX_STALE_LOCK_ARTIFACTS = 1024;
 
@@ -10,9 +11,10 @@ export class SessionLock {
   #token = randomUUID();
   #owned = false;
 
-  constructor(root, sessionId) {
+  constructor(root, sessionId, options = {}) {
     this.root = root;
     this.path = join(root, `${sessionId}.lock`);
+    this.identity = options.processIdentity ?? new ProcessIdentity();
   }
 
   async acquire() {
@@ -25,7 +27,8 @@ export class SessionLock {
         return;
       } catch (error) {
         if (error.code !== 'EEXIST') throw error;
-        if (await this.#ownerIsLive()) throw new ContractError('session_locked', 'another live writer owns this session');
+        const status = await inspectSessionLock(this.path, { processIdentity: this.identity });
+        if (['live', 'unknown'].includes(status.status)) throw new ContractError('session_locked', 'another live or unverifiable writer owns this session');
         await this.#preserveStale(attempt);
       }
     }
@@ -62,23 +65,13 @@ export class SessionLock {
     const handle = await open(this.path, 'wx', 0o600);
     try {
       await handle.writeFile(JSON.stringify({
-        version: 1, pid: process.pid, token: this.#token,
+        version: 2, pid: process.pid, token: this.#token,
+        process_identity: await this.identity.capture(process.pid),
         created_at: new Date().toISOString(),
       }), 'utf8');
       await handle.sync();
     } finally {
       await handle.close();
-    }
-  }
-
-  async #ownerIsLive() {
-    try {
-      const record = JSON.parse(await readFile(this.path, 'utf8'));
-      if (!validLockRecord(record)) return false;
-      process.kill(record.pid, 0);
-      return true;
-    } catch (error) {
-      return error.code === 'EPERM';
     }
   }
 
@@ -104,9 +97,34 @@ export class SessionLock {
 
 function validLockRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && [1, 2].includes(value.version)
     && Number.isInteger(value.pid) && value.pid > 0
     && typeof value.token === 'string' && value.token.length > 0
     && typeof value.created_at === 'string' && Number.isFinite(Date.parse(value.created_at));
+}
+
+export async function inspectSessionLock(path, options = {}) {
+  const identity = options.processIdentity ?? new ProcessIdentity();
+  let record;
+  try { record = JSON.parse(await readFile(path, 'utf8')); }
+  catch (error) { return error.code === 'ENOENT' ? { status: 'missing', record: null } : { status: 'malformed', record: null }; }
+  if (!validLockRecord(record)) return { status: 'malformed', record };
+  if (validIdentity(record.process_identity)) {
+    const comparison = await identity.compare(record.process_identity);
+    return { status: comparison === 'same' ? 'live' : comparison, record };
+  }
+  return { status: identity.live(record.pid) ? 'unknown' : 'dead', record };
+}
+
+export async function preserveStaleSessionLock(path, options = {}) {
+  const inspected = await inspectSessionLock(path, options);
+  if (inspected.status === 'missing') return Object.freeze({ repaired: false, status: 'missing' });
+  if (['live', 'unknown'].includes(inspected.status)) {
+    throw new ContractError('session_locked', 'session lock still belongs to a live or unverifiable process');
+  }
+  const stale = `${path}.stale.${Date.now()}.repair.${randomUUID()}`;
+  await rename(path, stale);
+  return Object.freeze({ repaired: true, status: inspected.status, evidence_path: stale });
 }
 
 function staleTimestamp(name, prefix) {

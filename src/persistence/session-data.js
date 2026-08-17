@@ -3,12 +3,16 @@ import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promi
 import { basename, dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ContractError, requireExternalId } from '../ids.js';
+import { inspectSessionLock, preserveStaleSessionLock } from './session-lock.js';
+import { inspectJournalRepairPrefix, recoverJournal, restoreJournalFromVerifiedPrefix } from '../store.js';
+import { StructuredLog } from '../structured-log.js';
 
 export class SessionDataManager {
   constructor(options) {
     this.sessionRoot = options.sessionRoot;
     this.reviewerRoot = options.reviewerRoot;
     this.diagnosticsRoot = options.diagnosticsRoot ?? null;
+    this.processIdentity = options.processIdentity;
   }
 
   async preview(sessionId) {
@@ -62,6 +66,52 @@ export class SessionDataManager {
     }
     return Object.freeze({ session_id: sessionId, recoverable_trash: trash, moved, incomplete });
   }
+
+  async repair(sessionId, confirmation) {
+    requireExternalId(sessionId, 'session_id');
+    if (confirmation !== `repair:${sessionId}`) {
+      throw new ContractError('repair_confirmation_required', 'exact session repair confirmation is required');
+    }
+    const actions = [];
+    const lockPath = join(this.sessionRoot, `${sessionId}.lock`);
+    const lockInspection = await inspectSessionLock(lockPath, { processIdentity: this.processIdentity });
+    if (['live', 'unknown'].includes(lockInspection.status)) {
+      throw new ContractError('session_locked', 'session lock still belongs to a live or unverifiable process');
+    }
+    const journalPath = join(this.sessionRoot, `${sessionId}.journal.ndjson`);
+    const recovered = await recoverJournal(journalPath, { tailLimit: 10_000 });
+    const prefix = recovered.corruptTail
+      ? await latestVerifiedPrefix(this.sessionRoot, `${sessionId}.journal.ndjson`) : null;
+    if (recovered.corruptTail && !prefix) {
+      throw new ContractError('journal_repair_evidence_missing', 'corrupt journal has no preserved verified prefix');
+    }
+    if (prefix) await inspectJournalRepairPrefix(prefix);
+    const lock = await preserveStaleSessionLock(lockPath, { processIdentity: this.processIdentity });
+    if (lock.repaired) actions.push(Object.freeze({ type: 'stale_lock_preserved', status: lock.status, evidence_path: lock.evidence_path }));
+    if (recovered.corruptTail) {
+      const restored = await restoreJournalFromVerifiedPrefix(journalPath, prefix);
+      actions.push(Object.freeze({ type: 'journal_prefix_restored', records: restored.records,
+        evidence_path: restored.evidence_path, prefix_path: restored.prefix_path }));
+    }
+    await this.#recordRepair(sessionId, actions);
+    return Object.freeze({ session_id: sessionId, repaired: actions.length > 0, actions: Object.freeze(actions) });
+  }
+
+  async #recordRepair(sessionId, actions) {
+    if (!this.diagnosticsRoot) return;
+    const log = await new StructuredLog({ path: join(this.diagnosticsRoot, 'repair.ndjson') }).initialize();
+    log.record({ type: 'session_repair', operation: actions.map((item) => item.type).join(',') || 'none',
+      outcome: actions.length > 0 ? 'completed' : 'unchanged', session_id: sessionId });
+    await log.flush();
+  }
+}
+
+async function latestVerifiedPrefix(root, base) {
+  let names;
+  try { names = await readdir(root); } catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+  const prefix = `${base}.verified-prefix.`;
+  const candidates = names.filter((name) => name.startsWith(prefix)).sort().reverse();
+  return candidates[0] ? join(root, candidates[0]) : null;
 }
 
 async function candidatePaths(manager, id) {

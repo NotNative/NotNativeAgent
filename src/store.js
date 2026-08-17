@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { copyFile, mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { ContractError } from './ids.js';
 
 export class JournalStore {
@@ -156,6 +156,34 @@ export async function recoverJournal(path, options = {}) {
     previous = record.hash;
   }
   return recoveryResult(records, previous, corruptTail, false, legacyFormat);
+}
+
+export async function restoreJournalFromVerifiedPrefix(path, prefixPath, options = {}) {
+  const recovered = await inspectJournalRepairPrefix(prefixPath, options);
+  const evidencePath = `${path}.corrupt.${Date.now()}.${randomUUID()}`;
+  const temporary = `${path}.repair-${process.pid}-${randomUUID()}`;
+  try {
+    await copyFile(prefixPath, temporary, constants.COPYFILE_EXCL);
+    const handle = await open(temporary, 'r+');
+    try { await handle.sync(); } finally { await handle.close(); }
+    await rename(path, evidencePath);
+    try { await rename(temporary, path); }
+    catch (error) { await rename(evidencePath, path).catch(() => undefined); throw error; }
+    await syncDirectory(dirname(path));
+  } finally { await rm(temporary, { force: true }).catch(() => undefined); }
+  return Object.freeze({ records: recovered.records.length, evidence_path: evidencePath, prefix_path: prefixPath });
+}
+
+export async function inspectJournalRepairPrefix(prefixPath, options = {}) {
+  const maximum = options.maxBytes ?? 104_857_600;
+  const details = await stat(prefixPath);
+  if (details.size > maximum) throw new ContractError('journal_repair_prefix_too_large', 'verified journal prefix exceeds the repair bound');
+  const recovered = await recoverJournal(prefixPath);
+  if (recovered.corruptTail || recovered.legacyFormat || recovered.records.length === 0
+    || recovered.records[0].sequence !== 1 || recovered.records[0].previous !== '0'.repeat(64)) {
+    throw new ContractError('journal_repair_prefix_invalid', 'verified journal prefix does not form a complete genesis chain');
+  }
+  return recovered;
 }
 
 export async function readJournalPage(path, options = {}) {
