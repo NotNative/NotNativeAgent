@@ -187,7 +187,12 @@ function selectRecentRecords(transcript, budget, options) {
     add(unit);
   }
   const retained = shrinkOversizedProtectedRecords([...selected.values()].sort((a, b) => a.index - b.index), budget);
-  retained.metrics = Object.freeze({
+  retained.metrics = selectionMetrics(retained, transcript, protection, projection, duplicates);
+  return retained;
+}
+
+function selectionMetrics(retained, transcript, protection, projection, duplicates) {
+  return Object.freeze({
     protectedCompletedTurns: protection.completedTurnCount,
     protectedTurnCount: protection.turnKeys.size,
     protectedRecordCount: retained.filter((entry) => entry.protected).length,
@@ -200,7 +205,6 @@ function selectRecentRecords(transcript, budget, options) {
     duplicateResultBytesSaved: duplicates.bytesSaved,
     originalBytes: transcript.reduce((sum, item) => sum + recordBytes(item), 0),
   });
-  return retained;
 }
 
 function supersedeColdToolResults(transcript, protectedIndexes) {
