@@ -56,3 +56,12 @@ test('unavailable shell constraints retain the interpreter-specific repair acros
   assert.match(constraints[0].instruction, /Do not repeat the unavailable shell/u);
   assert.match(constraints[0].instruction, /positively discovered/u);
 });
+
+test('failed inline interpreter constraints recommend draft stdin instead of repeated escaping', () => {
+  const constraints = mergeToolConstraints([], [item('process.run', 'failed', {
+    reason: 'process_exit_nonzero', metadata: { exitCode: 1, signal: null },
+    args: { executable: 'node', args: ['-e', 'const child = "nested"; process.exit(1)'] },
+  })]);
+  assert.match(constraints[0].instruction, /Avoid embedding generated multi-statement programs/u);
+  assert.match(constraints[0].instruction, /ref\.store.*stdin_ref/u);
+});

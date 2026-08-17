@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { redactText } from '../redaction.js';
+import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 
 const MAX_CONSTRAINTS = 64;
 const CONSTRAINT_KIND = Object.freeze({ schema: 'schema_repair', execution: 'execution_failure', governance: 'governance_boundary' });
@@ -42,7 +43,7 @@ function constraintFor(item) {
     id: digest(`${kind}\0${tool}\0${reasonCode}\0${requestFingerprint}\0${detail}`).slice(0, 32),
     kind, tool, status: result.status, reason_code: reasonCode,
     request_fingerprint: requestFingerprint, detail,
-    instruction: instruction(kind, result),
+    instruction: instruction(kind, result, item),
   });
 }
 
@@ -63,10 +64,13 @@ function constraintDetail(kind, result) {
   return redactText(String(result.content ?? result.reason_code ?? result.status)).replace(/\s+/gu, ' ').trim().slice(0, 1024);
 }
 
-function instruction(kind, result) {
+function instruction(kind, result, item) {
   if (kind === CONSTRAINT_KIND.schema) return 'Correct the reported field and value; do not repeat the same request fingerprint.';
   if (kind === CONSTRAINT_KIND.governance) return 'Do not repeat an equivalent request unless new authenticated operator input changes its authority.';
   if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, process.run, or a structured tool unless the requested interpreter is positively discovered.';
+  const args = item?.call?.args ?? item?.request?.args;
+  if (kind === CONSTRAINT_KIND.execution && result?.tool_name === 'process.run'
+    && inlineInterpreterInvocation(args?.executable, args?.args)) return inlineInterpreterGuidance();
   return 'Treat the result as failed evidence; diagnose the condition before a materially different retry.';
 }
 

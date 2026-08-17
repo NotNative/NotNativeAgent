@@ -661,6 +661,8 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /respond conversationally when no action is requested/u);
   assert.match(policy, new RegExp(`Authoritative host environment: operating system .* \\(${process.platform}\\)`, 'u'));
   assert.match(policy, /Shell syntax is not portable and NNA does not translate/u);
+  assert.match(policy, /Avoid embedding generated multi-statement programs in node -e, python -c/u);
+  assert.match(policy, /ref\.store.*stdin_ref/u);
   const clock = context.find((item) => item.provenance === 'runtime_clock')?.content ?? '';
   assert.doesNotMatch(policy, /Authoritative runtime clock/u);
   assert.match(clock, /Authoritative runtime clock: local \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}/u);

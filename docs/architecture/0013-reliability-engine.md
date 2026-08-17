@@ -24,6 +24,7 @@ The Reliability Engine owns:
 - model-dialect observations and reliability guidance;
 - authoritative host-environment facts, shell-command shaping signals, and unavailable-interpreter recovery guidance;
 - cross-platform process-instance identity used to distinguish live owners from recycled PIDs;
+- command-shaping signals and repair guidance for fragile inline interpreter programs;
 - tool-call stream assembly and protocol-integrity bounds; and
 - stable tool-progress and failure fingerprints.
 

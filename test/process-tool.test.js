@@ -14,6 +14,8 @@ test('process.run executes bounded shell-free argv inside the workspace', async 
   const registry = new ToolRegistry(root);
   await registry.initialize();
   const definition = registry.definition('process.run');
+  assert.match(definition.purpose, /Avoid embedding generated multi-statement programs/u);
+  assert.match(definition.inputSchema.properties.stdin_ref.description, /node args \["-"\]/u);
   assert.deepEqual(definition.inputSchema.properties.args.items, { type: 'string' });
   await assert.rejects(definition.validate({ executable: 'node', args: ['x'.repeat(4097)] }), { code: 'process_args_invalid' });
   const normalized = await definition.validate({ executable: 'node', args: ['print.js'], timeout_ms: 5_000 });
@@ -128,6 +130,8 @@ test('AC-AUTH-04 process.run seals shells and destructive commands for semantic 
   assert.equal((await definition.validate({ executable: 'rm', args: ['-rf', '.'] })).resolved.reviewComplexity, 'destructive_command');
   assert.equal((await definition.validate({ executable: 'powershell', args: ['-Command', 'dir'] })).resolved.reviewComplexity, 'shell_command');
   assert.equal((await definition.validate({ executable: 'node', args: ['-e', 'process.exit()'] })).resolved.reviewComplexity, 'inline_code');
+  assert.deepEqual((await definition.validate({ executable: 'node', args: ['-e', 'process.exit()'] })).resolved.reliabilitySignals, ['inline_interpreter_code']);
+  assert.deepEqual((await definition.validate({ executable: 'node', args: ['-'] })).resolved.reliabilitySignals, []);
   assert.equal((await definition.validate({ executable: 'git', args: ['reset', '--hard'] })).resolved.reviewComplexity, 'destructive_command');
   await assert.rejects(definition.validate({ executable: 'npm', args: ['--token=secret-value'] }), { code: 'process_secret_argument_forbidden' });
   assert.equal((await definition.validate({ executable: 'node', args: ['file.js'], cwd: '..' })).resolved.insideWorkspace, false);

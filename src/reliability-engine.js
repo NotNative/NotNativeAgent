@@ -16,6 +16,7 @@ import {
   shellToolGuidance, unavailableShellMessage,
 } from './reliability/host-environment.js';
 import { ProcessIdentity } from './reliability/process-identity.js';
+import { inlineInterpreterGuidance, inlineInterpreterInvocation } from './reliability/command-shaping.js';
 
 export class ReliabilityEngine {
   constructor(options = {}) {
@@ -78,6 +79,8 @@ export class ReliabilityEngine {
   normalizeShellExecutionError(error, shell, platform) { return normalizeShellExecutionError(error, shell, platform); }
   shellReliabilitySignals(script) { return shellReliabilitySignals(script); }
   createProcessIdentity(options = {}) { return new ProcessIdentity(options); }
+  inlineInterpreterGuidance() { return inlineInterpreterGuidance(); }
+  inlineInterpreterInvocation(executable, args) { return inlineInterpreterInvocation(executable, args); }
 
   refineContinuation(...args) { return this.continuationCompactor.refine(...args); }
   createHandoff(...args) { return this.continuationCompactor.handoff(...args); }
@@ -96,6 +99,7 @@ export class ReliabilityEngine {
       model_observation: true,
       host_command_shaping: true,
       process_identity: true,
+      command_shaping: true,
     });
   }
 }

@@ -34,8 +34,11 @@ test('Reliability Engine is the single owner facade for reliability components',
     'many_operations', 'loop_with_substitution',
   ]);
   assert.equal(reliability.normalizeShellExecutionError({ code: 'ENOENT' }, 'sh', 'win32').code, 'shell_interpreter_unavailable');
+  assert.equal(reliability.inlineInterpreterInvocation('node', ['-e', 'process.exit(1)']), true);
+  assert.match(reliability.inlineInterpreterGuidance(), /ref\.store.*stdin_ref/u);
   assert.equal(reliability.health().status, 'ready');
   assert.equal(reliability.health().host_command_shaping, true);
+  assert.equal(reliability.health().command_shaping, true);
   await reliability.close();
 
   assert.deepEqual(calls, ['initialize', 'succeeded', 'close']);

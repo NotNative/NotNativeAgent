@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { basename } from 'node:path';
 import { ContractError } from '../ids.js';
 import { normalizeShellExecutionError, shellReliabilitySignals, shellToolGuidance } from '../reliability/host-environment.js';
+import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 
 const MAX_SCRIPT_LENGTH = 32_768;
 const MAX_FIELD_LENGTH = 4_096;
@@ -16,18 +17,19 @@ const TERMINATION_ESCALATION_MS = 250;
 const SECRET_LITERAL = /(?:bearer\s*[:=]?\s+|(?:api[_-]?key|token|password)\s*["']?\s*[:=]\s*["']?)/iu;
 
 export function processRunDefinition(paths, references = null) {
+  const inlineGuidance = inlineInterpreterGuidance();
   return {
     name: 'process.run', version: 1,
-    purpose: 'Run one bounded installed host program with explicit argv for local or remote tasks. Prefer a direct executable; shell interpreters are optional host software and receive semantic review. Root NNA may target host paths; hosted sessions remain workspace-bounded.',
+    purpose: `Run one bounded installed host program with explicit argv for local or remote tasks. Prefer a direct executable; shell interpreters are optional host software and receive semantic review. ${inlineGuidance} Root NNA may target host paths; hosted sessions remain workspace-bounded.`,
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
     inputSchema: {
       type: 'object', properties: {
         executable: { type: 'string', minLength: 1, maxLength: 4096, description: 'Required installed command name or executable path. Do not include arguments in this field.' },
         // Keep the item-length boundary in local validation. Some otherwise compatible
         // llama.cpp grammar compilers reject maxLength when nested below array items.
-        args: { type: 'array', items: { type: 'string' }, maxItems: 64, description: 'Ordered argument vector without the executable. Defaults to an empty array.' },
+        args: { type: 'array', items: { type: 'string' }, maxItems: 64, description: `Ordered argument vector without the executable. Defaults to an empty array. ${inlineGuidance}` },
         cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the process. Defaults to the agent working directory.' },
-        stdin_ref: { type: 'string', maxLength: 180, description: 'Optional nna_ref_draft identifier whose exact stored text is sent to standard input.' },
+        stdin_ref: { type: 'string', maxLength: 180, description: `Optional nna_ref_draft identifier whose exact stored text is sent to standard input. Prefer this for generated multi-statement interpreter source; for example, node args ["-"] or python args ["-"].` },
         accepted_exit_codes: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 255 }, maxItems: 16, description: 'Exit codes that count as successful completion. Must include 0 and defaults to [0]. Add codes only when the invoked program documents them as expected results.' },
         timeout_ms: { type: 'integer', minimum: 100, maximum: 120000, description: 'Process deadline in milliseconds. Defaults to 60000.' },
       }, required: ['executable'], additionalProperties: false,
@@ -148,7 +150,9 @@ async function validateProcessRequest(paths, input, references) {
   return { args: { executable: input.executable, args: [...args], cwd: cwd.path, timeout_ms: timeoutMs,
     accepted_exit_codes: acceptedExitCodes, ...(stdinRef ? { stdin_ref: stdinRef } : {}) }, resolved: {
     path: cwd.path, executable: input.executable, argv: [...args], shell: false,
-    reviewComplexity: processComplexity(executable, args), insideWorkspace: cwd.insideWorkspace,
+    reviewComplexity: processComplexity(executable, args),
+    reliabilitySignals: inlineInterpreterInvocation(executable, args) ? Object.freeze(['inline_interpreter_code']) : Object.freeze([]),
+    insideWorkspace: cwd.insideWorkspace,
     reviewPurpose: processReviewPurpose(executable, args), recovery: cwd.recovery,
   } };
 }
