@@ -61,4 +61,6 @@ test('Reliability Engine returns bounded provider recovery decisions without exe
   const reasoning = reliability.reasoningOnly(active);
   assert.equal(reasoning.reasoningMode, 'off');
   assert.equal(reasoning.action.action, 'retry_without_reasoning');
+  const retry = reliability.providerRetry(active, 'provider_transient', 0, false, 12_000);
+  assert.equal(retry.delayMs, 12_000);
 });

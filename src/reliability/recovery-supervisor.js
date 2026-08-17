@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { randomInt } from 'node:crypto';
+import { boundedProviderRetryDelay } from './retry-after.js';
 
 const MAX_ACTION_HISTORY = 256;
 const MAX_PROGRESS_RECORDS = 4_096;
@@ -24,9 +25,9 @@ export class RecoverySupervisor {
     this.#actions = (options.restoredActions ?? []).slice(-MAX_ACTION_HISTORY);
   }
 
-  providerRetry(category, attempt, partial) {
+  providerRetry(category, attempt, partial, suggestedDelayMs = null) {
     if (partial || attempt >= this.localLimit - 1) return Object.freeze({ retry: false, exhausted: true });
-    const delayMs = boundedDelay(attempt);
+    const delayMs = boundedProviderRetryDelay(boundedDelay(attempt), suggestedDelayMs);
     const action = this.#record(category, 'retry_provider', attempt + 1, {
       delayMs, target: 'current_route', partial: false,
     });

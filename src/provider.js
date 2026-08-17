@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
 import { providerReasoningControls } from './provider/reasoning.js';
+import { providerRetryAfterMs } from './reliability/retry-after.js';
 
 const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
 const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
@@ -84,7 +85,7 @@ export class OpenAICompatibleProvider {
       throw error;
     }
     try {
-      if (!response.ok) throw await providerErrorResponse(response);
+      if (!response.ok) throw await providerErrorResponse(response, this.profile.trustZone);
       if (!response.body) throw new ContractError('provider_empty_body', 'provider returned no stream');
       yield* parseSse(response.body, providerStreamByteLimit(this.limits, request), signal);
     } finally {
@@ -346,12 +347,14 @@ function sanitizeUsage(usage) {
   return result;
 }
 
-function providerError(status, message) {
+function providerError(status, message, retryAfterMs = null) {
   const transient = status === 408 || status === 429 || status >= 500;
-  return new ContractError(transient ? 'provider_transient' : 'provider_rejected', message, transient);
+  const error = new ContractError(transient ? 'provider_transient' : 'provider_rejected', message, transient);
+  if (transient && retryAfterMs !== null) error.retryAfterMs = retryAfterMs;
+  return error;
 }
 
-async function providerErrorResponse(response) {
+async function providerErrorResponse(response, trustZone) {
   let body = null;
   try {
     body = await boundedResponseJson(response);
@@ -365,7 +368,7 @@ async function providerErrorResponse(response) {
   if (isGrammarFailure(body)) {
     return new ContractError('provider_tool_schema_rejected', 'provider could not compile the supplied tool schema into a valid grammar');
   }
-  return providerError(response.status, 'provider request failed');
+  return providerError(response.status, 'provider request failed', providerRetryAfterMs(response, trustZone));
 }
 
 const IMAGE_UNSUPPORTED_CODES = new Set([

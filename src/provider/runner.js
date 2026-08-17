@@ -65,8 +65,8 @@ export class ProviderRunner {
         );
         const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
         const plan = error.retryable
-          ? (this.reliability?.providerRetry(active, error.code, attempt, partial)
-            ?? active.recovery.providerRetry(error.code, attempt, partial))
+          ? (this.reliability?.providerRetry(active, error.code, attempt, partial, error.retryAfterMs)
+            ?? active.recovery.providerRetry(error.code, attempt, partial, error.retryAfterMs))
           : { retry: false };
         if (!plan.retry || active.cancelled) throw error;
         await this.settleAttempt(active, 'failed');

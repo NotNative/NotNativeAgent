@@ -377,6 +377,23 @@ test('AC-PROV-01 types in-band SSE errors without exposing provider-controlled t
   });
 });
 
+test('public providers expose bounded Retry-After guidance while loopback providers ignore it', async () => {
+  for (const [trustZone, expected] of [['public_network', 30_000], ['loopback', undefined]]) {
+    const provider = new OpenAICompatibleProvider({
+      endpoint: 'https://provider.example.test/v1', credentialEnv: null, capabilities: {}, model: 'fixture', trustZone,
+    }, { maxOutputBytes: 4096 }, { fetch: async () => Response.json({ error: { code: 429 } }, {
+      status: 429, headers: { 'retry-after': '120' },
+    }) });
+    await assert.rejects(async () => {
+      for await (const _event of provider.stream({ model: 'fixture', messages: [] }, new AbortController().signal)) { /* consume */ }
+    }, (error) => {
+      assert.equal(error.code, 'provider_transient');
+      assert.equal(error.retryAfterMs, expected);
+      return true;
+    });
+  }
+});
+
 test('normalizes explicit HTTP and streaming image incompatibility for request-scoped fallback', async () => {
   const profile = { endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, capabilities: {}, model: 'fixture' };
   const responses = [

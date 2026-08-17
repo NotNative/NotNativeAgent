@@ -35,8 +35,8 @@ export class ReliabilityEngine {
 
   createTurnSupervisor(options = {}) { return new RecoverySupervisor(options); }
   localRetryLimit(active) { return active.recovery.localLimit; }
-  providerRetry(active, category, attempt, partial) {
-    return active.recovery.providerRetry(category, attempt, partial);
+  providerRetry(active, category, attempt, partial, suggestedDelayMs = null) {
+    return active.recovery.providerRetry(category, attempt, partial, suggestedDelayMs);
   }
   noProgress(active, category, evidence = null, detail = {}, options = {}) {
     return active.recovery.noProgress(category, evidence, detail, options);
