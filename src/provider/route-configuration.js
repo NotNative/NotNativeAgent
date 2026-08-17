@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { copyFile, mkdir, rename, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
+import { persistAtomicJson, persistAtomicJsonIfAbsent } from '../persistence/atomic-json.js';
 
 export const SPECIALIST_ROUTE_ROLES = Object.freeze(['subagent', 'reviewer', 'vision']);
 export function manifestFromConfig(config) {
@@ -335,13 +334,12 @@ function setOptional(target, key, value) {
 
 export async function persistManifest(path, manifest) {
   if (!path) return;
-  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  const temporary = `${path}.tmp-${process.pid}`;
-  await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
-  await copyFile(path, `${path}.bak`).catch((error) => {
-    if (error.code !== 'ENOENT') throw error;
-  });
-  await rename(temporary, path);
+  await persistAtomicJson(path, manifest, { backup: true });
+}
+
+export async function persistInitialManifest(path, manifest) {
+  if (!path) return;
+  await persistAtomicJsonIfAbsent(path, manifest);
 }
 
 function providerManifest(profile) {

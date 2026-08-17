@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -46,6 +46,22 @@ test('installer provider bootstrap supports providers without authentication', a
   const manifest = JSON.parse(await readFile(join(paths.config, 'manifest.json'), 'utf8'));
   assert.equal(manifest.providers[0].credential_env, undefined);
   assert.equal(await loadManagedProviderCredentials(paths, {}), 0);
+});
+
+test('provider credentials publish atomically and malformed JSON is quarantined with an actionable path', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-provider-atomic-'));
+  const paths = { config: join(root, 'config'), providerCredentials: join(root, 'config', 'provider-credentials.json') };
+  await configureInitialProvider(paths, { endpoint: 'http://localhost:1234', model: 'local-model', key: 'private-key' });
+  assert.equal((await readdir(paths.config)).some((name) => name.includes('.tmp-')), false);
+  await writeFile(paths.providerCredentials, '{"format_version":', 'utf8');
+  await assert.rejects(loadManagedProviderCredentials(paths, {}), (error) => {
+    assert.equal(error.code, 'provider_credentials_invalid');
+    assert.match(error.message, /provider credential store is malformed; preserved at .*\.corrupt-\d+/u);
+    return true;
+  });
+  const names = await readdir(paths.config);
+  assert.equal(names.includes('provider-credentials.json'), false);
+  assert.equal(names.filter((name) => /^provider-credentials\.json\.corrupt-\d+$/u.test(name)).length, 1);
 });
 
 test('installer sources expose idempotent interactive provider setup', async () => {

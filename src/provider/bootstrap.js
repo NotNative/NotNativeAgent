@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
 import { persistManifest } from './route-configuration.js';
+import { persistAtomicJson, quarantineMalformedJson } from '../persistence/atomic-json.js';
 
 const CREDENTIAL_ENV = 'NNA_PROVIDER_INITIAL_KEY';
 const MAX_RESPONSE_BYTES = 1_048_576;
@@ -80,6 +81,9 @@ export async function loadManagedProviderCredentials(paths, environment = proces
   let document;
   try { document = await readJson(paths.providerCredentials, 'provider credential store'); } catch (error) {
     if (error.code === 'ENOENT') return 0;
+    if (error.code === 'provider_bootstrap_file_invalid') {
+      await quarantineMalformedJson(paths.providerCredentials, 'provider credential store', 'provider_credentials_invalid');
+    }
     throw error;
   }
   if (document.format_version !== 1 || !document.credentials || typeof document.credentials !== 'object') {
@@ -98,8 +102,7 @@ export async function loadManagedProviderCredentials(paths, environment = proces
 
 async function persistCredential(path, name, value) {
   if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > MAX_KEY_BYTES) throw new ContractError('provider_key_invalid', 'provider API key exceeds its bound');
-  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  await writeFile(path, `${JSON.stringify({ format_version: 1, credentials: { [name]: value } }, null, 2)}\n`, { mode: 0o600 });
+  await persistAtomicJson(path, { format_version: 1, credentials: { [name]: value } });
 }
 
 async function readKey(input) {

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createInterface } from 'node:readline/promises';
 import { isIP } from 'node:net';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { migrateManifestDocument, resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
-import { persistManifest } from './provider/route-configuration.js';
+import { persistInitialManifest, persistManifest } from './provider/route-configuration.js';
+import { quarantineMalformedJson } from './persistence/atomic-json.js';
 
 const LOCAL_ENDPOINTS = Object.freeze([
   'http://127.0.0.1:11434/v1',
@@ -29,7 +30,7 @@ export async function loadStartupManifestDocument(options) {
   const manifest = migrateManifestDocument(discovered ?? await interactiveManifest(options.input, options.output)).manifest;
   resolveManifest(manifest);
   try {
-    await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
+    await persistInitialManifest(path, manifest);
   } catch (error) {
     if (error.code !== 'EEXIST') throw error;
     return loadManifestDocument(path);
@@ -67,7 +68,7 @@ async function loadManifestDocument(path) {
     return document.manifest;
   } catch (error) {
     if (error instanceof ContractError) throw error;
-    throw new ContractError('manifest_invalid', 'default manifest is not valid UTF-8 JSON');
+    await quarantineMalformedJson(path, 'default manifest', 'manifest_invalid');
   }
 }
 

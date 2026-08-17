@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -87,6 +87,32 @@ test('first run persists explicit environment configuration and reuses it', asyn
     });
     assert.equal(second.routes.primary.model, 'starter-model');
     assert.equal(discovered, false);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('concurrent first-run manifests publish one complete winner and quarantine malformed JSON', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-onboarding-atomic-'));
+  const paths = userDataPaths({ home: root, environment: {} });
+  await ensureUserDataPaths(paths);
+  const environment = (model) => ({ NNA_PROVIDER_ENDPOINT: 'http://127.0.0.1:11434/v1', NNA_MODEL: model });
+  try {
+    const results = await Promise.all([
+      loadStartupManifest({ paths, environment: environment('first-model'), discover: async () => null }),
+      loadStartupManifest({ paths, environment: environment('second-model'), discover: async () => null }),
+    ]);
+    assert.equal(results[0].routes.primary.model, results[1].routes.primary.model);
+    const path = join(paths.config, 'manifest.json');
+    const persisted = JSON.parse(await readFile(path, 'utf8'));
+    assert.equal((persisted.providers?.[0] ?? persisted.provider).model, results[0].routes.primary.model);
+    await writeFile(path, '{"format_version":', 'utf8');
+    await assert.rejects(loadStartupManifest({ paths, environment: {}, discover: async () => null }), (error) => {
+      assert.equal(error.code, 'manifest_invalid');
+      assert.match(error.message, /default manifest is malformed; preserved at .*\.corrupt-\d+/u);
+      return true;
+    });
+    const names = await readdir(paths.config);
+    assert.equal(names.includes('manifest.json'), false);
+    assert.equal(names.filter((name) => /^manifest\.json\.corrupt-\d+$/u.test(name)).length, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
