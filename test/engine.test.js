@@ -331,7 +331,7 @@ test('active durable work forces model continuation until tasks and goal are com
   const provider = { async *stream() {
     calls += 1;
     if (calls === 1) {
-      yield { type: 'text', text: 'The report is ready. Want me to go deeper?' };
+      yield { type: 'text', text: 'The report is ready, but the durable work ledger is still open.' };
     } else {
       await engine.updateTask('T1', 'completed', 'verified report delivered');
       await engine.completeGoal('all durable tasks verified');
@@ -350,6 +350,27 @@ test('active durable work forces model continuation until tasks and goal are com
   assert.equal(engine.workStatus().goal.status, 'completed');
   assert.equal(engine.workStatus().tasks[0].status, 'completed');
   assert.equal(result.recovery.some((item) => item.category === 'unfinished_conversation_work'), true);
+});
+
+test('active durable work cannot turn an assistant authorization question into a synthetic user answer', async () => {
+  let calls = 0;
+  const provider = { async *stream() {
+    calls += 1;
+    yield { type: 'text', text: calls === 1
+      ? 'The requested audit is complete. Want me to start implementing Slice A?'
+      : 'Yes — Slice A first is the right call.' };
+    yield { type: 'terminal', finishReason: 'stop', usage: null };
+  } };
+  const engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  await engine.setGoal('Audit the codebase without making changes');
+  await engine.addTask('Deliver the audit findings');
+
+  const result = await engine.submit({ request_id: 'work-authorization-turn', content: 'Audit the codebase' }, 'operator');
+
+  assert.equal(calls, 1);
+  assert.equal(result.outcome, 'needs_input');
+  assert.match(result.text, /Want me to start implementing Slice A\?/u);
+  assert.equal(result.recovery.some((item) => item.category === 'unfinished_conversation_work'), false);
 });
 
 test('active durable work accepts input requests only for a typed blocked task', async () => {

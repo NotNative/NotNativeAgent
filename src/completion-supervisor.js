@@ -31,6 +31,9 @@ function unfinishedWorkGate(work, text) {
   const unfinished = tasks.filter((task) => task.status !== 'completed');
   const goalActive = work?.goal?.status === 'active';
   if (!goalActive && unfinished.length === 0) return null;
+  if (requestsOperatorAuthorization(text)) {
+    return Object.freeze({ disposition: 'needs_input', category: 'operator_authorization_requested' });
+  }
   const blocked = unfinished.filter((task) => task.status === 'blocked');
   if (blocked.length > 0 && requestsInput(text)) {
     return Object.freeze({ disposition: 'needs_input', category: 'blocked_work_requested_input' });
@@ -70,6 +73,15 @@ export function requestsInput(text) {
     return false;
   }
   return /^(?:which|what|where|when|who)\b|^(?:how|why) should\b|^(?:should|may|can) i\b|^do you want me to\b/u.test(last);
+}
+
+function requestsOperatorAuthorization(text) {
+  const normalized = String(text ?? '').trim().toLowerCase();
+  if (!normalized) return false;
+  const tail = normalized.slice(-512);
+  const last = tail.split(/(?<=[.!?])\s+/u).at(-1) ?? tail;
+  if (!last.endsWith('?')) return false;
+  return /^(?:do you )?want me to\b|^would you like me to\b|^(?:should|shall|may|can) i\b|^would you rather\b/u.test(last);
 }
 
 function lostActiveTask(active, text) {
