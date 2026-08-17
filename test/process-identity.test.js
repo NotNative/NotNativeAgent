@@ -33,3 +33,13 @@ test('process identity reports dead and unknown states without treating a recycl
   const unknown = new ProcessIdentity({ platform: 'linux', kill: () => undefined, readFile: async () => { throw new Error('blocked'); } });
   assert.equal(await unknown.compare({ version: 1, pid: 2, platform: 'linux', start_id: '1' }), 'unknown');
 });
+
+test('Windows legacy PID evidence matches only a file published after that process started', () => {
+  const identity = new ProcessIdentity({ platform: 'win32' });
+  const epoch = 621_355_968_000_000_000n;
+  const startedMs = 1_800_000_000_000;
+  const captured = { version: 1, pid: 42, platform: 'win32', start_id: String(epoch + BigInt(startedMs) * 10_000n) };
+  assert.equal(identity.legacyPidFileMatches(captured, startedMs + 250), true);
+  assert.equal(identity.legacyPidFileMatches(captured, startedMs - 1), false);
+  assert.equal(identity.legacyPidFileMatches(captured, startedMs + 60_001), false);
+});

@@ -41,6 +41,16 @@ export class ProcessIdentity {
     catch (error) { return error.code === 'EPERM'; }
   }
 
+  legacyPidFileMatches(identity, modifiedMs) {
+    if (!validIdentity(identity) || identity.platform !== 'win32' || this.platform !== 'win32'
+      || !Number.isFinite(modifiedMs) || modifiedMs <= 0 || !/^\d+$/u.test(identity.start_id ?? '')) return false;
+    const windowsEpochTicks = 621_355_968_000_000_000n;
+    const modifiedTicks = windowsEpochTicks + BigInt(Math.trunc(modifiedMs)) * 10_000n;
+    const startedTicks = BigInt(identity.start_id);
+    const delay = modifiedTicks - startedTicks;
+    return delay >= 0n && delay <= 60n * 10_000_000n;
+  }
+
   async #startId(pid) {
     if (this.platform === 'linux') return linuxStartId(await this.readFile(`/proc/${pid}/stat`, 'utf8'));
     if (this.platform === 'win32') {

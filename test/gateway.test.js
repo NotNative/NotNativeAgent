@@ -143,6 +143,25 @@ test('gateway status and stop require the recorded process instance rather than 
   });
 });
 
+test('gateway stop upgrades time-correlated Windows legacy PID evidence before signaling', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-legacy-identity-'));
+  const paths = { root, gateway: join(root, 'gateway'), gatewayConfig: join(root, 'gateway', 'config.json') };
+  await mkdir(paths.gateway, { recursive: true });
+  await writeFile(join(paths.gateway, 'gateway.pid'), '44\n');
+  const killed = [];
+  const identity = {
+    live: () => true,
+    capture: async () => ({ version: 1, pid: 44, platform: 'win32', start_id: '638000000000000000' }),
+    legacyPidFileMatches: () => true,
+    compare: async () => 'same',
+  };
+  assert.deepEqual(await runGatewayCommand(['stop'], paths, { processIdentity: identity, kill: (...args) => killed.push(args) }), {
+    stopped: true, pid: 44,
+  });
+  assert.deepEqual(killed, [[44, 'SIGTERM']]);
+  assert.equal(JSON.parse(await readFile(join(paths.gateway, 'gateway.pid'), 'utf8')).version, 2);
+});
+
 test('Telegram durably retains queue-full updates and eventually submits each update exactly once', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-gateway-inbox-'));
   let polls = 0, release;

@@ -219,6 +219,8 @@ ok "Release manifest: $version"
 ok "Node.js v$node_version"
 printf '%b      %s%b\n' "$c_dim" "$node_path" "$c_reset"
 ensure_ripgrep
+gateway_stopped_for_upgrade=false
+gateway_was_systemd=false
 
 section 'Application payload'
 step "Staging version $version"
@@ -242,6 +244,29 @@ if [ -e "$target" ]; then
   [ -f "$target/package.json" ] || { printf '%s\n' 'Refusing to replace an unmarked version directory.' >&2; exit 1; }
   target_name=$("$node_path" -e "const p=require(process.argv[1]);process.stdout.write(p.name)" "$target/package.json")
   [ "$target_name" = 'not-native-agent' ] || { printf '%s\n' 'Refusing to replace a foreign version directory.' >&2; exit 1; }
+  if [ "$platform_name" = linux ] && command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet notnativeagent-telegram.service; then
+    step 'Stopping the running Telegram gateway service before replacing its runtime files'
+    systemctl --user stop notnativeagent-telegram.service
+    gateway_stopped_for_upgrade=true
+    gateway_was_systemd=true
+  else
+    incoming_gateway_status=$(NNA_HOME="$data_root" "$node_path" --disable-warning=ExperimentalWarning "$source_root/src/cli.js" gateway status)
+    incoming_gateway_running=$(printf '%s' "$incoming_gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).runtime?.running?'true':'false'))")
+    if [ "$incoming_gateway_running" = true ]; then
+      step 'Stopping the running Telegram gateway before replacing its runtime files'
+      NNA_HOME="$data_root" "$node_path" --disable-warning=ExperimentalWarning "$source_root/src/cli.js" gateway stop >/dev/null
+      gateway_attempt=0
+      while [ "$gateway_attempt" -lt 300 ]; do
+        sleep 0.1
+        incoming_gateway_status=$(NNA_HOME="$data_root" "$node_path" --disable-warning=ExperimentalWarning "$source_root/src/cli.js" gateway status)
+        incoming_gateway_running=$(printf '%s' "$incoming_gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).runtime?.running?'true':'false'))")
+        [ "$incoming_gateway_running" = true ] || break
+        gateway_attempt=$((gateway_attempt + 1))
+      done
+      [ "$incoming_gateway_running" = false ] || { printf '%s\n' 'Telegram gateway did not stop within 30 seconds; existing runtime files were preserved.' >&2; exit 1; }
+      gateway_stopped_for_upgrade=true
+    fi
+  fi
 fi
 rm -rf -- "$target"
 mv "$stage" "$target"
@@ -393,6 +418,7 @@ gateway_status=$(nna_runtime gateway status)
 gateway_configured=$(printf '%s' "$gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).configured?'true':'false'))")
 gateway_users=$(printf '%s' "$gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(String(JSON.parse(s).authorized_user_ids.length)))")
 gateway_running=$(printf '%s' "$gateway_status" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).runtime?.running?'true':'false'))")
+[ "$gateway_stopped_for_upgrade" = true ] && gateway_running=true
 if [ "$gateway_configured" = true ] && [ "$gateway_users" -gt 0 ]; then
   skip "Telegram gateway is already configured for $gateway_users authorized operator(s)."
 elif [ "$gateway_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
@@ -449,7 +475,9 @@ elif [ "$gateway_mode" = skip ]; then
 fi
 if [ "$gateway_running" = true ] && [ "$gateway_mode" != configure ]; then
   step 'Restarting the running Telegram gateway on the updated runtime'
-  if [ "$platform_name" = linux ] && command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet notnativeagent-telegram.service; then
+  if [ "$gateway_was_systemd" = true ]; then
+    systemctl --user start notnativeagent-telegram.service
+  elif [ "$platform_name" = linux ] && command -v systemctl >/dev/null 2>&1 && systemctl --user is-active --quiet notnativeagent-telegram.service; then
     systemctl --user restart notnativeagent-telegram.service
   else
     nna_runtime gateway stop >/dev/null

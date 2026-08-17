@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { open, readFile, rename, unlink } from 'node:fs/promises';
+import { open, readFile, rename, stat, unlink } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
@@ -131,11 +131,26 @@ function childStarted(child) {
 }
 
 async function stopGateway(paths, options) {
-  const status = await runtimeStatus(paths, options);
+  const identity = options.processIdentity ?? new ProcessIdentity();
+  let status = await runtimeStatus(paths, { ...options, processIdentity: identity });
   if (!status.running) return { stopped: false, reason: 'not_running' };
+  if (!status.verified && status.legacy && await adoptLegacyGatewayIdentity(paths, status.pid, identity)) {
+    status = await runtimeStatus(paths, { ...options, processIdentity: identity });
+  }
   if (!status.verified) throw Object.assign(new Error('gateway process identity could not be verified'), { code: 'gateway_identity_unverifiable' });
   (options.kill ?? process.kill)(status.pid, 'SIGTERM');
   return { stopped: true, pid: status.pid };
+}
+
+async function adoptLegacyGatewayIdentity(paths, pid, identity) {
+  if (typeof identity.capture !== 'function' || typeof identity.legacyPidFileMatches !== 'function') return false;
+  const path = pidPath(paths);
+  const [details, captured] = await Promise.all([stat(path), identity.capture(pid)]);
+  if (!captured?.start_id || !identity.legacyPidFileMatches?.(captured, details.mtimeMs)) return false;
+  const current = parsePidRecord(await readFile(path, 'utf8'));
+  if (current?.version !== 1 || current.pid !== pid) return false;
+  await persistAtomicJson(path, { version: 2, pid, process_identity: captured });
+  return true;
 }
 
 export async function runtimeStatus(paths, options = {}) {

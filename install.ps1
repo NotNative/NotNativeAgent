@@ -51,6 +51,27 @@ function Write-InstallerBrand([string]$Release) {
     Write-InstallerLine ' Local-first agent runtime' DarkGray
 }
 
+function Stop-GatewayBeforePayloadReplacement([string]$SelectedNode, [string]$IncomingCli, [string]$SelectedDataRoot) {
+    if (-not (Test-Path -LiteralPath $IncomingCli -PathType Leaf)) { return $false }
+    $PriorNnaHome = $env:NNA_HOME
+    $env:NNA_HOME = $SelectedDataRoot
+    try {
+        $StatusText = & $SelectedNode --disable-warning=ExperimentalWarning $IncomingCli gateway status
+        if ($LASTEXITCODE -ne 0) { throw 'Incoming runtime could not inspect the existing Telegram gateway.' }
+        $Runtime = ($StatusText | ConvertFrom-Json).runtime
+        if (-not $Runtime.running) { return $false }
+        Write-InstallerStep 'Stopping the running Telegram gateway before replacing its runtime files' | Out-Host
+        & $SelectedNode --disable-warning=ExperimentalWarning $IncomingCli gateway stop | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Telegram gateway identity could not be verified before payload replacement.' }
+        for ($Attempt = 0; $Attempt -lt 300; $Attempt++) {
+            Start-Sleep -Milliseconds 100
+            $Current = (& $SelectedNode --disable-warning=ExperimentalWarning $IncomingCli gateway status | ConvertFrom-Json).runtime
+            if (-not $Current.running) { return $true }
+        }
+        throw 'Telegram gateway did not stop within 30 seconds; existing runtime files were preserved.'
+    } finally { $env:NNA_HOME = $PriorNnaHome }
+}
+
 function Find-Ripgrep {
     $Command = Get-Command rg -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($Command) { return $Command.Source }
@@ -382,6 +403,7 @@ $NodeVersion = (& $NodePath -p 'process.versions.node').Trim()
 Write-InstallerOk "Node.js v$NodeVersion ($NodeSource)"
 Write-InstallerLine "      $NodePath" DarkGray
 Initialize-Ripgrep
+$GatewayStoppedForUpgrade = $false
 
 Write-InstallerSection 'Application payload'
 Write-InstallerStep "Staging version $Version"
@@ -408,6 +430,7 @@ try {
         if (-not (Test-Path -LiteralPath $ExistingPackagePath)) { throw 'Refusing to replace an unmarked version directory.' }
         $ExistingPackage = Get-Content -LiteralPath $ExistingPackagePath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($ExistingPackage.name -ne 'not-native-agent') { throw 'Refusing to replace a foreign version directory.' }
+        $GatewayStoppedForUpgrade = Stop-GatewayBeforePayloadReplacement $NodePath (Join-Path $SourceRoot 'src\cli.js') $DataRoot
         Remove-Item -LiteralPath $Target -Recurse -Force
     }
     Move-Item -LiteralPath $Stage -Destination $Target
@@ -572,7 +595,7 @@ $PriorNnaHome = $env:NNA_HOME
 $env:NNA_HOME = $DataRoot
 try {
     $GatewayStatus = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json
-    $GatewayWasRunning = [bool]$GatewayStatus.runtime.running
+    $GatewayWasRunning = $GatewayStoppedForUpgrade -or [bool]$GatewayStatus.runtime.running
     $ConfigureGateway = $false
     if ($GatewayStatus.configured -and $GatewayStatus.authorized_user_ids.Count -gt 0) {
         Write-InstallerSkip "Telegram gateway already configured for $($GatewayStatus.authorized_user_ids.Count) authorized operator(s)."
@@ -604,14 +627,16 @@ try {
     }
     if ($GatewayWasRunning) {
         Write-InstallerStep 'Restarting the running Telegram gateway on the updated runtime'
-        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway stop | Out-Null
-        $GatewayStopped = $false
-        for ($Attempt = 0; $Attempt -lt 300; $Attempt++) {
-            Start-Sleep -Milliseconds 100
-            $Runtime = (& $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json).runtime
-            if (-not $Runtime.running) { $GatewayStopped = $true; break }
+        if ($GatewayStatus.runtime.running) {
+            & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway stop | Out-Null
+            $GatewayStopped = $false
+            for ($Attempt = 0; $Attempt -lt 300; $Attempt++) {
+                Start-Sleep -Milliseconds 100
+                $Runtime = (& $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json).runtime
+                if (-not $Runtime.running) { $GatewayStopped = $true; break }
+            }
+            if (-not $GatewayStopped) { throw 'Telegram gateway did not stop within 30 seconds; refusing to start a duplicate runtime.' }
         }
-        if (-not $GatewayStopped) { throw 'Telegram gateway did not stop within 30 seconds; refusing to start a duplicate runtime.' }
         & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway start | Out-Null
         Write-InstallerOk 'Telegram gateway restarted on the updated runtime'
     } elseif ($StartGateway) {

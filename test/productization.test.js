@@ -225,6 +225,9 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /-Verb RunAs/u);
   assert.match(windowsInstall, /does not target the legacy NNA gateway/u);
   assert.match(windowsInstall, /GatewayWasRunning/u);
+  assert.ok(windowsInstall.lastIndexOf('Stop-GatewayBeforePayloadReplacement')
+    < windowsInstall.indexOf('Remove-Item -LiteralPath $Target -Recurse -Force'));
+  assert.match(windowsInstall, /existing runtime files were preserved/u);
   assert.match(windowsInstall, /Telegram gateway restarted on the updated runtime/u);
   assert.match(windowsInstall, /--disable-warning=ExperimentalWarning/u);
   assert.match(windowsUninstall, /DeleteUserData/u);
@@ -252,6 +255,9 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(linuxInstall, /webbrowse verify/u);
   assert.match(linuxInstall, /base URL of your existing SearXNG server/u);
   assert.match(linuxInstall, /gateway_running/u);
+  assert.ok(linuxInstall.indexOf('Stopping the running Telegram gateway before replacing its runtime files')
+    < linuxInstall.indexOf('rm -rf -- "$target"'));
+  assert.match(linuxInstall, /gateway_stopped_for_upgrade/u);
   assert.match(linuxInstall, /systemctl --user restart notnativeagent-telegram\.service/u);
   assert.match(linuxInstall, /Telegram gateway restarted on the updated runtime/u);
   assert.match(linuxInstall, /nna_runtime/u);
