@@ -101,7 +101,7 @@ Create body:
 {
   "profile_id": "lab-qwen35b",
   "display_name": "Lab Qwen 35B",
-  "endpoint": "http://fixture-host:1234/v1",
+  "endpoint": "http://model-host.example:1234/v1",
   "model": "qwen3.6-35b-a3b",
   "credential_env": "NNA_PROVIDER_LAB",
   "context_limit_bytes": null,
@@ -202,7 +202,7 @@ The `initialized` frame acknowledges the resolved route at one canonical locatio
   "provider": {
     "profile_id": "lab-qwen35b",
     "display_name": "Lab Qwen 35B",
-    "endpoint": "http://fixture-host:1234/v1",
+    "endpoint": "http://model-host.example:1234/v1",
     "model": "qwen3.6-35b-a3b"
   }
 }

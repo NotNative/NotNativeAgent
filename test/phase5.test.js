@@ -513,7 +513,7 @@ test('wrapped transcript lines retain semantic hanging indentation', () => {
 test('long live agent.run activity hangs beneath its task instead of transcript text', () => {
   const lead = '    + agent.run (';
   const activity = wrapIndentedTerminalLine(
-    `${lead}general · nvidia-nemotron-3.5-lightning-30b-a3b: Work on SSH host operator@fixture-host. Stop services and inspect the llama.cpp installation state.) | running`,
+    `${lead}general · worker-model: Inspect SSH host operator@fixture-host and report its service and model-runtime state.) | running`,
     86,
   );
   const continuation = ' '.repeat(lead.length);
@@ -570,17 +570,17 @@ test('long shell tool targets wrap with a stable hanging indent', () => {
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', {
     type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell.run', status: 'succeeded',
-    target: 'powershell: ssh operator@fixture-host "sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target; echo System sleep targets masked; sudo nmcli network connectivity check" 2>&1',
+    target: 'powershell: ssh operator@fixture-host "systemctl status example-agent.service; echo Service inspection complete" 2>&1',
   });
   const frame = new TuiRenderer().frame(projection, { width: 96, height: 30, color: false });
-  const toolLines = frame.split('\n').filter((line) => /shell\.run|systemctl|sleep\.target|connectivity check|succeeded/u.test(line));
+  const toolLines = frame.split('\n').filter((line) => /shell\.run|systemctl|example-agent|Service inspection|succeeded/u.test(line));
   const continuation = ' '.repeat('    \u2713 shell.run ('.length);
   assert.equal(toolLines.length > 1, true);
   assert.equal(toolLines[0].startsWith('    \u2713 shell.run'), true);
   assert.equal(toolLines.slice(1).every((line) => line.startsWith(continuation) && line[continuation.length] !== ' '), true);
   assert.equal(toolLines.every((line) => displayWidth(line) <= 95), true);
   const colored = new TuiRenderer().frame(projection, { width: 96, height: 30, color: true });
-  const coloredToolLines = colored.split('\n').filter((line) => /shell\.run|systemctl|sleep\.target|connectivity check|succeeded/u.test(line));
+  const coloredToolLines = colored.split('\n').filter((line) => /shell\.run|systemctl|example-agent|Service inspection|succeeded/u.test(line));
   assert.equal(coloredToolLines.length, toolLines.length);
   assert.match(coloredToolLines[0], /\u001b\[38;5;77m\u2713\u001b\[0m\u001b\[38;5;245m/u);
   assert.equal(coloredToolLines.slice(1).every((line) => line.startsWith('\u001b[38;5;245m')), true);
@@ -606,7 +606,7 @@ test('tool rows retain a two-cell terminal safety margin before hanging wraps', 
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', {
     type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell.run', status: 'succeeded',
-    target: `powershell: ssh operator@fixture-host "podman run --rm image bash -c '${'find / -name model; '.repeat(12)}'" 2>&1`,
+    target: `powershell: ssh operator@fixture-host "podman run --rm fixture-image sh -c '${'find / -name artifact; '.repeat(12)}'" 2>&1`,
   });
   const frame = new TuiRenderer().frame(projection, { width: 120, height: 40, color: false });
   const toolLines = frame.split('\n').filter((line) => /shell\.run|podman|find \/|succeeded/u.test(line));

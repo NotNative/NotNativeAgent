@@ -271,7 +271,7 @@ test('semantic review receives causal evidence as explicitly untrusted context',
     }],
   });
   assert.equal(captured.causalEvidence[0].trust, 'untrusted_tool');
-  assert.match(captured.causalEvidence[0].content, /192\.168\.20\.15/u);
+  assert.match(captured.causalEvidence[0].content, /192\.0\.2\.15/u);
 });
 
 test('runtime diagnostics with no filesystem target are deterministically approved', async () => {

@@ -10,6 +10,12 @@ const errors = [];
 const RELEASE_EXCLUDED_PREFIXES = Object.freeze([
   'docs/planning/', 'node_modules/', '.git/', '.nna/', '.tmp/', '.tmp-npm-cache/', '.npm-cache/',
 ]);
+const RELEASE_INCLUDED_PREFIXES = Object.freeze(['src/', 'resources/', 'docs/', 'scripts/', 'test/']);
+const RELEASE_INCLUDED_ROOT_FILES = new Set([
+  'package.json', 'README.md', 'VERSION', 'LICENSE', 'NOTICE', 'SECURITY.md', 'SUPPORT.md',
+  'THIRD_PARTY_NOTICES.md', 'SBOM.spdx.json', 'RELEASE_MANIFEST.sha256', 'RELEASE_VERSIONS.json',
+  'install.ps1', 'install.sh', 'uninstall.ps1', 'uninstall.sh',
+]);
 const releaseVersion = (await readFile(join(root, 'VERSION'), 'utf8')).trim();
 const packageJson = await json('package.json');
 const sbom = await json('SBOM.spdx.json');
@@ -174,7 +180,9 @@ async function collect(directory) {
 
 function releaseEligible(path) {
   const name = relative(root, path).replaceAll('\\', '/');
-  return !RELEASE_EXCLUDED_PREFIXES.some((prefix) => name.startsWith(prefix));
+  if (RELEASE_EXCLUDED_PREFIXES.some((prefix) => name.startsWith(prefix))) return false;
+  return RELEASE_INCLUDED_ROOT_FILES.has(name)
+    || RELEASE_INCLUDED_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 
 function run(command, args) {

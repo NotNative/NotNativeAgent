@@ -38,6 +38,6 @@
   ],
   "limitations": [
     "Linux evidence is containerized and does not replace native interactive-terminal review.",
-    "Hosted Ubuntu CI must be green for publication."
+    "Automated release-candidate gates must be green for publication."
   ]
 }

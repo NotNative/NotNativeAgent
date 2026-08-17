@@ -11,7 +11,7 @@ test('review evidence exposes bounded redacted causal results without granting a
     { type: 'tool_request', requestId: 'current', toolName: 'process.run' },
   ], 'current');
   assert.deepEqual(evidence.map((item) => item.trust), ['untrusted_model', 'untrusted_tool']);
-  assert.match(evidence[1].content, /192\.168\.20\.15/u);
+  assert.match(evidence[1].content, /192\.0\.2\.15/u);
   assert.doesNotMatch(evidence[1].content, /hidden-value/u);
   assert.equal(Object.isFrozen(evidence), true);
 });
@@ -59,7 +59,7 @@ test('review evidence combines recent turns with relevant older causal history',
     authenticatedIntent: [{ content: 'Please SSH into fixture-host and inspect it.' }],
   });
   assert.deepEqual(packet.evidence.map((item) => item.source), ['history_match', 'recent', 'recent']);
-  assert.match(packet.evidence[0].content, /192\.168\.20\.15/u);
+  assert.match(packet.evidence[0].content, /192\.0\.2\.15/u);
   assert.equal(packet.metadata.historyMatches, 1);
   assert.deepEqual(packet.metadata.matchedRecordIndexes, [0, 2, 3]);
 });

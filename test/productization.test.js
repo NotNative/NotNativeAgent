@@ -341,6 +341,8 @@ test('release sealing excludes gitignored development artifacts', async () => {
   assert.match(source, /'docs\/planning\/'/u);
   assert.match(source, /'\.tmp-npm-cache\/'/u);
   assert.match(source, /'\.npm-cache\/'/u);
+  assert.match(source, /RELEASE_INCLUDED_ROOT_FILES/u);
+  assert.match(source, /RELEASE_INCLUDED_PREFIXES/u);
   assert.match(source, /releaseEligible\(path\)/u);
   assert.doesNotMatch(source, /writeHashes[\s\S]*collect\(root\)\)\.filter\(\(path\) => !path\.endsWith/u);
   assert.match(source, /native \$\{platform\} conformance evidence is missing/u);
@@ -355,6 +357,7 @@ test('npm publication uses an explicit product allowlist', async () => {
   assert.ok(manifest.files.includes('docs/'));
   assert.ok(manifest.files.includes('!docs/planning/'));
   assert.equal(manifest.files.some((path) => !path.startsWith('!') && /planning|\.tmp|\.github/iu.test(path)), false);
+  assert.equal(manifest.scripts.prepublishOnly, 'node scripts/release-gates.js');
 });
 
 test('installed CLI state follows NNA_HOME instead of the launch directory', async () => {

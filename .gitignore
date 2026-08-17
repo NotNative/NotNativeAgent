@@ -7,3 +7,5 @@
 # Repository-root package-manager caches.
 /.tmp-npm-cache/
 /.npm-cache/
+# Local autonomous-run transcript produced by development harnesses.
+/autonomy-test-run.log
