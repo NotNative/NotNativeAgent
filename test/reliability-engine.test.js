@@ -26,7 +26,16 @@ test('Reliability Engine is the single owner facade for reliability components',
   assert.deepEqual(reliability.modelSnapshot({}), { family: 'qwen' });
   assert.deepEqual(await reliability.refineContinuation({ value: 1 }), { value: 1, refined: true });
   assert.deepEqual(await reliability.createHandoff({ value: 1 }), { value: 1, handoff: true });
+  assert.equal(reliability.hostEnvironment('win32').nativeShell, 'powershell');
+  assert.match(reliability.hostEnvironmentInstruction('darwin'), /macOS \(darwin\).*POSIX sh/u);
+  assert.match(reliability.shellToolGuidance('linux'), /auto resolves to POSIX sh/u);
+  assert.match(reliability.unavailableShellMessage('sh', 'win32'), /Use shell auto with PowerShell syntax/u);
+  assert.deepEqual(reliability.shellReliabilitySignals('a; for f in x; do echo "$(wc -l < "$f")"; done'), [
+    'many_operations', 'loop_with_substitution',
+  ]);
+  assert.equal(reliability.normalizeShellExecutionError({ code: 'ENOENT' }, 'sh', 'win32').code, 'shell_interpreter_unavailable');
   assert.equal(reliability.health().status, 'ready');
+  assert.equal(reliability.health().host_command_shaping, true);
   await reliability.close();
 
   assert.deepEqual(calls, ['initialize', 'succeeded', 'close']);

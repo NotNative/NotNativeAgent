@@ -45,3 +45,14 @@ test('machine-readable tool constraints remain in context beside a compacted tra
   assert.match(message.content, /process exited 1/u);
   assert.match(message.content, /context reduction/u);
 });
+
+test('unavailable shell constraints retain the interpreter-specific repair across continuations', () => {
+  const constraints = mergeToolConstraints([], [item('shell.run', 'failed', {
+    reason: 'shell_interpreter_unavailable',
+    args: { shell: 'sh', script: 'printf ok' },
+    content: 'The requested shell interpreter sh is unavailable on this Windows (win32) host. Use shell auto with PowerShell syntax. Do not repeat shell sh.',
+  })]);
+  assert.match(constraints[0].detail, /interpreter sh is unavailable.*Use shell auto with PowerShell syntax/u);
+  assert.match(constraints[0].instruction, /Do not repeat the unavailable shell/u);
+  assert.match(constraints[0].instruction, /positively discovered/u);
+});

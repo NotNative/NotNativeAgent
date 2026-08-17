@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import { basename } from 'node:path';
 import { ContractError } from '../ids.js';
+import { normalizeShellExecutionError, shellReliabilitySignals, shellToolGuidance } from '../reliability/host-environment.js';
 
 const MAX_SCRIPT_LENGTH = 32_768;
 const MAX_FIELD_LENGTH = 4_096;
@@ -36,15 +37,16 @@ export function processRunDefinition(paths, references = null) {
   };
 }
 
-export function shellRunDefinition(paths, references = null) {
+export function shellRunDefinition(paths, references = null, platform = process.platform) {
+  const guidance = shellToolGuidance(platform);
   return {
     name: 'shell.run', version: 1,
-    purpose: 'Run a bounded script in the host platform shell. Use this for pipelines, redirection, environment expansion, and multi-command terminal work; use process.run for one exact executable and argv. The complete script is reviewed before execution. Keep mutations separate from verification when practical. Handle expected predicate statuses explicitly: diff and no-match grep commonly exit 1, while pipefail can expose an upstream SIGPIPE from pipelines ending in head.',
+    purpose: `Run a bounded script in the host platform shell. ${guidance} Use this only when pipelines, redirection, environment expansion, or multi-command terminal behavior is necessary; prefer structured NNA tools when available and process.run for one exact executable and argv. Keep one coherent purpose per call when practical. Avoid large loops, nested substitutions, deeply nested quoting, and combining mutation with verification. The complete script is reviewed before execution. Handle expected predicate statuses explicitly: diff and no-match grep commonly exit 1, while pipefail can expose an upstream SIGPIPE from pipelines ending in head.`,
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
-        script: { type: 'string', minLength: 1, maxLength: 32768, description: 'Required complete shell script, including any pipelines, redirection, or multiple commands.' },
-        shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'], description: 'Shell interpreter. Defaults to the native platform shell through auto.' },
+        script: { type: 'string', minLength: 1, maxLength: 32768, description: `Required complete script using the selected interpreter's exact syntax. NNA does not translate syntax. ${guidance}` },
+        shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'], description: `Interpreter; defaults to auto. ${guidance}` },
         cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the script. Defaults to the agent working directory.' },
         stdin_ref: { type: 'string', maxLength: 180, description: 'Optional nna_ref_draft identifier whose exact stored text is sent to standard input.' },
         accepted_exit_codes: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 255 }, maxItems: 16, description: 'Exit codes that count as successful completion. Must include 0 and defaults to [0]. For example, [0, 1] may be appropriate for a documented comparison result; do not use it to mask unrelated failures in a compound script.' },
@@ -83,15 +85,20 @@ async function validateShellRequest(paths, input, references) {
       accepted_exit_codes: acceptedExitCodes, ...(stdinRef ? { stdin_ref: stdinRef } : {}) },
     resolved: {
       path: cwd.path, executable: invocation.executable, shell: invocation.shell, script: input.script,
-      reviewComplexity: shellComplexity(input.script), reviewPurpose: shellReviewPurpose(input.script),
+      reviewComplexity: shellComplexity(input.script), reliabilitySignals: shellReliabilitySignals(input.script),
+      reviewPurpose: shellReviewPurpose(input.script),
       insideWorkspace: cwd.insideWorkspace, recovery: cwd.recovery,
     },
   };
 }
 
-function runShell(input, signal, references) {
+async function runShell(input, signal, references) {
   const invocation = shellInvocation(input.shell, input.script);
-  return runProcess({ ...input, executable: invocation.executable, args: invocation.args }, signal, true, references);
+  try {
+    return await runProcess({ ...input, executable: invocation.executable, args: invocation.args }, signal, true, references);
+  } catch (error) {
+    throw normalizeShellExecutionError(error, invocation.shell);
+  }
 }
 
 export function shellInvocation(requested, script, platform = process.platform) {
@@ -105,6 +112,7 @@ export function shellInvocation(requested, script, platform = process.platform) 
 
 function shellComplexity(script) {
   if (/(?:^|[;&|\n]\s*)(?:rm\s+-[^\n]*r[^\n]*f|format\b|diskpart\b|shutdown\b|reboot\b|git\s+(?:clean\s+-[^\n]*f|reset\s+--hard)|Remove-Item\b[^\n]*(?:-Recurse|-Force)|(?:del|erase|rmdir)\b)/iu.test(script)) return 'destructive_shell';
+  if (shellReliabilitySignals(script).length >= 2) return 'fragile_shell';
   if (/\r?\n|&&|\|\||[|;<>]/u.test(script)) return 'compound_shell';
   return 'simple_shell';
 }

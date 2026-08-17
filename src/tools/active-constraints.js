@@ -42,7 +42,7 @@ function constraintFor(item) {
     id: digest(`${kind}\0${tool}\0${reasonCode}\0${requestFingerprint}\0${detail}`).slice(0, 32),
     kind, tool, status: result.status, reason_code: reasonCode,
     request_fingerprint: requestFingerprint, detail,
-    instruction: instruction(kind),
+    instruction: instruction(kind, result),
   });
 }
 
@@ -55,15 +55,18 @@ function constraintKind(status) {
 function constraintDetail(kind, result) {
   if (kind === CONSTRAINT_KIND.execution && PROCESS_TOOLS.has(result.tool_name)) {
     const signal = safeDiagnostic(result.metadata?.signal, 64);
-    const exitCode = Number.isSafeInteger(result.metadata?.exitCode) ? result.metadata.exitCode : 'nonzero';
-    return signal ? `process ended by signal ${signal}` : `process exited ${exitCode}`;
+    const exitCode = result.metadata?.exitCode;
+    if (signal) return `process ended by signal ${signal}`;
+    if (Number.isSafeInteger(exitCode)) return `process exited ${exitCode}`;
+    return safeDiagnostic(result.content ?? result.reason_code ?? result.status, 1024);
   }
   return redactText(String(result.content ?? result.reason_code ?? result.status)).replace(/\s+/gu, ' ').trim().slice(0, 1024);
 }
 
-function instruction(kind) {
+function instruction(kind, result) {
   if (kind === CONSTRAINT_KIND.schema) return 'Correct the reported field and value; do not repeat the same request fingerprint.';
   if (kind === CONSTRAINT_KIND.governance) return 'Do not repeat an equivalent request unless new authenticated operator input changes its authority.';
+  if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, process.run, or a structured tool unless the requested interpreter is positively discovered.';
   return 'Treat the result as failed evidence; diagnose the condition before a materially different retry.';
 }
 

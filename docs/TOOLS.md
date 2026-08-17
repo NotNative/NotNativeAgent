@@ -45,8 +45,18 @@ package scripts, and complex argv are classified for semantic review rather than
 `shell.run` accepts one readable script when shell behavior is actually needed: pipelines,
 redirection, expansion, or multiple commands. It selects Windows PowerShell 5.1 on Windows
 and `sh` on Unix-like hosts unless the caller explicitly chooses another supported interpreter.
+The kernel publishes the detected operating system and native shell as authoritative model
+context, and the tool schema identifies exactly what `auto` means on the current host. Shell
+syntax is never translated between interpreters. Models should prefer `auto`, request a
+non-native interpreter only after positive discovery, and prefer structured NNA tools or
+`process.run` over shell-built discovery loops. Shell calls should keep one coherent purpose
+and avoid unnecessary nested substitutions, deeply nested quoting, or combined mutation and
+verification. Reliability signals classify fragile compound scripts for review without imposing
+an arbitrary command-length rejection.
 The complete script, working directory, and interpreter are sealed into the reviewer request;
 NNA then owns interpreter argv, cancellation, output bounds, and process-tree cleanup.
+An interpreter launch failure returns `shell_interpreter_unavailable` with the detected host,
+native fallback, and a durable instruction not to repeat the unavailable shell.
 Both process tools accept a bounded `accepted_exit_codes` list that must contain zero. The
 default is `[0]`; additional codes are appropriate only for focused commands whose documented
 result protocol uses them, such as `diff` or `grep` returning one for a negative predicate.

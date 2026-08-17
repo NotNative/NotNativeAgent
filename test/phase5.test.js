@@ -659,6 +659,8 @@ test('kernel context treats the workspace as context instead of an implicit task
   const context = buildContext(config(process.cwd()), [], 'hello');
   const policy = context[0].content;
   assert.match(policy, /respond conversationally when no action is requested/u);
+  assert.match(policy, new RegExp(`Authoritative host environment: operating system .* \\(${process.platform}\\)`, 'u'));
+  assert.match(policy, /Shell syntax is not portable and NNA does not translate/u);
   const clock = context.find((item) => item.provenance === 'runtime_clock')?.content ?? '';
   assert.doesNotMatch(policy, /Authoritative runtime clock/u);
   assert.match(clock, /Authoritative runtime clock: local \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}/u);
@@ -686,8 +688,8 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /Never infer that a version, product, API, or event does not exist/u);
   assert.match(policy, /search summaries as source discovery rather than detailed evidence/u);
   assert.match(policy, /claim could not be verified/u);
-  assert.match(policy, /Prefer shell\.run instead of wrapping/u);
-  assert.match(policy, /built-in Windows PowerShell 5\.1 on Windows/u);
+  assert.match(policy, /prefer structured filesystem, search, Git-inspection, and project-verification tools/iu);
+  assert.match(policy, /keep each script to one coherent purpose/iu);
   assert.match(policy, /Select pwsh only after separately installed PowerShell 7/u);
   assert.match(policy, /SSH, Git, Docker, and system utilities/u);
 });

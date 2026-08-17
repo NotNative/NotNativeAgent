@@ -11,6 +11,10 @@ import { longHorizonCompressionTrigger } from './reliability/long-horizon-contex
 import { attachTaskCheckpoint, compactTranscript, createHandoffFact } from './reliability/compaction.js';
 import { ToolCallAssembler } from './reliability/tool-call-assembler.js';
 import { buildColdEvidence } from './reliability/cold-context.js';
+import {
+  hostEnvironment, hostEnvironmentInstruction, normalizeShellExecutionError, shellReliabilitySignals,
+  shellToolGuidance, unavailableShellMessage,
+} from './reliability/host-environment.js';
 
 export class ReliabilityEngine {
   constructor(options = {}) {
@@ -66,6 +70,12 @@ export class ReliabilityEngine {
   reasoningOnly(active) { return reasoningOnlyDecision(active); }
   toolProgressEvidence(items, steeringApplied = []) { return toolProgressEvidence(items, steeringApplied); }
   toolFailureFingerprint(items) { return toolFailureFingerprint(items); }
+  hostEnvironment(platform) { return hostEnvironment(platform); }
+  hostEnvironmentInstruction(platform) { return hostEnvironmentInstruction(platform); }
+  shellToolGuidance(platform) { return shellToolGuidance(platform); }
+  unavailableShellMessage(shell, platform) { return unavailableShellMessage(shell, platform); }
+  normalizeShellExecutionError(error, shell, platform) { return normalizeShellExecutionError(error, shell, platform); }
+  shellReliabilitySignals(script) { return shellReliabilitySignals(script); }
 
   refineContinuation(...args) { return this.continuationCompactor.refine(...args); }
   createHandoff(...args) { return this.continuationCompactor.handoff(...args); }
@@ -82,6 +92,7 @@ export class ReliabilityEngine {
       context_fitness: true,
       continuation_compaction: true,
       model_observation: true,
+      host_command_shaping: true,
     });
   }
 }

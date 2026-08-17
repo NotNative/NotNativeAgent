@@ -21,7 +21,8 @@ The Reliability Engine owns:
 - compaction projections, continuation artifacts, semantic continuation refinement, and
   handoff generation;
 - provider-context-limit and reasoning-only recovery decisions;
-- model-dialect observations and reliability guidance; and
+- model-dialect observations and reliability guidance;
+- authoritative host-environment facts, shell-command shaping signals, and unavailable-interpreter recovery guidance;
 - tool-call stream assembly and protocol-integrity bounds; and
 - stable tool-progress and failure fingerprints.
 

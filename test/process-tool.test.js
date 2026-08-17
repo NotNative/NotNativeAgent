@@ -5,7 +5,7 @@ import { access, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { operationalEnvironment, shellInvocation } from '../src/tools/process.js';
+import { operationalEnvironment, shellInvocation, shellRunDefinition } from '../src/tools/process.js';
 import { toolProgressEvidence } from '../src/tools/loop.js';
 
 test('process.run executes bounded shell-free argv inside the workspace', async () => {
@@ -192,6 +192,9 @@ test('Windows OpenSSH initializes under the operational child environment', asyn
 });
 
 test('shell.run owns platform interpreter argv and executes a readable reviewed script', async () => {
+  assert.match(shellRunDefinition(null, null, 'win32').purpose, /Windows \(win32\).*Windows PowerShell 5\.1/u);
+  assert.match(shellRunDefinition(null, null, 'linux').purpose, /Linux \(linux\).*POSIX sh/u);
+  assert.match(shellRunDefinition(null, null, 'darwin').purpose, /macOS \(darwin\).*POSIX sh/u);
   assert.deepEqual(shellInvocation('auto', 'Write-Output ok', 'win32'), {
     shell: 'powershell', executable: 'powershell.exe',
     args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', 'Write-Output ok'],
@@ -203,6 +206,9 @@ test('shell.run owns platform interpreter argv and executes a readable reviewed 
   const registry = new ToolRegistry(root);
   await registry.initialize();
   const definition = registry.definition('shell.run');
+  assert.match(definition.purpose, new RegExp(`This host is .* \\(${process.platform}\\)`, 'u'));
+  assert.match(definition.inputSchema.properties.shell.description, /Prefer auto/u);
+  assert.match(definition.inputSchema.properties.script.description, /does not translate syntax/u);
   const script = process.platform === 'win32' ? "[Console]::Write('shell-ok')" : "printf 'shell-ok'";
   const normalized = await definition.validate({ script, timeout_ms: 5_000 });
   assert.equal(normalized.resolved.shell, process.platform === 'win32' ? 'powershell' : 'sh');
@@ -260,6 +266,11 @@ test('shell.run classifies compound and destructive scripts for semantic review 
   await registry.initialize();
   const definition = registry.definition('shell.run');
   assert.equal((await definition.validate({ script: 'git status; npm test' })).resolved.reviewComplexity, 'compound_shell');
+  const fragile = await definition.validate({
+    script: 'echo start; for f in a b; do printf "%s" "$(wc -l < "$f")"; done',
+  });
+  assert.equal(fragile.resolved.reviewComplexity, 'fragile_shell');
+  assert.deepEqual(fragile.resolved.reliabilitySignals, ['many_operations', 'loop_with_substitution']);
   assert.equal((await definition.validate({ script: 'git reset --hard' })).resolved.reviewComplexity, 'destructive_shell');
   assert.equal((await definition.validate({ script: 'Resolve-DnsName fixture-host' })).resolved.reviewPurpose, 'network_diagnostic');
   await assert.rejects(definition.validate({ script: 'curl -H "Authorization: Bearer literal" example.test' }), { code: 'shell_secret_argument_forbidden' });
