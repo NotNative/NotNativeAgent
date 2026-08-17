@@ -23,3 +23,12 @@ security state. Missing conversational authority makes consequential review fail
 until explicit operator reauthorization, while missing cumulative mission-budget evidence
 prevents mission resume. A retained clear boundary or cumulative budget fact proves the
 corresponding recovery state without scanning or materializing the complete journal.
+
+Context-compression performance is evaluated as a workflow, not as a compression ratio.
+Recorded-session comparisons must retain provider/model identity and compare completion
+status, ordered material tool decisions, and final outcome. Reports include pre/post context
+bytes and tokens, tokenizer identity, reducer attribution, history rediscovery cost, and any
+additional tool calls caused by omitted hot context. Representative Qwen evaluations use the
+actual tokenizer when available and retain the conservative UTF-8 estimate as an explicitly
+identified fallback. Synthetic repeated text may test bounds, but it is not release evidence
+of equivalent agent behavior.

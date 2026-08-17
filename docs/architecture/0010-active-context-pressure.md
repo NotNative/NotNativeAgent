@@ -34,6 +34,12 @@ ledger reference. Filesystem, search, shell, web, MCP, and sub-agent calls use c
 reducers. The durable transcript is never rewritten, and legacy checkpoints without retained
 record fingerprints remain compatible.
 
+At the same compression boundary, older successful tool results that are byte-identical to a
+later result may become typed duplicate receipts when the replacement saves at least 512
+bytes. The receipt carries the content digest and stable references to both durable records.
+This content-identity pass works across different tools and request shapes, does not collapse
+failures or protected active evidence, and never treats semantic similarity as identity.
+
 ## Hot context and cold evidence
 
 The provider sees a bounded hot working set; it does not receive the entire durable session
@@ -65,6 +71,9 @@ type counts, hint count, and a deterministic catalog fingerprint.
   same unchanged source fail to make progress.
 - Pressure tier, raw projected tokens, checkpoint fingerprints, and retained-step counts are
   emitted to local telemetry.
+- Compression efficacy records pre/post bytes and tokens, reducer attribution, tokenizer
+  identity, and fallback status. History retrieval records rediscovery cost so nominal token
+  savings cannot conceal repeated recovery work.
 
 ## Optional memory integration
 

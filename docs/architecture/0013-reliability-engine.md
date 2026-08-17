@@ -18,6 +18,9 @@ The Reliability Engine owns:
   unresolved-tool-failure judgments;
 - context budgeting, long-horizon pressure policy, deterministic hot/cold projections,
   and cold-evidence continuity;
+- context-compression safety classification, content-identity duplicate receipts,
+  tokenizer-aware efficacy measurements, rediscovery accounting, and outcome-equivalence
+  evaluation;
 - compaction projections, continuation artifacts, semantic continuation refinement, and
   handoff generation;
 - provider-context-limit and reasoning-only recovery decisions;
