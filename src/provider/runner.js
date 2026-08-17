@@ -10,6 +10,7 @@ export class ProviderRunner {
     this.lifecycles = options.lifecycles;
     this.telemetry = options.telemetry;
     this.dialects = options.dialects;
+    this.reliability = options.reliability;
     this.publish = options.publish;
     this.acceptText = options.acceptText;
     this.settleAttempt = options.settleAttempt;
@@ -23,7 +24,8 @@ export class ProviderRunner {
 
   async run(provider, request, deadlines, active) {
     // The owning engine sets active.cancelled when its turn controller accepts cancellation.
-    for (let attempt = 0; attempt < active.recovery.localLimit; attempt += 1) {
+    const localLimit = this.reliability?.localRetryLimit(active) ?? active.recovery.localLimit;
+    for (let attempt = 0; attempt < localLimit; attempt += 1) {
       const lifecycle = this.lifecycles.start('provider_attempt', active.stepId);
       active.attemptId = lifecycle.id;
       this.state.transition('invoking_model', { trigger: 'provider_attempt', turnId: active.turnId });
@@ -62,7 +64,10 @@ export class ProviderRunner {
           { status: active.cancelled ? 'cancelled' : 'failed', code: error?.code ?? 'provider_failed' },
         );
         const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
-        const plan = error.retryable ? active.recovery.providerRetry(error.code, attempt, partial) : { retry: false };
+        const plan = error.retryable
+          ? (this.reliability?.providerRetry(active, error.code, attempt, partial)
+            ?? active.recovery.providerRetry(error.code, attempt, partial))
+          : { retry: false };
         if (!plan.retry || active.cancelled) throw error;
         await this.settleAttempt(active, 'failed');
         this.state.transition('recovering', { trigger: error.code, turnId: active.turnId });

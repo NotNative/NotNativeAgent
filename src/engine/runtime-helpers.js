@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { toProviderMessages } from '../context.js';
-import { ToolCallAssembler } from '../tools/calls.js';
+import { ToolCallAssembler } from '../reliability/tool-call-assembler.js';
 import { toolCatalogContext } from '../tools/catalog-context.js';
 import { routeReasoningFields } from '../provider/reasoning.js';
 import { ContractError } from '../ids.js';
@@ -10,7 +10,7 @@ const OPERATOR_TRUST = 'operator';
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
   const messages = toProviderMessages(context);
-  const dialect = engine.dialects?.instructions(route);
+  const dialect = engine.reliability?.instructions(route);
   const tools = engine.tools.providerDefinitions(toolQuery(context));
   const catalog = toolCatalogContext(engine.tools.snapshot?.() ?? [], tools);
   const system = [dialect, catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
@@ -74,6 +74,6 @@ export function resetStep(active) {
   active.stepReasoningBytes = 0;
   active.finishReason = null;
   active.providerTerminal = false;
-  active.toolAssembler = new ToolCallAssembler();
+  active.toolAssembler = active.toolAssemblerFactory?.() ?? new ToolCallAssembler();
   return reasoningMode;
 }

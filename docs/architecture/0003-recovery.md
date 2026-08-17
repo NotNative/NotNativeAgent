@@ -2,6 +2,9 @@
 
 Status: accepted for milestone 3, 2026-07-31.
 
+ADR 0013 assigns the policies and judgments described here to `ReliabilityEngine`.
+`SessionEngine` applies and durably records those decisions.
+
 Provider retries and model-step recovery are distinct. Classified transient
 failures before partial semantic output retry one immutable model step with a
 new attempt identity, bounded jitter, and recorded delay. Connect, first-token,

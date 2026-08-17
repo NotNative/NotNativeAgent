@@ -46,6 +46,7 @@ export class HealthInspector {
       reviewer: status(HEALTH.READY, engine.reviewer.health()), network_destinations: networkDestinations,
       reviewer_llm: reviewerModelHealth(engine), ledger: status(HEALTH.READY, engine.ledger.health()),
       governance: governanceHealth(engine.governance.health()),
+      reliability: status(HEALTH.READY, engine.reliability.health()),
       sandbox: status(engine.tools?.paths?.root ? HEALTH.READY : HEALTH.UNAVAILABLE, { root: engine.tools?.paths?.root ?? null }),
       memory, skills: skillHealth(engine.skills), hooks: engine.hooks.health(), events: engine.events.health(),
       forensic_telemetry: telemetry, mcp: engine.mcp.status(), extensions: extensionHealth(engine.extensions), stale_locks: staleLocks,

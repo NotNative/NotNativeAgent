@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-import { RecoverySupervisor } from '../recovery.js';
-import { ToolCallAssembler } from '../tools/calls.js';
+import { RecoverySupervisor } from '../reliability/recovery-supervisor.js';
+import { ToolCallAssembler } from '../reliability/tool-call-assembler.js';
 
 const ENGINE_ORIGIN = 'engine';
 
-export function createActiveTurn(turnId, requestId, recoveryOptions = {}) {
+export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliability = null) {
   const deferred = createDeferred();
   return {
     // Lifecycle and cancellation ownership.
@@ -13,9 +13,12 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}) {
     text: '', stepText: '', committedStepText: null, finalText: '', usage: null, finishReason: null, reasoningBytes: 0,
     stepReasoningBytes: 0, reasoningFallbackPending: false, reasoningFallbackUsed: false,
     startedAt: Date.now(), toolCalls: 0,
-    providerTerminal: false, toolAssembler: new ToolCallAssembler(),
+    providerTerminal: false,
+    toolAssemblerFactory: () => reliability?.createToolCallAssembler?.() ?? new ToolCallAssembler(),
+    toolAssembler: reliability?.createToolCallAssembler?.() ?? new ToolCallAssembler(),
     deltaSequence: 1, origin: ENGINE_ORIGIN, completion: deferred.promise,
-    resolveCompletion: deferred.resolve, recovery: new RecoverySupervisor(recoveryOptions),
+    resolveCompletion: deferred.resolve,
+    recovery: reliability?.createTurnSupervisor?.(recoveryOptions) ?? new RecoverySupervisor(recoveryOptions),
     enrichment: { memory: [], attachments: [], hooks: [], skills: [], projectIntake: null }, admission: null,
     prompt: '', modelName: '', unresolvedToolFailures: [], toolConstraints: [], contextRetryScale: 1,
     contextBytes: 0, contextTokens: 0,

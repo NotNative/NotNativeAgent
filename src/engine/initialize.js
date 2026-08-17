@@ -10,7 +10,7 @@ export async function initializeEngine(engine, operations, options = {}) {
     if (telemetry.status === 'degraded') {
       await engine.output({ type: 'telemetry_status', status: 'degraded', code: telemetry.code, local_only: true });
     }
-    await engine.dialects.initialize();
+    await engine.reliability.initialize();
     const hookStatus = await engine.hooks.initialize();
     for (const status of hookStatus) await engine.output({ type: 'hook_status', ...status });
     await engine.skills.initialize();
@@ -59,7 +59,7 @@ async function closeAfterInitializationFailure(engine) {
   await Promise.allSettled([
     () => engine.hooks.close(), () => engine.extensions?.close(), () => engine.ledger.close(),
     () => engine.governance?.close(),
-    () => engine.dialects?.close(), () => engine.store?.close(),
+    () => engine.reliability?.close(), () => engine.store?.close(),
   ].map((operation) => Promise.resolve().then(operation)));
   await engine.lock?.release().catch(() => undefined);
 }

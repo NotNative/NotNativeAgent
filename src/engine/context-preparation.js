@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { attachTaskCheckpoint, compactTranscript } from '../compaction.js';
-import { contextBudget } from '../context-budget.js';
 import { buildReportedContext } from './context-status.js';
 import { addHookContexts, hookPayload } from './hooks.js';
 import { ContractError } from '../ids.js';
-import { contextPressurePolicy, pressureTier, projectActiveTurn } from '../active-context-pressure.js';
-import { longHorizonCompressionTrigger } from '../long-horizon-context.js';
 import { writeTaskCheckpoint } from '../task-checkpoint.js';
 
 const MIN_COMPACTION_BUDGET_BYTES = 8_192;
@@ -18,7 +14,7 @@ export async function prepareEngineContext(engine, records, content, active, for
   if (routes.length === 0) throw new ContractError('provider_route_missing', 'no Primary provider route can satisfy the required capabilities');
   const runtime = await engine.modelRuntime.resolve(engine.router, routes[0], active.controller.signal);
   active.runtimeModel = runtime;
-  const planned = contextBudget(engine.config, routes, runtime, active.contextRetryScale);
+  const planned = engine.reliability.planContextBudget(engine.config, routes, runtime, active.contextRetryScale);
   recordBudget(engine, runtime, planned, active);
   const hardLimit = planned.hardLimitBytes;
   const thresholdBudget = planned.thresholdBytes;
@@ -86,7 +82,7 @@ async function fitCompactedContext(engine, records, active, operations, plan) {
       try {
         const checkpointPath = await writeTaskCheckpoint(engine, fact);
         if (checkpointPath) {
-          const checkpointFact = attachTaskCheckpoint(fact, checkpointPath);
+          const checkpointFact = engine.reliability.attachTaskCheckpoint(fact, checkpointPath);
           context = await validateCompactionCandidate(engine, checkpointFact, active, plan);
           fact = checkpointFact;
         }
@@ -108,7 +104,7 @@ async function fitCompactedContext(engine, records, active, operations, plan) {
 
 async function createCompactionCandidate(engine, records, active, plan) {
   const source = includeUnprojectedActiveRecords(records, engine.transcript, active.turnId);
-  const compacted = compactTranscript(source, plan.budget, {
+  const compacted = engine.reliability.compactTranscript(source, plan.budget, {
     activeTurnId: active.turnId, activeStepId: active.stepId,
     protectedActiveSteps: 2, requireProgress: true,
   });
@@ -117,7 +113,7 @@ async function createCompactionCandidate(engine, records, active, plan) {
   if (repeated >= 2) {
     throw new ContractError('context_compaction_stalled', 'context compaction made no observable source progress');
   }
-  return engine.continuationCompactor.refine(
+  return engine.reliability.refineContinuation(
     compacted.fact, engine.router, plan.route, plan.runtime, active.controller.signal,
   );
 }
@@ -169,23 +165,23 @@ function recordIdentity(record) {
 async function pressureProjection(engine, active, operations, measurement) {
   const ratio = measurement.effectiveInputTokens
     ? measurement.rawContextTokens / measurement.effectiveInputTokens : null;
-  const policy = contextPressurePolicy(
+  const policy = engine.reliability.contextPolicy(
     engine.config.limits.contextCompressionThreshold,
     engine.config.limits.contextCompressionLevel2Threshold,
     engine.config.limits.contextCompressionLevel3Threshold,
     engine.config.limits.contextCompactionThreshold,
   );
-  const horizon = longHorizonCompressionTrigger(measurement.records, {
+  const horizon = engine.reliability.longHorizonTrigger(measurement.records, {
     activeTurnId: active.turnId, effectiveInputTokens: measurement.effectiveInputTokens,
   });
-  const tier = pressureTier(measurement.rawContextTokens, measurement.effectiveInputTokens, policy);
+  const tier = engine.reliability.pressureTier(measurement.rawContextTokens, measurement.effectiveInputTokens, policy);
   active.contextPressureTier = tier;
   if (horizon && tier !== 'none') {
     engine.telemetry?.record('context.compression', tier === 'compact' ? 'escalated' : 'observed', {
       ...horizon, tier, ratio,
     }, { turnId: active.turnId, stepId: active.stepId });
   }
-  const projection = projectActiveTurn(measurement.records, {
+  const projection = engine.reliability.projectActiveTurn(measurement.records, {
     turnId: active.turnId, stepId: active.stepId, tier,
   });
   if (projection.checkpoint && tier !== 'receipts'

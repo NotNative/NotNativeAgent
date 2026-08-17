@@ -16,11 +16,10 @@ import { FairScheduler } from '../provider/fair-scheduler.js';
 import { userDataPaths } from '../product.js';
 import { HookRuntime } from '../hook-runtime.js';
 import { ExtensionRegistry } from '../extensions.js';
-import { ModelDialectRegistry } from '../provider/model-dialects.js';
 import { ProjectGuidance } from '../guidance/project.js';
 import { ProjectIntake } from '../project-intake.js';
 import { ModelRuntimeRegistry } from '../provider/model-runtime.js';
-import { ContinuationCompactor } from '../continuation-compactor.js';
+import { ReliabilityEngine } from '../reliability-engine.js';
 import { SkillRegistry } from '../skill-registry.js';
 import { GovernanceEngine } from '../governance-engine.js';
 import { GroundingPolicy } from '../governance/grounding-policy.js';
@@ -34,23 +33,17 @@ export function installEngineComponents(engine, options, storeRoot, hooks) {
     limit: engine.config.limits.providerConcurrency, maxQueued: engine.config.limits.providerQueueLimit,
   });
   installOutput(engine, options);
+  installReliability(engine, options);
   installExtensions(engine, options);
   installGovernance(engine, options, storeRoot);
   installCapabilities(engine, options, storeRoot, hooks);
   installReview(engine, options);
   engine.toolLoop = toolLoop(engine, hooks);
   engine.providerRunner = providerRunner(engine, hooks);
-  engine.continuationCompactor = options.continuationCompactor ?? new ContinuationCompactor({
-    scheduler: engine.scheduler, telemetry: engine.telemetry,
-  });
 }
 
 function installRouting(engine, options) {
   engine.router = new ModelRouter(engine.config, options.providerFactory);
-  engine.dialects = options.modelDialects ?? new ModelDialectRegistry({
-    path: options.modelDialectPath ?? (process.env.NODE_TEST_CONTEXT ? null : userDataPaths().modelDialects),
-    telemetry: engine.telemetry,
-  });
   engine.projectGuidance = options.projectGuidance ?? new ProjectGuidance(engine.config.workspaceRoot, {
     telemetry: engine.telemetry,
   });
@@ -58,6 +51,19 @@ function installRouting(engine, options) {
     telemetry: engine.telemetry,
   });
   engine.modelRuntime = options.modelRuntime ?? new ModelRuntimeRegistry({ telemetry: engine.telemetry });
+}
+
+function installReliability(engine, options) {
+  engine.reliability = options.reliability ?? new ReliabilityEngine({
+    modelDialects: options.modelDialects,
+    modelDialectPath: options.modelDialectPath ?? (process.env.NODE_TEST_CONTEXT ? null : userDataPaths().modelDialects),
+    continuationCompactor: options.continuationCompactor,
+    scheduler: engine.scheduler,
+    telemetry: engine.telemetry,
+  });
+  // Transitional aliases preserve extension and test contracts while canonical ownership moves.
+  engine.dialects = engine.reliability.modelDialects;
+  engine.continuationCompactor = engine.reliability.continuationCompactor;
 }
 
 function installOutput(engine, options) {
@@ -191,7 +197,7 @@ function installReview(engine, options) {
     telemetry: engine.telemetry,
     semanticReviewer: options.semanticReviewer ?? new RoutedSemanticReviewer(engine.router, {
       scheduler: engine.scheduler, telemetry: engine.telemetry, modelRuntime: engine.modelRuntime,
-      dialects: engine.dialects, sessionId: engine.sessionId,
+      dialects: engine.reliability, sessionId: engine.sessionId,
     }),
     semanticTimeoutMs: options.semanticReviewTimeoutMs ?? engine.config.limits.semanticReviewMs,
     decisionTtlMs: engine.config.limits.approvalMs,
@@ -264,7 +270,8 @@ function providerRunner(engine, hooks) {
   return new ProviderRunner({
     state: engine.state, lifecycles: engine.lifecycles,
     telemetry: engine.telemetry,
-    dialects: engine.dialects,
+    dialects: engine.reliability,
+    reliability: engine.reliability,
     publish: hooks.publish, acceptText: hooks.acceptText,
     settleAttempt: hooks.settleAttempt, recordRecovery: hooks.recordRecovery,
     scheduler: engine.scheduler,

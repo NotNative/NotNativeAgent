@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 export { resolveManifest } from './config.js';
 export { SessionEngine } from './engine.js';
+export { ReliabilityEngine } from './reliability-engine.js';
 export { AttachmentManager, AttachmentObservationRouter } from './attachments.js';
 export { MemoryBoundary } from './memory.js';
 export { McpManager } from './mcp-manager.js';

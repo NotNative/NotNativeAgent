@@ -48,7 +48,7 @@ export async function performEngineShutdown(engine, command) {
   failures.push(...cleanup.filter((item) => item.status === 'rejected').map((item) => item.reason));
   try { engine.hooks.close(); } catch (error) { failures.push(error); }
   try { await engine.lock?.release(); } catch (error) { failures.push(error); }
-  try { await engine.dialects?.close(); } catch (error) { failures.push(error); }
+  try { await engine.reliability?.close(); } catch (error) { failures.push(error); }
   try { await engine.telemetry?.close(); } catch (error) { failures.push(error); }
   if (failures.length > 0) throw withSecondaryFailures(failures);
   if (!engine.shutdownExpired) await engine.output({ type: 'shutdown_complete', request_id: command.request_id });

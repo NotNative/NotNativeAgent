@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-import { attachTaskCheckpoint, compactTranscript, createHandoffFact } from '../compaction.js';
 import { ContractError } from '../ids.js';
 import { writeTaskCheckpoint } from '../task-checkpoint.js';
 
@@ -9,16 +8,16 @@ export async function compactEngineConversation(engine) {
   if (engine.state.state !== 'idle') throw new ContractError('compaction_busy', 'wait for the active turn before compacting');
   engine.telemetry?.record('context.compaction', 'started', { trigger: 'operator_command' });
   try {
-    const compacted = compactTranscript(engine.transcript, engine.config.limits.maxContextBytes, {
+    const compacted = engine.reliability.compactTranscript(engine.transcript, engine.config.limits.maxContextBytes, {
       requireProgress: true,
     });
     const route = engine.router.resolve('primary');
     const signal = AbortSignal.timeout(CONTEXT_OPERATION_TIMEOUT_MS);
     const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
-    let fact = await engine.continuationCompactor.refine(compacted.fact, engine.router, route, runtime, signal);
+    let fact = await engine.reliability.refineContinuation(compacted.fact, engine.router, route, runtime, signal);
     try {
       const checkpointPath = await writeTaskCheckpoint(engine, fact);
-      if (checkpointPath) fact = attachTaskCheckpoint(fact, checkpointPath);
+      if (checkpointPath) fact = engine.reliability.attachTaskCheckpoint(fact, checkpointPath);
     } catch (error) {
       engine.telemetry?.record('context.task_checkpoint', 'failed', {
         reason_code: error.code ?? 'task_checkpoint_write_failed', trigger: 'operator_command',
@@ -63,11 +62,11 @@ export async function handoffEngineConversation(engine) {
   if (engine.state.state !== 'idle') throw new ContractError('handoff_busy', 'wait for the active turn before creating a handoff');
   engine.telemetry?.record('context.handoff', 'started', { trigger: 'operator_command' });
   try {
-    const base = createHandoffFact(engine.transcript);
+    const base = engine.reliability.createHandoffFact(engine.transcript);
     const route = engine.router.resolve('primary');
     const signal = AbortSignal.timeout(CONTEXT_OPERATION_TIMEOUT_MS);
     const runtime = await engine.modelRuntime.resolve(engine.router, route, signal);
-    const fact = await engine.continuationCompactor.handoff(base, engine.router, route, runtime, signal);
+    const fact = await engine.reliability.createHandoff(base, engine.router, route, runtime, signal);
     if (engine.store) await engine.store.append('compaction_snapshot', { records: engine.transcript, fact });
     engine.transcript.push(fact);
     engine.telemetry?.record('context.handoff', 'succeeded', {

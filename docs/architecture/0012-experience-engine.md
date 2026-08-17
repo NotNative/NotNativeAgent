@@ -4,12 +4,15 @@ Status: accepted incrementally, 2026-08-14.
 
 ## Decision
 
-NNA has three distinct state-owning engines:
+NNA has four distinct state-owning engines:
 
-1. `SessionEngine` owns conversational work, model steps, tools, recovery, and durable turn state.
+1. `SessionEngine` owns conversational work, model steps, tools, and durable turn state. It applies
+   and records bounded recovery decisions without owning reliability policy.
 2. `GovernanceEngine` owns evidence and policy decisions about admissibility, authority, and effects.
 3. `ExperienceEngine` owns operator-facing conversation coordination, drafts, presentation state,
    interactive commands, attached surfaces, and user-experience services.
+4. `ReliabilityEngine` owns execution-progress, protocol-integrity, context-fitness,
+   model-behavior, and bounded-recovery judgments.
 
 The Experience Engine is an application boundary, not an agent loop and not an authorization
 boundary. It submits authenticated commands through canonical ingress, projects engine events,
@@ -30,9 +33,9 @@ their process lifecycle implementation.
 ## Dependency direction
 
 Surface adapters depend on Experience contracts. The Experience Engine depends on canonical
-ingress and public Session Engine contracts. The Session Engine may depend on governance and
-infrastructure services. Governance and the Session Engine never depend on TUI, Telegram, or other
-presentation modules.
+ingress and public Session Engine contracts. The Session Engine may depend on governance,
+reliability, and infrastructure services. Governance, Reliability, and the Session Engine never
+depend on TUI, Telegram, or other presentation modules.
 
 Operating-system integrations such as the clipboard are injected, bounded services. A service may
 own a helper process, but its protocol, serialization, shutdown, and failures remain explicit and

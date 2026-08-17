@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { activeContextRecords, buildContext, measureContext } from '../context.js';
-import { estimateContextTokens } from '../context-budget.js';
-import { buildColdEvidence } from '../cold-context.js';
+import { estimateContextTokens } from '../reliability/context-budget.js';
+import { buildColdEvidence } from '../reliability/cold-context.js';
 import { ContractError } from '../ids.js';
 import { shouldInspectProject } from '../project-intake.js';
 
@@ -31,19 +31,20 @@ export async function buildReportedContext(
   active.contextLimitBytes = limitBytes;
   const rawContext = buildContext(engine.config, records, content, baseEnrichment, Number.MAX_SAFE_INTEGER);
   const rawContextBytes = measureContext(rawContext);
-  const rawContextTokens = estimateContextTokens(rawContext);
+  const rawContextTokens = engine.reliability?.estimateContextTokens(rawContext) ?? estimateContextTokens(rawContext);
   const projection = options.projectContext ? await options.projectContext({
     records, rawContextBytes, rawContextTokens,
     effectiveInputTokens: budget?.effectiveInputTokens ?? null,
   }) : null;
   const contextRecords = projection?.records ?? records;
   const providerRecords = activeContextRecords(contextRecords).slice(-512);
-  const coldEvidence = buildColdEvidence(records, providerRecords, content);
+  const coldEvidence = engine.reliability?.buildColdEvidence(records, providerRecords, content)
+    ?? buildColdEvidence(records, providerRecords, content);
   const resolvedEnrichment = { ...baseEnrichment, coldEvidence };
   recordColdEvidence(engine, active, coldEvidence);
   const context = buildContext(engine.config, contextRecords, content, resolvedEnrichment, budgetBytes);
   active.contextBytes = measureContext(context);
-  active.contextTokens = estimateContextTokens(context);
+  active.contextTokens = engine.reliability?.estimateContextTokens(context) ?? estimateContextTokens(context);
   active.rawContextBytes = rawContextBytes;
   active.rawContextTokens = rawContextTokens;
   if (budget?.scaledTokens !== undefined && budget?.scaledTokens !== null
@@ -91,7 +92,7 @@ export async function emitCurrentContextUsage(engine, active, stepId = active.st
   };
   const context = buildContext(engine.config, records, '', enrichment, Number.MAX_SAFE_INTEGER);
   active.rawContextBytes = measureContext(context);
-  active.rawContextTokens = estimateContextTokens(context);
+  active.rawContextTokens = engine.reliability?.estimateContextTokens(context) ?? estimateContextTokens(context);
   await engine.output({
     version: '1.0', type: CONTEXT_USAGE_EVENT, session_id: engine.sessionId,
     turn_id: active.turnId, step_id: stepId,

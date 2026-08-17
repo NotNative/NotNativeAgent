@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { ToolCallAssembler } from '../tools/calls.js';
+import { ToolCallAssembler } from '../reliability/tool-call-assembler.js';
 
 const DEFAULT_QUALIFICATION_TIMEOUT_MS = 20_000;
 const TEXT_PROBE_OUTPUT_TOKENS = 64;

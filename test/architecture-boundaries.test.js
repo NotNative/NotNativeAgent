@@ -45,6 +45,7 @@ async function relativeTargets(file) {
 
 function ownerOf(path) {
   if (path === 'engine.js' || path.startsWith('engine/')) return 'engine';
+  if (path === 'reliability-engine.js' || path.startsWith('reliability/')) return 'reliability';
   if (path === 'governance-engine.js' || path.startsWith('governance/')) return 'governance';
   if (path === 'experience-engine.js' || path.startsWith('experience/')) return 'experience';
   if (path === 'tui.js' || path.startsWith('tui/')) return 'tui';
@@ -55,6 +56,9 @@ function ownerOf(path) {
 
 function forbidden(owner, targetOwner) {
   if (owner === 'engine' || owner === 'governance') return targetOwner === 'tui' || targetOwner === 'gateway';
+  if (owner === 'reliability') {
+    return ['engine', 'governance', 'experience', 'tui', 'gateway'].includes(targetOwner);
+  }
   if (owner === 'experience') return targetOwner === 'tui' || targetOwner === 'gateway';
   if (owner === 'tui') return targetOwner === 'gateway';
   if (owner === 'gateway') return targetOwner === 'tui';

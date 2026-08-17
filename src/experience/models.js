@@ -33,11 +33,11 @@ export async function qualifyWorkspaceModel(workspace) {
       ? Math.max(MIN_QUALIFICATION_TIMEOUT_MS, capabilityDeadline * QUALIFICATION_DEADLINE_MULTIPLIER)
       : DEFAULT_QUALIFICATION_TIMEOUT_MS,
   });
-  engine.dialects.observe(route, result.overall === 'passed'
+  engine.reliability.observe(route, result.overall === 'passed'
     ? { status: 'succeeded', qualification: true }
     : { status: 'failed', code: result.tools.passed ? 'other_failure' : 'tool_arguments_invalid', qualification: true });
-  await engine.dialects.flush();
-  return { ...result, dialect: engine.dialects.snapshot(route) };
+  await engine.reliability.modelDialects.flush();
+  return { ...result, dialect: engine.reliability.modelSnapshot(route) };
 }
 
 function resolvePrimaryRoute(workspace) {

@@ -2,7 +2,7 @@
 import { ContractError } from '../ids.js';
 import { failureEnvelope } from '../failure-envelope.js';
 import { safeToolArguments } from '../tools/presentation.js';
-import { requestsInput } from '../completion-supervisor.js';
+import { requestsInput } from '../reliability/completion-supervisor.js';
 import { redactText } from '../redaction.js';
 
 const MAX_TARGET_LENGTH = 512;
