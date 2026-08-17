@@ -7,6 +7,8 @@ import { inspectSessionLock, preserveStaleSessionLock } from './session-lock.js'
 import { inspectJournalRepairPrefix, recoverJournal, restoreJournalFromVerifiedPrefix, rewriteJournal } from '../store.js';
 import { StructuredLog } from '../structured-log.js';
 
+const MAX_LISTED_SESSIONS = 10_000;
+
 export class SessionDataManager {
   constructor(options) {
     this.sessionRoot = options.sessionRoot;
@@ -25,7 +27,50 @@ export class SessionDataManager {
       categories.push({ category, path, exists: details !== null, bytes: details?.size ?? null,
         disposition: item.disposition ?? null, deletable: item.deletable !== false });
     }
-    return Object.freeze({ session_id: sessionId, categories, cloud_provider_data: 'outside_nna_control' });
+    const health = await this.#inspect(sessionId);
+    return Object.freeze({ session_id: sessionId, display_id: health.display_id, health,
+      categories, cloud_provider_data: 'outside_nna_control' });
+  }
+
+  async list() {
+    const ids = await discoverSessionIds(this.sessionRoot, this.reviewerRoot);
+    const sessions = [];
+    for (const id of ids) sessions.push(await this.#inspect(id));
+    sessions.sort((left, right) => statusRank(left.status) - statusRank(right.status)
+      || right.updated_at.localeCompare(left.updated_at) || left.session_id.localeCompare(right.session_id));
+    return Object.freeze({
+      sessions: Object.freeze(sessions),
+      counts: Object.freeze({
+        total: sessions.length,
+        repairable: sessions.filter((item) => item.status === 'repair_required').length,
+        active: sessions.filter((item) => item.status === 'active').length,
+        inspection_required: sessions.filter((item) => item.status === 'inspection_required').length,
+        healthy: sessions.filter((item) => item.status === 'healthy').length,
+      }),
+    });
+  }
+
+  async repairAll() {
+    const listing = await this.list();
+    const repaired = [];
+    const skipped = [];
+    for (const session of listing.sessions) {
+      if (session.status !== 'repair_required') {
+        if (session.status !== 'healthy') skipped.push(Object.freeze({
+          session_id: session.session_id, status: session.status, reasons: session.reasons,
+        }));
+        continue;
+      }
+      try {
+        const result = await this.repair(session.session_id, `repair:${session.session_id}`);
+        repaired.push(result);
+      } catch (error) {
+        skipped.push(Object.freeze({ session_id: session.session_id,
+          status: 'changed_during_repair', code: error.code ?? 'repair_failed' }));
+      }
+    }
+    return Object.freeze({ mode: 'deterministic_bulk_repair', repaired: Object.freeze(repaired),
+      skipped: Object.freeze(skipped), healthy_unchanged: listing.counts.healthy });
   }
 
   async exportRedacted(sessionId, path) {
@@ -120,6 +165,53 @@ export class SessionDataManager {
     });
   }
 
+  async #inspect(sessionId) {
+    requireExternalId(sessionId, 'session_id');
+    const journalPath = join(this.sessionRoot, `${sessionId}.journal.ndjson`);
+    const lockPath = join(this.sessionRoot, `${sessionId}.lock`);
+    const [journalDetails, lockDetails, reviewerDetails] = await Promise.all([
+      safeStat(journalPath), safeStat(lockPath), safeStat(join(this.reviewerRoot, `${sessionId}.review.journal.ndjson`)),
+    ]);
+    const lock = await inspectSessionLock(lockPath, { processIdentity: this.processIdentity });
+    const reasons = [];
+    let repairable = false;
+    let blocked = false;
+    if (lock.status === 'live') reasons.push('active_lock');
+    else if (lock.status === 'unknown') { reasons.push('lock_owner_unverifiable'); blocked = true; }
+    else if (lock.status !== 'missing') { reasons.push(`stale_lock:${lock.status}`); repairable = true; }
+
+    if (journalDetails) {
+      try {
+        const journal = await recoverJournal(journalPath);
+        if (journal.corruptTail) {
+          const prefix = await latestVerifiedPrefix(this.sessionRoot, `${sessionId}.journal.ndjson`);
+          if (!prefix) { reasons.push('corrupt_journal_without_verified_prefix'); blocked = true; }
+          else {
+            try { await inspectJournalRepairPrefix(prefix); reasons.push('corrupt_journal_with_verified_prefix'); repairable = true; }
+            catch { reasons.push('corrupt_journal_with_invalid_verified_prefix'); blocked = true; }
+          }
+        }
+      } catch (error) {
+        reasons.push(error.code ?? 'journal_inspection_failed');
+        blocked = true;
+      }
+    }
+
+    let status = 'healthy';
+    if (lock.status === 'live') status = 'active';
+    else if (blocked) status = 'inspection_required';
+    else if (repairable) status = 'repair_required';
+    const marker = status === 'repair_required' ? ' [REPAIR REQUIRED]'
+      : status === 'inspection_required' ? ' [INSPECTION REQUIRED]'
+        : status === 'active' ? ' [ACTIVE]' : '';
+    const updated = Math.max(journalDetails?.mtimeMs ?? 0, lockDetails?.mtimeMs ?? 0, reviewerDetails?.mtimeMs ?? 0);
+    return Object.freeze({
+      session_id: sessionId, display_id: `${sessionId}${marker}`, status,
+      reasons: Object.freeze(reasons), updated_at: updated ? new Date(updated).toISOString() : new Date(0).toISOString(),
+      repair_command: status === 'repair_required' ? `nna sessions repair ${sessionId} repair:${sessionId}` : null,
+    });
+  }
+
   async #recordRepair(sessionId, actions) {
     if (!this.diagnosticsRoot) return;
     const log = await new StructuredLog({ path: join(this.diagnosticsRoot, 'repair.ndjson') }).initialize();
@@ -127,6 +219,35 @@ export class SessionDataManager {
       outcome: actions.length > 0 ? 'completed' : 'unchanged', session_id: sessionId });
     await log.flush();
   }
+}
+
+async function discoverSessionIds(sessionRoot, reviewerRoot) {
+  const ids = new Set();
+  const sessionNames = await readdir(sessionRoot).catch((error) => {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  });
+  const reviewerNames = await readdir(reviewerRoot).catch((error) => {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  });
+  for (const name of sessionNames) {
+    if (name.endsWith('.journal.ndjson')) ids.add(name.slice(0, -'.journal.ndjson'.length));
+    else if (name.endsWith('.lock')) ids.add(name.slice(0, -'.lock'.length));
+  }
+  for (const name of reviewerNames) {
+    if (name.endsWith('.review.journal.ndjson')) ids.add(name.slice(0, -'.review.journal.ndjson'.length));
+  }
+  if (ids.size > MAX_LISTED_SESSIONS) {
+    throw new ContractError('session_list_too_large', `session list exceeds the ${MAX_LISTED_SESSIONS} entry bound`);
+  }
+  return [...ids].filter((id) => {
+    try { requireExternalId(id, 'session_id'); return true; } catch { return false; }
+  });
+}
+
+function statusRank(status) {
+  return { repair_required: 0, inspection_required: 1, active: 2, healthy: 3 }[status] ?? 4;
 }
 
 async function latestVerifiedPrefix(root, base) {

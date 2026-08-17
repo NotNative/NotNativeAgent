@@ -48,6 +48,8 @@ test('launch options support prompt, host, and config aliases without breaking l
   assert.equal(parseCli(['headless']).mode, 'headless');
   assert.equal(parseCli(['--config', 'interactive.json']).mode, 'tui');
   assert.equal(parseCli(['gateway', 'status']).mode, 'gateway');
+  assert.deepEqual(parseCli(['session', 'list']).prompt, ['list']);
+  assert.equal(parseCli(['session', 'list']).mode, 'sessions');
   assert.deepEqual(parseCli(['gateway', 'status']).prompt, ['status']);
   assert.deepEqual(parseCli(['secrets', 'serve']).prompt, ['serve']);
   assert.deepEqual(parseCli(['webbrowse', 'status']).prompt, ['status']);

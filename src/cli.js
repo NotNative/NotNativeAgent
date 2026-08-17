@@ -142,6 +142,8 @@ function help() {
     '  nna host [-provider PROFILE_ID]           Structured NDJSON host protocol',
     '  nna headless                              Compatibility alias for host',
     '  nna text [--config PATH] [PROMPT]          Compatibility alias for prompt mode',
+    '  nna sessions list                         List sessions with repair status',
+    '  nna sessions repair                       Repair every deterministically repairable session',
     '  nna sessions preview SESSION_ID',
     '  nna sessions repair SESSION_ID repair:SESSION_ID',
     '  nna sessions compact SESSION_ID compact:SESSION_ID',
@@ -179,7 +181,9 @@ async function sessionCommand(args, paths = userDataPaths()) {
     sessionRoot: paths.sessions, reviewerRoot: paths.reviewerLedger, diagnosticsRoot: paths.logs,
   });
   let result;
-  if (action === 'preview' && id) result = await manager.preview(id);
+  if (action === 'list' && !id) result = await manager.list();
+  else if (action === 'preview' && id) result = await manager.preview(id);
+  else if (action === 'repair' && !id) result = await manager.repairAll();
   else if (action === 'repair' && id && value) result = await manager.repair(id, value);
   else if (action === 'compact' && id && value) result = await manager.compact(id, value);
   else if (action === 'export' && id && value) result = await manager.exportRedacted(id, resolve(value));

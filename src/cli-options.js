@@ -16,7 +16,7 @@ export function parseCli(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (!modeSelected && MODES.has(value)) {
-      mode = value === 'host' ? 'headless' : value;
+      mode = value === 'host' ? 'headless' : value === 'session' ? 'sessions' : value;
       modeSelected = true;
     }
     else if (value === '-p' || value === '--prompt') {
@@ -46,7 +46,7 @@ export function parseCli(argv) {
 }
 
 const MODES = new Set([
-  'tui', 'text', 'headless', 'host', 'sessions', 'websearch', 'skills', 'gateway',
+  'tui', 'text', 'headless', 'host', 'session', 'sessions', 'websearch', 'skills', 'gateway',
   'webfetch', 'webbrowse', 'provider', 'secrets', 'uninstall', 'help', 'version', '--help', '-h', '--version', '-v',
   'update', 'integration',
 ]);

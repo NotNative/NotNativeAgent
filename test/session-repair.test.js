@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -63,5 +63,46 @@ test('session repair refuses corrupt journals without preserved verified-prefix 
     });
     await assert.rejects(manager.repair(id, `repair:${id}`), { code: 'journal_repair_evidence_missing' });
     assert.equal(JSON.parse(await readFile(lockPath, 'utf8')).token, 'stale');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('session listing marks health and bulk repair changes only deterministic cases', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-session-list-repair-'));
+  const sessions = join(root, 'sessions');
+  const reviewer = join(root, 'reviewer');
+  try {
+    await mkdir(reviewer, { recursive: true });
+    for (const id of ['healthy', 'repairable', 'blocked', 'active']) {
+      const store = new JournalStore(sessions, id); await store.open();
+      await store.append('message', { content: id }); await store.close();
+    }
+    const repairablePath = join(sessions, 'repairable.journal.ndjson');
+    await copyFile(repairablePath, `${repairablePath}.verified-prefix.1`);
+    await writeFile(repairablePath, `${await readFile(repairablePath, 'utf8')}{broken`, 'utf8');
+    const blockedPath = join(sessions, 'blocked.journal.ndjson');
+    await writeFile(blockedPath, `${await readFile(blockedPath, 'utf8')}{broken`, 'utf8');
+    for (const [id, startId] of [['repairable', 'stale'], ['blocked', 'stale'], ['active', 'current']]) {
+      await writeFile(join(sessions, `${id}.lock`), JSON.stringify({
+        version: 2, pid: 42, token: id, created_at: new Date().toISOString(),
+        process_identity: { version: 1, pid: 42, platform: 'fixture', start_id: startId },
+      }));
+    }
+    const manager = new SessionDataManager({
+      sessionRoot: sessions, reviewerRoot: reviewer,
+      processIdentity: { compare: async (identity) => identity.start_id === 'current' ? 'same' : 'different' },
+    });
+    const listing = await manager.list();
+    assert.deepEqual(listing.counts, { total: 4, repairable: 1, active: 1, inspection_required: 1, healthy: 1 });
+    assert.equal(listing.sessions[0].display_id, 'repairable [REPAIR REQUIRED]');
+    assert.match(listing.sessions[0].repair_command, /repairable repair:repairable$/u);
+    assert.equal(listing.sessions.find((item) => item.session_id === 'blocked').display_id,
+      'blocked [INSPECTION REQUIRED]');
+    assert.equal(listing.sessions.find((item) => item.session_id === 'active').display_id, 'active [ACTIVE]');
+
+    const result = await manager.repairAll();
+    assert.deepEqual(result.repaired.map((item) => item.session_id), ['repairable']);
+    assert.deepEqual(result.skipped.map((item) => item.session_id).sort(), ['active', 'blocked']);
+    assert.equal((await manager.list()).sessions.find((item) => item.session_id === 'repairable').status, 'healthy');
+    assert.equal((await recoverJournal(repairablePath)).corruptTail, false);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
