@@ -323,6 +323,67 @@ test('semantic continuation enrichment is schema validated and failure falls bac
   assert.equal(fallback, base);
 });
 
+test('semantic compaction reuses an evidenced provider prefix and preserves net reduction', async () => {
+  const base = compactTranscript([
+    message('user', 'Finish the cache-aligned task'),
+    ...Array.from({ length: 30 }, (_, index) => message('assistant', `detail ${index} ${'x'.repeat(500)}`)),
+  ], 6_000).fact;
+  const route = { profile: { id: 'local' }, model: 'fixture', maxOutputTokens: 4096, deadlineMs: 1000 };
+  const prefix = {
+    model: 'fixture',
+    messages: [{ role: 'system', content: 'stable system' }, { role: 'user', content: 'stable history' }],
+    tools: [{ type: 'function', function: { name: 'read', parameters: { type: 'object' } } }],
+  };
+  const requests = [];
+  const telemetry = [];
+  const compactor = new ContinuationCompactor({
+    scheduler: new FairScheduler(), timeoutMs: 1000,
+    telemetry: { record: (...args) => telemetry.push(args) },
+  });
+  const provider = {
+    runtimeSnapshot: async () => ({}),
+    async *stream(request) {
+      requests.push(request);
+      yield { type: 'text', text: JSON.stringify({
+        completed_work: ['Implemented cache alignment'], open_questions: [], next_actions: ['Verify'],
+      }) };
+      yield { type: 'terminal' };
+    },
+  };
+  const enriched = await compactor.refine(base, { provider: () => provider }, route, null,
+    new AbortController().signal, {
+      cacheAlignedRequest: prefix, cacheUsage: { prompt_cache_hit_tokens: 2048 }, allowCacheAligned: true,
+    });
+  assert.deepEqual(requests[0].messages.slice(0, prefix.messages.length), prefix.messages);
+  assert.deepEqual(requests[0].tools, prefix.tools);
+  assert.ok(enriched.projection.projectedBytes < enriched.projection.originalBytes);
+  assert.equal(telemetry.find((item) => item[0] === 'context.semantic_compaction')[2].request_mode, 'cache_aligned');
+});
+
+test('semantic compaction keeps the standalone request without cache evidence or after overflow', async () => {
+  const base = compactTranscript([
+    message('user', 'Finish standalone fallback'),
+    ...Array.from({ length: 20 }, (_, index) => message('assistant', `detail ${index} ${'x'.repeat(400)}`)),
+  ], 6_000).fact;
+  const route = { profile: { id: 'local' }, model: 'fixture', maxOutputTokens: 4096, deadlineMs: 1000 };
+  const requests = [];
+  const provider = {
+    runtimeSnapshot: async () => ({}),
+    async *stream(request) {
+      requests.push(request);
+      yield { type: 'text', text: JSON.stringify({ completed_work: [], open_questions: [], next_actions: [] }) };
+      yield { type: 'terminal' };
+    },
+  };
+  const compactor = new ContinuationCompactor({ scheduler: new FairScheduler(), timeoutMs: 1000 });
+  await compactor.refine(base, { provider: () => provider }, route, null, new AbortController().signal, {
+    cacheAlignedRequest: { model: 'fixture', messages: [{ role: 'system', content: 'prefix' }], tools: [] },
+    cacheUsage: { prompt_cache_hit_tokens: 4096 }, allowCacheAligned: false,
+  });
+  assert.equal(requests[0].messages.length, 2);
+  assert.deepEqual(requests[0].tools, []);
+});
+
 test('semantic handoff is tightly bounded and invalid output falls back deterministically', async () => {
   const base = createHandoffFact([message('user', 'Finish the handoff feature.')]);
   const route = { profile: { id: 'local' }, model: 'fixture', maxOutputTokens: 4096, deadlineMs: 1000 };

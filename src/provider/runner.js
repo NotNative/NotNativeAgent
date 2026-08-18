@@ -45,7 +45,8 @@ export class ProviderRunner {
         request, model: active.modelName, provider_profile: active.providerResource,
       }, providerCorrelation(active, requestSpan));
       try {
-        await this.#invoke(provider, request, deadlines, active);
+        const attemptUsage = await this.#invoke(provider, request, deadlines, active);
+        this.#observeCacheUsage(active, attemptUsage);
         this.telemetry?.record('provider.request', 'succeeded', {
           model: active.modelName, provider_profile: active.providerResource,
           finish_reason: active.finishReason, usage: active.usage,
@@ -81,6 +82,12 @@ export class ProviderRunner {
       }
       await cancellableDelay(retryDelay, active.controller.signal);
     }
+  }
+
+  #observeCacheUsage(active, usage) {
+    this.reliability?.observeProviderUsage?.({
+      providerProfile: active.providerResource, model: active.modelName,
+    }, usage);
   }
 
   async runRoutes(router, candidates, requestFactory, deadlines, active, context = []) {
@@ -123,7 +130,7 @@ export class ProviderRunner {
     const timer = Number.isFinite(deadlines.overallMs)
       ? setTimeout(() => { timedOut = true; controller.abort(); }, deadlines.overallMs) : null;
     try {
-      await this.#consume(provider, request, active, controller.signal, deadlines);
+      return await this.#consume(provider, request, active, controller.signal, deadlines);
     } catch (error) {
       if (active.cancelled) throw new ContractError('provider_cancelled', 'provider was cancelled');
       if (timedOut) throw new ContractError('provider_timeout', 'provider attempt timed out', true);
@@ -174,6 +181,7 @@ export class ProviderRunner {
       if (!opened) throw new ContractError('provider_empty_stream', 'provider produced no stream items', true);
       if (!active.providerTerminal) throw new ContractError('provider_missing_terminal', 'provider did not terminate cleanly');
       active.usage = mergeUsage(active.usage, attemptUsage);
+      return attemptUsage;
     } finally { await closeIterator(iterator); }
   }
 }

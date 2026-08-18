@@ -25,6 +25,25 @@ needed by the current step are protected. Settled tool exchanges may be recovera
 complete record remains in the journal. Assistant continuation may use the semantic class
 only through the validated continuation path.
 
+## Cache-aligned semantic compaction
+
+Semantic compaction may reuse the exact message-and-tool prefix of the oversized provider
+request and append one bounded compaction instruction. This path is adaptive rather than
+assumed: it activates only after the current process has observed a positive cache-hit
+counter for the same provider profile and model. Cache evidence is bounded in memory and
+does not enter the durable transcript or alter recovery semantics.
+
+The aligned request preserves the prefix messages and tools exactly. A standalone semantic
+request remains the deterministic default when there is no route-specific evidence, when
+the route differs, or after the provider has rejected the prompt for size. Regardless of
+request mode, schema validation is insufficient by itself: the refined continuation must
+fit its summary budget and produce a strictly smaller projected context. Otherwise NNA
+records the failed semantic attempt and retains the deterministic continuation fact.
+
+Telemetry identifies standalone versus cache-aligned requests, observed cache-token
+evidence, prefix bytes and fingerprint, and original versus projected bytes without
+persisting the operator's content in those fields.
+
 ## Content-identity duplicate receipts
 
 At an existing context-compression boundary, NNA fingerprints the exact UTF-8 content of
@@ -78,3 +97,5 @@ NNA does not treat `cl100k_base` or any other unrelated tokenizer as exact for e
 6. Tokenizer provenance accompanies token counts, and fallback is explicit.
 7. Compression value includes rediscovery cost and task-outcome equivalence.
 8. New reducers must declare a class, bounds, recovery behavior, and verification evidence.
+9. Provider cache reuse is an evidenced optimization, never a correctness dependency.
+10. Semantic refinement is accepted only when its measured projection strictly converges.

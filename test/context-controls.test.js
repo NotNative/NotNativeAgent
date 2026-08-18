@@ -31,8 +31,8 @@ test('explicit compaction and confirmed clear survive durable session recovery',
   for (let index = 0; index < 7; index += 1) {
     await first.submit({ request_id: `turn-${index}`, content: `Continue the bounded task ${index}.` }, 'operator');
   }
-  assert.equal(requests[4].filter((item) => item.role === 'user'
-    && item.content === 'Continue the bounded task 4.').length, 1);
+  assert.equal(requests.some((messages) => messages.some((item) => typeof item.content === 'string'
+    && item.content.includes('Continue the bounded task 4.'))), true);
   const before = first.transcript.length;
   const compacted = await first.compactConversation();
   assert.ok(compacted.omitted > 0);

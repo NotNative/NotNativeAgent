@@ -36,6 +36,7 @@ export class ReliabilityEngine {
     this.contextTokenCounter = options.contextTokenCounter ?? null;
     this.contextTokenizerIdentity = options.contextTokenizerIdentity ?? null;
     this.contextTokenizerExact = options.contextTokenizerExact === true;
+    this.cacheUsageByRoute = new Map();
   }
 
   async initialize() { await this.modelDialects.initialize(); }
@@ -90,6 +91,18 @@ export class ReliabilityEngine {
   assertProviderRequestManifest(request, manifest, route, active) {
     return assertProviderRequestManifest(request, manifest, route, active);
   }
+  observeProviderUsage(route, usage) {
+    const key = routeKey(route);
+    const cacheTokens = cacheTokenEvidence(usage);
+    if (!key || cacheTokens <= 0) return false;
+    if (!this.cacheUsageByRoute.has(key) && this.cacheUsageByRoute.size >= 128) {
+      this.cacheUsageByRoute.delete(this.cacheUsageByRoute.keys().next().value);
+    }
+    this.cacheUsageByRoute.delete(key);
+    this.cacheUsageByRoute.set(key, Object.freeze({ cache_read_tokens: cacheTokens }));
+    return true;
+  }
+  cacheUsage(route) { return this.cacheUsageByRoute.get(routeKey(route)) ?? null; }
   longHorizonTrigger(records, options = {}) { return longHorizonCompressionTrigger(records, options); }
   compactTranscript(records, maxBytes, options = {}) { return compactTranscript(records, maxBytes, options); }
   createHandoffFact(records) { return createHandoffFact(records); }
@@ -132,4 +145,17 @@ export class ReliabilityEngine {
       provider_request_reconstruction: true,
     });
   }
+}
+
+function routeKey(route) {
+  const provider = route?.profile?.id ?? route?.providerProfile ?? route?.providerId;
+  const model = route?.model;
+  return typeof provider === 'string' && provider && typeof model === 'string' && model
+    ? `${provider}\0${model}` : null;
+}
+
+function cacheTokenEvidence(usage) {
+  if (!usage || typeof usage !== 'object') return 0;
+  return ['cache_read_tokens', 'cacheReadTokens', 'prompt_cache_hit_tokens', 'cached_tokens']
+    .reduce((maximum, key) => Number.isSafeInteger(usage[key]) ? Math.max(maximum, usage[key]) : maximum, 0);
 }

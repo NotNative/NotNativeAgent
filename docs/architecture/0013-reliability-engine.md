@@ -28,6 +28,9 @@ The Reliability Engine owns:
 - authoritative host-environment facts, shell-command shaping signals, and unavailable-interpreter recovery guidance;
 - cross-platform process-instance identity used to distinguish live owners from recycled PIDs;
 - command-shaping signals and repair guidance for fragile inline interpreter programs;
+- deterministic reconciliation of tool requests left open by process interruption, distinguishing calls that were never dispatched from calls whose external effect is unknown;
+- content-free provider-request manifests and immediate pre-transport reconstruction checks;
+- bounded, route-specific observations of provider cache hits used to select cache-aligned semantic compaction;
 - tool-call stream assembly and protocol-integrity bounds; and
 - stable tool-progress and failure fingerprints.
 
@@ -75,6 +78,10 @@ aliases to Reliability Engine-owned components. They do not represent independen
 5. Reliability cannot depend on Session, Governance, Experience, TUI, or gateway owners.
 6. A behavior-preserving migration retains existing lifecycle events, recovery records,
    public result shapes, configuration semantics, and provider requests.
+7. A provider request must still match its durable manifest immediately before every
+   transport attempt; nested request mutation fails closed instead of sending drifted input.
+8. Startup reconciliation must pair every interrupted tool request with a durable result,
+   but must never claim that a dispatched external effect did or did not occur.
 
 ## Consequences
 

@@ -64,3 +64,34 @@ test('Reliability Engine returns bounded provider recovery decisions without exe
   const retry = reliability.providerRetry(active, 'provider_transient', 0, false, 12_000);
   assert.equal(retry.delayMs, 12_000);
 });
+
+test('Reliability Engine records cache evidence only for the observed provider and model route', () => {
+  const reliability = new ReliabilityEngine({
+    modelDialects: { initialize() {}, close() {}, instructions() {}, observe() {}, snapshot() {} },
+    continuationCompactor: { refine() {}, handoff() {} },
+  });
+  const route = { profile: { id: 'local' }, model: 'qwen' };
+
+  assert.equal(reliability.observeProviderUsage(route, { prompt_cache_hit_tokens: 0 }), false);
+  assert.equal(reliability.cacheUsage(route), null);
+  assert.equal(reliability.observeProviderUsage(route, { prompt_cache_hit_tokens: 2048 }), true);
+  assert.deepEqual(reliability.cacheUsage(route), { cache_read_tokens: 2048 });
+  assert.equal(reliability.cacheUsage({ profile: { id: 'local' }, model: 'other' }), null);
+  assert.equal(reliability.cacheUsage({ profile: { id: 'other' }, model: 'qwen' }), null);
+});
+
+test('Reliability Engine accepts normalized cache counters and rejects incomplete route identity', () => {
+  const reliability = new ReliabilityEngine({
+    modelDialects: { initialize() {}, close() {}, instructions() {}, observe() {}, snapshot() {} },
+    continuationCompactor: { refine() {}, handoff() {} },
+  });
+
+  assert.equal(reliability.observeProviderUsage({ providerProfile: 'local', model: 'qwen' }, {
+    cache_read_tokens: 128, cached_tokens: 64,
+  }), true);
+  assert.deepEqual(reliability.cacheUsage({ providerProfile: 'local', model: 'qwen' }), {
+    cache_read_tokens: 128,
+  });
+  assert.equal(reliability.observeProviderUsage({ providerProfile: 'local' }, { cache_read_tokens: 128 }), false);
+  assert.equal(reliability.observeProviderUsage({ model: 'qwen' }, { cache_read_tokens: 128 }), false);
+});

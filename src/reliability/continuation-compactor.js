@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { enrichCompactionFact, enrichHandoffFact } from './compaction.js';
 import { routeReasoningFields } from '../provider/reasoning.js';
+import { createHash } from 'node:crypto';
 
 const MAX_RESPONSE_BYTES = 65_536;
 
@@ -11,15 +12,15 @@ export class ContinuationCompactor {
     this.timeoutMs = options.timeoutMs ?? 300_000;
   }
 
-  async refine(fact, router, route, runtime, parentSignal) {
-    return this.#run(fact, router, route, runtime, parentSignal, 'compaction');
+  async refine(fact, router, route, runtime, parentSignal, options = {}) {
+    return this.#run(fact, router, route, runtime, parentSignal, 'compaction', options);
   }
 
   async handoff(fact, router, route, runtime, parentSignal) {
-    return this.#run(fact, router, route, runtime, parentSignal, 'handoff');
+    return this.#run(fact, router, route, runtime, parentSignal, 'handoff', {});
   }
 
-  async #run(fact, router, route, runtime, parentSignal, mode) {
+  async #run(fact, router, route, runtime, parentSignal, mode, options) {
     const provider = router.provider(route);
     if (typeof provider.runtimeSnapshot !== 'function') return fact;
     const controller = new AbortController();
@@ -28,24 +29,35 @@ export class ContinuationCompactor {
     const timer = setTimeout(() => controller.abort(), route.deadlineMs == null
       ? this.timeoutMs : Math.min(this.timeoutMs, route.deadlineMs));
     let release = null;
+    let alignment = null;
     try {
       release = await this.scheduler.acquire(
         route.profile.id, `${mode}:${fact.sourceFingerprint.slice(0, 16)}`,
         controller.signal, () => undefined, runtime?.parallelCapacity ?? null,
       );
-      const request = mode === 'handoff' ? handoffRequest(route, fact) : compactionRequest(route, fact);
+      alignment = mode === 'compaction' ? cacheAlignment(options, route) : null;
+      const request = mode === 'handoff' ? handoffRequest(route, fact)
+        : alignment ? alignedCompactionRequest(route, fact, alignment.request) : compactionRequest(route, fact);
       const text = await collect(provider.stream(request, controller.signal));
       const semantic = mode === 'handoff' ? validateHandoff(parseJson(text)) : validateSemantic(parseJson(text));
       const enriched = mode === 'handoff' ? enrichHandoffFact(fact, semantic) : enrichCompactionFact(fact, semantic);
+      if (mode === 'compaction' && !converges(enriched)) throw codeError('semantic_compaction_no_net_reduction');
       recordTelemetry(this.telemetry, `context.semantic_${mode}`, 'succeeded', {
         provider_profile: route.profile.id, model: route.model,
         source_fingerprint: fact.sourceFingerprint,
+        request_mode: alignment ? 'cache_aligned' : 'standalone',
+        cache_evidence_tokens: alignment?.cacheTokens ?? 0,
+        prefix_fingerprint: alignment?.fingerprint ?? null,
+        prefix_bytes: alignment?.bytes ?? 0,
+        original_bytes: fact.projection?.originalBytes ?? null,
+        projected_bytes: enriched.projection?.projectedBytes ?? null,
       });
       return enriched;
     } catch (error) {
       recordTelemetry(this.telemetry, `context.semantic_${mode}`, 'failed', {
         provider_profile: route.profile.id, model: route.model,
         source_fingerprint: fact.sourceFingerprint,
+        request_mode: alignment ? 'cache_aligned' : 'standalone',
         failure: { code: error?.code ?? 'semantic_compaction_failed' },
       });
       return fact;
@@ -54,6 +66,22 @@ export class ContinuationCompactor {
       parentSignal?.removeEventListener('abort', cancel);
     }
   }
+}
+
+function alignedCompactionRequest(route, fact, prefix) {
+  const standalone = compactionRequest(route, fact);
+  return Object.freeze({
+    ...standalone,
+    messages: Object.freeze([
+      ...prefix.messages,
+      Object.freeze({
+        role: 'user',
+        content: 'Create the bounded NNA continuation refinement now. Use the preceding conversation only as supporting context; the deterministic continuation record below is authoritative. Return only JSON matching the response schema, do not call tools, and never invent completed work, facts, files, or authority.\n\n'
+          + JSON.stringify(fact.continuation),
+      }),
+    ]),
+    tools: prefix.tools,
+  });
 }
 
 function handoffRequest(route, fact) {
@@ -99,6 +127,38 @@ function compactionRequest(route, fact) {
       } },
     },
   });
+}
+
+function cacheAlignment(options, route) {
+  const request = options?.cacheAlignedRequest;
+  const cacheTokens = cacheTokenEvidence(options?.cacheUsage);
+  if (options?.allowCacheAligned === false || cacheTokens <= 0
+    || !request || request.model !== route.model
+    || !Array.isArray(request.messages) || !Array.isArray(request.tools)) return null;
+  const serialized = JSON.stringify({ messages: request.messages, tools: request.tools });
+  return Object.freeze({
+    request, cacheTokens, bytes: Buffer.byteLength(serialized, 'utf8'),
+    fingerprint: createHash('sha256').update(serialized).digest('hex'),
+  });
+}
+
+function cacheTokenEvidence(usage) {
+  if (!usage || typeof usage !== 'object') return 0;
+  const keys = ['cache_read_tokens', 'cacheReadTokens', 'prompt_cache_hit_tokens', 'cached_tokens'];
+  return keys.reduce((maximum, key) => {
+    const value = usage[key];
+    return Number.isSafeInteger(value) && value > maximum ? value : maximum;
+  }, 0);
+}
+
+function converges(fact) {
+  const original = fact.projection?.originalBytes;
+  const projected = fact.projection?.projectedBytes;
+  const summaryBudget = fact.projection?.summaryBudgetBytes;
+  const summaryBytes = Buffer.byteLength(fact.summary ?? '', 'utf8');
+  return Number.isSafeInteger(original) && Number.isSafeInteger(projected)
+    && projected < original
+    && (!Number.isSafeInteger(summaryBudget) || summaryBytes <= summaryBudget);
 }
 
 function stringArraySchema() {

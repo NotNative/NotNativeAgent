@@ -82,8 +82,14 @@ export function enrichCompactionFact(fact, semantic) {
     verifiedFacts: fact.continuation.verifiedFacts,
     openQuestions: Object.freeze(semantic.openQuestions), nextActions: Object.freeze(semantic.nextActions),
   });
+  const summary = renderContinuation(continuation, fact.projection?.summaryBudgetBytes);
   return Object.freeze({
-    ...fact, continuation, summary: renderContinuation(continuation, fact.projection?.summaryBudgetBytes),
+    ...fact, continuation, summary,
+    projection: Object.freeze({
+      ...fact.projection,
+      projectedBytes: (fact.projection?.projectedBytes ?? 0)
+        + Buffer.byteLength(summary, 'utf8') - Buffer.byteLength(fact.summary, 'utf8'),
+    }),
   });
 }
 

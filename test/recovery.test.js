@@ -398,6 +398,40 @@ test('an unset overall route deadline does not create an immediate timeout', asy
   assert.equal(active.stepText, 'completed');
 });
 
+test('provider cache observation is scoped to the successful transport attempt', async () => {
+  const state = new StateAuthority();
+  state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-cache-usage' });
+  const lifecycles = new LifecycleRegistry();
+  const turn = lifecycles.start('turn');
+  const step = lifecycles.start('model_step', turn.id);
+  const active = {
+    turnId: 'turn-cache-usage', stepId: step.id, attemptId: null,
+    controller: new AbortController(), cancelled: false, stepText: '',
+    toolAssembler: new ToolCallAssembler(), providerTerminal: false,
+    recovery: new RecoverySupervisor(), reasoningBytes: 0, stepReasoningBytes: 0,
+    usage: { prompt_cache_hit_tokens: 1024 }, finishReason: null,
+    providerResource: 'fallback', modelName: 'qwen', sessionId: 'session-cache-usage',
+  };
+  let observed;
+  const runner = new ProviderRunner({
+    state, lifecycles, publish: async () => undefined,
+    acceptText: async (text) => { active.stepText += text; },
+    settleAttempt: async () => undefined, recordRecovery: async () => undefined,
+    reliability: {
+      localRetryLimit: () => 1,
+      observeProviderUsage: (_route, usage) => { observed = usage; },
+    },
+  });
+  const provider = { async *stream() {
+    yield { type: 'text', text: 'completed' };
+    yield { type: 'terminal', finishReason: 'stop', usage: { prompt_cache_hit_tokens: 0 } };
+  } };
+
+  await runner.run(provider, {}, { overallMs: null, firstTokenMs: 50, idleMs: 50 }, active);
+  assert.deepEqual(observed, { prompt_cache_hit_tokens: 0 });
+  assert.deepEqual(active.usage, { prompt_cache_hit_tokens: 1024 });
+});
+
 test('AC-PROD-03/AC-ENGP-02/AC-FAIL-01/AC-FAIL-03/AC-FAIL-11/AC-FAIL-12 stalled output has bounded deterministic recovery', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-empty-'));
   let count = 0;
@@ -707,6 +741,52 @@ test('AC-TURN-07 compacts before provider I/O and records an auditable fact', as
   assert.equal(invoked, 1);
   assert.ok(engine.transcript.some((item) => item.type === 'compaction' && item.omitted > 0));
   assert.ok(engine.state.transitions.some((item) => item.to === 'compacting_context'));
+});
+
+test('automatic compaction uses a prior cache-hit as evidence for prefix alignment', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-cache-aligned-'));
+  let ordinaryCalls = 0;
+  let alignedRequest = null;
+  const provider = {
+    runtimeSnapshot: async () => ({ contextWindowTokens: 32_768, contextLimitBytes: 65_536 }),
+    async *stream(request) {
+      if (request.responseFormat?.json_schema?.name === 'nna_continuation') {
+        alignedRequest = request;
+        yield { type: 'text', text: JSON.stringify({
+          completed_work: ['Preserved the active objective'], open_questions: [], next_actions: ['Continue'],
+        }) };
+        yield { type: 'terminal' };
+        return;
+      }
+      ordinaryCalls += 1;
+      if (ordinaryCalls === 1) {
+        yield { type: 'usage', usage: {
+          prompt_tokens: 256, completion_tokens: 8, total_tokens: 264,
+          prompt_cache_hit_tokens: 128,
+        } };
+      }
+      yield { type: 'text', text: ordinaryCalls === 1 ? 'Initial turn.' : 'Continued after compaction.' };
+      yield { type: 'terminal' };
+    },
+  };
+  const engine = new SessionEngine({
+    config: config(root, 'ephemeral', { context_limit_bytes: 65_536 }),
+    providerFactory: () => provider,
+  });
+  await engine.initialize();
+  assert.equal((await engine.submit({ request_id: 'cache-seed', content: 'Establish context' }, 'operator')).outcome, 'completed');
+  for (let index = 0; index < 100; index += 1) {
+    engine.transcript.push({
+      type: 'message', role: 'assistant', content: `${index}:${'x'.repeat(2_000)}`,
+      trust: 'model', turnId: `historical-${index}`,
+    });
+  }
+  const result = await engine.submit({ request_id: 'cache-compact', content: 'Continue the task' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.ok(alignedRequest);
+  assert.ok(alignedRequest.messages.length > 2);
+  assert.ok(alignedRequest.tools.length > 0);
+  assert.match(alignedRequest.messages.at(-1).content, /deterministic continuation record/u);
 });
 
 test('AC-TURN-07 preflight honors the selected route model limit below the global ceiling', async () => {

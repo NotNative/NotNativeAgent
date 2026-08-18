@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { buildReportedContext } from './context-status.js';
+import { buildContext } from '../context.js';
+import { providerRequest } from './runtime-helpers.js';
 import { addHookContexts, hookPayload } from './hooks.js';
 import { ContractError } from '../ids.js';
 import { writeTaskCheckpoint } from '../task-checkpoint.js';
@@ -30,7 +32,15 @@ export async function prepareEngineContext(engine, records, content, active, for
       if (error.code !== 'context_too_large') throw error;
     }
   }
-  return compactContext(engine, records, content, active, operations, { routes, runtime, planned, budget, hardLimit });
+  const rawContext = buildContext(
+    engine.config, records, content,
+    active.contextMeasurementEnrichment ?? active.enrichment,
+    Number.MAX_SAFE_INTEGER,
+  );
+  const cacheAlignedRequest = providerRequest(engine, routes[0], rawContext);
+  return compactContext(engine, records, content, active, operations, {
+    routes, runtime, planned, budget, hardLimit, cacheAlignedRequest,
+  });
 }
 
 async function compactContext(engine, records, content, active, operations, plan) {
@@ -49,6 +59,7 @@ async function compactContext(engine, records, content, active, operations, plan
   try {
     const fitted = await fitCompactedContext(engine, records, active, operations, {
       budget, validationBudget: plan.budget, hardLimit, planned, route: routes[0], runtime,
+      cacheAlignedRequest: plan.cacheAlignedRequest,
     });
     const { fact, context } = fitted;
     const post = await operations.publish(
@@ -123,7 +134,11 @@ async function createCompactionCandidate(engine, records, active, plan) {
     throw new ContractError('context_compaction_stalled', 'context compaction made no observable source progress');
   }
   return engine.reliability.refineContinuation(
-    compacted.fact, engine.router, plan.route, plan.runtime, active.controller.signal,
+    compacted.fact, engine.router, plan.route, plan.runtime, active.controller.signal, {
+      cacheAlignedRequest: plan.cacheAlignedRequest,
+      cacheUsage: engine.reliability.cacheUsage(plan.route),
+      allowCacheAligned: active.contextRetryScale >= 1,
+    },
   );
 }
 
