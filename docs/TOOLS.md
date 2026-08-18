@@ -181,6 +181,13 @@ The global WebSearch tool is:
   browser request and redirect is checked against the same exact-origin private-network
   trust policy as `web.fetch`. Hosted NNO sessions do not receive this root tool implicitly.
 
+WebFetch and WebBrowse are independent retrieval paths. When WebFetch fails for an exact URL
+supplied by the user or discovered through WebSearch, the agent uses WebBrowse to navigate to
+that same URL and inspect the page before abandoning the source. It does not retry the failed
+URL through WebFetch. If browser navigation is unavailable or also fails, it proceeds to another
+exact discovered URL and reports an inability to verify only after reasonable retrieval paths
+have been exhausted.
+
 `web.browse fill_secret` accepts only a Secret Broker record ID and field name. The plaintext
 is decrypted inside the trusted browser consumer after review, filled directly into the page,
 and never returned in tool output or provider context. Injected values remain in an ephemeral

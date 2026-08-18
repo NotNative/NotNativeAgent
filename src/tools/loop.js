@@ -104,7 +104,7 @@ export class ToolLoop {
           if (active.webUrlProvenance.hasFailed(request.args.url)) {
             throw new ContractError(
               'web_fetch_url_already_failed',
-              'WebFetch already failed for this exact URL during the current turn. Use another exact URL returned by WebSearch or supplied by the user, or use WebBrowse to navigate from a verified page.',
+              'WebFetch already failed for this exact URL during the current turn. Do not retry WebFetch. If WebBrowse is available, use web.browse with action navigate on this same exact URL, then inspect the page. Only if browser navigation is unavailable or also fails should you use another exact URL returned by WebSearch or supplied by the user.',
             );
           }
         }
@@ -357,7 +357,7 @@ export function toolContinuationHint(items, fallback = null) {
   const failedFetch = items.find((item) => item.result?.tool_name === 'web.fetch'
     && ['failed', 'invalid_request', 'timed_out'].includes(item.result?.status));
   if (failedFetch) {
-    return 'WebFetch could not retrieve that exact URL. Do not retry the same URL during this turn and do not synthesize a replacement path. Use another exact URL returned by WebSearch or supplied by the user, or use WebBrowse to navigate from a verified page.';
+    return 'WebFetch could not retrieve that exact URL. Do not retry it with WebFetch and do not synthesize a replacement path. WebFetch and WebBrowse are independent retrieval paths: if WebBrowse is available, your next recovery call should use web.browse with action navigate on the same exact URL, then inspect the page if navigation succeeds. Only if browser navigation is unavailable or also fails should you choose another exact URL returned by WebSearch or supplied by the user. Do not end the research merely because WebFetch failed.';
   }
   const failedProcess = items.filter((item) => ['process.run', 'shell.run'].includes(item.result?.tool_name)
     && ['failed', 'completed_nonzero'].includes(item.result?.status));

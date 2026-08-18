@@ -688,6 +688,9 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /do not present an unverified inference as fact/u);
   assert.match(policy, /Before asserting current versions, releases/u);
   assert.match(policy, /Never infer that a version, product, API, or event does not exist/u);
+  assert.match(policy, /WebFetch and WebBrowse are independent retrieval paths/u);
+  assert.match(policy, /next use web\.browse with action navigate on that same exact URL/u);
+  assert.match(policy, /Exhaust reasonable retrieval paths before saying current evidence could not be verified/u);
   assert.match(policy, /search summaries as source discovery rather than detailed evidence/u);
   assert.match(policy, /claim could not be verified/u);
   assert.match(policy, /prefer structured filesystem, search, Git-inspection, and project-verification tools/iu);

@@ -71,11 +71,13 @@ test('review denial continuation favors safer progress before operator interrupt
   assert.match(hint, /constraint, not the end[^]*safer[^]*Ask the operator only after/iu);
 });
 
-test('failed web fetch continuation redirects away from the exact failed URL', () => {
+test('failed web fetch continuation requires browser fallback before abandoning the URL', () => {
   const hint = toolContinuationHint([{
     result: { status: 'failed', tool_name: 'web.fetch' },
   }], 'generic recovery');
-  assert.match(hint, /Do not retry the same URL[^]*another exact URL[^]*WebBrowse/iu);
+  assert.match(hint, /Do not retry it with WebFetch[^]*next recovery call should use web\.browse[^]*same exact URL/iu);
+  assert.match(hint, /Only if browser navigation is unavailable or also fails[^]*another exact URL/iu);
+  assert.match(hint, /Do not end the research merely because WebFetch failed/iu);
 });
 
 test('failed process continuation treats captured output as diagnostics instead of progress', () => {

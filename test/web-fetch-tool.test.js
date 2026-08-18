@@ -26,6 +26,7 @@ test('web.fetch follows bounded redirects and returns attributed UTF-8 text', as
   });
   const definition = webFetchDefinition({ client });
   assert.match(definition.purpose, /authoritative source found through web\.search/u);
+  assert.match(definition.purpose, /use web\.browse navigate on that same URL when available/u);
   const normalized = await definition.validate({ url: 'https://example.test/start#fragment' });
   const result = await definition.executor({ args: normalized.args, resolved: normalized.resolved }, new AbortController().signal);
   assert.equal(result.content, 'useful public text');

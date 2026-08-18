@@ -7,6 +7,11 @@ import { tmpdir } from 'node:os';
 import { BrowserSessionManager, webBrowseDefinition } from '../src/web-browse-tool.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 
+test('web.browse advertises itself as the failed-fetch recovery path', () => {
+  const definition = webBrowseDefinition({ manager: { close() {} } });
+  assert.match(definition.purpose, /required fallback[^]*web\.fetch[^]*navigate to the same URL/iu);
+});
+
 function fakeRuntime(state) {
   const locator = (selector) => ({
     first: () => locator(selector), nth: (index) => locator(`${selector}:${index}`),

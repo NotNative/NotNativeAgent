@@ -16,7 +16,7 @@ export function webFetchDefinition(options = {}) {
   const client = options.client ?? new WebFetchClient({ policy });
   return {
     name: 'web.fetch', version: 1,
-    purpose: 'Fetch bounded HTTP(S) text from a public URL or an explicitly trusted private origin without browser execution. Use this to read an authoritative source found through web.search before making a detailed current factual claim.',
+    purpose: 'Fetch bounded HTTP(S) text from a public URL or an explicitly trusted private origin without browser execution. Use this to read an authoritative source found through web.search before making a detailed current factual claim. If this tool fails for a verified exact URL, do not retry it; use web.browse navigate on that same URL when available.',
     sideEffect: 'read_only', scope: 'network', cancellation: true, timeoutMs: TOOL_TIMEOUT_MS,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['url'], properties: {

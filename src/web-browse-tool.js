@@ -13,7 +13,7 @@ export function webBrowseDefinition(options = {}) {
   const manager = options.manager ?? new BrowserSessionManager(options);
   const definition = {
     name: 'web.browse', version: 1,
-    purpose: 'Operate an ephemeral Chromium session. Navigate and inspect pages, click controls, fill non-secret values, inject a named secret field without exposing it to the model, press keys, save a screenshot, or close the browser. Use inspect after navigation to obtain stable element references such as e1.',
+    purpose: 'Operate an ephemeral Chromium session. This is the required fallback for a verified exact URL that web.fetch could not retrieve: navigate to the same URL, then inspect it. It can also click controls, fill non-secret values, inject a named secret field without exposing it to the model, press keys, save a screenshot, or close the browser. Use inspect after navigation to obtain stable element references such as e1.',
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 60_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['action'], properties: {
