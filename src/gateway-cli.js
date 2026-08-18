@@ -53,7 +53,7 @@ async function runForeground(config, paths, options) {
     workspaceRoot, securityAudit: () => undefined,
   });
   const engineConfig = Object.freeze({ ...effective.config, workspaceRoot });
-  await writePid(paths, process.pid);
+  await writePid(paths, process.pid, options);
   const gateway = new TelegramGateway({
     api: new TelegramApi(token, { fetch: options.fetch }), config, engineConfig, paths,
     engineOptions: {
@@ -174,7 +174,7 @@ function assertRunnable(config, environment) {
   if (!gatewayToken(config, environment).value) throw Object.assign(new Error('Telegram token is missing'), { code: 'telegram_token_missing' });
   if (config.authorized_user_ids.length === 0) throw Object.assign(new Error('no Telegram users are authorized'), { code: 'gateway_authorization_required' });
 }
-async function writePid(paths, pid, options) {
+async function writePid(paths, pid, options = {}) {
   const identity = options.processIdentity ?? new ProcessIdentity();
   const captured = await identity.capture(pid);
   if (!captured?.start_id) throw Object.assign(new Error('gateway process identity unavailable'), { code: 'gateway_identity_unavailable' });

@@ -118,6 +118,46 @@ test('gateway start failure is reported without publishing a false pid', async (
   await assert.rejects(readFile(join(paths.gateway, 'gateway.pid')), { code: 'ENOENT' });
 });
 
+test('gateway foreground startup publishes its process identity before polling', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-gateway-foreground-'));
+  const paths = {
+    root, config: join(root, 'config'), gateway: join(root, 'runtime', 'gateway'),
+    logs: join(root, 'logs'), gatewayConfig: join(root, 'config', 'gateway.json'),
+    trustedWorkspaces: join(root, 'config', 'trusted-workspaces.json'),
+    hooks: join(root, 'hooks'), skills: join(root, 'skills'),
+    sessionBrokers: join(root, 'runtime', 'session-brokers'),
+  };
+  await mkdir(paths.config, { recursive: true });
+  await writeFile(join(paths.config, 'manifest.json'), `${JSON.stringify({
+    persistence: 'durable',
+    provider: { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'fixture', trust_zone: 'loopback' },
+  })}\n`);
+  await saveGatewayConfig(paths.gatewayConfig, {
+    enabled: true, token: 'TEST_FIXTURE_NOT_A_REAL_TELEGRAM_TOKEN',
+    authorized_user_ids: ['42'], workspace_root: root,
+  });
+  const captured = []; const methods = [];
+  const processIdentity = {
+    async capture(pid) {
+      captured.push(pid);
+      return { version: 1, pid, platform: 'fixture', start_id: 'foreground' };
+    },
+  };
+  const fetch = async (url) => {
+    const method = new URL(url).pathname.split('/').at(-1);
+    methods.push(method);
+    const result = method === 'getMe' ? { id: 1, username: 'fixture' } : null;
+    return new Response(JSON.stringify({ ok: true, result }), { status: 200 });
+  };
+
+  await assert.rejects(runGatewayCommand(['run'], paths, {
+    environment: {}, input: null, processIdentity, fetch,
+  }), { name: 'TypeError', message: 'updates is not iterable' });
+  assert.deepEqual(captured, [process.pid]);
+  assert.deepEqual(methods, ['getMe', 'getUpdates']);
+  await assert.rejects(readFile(join(paths.gateway, 'gateway.pid')), { code: 'ENOENT' });
+});
+
 test('gateway status and stop require the recorded process instance rather than PID liveness alone', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-gateway-identity-'));
   const paths = { root, gateway: join(root, 'gateway'), gatewayConfig: join(root, 'gateway', 'config.json') };
