@@ -52,6 +52,8 @@ async function restoreDurableEngine(engine, operations) {
   const interrupted = operations.restore(recovered.records, recovered.truncated);
   engine.attachments.restore(recovered.records);
   if (recovered.records.length === 0) await operations.createSessionRecord();
+  const interruptedToolRepairs = engine.reliability.interruptedToolRepairs(recovered.records, interrupted);
+  await operations.repairInterruptedTools(interruptedToolRepairs);
   for (const turnId of interrupted) await operations.markInterrupted(turnId);
 }
 

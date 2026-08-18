@@ -95,6 +95,7 @@ export class SessionEngine {
   async initialize(options = {}) {
     return initializeEngine(this, {
       restore: (records, truncated) => this.#restore(records, truncated),
+      repairInterruptedTools: (repairs) => this.#repairInterruptedTools(repairs),
       createSessionRecord: () => this.#createSessionRecord(),
       markInterrupted: (turnId) => this.#markInterrupted(turnId),
     }, options);
@@ -464,6 +465,10 @@ export class SessionEngine {
     };
     await this.store.append('turn_interrupted', record);
     this.recoveryNotices.push(Object.freeze(record));
+  }
+
+  async #repairInterruptedTools(repairs) {
+    for (const repair of repairs) await this.#persist('tool_result', repair);
   }
   async #rejectBusy(command) {
     await this.output({ type: 'accepted', request_id: command.request_id, accepted: false, reason: 'busy' });

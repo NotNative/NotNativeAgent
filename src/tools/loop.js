@@ -223,6 +223,9 @@ export class ToolLoop {
       }, { ...correlation, durationMs: elapsedMs(started), reasonCode: item.result.reason_code });
       return;
     }
+    await this.publish('tool_execution.started', 'tool_request', 'active', {
+      ...active, toolRequestId: item.request.id,
+    });
     item.child.move('running');
     await this.output(toolStatus(this.engine, active, item, 'running'));
     try {

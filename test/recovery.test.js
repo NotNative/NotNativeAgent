@@ -786,3 +786,43 @@ test('AC-SESS-01/AC-SESS-05/AC-SESS-10 resume preserves identity, marks interrup
   assert.equal(engine.transcript.filter((item) => item.steeringId === 'saved-steering').length, 1);
   await engine.shutdown({ request_id: 'shutdown-resume' });
 });
+
+test('resume durably balances interrupted tool calls without guessing side effects', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-resume-tools-'));
+  const stores = join(root, 'sessions');
+  const seed = new JournalStore(stores, 'resume-tool-session');
+  await seed.open();
+  await seed.append('session_created', { sessionId: 'resume-tool-session' });
+  await seed.append('turn_accepted', { turnId: 'interrupted-turn', requestId: 'old-request' });
+  await seed.append('tool_request', {
+    type: 'tool_request', turnId: 'interrupted-turn', stepId: 'step-1',
+    requestId: 'not-started', providerCallId: 'call-not-started',
+    toolName: 'fs.write_text', args: { path: 'safe.txt', content: 'safe' },
+  });
+  await seed.append('tool_request', {
+    type: 'tool_request', turnId: 'interrupted-turn', stepId: 'step-1',
+    requestId: 'started', providerCallId: 'call-started',
+    toolName: 'fs.write_text', args: { path: 'unknown.txt', content: 'unknown' },
+  });
+  await seed.append('lifecycle_event', {
+    event_name: 'tool_execution.started', turn_id: 'interrupted-turn',
+    tool_request_id: 'started',
+  });
+  await seed.close();
+
+  const engine = new SessionEngine({
+    config: config(root, 'durable'), sessionId: 'resume-tool-session',
+    storeRoot: stores, reviewerRoot: join(root, 'reviewers'),
+  });
+  await engine.initialize();
+  const repairs = engine.transcript.filter((item) => item.type === 'tool_result');
+  assert.equal(repairs.length, 2);
+  assert.equal(repairs.find((item) => item.requestId === 'not-started').effectCertainty, 'none');
+  assert.equal(repairs.find((item) => item.requestId === 'started').effectCertainty, 'unknown');
+  await engine.shutdown({ request_id: 'shutdown-resume-tools' });
+
+  const reopened = new JournalStore(stores, 'resume-tool-session');
+  const recovered = await reopened.open();
+  assert.equal(recovered.records.filter((item) => item.type === 'tool_result').length, 2);
+  await reopened.close();
+});

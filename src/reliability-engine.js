@@ -20,6 +20,7 @@ import { inlineInterpreterGuidance, inlineInterpreterInvocation } from './reliab
 import {
   compareCompressionOutcomes, contextCompressionPolicy, measureContextCompression,
 } from './reliability/context-compression.js';
+import { interruptedToolRepairs } from './reliability/interrupted-tools.js';
 
 export class ReliabilityEngine {
   constructor(options = {}) {
@@ -79,6 +80,9 @@ export class ReliabilityEngine {
     });
   }
   compareCompressionOutcomes(baseline, compressed) { return compareCompressionOutcomes(baseline, compressed); }
+  interruptedToolRepairs(records, interruptedTurnIds = []) {
+    return interruptedToolRepairs(records, interruptedTurnIds);
+  }
   longHorizonTrigger(records, options = {}) { return longHorizonCompressionTrigger(records, options); }
   compactTranscript(records, maxBytes, options = {}) { return compactTranscript(records, maxBytes, options); }
   createHandoffFact(records) { return createHandoffFact(records); }
