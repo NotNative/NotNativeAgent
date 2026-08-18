@@ -1209,6 +1209,15 @@ test('provider and model overlays expose keyboard-selectable route choices', () 
   assert.match(providerFrame, /MANAGE PROFILES/u);
   assert.match(providerFrame, /http:\/\/127\.0\.0\.1:1\/v1 · Active/u);
   assert.doesNotMatch(providerFrame, /\/provider add ID ENDPOINT/u);
+  assert.doesNotMatch(providerFrame, /Profile management unavailable/u);
+  const secondary = providerOverlay(engine, { canManage: false, isMain: false });
+  projection.openOverlay(secondary);
+  const secondaryFrame = new TuiRenderer().frame(projection, { width: 100, height: 30, color: false });
+  assert.match(secondaryFrame, /! Profile management unavailable here/u);
+  assert.match(secondaryFrame, /Existing profiles remain selectable/u);
+  assert.equal(secondary.items.some((item) => item.id.startsWith('action:')), false);
+  const coloredSecondary = new TuiRenderer().frame(projection, { width: 100, height: 30, color: true });
+  assert.match(coloredSecondary, /\u001b\[38;5;214m! Profile management unavailable here/u);
   const reviewer = providerOverlay(engine, { role: 'reviewer', canManage: true });
   assert.equal(reviewer.items[reviewer.selected].id, 'clear-role');
   assert.equal(reviewer.items[reviewer.selected].badge, 'active');

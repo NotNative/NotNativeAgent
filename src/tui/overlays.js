@@ -54,7 +54,10 @@ export function providerOverlay(engine, options = {}) {
   const assigned = role === 'primary' || active.assigned !== false;
   const manageProfiles = role === 'primary' && options.canManage;
   const purpose = PROVIDER_ROLE_PURPOSES[role], scope = providerScope(role, options.isMain);
+  const authorityWarning = role === 'primary' && options.isMain === false;
   const lines = [
+    ...(authorityWarning ? ['! Profile management unavailable here — this Console does not own Main workspace authority.',
+      'Existing profiles remain selectable. Use the [* Main *] authority Console to add, edit, test, or delete profiles.', ''] : []),
     purpose,
     '',
     `Scope     ${scope}`,
@@ -93,6 +96,7 @@ export function providerOverlay(engine, options = {}) {
   }
   return Object.freeze({
     ...menuOverlay('provider', 'Providers', lines, items, options.selectedId ?? (assigned ? active.providerId : 'clear-role')),
+    lineKinds: authorityWarning ? Object.freeze(['warning', 'body', '', ...lines.slice(3).map(() => 'body')]) : undefined,
     tabs: Object.freeze(Object.entries(labels).map(([id, label]) => Object.freeze({ id, label, active: id === role }))),
     role,
     actionLabel: providerActionLabel(role, options.canAssign, manageProfiles),
@@ -471,13 +475,9 @@ function menuOverlay(kind, title, lines, items, activeId) {
   });
 }
 
-function actionItem(id, label, detail) {
-  return { id: `action:${id}`, label: `+ ${label}`, detail };
-}
+function actionItem(id, label, detail) { return { id: `action:${id}`, label: `+ ${label}`, detail }; }
 
-function providerAction(id, label, detail) {
-  return { ...actionItem(id, label, detail), section: 'Manage profiles' };
-}
+function providerAction(id, label, detail) { return { ...actionItem(id, label, detail), section: 'Manage profiles' }; }
 
 function flatten(value, prefix = '', depth = 0, seen = new WeakSet()) {
   if (depth > 5) return [`${prefix}: [bounded]`];

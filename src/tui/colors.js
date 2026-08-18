@@ -21,6 +21,7 @@ const SYNTHWAVE_STOPS = Object.freeze([
 
 export function decorateOverlay(line, width, kind, lineKind = '') {
   if (lineKind.endsWith(':selected')) return decorateSelectedOverlayLine(line, width);
+  if (lineKind === 'overlay:warning') return paint(TUI_THEME.warning, line);
   if (/^─+$/u.test(line)) return paint(TUI_THEME.border, line);
   if (kind === 'provider' && line.includes('[ ')) return decorateRoleTabs(line);
   if (line === line.toUpperCase() && /[A-Z]/u.test(line)) return paint(TUI_THEME.accentSoft, line);

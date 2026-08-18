@@ -240,10 +240,11 @@ function overlayLines(overlay, width, targets = new Map(), lineKinds = new Map()
     lines.push(crop(tabs, width), '');
     lineKinds.set(lines.length - 2, 'overlay:tabs');
   }
-  for (const line of overlay.lines) {
+  for (const [lineIndex, line] of overlay.lines.entries()) {
     const start = lines.length;
     lines.push(...wrap(line, width));
-    for (let row = start; row < lines.length; row += 1) lineKinds.set(row, 'overlay:body');
+    const kind = overlay.lineKinds?.[lineIndex] || 'body';
+    for (let row = start; row < lines.length; row += 1) lineKinds.set(row, `overlay:${kind}`);
   }
   let section = null;
   for (const [index, item] of (overlay.items ?? []).entries()) {
