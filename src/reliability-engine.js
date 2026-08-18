@@ -21,6 +21,7 @@ import {
   compareCompressionOutcomes, contextCompressionPolicy, measureContextCompression,
 } from './reliability/context-compression.js';
 import { interruptedToolRepairs } from './reliability/interrupted-tools.js';
+import { assertProviderRequestManifest, providerRequestManifest } from './reliability/request-invariant.js';
 
 export class ReliabilityEngine {
   constructor(options = {}) {
@@ -83,6 +84,12 @@ export class ReliabilityEngine {
   interruptedToolRepairs(records, interruptedTurnIds = []) {
     return interruptedToolRepairs(records, interruptedTurnIds);
   }
+  providerRequestManifest(request, context, route, active) {
+    return providerRequestManifest(request, context, route, active);
+  }
+  assertProviderRequestManifest(request, manifest, route, active) {
+    return assertProviderRequestManifest(request, manifest, route, active);
+  }
   longHorizonTrigger(records, options = {}) { return longHorizonCompressionTrigger(records, options); }
   compactTranscript(records, maxBytes, options = {}) { return compactTranscript(records, maxBytes, options); }
   createHandoffFact(records) { return createHandoffFact(records); }
@@ -122,6 +129,7 @@ export class ReliabilityEngine {
       host_command_shaping: true,
       process_identity: true,
       command_shaping: true,
+      provider_request_reconstruction: true,
     });
   }
 }

@@ -287,5 +287,13 @@ function providerRunner(engine, hooks) {
     scheduler: engine.scheduler,
     queueStatus: hooks.queueStatus,
     runtimeResolver: (route, signal) => engine.modelRuntime.resolve(engine.router, route, signal),
+    prepareRequest: async (request, route, active, context) => {
+      const manifest = engine.reliability.providerRequestManifest(request, context, route, active);
+      await hooks.persist('provider_request_manifest', manifest);
+      return manifest;
+    },
+    verifyRequest: (request, manifest, route, active) => (
+      engine.reliability.assertProviderRequestManifest(request, manifest, route, active)
+    ),
   });
 }

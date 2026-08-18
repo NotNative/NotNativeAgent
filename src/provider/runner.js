@@ -18,11 +18,13 @@ export class ProviderRunner {
     this.scheduler = options.scheduler;
     this.queueStatus = options.queueStatus;
     this.runtimeResolver = options.runtimeResolver;
+    this.prepareRequest = options.prepareRequest;
+    this.verifyRequest = options.verifyRequest;
     this.scheduler ??= new FairScheduler();
     this.queueStatus ??= () => undefined;
   }
 
-  async run(provider, request, deadlines, active) {
+  async run(provider, request, deadlines, active, manifest = null, route = null) {
     // The owning engine sets active.cancelled when its turn controller accepts cancellation.
     const localLimit = this.reliability?.localRetryLimit(active) ?? active.recovery.localLimit;
     for (let attempt = 0; attempt < localLimit; attempt += 1) {
@@ -38,6 +40,7 @@ export class ProviderRunner {
       let retryDelay = null;
       const requestSpan = `provider-request:${active.attemptId}`;
       const requestStarted = process.hrtime.bigint();
+      await this.verifyRequest?.(request, manifest, route, active);
       this.telemetry?.record('provider.request', 'started', {
         request, model: active.modelName, provider_profile: active.providerResource,
       }, providerCorrelation(active, requestSpan));
@@ -80,7 +83,7 @@ export class ProviderRunner {
     }
   }
 
-  async runRoutes(router, candidates, requestFactory, deadlines, active) {
+  async runRoutes(router, candidates, requestFactory, deadlines, active, context = []) {
     const bounded = candidates.slice(0, candidates[0]?.budget ?? candidates.length);
     let lastError;
     for (const [index, route] of bounded.entries()) {
@@ -92,7 +95,9 @@ export class ProviderRunner {
       active.providerResource = route.profile.id;
       if (this.runtimeResolver) active.runtimeModel = await this.runtimeResolver(route, active.controller.signal);
       try {
-        await this.run(router.provider(route), requestFactory(route), { ...deadlines, overallMs: route.deadlineMs }, active);
+        const request = requestFactory(route);
+        const manifest = await this.prepareRequest?.(request, route, active, context) ?? null;
+        await this.run(router.provider(route), request, { ...deadlines, overallMs: route.deadlineMs }, active, manifest, route);
         return route;
       } catch (error) {
         lastError = error;
