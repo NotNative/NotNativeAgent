@@ -1,0 +1,3305 @@
+{
+  "schema_version": 1,
+  "generated_by": "scripts/repository-graph.js",
+  "scope": "src/**/*.js",
+  "source_digest": "sha256:8c070cec6f74a0a589acea4d2ce969c16441ef7ea042ecb30d5ac66604017a96",
+  "counts": {
+    "modules": 293,
+    "component_edges": 67
+  },
+  "components": [
+    {
+      "id": "agentic-engine",
+      "label": "Agentic Engine",
+      "ownership": "Owns turns, steps, lifecycle, and orchestration.",
+      "module_count": 15
+    },
+    {
+      "id": "governance-engine",
+      "label": "Governance Engine",
+      "ownership": "Owns authority, review, permission, and execution policy.",
+      "module_count": 10
+    },
+    {
+      "id": "experience-engine",
+      "label": "Experience Engine",
+      "ownership": "Owns operator interaction and presentation.",
+      "module_count": 82
+    },
+    {
+      "id": "reliability-engine",
+      "label": "Reliability Engine",
+      "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
+      "module_count": 33
+    },
+    {
+      "id": "gateway",
+      "label": "Gateway",
+      "ownership": "Adapts authenticated remote operator traffic.",
+      "module_count": 4
+    },
+    {
+      "id": "persistence",
+      "label": "Persistence",
+      "ownership": "Owns durable journals, locks, state, and atomic storage.",
+      "module_count": 11
+    },
+    {
+      "id": "providers",
+      "label": "Providers",
+      "ownership": "Owns model routing and provider wire adaptation.",
+      "module_count": 14
+    },
+    {
+      "id": "tools",
+      "label": "Tools",
+      "ownership": "Owns built-in tool contracts and execution adapters.",
+      "module_count": 29
+    },
+    {
+      "id": "guidance",
+      "label": "Guidance and extensions",
+      "ownership": "Owns guidance, hooks, skills, and extension discovery.",
+      "module_count": 9
+    },
+    {
+      "id": "integrations",
+      "label": "Integration surfaces",
+      "ownership": "Owns headless, NNO, sub-agent, and service boundaries.",
+      "module_count": 10
+    },
+    {
+      "id": "foundation",
+      "label": "Product foundation",
+      "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
+      "module_count": 76
+    }
+  ],
+  "entrypoints": [
+    "src/cli.js",
+    "src/elevation-helper.js",
+    "src/forensic-telemetry-worker.js",
+    "src/index.js",
+    "src/update-check-worker.js"
+  ],
+  "external_dependencies": [
+    "node:child_process",
+    "node:crypto",
+    "node:dns/promises",
+    "node:events",
+    "node:fs",
+    "node:fs/promises",
+    "node:http",
+    "node:https",
+    "node:module",
+    "node:net",
+    "node:os",
+    "node:path",
+    "node:readline/promises",
+    "node:sqlite",
+    "node:url",
+    "node:util",
+    "node:worker_threads",
+    "node:zlib"
+  ],
+  "component_edges": [
+    {
+      "from": "experience-engine",
+      "to": "experience-engine",
+      "import_count": 144,
+      "module_count": 47
+    },
+    {
+      "from": "foundation",
+      "to": "foundation",
+      "import_count": 139,
+      "module_count": 67
+    },
+    {
+      "from": "experience-engine",
+      "to": "foundation",
+      "import_count": 74,
+      "module_count": 53
+    },
+    {
+      "from": "tools",
+      "to": "foundation",
+      "import_count": 42,
+      "module_count": 26
+    },
+    {
+      "from": "reliability-engine",
+      "to": "reliability-engine",
+      "import_count": 39,
+      "module_count": 19
+    },
+    {
+      "from": "agentic-engine",
+      "to": "foundation",
+      "import_count": 34,
+      "module_count": 13
+    },
+    {
+      "from": "agentic-engine",
+      "to": "agentic-engine",
+      "import_count": 23,
+      "module_count": 6
+    },
+    {
+      "from": "tools",
+      "to": "tools",
+      "import_count": 22,
+      "module_count": 4
+    },
+    {
+      "from": "integrations",
+      "to": "foundation",
+      "import_count": 16,
+      "module_count": 10
+    },
+    {
+      "from": "providers",
+      "to": "foundation",
+      "import_count": 16,
+      "module_count": 13
+    },
+    {
+      "from": "experience-engine",
+      "to": "providers",
+      "import_count": 13,
+      "module_count": 8
+    },
+    {
+      "from": "agentic-engine",
+      "to": "reliability-engine",
+      "import_count": 12,
+      "module_count": 8
+    },
+    {
+      "from": "foundation",
+      "to": "providers",
+      "import_count": 10,
+      "module_count": 8
+    },
+    {
+      "from": "governance-engine",
+      "to": "foundation",
+      "import_count": 10,
+      "module_count": 10
+    },
+    {
+      "from": "guidance",
+      "to": "foundation",
+      "import_count": 9,
+      "module_count": 8
+    },
+    {
+      "from": "persistence",
+      "to": "foundation",
+      "import_count": 9,
+      "module_count": 9
+    },
+    {
+      "from": "experience-engine",
+      "to": "persistence",
+      "import_count": 8,
+      "module_count": 7
+    },
+    {
+      "from": "foundation",
+      "to": "persistence",
+      "import_count": 8,
+      "module_count": 6
+    },
+    {
+      "from": "integrations",
+      "to": "integrations",
+      "import_count": 8,
+      "module_count": 4
+    },
+    {
+      "from": "agentic-engine",
+      "to": "tools",
+      "import_count": 7,
+      "module_count": 4
+    },
+    {
+      "from": "foundation",
+      "to": "experience-engine",
+      "import_count": 7,
+      "module_count": 5
+    },
+    {
+      "from": "providers",
+      "to": "providers",
+      "import_count": 7,
+      "module_count": 7
+    },
+    {
+      "from": "reliability-engine",
+      "to": "foundation",
+      "import_count": 7,
+      "module_count": 7
+    },
+    {
+      "from": "tools",
+      "to": "reliability-engine",
+      "import_count": 7,
+      "module_count": 5
+    },
+    {
+      "from": "agentic-engine",
+      "to": "providers",
+      "import_count": 6,
+      "module_count": 2
+    },
+    {
+      "from": "gateway",
+      "to": "foundation",
+      "import_count": 6,
+      "module_count": 4
+    },
+    {
+      "from": "agentic-engine",
+      "to": "governance-engine",
+      "import_count": 5,
+      "module_count": 2
+    },
+    {
+      "from": "agentic-engine",
+      "to": "guidance",
+      "import_count": 5,
+      "module_count": 2
+    },
+    {
+      "from": "agentic-engine",
+      "to": "persistence",
+      "import_count": 5,
+      "module_count": 3
+    },
+    {
+      "from": "governance-engine",
+      "to": "persistence",
+      "import_count": 5,
+      "module_count": 4
+    },
+    {
+      "from": "persistence",
+      "to": "persistence",
+      "import_count": 5,
+      "module_count": 2
+    },
+    {
+      "from": "foundation",
+      "to": "governance-engine",
+      "import_count": 4,
+      "module_count": 4
+    },
+    {
+      "from": "foundation",
+      "to": "guidance",
+      "import_count": 4,
+      "module_count": 4
+    },
+    {
+      "from": "gateway",
+      "to": "persistence",
+      "import_count": 4,
+      "module_count": 2
+    },
+    {
+      "from": "integrations",
+      "to": "providers",
+      "import_count": 4,
+      "module_count": 3
+    },
+    {
+      "from": "foundation",
+      "to": "integrations",
+      "import_count": 3,
+      "module_count": 1
+    },
+    {
+      "from": "gateway",
+      "to": "gateway",
+      "import_count": 3,
+      "module_count": 1
+    },
+    {
+      "from": "governance-engine",
+      "to": "governance-engine",
+      "import_count": 3,
+      "module_count": 3
+    },
+    {
+      "from": "providers",
+      "to": "reliability-engine",
+      "import_count": 3,
+      "module_count": 3
+    },
+    {
+      "from": "tools",
+      "to": "guidance",
+      "import_count": 3,
+      "module_count": 1
+    },
+    {
+      "from": "tools",
+      "to": "persistence",
+      "import_count": 3,
+      "module_count": 3
+    },
+    {
+      "from": "experience-engine",
+      "to": "agentic-engine",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
+      "from": "experience-engine",
+      "to": "integrations",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
+      "from": "experience-engine",
+      "to": "tools",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
+      "from": "foundation",
+      "to": "agentic-engine",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
+      "from": "guidance",
+      "to": "guidance",
+      "import_count": 2,
+      "module_count": 1
+    },
+    {
+      "from": "providers",
+      "to": "persistence",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
+      "from": "tools",
+      "to": "governance-engine",
+      "import_count": 2,
+      "module_count": 1
+    },
+    {
+      "from": "agentic-engine",
+      "to": "integrations",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "experience-engine",
+      "to": "gateway",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "experience-engine",
+      "to": "governance-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "experience-engine",
+      "to": "guidance",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "foundation",
+      "to": "gateway",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "foundation",
+      "to": "reliability-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "gateway",
+      "to": "agentic-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "gateway",
+      "to": "integrations",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "gateway",
+      "to": "providers",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "gateway",
+      "to": "reliability-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "governance-engine",
+      "to": "tools",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "guidance",
+      "to": "governance-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "integrations",
+      "to": "agentic-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "integrations",
+      "to": "persistence",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "persistence",
+      "to": "reliability-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "reliability-engine",
+      "to": "providers",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "reliability-engine",
+      "to": "tools",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "tools",
+      "to": "agentic-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "tools",
+      "to": "integrations",
+      "import_count": 1,
+      "module_count": 1
+    }
+  ],
+  "modules": [
+    {
+      "path": "src/active-context-pressure.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/context-pressure.js"
+      ]
+    },
+    {
+      "path": "src/attachments.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/capability-cache.js",
+        "src/ids.js",
+        "src/provider/reasoning.js"
+      ]
+    },
+    {
+      "path": "src/authority.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/capability-cache.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/cli-options.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/cli.js",
+      "component": "foundation",
+      "entrypoint": true,
+      "imports": [
+        "src/cli-options.js",
+        "src/config.js",
+        "src/gateway-cli.js",
+        "src/headless.js",
+        "src/integration-cli.js",
+        "src/mcp-credentials.js",
+        "src/onboarding.js",
+        "src/persistence/session-data.js",
+        "src/plain-text.js",
+        "src/process-fatal-boundary.js",
+        "src/product.js",
+        "src/provider/bootstrap.js",
+        "src/provider/launch-overrides.js",
+        "src/secret-broker-cli.js",
+        "src/skills-cli.js",
+        "src/startup-configuration.js",
+        "src/structured-log.js",
+        "src/tui.js",
+        "src/uninstall-cli.js",
+        "src/update-cli.js",
+        "src/web-browse-cli.js",
+        "src/web-fetch-cli.js",
+        "src/web-search-cli.js"
+      ]
+    },
+    {
+      "path": "src/cold-context.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/cold-context.js"
+      ]
+    },
+    {
+      "path": "src/compaction.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/compaction.js"
+      ]
+    },
+    {
+      "path": "src/completion-supervisor.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/completion-supervisor.js"
+      ]
+    },
+    {
+      "path": "src/config-bounds.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/config-context.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/config-bounds.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/config.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/config-bounds.js",
+        "src/config-context.js",
+        "src/configuration-shape.js",
+        "src/contracts.js",
+        "src/dream-config.js",
+        "src/execution-policy.js",
+        "src/experience/key-bindings.js",
+        "src/ids.js",
+        "src/persistence/manifest-migration.js",
+        "src/provider/reasoning.js",
+        "src/skill-registry.js"
+      ]
+    },
+    {
+      "path": "src/configuration-shape.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/configuration-sources.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/ids.js",
+        "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/context-budget.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/context-budget.js"
+      ]
+    },
+    {
+      "path": "src/context.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/reliability/command-shaping.js",
+        "src/reliability/host-environment.js"
+      ]
+    },
+    {
+      "path": "src/continuation-artifact.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/continuation-artifact.js"
+      ]
+    },
+    {
+      "path": "src/continuation-compactor.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/continuation-compactor.js"
+      ]
+    },
+    {
+      "path": "src/contracts.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/failure-envelope.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/conversation-work-tools.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/conversation-work.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/data-permissions.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/diagnostic-bundle.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/product.js",
+        "src/zip-archive.js"
+      ]
+    },
+    {
+      "path": "src/dream-config.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/config-bounds.js"
+      ]
+    },
+    {
+      "path": "src/dream-coordinator.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/dream-diagnosis.js",
+        "src/dream-evidence-settlement.js",
+        "src/dream-governance-admission.js",
+        "src/dream-store.js",
+        "src/governance/contracts.js",
+        "src/idle-arbiter.js",
+        "src/learning-candidates.js",
+        "src/nnm-governance-receipts.js",
+        "src/nnm-hygiene-receipts.js",
+        "src/product.js",
+        "src/project-memory-reconciler.js",
+        "src/skill-opportunity.js"
+      ]
+    },
+    {
+      "path": "src/dream-diagnosis.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/dream-evidence-settlement.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/dream-governance-admission.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/governance/contracts.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/dream-store.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/elevation-broker.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/elevation-helper.js",
+      "component": "foundation",
+      "entrypoint": true,
+      "imports": []
+    },
+    {
+      "path": "src/elevation-tool.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/reliability/executable-name.js"
+      ]
+    },
+    {
+      "path": "src/engine.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/authority.js",
+        "src/context.js",
+        "src/engine/active.js",
+        "src/engine/components.js",
+        "src/engine/context-controls.js",
+        "src/engine/context-preparation.js",
+        "src/engine/finalization.js",
+        "src/engine/hooks.js",
+        "src/engine/initialize.js",
+        "src/engine/lifecycle-settlement.js",
+        "src/engine/output.js",
+        "src/engine/persistence.js",
+        "src/engine/provider-recovery.js",
+        "src/engine/records.js",
+        "src/engine/runtime-helpers.js",
+        "src/event-factory.js",
+        "src/events.js",
+        "src/forensic-telemetry.js",
+        "src/health.js",
+        "src/ids.js",
+        "src/lifecycle.js",
+        "src/persistence/session-history.js",
+        "src/persistence/session-lock.js",
+        "src/product.js",
+        "src/runtime-config.js",
+        "src/shutdown-boundary.js",
+        "src/store.js",
+        "src/subagent-runtime.js",
+        "src/tools/active-constraints.js",
+        "src/tools/loop.js",
+        "src/turn-cancellation.js"
+      ]
+    },
+    {
+      "path": "src/engine/active.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/recovery-supervisor.js",
+        "src/reliability/tool-call-assembler.js"
+      ]
+    },
+    {
+      "path": "src/engine/components.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/attachments.js",
+        "src/conversation-work.js",
+        "src/elevation-broker.js",
+        "src/extensions.js",
+        "src/governance-engine.js",
+        "src/governance/grounding-policy.js",
+        "src/guidance/project.js",
+        "src/hook-runtime.js",
+        "src/mcp-manager.js",
+        "src/memory.js",
+        "src/notifications/telegram.js",
+        "src/permission-broker.js",
+        "src/persistence/reviewer-ledger.js",
+        "src/product.js",
+        "src/project-intake.js",
+        "src/provider/fair-scheduler.js",
+        "src/provider/model-reviewer.js",
+        "src/provider/model-runtime.js",
+        "src/provider/router.js",
+        "src/provider/runner.js",
+        "src/reliability-engine.js",
+        "src/reviewer.js",
+        "src/skill-registry.js",
+        "src/tool-registry.js",
+        "src/tools/governor.js",
+        "src/tools/loop.js"
+      ]
+    },
+    {
+      "path": "src/engine/context-controls.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/task-checkpoint.js"
+      ]
+    },
+    {
+      "path": "src/engine/context-preparation.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/context.js",
+        "src/engine/context-status.js",
+        "src/engine/hooks.js",
+        "src/engine/runtime-helpers.js",
+        "src/ids.js",
+        "src/task-checkpoint.js"
+      ]
+    },
+    {
+      "path": "src/engine/context-status.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/context.js",
+        "src/ids.js",
+        "src/project-intake.js",
+        "src/reliability/cold-context.js",
+        "src/reliability/context-budget.js"
+      ]
+    },
+    {
+      "path": "src/engine/finalization.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/engine/hooks.js",
+        "src/engine/lifecycle-settlement.js",
+        "src/engine/output.js",
+        "src/engine/records.js",
+        "src/finalization-faults.js"
+      ]
+    },
+    {
+      "path": "src/engine/hooks.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/hook-runtime.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/engine/initialize.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/engine/hooks.js",
+        "src/ids.js",
+        "src/persistence/session-provenance.js"
+      ]
+    },
+    {
+      "path": "src/engine/lifecycle-settlement.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/engine/context-status.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/engine/output.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/engine/persistence.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/engine/provider-recovery.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/engine/lifecycle-settlement.js",
+        "src/reliability/provider-recovery.js"
+      ]
+    },
+    {
+      "path": "src/engine/records.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/failure-envelope.js",
+        "src/ids.js",
+        "src/redaction.js",
+        "src/reliability/completion-supervisor.js",
+        "src/tools/presentation.js"
+      ]
+    },
+    {
+      "path": "src/engine/runtime-helpers.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/context.js",
+        "src/ids.js",
+        "src/provider/reasoning.js",
+        "src/reliability/tool-call-assembler.js",
+        "src/tools/catalog-context.js"
+      ]
+    },
+    {
+      "path": "src/environment-settings.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/event-factory.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/events.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/execution-policy.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience-engine.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/engine.js",
+        "src/experience/configuration-publication.js",
+        "src/experience/console-authority.js",
+        "src/experience/directory.js",
+        "src/experience/dream.js",
+        "src/experience/key-bindings.js",
+        "src/experience/mcp.js",
+        "src/experience/models.js",
+        "src/experience/presentation.js",
+        "src/experience/projection.js",
+        "src/experience/provider-catalog.js",
+        "src/experience/provider-discovery.js",
+        "src/experience/provider-routing.js",
+        "src/experience/restore.js",
+        "src/experience/resume.js",
+        "src/experience/session-broker.js",
+        "src/experience/tab-persistence.js",
+        "src/experience/transcript.js",
+        "src/experience/websearch.js",
+        "src/gateway-cli.js",
+        "src/ids.js",
+        "src/ingress.js",
+        "src/mcp-credentials.js",
+        "src/product.js",
+        "src/provider/capabilities.js",
+        "src/provider/fair-scheduler.js",
+        "src/provider/route-configuration.js",
+        "src/review-posture.js",
+        "src/searxng-client.js",
+        "src/searxng-deployment.js",
+        "src/secret-broker.js",
+        "src/web-fetch-cli.js"
+      ]
+    },
+    {
+      "path": "src/experience/attachments.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/clipboard-broker.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/configuration-publication.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/provider/route-configuration.js",
+        "src/runtime-config.js"
+      ]
+    },
+    {
+      "path": "src/experience/console-authority.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/persistence/session-lock.js"
+      ]
+    },
+    {
+      "path": "src/experience/context.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/transcript.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/directory.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/startup-configuration.js"
+      ]
+    },
+    {
+      "path": "src/experience/dream.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/dream-coordinator.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/history.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/transcript.js",
+        "src/persistence/session-history.js",
+        "src/store.js"
+      ]
+    },
+    {
+      "path": "src/experience/key-bindings.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/mcp.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/mcp-manager.js",
+        "src/tool-registry.js"
+      ]
+    },
+    {
+      "path": "src/experience/models.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/provider/capabilities.js",
+        "src/provider/model-qualification.js",
+        "src/provider/router.js"
+      ]
+    },
+    {
+      "path": "src/experience/native-clipboard.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/clipboard-broker.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/presentation.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/experience/projection.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/key-bindings.js",
+        "src/experience/tool-lifecycle.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/provider-catalog.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/ids.js",
+        "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/experience/provider-discovery.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/provider/capabilities.js",
+        "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/experience/provider-routing.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/configuration-publication.js",
+        "src/experience/provider-catalog.js",
+        "src/ids.js",
+        "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/experience/restore.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/experience/tab-pool.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/resume.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/product.js",
+        "src/store.js"
+      ]
+    },
+    {
+      "path": "src/experience/session-broker.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/context.js",
+        "src/ids.js",
+        "src/product.js",
+        "src/session-broker.js"
+      ]
+    },
+    {
+      "path": "src/experience/tab-persistence.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/tab-pool.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/tab-pool.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/session-lock.js"
+      ]
+    },
+    {
+      "path": "src/experience/tool-lifecycle.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/experience/transcript.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/trust.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/session-lock.js"
+      ]
+    },
+    {
+      "path": "src/experience/websearch.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/web-search-config.js"
+      ]
+    },
+    {
+      "path": "src/extensions.js",
+      "component": "guidance",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/failure-envelope.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/finalization-faults.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/failure-envelope.js"
+      ]
+    },
+    {
+      "path": "src/forensic-telemetry-sanitize.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/redaction.js"
+      ]
+    },
+    {
+      "path": "src/forensic-telemetry-worker.js",
+      "component": "foundation",
+      "entrypoint": true,
+      "imports": []
+    },
+    {
+      "path": "src/forensic-telemetry.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/forensic-telemetry-sanitize.js",
+        "src/ids.js",
+        "src/product.js"
+      ]
+    },
+    {
+      "path": "src/gateway-cli.js",
+      "component": "gateway",
+      "entrypoint": false,
+      "imports": [
+        "src/gateway/config.js",
+        "src/gateway/telegram-api.js",
+        "src/gateway/telegram.js",
+        "src/persistence/atomic-json.js",
+        "src/persistence/session-lock.js",
+        "src/reliability/process-identity.js",
+        "src/startup-configuration.js"
+      ]
+    },
+    {
+      "path": "src/gateway/config.js",
+      "component": "gateway",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/gateway/telegram-api.js",
+      "component": "gateway",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/gateway/telegram.js",
+      "component": "gateway",
+      "entrypoint": false,
+      "imports": [
+        "src/engine.js",
+        "src/ids.js",
+        "src/ingress.js",
+        "src/notifications/telegram.js",
+        "src/persistence/atomic-json.js",
+        "src/provider/fair-scheduler.js",
+        "src/session-broker.js",
+        "src/structured-log.js"
+      ]
+    },
+    {
+      "path": "src/governance-engine.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/governance/contracts.js",
+        "src/ids.js",
+        "src/persistence/retention.js",
+        "src/store.js"
+      ]
+    },
+    {
+      "path": "src/governance/contracts.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/governance/grounding-policy.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/governance/contracts.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/guidance/catalog.js",
+      "component": "guidance",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/guidance/project.js",
+      "component": "guidance",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/guidance/tools.js",
+      "component": "guidance",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/headless.js",
+      "component": "integrations",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/contracts.js",
+        "src/engine.js",
+        "src/ids.js",
+        "src/ingress.js",
+        "src/product.js",
+        "src/provider/launch-overrides.js",
+        "src/provider/route-configuration.js",
+        "src/structured-log.js"
+      ]
+    },
+    {
+      "path": "src/health.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/data-permissions.js",
+        "src/network-destinations.js",
+        "src/product.js",
+        "src/provider/capabilities.js"
+      ]
+    },
+    {
+      "path": "src/hook-manifest.js",
+      "component": "guidance",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/hook-runner.js",
+      "component": "guidance",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/product.js"
+      ]
+    },
+    {
+      "path": "src/hook-runtime.js",
+      "component": "guidance",
+      "entrypoint": false,
+      "imports": [
+        "src/hook-manifest.js",
+        "src/hook-runner.js",
+        "src/redaction.js"
+      ]
+    },
+    {
+      "path": "src/idle-arbiter.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/ids.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/index.js",
+      "component": "foundation",
+      "entrypoint": true,
+      "imports": [
+        "src/attachments.js",
+        "src/config.js",
+        "src/configuration-sources.js",
+        "src/diagnostic-bundle.js",
+        "src/engine.js",
+        "src/events.js",
+        "src/experience-engine.js",
+        "src/experience/projection.js",
+        "src/extensions.js",
+        "src/ingress.js",
+        "src/lifecycle.js",
+        "src/mcp-manager.js",
+        "src/memory.js",
+        "src/persistence/session-data.js",
+        "src/provider.js",
+        "src/provider/fair-scheduler.js",
+        "src/reliability-engine.js",
+        "src/structured-log.js"
+      ]
+    },
+    {
+      "path": "src/ingress.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/contracts.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/integration-cli.js",
+      "component": "integrations",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-server.js",
+        "src/nno-integration-activation.js",
+        "src/provider/profile-store.js",
+        "src/secret-broker.js"
+      ]
+    },
+    {
+      "path": "src/integration-principal.js",
+      "component": "integrations",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/integration-server.js",
+      "component": "integrations",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/nno-integration-activation.js",
+        "src/provider/bootstrap.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/learning-candidates.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/governance/contracts.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/lifecycle.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/long-horizon-context.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/long-horizon-context.js"
+      ]
+    },
+    {
+      "path": "src/mcp-control-tools.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/mcp-credentials.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/session-lock.js"
+      ]
+    },
+    {
+      "path": "src/mcp-manager.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/mcp-transport.js",
+        "src/product.js"
+      ]
+    },
+    {
+      "path": "src/mcp-transport.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/product.js"
+      ]
+    },
+    {
+      "path": "src/memory.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/network-destinations.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/web-fetch-config.js",
+        "src/web-search-config.js"
+      ]
+    },
+    {
+      "path": "src/nnm-governance-receipts.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/product.js"
+      ]
+    },
+    {
+      "path": "src/nnm-hygiene-receipts.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/product.js"
+      ]
+    },
+    {
+      "path": "src/nno-integration-activation.js",
+      "component": "integrations",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/notifications/telegram.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/onboarding.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/ids.js",
+        "src/persistence/atomic-json.js",
+        "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/path-policy.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/permission-broker.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/reviewer-ledger.js",
+        "src/preauthorization.js",
+        "src/tools/presentation.js"
+      ]
+    },
+    {
+      "path": "src/persistence/atomic-json.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/persistence/file-change-ledger.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/persistence/manifest-migration.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/persistence/retention.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/persistence/reviewer-ledger.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/retention.js",
+        "src/store.js"
+      ]
+    },
+    {
+      "path": "src/persistence/session-data.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/session-lock.js",
+        "src/store.js",
+        "src/structured-log.js"
+      ]
+    },
+    {
+      "path": "src/persistence/session-history.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/persistence/session-lock.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/reliability/process-identity.js"
+      ]
+    },
+    {
+      "path": "src/persistence/session-provenance.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/pinned-http.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/plain-text.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/engine.js",
+        "src/ids.js",
+        "src/ingress.js",
+        "src/structured-log.js"
+      ]
+    },
+    {
+      "path": "src/playwright-runtime.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/preauthorization.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/reviewer-ledger.js"
+      ]
+    },
+    {
+      "path": "src/process-fatal-boundary.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/product.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/project-intake.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/project-memory-reconciler.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/provider.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/provider/reasoning.js",
+        "src/reliability/retry-after.js"
+      ]
+    },
+    {
+      "path": "src/provider/bootstrap.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/ids.js",
+        "src/persistence/atomic-json.js",
+        "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/provider/capabilities.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/provider/fair-scheduler.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/provider/launch-overrides.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/provider/model-dialects.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/model-dialects.js"
+      ]
+    },
+    {
+      "path": "src/provider/model-qualification.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/reliability/tool-call-assembler.js"
+      ]
+    },
+    {
+      "path": "src/provider/model-reviewer.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/provider/reasoning.js"
+      ]
+    },
+    {
+      "path": "src/provider/model-runtime.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/provider/profile-store.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/ids.js",
+        "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/provider/reasoning.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/provider/route-configuration.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/config.js",
+        "src/ids.js",
+        "src/persistence/atomic-json.js"
+      ]
+    },
+    {
+      "path": "src/provider/router.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/provider.js"
+      ]
+    },
+    {
+      "path": "src/provider/runner.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/provider/fair-scheduler.js"
+      ]
+    },
+    {
+      "path": "src/recovery.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/recovery-supervisor.js"
+      ]
+    },
+    {
+      "path": "src/redaction.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/reliability-engine.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/cold-context.js",
+        "src/reliability/command-shaping.js",
+        "src/reliability/compaction.js",
+        "src/reliability/completion-supervisor.js",
+        "src/reliability/context-budget.js",
+        "src/reliability/context-compression.js",
+        "src/reliability/context-pressure.js",
+        "src/reliability/continuation-compactor.js",
+        "src/reliability/host-environment.js",
+        "src/reliability/interrupted-tools.js",
+        "src/reliability/long-horizon-context.js",
+        "src/reliability/model-dialects.js",
+        "src/reliability/process-identity.js",
+        "src/reliability/provider-recovery.js",
+        "src/reliability/recovery-supervisor.js",
+        "src/reliability/request-invariant.js",
+        "src/reliability/tool-call-assembler.js",
+        "src/reliability/tool-progress.js"
+      ]
+    },
+    {
+      "path": "src/reliability/cold-context.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/redaction.js"
+      ]
+    },
+    {
+      "path": "src/reliability/command-shaping.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/executable-name.js"
+      ]
+    },
+    {
+      "path": "src/reliability/compaction.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/continuation-artifact.js",
+        "src/reliability/duplicate-results.js",
+        "src/reliability/long-horizon-context.js",
+        "src/tools/context-receipt.js"
+      ]
+    },
+    {
+      "path": "src/reliability/completion-supervisor.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/reliability/context-budget.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/context.js"
+      ]
+    },
+    {
+      "path": "src/reliability/context-compression.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/context-budget.js"
+      ]
+    },
+    {
+      "path": "src/reliability/context-pressure.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/duplicate-results.js"
+      ]
+    },
+    {
+      "path": "src/reliability/continuation-artifact.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/reliability/continuation-compactor.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/provider/reasoning.js",
+        "src/reliability/compaction.js"
+      ]
+    },
+    {
+      "path": "src/reliability/duplicate-results.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/context-compression.js"
+      ]
+    },
+    {
+      "path": "src/reliability/executable-name.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/reliability/host-environment.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/reliability/interrupted-tools.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/reliability/long-horizon-context.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/reliability/model-dialects.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/reliability/process-identity.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/reliability/provider-recovery.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/reliability/recovery-supervisor.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/retry-after.js"
+      ]
+    },
+    {
+      "path": "src/reliability/request-invariant.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/reliability/retry-after.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/reliability/tool-call-assembler.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/reliability/tool-progress.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/review-evidence.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/redaction.js"
+      ]
+    },
+    {
+      "path": "src/review-posture.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/reviewer.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/reviewer-ledger.js"
+      ]
+    },
+    {
+      "path": "src/runtime-config.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/attachments.js",
+        "src/config.js",
+        "src/ids.js",
+        "src/provider/router.js"
+      ]
+    },
+    {
+      "path": "src/searxng-client.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/product.js",
+        "src/web-search-config.js"
+      ]
+    },
+    {
+      "path": "src/searxng-deployment.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/searxng-client.js"
+      ]
+    },
+    {
+      "path": "src/secret-broker-cli.js",
+      "component": "integrations",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/secret-broker-server.js",
+      "component": "integrations",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/nno-integration-activation.js",
+        "src/secret-broker.js"
+      ]
+    },
+    {
+      "path": "src/secret-broker.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/redaction.js",
+        "src/secret-contracts.js",
+        "src/secret-vault.js"
+      ]
+    },
+    {
+      "path": "src/secret-contracts.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/secret-vault.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/session-lock.js"
+      ]
+    },
+    {
+      "path": "src/session-broker.js",
+      "component": "integrations",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/session-history-tools.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/redaction.js"
+      ]
+    },
+    {
+      "path": "src/shutdown-boundary.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/engine/hooks.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/skill-opportunity.js",
+      "component": "guidance",
+      "entrypoint": false,
+      "imports": [
+        "src/governance/contracts.js",
+        "src/learning-candidates.js"
+      ]
+    },
+    {
+      "path": "src/skill-registry.js",
+      "component": "guidance",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/skills-cli.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/trust.js",
+        "src/ids.js",
+        "src/skill-registry.js",
+        "src/startup-configuration.js"
+      ]
+    },
+    {
+      "path": "src/stale-edit-recovery.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/startup-configuration.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/configuration-sources.js",
+        "src/experience/trust.js",
+        "src/ids.js",
+        "src/onboarding.js"
+      ]
+    },
+    {
+      "path": "src/store.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/structured-log.js",
+      "component": "persistence",
+      "entrypoint": false,
+      "imports": [
+        "src/product.js"
+      ]
+    },
+    {
+      "path": "src/subagent-progress.js",
+      "component": "integrations",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/subagent-runtime.js",
+      "component": "integrations",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/subagent-progress.js"
+      ]
+    },
+    {
+      "path": "src/subagent-tool.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/subagent-runtime.js"
+      ]
+    },
+    {
+      "path": "src/task-checkpoint.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/redaction.js"
+      ]
+    },
+    {
+      "path": "src/tool-registry.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/conversation-work-tools.js",
+        "src/elevation-tool.js",
+        "src/guidance/catalog.js",
+        "src/guidance/tools.js",
+        "src/ids.js",
+        "src/mcp-control-tools.js",
+        "src/notifications/telegram.js",
+        "src/path-policy.js",
+        "src/persistence/file-change-ledger.js",
+        "src/product.js",
+        "src/skill-registry.js",
+        "src/stale-edit-recovery.js",
+        "src/subagent-tool.js",
+        "src/tools/core-names.js",
+        "src/tools/filesystem-discovery.js",
+        "src/tools/filesystem-read.js",
+        "src/tools/git-inspection.js",
+        "src/tools/lsp-diagnostics.js",
+        "src/tools/process.js",
+        "src/tools/project-verification.js",
+        "src/tools/reference-store.js",
+        "src/tools/schema.js",
+        "src/tools/search.js",
+        "src/tools/self-diagnostics.js",
+        "src/web-browse-tool.js",
+        "src/web-fetch-tool.js",
+        "src/web-search-tool.js"
+      ]
+    },
+    {
+      "path": "src/tools/active-constraints.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/redaction.js",
+        "src/reliability/command-shaping.js"
+      ]
+    },
+    {
+      "path": "src/tools/calls.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/tool-call-assembler.js"
+      ]
+    },
+    {
+      "path": "src/tools/catalog-context.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tools/context-receipt.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/redaction.js"
+      ]
+    },
+    {
+      "path": "src/tools/core-names.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tools/filesystem-discovery.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tools/filesystem-extra.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tools/filesystem-read.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tools/git-inspection.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tools/governor.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/reviewer-ledger.js"
+      ]
+    },
+    {
+      "path": "src/tools/loop.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/authority.js",
+        "src/engine/records.js",
+        "src/ids.js",
+        "src/lifecycle.js",
+        "src/reliability/tool-progress.js",
+        "src/review-evidence.js",
+        "src/tools/governor.js",
+        "src/tools/result-cache.js",
+        "src/turn-cancellation.js",
+        "src/web-url-provenance.js"
+      ]
+    },
+    {
+      "path": "src/tools/lsp-diagnostics.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tools/presentation.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/redaction.js"
+      ]
+    },
+    {
+      "path": "src/tools/process.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/reliability/command-shaping.js",
+        "src/reliability/executable-name.js",
+        "src/reliability/host-environment.js"
+      ]
+    },
+    {
+      "path": "src/tools/project-verification.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/tools/process.js"
+      ]
+    },
+    {
+      "path": "src/tools/reference-store.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/web-url-provenance.js"
+      ]
+    },
+    {
+      "path": "src/tools/result-cache.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tools/schema.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tools/search.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tools/self-diagnostics.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/store.js"
+      ]
+    },
+    {
+      "path": "src/tui.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/context.js",
+        "src/experience/projection.js",
+        "src/ids.js",
+        "src/tui/attachment-command.js",
+        "src/tui/clipboard-actions.js",
+        "src/tui/command-picker.js",
+        "src/tui/command-support.js",
+        "src/tui/commands.js",
+        "src/tui/context.js",
+        "src/tui/copy-command.js",
+        "src/tui/destructive-key-guard.js",
+        "src/tui/dream.js",
+        "src/tui/editor-actions.js",
+        "src/tui/gateway-command.js",
+        "src/tui/health.js",
+        "src/tui/mcp-command.js",
+        "src/tui/mcp-setup.js",
+        "src/tui/memory-command.js",
+        "src/tui/mouse.js",
+        "src/tui/overlays.js",
+        "src/tui/permission-command.js",
+        "src/tui/provider-command.js",
+        "src/tui/provider-setup.js",
+        "src/tui/render-loop.js",
+        "src/tui/renderer.js",
+        "src/tui/runtime-inspection.js",
+        "src/tui/runtime-workspace.js",
+        "src/tui/secret-command.js",
+        "src/tui/secret-setup.js",
+        "src/tui/support-command.js",
+        "src/tui/telemetry.js",
+        "src/tui/terminal-adapter.js",
+        "src/tui/terminal-screen.js",
+        "src/tui/trust-command.js",
+        "src/tui/webfetch-command.js",
+        "src/tui/work-command.js"
+      ]
+    },
+    {
+      "path": "src/tui/activity-renderer.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/tool-lifecycle.js",
+        "src/tui/terminal-markdown.js",
+        "src/tui/theme.js"
+      ]
+    },
+    {
+      "path": "src/tui/attachment-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/attachments.js",
+        "src/ids.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/clipboard-actions.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/attachments.js",
+        "src/ids.js",
+        "src/tui/selection.js",
+        "src/tui/telemetry.js"
+      ]
+    },
+    {
+      "path": "src/tui/colors.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/terminal-markdown.js",
+        "src/tui/theme.js"
+      ]
+    },
+    {
+      "path": "src/tui/command-picker.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/commands.js"
+      ]
+    },
+    {
+      "path": "src/tui/command-support.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tui/commands.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tui/context-renderer.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tui/context.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tui/conversation-spacing.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tui/copy-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tui/decoration.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/activity-renderer.js",
+        "src/tui/colors.js",
+        "src/tui/live-activity.js",
+        "src/tui/permission-renderer.js",
+        "src/tui/terminal-markdown.js",
+        "src/tui/theme.js"
+      ]
+    },
+    {
+      "path": "src/tui/destructive-key-guard.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tui/dream.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/editor-actions.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tui/fatal-cleanup.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tui/files-view.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/tool-lifecycle.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/gateway-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/health.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/tool-lifecycle.js"
+      ]
+    },
+    {
+      "path": "src/tui/key-bindings.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/key-bindings.js"
+      ]
+    },
+    {
+      "path": "src/tui/live-activity.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/colors.js",
+        "src/tui/status-line.js"
+      ]
+    },
+    {
+      "path": "src/tui/mcp-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/mcp-setup.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/projection.js",
+        "src/hook-runner.js",
+        "src/ids.js",
+        "src/mcp-credentials.js",
+        "src/tui/editor-actions.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/memory-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/mouse.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/history.js",
+        "src/tui/overlays.js",
+        "src/tui/selection.js"
+      ]
+    },
+    {
+      "path": "src/tui/overlays.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/context.js"
+      ]
+    },
+    {
+      "path": "src/tui/permission-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/permission-renderer.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/terminal-markdown.js",
+        "src/tui/theme.js"
+      ]
+    },
+    {
+      "path": "src/tui/provider-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/provider-route-settings.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/projection.js",
+        "src/ids.js",
+        "src/provider/reasoning.js",
+        "src/tui/editor-actions.js"
+      ]
+    },
+    {
+      "path": "src/tui/provider-setup.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/projection.js",
+        "src/ids.js",
+        "src/tui/editor-actions.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/render-loop.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tui/renderer.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/tool-lifecycle.js",
+        "src/product.js",
+        "src/tui/activity-renderer.js",
+        "src/tui/command-picker.js",
+        "src/tui/commands.js",
+        "src/tui/context-renderer.js",
+        "src/tui/conversation-spacing.js",
+        "src/tui/decoration.js",
+        "src/tui/live-activity.js",
+        "src/tui/permission-renderer.js",
+        "src/tui/selection.js",
+        "src/tui/status-line.js",
+        "src/tui/terminal-adapter.js",
+        "src/tui/terminal-markdown.js",
+        "src/tui/work-summary.js"
+      ]
+    },
+    {
+      "path": "src/tui/runtime-inspection.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/subagent-runtime.js",
+        "src/tools/self-diagnostics.js",
+        "src/tui/files-view.js",
+        "src/tui/overlays.js",
+        "src/tui/session-stats.js"
+      ]
+    },
+    {
+      "path": "src/tui/runtime-workspace.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience-engine.js",
+        "src/experience/native-clipboard.js",
+        "src/ids.js",
+        "src/structured-log.js",
+        "src/tui/terminal-clipboard.js",
+        "src/tui/update-check.js"
+      ]
+    },
+    {
+      "path": "src/tui/secret-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/secret-setup.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/projection.js",
+        "src/secret-contracts.js",
+        "src/tui/editor-actions.js",
+        "src/tui/secret-command.js"
+      ]
+    },
+    {
+      "path": "src/tui/selection.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/terminal-markdown.js"
+      ]
+    },
+    {
+      "path": "src/tui/session-stats.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/tool-lifecycle.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/status-line.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/terminal-adapter.js",
+        "src/tui/terminal-markdown.js"
+      ]
+    },
+    {
+      "path": "src/tui/support-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/diagnostic-bundle.js",
+        "src/ids.js",
+        "src/tui/overlays.js",
+        "src/tui/session-stats.js"
+      ]
+    },
+    {
+      "path": "src/tui/telemetry.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tui/terminal-adapter.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/environment-settings.js",
+        "src/ids.js",
+        "src/tui/key-bindings.js"
+      ]
+    },
+    {
+      "path": "src/tui/terminal-clipboard.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tui/terminal-markdown.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/terminal-adapter.js"
+      ]
+    },
+    {
+      "path": "src/tui/terminal-screen.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tui/theme.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tui/trust-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/trust.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tui/update-check.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/product.js",
+        "src/update-service.js"
+      ]
+    },
+    {
+      "path": "src/tui/verification-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tui/webfetch-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/work-command.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/tui/overlays.js"
+      ]
+    },
+    {
+      "path": "src/tui/work-summary.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/terminal-markdown.js"
+      ]
+    },
+    {
+      "path": "src/turn-cancellation.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/uninstall-cli.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/update-check-worker.js",
+      "component": "foundation",
+      "entrypoint": true,
+      "imports": [
+        "src/product.js",
+        "src/update-service.js"
+      ]
+    },
+    {
+      "path": "src/update-cli.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/product.js",
+        "src/update-service.js"
+      ]
+    },
+    {
+      "path": "src/update-service.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/product.js"
+      ]
+    },
+    {
+      "path": "src/web-browse-cli.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/playwright-runtime.js"
+      ]
+    },
+    {
+      "path": "src/web-browse-tool.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/playwright-runtime.js",
+        "src/web-fetch-tool.js"
+      ]
+    },
+    {
+      "path": "src/web-fetch-cli.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/web-fetch-config.js"
+      ]
+    },
+    {
+      "path": "src/web-fetch-config.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/web-fetch-tool.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/pinned-http.js",
+        "src/product.js",
+        "src/web-fetch-config.js"
+      ]
+    },
+    {
+      "path": "src/web-search-cli.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/searxng-client.js",
+        "src/searxng-deployment.js",
+        "src/web-search-config.js"
+      ]
+    },
+    {
+      "path": "src/web-search-config.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/web-search-tool.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/searxng-client.js",
+        "src/web-search-config.js"
+      ]
+    },
+    {
+      "path": "src/web-url-provenance.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/zip-archive.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    }
+  ]
+}

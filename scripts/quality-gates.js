@@ -37,6 +37,9 @@ if (Object.keys(packageJson.dependencies ?? {}).length > 0) {
   errors.push('runtime dependencies exist without an updated dependency review');
 }
 
+const graphCheck = spawnSync(process.execPath, [join(root, 'scripts', 'repository-graph.js'), '--check'], { encoding: 'utf8' });
+if (graphCheck.status !== 0) errors.push(graphCheck.stderr.trim() || 'repository graph check failed');
+
 if (errors.length > 0) {
   process.stderr.write(`${errors.join('\n')}\n`);
   process.exitCode = 1;

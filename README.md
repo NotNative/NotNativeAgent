@@ -148,6 +148,7 @@ they are not additional license conditions.
 See the [runtime architecture](docs/architecture/0001-runtime.md),
 [recovery architecture](docs/architecture/0003-recovery.md),
 [Reliability Engine architecture](docs/architecture/0013-reliability-engine.md),
+[generated repository graph](docs/architecture/repository-graph.md),
 [attachments, memory, and MCP architecture](docs/architecture/0004-attachments-memory-mcp.md),
 [operator-product architecture](docs/architecture/0005-operator-product.md), and
 [durable conversation work](docs/architecture/0008-conversation-work.md).
