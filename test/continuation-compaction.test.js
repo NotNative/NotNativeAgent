@@ -336,9 +336,11 @@ test('semantic compaction reuses an evidenced provider prefix and preserves net 
   };
   const requests = [];
   const telemetry = [];
+  const receipts = [];
   const compactor = new ContinuationCompactor({
     scheduler: new FairScheduler(), timeoutMs: 1000,
     telemetry: { record: (...args) => telemetry.push(args) },
+    recordTokenReceipt: async (receipt) => receipts.push(receipt),
   });
   const provider = {
     runtimeSnapshot: async () => ({}),
@@ -347,6 +349,7 @@ test('semantic compaction reuses an evidenced provider prefix and preserves net 
       yield { type: 'text', text: JSON.stringify({
         completed_work: ['Implemented cache alignment'], open_questions: [], next_actions: ['Verify'],
       }) };
+      yield { type: 'usage', usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 } };
       yield { type: 'terminal' };
     },
   };
@@ -358,6 +361,9 @@ test('semantic compaction reuses an evidenced provider prefix and preserves net 
   assert.deepEqual(requests[0].tools, prefix.tools);
   assert.ok(enriched.projection.projectedBytes < enriched.projection.originalBytes);
   assert.equal(telemetry.find((item) => item[0] === 'context.semantic_compaction')[2].request_mode, 'cache_aligned');
+  assert.equal(receipts.length, 1);
+  assert.equal(receipts[0].role, 'semantic_compaction');
+  assert.equal(receipts[0].usage.total_tokens, 120);
 });
 
 test('semantic compaction keeps the standalone request without cache evidence or after overflow', async () => {

@@ -33,7 +33,7 @@ export function installEngineComponents(engine, options, storeRoot, hooks) {
     limit: engine.config.limits.providerConcurrency, maxQueued: engine.config.limits.providerQueueLimit,
   });
   installOutput(engine, options);
-  installReliability(engine, options);
+  installReliability(engine, options, hooks);
   installExtensions(engine, options);
   installGovernance(engine, options, storeRoot);
   installCapabilities(engine, options, storeRoot, hooks);
@@ -53,7 +53,8 @@ function installRouting(engine, options) {
   engine.modelRuntime = options.modelRuntime ?? new ModelRuntimeRegistry({ telemetry: engine.telemetry });
 }
 
-function installReliability(engine, options) {
+function installReliability(engine, options, hooks) {
+  const recorder = (facts) => recordAuxiliaryProviderReceipt(engine, hooks, facts);
   engine.reliability = options.reliability ?? new ReliabilityEngine({
     modelDialects: options.modelDialects,
     modelDialectPath: options.modelDialectPath ?? (process.env.NODE_TEST_CONTEXT ? null : userDataPaths().modelDialects),
@@ -63,7 +64,10 @@ function installReliability(engine, options) {
     contextTokenCounter: options.contextTokenCounter,
     contextTokenizerIdentity: options.contextTokenizerIdentity,
     contextTokenizerExact: options.contextTokenizerExact,
+    tokenReceiptRecorder: recorder,
   });
+  engine.reliability.continuationCompactor?.setTokenReceiptRecorder?.(recorder);
+  engine.recordProviderAttempt = recorder;
   // Transitional aliases preserve extension and test contracts while canonical ownership moves.
   engine.dialects = engine.reliability.modelDialects;
   engine.continuationCompactor = engine.reliability.continuationCompactor;
@@ -139,12 +143,12 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     activeTurnId: () => engine.active?.turnId ?? null,
     sessionHistory: historyToolOptions(engine),
   });
-  engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter,
-    { grounding: engine.grounding });
+  engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter, { grounding: engine.grounding });
   engine.attachments = new AttachmentManager({
     config: engine.config.attachments ?? { enabled: false },
     root: options.attachmentRoot ?? `${storeRoot}/attachments/${engine.sessionId}`,
-    router: new AttachmentObservationRouter(engine.router), persist: hooks.persist,
+    router: new AttachmentObservationRouter(engine.router, undefined, { recordTokenReceipt: engine.recordProviderAttempt }),
+    persist: hooks.persist,
     status: (item) => engine.output({
       version: '1.0', type: 'attachment_status', session_id: engine.sessionId,
       turn_id: engine.active?.turnId ?? null, attachment_id: item.id, state: item.state,
@@ -208,6 +212,7 @@ function installReview(engine, options) {
     semanticReviewer: options.semanticReviewer ?? new RoutedSemanticReviewer(engine.router, {
       scheduler: engine.scheduler, telemetry: engine.telemetry, modelRuntime: engine.modelRuntime,
       dialects: engine.reliability, sessionId: engine.sessionId,
+      recordTokenReceipt: engine.recordProviderAttempt,
     }),
     semanticTimeoutMs: options.semanticReviewTimeoutMs ?? engine.config.limits.semanticReviewMs,
     decisionTtlMs: engine.config.limits.approvalMs,
@@ -295,5 +300,37 @@ function providerRunner(engine, hooks) {
     verifyRequest: (request, manifest, route, active) => (
       engine.reliability.assertProviderRequestManifest(request, manifest, route, active)
     ),
+    recordTokenReceipt: (manifest, active, detail) => recordProviderReceipt(engine, hooks, manifest, active, detail),
   });
+}
+
+async function recordAuxiliaryProviderReceipt(engine, hooks, facts) {
+  const active = engine.active;
+  if (!active || !facts?.request || !facts?.route) return null;
+  const context = facts.context ?? facts.request.messages ?? [];
+  const manifest = engine.reliability.providerRequestManifest(
+    facts.request, context, facts.route, active,
+    { outputReserveTokens: facts.request.maxOutputTokens },
+  );
+  return recordProviderReceipt(engine, hooks, manifest, active, {
+    ...facts, providerProfile: facts.route.profile?.id ?? facts.route.providerId,
+    model: facts.route.model,
+  });
+}
+
+async function recordProviderReceipt(engine, hooks, manifest, active, detail) {
+  const receipt = engine.reliability.providerTokenReceipt(manifest, active, detail);
+  await hooks.persist('provider_token_receipt', receipt);
+  active.tokenReceipts.push(receipt);
+  active.tokenAccounting = engine.reliability.aggregateTokenReceipts(active.tokenReceipts);
+  engine.telemetry?.record('provider.token_accounting', 'recorded', {
+    receipt_id: receipt.receipt_id, role: receipt.role, outcome: receipt.outcome,
+    measurement: receipt.accounting.measurement,
+    measured_total_tokens: receipt.accounting.measured_total_tokens,
+    estimated_unreported_tokens: receipt.accounting.estimated_unreported_tokens,
+  }, {
+    turnId: active.turnId, stepId: active.stepId, attemptId: receipt.attempt_id,
+    providerRequestId: active.logicalRequestId,
+  });
+  return receipt;
 }

@@ -161,11 +161,15 @@ This applies equally to completed tab, route, provider, configuration, and MCP m
 the successful live action remains successful while the notice truthfully identifies only
 the unsaved presentation snapshot.
 
-Completed and needs-input receipts show elapsed time and that turn's token usage, plus compact
-tool/review counts and a `Ctrl+O` details hint when activity exists.
-The footer rolls authoritative provider usage into a conversation total. Providers that
-support OpenAI-compatible streaming usage are asked to include it; unavailable usage stays
-`tokens --` rather than presenting an estimate as measured data. The context footer uses
+Completed and needs-input receipts show elapsed time and that turn's token accounting, plus
+compact tool/review counts and a `Ctrl+O` details hint when activity exists. Every dispatched
+provider attempt receives a durable content-free receipt, so failed retries and route
+fallbacks remain part of the accounting. The footer rolls authoritative provider usage into
+a conversation total. Providers that support OpenAI-compatible streaming usage are asked to
+include it. Usage omitted by a provider is shown separately with `~`; a mixed total such as
+`1200+~340 tokens` means 1,200 provider-reported tokens plus approximately 340 unreported
+tokens. `tokens --` means no provider attempt has supplied or incurred countable evidence.
+The context footer uses
 the loaded model's usable input window when available. A `~` marks the conservative prompt
 token estimate; values below one percent display as `context ~<1%` instead of rounding to
 zero. `/context` shows that estimate, output reservation, the configurable compression and

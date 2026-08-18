@@ -30,6 +30,8 @@ The Reliability Engine owns:
 - command-shaping signals and repair guidance for fragile inline interpreter programs;
 - deterministic reconciliation of tool requests left open by process interruption, distinguishing calls that were never dispatched from calls whose external effect is unknown;
 - content-free provider-request manifests and immediate pre-transport reconstruction checks;
+- complete provider-envelope measurement, pre-transport context admission, and content-free
+  per-attempt token receipts that distinguish provider measurements from conservative estimates;
 - bounded, route-specific observations of provider cache hits used to select cache-aligned semantic compaction;
 - tool-call stream assembly and protocol-integrity bounds; and
 - stable tool-progress and failure fingerprints.
@@ -82,6 +84,9 @@ aliases to Reliability Engine-owned components. They do not represent independen
    transport attempt; nested request mutation fails closed instead of sending drifted input.
 8. Startup reconciliation must pair every interrupted tool request with a durable result,
    but must never claim that a dispatched external effect did or did not occur.
+9. Every dispatched provider attempt receives one durable token receipt. Provider-reported
+   usage remains authoritative; absent or partial usage is represented separately as an
+   estimate and is never relabeled as measured consumption.
 
 ## Consequences
 

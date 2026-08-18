@@ -16,6 +16,7 @@ export class RoutedSemanticReviewer {
     this.modelRuntime = options.modelRuntime;
     this.dialects = options.dialects;
     this.sessionId = options.sessionId ?? 'semantic-reviewer';
+    this.recordTokenReceipt = options.recordTokenReceipt;
   }
 
   setRouter(router) {
@@ -49,14 +50,19 @@ export class RoutedSemanticReviewer {
     this.telemetry?.record('provider.request', 'started', {
       request, role: 'reviewer', model: route.model, provider_profile: profileId,
     }, { ...correlation, spanId, providerRequestId: requestId });
+    const accounting = { dispatched: false, usage: null, outputBytes: 0, outcome: 'failed', reasonCode: null };
     try {
-      const { decision, usage } = await collectReviewerDecision(provider, request, signal);
+      accounting.dispatched = true;
+      const { decision, usage } = await collectReviewerDecision(provider, request, signal, accounting);
       this.telemetry?.record('provider.request', 'succeeded', {
         role: 'reviewer', model: route.model, provider_profile: profileId, usage,
       }, { ...correlation, spanId, providerRequestId: requestId, durationMs: elapsedMs(started), outcome: 'completed' });
       this.dialects?.observe(route, { status: 'succeeded' });
+      accounting.outcome = 'completed';
       return decision;
     } catch (error) {
+      accounting.outcome = signal.aborted ? 'cancelled' : 'failed';
+      accounting.reasonCode = error?.code ?? 'reviewer_provider_failed';
       this.telemetry?.record('provider.request', signal.aborted ? 'cancelled' : 'failed', {
         role: 'reviewer', model: route.model, provider_profile: profileId,
         failure: { code: error?.code ?? 'reviewer_provider_failed', retryable: error?.retryable === true },
@@ -64,12 +70,19 @@ export class RoutedSemanticReviewer {
       this.dialects?.observe(route, { status: signal.aborted ? 'cancelled' : 'failed', code: error?.code ?? 'reviewer_provider_failed' });
       throw error;
     } finally {
-      release();
+      try {
+        if (accounting.dispatched) await this.recordTokenReceipt?.({
+          request, context: request.messages, route, role: 'reviewer', attemptId: requestId,
+          logicalRequestId: requestId,
+          outcome: accounting.outcome, reasonCode: accounting.reasonCode,
+          usage: accounting.usage, outputBytes: accounting.outputBytes, durationMs: elapsedMs(started),
+        });
+      } finally { release(); }
     }
   }
 }
 
-async function collectReviewerDecision(provider, request, signal) {
+async function collectReviewerDecision(provider, request, signal, accounting) {
   let text = '';
   let textBytes = 0;
   let terminal = false;
@@ -82,9 +95,10 @@ async function collectReviewerDecision(provider, request, signal) {
       }
       text += item.text;
       textBytes += itemBytes;
+      accounting.outputBytes += itemBytes;
     } else if (item.type === 'tool_fragment') {
       throw new ContractError('reviewer_role_violation', 'reviewer attempted a tool call');
-    } else if (item.type === 'usage') usage = item.usage;
+    } else if (item.type === 'usage') { usage = item.usage; accounting.usage = usage; }
     else if (item.type === 'terminal') terminal = true;
   }
   if (signal?.aborted) throw new ContractError('reviewer_cancelled', 'reviewer request was cancelled');

@@ -331,9 +331,11 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
   let captured;
   const telemetry = [];
   const scheduled = [];
+  const receipts = [];
   const provider = { async *stream(request) {
     captured = request;
     yield { type: 'text', text: '{"outcome":"approve","confidence":0.9,"reason_code":"intent_match"}' };
+    yield { type: 'usage', usage: { prompt_tokens: 40, completion_tokens: 8, total_tokens: 48 } };
     yield { type: 'terminal' };
   } };
   const router = {
@@ -344,6 +346,7 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
     sessionId: 'session-reviewer',
     scheduler: { async acquire(resource, owner) { scheduled.push({ resource, owner }); return () => scheduled.push({ released: true }); } },
     telemetry: { record(event, status, payload) { telemetry.push({ event, status, payload }); } },
+    recordTokenReceipt: async (receipt) => receipts.push(receipt),
   });
   const result = await reviewer.review(
     { request: {}, authenticatedIntent: [] }, new AbortController().signal, { turnId: 'turn-reviewer' },
@@ -361,6 +364,9 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
   assert.deepEqual(scheduled, [
     { resource: 'shared-primary', owner: 'session-reviewer' }, { released: true },
   ]);
+  assert.equal(receipts.length, 1);
+  assert.equal(receipts[0].role, 'reviewer');
+  assert.deepEqual(receipts[0].usage, { prompt_tokens: 40, completion_tokens: 8, total_tokens: 48 });
   assert.deepEqual(telemetry.map(({ event, status, payload }) => [event, status, payload.role, payload.model]), [
     ['provider.request', 'started', 'reviewer', 'reviewer-model'],
     ['provider.request', 'succeeded', 'reviewer', 'reviewer-model'],

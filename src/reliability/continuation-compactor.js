@@ -2,6 +2,7 @@
 import { enrichCompactionFact, enrichHandoffFact } from './compaction.js';
 import { routeReasoningFields } from '../provider/reasoning.js';
 import { createHash } from 'node:crypto';
+import { newId } from '../ids.js';
 
 const MAX_RESPONSE_BYTES = 65_536;
 
@@ -10,7 +11,10 @@ export class ContinuationCompactor {
     this.scheduler = options.scheduler;
     this.telemetry = options.telemetry;
     this.timeoutMs = options.timeoutMs ?? 300_000;
+    this.recordTokenReceipt = options.recordTokenReceipt;
   }
+
+  setTokenReceiptRecorder(recorder) { this.recordTokenReceipt = recorder; }
 
   async refine(fact, router, route, runtime, parentSignal, options = {}) {
     return this.#run(fact, router, route, runtime, parentSignal, 'compaction', options);
@@ -30,15 +34,19 @@ export class ContinuationCompactor {
       ? this.timeoutMs : Math.min(this.timeoutMs, route.deadlineMs));
     let release = null;
     let alignment = null;
+    let request = null;
+    const accounting = { dispatched: false, usage: null, outputBytes: 0, outcome: 'failed', reasonCode: null };
+    const attemptId = newId(`semantic_${mode}`);
     try {
       release = await this.scheduler.acquire(
         route.profile.id, `${mode}:${fact.sourceFingerprint.slice(0, 16)}`,
         controller.signal, () => undefined, runtime?.parallelCapacity ?? null,
       );
       alignment = mode === 'compaction' ? cacheAlignment(options, route) : null;
-      const request = mode === 'handoff' ? handoffRequest(route, fact)
+      request = mode === 'handoff' ? handoffRequest(route, fact)
         : alignment ? alignedCompactionRequest(route, fact, alignment.request) : compactionRequest(route, fact);
-      const text = await collect(provider.stream(request, controller.signal));
+      accounting.dispatched = true;
+      const text = await collect(provider.stream(request, controller.signal), accounting);
       const semantic = mode === 'handoff' ? validateHandoff(parseJson(text)) : validateSemantic(parseJson(text));
       const enriched = mode === 'handoff' ? enrichHandoffFact(fact, semantic) : enrichCompactionFact(fact, semantic);
       if (mode === 'compaction' && !converges(enriched)) throw codeError('semantic_compaction_no_net_reduction');
@@ -52,8 +60,11 @@ export class ContinuationCompactor {
         original_bytes: fact.projection?.originalBytes ?? null,
         projected_bytes: enriched.projection?.projectedBytes ?? null,
       });
+      accounting.outcome = 'completed';
       return enriched;
     } catch (error) {
+      accounting.outcome = controller.signal.aborted ? 'cancelled' : 'failed';
+      accounting.reasonCode = error?.code ?? 'semantic_compaction_failed';
       recordTelemetry(this.telemetry, `context.semantic_${mode}`, 'failed', {
         provider_profile: route.profile.id, model: route.model,
         source_fingerprint: fact.sourceFingerprint,
@@ -62,8 +73,15 @@ export class ContinuationCompactor {
       });
       return fact;
     } finally {
-      release?.(); clearTimeout(timer);
-      parentSignal?.removeEventListener('abort', cancel);
+      try {
+        if (accounting.dispatched) await this.recordTokenReceipt?.({
+          request, context: request.messages, route, role: `semantic_${mode}`, attemptId,
+          outcome: accounting.outcome, reasonCode: accounting.reasonCode, usage: accounting.usage, outputBytes: accounting.outputBytes,
+        });
+      } finally {
+        release?.(); clearTimeout(timer);
+        parentSignal?.removeEventListener('abort', cancel);
+      }
     }
   }
 }
@@ -168,13 +186,16 @@ function stringArraySchema() {
   return { type: 'array', maxItems: 16, items: { type: 'string' } };
 }
 
-async function collect(stream) {
+async function collect(stream, accounting) {
   let text = ''; let bytes = 0; let terminal = false;
   for await (const item of stream) {
     if (item.type === 'text') {
       bytes += Buffer.byteLength(item.text, 'utf8');
       if (bytes > MAX_RESPONSE_BYTES) throw codeError('semantic_compaction_oversized');
       text += item.text;
+      accounting.outputBytes += Buffer.byteLength(item.text, 'utf8');
+    } else if (item.type === 'usage') {
+      accounting.usage = item.usage;
     } else if (item.type === 'terminal') terminal = true;
   }
   if (!terminal) throw codeError('semantic_compaction_unterminated');

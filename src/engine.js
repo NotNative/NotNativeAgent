@@ -311,6 +311,10 @@ export class SessionEngine {
       active.committedStepText = active.stepText;
     }
     const items = await this.toolLoop.process(calls, active);
+    const delegatedAccounting = items.map((item) => item.result?.metadata?.token_accounting).filter(Boolean);
+    if (delegatedAccounting.length > 0) active.delegatedTokenAccounting = this.reliability.combineTokenAccounting([
+      active.delegatedTokenAccounting, ...delegatedAccounting,
+    ]);
     active.toolConstraints = mergeToolConstraints(active.toolConstraints, items);
     active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded')
       .map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);

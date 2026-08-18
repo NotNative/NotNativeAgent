@@ -17,6 +17,7 @@ export async function prepareEngineContext(engine, records, content, active, for
   const runtime = await engine.modelRuntime.resolve(engine.router, routes[0], active.controller.signal);
   active.runtimeModel = runtime;
   const planned = engine.reliability.planContextBudget(engine.config, routes, runtime, active.contextRetryScale);
+  active.contextBudget = planned;
   recordBudget(engine, runtime, planned, active);
   const hardLimit = planned.hardLimitBytes;
   const thresholdBudget = planned.thresholdBytes;
@@ -24,10 +25,12 @@ export async function prepareEngineContext(engine, records, content, active, for
   active.contextLimitBytes = hardLimit;
   if (!force) {
     try {
-      return await buildReportedContext(
+      const context = await buildReportedContext(
         engine, records, content, active.enrichment, active, budget, hardLimit, planned,
         { projectContext: (measurement) => pressureProjection(engine, active, operations, measurement) },
       );
+      assertCompleteEnvelope(engine, routes[0], context, planned);
+      return context;
     } catch (error) {
       if (error.code !== 'context_too_large') throw error;
     }
@@ -146,7 +149,18 @@ function validateCompactionCandidate(engine, fact, active, plan) {
   return buildReportedContext(
     engine, [...engine.transcript, fact], '', active.enrichment, active,
     plan.validationBudget, plan.hardLimit, plan.planned,
-  );
+  ).then((context) => {
+    assertCompleteEnvelope(engine, plan.route, context, plan.planned);
+    return context;
+  });
+}
+
+function assertCompleteEnvelope(engine, route, context, budget) {
+  const request = providerRequest(engine, route, context);
+  const envelope = engine.reliability.providerEnvelope(request, context, {
+    outputReserveTokens: budget?.outputReserveTokens,
+  });
+  engine.reliability.assertProviderEnvelopeFits(envelope, budget);
 }
 
 async function commitCompactionCandidate(engine, fact, active, operations) {

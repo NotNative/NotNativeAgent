@@ -24,6 +24,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     contextBytes: 0, contextTokens: 0,
     rawContextBytes: 0, rawContextTokens: 0, contextPressureTier: 'none',
     contextLimitTokens: null, contextMeasurementEnrichment: null,
+    contextBudget: null, tokenReceipts: [], tokenAccounting: null, delegatedTokenAccounting: null,
     compactionAttempts: 0, compactionNoProgressAttempts: 0,
     lastCompactionSourceFingerprint: null, compactionFingerprints: new Set(),
     contextCheckpointFingerprints: new Set(),

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { sanitizeTerminal } from './terminal-adapter.js';
 import { displayWidth, truncateTerminal } from './terminal-markdown.js';
+import { statusTokenText } from '../experience/token-accounting.js';
 
 const MIN_RIGHT_STATUS_LEFT_WIDTH = 24;
 const MIN_STATUS_GAP = 2;
@@ -30,11 +31,11 @@ function statusForWidth(session, width, state, context, view, attachments, work)
   if (width < 96) return `${state} | ${model} | ${context} | ${view}`;
   if (width < 140) {
     const workspace = compactWorkspace(metadata.workspace);
-    return `${session.reviewPosture ?? 'auto-review'} | ${state}${workspace ? ` | ${workspace}` : ''} | ${model}${attachments}${work} | ${context} | ${totalTokens(session.usage)} | ${view}`;
+    return `${session.reviewPosture ?? 'auto-review'} | ${state}${workspace ? ` | ${workspace}` : ''} | ${model}${attachments}${work} | ${context} | ${statusTokenText(session.usage, session.tokenAccounting)} | ${view}`;
   }
   const route = `${metadata.endpoint ?? metadata.provider ?? 'provider --'}/${model}`;
   const workspace = metadata.workspace ? ` | ${metadata.workspace}` : '';
-  return `${session.reviewPosture ?? 'auto-review'} | ${state}${workspace} | ${route}${attachments}${work} | ${context} | ${totalTokens(session.usage)} | ${view}`;
+  return `${session.reviewPosture ?? 'auto-review'} | ${state}${workspace} | ${route}${attachments}${work} | ${context} | ${statusTokenText(session.usage, session.tokenAccounting)} | ${view}`;
 }
 
 function compactWorkspace(value) {
@@ -65,11 +66,6 @@ function workProgress(work) {
   const total = work.tasks?.length ?? 0;
   const complete = work.tasks?.reduce((count, task) => count + (task.status === 'completed' ? 1 : 0), 0) ?? 0;
   return ` | plan ${complete}/${total}${work.goal?.status === 'completed' ? ' done' : ''}`;
-}
-
-function totalTokens(usage) {
-  const total = usage?.total_tokens ?? usage?.totalTokens;
-  return Number.isFinite(total) ? `${total} tokens` : 'tokens --';
 }
 
 function contextUsage(session) {

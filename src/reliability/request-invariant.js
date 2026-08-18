@@ -5,7 +5,7 @@ import { ContractError } from '../ids.js';
 const MANIFEST_VERSION = '1.0';
 const MAX_CONTEXT_SOURCES = 512;
 
-export function providerRequestManifest(request, context, route, active) {
+export function providerRequestManifest(request, context, route, active, envelope = null) {
   const messages = request?.messages;
   const tools = request?.tools ?? [];
   if (!request || typeof request !== 'object' || !Array.isArray(messages) || !Array.isArray(tools)) {
@@ -25,6 +25,7 @@ export function providerRequestManifest(request, context, route, active) {
     providerProfile: route?.profile?.id ?? null, model: request.model,
     requestFingerprint: digest(request), messagesFingerprint: digest(messages),
     toolsFingerprint: digest(tools), configFingerprint: digest(configuration),
+    envelope,
     sourceFingerprint: digest(sources),
     messageCount: messages.length, toolCount: tools.length,
     sources: Object.freeze(sources),
@@ -101,4 +102,3 @@ function boundedLabel(value, fallback) {
 function desync(message) {
   return new ContractError('provider_request_reconstruction_desync', message);
 }
-

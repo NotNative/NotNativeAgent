@@ -32,3 +32,10 @@ additional tool calls caused by omitted hot context. Representative Qwen evaluat
 actual tokenizer when available and retain the conservative UTF-8 estimate as an explicitly
 identified fallback. Synthetic repeated text may test bounds, but it is not release evidence
 of equivalent agent behavior.
+
+Provider accounting is attempt-scoped. The complete serialized outbound envelope is measured
+before transport and its section inventory is retained without prompt content. Provider usage
+is reconciled against that estimate after each attempt, including failed retries and route
+fallbacks. Reports must keep provider-measured tokens and estimated unreported tokens in
+separate fields; their sum may be used for capacity accounting but must never be labeled as an
+authoritative provider count.

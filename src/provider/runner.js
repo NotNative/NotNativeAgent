@@ -20,6 +20,7 @@ export class ProviderRunner {
     this.runtimeResolver = options.runtimeResolver;
     this.prepareRequest = options.prepareRequest;
     this.verifyRequest = options.verifyRequest;
+    this.recordTokenReceipt = options.recordTokenReceipt;
     this.scheduler ??= new FairScheduler();
     this.queueStatus ??= () => undefined;
   }
@@ -30,6 +31,7 @@ export class ProviderRunner {
     for (let attempt = 0; attempt < localLimit; attempt += 1) {
       const lifecycle = this.lifecycles.start('provider_attempt', active.stepId);
       active.attemptId = lifecycle.id;
+      const attemptId = lifecycle.id;
       this.state.transition('invoking_model', { trigger: 'provider_attempt', turnId: active.turnId });
       await this.publish('provider_attempt.started', 'provider_attempt', 'active', active);
       const release = await this.scheduler.acquire(
@@ -38,35 +40,27 @@ export class ProviderRunner {
         active.runtimeModel?.parallelCapacity ?? null,
       );
       let retryDelay = null;
+      let attemptOutcome = 'failed';
+      let attemptReason = null;
       const requestSpan = `provider-request:${active.attemptId}`;
       const requestStarted = process.hrtime.bigint();
-      await this.verifyRequest?.(request, manifest, route, active);
-      this.telemetry?.record('provider.request', 'started', {
-        request, model: active.modelName, provider_profile: active.providerResource,
-      }, providerCorrelation(active, requestSpan));
+      initializeAttempt(active);
       try {
+        await this.verifyRequest?.(request, manifest, route, active);
+        this.telemetry?.record('provider.request', 'started', {
+          request, model: active.modelName, provider_profile: active.providerResource,
+        }, providerCorrelation(active, requestSpan));
         const attemptUsage = await this.#invoke(provider, request, deadlines, active);
+        this.#accountAttemptUsage(active);
         this.#observeCacheUsage(active, attemptUsage);
-        this.telemetry?.record('provider.request', 'succeeded', {
-          model: active.modelName, provider_profile: active.providerResource,
-          finish_reason: active.finishReason, usage: active.usage,
-          response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
-          step_reasoning_bytes: active.stepReasoningBytes,
-        }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), outcome: 'completed' });
-        this.dialects?.observe({ profile: { id: active.providerResource }, model: active.modelName }, { status: 'succeeded' });
+        this.#recordSucceeded(active, requestSpan, requestStarted);
+        attemptOutcome = 'completed';
         return;
       } catch (error) {
-        this.telemetry?.record('provider.request', active.cancelled ? 'cancelled' : 'failed', {
-          model: active.modelName, provider_profile: active.providerResource,
-          finish_reason: active.finishReason, usage: active.usage,
-          partial_response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
-          step_reasoning_bytes: active.stepReasoningBytes,
-          failure: { code: error?.code ?? 'provider_failed', retryable: error?.retryable === true },
-        }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), reasonCode: error?.code });
-        this.dialects?.observe(
-          { profile: { id: active.providerResource }, model: active.modelName },
-          { status: active.cancelled ? 'cancelled' : 'failed', code: error?.code ?? 'provider_failed' },
-        );
+        this.#accountAttemptUsage(active);
+        attemptOutcome = active.cancelled ? 'cancelled' : 'failed';
+        attemptReason = error?.code ?? 'provider_failed';
+        this.#recordFailed(active, error, requestSpan, requestStarted);
         const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
         const plan = error.retryable
           ? (this.reliability?.providerRetry(active, error.code, attempt, partial, error.retryAfterMs)
@@ -78,7 +72,11 @@ export class ProviderRunner {
         await this.recordRecovery(plan.action, active);
         retryDelay = plan.delayMs;
       } finally {
-        release();
+        try { await this.#recordAttemptReceipt(manifest, active, {
+          outcome: attemptOutcome, reasonCode: attemptReason, attemptId,
+          usage: active.attemptUsage, outputBytes: active.attemptOutputBytes,
+          durationMs: elapsedMs(requestStarted),
+        }); } finally { release(); }
       }
       await cancellableDelay(retryDelay, active.controller.signal);
     }
@@ -88,6 +86,40 @@ export class ProviderRunner {
     this.reliability?.observeProviderUsage?.({
       providerProfile: active.providerResource, model: active.modelName,
     }, usage);
+  }
+
+  #accountAttemptUsage(active) {
+    if (active.attemptUsageAccounted) return;
+    active.usage = mergeUsage(active.usage, active.attemptUsage);
+    active.attemptUsageAccounted = true;
+  }
+
+  #recordSucceeded(active, requestSpan, requestStarted) {
+    this.telemetry?.record('provider.request', 'succeeded', {
+      model: active.modelName, provider_profile: active.providerResource,
+      finish_reason: active.finishReason, usage: active.usage,
+      response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
+      step_reasoning_bytes: active.stepReasoningBytes,
+    }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), outcome: 'completed' });
+    this.dialects?.observe({ profile: { id: active.providerResource }, model: active.modelName }, { status: 'succeeded' });
+  }
+
+  #recordFailed(active, error, requestSpan, requestStarted) {
+    this.telemetry?.record('provider.request', active.cancelled ? 'cancelled' : 'failed', {
+      model: active.modelName, provider_profile: active.providerResource,
+      finish_reason: active.finishReason, usage: active.usage,
+      partial_response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
+      step_reasoning_bytes: active.stepReasoningBytes,
+      failure: { code: error?.code ?? 'provider_failed', retryable: error?.retryable === true },
+    }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), reasonCode: error?.code });
+    this.dialects?.observe(
+      { profile: { id: active.providerResource }, model: active.modelName },
+      { status: active.cancelled ? 'cancelled' : 'failed', code: error?.code ?? 'provider_failed' },
+    );
+  }
+
+  async #recordAttemptReceipt(manifest, active, detail) {
+    if (active.providerDispatched) await this.recordTokenReceipt?.(manifest, active, detail);
   }
 
   async runRoutes(router, candidates, requestFactory, deadlines, active, context = []) {
@@ -130,6 +162,7 @@ export class ProviderRunner {
     const timer = Number.isFinite(deadlines.overallMs)
       ? setTimeout(() => { timedOut = true; controller.abort(); }, deadlines.overallMs) : null;
     try {
+      active.providerDispatched = true;
       return await this.#consume(provider, request, active, controller.signal, deadlines);
     } catch (error) {
       if (active.cancelled) throw new ContractError('provider_cancelled', 'provider was cancelled');
@@ -163,24 +196,36 @@ export class ProviderRunner {
           this.state.transition('streaming_model', { trigger: 'stream_opened', turnId: active.turnId });
           opened = true;
         }
-        if (item.type === 'text') await this.acceptText(item.text, active);
+        if (item.type === 'text') {
+          active.attemptOutputBytes += Buffer.byteLength(item.text, 'utf8');
+          await this.acceptText(item.text, active);
+        }
         else if (item.type === 'reasoning') {
           const bytes = Buffer.byteLength(item.text, 'utf8');
           active.reasoningBytes += bytes;
           active.stepReasoningBytes += bytes;
+          active.attemptOutputBytes += bytes;
         }
-        else if (item.type === 'tool_fragment') active.toolAssembler.add(item.fragments);
-        else if (item.type === 'usage') attemptUsage = validatedUsage(item.usage);
+        else if (item.type === 'tool_fragment') {
+          active.attemptOutputBytes += Buffer.byteLength(JSON.stringify(item.fragments), 'utf8');
+          active.toolAssembler.add(item.fragments);
+        }
+        else if (item.type === 'usage') {
+          attemptUsage = validatedUsage(item.usage);
+          active.attemptUsage = attemptUsage;
+        }
         else if (item.type === 'metadata') active.finishReason = item.finishReason;
         else if (item.type === 'terminal') {
           active.providerTerminal = true;
           active.finishReason = item.finishReason ?? active.finishReason;
-          if (item.usage != null) attemptUsage = validatedUsage(item.usage);
+          if (item.usage != null) {
+            attemptUsage = validatedUsage(item.usage);
+            active.attemptUsage = attemptUsage;
+          }
         }
       }
       if (!opened) throw new ContractError('provider_empty_stream', 'provider produced no stream items', true);
       if (!active.providerTerminal) throw new ContractError('provider_missing_terminal', 'provider did not terminate cleanly');
-      active.usage = mergeUsage(active.usage, attemptUsage);
       return attemptUsage;
     } finally { await closeIterator(iterator); }
   }
@@ -191,6 +236,13 @@ function mergeUsage(current, update) {
   const result = { ...(current ?? {}) };
   for (const [key, value] of Object.entries(update)) result[key] = (result[key] ?? 0) + value;
   return Object.freeze(result);
+}
+
+function initializeAttempt(active) {
+  active.attemptUsage = null;
+  active.attemptUsageAccounted = false;
+  active.attemptOutputBytes = 0;
+  active.providerDispatched = false;
 }
 
 function providerCorrelation(active, spanId) {

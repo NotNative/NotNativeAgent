@@ -45,6 +45,11 @@ export function sessionStats(session) {
       input: number(usage.prompt_tokens ?? usage.input_tokens),
       output: number(usage.completion_tokens ?? usage.output_tokens),
       total: number(usage.total_tokens ?? usage.totalTokens),
+      accounted_total: number(session?.tokenAccounting?.accounted_total_tokens),
+      estimated_unreported: number(session?.tokenAccounting?.estimated_unreported_tokens),
+      measurement: session?.tokenAccounting?.measurement ?? UNAVAILABLE,
+      attempts: number(session?.tokenAccounting?.attempts),
+      by_role: session?.tokenAccounting?.by_role ?? {},
     }),
     context: Object.freeze({
       tokens: number(session?.contextTokens),

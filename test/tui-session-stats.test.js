@@ -6,6 +6,10 @@ import { sessionStats } from '../src/tui/session-stats.js';
 test('conversation statistics summarize terminal outcomes without counting running tools', () => {
   const stats = sessionStats({
     state: 'idle', historyRecords: [], usage: { prompt_tokens: 20, completion_tokens: 7, total_tokens: 27 },
+    tokenAccounting: {
+      attempts: 2, accounted_total_tokens: 39, estimated_unreported_tokens: 12, measurement: 'mixed',
+      by_role: { primary: { attempts: 2, measured_total_tokens: 27, estimated_unreported_tokens: 12, accounted_total_tokens: 39 } },
+    },
     contextTokens: 4096, contextLimitTokens: 32768, contextMeasurement: 'provider', contextSource: 'catalog',
     records: [
       { type: 'turn_result', outcome: 'completed', elapsed_ms: 1200 },
@@ -29,7 +33,11 @@ test('conversation statistics summarize terminal outcomes without counting runni
     affected_turns: 1, attempts: 1, recovered_turns: 1, exhausted_turns: 0, rescue_rate: '100%',
     by_kind: { malformed_tool_arguments: { attempts: 1, recovered_turns: 1, exhausted_turns: 0 } },
   });
-  assert.deepEqual(stats.tokens, { input: 20, output: 7, total: 27 });
+  assert.deepEqual(stats.tokens, {
+    input: 20, output: 7, total: 27, accounted_total: 39,
+    estimated_unreported: 12, measurement: 'mixed', attempts: 2,
+    by_role: { primary: { attempts: 2, measured_total_tokens: 27, estimated_unreported_tokens: 12, accounted_total_tokens: 39 } },
+  });
   assert.equal(stats.context.percent, '12.5%');
 });
 

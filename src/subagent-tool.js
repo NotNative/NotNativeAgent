@@ -42,12 +42,16 @@ export function subagentDefinition(control) {
       validateResult(result);
       const response = {
         agent_id: result.session_id, type: request.args.type, outcome: result.outcome,
-        text: result.text, usage: result.usage ?? null, failure: result.failure ?? null,
+        text: result.text, usage: result.usage ?? null,
+        token_accounting: result.token_accounting ?? null, failure: result.failure ?? null,
       };
       return {
         // Type is intentionally repeated: content is model-visible while metadata is host-visible.
         content: safeStringify(response),
-        metadata: { agent_id: result.session_id, type: request.args.type, outcome: result.outcome },
+        metadata: {
+          agent_id: result.session_id, type: request.args.type, outcome: result.outcome,
+          token_accounting: result.token_accounting ?? null,
+        },
       };
     },
   };

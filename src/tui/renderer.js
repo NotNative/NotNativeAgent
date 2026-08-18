@@ -13,6 +13,7 @@ import { applyConversationSpacing } from './conversation-spacing.js';
 import { permissionControlLine, permissionLines } from './permission-renderer.js';
 import { decorateContent, decorateFooter, decorateHeader } from './decoration.js';
 import { workSummaryRows } from './work-summary.js';
+import { detailedTokenText, receiptTokenText } from '../experience/token-accounting.js';
 import { latestToolStatusIndexes, toolStatusIdentity } from '../experience/tool-lifecycle.js';
 export class TuiRenderer {
   frame(projection, capabilities) {
@@ -429,7 +430,7 @@ function turnReceipt(record, summary, mode, width) {
   if (successful || record.outcome === 'needs_input') {
     const basic = [
       Number.isFinite(record.elapsed_ms) ? formatDuration(record.elapsed_ms) : null,
-      receiptTokens(record.usage),
+      receiptTokenText(record),
       toolCount ? `${toolCount} tool${toolCount === 1 ? '' : 's'}` : null,
       reviewCount ? `${reviewCount} review${reviewCount === 1 ? '' : 's'}` : null,
       toolCount || reviewCount ? `Ctrl+O ${mode === 'details' ? 'collapse' : 'details'}` : null,
@@ -438,7 +439,7 @@ function turnReceipt(record, summary, mode, width) {
   }
   const details = [
     Number.isFinite(record.elapsed_ms) ? formatDuration(record.elapsed_ms) : null,
-    usageDetail(record.usage),
+    detailedTokenText(record),
     toolCount || reviewCount ? `${toolCount} tool${toolCount === 1 ? '' : 's'}` : 'direct response',
     reviewCount ? `${reviewCount} review${reviewCount === 1 ? '' : 's'}` : null,
     record.failure?.code ? `code ${record.failure.code}` : null,
@@ -453,22 +454,6 @@ function recoveryAction(record) {
   if (record.retryable) return 'retry: Up then Enter';
   if (!['completed', 'cancelled'].includes(record.outcome)) return 'inspect: /health';
   return null;
-}
-
-function receiptTokens(usage) {
-  const total = usage?.total_tokens ?? usage?.totalTokens;
-  if (Number.isFinite(total)) return `${total} tokens`;
-  const prompt = usage?.prompt_tokens;
-  const completion = usage?.completion_tokens;
-  return Number.isFinite(prompt) && Number.isFinite(completion) ? `${prompt + completion} tokens` : null;
-}
-
-function usageDetail(usage) {
-  const prompt = usage?.prompt_tokens;
-  const completion = usage?.completion_tokens;
-  if (Number.isFinite(prompt) && Number.isFinite(completion)) return `${prompt} in + ${completion} out`;
-  const total = usage?.total_tokens ?? usage?.totalTokens;
-  return Number.isFinite(total) ? `${total} tokens` : null;
 }
 
 function formatDuration(milliseconds) {

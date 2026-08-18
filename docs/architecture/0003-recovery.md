@@ -105,3 +105,11 @@ checkpoints precede hook, attachment, memory, provider, review, and execution bo
 so accepting cancellation prevents any later boundary from starting new external work.
 If mandatory context cannot fit after one deterministic compaction attempt, the engine
 does not resend the unchanged request and returns concrete reduction/model-limit guidance.
+
+Preflight measures the complete provider envelope rather than transcript messages alone:
+serialized context, injected model guidance, the tool catalog and schemas, request
+configuration, and the reserved output budget all participate in admission. Every transport
+attempt then commits a content-free token receipt, including failed retries and route
+fallbacks. Reported provider usage is retained as measured evidence. When a provider omits
+usage, the receipt records a conservative serialized-byte estimate as unreported usage so
+turn and conversation totals remain honest about their measurement coverage.

@@ -182,9 +182,10 @@ function attachmentGuidance(error, temporary) {
 }
 
 export class AttachmentObservationRouter {
-  constructor(router, cache = new CapabilityCache()) {
+  constructor(router, cache = new CapabilityCache(), options = {}) {
     this.router = router;
     this.cache = cache;
+    this.recordTokenReceipt = options.recordTokenReceipt;
   }
 
   async observe(item, prompt, signal) {
@@ -196,7 +197,7 @@ export class AttachmentObservationRouter {
       // declarations and prior observations are advisory only: local hosts can
       // change a model or chat template without changing the saved profile.
       // Vision is a request-scoped fallback after an explicit provider reject.
-      const result = await observeWith(this.router, primary, 'primary', item, prompt, signal);
+      const result = await observeWith(this.router, primary, 'primary', item, prompt, signal, this.recordTokenReceipt);
       this.cache.record(primary, 'image_input', this.router.config.version, true);
       attempts.push(attemptFact(primary, 'consumed'));
       return { ...result, logicalRequestId, attempts };
@@ -215,7 +216,7 @@ export class AttachmentObservationRouter {
         );
       }
       try {
-        const result = await observeWith(this.router, vision, 'vision', item, prompt, signal);
+        const result = await observeWith(this.router, vision, 'vision', item, prompt, signal, this.recordTokenReceipt);
         this.cache.record(vision, 'image_input', this.router.config.version, true);
         attempts.push(attemptFact(vision, 'consumed'));
         return { ...result, logicalRequestId, attempts };
@@ -227,7 +228,7 @@ export class AttachmentObservationRouter {
   }
 }
 
-async function observeWith(router, resolution, role, item, prompt, signal) {
+async function observeWith(router, resolution, role, item, prompt, signal, recordTokenReceipt) {
   if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
   const bytes = await readFile(item.managedPath);
   if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
@@ -240,11 +241,33 @@ async function observeWith(router, resolution, role, item, prompt, signal) {
     ] }],
     tools: [],
   };
+  const accounting = { usage: null, outputBytes: 0, outcome: 'failed', reasonCode: null };
+  const attemptId = newId('vision_attempt');
+  const started = process.hrtime.bigint();
+  try {
+    const text = await collectObservation(router.provider(resolution), request, signal, resolution, accounting);
+    accounting.outcome = 'completed';
+    return { text: text.slice(0, 131_072), route: role };
+  } catch (error) {
+    accounting.outcome = signal?.aborted ? 'cancelled' : 'failed';
+    accounting.reasonCode = error?.code ?? 'attachment_observation_failed';
+    throw error;
+  } finally {
+    await recordTokenReceipt?.({
+      request, context: request.messages, route: resolution, role: `vision_${role}`, attemptId,
+      outcome: accounting.outcome, reasonCode: accounting.reasonCode,
+      usage: accounting.usage, outputBytes: accounting.outputBytes,
+      durationMs: Number(process.hrtime.bigint() - started) / 1_000_000,
+    });
+  }
+}
+
+async function collectObservation(provider, request, signal, resolution, accounting) {
   let text = '';
   const parentSignal = signal ?? new AbortController().signal;
   const deadline = resolution.deadlineMs == null ? null : AbortSignal.timeout(resolution.deadlineMs);
   const boundedSignal = deadline == null ? parentSignal : AbortSignal.any([parentSignal, deadline]);
-  const iterator = router.provider(resolution).stream(request, boundedSignal)[Symbol.asyncIterator]();
+  const iterator = provider.stream(request, boundedSignal)[Symbol.asyncIterator]();
   let abortHandler;
   const aborted = new Promise((_, reject) => {
     abortHandler = () => reject(new ContractError('attachment_cancelled', 'attachment admission was cancelled', true));
@@ -256,7 +279,10 @@ async function observeWith(router, resolution, role, item, prompt, signal) {
       const next = await Promise.race([iterator.next(), aborted]);
       if (next.done) break;
       const event = next.value;
-      if (event.type === 'text') text += event.text;
+      if (event.type === 'text') {
+        text += event.text;
+        accounting.outputBytes += Buffer.byteLength(event.text, 'utf8');
+      } else if (event.type === 'usage') accounting.usage = event.usage;
     }
   } catch (error) {
     if (deadline?.aborted && !parentSignal.aborted) {
@@ -275,7 +301,7 @@ async function observeWith(router, resolution, role, item, prompt, signal) {
     throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
   }
   if (text.trim().length === 0) throw new ContractError('attachment_empty_observation', 'vision route returned no observation', true);
-  return { text: text.slice(0, 131_072), route: role };
+  return text;
 }
 
 function attemptFact(resolution, outcome) {

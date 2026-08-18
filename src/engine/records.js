@@ -58,6 +58,9 @@ export function terminalRecord(engine, active, outcome, text, detail, secondaryF
     version: '1.0', type: 'turn_result', session_id: engine.sessionId,
     turn_id: active.turnId, request_id: active.requestId, outcome,
     text, usage: active.usage, reasoning_bytes: active.reasoningBytes, partial: detail?.partial ?? false,
+    token_accounting: engine.reliability?.combineTokenAccounting?.([
+      active.tokenAccounting, active.delegatedTokenAccounting,
+    ]) ?? active.tokenAccounting,
     retryable: detail?.retryable ?? false, failure: detail,
     secondary_failures: Object.freeze([...secondaryFailures]),
     recovery: active.recovery?.actions ?? [],

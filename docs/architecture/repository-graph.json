@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:e89b7496a80175d870cd63b343c28c2353749d1b122be6982b66c4918d849482",
+  "source_digest": "sha256:c5a146939655b7d3a1603a227582f44a6cc87218f22bd233f721f5053ef52ebe",
   "counts": {
-    "modules": 293,
+    "modules": 295,
     "component_edges": 67
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "experience-engine",
       "label": "Experience Engine",
       "ownership": "Owns operator interaction and presentation.",
-      "module_count": 82
+      "module_count": 83
     },
     {
       "id": "reliability-engine",
       "label": "Reliability Engine",
       "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
-      "module_count": 33
+      "module_count": 34
     },
     {
       "id": "gateway",
@@ -106,7 +106,7 @@
     {
       "from": "experience-engine",
       "to": "experience-engine",
-      "import_count": 144,
+      "import_count": 147,
       "module_count": 47
     },
     {
@@ -130,7 +130,7 @@
     {
       "from": "reliability-engine",
       "to": "reliability-engine",
-      "import_count": 39,
+      "import_count": 40,
       "module_count": 19
     },
     {
@@ -200,6 +200,12 @@
       "module_count": 9
     },
     {
+      "from": "reliability-engine",
+      "to": "foundation",
+      "import_count": 9,
+      "module_count": 9
+    },
+    {
       "from": "experience-engine",
       "to": "persistence",
       "import_count": 8,
@@ -232,12 +238,6 @@
     {
       "from": "providers",
       "to": "providers",
-      "import_count": 7,
-      "module_count": 7
-    },
-    {
-      "from": "reliability-engine",
-      "to": "foundation",
       "import_count": 7,
       "module_count": 7
     },
@@ -1209,6 +1209,7 @@
       "entrypoint": false,
       "imports": [
         "src/experience/key-bindings.js",
+        "src/experience/token-accounting.js",
         "src/experience/tool-lifecycle.js",
         "src/ids.js"
       ]
@@ -1292,6 +1293,12 @@
         "src/ids.js",
         "src/persistence/session-lock.js"
       ]
+    },
+    {
+      "path": "src/experience/token-accounting.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/experience/tool-lifecycle.js",
@@ -2046,6 +2053,7 @@
         "src/reliability/provider-recovery.js",
         "src/reliability/recovery-supervisor.js",
         "src/reliability/request-invariant.js",
+        "src/reliability/token-accounting.js",
         "src/reliability/tool-call-assembler.js",
         "src/reliability/tool-progress.js"
       ]
@@ -2118,6 +2126,7 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
+        "src/ids.js",
         "src/provider/reasoning.js",
         "src/reliability/compaction.js"
       ]
@@ -2199,6 +2208,14 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/reliability/token-accounting.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
     },
     {
       "path": "src/reliability/tool-call-assembler.js",
@@ -2973,6 +2990,7 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
+        "src/experience/token-accounting.js",
         "src/experience/tool-lifecycle.js",
         "src/product.js",
         "src/tui/activity-renderer.js",
@@ -3058,6 +3076,7 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
+        "src/experience/token-accounting.js",
         "src/tui/terminal-adapter.js",
         "src/tui/terminal-markdown.js"
       ]

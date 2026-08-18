@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
 import { isIntermediateToolStatus } from './tool-lifecycle.js';
+import { accumulateTokenAccounting } from './token-accounting.js';
 export { validateKeyBindings } from './key-bindings.js';
 import { validateKeyBindings } from './key-bindings.js';
 
@@ -202,6 +203,7 @@ export class TuiProjection {
       state: 'idle', records: [], editor: new EditorBuffer(), unread: false,
       pendingPermission: null, permissionOffset: 0, activeTurnId: null, confirmClose: false, confirmClear: false,
       viewportEnd: null, viewportLineCount: 0, expandedTurns: new Set(), detailedTurns: new Set(), usage: null,
+      tokenAccounting: null,
       contextBytes: 0, contextLimitBytes: null, contextTokens: null, rawContextTokens: null, contextLimitTokens: null,
       contextThresholdTokens: null, contextOutputReserveTokens: null,
       contextCompressionThresholdTokens: null, contextCompressionThreshold: null,
@@ -423,6 +425,7 @@ function finishTurn(session, event) {
   session.state = event.outcome === 'needs_input' ? 'needs_input'
     : event.outcome === 'failed' || event.outcome === 'limit_reached' ? 'failed' : 'idle';
   session.usage = accumulateUsage(session.usage, event.usage);
+  session.tokenAccounting = accumulateTokenAccounting(session.tokenAccounting, event.token_accounting);
   session.lastOutcome = event.outcome;
   session.turnStartedAt = null;
   if (event.failure?.pending_text) session.editor.set(event.failure.pending_text);

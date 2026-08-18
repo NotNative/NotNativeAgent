@@ -22,6 +22,10 @@ import {
 } from './reliability/context-compression.js';
 import { interruptedToolRepairs } from './reliability/interrupted-tools.js';
 import { assertProviderRequestManifest, providerRequestManifest } from './reliability/request-invariant.js';
+import {
+  aggregateTokenReceipts, assertProviderEnvelopeFits, combineTokenAccounting,
+  createProviderTokenReceipt, measureProviderEnvelope,
+} from './reliability/token-accounting.js';
 
 export class ReliabilityEngine {
   constructor(options = {}) {
@@ -32,6 +36,7 @@ export class ReliabilityEngine {
     this.continuationCompactor = options.continuationCompactor ?? new ContinuationCompactor({
       scheduler: options.scheduler,
       telemetry: options.telemetry,
+      recordTokenReceipt: options.tokenReceiptRecorder,
     });
     this.contextTokenCounter = options.contextTokenCounter ?? null;
     this.contextTokenizerIdentity = options.contextTokenizerIdentity ?? null;
@@ -85,12 +90,22 @@ export class ReliabilityEngine {
   interruptedToolRepairs(records, interruptedTurnIds = []) {
     return interruptedToolRepairs(records, interruptedTurnIds);
   }
-  providerRequestManifest(request, context, route, active) {
-    return providerRequestManifest(request, context, route, active);
+  providerEnvelope(request, context, options = {}) { return measureProviderEnvelope(request, context, options); }
+  assertProviderEnvelopeFits(envelope, budget) { return assertProviderEnvelopeFits(envelope, budget); }
+  providerRequestManifest(request, context, route, active, options = {}) {
+    const envelope = measureProviderEnvelope(request, context, {
+      outputReserveTokens: options.outputReserveTokens ?? active?.contextBudget?.outputReserveTokens,
+    });
+    return providerRequestManifest(request, context, route, active, envelope);
   }
   assertProviderRequestManifest(request, manifest, route, active) {
     return assertProviderRequestManifest(request, manifest, route, active);
   }
+  providerTokenReceipt(manifest, active, detail = {}) {
+    return createProviderTokenReceipt(manifest, active, detail);
+  }
+  aggregateTokenReceipts(receipts) { return aggregateTokenReceipts(receipts); }
+  combineTokenAccounting(summaries) { return combineTokenAccounting(summaries); }
   observeProviderUsage(route, usage) {
     const key = routeKey(route);
     const cacheTokens = cacheTokenEvidence(usage);
@@ -143,6 +158,8 @@ export class ReliabilityEngine {
       process_identity: true,
       command_shaping: true,
       provider_request_reconstruction: true,
+      provider_envelope_accounting: true,
+      durable_token_receipts: true,
     });
   }
 }
