@@ -44,6 +44,34 @@ test('failure fingerprints group the same repair condition but isolate different
   assert.notEqual(first, toolFailureFingerprint([failed('work.task_update', 'detail exceeds 1024 characters')]));
 });
 
+test('filesystem failures share a missing-ancestor fingerprint and require that exact repair', () => {
+  const failed = (tool, path) => ({
+    call: { name: tool, args: { path } },
+    result: {
+      status: 'invalid_request', tool_name: tool, reason_code: 'tool_parent_missing',
+      content: 'parent directory is missing; create exactly this directory first with fs.create_directory: "src"\nfs.create_directory creates only one directory level and never creates missing ancestors recursively.',
+    },
+  });
+  const writeFailure = failed('fs.write_text', 'src/shaders/ocean.js');
+  const directoryFailure = failed('fs.create_directory', 'src/shaders');
+  assert.equal(toolFailureFingerprint([writeFailure]), toolFailureFingerprint([directoryFailure]));
+  assert.match(toolContinuationHint([writeFailure]), /next filesystem mutation[^]*fs\.create_directory[^]*\{"path":"src"\}[^]*one level only[^]*do not repeat directory listings/iu);
+});
+
+test('unrelated successful inspection is not progress while a filesystem prerequisite is active', () => {
+  const listing = {
+    request: { args: { path: '.' } },
+    result: { status: 'succeeded', tool_name: 'fs.list_directory', content: 'package.json' },
+  };
+  const constraint = { kind: 'prerequisite_repair', required_tool: 'fs.create_directory', required_path: 'src' };
+  assert.equal(toolProgressEvidence([listing], [], { constraints: [constraint] }), null);
+  const repair = {
+    request: { args: { path: 'src' } },
+    result: { status: 'succeeded', tool_name: 'fs.create_directory', content: 'directory created' },
+  };
+  assert.equal(toolProgressEvidence([repair], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
+});
+
 test('successful tool evidence is retained and combined with unique steering identity', () => {
   const item = (path) => ({
     request: { args: { path } },

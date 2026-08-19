@@ -2,20 +2,22 @@
 import { createHash } from 'node:crypto';
 import { redactText } from '../redaction.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
+import { missingFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
 
 const MAX_CONSTRAINTS = 64;
-const CONSTRAINT_KIND = Object.freeze({ schema: 'schema_repair', execution: 'execution_failure', governance: 'governance_boundary' });
+const CONSTRAINT_KIND = Object.freeze({ prerequisite: 'prerequisite_repair', schema: 'schema_repair', execution: 'execution_failure', governance: 'governance_boundary' });
 const PROCESS_TOOLS = new Set(['process.run', 'shell.run']);
 
 export function mergeToolConstraints(current = [], items = []) {
   const succeeded = new Set(items.filter((item) => item.result?.status === 'succeeded')
     .map((item) => item.result.tool_name ?? item.call?.name).filter(Boolean));
-  const retained = current.filter((item) => !(succeeded.has(item.tool)
-    && [CONSTRAINT_KIND.schema, CONSTRAINT_KIND.execution].includes(item.kind)));
+  const retained = current.filter((constraint) => !constraintSatisfied(constraint, items)
+    && !(succeeded.has(constraint.tool) && [CONSTRAINT_KIND.schema, CONSTRAINT_KIND.execution].includes(constraint.kind)));
   const indexed = new Map(retained.map((constraint) => [constraint.id, constraint]));
   for (const item of items) {
     const constraint = constraintFor(item);
     if (!constraint) continue;
+    if (constraintSatisfied(constraint, items)) continue;
     indexed.delete(constraint.id);
     if (constraint.kind === CONSTRAINT_KIND.schema) {
       for (const [id, existing] of indexed) {
@@ -34,16 +36,21 @@ export function clearAuthorityConstraints(constraints = []) {
 function constraintFor(item) {
   const result = item.result;
   if (!result || result.status === 'succeeded' || result.status === 'cancelled') return null;
-  const kind = constraintKind(result.status);
-  const tool = result.tool_name ?? item.call?.name ?? 'unknown';
+  const prerequisite = missingFilesystemPrerequisite(item);
+  const kind = prerequisite ? CONSTRAINT_KIND.prerequisite : constraintKind(result.status);
+  const tool = prerequisite?.tool ?? result.tool_name ?? item.call?.name ?? 'unknown';
   const reasonCode = safeDiagnostic(result.reason_code ?? result.status, 128);
   const requestFingerprint = digest(stableJson(item.call?.args ?? item.request?.args ?? {}));
-  const detail = constraintDetail(kind, result);
+  const detail = prerequisite ? `missing ancestor directory: ${prerequisite.path}` : constraintDetail(kind, result);
+  const identity = prerequisite
+    ? `${kind}\0${prerequisite.tool}\0${prerequisite.path}`
+    : `${kind}\0${tool}\0${reasonCode}\0${requestFingerprint}\0${detail}`;
   return Object.freeze({
-    id: digest(`${kind}\0${tool}\0${reasonCode}\0${requestFingerprint}\0${detail}`).slice(0, 32),
+    id: digest(identity).slice(0, 32),
     kind, tool, status: result.status, reason_code: reasonCode,
     request_fingerprint: requestFingerprint, detail,
-    instruction: instruction(kind, result, item),
+    ...(prerequisite ? { required_tool: prerequisite.tool, required_path: prerequisite.path } : {}),
+    instruction: instruction(kind, result, item, prerequisite),
   });
 }
 
@@ -64,7 +71,11 @@ function constraintDetail(kind, result) {
   return redactText(String(result.content ?? result.reason_code ?? result.status)).replace(/\s+/gu, ' ').trim().slice(0, 1024);
 }
 
-function instruction(kind, result, item) {
+function instruction(kind, result, item, prerequisite = null) {
+  if (kind === CONSTRAINT_KIND.prerequisite) {
+    return `The next filesystem mutation must call ${prerequisite.tool} with path ${JSON.stringify(prerequisite.path)}. `
+      + 'Do not retry descendant creation or writes, and do not use read-only inspection as a substitute, until this exact ancestor exists.';
+  }
   if (kind === CONSTRAINT_KIND.schema) return 'Correct the reported field and value; do not repeat the same request fingerprint.';
   if (kind === CONSTRAINT_KIND.governance) return 'Do not repeat an equivalent request unless new authenticated operator input changes its authority.';
   if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, process.run, or a structured tool unless the requested interpreter is positively discovered.';
@@ -72,6 +83,13 @@ function instruction(kind, result, item) {
   if (kind === CONSTRAINT_KIND.execution && result?.tool_name === 'process.run'
     && inlineInterpreterInvocation(args?.executable, args?.args)) return inlineInterpreterGuidance();
   return 'Treat the result as failed evidence; diagnose the condition before a materially different retry.';
+}
+
+function constraintSatisfied(constraint, items) {
+  if (constraint.kind !== CONSTRAINT_KIND.prerequisite) return false;
+  return items.some((item) => item.result?.status === 'succeeded'
+    && item.result?.tool_name === constraint.required_tool
+    && (item.request?.args?.path ?? item.call?.args?.path) === constraint.required_path);
 }
 
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }

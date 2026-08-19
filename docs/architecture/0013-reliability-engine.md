@@ -33,8 +33,10 @@ The Reliability Engine owns:
 - complete provider-envelope measurement, pre-transport context admission, and content-free
   per-attempt token receipts that distinguish provider measurements from conservative estimates;
 - bounded, route-specific observations of provider cache hits used to select cache-aligned semantic compaction;
-- tool-call stream assembly and protocol-integrity bounds; and
-- stable tool-progress and failure fingerprints.
+- tool-call stream assembly and protocol-integrity bounds;
+- stable tool-progress and failure fingerprints; and
+- deterministic filesystem-prerequisite extraction, shared-root failure grouping, and
+  recovery guidance that requires a missing ancestor before descendant mutations.
 
 The engine consumes facts and returns bounded decisions. It does not execute tools,
 grant authority, mutate provider wire protocols, own the transcript, publish interface

@@ -65,3 +65,24 @@ test('failed inline interpreter constraints recommend draft stdin instead of rep
   assert.match(constraints[0].instruction, /Avoid embedding generated multi-statement programs/u);
   assert.match(constraints[0].instruction, /ref\.store.*stdin_ref/u);
 });
+
+test('missing directory ancestors become exact durable prerequisites cleared only by their repair', () => {
+  const missing = item('fs.write_text', 'invalid_request', {
+    reason: 'tool_parent_missing', args: { path: 'src/shaders/ocean.js', content: 'shader' },
+    content: 'parent directory is missing; create exactly this directory first with fs.create_directory: "src"\nfs.create_directory creates only one directory level and never creates missing ancestors recursively.',
+  });
+  const constraints = mergeToolConstraints([], [missing]);
+  assert.equal(constraints[0].kind, 'prerequisite_repair');
+  assert.equal(constraints[0].required_tool, 'fs.create_directory');
+  assert.equal(constraints[0].required_path, 'src');
+  assert.match(constraints[0].instruction, /next filesystem mutation[^]*"src"[^]*Do not retry descendant[^]*read-only inspection/iu);
+
+  assert.equal(mergeToolConstraints(constraints, [item('fs.list_directory', 'succeeded', { args: { path: '.' } })]).length, 1);
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs.create_directory', 'succeeded', { args: { path: 'src' } })]), []);
+
+  const siblingFailure = item('fs.create_directory', 'invalid_request', {
+    reason: 'tool_parent_missing', args: { path: 'src/shaders' }, content: missing.result.content,
+  });
+  assert.equal(mergeToolConstraints([], [missing, siblingFailure]).length, 1);
+  assert.deepEqual(mergeToolConstraints([], [missing, item('fs.create_directory', 'succeeded', { args: { path: 'src' } })]), []);
+});

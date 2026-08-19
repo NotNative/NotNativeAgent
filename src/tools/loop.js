@@ -11,6 +11,7 @@ import { assertTurnActive } from '../turn-cancellation.js';
 import { ContractError } from '../ids.js';
 import { buildReviewEvidence } from '../review-evidence.js';
 import { WebUrlProvenance } from '../web-url-provenance.js';
+import { missingFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
 
 const SUCCESSFUL_TOOL_CONTINUATION = 'Continue the existing active request from the newly committed tool results. Do not greet, re-acknowledge the request, or repeat the existing plan. If a progress note is useful, state only what materially changed, then continue the work.';
 
@@ -354,6 +355,11 @@ function missionToolDisposition(active, items) {
 export { toolFailureFingerprint, toolProgressEvidence } from '../reliability/tool-progress.js';
 
 export function toolContinuationHint(items, fallback = null) {
+  const missingParent = items.map(missingFilesystemPrerequisite).find(Boolean);
+  if (missingParent) {
+    return `A required ancestor directory is missing. The next filesystem mutation must be ${missingParent.tool} with exactly ${JSON.stringify({ path: missingParent.path })}. `
+      + 'That tool creates one level only and is not recursive. Do not retry descendant directories or file writes, and do not repeat directory listings, until this exact prerequisite succeeds.';
+  }
   const failedFetch = items.find((item) => item.result?.tool_name === 'web.fetch'
     && ['failed', 'invalid_request', 'timed_out'].includes(item.result?.status));
   if (failedFetch) {

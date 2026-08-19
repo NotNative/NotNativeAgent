@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:daa74e606876556e898368575bbe33952fdb7032a99c9b1e2903b85378c5149e",
+  "source_digest": "sha256:2dcc01ea79235a39929bfc89aefe7a18cefa2fe093ebfcf2980326d868885268",
   "counts": {
-    "modules": 296,
+    "modules": 297,
     "component_edges": 67
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "reliability-engine",
       "label": "Reliability Engine",
       "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
-      "module_count": 34
+      "module_count": 35
     },
     {
       "id": "gateway",
@@ -130,8 +130,8 @@
     {
       "from": "reliability-engine",
       "to": "reliability-engine",
-      "import_count": 40,
-      "module_count": 19
+      "import_count": 41,
+      "module_count": 20
     },
     {
       "from": "agentic-engine",
@@ -206,6 +206,12 @@
       "module_count": 9
     },
     {
+      "from": "tools",
+      "to": "reliability-engine",
+      "import_count": 9,
+      "module_count": 5
+    },
+    {
       "from": "experience-engine",
       "to": "persistence",
       "import_count": 8,
@@ -240,12 +246,6 @@
       "to": "providers",
       "import_count": 7,
       "module_count": 7
-    },
-    {
-      "from": "tools",
-      "to": "reliability-engine",
-      "import_count": 7,
-      "module_count": 5
     },
     {
       "from": "agentic-engine",
@@ -374,6 +374,12 @@
       "module_count": 2
     },
     {
+      "from": "foundation",
+      "to": "reliability-engine",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
       "from": "guidance",
       "to": "guidance",
       "import_count": 2,
@@ -418,12 +424,6 @@
     {
       "from": "foundation",
       "to": "gateway",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "foundation",
-      "to": "reliability-engine",
       "import_count": 1,
       "module_count": 1
     },
@@ -1748,7 +1748,8 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/reliability/filesystem-recovery.js"
       ]
     },
     {
@@ -2156,6 +2157,12 @@
       "imports": []
     },
     {
+      "path": "src/reliability/filesystem-recovery.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/reliability/host-environment.js",
       "component": "reliability-engine",
       "entrypoint": false,
@@ -2239,7 +2246,9 @@
       "path": "src/reliability/tool-progress.js",
       "component": "reliability-engine",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/reliability/filesystem-recovery.js"
+      ]
     },
     {
       "path": "src/review-evidence.js",
@@ -2506,7 +2515,8 @@
       "entrypoint": false,
       "imports": [
         "src/redaction.js",
-        "src/reliability/command-shaping.js"
+        "src/reliability/command-shaping.js",
+        "src/reliability/filesystem-recovery.js"
       ]
     },
     {
@@ -2588,6 +2598,7 @@
         "src/engine/records.js",
         "src/ids.js",
         "src/lifecycle.js",
+        "src/reliability/filesystem-recovery.js",
         "src/reliability/tool-progress.js",
         "src/review-evidence.js",
         "src/tools/governor.js",

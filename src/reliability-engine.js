@@ -125,7 +125,7 @@ export class ReliabilityEngine {
   buildColdEvidence(records, activeRecords, query) { return buildColdEvidence(records, activeRecords, query); }
   providerContextLimit(active) { return providerContextLimitDecision(active); }
   reasoningOnly(active) { return reasoningOnlyDecision(active); }
-  toolProgressEvidence(items, steeringApplied = []) { return toolProgressEvidence(items, steeringApplied); }
+  toolProgressEvidence(items, steeringApplied = [], options = {}) { return toolProgressEvidence(items, steeringApplied, options); }
   toolFailureFingerprint(items) { return toolFailureFingerprint(items); }
   hostEnvironment(platform) { return hostEnvironment(platform); }
   hostEnvironmentInstruction(platform) { return hostEnvironmentInstruction(platform); }

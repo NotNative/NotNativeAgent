@@ -17,8 +17,8 @@ function metadataDefinition(paths) {
 }
 
 function directoryDefinition(paths) {
-  return definition('fs.create_directory', 'Create one new directory beneath an accessible existing directory.', 'reversible', {
-    path: { type: 'string', maxLength: 4096, description: 'Required path for the new directory. Its parent must already exist.' },
+  return definition('fs.create_directory', 'Create exactly one new directory level beneath an accessible existing parent. This tool is not recursive: for nested paths, create each missing level in order with a separate call.', 'reversible', {
+    path: { type: 'string', maxLength: 4096, description: 'Required path for exactly one new directory. The immediate parent must already exist. Never pass a nested path whose parent is missing; create the first missing ancestor in a separate call, then create each remaining level one at a time.' },
   }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveNew(args.path) }),
   async (request, signal) => {
     abort(signal); await assertAbsent(request.resolved.path); await mkdir(request.resolved.path);

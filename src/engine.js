@@ -319,7 +319,7 @@ export class SessionEngine {
     active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded')
       .map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
     const steeringApplied = await this.#consumeSteering(active);
-    const evidence = this.reliability.toolProgressEvidence(items, steeringApplied);
+    const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints });
     const progress = this.reliability.noProgress(active, 'tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact',
       failureFingerprint: this.reliability.toolFailureFingerprint(items),
     });

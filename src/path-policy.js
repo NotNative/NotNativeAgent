@@ -4,6 +4,7 @@ import { realpath, stat } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { ContractError } from './ids.js';
+import { missingParentMessage } from './reliability/filesystem-recovery.js';
 
 export class PathPolicy {
   constructor(workspaceRoot, options = {}) {
@@ -44,7 +45,7 @@ export class PathPolicy {
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
       exists = false;
-      const parent = await realpath(dirname(candidate));
+      const parent = await this.#existingParent(candidate, input);
       canonical = join(parent, basename(candidate));
     }
     this.#assertAllowed(canonical);
@@ -52,6 +53,30 @@ export class PathPolicy {
       throw new ContractError('tool_target_invalid', 'target is not a regular file');
     }
     return Object.freeze({ path: canonical, exists, ...await this.#classification(canonical, exists) });
+  }
+
+  async #existingParent(candidate, input) {
+    const requestedParent = dirname(candidate);
+    try { return await realpath(requestedParent); }
+    catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      let current = requestedParent;
+      let firstMissing = requestedParent;
+      while (true) {
+        const parent = dirname(current);
+        if (parent === current) throw error;
+        try {
+          await realpath(parent);
+          const display = isAbsolute(input) ? firstMissing : relative(this.root, firstMissing);
+          throw new ContractError('tool_parent_missing', missingParentMessage(display));
+        } catch (parentError) {
+          if (parentError instanceof ContractError) throw parentError;
+          if (parentError.code !== 'ENOENT') throw parentError;
+          firstMissing = parent;
+          current = parent;
+        }
+      }
+    }
   }
 
   async resolveMetadata(input) {

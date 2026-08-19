@@ -126,7 +126,7 @@ as `/verify [focused|affected|full] [PATH ...]`.
 - `fs.delete_file`: permanently delete one regular file after semantic review and
   exact-content revalidation.
 - `fs.metadata`: inspect bounded file or directory metadata without reading content.
-- `fs.create_directory`: create one new directory under an accessible existing parent.
+- `fs.create_directory`: create exactly one new directory level under an accessible existing parent. It is deliberately non-recursive; create missing nested levels in order with separate calls.
 - `fs.copy_file` and `fs.move_file`: copy or move an exact-hash regular file to a new
   destination. They refuse overwrites and revalidate immediately before commit.
 
