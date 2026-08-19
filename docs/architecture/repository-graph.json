@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:83056f074c807b883b932a4e5c3d25087bc661c60a344e2366b1931b688811dc",
+  "source_digest": "sha256:8771d59a54f19923fc3e970a084578272114d610b4342abd3b0bb35100698ff5",
   "counts": {
-    "modules": 297,
+    "modules": 298,
     "component_edges": 67
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 29
+      "module_count": 30
     },
     {
       "id": "guidance",
@@ -148,7 +148,7 @@
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 22,
+      "import_count": 23,
       "module_count": 4
     },
     {
@@ -2493,6 +2493,7 @@
         "src/skill-registry.js",
         "src/stale-edit-recovery.js",
         "src/subagent-tool.js",
+        "src/tools/capability-activation.js",
         "src/tools/core-names.js",
         "src/tools/filesystem-discovery.js",
         "src/tools/filesystem-read.js",
@@ -2526,6 +2527,12 @@
       "imports": [
         "src/reliability/tool-call-assembler.js"
       ]
+    },
+    {
+      "path": "src/tools/capability-activation.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/tools/catalog-context.js",
