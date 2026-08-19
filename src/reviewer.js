@@ -213,6 +213,9 @@ function elevationClassification() {
 
 function browserClassification(request) {
   const destination = request.resolved?.destination ?? null;
+  if (request.resolved?.readOnly === true && destination === 'reviewable_loopback_origin') {
+    return Object.freeze({ risk: 'review_required', reason: 'loopback_browser_navigation', effect: 'read_only', scope: 'loopback', complexity: 'simple' });
+  }
   if (request.resolved?.readOnly === true && [null, 'public_network', 'trusted_private_origin'].includes(destination)) {
     return Object.freeze({ risk: 'safe', reason: 'bounded_browser_observation', effect: 'read_only', scope: destination === 'trusted_private_origin' ? 'private_network' : 'browser', complexity: 'simple' });
   }

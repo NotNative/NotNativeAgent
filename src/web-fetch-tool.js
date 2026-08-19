@@ -108,16 +108,23 @@ function normalizeUrl(value) {
 }
 
 export async function allowedWebAddresses(url, resolver = resolveHost, destination = 'public_network') {
-  const addresses = isIP(url.hostname) ? [url.hostname] : await resolver(url.hostname);
+  const hostname = networkHostname(url.hostname);
+  const addresses = isIP(hostname) ? [hostname] : await resolver(hostname);
   if (!Array.isArray(addresses) || addresses.length === 0) throw blocked();
   if (destination === 'public_network' && addresses.some(privateAddress)) throw blocked();
+  if (destination === 'reviewable_loopback_origin' && addresses.some((address) => !loopbackAddress(address))) throw blocked();
   return addresses;
 }
 
 function isPrivateDestination(url) {
-  if (url.hostname.toLowerCase() === 'localhost') return true;
-  if (isIP(url.hostname)) return privateAddress(url.hostname);
+  const hostname = networkHostname(url.hostname);
+  if (hostname.toLowerCase() === 'localhost') return true;
+  if (isIP(hostname)) return privateAddress(hostname);
   return false;
+}
+
+function networkHostname(value) {
+  return value.startsWith('[') && value.endsWith(']') ? value.slice(1, -1) : value;
 }
 
 async function resolveHost(host) {
@@ -137,6 +144,14 @@ function privateAddress(address) {
     || (a === 192 && b === 0 && [0, 2].includes(c)) || (a === 100 && b >= 64 && b <= 127)
     || (a === 198 && [18, 19].includes(b)) || (a === 198 && b === 51 && c === 100)
     || (a === 203 && b === 0 && c === 113);
+}
+
+function loopbackAddress(address) {
+  const value = address.toLowerCase();
+  if (value === '::1') return true;
+  const mapped = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/u)?.[1];
+  const ipv4 = mapped ?? (isIP(value) === 4 ? value : null);
+  return ipv4?.startsWith('127.') === true;
 }
 
 async function readBounded(response) {

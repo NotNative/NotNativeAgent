@@ -177,9 +177,12 @@ The global WebSearch tool is:
   NNA session. It can navigate, return bounded page text and stable element references,
   interact with a selected element, save a managed screenshot, and close itself. Read-only
   observation is deterministically safe after destination validation; screenshots, clicks, key
-  presses, ordinary form entry, and Secret Broker field injection require semantic review. Every
-  browser request and redirect is checked against the same exact-origin private-network
-  trust policy as `web.fetch`. Hosted NNO sessions do not receive this root tool implicitly.
+  presses, ordinary form entry, and Secret Broker field injection require semantic review.
+  Standalone root sessions may also propose an exact `localhost`, `127.0.0.1`, or `[::1]`
+  development origin for semantic review. An approved loopback origin is admitted only while
+  that origin is the active page; cross-port loopback requests, private LAN hosts, and WebFetch
+  remain blocked unless separately trusted. Hosted NNO sessions do not receive this root tool
+  implicitly.
 
 WebFetch and WebBrowse are independent retrieval paths. When WebFetch fails for an exact URL
 supplied by the user or discovered through WebSearch, the agent uses WebBrowse to navigate to
@@ -187,6 +190,11 @@ that same URL and inspect the page before abandoning the source. It does not ret
 URL through WebFetch. If browser navigation is unavailable or also fails, it proceeds to another
 exact discovered URL and reports an inability to verify only after reasonable retrieval paths
 have been exhausted.
+
+For visual verification of a workspace development server, use `web.browse navigate` on the
+exact HTTP(S) loopback URL and then inspect or screenshot the page. Do not discover or launch an
+installed browser through `shell.run`; NNA's managed browser keeps the observation ephemeral,
+bounded, and reviewable. This is network navigation, not permission to read a `file://` URL.
 
 `web.browse fill_secret` accepts only a Secret Broker record ID and field name. The plaintext
 is decrypted inside the trusted browser consumer after review, filled directly into the page,

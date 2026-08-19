@@ -13,7 +13,7 @@ export function webBrowseDefinition(options = {}) {
   const manager = options.manager ?? new BrowserSessionManager(options);
   const definition = {
     name: 'web.browse', version: 1,
-    purpose: 'Operate an ephemeral Chromium session. This is the required fallback for a verified exact URL that web.fetch could not retrieve: navigate to the same URL, then inspect it. It can also click controls, fill non-secret values, inject a named secret field without exposing it to the model, press keys, save a screenshot, or close the browser. Use inspect after navigation to obtain stable element references such as e1.',
+    purpose: 'Operate an ephemeral Chromium session. This is the required fallback for a verified exact URL that web.fetch could not retrieve: navigate to the same URL, then inspect it. In a standalone root Console, an exact HTTP(S) loopback development URL such as localhost may be proposed for reviewer approval; this does not trust LAN hosts or web.fetch. It can also click controls, fill non-secret values, inject a named secret field without exposing it to the model, press keys, save a screenshot, or close the browser. Use inspect after navigation to obtain stable element references such as e1.',
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 60_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['action'], properties: {
@@ -43,14 +43,29 @@ export class BrowserSessionManager {
     this.secretBroker = options.secretBroker ?? null;
     this.sessionId = options.sessionId ?? 'session';
     this.browser = null; this.context = null; this.page = null; this.pagePromise = null;
+    this.activeLoopbackOrigin = null;
     this.refs = new Map(); this.secretValues = new Set();
   }
 
-  async classifyUrl(value) {
+  async classifyUrl(value, options = {}) {
     const url = normalizeHttpUrl(value);
-    const destination = await this.policy.classify(url);
+    let destination;
+    try { destination = await this.policy.classify(url); }
+    catch (error) {
+      if (!options.reviewableLoopback || error?.code !== 'web_fetch_destination_blocked' || !isExactLoopbackUrl(url)) throw error;
+      destination = 'reviewable_loopback_origin';
+    }
     await allowedWebAddresses(url, this.resolveHost, destination);
     return { url, destination };
+  }
+
+  async classifyRouteUrl(value) {
+    const url = normalizeHttpUrl(value);
+    if (this.activeLoopbackOrigin === url.origin && isExactLoopbackUrl(url)) {
+      await allowedWebAddresses(url, this.resolveHost, 'reviewable_loopback_origin');
+      return { url, destination: 'reviewable_loopback_origin' };
+    }
+    return this.classifyUrl(url.href);
   }
 
   async execute(args, signal, execution = {}) {
@@ -58,8 +73,11 @@ export class BrowserSessionManager {
     if (args.action === 'close') { await this.close(); return result('Browser session closed.', { action: 'close' }); }
     const page = await this.#page();
     if (args.action === 'navigate') {
-      const destination = await this.classifyUrl(args.url);
-      await page.goto(destination.url.href, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+      const destination = await this.classifyUrl(args.url, { reviewableLoopback: true });
+      const previousLoopbackOrigin = this.activeLoopbackOrigin;
+      this.activeLoopbackOrigin = destination.destination === 'reviewable_loopback_origin' ? destination.url.origin : null;
+      try { await page.goto(destination.url.href, { waitUntil: 'domcontentloaded', timeout: 45_000 }); }
+      catch (error) { this.activeLoopbackOrigin = previousLoopbackOrigin; throw error; }
       this.refs.clear();
       return result(await this.#summary(page), metadata(args.action, page, { destination: destination.destination }));
     }
@@ -82,7 +100,7 @@ export class BrowserSessionManager {
   async close() {
     const context = this.context; const browser = this.browser;
     this.page = null; this.pagePromise = null; this.context = null; this.browser = null;
-    this.refs.clear(); this.secretValues.clear();
+    this.refs.clear(); this.secretValues.clear(); this.activeLoopbackOrigin = null;
     await context?.close().catch(() => undefined);
     await browser?.close().catch(() => undefined);
     if (this.root) await rm(this.root, { recursive: true, force: true }).catch(() => undefined);
@@ -103,7 +121,7 @@ export class BrowserSessionManager {
     await this.context.route('**/*', async (route) => {
       const value = route.request().url();
       if (/^(?:about:blank|data:|blob:)/u.test(value)) return route.continue();
-      try { await this.classifyUrl(value); return route.continue(); }
+      try { await this.classifyRouteUrl(value); return route.continue(); }
       catch { return route.abort('blockedbyclient'); }
     });
     this.page = await this.context.newPage();
@@ -172,7 +190,7 @@ async function validateBrowseArgs(args, manager) {
   if (missing) throw invalid(`browser action "${args.action}" requires argument "${missing}"`);
   const normalized = Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined));
   let destination = null; let origin = null;
-  if (args.action === 'navigate') { const checked = await manager.classifyUrl(args.url); normalized.url = checked.url.href; destination = checked.destination; origin = checked.url.origin; }
+  if (args.action === 'navigate') { const checked = await manager.classifyUrl(args.url, { reviewableLoopback: true }); normalized.url = checked.url.href; destination = checked.destination; origin = checked.url.origin; }
   return { args: normalized, resolved: { action: args.action, destination, origin, readOnly: ['navigate', 'inspect', 'close'].includes(args.action) } };
 }
 
@@ -180,6 +198,9 @@ function normalizeHttpUrl(value) {
   let url; try { url = new URL(value); } catch { throw invalid(); }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw invalid();
   url.hash = ''; return url;
+}
+function isExactLoopbackUrl(url) {
+  return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname.toLowerCase());
 }
 function normalizeRoot(value) {
   if (typeof value !== 'string' || !isAbsolute(value)) throw new ContractError('browser_root_invalid', 'browser session root must be absolute');

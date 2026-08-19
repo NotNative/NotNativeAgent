@@ -80,6 +80,43 @@ test('web.browse identifies the action-specific argument that needs repair', asy
   await manager.close();
 });
 
+test('standalone browser admits exact loopback navigation for review without trusting private LAN hosts', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-browser-loopback-'));
+  const state = {};
+  const manager = new BrowserSessionManager({
+    root, managedPlaywrightRoot: root, loadPlaywright: async () => fakeRuntime(state),
+    resolveHost: async (host) => host === 'localhost' ? ['127.0.0.1'] : ['192.168.1.20'],
+  });
+  const definition = webBrowseDefinition({ manager });
+  const request = await definition.validate({ action: 'navigate', url: 'http://localhost:8123/#scene' });
+  assert.equal(request.args.url, 'http://localhost:8123/');
+  assert.equal(request.resolved.destination, 'reviewable_loopback_origin');
+  const ipv6 = await definition.validate({ action: 'navigate', url: 'http://[::1]:8123/' });
+  assert.equal(ipv6.resolved.destination, 'reviewable_loopback_origin');
+  await assert.rejects(definition.validate({ action: 'navigate', url: 'http://192.168.1.20:8123/' }), {
+    code: 'web_fetch_destination_blocked',
+  });
+  await manager.close();
+});
+
+test('approved loopback navigation admits only its active exact origin inside the browser session', async () => {
+  const { state, manager, definition } = await fixture({
+    policy: { classify: async (url) => {
+      if (url.hostname === 'localhost') {
+        const error = new Error('blocked'); error.code = 'web_fetch_destination_blocked'; throw error;
+      }
+      return 'public_network';
+    } },
+    resolveHost: async (host) => host === 'localhost' ? ['127.0.0.1'] : ['93.184.216.34'],
+  });
+  const request = await definition.validate({ action: 'navigate', url: 'http://localhost:8123/' });
+  await definition.executor(request, new AbortController().signal, { reviewerDecisionId: 'decision_1' });
+  assert.equal((await manager.classifyRouteUrl('http://localhost:8123/main.js')).destination, 'reviewable_loopback_origin');
+  await assert.rejects(manager.classifyRouteUrl('http://localhost:9000/admin'), { code: 'web_fetch_destination_blocked' });
+  assert.equal(typeof state.route, 'function');
+  await manager.close();
+});
+
 test('web.browse injects a secret field only inside the trusted browser consumer', async () => {
   const calls = [];
   const secretBroker = { async withSecret(id, request, consumer) {
@@ -111,6 +148,30 @@ test('browser observation is deterministic-safe while interaction requires seman
   assert.equal(observed.reasonCode, 'deterministic_safe');
   const clicked = await reviewer.review({ ...base, id: 'tool_2', args: { action: 'click', target: 'e1' }, resolved: { action: 'click', readOnly: false, destination: null } }, context);
   assert.equal(clicked.reasonCode, 'semantic_intent_match');
+  assert.equal(semanticCalls, 1);
+});
+
+test('loopback browser navigation requires semantic review', async () => {
+  const { definition } = await fixture();
+  const ledger = {
+    async propose() { return { repetition: 0 }; }, summary() { return []; },
+    async commitDecision(_id, decision) { return decision; },
+  };
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
+  } } });
+  const request = {
+    id: 'tool_loopback', toolName: 'web.browse', args: { action: 'navigate', url: 'http://localhost:8123/' },
+    resolved: { action: 'navigate', readOnly: true, destination: 'reviewable_loopback_origin', origin: 'http://localhost:8123' },
+    authorityId: 'a', authorityVersion: 1, policyVersion: 1, expiresAt: Date.now() + 1000,
+  };
+  const context = {
+    definition, authority: { intent: [{ content: 'Build and visually verify the local Three.js scene in a browser' }] },
+    surface: 'interactive_tui', signal: new AbortController().signal,
+  };
+  const decision = await reviewer.review(request, context);
+  assert.equal(decision.reasonCode, 'semantic_intent_match');
   assert.equal(semanticCalls, 1);
 });
 

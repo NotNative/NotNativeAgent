@@ -388,6 +388,14 @@ review; credential entry uses a Secret Broker ID and field name so the decrypted
 straight to Playwright without entering the model transcript. Hosted NNO sessions do not inherit
 the standalone root browser tool unless a future identity-scoped host contract grants it.
 
+A standalone root Console may additionally request reviewer approval to navigate to one exact
+HTTP(S) loopback development origin (`localhost`, `127.0.0.1`, or `[::1]`, including its port).
+This temporary admission exists only for the active browser page and same-origin resources. It
+does not add the origin to `/webfetch`, does not enable WebFetch, does not admit another loopback
+port, and does not relax private-LAN destination blocking. It is intended for visually checking a
+workspace development server through NNA's managed browser rather than probing host browsers with
+shell commands. `file://` navigation remains outside the tool contract.
+
 ## Telegram gateway
 
 `/gateway` opens the Telegram manager and is also listed by `/config`. Bot configuration,
