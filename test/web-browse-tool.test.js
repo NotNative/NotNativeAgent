@@ -10,6 +10,7 @@ import { MandatoryReviewer } from '../src/reviewer.js';
 test('web.browse advertises itself as the failed-fetch recovery path', () => {
   const definition = webBrowseDefinition({ manager: { close() {} } });
   assert.match(definition.purpose, /required fallback[^]*web\.fetch[^]*navigate to the same URL/iu);
+  assert.match(definition.purpose, /screenshot is automatically routed[^]*primary or vision route[^]*same tool result/iu);
 });
 
 function fakeRuntime(state) {
@@ -69,6 +70,34 @@ test('concurrent browser operations share one initialization', async () => {
     manager.execute({ action: 'inspect' }, new AbortController().signal),
   ]);
   assert.equal(state.launches, 1);
+  await manager.close();
+});
+
+test('browser screenshots return managed primary or vision observations without pixel-script detours', async () => {
+  const observed = [];
+  const { state, manager } = await fixture({
+    observeScreenshot: async (path) => {
+      observed.push(path);
+      return { route: 'vision', text: 'A blue ocean, bright sun disc, and one visible boat are rendered.' };
+    },
+  });
+  const captured = await manager.execute({ action: 'screenshot' }, new AbortController().signal);
+  assert.equal(observed.length, 1);
+  assert.equal(observed[0], state.screenshot);
+  assert.match(captured.content, /Visual observation \(vision route\)[^]*blue ocean[^]*visible boat/iu);
+  assert.equal(captured.metadata.visualObservation, 'completed');
+  assert.equal(captured.metadata.visualRoute, 'vision');
+  await manager.close();
+});
+
+test('browser screenshot capture remains successful when image observation is unavailable', async () => {
+  const { manager } = await fixture({
+    observeScreenshot: async () => { throw Object.assign(new Error('unsupported'), { code: 'no_eligible_vision_route' }); },
+  });
+  const captured = await manager.execute({ action: 'screenshot' }, new AbortController().signal);
+  assert.match(captured.content, /Screenshot saved:[^]*Visual observation unavailable: no_eligible_vision_route/iu);
+  assert.equal(captured.metadata.visualObservation, 'unavailable');
+  assert.equal(captured.metadata.visualReason, 'no_eligible_vision_route');
   await manager.close();
 });
 

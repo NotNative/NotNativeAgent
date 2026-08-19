@@ -12,6 +12,10 @@ Capability keys include profile identity, endpoint, effective model, operation, 
 configuration version; changing any of them returns capability to unknown/probeable.
 Rejected managed copies are removed without touching the source. Temporary failures
 remain `pending_failed` until an explicit retry or removal command.
+Standalone `web.browse screenshot` reuses the same primary-first observation router for
+managed browser captures. The screenshot remains a successful browser artifact if image
+observation is unavailable; the tool result records that state explicitly rather than
+encouraging an ungoverned browser or image-library detour.
 Attachment stream consumption is independently cancellation-aware even when an adapter
 ignores its signal. Cancellation detaches the pending read without waiting for a hostile
 iterator, records a visible retryable state, and prevents late observations from becoming

@@ -103,7 +103,7 @@ function installExtensions(engine, options) {
 }
 
 function installCapabilities(engine, options, storeRoot, hooks) {
-  installNotifications(engine, options);
+  installNotifications(engine, options); const imageObserver = createImageObserver(engine);
   engine.work = options.conversationWork ?? new ConversationWork({
     persist: hooks.persist, output: engine.output, telemetry: engine.telemetry, sessionId: engine.sessionId,
   });
@@ -121,7 +121,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     webSearchConfigPath: options.webSearchConfigPath ?? userDataPaths().webSearchConfig,
     webSearchClient: options.webSearchClient,
     webFetchConfigPath: options.webFetchConfigPath ?? userDataPaths().webFetchConfig,
-    ...browserToolOptions(engine, options),
+    ...browserToolOptions(engine, options, imageObserver),
     lspConfigPath: options.lspConfigPath,
     lspSpawnProcess: options.lspSpawnProcess,
     skillRegistry: engine.skills,
@@ -147,7 +147,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
   engine.attachments = new AttachmentManager({
     config: engine.config.attachments ?? { enabled: false },
     root: options.attachmentRoot ?? `${storeRoot}/attachments/${engine.sessionId}`,
-    router: new AttachmentObservationRouter(engine.router, undefined, { recordTokenReceipt: engine.recordProviderAttempt }),
+    router: imageObserver,
     persist: hooks.persist,
     status: (item) => engine.output({
       version: '1.0', type: 'attachment_status', session_id: engine.sessionId,
@@ -160,6 +160,12 @@ function installCapabilities(engine, options, storeRoot, hooks) {
   engine.mcp = new McpManager({
     registry: engine.tools, configs: engine.config.mcpServers ?? [],
     transportFactory: options.mcpTransportFactory,
+  });
+}
+
+function createImageObserver(engine) {
+  return new AttachmentObservationRouter(engine.router, undefined, {
+    recordTokenReceipt: engine.recordProviderAttempt,
   });
 }
 
@@ -188,13 +194,16 @@ function installNotifications(engine, options) {
   );
 }
 
-function browserToolOptions(engine, options) {
+function browserToolOptions(engine, options, imageObserver) {
   const defaults = userDataPaths();
   return {
     browserManager: options.browserManager,
     browserRoot: join(engine.dataPaths.root ?? defaults.root, 'runtime', 'browser', engine.sessionId),
     managedPlaywrightRoot: options.managedPlaywrightRoot ?? engine.dataPaths.managedPlaywright ?? defaults.managedPlaywright,
     secretBroker: options.secretBroker, sessionId: engine.sessionId,
+    observeBrowserScreenshot: (path, signal) => (engine.attachments?.router ?? imageObserver).observe({
+      managedPath: path, mimeType: 'image/png',
+    }, 'Visually inspect this browser screenshot. Describe the rendered scene, layout, visible defects, missing content, and evidence relevant to verifying the active task.', signal),
   };
 }
 

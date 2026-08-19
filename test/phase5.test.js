@@ -691,6 +691,9 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /WebFetch and WebBrowse are independent retrieval paths/u);
   assert.match(policy, /next use web\.browse with action navigate on that same exact URL/u);
   assert.match(policy, /Exhaust reasonable retrieval paths before saying current evidence could not be verified/u);
+  assert.match(policy, /managed image-observation path/u);
+  assert.match(policy, /web\.browse captures a screenshot[^]*active primary model[^]*configured vision route/u);
+  assert.match(policy, /do not treat the PNG as opaque or install image-processing packages merely to see it/u);
   assert.match(policy, /search summaries as source discovery rather than detailed evidence/u);
   assert.match(policy, /claim could not be verified/u);
   assert.match(policy, /prefer structured filesystem, search, Git-inspection, and project-verification tools/iu);

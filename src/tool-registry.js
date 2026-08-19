@@ -49,6 +49,7 @@ export class ToolRegistry {
     this.webSearchClient = options.webSearchClient;
     this.webFetchConfigPath = options.webFetchConfigPath ?? userDataPaths().webFetchConfig;
     this.browserManager = options.browserManager; this.secretBroker = options.secretBroker; this.sessionId = options.sessionId;
+    this.observeBrowserScreenshot = options.observeBrowserScreenshot;
     this.browserRoot = options.browserRoot ?? join(userDataPaths().root, 'runtime', 'browser', options.sessionId ?? 'standalone');
     this.managedPlaywrightRoot = options.managedPlaywrightRoot ?? userDataPaths().managedPlaywright;
     this.lspConfigPath = options.lspConfigPath ?? join(userDataPaths().config, 'lsp.json');
@@ -80,7 +81,8 @@ export class ToolRegistry {
     this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath, references: this.#references }));
     if (!this.hosted) this.#install(webBrowseDefinition({ manager: this.browserManager, root: this.browserRoot,
       managedPlaywrightRoot: this.managedPlaywrightRoot, configPath: this.webFetchConfigPath,
-      secretBroker: this.secretBroker, sessionId: this.sessionId }));
+      secretBroker: this.secretBroker, sessionId: this.sessionId,
+      observeScreenshot: this.observeBrowserScreenshot }));
     this.#install(toolSearchDefinition(this));
     this.#install(processRunDefinition(this.paths, this.#references)); if (!this.hosted) this.#install(shellRunDefinition(this.paths, this.#references));
     if (!this.hosted && this.elevationBroker) this.#install(elevationDefinition(this.paths, this.elevationBroker));
