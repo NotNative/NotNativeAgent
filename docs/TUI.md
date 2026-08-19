@@ -144,8 +144,13 @@ and bounded package metadata. The same intake is added to model context only whe
 operator explicitly refers to the project, repository, codebase, or workspace. It does
 not read source contents or imply an assignment merely because a workspace exists.
 On every cold launch the fresh Main conversation receives focus. A meaningful prior Main
-is restored as `Previous Main`, and other eligible tabs retain their presentation state,
+is restored as `Previous Main` only until it has a usable topic, and other eligible tabs
+retain their presentation state,
 but restored tabs do not take startup focus away from Main.
+The Experience Engine derives a terse 1–3 word local topic after the first informative turn
+using at most the first two user messages. This does not make another provider request.
+Generated names persist with the tab pool. A user rename—or an explicit name supplied to
+`/new`—sets a durable lock, so later turns and restores cannot replace that name.
 Multiple Console processes may run concurrently. The first owns the workspace authority
 lease and displays its replaceable tab name as `[* Main *]`; later Consoles receive an
 independent, non-authoritative Main. Sessions already open elsewhere are skipped without a

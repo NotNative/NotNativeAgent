@@ -150,7 +150,12 @@ and safe presentation state are stored in a bounded local pool. Startup validate
 reattaches eligible sessions without replaying provider or tool work. Missing, corrupt, or
 locked sessions remain visible as recoverable errors rather than being silently discarded.
 At a cold launch, a meaningful prior Main conversation is reattached as a standard
-`Previous Main` tab with its transcript and complete route set. The Main authority position
+`Previous Main` tab with its transcript and complete route set when it never acquired a
+topic. After the first topical user turn (or the second turn when the first is only a
+greeting), the Experience Engine derives a local 1–3 word title without an additional model
+request or token spend. The generated title and its provenance are durable. `/rename` and
+explicitly named `/new` conversations set a durable user-name lock that automatic naming
+cannot overwrite; legacy custom names migrate as locked. The Main authority position
 then receives a fresh conversation using the persisted provider defaults and always receives
 startup focus. Restored tabs remain available but never displace Main at launch. An unused
 prior Main and empty standard tabs are not retained.

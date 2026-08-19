@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:c5a146939655b7d3a1603a227582f44a6cc87218f22bd233f721f5053ef52ebe",
+  "source_digest": "sha256:339f2b50cfd196d07edc697920381cc9bc9fab229b1720ba43a503b3a6de68da",
   "counts": {
-    "modules": 295,
+    "modules": 296,
     "component_edges": 67
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "experience-engine",
       "label": "Experience Engine",
       "ownership": "Owns operator interaction and presentation.",
-      "module_count": 83
+      "module_count": 84
     },
     {
       "id": "reliability-engine",
@@ -106,8 +106,8 @@
     {
       "from": "experience-engine",
       "to": "experience-engine",
-      "import_count": 147,
-      "module_count": 47
+      "import_count": 149,
+      "module_count": 48
     },
     {
       "from": "foundation",
@@ -118,8 +118,8 @@
     {
       "from": "experience-engine",
       "to": "foundation",
-      "import_count": 74,
-      "module_count": 53
+      "import_count": 75,
+      "module_count": 54
     },
     {
       "from": "tools",
@@ -1054,6 +1054,7 @@
         "src/engine.js",
         "src/experience/configuration-publication.js",
         "src/experience/console-authority.js",
+        "src/experience/conversation-title.js",
         "src/experience/directory.js",
         "src/experience/dream.js",
         "src/experience/key-bindings.js",
@@ -1125,6 +1126,14 @@
       "entrypoint": false,
       "imports": [
         "src/experience/transcript.js",
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/experience/conversation-title.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
         "src/ids.js"
       ]
     },
@@ -1290,6 +1299,7 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
+        "src/experience/conversation-title.js",
         "src/ids.js",
         "src/persistence/session-lock.js"
       ]

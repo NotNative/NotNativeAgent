@@ -3,8 +3,9 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from '../ids.js';
 import { SessionLock } from '../persistence/session-lock.js';
+import { isGeneratedConversationName } from './conversation-title.js';
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 const MAX_TABS = 64;
 const POOL_LOCK_ATTEMPTS = 200;
 const POOL_LOCK_RETRY_MS = 10;
@@ -23,6 +24,7 @@ export async function loadTabPool(path) {
   if (value?.schema_version === 1) value = migrateV1(value);
   if (value?.schema_version === 2) value = migrateV2(value);
   if (value?.schema_version === 3) value = migrateV3(value);
+  if (value?.schema_version === 4) value = migrateV4(value);
   validate(value);
   return value;
 }
@@ -66,6 +68,7 @@ function poolRecord(tab, consoleId) {
     session_id: tab.sessionId, name: tab.name, role: tab.role,
     main: tab.main === true,
     meaningful: tab.meaningful === true, manifest: tab.manifest,
+    name_locked: tab.nameLocked === true, auto_named: tab.autoNamed === true,
     presentation: tab.presentation ?? defaultPresentation(), console_id: consoleId,
   };
 }
@@ -92,7 +95,9 @@ function validTabRecord(tab, ids) {
     return false;
   }
   if (!['primary', 'standard'].includes(tab.role) || typeof tab.name !== 'string'
-    || tab.name.length === 0 || tab.name.length > 128 || typeof tab.main !== 'boolean') return false;
+    || tab.name.length === 0 || tab.name.length > 128 || typeof tab.main !== 'boolean'
+    || typeof tab.name_locked !== 'boolean' || typeof tab.auto_named !== 'boolean'
+    || (tab.name_locked && tab.auto_named)) return false;
   if (!tab.manifest || typeof tab.manifest !== 'object' || Array.isArray(tab.manifest)) return false;
   return tab.console_id === null || tab.console_id === undefined
     || /^[A-Za-z0-9_-]{1,128}$/u.test(tab.console_id);
@@ -133,8 +138,14 @@ function migrateV2(value) {
 }
 
 function migrateV3(value) {
-  return { ...value, schema_version: SCHEMA_VERSION, tabs: migrationTabs(value).map((tab) => ({
+  return { ...value, schema_version: 4, tabs: migrationTabs(value).map((tab) => ({
     ...tab, presentation: { ...tab.presentation, work_collapsed: false },
+  })) };
+}
+
+function migrateV4(value) {
+  return { ...value, schema_version: SCHEMA_VERSION, tabs: migrationTabs(value).map((tab) => ({
+    ...tab, name_locked: !isGeneratedConversationName(tab.name), auto_named: false,
   })) };
 }
 

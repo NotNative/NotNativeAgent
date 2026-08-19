@@ -28,5 +28,5 @@ export async function resumeWorkspaceConversation(workspace, sessionId) {
     throw new ContractError('session_host_required',
       'this conversation belongs to an authenticated host or mission and must be resumed there');
   }
-  return workspace.create(`Resumed ${sessionId.slice(-12)}`, sessionId, { role: 'standard', config });
+  return workspace.create(`Resumed ${sessionId.slice(-12)}`, sessionId, { role: 'standard', config, nameLocked: false });
 }

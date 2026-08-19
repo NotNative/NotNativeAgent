@@ -22,6 +22,31 @@ test('legacy tab-pool migrations reject missing tab arrays with a stable contrac
   await assert.rejects(loadTabPool(path), { code: 'tab_pool_invalid' });
 });
 
+test('legacy custom tab names migrate as locked while generated names remain eligible', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tab-name-migration-'));
+  const path = join(root, 'pool.json');
+  const presentation = {
+    draft: '', viewport_end: null, expanded_turn_ids: [], review_posture: 'auto-review',
+    pending_attachments: [], work_collapsed: false,
+  };
+  const manifest = {
+    version: 1, persistence: 'durable', workspace_root: root,
+    providers: [{ id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'model', trust_zone: 'loopback' }],
+  };
+  await writeFile(path, JSON.stringify({
+    schema_version: 4, saved_at: new Date().toISOString(), active_session_id: 'custom',
+    tabs: [
+      { session_id: 'custom', name: 'My Chosen Name', role: 'standard', main: false, meaningful: true, manifest, presentation, console_id: null },
+      { session_id: 'generated', name: 'Previous Main', role: 'standard', main: false, meaningful: true, manifest, presentation, console_id: null },
+    ],
+  }), 'utf8');
+  const migrated = await loadTabPool(path);
+  assert.equal(migrated.schema_version, 5);
+  assert.equal(migrated.tabs[0].name_locked, true);
+  assert.equal(migrated.tabs[1].name_locked, false);
+  assert.equal(migrated.tabs.every((tab) => tab.auto_named === false), true);
+});
+
 test('durable tab pool restores conversation presentation but opens with fresh Main focused', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-tab-state-'));
   const options = {
@@ -59,6 +84,54 @@ test('durable tab pool restores conversation presentation but opens with fresh M
   assert.equal(restored.reviewPosture, 'unattended');
   assert.equal(restored.pendingAttachments[0].mime_type, 'image/png');
   assert.equal(second.sessions.get(other).engine.reviewPosture, 'unattended');
+  await second.shutdown();
+});
+
+test('completed topical turns receive a durable automatic name', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tab-auto-title-'));
+  const tabPoolPath = join(root, 'pool.json');
+  const options = {
+    config: configuration(root), tabPoolPath, configPath: join(root, 'settings.json'),
+    storeRoot: join(root, 'sessions'), reviewerRoot: join(root, 'reviewers'),
+    providerFactory: () => ({ async *stream() { yield { type: 'text', text: 'done' }; yield { type: 'terminal' }; } }),
+  };
+  const first = new InteractiveWorkspace(options);
+  const original = await first.restore();
+  await first.submitActive('Please diagnose the Telegram gateway logs for me.');
+  assert.equal(first.sessions.get(original).name, 'Telegram Gateway Logs');
+  const saved = JSON.parse(await readFile(tabPoolPath, 'utf8'));
+  assert.equal(saved.schema_version, 5);
+  assert.equal(saved.tabs.find((tab) => tab.session_id === original).auto_named, true);
+  assert.equal(saved.tabs.find((tab) => tab.session_id === original).name_locked, false);
+  await first.shutdown();
+
+  const second = new InteractiveWorkspace(options);
+  await second.restore();
+  assert.equal(second.sessions.get(original).name, 'Telegram Gateway Logs');
+  assert.equal(second.sessions.get(original).autoNamed, true);
+  await second.shutdown();
+});
+
+test('an explicit rename locks the durable name against automatic replacement', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tab-title-lock-'));
+  const tabPoolPath = join(root, 'pool.json');
+  const options = {
+    config: configuration(root), tabPoolPath, configPath: join(root, 'settings.json'),
+    storeRoot: join(root, 'sessions'), reviewerRoot: join(root, 'reviewers'),
+    providerFactory: () => ({ async *stream() { yield { type: 'text', text: 'done' }; yield { type: 'terminal' }; } }),
+  };
+  const first = new InteractiveWorkspace(options);
+  const original = await first.restore();
+  first.renameActive('My Gateway Work');
+  await first.submitActive('Please diagnose the Telegram gateway logs for me.');
+  assert.equal(first.sessions.get(original).name, 'My Gateway Work');
+  assert.equal(first.sessions.get(original).nameLocked, true);
+  await first.shutdown();
+
+  const second = new InteractiveWorkspace(options);
+  await second.restore();
+  assert.equal(second.sessions.get(original).name, 'My Gateway Work');
+  assert.equal(second.sessions.get(original).nameLocked, true);
   await second.shutdown();
 });
 

@@ -13,7 +13,7 @@ export async function restoreWorkspace(workspace) {
   const poolResult = await readPool(workspace);
   const authoritative = await workspace.acquireConsoleAuthority();
   const mainId = await workspace.create(MAIN_SESSION_NAME, newId('session'), {
-    role: authoritative ? 'primary' : 'standard', main: true, persist: false,
+    role: authoritative ? 'primary' : 'standard', main: true, persist: false, nameLocked: false,
   });
   if (poolResult.error) reportFailure(workspace, mainId, 'saved Console pool', poolResult.error);
   const pool = poolResult.value;
@@ -38,6 +38,7 @@ async function restoreTab(workspace, mainId, tab, name) {
     await workspace.create(name, tab.session_id, {
       role: 'standard', meaningful: true, config: resolveManifest(tab.manifest),
       presentation: tab.presentation, persist: false,
+      nameLocked: tab.name_locked, autoNamed: tab.auto_named,
     });
     return true;
   } catch (error) {

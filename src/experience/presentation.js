@@ -8,6 +8,7 @@ export function tabPoolRecords(sessions, projection) {
     const projected = projection?.sessions?.get(session.sessionId);
     return {
       sessionId: session.sessionId, name: session.name,
+      nameLocked: session.nameLocked === true, autoNamed: session.autoNamed === true,
       main: session.main === true,
       role: projected?.role ?? 'standard', meaningful: session.meaningful,
       manifest: manifestFromConfig(session.engine.pendingConfig ?? session.engine.config),

@@ -40,6 +40,7 @@ export async function submitWorkspaceSession(workspace, sessionId, content) {
   const result = await session.ingress.submit({
     version: '1.0', type: 'submit', request_id: newId('telegram_attach'), content,
   }, ATTACHED_PRINCIPAL);
+  await workspace._maybeAutoName?.(session);
   return result;
 }
 

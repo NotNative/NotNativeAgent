@@ -113,7 +113,9 @@ function safeDiagnostic(diagnostics, error) {
 }
 async function initializeWorkspace(workspace, options) {
   if (options.sessionId || options.sessionName) {
-    await workspace.create(options.sessionName ?? 'Main', options.sessionId ?? undefined, { role: 'primary' });
+    await workspace.create(options.sessionName ?? 'Main', options.sessionId ?? undefined, {
+      role: 'primary', nameLocked: Boolean(options.sessionName),
+    });
   } else await workspace.restore();
 }
 function removeTuiListeners(input, output, listeners) {
@@ -357,7 +359,7 @@ async function command(value, workspace, stop) {
   const [name, ...rest] = value.split(/\s+/u);
   const argument = rest.join(' ');
   if (!commandDefinition(name)) throw new ContractError('unknown_tui_command', `unknown command ${name}`);
-  if (name === '/new') await workspace.create(argument || 'Conversation');
+  if (name === '/new') await workspace.create(argument || 'Conversation', undefined, { nameLocked: Boolean(argument) });
   else if (name === '/resume') await handleResumeCommand(argument, workspace);
   else if (name === '/workspace') await workspace.createAtWorkspace(argument);
   else if (['/attach', '/attachments', '/detach', '/attachment'].includes(name)) {

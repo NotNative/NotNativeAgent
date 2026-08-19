@@ -24,6 +24,7 @@ import { createNextConversation, createWorkspaceConversation } from './experienc
 import { restoreWorkspace } from './experience/restore.js';
 import { validateKeyBindings } from './experience/key-bindings.js';
 import { WorkspaceTabPersistence } from './experience/tab-persistence.js';
+import { isGeneratedConversationName, maybeAutoNameConversation, renameWorkspaceConversation } from './experience/conversation-title.js';
 
 const INTERACTIVE_OPERATOR = 'authenticated-interactive-operator';
 import { boundedProviderCapabilities } from './provider/capabilities.js';
@@ -120,7 +121,9 @@ export class ExperienceEngine {
     const ingress = new CanonicalIngress(engine, { interactive: true });
     const role = options.role ?? (this.sessions.size === 0 ? 'primary' : 'standard');
     const meaningful = options.meaningful ?? engine.transcript.some((item) => item.type === 'message' && item.role === 'user');
-    this.sessions.set(sessionId, { id: sessionId, sessionId, name, engine, ingress, meaningful, main: options.main === true });
+    this.sessions.set(sessionId, { id: sessionId, sessionId, name, engine, ingress, meaningful,
+      main: options.main === true, nameLocked: options.nameLocked ?? !isGeneratedConversationName(name),
+      autoNamed: options.autoNamed === true });
     const primary = sessionConfig.routes.primary;
     this.projection.addSession(sessionId, name, routePresentation(sessionConfig, primary, {
       workspace: sessionConfig.workspaceRoot,
@@ -145,9 +148,10 @@ export class ExperienceEngine {
     session.meaningful = true;
     this.projection.apply(session.id, { type: 'user_input', text: content });
     this.tabPersistence.observe(this.#savePool(), this.#tasks);
-    return this.#own(session.ingress.submit({
+    const operation = session.ingress.submit({
       version: '1.0', type: 'submit', request_id: newId('tui'), content, attachments,
-    }, INTERACTIVE_OPERATOR));
+    }, INTERACTIVE_OPERATOR).then(async (result) => { await this._maybeAutoName(session); return result; });
+    return this.#own(operation);
   }
   brokerSessions() { return workspaceBrokerSessions(this); }
   submitSession(sessionId, content) { return submitWorkspaceSession(this, sessionId, content); }
@@ -210,13 +214,8 @@ export class ExperienceEngine {
     if (!session) throw new ContractError('session_missing', 'conversation was not found');
     this.projection.activate(session.id); this.onChange(); return { sessionId: session.id, name: session.name };
   }
-  renameActive(name) {
-    if (!name || name.length > 128) throw new ContractError('session_name_invalid', 'conversation name is invalid');
-    const session = this._active();
-    session.name = name; this.projection.active().name = name;
-    this.tabPersistence.observe(this.#savePool(), this.#tasks);
-    this.onChange(); return { sessionId: session.id, name };
-  }
+  renameActive(name) { return renameWorkspaceConversation(this, name); }
+  _maybeAutoName(session) { return maybeAutoNameConversation(this, session); }
   async closeActive(confirm = false) {
     const session = this._active();
     const projected = this.projection.active();

@@ -17,6 +17,7 @@ export async function createWorkspaceConversation(workspace, value) {
   const effective = await loadEffectiveStartupConfiguration({ paths, workspaceRoot: root });
   return workspace.create(basename(root) || 'Workspace', newId('session'), {
     role: 'standard', config: effective.config,
+    nameLocked: false,
     hookRoots: runtimeHookRoots(paths, effective.project),
     skillRoots: runtimeSkillRoots(paths, effective.project),
   });
@@ -31,7 +32,7 @@ export function createNextConversation(workspace) {
   while (names.has(`Conversation ${ordinal}`)) ordinal += 1;
   const name = `Conversation ${ordinal}`;
   pending.add(name); PENDING_CONVERSATION_NAMES.set(workspace, pending);
-  return Promise.resolve(workspace.create(name, newId('session'), { role: 'standard' }))
+  return Promise.resolve(workspace.create(name, newId('session'), { role: 'standard', nameLocked: false }))
     .finally(() => {
       pending.delete(name);
       if (pending.size === 0) PENDING_CONVERSATION_NAMES.delete(workspace);
