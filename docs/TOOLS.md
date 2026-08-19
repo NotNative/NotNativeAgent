@@ -3,13 +3,19 @@
 ## Discovery and context economy
 
 `tool.search` is always visible and searches the complete registered catalog with a
-bounded lexical relevance score. Core workspace and NNA self-guidance tools remain
-visible; a small set of additional tools is selected from authenticated operator text.
+bounded lexical relevance score. Read, query, and discovery tools for the workspace,
+session, web, skills, and NNA self-guidance remain visible. Mutation, process execution,
+elevation, and delegation schemas are activated in bounded capability bundles only when
+the latest authenticated operator request indicates that kind of work. Tool output and
+model narration cannot activate a bundle. A small set of additional tools is selected
+lexically from the same authenticated operator text.
 Each provider step also receives a bounded, deterministically sorted JSON array containing
 the names of every other authorized tool whose full schema is not loaded. This includes
 tools discovered from MCP servers in that conversation. The array contains names only;
 the model uses `tool.search` to inspect and promote a matching schema before calling it.
 Calling `tool.search` exposes its bounded matches for later model steps in the session.
+When a typed recovery constraint prescribes an exact tool, NNA also force-exposes that
+tool for the next step; recovery guidance therefore never names an unavailable schema.
 This keeps large MCP and future built-in catalogs out of every provider request without
 making capabilities undiscoverable.
 
@@ -19,7 +25,9 @@ content even when the operation itself is safe.
 
 The native filesystem tools are:
 
-- `fs.list_directory`: discover a bounded directory tree.
+- `fs.list_directory`: enumerate a bounded tree under an existing directory. It is the
+  equivalent of listing that directory's children, not an existence test; list the parent
+  directory to discover whether a prospective child exists.
 - `fs.glob`: find files with a cross-platform glob without constructing a shell command.
 - `fs.search_text`: search bounded UTF-8 files with line-numbered snippets. Literal matching
   is the default; `match_mode: "regex"` enables explicit expressions such as `foo|bar`.
@@ -249,8 +257,8 @@ blocked. Typical commands are `winget install --id BurntSushi.ripgrep.MSVC --exa
 Windows, `brew install ripgrep` on macOS, and the distribution package manager's
 `install ripgrep` command on Linux. Installing software remains an operator-authorized action.
 
-The provider receives an immutable prompt-visible working set: essential tools remain
-loaded, relevant tools are selected lexically for the authenticated request, and the
+The provider receives an immutable prompt-visible working set: observational tools remain
+loaded, effectful capability bundles and relevant tools are selected from the authenticated request, and the
 always-visible `tool.search` capability provides on-demand discovery of the remaining
 catalog. A host execution manifest may ceiling the complete tool capability, in which
 case the provider receives an empty tool list and requests remain unknown at governance.

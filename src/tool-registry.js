@@ -28,8 +28,10 @@ import { providerSchema, schemaShapeValidator, schemaValidator } from './tools/s
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { ReferenceStore, referenceDefinitions } from './tools/reference-store.js';
 import { CORE_TOOL_NAMES } from './tools/core-names.js';
+import { SITUATIONAL_TOOL_NAMES, taskActivatedToolNames } from './tools/capability-activation.js';
 import { telegramNotificationDefinition } from './notifications/telegram.js'; import { sessionHistoryDefinitions } from './session-history-tools.js';
 const MAX_TEXT_BYTES = 1_048_576; const ALWAYS_EXPOSED = new Set(CORE_TOOL_NAMES);
+const SITUATIONAL = new Set(SITUATIONAL_TOOL_NAMES);
 export class ToolRegistry {
   #definitions = new Map();
   #history = new Map();
@@ -100,8 +102,11 @@ export class ToolRegistry {
     return Object.freeze([...this.#definitions.values()].map(({ executor: _executor, validate: _validate, ...item }) => deepFreeze(structuredClone(item))));
   }
   providerDefinitions(query = '') {
-    const relevant = new Set(query.trim() ? this.search(query, 6).map((item) => item.name) : []);
-    const definitions = this.snapshot().filter((item) => ALWAYS_EXPOSED.has(item.name) || this.#exposed.has(item.name) || relevant.has(item.name)).map((item) => ({
+    const activated = new Set(taskActivatedToolNames(query));
+    const relevant = new Set(query.trim() ? this.search(query, 6).map((item) => item.name)
+      .filter((name) => !SITUATIONAL.has(name) || activated.has(name)) : []);
+    const definitions = this.snapshot().filter((item) => ALWAYS_EXPOSED.has(item.name) || this.#exposed.has(item.name)
+      || relevant.has(item.name) || activated.has(item.name)).map((item) => ({
       type: 'function',
       function: { name: item.name, description: item.purpose, parameters: providerSchema(item.inputSchema) },
     }));

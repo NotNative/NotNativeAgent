@@ -171,7 +171,7 @@ function observedFileReferences(references, path, receipt, coverage) {
 function listDefinition(paths) {
   return {
     name: 'fs.list_directory', version: 1,
-    purpose: 'List a bounded accessible directory tree. Relative paths start at the working directory; root NNA may use absolute host paths.',
+    purpose: 'Enumerate the children of an existing directory as a bounded tree. This is not an existence probe: list the parent to discover whether a child exists. Relative paths start at the working directory; root NNA may use absolute host paths.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Directory to list. Defaults to the working directory.' },
@@ -180,7 +180,16 @@ function listDefinition(paths) {
     validate: async (args) => {
       requireListShape(args);
       const path = args.path === undefined || (typeof args.path === 'string' && args.path.trim().length === 0) ? '.' : args.path;
-      const resolved = await paths.resolveDirectory(path);
+      let resolved;
+      try {
+        resolved = await paths.resolveDirectory(path);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+        throw new ContractError(
+          'tool_directory_not_found',
+          `directory does not exist: ${path}. fs.list_directory enumerates an existing directory and is not an existence probe; list its parent to discover available names, or use fs.create_directory when the task requires creating it`,
+        );
+      }
       return { args: { path, depth: args.depth ?? 2 }, resolved };
     },
     executor: async (request, signal) => ({

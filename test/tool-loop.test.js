@@ -456,6 +456,26 @@ test('schema repair constraints are injected into the next model continuation', 
   assert.equal(provider.count, 2);
 });
 
+test('typed prerequisite recovery exposes its exact tool on the next provider step', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-tool-prerequisite-exposure-'));
+  const provider = new TwoStepProvider(
+    { name: 'fs.write_text', args: { path: 'missing/file.txt', content: 'unexpected' } },
+    (request) => {
+      const visible = request.tools.map((item) => item.function.name);
+      assert.ok(visible.includes('fs.create_directory'));
+      assert.ok(!visible.includes('fs.write_text'));
+      const constraint = request.messages.find((item) => item.role === 'system'
+        && item.content.includes('Active tool constraints'));
+      assert.match(constraint.content, /"required_tool":"fs\.create_directory"/u);
+      assert.match(constraint.content, /"required_path":"missing"/u);
+    },
+  );
+  const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'prerequisite-exposure-turn', content: 'Inspect safely.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+});
+
 test('AC-AUTH-03 semantic approval permits a receipt-bound write', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-write-'));
   const path = join(root, 'target.txt');
@@ -636,7 +656,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   const root = await mkdtemp(join(tmpdir(), 'nna-registry-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const providerWrite = registry.providerDefinitions().find((item) => item.function.name === 'fs.write_text');
+  const providerWrite = registry.providerDefinitions('write a project file').find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',

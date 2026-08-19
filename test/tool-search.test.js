@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ToolRegistry } from '../src/tool-registry.js';
 
-test('tool catalog keeps core tools visible and selects bounded relevant capabilities', async () => {
+test('tool catalog keeps observational tools visible and effectful tools situational', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   registry.installExternal({
@@ -14,20 +14,47 @@ test('tool catalog keeps core tools visible and selects bounded relevant capabil
   });
   const baseline = registry.providerDefinitions().map((item) => item.function.name);
   assert.ok(baseline.includes('tool.search'));
-  assert.ok(baseline.includes('fs.edit_text'));
-  assert.ok(baseline.includes('process.run'));
-  assert.ok(baseline.includes('shell.run'));
+  assert.ok(baseline.includes('fs.list_directory'));
+  assert.ok(baseline.includes('fs.read_text'));
+  assert.ok(!baseline.includes('fs.edit_text'));
+  assert.ok(!baseline.includes('fs.write_text'));
+  assert.ok(!baseline.includes('fs.delete_file'));
+  assert.ok(!baseline.includes('process.run'));
+  assert.ok(!baseline.includes('shell.run'));
   assert.ok(!baseline.includes('browser.navigate'));
   const relevant = registry.providerDefinitions('open and navigate a browser page').map((item) => item.function.name);
   assert.ok(relevant.includes('browser.navigate'));
 });
 
-test('host process execution is a core visible capability independent of query wording', async () => {
+test('authenticated task intent activates bounded effectful capability bundles', async () => {
+  const registry = new ToolRegistry(process.cwd(), { elevationBroker: { async execute() { return {}; } } });
+  await registry.initialize();
+  const inspect = registry.providerDefinitions('inspect the repository structure').map((item) => item.function.name);
+  assert.ok(!inspect.includes('fs.write_text'));
+  assert.ok(!inspect.includes('process.run'));
+
+  const build = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
+  for (const name of ['fs.create_directory', 'fs.write_text', 'fs.edit_text', 'process.run', 'shell.run', 'project.verify']) {
+    assert.ok(build.includes(name), `${name} was not activated`);
+  }
+  assert.ok(!build.includes('fs.delete_file'));
+  assert.ok(!build.includes('system.elevate'));
+
+  const cleanup = registry.providerDefinitions('remove the obsolete file').map((item) => item.function.name);
+  assert.ok(cleanup.includes('fs.delete_file'));
+
+  const privileged = registry.providerDefinitions('retry this with administrator elevation').map((item) => item.function.name);
+  assert.ok(privileged.includes('system.elevate'));
+});
+
+test('explicit exposure makes an exact recovery tool visible without broadening its bundle', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  for (const query of ['', 'inspect this computer', 'connect to another host', 'run a repository command']) {
-    assert.ok(registry.providerDefinitions(query).some((item) => item.function.name === 'process.run'));
-  }
+  registry.expose(['fs.create_directory']);
+  const visible = registry.providerDefinitions('inspect the missing path').map((item) => item.function.name);
+  assert.ok(visible.includes('fs.create_directory'));
+  assert.ok(!visible.includes('fs.write_text'));
+  assert.ok(!visible.includes('fs.delete_file'));
 });
 
 test('tool.search exposes bounded matches for subsequent model steps', async () => {

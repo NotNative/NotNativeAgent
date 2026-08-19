@@ -68,6 +68,11 @@ test('filesystem discovery schemas explain path and pattern roles with actionabl
   assert.match(search.inputSchema.properties.path.description, /Exact file or root directory/u);
   assert.match(search.inputSchema.properties.query.description, /Required literal text/u);
   assert.match(search.inputSchema.properties.file_glob.description, /exact file/u);
+  assert.match(registry.definition('fs.list_directory').purpose, /not an existence probe/u);
+  await assert.rejects(registry.definition('fs.list_directory').validate({ path: 'missing-directory' }), {
+    code: 'tool_directory_not_found',
+    message: /list its parent to discover available names/u,
+  });
   await assert.rejects(glob.validate({ path: root }), {
     code: 'tool_schema_invalid', message: 'required argument "pattern" is missing',
   });
