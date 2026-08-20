@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:8771d59a54f19923fc3e970a084578272114d610b4342abd3b0bb35100698ff5",
+  "source_digest": "sha256:619b33acf5076cc9dc04cbf87f10abdcc391a196cc1d9ff787b835e9492117eb",
   "counts": {
-    "modules": 298,
+    "modules": 299,
     "component_edges": 67
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 30
+      "module_count": 31
     },
     {
       "id": "guidance",
@@ -212,6 +212,12 @@
       "module_count": 5
     },
     {
+      "from": "agentic-engine",
+      "to": "tools",
+      "import_count": 8,
+      "module_count": 4
+    },
+    {
       "from": "experience-engine",
       "to": "persistence",
       "import_count": 8,
@@ -227,12 +233,6 @@
       "from": "integrations",
       "to": "integrations",
       "import_count": 8,
-      "module_count": 4
-    },
-    {
-      "from": "agentic-engine",
-      "to": "tools",
-      "import_count": 7,
       "module_count": 4
     },
     {
@@ -1011,6 +1011,7 @@
         "src/ids.js",
         "src/provider/reasoning.js",
         "src/reliability/tool-call-assembler.js",
+        "src/tools/capability-continuity.js",
         "src/tools/catalog-context.js"
       ]
     },
@@ -2530,6 +2531,12 @@
     },
     {
       "path": "src/tools/capability-activation.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/tools/capability-continuity.js",
       "component": "tools",
       "entrypoint": false,
       "imports": []
