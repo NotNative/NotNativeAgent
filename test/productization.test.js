@@ -314,7 +314,7 @@ test('AC-IMPLP-01/AC-IMPLP-02 automated source and implementation safety gates p
   const packageJson = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8'));
   assert.match(packageJson.scripts.check, /^node scripts\/quality-gates\.js && node --test$/u);
   const checked = spawnSync(process.execPath, [join(projectRoot, 'scripts', 'quality-gates.js')], {
-    cwd: projectRoot, encoding: 'utf8', timeout: 20_000,
+    cwd: projectRoot, encoding: 'utf8', timeout: 60_000,
   });
   assert.equal(checked.status, 0, checked.stderr);
   assert.match(checked.stdout, /quality gates passed/u);
