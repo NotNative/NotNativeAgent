@@ -39,7 +39,11 @@ malformed semantic events, data after a terminal marker, incomplete tool identit
 malformed tool arguments end the model step before any tool review or execution begins.
 
 Empty output and unchanged tool-result fingerprints consume a turn-scoped
-three-attempt no-progress ladder. The ladder records a nudge and deterministic
+three-attempt no-progress ladder. Every authenticated user turn creates a fresh
+supervisor, so progress fingerprints, episode counts, and recovery actions never
+carry into the next turn. Distinct repeated tool-request fingerprints also own
+distinct episodes; unrelated read-only exploration cannot jointly exhaust one
+generic tool-no-progress counter. The ladder records a nudge and deterministic
 context compaction before exhaustion. New authenticated steering or a unique
 successful tool-result fingerprint is progress evidence. Distinct progressing
 steps continue for as long as they produce distinct verified progress. There is no

@@ -57,7 +57,7 @@ export class RecoverySupervisor {
       this.#episodes.clear();
       return Object.freeze({ continue: true, progress: true, action: null });
     }
-    const episode = episodeKey(category, options.failureFingerprint);
+    const episode = episodeKey(category, options.failureFingerprint, observedDetail);
     const count = (this.#episodes.get(episode) ?? 0) + 1;
     if (!this.#episodes.has(episode) && this.#episodes.size >= MAX_EPISODES) {
       this.#episodes.delete(this.#episodes.keys().next().value);
@@ -133,8 +133,12 @@ export class RecoverySupervisor {
 
 }
 
-function episodeKey(category, failureFingerprint) {
-  return failureFingerprint ? `${category}\0${failureFingerprint}` : category;
+function episodeKey(category, failureFingerprint, detail = {}) {
+  if (failureFingerprint) return `${category}\0${failureFingerprint}`;
+  const requestFingerprints = detail?.summary?.request_fingerprints;
+  if (!Array.isArray(requestFingerprints) || requestFingerprints.length === 0) return category;
+  const stableRequests = [...new Set(requestFingerprints.filter((item) => typeof item === 'string' && item.length > 0))].sort();
+  return stableRequests.length > 0 ? `${category}\0requests\0${stableRequests.join('\0')}` : category;
 }
 
 function repeatedEvidenceDetail(detail) {

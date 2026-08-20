@@ -84,6 +84,45 @@ test('tool recovery budgets are isolated by stable failure fingerprint', () => {
   });
 });
 
+test('distinct repeated successful requests do not consume one shared no-progress budget', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  const evidence = (value, requestFingerprint) => ({
+    value,
+    detail: {
+      kind: 'tool_results', checkpoint: 'tool_results_committed',
+      summary: { successful_tool_calls: 1, request_fingerprints: [requestFingerprint] },
+    },
+  });
+  const directory = evidence('unchanged-directory-result', 'list-directory-request');
+  const file = evidence('unchanged-file-result', 'read-file-request');
+
+  assert.equal(recovery.noProgress('tool_no_progress', directory).progress, true);
+  assert.equal(recovery.noProgress('tool_no_progress', file).progress, true);
+  assert.equal(recovery.noProgress('tool_no_progress', directory).count, 1);
+  assert.equal(recovery.noProgress('tool_no_progress', file).count, 1);
+  assert.equal(recovery.noProgress('tool_no_progress', directory).count, 2);
+  assert.deepEqual(recovery.noProgress('tool_no_progress', directory), {
+    continue: false, exhausted: true, count: 3,
+  });
+});
+
+test('a new turn supervisor starts with fresh progress evidence and recovery episodes', () => {
+  const evidence = {
+    value: 'same-observation',
+    detail: {
+      kind: 'tool_results', checkpoint: 'tool_results_committed',
+      summary: { successful_tool_calls: 1, request_fingerprints: ['same-request'] },
+    },
+  };
+  const firstTurn = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  assert.equal(firstTurn.noProgress('tool_no_progress', evidence).progress, true);
+  assert.equal(firstTurn.noProgress('tool_no_progress', evidence).count, 1);
+
+  const nextTurn = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  assert.equal(nextTurn.noProgress('tool_no_progress', evidence).progress, true);
+  assert.equal(nextTurn.actions.length, 0);
+});
+
 test('new verified progress settles stale no-progress budgets across categories', () => {
   const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
   const unchangedWork = '2 unfinished task(s); goal active; work revision 10';
