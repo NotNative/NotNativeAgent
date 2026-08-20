@@ -2,6 +2,7 @@
 import { ContractError } from './ids.js';
 import { providerReasoningControls } from './provider/reasoning.js';
 import { providerRetryAfterMs } from './reliability/retry-after.js';
+import { localProviderFetch } from './provider/local-http-transport.js';
 
 const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
 const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
@@ -12,7 +13,7 @@ export class OpenAICompatibleProvider {
   constructor(profile, limits = {}, options = {}) {
     this.profile = profile;
     this.limits = limits;
-    this.fetch = options.fetch ?? globalThis.fetch;
+    this.fetch = options.fetch ?? (profile.trustZone === 'public_network' ? globalThis.fetch : localProviderFetch);
   }
 
   async capabilities(signal) {
@@ -55,6 +56,19 @@ export class OpenAICompatibleProvider {
     return runtimeFromCapabilities(await this.capabilities(signal), declared, 'openai_models');
   }
 
+  async health(signal) {
+    try {
+      const response = await this.fetch(`${this.profile.endpoint}/models`, {
+        headers: this.#headers(), signal,
+      });
+      if (!response.ok) throw providerError(response.status, 'provider health probe failed');
+      await response.body?.cancel();
+      return true;
+    } catch (error) {
+      throw normalizeProviderTransportError(error, signal);
+    }
+  }
+
   async *stream(request, signal) {
     const transport = new AbortController();
     const cancel = () => transport.abort();
@@ -82,12 +96,14 @@ export class OpenAICompatibleProvider {
     } catch (error) {
       signal.removeEventListener('abort', cancel);
       transport.abort();
-      throw error;
+      throw normalizeProviderTransportError(error, signal);
     }
     try {
       if (!response.ok) throw await providerErrorResponse(response, this.profile.trustZone);
       if (!response.body) throw new ContractError('provider_empty_body', 'provider returned no stream');
       yield* parseSse(response.body, providerStreamByteLimit(this.limits, request), signal);
+    } catch (error) {
+      throw normalizeProviderTransportError(error, signal);
     } finally {
       signal.removeEventListener('abort', cancel);
       transport.abort();
@@ -104,6 +120,32 @@ export class OpenAICompatibleProvider {
     }
     return headers;
   }
+}
+
+function normalizeProviderTransportError(error, signal) {
+  if (error instanceof ContractError || signal?.aborted) return error;
+  const code = nestedErrorCode(error);
+  const timeoutCodes = new Set(['UND_ERR_BODY_TIMEOUT', 'ERR_HTTP_REQUEST_TIMEOUT']);
+  const connectionCodes = new Set([
+    'ECONNREFUSED', 'ECONNRESET', 'EHOSTUNREACH', 'ENETUNREACH', 'ENOTFOUND', 'EPIPE', 'ETIMEDOUT',
+    'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_SOCKET',
+  ]);
+  if (timeoutCodes.has(code)) {
+    return new ContractError('provider_transport_idle_timeout', 'provider transport stopped receiving response data', true, { cause: error });
+  }
+  if (connectionCodes.has(code) || error instanceof TypeError) {
+    return new ContractError('provider_transport_error', 'provider transport failed', true, { cause: error });
+  }
+  return new ContractError('provider_transport_error', 'provider transport failed', true, { cause: error });
+}
+
+function nestedErrorCode(error) {
+  let current = error;
+  for (let depth = 0; current && depth < 4; depth += 1) {
+    if (typeof current.code === 'string' && current.code.length <= 128) return current.code;
+    current = current.cause;
+  }
+  return null;
 }
 
 function normalizeSystemMessages(messages) {

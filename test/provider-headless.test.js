@@ -200,6 +200,51 @@ test('provider transport exposes raw SSE chunk activity independently of semanti
   assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
 });
 
+test('trusted local provider transport admits silent reasoning gaps without an implicit body deadline', async () => {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { 'content-type': 'text/event-stream' });
+    response.write('data: {"choices":[{"delta":{"role":"assistant"},"finish_reason":null}]}\n\n');
+    setTimeout(() => response.end(
+      'data: {"choices":[{"delta":{"content":"ready"},"finish_reason":"stop"}]}\n\n'
+      + 'data: [DONE]\n\n',
+    ), 40);
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const address = server.address();
+    const provider = new OpenAICompatibleProvider({
+      endpoint: `http://127.0.0.1:${address.port}/v1`, credentialEnv: null,
+      model: 'slow-local-model', capabilities: {}, trustZone: 'loopback',
+    }, { maxOutputBytes: 4096 });
+    const items = [];
+    for await (const item of provider.stream({
+      model: 'slow-local-model', messages: [],
+    }, new AbortController().signal)) items.push(item);
+    assert.equal(items.filter((item) => item.type === 'text').map((item) => item.text).join(''), 'ready');
+    assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('nested HTTP client timeouts become typed retryable provider failures', async () => {
+  const cause = Object.assign(new Error('body timeout'), { code: 'UND_ERR_BODY_TIMEOUT' });
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null,
+    model: 'slow-local-model', capabilities: {}, trustZone: 'loopback',
+  }, { maxOutputBytes: 4096 }, {
+    fetch: async () => { throw new TypeError('terminated', { cause }); },
+  });
+  await assert.rejects(async () => {
+    for await (const _item of provider.stream({
+      model: 'slow-local-model', messages: [],
+    }, new AbortController().signal)) { /* consume */ }
+  }, {
+    code: 'provider_transport_idle_timeout', retryable: true,
+    message: 'provider transport stopped receiving response data',
+  });
+});
+
 test('provider requests omit unset sampling and output limits', async () => {
   let body;
   const provider = new OpenAICompatibleProvider({

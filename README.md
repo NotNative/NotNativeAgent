@@ -140,7 +140,9 @@ may include a bounded
 `attachments` array of `{ "path", "mime_type" }` descriptors. Temporarily failed images
 can be retried by identity with `attachment_retry` or removed with `attachment_remove`.
 Memory and MCP remain disabled unless explicitly configured. Provider connect,
-first-token, idle, and overall deadlines are distinct; local no-progress work
+first-token, idle, and overall deadlines are distinct. Trusted local inference uses a
+deadline-owned native transport without a hidden HTTP body timeout; during a silent stream,
+content-free health probes provide diagnostic receipts without ending or extending the request. Local no-progress work
 stops after three equivalent failures while unique progress may continue under
 the generous step limit. Contributions and feedback are welcome and voluntary;
 they are not additional license conditions.

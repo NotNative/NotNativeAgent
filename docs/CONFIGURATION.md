@@ -90,6 +90,13 @@ default. Explicit `first_token_timeout_ms`, `idle_timeout_ms`, and `provider_tim
 values apply to every trust zone; zero disables the corresponding deadline. Provider
 deadlines accept up to 24 hours.
 
+Trusted local routes also avoid the HTTP client's implicit response-body timeout. NNA owns
+their deadlines end to end instead of allowing a lower transport layer to disconnect a
+server that is still generating buffered reasoning. After 60 seconds without a stream event,
+NNA makes a bounded, content-free `/models` health probe and records the result in local
+telemetry. That probe is diagnostic only: success does not count as stream progress or extend
+an explicit deadline, and failure does not terminate an otherwise live generation.
+
 Manifests carrying the exact historical 30-second/45-second stream defaults, or the former
 persisted 10-minute/5-minute pair, migrate to inherited policy. The exact historical
 15-second semantic-review default is migrated as well; other customized values remain

@@ -61,6 +61,12 @@ idle, and overall deadlines. Trusted loopback and private-network inference has 
 deadline; explicit operator settings remain authoritative and cancellation remains immediate.
 At 11 tokens per second, a healthy 32K-token reasoning/tool response can take roughly 49
 minutes before prompt processing overhead, so elapsed time alone is not failure evidence.
+Trusted local routes therefore use a provider-only native HTTP transport with no implicit
+response-body deadline; the Reliability Engine remains the sole timeout authority. A bounded
+out-of-band health probe runs after 60 seconds without a stream event and leaves a content-free
+telemetry receipt. Probe success never fabricates stream activity, and probe failure never
+terminates inference. Transport failures are normalized through nested client causes into
+stable retryable provider codes rather than escaping as `internal_failure`.
 
 The configured model-step ceiling remains a final bounded guard (1,024 by default), so a
 long build can exceed dozens of useful tool steps without being mistaken for a loop.

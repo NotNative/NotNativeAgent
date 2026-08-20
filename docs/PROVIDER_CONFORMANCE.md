@@ -51,3 +51,8 @@ does not retain prompts, responses, reasoning, tool arguments, credentials, or p
 error bodies. A passing report is technical evidence, not proof that the two operator-
 declared implementations are independent; release reviewers must verify that claim and
 retain the input/report outside the distributed product tree.
+
+Trusted loopback and private-network entries use NNA's deadline-owned local HTTP transport.
+It does not impose a client-library body-idle cutoff on buffered reasoning, but it retains the
+adapter byte ceiling and immediate cancellation. Content-free health probes are diagnostic
+only and cannot convert elapsed time into progress or failure.

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:b414d3759c6c03d9e0f83954e8d5fd7b8dafbc6e8bd65cc9d4cfb20ee3063397",
+  "source_digest": "sha256:91fc0f18ff2e6ad39da3358c860e43f7c7dba2db206c96429015046b583eb9cf",
   "counts": {
-    "modules": 301,
+    "modules": 302,
     "component_edges": 67
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "providers",
       "label": "Providers",
       "ownership": "Owns model routing and provider wire adaptation.",
-      "module_count": 14
+      "module_count": 15
     },
     {
       "id": "tools",
@@ -97,6 +97,7 @@
     "node:path",
     "node:readline/promises",
     "node:sqlite",
+    "node:stream",
     "node:url",
     "node:util",
     "node:worker_threads",
@@ -152,16 +153,16 @@
       "module_count": 6
     },
     {
+      "from": "providers",
+      "to": "foundation",
+      "import_count": 17,
+      "module_count": 14
+    },
+    {
       "from": "integrations",
       "to": "foundation",
       "import_count": 16,
       "module_count": 10
-    },
-    {
-      "from": "providers",
-      "to": "foundation",
-      "import_count": 16,
-      "module_count": 13
     },
     {
       "from": "experience-engine",
@@ -236,16 +237,16 @@
       "module_count": 4
     },
     {
+      "from": "providers",
+      "to": "providers",
+      "import_count": 8,
+      "module_count": 7
+    },
+    {
       "from": "foundation",
       "to": "experience-engine",
       "import_count": 7,
       "module_count": 5
-    },
-    {
-      "from": "providers",
-      "to": "providers",
-      "import_count": 7,
-      "module_count": 7
     },
     {
       "from": "agentic-engine",
@@ -1908,6 +1909,7 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
+        "src/provider/local-http-transport.js",
         "src/provider/reasoning.js",
         "src/reliability/retry-after.js"
       ]
@@ -1946,6 +1948,14 @@
       "imports": [
         "src/ids.js",
         "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/provider/local-http-transport.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {

@@ -432,6 +432,43 @@ test('an unset overall route deadline does not create an immediate timeout', asy
   assert.equal(active.stepText, 'completed');
 });
 
+test('silent trusted-local inference receives non-authoritative out-of-band health probes', async () => {
+  const state = new StateAuthority();
+  state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-health-probe' });
+  const lifecycles = new LifecycleRegistry();
+  const turn = lifecycles.start('turn');
+  const step = lifecycles.start('model_step', turn.id);
+  const active = {
+    turnId: 'turn-health-probe', stepId: step.id, attemptId: null,
+    controller: new AbortController(), cancelled: false, stepText: '',
+    toolAssembler: new ToolCallAssembler(), providerTerminal: false,
+    recovery: new RecoverySupervisor(), reasoningBytes: 0, stepReasoningBytes: 0,
+    usage: null, finishReason: null, providerResource: 'local', modelName: 'slow-model',
+  };
+  const events = [];
+  let probes = 0;
+  const runner = new ProviderRunner({
+    state, lifecycles, publish: async () => undefined,
+    acceptText: async (text) => { active.stepText += text; },
+    settleAttempt: async () => undefined, recordRecovery: async () => undefined,
+    healthProbeIntervalMs: 10, healthProbeTimeoutMs: 5,
+    telemetry: { record: (name, outcome) => events.push([name, outcome]) },
+  });
+  const provider = {
+    profile: { trustZone: 'loopback' },
+    health: async () => { probes += 1; throw Object.assign(new Error('offline probe'), { code: 'ECONNREFUSED' }); },
+    async *stream() {
+      await new Promise((resolve) => setTimeout(resolve, 35));
+      yield { type: 'text', text: 'completed' };
+      yield { type: 'terminal', finishReason: 'stop' };
+    },
+  };
+  await runner.run(provider, {}, { overallMs: null, firstTokenMs: null, idleMs: null }, active);
+  assert.equal(active.stepText, 'completed');
+  assert.ok(probes >= 1);
+  assert.ok(events.some(([name, outcome]) => name === 'provider.health' && outcome === 'failed'));
+});
+
 test('provider cache observation is scoped to the successful transport attempt', async () => {
   const state = new StateAuthority();
   state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-cache-usage' });

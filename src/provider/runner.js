@@ -3,6 +3,8 @@ import { ContractError } from '../ids.js';
 import { FairScheduler } from './fair-scheduler.js';
 
 const ITERATOR_CLOSE_TIMEOUT_MS = 25;
+const LOCAL_HEALTH_PROBE_INTERVAL_MS = 60_000;
+const LOCAL_HEALTH_PROBE_TIMEOUT_MS = 5_000;
 
 export class ProviderRunner {
   constructor(options) {
@@ -22,6 +24,8 @@ export class ProviderRunner {
     this.prepareRequest = options.prepareRequest;
     this.verifyRequest = options.verifyRequest;
     this.recordTokenReceipt = options.recordTokenReceipt;
+    this.healthProbeIntervalMs = options.healthProbeIntervalMs ?? LOCAL_HEALTH_PROBE_INTERVAL_MS;
+    this.healthProbeTimeoutMs = options.healthProbeTimeoutMs ?? LOCAL_HEALTH_PROBE_TIMEOUT_MS;
     this.scheduler ??= new FairScheduler();
     this.queueStatus ??= () => undefined;
   }
@@ -187,6 +191,10 @@ export class ProviderRunner {
       throw new ContractError('provider_stream_invalid', 'provider did not return an asynchronous event stream');
     }
     const iterator = stream[Symbol.asyncIterator]();
+    const monitor = startProviderHealthMonitor({
+      provider, active, signal, telemetry: this.telemetry,
+      intervalMs: this.healthProbeIntervalMs, timeoutMs: this.healthProbeTimeoutMs,
+    });
     try {
       while (true) {
         const boundary = opened ? 'provider_idle_timeout' : 'provider_first_token_timeout';
@@ -194,48 +202,52 @@ export class ProviderRunner {
         const next = await boundedNext(iterator, duration, boundary);
         if (next.done) break;
         const item = next.value;
+        active.lastProviderActivityAt = Date.now();
         if (active.controller.signal.aborted) throw new ContractError('provider_cancelled', 'provider was cancelled');
         assertProviderEvent(item, active.providerTerminal);
         if (!opened) {
           this.state.transition('streaming_model', { trigger: 'stream_opened', turnId: active.turnId });
           opened = true;
         }
-        if (item.type === 'transport_activity') {
-          active.attemptTransportBytes += item.bytes;
-        }
-        else if (item.type === 'text') {
-          active.attemptOutputBytes += Buffer.byteLength(item.text, 'utf8');
-          await this.acceptText(item.text, active);
-        }
-        else if (item.type === 'reasoning') {
-          if (active.stepReasoningBytes === 0) await this.status?.('reasoning', active);
-          const bytes = Buffer.byteLength(item.text, 'utf8');
-          active.reasoningBytes += bytes;
-          active.stepReasoningBytes += bytes;
-          active.attemptOutputBytes += bytes;
-        }
-        else if (item.type === 'tool_fragment') {
-          active.attemptOutputBytes += Buffer.byteLength(JSON.stringify(item.fragments), 'utf8');
-          active.toolAssembler.add(item.fragments);
-        }
-        else if (item.type === 'usage') {
-          attemptUsage = validatedUsage(item.usage);
-          active.attemptUsage = attemptUsage;
-        }
-        else if (item.type === 'metadata') active.finishReason = item.finishReason;
-        else if (item.type === 'terminal') {
-          active.providerTerminal = true;
-          active.finishReason = item.finishReason ?? active.finishReason;
-          if (item.usage != null) {
-            attemptUsage = validatedUsage(item.usage);
-            active.attemptUsage = attemptUsage;
-          }
-        }
+        const usage = await this.#consumeEvent(item, active);
+        if (usage) attemptUsage = usage;
       }
       if (!opened) throw new ContractError('provider_empty_stream', 'provider produced no stream items', true);
       if (!active.providerTerminal) throw new ContractError('provider_missing_terminal', 'provider did not terminate cleanly');
       return attemptUsage;
-    } finally { await closeIterator(iterator); }
+    } finally {
+      await monitor.stop();
+      await closeIterator(iterator);
+    }
+  }
+
+  async #consumeEvent(item, active) {
+    if (item.type === 'transport_activity') active.attemptTransportBytes += item.bytes;
+    else if (item.type === 'text') {
+      active.attemptOutputBytes += Buffer.byteLength(item.text, 'utf8');
+      await this.acceptText(item.text, active);
+    } else if (item.type === 'reasoning') {
+      if (active.stepReasoningBytes === 0) await this.status?.('reasoning', active);
+      const bytes = Buffer.byteLength(item.text, 'utf8');
+      active.reasoningBytes += bytes;
+      active.stepReasoningBytes += bytes;
+      active.attemptOutputBytes += bytes;
+    } else if (item.type === 'tool_fragment') {
+      active.attemptOutputBytes += Buffer.byteLength(JSON.stringify(item.fragments), 'utf8');
+      active.toolAssembler.add(item.fragments);
+    } else if (item.type === 'usage') {
+      active.attemptUsage = validatedUsage(item.usage);
+      return active.attemptUsage;
+    } else if (item.type === 'metadata') active.finishReason = item.finishReason;
+    else if (item.type === 'terminal') {
+      active.providerTerminal = true;
+      active.finishReason = item.finishReason ?? active.finishReason;
+      if (item.usage != null) {
+        active.attemptUsage = validatedUsage(item.usage);
+        return active.attemptUsage;
+      }
+    }
+    return null;
   }
 }
 
@@ -252,6 +264,7 @@ function initializeAttempt(active) {
   active.attemptOutputBytes = 0;
   active.attemptTransportBytes = 0;
   active.providerDispatched = false;
+  active.lastProviderActivityAt = Date.now();
 }
 
 function providerCorrelation(active, spanId) {
@@ -309,7 +322,7 @@ function fallbackEligible(error) {
   return new Set([
     'provider_transient', 'provider_timeout', 'provider_connect_timeout',
     'provider_first_token_timeout', 'provider_idle_timeout', 'provider_empty_stream',
-    'provider_missing_terminal',
+    'provider_missing_terminal', 'provider_transport_idle_timeout', 'provider_transport_error',
   ]).has(error?.code);
 }
 
@@ -351,4 +364,61 @@ async function cancellableDelay(milliseconds, signal) {
       reject(new ContractError('provider_cancelled', 'provider was cancelled'));
     }, { once: true });
   });
+}
+
+function startProviderHealthMonitor({ provider, active, signal, telemetry, intervalMs, timeoutMs }) {
+  if (provider?.profile?.trustZone === 'public_network' || typeof provider?.health !== 'function'
+    || !Number.isFinite(intervalMs) || intervalMs <= 0 || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return { stop: async () => undefined };
+  }
+  let stopped = false;
+  let timer = null;
+  let pending = null;
+  let probeController = null;
+  let sequence = 0;
+  const schedule = () => {
+    if (stopped) return;
+    timer = setTimeout(() => { pending = run(); }, intervalMs);
+    timer.unref?.();
+  };
+  const run = async () => {
+    if (stopped || signal.aborted) return;
+    const silenceMs = Date.now() - (active.lastProviderActivityAt ?? Date.now());
+    if (silenceMs < intervalMs) { schedule(); return; }
+    sequence += 1;
+    const controller = new AbortController();
+    probeController = controller;
+    const cancel = () => controller.abort();
+    signal.addEventListener('abort', cancel, { once: true });
+    const deadline = setTimeout(() => controller.abort(), timeoutMs);
+    deadline.unref?.();
+    const spanId = `provider-health:${active.attemptId}:${sequence}`;
+    telemetry?.record('provider.health', 'started', {
+      model: active.modelName, provider_profile: active.providerResource, silence_ms: silenceMs,
+    }, providerCorrelation(active, spanId));
+    try {
+      await provider.health(controller.signal);
+      telemetry?.record('provider.health', 'succeeded', {
+        model: active.modelName, provider_profile: active.providerResource, silence_ms: silenceMs,
+      }, { ...providerCorrelation(active, spanId), outcome: 'completed' });
+    } catch (error) {
+      if (!signal.aborted && !stopped) telemetry?.record('provider.health', 'failed', {
+        model: active.modelName, provider_profile: active.providerResource, silence_ms: silenceMs,
+        failure: { code: error?.code ?? 'provider_health_unavailable', retryable: true },
+      }, { ...providerCorrelation(active, spanId), outcome: 'failed', reasonCode: error?.code });
+    } finally {
+      clearTimeout(deadline);
+      signal.removeEventListener('abort', cancel);
+      probeController = null;
+      pending = null;
+      schedule();
+    }
+  };
+  schedule();
+  return { stop: async () => {
+    stopped = true;
+    clearTimeout(timer);
+    probeController?.abort();
+    await pending?.catch(() => undefined);
+  } };
 }
