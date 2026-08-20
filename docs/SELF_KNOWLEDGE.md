@@ -6,10 +6,10 @@ authoring, architecture,
 installation, troubleshooting, hooks, MCP integration, memory, provider routing, or
 permission system. It must not substitute general knowledge about other agent products.
 
-The engine prompt instructs the model to briefly tell the user it is checking NNA's
-documentation, call `nna.search_guidance`, read the relevant document with
-`nna.read_guidance`, and ground the answer in those results. If the installed guidance
-does not cover the question, NNA must state that limitation rather than invent behavior.
+The engine prompt instructs the model to use packaged guidance rather than guess. NNA-related
+intent activates `nna.search_guidance` and `nna.read_guidance`; the model grounds its answer
+in those results. If installed guidance does not cover the question, NNA must state that
+limitation rather than invent behavior.
 Before creating or modifying an NNA skill, it must read `SKILLS.md` and follow the NNA
 package, scope, metadata, invocation, and verification conventions instead of borrowing
 syntax from another agent product.

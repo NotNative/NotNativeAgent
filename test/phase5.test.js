@@ -661,47 +661,37 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /respond conversationally when no action is requested/u);
   assert.match(policy, new RegExp(`Authoritative host environment: operating system .* \\(${process.platform}\\)`, 'u'));
   assert.match(policy, /Shell syntax is not portable and NNA does not translate/u);
-  assert.match(policy, /Avoid embedding generated multi-statement programs in node -e, python -c/u);
-  assert.match(policy, /ref\.store.*stdin_ref/u);
+  for (const heading of ['Role and scope', 'Communication and authority', 'Context and project state',
+    'Actions and verification', 'Grounding and retrieval', 'NNA self-knowledge', 'Failure and completion']) {
+    assert.match(policy, new RegExp(`## ${heading}`, 'u'));
+  }
   const clock = context.find((item) => item.provenance === 'runtime_clock')?.content ?? '';
   assert.doesNotMatch(policy, /Authoritative runtime clock/u);
   assert.match(clock, /Authoritative runtime clock: local \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}/u);
   assert.match(clock, /UTC \d{4}-\d{2}-\d{2}T/u);
   assert.match(clock, /today, tomorrow, yesterday, and this evening/u);
-  assert.match(policy, /workspace is context, not an implied assignment/u);
-  assert.match(policy, /NNA\.md is discovered and injected by the runtime/u);
-  assert.match(policy, /orient yourself from any injected project guidance/u);
-  assert.match(policy, /do not assume or create a guidance file when none was injected/u);
+  assert.match(policy, /workspace is context, not an implied assignment/iu);
+  assert.match(policy, /NNA\.md is injected as attributed context/u);
+  assert.match(policy, /without rereading it or inventing a guidance file/u);
   assert.equal(policy.includes(config(process.cwd()).workspaceRoot), true);
-  assert.match(policy, /explicitly refers to this project, repository, codebase, or workspace/u);
-  assert.match(policy, /Use tools only when they are necessary/u);
-  assert.match(policy, /begin the first model response with one brief visible acknowledgement/u);
-  assert.match(policy, /do not repeat the acknowledgement on later model steps/u);
-  assert.match(policy, /do not guess from general knowledge/u);
+  assert.match(policy, /user refers to this project, repository, codebase, or workspace/u);
+  assert.match(policy, /Use tools only when necessary/u);
+  assert.match(policy, /begin with one brief visible acknowledgement/u);
+  assert.match(policy, /do not repeat that acknowledgement on continuations/u);
   assert.match(policy, /nna\.search_guidance/u);
   assert.match(policy, /skills and skill authoring/u);
-  assert.match(policy, /consult the packaged skill-authoring guidance/u);
-  assert.match(policy, /training data as background reference only/u);
+  assert.match(policy, /instead of guessing/u);
+  assert.match(policy, /training data as background, not proof/u);
   assert.match(policy, /bounded hot working set/u);
-  assert.match(policy, /Absence from the hot context is not evidence/u);
-  assert.match(policy, /cold session evidence inventory/u);
-  assert.match(policy, /session\.search_history and then session\.read_history/u);
-  assert.match(policy, /Verify claims about the active environment, files, code, configuration, logs, installed software, or runtime behavior/u);
-  assert.match(policy, /do not present an unverified inference as fact/u);
+  assert.match(policy, /Absence from hot context is not evidence/u);
+  assert.match(policy, /session\.search_history then session\.read_history/u);
+  assert.match(policy, /Verify material claims about the active environment from local evidence/u);
   assert.match(policy, /Before asserting current versions, releases/u);
-  assert.match(policy, /Never infer that a version, product, API, or event does not exist/u);
-  assert.match(policy, /WebFetch and WebBrowse are independent retrieval paths/u);
-  assert.match(policy, /next use web\.browse with action navigate on that same exact URL/u);
-  assert.match(policy, /Exhaust reasonable retrieval paths before saying current evidence could not be verified/u);
-  assert.match(policy, /managed image-observation path/u);
-  assert.match(policy, /web\.browse captures a screenshot[^]*active primary model[^]*configured vision route/u);
-  assert.match(policy, /do not treat the PNG as opaque or install image-processing packages merely to see it/u);
-  assert.match(policy, /search summaries as source discovery rather than detailed evidence/u);
-  assert.match(policy, /claim could not be verified/u);
-  assert.match(policy, /prefer structured filesystem, search, Git-inspection, and project-verification tools/iu);
-  assert.match(policy, /keep each script to one coherent purpose/iu);
-  assert.match(policy, /Select pwsh only after separately installed PowerShell 7/u);
-  assert.match(policy, /SSH, Git, Docker, and system utilities/u);
+  assert.match(policy, /web\.fetch fails[^]*web\.browse navigate on that same URL/u);
+  assert.match(policy, /process\.run for one exact executable and argv/u);
+  assert.match(policy, /tool\.search once[^]*loads matching schemas for the next model step/u);
+  assert.match(policy, /runtime binds and revalidates receipts/u);
+  assert.match(policy, /Do not claim completion while required work is unfinished/u);
 });
 
 test('provider context keeps its policy prefix byte-stable while placing the clock at the mutable tail', () => {
