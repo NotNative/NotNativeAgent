@@ -104,6 +104,12 @@ export class ToolRegistry {
   }
   providerDefinitions(query = '') {
     const activated = new Set(taskActivatedToolNames(query));
+    // Hosted or explicitly-ceilinged registries may provide process.run without a shell.
+    // Preserve execution capability there without making process.run compete with shell.run
+    // in the ordinary root model surface.
+    if (activated.has('shell.run') && !this.#definitions.has('shell.run') && this.#definitions.has('process.run')) {
+      activated.add('process.run');
+    }
     const relevant = new Set(query.trim() ? this.search(query, 6).map((item) => item.name)
       .filter((name) => !SITUATIONAL.has(name) || activated.has(name)) : []);
     const definitions = this.snapshot().filter((item) => ALWAYS_EXPOSED.has(item.name) || this.#exposed.has(item.name)

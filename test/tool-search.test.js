@@ -43,9 +43,10 @@ test('authenticated task intent activates bounded effectful capability bundles',
   assert.ok(!inspect.includes('process.run'));
 
   const build = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
-  for (const name of ['fs.create_directory', 'fs.write_text', 'fs.edit_text', 'process.run', 'shell.run', 'project.verify']) {
+  for (const name of ['fs.create_directory', 'fs.write_text', 'fs.edit_text', 'shell.run', 'project.verify']) {
     assert.ok(build.includes(name), `${name} was not activated`);
   }
+  assert.ok(!build.includes('process.run'));
   assert.ok(!build.includes('fs.delete_file'));
   assert.ok(!build.includes('system.elevate'));
 
@@ -66,6 +67,16 @@ test('authenticated task intent activates bounded effectful capability bundles',
     assert.ok(taskActivatedToolNames('diagnose the failed turn from the logs').includes(name));
   }
   assert.equal(taskActivatedToolNames('read the current file').includes('web.search'), false);
+  assert.ok(taskActivatedToolNames('run this direct executable with exact argv without a shell').includes('process.run'));
+});
+
+test('hosted execution falls back to process.run when no shell tool exists', async () => {
+  const registry = new ToolRegistry(process.cwd(), { hosted: true });
+  await registry.initialize();
+  const visible = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
+  assert.ok(visible.includes('process.run'));
+  assert.ok(visible.includes('project.verify'));
+  assert.ok(!visible.includes('shell.run'));
 });
 
 test('explicit exposure makes an exact recovery tool visible without broadening its bundle', async () => {

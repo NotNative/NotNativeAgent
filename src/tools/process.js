@@ -43,7 +43,7 @@ export function shellRunDefinition(paths, references = null, platform = process.
   const guidance = shellToolGuidance(platform);
   return {
     name: 'shell.run', version: 1,
-    purpose: `Run a bounded script in the host platform shell. ${guidance} Use this only when pipelines, redirection, environment expansion, or multi-command terminal behavior is necessary; prefer structured NNA tools when available and process.run for one exact executable and argv. Keep one coherent purpose per call when practical. Avoid large loops, nested substitutions, deeply nested quoting, and combining mutation with verification. The complete script is reviewed before execution. Handle expected predicate statuses explicitly: diff and no-match grep commonly exit 1, while pipefail can expose an upstream SIGPIPE from pipelines ending in head.`,
+    purpose: `Run a bounded terminal workflow in the host platform shell. ${guidance} Use this for ordinary command-line programs as well as pipelines, redirection, expansion, or multiple commands; prefer a more specific structured NNA tool when one describes the operation. Keep one coherent purpose per call when practical. Avoid large loops, nested substitutions, deeply nested quoting, and combining mutation with verification. The complete script is reviewed before execution. Handle expected predicate statuses explicitly: diff and no-match grep commonly exit 1, while pipefail can expose an upstream SIGPIPE from pipelines ending in head.`,
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {

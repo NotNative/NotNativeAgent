@@ -57,6 +57,12 @@ The native filesystem tools are:
   content-free in the review packet and cannot authorize another operation. Existing files
   outside the workspace still require an explicit `fs.read_text` receipt.
 
+`shell.run` is the normal model-facing execution tool for authenticated build, test, install,
+and other terminal intent. `process.run` is not loaded into that ordinary task surface. It
+remains installed, governed, and discoverable for cases that specifically require one exact
+executable and argv without shell interpretation. Hosted or host-ceilinged sessions that have
+`process.run` but no `shell.run` receive it as the execution fallback.
+
 `process.run` executes one explicit executable with an argv array and `shell: false` at the
 Node process boundary. Its cwd may be any accessible host directory for ordinary root NNA;
 environment, duration, and combined output are
@@ -68,14 +74,14 @@ locations used by user-scoped command-line tools. Arbitrary parent variables, cr
 helpers, provider keys, cloud secrets, and other secrets are not forwarded. Shell interpreters, destructive
 file-management programs, destructive Git cleanup/reset, inline interpreter payloads,
 package scripts, and complex argv are classified for semantic review rather than hard-blocked.
-`shell.run` accepts one readable script when shell behavior is actually needed: pipelines,
-redirection, expansion, or multiple commands. It selects Windows PowerShell 5.1 on Windows
+`shell.run` accepts one readable terminal workflow, including ordinary command-line programs,
+pipelines, redirection, expansion, or multiple commands. It selects Windows PowerShell 5.1 on Windows
 and `sh` on Unix-like hosts unless the caller explicitly chooses another supported interpreter.
 The kernel publishes the detected operating system and native shell as authoritative model
 context, and the tool schema identifies exactly what `auto` means on the current host. Shell
 syntax is never translated between interpreters. Models should prefer `auto`, request a
-non-native interpreter only after positive discovery, and prefer structured NNA tools or
-`process.run` over shell-built discovery loops. Shell calls should keep one coherent purpose
+non-native interpreter only after positive discovery, and prefer structured NNA tools over
+shell-built discovery loops. Shell calls should keep one coherent purpose
 and avoid unnecessary nested substitutions, deeply nested quoting, or combined mutation and
 verification. Reliability signals classify fragile compound scripts for review without imposing
 an arbitrary command-length rejection.
@@ -285,5 +291,7 @@ Windows, `brew install ripgrep` on macOS, and the distribution package manager's
 The provider receives an immutable prompt-visible working set: bounded workspace observation
 tools remain loaded, specialized capability bundles and relevant tools are selected from the authenticated request, and the
 always-visible `tool.search` capability provides on-demand discovery of the remaining
-catalog. A host execution manifest may ceiling the complete tool capability, in which
+catalog. Ordinary execution intent loads `shell.run` and `project.verify`, while exact-process
+execution remains discoverable; registries without a shell use `process.run` as their bounded
+fallback. A host execution manifest may ceiling the complete tool capability, in which
 case the provider receives an empty tool list and requests remain unknown at governance.

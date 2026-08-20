@@ -21,6 +21,12 @@ next-step guidance. Provider-definition assembly does not age discovery state, b
 qualification, retry, and review may assemble definitions more than once before the primary
 model receives another actionable step.
 
+Ordinary build, test, install, and terminal intent activates `shell.run` plus
+`project.verify`; `process.run` does not compete in that routine surface. It remains installed
+and discoverable when exact argv without shell interpretation is materially useful. Hosted or
+manifest-ceilinged registries that provide `process.run` without `shell.run` use it as the
+execution fallback, preserving capability without widening the normal root surface.
+
 The kernel prompt is organized as short, named invariant sections: role and scope,
 communication and authority, context, action and verification, grounding, NNA self-knowledge,
 and completion. Host- or operation-specific coaching belongs in the relevant tool definition

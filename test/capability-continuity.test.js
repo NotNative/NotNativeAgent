@@ -23,9 +23,10 @@ test('terse continuation inherits active unfinished work capability intent', asy
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   const visible = registry.providerDefinitions(query).map((item) => item.function.name);
-  for (const name of ['fs.write_text', 'fs.edit_text', 'process.run', 'project.verify']) {
+  for (const name of ['fs.write_text', 'fs.edit_text', 'shell.run', 'project.verify']) {
     assert.ok(visible.includes(name), `${name} was not inherited`);
   }
+  assert.ok(!visible.includes('process.run'));
 });
 
 test('terse continuation falls back to the nearest substantive authenticated request', () => {

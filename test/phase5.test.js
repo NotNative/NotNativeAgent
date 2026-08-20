@@ -688,7 +688,7 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /Verify material claims about the active environment from local evidence/u);
   assert.match(policy, /Before asserting current versions, releases/u);
   assert.match(policy, /web\.fetch fails[^]*web\.browse navigate on that same URL/u);
-  assert.match(policy, /process\.run for one exact executable and argv/u);
+  assert.match(policy, /ordinary terminal work, use shell\.run[^]*exact-process capability only when/u);
   assert.match(policy, /tool\.search once[^]*loads matching schemas for the next model step/u);
   assert.match(policy, /runtime binds and revalidates receipts/u);
   assert.match(policy, /Do not claim completion while required work is unfinished/u);
