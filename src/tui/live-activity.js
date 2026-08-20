@@ -29,6 +29,7 @@ function liveActivityLabel(session) {
   const { state } = session;
   if (state === 'preparing') return 'Preparing…';
   if (state === 'waiting_provider') return 'Waiting for model…';
+  if (state === 'reasoning') return 'Model is reasoning…';
   if (state === 'streaming') return 'Responding…';
   if (state === 'awaiting_approval') return 'Reviewing tool use…';
   if (state === 'running_tool') return runningToolLabel(session);

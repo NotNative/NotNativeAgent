@@ -29,6 +29,12 @@ content is represented by byte count and digest rather than displayed. Typing `/
 catalog without changing conversation state. Every command row identifies its required
 capability, effective direct binding when one exists, and an actionable reason when the
 command is unavailable in the active conversation.
+
+For substantive action requests, the primary model is instructed to emit one terse visible
+acknowledgement naming its immediate next action before tool use or extended explanation.
+Because reasoning-capable providers may stream private reasoning before public text, the
+live activity line changes from `Waiting for model…` to `Model is reasoning…` on the first
+reasoning event. NNA never displays or persists the private reasoning content itself.
 Terminal receipts distinguish completed, needs-input, cancelled, failed, and limit outcomes.
 Completed and needs-input outcomes share the same quiet receipt shape instead of repeating
 state labels already visible in the footer. Failures show their stable code plus either an

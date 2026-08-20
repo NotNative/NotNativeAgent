@@ -243,6 +243,7 @@ test('AC-PROV-02 reasoning is typed and counted without entering transcript or o
   const output = [];
   const engine = new SessionEngine({
     config: config(root), providerFactory: () => provider, output: async (record) => output.push(record),
+    surface: 'interactive_tui',
   });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'reasoning-private', content: 'Answer' }, 'operator');
@@ -250,6 +251,7 @@ test('AC-PROV-02 reasoning is typed and counted without entering transcript or o
   assert.equal(result.reasoning_bytes, Buffer.byteLength(secretReasoning));
   assert.equal(JSON.stringify(engine.transcript).includes(secretReasoning), false);
   assert.equal(JSON.stringify(output).includes(secretReasoning), false);
+  assert.equal(output.some((item) => item.type === 'state_status' && item.semantic_state === 'reasoning'), true);
 });
 
 test('reasoning-only output receives one reasoning-disabled retry before normal empty recovery', async () => {

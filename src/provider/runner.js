@@ -13,6 +13,7 @@ export class ProviderRunner {
     this.reliability = options.reliability;
     this.publish = options.publish;
     this.acceptText = options.acceptText;
+    this.status = options.status;
     this.settleAttempt = options.settleAttempt;
     this.recordRecovery = options.recordRecovery;
     this.scheduler = options.scheduler;
@@ -201,6 +202,7 @@ export class ProviderRunner {
           await this.acceptText(item.text, active);
         }
         else if (item.type === 'reasoning') {
+          if (active.stepReasoningBytes === 0) await this.status?.('reasoning', active);
           const bytes = Buffer.byteLength(item.text, 'utf8');
           active.reasoningBytes += bytes;
           active.stepReasoningBytes += bytes;

@@ -675,6 +675,8 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.equal(policy.includes(config(process.cwd()).workspaceRoot), true);
   assert.match(policy, /explicitly refers to this project, repository, codebase, or workspace/u);
   assert.match(policy, /Use tools only when they are necessary/u);
+  assert.match(policy, /begin the first model response with one brief visible acknowledgement/u);
+  assert.match(policy, /do not repeat the acknowledgement on later model steps/u);
   assert.match(policy, /do not guess from general knowledge/u);
   assert.match(policy, /nna\.search_guidance/u);
   assert.match(policy, /skills and skill authoring/u);
@@ -1502,6 +1504,18 @@ test('active turns show a synthwave live activity indicator without persisting i
   assert.equal(projection.active().records.some((record) => record.type === 'live_activity'), false);
   projection.apply('s1', { type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
   assert.doesNotMatch(renderer.frame(projection, { width: 80, height: 24, color: false }), /Waiting for model/u);
+});
+
+test('private reasoning activity is visible without exposing private reasoning text', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
+  projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
+  projection.apply('s1', { type: 'state_status', semantic_state: 'reasoning', turn_id: 'turn-1' });
+  const rendered = new TuiRenderer().frame(projection, {
+    width: 80, height: 24, color: false, unicode: true, animationFrame: 0, now: Date.now(),
+  });
+  assert.match(rendered, /Model is reasoning…/u);
+  assert.doesNotMatch(rendered, /STATE|reasoning_content/u);
 });
 
 test('duplicate accepted lifecycle events do not restart the visible turn timer', () => {

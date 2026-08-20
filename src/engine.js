@@ -81,6 +81,7 @@ export class SessionEngine {
       toolContext: (active) => toolContext(this, active),
       executionContext: (active) => executionContext(this, active),
       acceptText: (text, active) => acceptEngineText(this, text, active),
+      providerStatus: (semanticState, active) => emitEngineStatus(this, semanticState, active),
       settleAttempt: (active, outcome) => settleEngineAttempt(
         this, active, outcome, (...args) => this.#publish(...args),
       ),

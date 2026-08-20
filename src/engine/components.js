@@ -296,7 +296,7 @@ function providerRunner(engine, hooks) {
     telemetry: engine.telemetry,
     dialects: engine.reliability,
     reliability: engine.reliability,
-    publish: hooks.publish, acceptText: hooks.acceptText,
+    publish: hooks.publish, acceptText: hooks.acceptText, status: hooks.providerStatus,
     settleAttempt: hooks.settleAttempt, recordRecovery: hooks.recordRecovery,
     scheduler: engine.scheduler,
     queueStatus: hooks.queueStatus,

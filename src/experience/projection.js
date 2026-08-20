@@ -9,7 +9,7 @@ const TUI_RECORD_LIMIT = 9_999;
 const MAX_TUI_SESSIONS = 8;
 
 const STATES = new Set([
-  'idle', 'preparing', 'waiting_provider', 'streaming', 'awaiting_approval',
+  'idle', 'preparing', 'waiting_provider', 'reasoning', 'streaming', 'awaiting_approval',
   'running_tool', 'recovering', 'cancelling', 'failed', 'needs_input',
 ]);
 
