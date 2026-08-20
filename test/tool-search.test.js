@@ -27,6 +27,10 @@ test('tool catalog keeps observational tools visible and effectful tools situati
   assert.ok(!baseline.includes('work.goal'));
   assert.ok(!baseline.includes('work.task_add'));
   assert.ok(!baseline.includes('notification.telegram'));
+  assert.ok(!baseline.includes('web.search'));
+  assert.ok(!baseline.includes('nna.search_guidance'));
+  assert.ok(!baseline.includes('nna.diagnose_turn'));
+  assert.ok(!baseline.includes('session.search_history'));
   const relevant = registry.providerDefinitions('open and navigate a browser page').map((item) => item.function.name);
   assert.ok(relevant.includes('browser.navigate'));
 });
@@ -55,6 +59,13 @@ test('authenticated task intent activates bounded effectful capability bundles',
   for (const name of ['work.goal', 'work.task_add', 'work.task_update']) assert.ok(work.includes(name));
   assert.ok(taskActivatedToolNames('notify me on telegram when finished').includes('notification.telegram'));
   assert.ok(taskActivatedToolNames('store this large payload as a reusable reference').includes('ref.store'));
+  for (const name of ['web.search', 'web.fetch', 'web.browse']) {
+    assert.ok(taskActivatedToolNames('research the latest release online').includes(name));
+  }
+  for (const name of ['nna.list_sessions', 'nna.diagnose_turn']) {
+    assert.ok(taskActivatedToolNames('diagnose the failed turn from the logs').includes(name));
+  }
+  assert.equal(taskActivatedToolNames('read the current file').includes('web.search'), false);
 });
 
 test('explicit exposure makes an exact recovery tool visible without broadening its bundle', async () => {
@@ -67,18 +78,38 @@ test('explicit exposure makes an exact recovery tool visible without broadening 
   assert.ok(!visible.includes('fs.delete_file'));
 });
 
-test('tool.search exposes bounded matches for subsequent model steps', async () => {
+test('tool.search keeps bounded matches visible until a validated call consumes them', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   const search = registry.definition('tool.search');
   const normalized = await search.validate({ query: 'inspect git history' });
   const result = await search.executor({ args: normalized.args }, new AbortController().signal);
   assert.match(result.content, /git\.inspect/u);
-  assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'git.inspect'));
-  assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'git.inspect'));
-  assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'git.inspect'));
+  for (let index = 0; index < 8; index += 1) {
+    assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'git.inspect'));
+  }
+  await registry.seal({ name: 'git.inspect', providerCallId: 'git-call', args: { operation: 'status' } }, {
+    policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
+    stepId: 'step', caller: 'primary', surface: 'test',
+  });
   assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'git.inspect'), false);
-  assert.ok(JSON.parse(result.content).length <= 12);
+  assert.ok(JSON.parse(result.content).matches.length <= 12);
+});
+
+test('exact tool search returns the callable schema and direct next-step guidance', async () => {
+  const registry = new ToolRegistry(process.cwd(), {
+    subagentControl: { workspaceRoot: process.cwd(), run: async () => ({ outcome: 'completed' }) },
+  });
+  await registry.initialize();
+  const search = registry.definition('tool.search');
+  const normalized = await search.validate({ query: 'show the agent.run schema' });
+  const result = await search.executor({ args: normalized.args }, new AbortController().signal);
+  const content = JSON.parse(result.content);
+  assert.equal(content.status, 'schemas_loaded_for_next_model_step');
+  assert.match(content.instruction, /Call the matching tool directly/u);
+  assert.equal(content.exact_match.name, 'agent.run');
+  assert.deepEqual(content.exact_match.input_schema.required, ['type', 'task']);
+  assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'agent.run'));
 });
 
 test('authenticated host tool grant filters built-in and external tools by exact name', async () => {

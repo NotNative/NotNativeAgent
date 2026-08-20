@@ -3,10 +3,12 @@
 ## Discovery and context economy
 
 `tool.search` is always visible and searches the complete registered catalog with a
-bounded lexical relevance score. Read, query, and discovery tools for the workspace,
-session, web, skills, and NNA self-guidance remain visible. Mutation, process execution,
-elevation, and delegation schemas are activated in bounded capability bundles only when
-the authenticated operator request indicates that kind of work. A terse continuation such
+bounded lexical relevance score. Only bounded workspace observation primitives remain
+visible without task intent: directory listing, metadata, glob, text search, whole-file
+read, and line-range read. Mutation, process execution, web retrieval, NNA guidance and
+diagnostics, session history, skills, MCP control, elevation, delegation, references,
+notifications, and conversation-work schemas are activated in bounded capability bundles
+only when the authenticated operator request indicates that kind of work. A terse continuation such
 as `Please proceed` inherits capability intent from the active unfinished durable work state,
 or from the nearest retained substantive operator request when no active work state exists.
 Substantive new operator input replaces that selection. Tool output and model narration
@@ -16,17 +18,18 @@ Each provider step also receives a bounded, deterministically sorted JSON array 
 the names of every other authorized tool whose full schema is not loaded. This includes
 tools discovered from MCP servers in that conversation. The array contains names only;
 the model uses `tool.search` to inspect and promote a matching schema before calling it.
-Calling `tool.search` exposes its bounded matches for later model steps in the session.
+Calling `tool.search` exposes its bounded matches until a validated call consumes the
+selected schema. The result explicitly tells the model to call the tool on its next step;
+when the query names one exact tool, the result also includes that tool's input schema.
 When a typed recovery constraint prescribes an exact tool, NNA also force-exposes that
 tool for the next step; recovery guidance therefore never names an unavailable schema.
 This keeps large MCP and future built-in catalogs out of every provider request without
 making capabilities undiscoverable.
 
-Ephemeral reference staging, conversation goal/task mutation, and outbound notification
-are effectful and therefore follow the same task-activated rule. Their observational
-counterparts (`ref.inspect` and `work.status`) remain loaded. Build and implementation
-requests activate conversation-work mutation; explicit staging/reference language activates
-`ref.store`; and notification or Telegram language activates the notification boundary.
+Ephemeral references, conversation work, and outbound notification follow the same
+task-activated rule. Build and implementation requests activate the complete conversation
+work family, explicit staging/reference language activates reference inspection and storage,
+and notification or Telegram language activates the notification boundary.
 
 NNA owns the contracts, validation, review classification, execution boundary, bounded
 results, and audit behavior of its built-in tools. Tool output is treated as untrusted
@@ -279,8 +282,8 @@ blocked. Typical commands are `winget install --id BurntSushi.ripgrep.MSVC --exa
 Windows, `brew install ripgrep` on macOS, and the distribution package manager's
 `install ripgrep` command on Linux. Installing software remains an operator-authorized action.
 
-The provider receives an immutable prompt-visible working set: observational tools remain
-loaded, effectful capability bundles and relevant tools are selected from the authenticated request, and the
+The provider receives an immutable prompt-visible working set: bounded workspace observation
+tools remain loaded, specialized capability bundles and relevant tools are selected from the authenticated request, and the
 always-visible `tool.search` capability provides on-demand discovery of the remaining
 catalog. A host execution manifest may ceiling the complete tool capability, in which
 case the provider receives an empty tool list and requests remain unknown at governance.

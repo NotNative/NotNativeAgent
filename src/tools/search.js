@@ -34,9 +34,28 @@ export function toolSearchDefinition(registry) {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool search was cancelled');
       const matches = registry.search(request.args.query, DEFAULT_SEARCH_RESULTS);
       registry.expose(matches.map((item) => item.name));
-      return { content: JSON.stringify(matches, null, 2), metadata: { matches: matches.length } };
+      const named = exactRequestedName(request.args.query, matches);
+      const schema = named ? registry.definition(named)?.inputSchema : null;
+      return {
+        content: JSON.stringify({
+          status: 'schemas_loaded_for_next_model_step',
+          instruction: 'Call the matching tool directly on the next model step. Do not search for the same tool again.',
+          matches,
+          ...(named && schema ? { exact_match: { name: named, input_schema: schema } } : {}),
+        }, null, 2),
+        metadata: { matches: matches.length, exposed: matches.map((item) => item.name), exactMatch: named },
+      };
     },
   };
+}
+
+function exactRequestedName(query, matches) {
+  const text = String(query).toLowerCase();
+  return matches.find((item) => new RegExp(`(?:^|[^a-z0-9_.-])${escapePattern(item.name.toLowerCase())}(?:$|[^a-z0-9_.-])`, 'u').test(text))?.name ?? null;
+}
+
+function escapePattern(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
 export function rankToolDefinitions(definitions, query, limit) {

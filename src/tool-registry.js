@@ -111,7 +111,6 @@ export class ToolRegistry {
       type: 'function',
       function: { name: item.name, description: item.purpose, parameters: providerSchema(item.inputSchema) },
     }));
-    this.#ageExposed();
     return definitions;
   }
   search(query, limit = 12) {
@@ -122,7 +121,7 @@ export class ToolRegistry {
   expose(names) {
     for (const name of names) {
       if (!this.#definitions.has(name)) continue;
-      this.#exposed.delete(name); this.#exposed.set(name, 3);
+      this.#exposed.delete(name); this.#exposed.set(name, true);
       while (this.#exposed.size > 32) this.#exposed.delete(this.#exposed.keys().next().value);
     }
   }
@@ -140,6 +139,7 @@ export class ToolRegistry {
     };
     this.#assertReadBeforeMutation(call.name, normalized);
     this.#providerIds.add(call.providerCallId);
+    this.#exposed.delete(call.name);
     return deepFreeze({
       id: newId('tool'), providerCallId: call.providerCallId, toolName: call.name,
       args: normalized.args, resolved: normalized.resolved,
@@ -183,12 +183,6 @@ export class ToolRegistry {
   revokeSource(source) {
     for (const [name, definition] of this.#definitions) {
       if (definition.source === source) this.#definitions.delete(name);
-    }
-  }
-  #ageExposed() {
-    for (const [name, remaining] of this.#exposed) {
-      if (remaining <= 1) this.#exposed.delete(name);
-      else this.#exposed.set(name, remaining - 1);
     }
   }
   #install(definition) {

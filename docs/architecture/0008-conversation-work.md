@@ -15,11 +15,11 @@ therefore restores progress without a parallel state store, and context compacti
 erase it.
 
 The provider receives only the current snapshot as trusted engine state when work exists.
-Mutation history does not consume prompt context. The always-visible `work.status`,
-`work.goal`, `work.task_add`, and `work.task_update` tools let the agent maintain the same
-state machine used by operator commands. These tools add no filesystem, process, secret,
-or network authority. Hosted sessions receive them only when their execution manifest
-explicitly grants their exact tool names.
+Mutation history does not consume prompt context. Substantive planning, build, repair, and
+active-work continuation intent activates `work.status`, `work.goal`, `work.task_add`, and
+`work.task_update`, which let the agent maintain the same state machine used by operator
+commands. These tools add no filesystem, process, secret, or network authority. Hosted
+sessions receive them only when their execution manifest explicitly grants their exact names.
 
 The Console's `/plan` hub is the primary view. `/tasks` is an alias for the same hub, while
 `/goal` and `/task` provide direct keyboard workflows. The footer shows only a compact
