@@ -28,6 +28,7 @@ import { providerSchema, schemaShapeValidator, schemaValidator } from './tools/s
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { ReferenceStore, referenceDefinitions } from './tools/reference-store.js';
 import { CORE_TOOL_NAMES } from './tools/core-names.js';
+import { withPreparedWriteTarget } from './tools/write-target.js';
 import { SITUATIONAL_TOOL_NAMES, taskActivatedToolNames } from './tools/capability-activation.js';
 import { telegramNotificationDefinition } from './notifications/telegram.js'; import { sessionHistoryDefinitions } from './session-history-tools.js';
 const MAX_TEXT_BYTES = 1_048_576; const ALWAYS_EXPOSED = new Set(CORE_TOOL_NAMES);
@@ -211,7 +212,7 @@ export class ToolRegistry {
 }
 function writeDefinition(paths, changes, receipts) {
   return {
-    name: 'fs.write_text', version: 1, purpose: 'Atomically write bounded UTF-8 text to one accessible file. Existing in-workspace files are transactionally snapshotted and revalidated by the runtime; destructive and external mutations still require explicit reads.',
+    name: 'fs.write_text', version: 1, purpose: 'Atomically write bounded UTF-8 text to one accessible file, creating missing parent directories for a new target. A successful full write becomes the current authored file state, so a redundant read is not required before a subsequent edit.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required destination file path.' },
@@ -222,7 +223,7 @@ function writeDefinition(paths, changes, receipts) {
       if (Buffer.byteLength(args.content, 'utf8') > MAX_TEXT_BYTES) {
         throw new ContractError('tool_arguments_too_large', 'write content exceeds bound');
       }
-      const resolved = await paths.withRecovery(await paths.resolveWrite(args.path));
+      const resolved = await paths.withRecovery(await paths.resolveWriteWithParents(args.path));
       const existingSize = resolved.exists ? (await stat(resolved.path)).size : 0;
       if (existingSize > MAX_TEXT_BYTES) {
         throw new ContractError('tool_target_too_large', 'existing file exceeds transactional write bound');
@@ -240,8 +241,14 @@ function writeDefinition(paths, changes, receipts) {
         },
       };
     },
-    executor: (request, signal) => atomicWrite(request, signal, {}, changes),
+    executor: (request, signal) => executeFullWrite(paths, receipts, request, signal, changes),
   };
+}
+async function executeFullWrite(paths, receipts, request, signal, changes) {
+  const result = await withPreparedWriteTarget(paths, request, signal,
+    () => atomicWrite(request, signal, {}, changes));
+  receipts.recordAuthored(request.resolved.path, sha256(request.args.content), request.args.content);
+  return result;
 }
 function editDefinition(paths, changes, receipts) {
   return {
@@ -258,7 +265,6 @@ function editDefinition(paths, changes, receipts) {
     executor: (request, signal) => executeEdit(request, signal, changes),
   };
 }
-
 function editLinesDefinition(paths, changes, receipts) {
   return {
     name: 'fs.edit_lines', version: 1,
@@ -307,7 +313,6 @@ function editLinesDefinition(paths, changes, receipts) {
     },
   };
 }
-
 async function validateEdit(paths, args, receipts) {
   requireShape(args, ['path', 'old_text', 'new_text'], ['replace_all']);
   if (typeof args.old_text !== 'string' || args.old_text.length === 0
@@ -348,7 +353,6 @@ async function validateEdit(paths, args, receipts) {
     },
   };
 }
-
 async function transactionalSnapshot(resolved) {
   const content = await readFile(resolved.path, 'utf8');
   return transactionalReceipt(resolved.path, content, sha256(content));
@@ -376,7 +380,6 @@ async function executeEdit(request, signal, changes) {
     message: 'edit completed', replacements: request.args.replace_all ? occurrences : 1,
   }, changes);
 }
-
 function deleteDefinition(paths, changes, receipts) {
   return {
     name: 'fs.delete_file', version: 1,
@@ -406,7 +409,6 @@ async function executeDelete(request, signal, changes) {
   changes.record(request.resolved.path, before, null, 'fs.delete_file');
   return { content: 'file deleted', metadata: { path: request.args.path } };
 }
-
 async function atomicWrite(request, signal, detail = {}, changes = null) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
   await verifyExpectedState(request);
@@ -434,7 +436,6 @@ async function atomicWrite(request, signal, detail = {}, changes = null) {
     },
   };
 }
-
 async function verifyExpectedState(request) {
   if (!request.resolved.exists) {
     try {
@@ -459,7 +460,6 @@ function logicalLines(content) {
   if (lines.length > 1 && lines.at(-1) === '') lines.pop();
   return lines.length > 0 ? lines : [''];
 }
-
 function replaceLineRange(content, startLine, endLine, replacement) {
   const newline = content.includes('\r\n') ? '\r\n' : '\n';
   const trailing = content.endsWith('\n');

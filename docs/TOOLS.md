@@ -45,7 +45,10 @@ The native filesystem tools are:
   an internal read receipt.
 - `fs.read_lines`: read at most 400 numbered lines from an exact snapshot. Receipts retain
   which line ranges were actually shown.
-- `fs.write_text`: atomically create or replace a bounded text file. For an existing file
+- `fs.write_text`: atomically create or replace a bounded text file. Missing parent
+  directories for a new target are created as part of the same governed operation. A
+  successful full write records the resulting content as authored state, allowing an
+  immediate follow-up edit without a redundant read. For an existing file
   inside the workspace, the runtime may take a bounded request-local transaction snapshot,
   bind its digest to review, and revalidate it immediately before commit. The snapshot is
   content-free in the review packet and cannot authorize another operation. Existing files
@@ -147,7 +150,8 @@ as `/verify [focused|affected|full] [PATH ...]`.
 - `fs.delete_file`: permanently delete one regular file after semantic review and
   exact-content revalidation.
 - `fs.metadata`: inspect bounded file or directory metadata without reading content.
-- `fs.create_directory`: create exactly one new directory level under an accessible existing parent. It is deliberately non-recursive; create missing nested levels in order with separate calls.
+- `fs.create_directory`: recursively create an accessible directory and any missing parent
+  directories. It is idempotent: targeting an existing directory succeeds without changing it.
 - `fs.copy_file` and `fs.move_file`: copy or move an exact-hash regular file to a new
   destination. They refuse overwrites and revalidate immediately before commit.
 
@@ -155,7 +159,8 @@ Every existing-file mutation is bound to runtime-observed state; knowing or gues
 is insufficient. Exact in-workspace whole-file writes and text edits may use a transaction
 snapshot owned by that single sealed request. Line edits, copies, moves, deletions, and host
 paths require an explicit model-visible read receipt. New-file and new-directory creation are
-exempt. Transaction snapshots never enter the reusable read-receipt ledger.
+exempt. Transaction snapshots never enter the reusable state-receipt ledger; a successfully
+committed full write does, because the model supplied the complete resulting content.
 
 `code.diagnostics` is an optional LSP client. It speaks bounded JSON-RPC over stdio to a
 local language-server executable explicitly configured in `~/.nna/config/lsp.json`; NNA

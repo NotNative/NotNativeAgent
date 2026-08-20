@@ -17,12 +17,19 @@ function metadataDefinition(paths) {
 }
 
 function directoryDefinition(paths) {
-  return definition('fs.create_directory', 'Create exactly one new directory level beneath an accessible existing parent. This tool is not recursive: for nested paths, create each missing level in order with a separate call.', 'reversible', {
-    path: { type: 'string', maxLength: 4096, description: 'Required path for exactly one new directory. The immediate parent must already exist. Never pass a nested path whose parent is missing; create the first missing ancestor in a separate call, then create each remaining level one at a time.' },
-  }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveNew(args.path) }),
+  return definition('fs.create_directory', 'Create an accessible directory and any missing parent directories. The operation is recursive and idempotent: an existing directory is already successful.', 'reversible', {
+    path: { type: 'string', maxLength: 4096, description: 'Required directory path. Missing parent directories are created automatically; an existing directory succeeds without changing it.' },
+  }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveDirectoryWrite(args.path) }),
   async (request, signal) => {
-    abort(signal); await assertAbsent(request.resolved.path); await mkdir(request.resolved.path);
-    return { content: 'directory created', metadata: { path: request.args.path } };
+    abort(signal); await mkdir(request.resolved.path, { recursive: true }); abort(signal);
+    const current = await paths.resolveDirectory(request.resolved.path);
+    if (!samePath(current.path, request.resolved.path)) {
+      throw new ContractError('tool_revalidation_drift', 'directory target changed after review');
+    }
+    return {
+      content: request.resolved.exists ? 'directory already exists' : 'directory created',
+      metadata: { path: request.args.path, created: !request.resolved.exists },
+    };
   });
 }
 
@@ -119,6 +126,10 @@ async function assertAbsent(path) {
 }
 
 function abort(signal) { if (signal?.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled'); }
+function samePath(left, right) {
+  const normalize = (value) => process.platform === 'win32' ? value.toLowerCase() : value;
+  return normalize(left) === normalize(right);
+}
 function invalid(message = 'filesystem operation arguments do not match the schema') {
   return new ContractError('tool_schema_invalid', message);
 }

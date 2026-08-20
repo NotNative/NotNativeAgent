@@ -49,13 +49,13 @@ test('filesystem failures share a missing-ancestor fingerprint and require that 
     call: { name: tool, args: { path } },
     result: {
       status: 'invalid_request', tool_name: tool, reason_code: 'tool_parent_missing',
-      content: 'parent directory is missing; create exactly this directory first with fs.create_directory: "src"\nfs.create_directory creates only one directory level and never creates missing ancestors recursively.',
+      content: 'parent directory is missing; create exactly this directory first with fs.create_directory: "src/shaders"\nfs.create_directory creates this complete directory path and any missing ancestors recursively.',
     },
   });
   const writeFailure = failed('fs.write_text', 'src/shaders/ocean.js');
   const directoryFailure = failed('fs.create_directory', 'src/shaders');
   assert.equal(toolFailureFingerprint([writeFailure]), toolFailureFingerprint([directoryFailure]));
-  assert.match(toolContinuationHint([writeFailure]), /next filesystem mutation[^]*fs\.create_directory[^]*\{"path":"src"\}[^]*one level only[^]*do not repeat directory listings/iu);
+  assert.match(toolContinuationHint([writeFailure]), /next filesystem mutation[^]*fs\.create_directory[^]*\{"path":"src\/shaders"\}[^]*complete path recursively[^]*do not retry the blocked file operation/iu);
 });
 
 test('unrelated successful inspection is not progress while a filesystem prerequisite is active', () => {
@@ -468,12 +468,13 @@ test('schema repair constraints are injected into the next model continuation', 
 
 test('typed prerequisite recovery exposes its exact tool on the next provider step', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-tool-prerequisite-exposure-'));
+  await writeFile(join(root, 'source.txt'), 'source', 'utf8');
   const provider = new TwoStepProvider(
-    { name: 'fs.write_text', args: { path: 'missing/file.txt', content: 'unexpected' } },
+    { name: 'fs.copy_file', args: { source: 'source.txt', destination: 'missing/file.txt' } },
     (request) => {
       const visible = request.tools.map((item) => item.function.name);
       assert.ok(visible.includes('fs.create_directory'));
-      assert.ok(!visible.includes('fs.write_text'));
+      assert.ok(!visible.includes('fs.copy_file'));
       const constraint = request.messages.find((item) => item.role === 'system'
         && item.content.includes('Active tool constraints'));
       assert.match(constraint.content, /"required_tool":"fs\.create_directory"/u);
@@ -706,6 +707,28 @@ test('existing in-workspace writes use a request-bound runtime transaction snaps
   assert.equal(sealed.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
   assert.match(sealed.resolved.readReceiptId, /^read_receipt_/u);
   assert.equal(sealed.resolved.transactionalReceipt, null);
+});
+
+test('new full writes create missing parents and authorize an immediate exact edit', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-authored-write-'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const signal = new AbortController().signal;
+  const write = registry.definition('fs.write_text');
+  const written = await write.executor(await write.validate({
+    path: 'generated/nested/app.js', content: 'export const state = "draft";\n',
+  }), signal);
+  assert.equal(written.metadata.parent_directories_created, true);
+  assert.equal(await readFile(join(root, 'generated', 'nested', 'app.js'), 'utf8'), 'export const state = "draft";\n');
+
+  const edit = registry.definition('fs.edit_text');
+  const editRequest = await edit.validate({
+    path: 'generated/nested/app.js', old_text: '"draft"', new_text: '"ready"',
+  });
+  assert.match(editRequest.resolved.readReceiptId, /^read_receipt_/u);
+  assert.equal(editRequest.resolved.transactionalReceipt, null);
+  await edit.executor(editRequest, signal);
+  assert.equal(await readFile(join(root, 'generated', 'nested', 'app.js'), 'utf8'), 'export const state = "ready";\n');
 });
 
 test('runtime transaction snapshots do not authorize destructive or out-of-workspace mutations', async () => {

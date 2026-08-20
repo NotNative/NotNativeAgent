@@ -24,6 +24,7 @@ export class ReadReceiptLedger {
     const retainedSnapshot = typeof snapshot === 'string' ? snapshot : prior?.digest === digest ? prior.snapshot : null;
     const receipt = Object.freeze({
       id: newId('read_receipt'), path, digest, readAt: Date.now(),
+      origin: coverage.origin === 'authored_write' ? 'authored_write' : 'observed_read',
       full: coverage.full === true || (prior?.digest === digest && prior.full === true),
       ranges: Object.freeze(mergeRanges(ranges)),
       snapshot: retainedSnapshot,
@@ -34,6 +35,10 @@ export class ReadReceiptLedger {
     this.#snapshotBytes += snapshotBytes(retainedSnapshot);
     while (this.#receipts.size > MAX_READ_RECEIPTS || this.#snapshotBytes > MAX_SNAPSHOT_BYTES) this.#evictOldest();
     return receipt;
+  }
+
+  recordAuthored(path, digest, snapshot) {
+    return this.record(path, digest, { full: true, origin: 'authored_write' }, snapshot);
   }
 
   require(path, digest, coverage = {}) {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { execFile } from 'node:child_process';
-import { realpath, stat } from 'node:fs/promises';
+import { lstat, realpath, stat } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { ContractError } from './ids.js';
@@ -37,6 +37,14 @@ export class PathPolicy {
   }
 
   async resolveWrite(input) {
+    return this.#resolveWrite(input, false);
+  }
+
+  async resolveWriteWithParents(input) {
+    return this.#resolveWrite(input, true);
+  }
+
+  async #resolveWrite(input, allowMissingParents) {
     const candidate = this.#candidate(input);
     let canonical;
     let exists = true;
@@ -45,8 +53,9 @@ export class PathPolicy {
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
       exists = false;
-      const parent = await this.#existingParent(candidate, input);
-      canonical = join(parent, basename(candidate));
+      canonical = allowMissingParents
+        ? await this.#prospectiveTarget(candidate)
+        : join(await this.#existingParent(candidate, input), basename(candidate));
     }
     this.#assertAllowed(canonical);
     if (exists && !(await stat(canonical)).isFile()) {
@@ -55,27 +64,56 @@ export class PathPolicy {
     return Object.freeze({ path: canonical, exists, ...await this.#classification(canonical, exists) });
   }
 
+  async resolveDirectoryWrite(input) {
+    const candidate = this.#candidate(input);
+    try {
+      const canonical = await realpath(candidate);
+      this.#assertAllowed(canonical);
+      if (!(await stat(canonical)).isDirectory()) throw new ContractError('tool_target_invalid', 'target is not a directory');
+      return Object.freeze({ path: canonical, exists: true, ...await this.#classification(canonical, true) });
+    } catch (error) {
+      if (error instanceof ContractError || error.code !== 'ENOENT') throw error;
+      const canonical = await this.#prospectiveTarget(candidate);
+      this.#assertAllowed(canonical);
+      return Object.freeze({ path: canonical, exists: false, ...await this.#classification(canonical, false) });
+    }
+  }
+
+  async #prospectiveTarget(candidate) {
+    let current = candidate;
+    const missing = [];
+    while (true) {
+      try {
+        const canonical = await realpath(current);
+        if (!(await stat(canonical)).isDirectory()) {
+          throw new ContractError('tool_parent_invalid', 'an existing path ancestor is not a directory');
+        }
+        return join(canonical, ...missing);
+      } catch (error) {
+        if (error instanceof ContractError || error.code !== 'ENOENT') throw error;
+        try {
+          await lstat(current);
+          throw new ContractError('tool_target_invalid', 'path contains an unresolved symbolic link or reparse point');
+        } catch (entryError) {
+          if (entryError instanceof ContractError || entryError.code !== 'ENOENT') throw entryError;
+        }
+        const parent = dirname(current);
+        if (parent === current) throw error;
+        missing.unshift(basename(current));
+        current = parent;
+      }
+    }
+  }
+
   async #existingParent(candidate, input) {
     const requestedParent = dirname(candidate);
     try { return await realpath(requestedParent); }
     catch (error) {
       if (error.code !== 'ENOENT') throw error;
-      let current = requestedParent;
-      let firstMissing = requestedParent;
-      while (true) {
-        const parent = dirname(current);
-        if (parent === current) throw error;
-        try {
-          await realpath(parent);
-          const display = isAbsolute(input) ? firstMissing : relative(this.root, firstMissing);
-          throw new ContractError('tool_parent_missing', missingParentMessage(display));
-        } catch (parentError) {
-          if (parentError instanceof ContractError) throw parentError;
-          if (parentError.code !== 'ENOENT') throw parentError;
-          firstMissing = parent;
-          current = parent;
-        }
-      }
+      const canonical = await this.#prospectiveTarget(requestedParent);
+      this.#assertAllowed(canonical);
+      const display = isAbsolute(input) ? requestedParent : relative(this.root, requestedParent);
+      throw new ContractError('tool_parent_missing', missingParentMessage(display));
     }
   }
 

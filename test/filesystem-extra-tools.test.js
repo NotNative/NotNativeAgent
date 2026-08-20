@@ -36,23 +36,21 @@ test('root metadata and directory tools may target host paths while hosted tools
   await assert.rejects(hosted.definitions.get('fs.create_directory').validate({ path: join(outside, 'hosted-denied') }), { code: 'tool_scope_denied' });
 });
 
-test('directory creation declares and enforces one-level-at-a-time parent repair', async () => {
+test('directory creation is recursive and idempotent while retaining resolved path governance', async () => {
   const { root, definitions } = await fixture();
   const directory = definitions.get('fs.create_directory');
-  assert.match(directory.purpose, /exactly one new directory level[^]*not recursive/iu);
-  assert.match(directory.inputSchema.properties.path.description, /immediate parent must already exist[^]*one at a time/iu);
+  assert.match(directory.purpose, /missing parent directories[^]*recursive and idempotent/iu);
+  assert.match(directory.inputSchema.properties.path.description, /Missing parent directories are created automatically/iu);
 
-  await assert.rejects(directory.validate({ path: 'src/shaders' }), (error) => {
-    assert.equal(error.code, 'tool_parent_missing');
-    assert.match(error.message, /create exactly this directory first[^]*"src"[^]*one directory level[^]*never creates missing ancestors/iu);
-    return true;
-  });
-
-  const src = await directory.validate({ path: 'src' });
-  await directory.executor(src, new AbortController().signal);
   const shaders = await directory.validate({ path: 'src/shaders' });
-  await directory.executor(shaders, new AbortController().signal);
+  const created = await directory.executor(shaders, new AbortController().signal);
+  assert.equal(created.metadata.created, true);
   assert.equal((await stat(join(root, 'src', 'shaders'))).isDirectory(), true);
+
+  const existing = await directory.validate({ path: 'src/shaders' });
+  const repeated = await directory.executor(existing, new AbortController().signal);
+  assert.equal(repeated.content, 'directory already exists');
+  assert.equal(repeated.metadata.created, false);
 });
 
 test('copy and move require exact source state and a new destination', async () => {

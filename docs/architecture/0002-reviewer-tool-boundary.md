@@ -69,6 +69,10 @@ edits may derive that digest from a bounded runtime-owned transaction snapshot w
 has no explicit read receipt. That snapshot is sealed to one request, is not reusable by
 destructive tools, and contributes only before/after hashes and byte counts to semantic review.
 Line edits, transfers, deletion, and host-path mutations retain explicit read requirements.
+New-file writes may create missing parent directories after the complete prospective path has
+been canonicalized and reviewed. A committed full write records its resulting digest and content
+as reusable authored state, because the model supplied the complete post-write representation;
+denied, failed, cancelled, or externally drifted writes never create that state.
 Git-tracked working-directory mutations and new targets can be classified as recoverable only
 when authenticated intent matches the action and target. An explicit build, implementation,
 scaffold, repair, or refactor objective covers proportionate derived reversible files inside

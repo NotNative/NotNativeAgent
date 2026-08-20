@@ -22,7 +22,7 @@ export function missingFilesystemPrerequisite(item) {
 
 export function missingParentMessage(path) {
   return `${MISSING_PARENT_PREFIX}${JSON.stringify(path)}\n`
-    + 'fs.create_directory creates only one directory level and never creates missing ancestors recursively.';
+    + 'fs.create_directory creates this complete directory path and any missing ancestors recursively.';
 }
 
 export function satisfiesFilesystemPrerequisite(item, prerequisite) {
