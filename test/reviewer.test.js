@@ -140,6 +140,35 @@ test('a requested audit authorizes only a clearly named new in-workspace report 
   assert.equal(semanticCalls, 0);
 });
 
+test('an explicit build authorizes derived reversible workspace files without semantic review', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'derived-build-files' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
+  const buildContext = {
+    ...context,
+    authority: { ...context.authority, intent: [{
+      content: 'Build a realistic ocean scene with Three.js and verify it in the browser.', sequence: 1, kind: 'instruction',
+    }] },
+  };
+  const request = {
+    ...mutationRequest('derived-build-file'),
+    args: { path: 'src/main.js', content: 'export const ocean = true;', expected_sha256: null },
+    resolved: { path: 'D:/workspace/src/main.js', exists: false, insideWorkspace: true, recovery: 'new_target' },
+  };
+  const approved = await reviewer.review(request, buildContext);
+  assert.equal(approved.outcome, 'approve');
+  assert.equal(approved.reasonCode, 'deterministic_reversible');
+  assert.equal(semanticCalls, 0);
+
+  const restricted = await reviewer.review({ ...request, id: 'derived-build-restricted', providerCallId: 'provider-build-restricted' }, {
+    ...buildContext, authority: { ...buildContext.authority, intent: [
+      ...buildContext.authority.intent,
+      { content: 'Do not create or modify any files.', sequence: 2, kind: 'restriction' },
+    ] },
+  });
+  assert.equal(restricted.reasonCode, 'authenticated_intent_mismatch');
+});
+
 test('approval execution window begins when a slow review finishes', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'slow-review-window' });
   const reviewer = new MandatoryReviewer({
@@ -173,6 +202,38 @@ test('an explicitly requested external mutation remains semantic-review required
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'semantic_intent_match');
   assert.equal(semanticCalls, 1);
+});
+
+test('semantic review receives content-free transactional mutation evidence', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'transaction-evidence' });
+  let captured;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    captured = input;
+    return { outcome: 'approve', confidence: 1, reason_code: 'transaction_evidence_matches' };
+  } } });
+  const secretOld = 'private old value';
+  const secretNew = 'private new value';
+  const request = {
+    ...mutationRequest('transaction-evidence'), toolName: 'fs.edit_text',
+    args: { path: 'untracked.txt', old_text: secretOld, new_text: secretNew, expected_sha256: 'a'.repeat(64) },
+    resolved: {
+      path: 'D:/workspace/untracked.txt', exists: true, insideWorkspace: true, recovery: 'none',
+      mutationEvidence: {
+        operation: 'exact_text_edit', before_sha256: 'a'.repeat(64), after_sha256: 'b'.repeat(64),
+        before_bytes: 17, after_bytes: 17,
+      },
+    },
+  };
+  await reviewer.review(request, {
+    ...context,
+    authority: { ...context.authority, intent: [{ content: 'Edit untracked.txt', sequence: 2 }] },
+    definition: { name: 'fs.edit_text', sideEffect: 'reversible', scope: 'workspace' },
+  });
+  assert.equal(captured.request.mutationEvidence.operation, 'exact_text_edit');
+  assert.equal(captured.request.args.old_text, undefined);
+  assert.equal(captured.request.args.new_text, undefined);
+  assert.match(captured.request.args.old_text_sha256, /^[a-f0-9]{64}$/u);
+  assert.doesNotMatch(JSON.stringify(captured), new RegExp(`${secretOld}|${secretNew}`, 'u'));
 });
 
 test('a greeting does not authorize gratuitous workspace inspection', async () => {

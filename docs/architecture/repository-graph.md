@@ -47,7 +47,7 @@ graph LR
 | Tools | 31 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Reliability Engine, Tools | Agentic Engine, Experience Engine, Governance Engine, Reliability Engine, Tools |
 | Guidance and extensions | 9 | Governance Engine, Guidance and extensions, Product foundation | Agentic Engine, Experience Engine, Guidance and extensions, Product foundation, Tools |
 | Integration surfaces | 10 | Agentic Engine, Integration surfaces, Persistence, Product foundation, Providers | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
-| Product foundation | 76 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools |
+| Product foundation | 77 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools |
 
 ## Strongest observed component dependencies
 
@@ -67,8 +67,8 @@ Counts represent static local imports. Same-component imports are included becau
 | Providers | Product foundation | 16 | 13 |
 | Experience Engine | Providers | 13 | 8 |
 | Agentic Engine | Reliability Engine | 12 | 8 |
+| Governance Engine | Product foundation | 11 | 10 |
 | Product foundation | Providers | 10 | 8 |
-| Governance Engine | Product foundation | 10 | 10 |
 | Guidance and extensions | Product foundation | 9 | 8 |
 | Persistence | Product foundation | 9 | 9 |
 | Reliability Engine | Product foundation | 9 | 9 |
@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:c9dd2d72b7ecf9f23bd3f21b0a9a0ab6dbeac8ff71897646d0064431934d7053`.
+Source fingerprint: `sha256:31b406e26c9a8b60f43f9e377e0c6bc23e7e29d3040230792f2318a8744ef459`.

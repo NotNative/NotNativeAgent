@@ -36,7 +36,12 @@ The Reliability Engine owns:
 - tool-call stream assembly and protocol-integrity bounds;
 - stable tool-progress and failure fingerprints; and
 - deterministic filesystem-prerequisite extraction, shared-root failure grouping, and
-  recovery guidance that requires a missing ancestor before descendant mutations.
+  recovery guidance that requires a missing ancestor before descendant mutations;
+- convergence-aware productive-loop supervision: distinct successful evidence may continue
+  through the configured model-step ceiling, while unchanged success, narration, and repeated
+  failures consume bounded no-progress budgets; and
+- provider-activity interpretation in which typed reasoning, text, tool fragments, usage, and
+  terminal events are live stream activity without exposing private reasoning content.
 
 The engine consumes facts and returns bounded decisions. It does not execute tools,
 grant authority, mutate provider wire protocols, own the transcript, publish interface
@@ -92,6 +97,10 @@ aliases to Reliability Engine-owned components. They do not represent independen
 10. A stale filesystem prerequisite may clear only from structured success that proves the
     required directory exists: exact creation, exact listing, or a successful direct-child
     filesystem operation. Unstructured shell success is not accepted as proof.
+11. Productive steps are bounded by the configured model-step ceiling, not a small legacy
+    turn cutoff. Every continuation must still contribute distinct verified evidence.
+12. A typed reasoning chunk resets provider idle observation exactly like other valid stream
+    events, while the overall attempt deadline remains authoritative.
 
 ## Consequences
 

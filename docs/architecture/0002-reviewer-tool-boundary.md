@@ -64,9 +64,16 @@ the exact request, authority, policy, tool definition, or workspace binding.
 Built-in filesystem executors are structured, canonicalized, and operationally bounded.
 Ordinary root sessions may address host-visible paths; execution-manifest sessions retain a
 hard canonical workspace ceiling. Writes are atomic, and replacing an existing file requires
-an expected SHA-256 checked immediately before the write. Git-tracked working-directory
-mutations and new targets can be classified as recoverable only when authenticated intent
-matches the action and target. Untracked, external, destructive, shell, and complex process
+an expected SHA-256 checked immediately before the write. Exact in-workspace writes and text
+edits may derive that digest from a bounded runtime-owned transaction snapshot when the model
+has no explicit read receipt. That snapshot is sealed to one request, is not reusable by
+destructive tools, and contributes only before/after hashes and byte counts to semantic review.
+Line edits, transfers, deletion, and host-path mutations retain explicit read requirements.
+Git-tracked working-directory mutations and new targets can be classified as recoverable only
+when authenticated intent matches the action and target. An explicit build, implementation,
+scaffold, repair, or refactor objective covers proportionate derived reversible files inside
+that workspace; a read-only request or any later mutation restriction defeats that coverage.
+Untracked, external, destructive, shell, and complex process
 effects reach mandatory semantic review instead of being prohibited by the tool layer.
 `process.run` retains minimal-environment inheritance, bounded output, deadlines, and
 process-tree cancellation. `docs/TOOLS.md` is the canonical current catalog.

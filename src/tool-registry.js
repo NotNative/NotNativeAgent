@@ -154,6 +154,16 @@ export class ToolRegistry {
     const target = normalized.resolved?.source?.path ?? normalized.resolved?.path;
     if (!target || normalized.resolved?.exists === false) return;
     if (normalized.resolved?.staleEditRecovered === true) return;
+    const transaction = normalized.resolved?.transactionalReceipt;
+    if (transaction) {
+      if (!['fs.write_text', 'fs.edit_text'].includes(name)
+        || transaction.origin !== 'runtime_transaction'
+        || transaction.path !== target
+        || transaction.digest !== normalized.args.expected_sha256) {
+        throw new ContractError('read_receipt_required', 'runtime transaction snapshot is invalid for this mutation');
+      }
+      return;
+    }
     if (name === 'fs.edit_lines') {
       this.#readReceipts.require(target, normalized.args.expected_sha256, {
         start: normalized.args.start_line, end: normalized.args.end_line,
@@ -201,7 +211,7 @@ export class ToolRegistry {
 }
 function writeDefinition(paths, changes, receipts) {
   return {
-    name: 'fs.write_text', version: 1, purpose: 'Atomically write bounded UTF-8 text to one accessible file after reading existing content.',
+    name: 'fs.write_text', version: 1, purpose: 'Atomically write bounded UTF-8 text to one accessible file. Existing in-workspace files are transactionally snapshotted and revalidated by the runtime; destructive and external mutations still require explicit reads.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required destination file path.' },
@@ -213,10 +223,21 @@ function writeDefinition(paths, changes, receipts) {
         throw new ContractError('tool_arguments_too_large', 'write content exceeds bound');
       }
       const resolved = await paths.withRecovery(await paths.resolveWrite(args.path));
-      const receipt = resolved.exists ? receipts.latest(resolved.path, { full: true }) : null;
+      const existingSize = resolved.exists ? (await stat(resolved.path)).size : 0;
+      if (existingSize > MAX_TEXT_BYTES) {
+        throw new ContractError('tool_target_too_large', 'existing file exceeds transactional write bound');
+      }
+      const explicitReceipt = resolved.exists ? receipts.peek(resolved.path, { full: true }) : null;
+      const transaction = resolved.exists && !explicitReceipt && resolved.insideWorkspace
+        ? await transactionalSnapshot(resolved) : null;
+      if (resolved.exists && !explicitReceipt && !transaction) receipts.latest(resolved.path, { full: true });
+      const digest = explicitReceipt?.digest ?? transaction?.digest ?? null;
       return {
-        args: { path: args.path, content: args.content, expected_sha256: receipt?.digest ?? null },
-        resolved: { ...resolved, readReceiptId: receipt?.id ?? null },
+        args: { path: args.path, content: args.content, expected_sha256: digest },
+        resolved: {
+          ...resolved, readReceiptId: explicitReceipt?.id ?? null, transactionalReceipt: transaction,
+          mutationEvidence: mutationEvidence('replace', digest, args.content, existingSize),
+        },
       };
     },
     executor: (request, signal) => atomicWrite(request, signal, {}, changes),
@@ -295,11 +316,21 @@ async function validateEdit(paths, args, receipts) {
   }
   const resolved = await paths.withRecovery(await paths.resolveRead(args.path));
   if (resolved.size > MAX_TEXT_BYTES) throw new ContractError('tool_target_too_large', 'file exceeds edit bound');
-  const receipt = receipts.latest(resolved.path, { full: true });
   const content = await readFile(resolved.path, 'utf8');
   const actual = sha256(content);
-  const boundArgs = { ...args, expected_sha256: receipt.digest };
-  const prepared = prepareTextEdit(receipts, resolved.path, boundArgs, content, actual);
+  const receipt = receipts.peek(resolved.path, { full: true });
+  const transaction = !receipt && resolved.insideWorkspace ? transactionalReceipt(resolved.path, content, actual) : null;
+  if (!receipt && !transaction) receipts.latest(resolved.path, { full: true });
+  const boundArgs = { ...args, expected_sha256: receipt?.digest ?? transaction?.digest };
+  const prepared = receipt
+    ? prepareTextEdit(receipts, resolved.path, boundArgs, content, actual)
+    : { expectedSha256: actual, recovered: false };
+  const occurrences = countOccurrences(content, args.old_text);
+  if (occurrences === 0 || (!args.replace_all && occurrences !== 1)) {
+    throw new ContractError('tool_edit_match_invalid', occurrences === 0
+      ? 'old_text was not found in the current file snapshot'
+      : 'old_text is not unique; provide more context or set replace_all');
+  }
   const updated = replaceText(content, args.old_text, args.new_text, Boolean(args.replace_all));
   if (Buffer.byteLength(updated, 'utf8') > MAX_TEXT_BYTES) {
     throw new ContractError('tool_arguments_too_large', 'edited content exceeds bound');
@@ -309,10 +340,29 @@ async function validateEdit(paths, args, receipts) {
       path: args.path, old_text: args.old_text, new_text: args.new_text,
       replace_all: Boolean(args.replace_all), expected_sha256: prepared.expectedSha256,
     },
-    resolved: { ...resolved, staleEditRecovered: prepared.recovered, readReceiptId: receipt.id, readReceiptSha256: receipt.digest },
+    resolved: {
+      ...resolved, staleEditRecovered: prepared.recovered,
+      readReceiptId: receipt?.id ?? null, readReceiptSha256: receipt?.digest ?? null,
+      transactionalReceipt: transaction,
+      mutationEvidence: mutationEvidence('exact_text_edit', prepared.expectedSha256, updated, Buffer.byteLength(content, 'utf8')),
+    },
   };
 }
 
+async function transactionalSnapshot(resolved) {
+  const content = await readFile(resolved.path, 'utf8');
+  return transactionalReceipt(resolved.path, content, sha256(content));
+}
+function transactionalReceipt(path, content, digest) {
+  return Object.freeze({
+    id: newId('transaction_receipt'), origin: 'runtime_transaction', path, digest,
+    bytes: Buffer.byteLength(content, 'utf8'), observedAt: Date.now(),
+  });
+}
+function mutationEvidence(operation, beforeSha256, afterContent, beforeBytes) {
+  return Object.freeze({ operation, before_sha256: beforeSha256, after_sha256: sha256(afterContent),
+    before_bytes: beforeBytes, after_bytes: Buffer.byteLength(afterContent, 'utf8') });
+}
 async function executeEdit(request, signal, changes) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
   await verifyExpectedState(request);

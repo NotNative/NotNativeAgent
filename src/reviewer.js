@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createHash } from 'node:crypto';
 import { ContractError, newId } from './ids.js';
 import { requestDigest } from './persistence/reviewer-ledger.js';
+import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
 
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 
@@ -91,7 +91,7 @@ export class MandatoryReviewer {
       );
     }
     const input = Object.freeze({
-      request: safeReviewRequest(request), classification: classify(request, context.definition),
+      request: safeReviewRequest(request, resolvedOutsideWorkspace(request)), classification: classify(request, context.definition),
       toolDefinition: safeReviewDefinition(context.definition),
       authenticatedIntent: context.authority.intent,
       mission: context.authority.mission, justification: context.justification ?? '',
@@ -318,46 +318,6 @@ function decision(outcome, reasonCode, request, guidance) {
   });
 }
 
-function safeReviewRequest(request) {
-  return Object.freeze({
-    id: request.id, toolName: request.toolName, args: safeArguments(request.args),
-    resolvedTarget: request.resolved.path ?? request.resolved.source?.path ?? request.resolved.destination?.path ?? 'external',
-    scope: resolvedOutsideWorkspace(request) ? 'host' : (request.resolved.path || request.resolved.source?.path ? 'workspace' : 'external'), caller: request.caller,
-  });
-}
-
-function safeReviewDefinition(definition) {
-  return Object.freeze({
-    name: definition.name,
-    purpose: typeof definition.purpose === 'string' ? definition.purpose.slice(0, 4096) : '',
-    sideEffect: definition.sideEffect,
-    scope: definition.scope,
-    source: typeof definition.source === 'string' ? definition.source : 'built_in',
-  });
-}
-
-function safeArguments(args) {
-  if (!Object.hasOwn(args, 'content')) return redactReviewValue(args);
-  if (typeof args.content !== 'string') return redactReviewValue(args);
-  return Object.freeze({
-    path: args.path, expected_sha256: args.expected_sha256,
-    content_bytes: Buffer.byteLength(args.content, 'utf8'),
-    content_sha256: createHash('sha256').update(args.content).digest('hex'),
-  });
-}
-
-function redactReviewValue(value, key = '') {
-  if (/token|secret|password|credential|api.?key/iu.test(key)) return '[redacted]';
-  if (typeof value === 'string') {
-    return /(?:bearer\s+|api[_-]?key\s*[=:]|token\s*[=:]|password\s*[=:])/iu.test(value) ? '[redacted]' : value;
-  }
-  if (Array.isArray(value)) return value.map((item) => redactReviewValue(item));
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, redactReviewValue(item, name)]));
-  }
-  return value;
-}
-
 function authenticatedIntentRelation(request, authority, definition) {
   if (definition.sideEffect === 'read_only') return 'covered';
   if (['process.run', 'shell.run', 'system.elevate'].includes(request.toolName)) return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
@@ -370,16 +330,30 @@ function authenticatedIntentRelation(request, authority, definition) {
       .some((item) => missionTargetMatches(item, request, { scope: 'workspace' }, target)));
     return namesTargets && action.test(mission) ? 'covered' : 'conflict';
   }
+  if ([...(authority?.intent ?? [])].some((item) => item.kind === 'restriction'
+    && broadFilesystemMutationRestriction(item.content))) return 'conflict';
   const relevant = [...(authority?.intent ?? [])].reverse().find((item) => {
     const evidence = item.content.toLowerCase();
     return targets.some((target) => evidenceNamesTarget(evidence, target));
   });
   if (relevant?.kind === 'restriction') return 'conflict';
   if (taskResultArtifactCovered(request, authority, targets)) return 'covered';
+  if (workspaceBuildMutationCovered(request, authority, targets)) return 'covered';
   if (!relevant) return clearlyReadOnlyIntent(authority) ? 'conflict' : 'uncertain';
   const evidence = relevant.content.toLowerCase();
   if (targets.every((target) => evidenceNamesTarget(evidence, target)) && action.test(evidence)) return 'covered';
   return clearlyReadOnlyText(evidence) ? 'conflict' : 'uncertain';
+}
+
+function workspaceBuildMutationCovered(request, authority, targets) {
+  if (!['fs.create_directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines'].includes(request.toolName)
+    || resolvedOutsideWorkspace(request) || targets.length !== 1) return false;
+  const latest = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction');
+  if (!latest || !/\b(?:build|create|develop|generate|implement|make|patch|refactor|repair|scaffold|upgrade)\b/iu.test(latest.content)) {
+    return false;
+  }
+  return ![...(authority?.intent ?? [])].some((item) => item.kind === 'restriction'
+    && broadFilesystemMutationRestriction(item.content));
 }
 
 function taskResultArtifactCovered(request, authority, targets) {

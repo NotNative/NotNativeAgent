@@ -373,6 +373,38 @@ test('AC-FAIL-02 idle deadline is distinct and cancels a partial stalled stream'
   assert.equal(active.stepText, 'partial');
 });
 
+test('reasoning chunks count as provider activity throughout a long productive generation', async () => {
+  const state = new StateAuthority();
+  state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-reasoning-activity' });
+  const lifecycles = new LifecycleRegistry();
+  const turn = lifecycles.start('turn');
+  const step = lifecycles.start('model_step', turn.id);
+  const active = {
+    turnId: 'turn-reasoning-activity', stepId: step.id, attemptId: null,
+    controller: new AbortController(), cancelled: false, stepText: '',
+    toolAssembler: new ToolCallAssembler(), providerTerminal: false,
+    recovery: new RecoverySupervisor(), reasoningBytes: 0, stepReasoningBytes: 0,
+    usage: null, finishReason: null,
+  };
+  const runner = new ProviderRunner({
+    state, lifecycles, publish: async () => undefined,
+    acceptText: async (text) => { active.stepText += text; },
+    settleAttempt: async () => undefined, recordRecovery: async () => undefined,
+  });
+  const provider = { async *stream() {
+    for (let index = 0; index < 6; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 4));
+      yield { type: 'reasoning', text: `private-${index}` };
+    }
+    yield { type: 'text', text: 'completed' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+
+  await runner.run(provider, {}, { overallMs: 250, firstTokenMs: 20, idleMs: 10 }, active);
+  assert.equal(active.stepText, 'completed');
+  assert.ok(active.reasoningBytes > 0);
+});
+
 test('an unset overall route deadline does not create an immediate timeout', async () => {
   const state = new StateAuthority();
   state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-unbounded' });

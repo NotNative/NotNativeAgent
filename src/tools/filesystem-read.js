@@ -49,6 +49,15 @@ export class ReadReceiptLedger {
     return receipt;
   }
 
+  peek(path, coverage = {}) {
+    const receipt = this.#receipts.get(path);
+    if (!receipt) return null;
+    const rangeCovered = coverage.start === undefined || receipt.full === true
+      || receipt.ranges?.some(([start, end]) => start <= coverage.start && end >= coverage.end);
+    if ((coverage.full === true && !receipt.full) || !rangeCovered) return null;
+    return receipt;
+  }
+
   contentFor(path, digest, coverage = {}) {
     const receipt = this.require(path, digest, coverage);
     if (typeof receipt.snapshot !== 'string') {

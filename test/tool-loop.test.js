@@ -676,7 +676,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
 });
 
-test('existing-file mutation requires a receipt for the exact read snapshot', async () => {
+test('existing in-workspace writes use a request-bound runtime transaction snapshot', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-read-receipt-'));
   const before = 'before';
   await writeFile(join(root, 'target.txt'), before, 'utf8');
@@ -687,10 +687,12 @@ test('existing-file mutation requires a receipt for the exact read snapshot', as
     policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
     stepId: 'step', caller: 'primary', surface: 'test',
   };
-  await assert.rejects(
-    registry.seal({ providerCallId: 'write-before-read', name: 'fs.write_text', args }, context),
-    { code: 'read_receipt_required' },
-  );
+  const transactional = await registry.seal({ providerCallId: 'write-before-read', name: 'fs.write_text', args }, context);
+  assert.equal(transactional.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
+  assert.match(transactional.resolved.transactionalReceipt.id, /^transaction_receipt_/u);
+  assert.equal(transactional.resolved.transactionalReceipt.origin, 'runtime_transaction');
+  assert.equal(transactional.resolved.readReceiptId, null);
+  assert.equal(transactional.resolved.mutationEvidence.after_sha256, createHash('sha256').update('after').digest('hex'));
   await assert.rejects(
     registry.seal({
       providerCallId: 'write-model-hash', name: 'fs.write_text',
@@ -703,6 +705,29 @@ test('existing-file mutation requires a receipt for the exact read snapshot', as
   const sealed = await registry.seal({ providerCallId: 'write-after-read', name: 'fs.write_text', args }, context);
   assert.equal(sealed.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
   assert.match(sealed.resolved.readReceiptId, /^read_receipt_/u);
+  assert.equal(sealed.resolved.transactionalReceipt, null);
+});
+
+test('runtime transaction snapshots do not authorize destructive or out-of-workspace mutations', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-transaction-scope-'));
+  const outside = await mkdtemp(join(tmpdir(), 'nna-transaction-outside-'));
+  await writeFile(join(root, 'inside.txt'), 'inside', 'utf8');
+  await writeFile(join(outside, 'outside.txt'), 'outside', 'utf8');
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
+
+  await registry.seal({
+    providerCallId: 'transactional-edit', name: 'fs.edit_text',
+    args: { path: 'inside.txt', old_text: 'inside', new_text: 'updated' },
+  }, context);
+  await assert.rejects(registry.seal({
+    providerCallId: 'delete-with-transaction', name: 'fs.delete_file', args: { path: 'inside.txt' },
+  }, context), { code: 'read_receipt_required' });
+  await assert.rejects(registry.seal({
+    providerCallId: 'external-write-without-read', name: 'fs.write_text',
+    args: { path: join(outside, 'outside.txt'), content: 'updated' },
+  }, context), { code: 'read_receipt_required' });
 });
 
 test('numbered reads authorize anchored edits only inside the displayed snapshot window', async () => {

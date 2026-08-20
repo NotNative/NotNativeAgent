@@ -54,6 +54,12 @@ or model content. Effect certainty is derived from both live and durable correla
 tool-result shapes, including partial and unknown effects, instead of a generic
 placeholder.
 
+The configured model-step ceiling remains a final bounded guard (1,024 by default), so a
+long build can exceed dozens of useful tool steps without being mistaken for a loop. Typed
+provider reasoning is also stream activity for first-token/idle supervision: repeated bounded
+reasoning chunks keep an attempt live without exposing their content, while the independent
+overall attempt deadline still limits total generation time.
+
 Steering is appended durably before acknowledgement and is never approval. The
 engine consumes it once at a post-stream or post-tool-result checkpoint, adds it
 to authenticated conversation authority, and atomically records the consumed

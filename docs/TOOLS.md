@@ -22,6 +22,12 @@ tool for the next step; recovery guidance therefore never names an unavailable s
 This keeps large MCP and future built-in catalogs out of every provider request without
 making capabilities undiscoverable.
 
+Ephemeral reference staging, conversation goal/task mutation, and outbound notification
+are effectful and therefore follow the same task-activated rule. Their observational
+counterparts (`ref.inspect` and `work.status`) remain loaded. Build and implementation
+requests activate conversation-work mutation; explicit staging/reference language activates
+`ref.store`; and notification or Telegram language activates the notification boundary.
+
 NNA owns the contracts, validation, review classification, execution boundary, bounded
 results, and audit behavior of its built-in tools. Tool output is treated as untrusted
 content even when the operation itself is safe.
@@ -39,8 +45,11 @@ The native filesystem tools are:
   an internal read receipt.
 - `fs.read_lines`: read at most 400 numbered lines from an exact snapshot. Receipts retain
   which line ranges were actually shown.
-- `fs.write_text`: atomically create or replace a bounded text file. Replacing an
-  existing file requires the digest returned by `fs.read_text`.
+- `fs.write_text`: atomically create or replace a bounded text file. For an existing file
+  inside the workspace, the runtime may take a bounded request-local transaction snapshot,
+  bind its digest to review, and revalidate it immediately before commit. The snapshot is
+  content-free in the review packet and cannot authorize another operation. Existing files
+  outside the workspace still require an explicit `fs.read_text` receipt.
 
 `process.run` executes one explicit executable with an argv array and `shell: false` at the
 Node process boundary. Its cwd may be any accessible host directory for ordinary root NNA;
@@ -130,8 +139,9 @@ the repository script and says so. Results include exact commands, exit codes, b
 the manifest digest, and a stable receipt id in the durable turn record. A completed non-zero
 check is a failed tool result, not a green execution success. The Console aliases this boundary
 as `/verify [focused|affected|full] [PATH ...]`.
-- `fs.edit_text`: replace an exact, normally unique text match. The request requires the
-  current file digest; `replace_all` must be explicit for multiple matches.
+- `fs.edit_text`: replace an exact, normally unique text match. In-workspace exact edits use
+  the same request-local transaction snapshot when no explicit read receipt exists;
+  `replace_all` must be explicit for multiple matches.
 - `fs.edit_lines`: replace an inclusive numbered range only when that complete range was
   displayed by `fs.read_lines` for the same file snapshot.
 - `fs.delete_file`: permanently delete one regular file after semantic review and
@@ -141,9 +151,11 @@ as `/verify [focused|affected|full] [PATH ...]`.
 - `fs.copy_file` and `fs.move_file`: copy or move an exact-hash regular file to a new
   destination. They refuse overwrites and revalidate immediately before commit.
 
-Every existing-file mutation requires an internal receipt for the supplied digest; knowing
-or guessing a digest is insufficient. Whole-file writes, copies, moves, and deletions require
-a whole-file read. New-file and new-directory creation are exempt.
+Every existing-file mutation is bound to runtime-observed state; knowing or guessing a digest
+is insufficient. Exact in-workspace whole-file writes and text edits may use a transaction
+snapshot owned by that single sealed request. Line edits, copies, moves, deletions, and host
+paths require an explicit model-visible read receipt. New-file and new-directory creation are
+exempt. Transaction snapshots never enter the reusable read-receipt ledger.
 
 `code.diagnostics` is an optional LSP client. It speaks bounded JSON-RPC over stdio to a
 local language-server executable explicitly configured in `~/.nna/config/lsp.json`; NNA
@@ -224,7 +236,7 @@ NNA also exposes three read-only self-inspection tools from every workspace:
 - `agent.run`: run one bounded foreground specialist through the configured Sub-agents provider route; available only to standalone root NNA and absent from hosted catalogs and search.
 - `git.inspect`: inspect bounded repository status, working or staged diffs, and recent commit history through explicit read-only Git argv.
 
-Conversation work uses four always-visible engine tools:
+Conversation work uses four engine tools:
 
 - `work.status`: read the current durable goal and ordered task list.
 - `work.goal`: set, complete with evidence, or reopen the conversation goal.
@@ -233,8 +245,10 @@ Conversation work uses four always-visible engine tools:
   terminal states require evidence or a reason.
 
 They mutate only bounded conversation work state in the existing session journal and grant
-no filesystem, process, network, secret, or host authority. Hosted manifests must explicitly
-grant their exact names before they appear.
+no filesystem, process, network, secret, or host authority. `work.status` is always visible;
+the three mutating schemas are activated by goal, plan, task, build, implementation, repair,
+refactor, or project intent. Hosted manifests must explicitly grant their exact names before
+they appear.
 
 Compacted history remains queryable without returning it wholesale to the provider:
 

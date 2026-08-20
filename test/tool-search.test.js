@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ToolRegistry } from '../src/tool-registry.js';
+import { taskActivatedToolNames } from '../src/tools/capability-activation.js';
 
 test('tool catalog keeps observational tools visible and effectful tools situational', async () => {
   const registry = new ToolRegistry(process.cwd());
@@ -22,6 +23,10 @@ test('tool catalog keeps observational tools visible and effectful tools situati
   assert.ok(!baseline.includes('process.run'));
   assert.ok(!baseline.includes('shell.run'));
   assert.ok(!baseline.includes('browser.navigate'));
+  assert.ok(!baseline.includes('ref.store'));
+  assert.ok(!baseline.includes('work.goal'));
+  assert.ok(!baseline.includes('work.task_add'));
+  assert.ok(!baseline.includes('notification.telegram'));
   const relevant = registry.providerDefinitions('open and navigate a browser page').map((item) => item.function.name);
   assert.ok(relevant.includes('browser.navigate'));
 });
@@ -45,6 +50,11 @@ test('authenticated task intent activates bounded effectful capability bundles',
 
   const privileged = registry.providerDefinitions('retry this with administrator elevation').map((item) => item.function.name);
   assert.ok(privileged.includes('system.elevate'));
+
+  const work = taskActivatedToolNames('build this project and track the plan');
+  for (const name of ['work.goal', 'work.task_add', 'work.task_update']) assert.ok(work.includes(name));
+  assert.ok(taskActivatedToolNames('notify me on telegram when finished').includes('notification.telegram'));
+  assert.ok(taskActivatedToolNames('store this large payload as a reusable reference').includes('ref.store'));
 });
 
 test('explicit exposure makes an exact recovery tool visible without broadening its bundle', async () => {

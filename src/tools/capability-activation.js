@@ -9,6 +9,9 @@ const BUNDLES = Object.freeze({
   execution: Object.freeze(['process.run', 'shell.run', 'project.verify']),
   elevation: Object.freeze(['system.elevate']),
   delegation: Object.freeze(['agent.run']),
+  reference_staging: Object.freeze(['ref.store']),
+  conversation_work: Object.freeze(['work.goal', 'work.task_add', 'work.task_update']),
+  notification: Object.freeze(['notification.telegram']),
 });
 
 const INTENTS = Object.freeze([
@@ -18,6 +21,9 @@ const INTENTS = Object.freeze([
   ['execution', /\b(?:benchmark|build|check|compile|deploy|execute|format|install|launch|lint|run|serve|start|test|verify)\b/iu],
   ['elevation', /\b(?:admin(?:istrator)?|elevat(?:e|ed|ion)|permission denied|root privilege|sudo|uac)\b/iu],
   ['delegation', /\b(?:delegate|parallel|sub[ -]?agent|specialist)\b/iu],
+  ['reference_staging', /\b(?:reference|stage|store|stdin|large (?:content|payload)|reusable (?:content|payload))\b/iu],
+  ['conversation_work', /\b(?:build|goal|implement|milestone|plan|project|refactor|repair|task|track|upgrade)\b/iu],
+  ['notification', /\b(?:alert|notify|notification|telegram)\b/iu],
 ]);
 
 export function taskActivatedToolNames(query = '') {
