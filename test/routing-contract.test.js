@@ -149,6 +149,48 @@ test('Primary deadline values canonicalize to the provider timeout setting', () 
   assert.equal(fullyCustom.limits.idleMs, 46_000);
 });
 
+test('trusted local inference defaults to operator-cancelled deadlines while public routes stay bounded', () => {
+  const local = resolveManifest({ providers, routes: { primary: { provider_id: 'lan' } } });
+  assert.equal(local.limits.firstTokenOverrideMs, null);
+  assert.equal(local.limits.idleOverrideMs, null);
+  assert.equal(new ModelRouter(local).resolve('primary').deadlineMs, null);
+  const persisted = manifestFromConfig(local);
+  assert.equal(persisted.provider_timeout_ms, undefined);
+  assert.equal(persisted.first_token_timeout_ms, undefined);
+  assert.equal(persisted.idle_timeout_ms, undefined);
+
+  const remote = resolveManifest({ providers, routes: { primary: { provider_id: 'public' } } });
+  assert.equal(new ModelRouter(remote).resolve('primary').deadlineMs, 1_800_000);
+
+  const explicit = resolveManifest({
+    providers, provider_timeout_ms: 7_200_000,
+    first_token_timeout_ms: 3_600_000, idle_timeout_ms: 1_800_000,
+    routes: { primary: { provider_id: 'lan' } },
+  });
+  assert.equal(explicit.limits.firstTokenOverrideMs, 3_600_000);
+  assert.equal(explicit.limits.idleOverrideMs, 1_800_000);
+  assert.equal(new ModelRouter(explicit).resolve('primary').deadlineMs, 7_200_000);
+  assert.equal(manifestFromConfig(explicit).first_token_timeout_ms, 3_600_000);
+  assert.equal(manifestFromConfig(explicit).idle_timeout_ms, 1_800_000);
+});
+
+test('explicit zero disables every provider deadline for any trust zone', () => {
+  const config = resolveManifest({
+    providers, provider_timeout_ms: 0, first_token_timeout_ms: 0, idle_timeout_ms: 0,
+    routes: { primary: { provider_id: 'public' } },
+  });
+  assert.equal(config.limits.providerMs, null);
+  assert.equal(config.limits.firstTokenMs, null);
+  assert.equal(config.limits.idleMs, null);
+  assert.equal(config.limits.firstTokenOverrideMs, 0);
+  assert.equal(config.limits.idleOverrideMs, 0);
+  assert.equal(new ModelRouter(config).resolve('primary').deadlineMs, null);
+  const persisted = manifestFromConfig(config);
+  assert.equal(persisted.provider_timeout_ms, 0);
+  assert.equal(persisted.first_token_timeout_ms, 0);
+  assert.equal(persisted.idle_timeout_ms, 0);
+});
+
 test('zero removes provider route limits without inventing legacy defaults', () => {
   const config = resolveManifest({
     providers, provider_timeout_ms: 0,

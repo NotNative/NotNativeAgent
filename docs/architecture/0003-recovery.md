@@ -54,11 +54,16 @@ or model content. Effect certainty is derived from both live and durable correla
 tool-result shapes, including partial and unknown effects, instead of a generic
 placeholder.
 
+Raw SSE chunk receipt is transport activity even when a compatible server has not yet exposed
+visible text or a complete semantic delta. Typed reasoning and partial tool-call fragments are
+semantic activity as well. Public-network requests retain independently bounded first-event,
+idle, and overall deadlines. Trusted loopback and private-network inference has no implicit
+deadline; explicit operator settings remain authoritative and cancellation remains immediate.
+At 11 tokens per second, a healthy 32K-token reasoning/tool response can take roughly 49
+minutes before prompt processing overhead, so elapsed time alone is not failure evidence.
+
 The configured model-step ceiling remains a final bounded guard (1,024 by default), so a
-long build can exceed dozens of useful tool steps without being mistaken for a loop. Typed
-provider reasoning is also stream activity for first-token/idle supervision: repeated bounded
-reasoning chunks keep an attempt live without exposing their content, while the independent
-overall attempt deadline still limits total generation time.
+long build can exceed dozens of useful tool steps without being mistaken for a loop.
 
 Steering is appended durably before acknowledgement and is never approval. The
 engine consumes it once at a post-stream or post-tool-result checkpoint, adds it

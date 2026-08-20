@@ -247,6 +247,12 @@ async function* parseSse(body, maxBytes, signal) {
         `provider stream exceeded its ${maxBytes}-byte transport safety allowance`,
       );
     }
+    // Transport liveness is distinct from semantic output. Some compatible
+    // servers stream role markers, keepalives, hidden reasoning, or partial
+    // tool JSON before an adapter can project a text/reasoning/tool event.
+    // Surface the bounded byte receipt so supervision does not misclassify an
+    // active connection as idle.
+    if (chunk.byteLength > 0) yield { type: 'transport_activity', bytes: chunk.byteLength };
     buffer += decoder.decode(chunk, { stream: true });
     const split = splitEvents(buffer);
     buffer = split.remainder;

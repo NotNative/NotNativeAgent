@@ -182,6 +182,24 @@ test('AC-PROV-01 allows slow model admission to use the first-token deadline', a
   assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
 });
 
+test('provider transport exposes raw SSE chunk activity independently of semantic deltas', async () => {
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'slow-model', capabilities: {},
+  }, { maxOutputBytes: 4096 }, { fetch: async () => new Response(
+    'data: {"choices":[{"delta":{"role":"assistant"},"finish_reason":null}]}\n\n'
+      + 'data: {"choices":[{"delta":{"content":"ready"},"finish_reason":"stop"}]}\n\n'
+      + 'data: [DONE]\n\n',
+    { status: 200, headers: { 'content-type': 'text/event-stream' } },
+  ) });
+  const items = [];
+  for await (const item of provider.stream({ model: 'slow-model', messages: [] }, new AbortController().signal)) {
+    items.push(item);
+  }
+  assert.ok(items.some((item) => item.type === 'transport_activity' && item.bytes > 0));
+  assert.equal(items.filter((item) => item.type === 'text').map((item) => item.text).join(''), 'ready');
+  assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
+});
+
 test('provider requests omit unset sampling and output limits', async () => {
   let body;
   const provider = new OpenAICompatibleProvider({

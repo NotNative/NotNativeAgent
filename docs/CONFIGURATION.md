@@ -80,19 +80,29 @@ malformed request. Provider-reported context-limit failures retain their dedicat
 and retry path.
 
 Provider connection and interactive-approval deadlines default to 10 and 120 seconds.
-Provider first-token, inter-token idle, and overall deadlines default to 10, 5, and 30
-minutes. Semantic review inherits that 30-minute overall provider deadline by default.
-These deliberately generous bounds accommodate
-large prompts on local models and consumer hardware while preserving cancellation and a
-finite failure path. Manifests carrying the exact historical 30-second/45-second/120-second
-default tuple are migrated to these safer defaults. The exact historical 15-second semantic
-review default is migrated as well; genuinely customized values remain authoritative.
+Public-network provider first-event, inter-event idle, and overall deadlines default to 10,
+5, and 30 minutes. Trusted loopback and private-network inference does not inherit those
+defaults: without an explicit operator setting, its model request remains live until the
+provider finishes or the operator cancels it. This intentionally supports consumer local
+inference, where a healthy reasoning or tool-call phase can take tens of minutes at 2–15
+tokens per second. Semantic review inherits the configured overall provider deadline by
+default. Explicit `first_token_timeout_ms`, `idle_timeout_ms`, and `provider_timeout_ms`
+values apply to every trust zone; zero disables the corresponding deadline. Provider
+deadlines accept up to 24 hours.
+
+Manifests carrying the exact historical 30-second/45-second stream defaults, or the former
+persisted 10-minute/5-minute pair, migrate to inherited policy. The exact historical
+15-second semantic-review default is migrated as well; other customized values remain
+authoritative.
 `approval_timeout_ms` is also the execution-validity window for semantic and operator
 approvals. That window starts when review finishes and the approval is committed, not when the
 original request entered a potentially slow local-model review queue. Execution still requires
 an exact match on request digest, authority, policy, tool definition, workspace, and expiry.
-For streamed inference, the first-token deadline covers endpoint admission, on-demand
-model loading, prompt processing, and the first stream event. The short connection value
+For streamed inference, the first-event deadline covers endpoint admission, on-demand
+model loading, prompt processing, and the first raw SSE activity. The idle deadline measures
+time between raw transport chunks rather than time between visible assistant messages.
+Reasoning deltas and partial tool-call arguments are still independently typed and accounted.
+The short connection value
 is reserved for connectivity and metadata probes; it does not abort a healthy LM Studio,
 Ollama, llama.cpp, vLLM, SGLang, or other compatible host while that host loads a model.
 Before inference, NNA coalesces its attributed policy, clock, memory, hook, project,

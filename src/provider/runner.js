@@ -101,6 +101,7 @@ export class ProviderRunner {
       finish_reason: active.finishReason, usage: active.usage,
       response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
       step_reasoning_bytes: active.stepReasoningBytes,
+      transport_bytes: active.attemptTransportBytes,
     }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), outcome: 'completed' });
     this.dialects?.observe({ profile: { id: active.providerResource }, model: active.modelName }, { status: 'succeeded' });
   }
@@ -111,6 +112,7 @@ export class ProviderRunner {
       finish_reason: active.finishReason, usage: active.usage,
       partial_response_text: active.stepText, reasoning_bytes: active.reasoningBytes,
       step_reasoning_bytes: active.stepReasoningBytes,
+      transport_bytes: active.attemptTransportBytes,
       failure: { code: error?.code ?? 'provider_failed', retryable: error?.retryable === true },
     }, { ...providerCorrelation(active, requestSpan), durationMs: elapsedMs(requestStarted), reasonCode: error?.code });
     this.dialects?.observe(
@@ -137,7 +139,8 @@ export class ProviderRunner {
       try {
         const request = requestFactory(route);
         const manifest = await this.prepareRequest?.(request, route, active, context) ?? null;
-        await this.run(router.provider(route), request, { ...deadlines, overallMs: route.deadlineMs }, active, manifest, route);
+        await this.run(router.provider(route), request,
+          effectiveDeadlines(deadlines, route), active, manifest, route);
         return route;
       } catch (error) {
         lastError = error;
@@ -197,7 +200,10 @@ export class ProviderRunner {
           this.state.transition('streaming_model', { trigger: 'stream_opened', turnId: active.turnId });
           opened = true;
         }
-        if (item.type === 'text') {
+        if (item.type === 'transport_activity') {
+          active.attemptTransportBytes += item.bytes;
+        }
+        else if (item.type === 'text') {
           active.attemptOutputBytes += Buffer.byteLength(item.text, 'utf8');
           await this.acceptText(item.text, active);
         }
@@ -244,6 +250,7 @@ function initializeAttempt(active) {
   active.attemptUsage = null;
   active.attemptUsageAccounted = false;
   active.attemptOutputBytes = 0;
+  active.attemptTransportBytes = 0;
   active.providerDispatched = false;
 }
 
@@ -282,6 +289,7 @@ function assertProviderEvent(item, terminalSeen) {
     if (typeof item.text === 'string' && item.text.length > 0) return;
     throw new ContractError('provider_event_invalid', `provider emitted empty ${item.type} content`);
   }
+  if (item.type === 'transport_activity' && Number.isSafeInteger(item.bytes) && item.bytes > 0) return;
   if (item.type === 'tool_fragment' && Array.isArray(item.fragments)) return;
   if (item.type === 'usage' && item.usage && typeof item.usage === 'object') return;
   if (item.type === 'metadata' && typeof item.finishReason === 'string') return;
@@ -306,6 +314,7 @@ function fallbackEligible(error) {
 }
 
 async function boundedNext(iterator, milliseconds, code) {
+  if (!Number.isFinite(milliseconds)) return iterator.next();
   let timer;
   const timeout = new Promise((resolve) => {
     timer = setTimeout(() => resolve({ timeout: true }), milliseconds);
@@ -322,6 +331,15 @@ async function boundedNext(iterator, milliseconds, code) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+function effectiveDeadlines(deadlines, route) {
+  const trustedLocal = route.profile.trustZone !== 'public_network';
+  return {
+    overallMs: route.deadlineMs,
+    firstTokenMs: trustedLocal && !deadlines.firstTokenExplicit ? null : deadlines.firstTokenMs,
+    idleMs: trustedLocal && !deadlines.idleExplicit ? null : deadlines.idleMs,
+  };
 }
 
 async function cancellableDelay(milliseconds, signal) {

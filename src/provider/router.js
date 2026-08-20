@@ -40,7 +40,8 @@ export class ModelRouter {
         logicalRequestId, role,
         targetRole, fallback: index > 0, model: target.model, profile,
         contextLimitBytes: target.contextLimitBytes,
-        requiredCapabilities: Object.freeze(required), deadlineMs: route.deadlineMs,
+        requiredCapabilities: Object.freeze(required),
+        deadlineMs: effectiveOverallDeadline(this.config, route, profile),
         budget: route.budget, temperature: route.temperature,
         maxOutputTokens: cappedOutput(route.maxOutputTokens, profile.outputLimitTokens),
         reasoningEffort: route.reasoningEffort, enableThinking: route.enableThinking,
@@ -61,6 +62,13 @@ export class ModelRouter {
       throw failure;
     }
   }
+}
+
+function effectiveOverallDeadline(config, route, profile) {
+  const explicitlyConfigured = route.deadlineOverrideMs !== null
+    || config.limits.providerOverrideMs !== null;
+  if (!explicitlyConfigured && profile.trustZone !== 'public_network') return null;
+  return route.deadlineMs;
 }
 
 function cappedOutput(configured, providerLimit) {

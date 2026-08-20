@@ -293,7 +293,9 @@ export class SessionEngine {
     try {
       await this.providerRunner.runRoutes(this.router, routes, (route) => providerRequest(this, route, context, { reasoningMode }), {
         firstTokenMs: this.config.limits.firstTokenMs,
+        firstTokenExplicit: this.config.limits.firstTokenOverrideMs !== null,
         idleMs: this.config.limits.idleMs,
+        idleExplicit: this.config.limits.idleOverrideMs !== null,
       }, active, context);
     } catch (error) {
       if (error.code !== 'provider_context_limit') throw error;

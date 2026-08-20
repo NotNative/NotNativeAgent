@@ -2,11 +2,11 @@
 import { ContractError } from './ids.js';
 
 const MIN_TIMEOUT_MS = 100;
-const MAX_TIMEOUT_MS = 3_600_000;
+const MAX_TIMEOUT_MS = 86_400_000;
 const DEFAULT_PROVIDER_TIMEOUT_MS = 1_800_000;
 const DEFAULT_FIRST_TOKEN_TIMEOUT_MS = 600_000;
 const DEFAULT_IDLE_TIMEOUT_MS = 300_000;
-const MAX_STREAM_TIMEOUT_MS = 600_000;
+const MAX_STREAM_TIMEOUT_MS = 86_400_000;
 const LEGACY_FIRST_TOKEN_TIMEOUT_MS = 30_000;
 const LEGACY_IDLE_TIMEOUT_MS = 45_000;
 const LEGACY_SEMANTIC_REVIEW_TIMEOUT_MS = 15_000;
@@ -41,6 +41,14 @@ export function migrateLegacyProviderTimeoutDefaults(manifest) {
   const migrated = { ...manifest };
   if (migrated.first_token_timeout_ms === LEGACY_FIRST_TOKEN_TIMEOUT_MS) migrated.first_token_timeout_ms = undefined;
   if (migrated.idle_timeout_ms === LEGACY_IDLE_TIMEOUT_MS) migrated.idle_timeout_ms = undefined;
+  // These values were persisted as mandatory defaults before trusted local
+  // inference adopted opt-in stream deadlines. Treat the exact former pair as
+  // inherited policy so existing installations receive the safer behavior.
+  if (migrated.first_token_timeout_ms === DEFAULT_FIRST_TOKEN_TIMEOUT_MS
+    && migrated.idle_timeout_ms === DEFAULT_IDLE_TIMEOUT_MS) {
+    migrated.first_token_timeout_ms = undefined;
+    migrated.idle_timeout_ms = undefined;
+  }
   return migrated;
 }
 
@@ -48,11 +56,17 @@ export function providerTimeouts(manifest) {
   const input = migrateLegacyProviderTimeoutDefaults(manifest);
   const primaryDeadline = input.routes?.primary?.deadline_ms;
   const configured = primaryDeadline === undefined ? input.provider_timeout_ms : primaryDeadline;
+  const firstTokenConfigured = input.first_token_timeout_ms;
+  const idleConfigured = input.idle_timeout_ms;
   return {
     providerMs: configured === 0 ? null : boundedInteger(configured, DEFAULT_PROVIDER_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS),
     providerOverrideMs: providerOverride(configured),
-    firstTokenMs: boundedInteger(input.first_token_timeout_ms, DEFAULT_FIRST_TOKEN_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_STREAM_TIMEOUT_MS),
-    idleMs: boundedInteger(input.idle_timeout_ms, DEFAULT_IDLE_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_STREAM_TIMEOUT_MS),
+    firstTokenMs: firstTokenConfigured === 0 ? null
+      : boundedInteger(firstTokenConfigured, DEFAULT_FIRST_TOKEN_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_STREAM_TIMEOUT_MS),
+    firstTokenOverrideMs: streamOverride(firstTokenConfigured),
+    idleMs: idleConfigured === 0 ? null
+      : boundedInteger(idleConfigured, DEFAULT_IDLE_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_STREAM_TIMEOUT_MS),
+    idleOverrideMs: streamOverride(idleConfigured),
   };
 }
 
@@ -74,6 +88,12 @@ function providerOverride(configured) {
   if (configured === undefined) return null;
   if (configured === 0) return 0;
   return boundedInteger(configured, null, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
+}
+
+function streamOverride(configured) {
+  if (configured === undefined) return null;
+  if (configured === 0) return 0;
+  return boundedInteger(configured, null, MIN_TIMEOUT_MS, MAX_STREAM_TIMEOUT_MS);
 }
 
 export function telemetryDestination(value) {

@@ -7,9 +7,8 @@ import { REASONING_EFFORTS } from '../provider/reasoning.js';
 const LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
 });
-const DEFAULT_TIMEOUT_SECONDS = 1_800;
 const DEFAULT_TEMPERATURE = 1;
-const MAX_TIMEOUT_SECONDS = 3_600;
+const MAX_TIMEOUT_SECONDS = 86_400;
 const MAX_OUTPUT_TOKENS = 1_048_576;
 const MAX_ROUTE_BUDGET = 64;
 const SETTING_EDITOR_BYTES = 128;
@@ -48,7 +47,7 @@ export async function handleProviderRouteSettingsAction(action, workspace) {
   try {
     if (selected.id === 'timeout-default') {
       await workspace.configureProviderRoute(overlay.role, 'timeout', null);
-      reopenSettings(workspace, overlay, `Overall attempt timeout restored to the ${DEFAULT_TIMEOUT_SECONDS.toLocaleString('en-US')}-second default.`);
+      reopenSettings(workspace, overlay, 'Overall attempt timeout restored to trust-aware defaults.');
     } else if (selected.id === 'timeout-inherit') {
       await workspace.configureProviderRoute(overlay.role, 'timeout', null);
       reopenSettings(workspace, overlay, 'Timeout now uses the Primary setting.');
@@ -104,13 +103,13 @@ function settingOptionsOverlay(parentSettings, setting) {
 export function routeSettingsOverlay(config, role, options = {}) {
   const route = config.routes[role], primary = role === 'primary';
   const timeoutConfigured = primary ? config.limits.providerOverrideMs !== null : route.deadlineOverrideMs !== null;
+  const effectiveTimeout = effectiveRouteTimeout(config, role);
   const editable = options.editable !== false;
   const lines = [
     `${LABELS[role] ?? role} route settings`, '',
     `Provider                 ${route.providerId}`,
     `Model                    ${route.model}`,
-    `Overall attempt timeout  ${formatMs(route.deadlineMs)} (${primary
-      ? (timeoutConfigured ? 'configured' : 'default') : (timeoutConfigured ? 'override' : 'Primary')})`,
+    `Overall attempt timeout  ${formatMs(effectiveTimeout)} (${timeoutLabel(config, role, timeoutConfigured)})`,
     `Temperature              ${temperatureLabel(route)}`,
     `Maximum output tokens    ${route.maxOutputTokens?.toLocaleString('en-US') ?? 'No explicit limit'}`,
     `Fallback attempt budget  ${route.budget ?? 'All eligible routes'}`,
@@ -124,8 +123,8 @@ export function routeSettingsOverlay(config, role, options = {}) {
     id, label: definition.label, detail: definition.detail, badge: settingValue(config, role, id), section: 'Configurable settings',
   })) : [];
   if (editable && timeoutConfigured) items.push(primary ? {
-    id: 'timeout-default', label: 'Restore default timeout', badge: `${DEFAULT_TIMEOUT_SECONDS.toLocaleString('en-US')}s`,
-    detail: `Return Primary to the built-in ${DEFAULT_TIMEOUT_SECONDS.toLocaleString('en-US')}-second timeout.`, section: 'Setting defaults',
+    id: 'timeout-default', label: 'Restore default timeout', badge: 'trust-aware',
+    detail: 'Return Primary to the trust-aware timeout policy.', section: 'Setting defaults',
   } : {
     id: 'timeout-inherit', label: 'Remove timeout override', badge: 'use Primary',
     detail: `Return this route to the Primary ${formatMs(config.routes.primary.deadlineMs)} timeout.`, section: 'Setting inheritance',
@@ -186,14 +185,33 @@ function routeConfig(workspace, role) {
 function settingValue(config, role, setting) {
   const route = config.routes[role];
   if (setting === 'timeout') {
-    if (role === 'primary') return `${formatMs(route.deadlineMs)} · ${config.limits.providerOverrideMs === null ? 'default' : 'configured'}`;
-    return route.deadlineOverrideMs === null ? `Primary · ${formatMs(route.deadlineMs)}` : formatMs(route.deadlineMs);
+    const effective = effectiveRouteTimeout(config, role);
+    if (role === 'primary') return `${formatMs(effective)} · ${config.limits.providerOverrideMs === null ? 'trust-aware' : 'configured'}`;
+    return route.deadlineOverrideMs === null ? `Primary · ${formatMs(effective)}` : formatMs(effective);
   }
   if (setting === 'temperature') return temperatureLabel(route).toLowerCase();
   if (setting === 'output') return route.maxOutputTokens === null || route.maxOutputTokens === undefined ? 'no limit' : route.maxOutputTokens.toLocaleString('en-US');
   if (setting === 'budget') return route.budget === null || route.budget === undefined ? 'all eligible' : String(route.budget);
   if (setting === 'reasoning_effort') return route.reasoningEffort ?? 'provider default';
   return thinkingLabel(route.enableThinking).toLowerCase();
+}
+
+function effectiveRouteTimeout(config, role) {
+  const route = config.routes[role];
+  const profile = config.providerProfiles[route.providerId];
+  const explicitlyConfigured = route.deadlineOverrideMs !== null
+    || config.limits.providerOverrideMs !== null;
+  if (!explicitlyConfigured && profile?.trustZone !== 'public_network') return null;
+  return route.deadlineMs;
+}
+
+function timeoutLabel(config, role, configured) {
+  if (configured) return role === 'primary' ? 'configured' : 'override';
+  const profile = config.providerProfiles[config.routes[role].providerId];
+  if (profile?.trustZone !== 'public_network' && config.limits.providerOverrideMs === null) {
+    return 'trusted local · operator cancellation';
+  }
+  return role === 'primary' ? 'public-network default' : 'Primary';
 }
 
 function routeSetting(route, setting) {

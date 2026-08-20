@@ -193,7 +193,7 @@ test('Primary owns route defaults while specialist timeout overrides can return 
   const routeSettings = mainProviders.items.find((item) => item.id === 'route-settings');
   assert.equal(beginProviderRouteSettingsSelection(routeSettings, workspace, mainProviders), true);
   assert.equal(projection.overlay.kind, 'provider-route-settings');
-  assert.match(projection.overlay.lines.join('\n'), /Overall attempt timeout  1,800s \(default\)/u);
+  assert.match(projection.overlay.lines.join('\n'), /Overall attempt timeout  No limit \(trusted local · operator cancellation\)/u);
   assert.match(projection.overlay.lines.join('\n'), /Temperature {14}1 \(default\)/u);
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   assert.equal(projection.overlay.kind, 'provider-route-setting-form');
@@ -265,7 +265,7 @@ test('Primary owns route defaults while specialist timeout overrides can return 
 
   const reviewerProviders = providerOverlay({ config }, { role: 'reviewer', canAssign: true, isMain: true });
   assert.equal(beginProviderRouteSettingsSelection(reviewerProviders.items[0], workspace, reviewerProviders), true);
-  assert.match(projection.overlay.lines.join('\n'), /1,800s \(Primary\)/u);
+  assert.match(projection.overlay.lines.join('\n'), /No limit \(trusted local · operator cancellation\)/u);
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   projection.overlay.editor.set('120');
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);

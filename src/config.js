@@ -45,7 +45,7 @@ export function resolveManifest(manifest = {}, options = {}) {
   if (!['durable', 'ephemeral'].includes(persistence)) {
     throw new ContractError('invalid_persistence', 'persistence must be durable or ephemeral');
   }
-  const { providerMs, providerOverrideMs, firstTokenMs, idleMs } = providerTimeouts(manifest);
+  const { providerMs, providerOverrideMs, firstTokenMs, firstTokenOverrideMs, idleMs, idleOverrideMs } = providerTimeouts(manifest);
   const connectMs = boundedInteger(manifest.provider_connect_timeout_ms, 10_000, 100, 600_000);
   const semanticReviewMs = semanticReviewTimeout(manifest, providerMs);
   const approvalMs = boundedInteger(manifest.approval_timeout_ms, 120_000, 1_000, 3_600_000);
@@ -78,7 +78,8 @@ export function resolveManifest(manifest = {}, options = {}) {
     mcpServers: executionManifest && !executionManifest.allowedCapabilities.includes('mcp')
       ? mcpServers.map((server) => ({ ...server, enabled: false })) : mcpServers,
     limits: {
-      providerMs, providerOverrideMs, connectMs, firstTokenMs, idleMs, semanticReviewMs, approvalMs,
+      providerMs, providerOverrideMs, connectMs, firstTokenMs, firstTokenOverrideMs,
+      idleMs, idleOverrideMs, semanticReviewMs, approvalMs,
       providerConcurrency, providerQueueLimit, toolConcurrency, persistenceFlushMs, shutdownMs,
       maxOutputBytes: 2_097_152, maxModelSteps: recovery.maxModelSteps,
       ...context, maxSteering: 32,
