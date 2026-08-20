@@ -89,6 +89,9 @@ aliases to Reliability Engine-owned components. They do not represent independen
 9. Every dispatched provider attempt receives one durable token receipt. Provider-reported
    usage remains authoritative; absent or partial usage is represented separately as an
    estimate and is never relabeled as measured consumption.
+10. A stale filesystem prerequisite may clear only from structured success that proves the
+    required directory exists: exact creation, exact listing, or a successful direct-child
+    filesystem operation. Unstructured shell success is not accepted as proof.
 
 ## Consequences
 

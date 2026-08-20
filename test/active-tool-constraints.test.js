@@ -66,7 +66,7 @@ test('failed inline interpreter constraints recommend draft stdin instead of rep
   assert.match(constraints[0].instruction, /ref\.store.*stdin_ref/u);
 });
 
-test('missing directory ancestors become exact durable prerequisites cleared only by their repair', () => {
+test('missing directory ancestors become durable prerequisites cleared by structured existence proof', () => {
   const missing = item('fs.write_text', 'invalid_request', {
     reason: 'tool_parent_missing', args: { path: 'src/shaders/ocean.js', content: 'shader' },
     content: 'parent directory is missing; create exactly this directory first with fs.create_directory: "src"\nfs.create_directory creates only one directory level and never creates missing ancestors recursively.',
@@ -75,10 +75,17 @@ test('missing directory ancestors become exact durable prerequisites cleared onl
   assert.equal(constraints[0].kind, 'prerequisite_repair');
   assert.equal(constraints[0].required_tool, 'fs.create_directory');
   assert.equal(constraints[0].required_path, 'src');
-  assert.match(constraints[0].instruction, /next filesystem mutation[^]*"src"[^]*Do not retry descendant[^]*read-only inspection/iu);
+  assert.match(constraints[0].instruction, /Repair the missing ancestor[^]*"src"[^]*Do not retry descendant[^]*verify that exact path/iu);
 
   assert.equal(mergeToolConstraints(constraints, [item('fs.list_directory', 'succeeded', { args: { path: '.' } })]).length, 1);
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs.create_directory', 'succeeded', { args: { path: 'src' } })]), []);
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs.list_directory', 'succeeded', { args: { path: 'src' } })]), []);
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs.write_text', 'succeeded', {
+    args: { path: 'src/main.js', content: 'created' },
+  })]), []);
+  assert.equal(mergeToolConstraints(constraints, [item('fs.write_text', 'succeeded', {
+    args: { path: 'other/main.js', content: 'created' },
+  })]).length, 1);
 
   const siblingFailure = item('fs.create_directory', 'invalid_request', {
     reason: 'tool_parent_missing', args: { path: 'src/shaders' }, content: missing.result.content,

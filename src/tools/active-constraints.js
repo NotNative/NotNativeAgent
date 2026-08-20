@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { redactText } from '../redaction.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
-import { missingFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
+import { missingFilesystemPrerequisite, satisfiesFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
 
 const MAX_CONSTRAINTS = 64;
 const CONSTRAINT_KIND = Object.freeze({ prerequisite: 'prerequisite_repair', schema: 'schema_repair', execution: 'execution_failure', governance: 'governance_boundary' });
@@ -73,8 +73,8 @@ function constraintDetail(kind, result) {
 
 function instruction(kind, result, item, prerequisite = null) {
   if (kind === CONSTRAINT_KIND.prerequisite) {
-    return `The next filesystem mutation must call ${prerequisite.tool} with path ${JSON.stringify(prerequisite.path)}. `
-      + 'Do not retry descendant creation or writes, and do not use read-only inspection as a substitute, until this exact ancestor exists.';
+    return `Repair the missing ancestor by calling ${prerequisite.tool} with path ${JSON.stringify(prerequisite.path)}. `
+      + 'Do not retry descendant creation or writes until this exact ancestor exists. If another action already created it, verify that exact path with fs.list_directory.';
   }
   if (kind === CONSTRAINT_KIND.schema) return 'Correct the reported field and value; do not repeat the same request fingerprint.';
   if (kind === CONSTRAINT_KIND.governance) return 'Do not repeat an equivalent request unless new authenticated operator input changes its authority.';
@@ -87,9 +87,7 @@ function instruction(kind, result, item, prerequisite = null) {
 
 function constraintSatisfied(constraint, items) {
   if (constraint.kind !== CONSTRAINT_KIND.prerequisite) return false;
-  return items.some((item) => item.result?.status === 'succeeded'
-    && item.result?.tool_name === constraint.required_tool
-    && (item.request?.args?.path ?? item.call?.args?.path) === constraint.required_path);
+  return items.some((item) => satisfiesFilesystemPrerequisite(item, constraint));
 }
 
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }

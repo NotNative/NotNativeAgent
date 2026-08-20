@@ -176,8 +176,11 @@ Completed and needs-input receipts show elapsed time and that turn's token accou
 compact tool/review counts and a `Ctrl+O` details hint when activity exists. Every dispatched
 provider attempt receives a durable content-free receipt, so failed retries and route
 fallbacks remain part of the accounting. The footer rolls authoritative provider usage into
-a conversation total. Providers that support OpenAI-compatible streaming usage are asked to
-include it. Usage omitted by a provider is shown separately with `~`; a mixed total such as
+a conversation total. In durable turn records, `usage` remains the primary-route compatibility
+field; `token_accounting` is the authoritative all-attempt, all-role receipt aggregate and
+includes permission-reviewer, sub-agent, delegated, failed-retry, and fallback consumption.
+Providers that support OpenAI-compatible streaming usage are asked to include it. Usage omitted
+by a provider is shown separately with `~`; a mixed total such as
 `1200+~340 tokens` means 1,200 provider-reported tokens plus approximately 340 unreported
 tokens. `tokens --` means no provider attempt has supplied or incurred countable evidence.
 The context footer uses

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { missingFilesystemPrerequisite } from './filesystem-recovery.js';
+import { missingFilesystemPrerequisite, satisfiesFilesystemPrerequisite } from './filesystem-recovery.js';
 
 export function toolProgressEvidence(items, steeringApplied = [], options = {}) {
   const prerequisites = options.constraints?.filter((item) => item.kind === 'prerequisite_repair') ?? [];
   const successes = items.filter((item) => item.result.status === 'succeeded'
-    && (prerequisites.length === 0 || prerequisites.some((prerequisite) => satisfiesPrerequisite(item, prerequisite))));
+    && (prerequisites.length === 0 || prerequisites.some((prerequisite) => satisfiesFilesystemPrerequisite(item, prerequisite))));
   const steeringIds = Array.isArray(steeringApplied)
     ? steeringApplied.filter((item) => typeof item === 'string' && item.length > 0)
     : [];
@@ -50,11 +50,6 @@ export function toolFailureFingerprint(items) {
   }));
   if (shapes.length === 0) return null;
   return createHash('sha256').update([...new Set(shapes)].sort().join('\n')).digest('hex');
-}
-
-function satisfiesPrerequisite(item, prerequisite) {
-  return item.result?.tool_name === prerequisite.required_tool
-    && (item.request?.args?.path ?? item.call?.args?.path) === prerequisite.required_path;
 }
 
 function stableJson(value) {

@@ -70,6 +70,16 @@ test('unrelated successful inspection is not progress while a filesystem prerequ
     result: { status: 'succeeded', tool_name: 'fs.create_directory', content: 'directory created' },
   };
   assert.equal(toolProgressEvidence([repair], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
+  const verified = {
+    request: { args: { path: 'src' } },
+    result: { status: 'succeeded', tool_name: 'fs.list_directory', content: 'empty directory' },
+  };
+  assert.equal(toolProgressEvidence([verified], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
+  const descendantWrite = {
+    request: { args: { path: 'src/main.js', content: 'created' } },
+    result: { status: 'succeeded', tool_name: 'fs.write_text', content: 'file written' },
+  };
+  assert.equal(toolProgressEvidence([descendantWrite], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
 });
 
 test('successful tool evidence is retained and combined with unique steering identity', () => {
