@@ -28,8 +28,10 @@ export class DiagnosticBundle {
     });
   }
 
+  defaultPath() { return join(this.supportRoot, supportFileName()); }
+
   async create(path = null) {
-    const outputPath = path || join(this.supportRoot, supportFileName());
+    const outputPath = path || this.defaultPath();
     if (typeof outputPath !== 'string' || !outputPath.toLowerCase().endsWith('.zip')) {
       throw new ContractError('bundle_path_invalid', 'support bundle path must end in .zip');
     }

@@ -8,6 +8,7 @@ export async function handleSupportCommand(name, argument, workspace) {
   const normalizedArgument = typeof argument === 'string' ? argument : '';
   const bundle = new DiagnosticBundle({
     engine: workspace.activeEngine(), logger: workspace.options.logger,
+    supportRoot: workspace.options.supportRoot,
     sessions: [...workspace.sessions.values()].map((session) => ({
       id: session.id, engine: session.engine,
       statistics: sessionStats(workspace.projection.sessions.get(session.id)),
@@ -25,6 +26,16 @@ export async function handleSupportCommand(name, argument, workspace) {
   if (name === '/bundle' && normalizedArgument && !legacyPath) {
     throw new ContractError('bundle_command_invalid', 'use /support, /support preview, or /support PATH.zip');
   }
-  const result = await bundle.create(legacyPath || normalizedArgument || null);
-  workspace.projection.openOverlay(valueOverlay('support', 'Support bundle ready to send', result));
+  const outputPath = legacyPath || normalizedArgument || bundle.defaultPath();
+  workspace.projection.showNotice('support', `Creating a local redacted ZIP at ${outputPath}`);
+  const result = await bundle.create(outputPath);
+  workspace.projection.openOverlay(valueOverlay('support', 'Support bundle ready to send', [
+    'Created locally; nothing was uploaded.',
+    '',
+    `File: ${result.path}`,
+    `Size: ${result.bytes} bytes`,
+    '',
+    'Copy this ZIP to the machine where it will be inspected. Review it before sending.',
+  ].join('\n')));
+  workspace.projection.showNotice('support', `Support bundle saved to ${result.path}`);
 }
