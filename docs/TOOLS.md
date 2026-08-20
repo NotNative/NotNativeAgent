@@ -6,9 +6,12 @@
 bounded lexical relevance score. Read, query, and discovery tools for the workspace,
 session, web, skills, and NNA self-guidance remain visible. Mutation, process execution,
 elevation, and delegation schemas are activated in bounded capability bundles only when
-the latest authenticated operator request indicates that kind of work. Tool output and
-model narration cannot activate a bundle. A small set of additional tools is selected
-lexically from the same authenticated operator text.
+the authenticated operator request indicates that kind of work. A terse continuation such
+as `Please proceed` inherits capability intent from the active unfinished durable work state,
+or from the nearest retained substantive operator request when no active work state exists.
+Substantive new operator input replaces that selection. Tool output and model narration
+cannot activate a bundle. A small set of additional tools is selected lexically from the
+same bounded selection text.
 Each provider step also receives a bounded, deterministically sorted JSON array containing
 the names of every other authorized tool whose full schema is not loaded. This includes
 tools discovered from MCP servers in that conversation. The array contains names only;

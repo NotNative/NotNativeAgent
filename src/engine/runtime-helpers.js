@@ -4,14 +4,13 @@ import { ToolCallAssembler } from '../reliability/tool-call-assembler.js';
 import { toolCatalogContext } from '../tools/catalog-context.js';
 import { routeReasoningFields } from '../provider/reasoning.js';
 import { ContractError } from '../ids.js';
-
-const OPERATOR_TRUST = 'operator';
+import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
   const messages = toProviderMessages(context);
   const dialect = engine.reliability?.instructions(route);
-  const tools = engine.tools.providerDefinitions(toolQuery(context));
+  const tools = engine.tools.providerDefinitions(capabilitySelectionQuery(context));
   const catalog = toolCatalogContext(engine.tools.snapshot?.() ?? [], tools);
   const system = [dialect, catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
   const reasoning = routeReasoningFields(route);
@@ -24,14 +23,6 @@ export function providerRequest(engine, route, context, options = {}) {
     ...(reasoning.enableThinking === undefined ? {} : { enableThinking: reasoning.enableThinking }),
     ...(options.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
   });
-}
-
-function toolQuery(context) {
-  for (let index = context.length - 1; index >= 0; index -= 1) {
-    const item = context[index];
-    if (item && typeof item === 'object' && item.trust === OPERATOR_TRUST) return item.content ?? '';
-  }
-  return '';
 }
 
 function validateProviderRequestInputs(engine, route, context) {
