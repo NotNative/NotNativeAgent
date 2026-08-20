@@ -97,6 +97,12 @@ NNA makes a bounded, content-free `/models` health probe and records the result 
 telemetry. That probe is diagnostic only: success does not count as stream progress or extend
 an explicit deadline, and failure does not terminate an otherwise live generation.
 
+The mandatory semantic reviewer always disables model thinking. Its decision is a small,
+strictly validated JSON authorization result, so NNA sends both the generic no-reasoning control
+and the Qwen-compatible `enable_thinking: false` control rather than inheriting a provider's
+potentially expensive thinking default. Primary, specialist, and sub-agent routes retain their
+independently configured reasoning behavior.
+
 Manifests carrying the exact historical 30-second/45-second stream defaults, or the former
 persisted 10-minute/5-minute pair, migrate to inherited policy. The exact historical
 15-second semantic-review default is migrated as well; other customized values remain

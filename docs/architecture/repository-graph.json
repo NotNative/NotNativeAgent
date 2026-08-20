@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:05fa3fbde4c92054808f8c4898e695a774931b913e456cb6c52d0560792803f9",
+  "source_digest": "sha256:067c5d40b414744021c75d8bb5f7d1b0743d0c7cd21be762edc9cc5a3bb06687",
   "counts": {
     "modules": 302,
     "component_edges": 67
@@ -237,16 +237,16 @@
       "module_count": 4
     },
     {
-      "from": "providers",
-      "to": "providers",
-      "import_count": 8,
-      "module_count": 7
-    },
-    {
       "from": "foundation",
       "to": "experience-engine",
       "import_count": 7,
       "module_count": 5
+    },
+    {
+      "from": "providers",
+      "to": "providers",
+      "import_count": 7,
+      "module_count": 6
     },
     {
       "from": "agentic-engine",
@@ -1980,8 +1980,7 @@
       "component": "providers",
       "entrypoint": false,
       "imports": [
-        "src/ids.js",
-        "src/provider/reasoning.js"
+        "src/ids.js"
       ]
     },
     {

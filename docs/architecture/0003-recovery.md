@@ -68,6 +68,11 @@ telemetry receipt. Probe success never fabricates stream activity, and probe fai
 terminates inference. Transport failures are normalized through nested client causes into
 stable retryable provider codes rather than escaping as `internal_failure`.
 
+Semantic permission review is explicitly non-thinking. The reviewer requests one bounded,
+schema-constrained decision and sends both generic and Qwen-compatible reasoning-disable
+controls. This keeps mandatory governance latency predictable without changing reasoning policy
+for primary or delegated model work.
+
 The configured model-step ceiling remains a final bounded guard (1,024 by default), so a
 long build can exceed dozens of useful tool steps without being mistaken for a loop.
 

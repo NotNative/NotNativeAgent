@@ -77,8 +77,8 @@ Counts represent static local imports. Same-component imports are included becau
 | Experience Engine | Persistence | 8 | 7 |
 | Product foundation | Persistence | 8 | 6 |
 | Integration surfaces | Integration surfaces | 8 | 4 |
-| Providers | Providers | 8 | 7 |
 | Product foundation | Experience Engine | 7 | 5 |
+| Providers | Providers | 7 | 6 |
 
 ## Process entry points
 
@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:05fa3fbde4c92054808f8c4898e695a774931b913e456cb6c52d0560792803f9`.
+Source fingerprint: `sha256:067c5d40b414744021c75d8bb5f7d1b0743d0c7cd21be762edc9cc5a3bb06687`.

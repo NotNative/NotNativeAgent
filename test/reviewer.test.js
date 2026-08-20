@@ -415,6 +415,9 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
   assert.equal(result.outcome, 'approve');
   assert.deepEqual(captured.tools, []);
   assert.equal(captured.temperature, 0);
+  assert.equal(captured.reasoningMode, 'off');
+  assert.equal(captured.reasoningEffort, undefined);
+  assert.equal(captured.enableThinking, undefined);
   assert.equal(captured.responseFormat.type, 'json_schema');
   assert.equal(captured.responseFormat.json_schema.strict, true);
   assert.deepEqual(captured.responseFormat.json_schema.schema.required, ['outcome', 'confidence', 'reason_code']);

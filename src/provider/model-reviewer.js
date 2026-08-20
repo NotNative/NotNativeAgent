@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from '../ids.js';
-import { routeReasoningFields } from './reasoning.js';
 
 const MAX_REVIEWER_OUTPUT_BYTES = 32_768;
 const MAX_REASON_CODE_CHARACTERS = 128;
@@ -28,7 +27,7 @@ export class RoutedSemanticReviewer {
     const provider = this.router.provider(route);
     const request = Object.freeze({
       model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 4096, 4096),
-      ...routeReasoningFields(route),
+      reasoningMode: 'off',
       messages: [
         { role: 'system', content: reviewerPolicy() },
         { role: 'user', content: JSON.stringify(input) },
