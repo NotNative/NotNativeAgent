@@ -2,13 +2,12 @@
 
 ## Discovery and context economy
 
-`tool.search` is always visible and searches the complete registered catalog with a
-bounded lexical relevance score. Only bounded workspace observation primitives remain
-visible without task intent: directory listing, metadata, glob, text search, whole-file
-read, and line-range read. Mutation, process execution, web retrieval, NNA guidance and
-diagnostics, session history, skills, MCP control, elevation, delegation, references,
-notifications, and conversation-work schemas are activated in bounded capability bundles
-only when the authenticated operator request indicates that kind of work. A terse continuation such
+Fresh provider steps have exactly seven always-visible tools: `tool.search`, `fs.list`,
+`fs.read`, `fs.search_text`, `web.search`, `web.fetch`, and `web.browse`. This keeps bounded
+observation and knowledge gathering available without forcing the model to choose among
+overlapping aliases. Mutation, execution, diagnostics, session history, delegation,
+notifications, and conversation work are activated in bounded capability bundles only when
+the authenticated operator request indicates that kind of work. A terse continuation such
 as `Please proceed` inherits capability intent from the active unfinished durable work state,
 or from the nearest retained substantive operator request when no active work state exists.
 Substantive new operator input replaces that selection. Tool output and model narration
@@ -35,19 +34,21 @@ NNA owns the contracts, validation, review classification, execution boundary, b
 results, and audit behavior of its built-in tools. Tool output is treated as untrusted
 content even when the operation itself is safe.
 
-The native filesystem tools are:
+The canonical model-facing filesystem tools are:
 
-- `fs.list_directory`: enumerate a bounded tree under an existing directory. It is the
-  equivalent of listing that directory's children, not an existence test; list the parent
-  directory to discover whether a prospective child exists.
-- `fs.glob`: find files with a cross-platform glob without constructing a shell command.
+- `fs.list`: enumerate a bounded tree under an existing directory, with an optional
+  cross-platform name pattern that matches both files and directories. It lists children;
+  list the parent to discover whether a prospective child exists.
 - `fs.search_text`: search bounded UTF-8 files with line-numbered snippets. Literal matching
   is the default; `match_mode: "regex"` enables explicit expressions such as `foo|bar`.
   NNA transparently uses `rg` when available and falls back to its bounded native search.
-- `fs.read_text`: read up to 1 MiB of UTF-8 text and return its SHA-256 snapshot tag and
-  an internal read receipt.
-- `fs.read_lines`: read at most 400 numbered lines from an exact snapshot. Receipts retain
-  which line ranges were actually shown.
+- `fs.read`: read up to 1 MiB of UTF-8 text or, when `start_line`/`line_count` are supplied,
+  at most 400 numbered lines. It returns a SHA-256 snapshot tag and an internal receipt for
+  exactly what was observed.
+- `fs.directory`: create or remove a directory. Creation is recursive and idempotent by
+  default. Removal is non-recursive unless requested and remains review-required and bounded.
+  Filesystem roots, the home directory, the active workspace root and its ancestors, and the
+  NNA data root cannot be mutation targets.
 - `fs.write_text`: atomically create or replace a bounded text file. Missing parent
   directories for a new target are created as part of the same governed operation. A
   successful full write records the resulting content as authored state, allowing an
@@ -55,7 +56,12 @@ The native filesystem tools are:
   inside the workspace, the runtime may take a bounded request-local transaction snapshot,
   bind its digest to review, and revalidate it immediately before commit. The snapshot is
   content-free in the review packet and cannot authorize another operation. Existing files
-  outside the workspace still require an explicit `fs.read_text` receipt.
+  outside the workspace still require an explicit `fs.read` receipt.
+
+The granular `fs.list_directory`, `fs.glob`, `fs.metadata`, `fs.read_text`, `fs.read_lines`,
+`fs.create_directory`, `fs.edit_lines`, `fs.copy_file`, `fs.move_file`, and `fs.delete_file`
+definitions remain installed for compatibility and specialist/internal workflows. They are
+not competing choices in a fresh model-facing catalog.
 
 `shell.run` is the normal model-facing execution tool for authenticated build, test, install,
 and other terminal intent. `process.run` is not loaded into that ordinary task surface. It
@@ -144,7 +150,8 @@ labels simple argv separately from opaque package scripts, large argv sets, dyna
 and wildcard/regex-like patterns so complexity cannot disappear behind an apparently safe
 executable name.
 
-`project.verify` is the governed software-verification boundary. It reads a bounded regular
+`project.verify` remains the governed software-verification boundary selected for explicit
+verification workflows. It reads a bounded regular
 `package.json`, deterministically chooses the declared npm or Bun adapter, resolves the exact
 package scripts and argv, and exposes that complete plan to review before starting a process.
 The manifest digest is revalidated immediately before execution so a reviewed script cannot be
@@ -157,6 +164,9 @@ as `/verify [focused|affected|full] [PATH ...]`.
 - `fs.edit_text`: replace an exact, normally unique text match. In-workspace exact edits use
   the same request-local transaction snapshot when no explicit read receipt exists;
   `replace_all` must be explicit for multiple matches.
+
+Installed compatibility definitions retain the narrower historical operations:
+
 - `fs.edit_lines`: replace an inclusive numbered range only when that complete range was
   displayed by `fs.read_lines` for the same file snapshot.
 - `fs.delete_file`: permanently delete one regular file after semantic review and
@@ -244,28 +254,25 @@ and never returned in tool output or provider context. Injected values remain in
 trusted-process redaction set so reflected page text is scrubbed from later inspection. Browser cookies and storage survive only
 for the active NNA session in this release and are discarded on shutdown.
 
-NNA also exposes three read-only self-inspection tools from every workspace:
+NNA installs bounded self-inspection tools independently of the workspace:
 
 - `nna.search_guidance`: search the packaged canonical NNA documentation.
 - `nna.read_guidance`: read one document returned by the search.
-- `nna.list_sessions`: enumerate bounded recent durable sessions for cross-Console troubleshooting.
-- `nna.diagnose_turn`: inspect bounded, content-redacted lifecycle evidence for the active or most recent turn, or for an exact durable `session_id` returned by `nna.list_sessions`.
+- `nna.diagnose_turn`: inspect bounded, content-redacted lifecycle evidence using selector
+  `current`, `latest`, `latest_failed`, or `list`, or an exact durable `session_id`/`turn_id`.
 - `agent.run`: run one bounded foreground specialist through the configured Sub-agents provider route; available only to standalone root NNA and absent from hosted catalogs and search.
 - `git.inspect`: inspect bounded repository status, working or staged diffs, and recent commit history through explicit read-only Git argv.
 
-Conversation work uses four engine tools:
+Conversation work uses one canonical engine tool:
 
-- `work.status`: read the current durable goal and ordered task list.
-- `work.goal`: set, complete with evidence, or reopen the conversation goal.
-- `work.task_add`: append one pending task.
-- `work.task_update`: move a task between pending, in-progress, completed, and blocked;
-  terminal states require evidence or a reason.
+- `work.plan`: atomically replace the bounded goal and ordered tasks; terminal states require
+  evidence or a reason and at most one task may be in progress.
 
 They mutate only bounded conversation work state in the existing session journal and grant
-no filesystem, process, network, secret, or host authority. `work.status` is always visible;
-the three mutating schemas are activated by goal, plan, task, build, implementation, repair,
-refactor, or project intent. Hosted manifests must explicitly grant their exact names before
-they appear.
+no filesystem, process, network, secret, or host authority. `work.plan` is task-activated by
+goal, plan, task, build, implementation, repair, refactor, or project intent. The granular
+work definitions remain installed for compatibility. Hosted manifests retain exact grants:
+`work.plan` is never inferred from a narrower legacy grant.
 
 Compacted history remains queryable without returning it wholesale to the provider:
 
@@ -274,7 +281,8 @@ Compacted history remains queryable without returning it wholesale to the provid
 - `session.read_history`: reads one exact indexed record plus at most three neighboring
   records on either side. The result is redacted and capped before reinjection.
 
-These tools are read-only, conversation-local, and always visible in a standalone Console.
+These tools are read-only and conversation-local, but are activated only when omitted history
+may matter.
 They do not search other sessions, bypass `/clear`, or widen a hosted manifest. A hosted
 session receives them only when its authenticated tool grant names them explicitly.
 When provider pressure or durable compaction removes records from the hot working set, NNA may
@@ -291,10 +299,10 @@ blocked. Typical commands are `winget install --id BurntSushi.ripgrep.MSVC --exa
 Windows, `brew install ripgrep` on macOS, and the distribution package manager's
 `install ripgrep` command on Linux. Installing software remains an operator-authorized action.
 
-The provider receives an immutable prompt-visible working set: bounded workspace observation
-tools remain loaded, specialized capability bundles and relevant tools are selected from the authenticated request, and the
-always-visible `tool.search` capability provides on-demand discovery of the remaining
-catalog. Ordinary execution intent loads `shell.run` and `project.verify`, while exact-process
-execution remains discoverable; registries without a shell use `process.run` as their bounded
-fallback. A host execution manifest may ceiling the complete tool capability, in which
+The provider receives an immutable prompt-visible working set: the seven canonical read and
+discovery tools remain loaded, while specialized bundles are selected from authenticated
+intent. Ordinary execution activates `shell.run`; explicit verification can activate
+`project.verify`, while exact-process execution remains an internal specialist path.
+Registries without a shell use `process.run` as their bounded fallback. A host execution
+manifest may ceiling the complete tool capability, in which
 case the provider receives an empty tool list and requests remain unknown at governance.

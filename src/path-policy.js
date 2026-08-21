@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { execFile } from 'node:child_process';
 import { lstat, realpath, stat } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { promisify } from 'node:util';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, parse, relative, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 import { missingParentMessage } from './reliability/filesystem-recovery.js';
 
@@ -11,6 +12,7 @@ export class PathPolicy {
     this.inputRoot = resolve(workspaceRoot);
     this.root = null;
     this.boundedToWorkspace = options.boundedToWorkspace === true;
+    this.protectedRoots = [homedir(), ...(options.protectedRoots ?? [])].map((item) => resolve(item));
     this.gitRoot = null;
   }
 
@@ -58,6 +60,7 @@ export class PathPolicy {
         : join(await this.#existingParent(candidate, input), basename(candidate));
     }
     this.#assertAllowed(canonical);
+    this.assertMutationTarget(canonical);
     if (exists && !(await stat(canonical)).isFile()) {
       throw new ContractError('tool_target_invalid', 'target is not a regular file');
     }
@@ -69,12 +72,14 @@ export class PathPolicy {
     try {
       const canonical = await realpath(candidate);
       this.#assertAllowed(canonical);
+      this.assertMutationTarget(canonical);
       if (!(await stat(canonical)).isDirectory()) throw new ContractError('tool_target_invalid', 'target is not a directory');
       return Object.freeze({ path: canonical, exists: true, ...await this.#classification(canonical, true) });
     } catch (error) {
       if (error instanceof ContractError || error.code !== 'ENOENT') throw error;
       const canonical = await this.#prospectiveTarget(candidate);
       this.#assertAllowed(canonical);
+      this.assertMutationTarget(canonical);
       return Object.freeze({ path: canonical, exists: false, ...await this.#classification(canonical, false) });
     }
   }
@@ -141,9 +146,24 @@ export class PathPolicy {
     return Object.freeze({ ...resolved, recovery });
   }
 
+  assertMutationTarget(candidate) {
+    const canonical = resolve(candidate);
+    const root = parse(canonical).root;
+    if (samePath(canonical, root) || samePath(canonical, this.root)
+      || this.protectedRoots.some((item) => samePath(canonical, item))
+      || isAncestor(canonical, this.root)) {
+      throw new ContractError('tool_protected_path', 'filesystem mutation target is a protected root, home, workspace root, or workspace ancestor');
+    }
+    this.#assertAllowed(canonical);
+    return canonical;
+  }
+
   #candidate(input) {
     if (typeof input !== 'string' || input.length === 0 || input.length > 4096 || input.includes('\0')) {
       throw new ContractError('tool_path_invalid', 'path is invalid or exceeds bounds');
+    }
+    if (/^[A-Za-z]:$/u.test(input.trim())) {
+      throw new ContractError('tool_path_ambiguous', 'drive-relative root paths such as C: are not permitted');
     }
     assertPortablePath(input);
     const candidate = isAbsolute(input) ? resolve(input) : resolve(this.root, input);
@@ -166,6 +186,16 @@ export class PathPolicy {
     const insideWorkspace = this.#insideWorkspace(candidate);
     return { insideWorkspace, workspaceGitBacked: Boolean(this.gitRoot), recovery: exists ? 'none' : 'new_target' };
   }
+}
+
+function samePath(left, right) {
+  const normalize = (value) => process.platform === 'win32' ? resolve(value).toLowerCase() : resolve(value);
+  return normalize(left) === normalize(right);
+}
+
+function isAncestor(candidate, descendant) {
+  const relation = relative(candidate, descendant);
+  return relation !== '' && relation !== '..' && !relation.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) && !isAbsolute(relation);
 }
 
 const execFileAsync = promisify(execFile);

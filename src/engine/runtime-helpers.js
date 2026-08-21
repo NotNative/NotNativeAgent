@@ -11,7 +11,7 @@ export function providerRequest(engine, route, context, options = {}) {
   const messages = toProviderMessages(context);
   const dialect = engine.reliability?.instructions(route);
   const tools = engine.tools.providerDefinitions(capabilitySelectionQuery(context));
-  const catalog = toolCatalogContext(engine.tools.snapshot?.() ?? [], tools);
+  const catalog = toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);
   const system = [dialect, catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
   const reasoning = routeReasoningFields(route);
   // The assembled request is a boundary value. Provider adapters must not mutate shared turn state through it.

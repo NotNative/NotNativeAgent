@@ -3,10 +3,11 @@
 Status: accepted and implemented.
 
 NNA keeps its complete governed capability registry while presenting a smaller task-specific
-surface to each provider step. The always-visible set contains `tool.search` and bounded
-workspace observation primitives. Authenticated task intent activates coherent capability
-families such as filesystem mutation, execution, web retrieval, NNA diagnostics, skills,
-session history, conversation work, delegation, and notification. Terse continuations inherit
+surface to each provider step. The always-visible set is exactly `tool.search`, `fs.list`,
+`fs.read`, `fs.search_text`, `web.search`, `web.fetch`, and `web.browse`. Authenticated task
+intent activates the canonical mutation and coordination tools `fs.directory`,
+`fs.write_text`, `fs.edit_text`, `shell.run`, `work.plan`, and `agent.run`, plus narrowly
+specialized diagnostics, session history, and notification tools. Terse continuations inherit
 intent only from durable unfinished work or retained authenticated operator input.
 
 This is a model-facing context decision, not an authority decision. Hidden schemas remain
@@ -21,9 +22,9 @@ next-step guidance. Provider-definition assembly does not age discovery state, b
 qualification, retry, and review may assemble definitions more than once before the primary
 model receives another actionable step.
 
-Ordinary build, test, install, and terminal intent activates `shell.run` plus
-`project.verify`; `process.run` does not compete in that routine surface. It remains installed
-and discoverable when exact argv without shell interpretation is materially useful. Hosted or
+Ordinary build, test, install, and terminal intent activates `shell.run`; `project.verify`
+is selected only by explicit verification intent and `process.run` does not compete in the
+routine surface. Both remain installed as internal compatibility/specialist capabilities. Hosted or
 manifest-ceilinged registries that provide `process.run` without `shell.run` use it as the
 execution fallback, preserving capability without widening the normal root surface.
 
@@ -32,6 +33,10 @@ communication and authority, context, action and verification, grounding, NNA se
 and completion. Host- or operation-specific coaching belongs in the relevant tool definition
 and its in-band errors. Specialized workflows belong in skills or attributed project guidance.
 Runtime state machines own recovery and enforcement.
+
+Legacy granular tools remain installed so sealed requests, old manifests, resumed sessions,
+specialized skills, and internal recovery do not lose functionality. They are hidden from the
+ordinary catalog and are not competing aliases for fresh model decisions.
 
 The intended result is broad freedom of approach with few simultaneous choices. Small and
 medium models spend less context selecting between overlapping mechanisms, while governance

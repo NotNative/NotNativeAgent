@@ -3,7 +3,7 @@ id: research
 version: 1
 description: Conduct deep, source-diverse research through discovery, evidence extraction, contradiction testing, targeted follow-up, and independently reviewed synthesis
 invocation: both
-requires_tools: [web.search, web.fetch, agent.run, fs.read_text, fs.write_text, fs.create_directory]
+requires_tools: [web.search, web.fetch, web.browse, agent.run, fs.read, fs.write_text, fs.directory]
 ---
 # Research
 

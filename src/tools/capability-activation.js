@@ -2,33 +2,29 @@
 
 const BUNDLES = Object.freeze({
   filesystem_mutation: Object.freeze([
-    'fs.create_directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines',
+    'fs.directory', 'fs.write_text', 'fs.edit_text',
   ]),
-  filesystem_transfer: Object.freeze(['fs.copy_file', 'fs.move_file']),
-  filesystem_deletion: Object.freeze(['fs.delete_file']),
-  execution: Object.freeze(['shell.run', 'project.verify']),
+  execution: Object.freeze(['shell.run']),
+  verification: Object.freeze(['project.verify']),
   exact_process: Object.freeze(['process.run']),
   elevation: Object.freeze(['system.elevate']),
   delegation: Object.freeze(['agent.run']),
   reference_staging: Object.freeze(['ref.inspect', 'ref.store']),
-  conversation_work: Object.freeze(['work.status', 'work.goal', 'work.task_add', 'work.task_update']),
+  conversation_work: Object.freeze(['work.plan']),
   notification: Object.freeze(['notification.telegram']),
   code_inspection: Object.freeze(['git.inspect', 'code.diagnostics']),
   nna_guidance: Object.freeze(['nna.search_guidance', 'nna.read_guidance']),
-  nna_diagnostics: Object.freeze(['nna.list_sessions', 'nna.diagnose_turn']),
+  nna_diagnostics: Object.freeze(['nna.diagnose_turn']),
   mcp_control: Object.freeze(['nna.mcp_status', 'nna.mcp_test']),
   session_history: Object.freeze(['session.search_history', 'session.read_history']),
-  web_retrieval: Object.freeze(['web.search', 'web.fetch', 'web.browse']),
   skill_workflow: Object.freeze(['skill.search', 'skill.load']),
 });
 
 const INTENTS = Object.freeze([
   ['filesystem_mutation', /\b(?:add|build|change|create|delete|develop|edit|fix|generate|implement|make|modify|patch|refactor|remove|rename|repair|scaffold|update|upgrade|write)\b/iu],
-  ['filesystem_transfer', /\b(?:copy|move|relocate|rename)\b/iu],
-  ['filesystem_deletion', /\b(?:clean|delete|purge|remove)\b/iu],
   ['execution', /\b(?:benchmark|build|check|compile|deploy|execute|format|install|launch|lint|run|serve|start|test|verify)\b/iu],
+  ['verification', /\b(?:project\.verify|verification receipt|\/verify)\b/iu],
   ['exact_process', /\b(?:direct executable|exact argv|process\.run|single executable|without (?:a )?shell)\b/iu],
-  ['elevation', /\b(?:admin(?:istrator)?|elevat(?:e|ed|ion)|permission denied|root privilege|sudo|uac)\b/iu],
   ['delegation', /\b(?:delegate|parallel|sub[ -]?agent|specialist)\b/iu],
   ['reference_staging', /\b(?:reference|stage|store|stdin|large (?:content|payload)|reusable (?:content|payload))\b/iu],
   ['conversation_work', /\b(?:build|goal|implement|milestone|plan|project|refactor|repair|task|track|upgrade)\b/iu],
@@ -38,7 +34,6 @@ const INTENTS = Object.freeze([
   ['nna_diagnostics', /\b(?:diagnos(?:e|is|tic)|failed (?:session|turn)|failure code|health|logs?|runtime failure|troubleshoot)\b/iu],
   ['mcp_control', /\bmcp\b/iu],
   ['session_history', /\b(?:earlier|history|omitted history|past session|previous (?:decision|session|turn)|prior (?:decision|session|turn))\b/iu],
-  ['web_retrieval', /\b(?:browse|internet|latest|news|online|research|url|web|website|current (?:availability|law|news|price|release|role|schedule|status|version))\b/iu],
   ['skill_workflow', /\b(?:devteam|skill|specialized workflow|troubleshoot workflow)\b/iu],
 ]);
 

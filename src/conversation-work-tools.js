@@ -4,7 +4,26 @@ import { ContractError } from './ids.js';
 const TASK_STATUSES = Object.freeze(['pending', 'in_progress', 'completed', 'blocked']);
 
 export function conversationWorkDefinitions(work) {
-  return [statusDefinition(work), goalDefinition(work), taskAddDefinition(work), taskUpdateDefinition(work)];
+  return [planDefinition(work), statusDefinition(work), goalDefinition(work), taskAddDefinition(work), taskUpdateDefinition(work)];
+}
+
+function planDefinition(work) {
+  return definition('work.plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
+    objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required current goal objective.' },
+    goal_status: { type: 'string', enum: ['active', 'completed'], description: 'Goal status. Defaults to active.' },
+    goal_evidence: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required only when goal_status is completed.' },
+    tasks: {
+      type: 'array', maxItems: 64, description: 'Required complete ordered task list; omitted prior tasks are removed.',
+      items: {
+        type: 'object', additionalProperties: false, required: ['title'], properties: {
+          id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Existing task id returned by work.plan; omit for a new task.' },
+          title: { type: 'string', minLength: 1, maxLength: 512, description: 'Concise task title.' },
+          status: { type: 'string', enum: TASK_STATUSES, description: 'Defaults to pending.' },
+          detail: { type: 'string', minLength: 1, maxLength: 1024, description: 'Completion evidence or blocking reason.' },
+        },
+      },
+    },
+  }, ['objective', 'tasks'], async (args) => result(await work.replacePlan(args)));
 }
 
 function statusDefinition(work) {
@@ -84,6 +103,7 @@ function validateProperty(tool, key, value, schema, pattern) {
   if (schema.minLength && value.length < schema.minLength) invalid(tool, key);
   if (schema.maxLength && value.length > schema.maxLength) invalid(tool, key);
   if (pattern && !pattern.test(value)) invalid(tool, key);
+  if (schema.type === 'array' && !Array.isArray(value)) invalid(tool, key);
 }
 function requireSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object' || !Array.isArray(snapshot.tasks)

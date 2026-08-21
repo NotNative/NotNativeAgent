@@ -69,17 +69,17 @@ test('failed inline interpreter constraints recommend draft stdin instead of rep
 test('missing directory ancestors become durable prerequisites cleared by structured existence proof', () => {
   const missing = item('fs.write_text', 'invalid_request', {
     reason: 'tool_parent_missing', args: { path: 'src/shaders/ocean.js', content: 'shader' },
-    content: 'parent directory is missing; create exactly this directory first with fs.create_directory: "src"\nfs.create_directory creates only one directory level and never creates missing ancestors recursively.',
+    content: 'parent directory is missing; create exactly this directory first with fs.directory: "src"\nCall fs.directory with action create; it creates the complete path and missing ancestors recursively.',
   });
   const constraints = mergeToolConstraints([], [missing]);
   assert.equal(constraints[0].kind, 'prerequisite_repair');
-  assert.equal(constraints[0].required_tool, 'fs.create_directory');
+  assert.equal(constraints[0].required_tool, 'fs.directory');
   assert.equal(constraints[0].required_path, 'src');
-  assert.match(constraints[0].instruction, /Repair the missing ancestor[^]*"src"[^]*Do not retry descendant[^]*verify that exact path/iu);
+  assert.match(constraints[0].instruction, /Repair the missing ancestor[^]*"src"[^]*do not retry descendant[^]*verify the exact path/iu);
 
-  assert.equal(mergeToolConstraints(constraints, [item('fs.list_directory', 'succeeded', { args: { path: '.' } })]).length, 1);
-  assert.deepEqual(mergeToolConstraints(constraints, [item('fs.create_directory', 'succeeded', { args: { path: 'src' } })]), []);
-  assert.deepEqual(mergeToolConstraints(constraints, [item('fs.list_directory', 'succeeded', { args: { path: 'src' } })]), []);
+  assert.equal(mergeToolConstraints(constraints, [item('fs.list', 'succeeded', { args: { path: '.' } })]).length, 1);
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs.directory', 'succeeded', { args: { action: 'create', path: 'src' } })]), []);
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs.list', 'succeeded', { args: { path: 'src' } })]), []);
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs.write_text', 'succeeded', {
     args: { path: 'src/main.js', content: 'created' },
   })]), []);
@@ -87,9 +87,9 @@ test('missing directory ancestors become durable prerequisites cleared by struct
     args: { path: 'other/main.js', content: 'created' },
   })]).length, 1);
 
-  const siblingFailure = item('fs.create_directory', 'invalid_request', {
-    reason: 'tool_parent_missing', args: { path: 'src/shaders' }, content: missing.result.content,
+  const siblingFailure = item('fs.directory', 'invalid_request', {
+    reason: 'tool_parent_missing', args: { action: 'create', path: 'src/shaders' }, content: missing.result.content,
   });
   assert.equal(mergeToolConstraints([], [missing, siblingFailure]).length, 1);
-  assert.deepEqual(mergeToolConstraints([], [missing, item('fs.create_directory', 'succeeded', { args: { path: 'src' } })]), []);
+  assert.deepEqual(mergeToolConstraints([], [missing, item('fs.directory', 'succeeded', { args: { action: 'create', path: 'src' } })]), []);
 });

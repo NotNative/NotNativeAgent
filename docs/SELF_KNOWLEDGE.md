@@ -23,10 +23,9 @@ added after a conversation began become invocable in a newly created conversatio
 application restart is not required.
 
 For a failed, stalled, unexpectedly compacted, or otherwise surprising turn, NNA must use
-`nna.diagnose_turn` before inferring a cause from the visible transcript. With no argument,
-the tool examines the active turn or most recent durable turn. A correlated `turn_id` may be
-provided when investigating an older visible receipt. `nna.list_sessions` enumerates a bounded
-recent session catalog, and `nna.diagnose_turn` accepts an exact `session_id` so one Console can
+`nna.diagnose_turn` before inferring a cause from the visible transcript. Its `selector` can
+inspect `current`, `latest`, `latest_failed`, or return a bounded `list`; an exact correlated
+`turn_id` or `session_id` can select older evidence. This lets one Console
 inspect another Console's durable journal without guessing filesystem paths. The result is deliberately bounded and
 content-redacted: it reports provider-attempt outcomes, recovery actions, tool terminal states,
 compaction boundaries, and the durable terminal classification without reproducing prompts,
@@ -72,8 +71,8 @@ Support bundles and structured logs carry that version so maintainers can compar
 answer or failure with the behavior and guidance that produced it.
 
 Optional long-horizon progress is maintained through `/plan` (with `/tasks` as an alias),
-`/goal`, and `/task`. The agent uses `work.status`, `work.goal`, `work.task_add`, and
-`work.task_update` to keep the same durable state accurate. A current work snapshot is
+`/goal`, and `/task`. The agent uses `work.plan` to atomically keep the same durable goal and
+ordered task state accurate. A current work snapshot is
 kernel-grounded independently of transcript compaction and restores with the session. The
 agent must record concrete evidence before completing a task or goal, and must not create
 planning state merely because the capability exists.

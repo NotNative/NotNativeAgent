@@ -19,7 +19,7 @@ test('bundled operational skills are available to standalone NNA', async () => {
   assert.match(devteam, /type `planner`[\s\S]+type `coder`[\s\S]+type `tester`[\s\S]+type `reviewer`/u);
   assert.match(devteam, /general Power of Ten[\s\S]+UI Power of Ten[\s\S]+accessibility/u);
   assert.match(registry.queueUser('research').body, /evidence ledger[\s\S]+contradictions[\s\S]+fresh `reviewer`/u);
-  assert.match(registry.queueUser('troubleshoot').body, /nna\.list_sessions/u);
+  assert.match(registry.queueUser('troubleshoot').body, /nna\.diagnose_turn[^]*selector/u);
   const webdesign = registry.queueUser('webdesign').body;
   assert.match(webdesign, /Swiss-informed baseline/u);
   assert.match(webdesign, /target product's established visual language is authoritative/u);

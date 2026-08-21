@@ -3,7 +3,7 @@ id: devteam
 version: 2
 description: Bring a full software-delivery team to turn an agreed change into a planned, implemented, tested, independently challenged, and evidence-verified delivery
 invocation: both
-requires_tools: [agent.run, project.verify, fs.read_text, fs.write_text, fs.create_directory, fs.delete_file]
+requires_tools: [agent.run, project.verify, fs.read, fs.write_text, fs.directory, shell.run]
 ---
 # Devteam
 

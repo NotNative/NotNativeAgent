@@ -89,7 +89,7 @@ export class ReadReceiptLedger {
 function receiptRequired() {
   return new ContractError(
     'read_receipt_required',
-    'read the current file with fs.read_text before changing, moving, copying, or deleting it',
+    'read the current file with fs.read before changing, moving, copying, or deleting it',
   );
 }
 

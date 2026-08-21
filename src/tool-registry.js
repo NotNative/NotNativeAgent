@@ -13,10 +13,12 @@ import { webBrowseDefinition } from './web-browse-tool.js';
 import { rankToolDefinitions, toolSearchDefinition } from './tools/search.js';
 import { processRunDefinition, shellRunDefinition } from './tools/process.js';
 import { elevationDefinition } from './elevation-tool.js';
-import { projectVerifyDefinition } from './tools/project-verification.js'; import { filesystemExtraDefinitions } from './tools/filesystem-extra.js';
+import { projectVerifyDefinition } from './tools/project-verification.js';
+import { filesystemExtraDefinitions } from './tools/filesystem-extra.js';
 import { lspDiagnosticsDefinition } from './tools/lsp-diagnostics.js';
 import { filesystemReadDefinitions, ReadReceiptLedger } from './tools/filesystem-read.js';
 import { filesystemDiscoveryDefinitions } from './tools/filesystem-discovery.js';
+import { canonicalFilesystemDefinitions } from './tools/filesystem-canonical.js';
 import { skillToolDefinitions } from './skill-registry.js';
 import { FileChangeLedger } from './persistence/file-change-ledger.js';
 import { selfDiagnosticsDefinitions } from './tools/self-diagnostics.js';
@@ -27,11 +29,13 @@ import { prepareLineEdit, prepareTextEdit } from './stale-edit-recovery.js';
 import { providerSchema, schemaShapeValidator, schemaValidator } from './tools/schema.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { ReferenceStore, referenceDefinitions } from './tools/reference-store.js';
-import { CORE_TOOL_NAMES } from './tools/core-names.js';
+import { ALWAYS_EXPOSED, PROVIDER_NATIVE, allowedByManifest, catalogVisible, providerVisible } from './tools/provider-surface.js';
 import { withPreparedWriteTarget } from './tools/write-target.js';
 import { SITUATIONAL_TOOL_NAMES, taskActivatedToolNames } from './tools/capability-activation.js';
-import { telegramNotificationDefinition } from './notifications/telegram.js'; import { sessionHistoryDefinitions } from './session-history-tools.js';
-const MAX_TEXT_BYTES = 1_048_576; const ALWAYS_EXPOSED = new Set(CORE_TOOL_NAMES);
+import { telegramNotificationDefinition } from './notifications/telegram.js';
+import { sessionHistoryDefinitions } from './session-history-tools.js';
+import { countOccurrences, logicalLines, replaceLineRange, replaceText } from './tools/text-edit-helpers.js';
+const MAX_TEXT_BYTES = 1_048_576;
 const SITUATIONAL = new Set(SITUATIONAL_TOOL_NAMES);
 export class ToolRegistry {
   #definitions = new Map();
@@ -45,7 +49,7 @@ export class ToolRegistry {
     this.enabled = options.enabled !== false;
     this.hosted = options.hosted === true;
     this.allowedTools = Array.isArray(options.allowedTools) ? new Set(options.allowedTools) : null;
-    this.paths = new PathPolicy(workspaceRoot, { boundedToWorkspace: options.boundedToWorkspace });
+    this.paths = new PathPolicy(workspaceRoot, { boundedToWorkspace: options.boundedToWorkspace, protectedRoots: [userDataPaths().root] });
     this.#changes = new FileChangeLedger(this.paths.inputRoot);
     this.guidance = new GuidanceCatalog(options.guidanceRoot);
     this.webSearchConfigPath = options.webSearchConfigPath ?? userDataPaths().webSearchConfig;
@@ -70,13 +74,19 @@ export class ToolRegistry {
     await this.guidance.initialize();
     if (!this.enabled) return;
     for (const definition of referenceDefinitions(this.#references, this.paths)) this.#install(definition);
-    for (const definition of filesystemReadDefinitions(this.paths, this.#readReceipts, this.#references)) this.#install(definition);
-    for (const definition of filesystemDiscoveryDefinitions(this.paths)) this.#install(definition);
+    const legacyFilesystem = [
+      ...filesystemReadDefinitions(this.paths, this.#readReceipts, this.#references),
+      ...filesystemDiscoveryDefinitions(this.paths),
+    ];
+    for (const definition of legacyFilesystem) this.#install(definition);
     this.#install(writeDefinition(this.paths, this.#changes, this.#readReceipts));
     this.#install(editDefinition(this.paths, this.#changes, this.#readReceipts));
     this.#install(editLinesDefinition(this.paths, this.#changes, this.#readReceipts));
     this.#install(deleteDefinition(this.paths, this.#changes, this.#readReceipts));
-    for (const definition of filesystemExtraDefinitions(this.paths, this.#changes, this.#readReceipts)) this.#install(definition);
+    const filesystemExtras = filesystemExtraDefinitions(this.paths, this.#changes, this.#readReceipts);
+    for (const definition of filesystemExtras) this.#install(definition);
+    const legacyFilesystemMap = new Map([...legacyFilesystem, ...filesystemExtras].map((definition) => [definition.name, definition]));
+    for (const definition of canonicalFilesystemDefinitions(this.paths, legacyFilesystemMap)) this.#install(definition);
     for (const definition of guidanceDefinitions(this.guidance)) this.#install(definition);
     for (const definition of selfDiagnosticsDefinitions(this.diagnosticContext)) this.#install(definition);
     for (const definition of mcpControlDefinitions(this.mcpControl)) this.#install(definition);
@@ -102,6 +112,9 @@ export class ToolRegistry {
   snapshot() {
     return Object.freeze([...this.#definitions.values()].map(({ executor: _executor, validate: _validate, ...item }) => deepFreeze(structuredClone(item))));
   }
+  catalogSnapshot() {
+    return Object.freeze(this.snapshot().filter((item) => catalogVisible(item.name) || this.allowedTools?.has(item.name)));
+  }
   providerDefinitions(query = '') {
     const activated = new Set(taskActivatedToolNames(query));
     // Hosted or explicitly-ceilinged registries may provide process.run without a shell.
@@ -110,10 +123,12 @@ export class ToolRegistry {
     if (activated.has('shell.run') && !this.#definitions.has('shell.run') && this.#definitions.has('process.run')) {
       activated.add('process.run');
     }
-    const relevant = new Set(query.trim() ? this.search(query, 6).map((item) => item.name)
+    const relevant = new Set(query.trim() ? this.searchCatalog(query, 6).map((item) => item.name)
       .filter((name) => !SITUATIONAL.has(name) || activated.has(name)) : []);
-    const definitions = this.snapshot().filter((item) => ALWAYS_EXPOSED.has(item.name) || this.#exposed.has(item.name)
-      || relevant.has(item.name) || activated.has(item.name)).map((item) => ({
+    const definitions = this.snapshot().filter((item) => (ALWAYS_EXPOSED.has(item.name) || this.#exposed.has(item.name)
+      || relevant.has(item.name) || activated.has(item.name) || this.allowedTools?.has(item.name))
+      && (providerVisible(item.name, this.#exposed.has(item.name), activated.has(item.name))
+        || this.allowedTools?.has(item.name))).map((item) => ({
       type: 'function',
       function: { name: item.name, description: item.purpose, parameters: providerSchema(item.inputSchema) },
     }));
@@ -122,6 +137,7 @@ export class ToolRegistry {
   search(query, limit = 12) {
     return rankToolDefinitions(this.snapshot(), query, limit);
   }
+  searchCatalog(query, limit = 12) { return rankToolDefinitions(this.catalogSnapshot(), query, limit); }
   diff(path = null) { return this.#changes.diff(path); }
   changeSnapshot() { return this.#changes.snapshot(); }
   expose(names) {
@@ -193,7 +209,7 @@ export class ToolRegistry {
   }
   #install(definition) {
     if (this.hosted && definition.name === 'agent.run') return false;
-    if (this.allowedTools && !this.allowedTools.has(definition.name)) return false;
+    if (!allowedByManifest(this.allowedTools, definition.name)) return false;
     if (this.#definitions.has(definition.name)) throw new Error(`duplicate tool ${definition.name}`);
     const maxOutputBytes = definition.maxOutputBytes ?? 1_048_576;
     if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1 || maxOutputBytes > 2_097_152) {
@@ -455,30 +471,6 @@ async function verifyExpectedState(request) {
 function sha256(content) {
   return createHash('sha256').update(content).digest('hex');
 }
-function logicalLines(content) {
-  const lines = content.split(/\r?\n/u);
-  if (lines.length > 1 && lines.at(-1) === '') lines.pop();
-  return lines.length > 0 ? lines : [''];
-}
-function replaceLineRange(content, startLine, endLine, replacement) {
-  const newline = content.includes('\r\n') ? '\r\n' : '\n';
-  const trailing = content.endsWith('\n');
-  const lines = logicalLines(content);
-  const inserted = replacement.length === 0 ? [] : replacement.replace(/\r\n/gu, '\n').split('\n');
-  if (inserted.at(-1) === '') inserted.pop();
-  lines.splice(startLine - 1, endLine - startLine + 1, ...inserted);
-  const result = lines.join(newline);
-  return trailing && result.length > 0 ? `${result}${newline}` : result;
-}
-function countOccurrences(content, search) {
-  let count = 0; let offset = 0;
-  while ((offset = content.indexOf(search, offset)) !== -1) {
-    count += 1;
-    offset += search.length;
-  }
-  return count;
-}
-function replaceText(content, oldText, newText, replaceAll) { return replaceAll ? content.split(oldText).join(newText) : content.replace(oldText, newText); }
 function requireShape(value, required, optional = []) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ContractError('tool_schema_invalid', 'tool arguments must be an object');

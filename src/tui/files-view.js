@@ -3,7 +3,7 @@ import { valueOverlay } from './overlays.js';
 import { isTerminalToolStatus } from '../experience/tool-lifecycle.js';
 
 const MUTATIONS = new Set([
-  'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file', 'fs.copy', 'fs.move',
+  'fs.directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file', 'fs.copy', 'fs.move',
 ]);
 const MAX_FILE_ENTRIES = 128;
 const RUNTIME_INSTRUCTION = 'Current Console runtime only; /diff shows the content changes retained by NNA.';

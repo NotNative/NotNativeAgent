@@ -72,18 +72,18 @@ function enginePolicyMessage(config) {
       ]),
       policySection('Actions and verification', [
         'Before mutating an existing file, observe its current state with the matching read tool. New files are exempt; a successful full write authorizes immediate follow-up edits. The runtime binds and revalidates receipts—never invent a hash.',
-        'For software changes, discover and run applicable deterministic checks before completion. Prefer project.verify when available; stale or pre-change checks are not completion evidence.',
+        'For software changes, discover and run applicable deterministic checks before completion. Use an activated verification workflow when available; stale or pre-change checks are not completion evidence.',
         'Prefer structured tools for the operation they describe. For ordinary terminal work, use shell.run with its detected host syntax. Discover the exact-process capability only when one executable and argv must run without shell interpretation. Every operation remains governed.',
         'If visible tools do not cover the task, call tool.search once with the capability or exact tool name. Its result loads matching schemas for the next model step; call the tool directly instead of repeating discovery.',
       ]),
       policySection('Grounding and retrieval', [
         'Treat training data as background, not proof. Verify material claims about the active environment from local evidence and distinguish observed facts from inference.',
-        'Before asserting current versions, releases, support status, availability, schedules, prices, laws, roles, news, or other changing facts, use web.search. Treat summaries as discovery and read an authoritative source with web.fetch when available.',
+        'Treat model knowledge as a starting hypothesis, not current evidence. When external facts are uncertain, version-sensitive, or readily verifiable, use web.search to discover sources, web.fetch to read known authoritative resources, and web.browse when rendering, interaction, or screenshots are required.',
         'Use exact URLs supplied by the user or retrieval tools; do not invent paths. If web.fetch fails for a verified exact URL, use web.browse navigate on that same URL when available before abandoning it.',
       ]),
       policySection('NNA self-knowledge', [
-        'For NNA configuration, commands, tools, skills and skill authoring, architecture, installation, providers, MCP, memory, permissions, or troubleshooting, use nna.search_guidance and nna.read_guidance instead of guessing.',
-        'For a surprising or failed turn, use nna.list_sessions when needed and nna.diagnose_turn. Use nna.mcp_status or nna.mcp_test for private MCP configuration; do not search the project for private runtime settings.',
+        'For NNA configuration, commands, tools, skills and skill authoring, architecture, installation, providers, MCP, memory, permissions, or troubleshooting, use the activated packaged-guidance workflow instead of guessing.',
+        'For a surprising or failed turn, use nna.diagnose_turn with selector list, latest, latest_failed, current, or an exact session_id. Use nna.mcp_status or nna.mcp_test for private MCP configuration; do not search the project for private runtime settings.',
       ]),
       policySection('Failure and completion', [
         'Correct malformed requests from their in-band error and never repeat unchanged invalid or denied arguments. A denial constrains the route; continue through a safer, narrower, or more reversible alternative when one exists.',
@@ -210,7 +210,7 @@ function skillCatalogMessage(items) {
 function conversationWorkMessage(work) {
   return {
     role: 'system',
-    content: `Durable conversation work state (engine-maintained, revision ${work.revision}). Use work.status, work.goal, work.task_add, and work.task_update to keep it accurate as meaningful progress occurs. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: complete every task and then the goal before finishing. If operator input is genuinely required, mark the relevant task blocked with the exact reason and ask one concrete question. Optional follow-up offers are not input requests. This state survives context compaction and session resume:\n${JSON.stringify(work)}`,
+    content: `Durable conversation work state (engine-maintained, revision ${work.revision}). Use work.plan to replace the complete goal and ordered task snapshot as meaningful progress occurs; preserve existing task ids and omit id only for a new task. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: complete every task and then the goal before finishing. If operator input is genuinely required, mark the relevant task blocked with the exact reason and ask one concrete question. Optional follow-up offers are not input requests. This state survives context compaction and session resume:\n${JSON.stringify(work)}`,
     provenance: 'conversation_work', trust: 'kernel',
   };
 }

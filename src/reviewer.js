@@ -132,9 +132,7 @@ export class UnavailableSemanticReviewer {
 }
 
 function classify(request, definition) {
-  if (!definition || request.toolName !== definition.name) {
-    return Object.freeze({ risk: 'prohibited', reason: 'definition_mismatch', effect: 'unknown', scope: 'unknown', complexity: 'unknown' });
-  }
+  if (!definition || request.toolName !== definition.name) return definitionMismatchClassification();
   if (definition.sideEffect === 'read_only' && definition.scope === 'workspace') {
     return Object.freeze({
       risk: 'safe', reason: resolvedOutsideWorkspace(request) ? 'host_read' : 'workspace_read',
@@ -169,6 +167,8 @@ function classify(request, definition) {
   if (definition.scope === 'conversation_work' && definition.name.startsWith('work.')) {
     return Object.freeze({ risk: 'safe', reason: 'bounded_conversation_work', effect: definition.sideEffect, scope: 'conversation_work', complexity: 'simple' });
   }
+  const directoryRemoval = directoryRemovalClassification(request, definition);
+  if (directoryRemoval) return directoryRemoval;
   if (definition.scope === 'workspace' && ['reversible', 'irreversible'].includes(definition.sideEffect)) {
     const recovery = resolvedRecovery(request);
     if (!resolvedOutsideWorkspace(request) && ['git_tracked', 'new_target'].includes(recovery)) {
@@ -190,6 +190,18 @@ function classify(request, definition) {
     });
   }
   return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
+}
+
+function definitionMismatchClassification() {
+  return Object.freeze({ risk: 'prohibited', reason: 'definition_mismatch', effect: 'unknown', scope: 'unknown', complexity: 'unknown' });
+}
+
+function directoryRemovalClassification(request, definition) {
+  if (definition.name !== 'fs.directory' || request.args?.action !== 'remove') return null;
+  return Object.freeze({
+    risk: 'review_required', reason: request.args?.recursive ? 'recursive_directory_removal' : 'directory_removal',
+    effect: 'irreversible', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
+  });
 }
 
 function ephemeralReferenceClassification(definition) {
@@ -346,7 +358,8 @@ function authenticatedIntentRelation(request, authority, definition) {
 }
 
 function workspaceBuildMutationCovered(request, authority, targets) {
-  if (!['fs.create_directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines'].includes(request.toolName)
+  if (!['fs.directory', 'fs.create_directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines'].includes(request.toolName)
+    || (request.toolName === 'fs.directory' && request.args?.action !== 'create')
     || resolvedOutsideWorkspace(request) || targets.length !== 1) return false;
   const latest = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction');
   if (!latest || !/\b(?:build|create|develop|generate|implement|make|patch|refactor|repair|scaffold|upgrade)\b/iu.test(latest.content)) {
@@ -415,7 +428,7 @@ function tokenSet(value) {
 function missionBoundaryViolation(request, definition, mission) {
   if (!mission) return null;
   if (!(mission.resources ?? []).includes(definition.scope)) return 'mission_resource_denied';
-  if (!(mission.sideEffects ?? []).includes(definition.sideEffect)) return 'mission_side_effect_denied';
+  if (!(mission.sideEffects ?? []).includes(effectiveSideEffect(request, definition))) return 'mission_side_effect_denied';
   if (!resolvedTargets(request).every((resolved) => (mission.targets ?? [])
     .some((target) => missionTargetMatches(target, request, definition, resolved)))) {
     return 'mission_target_denied';
@@ -423,6 +436,10 @@ function missionBoundaryViolation(request, definition, mission) {
   const refs = definition.credentialRefs ?? [];
   if (refs.some((reference) => !(mission.credentialRefs ?? []).includes(reference))) return 'mission_credential_denied';
   return null;
+}
+
+function effectiveSideEffect(request, definition) {
+  return definition.name === 'fs.directory' && request.args?.action === 'remove' ? 'irreversible' : definition.sideEffect;
 }
 
 function missionTargetMatches(rule, request, definition, resolved = null) {
@@ -463,6 +480,7 @@ function containsPathReference(evidence, reference) {
 }
 
 function filesystemActionPattern(toolName) {
+  if (toolName === 'fs.directory') return /\b(?:create|make|add|delete|remove|clean|purge)\b/u;
   if (toolName === 'fs.delete_file') return /\b(?:delete|remove|unlink)\b/u;
   if (toolName === 'fs.copy_file') return /\b(?:copy|duplicate)\b/u;
   if (toolName === 'fs.move_file') return /\b(?:move|rename)\b/u;

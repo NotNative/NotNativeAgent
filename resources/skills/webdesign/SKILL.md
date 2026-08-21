@@ -3,7 +3,7 @@ id: webdesign
 version: 2
 description: Apply a product-aware design standard and validate rendered web interfaces for hierarchy, usability, accessibility, responsiveness, and failure states
 invocation: both
-requires_tools: [fs.read_text, fs.write_text, fs.edit_text]
+requires_tools: [fs.read, fs.write_text, fs.edit_text]
 ---
 # Web Design and Validation
 

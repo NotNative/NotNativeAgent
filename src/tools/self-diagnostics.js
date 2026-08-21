@@ -22,25 +22,43 @@ function diagnoseTurnDefinition(contextProvider) {
     inputSchema: {
       type: 'object', additionalProperties: false,
       properties: {
-        session_id: { type: 'string', minLength: 1, maxLength: 256, description: 'Optional durable session id from nna.list_sessions. Defaults to the current session.' },
+        selector: { type: 'string', enum: ['current', 'latest', 'latest_failed', 'list'], description: 'Select the current turn, latest session, latest failed session, or a bounded session list. Defaults to current.' },
+        limit: { type: 'integer', minimum: 1, maximum: 64, description: 'Maximum sessions when selector is list. Defaults to 20.' },
+        session_id: { type: 'string', minLength: 1, maxLength: 256, description: 'Optional exact durable session id. Do not combine with selector.' },
         turn_id: { type: 'string', minLength: 1, maxLength: 256, description: 'Optional turn id. Defaults to the active or latest turn in the selected session.' },
       },
     },
     validate: async (args) => {
-      if (!hasOnlyKeys(args, ['session_id', 'turn_id'])
+      if (!hasOnlyKeys(args, ['selector', 'limit', 'session_id', 'turn_id'])
         || !optionalIdentifier(args.session_id) || !optionalIdentifier(args.turn_id)
-        || (args.session_id !== undefined && !SESSION_ID.test(args.session_id))) {
-        throw new ContractError('tool_schema_invalid', 'session_id and turn_id must be optional bounded identifiers');
+        || (args.session_id !== undefined && !SESSION_ID.test(args.session_id))
+        || (args.selector !== undefined && !['current', 'latest', 'latest_failed', 'list'].includes(args.selector))
+        || (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > MAX_SESSION_LIMIT))
+        || (args.session_id !== undefined && args.selector !== undefined)
+        || (args.turn_id !== undefined && args.selector === 'list')) {
+        throw new ContractError('tool_schema_invalid', 'diagnostic selector, limit, session_id, or turn_id is invalid or conflicting');
       }
-      return { args: { session_id: args.session_id ?? null, turn_id: args.turn_id ?? null } };
+      return { args: { selector: args.selector ?? 'current', limit: args.limit ?? DEFAULT_SESSION_LIMIT, session_id: args.session_id ?? null, turn_id: args.turn_id ?? null } };
     },
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
       const context = contextProvider?.();
       if (!context?.journalPath) throw new ContractError('diagnostics_unavailable', 'the current runtime has no readable durable journal');
-      const sessionId = request.args.session_id ?? context.sessionId;
-      const journalPath = request.args.session_id
-        ? containedSessionJournalPath(context.sessionsRoot, request.args.session_id) : context.journalPath;
+      if (request.args.selector === 'list') {
+        const sessions = await listDurableSessions(context, request.args.limit, signal);
+        return { content: JSON.stringify({ schema: 'nna.session_catalog.v1', sessions }, null, 2), metadata: { sessions: sessions.length, redacted: true } };
+      }
+      let selectedSessionId = request.args.session_id;
+      if (!selectedSessionId && ['latest', 'latest_failed'].includes(request.args.selector)) {
+        const sessions = await listDurableSessions(context, MAX_SESSION_LIMIT, signal);
+        const selected = request.args.selector === 'latest_failed'
+          ? sessions.find((item) => item.latest_failure_code) : sessions[0];
+        if (!selected) throw new ContractError('diagnostics_session_not_found', `no ${request.args.selector === 'latest_failed' ? 'failed ' : ''}durable session was found`);
+        selectedSessionId = selected.session_id;
+      }
+      const sessionId = selectedSessionId ?? context.sessionId;
+      const journalPath = selectedSessionId && selectedSessionId !== context.sessionId
+        ? containedSessionJournalPath(context.sessionsRoot, selectedSessionId) : context.journalPath;
       const page = await readDiagnosticPage(journalPath);
       const turnId = request.args.turn_id
         ?? (sessionId === context.sessionId ? context.activeTurnId : null) ?? latestTurnId(page.records);

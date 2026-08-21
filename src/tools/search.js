@@ -32,7 +32,7 @@ export function toolSearchDefinition(registry) {
     },
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool search was cancelled');
-      const matches = registry.search(request.args.query, DEFAULT_SEARCH_RESULTS);
+      const matches = registry.searchCatalog(request.args.query, DEFAULT_SEARCH_RESULTS);
       registry.expose(matches.map((item) => item.name));
       const named = exactRequestedName(request.args.query, matches);
       const schema = named ? registry.definition(named)?.inputSchema : null;

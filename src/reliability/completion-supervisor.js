@@ -42,7 +42,7 @@ function unfinishedWorkGate(work, text) {
   return Object.freeze({
     disposition: 'continue', category: 'unfinished_conversation_work', required: true,
     progressEvidence: summary,
-    hint: 'The durable goal or task list is still open, so this turn cannot finish. Read work.status, complete every remaining task with concrete evidence, then complete the goal. If operator input is genuinely required, mark the relevant task blocked with the exact reason and ask one concrete question. Do not offer optional follow-up work or ask whether to continue.',
+    hint: 'The durable goal or task list is still open, so this turn cannot finish. Use work.plan to update the complete task snapshot with concrete evidence and complete the goal. If operator input is genuinely required, mark the relevant task blocked with the exact reason and ask one concrete question. Do not offer optional follow-up work or ask whether to continue.',
   });
 }
 

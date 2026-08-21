@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:e91a398434b7c89548e9f4ab1d3dd116db9fa2b54af38500d2f55c9ffa7a390d",
+  "source_digest": "sha256:dbbe495bb3fdff1bf68edb031a6177a44c844beab1045c63402a7c54c27b9fe1",
   "counts": {
-    "modules": 302,
+    "modules": 305,
     "component_edges": 67
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 32
+      "module_count": 35
     },
     {
       "id": "guidance",
@@ -125,8 +125,8 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 43,
-      "module_count": 27
+      "import_count": 44,
+      "module_count": 28
     },
     {
       "from": "reliability-engine",
@@ -143,8 +143,8 @@
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 24,
-      "module_count": 4
+      "import_count": 29,
+      "module_count": 5
     },
     {
       "from": "agentic-engine",
@@ -2506,21 +2506,25 @@
         "src/path-policy.js",
         "src/persistence/file-change-ledger.js",
         "src/product.js",
+        "src/session-history-tools.js",
         "src/skill-registry.js",
         "src/stale-edit-recovery.js",
         "src/subagent-tool.js",
         "src/tools/capability-activation.js",
-        "src/tools/core-names.js",
+        "src/tools/filesystem-canonical.js",
         "src/tools/filesystem-discovery.js",
+        "src/tools/filesystem-extra.js",
         "src/tools/filesystem-read.js",
         "src/tools/git-inspection.js",
         "src/tools/lsp-diagnostics.js",
         "src/tools/process.js",
         "src/tools/project-verification.js",
+        "src/tools/provider-surface.js",
         "src/tools/reference-store.js",
         "src/tools/schema.js",
         "src/tools/search.js",
         "src/tools/self-diagnostics.js",
+        "src/tools/text-edit-helpers.js",
         "src/tools/write-target.js",
         "src/web-browse-tool.js",
         "src/web-fetch-tool.js",
@@ -2577,6 +2581,14 @@
       "component": "tools",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/tools/filesystem-canonical.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
     },
     {
       "path": "src/tools/filesystem-discovery.js",
@@ -2674,6 +2686,14 @@
       ]
     },
     {
+      "path": "src/tools/provider-surface.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/tools/core-names.js"
+      ]
+    },
+    {
       "path": "src/tools/reference-store.js",
       "component": "tools",
       "entrypoint": false,
@@ -2714,6 +2734,12 @@
         "src/ids.js",
         "src/store.js"
       ]
+    },
+    {
+      "path": "src/tools/text-edit-helpers.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/tools/write-target.js",

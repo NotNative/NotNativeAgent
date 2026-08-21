@@ -75,6 +75,35 @@ export class ConversationWork {
     return this.#commit(next, 'work_cleared');
   }
 
+  async replacePlan(value) {
+    const plan = normalizePlan(value, this.state);
+    const now = new Date().toISOString();
+    let nextTaskNumber = this.state.nextTaskNumber;
+    const priorTasks = new Map(this.state.tasks.map((task) => [task.id, task]));
+    const tasks = plan.tasks.map((item) => {
+      const prior = item.id ? priorTasks.get(item.id) : null;
+      if (item.id && !prior) throw new ContractError('task_missing', `task ${item.id} does not exist; omit id when adding a new task`);
+      const id = prior?.id ?? `T${nextTaskNumber++}`;
+      return Object.freeze({
+        id, title: item.title, status: item.status,
+        evidence: item.status === 'completed' ? item.detail : null,
+        blockedReason: item.status === 'blocked' ? item.detail : null,
+        createdAt: prior?.createdAt ?? now, updatedAt: now,
+      });
+    });
+    const priorGoal = this.state.goal;
+    const goal = Object.freeze({
+      id: priorGoal?.id ?? newId('goal'), objective: plan.objective, status: plan.goalStatus,
+      evidence: plan.goalStatus === 'completed' ? plan.goalEvidence : null,
+      createdAt: priorGoal?.createdAt ?? now, updatedAt: now,
+    });
+    const next = {
+      ...this.state, revision: this.state.revision + 1, nextTaskNumber,
+      goal, tasks: Object.freeze(tasks),
+    };
+    return this.#commit(next, 'plan_replaced');
+  }
+
   async addTask(title) {
     if (this.state.tasks.length >= MAX_TASKS) throw new ContractError('task_capacity', `a conversation may contain at most ${MAX_TASKS} tasks`);
     const text = boundedText(title, 'task title', MAX_TASK_TITLE);
@@ -176,6 +205,39 @@ function normalizeTaskId(value) {
 }
 function taskCounts(tasks) {
   return Object.freeze(Object.fromEntries([...TASK_STATES].map((status) => [status, tasks.filter((task) => task.status === status).length])));
+}
+
+function normalizePlan(value, state) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || typeof value.objective !== 'string' || !Array.isArray(value.tasks) || value.tasks.length > MAX_TASKS) {
+    throw new ContractError('work_plan_invalid', 'work plan requires one objective and at most 64 tasks');
+  }
+  const objective = boundedText(value.objective, 'goal objective', MAX_GOAL_TEXT);
+  const goalStatus = value.goal_status ?? 'active';
+  if (!['active', 'completed'].includes(goalStatus)) throw new ContractError('work_plan_invalid', 'goal_status must be active or completed');
+  const goalEvidence = goalStatus === 'completed'
+    ? boundedText(value.goal_evidence, 'goal completion evidence', MAX_DETAIL) : null;
+  const known = new Set(state.tasks.map((task) => task.id));
+  const ids = new Set(); let inProgress = 0;
+  const tasks = value.tasks.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) throw new ContractError('work_plan_invalid', 'each work-plan task must be an object');
+    const id = item.id === undefined ? null : normalizeTaskId(item.id);
+    if (id && (!known.has(id) || ids.has(id))) throw new ContractError('work_plan_invalid', `task id ${id} is unknown or duplicated`);
+    if (id) ids.add(id);
+    const title = boundedText(item.title, 'task title', MAX_TASK_TITLE);
+    const status = item.status ?? 'pending';
+    if (!TASK_STATES.has(status)) throw new ContractError('work_plan_invalid', 'task status is invalid');
+    if (status === 'in_progress') inProgress += 1;
+    const detail = ['completed', 'blocked'].includes(status)
+      ? boundedText(item.detail, status === 'completed' ? 'task completion evidence' : 'task blocking reason', MAX_DETAIL)
+      : null;
+    return Object.freeze({ id, title, status, detail });
+  });
+  if (inProgress > 1) throw new ContractError('task_active_conflict', 'a work plan may contain at most one in-progress task');
+  if (goalStatus === 'completed' && tasks.some((task) => task.status !== 'completed')) {
+    throw new ContractError('goal_tasks_unfinished', 'a completed goal cannot contain unfinished tasks');
+  }
+  return Object.freeze({ objective, goalStatus, goalEvidence, tasks: Object.freeze(tasks) });
 }
 function deepFreeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {

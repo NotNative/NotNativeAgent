@@ -16,10 +16,13 @@ erase it.
 
 The provider receives only the current snapshot as trusted engine state when work exists.
 Mutation history does not consume prompt context. Substantive planning, build, repair, and
-active-work continuation intent activates `work.status`, `work.goal`, `work.task_add`, and
-`work.task_update`, which let the agent maintain the same state machine used by operator
-commands. These tools add no filesystem, process, secret, or network authority. Hosted
-sessions receive them only when their execution manifest explicitly grants their exact names.
+active-work continuation intent activates `work.plan`, which atomically replaces the bounded
+goal and ordered task snapshot. It maintains the same state machine used by operator commands
+without forcing a model through several overlapping schemas. The granular legacy work tools
+remain installed for compatibility but are not part of the fresh model-facing catalog. These
+tools add no filesystem, process, secret, or network authority. Hosted sessions receive the
+canonical tool only when their execution manifest grants `work.plan`; legacy manifests retain
+their exact granular grants without silently widening authority.
 
 The Console's `/plan` hub is the primary view. `/tasks` is an alias for the same hub, while
 `/goal` and `/task` provide direct keyboard workflows. The footer shows only a compact

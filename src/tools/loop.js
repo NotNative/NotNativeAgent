@@ -357,7 +357,7 @@ export { toolFailureFingerprint, toolProgressEvidence } from '../reliability/too
 export function toolContinuationHint(items, fallback = null) {
   const missingParent = items.map(missingFilesystemPrerequisite).find(Boolean);
   if (missingParent) {
-    return `A required ancestor directory is missing. The next filesystem mutation must be ${missingParent.tool} with exactly ${JSON.stringify({ path: missingParent.path })}. `
+    return `A required ancestor directory is missing. The next filesystem mutation must be ${missingParent.tool} with exactly ${JSON.stringify({ action: 'create', path: missingParent.path })}. `
       + 'That tool creates the complete path recursively. Do not retry the blocked file operation or repeat directory listings until this exact prerequisite succeeds.';
   }
   const failedFetch = items.find((item) => item.result?.tool_name === 'web.fetch'

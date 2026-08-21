@@ -94,30 +94,30 @@ test('filesystem failures share a missing-ancestor fingerprint and require that 
     call: { name: tool, args: { path } },
     result: {
       status: 'invalid_request', tool_name: tool, reason_code: 'tool_parent_missing',
-      content: 'parent directory is missing; create exactly this directory first with fs.create_directory: "src/shaders"\nfs.create_directory creates this complete directory path and any missing ancestors recursively.',
+      content: 'parent directory is missing; create exactly this directory first with fs.directory: "src/shaders"\nCall fs.directory with action create; it creates the complete path and missing ancestors recursively.',
     },
   });
   const writeFailure = failed('fs.write_text', 'src/shaders/ocean.js');
-  const directoryFailure = failed('fs.create_directory', 'src/shaders');
+  const directoryFailure = failed('fs.directory', 'src/shaders');
   assert.equal(toolFailureFingerprint([writeFailure]), toolFailureFingerprint([directoryFailure]));
-  assert.match(toolContinuationHint([writeFailure]), /next filesystem mutation[^]*fs\.create_directory[^]*\{"path":"src\/shaders"\}[^]*complete path recursively[^]*do not retry the blocked file operation/iu);
+  assert.match(toolContinuationHint([writeFailure]), /next filesystem mutation[^]*fs\.directory[^]*\{"action":"create","path":"src\/shaders"\}[^]*complete path recursively[^]*do not retry the blocked file operation/iu);
 });
 
 test('unrelated successful inspection is not progress while a filesystem prerequisite is active', () => {
   const listing = {
     request: { args: { path: '.' } },
-    result: { status: 'succeeded', tool_name: 'fs.list_directory', content: 'package.json' },
+    result: { status: 'succeeded', tool_name: 'fs.list', content: 'package.json' },
   };
-  const constraint = { kind: 'prerequisite_repair', required_tool: 'fs.create_directory', required_path: 'src' };
+  const constraint = { kind: 'prerequisite_repair', required_tool: 'fs.directory', required_path: 'src' };
   assert.equal(toolProgressEvidence([listing], [], { constraints: [constraint] }), null);
   const repair = {
-    request: { args: { path: 'src' } },
-    result: { status: 'succeeded', tool_name: 'fs.create_directory', content: 'directory created' },
+    request: { args: { action: 'create', path: 'src' } },
+    result: { status: 'succeeded', tool_name: 'fs.directory', content: 'directory created' },
   };
   assert.equal(toolProgressEvidence([repair], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
   const verified = {
     request: { args: { path: 'src' } },
-    result: { status: 'succeeded', tool_name: 'fs.list_directory', content: 'empty directory' },
+    result: { status: 'succeeded', tool_name: 'fs.list', content: 'empty directory' },
   };
   assert.equal(toolProgressEvidence([verified], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
   const descendantWrite = {
@@ -257,7 +257,7 @@ test('self diagnostics reject invalid optional values', async () => {
   const list = definitions.find((item) => item.name === 'nna.list_sessions');
   const diagnose = definitions.find((item) => item.name === 'nna.diagnose_turn');
   await assert.rejects(list.validate({ limit: null }), /limit must be an optional integer/u);
-  await assert.rejects(diagnose.validate({ session_id: '../outside' }), /optional bounded identifiers/u);
+  await assert.rejects(diagnose.validate({ session_id: '../outside' }), /diagnostic selector, limit, session_id, or turn_id is invalid or conflicting/u);
 });
 
 function manifest(workspaceRoot) {
@@ -518,11 +518,11 @@ test('typed prerequisite recovery exposes its exact tool on the next provider st
     { name: 'fs.copy_file', args: { source: 'source.txt', destination: 'missing/file.txt' } },
     (request) => {
       const visible = request.tools.map((item) => item.function.name);
-      assert.ok(visible.includes('fs.create_directory'));
+      assert.ok(visible.includes('fs.directory'));
       assert.ok(!visible.includes('fs.copy_file'));
       const constraint = request.messages.find((item) => item.role === 'system'
         && item.content.includes('Active tool constraints'));
-      assert.match(constraint.content, /"required_tool":"fs\.create_directory"/u);
+      assert.match(constraint.content, /"required_tool":"fs\.directory"/u);
       assert.match(constraint.content, /"required_path":"missing"/u);
     },
   );
@@ -715,8 +715,8 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   const providerWrite = registry.providerDefinitions('write a project file').find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
-    'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
-    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.search_text', 'fs.write_text', 'git.inspect',
+    'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list', 'fs.list_directory',
+    'fs.metadata', 'fs.move_file', 'fs.read', 'fs.read_lines', 'fs.read_text', 'fs.search_text', 'fs.write_text', 'git.inspect',
     'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'project.verify', 'ref.inspect', 'ref.store', 'shell.run', 'tool.search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
