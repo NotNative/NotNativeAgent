@@ -13,25 +13,7 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
   if (enrichment.skillCatalog?.length > 0) messages.push(skillCatalogMessage(enrichment.skillCatalog));
   if (enrichment.work?.goal || enrichment.work?.tasks?.length > 0) messages.push(conversationWorkMessage(enrichment.work));
   if (enrichment.toolConstraints?.length > 0) messages.push(toolConstraintsMessage(enrichment.toolConstraints));
-  for (const item of activeContextRecords(transcript).slice(-512)) {
-    if (item.type === 'message') {
-      messages.push({ role: item.role, content: item.content, provenance: 'transcript', trust: item.trust });
-    } else if (item.type === 'tool_request') {
-      messages.push(toolRequestMessage(item));
-    } else if (item.type === 'tool_result') {
-      messages.push(toolResultMessage(item));
-    } else if (item.type === 'compaction') {
-      messages.push({
-        role: 'system', content: item.summary,
-        provenance: 'engine_compaction', trust: 'engine_continuation',
-      });
-    } else if (item.type === 'context_checkpoint') {
-      messages.push({
-        role: 'system', content: item.summary,
-        provenance: 'engine_active_checkpoint', trust: 'engine_continuation',
-      });
-    }
-  }
+  appendTranscriptMessages(messages, activeContextRecords(transcript).slice(-512));
   if (enrichment.coldEvidence) messages.push(coldEvidenceMessage(enrichment.coldEvidence));
   for (const item of attachments) messages.push(attachmentMessage(item));
   for (const item of enrichment.memory ?? []) messages.push(memoryMessage(item));
@@ -48,12 +30,64 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
   return Object.freeze(messages.map((item) => Object.freeze(item)));
 }
 
+function appendTranscriptMessages(messages, records) {
+  const groups = toolRequestGroups(records);
+  const emitted = new Set();
+  for (const item of records) {
+    if (item.type === 'message') {
+      const key = item.role === 'assistant' ? toolStepKey(item) : null;
+      const calls = key ? groups.get(key) : null;
+      if (calls && !emitted.has(key)) {
+        messages.push(toolRequestMessage(calls, item.content));
+        emitted.add(key);
+      } else messages.push({ role: item.role, content: item.content, provenance: 'transcript', trust: item.trust });
+    } else if (item.type === 'tool_request') {
+      const key = toolStepKey(item);
+      if (!key) messages.push(toolRequestMessage([item]));
+      else if (!emitted.has(key)) {
+        messages.push(toolRequestMessage(groups.get(key) ?? [item]));
+        emitted.add(key);
+      }
+    } else if (item.type === 'tool_result') {
+      messages.push(toolResultMessage(item));
+    } else if (item.type === 'compaction') {
+      messages.push({
+        role: 'system', content: item.summary,
+        provenance: 'engine_compaction', trust: 'engine_continuation',
+      });
+    } else if (item.type === 'context_checkpoint') {
+      messages.push({
+        role: 'system', content: item.summary,
+        provenance: 'engine_active_checkpoint', trust: 'engine_continuation',
+      });
+    }
+  }
+}
+
+function toolRequestGroups(records) {
+  const groups = new Map();
+  for (const item of records) {
+    if (item?.type !== 'tool_request') continue;
+    const key = toolStepKey(item);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  return groups;
+}
+
+function toolStepKey(item) {
+  return typeof item?.stepId === 'string' && item.stepId.length > 0
+    ? `${item.turnId ?? ''}\u0000${item.stepId}` : null;
+}
+
 function applyReasoningContinuations(messages, entries = [], maxBytes = Number.MAX_SAFE_INTEGER) {
   if (!Array.isArray(entries) || entries.length === 0) return;
   const requests = new Map();
   for (let index = 0; index < messages.length; index += 1) {
-    const callId = messages[index]?.tool_calls?.[0]?.id;
-    if (typeof callId === 'string') requests.set(callId, { index, message: messages[index] });
+    for (const call of messages[index]?.tool_calls ?? []) {
+      if (typeof call?.id === 'string') requests.set(call.id, { index, message: messages[index] });
+    }
   }
   const baseBytes = measureContext(messages);
   const available = Number.isFinite(maxBytes) ? Math.max(0, Math.floor(maxBytes - baseBytes)) : Number.MAX_SAFE_INTEGER;
@@ -293,13 +327,13 @@ export function appendRecoveryHint(context, hint) {
   })]);
 }
 
-function toolRequestMessage(item) {
+function toolRequestMessage(items, content = null) {
   return {
-    role: 'assistant', content: null, provenance: 'transcript', trust: 'model',
-    tool_calls: [{
+    role: 'assistant', content, provenance: 'transcript', trust: 'model',
+    tool_calls: items.map((item) => ({
       id: item.providerCallId, type: 'function',
       function: { name: item.toolName, arguments: JSON.stringify(item.args) },
-    }],
+    })),
   };
 }
 
@@ -321,8 +355,5 @@ function enforceBudget(messages, maxBytes) {
 }
 
 export function measureContext(messages) {
-  return messages.reduce((sum, item) => {
-    const content = typeof item.content === 'string' ? item.content : JSON.stringify(item);
-    return sum + Buffer.byteLength(content, 'utf8');
-  }, 0);
+  return messages.reduce((sum, item) => sum + Buffer.byteLength(JSON.stringify(item), 'utf8'), 0);
 }

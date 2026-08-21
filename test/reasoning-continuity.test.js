@@ -37,6 +37,27 @@ test('same-route private reasoning continues across a tool boundary without ente
   assert.doesNotMatch(JSON.stringify(transcript), /private implementation plan/u);
 });
 
+test('one model step replays text, reasoning, and parallel tool calls as one assistant message', () => {
+  const transcript = [
+    { type: 'message', role: 'assistant', content: 'Checking both files.', trust: 'model', turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_request', providerCallId: 'call-a', toolName: 'fs.read', args: { path: 'a.js' }, turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_result', providerCallId: 'call-a', toolName: 'fs.read', status: 'succeeded', content: 'a', turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_request', providerCallId: 'call-b', toolName: 'fs.read', args: { path: 'b.js' }, turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_result', providerCallId: 'call-b', toolName: 'fs.read', status: 'succeeded', content: 'b', turnId: 'turn-1', stepId: 'step-1' },
+  ];
+  const context = buildContext(config, transcript, '', { reasoningContinuations: [{
+    providerCallId: 'call-a', providerProfile: 'local', model: 'qwen', reasoningContent: 'private plan',
+  }] });
+  const provider = toProviderMessages(context, { profile: { id: 'local' }, model: 'qwen' });
+  const assistant = provider.filter((item) => item.role === 'assistant');
+  assert.equal(assistant.length, 1);
+  assert.equal(assistant[0].content, 'Checking both files.');
+  assert.deepEqual(assistant[0].tool_calls.map((call) => call.id), ['call-a', 'call-b']);
+  assert.equal(assistant[0].reasoning_content, 'private plan');
+  assert.deepEqual(provider.filter((item) => item.role === 'tool').map((item) => item.tool_call_id), ['call-a', 'call-b']);
+  assert.ok(provider.indexOf(assistant[0]) < provider.findIndex((item) => item.tool_call_id === 'call-a'));
+});
+
 test('reasoning continuity rejects an oversized block instead of retaining a misleading suffix', () => {
   const oversized = appendReasoningChunk('', `old-${'x'.repeat(300_000)}-latest`);
   assert.equal(oversized, null);
