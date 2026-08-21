@@ -317,6 +317,28 @@ test('reasoning-only output receives one reasoning-disabled retry before normal 
   assert.deepEqual(result.recovery.map((item) => item.action), ['retry_without_reasoning']);
 });
 
+test('reasoning truncated at the output ceiling gets one reasoning-preserving action retry', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-truncated-'));
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length === 1) {
+      yield { type: 'reasoning', text: 'long but potentially useful reasoning' };
+      yield { type: 'terminal', finishReason: 'length' };
+      return;
+    }
+    yield { type: 'text', text: 'Visible action after the bounded reasoning retry.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'reasoning-truncated', content: 'Act after reasoning.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.deepEqual(requests.map((request) => request.reasoningMode), [undefined, undefined]);
+  assert.equal(requests.every((request) => request.maxOutputTokens === 32_000), true);
+  assert.deepEqual(result.recovery.map((item) => item.action), ['retry_reasoning_to_action']);
+});
+
 test('reasoning-disabled fallback occurs once before bounded empty-output exhaustion', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-empty-bounded-'));
   const modes = [];

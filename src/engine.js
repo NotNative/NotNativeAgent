@@ -18,7 +18,9 @@ import { applyPendingConfiguration, updateEngineConfiguration } from './runtime-
 import { userDataPaths } from './product.js';
 import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
-import { executionContext, providerRequest, resetStep, toolContext } from './engine/runtime-helpers.js';
+import {
+  executionContext, modelStepRequestOptions, providerRequest, resetReasoningRecovery, resetStep, toolContext,
+} from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
 import { recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
 import { settleEngineAttempt, settleEngineStep } from './engine/lifecycle-settlement.js';
@@ -291,7 +293,8 @@ export class SessionEngine {
     active.sessionId = this.sessionId;
     await emitEngineStatus(this, 'waiting_provider', active);
     try {
-      await this.providerRunner.runRoutes(this.router, routes, (route) => providerRequest(this, route, context, { reasoningMode }), {
+      await this.providerRunner.runRoutes(this.router, routes, (route) => providerRequest(this, route, context,
+        modelStepRequestOptions(reasoningMode, active)), {
         firstTokenMs: this.config.limits.firstTokenMs,
         firstTokenExplicit: this.config.limits.firstTokenOverrideMs !== null,
         idleMs: this.config.limits.idleMs,
@@ -306,7 +309,7 @@ export class SessionEngine {
     }
     assertTurnActive(active);
     const calls = active.toolAssembler.complete();
-    if (active.stepText.length > 0 || calls.length > 0) active.reasoningFallbackUsed = false;
+    if (active.stepText.length > 0 || calls.length > 0) resetReasoningRecovery(active);
     if (calls.length === 0) return this.#afterTextStep(active);
     await this.#settleAttempt(active, 'completed');
     if (active.stepText.length > 0) {

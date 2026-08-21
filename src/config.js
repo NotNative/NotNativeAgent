@@ -23,7 +23,7 @@ const MISSION_CONDITIONS = new Set([
   'budget_exhaustion', 'expiration', 'disconnect',
 ]);
 const KNOWN_KEYS = new Set([
-  'format_version', 'routing_inheritance_version', 'persistence', 'provider', 'providers', 'routes', 'application_system_prompt', 'mission',
+  'format_version', 'routing_inheritance_version', 'output_headroom_version', 'persistence', 'provider', 'providers', 'routes', 'application_system_prompt', 'mission',
   'workspace_root', 'provider_timeout_ms', 'first_token_timeout_ms', 'idle_timeout_ms',
   'provider_connect_timeout_ms', 'semantic_review_timeout_ms', 'approval_timeout_ms',
   'provider_concurrency', 'provider_queue_limit', 'tool_concurrency',

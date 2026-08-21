@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from '../ids.js';
 import { OpenAICompatibleProvider } from '../provider.js';
+import { effectiveModelOutputTokens } from '../reliability/output-headroom.js';
 
 // Fallback may stay within the originating trust zone or move inward, never toward broader egress.
 const TRUST_ZONE_RANK = Object.freeze({ loopback: 0, private_network: 1, public_network: 2 });
@@ -43,7 +44,7 @@ export class ModelRouter {
         requiredCapabilities: Object.freeze(required),
         deadlineMs: effectiveOverallDeadline(this.config, route, profile),
         budget: route.budget, temperature: route.temperature,
-        maxOutputTokens: cappedOutput(route.maxOutputTokens, profile.outputLimitTokens),
+        maxOutputTokens: effectiveModelOutputTokens(route.maxOutputTokens, profile.outputLimitTokens),
         reasoningEffort: route.reasoningEffort, enableThinking: route.enableThinking,
       })];
     }));
@@ -69,11 +70,6 @@ function effectiveOverallDeadline(config, route, profile) {
     || config.limits.providerOverrideMs !== null;
   if (!explicitlyConfigured && profile.trustZone !== 'public_network') return null;
   return route.deadlineMs;
-}
-
-function cappedOutput(configured, providerLimit) {
-  if (!Number.isSafeInteger(configured) || configured <= 0) return null;
-  return Number.isSafeInteger(providerLimit) && providerLimit > 0 ? Math.min(configured, providerLimit) : configured;
 }
 
 function orderedRoles(routes, role) {

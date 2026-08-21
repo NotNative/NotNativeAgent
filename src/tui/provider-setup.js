@@ -3,6 +3,7 @@ import { ContractError } from '../ids.js';
 import { EditorBuffer } from '../experience/projection.js';
 import { handleEditorAction } from './editor-actions.js';
 import { providerOverlay, valueOverlay } from './overlays.js';
+import { DEFAULT_MODEL_OUTPUT_TOKENS } from '../reliability/output-headroom.js';
 
 const SETUP_KINDS = new Set([
   'provider-preset', 'provider-profile-select', 'provider-form',
@@ -14,7 +15,7 @@ const MAX_CONTEXT_LIMIT_BYTES = 16_777_216;
 const DEFAULT_CONTEXT_LIMIT_BYTES = 2_097_152;
 const MIN_OUTPUT_LIMIT_TOKENS = 1;
 const MAX_OUTPUT_LIMIT_TOKENS = 1_048_576;
-const DEFAULT_OUTPUT_LIMIT_TOKENS = 16_384;
+const DEFAULT_OUTPUT_LIMIT_TOKENS = DEFAULT_MODEL_OUTPUT_TOKENS;
 
 const PRESETS = Object.freeze({
   'lm-studio': Object.freeze({ displayName: 'LM Studio', endpoint: 'http://127.0.0.1:1234/v1' }),

@@ -23,7 +23,7 @@ The Reliability Engine owns:
   evaluation;
 - compaction projections, continuation artifacts, semantic continuation refinement, and
   handoff generation;
-- provider-context-limit and reasoning-only recovery decisions;
+- provider-context-limit, reasoning-only, and reasoning-truncated-before-action recovery decisions;
 - model-dialect observations and reliability guidance;
 - authoritative host-environment facts, shell-command shaping signals, and unavailable-interpreter recovery guidance;
 - cross-platform process-instance identity used to distinguish live owners from recycled PIDs;
@@ -101,6 +101,10 @@ aliases to Reliability Engine-owned components. They do not represent independen
     turn cutoff. Every continuation must still contribute distinct verified evidence.
 12. A typed reasoning chunk resets provider idle observation exactly like other valid stream
     events, while the overall attempt deadline remains authoritative.
+13. Completion headroom and input pressure are planned together. An unconfigured ordinary
+    route receives a bounded 32,000-token completion ceiling, reduced only by an explicit
+    provider/route limit or a smaller discovered context window. Reaching that ceiling during
+    hidden reasoning is not classified as an ordinary empty response.
 
 ## Consequences
 

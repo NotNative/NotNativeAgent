@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { measureContext } from '../context.js';
+import { DEFAULT_MODEL_OUTPUT_TOKENS } from './output-headroom.js';
 
 // Conservative empirical approximation used only when a provider tokenizer is unavailable.
 const TOKEN_BYTE_RATIO = 3;
@@ -8,7 +9,7 @@ const MESSAGE_OVERHEAD_TOKENS = 8;
 // than 25% of a small context window or exceeding provider/window constraints.
 const OUTPUT_RESERVE_RATIO = 0.125;
 const TARGET_MIN_OUTPUT_RESERVE_TOKENS = 1024;
-const MAX_OUTPUT_RESERVE_TOKENS = 16_384;
+const MAX_OUTPUT_RESERVE_TOKENS = DEFAULT_MODEL_OUTPUT_TOKENS;
 
 export function contextBudget(config, routes, runtime, retryScale = 1) {
   const knownBytes = routes.slice(0, routes[0]?.budget ?? routes.length)
@@ -17,7 +18,7 @@ export function contextBudget(config, routes, runtime, retryScale = 1) {
   const hardLimitBytes = Math.min(config.limits.maxContextBytes, ...(knownBytes.length ? knownBytes : [config.limits.maxContextBytes]));
   const windowTokens = positiveValue(runtime?.contextWindowTokens);
   const declaredOutputLimit = positiveValue(runtime?.outputLimitTokens)
-    ?? positiveValue(routes[0]?.maxOutputTokens) ?? 4096;
+    ?? positiveValue(routes[0]?.maxOutputTokens) ?? DEFAULT_MODEL_OUTPUT_TOKENS;
   const outputReserveTokens = windowTokens ? adaptiveOutputReserve(windowTokens, declaredOutputLimit) : null;
   const effectiveInputTokens = windowTokens ? Math.max(1, windowTokens - outputReserveTokens) : null;
   const compactionThreshold = config.limits.contextCompactionThreshold ?? 0.75;
@@ -54,10 +55,10 @@ function adaptiveOutputReserve(windowTokens, declaredOutputLimit) {
     TARGET_MIN_OUTPUT_RESERVE_TOKENS,
     smallWindowSafetyCap,
   );
-  const desiredReserve = Math.max(constrainedMinimum, proportionalReserve);
+  const desiredReserve = Math.max(constrainedMinimum, proportionalReserve, declaredOutputLimit);
   const providerReserveCap = Math.min(declaredOutputLimit, MAX_OUTPUT_RESERVE_TOKENS);
   const inputPreservingCap = windowTokens - 1;
-  return Math.max(1, Math.min(inputPreservingCap, providerReserveCap, desiredReserve));
+  return Math.max(1, Math.min(inputPreservingCap, smallWindowSafetyCap, providerReserveCap, desiredReserve));
 }
 
 export function estimateContextTokens(messages) {

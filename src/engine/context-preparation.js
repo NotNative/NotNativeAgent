@@ -40,7 +40,9 @@ export async function prepareEngineContext(engine, records, content, active, for
     active.contextMeasurementEnrichment ?? active.enrichment,
     Number.MAX_SAFE_INTEGER,
   );
-  const cacheAlignedRequest = providerRequest(engine, routes[0], rawContext);
+  const cacheAlignedRequest = providerRequest(engine, routes[0], rawContext, {
+    outputReserveTokens: planned.outputReserveTokens,
+  });
   return compactContext(engine, records, content, active, operations, {
     routes, runtime, planned, budget, hardLimit, cacheAlignedRequest,
   });
@@ -156,7 +158,7 @@ function validateCompactionCandidate(engine, fact, active, plan) {
 }
 
 function assertCompleteEnvelope(engine, route, context, budget) {
-  const request = providerRequest(engine, route, context);
+  const request = providerRequest(engine, route, context, { outputReserveTokens: budget?.outputReserveTokens });
   const envelope = engine.reliability.providerEnvelope(request, context, {
     outputReserveTokens: budget?.outputReserveTokens,
   });

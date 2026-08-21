@@ -51,6 +51,12 @@ export class RecoverySupervisor {
     });
   }
 
+  reasoningTruncated() {
+    return this.#record('reasoning_truncated_before_action', 'retry_reasoning_to_action', 1, {
+      target: 'current_route', partial: false,
+    });
+  }
+
   noProgress(category, evidence = null, detail = {}, options = {}) {
     const observedDetail = evidenceDetail(evidence, detail);
     if (evidence && this.observeProgress(evidenceValue(evidence), observedDetail)) {
@@ -235,6 +241,7 @@ export function recoveryHint(action) {
     compact: 'Context was reduced after repeated no-progress behavior. Preserve the operator task and use the last verified result.',
     compact_context_limit: 'The provider rejected the previous context size. Continue from the preserved task using the reduced context; do not reconstruct omitted transcript.',
     retry_without_reasoning: 'The prior attempt produced hidden reasoning but no usable response. Continue the same task directly with reasoning disabled and produce visible text or a tool call.',
+    retry_reasoning_to_action: 'The prior completion reached its output ceiling during reasoning before it could emit an action. Continue the same task with reasoning enabled, reason more concisely, and proceed to visible text or a tool call.',
   };
   return guidance[action.action] ?? null;
 }

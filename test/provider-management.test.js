@@ -142,6 +142,27 @@ test('legacy auto-discovered specialist defaults migrate back to Primary inherit
   assert.equal(config.routes.vision.model, 'explicit-vision');
 });
 
+test('legacy local profile defaults migrate to reasoning-safe output headroom once', () => {
+  const legacy = {
+    format_version: 1, routing_inheritance_version: 1,
+    provider: {
+      id: 'local', endpoint: 'http://127.0.0.1:1234/v1', model: 'qwen', trust_zone: 'loopback',
+      output_limit_tokens: 16_384,
+    },
+  };
+  const migrated = migrateManifestDocument(legacy);
+  assert.equal(migrated.migrated, true);
+  assert.equal(migrated.manifest.output_headroom_version, 1);
+  assert.equal(migrated.manifest.provider.output_limit_tokens, 32_000);
+  assert.equal(migrateManifestDocument(migrated.manifest).migrated, false);
+
+  const publicLegacy = {
+    ...legacy,
+    provider: { ...legacy.provider, endpoint: 'https://example.test/v1', trust_zone: 'public_network' },
+  };
+  assert.equal(migrateManifestDocument(publicLegacy).manifest.provider.output_limit_tokens, 16_384);
+});
+
 test('manifest persistence retains a last-known-good backup', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-manifest-backup-'));
   const path = join(root, 'settings.json');

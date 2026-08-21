@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
+import { OUTPUT_HEADROOM_VERSION } from '../reliability/output-headroom.js';
 import { persistManifest } from './route-configuration.js';
 import { persistAtomicJson, quarantineMalformedJson } from '../persistence/atomic-json.js';
 
@@ -63,7 +64,7 @@ export async function configureInitialProvider(paths, input) {
   if (!validModel(input.model)) throw new ContractError('invalid_model', 'selected provider model is invalid');
   const credentialEnv = input.key ? CREDENTIAL_ENV : undefined;
   const manifest = {
-    format_version: 1, routing_inheritance_version: 1, persistence: 'durable',
+    format_version: 1, routing_inheritance_version: 1, output_headroom_version: OUTPUT_HEADROOM_VERSION, persistence: 'durable',
     providers: [{
       id: 'initial-provider', display_name: input.model, endpoint, model: input.model,
       trust_zone: endpointTrustZone(endpoint), ...(credentialEnv ? { credential_env: credentialEnv } : {}),

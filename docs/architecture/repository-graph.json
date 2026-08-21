@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:f0eb6b1dc73ee20da82c74ddde6f60d3809d2d02377f632d052f008a71816145",
+  "source_digest": "sha256:6de7b4e6a0d8f4cde5388ca8420092c0e519d60d60163de4c34e1dc299498583",
   "counts": {
-    "modules": 305,
-    "component_edges": 67
+    "modules": 306,
+    "component_edges": 68
   },
   "components": [
     {
@@ -30,7 +30,7 @@
       "id": "reliability-engine",
       "label": "Reliability Engine",
       "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
-      "module_count": 35
+      "module_count": 36
     },
     {
       "id": "gateway",
@@ -131,8 +131,8 @@
     {
       "from": "reliability-engine",
       "to": "reliability-engine",
-      "import_count": 40,
-      "module_count": 20
+      "import_count": 42,
+      "module_count": 21
     },
     {
       "from": "agentic-engine",
@@ -261,6 +261,12 @@
       "module_count": 4
     },
     {
+      "from": "providers",
+      "to": "reliability-engine",
+      "import_count": 6,
+      "module_count": 6
+    },
+    {
       "from": "agentic-engine",
       "to": "governance-engine",
       "import_count": 5,
@@ -333,12 +339,6 @@
       "module_count": 3
     },
     {
-      "from": "providers",
-      "to": "reliability-engine",
-      "import_count": 3,
-      "module_count": 3
-    },
-    {
       "from": "tools",
       "to": "guidance",
       "import_count": 3,
@@ -387,6 +387,12 @@
       "module_count": 1
     },
     {
+      "from": "persistence",
+      "to": "reliability-engine",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
       "from": "providers",
       "to": "persistence",
       "import_count": 2,
@@ -419,6 +425,12 @@
     {
       "from": "experience-engine",
       "to": "guidance",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "experience-engine",
+      "to": "reliability-engine",
       "import_count": 1,
       "module_count": 1
     },
@@ -473,12 +485,6 @@
     {
       "from": "integrations",
       "to": "persistence",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "persistence",
-      "to": "reliability-engine",
       "import_count": 1,
       "module_count": 1
     },
@@ -1784,7 +1790,9 @@
       "path": "src/persistence/manifest-migration.js",
       "component": "persistence",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/reliability/output-headroom.js"
+      ]
     },
     {
       "path": "src/persistence/retention.js",
@@ -1921,7 +1929,8 @@
         "src/config.js",
         "src/ids.js",
         "src/persistence/atomic-json.js",
-        "src/provider/route-configuration.js"
+        "src/provider/route-configuration.js",
+        "src/reliability/output-headroom.js"
       ]
     },
     {
@@ -2015,7 +2024,8 @@
       "imports": [
         "src/config.js",
         "src/ids.js",
-        "src/persistence/atomic-json.js"
+        "src/persistence/atomic-json.js",
+        "src/reliability/output-headroom.js"
       ]
     },
     {
@@ -2024,7 +2034,8 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
-        "src/provider.js"
+        "src/provider.js",
+        "src/reliability/output-headroom.js"
       ]
     },
     {
@@ -2116,7 +2127,8 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
-        "src/context.js"
+        "src/context.js",
+        "src/reliability/output-headroom.js"
       ]
     },
     {
@@ -2200,6 +2212,12 @@
       "imports": []
     },
     {
+      "path": "src/reliability/output-headroom.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/reliability/process-identity.js",
       "component": "reliability-engine",
       "entrypoint": false,
@@ -2210,7 +2228,8 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/reliability/output-headroom.js"
       ]
     },
     {
@@ -3060,6 +3079,7 @@
       "imports": [
         "src/experience/projection.js",
         "src/ids.js",
+        "src/reliability/output-headroom.js",
         "src/tui/editor-actions.js",
         "src/tui/overlays.js"
       ]

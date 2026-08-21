@@ -72,7 +72,7 @@ test('AC-TURN-07 route and provider context limits survive configuration round t
   assert.equal(manifest.providers[0].context_limit_bytes, 400_000);
   assert.equal(manifest.providers[0].output_limit_tokens, 4096);
   assert.equal(manifest.routes.primary.context_limit_bytes, 250_000);
-  assert.equal(candidate.maxOutputTokens, null);
+  assert.equal(candidate.maxOutputTokens, 4096);
 });
 
 test('legacy two-boundary context settings derive ordered compression levels', () => {
@@ -213,7 +213,7 @@ test('zero removes provider route limits without inventing legacy defaults', () 
   const candidate = new ModelRouter(config).resolve('primary');
   assert.equal(candidate.deadlineMs, null);
   assert.equal(candidate.temperature, null);
-  assert.equal(candidate.maxOutputTokens, null);
+  assert.equal(candidate.maxOutputTokens, 32_000);
   assert.equal(candidate.budget, null);
   assert.equal(new ModelRouter(config).candidates('primary').length, 2);
 });

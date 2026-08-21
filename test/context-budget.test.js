@@ -69,14 +69,24 @@ test('context planning honors configured thresholds and never divides by paralle
 test('small local-model windows retain useful proportional input budgets', () => {
   const config = { limits: { maxContextBytes: 2_097_152, contextCompactionThreshold: 0.85 } };
   const small = contextBudget(config, [route], { contextWindowTokens: 8192, source: 'declared' });
-  assert.equal(small.outputReserveTokens, 1024);
-  assert.equal(small.effectiveInputTokens, 7168);
-  assert.equal(small.thresholdTokens, 6092);
+  assert.equal(small.outputReserveTokens, 2048);
+  assert.equal(small.effectiveInputTokens, 6144);
+  assert.equal(small.thresholdTokens, 5222);
 
   const medium = contextBudget(config, [route], { contextWindowTokens: 32768, source: 'declared' });
-  assert.equal(medium.outputReserveTokens, 4096);
-  assert.equal(medium.effectiveInputTokens, 28672);
-  assert.equal(medium.thresholdTokens, 24371);
+  assert.equal(medium.outputReserveTokens, 8192);
+  assert.equal(medium.effectiveInputTokens, 24576);
+  assert.equal(medium.thresholdTokens, 20889);
+});
+
+test('large reasoning-capable windows reserve the full default completion headroom', () => {
+  const config = { limits: { maxContextBytes: 2_097_152, contextCompactionThreshold: 0.85 } };
+  const unrestricted = { ...route, maxOutputTokens: 32_000 };
+  const budget = contextBudget(config, [unrestricted], {
+    contextWindowTokens: 131072, outputLimitTokens: 32_000, source: 'lmstudio_v1',
+  });
+  assert.equal(budget.outputReserveTokens, 32_000);
+  assert.equal(budget.effectiveInputTokens, 99_072);
 });
 
 test('loaded parallel capacity caps a provider resource without increasing the configured ceiling', async () => {

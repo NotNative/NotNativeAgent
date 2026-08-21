@@ -2,12 +2,14 @@
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
 import { persistAtomicJson, persistAtomicJsonIfAbsent } from '../persistence/atomic-json.js';
+import { OUTPUT_HEADROOM_VERSION } from '../reliability/output-headroom.js';
 
 export const SPECIALIST_ROUTE_ROLES = Object.freeze(['subagent', 'reviewer', 'vision']);
 export function manifestFromConfig(config) {
   return compact({
     format_version: 1,
     routing_inheritance_version: 1,
+    output_headroom_version: OUTPUT_HEADROOM_VERSION,
     persistence: config.persistence,
     providers: Object.values(config.providerProfiles).map(providerManifest),
     routes: routeManifests(config.routes),

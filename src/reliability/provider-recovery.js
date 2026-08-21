@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
+import { isOutputTruncation } from './output-headroom.js';
 
 export function providerContextLimitDecision(active) {
   const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
@@ -13,6 +14,9 @@ export function providerContextLimitDecision(active) {
 
 export function reasoningOnlyDecision(active) {
   if (active.stepText.length > 0 || active.stepReasoningBytes === 0 || active.reasoningFallbackUsed) return null;
+  if (isOutputTruncation(active.finishReason) && !active.reasoningHeadroomRetryUsed) {
+    return Object.freeze({ action: active.recovery.reasoningTruncated(), reasoningMode: 'preserve' });
+  }
   return Object.freeze({ action: active.recovery.reasoningOnly(), reasoningMode: 'off' });
 }
 

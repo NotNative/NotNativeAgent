@@ -277,7 +277,12 @@ decisions, execution starts, and terminal outcomes. Expired entries are physical
 removed rather than hidden only from the audit view.
 
 Each provider profile may declare known `context_limit_bytes` and `output_limit_tokens`.
-The latter caps every route request using that profile. Each role route accepts
+The latter caps every route request using that profile. When neither the route nor provider
+declares a narrower ceiling, ordinary model work requests 32,000 output tokens. This is
+completion headroom, not a requirement that the model consume it: reasoning-capable models
+may think at length and still retain room to emit a tool call or visible answer. Reviewer,
+qualification, and compaction requests retain their own smaller task-specific bounds.
+Each role route accepts
 `provider_id`, `model`, an optional model-specific `context_limit_bytes`, `required_capabilities`, `temperature`,
 `max_output_tokens`, `deadline_ms`, `budget`, and an ordered `fallbacks` list of role
 names. Fallback graphs are bounded and cycle-checked. A candidate conclusively lacking
@@ -299,7 +304,11 @@ work, NNA queries a short-lived provider-neutral runtime snapshot. LM Studio end
   agent count. When discovery is unavailable, configured concurrency remains the conservative
   fallback and sub-agent batches execute sequentially.
 NNA reserves the route's bounded output allowance and manages prompt pressure in progressive
-stages. By default, deterministic compression begins at 40%, refreshes its continuation
+stages. The request ceiling is automatically reduced when necessary so input plus reserved
+output fit a small discovered context window; explicit lower route/provider limits remain
+authoritative. Legacy non-public profiles carrying the former generated 16,384-token default
+are migrated once to the 32,000-token headroom policy. Explicit public-network limits are not
+rewritten. By default, deterministic compression begins at 40%, refreshes its continuation
 checkpoint at 55%, applies aggressive receipt reduction at 70%, and begins full compaction at
 75%. All four boundaries are explicit and configurable: `context_compression_threshold`
 (Level 1) defaults to `0.40`, `context_compression_level_2_threshold` defaults to `0.55`,

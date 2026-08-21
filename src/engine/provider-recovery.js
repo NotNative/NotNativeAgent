@@ -23,13 +23,18 @@ export async function recoverProviderContextLimit(engine, error, active, operati
 export async function recoverReasoningOnly(engine, active) {
   const plan = engine.reliability.reasoningOnly(active);
   if (!plan) return null;
-  active.reasoningFallbackUsed = true;
-  active.reasoningFallbackPending = true;
-  await engine.providerRunner.settleAttempt(active, 'reasoning_only');
-  engine.state.transition(RECOVERING_STATE, { trigger: REASONING_ONLY_TRIGGER, turnId: active.turnId });
+  const truncated = plan.reasoningMode === 'preserve';
+  if (truncated) active.reasoningHeadroomRetryUsed = true;
+  active.reasoningFallbackUsed = !truncated;
+  active.reasoningFallbackPending = !truncated;
+  await engine.providerRunner.settleAttempt(active, truncated ? 'reasoning_truncated' : 'reasoning_only');
+  const trigger = truncated ? 'reasoning_truncated_before_action' : REASONING_ONLY_TRIGGER;
+  engine.state.transition(RECOVERING_STATE, { trigger, turnId: active.turnId });
   await engine.providerRunner.recordRecovery(plan.action, active);
   await settleEngineStep(engine, active, RECOVERING_STATE, (...args) => engine.providerRunner.publish(...args));
-  engine.state.transition(PREPARING_CONTINUATION_STATE, { trigger: RETRY_WITHOUT_REASONING_TRIGGER, turnId: active.turnId });
+  engine.state.transition(PREPARING_CONTINUATION_STATE, {
+    trigger: truncated ? 'retry_reasoning_to_action' : RETRY_WITHOUT_REASONING_TRIGGER, turnId: active.turnId,
+  });
   return { continue: true, hint: engine.reliability.hint(plan.action) };
 }
 

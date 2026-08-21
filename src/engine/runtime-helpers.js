@@ -18,11 +18,16 @@ export function providerRequest(engine, route, context, options = {}) {
   return Object.freeze({
     model: route.model, messages: [...system, ...messages],
     tools, temperature: route.temperature,
-    maxOutputTokens: route.maxOutputTokens,
+    maxOutputTokens: boundedOutputTokens(route.maxOutputTokens, options.outputReserveTokens),
     ...(reasoning.reasoningEffort === undefined ? {} : { reasoningEffort: reasoning.reasoningEffort }),
     ...(reasoning.enableThinking === undefined ? {} : { enableThinking: reasoning.enableThinking }),
     ...(options.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
   });
+}
+
+function boundedOutputTokens(routeLimit, reserveLimit) {
+  const values = [routeLimit, reserveLimit].filter((value) => Number.isSafeInteger(value) && value > 0);
+  return values.length > 0 ? Math.min(...values) : null;
 }
 
 function validateProviderRequestInputs(engine, route, context) {
@@ -67,4 +72,13 @@ export function resetStep(active) {
   active.providerTerminal = false;
   active.toolAssembler = active.toolAssemblerFactory?.() ?? new ToolCallAssembler();
   return reasoningMode;
+}
+
+export function modelStepRequestOptions(reasoningMode, active) {
+  return { reasoningMode, outputReserveTokens: active.contextBudget?.outputReserveTokens };
+}
+
+export function resetReasoningRecovery(active) {
+  active.reasoningFallbackUsed = false;
+  active.reasoningHeadroomRetryUsed = false;
 }
