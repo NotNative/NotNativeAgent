@@ -40,7 +40,7 @@ The authoritative raw evidence remains local under the configured NNA data root:
 session journals are under `sessions`, structured runtime records are under `logs`, and the
 local forensic database is stored beneath the per-project data area. Models should prefer the
 bounded diagnostic tool rather than parsing these stores directly. `/support` creates a
-redacted archive for a maintainer when deeper inspection is required.
+  redacted archive of only the current conversation for a maintainer when deeper inspection is required.
 
 If filesystem search is slow or the user asks about ripgrep, NNA should consult
 `TOOLS.md` and `INSTALLATION.md`. It should report whether `rg` is available, explain the

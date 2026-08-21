@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { atomicWrite, DiagnosticBundle } from '../src/diagnostic-bundle.js';
 import { handleSupportCommand } from '../src/tui/support-command.js';
+import { decorateContent, decorateFooter } from '../src/tui/decoration.js';
 
 test('published diagnostic bundles survive temporary-file cleanup failure', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-diagnostic-publish-'));
@@ -53,6 +54,62 @@ test('support command reports its exact local destination before and after publi
   assert.equal(path.endsWith('.zip'), true);
   assert.match(opened.lines.join('\n'), new RegExp(escapeRegex(path), 'u'));
   assert.equal((await readFile(path)).readUInt32LE(0), 0x04034b50);
+});
+
+test('support command scopes the archive to the active conversation only', async () => {
+  const activeEngine = { sessionId: 'session-active' };
+  const otherEngine = { sessionId: 'session-other' };
+  let received;
+  class CapturingBundle {
+    constructor(options) { received = options; }
+    defaultPath() { return 'support.zip'; }
+    async create(path) { return { path, bytes: 123 }; }
+  }
+  const workspace = {
+    options: {}, activeEngine: () => activeEngine,
+    sessions: new Map([
+      ['session-active', { id: 'session-active', engine: activeEngine }],
+      ['session-other', { id: 'session-other', engine: otherEngine }],
+    ]),
+    projection: {
+      activeId: 'session-active', sessions: new Map([['session-active', {}], ['session-other', {}]]),
+      showNotice() {}, openOverlay() {},
+    },
+  };
+
+  await handleSupportCommand('/support', '', workspace, { DiagnosticBundle: CapturingBundle });
+
+  assert.equal(received.engine, activeEngine);
+  assert.equal(received.activeSessionId, 'session-active');
+  assert.deepEqual(received.sessions.map((session) => session.id), ['session-active']);
+});
+
+test('oversized support input opens a persistent red failure view instead of disappearing', async () => {
+  class OversizedBundle {
+    defaultPath() { return 'support.zip'; }
+    async create() { throw Object.assign(new Error('too large'), { code: 'zip_input_too_large' }); }
+  }
+  const notices = []; let opened;
+  const engine = { sessionId: 'session-active' };
+  const workspace = {
+    options: {}, activeEngine: () => engine,
+    sessions: new Map([['session-active', { id: 'session-active', engine }]]),
+    projection: {
+      activeId: 'session-active', sessions: new Map([['session-active', {}]]),
+      showNotice: (kind, text) => notices.push({ kind, text }),
+      openOverlay: (overlay) => { opened = overlay; },
+    },
+  };
+
+  await handleSupportCommand('/support', '', workspace, { DiagnosticBundle: OversizedBundle });
+
+  assert.equal(opened.kind, 'support-error');
+  assert.match(opened.lines.join('\n'), /ZIP_INPUT_TOO_LARGE.*NOT CREATED/su);
+  assert.ok(opened.lineKinds.every((kind) => kind === 'error'));
+  assert.equal(notices.at(-1).kind, 'error');
+  assert.match(notices.at(-1).text, /ZIP_INPUT_TOO_LARGE/u);
+  assert.match(decorateContent('SUPPORT BUNDLE FAILED', 80, true, 0, 'support-error', 'overlay:error'), /\u001b\[1;38;5;203m/u);
+  assert.match(decorateFooter('[ERROR] failed', 1, 3, true, 0, 'error'), /\u001b\[1;38;5;203m/u);
 });
 
 test('diagnostic bundle default path stays within its configured support directory', async () => {

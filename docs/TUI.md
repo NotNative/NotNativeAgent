@@ -110,11 +110,15 @@ Key actions:
 
 Commands include `/new NAME`, `/switch ID-OR-NAME`, `/sessions`, `/resume [SESSION_ID]`, `/rename NAME`, `/close`,
 `/confirm close`, `/health`, `/hooks`, `/extensions`, `/stats` (or `/status`), `/files`, `/project`, `/audit`, `/permissions`, `/copy [N]`, `/provider [ID]`, `/model [NAME]`, `/mcp`, `/memory`, `/dream`, `/config`, `/websearch`, `/workspace PATH`, `/context`, `/support`,
-`/plan`, `/tasks`, `/goal`, `/task`, `/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP under
+`/plan`, `/tasks`, `/goal`, `/task`, `/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP for only the current conversation under
 `%USERPROFILE%\.nna\support` on Windows or `$HOME/.nna/support` on Unix unless `NNA_HOME`
 or an explicit `/support PATH.zip` destination overrides it. The Console displays the exact
-destination while creating the bundle and again when it is ready. It can be sent
-to maintainers for troubleshooting; it never uploads the archive and refuses to overwrite an existing path. Its manifest lists the included attached conversations, and each conversation has an isolated `sessions/<session-id>/` folder containing its redacted diagnostics, repair statistics, and forensic trace. Closing active work requires the explicit confirmation
+destination while creating the bundle and again when it is ready. It can be sent to maintainers
+without including other open Console tabs; it never uploads the archive and refuses to overwrite
+an existing path. Its manifest lists the current conversation, with an isolated
+`sessions/<session-id>/` folder containing redacted diagnostics, repair statistics, and forensic
+trace. If the current conversation exceeds the archive safety bound, the Console opens a
+persistent red failure view and does not publish a partial ZIP. Closing active work requires the explicit confirmation
 command. Conversation editors and transcript projections remain isolated when switching.
 The archive includes a content-free idle-maintenance summary (scheduler state, stage,
 bounded result codes, and run counts) so cancelled or failing dream cycles can be diagnosed

@@ -214,7 +214,9 @@ function footerLines(projection, session, width, capabilities = {}, suggestionCa
     add(footerStatusLine(projection, session, width), 'status');
     return lines;
   }
-  if (projection.notice && projection.notice.kind !== 'confirmation') add(crop(`[${projection.notice.kind.toUpperCase()}] ${projection.notice.text}`, width), 'notice');
+  if (projection.notice && projection.notice.kind !== 'confirmation') {
+    add(crop(`[${projection.notice.kind.toUpperCase()}] ${projection.notice.text}`, width), projection.notice.kind === 'error' ? 'error' : 'notice');
+  }
   add(commandPickerLines(session, projection, suggestionCapacity).map((line) => crop(line, width)), 'suggestion');
   const activity = liveActivityLine(session, capabilities);
   if (activity) add(crop(activity, width), 'activity');

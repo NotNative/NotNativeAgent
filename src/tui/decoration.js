@@ -58,6 +58,7 @@ export function decorateFooter(line, index, length, color, animationFrame = 0, l
   if (!color) return line;
   const activity = decorateLiveActivity(line, animationFrame);
   if (activity) return activity;
+  if (lineKind === 'error') return paint(TUI_THEME.dangerStrong, line);
   if (lineKind === 'rule' || /^─+$/u.test(line)) return paint(TUI_THEME.border, line);
   if (lineKind === 'status' || index === length - 1) {
     const posture = line.match(FOOTER_POSTURE)?.[0];
