@@ -15,8 +15,8 @@ therefore restores progress without a parallel state store, and context compacti
 erase it.
 
 The provider receives only the current snapshot as trusted engine state when work exists.
-Mutation history does not consume prompt context. Substantive planning, build, repair, and
-active-work continuation intent activates `work.plan`, which atomically replaces the bounded
+Mutation history does not consume prompt context. Explicit planning and tracking intent,
+plus any already-active plan, activates `work.plan`, which atomically replaces the bounded
 goal and ordered task snapshot. It maintains the same state machine used by operator commands
 without forcing a model through several overlapping schemas. The granular legacy work tools
 remain installed for compatibility but are not part of the fresh model-facing catalog. These
@@ -26,5 +26,8 @@ their exact granular grants without silently widening authority.
 
 The Console's `/plan` hub is the primary view. `/tasks` is an alias for the same hub, while
 `/goal` and `/task` provide direct keyboard workflows. The footer shows only a compact
-completed/total count. Ordinary conversations remain plan-free unless the operator or
-agent deliberately creates work state.
+completed/total count. Ordinary and multi-step conversations remain plan-free unless the
+operator explicitly requests tracking or the agent deliberately decides durable coordination
+would materially help. Once a plan exists, completion supervision continues unfinished work,
+keeps `work.plan` available, and yields instead of nudging when the model genuinely requires
+operator input.

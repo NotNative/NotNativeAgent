@@ -67,7 +67,7 @@ function enginePolicyMessage(config) {
       policySection('Context and project state', [
         'Project guidance such as NNA.md is injected as attributed context. Follow the most specific applicable guidance without rereading it or inventing a guidance file.',
         'The provider context is a bounded hot working set, not the complete ledger. Absence from hot context is not evidence that something never occurred. When omitted history may matter, use session.search_history then session.read_history; do not search history reflexively.',
-        'For substantive multi-step work, use optional work tools to preserve an evidence-based goal and tasks. Memory is optional; durable work state and the session ledger remain authoritative.',
+        'Planning is optional. Use work.plan only when the operator asks for tracked planning or when a durable goal and milestones would materially improve coordination; do not create work state merely because a task is substantive or multi-step. If a plan exists, keep it evidence-based and current. Memory is optional; durable work state and the session ledger remain authoritative.',
         'Prefer an nna_ref returned by a tool when an exact path, URL, snapshot, or draft must survive later steps.',
       ]),
       policySection('Actions and verification', [
@@ -210,7 +210,7 @@ function skillCatalogMessage(items) {
 function conversationWorkMessage(work) {
   return {
     role: 'system',
-    content: `Durable conversation work state (engine-maintained, revision ${work.revision}). Use work.plan to replace the complete goal and ordered task snapshot as meaningful progress occurs; preserve existing task ids and omit id only for a new task. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: complete every task and then the goal before finishing. If operator input is genuinely required, mark the relevant task blocked with the exact reason and ask one concrete question. Optional follow-up offers are not input requests. This state survives context compaction and session resume:\n${JSON.stringify(work)}`,
+    content: `An optional durable conversation plan is active (engine-maintained, revision ${work.revision}). Because this plan exists, keep it current with work.plan as meaningful progress occurs; preserve existing task ids and omit id only for a new task. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: continue the work or update the plan truthfully. If operator input is genuinely required, ask one concrete question and, when possible, mark the relevant task blocked with the exact reason. Optional follow-up offers are not input requests. This state survives context compaction and session resume:\n${JSON.stringify(work)}`,
     provenance: 'conversation_work', trust: 'kernel',
   };
 }

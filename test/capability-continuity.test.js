@@ -20,7 +20,7 @@ test('terse continuation inherits active unfinished work capability intent', asy
   assert.match(query, /Write the scene files/u);
   assert.doesNotMatch(query, /Discarded completed work/u);
 
-  const registry = new ToolRegistry(process.cwd());
+  const registry = new ToolRegistry(process.cwd(), { conversationWork: {} });
   await registry.initialize();
   const visible = registry.providerDefinitions(query).map((item) => item.function.name);
   for (const name of ['fs.write_text', 'fs.edit_text', 'shell.run']) {
@@ -47,12 +47,13 @@ test('substantive new operator input replaces active work capability selection',
     workMessage({ goal: { objective: 'Build the application', status: 'active' }, tasks: [] }),
     { role: 'user', content: 'Only inspect the repository structure.', trust: 'operator' },
   ];
-  assert.equal(capabilitySelectionQuery(context), 'Only inspect the repository structure.');
-  const registry = new ToolRegistry(process.cwd());
+  assert.match(capabilitySelectionQuery(context), /^Only inspect the repository structure\.\nactive durable plan$/u);
+  const registry = new ToolRegistry(process.cwd(), { conversationWork: {} });
   await registry.initialize();
   const visible = registry.providerDefinitions(capabilitySelectionQuery(context)).map((item) => item.function.name);
   assert.ok(!visible.includes('fs.write_text'));
   assert.ok(!visible.includes('process.run'));
+  assert.ok(visible.includes('work.plan'));
 });
 
 test('continuation classification is narrow and malformed work state fails closed', () => {

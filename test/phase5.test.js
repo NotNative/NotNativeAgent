@@ -692,6 +692,8 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /tool\.search once[^]*loads matching schemas for the next model step/u);
   assert.match(policy, /runtime binds and revalidates receipts/u);
   assert.match(policy, /Do not claim completion while required work is unfinished/u);
+  assert.match(policy, /Planning is optional/u);
+  assert.match(policy, /do not create work state merely because a task is substantive or multi-step/u);
 });
 
 test('provider context keeps its policy prefix byte-stable while placing the clock at the mutable tail', () => {

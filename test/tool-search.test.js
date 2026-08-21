@@ -51,6 +51,7 @@ test('authenticated task intent activates bounded effectful capability bundles',
   assert.ok(!build.includes('fs.delete_file'));
   assert.ok(!build.includes('system.elevate'));
   assert.ok(!build.includes('project.verify'));
+  assert.ok(!build.includes('work.plan'));
 
   const cleanup = registry.providerDefinitions('remove the obsolete file').map((item) => item.function.name);
   assert.ok(cleanup.includes('fs.directory'));
@@ -61,6 +62,7 @@ test('authenticated task intent activates bounded effectful capability bundles',
 
   const work = taskActivatedToolNames('build this project and track the plan');
   assert.ok(work.includes('work.plan'));
+  assert.equal(taskActivatedToolNames('build and implement this project').includes('work.plan'), false);
   assert.ok(taskActivatedToolNames('notify me on telegram when finished').includes('notification.telegram'));
   assert.ok(taskActivatedToolNames('store this large payload as a reusable reference').includes('ref.store'));
   assert.ok(taskActivatedToolNames('diagnose the failed turn from the logs').includes('nna.diagnose_turn'));

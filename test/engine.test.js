@@ -373,24 +373,22 @@ test('active durable work cannot turn an assistant authorization question into a
   assert.equal(result.recovery.some((item) => item.category === 'unfinished_conversation_work'), false);
 });
 
-test('active durable work accepts input requests only for a typed blocked task', async () => {
+test('active durable work yields when the model genuinely requires operator input', async () => {
   let calls = 0;
-  let engine;
   const provider = { async *stream() {
     calls += 1;
-    if (calls === 2) await engine.updateTask('T1', 'blocked', 'operator must choose the deployment target');
     yield { type: 'text', text: 'Which deployment target should I use?' };
     yield { type: 'terminal', finishReason: 'stop', usage: null };
   } };
-  engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  const engine = new SessionEngine({ config: config(), providerFactory: () => provider });
   await engine.setGoal('Deploy the application');
   await engine.addTask('Choose and use the deployment target');
 
   const result = await engine.submit({ request_id: 'work-input-turn', content: 'Deploy it' }, 'operator');
 
-  assert.equal(calls, 2);
+  assert.equal(calls, 1);
   assert.equal(result.outcome, 'needs_input');
-  assert.equal(engine.workStatus().tasks[0].status, 'blocked');
+  assert.equal(engine.workStatus().tasks[0].status, 'pending');
 });
 
 test('AC-EVENT-04/AC-STATE-05 a failing terminal observer cannot prevent one outcome or another observer', async () => {

@@ -27,7 +27,7 @@ const INTENTS = Object.freeze([
   ['exact_process', /\b(?:direct executable|exact argv|process\.run|single executable|without (?:a )?shell)\b/iu],
   ['delegation', /\b(?:delegate|parallel|sub[ -]?agent|specialist)\b/iu],
   ['reference_staging', /\b(?:reference|stage|store|stdin|large (?:content|payload)|reusable (?:content|payload))\b/iu],
-  ['conversation_work', /\b(?:build|goal|implement|milestone|plan|project|refactor|repair|task|track|upgrade)\b/iu],
+  ['conversation_work', /\b(?:durable plan|goal|milestone|plan|task|track)\b/iu],
   ['notification', /\b(?:alert|notify|notification|telegram)\b/iu],
   ['code_inspection', /\b(?:code|codebase|compile|diagnostic|git|repository|repo|symbol|typecheck)\b/iu],
   ['nna_guidance', /\b(?:nna|notnativeagent|agent harness|skill authoring|provider profile)\b/iu],

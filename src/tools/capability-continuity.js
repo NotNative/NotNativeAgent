@@ -8,8 +8,8 @@ export function capabilitySelectionQuery(context = []) {
   const latestIndex = findLatestOperator(context);
   if (latestIndex < 0) return '';
   const latest = bounded(context[latestIndex]?.content);
-  if (!isTerseContinuation(latest)) return latest;
   const work = activeWorkIntent(context);
+  if (!isTerseContinuation(latest)) return work ? joinBounded(latest, 'active durable plan') : latest;
   if (work) return joinBounded(work, latest);
   for (let index = latestIndex - 1; index >= 0; index -= 1) {
     const item = context[index];

@@ -75,7 +75,10 @@ Optional long-horizon progress is maintained through `/plan` (with `/tasks` as a
 ordered task state accurate. A current work snapshot is
 kernel-grounded independently of transcript compaction and restores with the session. The
 agent must record concrete evidence before completing a task or goal, and must not create
-planning state merely because the capability exists.
+planning state merely because the capability exists or the work has multiple steps. Explicit
+planning or tracking intent activates the tool; an active plan keeps it available. While a plan
+exists, completion supervision nudges unfinished work forward but yields when the model is
+genuinely waiting for operator input.
 
 Provider context is a bounded hot working set rather than the complete durable transcript.
 When records become cold through projection or compaction, NNA supplies a small discovery-only

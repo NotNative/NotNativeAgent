@@ -38,11 +38,14 @@ function unfinishedWorkGate(work, text) {
   if (blocked.length > 0 && requestsInput(text)) {
     return Object.freeze({ disposition: 'needs_input', category: 'blocked_work_requested_input' });
   }
+  if (requestsInput(text)) {
+    return Object.freeze({ disposition: 'needs_input', category: 'active_work_requested_input' });
+  }
   const summary = `${unfinished.length} unfinished task(s); goal ${goalActive ? 'active' : 'settled'}; work revision ${work?.revision ?? 0}`;
   return Object.freeze({
     disposition: 'continue', category: 'unfinished_conversation_work', required: true,
     progressEvidence: summary,
-    hint: 'The durable goal or task list is still open, so this turn cannot finish. Use work.plan to update the complete task snapshot with concrete evidence and complete the goal. If operator input is genuinely required, mark the relevant task blocked with the exact reason and ask one concrete question. Do not offer optional follow-up work or ask whether to continue.',
+    hint: 'An optional durable plan is active and still unfinished. Continue the work or use work.plan to update the complete task snapshot with concrete evidence; do not stop merely because a milestone changed. If operator input is genuinely required, ask one concrete question and mark the relevant task blocked when possible. Do not offer optional follow-up work or ask whether to continue.',
   });
 }
 
