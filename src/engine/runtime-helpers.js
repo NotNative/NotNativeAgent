@@ -83,9 +83,9 @@ export function modelStepRequestOptions(reasoningMode, active) {
   return { reasoningMode, outputReserveTokens: active.contextBudget?.outputReserveTokens };
 }
 
-export function openingActionReasoningMode(context, active, recoveryMode) {
+export function actionTurnReasoningMode(context, recoveryMode) {
   if (recoveryMode === 'off') return 'off';
-  if (active.toolCalls === 0 && actionOrientedIntent(capabilitySelectionQuery(context))) return 'off';
+  if (actionOrientedIntent(capabilitySelectionQuery(context))) return 'off';
   return recoveryMode;
 }
 

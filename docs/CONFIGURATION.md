@@ -100,10 +100,10 @@ an explicit deadline, and failure does not terminate an otherwise live generatio
 The mandatory semantic reviewer always disables model thinking. Its decision is a small,
 strictly validated JSON authorization result, so NNA sends both the generic no-reasoning control
 and the Qwen-compatible `enable_thinking: false` control rather than inheriting a provider's
-potentially expensive thinking default. The first model step of an action-oriented Primary turn
-uses the same no-thinking controls until one tool result is committed; subsequent steps restore
-the Primary route's independently configured reasoning behavior. Read-only analytical and
-conversational turns are unchanged, as are specialist and sub-agent routes.
+potentially expensive thinking default. Every model step of an action-oriented Primary turn uses
+the same no-thinking controls so a trivial observation cannot reopen an unbounded private-reasoning
+interval before useful work. Read-only analytical and conversational turns are unchanged, as are
+specialist and sub-agent routes.
 
 Manifests carrying the exact historical 30-second/45-second stream defaults, or the former
 persisted 10-minute/5-minute pair, migrate to inherited policy. The exact historical
