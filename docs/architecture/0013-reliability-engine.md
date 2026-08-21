@@ -14,8 +14,8 @@ The Reliability Engine owns:
 
 - per-turn recovery supervisors, episode budgets, progress evidence, exhaustion facts,
   and recovery guidance;
-- completion supervision, including truncation, lost-task, unfinished-work, and
-  unresolved-tool-failure judgments;
+- completion supervision, including explicit or usage-inferred truncation, lost-task,
+  unfinished-work, unfulfilled future-action pledges, and unresolved-tool-failure judgments;
 - context budgeting, long-horizon pressure policy, deterministic hot/cold projections,
   and cold-evidence continuity;
 - context-compression safety classification, content-identity duplicate receipts,
@@ -117,6 +117,10 @@ aliases to Reliability Engine-owned components. They do not represent independen
 15. Primary turns consistently honor the route's configured reasoning behavior across ordinary
     tool continuations. Only a typed reasoning-only recovery may temporarily retry without
     reasoning; specialist and sub-agent routes remain independently configured.
+16. Completion supervision treats provider-reported output usage at the exact requested ceiling
+    as truncation even when a compatible provider labels the finish `stop`. Concrete future-action
+    pledges such as `let me verify` or `I will implement` are partial progress, not terminal task
+    completion; the engine preserves the text and issues a bounded continuation hint.
 
 ## Consequences
 

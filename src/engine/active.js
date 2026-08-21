@@ -13,6 +13,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     text: '', stepText: '', committedStepText: null, finalText: '', usage: null, finishReason: null, reasoningBytes: 0,
     stepReasoningBytes: 0, stepReasoningText: '', stepReasoningReplayable: false,
     attemptReasoningText: '', attemptReasoningReplayable: false, attemptReasoningOverflow: false,
+    attemptOutputLimitTokens: null,
     reasoningContinuations: [],
     reasoningFallbackPending: false, reasoningFallbackUsed: false,
     startedAt: Date.now(), toolCalls: 0,

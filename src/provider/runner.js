@@ -49,7 +49,7 @@ export class ProviderRunner {
       let attemptReason = null;
       const requestSpan = `provider-request:${active.attemptId}`;
       const requestStarted = process.hrtime.bigint();
-      initializeAttempt(active);
+      initializeAttempt(active, request.maxOutputTokens);
       try {
         await this.verifyRequest?.(request, manifest, route, active);
         this.telemetry?.record('provider.request', 'started', {
@@ -276,9 +276,11 @@ function mergeUsage(current, update) {
   return Object.freeze(result);
 }
 
-function initializeAttempt(active) {
+function initializeAttempt(active, outputLimitTokens = null) {
   active.attemptUsage = null;
   active.attemptUsageAccounted = false;
+  active.attemptOutputLimitTokens = Number.isSafeInteger(outputLimitTokens) && outputLimitTokens > 0
+    ? outputLimitTokens : null;
   active.attemptOutputBytes = 0;
   active.attemptTransportBytes = 0;
   active.attemptReasoningText = '';

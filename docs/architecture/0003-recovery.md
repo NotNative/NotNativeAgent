@@ -69,6 +69,9 @@ idle, and overall deadlines. Trusted loopback and private-network inference has 
 deadline; explicit operator settings remain authoritative and cancellation remains immediate.
 At 11 tokens per second, a healthy 32K-token reasoning/tool response can take roughly 49
 minutes before prompt processing overhead, so elapsed time alone is not failure evidence.
+Some compatible providers label a response `stop` even when reported output usage exactly reaches
+the requested ceiling. NNA treats that measured equality as truncation rather than allowing a late
+partial sentence or promised next action to terminate the turn.
 Trusted local routes therefore use a provider-only native HTTP transport with no implicit
 response-body deadline; the Reliability Engine remains the sole timeout authority. A bounded
 out-of-band health probe runs after 60 seconds without a stream event and leaves a content-free

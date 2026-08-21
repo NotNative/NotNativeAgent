@@ -2,10 +2,15 @@
 
 const TRUNCATED = new Set(['length', 'max_tokens', 'max_output_tokens']);
 const TOOL_SIGNAL = new Set(['tool_calls', 'function_call']);
+const ACTION_VERB = '(?:check|inspect|verify|read|search|fetch|look\\s+up|write|create|edit|modify|fix|implement|build|run|test|install|start|open|update|investigate|review)';
+const FUTURE_ACTION = new RegExp(
+  `(?:\\b(?:i(?:'ll| will)|i(?:'m| am) going to)\\s+(?:first\\s+|now\\s+|next\\s+)?${ACTION_VERB}\\b|\\blet me\\s+${ACTION_VERB}\\b)`,
+  'iu',
+);
 
 export function evaluateCompletion(active, text, work = null) {
   const finishReason = String(active.finishReason ?? '').toLowerCase();
-  if (TRUNCATED.has(finishReason)) {
+  if (TRUNCATED.has(finishReason) || reachedReportedOutputCeiling(active)) {
     return Object.freeze({ disposition: 'continue', category: 'truncated_output', progressEvidence: text });
   }
   if (TOOL_SIGNAL.has(finishReason) && (active.toolAssembler?.size ?? 0) === 0) {
@@ -23,7 +28,28 @@ export function evaluateCompletion(active, text, work = null) {
     }
   }
   if (requestsInput(text)) return Object.freeze({ disposition: 'needs_input', category: 'model_requested_input' });
+  if (promisesFutureAction(text)) {
+    return Object.freeze({
+      disposition: 'continue', category: 'future_action_pledge', progressEvidence: text,
+      hint: 'The prior response promised a concrete next action but did not perform it. Continue now by taking that action with an appropriate tool; do not merely restate the promise.',
+    });
+  }
   return Object.freeze({ disposition: 'completed', category: 'settled_output' });
+}
+
+function reachedReportedOutputCeiling(active) {
+  const limit = active.attemptOutputLimitTokens;
+  if (!Number.isSafeInteger(limit) || limit < 1) return false;
+  const usage = active.attemptUsage;
+  if (!usage || typeof usage !== 'object') return false;
+  const output = ['completion_tokens', 'output_tokens', 'outputTokens']
+    .map((key) => usage[key]).find((value) => Number.isSafeInteger(value) && value >= 0);
+  return Number.isSafeInteger(output) && output >= limit;
+}
+
+function promisesFutureAction(text) {
+  const tail = String(text ?? '').trim().slice(-1_024);
+  return tail.length > 0 && FUTURE_ACTION.test(tail);
 }
 
 function unfinishedWorkGate(work, text) {

@@ -24,6 +24,41 @@ test('recovery rejects a context-reset greeting instead of ending the active tas
   assert.equal(result.category, 'task_context_lost');
 });
 
+test('completion supervision continues when provider usage reaches a mislabeled output ceiling', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    recovery: { actions: [] }, attemptOutputLimitTokens: 32_000,
+    attemptUsage: { prompt_tokens: 6_549, completion_tokens: 32_000, total_tokens: 38_549 },
+  };
+  const result = evaluateCompletion(active, 'I will verify the exact API details next.');
+  assert.equal(result.disposition, 'continue');
+  assert.equal(result.category, 'truncated_output');
+});
+
+test('completion supervision continues an unfulfilled future-action pledge', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    recovery: { actions: [] }, attemptOutputLimitTokens: 32_000,
+    attemptUsage: { completion_tokens: 200 },
+  };
+  const result = evaluateCompletion(active,
+    'I will build the scene. Before writing it, let me verify the exact API details.');
+  assert.equal(result.disposition, 'continue');
+  assert.equal(result.category, 'future_action_pledge');
+  assert.match(result.hint, /taking that action/iu);
+});
+
+test('completion supervision accepts a settled result with optional future availability', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    recovery: { actions: [] }, attemptOutputLimitTokens: 32_000,
+    attemptUsage: { completion_tokens: 200 },
+  };
+  const result = evaluateCompletion(active, 'The requested change is complete. I will remain available for follow-up.');
+  assert.equal(result.disposition, 'completed');
+  assert.equal(result.category, 'settled_output');
+});
+
 function config(persistence = 'ephemeral') {
   return resolveManifest({
     persistence,

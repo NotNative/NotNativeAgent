@@ -715,6 +715,32 @@ test('AC-PROD-03/AC-TURN-10 truncated useful output is preserved and continued',
   assert.equal(result.recovery[0].action, 'retry_continuation');
 });
 
+test('a provider-mislabeled output ceiling cannot complete on a future-action pledge', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-mislabeled-ceiling-'));
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length === 1) {
+      yield { type: 'reasoning', text: 'A long internal plan that consumed the completion allowance.' };
+      yield { type: 'text', text: 'Before writing the files, let me verify the exact API details.' };
+      yield { type: 'usage', usage: { prompt_tokens: 100, completion_tokens: 32_000, total_tokens: 32_100 } };
+      yield { type: 'terminal', finishReason: 'stop' };
+      return;
+    }
+    assert.ok(request.messages.some((item) => item.role === 'assistant'
+      && item.content === 'Before writing the files, let me verify the exact API details.'));
+    yield { type: 'text', text: 'The requested implementation is complete and verified.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'mislabeled-ceiling', content: 'Build the requested project.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(requests.length, 2);
+  assert.equal(engine.transcript.some((item) => item.partial === true
+    && item.content === 'Before writing the files, let me verify the exact API details.'), true);
+});
+
 test('AC-PROD-03/AC-TURN-10 a completion claim cannot erase unresolved tool failure', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-premature-completion-'));
   await writeFile(join(root, 'target.txt'), 'available', 'utf8');
