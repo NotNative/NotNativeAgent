@@ -5,7 +5,6 @@ import { toolCatalogContext } from '../tools/catalog-context.js';
 import { routeReasoningFields } from '../provider/reasoning.js';
 import { ContractError } from '../ids.js';
 import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
-import { actionOrientedIntent } from '../tools/capability-activation.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
@@ -73,6 +72,7 @@ export function resetStep(active) {
   active.stepReasoningReplayable = false;
   active.attemptReasoningText = '';
   active.attemptReasoningReplayable = false;
+  active.attemptReasoningOverflow = false;
   active.finishReason = null;
   active.providerTerminal = false;
   active.toolAssembler = active.toolAssemblerFactory?.() ?? new ToolCallAssembler();
@@ -81,12 +81,6 @@ export function resetStep(active) {
 
 export function modelStepRequestOptions(reasoningMode, active) {
   return { reasoningMode, outputReserveTokens: active.contextBudget?.outputReserveTokens };
-}
-
-export function actionTurnReasoningMode(context, recoveryMode) {
-  if (recoveryMode === 'off') return 'off';
-  if (actionOrientedIntent(capabilitySelectionQuery(context))) return 'off';
-  return recoveryMode;
 }
 
 export function resetReasoningRecovery(active) {

@@ -20,7 +20,6 @@ import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
   executionContext, modelStepRequestOptions, providerRequest, resetReasoningRecovery, resetStep, toolContext,
-  actionTurnReasoningMode,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
 import { recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
@@ -283,7 +282,7 @@ export class SessionEngine {
   async #runModelStep(context, active) {
     assertTurnActive(active);
     assertMissionBudget(active);
-    const reasoningMode = actionTurnReasoningMode(context, resetStep(active));
+    const reasoningMode = resetStep(active);
     const step = this.lifecycles.start('model_step', active.turnId);
     active.stepId = step.id;
     await this.#publish('model_step.started', 'model_step', 'active', active);

@@ -6,7 +6,6 @@ import { boundedReasoningContinuations } from './reliability/reasoning-continuit
 export function buildContext(config, transcript, currentContent, enrichment = {}, maxBytes = config.limits.maxContextBytes) {
   const messages = [];
   const attachments = latestAttachments(transcript);
-  const reasoningContinuations = boundedReasoningContinuations(enrichment.reasoningContinuations, maxBytes);
   messages.push(enginePolicyMessage(config));
   if (config.applicationPolicy) {
     messages.push({ role: 'system', content: config.applicationPolicy, provenance: 'application_policy', trust: 'host' });
@@ -18,7 +17,7 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
     if (item.type === 'message') {
       messages.push({ role: item.role, content: item.content, provenance: 'transcript', trust: item.trust });
     } else if (item.type === 'tool_request') {
-      messages.push(toolRequestMessage(item, reasoningContinuations.get(item.providerCallId)));
+      messages.push(toolRequestMessage(item));
     } else if (item.type === 'tool_result') {
       messages.push(toolResultMessage(item));
     } else if (item.type === 'compaction') {
@@ -44,8 +43,38 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
     messages.push(runtimeClockMessage());
     messages.push({ role: 'user', content: currentContent, provenance: 'authenticated_submission', trust: 'operator' });
   }
+  applyReasoningContinuations(messages, enrichment.reasoningContinuations, maxBytes);
   enforceBudget(messages, maxBytes);
   return Object.freeze(messages.map((item) => Object.freeze(item)));
+}
+
+function applyReasoningContinuations(messages, entries = [], maxBytes = Number.MAX_SAFE_INTEGER) {
+  if (!Array.isArray(entries) || entries.length === 0) return;
+  const requests = new Map();
+  for (let index = 0; index < messages.length; index += 1) {
+    const callId = messages[index]?.tool_calls?.[0]?.id;
+    if (typeof callId === 'string') requests.set(callId, { index, message: messages[index] });
+  }
+  const baseBytes = measureContext(messages);
+  const available = Number.isFinite(maxBytes) ? Math.max(0, Math.floor(maxBytes - baseBytes)) : Number.MAX_SAFE_INTEGER;
+  const selected = boundedReasoningContinuations(entries, available, (entry) => {
+    const request = requests.get(entry.providerCallId);
+    if (!request) return 0;
+    return measureContext([withReasoningContinuation(request.message, entry)]) - measureContext([request.message]);
+  });
+  for (const [callId, continuation] of selected) {
+    const request = requests.get(callId);
+    if (request) messages[request.index] = withReasoningContinuation(request.message, continuation);
+  }
+}
+
+function withReasoningContinuation(message, continuation) {
+  return {
+    ...message,
+    reasoning_content: continuation.reasoningContent,
+    _nnaReasoningProvider: continuation.providerProfile,
+    _nnaReasoningModel: continuation.model,
+  };
 }
 
 function enginePolicyMessage(config) {
@@ -264,14 +293,9 @@ export function appendRecoveryHint(context, hint) {
   })]);
 }
 
-function toolRequestMessage(item, continuation = null) {
+function toolRequestMessage(item) {
   return {
     role: 'assistant', content: null, provenance: 'transcript', trust: 'model',
-    ...(continuation ? {
-      reasoning_content: continuation.reasoningContent,
-      _nnaReasoningProvider: continuation.providerProfile,
-      _nnaReasoningModel: continuation.model,
-    } : {}),
     tool_calls: [{
       id: item.providerCallId, type: 'function',
       function: { name: item.toolName, arguments: JSON.stringify(item.args) },

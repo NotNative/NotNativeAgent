@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const MAX_REASONING_CONTINUITY_BYTES = 262_144;
-const REASONING_CONTEXT_FRACTION = 0.25;
+const MAX_REASONING_BLOCK_BYTES = 262_144;
 
 export function appendReasoningChunk(current, chunk) {
   if (typeof chunk !== 'string' || chunk.length === 0) return current ?? '';
-  return utf8Suffix(`${current ?? ''}${chunk}`, MAX_REASONING_CONTINUITY_BYTES);
+  const combined = `${current ?? ''}${chunk}`;
+  return Buffer.byteLength(combined, 'utf8') <= MAX_REASONING_BLOCK_BYTES ? combined : null;
 }
 
 export function captureReasoningContinuation(active, calls = []) {
@@ -24,26 +24,21 @@ export function captureReasoningContinuation(active, calls = []) {
   return true;
 }
 
-export function boundedReasoningContinuations(entries = [], maxContextBytes = Number.MAX_SAFE_INTEGER) {
-  const available = Number.isFinite(maxContextBytes)
-    ? Math.max(0, Math.floor(maxContextBytes * REASONING_CONTEXT_FRACTION))
-    : MAX_REASONING_CONTINUITY_BYTES;
-  let remaining = Math.min(MAX_REASONING_CONTINUITY_BYTES, available);
+export function boundedReasoningContinuations(entries = [], availableBytes = Number.MAX_SAFE_INTEGER, measure = reasoningBytes) {
+  let remaining = Number.isFinite(availableBytes) ? Math.max(0, Math.floor(availableBytes)) : Number.MAX_SAFE_INTEGER;
   const selected = new Map();
   for (let index = entries.length - 1; index >= 0 && remaining > 0; index -= 1) {
     const entry = entries[index];
     if (!entry || typeof entry.providerCallId !== 'string' || typeof entry.reasoningContent !== 'string') continue;
-    const content = utf8Suffix(entry.reasoningContent, remaining);
-    const bytes = Buffer.byteLength(content, 'utf8');
-    if (bytes === 0) continue;
-    selected.set(entry.providerCallId, Object.freeze({ ...entry, reasoningContent: content }));
+    const bytes = measure(entry);
+    if (!Number.isSafeInteger(bytes) || bytes <= 0) continue;
+    if (bytes > remaining) break;
+    selected.set(entry.providerCallId, entry);
     remaining -= bytes;
   }
   return selected;
 }
 
-function utf8Suffix(value, maximum) {
-  const encoded = Buffer.from(value, 'utf8');
-  if (encoded.length <= maximum) return value;
-  return encoded.subarray(encoded.length - maximum).toString('utf8').replace(/^\uFFFD/gu, '');
+function reasoningBytes(entry) {
+  return Buffer.byteLength(entry.reasoningContent, 'utf8');
 }

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:d0aa8634e8cd1d4548dafad31e00245960a1af95f8d4d64889d639cfc12c31fc",
+  "source_digest": "sha256:25cafff9dc5a075a91f577cfbcbb51f458ced57d74ca7ed9c414f47770d13b47",
   "counts": {
     "modules": 307,
     "component_edges": 68
@@ -189,12 +189,6 @@
       "module_count": 8
     },
     {
-      "from": "agentic-engine",
-      "to": "tools",
-      "import_count": 9,
-      "module_count": 4
-    },
-    {
       "from": "guidance",
       "to": "foundation",
       "import_count": 9,
@@ -217,6 +211,12 @@
       "to": "reliability-engine",
       "import_count": 9,
       "module_count": 5
+    },
+    {
+      "from": "agentic-engine",
+      "to": "tools",
+      "import_count": 8,
+      "module_count": 4
     },
     {
       "from": "experience-engine",
@@ -1018,7 +1018,6 @@
         "src/ids.js",
         "src/provider/reasoning.js",
         "src/reliability/tool-call-assembler.js",
-        "src/tools/capability-activation.js",
         "src/tools/capability-continuity.js",
         "src/tools/catalog-context.js"
       ]

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
-import { buildContext, toProviderMessages } from '../src/context.js';
+import { buildContext, measureContext, toProviderMessages } from '../src/context.js';
 import { SessionEngine } from '../src/engine.js';
 import {
   appendReasoningChunk, boundedReasoningContinuations, captureReasoningContinuation,
@@ -37,16 +37,62 @@ test('same-route private reasoning continues across a tool boundary without ente
   assert.doesNotMatch(JSON.stringify(transcript), /private implementation plan/u);
 });
 
-test('reasoning continuity keeps a bounded latest suffix', () => {
+test('reasoning continuity rejects an oversized block instead of retaining a misleading suffix', () => {
   const oversized = appendReasoningChunk('', `old-${'x'.repeat(300_000)}-latest`);
-  assert.ok(Buffer.byteLength(oversized, 'utf8') <= 262_144);
-  assert.match(oversized, /-latest$/u);
+  assert.equal(oversized, null);
+});
+
+test('reasoning continuity preserves complete blocks until actual available context is exhausted', () => {
   const selected = boundedReasoningContinuations([
     { providerCallId: 'old', reasoningContent: 'a'.repeat(40_000) },
     { providerCallId: 'new', reasoningContent: 'b'.repeat(40_000) },
   ], 100_000);
+  assert.equal(selected.get('old').reasoningContent.length, 40_000);
+  assert.equal(selected.get('new').reasoningContent.length, 40_000);
+});
+
+test('reasoning continuity evicts oldest whole blocks without slicing retained reasoning', () => {
+  const selected = boundedReasoningContinuations([
+    { providerCallId: 'old', reasoningContent: 'a'.repeat(40_000) },
+    { providerCallId: 'middle', reasoningContent: 'b'.repeat(40_000) },
+    { providerCallId: 'new', reasoningContent: 'c'.repeat(40_000) },
+  ], 90_000);
   assert.equal(selected.has('old'), false);
-  assert.equal(selected.get('new').reasoningContent.length, 25_000);
+  assert.equal(selected.get('middle').reasoningContent.length, 40_000);
+  assert.equal(selected.get('new').reasoningContent.length, 40_000);
+});
+
+test('context uses actual envelope headroom instead of a fixed reasoning fraction', () => {
+  const transcript = [
+    { type: 'tool_request', providerCallId: 'call-old', toolName: 'fs.list', args: { path: '.' } },
+    { type: 'tool_result', providerCallId: 'call-old', toolName: 'fs.list', status: 'succeeded', content: 'first' },
+    { type: 'tool_request', providerCallId: 'call-new', toolName: 'fs.read', args: { path: 'main.js' } },
+    { type: 'tool_result', providerCallId: 'call-new', toolName: 'fs.read', status: 'succeeded', content: 'second' },
+  ];
+  const enrichment = { reasoningContinuations: [
+    { providerCallId: 'call-old', providerProfile: 'local', model: 'qwen', reasoningContent: 'a'.repeat(40_000) },
+    { providerCallId: 'call-new', providerProfile: 'local', model: 'qwen', reasoningContent: 'b'.repeat(40_000) },
+  ] };
+  const baseBytes = measureContext(buildContext(config, transcript, '', {}, Number.MAX_SAFE_INTEGER));
+  const context = buildContext(config, transcript, '', enrichment, baseBytes + 100_000);
+  const provider = toProviderMessages(context, { profile: { id: 'local' }, model: 'qwen' });
+  assert.deepEqual(provider.filter((item) => item.reasoning_content).map((item) => item.reasoning_content.length), [40_000, 40_000]);
+});
+
+test('context pressure evicts whole oldest reasoning blocks', () => {
+  const transcript = ['old', 'middle', 'new'].flatMap((id) => [
+    { type: 'tool_request', providerCallId: `call-${id}`, toolName: 'fs.list', args: { path: id } },
+    { type: 'tool_result', providerCallId: `call-${id}`, toolName: 'fs.list', status: 'succeeded', content: id },
+  ]);
+  const enrichment = { reasoningContinuations: ['old', 'middle', 'new'].map((id, index) => ({
+    providerCallId: `call-${id}`, providerProfile: 'local', model: 'qwen',
+    reasoningContent: String(index).repeat(40_000),
+  })) };
+  const baseBytes = measureContext(buildContext(config, transcript, '', {}, Number.MAX_SAFE_INTEGER));
+  const context = buildContext(config, transcript, '', enrichment, baseBytes + 90_000);
+  const provider = toProviderMessages(context, { profile: { id: 'local' }, model: 'qwen' });
+  assert.deepEqual(provider.filter((item) => item.reasoning_content).map((item) => item.reasoning_content[0]), ['1', '2']);
+  assert.equal(provider.every((item) => item.reasoning_content === undefined || item.reasoning_content.length === 40_000), true);
 });
 
 test('engine replays private reasoning on the next same-route model step only', async () => {
@@ -82,4 +128,35 @@ test('engine replays private reasoning on the next same-route model step only', 
     'retain this implementation decision');
   assert.doesNotMatch(JSON.stringify(engine.transcript), /retain this implementation decision/u);
   await engine.shutdown({ request_id: 'continuity-shutdown', type: 'shutdown' });
+});
+
+test('engine omits an oversized reasoning block instead of replaying a partial thought', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-continuity-overflow-'));
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length === 1) {
+      yield { type: 'reasoning', text: 'x'.repeat(300_000), field: 'reasoning_content' };
+      yield { type: 'tool_fragment', fragments: [{
+        index: 0, id: 'call-list', function: { name: 'fs.list', arguments: '{"path":"."}' },
+      }] };
+      yield { type: 'terminal', finishReason: 'tool_calls' };
+      return;
+    }
+    yield { type: 'text', text: 'Workspace checked without partial reasoning replay.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({
+    config: resolveManifest({
+      persistence: 'ephemeral', workspace_root: root,
+      provider: { id: 'local-qwen', endpoint: 'http://127.0.0.1:9/v1', model: 'qwen3.8-27b', trust_zone: 'loopback' },
+    }),
+    providerFactory: () => provider,
+    hookRoot: join(process.cwd(), '.nna-test-hooks-none'),
+  });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'continuity-overflow', content: 'Inspect this workspace.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(requests[1].messages.some((message) => typeof message.reasoning_content === 'string'), false);
+  await engine.shutdown({ request_id: 'continuity-overflow-shutdown', type: 'shutdown' });
 });

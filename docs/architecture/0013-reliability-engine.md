@@ -110,12 +110,13 @@ aliases to Reliability Engine-owned components. They do not represent independen
 14. Private reasoning continuity is ephemeral and route-bound. It is never written to the
     session ledger, telemetry payloads, support archives, or operator output. Only a provider
     that emitted OpenAI-compatible `reasoning_content` receives it back, and only on the same
-    provider profile and model. The retained latest suffix is capped at 256 KiB and at most
-    one quarter of the current input-context byte budget; older reasoning yields first.
-15. Every model step in an action-oriented Primary turn has thinking disabled. A trivial observation
-    cannot reopen an unbounded private-reasoning interval before useful work. Read-only analytical
-    and conversational turns retain the route's configured reasoning behavior from their first step;
-    specialist and sub-agent routes remain independently configured.
+    provider profile and model. Complete reasoning blocks are retained while the effective input
+    envelope has room. Under actual context pressure, whole oldest blocks yield first; a partial
+    suffix is never replayed as though it were complete. An individual block that exceeds its
+    bounded turn-local capture allowance is omitted rather than truncated.
+15. Primary turns consistently honor the route's configured reasoning behavior across ordinary
+    tool continuations. Only a typed reasoning-only recovery may temporarily retry without
+    reasoning; specialist and sub-agent routes remain independently configured.
 
 ## Consequences
 

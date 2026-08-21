@@ -236,9 +236,20 @@ export class ProviderRunner {
       active.reasoningBytes += bytes;
       active.stepReasoningBytes += bytes;
       active.attemptOutputBytes += bytes;
-      active.attemptReasoningText = this.reliability?.appendReasoningChunk?.(active.attemptReasoningText, item.text)
-        ?? `${active.attemptReasoningText ?? ''}${item.text}`;
-      if (item.field === 'reasoning_content') active.attemptReasoningReplayable = true;
+      if (!active.attemptReasoningOverflow) {
+        const appendReasoningChunk = this.reliability?.appendReasoningChunk;
+        const appended = typeof appendReasoningChunk === 'function'
+          ? appendReasoningChunk(active.attemptReasoningText, item.text)
+          : `${active.attemptReasoningText ?? ''}${item.text}`;
+        if (appended === null) {
+          active.attemptReasoningText = '';
+          active.attemptReasoningReplayable = false;
+          active.attemptReasoningOverflow = true;
+        } else {
+          active.attemptReasoningText = appended;
+          if (item.field === 'reasoning_content') active.attemptReasoningReplayable = true;
+        }
+      }
     } else if (item.type === 'tool_fragment') {
       active.attemptOutputBytes += Buffer.byteLength(JSON.stringify(item.fragments), 'utf8');
       active.toolAssembler.add(item.fragments);
@@ -272,6 +283,7 @@ function initializeAttempt(active) {
   active.attemptTransportBytes = 0;
   active.attemptReasoningText = '';
   active.attemptReasoningReplayable = false;
+  active.attemptReasoningOverflow = false;
   active.providerDispatched = false;
   active.lastProviderActivityAt = Date.now();
 }
