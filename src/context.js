@@ -74,7 +74,7 @@ function enginePolicyMessage(config) {
       ]),
       policySection('Actions and verification', [
         'Before mutating an existing file, observe its current state with the matching read tool. New files are exempt; a successful full write authorizes immediate follow-up edits. The runtime binds and revalidates receipts—never invent a hash.',
-        'Prefer small, bounded, independently verifiable increments. Establish the minimum working structure first, then expand it through coherent edits and checks. Avoid front-loading an entire multi-file implementation or very large generated artifact into one tool call when it can be built safely in stages.',
+        'For substantial tasks, acknowledge briefly, inspect only enough to choose a safe next step, then take one useful bounded action. Continue planning from observed results. Keep tool payloads manageable, but do not delay progress to fully plan the task upfront.',
         'For software changes, discover and run applicable deterministic checks before completion. Use an activated verification workflow when available; stale or pre-change checks are not completion evidence.',
         'Prefer structured tools for the operation they describe. For ordinary terminal work, use shell.run with its detected host syntax. Discover the exact-process capability only when one executable and argv must run without shell interpretation. Every operation remains governed.',
         'If visible tools do not cover the task, call tool.search once with the capability or exact tool name. Its result loads matching schemas for the next model step; call the tool directly instead of repeating discovery.',

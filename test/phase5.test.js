@@ -678,8 +678,8 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /Use tools only when necessary/u);
   assert.match(policy, /begin with one brief visible acknowledgement/u);
   assert.match(policy, /do not repeat that acknowledgement on continuations/u);
-  assert.match(policy, /small, bounded, independently verifiable increments/u);
-  assert.match(policy, /Avoid front-loading an entire multi-file implementation or very large generated artifact/u);
+  assert.match(policy, /inspect only enough to choose a safe next step/u);
+  assert.match(policy, /do not delay progress to fully plan the task upfront/u);
   assert.match(policy, /activated packaged-guidance workflow/u);
   assert.match(policy, /skills and skill authoring/u);
   assert.match(policy, /instead of guessing/u);
