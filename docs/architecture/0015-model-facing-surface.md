@@ -32,7 +32,9 @@ The kernel prompt is organized as short, named invariant sections: role and scop
 communication and authority, context, action and verification, grounding, NNA self-knowledge,
 and completion. Host- or operation-specific coaching belongs in the relevant tool definition
 and its in-band errors. Specialized workflows belong in skills or attributed project guidance.
-Runtime state machines own recovery and enforcement.
+Runtime state machines own recovery and enforcement. The general action section favors small,
+bounded, independently verifiable increments over front-loaded multi-file or oversized artifact
+generation; this is medium-agnostic execution guidance rather than a prescribed workflow.
 
 Legacy granular tools remain installed so sealed requests, old manifests, resumed sessions,
 specialized skills, and internal recovery do not lose functionality. They are hidden from the
