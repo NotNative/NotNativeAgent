@@ -106,6 +106,26 @@ test('AC-PROV-01/AC-PROV-02 discovers local models and preserves fragmented SSE 
   assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
 });
 
+test('OpenAI-compatible requests replay same-model reasoning_content without exposing it as content', async () => {
+  let body;
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'local-model', capabilities: {},
+  }, {}, { fetch: async (_url, options) => {
+    body = JSON.parse(options.body);
+    return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  for await (const _item of provider.stream({
+    model: 'local-model',
+    messages: [{ role: 'assistant', content: null, reasoning_content: 'private plan', tool_calls: [{
+      id: 'call-1', type: 'function', function: { name: 'fs.list', arguments: '{}' },
+    }] }],
+  }, new AbortController().signal)) { /* consume */ }
+  assert.equal(body.messages[0].reasoning_content, 'private plan');
+  assert.equal(body.messages[0].content, null);
+});
+
 test('derived and undeclared transport allowances admit verbose vLLM per-token SSE framing', async () => {
   const events = Array.from({ length: 12_000 }, (_, index) => `data: ${JSON.stringify({
     id: `chatcmpl-${String(index).padStart(12, '0')}`,

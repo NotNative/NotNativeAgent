@@ -311,7 +311,7 @@ export class SessionEngine {
     const calls = active.toolAssembler.complete();
     if (active.stepText.length > 0 || calls.length > 0) resetReasoningRecovery(active);
     if (calls.length === 0) return this.#afterTextStep(active);
-    await this.#settleAttempt(active, 'completed');
+    await this.#settleAttempt(active, 'completed'); this.reliability.captureReasoningContinuation(active, calls);
     if (active.stepText.length > 0) {
       await this.#persist('message', assistantMessage(active.turnId, active.stepText, { stepId: active.stepId }));
       active.committedStepText = active.stepText;

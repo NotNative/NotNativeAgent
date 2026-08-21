@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:b22bc27dba0427bf4e35661db1f8036959239d6909a091dd6f9266bf232e156d",
+  "source_digest": "sha256:146465fd062d376f5a7de48106dc26138581a34724592c59bafc9af974ee66dd",
   "counts": {
-    "modules": 306,
+    "modules": 307,
     "component_edges": 68
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "reliability-engine",
       "label": "Reliability Engine",
       "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
-      "module_count": 36
+      "module_count": 37
     },
     {
       "id": "gateway",
@@ -123,16 +123,16 @@
       "module_count": 54
     },
     {
+      "from": "reliability-engine",
+      "to": "reliability-engine",
+      "import_count": 44,
+      "module_count": 21
+    },
+    {
       "from": "tools",
       "to": "foundation",
       "import_count": 44,
       "module_count": 28
-    },
-    {
-      "from": "reliability-engine",
-      "to": "reliability-engine",
-      "import_count": 42,
-      "module_count": 21
     },
     {
       "from": "agentic-engine",
@@ -676,7 +676,8 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
-        "src/reliability/host-environment.js"
+        "src/reliability/host-environment.js",
+        "src/reliability/reasoning-continuity.js"
       ]
     },
     {
@@ -2082,6 +2083,7 @@
         "src/reliability/model-dialects.js",
         "src/reliability/process-identity.js",
         "src/reliability/provider-recovery.js",
+        "src/reliability/reasoning-continuity.js",
         "src/reliability/recovery-supervisor.js",
         "src/reliability/request-invariant.js",
         "src/reliability/token-accounting.js",
@@ -2231,6 +2233,12 @@
         "src/ids.js",
         "src/reliability/output-headroom.js"
       ]
+    },
+    {
+      "path": "src/reliability/reasoning-continuity.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/reliability/recovery-supervisor.js",

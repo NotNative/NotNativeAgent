@@ -8,7 +8,7 @@ import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
-  const messages = toProviderMessages(context);
+  const messages = toProviderMessages(context, route);
   const dialect = engine.reliability?.instructions(route);
   const tools = engine.tools.providerDefinitions(capabilitySelectionQuery(context));
   const catalog = toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);
@@ -68,6 +68,10 @@ export function resetStep(active) {
   active.stepText = '';
   active.committedStepText = null;
   active.stepReasoningBytes = 0;
+  active.stepReasoningText = '';
+  active.stepReasoningReplayable = false;
+  active.attemptReasoningText = '';
+  active.attemptReasoningReplayable = false;
   active.finishReason = null;
   active.providerTerminal = false;
   active.toolAssembler = active.toolAssemblerFactory?.() ?? new ToolCallAssembler();

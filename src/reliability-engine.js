@@ -26,6 +26,9 @@ import {
   aggregateTokenReceipts, assertProviderEnvelopeFits, combineTokenAccounting,
   createProviderTokenReceipt, measureProviderEnvelope,
 } from './reliability/token-accounting.js';
+import {
+  appendReasoningChunk, boundedReasoningContinuations, captureReasoningContinuation,
+} from './reliability/reasoning-continuity.js';
 
 export class ReliabilityEngine {
   constructor(options = {}) {
@@ -106,6 +109,11 @@ export class ReliabilityEngine {
   }
   aggregateTokenReceipts(receipts) { return aggregateTokenReceipts(receipts); }
   combineTokenAccounting(summaries) { return combineTokenAccounting(summaries); }
+  appendReasoningChunk(current, chunk) { return appendReasoningChunk(current, chunk); }
+  captureReasoningContinuation(active, calls) { return captureReasoningContinuation(active, calls); }
+  boundedReasoningContinuations(entries, maxContextBytes) {
+    return boundedReasoningContinuations(entries, maxContextBytes);
+  }
   observeProviderUsage(route, usage) {
     const key = routeKey(route);
     const cacheTokens = cacheTokenEvidence(usage);
@@ -160,6 +168,7 @@ export class ReliabilityEngine {
       provider_request_reconstruction: true,
       provider_envelope_accounting: true,
       durable_token_receipts: true,
+      ephemeral_reasoning_continuity: true,
     });
   }
 }

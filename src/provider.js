@@ -364,10 +364,11 @@ function decodeChunk(value) {
     if (delta.role !== undefined && delta.role !== 'assistant') {
       throw new ContractError('provider_role_invalid', 'provider emitted a non-assistant response role');
     }
-    const reasoning = typeof delta.reasoning === 'string' && delta.reasoning.length > 0
-      ? delta.reasoning : delta.reasoning_content;
+    const reasoningField = typeof delta.reasoning === 'string' && delta.reasoning.length > 0
+      ? 'reasoning' : 'reasoning_content';
+    const reasoning = delta[reasoningField];
     if (typeof reasoning === 'string' && reasoning.length > 0) {
-      items.push({ type: 'reasoning', text: reasoning });
+      items.push({ type: 'reasoning', text: reasoning, field: reasoningField });
     }
     if (typeof delta.content === 'string' && delta.content.length > 0) {
       items.push({ type: 'text', text: delta.content });

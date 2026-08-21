@@ -24,6 +24,8 @@ The Reliability Engine owns:
 - compaction projections, continuation artifacts, semantic continuation refinement, and
   handoff generation;
 - provider-context-limit, reasoning-only, and reasoning-truncated-before-action recovery decisions;
+- bounded, turn-local continuation of provider-native `reasoning_content` across tool
+  boundaries on the same provider profile and model;
 - model-dialect observations and reliability guidance;
 - authoritative host-environment facts, shell-command shaping signals, and unavailable-interpreter recovery guidance;
 - cross-platform process-instance identity used to distinguish live owners from recycled PIDs;
@@ -105,6 +107,11 @@ aliases to Reliability Engine-owned components. They do not represent independen
     route receives a bounded 32,000-token completion ceiling, reduced only by an explicit
     provider/route limit or a smaller discovered context window. Reaching that ceiling during
     hidden reasoning is not classified as an ordinary empty response.
+14. Private reasoning continuity is ephemeral and route-bound. It is never written to the
+    session ledger, telemetry payloads, support archives, or operator output. Only a provider
+    that emitted OpenAI-compatible `reasoning_content` receives it back, and only on the same
+    provider profile and model. The retained latest suffix is capped at 256 KiB and at most
+    one quarter of the current input-context byte budget; older reasoning yields first.
 
 ## Consequences
 

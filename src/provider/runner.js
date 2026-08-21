@@ -53,13 +53,17 @@ export class ProviderRunner {
       try {
         await this.verifyRequest?.(request, manifest, route, active);
         this.telemetry?.record('provider.request', 'started', {
-          request, model: active.modelName, provider_profile: active.providerResource,
+          model: active.modelName, provider_profile: active.providerResource,
+          message_count: request.messages?.length ?? 0, tool_count: request.tools?.length ?? 0,
+          reasoning_continuity: request.messages?.some((message) => typeof message?.reasoning_content === 'string') ?? false,
         }, providerCorrelation(active, requestSpan));
         const attemptUsage = await this.#invoke(provider, request, deadlines, active);
         this.#accountAttemptUsage(active);
         this.#observeCacheUsage(active, attemptUsage);
         this.#recordSucceeded(active, requestSpan, requestStarted);
         attemptOutcome = 'completed';
+        active.stepReasoningText = active.attemptReasoningText;
+        active.stepReasoningReplayable = active.attemptReasoningReplayable;
         return;
       } catch (error) {
         this.#accountAttemptUsage(active);
@@ -232,6 +236,9 @@ export class ProviderRunner {
       active.reasoningBytes += bytes;
       active.stepReasoningBytes += bytes;
       active.attemptOutputBytes += bytes;
+      active.attemptReasoningText = this.reliability?.appendReasoningChunk?.(active.attemptReasoningText, item.text)
+        ?? `${active.attemptReasoningText ?? ''}${item.text}`;
+      if (item.field === 'reasoning_content') active.attemptReasoningReplayable = true;
     } else if (item.type === 'tool_fragment') {
       active.attemptOutputBytes += Buffer.byteLength(JSON.stringify(item.fragments), 'utf8');
       active.toolAssembler.add(item.fragments);
@@ -263,6 +270,8 @@ function initializeAttempt(active) {
   active.attemptUsageAccounted = false;
   active.attemptOutputBytes = 0;
   active.attemptTransportBytes = 0;
+  active.attemptReasoningText = '';
+  active.attemptReasoningReplayable = false;
   active.providerDispatched = false;
   active.lastProviderActivityAt = Date.now();
 }
@@ -299,7 +308,8 @@ function assertProviderEvent(item, terminalSeen) {
     throw new ContractError('provider_conflicting_terminal', 'provider emitted data after its terminal event');
   }
   if (item.type === 'text' || item.type === 'reasoning') {
-    if (typeof item.text === 'string' && item.text.length > 0) return;
+    if (typeof item.text === 'string' && item.text.length > 0
+      && (item.type !== 'reasoning' || item.field === undefined || ['reasoning', 'reasoning_content'].includes(item.field))) return;
     throw new ContractError('provider_event_invalid', `provider emitted empty ${item.type} content`);
   }
   if (item.type === 'transport_activity' && Number.isSafeInteger(item.bytes) && item.bytes > 0) return;

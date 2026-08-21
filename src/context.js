@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
 import { hostEnvironmentInstruction } from './reliability/host-environment.js';
+import { boundedReasoningContinuations } from './reliability/reasoning-continuity.js';
 
 export function buildContext(config, transcript, currentContent, enrichment = {}, maxBytes = config.limits.maxContextBytes) {
   const messages = [];
   const attachments = latestAttachments(transcript);
+  const reasoningContinuations = boundedReasoningContinuations(enrichment.reasoningContinuations, maxBytes);
   messages.push(enginePolicyMessage(config));
   if (config.applicationPolicy) {
     messages.push({ role: 'system', content: config.applicationPolicy, provenance: 'application_policy', trust: 'host' });
@@ -16,7 +18,7 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
     if (item.type === 'message') {
       messages.push({ role: item.role, content: item.content, provenance: 'transcript', trust: item.trust });
     } else if (item.type === 'tool_request') {
-      messages.push(toolRequestMessage(item));
+      messages.push(toolRequestMessage(item, reasoningContinuations.get(item.providerCallId)));
     } else if (item.type === 'tool_result') {
       messages.push(toolResultMessage(item));
     } else if (item.type === 'compaction') {
@@ -239,8 +241,18 @@ function attachmentMessage(item) {
   };
 }
 
-export function toProviderMessages(context) {
-  return context.map(({ provenance: _provenance, trust: _trust, ...message }) => message);
+export function toProviderMessages(context, route = null) {
+  return context.map((item) => {
+    const {
+      provenance: _provenance, trust: _trust,
+      _nnaReasoningProvider: provider, _nnaReasoningModel: model,
+      reasoning_content: reasoningContent, ...message
+    } = item;
+    const sameRoute = provider && model && provider === route?.profile?.id && model === route?.model;
+    return sameRoute && typeof reasoningContent === 'string'
+      ? { ...message, reasoning_content: reasoningContent }
+      : message;
+  });
 }
 
 export function appendRecoveryHint(context, hint) {
@@ -251,9 +263,14 @@ export function appendRecoveryHint(context, hint) {
   })]);
 }
 
-function toolRequestMessage(item) {
+function toolRequestMessage(item, continuation = null) {
   return {
     role: 'assistant', content: null, provenance: 'transcript', trust: 'model',
+    ...(continuation ? {
+      reasoning_content: continuation.reasoningContent,
+      _nnaReasoningProvider: continuation.providerProfile,
+      _nnaReasoningModel: continuation.model,
+    } : {}),
     tool_calls: [{
       id: item.providerCallId, type: 'function',
       function: { name: item.toolName, arguments: JSON.stringify(item.args) },

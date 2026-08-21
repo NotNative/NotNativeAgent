@@ -34,7 +34,11 @@ For substantive action requests, the primary model is instructed to emit one ter
 acknowledgement naming its immediate next action before tool use or extended explanation.
 Because reasoning-capable providers may stream private reasoning before public text, the
 live activity line changes from `Waiting for model…` to `Model is reasoning…` on the first
-reasoning event. NNA never displays or persists the private reasoning content itself.
+reasoning event. NNA never displays or durably persists the private reasoning content itself.
+When an OpenAI-compatible provider emits `reasoning_content`, a bounded turn-local suffix may
+be returned to that same provider profile and model after a tool result so the model does not
+need to reconstruct its private working state. It is cleared with the turn and excluded from
+telemetry and support output.
 Terminal receipts distinguish completed, needs-input, cancelled, failed, and limit outcomes.
 Completed and needs-input outcomes share the same quiet receipt shape instead of repeating
 state labels already visible in the footer. Failures show their stable code plus either an
