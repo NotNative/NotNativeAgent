@@ -194,7 +194,7 @@ test('Primary owns route defaults while specialist timeout overrides can return 
   assert.equal(beginProviderRouteSettingsSelection(routeSettings, workspace, mainProviders), true);
   assert.equal(projection.overlay.kind, 'provider-route-settings');
   assert.match(projection.overlay.lines.join('\n'), /Overall attempt timeout  No limit \(trusted local · operator cancellation\)/u);
-  assert.match(projection.overlay.lines.join('\n'), /Temperature {14}1 \(default\)/u);
+  assert.match(projection.overlay.lines.join('\n'), /Temperature {14}Provider default/u);
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
   assert.equal(projection.overlay.kind, 'provider-route-setting-form');
   projection.overlay.editor.set('');
@@ -226,7 +226,7 @@ test('Primary owns route defaults while specialist timeout overrides can return 
   assert.equal(config.routes.primary.temperatureOverride, 0);
   projection.moveOverlaySelection(projection.overlay.items.findIndex((item) => item.id === 'temperature-default'));
   await handleProviderRouteSettingsAction({ action: 'submit' }, workspace);
-  assert.equal(config.routes.primary.temperature, 1);
+  assert.equal(config.routes.primary.temperature, null);
   assert.equal(config.routes.primary.temperatureOverride, null);
 
   projection.moveOverlaySelection(2);

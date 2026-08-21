@@ -38,12 +38,12 @@ export class ModelDialectRegistry {
     const failures = profile.failures ?? {};
     const guidance = [
       'Follow tool JSON schemas exactly. Use native tool calls only; do not print tool-call JSON, XML, or markdown as assistant text.',
-      'Call only tools needed for this step, then wait for their results before claiming completion.',
+      'Emit needed tool calls promptly. Batch independent read-only calls; wait for results before dependent work or completion claims.',
     ];
     if (profile.family === 'qwen') guidance.push('Keep tool arguments literal and complete; never abbreviate hashes, paths, or line ranges.');
     if (profile.family === 'gemma') guidance.push('When a tool is required, emit its call before explanatory prose.');
     if ((failures.provider_event_invalid ?? 0) + (failures.tool_arguments_invalid ?? 0) >= FAILURE_GUIDANCE_THRESHOLD) {
-      guidance.push('Recent local schema failures were observed: verify every required property and emit one tool call at a time.');
+      guidance.push('Recent local schema failures were observed: verify every required property; batch only independent calls with complete arguments.');
     }
     if ((failures.provider_missing_terminal ?? 0) + (failures.provider_conflicting_terminal ?? 0) >= FAILURE_GUIDANCE_THRESHOLD) {
       guidance.push('End each response exactly once and never emit content after termination.');

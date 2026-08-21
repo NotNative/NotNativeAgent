@@ -7,7 +7,6 @@ import { REASONING_EFFORTS } from '../provider/reasoning.js';
 const LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
 });
-const DEFAULT_TEMPERATURE = 1;
 const MAX_TIMEOUT_SECONDS = 86_400;
 const MAX_OUTPUT_TOKENS = 1_048_576;
 const MAX_ROUTE_BUDGET = 64;
@@ -15,7 +14,7 @@ const SETTING_EDITOR_BYTES = 128;
 const PROVIDER_DEFAULT = 'Provider default';
 const SETTINGS = Object.freeze({
   timeout: Object.freeze({ label: 'Overall attempt timeout', detail: 'Seconds allowed for prompt processing and generation. Enter 0 for no timeout.' }),
-  temperature: Object.freeze({ label: 'Temperature', detail: 'Sampling temperature from 0 through 2. The built-in default is 1.0; enter 0 to use the provider default.' }),
+  temperature: Object.freeze({ label: 'Temperature', detail: 'Sampling temperature from 0 through 2. Enter 0 to leave sampling unset and use the provider default.' }),
   output: Object.freeze({ label: 'Maximum output tokens', detail: 'Maximum tokens requested from the provider. Enter 0 for no explicit limit.' }),
   budget: Object.freeze({ label: 'Fallback attempt budget', detail: 'Maximum eligible route attempts from 1 through 64. Enter 0 to use every eligible route.' }),
   reasoning_effort: Object.freeze({ label: 'Reasoning effort', detail: 'OpenAI-compatible reasoning_effort. Availability depends on the model.', options: true }),
@@ -53,7 +52,7 @@ export async function handleProviderRouteSettingsAction(action, workspace) {
       reopenSettings(workspace, overlay, 'Timeout now uses the Primary setting.');
     } else if (selected.id === 'temperature-default') {
       await workspace.configureProviderRoute(overlay.role, 'temperature', null);
-      reopenSettings(workspace, overlay, `Temperature restored to the ${DEFAULT_TEMPERATURE.toFixed(1)} default.`);
+      reopenSettings(workspace, overlay, 'Temperature restored to the provider default.');
     } else if (SETTINGS[selected.id]?.options) {
       workspace.projection.openOverlay(settingOptionsOverlay(overlay, selected.id));
     } else workspace.projection.openOverlay(settingFormOverlay(overlay, selected.id));
@@ -130,8 +129,8 @@ export function routeSettingsOverlay(config, role, options = {}) {
     detail: `Return this route to the Primary ${formatMs(config.routes.primary.deadlineMs)} timeout.`, section: 'Setting inheritance',
   });
   if (editable && route.temperatureOverride !== null) items.push({
-    id: 'temperature-default', label: 'Restore default temperature', badge: DEFAULT_TEMPERATURE.toFixed(1),
-    detail: 'Remove the configured temperature and restore the built-in default.', section: 'Setting defaults',
+    id: 'temperature-default', label: 'Restore default temperature', badge: PROVIDER_DEFAULT,
+    detail: 'Remove the configured temperature and let the provider choose its default.', section: 'Setting defaults',
   });
   return Object.freeze({
     kind: 'provider-route-settings', title: `${LABELS[role] ?? role} settings`, lines: Object.freeze(lines),
@@ -223,7 +222,7 @@ function thinkingLabel(value) {
 }
 
 function temperatureLabel(route) {
-  if (route.temperatureOverride === null) return '1 (default)';
+  if (route.temperatureOverride === null) return PROVIDER_DEFAULT;
   if (route.temperatureOverride === 0) return 'Provider default (configured)';
   return `${route.temperatureOverride} (configured)`;
 }
@@ -232,7 +231,7 @@ function editValue(config, role, setting) {
   const route = config?.routes?.[role];
   if (!route) return '';
   if (setting === 'timeout') return route.deadlineMs === null || route.deadlineMs === undefined ? '0' : String(Math.round(route.deadlineMs / 1_000));
-  if (setting === 'temperature') return String(route.temperatureOverride ?? route.temperature ?? DEFAULT_TEMPERATURE);
+  if (setting === 'temperature') return String(route.temperatureOverride ?? route.temperature ?? 0);
   if (setting === 'output') return String(route.maxOutputTokens ?? 0);
   return String(route.budget ?? 0);
 }

@@ -264,7 +264,7 @@ function buildRoutes(value, profile, profiles, providerMs) {
       contextLimitBytes: optionalBoundedInteger(route.context_limit_bytes, 65_536, 16_777_216)
         ?? profiles[providerId]?.contextLimitBytes ?? null,
       requiredCapabilities: validateRouteCapabilities(route.required_capabilities),
-      temperature: temperatureOverride === 0 ? null : (temperatureOverride ?? 1), temperatureOverride,
+      temperature: temperatureOverride === null || temperatureOverride === 0 ? null : temperatureOverride, temperatureOverride,
       maxOutputTokens: optionalZeroUnsetInteger(route.max_output_tokens, 1, 1_048_576),
       budget: optionalZeroUnsetInteger(route.budget, 1, 64),
       reasoningEffort: validateReasoningEffort(route.reasoning_effort), enableThinking: validateEnableThinking(route.enable_thinking),

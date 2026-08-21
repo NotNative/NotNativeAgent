@@ -25,7 +25,7 @@ test('model dialect profiles persist observations and tighten guidance after rep
   assert.equal(profile.family, 'qwen');
   assert.equal(profile.observations, 2);
   assert.equal(profile.failures.provider_event_invalid, 1);
-  assert.match(restored.instructions(route), /one tool call at a time/u);
+  assert.match(restored.instructions(route), /batch only independent calls/u);
   await restored.close();
 });
 

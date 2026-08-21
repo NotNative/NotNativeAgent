@@ -221,7 +221,7 @@ test('zero removes provider route limits without inventing legacy defaults', () 
 test('semantic review inherits the provider deadline and migrates the legacy fifteen-second default', () => {
   const defaults = resolveManifest({ providers });
   assert.equal(defaults.limits.providerOverrideMs, null);
-  assert.equal(defaults.routes.primary.temperature, 1);
+  assert.equal(defaults.routes.primary.temperature, null);
   assert.equal(defaults.routes.primary.temperatureOverride, null);
   assert.equal(manifestFromConfig(defaults).provider_timeout_ms, undefined);
   assert.equal(defaults.limits.semanticReviewMs, defaults.limits.providerMs);

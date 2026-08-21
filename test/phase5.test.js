@@ -675,11 +675,12 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /without rereading it or inventing a guidance file/u);
   assert.equal(policy.includes(config(process.cwd()).workspaceRoot), true);
   assert.match(policy, /user refers to this project, repository, codebase, or workspace/u);
-  assert.match(policy, /Use tools only when necessary/u);
   assert.match(policy, /begin with one brief visible acknowledgement/u);
-  assert.match(policy, /do not repeat that acknowledgement on continuations/u);
+  assert.match(policy, /use tools promptly/u);
+  assert.match(policy, /do not repeat that acknowledgement on continuations/iu);
   assert.match(policy, /inspect only enough to choose a safe next step/u);
-  assert.match(policy, /do not delay progress to fully plan the task upfront/u);
+  assert.match(policy, /Batch independent read-only discovery/u);
+  assert.match(policy, /do not front-load the whole task into private reasoning/u);
   assert.match(policy, /activated packaged-guidance workflow/u);
   assert.match(policy, /skills and skill authoring/u);
   assert.match(policy, /instead of guessing/u);
