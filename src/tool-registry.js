@@ -31,6 +31,9 @@ import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { ReferenceStore, referenceDefinitions } from './tools/reference-store.js';
 import { ALWAYS_EXPOSED, PROVIDER_NATIVE, allowedByManifest, catalogVisible, providerVisible } from './tools/provider-surface.js';
 import { withPreparedWriteTarget } from './tools/write-target.js';
+import { normalizeArgumentAliases } from './tools/argument-normalization.js';
+import { advanceFromAuthoredState, mutationEvidence, transactionalReceipt, transactionalSnapshot,
+  withAuthoredAdvanceMetadata } from './tools/filesystem-mutation-state.js';
 import { SITUATIONAL_TOOL_NAMES, taskActivatedToolNames } from './tools/capability-activation.js';
 import { telegramNotificationDefinition } from './notifications/telegram.js';
 import { sessionHistoryDefinitions } from './session-history-tools.js';
@@ -217,9 +220,14 @@ export class ToolRegistry {
     }
     const validate = definition.validate ?? schemaValidator(definition.inputSchema);
     const validateShape = schemaShapeValidator(definition.inputSchema);
+    const normalizeArgs = definition.normalizeArgs ?? ((args) => args);
+    const { normalizeArgs: _normalizeArgs, ...installedDefinition } = definition;
     const frozen = Object.freeze({
-      ...definition, maxOutputBytes,
-      validate: async (args) => { await validateShape(args); return validate(args); },
+      ...installedDefinition, maxOutputBytes,
+      validate: async (args) => {
+        const normalized = normalizeArgs(args); await validateShape(normalized);
+        return validate(normalized);
+      },
     });
     this.#definitions.set(definition.name, frozen);
     this.#history.set(`${definition.name}@${definition.version}`, frozen);
@@ -234,6 +242,9 @@ function writeDefinition(paths, changes, receipts) {
       path: { type: 'string', maxLength: 4096, description: 'Required destination file path.' },
       content: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required complete UTF-8 content to write.' },
     }, ['path', 'content']),
+    normalizeArgs: (args) => normalizeArgumentAliases(args, {
+      path: ['filePath', 'file_path'], content: ['text'],
+    }),
     validate: async (args) => {
       requireShape(args, ['path', 'content']);
       if (Buffer.byteLength(args.content, 'utf8') > MAX_TEXT_BYTES) {
@@ -261,10 +272,11 @@ function writeDefinition(paths, changes, receipts) {
   };
 }
 async function executeFullWrite(paths, receipts, request, signal, changes) {
-  const result = await withPreparedWriteTarget(paths, request, signal,
-    () => atomicWrite(request, signal, {}, changes));
-  receipts.recordAuthored(request.resolved.path, sha256(request.args.content), request.args.content);
-  return result;
+  const prepared = await advanceFromAuthoredState(request, receipts);
+  const result = await withPreparedWriteTarget(paths, prepared.request, signal,
+    () => atomicWrite(prepared.request, signal, {}, changes));
+  receipts.recordAuthored(prepared.request.resolved.path, sha256(prepared.request.args.content), prepared.request.args.content);
+  return withAuthoredAdvanceMetadata(result, prepared.advanced);
 }
 function editDefinition(paths, changes, receipts) {
   return {
@@ -277,8 +289,14 @@ function editDefinition(paths, changes, receipts) {
       new_text: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required replacement text; use an empty string to remove old_text.' },
       replace_all: { type: 'boolean', description: 'Replace every exact occurrence. Defaults to false and requires old_text to be unique.' },
     }, ['path', 'old_text', 'new_text']),
+    normalizeArgs: (args) => normalizeArgumentAliases(args, {
+      path: ['filePath', 'file_path'],
+      old_text: ['oldString', 'oldText'],
+      new_text: ['newString', 'newText', 'replacement'],
+      replace_all: ['replaceAll'],
+    }),
     validate: async (args) => validateEdit(paths, args, receipts),
-    executor: (request, signal) => executeEdit(request, signal, changes),
+    executor: (request, signal) => executeEdit(request, signal, changes, receipts),
   };
 }
 function editLinesDefinition(paths, changes, receipts) {
@@ -369,32 +387,22 @@ async function validateEdit(paths, args, receipts) {
     },
   };
 }
-async function transactionalSnapshot(resolved) {
-  const content = await readFile(resolved.path, 'utf8');
-  return transactionalReceipt(resolved.path, content, sha256(content));
-}
-function transactionalReceipt(path, content, digest) {
-  return Object.freeze({
-    id: newId('transaction_receipt'), origin: 'runtime_transaction', path, digest,
-    bytes: Buffer.byteLength(content, 'utf8'), observedAt: Date.now(),
-  });
-}
-function mutationEvidence(operation, beforeSha256, afterContent, beforeBytes) {
-  return Object.freeze({ operation, before_sha256: beforeSha256, after_sha256: sha256(afterContent),
-    before_bytes: beforeBytes, after_bytes: Buffer.byteLength(afterContent, 'utf8') });
-}
-async function executeEdit(request, signal, changes) {
+async function executeEdit(request, signal, changes, receipts) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
-  await verifyExpectedState(request);
-  const content = await readFile(request.resolved.path, 'utf8');
-  const occurrences = countOccurrences(content, request.args.old_text);
-  if (occurrences === 0 || (!request.args.replace_all && occurrences !== 1)) {
+  const prepared = await advanceFromAuthoredState(request, receipts);
+  await verifyExpectedState(prepared.request);
+  const content = await readFile(prepared.request.resolved.path, 'utf8');
+  const occurrences = countOccurrences(content, prepared.request.args.old_text);
+  if (occurrences === 0 || (!prepared.request.args.replace_all && occurrences !== 1)) {
     throw new ContractError('tool_revalidation_drift', 'edit match changed after review');
   }
-  const updated = replaceText(content, request.args.old_text, request.args.new_text, request.args.replace_all);
-  return atomicWrite({ ...request, args: { ...request.args, content: updated } }, signal, {
-    message: 'edit completed', replacements: request.args.replace_all ? occurrences : 1,
+  const updated = replaceText(content, prepared.request.args.old_text, prepared.request.args.new_text,
+    prepared.request.args.replace_all);
+  const result = await atomicWrite({ ...prepared.request, args: { ...prepared.request.args, content: updated } }, signal, {
+    message: 'edit completed', replacements: prepared.request.args.replace_all ? occurrences : 1,
   }, changes);
+  receipts.recordAuthored(prepared.request.resolved.path, sha256(updated), updated);
+  return withAuthoredAdvanceMetadata(result, prepared.advanced);
 }
 function deleteDefinition(paths, changes, receipts) {
   return {

@@ -53,6 +53,79 @@ test('fs.directory removes only reviewed bounded trees and refuses protected wor
   } finally { await item.close(); }
 });
 
+test('filesystem mutations accept unambiguous common argument spellings and retain canonical sealed requests', async () => {
+  const item = await fixture();
+  try {
+    const directory = item.registry.definition('fs.directory');
+    const created = await directory.validate({ operation: 'create', directoryPath: 'src/generated' });
+    assert.deepEqual(created.args, { action: 'create', path: 'src/generated', recursive: true });
+    await directory.executor(created, new AbortController().signal);
+
+    const write = item.registry.definition('fs.write_text');
+    const written = await write.validate({ filePath: 'src/generated/value.txt', text: 'before' });
+    assert.equal(written.args.path, 'src/generated/value.txt');
+    assert.equal(written.args.content, 'before');
+    assert.equal(Object.hasOwn(written.args, 'filePath'), false);
+    await write.executor(written, new AbortController().signal);
+
+    const edit = item.registry.definition('fs.edit_text');
+    const edited = await edit.validate({
+      file_path: 'src/generated/value.txt', oldString: 'before', newString: 'after', replaceAll: false,
+    });
+    assert.deepEqual({
+      path: edited.args.path, old_text: edited.args.old_text,
+      new_text: edited.args.new_text, replace_all: edited.args.replace_all,
+    }, { path: 'src/generated/value.txt', old_text: 'before', new_text: 'after', replace_all: false });
+    await edit.executor(edited, new AbortController().signal);
+    assert.equal(await readFile(join(item.root, 'src', 'generated', 'value.txt'), 'utf8'), 'after');
+
+    await assert.rejects(write.validate({ path: 'one.txt', filePath: 'two.txt', content: 'x' }), {
+      code: 'tool_schema_invalid',
+    });
+  } finally { await item.close(); }
+});
+
+test('approved same-batch file mutations advance across NNA-authored states without accepting external drift', async () => {
+  const item = await fixture();
+  try {
+    const context = {
+      policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
+      stepId: 'step', caller: 'primary', surface: 'test',
+    };
+    const first = await item.registry.seal({
+      providerCallId: 'write-first', name: 'fs.write_text', args: { path: 'result.txt', content: 'alpha beta' },
+    }, context);
+    const second = await item.registry.seal({
+      providerCallId: 'write-second', name: 'fs.write_text', args: { path: 'result.txt', content: 'alpha beta gamma' },
+    }, context);
+    const write = item.registry.definition('fs.write_text');
+    await write.executor(first, new AbortController().signal);
+    const secondResult = await write.executor(second, new AbortController().signal);
+    assert.equal(secondResult.metadata.advanced_from_authored_state, true);
+
+    const editAlpha = await item.registry.seal({
+      providerCallId: 'edit-alpha', name: 'fs.edit_text',
+      args: { path: 'result.txt', old_text: 'alpha', new_text: 'ALPHA' },
+    }, context);
+    const editBeta = await item.registry.seal({
+      providerCallId: 'edit-beta', name: 'fs.edit_text',
+      args: { path: 'result.txt', old_text: 'beta', new_text: 'BETA' },
+    }, context);
+    const edit = item.registry.definition('fs.edit_text');
+    await edit.executor(editAlpha, new AbortController().signal);
+    const betaResult = await edit.executor(editBeta, new AbortController().signal);
+    assert.equal(betaResult.metadata.advanced_from_authored_state, true);
+    assert.equal(await readFile(join(item.root, 'result.txt'), 'utf8'), 'ALPHA BETA gamma');
+
+    const stale = await item.registry.seal({
+      providerCallId: 'external-drift', name: 'fs.edit_text',
+      args: { path: 'result.txt', old_text: 'gamma', new_text: 'GAMMA' },
+    }, context);
+    await writeFile(join(item.root, 'result.txt'), 'external replacement', 'utf8');
+    await assert.rejects(edit.executor(stale, new AbortController().signal), { code: 'tool_revalidation_drift' });
+  } finally { await item.close(); }
+});
+
 test('work.plan atomically replaces the durable goal and ordered tasks', async () => {
   const item = await fixture();
   try {

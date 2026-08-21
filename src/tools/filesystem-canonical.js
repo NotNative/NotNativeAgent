@@ -3,9 +3,13 @@ import { createHash } from 'node:crypto';
 import { mkdir, readdir, rm, rmdir, stat } from 'node:fs/promises';
 import { join, matchesGlob } from 'node:path';
 import { ContractError } from '../ids.js';
+import { normalizeArgumentAliases } from './argument-normalization.js';
 
 const MAX_LIST_RESULTS = 1_000;
 const MAX_LIST_DEPTH = 64;
+const DIRECTORY_ARGUMENT_ALIASES = Object.freeze({
+  action: ['operation'], path: ['directoryPath', 'directory_path'],
+});
 const MAX_REMOVE_ENTRIES = 10_000;
 const MAX_REMOVE_BYTES = 1_073_741_824;
 const DEFAULT_SKIPS = new Set(['.git', 'node_modules']);
@@ -99,6 +103,7 @@ function directoryDefinition(paths) {
       path: { type: 'string', maxLength: 4096, description: 'Required directory path.' },
       recursive: { type: 'boolean', description: 'Create defaults true. Remove defaults false and then requires an empty directory.' },
     }, ['action', 'path']),
+    normalizeArgs: (args) => normalizeArgumentAliases(args, DIRECTORY_ARGUMENT_ALIASES),
     validate: async (args) => {
       shape(args, ['action', 'path'], ['recursive']);
       if (!['create', 'remove'].includes(args.action) || (args.recursive !== undefined && typeof args.recursive !== 'boolean')) {

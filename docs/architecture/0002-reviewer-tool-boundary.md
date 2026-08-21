@@ -72,6 +72,12 @@ Line edits, transfers, deletion, and host-path mutations retain explicit read re
 New-file writes may create missing parent directories after the complete prospective path has
 been canonicalized and reviewed. A committed full write records its resulting digest and content
 as reusable authored state, because the model supplied the complete post-write representation;
+an ordered later whole-file write or still-valid exact-text edit may advance from that exact
+runtime-authored digest without changing its reviewed target or requested effect. This continuity
+does not accept arbitrary drift: a live state that does not match the latest runtime-authored
+receipt still fails closed. Built-in filesystem mutation tools also normalize a small set of
+unambiguous conventional argument aliases before validation and review; conflicting spellings are
+rejected, and the sealed request and audit record always use canonical field names.
 denied, failed, cancelled, or externally drifted writes never create that state.
 Git-tracked working-directory mutations and new targets can be classified as recoverable only
 when authenticated intent matches the action and target. An explicit build, implementation,

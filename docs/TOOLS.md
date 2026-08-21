@@ -48,13 +48,17 @@ The canonical model-facing filesystem tools are:
 - `fs.directory`: create or remove a directory. Creation is recursive and idempotent by
   default. Removal is non-recursive unless requested and remains review-required and bounded.
   Filesystem roots, the home directory, the active workspace root and its ancestors, and the
-  NNA data root cannot be mutation targets.
+  NNA data root cannot be mutation targets. The canonical arguments are `action` and `path`;
+  the runtime also normalizes common unambiguous spellings such as `operation` and
+  `directoryPath` before review.
 - `fs.write_text`: atomically create or replace a bounded text file. Missing parent
   directories for a new target are created as part of the same governed operation. A
   successful full write records the resulting content as authored state, allowing an
   immediate follow-up edit without a redundant read. For an existing file
   inside the workspace, the runtime may take a bounded request-local transaction snapshot,
-  bind its digest to review, and revalidate it immediately before commit. The snapshot is
+  bind its digest to review, and revalidate it immediately before commit. `path` and `content`
+  remain the canonical arguments, while common unambiguous `filePath`/`file_path` and `text`
+  spellings are normalized before the request is sealed. The snapshot is
   content-free in the review packet and cannot authorize another operation. Existing files
   outside the workspace still require an explicit `fs.read` receipt.
 
@@ -163,7 +167,9 @@ check is a failed tool result, not a green execution success. The Console aliase
 as `/verify [focused|affected|full] [PATH ...]`.
 - `fs.edit_text`: replace an exact, normally unique text match. In-workspace exact edits use
   the same request-local transaction snapshot when no explicit read receipt exists;
-  `replace_all` must be explicit for multiple matches.
+  `replace_all` must be explicit for multiple matches. The runtime accepts the canonical
+  `path`, `old_text`, `new_text`, and `replace_all` spellings plus common unambiguous camel-case
+  equivalents. Conflicting aliases fail closed.
 
 Installed compatibility definitions retain the narrower historical operations:
 
@@ -183,6 +189,11 @@ snapshot owned by that single sealed request. Line edits, copies, moves, deletio
 paths require an explicit model-visible read receipt. New-file and new-directory creation are
 exempt. Transaction snapshots never enter the reusable state-receipt ledger; a successfully
 committed full write does, because the model supplied the complete resulting content.
+When multiple already-reviewed whole-file writes or independent exact-text edits target the
+same file in one provider batch, execution remains ordered. A successful NNA-authored state may
+advance the trusted snapshot for the following mutation when its exact requested effect remains
+valid. Changes not matching the latest runtime-authored digest continue to fail closed as
+`tool_revalidation_drift`.
 
 `code.diagnostics` is an optional LSP client. It speaks bounded JSON-RPC over stdio to a
 local language-server executable explicitly configured in `~/.nna/config/lsp.json`; NNA

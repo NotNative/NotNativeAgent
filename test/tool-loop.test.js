@@ -1029,6 +1029,41 @@ test('AC-ARCH-02/AC-TURN-05 multiple tool calls retain nested lifecycle and dete
   assert.equal(lifecycles.filter((item) => item.parentId !== null).every((item) => identities.has(item.parentId)), true);
 });
 
+test('same-batch writes to one file execute in request order across runtime-authored state', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ordered-writes-'));
+  let count = 0;
+  const provider = { async *stream(request) {
+    count += 1;
+    if (count === 1) {
+      yield { type: 'tool_fragment', fragments: [
+        { index: 0, id: 'draft-write', function: {
+          name: 'fs.write_text', arguments: '{"filePath":"result.txt","text":"draft"}',
+        } },
+        { index: 1, id: 'final-write', function: {
+          name: 'fs.write_text', arguments: '{"path":"result.txt","content":"final"}',
+        } },
+      ] };
+      yield { type: 'terminal', finishReason: 'tool_calls' };
+      return;
+    }
+    const results = request.messages.filter((item) => item.role === 'tool');
+    assert.deepEqual(results.map((item) => item.tool_call_id), ['draft-write', 'final-write']);
+    assert.equal(results.every((item) => JSON.parse(item.content).status === 'succeeded'), true);
+    yield { type: 'text', text: 'The final file is complete.' };
+    yield { type: 'terminal' };
+  } };
+  const semanticReviewer = { async review() {
+    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
+  } };
+  const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider, semanticReviewer });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'ordered-writes', content: 'Create result.txt with final content.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(await readFile(join(root, 'result.txt'), 'utf8'), 'final');
+  assert.equal(engine.transcript.filter((item) => item.type === 'tool_result')
+    .every((item) => item.status === 'succeeded'), true);
+});
+
 test('AC-PERF-03/AC-TURN-05 configured independent reads execute concurrently but reinject in request order', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-concurrent-tools-'));
   const configured = resolveManifest({

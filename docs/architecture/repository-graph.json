@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:cff191cb68a30be3d675c377b057f628c30e64e0da532d87c4b6730cd7b00f35",
+  "source_digest": "sha256:896533af3f25a5b4fa8f4e34005cf2e0c6ce7979fb2b88bf28a847753132154f",
   "counts": {
-    "modules": 307,
+    "modules": 309,
     "component_edges": 68
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 35
+      "module_count": 37
     },
     {
       "id": "guidance",
@@ -123,16 +123,16 @@
       "module_count": 54
     },
     {
+      "from": "tools",
+      "to": "foundation",
+      "import_count": 46,
+      "module_count": 30
+    },
+    {
       "from": "reliability-engine",
       "to": "reliability-engine",
       "import_count": 44,
       "module_count": 21
-    },
-    {
-      "from": "tools",
-      "to": "foundation",
-      "import_count": 44,
-      "module_count": 28
     },
     {
       "from": "agentic-engine",
@@ -143,8 +143,8 @@
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 29,
-      "module_count": 5
+      "import_count": 32,
+      "module_count": 6
     },
     {
       "from": "agentic-engine",
@@ -2537,10 +2537,12 @@
         "src/skill-registry.js",
         "src/stale-edit-recovery.js",
         "src/subagent-tool.js",
+        "src/tools/argument-normalization.js",
         "src/tools/capability-activation.js",
         "src/tools/filesystem-canonical.js",
         "src/tools/filesystem-discovery.js",
         "src/tools/filesystem-extra.js",
+        "src/tools/filesystem-mutation-state.js",
         "src/tools/filesystem-read.js",
         "src/tools/git-inspection.js",
         "src/tools/lsp-diagnostics.js",
@@ -2566,6 +2568,14 @@
         "src/redaction.js",
         "src/reliability/command-shaping.js",
         "src/reliability/filesystem-recovery.js"
+      ]
+    },
+    {
+      "path": "src/tools/argument-normalization.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {
@@ -2614,7 +2624,8 @@
       "component": "tools",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/tools/argument-normalization.js"
       ]
     },
     {
@@ -2627,6 +2638,14 @@
     },
     {
       "path": "src/tools/filesystem-extra.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tools/filesystem-mutation-state.js",
       "component": "tools",
       "entrypoint": false,
       "imports": [
