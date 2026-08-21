@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { taskActivatedToolNames } from '../src/tools/capability-activation.js';
+import { actionOrientedIntent, taskActivatedToolNames } from '../src/tools/capability-activation.js';
 
 test('tool catalog keeps observational tools visible and effectful tools situational', async () => {
   const registry = new ToolRegistry(process.cwd());
@@ -68,6 +68,9 @@ test('authenticated task intent activates bounded effectful capability bundles',
   assert.ok(taskActivatedToolNames('diagnose the failed turn from the logs').includes('nna.diagnose_turn'));
   assert.equal(taskActivatedToolNames('research the latest release online').includes('web.search'), false);
   assert.ok(taskActivatedToolNames('run this direct executable with exact argv without a shell').includes('process.run'));
+  assert.equal(actionOrientedIntent('build and test the application'), true);
+  assert.equal(actionOrientedIntent('inspect and explain the repository structure'), false);
+  assert.equal(actionOrientedIntent('research the latest release online'), false);
 });
 
 test('hosted execution falls back to process.run when no shell tool exists', async () => {

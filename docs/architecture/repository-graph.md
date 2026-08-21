@@ -69,11 +69,11 @@ Counts represent static local imports. Same-component imports are included becau
 | Agentic Engine | Reliability Engine | 12 | 8 |
 | Governance Engine | Product foundation | 11 | 10 |
 | Product foundation | Providers | 10 | 8 |
+| Agentic Engine | Tools | 9 | 4 |
 | Guidance and extensions | Product foundation | 9 | 8 |
 | Persistence | Product foundation | 9 | 9 |
 | Reliability Engine | Product foundation | 9 | 9 |
 | Tools | Reliability Engine | 9 | 5 |
-| Agentic Engine | Tools | 8 | 4 |
 | Experience Engine | Persistence | 8 | 7 |
 | Product foundation | Persistence | 8 | 6 |
 | Integration surfaces | Integration surfaces | 8 | 4 |
@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:68698a3db886db7fb8af279c83efc919c632b1650c17fac3da98abb4e591e449`.
+Source fingerprint: `sha256:c3df47cfeb4f984ec4de4b2c343fa9ed303ce5093c8d1beacdf95d3c1e5a244f`.

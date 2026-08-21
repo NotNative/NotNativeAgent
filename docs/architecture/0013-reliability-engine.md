@@ -112,6 +112,10 @@ aliases to Reliability Engine-owned components. They do not represent independen
     that emitted OpenAI-compatible `reasoning_content` receives it back, and only on the same
     provider profile and model. The retained latest suffix is capped at 256 KiB and at most
     one quarter of the current input-context byte budget; older reasoning yields first.
+15. An action-oriented Primary turn begins with thinking disabled until its first tool result is
+    committed. This bounds speculative opening latency and obtains grounded evidence before deep
+    reasoning. The route's configured reasoning behavior resumes immediately afterward; read-only
+    analytical and conversational turns retain it from their first step.
 
 ## Consequences
 

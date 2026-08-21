@@ -5,6 +5,7 @@ import { toolCatalogContext } from '../tools/catalog-context.js';
 import { routeReasoningFields } from '../provider/reasoning.js';
 import { ContractError } from '../ids.js';
 import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
+import { actionOrientedIntent } from '../tools/capability-activation.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
@@ -80,6 +81,12 @@ export function resetStep(active) {
 
 export function modelStepRequestOptions(reasoningMode, active) {
   return { reasoningMode, outputReserveTokens: active.contextBudget?.outputReserveTokens };
+}
+
+export function openingActionReasoningMode(context, active, recoveryMode) {
+  if (recoveryMode === 'off') return 'off';
+  if (active.toolCalls === 0 && actionOrientedIntent(capabilitySelectionQuery(context))) return 'off';
+  return recoveryMode;
 }
 
 export function resetReasoningRecovery(active) {

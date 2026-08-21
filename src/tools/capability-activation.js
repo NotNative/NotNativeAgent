@@ -37,14 +37,26 @@ const INTENTS = Object.freeze([
   ['skill_workflow', /\b(?:devteam|skill|specialized workflow|troubleshoot workflow)\b/iu],
 ]);
 
+const OPENING_ACTION_BUNDLES = new Set([
+  'filesystem_mutation', 'execution', 'exact_process', 'elevation',
+  'delegation', 'reference_staging', 'notification',
+]);
+
 export function taskActivatedToolNames(query = '') {
-  const text = String(query).slice(0, 32_768);
-  if (!text.trim()) return Object.freeze([]);
+  const bundles = activatedBundles(query);
   const names = new Set();
-  for (const [bundle, pattern] of INTENTS) {
-    if (pattern.test(text)) for (const name of BUNDLES[bundle]) names.add(name);
-  }
+  for (const bundle of bundles) for (const name of BUNDLES[bundle]) names.add(name);
   return Object.freeze([...names]);
+}
+
+export function actionOrientedIntent(query = '') {
+  return activatedBundles(query).some((bundle) => OPENING_ACTION_BUNDLES.has(bundle));
+}
+
+function activatedBundles(query) {
+  const text = String(query).slice(0, 32_768);
+  if (!text.trim()) return [];
+  return INTENTS.filter(([, pattern]) => pattern.test(text)).map(([bundle]) => bundle);
 }
 
 export const TOOL_CAPABILITY_BUNDLES = BUNDLES;

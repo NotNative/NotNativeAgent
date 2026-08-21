@@ -293,6 +293,41 @@ test('AC-PROV-02 reasoning is typed and counted without entering transcript or o
   assert.equal(output.some((item) => item.type === 'state_status' && item.semantic_state === 'reasoning'), true);
 });
 
+test('action-oriented turns disable opening-step thinking and restore route defaults after tool evidence', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-opening-action-thinking-'));
+  await writeFile(join(root, 'target.txt'), 'verified evidence', 'utf8');
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length === 1) {
+      yield* toolCall('opening-action-read', 'target.txt');
+      return;
+    }
+    yield { type: 'text', text: 'The build can now continue from verified evidence.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'opening-action-thinking', content: 'Build the project after reading target.txt.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.deepEqual(requests.map((request) => request.reasoningMode), ['off', undefined]);
+});
+
+test('read-only analytical turns retain configured opening-step reasoning', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-opening-analysis-thinking-'));
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    yield { type: 'text', text: 'Analysis complete.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'opening-analysis-thinking', content: 'Inspect and explain the repository structure.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(requests[0].reasoningMode, undefined);
+});
+
 test('reasoning-only output receives one reasoning-disabled retry before normal empty recovery', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-empty-'));
   const requests = [];
