@@ -29,6 +29,7 @@ import {
 import {
   appendReasoningChunk, boundedReasoningContinuations, captureReasoningContinuation,
 } from './reliability/reasoning-continuity.js';
+import { trustedToolHandoff } from './reliability/trusted-tool-handoff.js';
 
 export class ReliabilityEngine {
   constructor(options = {}) {
@@ -135,6 +136,7 @@ export class ReliabilityEngine {
   reasoningOnly(active) { return reasoningOnlyDecision(active); }
   toolProgressEvidence(items, steeringApplied = [], options = {}) { return toolProgressEvidence(items, steeringApplied, options); }
   toolFailureFingerprint(items) { return toolFailureFingerprint(items); }
+  trustedToolHandoff(items) { return trustedToolHandoff(items); }
   hostEnvironment(platform) { return hostEnvironment(platform); }
   hostEnvironmentInstruction(platform) { return hostEnvironmentInstruction(platform); }
   shellToolGuidance(platform) { return shellToolGuidance(platform); }
@@ -169,6 +171,7 @@ export class ReliabilityEngine {
       provider_envelope_accounting: true,
       durable_token_receipts: true,
       ephemeral_reasoning_continuity: true,
+      trusted_tool_handoffs: true,
     });
   }
 }

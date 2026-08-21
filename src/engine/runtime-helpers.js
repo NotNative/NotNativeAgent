@@ -60,6 +60,12 @@ export function executionContext(engine, active) {
   };
 }
 
+export function prepareTrustedToolHandoff(engine, items) {
+  const handoff = engine.reliability.trustedToolHandoff(items);
+  if (handoff) engine.tools.expose(handoff.expose);
+  return handoff;
+}
+
 export function resetStep(active) {
   // `active` is the single engine-owned mutable accumulator for the current turn; reset it in place
   // so lifecycle and provider callbacks retain the same authoritative identity across model steps.

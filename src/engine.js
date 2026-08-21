@@ -19,7 +19,8 @@ import { userDataPaths } from './product.js';
 import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
-  executionContext, modelStepRequestOptions, providerRequest, resetReasoningRecovery, resetStep, toolContext,
+  executionContext, modelStepRequestOptions, prepareTrustedToolHandoff, providerRequest,
+  resetReasoningRecovery, resetStep, toolContext,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
 import { recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
@@ -316,7 +317,7 @@ export class SessionEngine {
       await this.#persist('message', assistantMessage(active.turnId, active.stepText, { stepId: active.stepId }));
       active.committedStepText = active.stepText;
     }
-    const items = await this.toolLoop.process(calls, active);
+    const items = await this.toolLoop.process(calls, active); const trustedHandoff = prepareTrustedToolHandoff(this, items);
     const delegatedAccounting = items.map((item) => item.result?.metadata?.token_accounting).filter(Boolean);
     if (delegatedAccounting.length > 0) active.delegatedTokenAccounting = this.reliability.combineTokenAccounting([
       active.delegatedTokenAccounting, ...delegatedAccounting,
@@ -335,7 +336,7 @@ export class SessionEngine {
     if (!progress.continue) return { exhausted: true, category: 'tool_no_progress', count: progress.count };
     this.state.transition('preparing_continuation', { trigger: 'tool_results_committed', turnId: active.turnId });
     return {
-      continue: true, hint: toolContinuationHint(items, this.reliability.hint(progress.action)),
+      continue: true, hint: trustedHandoff?.hint ?? toolContinuationHint(items, this.reliability.hint(progress.action)),
       forceCompact: progress.action?.action === 'compact',
     };
   }

@@ -237,7 +237,8 @@ The global WebSearch tool is:
 - `web.browse`: operate one headless, ephemeral Chromium context for the current standalone
   NNA session. It can navigate, return bounded page text and stable element references,
   interact with a selected element, save a managed screenshot, and close itself. Screenshot
-  capture returns the durable PNG path as a completed browser result; `image.inspect` performs
+  capture returns the durable PNG path as a completed browser result and deterministically exposes
+  `image.inspect` for the following model step; `image.inspect` performs
   optional visual interpretation in a separate provider-backed tool step. Read-only
   observation is deterministically safe after destination validation; screenshots, clicks, key
   presses, ordinary form entry, and Secret Broker field injection require semantic review.
