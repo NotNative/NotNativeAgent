@@ -373,7 +373,7 @@ export function toolContinuationHint(items, fallback = null) {
       const signal = item.result?.metadata?.signal;
       return `${item.result.tool_name}: ${signal ? `signal ${signal}` : `exit ${code ?? 'nonzero'}`}`;
     });
-    return `The command completed without an accepted success status (${exits.join(', ')}). Treat its stdout and stderr as diagnostic output, not successful evidence. If the program documents that exit code as an expected result, declare it in accepted_exit_codes on a focused call. Otherwise correct the command, arguments, or underlying condition before retrying; do not repeat the same invocation unchanged.`;
+    return `The command completed without an accepted success status (${exits.join(', ')}). Treat its stdout and stderr as diagnostic progress, not successful verification evidence. If the program documents that exit code as an expected result, declare it in accepted_exit_codes on a focused call. Otherwise correct the command, arguments, or underlying condition before retrying; do not repeat the same invocation unchanged.`;
   }
   const invalid = items.filter((item) => item.result?.status === 'invalid_request');
   if (invalid.length > 0) {

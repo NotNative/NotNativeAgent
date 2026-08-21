@@ -44,9 +44,13 @@ supervisor, so progress fingerprints, episode counts, and recovery actions never
 carry into the next turn. Distinct repeated tool-request fingerprints also own
 distinct episodes; unrelated read-only exploration cannot jointly exhaust one
 generic tool-no-progress counter. The ladder records a nudge and deterministic
-context compaction before exhaustion. New authenticated steering or a unique
-successful tool-result fingerprint is progress evidence. Distinct progressing
-steps continue for as long as they produce distinct verified progress. There is no
+context compaction before exhaustion. New authenticated steering, a unique
+successful tool-result fingerprint, or the first completed-nonzero diagnostic
+for a distinct tool invocation is progress evidence. A completed-nonzero result
+does not become successful verification: it only proves that the command ran and
+returned new negative evidence. Repeating the same tool and arguments receives
+no additional progress credit, even if volatile output such as timestamps changes.
+Distinct progressing steps continue for as long as they produce distinct verified progress. There is no
 generic productive-step cutoff. No-progress exhaustion ends the turn as incomplete
 with a concise explanation to the operator; it records completed progress, recovery
 actions, the last checkpoint, remaining work, effect certainty, and a safe resumption

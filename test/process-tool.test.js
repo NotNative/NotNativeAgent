@@ -69,7 +69,7 @@ test('AC-FAIL-07 Windows process timeout terminates descendants', { skip: proces
   }
 });
 
-test('unexpected nonzero process exits preserve diagnostics as completed unsuccessful evidence', async () => {
+test('unexpected nonzero process exits preserve diagnostics without becoming successful verification', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-failure-'));
   await writeFile(join(root, 'fail.js'), "process.stdout.write('partial output');process.stderr.write('diagnostic');process.exitCode=7;\n");
   const registry = new ToolRegistry(root);
@@ -83,7 +83,9 @@ test('unexpected nonzero process exits preserve diagnostics as completed unsucce
   assert.deepEqual(result.metadata, { exitCode: 7, signal: null, acceptedExitCodes: [0], shell: false });
   assert.equal(output.stdout, 'partial output');
   assert.equal(output.stderr, 'diagnostic');
-  assert.equal(toolProgressEvidence([{ request: normalized, result }]), null);
+  const progress = toolProgressEvidence([{ request: normalized, result }]);
+  assert.equal(progress.detail.summary.successful_tool_calls, 0);
+  assert.equal(progress.detail.summary.diagnostic_tool_calls, 1);
 });
 
 test('process tools accept only explicit bounded exit-code protocols containing zero', async () => {
@@ -235,7 +237,9 @@ test('shell.run reports completed nonzero when earlier compound-script effects o
   assert.equal(result.reasonCode, 'process_exit_nonzero');
   assert.equal(result.metadata.exitCode, 9);
   assert.equal(await readFile(join(root, 'partial.txt'), 'utf8'), 'done');
-  assert.equal(toolProgressEvidence([{ request: normalized, result }]), null);
+  const progress = toolProgressEvidence([{ request: normalized, result }]);
+  assert.equal(progress.detail.summary.successful_tool_calls, 0);
+  assert.equal(progress.detail.summary.diagnostic_tool_calls, 1);
 });
 
 test('Unix predicate commands can explicitly accept documented negative results', { skip: process.platform === 'win32' }, async () => {

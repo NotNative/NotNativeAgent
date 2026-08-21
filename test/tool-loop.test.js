@@ -14,6 +14,7 @@ import { ContractError } from '../src/ids.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { denialResult } from '../src/tools/governor.js';
+import { RecoverySupervisor } from '../src/recovery.js';
 import { declaredSubscription } from './event-fixture.js';
 import { ToolLoop, toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from '../src/tools/loop.js';
 import { selfDiagnosticsDefinitions } from '../src/tools/self-diagnostics.js';
@@ -31,6 +32,50 @@ test('different search arguments count as progress even when their results are i
     result: { status: 'succeeded', tool_name: 'fs.search_text', content: 'no text matches' },
   });
   assert.notEqual(toolProgressEvidence([item('alpha')], 0).value, toolProgressEvidence([item('beta')], 0).value);
+});
+
+test('completed nonzero commands provide diagnostic progress once per distinct invocation', () => {
+  const diagnostic = (script, content) => ({
+    request: { args: { script, shell: 'auto' } },
+    result: {
+      status: 'completed_nonzero', tool_name: 'shell.run', reason_code: 'process_exit_nonzero', content,
+      metadata: { exitCode: 1, signal: null },
+    },
+  });
+  const first = toolProgressEvidence([diagnostic('check alpha', 'missing alpha at 10:01')]);
+  const volatileRepeat = toolProgressEvidence([diagnostic('check alpha', 'missing alpha at 10:02')]);
+  const changedApproach = toolProgressEvidence([diagnostic('check beta', 'missing beta at 10:02')]);
+
+  assert.equal(first.detail.summary.successful_tool_calls, 0);
+  assert.equal(first.detail.summary.diagnostic_tool_calls, 1);
+  assert.equal(first.value, volatileRepeat.value);
+  assert.notEqual(first.value, changedApproach.value);
+  assert.equal(toolProgressEvidence([{
+    request: { args: { script: 'check alpha' } },
+    result: { status: 'failed', tool_name: 'shell.run', content: 'transport failed' },
+  }]), null);
+});
+
+test('long productive workflows may use many distinct negative diagnostics without consuming recovery', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  let lastEvidence;
+  for (let index = 0; index < 80; index += 1) {
+    lastEvidence = toolProgressEvidence([{
+      request: { args: { executable: 'probe', args: [`candidate-${index}`] } },
+      result: {
+        status: 'completed_nonzero', tool_name: 'process.run', reason_code: 'process_exit_nonzero',
+        content: `candidate ${index} was not present`, metadata: { exitCode: 1, signal: null },
+      },
+    }]);
+    assert.equal(recovery.noProgress('tool_no_progress', lastEvidence).progress, true);
+  }
+  assert.equal(recovery.actions.length, 0);
+
+  assert.equal(recovery.noProgress('tool_no_progress', lastEvidence).count, 1);
+  assert.equal(recovery.noProgress('tool_no_progress', lastEvidence).count, 2);
+  assert.deepEqual(recovery.noProgress('tool_no_progress', lastEvidence), {
+    continue: false, exhausted: true, count: 3,
+  });
 });
 
 test('failure fingerprints group the same repair condition but isolate different tools and messages', () => {
@@ -118,14 +163,14 @@ test('failed web fetch continuation requires browser fallback before abandoning 
   assert.match(hint, /Do not end the research merely because WebFetch failed/iu);
 });
 
-test('failed process continuation treats captured output as diagnostics instead of progress', () => {
+test('completed nonzero continuation distinguishes diagnostic progress from successful verification', () => {
   const hint = toolContinuationHint([{
     result: {
-      status: 'failed', tool_name: 'shell.run', reason_code: 'process_exit_nonzero',
+      status: 'completed_nonzero', tool_name: 'shell.run', reason_code: 'process_exit_nonzero',
       metadata: { exitCode: 1, signal: null },
     },
   }], 'generic recovery');
-  assert.match(hint, /shell\.run: exit 1[^]*diagnostic output, not successful evidence[^]*do not repeat/iu);
+  assert.match(hint, /shell\.run: exit 1[^]*diagnostic progress, not successful verification evidence[^]*do not repeat/iu);
 });
 
 test('denial results distinguish recoverable review constraints from policy and availability failures', () => {

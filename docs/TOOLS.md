@@ -93,7 +93,10 @@ Both process tools accept a bounded `accepted_exit_codes` list that must contain
 default is `[0]`; additional codes are appropriate only for focused commands whose documented
 result protocol uses them, such as `diff` or `grep` returning one for a negative predicate.
 An unexpected nonzero exit is recorded as completed nonzero rather than a launch failure, remains
-unsuccessful evidence, and is shown as an amber Console result. Compound scripts should keep
+unsuccessful verification evidence, and is shown as an amber Console result. Its first distinct
+invocation counts as diagnostic progress because the command ran and returned bounded negative
+evidence; repeating identical tool arguments does not earn progress again, even when incidental
+output changes. Compound scripts should keep
 mutations separate from verification, and `pipefail` pipelines should avoid early-closing consumers
 such as `head` when an upstream `SIGPIPE` would be mistaken for a failed check.
 

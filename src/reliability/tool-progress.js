@@ -6,29 +6,40 @@ export function toolProgressEvidence(items, steeringApplied = [], options = {}) 
   const prerequisites = options.constraints?.filter((item) => item.kind === 'prerequisite_repair') ?? [];
   const successes = items.filter((item) => item.result.status === 'succeeded'
     && (prerequisites.length === 0 || prerequisites.some((prerequisite) => satisfiesFilesystemPrerequisite(item, prerequisite))));
+  const diagnostics = prerequisites.length === 0
+    ? items.filter((item) => item.result.status === 'completed_nonzero')
+    : [];
+  const completed = [...successes, ...diagnostics];
   const steeringIds = Array.isArray(steeringApplied)
     ? steeringApplied.filter((item) => typeof item === 'string' && item.length > 0)
     : [];
-  if (successes.length === 0 && steeringIds.length === 0) return null;
+  if (completed.length === 0 && steeringIds.length === 0) return null;
   const hash = createHash('sha256');
   const requestFingerprints = [];
-  for (const item of successes) {
-    hash.update(item.result.tool_name);
+  for (const item of completed) {
+    const toolName = item.result.tool_name ?? item.request?.toolName ?? 'unknown';
+    hash.update(toolName);
     hash.update(item.result.status);
     hash.update(stableJson(item.request?.args ?? {}));
-    hash.update(item.result.content);
+    // Successful observations may legitimately change while the request stays
+    // constant. A nonzero diagnostic earns progress once per invocation shape;
+    // volatile timestamps or counters in repeated output must not defeat the
+    // unchanged-request loop boundary.
+    if (item.result.status === 'succeeded') hash.update(item.result.content);
     requestFingerprints.push(createHash('sha256')
-      .update(item.result.tool_name).update('\0').update(stableJson(item.request?.args ?? {})).digest('hex'));
+      .update(toolName).update('\0').update(stableJson(item.request?.args ?? {})).digest('hex'));
   }
   for (const steeringId of steeringIds) hash.update('\0steering\0').update(steeringId);
   return {
     value: hash.digest('hex'),
     detail: {
-      kind: successes.length > 0 ? 'tool_results' : 'operator_steering',
-      checkpoint: successes.length > 0 ? 'tool_results_committed' : 'steering_consumed',
+      kind: completed.length > 0 ? 'tool_results' : 'operator_steering',
+      checkpoint: completed.length > 0 ? 'tool_results_committed' : 'steering_consumed',
       summary: {
         successful_tool_calls: successes.length,
-        tool_names: [...new Set(successes.map((item) => item.result.tool_name))].slice(0, 16),
+        ...(diagnostics.length > 0 ? { diagnostic_tool_calls: diagnostics.length } : {}),
+        tool_names: [...new Set(completed
+          .map((item) => item.result.tool_name ?? item.request?.toolName ?? 'unknown'))].slice(0, 16),
         request_fingerprints: [...new Set(requestFingerprints)].slice(0, 16),
         ...(steeringIds.length > 0 ? { consumed_steering_messages: steeringIds.length } : {}),
       },
