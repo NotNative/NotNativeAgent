@@ -13,7 +13,7 @@ export function webBrowseDefinition(options = {}) {
   const manager = options.manager ?? new BrowserSessionManager(options);
   const definition = {
     name: 'web.browse', version: 1,
-    purpose: 'Operate an ephemeral Chromium session. This is the required fallback for a verified exact URL that web.fetch could not retrieve: navigate to the same URL, then inspect it. In a standalone root Console, an exact HTTP(S) loopback development URL such as localhost may be proposed for reviewer approval; this does not trust LAN hosts or web.fetch. It can also click controls, fill non-secret values, inject a named secret field without exposing it to the model, press keys, save a screenshot, or close the browser. A screenshot is automatically routed through NNA image observation when the configured primary or vision route accepts images, and the visual observation is returned in the same tool result. Use inspect after navigation to obtain stable element references such as e1.',
+    purpose: 'Operate an ephemeral Chromium session. This is the required fallback for a verified exact URL that web.fetch could not retrieve: navigate to the same URL, then inspect it. In a standalone root Console, an exact HTTP(S) loopback development URL such as localhost may be proposed for reviewer approval; this does not trust LAN hosts or web.fetch. It can also click controls, fill non-secret values, inject a named secret field without exposing it to the model, press keys, save a screenshot, or close the browser. Screenshot capture returns a durable PNG path immediately; use image.inspect in a separate tool call when visual interpretation is needed. Use inspect after navigation to obtain stable element references such as e1.',
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 60_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['action'], properties: {
@@ -41,7 +41,6 @@ export class BrowserSessionManager {
     this.policy = options.policy ?? new WebFetchDestinationPolicy(options.configPath);
     this.resolveHost = options.resolveHost;
     this.secretBroker = options.secretBroker ?? null;
-    this.observeScreenshot = options.observeScreenshot ?? null;
     this.sessionId = options.sessionId ?? 'session';
     this.browser = null; this.context = null; this.page = null; this.pagePromise = null;
     this.activeLoopbackOrigin = null;
@@ -87,7 +86,7 @@ export class BrowserSessionManager {
       await mkdir(this.root, { recursive: true, mode: 0o700 });
       const path = join(this.root, `screenshot-${Date.now()}.png`);
       await page.screenshot({ path, fullPage: true });
-      return this.#screenshotResult(path, page, signal);
+      return result(`Screenshot saved: ${path}\n\nUse image.inspect with this exact path when visual interpretation is needed.`, metadata('screenshot', page, { path }));
     }
     const locator = this.#locator(page, args.target);
     if (args.action === 'click') await locator.click({ timeout: 15_000 });
@@ -96,28 +95,6 @@ export class BrowserSessionManager {
     else if (args.action === 'fill_secret') await this.#fillSecret(locator, args, page, execution);
     this.refs.clear();
     return result(await this.#summary(page), metadata(args.action, page));
-  }
-
-  async #screenshotResult(path, page, signal) {
-    if (!this.observeScreenshot) {
-      return result(`Screenshot saved: ${path}\n\nVisual observation unavailable: no managed image observer is configured.`, metadata('screenshot', page, {
-        path, visualObservation: 'unavailable', visualReason: 'image_observer_unavailable',
-      }));
-    }
-    try {
-      const observation = await this.observeScreenshot(path, signal);
-      const text = String(observation?.text ?? '').trim().slice(0, MAX_TEXT);
-      if (!text) throw new ContractError('attachment_empty_observation', 'image observer returned no visual description');
-      const route = observation?.route === 'vision' ? 'vision' : 'primary';
-      return result(`Screenshot saved: ${path}\n\nVisual observation (${route} route):\n${text}`, metadata('screenshot', page, {
-        path, visualObservation: 'completed', visualRoute: route,
-      }));
-    } catch (error) {
-      const reason = typeof error?.code === 'string' ? error.code : 'image_observation_failed';
-      return result(`Screenshot saved: ${path}\n\nVisual observation unavailable: ${reason}.`, metadata('screenshot', page, {
-        path, visualObservation: 'unavailable', visualReason: reason,
-      }));
-    }
   }
 
   async close() {

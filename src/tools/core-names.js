@@ -8,7 +8,7 @@ export const CORE_TOOL_NAMES = Object.freeze([
 
 export const PROVIDER_NATIVE_TOOL_NAMES = Object.freeze([
   ...CORE_TOOL_NAMES,
-  'fs.directory', 'fs.write_text', 'fs.edit_text', 'shell.run', 'work.plan', 'agent.run',
+  'fs.directory', 'fs.write_text', 'fs.edit_text', 'shell.run', 'work.plan', 'agent.run', 'image.inspect',
   'session.search_history', 'session.read_history', 'nna.diagnose_turn', 'notification.telegram',
 ]);
 

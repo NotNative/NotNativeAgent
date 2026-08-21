@@ -236,9 +236,9 @@ The global WebSearch tool is:
   responses are rejected. Origin trust never acts as a subnet wildcard.
 - `web.browse`: operate one headless, ephemeral Chromium context for the current standalone
   NNA session. It can navigate, return bounded page text and stable element references,
-  interact with a selected element, save a managed screenshot, and close itself. A screenshot
-  is automatically offered to the primary image-input path with configured vision fallback;
-  its bounded visual observation is returned in the same tool result. Read-only
+  interact with a selected element, save a managed screenshot, and close itself. Screenshot
+  capture returns the durable PNG path as a completed browser result; `image.inspect` performs
+  optional visual interpretation in a separate provider-backed tool step. Read-only
   observation is deterministically safe after destination validation; screenshots, clicks, key
   presses, ordinary form entry, and Secret Broker field injection require semantic review.
   Standalone root sessions may also propose an exact `localhost`, `127.0.0.1`, or `[::1]`

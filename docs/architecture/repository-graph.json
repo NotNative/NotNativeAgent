@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:740181314b54fbb8553a32568e43f475f9d101591733f9429c03c273626f6925",
+  "source_digest": "sha256:b930002ddf2356651a42aa8b809799b5bf1e666ed66cd26008a88ff82dd555ce",
   "counts": {
-    "modules": 309,
+    "modules": 310,
     "component_edges": 68
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 37
+      "module_count": 38
     },
     {
       "id": "guidance",
@@ -125,8 +125,8 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 46,
-      "module_count": 30
+      "import_count": 47,
+      "module_count": 31
     },
     {
       "from": "reliability-engine",
@@ -143,7 +143,7 @@
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 32,
+      "import_count": 33,
       "module_count": 6
     },
     {
@@ -2545,6 +2545,7 @@
         "src/tools/filesystem-mutation-state.js",
         "src/tools/filesystem-read.js",
         "src/tools/git-inspection.js",
+        "src/tools/image-inspection.js",
         "src/tools/lsp-diagnostics.js",
         "src/tools/process.js",
         "src/tools/project-verification.js",
@@ -2675,6 +2676,14 @@
       "imports": [
         "src/ids.js",
         "src/persistence/reviewer-ledger.js"
+      ]
+    },
+    {
+      "path": "src/tools/image-inspection.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {

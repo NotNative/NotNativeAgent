@@ -201,9 +201,10 @@ function browserToolOptions(engine, options, imageObserver) {
     browserRoot: join(engine.dataPaths.root ?? defaults.root, 'runtime', 'browser', engine.sessionId),
     managedPlaywrightRoot: options.managedPlaywrightRoot ?? engine.dataPaths.managedPlaywright ?? defaults.managedPlaywright,
     secretBroker: options.secretBroker, sessionId: engine.sessionId,
-    observeBrowserScreenshot: (path, signal) => (engine.attachments?.router ?? imageObserver).observe({
-      managedPath: path, mimeType: 'image/png',
-    }, 'Visually inspect this browser screenshot. Describe the rendered scene, layout, visible defects, missing content, and evidence relevant to verifying the active task.', signal),
+    observeImage: (path, mimeType, prompt, signal) => (engine.attachments?.router ?? imageObserver).observe({
+      managedPath: path, mimeType,
+    }, prompt, signal),
+    imageMaxBytes: engine.config.attachments.maxBytes,
   };
 }
 
