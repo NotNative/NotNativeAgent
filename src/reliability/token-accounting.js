@@ -28,6 +28,8 @@ export function measureProviderEnvelope(request, context = [], options = {}) {
     reserved_output_tokens: outputReserve,
     reserved_total_tokens: inputTokens + outputReserve,
     configured_output_limit_tokens: positiveInteger(request.maxOutputTokens),
+    configuration: providerConfiguration(request),
+    shape: providerRequestShape(request),
     sections: Object.freeze(inventory),
   });
 }
@@ -187,6 +189,50 @@ function inventoryItem([id, value]) {
 function requestConfiguration(request) {
   const { messages: _messages, tools: _tools, ...configuration } = request;
   return configuration;
+}
+
+function providerConfiguration(request) {
+  return Object.freeze({
+    temperature: fieldState(Number.isFinite(request.temperature), request.temperature),
+    max_output_tokens: fieldState(positiveInteger(request.maxOutputTokens) !== null, positiveInteger(request.maxOutputTokens)),
+    reasoning_effort: fieldState(typeof request.reasoningEffort === 'string', request.reasoningEffort),
+    enable_thinking: fieldState(typeof request.enableThinking === 'boolean', request.enableThinking),
+    reasoning_mode: fieldState(typeof request.reasoningMode === 'string', request.reasoningMode),
+    tool_choice: request.tools.length > 0 ? 'auto' : null,
+  });
+}
+
+function fieldState(sent, value) {
+  return Object.freeze({ sent, value: sent ? value : null });
+}
+
+function providerRequestShape(request) {
+  const roles = {};
+  let assistantToolCallMessages = 0; let toolCalls = 0; let maxToolCallsPerMessage = 0;
+  for (const message of request.messages) {
+    const role = sectionLabel(message?.role ?? 'unknown');
+    roles[role] = (roles[role] ?? 0) + 1;
+    const calls = Array.isArray(message?.tool_calls) ? message.tool_calls.length : 0;
+    if (calls > 0) assistantToolCallMessages += 1;
+    toolCalls += calls; maxToolCallsPerMessage = Math.max(maxToolCallsPerMessage, calls);
+  }
+  const tools = request.tools.slice(0, 128).map((tool) => Object.freeze({
+    name: boundedToolName(tool?.function?.name), schema_bytes: serializedBytes(tool),
+  }));
+  return Object.freeze({
+    message_count: request.messages.length,
+    message_roles: Object.freeze(roles),
+    assistant_tool_call_messages: assistantToolCallMessages,
+    tool_call_count: toolCalls,
+    max_tool_calls_per_message: maxToolCallsPerMessage,
+    tool_schema_count: request.tools.length,
+    tool_schema_bytes: request.tools.reduce((total, tool) => total + serializedBytes(tool), 0),
+    tools: Object.freeze(tools),
+  });
+}
+
+function boundedToolName(value) {
+  return typeof value === 'string' && value.length > 0 ? value.slice(0, 128) : 'unnamed';
 }
 
 function validateRequest(request) {

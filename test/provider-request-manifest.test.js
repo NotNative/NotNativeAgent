@@ -46,6 +46,9 @@ test('provider request manifest is durable, content-free, and precedes provider 
   assert.match(manifest.requestFingerprint, /^[a-f0-9]{64}$/u);
   assert.equal(manifest.envelope.schema, 'nna.provider-envelope.v1');
   assert.ok(manifest.envelope.estimated_input_tokens > 0);
+  assert.equal(manifest.envelope.configuration.temperature.sent, false);
+  assert.ok(manifest.envelope.shape.message_count > 0);
+  assert.ok(manifest.envelope.shape.tool_schema_count > 0);
   assert.equal(JSON.stringify(manifest).includes(secretMarker), false);
   await store.close();
 });

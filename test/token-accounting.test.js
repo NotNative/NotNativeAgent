@@ -18,7 +18,7 @@ test('complete provider envelope inventories prompt sections, schemas, configura
   const request = {
     model: 'qwen', messages: [{ role: 'system', content: 'dialect' }, ...context],
     tools: [{ type: 'function', function: { name: 'read', parameters: { type: 'object' } } }],
-    temperature: 0, maxOutputTokens: 2048,
+    temperature: 0, maxOutputTokens: 2048, reasoningEffort: 'medium', enableThinking: true,
   };
   const envelope = measureProviderEnvelope(request, context, { outputReserveTokens: 1024 });
   assert.equal(envelope.reserved_total_tokens, envelope.estimated_input_tokens + 1024);
@@ -27,8 +27,48 @@ test('complete provider envelope inventories prompt sections, schemas, configura
     'request.tool_schemas', 'request.configuration',
   ]);
   assert.ok(envelope.sections.every((item) => item.bytes > 0 && item.estimated_tokens > 0));
+  assert.deepEqual(envelope.configuration, {
+    temperature: { sent: true, value: 0 },
+    max_output_tokens: { sent: true, value: 2048 },
+    reasoning_effort: { sent: true, value: 'medium' },
+    enable_thinking: { sent: true, value: true },
+    reasoning_mode: { sent: false, value: null },
+    tool_choice: 'auto',
+  });
+  assert.deepEqual(envelope.shape.message_roles, { system: 1, user: 1 });
+  assert.equal(envelope.shape.tool_schema_count, 1);
+  assert.equal(envelope.shape.tools[0].name, 'read');
+  assert.ok(envelope.shape.tools[0].schema_bytes > 0);
+  assert.equal(envelope.shape.tool_call_count, 0);
   assert.throws(() => assertProviderEnvelopeFits(envelope, { scaledTokens: 1 }), { code: 'context_too_large' });
   assert.equal(assertProviderEnvelopeFits(envelope, { scaledTokens: 100_000, windowTokens: 100_000 }), true);
+});
+
+test('provider envelope reports canonical multi-call message shape without retaining content or arguments', () => {
+  const secret = 'must-not-enter-redacted-envelope';
+  const request = {
+    model: 'qwen', temperature: null, maxOutputTokens: null,
+    messages: [
+      { role: 'assistant', content: secret, tool_calls: [
+        { id: 'call-a', type: 'function', function: { name: 'fs.read', arguments: JSON.stringify({ path: secret }) } },
+        { id: 'call-b', type: 'function', function: { name: 'web.search', arguments: JSON.stringify({ query: secret }) } },
+      ] },
+      { role: 'tool', tool_call_id: 'call-a', content: secret },
+      { role: 'tool', tool_call_id: 'call-b', content: secret },
+    ],
+    tools: [
+      { type: 'function', function: { name: 'fs.read', description: secret, parameters: { type: 'object' } } },
+      { type: 'function', function: { name: 'web.search', description: secret, parameters: { type: 'object' } } },
+    ],
+  };
+  const envelope = measureProviderEnvelope(request, request.messages);
+  assert.deepEqual(envelope.shape.message_roles, { assistant: 1, tool: 2 });
+  assert.equal(envelope.shape.assistant_tool_call_messages, 1);
+  assert.equal(envelope.shape.tool_call_count, 2);
+  assert.equal(envelope.shape.max_tool_calls_per_message, 2);
+  assert.deepEqual(envelope.shape.tools.map((item) => item.name), ['fs.read', 'web.search']);
+  assert.equal(envelope.configuration.temperature.sent, false);
+  assert.equal(JSON.stringify({ configuration: envelope.configuration, shape: envelope.shape }).includes(secret), false);
 });
 
 test('token receipts keep provider measurements separate from estimates for unreported attempts', () => {
