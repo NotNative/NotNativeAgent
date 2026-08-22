@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:5918ba8c795cc690fdc9daf017e56d9db2cb9aae93e35738286ae45006e2a1e4",
+  "source_digest": "sha256:e7e342e7f08b89921a1d3483158431e3a9f8f7b3160cdbb2fed240a63d296e0e",
   "counts": {
-    "modules": 312,
+    "modules": 313,
     "component_edges": 68
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "agentic-engine",
       "label": "Agentic Engine",
       "ownership": "Owns turns, steps, lifecycle, and orchestration.",
-      "module_count": 15
+      "module_count": 16
     },
     {
       "id": "governance-engine",
@@ -149,7 +149,7 @@
     {
       "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 23,
+      "import_count": 24,
       "module_count": 6
     },
     {
@@ -832,6 +832,7 @@
         "src/engine/finalization.js",
         "src/engine/hooks.js",
         "src/engine/initialize.js",
+        "src/engine/intent-projection.js",
         "src/engine/lifecycle-settlement.js",
         "src/engine/output.js",
         "src/engine/persistence.js",
@@ -962,6 +963,12 @@
         "src/ids.js",
         "src/persistence/session-provenance.js"
       ]
+    },
+    {
+      "path": "src/engine/intent-projection.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/engine/lifecycle-settlement.js",

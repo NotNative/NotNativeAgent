@@ -42,7 +42,7 @@ export async function prepareEngineContext(engine, records, content, active, for
   );
   const cacheAlignedRequest = providerRequest(engine, routes[0], rawContext, {
     outputReserveTokens: planned.outputReserveTokens,
-    capabilityIntent: active.capabilityIntent,
+    conversationIntent: active.conversationIntent,
   });
   return compactContext(engine, records, content, active, operations, {
     routes, runtime, planned, budget, hardLimit, cacheAlignedRequest,
@@ -161,7 +161,7 @@ function validateCompactionCandidate(engine, fact, active, plan) {
 function assertCompleteEnvelope(engine, route, context, budget, active) {
   const request = providerRequest(engine, route, context, {
     outputReserveTokens: budget?.outputReserveTokens,
-    capabilityIntent: active.capabilityIntent,
+    conversationIntent: active.conversationIntent,
   });
   const envelope = engine.reliability.providerEnvelope(request, context, {
     outputReserveTokens: budget?.outputReserveTokens,

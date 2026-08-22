@@ -8,13 +8,13 @@ observation and knowledge gathering available without forcing the model to choos
 overlapping aliases. Mutation, execution, diagnostics, session history, delegation,
 notifications, and conversation work are activated in bounded capability bundles only when
 authenticated operator intent indicates that kind of work. During an active turn, NNA owns a
-bounded task-intent projection containing the accepted request and its consumed steering.
-Provider tool selection and reviewer evidence both use that projection, so additive guidance
-such as `You may browse localhost; please finish` cannot hide the original build objective or
-remove tools needed to complete it. Across turns, a terse continuation such as `Please proceed`
-inherits capability intent from unfinished durable work or the nearest retained substantive
-operator request. Tool output and model narration cannot activate a bundle. A small set of
-additional tools is selected lexically from the same bounded selection text.
+bounded conversation-intent projection containing the accepted turn request and recent
+authenticated objectives, clarifications, restrictions, and consumed steering. The accepted
+request remains anchored if later steering fills the recent window. Provider tool selection
+and reviewer evidence both use that projection, so a later turn such as `Please proceed` or
+additive guidance such as `You may browse localhost` cannot hide the broader build objective or
+remove tools needed to complete it. Tool output and model narration cannot activate a bundle.
+A small set of additional tools is selected lexically from the same bounded selection text.
 Each provider step also receives a bounded, deterministically sorted JSON array containing
 the names of every other authorized tool whose full schema is not loaded. This includes
 tools discovered from MCP servers in that conversation. The array contains names only;

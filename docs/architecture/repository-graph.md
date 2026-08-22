@@ -37,7 +37,7 @@ graph LR
 
 | Component | Modules | Imports from | Imported by |
 |---|---:|---|---|
-| Agentic Engine | 15 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
+| Agentic Engine | 16 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
 | Governance Engine | 10 | Governance Engine, Persistence, Product foundation, Tools | Agentic Engine, Experience Engine, Governance Engine, Guidance and extensions, Product foundation, Tools |
 | Experience Engine | 84 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Experience Engine, Product foundation |
 | Reliability Engine | 38 | Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Persistence, Product foundation, Providers, Reliability Engine, Tools |
@@ -62,7 +62,7 @@ Counts represent static local imports. Same-component imports are included becau
 | Reliability Engine | Reliability Engine | 45 | 21 |
 | Tools | Tools | 37 | 7 |
 | Agentic Engine | Product foundation | 34 | 13 |
-| Agentic Engine | Agentic Engine | 23 | 6 |
+| Agentic Engine | Agentic Engine | 24 | 6 |
 | Providers | Product foundation | 17 | 14 |
 | Integration surfaces | Product foundation | 16 | 10 |
 | Experience Engine | Providers | 13 | 8 |
@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:5918ba8c795cc690fdc9daf017e56d9db2cb9aae93e35738286ae45006e2a1e4`.
+Source fingerprint: `sha256:e7e342e7f08b89921a1d3483158431e3a9f8f7b3160cdbb2fed240a63d296e0e`.

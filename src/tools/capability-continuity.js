@@ -4,8 +4,8 @@ const OPERATOR_TRUST = 'operator';
 const WORK_PROVENANCE = 'conversation_work';
 const MAX_QUERY_BYTES = 32_768;
 
-export function capabilitySelectionQuery(context = [], activeTurnIntent = []) {
-  const anchored = boundedIntent(activeTurnIntent);
+export function capabilitySelectionQuery(context = [], conversationIntent = []) {
+  const anchored = boundedIntent(conversationIntent);
   const work = activeWorkIntent(context);
   if (anchored.length > 0) return joinBounded(...anchored, work ? 'active durable plan' : '');
   const latestIndex = findLatestOperator(context);

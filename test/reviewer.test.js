@@ -184,7 +184,7 @@ test('additive steering does not obscure the active build task from deterministi
   const approved = await reviewer.review(request, {
     ...context,
     definition: { name: 'fs.edit_text', sideEffect: 'reversible', scope: 'workspace' },
-    activeTaskIntent: [
+    conversationIntent: [
       'Build a realistic ocean scene with Three.js and verify it in the browser.',
       'You may browse localhost:8123 to check your work. Please proceed to finish.',
     ],
@@ -664,7 +664,9 @@ test('AC-AUTH-01 a newer target-specific restriction defeats an older mutation g
     semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'model_allowed' };
   } } });
   const decision = await reviewer.review(mutationRequest('restricted'), {
-    ...context, authority: { id: 'authority-1', mission: null, intent: [
+    ...context,
+    conversationIntent: ['Change target.txt', 'Do not change target.txt', 'Please proceed.'],
+    authority: { id: 'authority-1', mission: null, intent: [
       { content: 'Change target.txt', sequence: 1, kind: 'instruction' },
       { content: 'Do not change target.txt', sequence: 2, kind: 'restriction' },
       { content: 'Tell me the status', sequence: 3, kind: 'instruction' },

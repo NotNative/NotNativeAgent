@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { capabilitySelectionQuery, isTerseContinuation } from '../src/tools/capability-continuity.js';
 import { ToolRegistry } from '../src/tool-registry.js';
+import { projectConversationIntent } from '../src/engine/intent-projection.js';
 
 test('terse continuation inherits active unfinished work capability intent', async () => {
   const context = [
@@ -56,16 +57,22 @@ test('substantive new operator input replaces active work capability selection',
   assert.ok(visible.includes('work.plan'));
 });
 
-test('turn-scoped intent keeps task capabilities through additive permission steering', async () => {
+test('conversation intent keeps task capabilities through a later continuation turn', async () => {
   const original = 'Build and visually verify an ocean scene';
-  const steering = 'You may browse localhost:8123 to check your work. Please proceed to finish.';
+  const clarification = 'You may browse localhost:8123 to check your work.';
+  const continuation = 'Please proceed.';
   const context = [
     { role: 'user', content: original, trust: 'operator' },
-    { role: 'user', content: steering, trust: 'operator' },
+    { role: 'user', content: clarification, trust: 'operator' },
+    { role: 'user', content: continuation, trust: 'operator' },
   ];
-  const query = capabilitySelectionQuery(context, [original, steering]);
+  const conversationIntent = projectConversationIntent({ intent: [
+    { content: original }, { content: clarification }, { content: continuation },
+  ] });
+  const query = capabilitySelectionQuery(context, conversationIntent);
   assert.match(query, /Build and visually verify an ocean scene/u);
   assert.match(query, /localhost:8123/u);
+  assert.match(query, /Please proceed/u);
 
   const registry = new ToolRegistry(process.cwd(), { conversationWork: {} });
   await registry.initialize();
@@ -73,6 +80,24 @@ test('turn-scoped intent keeps task capabilities through additive permission ste
   for (const name of ['fs.write_text', 'fs.edit_text', 'fs.directory', 'web.browse']) {
     assert.ok(visible.includes(name), `${name} was not retained`);
   }
+});
+
+test('conversation intent projection is recent, chronological, and bounded', () => {
+  const intent = Array.from({ length: 10 }, (_, index) => ({ content: `objective ${index}` }));
+  const projection = projectConversationIntent({ intent });
+  assert.deepEqual(projection, Array.from({ length: 8 }, (_, index) => `objective ${index + 2}`));
+  assert.equal(Object.isFrozen(projection), true);
+});
+
+test('conversation intent projection retains the accepted turn anchor through later steering', () => {
+  const anchor = 'Build and verify the ocean scene';
+  const intent = [{ content: anchor }, ...Array.from({ length: 10 }, (_, index) => ({
+    content: `steering ${index}`,
+  }))];
+  const projection = projectConversationIntent({ intent }, { anchor });
+  assert.equal(projection.length, 8);
+  assert.equal(projection[0], anchor);
+  assert.equal(projection.at(-1), 'steering 9');
 });
 
 test('continuation classification is narrow and malformed work state fails closed', () => {

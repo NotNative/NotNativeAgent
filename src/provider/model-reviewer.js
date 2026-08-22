@@ -140,6 +140,7 @@ function reviewerPolicy() {
     'Do not require the operator to name ordinary intermediate commands or targets derived from causal evidence. Destructive effect alone is not a denial when it is proportionate and authorized.',
     'Deny for concrete divergence, contradiction, or disproportionate irreversible harm. Escalate only when genuine high-consequence ambiguity requires human judgment.',
     'Authenticated intent is chronological: a newer matching restriction, revocation, or narrowing controls over an older grant.',
+    'Conversation intent is a bounded recent projection for understanding the ongoing objective; use authenticated intent as the authority record.',
     'Unrelated later conversation does not erase an earlier scoped instruction; ambiguity or conflict fails closed.',
     'Do not call tools, rewrite arguments, infer authority, or claim prior permission.',
   ].join(' ');

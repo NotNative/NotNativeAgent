@@ -91,7 +91,7 @@ test('long current turns retain relevant earlier evidence beyond the newest caus
   assert.equal(packet.metadata.packetTruncated, true);
 });
 
-test('active task intent keeps earlier task evidence relevant after additive steering', () => {
+test('conversation intent keeps earlier task evidence relevant after later continuation turns', () => {
   const transcript = [
     { type: 'tool_result', turnId: 'current', requestId: 'render', toolName: 'web.browse', status: 'succeeded', content: 'Oceanview render loaded successfully.' },
     ...Array.from({ length: 12 }, (_, index) => ({
@@ -103,7 +103,11 @@ test('active task intent keeps earlier task evidence relevant after additive ste
   const packet = buildReviewEvidence(transcript, {
     currentRequestId: 'edit', currentTurnId: 'current', request: transcript.at(-1),
     authenticatedIntent: [{ content: 'You may browse localhost:8123. Please finish.' }],
-    activeTaskIntent: ['Build and visually verify the Oceanview scene.'],
+    conversationIntent: [
+      'Build and visually verify the Oceanview scene.',
+      'You may browse localhost:8123.',
+      'Please proceed.',
+    ],
   });
   assert.equal(packet.evidence.some((item) => item.recordIndex === 0), true);
 });
