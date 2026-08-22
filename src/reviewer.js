@@ -38,7 +38,9 @@ export class MandatoryReviewer {
       const entry = await this.ledger.propose(request, classification);
       let decision;
       const missionViolation = missionBoundaryViolation(request, context.definition, context.authority?.mission);
-      const intentRelation = authenticatedIntentRelation(request, context.authority, context.definition);
+      const intentRelation = authenticatedIntentRelation(
+        request, context.authority, context.definition, context.activeTaskIntent,
+      );
       if (missionViolation) decision = hardDeny(missionViolation, request);
       else if (context.authority?.complete === false && !context.authority?.mission && classification.risk !== 'safe') {
         decision = deny(
@@ -94,6 +96,7 @@ export class MandatoryReviewer {
       request: safeReviewRequest(request, resolvedOutsideWorkspace(request)), classification: classify(request, context.definition),
       toolDefinition: safeReviewDefinition(context.definition),
       authenticatedIntent: context.authority.intent,
+      activeTaskIntent: context.activeTaskIntent ?? [],
       mission: context.authority.mission, justification: context.justification ?? '',
       justificationTrust: 'untrusted_model', causalEvidence: context.causalEvidence ?? [],
       intentRelation, ledgerSummary: this.ledger.summary(request),
@@ -330,7 +333,7 @@ function decision(outcome, reasonCode, request, guidance) {
   });
 }
 
-function authenticatedIntentRelation(request, authority, definition) {
+function authenticatedIntentRelation(request, authority, definition, activeTaskIntent = []) {
   if (definition.sideEffect === 'read_only') return 'covered';
   if (['process.run', 'shell.run', 'system.elevate'].includes(request.toolName)) return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
   if (!request.toolName.startsWith('fs.')) return 'uncertain';
@@ -350,19 +353,21 @@ function authenticatedIntentRelation(request, authority, definition) {
   });
   if (relevant?.kind === 'restriction') return 'conflict';
   if (taskResultArtifactCovered(request, authority, targets)) return 'covered';
-  if (workspaceBuildMutationCovered(request, authority, targets)) return 'covered';
+  if (workspaceBuildMutationCovered(request, authority, targets, activeTaskIntent)) return 'covered';
   if (!relevant) return clearlyReadOnlyIntent(authority) ? 'conflict' : 'uncertain';
   const evidence = relevant.content.toLowerCase();
   if (targets.every((target) => evidenceNamesTarget(evidence, target)) && action.test(evidence)) return 'covered';
   return clearlyReadOnlyText(evidence) ? 'conflict' : 'uncertain';
 }
 
-function workspaceBuildMutationCovered(request, authority, targets) {
+function workspaceBuildMutationCovered(request, authority, targets, activeTaskIntent = []) {
   if (!['fs.directory', 'fs.create_directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines'].includes(request.toolName)
     || (request.toolName === 'fs.directory' && request.args?.action !== 'create')
     || resolvedOutsideWorkspace(request) || targets.length !== 1) return false;
+  const buildPattern = /\b(?:build|create|develop|generate|implement|make|patch|refactor|repair|scaffold|upgrade)\b/iu;
+  const activeBuild = [...activeTaskIntent].reverse().find((item) => buildPattern.test(String(item)));
   const latest = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction');
-  if (!latest || !/\b(?:build|create|develop|generate|implement|make|patch|refactor|repair|scaffold|upgrade)\b/iu.test(latest.content)) {
+  if (!activeBuild && (!latest || !buildPattern.test(latest.content))) {
     return false;
   }
   return ![...(authority?.intent ?? [])].some((item) => item.kind === 'restriction'

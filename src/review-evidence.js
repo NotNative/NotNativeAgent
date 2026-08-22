@@ -22,7 +22,8 @@ export function buildReviewEvidence(transcript, options = {}) {
   const records = Array.isArray(transcript) ? transcript : [];
   const currentRequestId = options.currentRequestId ?? null;
   const currentTurnId = options.currentTurnId ?? findCurrentTurn(records, currentRequestId);
-  const terms = queryTerms(options.request, options.authenticatedIntent, options.justification);
+  const terms = queryTerms(options.request, options.authenticatedIntent, options.justification,
+    options.activeTaskIntent);
   const recentTurnIds = newestTurnIds(records, currentTurnId);
   const candidates = [];
   let scanned = 0;
@@ -118,8 +119,9 @@ function newestTurnIds(records, currentTurnId) {
   return result;
 }
 
-function queryTerms(request, authenticatedIntent, justification) {
+function queryTerms(request, authenticatedIntent, justification, activeTaskIntent) {
   const values = [];
+  for (const item of (activeTaskIntent ?? []).slice(-32)) collectSearchValues(item, values);
   for (const item of (authenticatedIntent ?? []).slice(-3)) collectSearchValues(item?.content, values);
   collectSearchValues(request?.resolved, values);
   collectSearchValues(request?.args, values);

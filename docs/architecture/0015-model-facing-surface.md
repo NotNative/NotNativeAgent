@@ -7,8 +7,13 @@ surface to each provider step. The always-visible set is exactly `tool.search`, 
 `fs.read`, `fs.search_text`, `web.search`, `web.fetch`, and `web.browse`. Authenticated task
 intent activates the canonical mutation and coordination tools `fs.directory`,
 `fs.write_text`, `fs.edit_text`, `shell.run`, `work.plan`, and `agent.run`, plus narrowly
-specialized diagnostics, session history, and notification tools. Terse continuations inherit
-intent only from durable unfinished work or retained authenticated operator input.
+specialized diagnostics, session history, and notification tools. An active turn maintains a
+bounded intent projection from its accepted request plus consumed authenticated steering. Both
+tool selection and reviewer evidence use that projection, preventing an additive clarification
+or permission from accidentally erasing the task vocabulary that activated its tools. Terse
+cross-turn continuations inherit intent only from durable unfinished work or retained
+authenticated operator input. A `work.plan` can improve coordination and operator visibility,
+but tool continuity does not depend on a plan existing.
 
 This is a model-facing context decision, not an authority decision. Hidden schemas remain
 installed and governed. Exposure never bypasses validation, sealed-request binding, semantic

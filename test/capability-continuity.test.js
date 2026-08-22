@@ -56,6 +56,25 @@ test('substantive new operator input replaces active work capability selection',
   assert.ok(visible.includes('work.plan'));
 });
 
+test('turn-scoped intent keeps task capabilities through additive permission steering', async () => {
+  const original = 'Build and visually verify an ocean scene';
+  const steering = 'You may browse localhost:8123 to check your work. Please proceed to finish.';
+  const context = [
+    { role: 'user', content: original, trust: 'operator' },
+    { role: 'user', content: steering, trust: 'operator' },
+  ];
+  const query = capabilitySelectionQuery(context, [original, steering]);
+  assert.match(query, /Build and visually verify an ocean scene/u);
+  assert.match(query, /localhost:8123/u);
+
+  const registry = new ToolRegistry(process.cwd(), { conversationWork: {} });
+  await registry.initialize();
+  const visible = registry.providerDefinitions(query).map((item) => item.function.name);
+  for (const name of ['fs.write_text', 'fs.edit_text', 'fs.directory', 'web.browse']) {
+    assert.ok(visible.includes(name), `${name} was not retained`);
+  }
+});
+
 test('continuation classification is narrow and malformed work state fails closed', () => {
   for (const text of ['Please proceed.', 'continue', 'Yep, carry on', 'retry the task']) {
     assert.equal(isTerseContinuation(text), true, text);

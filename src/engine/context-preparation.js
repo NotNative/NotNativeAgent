@@ -29,7 +29,7 @@ export async function prepareEngineContext(engine, records, content, active, for
         engine, records, content, active.enrichment, active, budget, hardLimit, planned,
         { projectContext: (measurement) => pressureProjection(engine, active, operations, measurement) },
       );
-      assertCompleteEnvelope(engine, routes[0], context, planned);
+      assertCompleteEnvelope(engine, routes[0], context, planned, active);
       return context;
     } catch (error) {
       if (error.code !== 'context_too_large') throw error;
@@ -42,6 +42,7 @@ export async function prepareEngineContext(engine, records, content, active, for
   );
   const cacheAlignedRequest = providerRequest(engine, routes[0], rawContext, {
     outputReserveTokens: planned.outputReserveTokens,
+    capabilityIntent: active.capabilityIntent,
   });
   return compactContext(engine, records, content, active, operations, {
     routes, runtime, planned, budget, hardLimit, cacheAlignedRequest,
@@ -152,13 +153,16 @@ function validateCompactionCandidate(engine, fact, active, plan) {
     engine, [...engine.transcript, fact], '', active.enrichment, active,
     plan.validationBudget, plan.hardLimit, plan.planned,
   ).then((context) => {
-    assertCompleteEnvelope(engine, plan.route, context, plan.planned);
+    assertCompleteEnvelope(engine, plan.route, context, plan.planned, active);
     return context;
   });
 }
 
-function assertCompleteEnvelope(engine, route, context, budget) {
-  const request = providerRequest(engine, route, context, { outputReserveTokens: budget?.outputReserveTokens });
+function assertCompleteEnvelope(engine, route, context, budget, active) {
+  const request = providerRequest(engine, route, context, {
+    outputReserveTokens: budget?.outputReserveTokens,
+    capabilityIntent: active.capabilityIntent,
+  });
   const envelope = engine.reliability.providerEnvelope(request, context, {
     outputReserveTokens: budget?.outputReserveTokens,
   });

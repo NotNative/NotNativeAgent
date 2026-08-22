@@ -115,6 +115,7 @@ export class SessionEngine {
     try {
       this.state.transition('preparing_turn', { trigger: 'submission_accepted', turnId: turn.id });
       active.prompt = command.content;
+      active.capabilityIntent = [command.content];
       await persistAuthenticatedIntent(this.authority, command.content, principal, (intent) => this.#persist('authority_intent', intent));
       active.authority = this.authority.snapshot(this.config);
       active.authority = await authorizeAndPersistTurn(this.authority, this.config, (record) => this.#persist('mission_turn_authorized', record));
@@ -405,6 +406,7 @@ export class SessionEngine {
       await this.#publish('steering.started', 'steering', 'active', active);
       await persistAuthenticatedIntent(this.authority, steering.content, steering.principal, (intent) => this.#persist('authority_intent', intent));
       active.authority = this.authority.snapshot(this.config);
+      active.capabilityIntent.push(steering.content);
       const message = userMessage(active.turnId, steering.content, { steeringId: steering.id });
       const consumedRecord = { id: steering.id, consumedAt: new Date().toISOString(), message };
       if (this.store) await this.store.append('steering_consumed', consumedRecord);
@@ -457,7 +459,6 @@ export class SessionEngine {
   async #persist(type, payload) {
     return persistEngineRecord(this, type, payload);
   }
-
   #createStore(root) {
     return this.config.persistence === 'ephemeral' ? null
       : this.storeFactory(root ?? userDataPaths().sessions, this.sessionId, { persistenceDeadlineMs: this.config.limits.persistenceFlushMs });

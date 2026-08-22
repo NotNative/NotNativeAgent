@@ -24,7 +24,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     resolveCompletion: deferred.resolve,
     recovery: reliability?.createTurnSupervisor?.(recoveryOptions) ?? new RecoverySupervisor(recoveryOptions),
     enrichment: { memory: [], attachments: [], hooks: [], skills: [], projectIntake: null }, admission: null,
-    prompt: '', modelName: '', unresolvedToolFailures: [], toolConstraints: [], contextRetryScale: 1,
+    prompt: '', capabilityIntent: [], modelName: '', unresolvedToolFailures: [], toolConstraints: [], contextRetryScale: 1,
     contextBytes: 0, contextTokens: 0,
     rawContextBytes: 0, rawContextTokens: 0, contextPressureTier: 'none',
     contextLimitTokens: null, contextMeasurementEnrichment: null,

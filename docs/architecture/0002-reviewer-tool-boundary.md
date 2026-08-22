@@ -14,6 +14,11 @@ facts with stable conversation lineage, snapshot version, and restriction epoch.
 resume rebuilds authority only from those facts; transcript text is never promoted back
 into authority. Ordinary later turns preserve scoped preauthorization, while a newer
 authenticated clarification or restriction invalidates it before execution.
+Within a turn, the engine also retains a bounded projection of the accepted task and consumed
+steering. Reviewer evidence selection receives this projection so a recent additive instruction
+does not obscure older causal evidence or the active objective. This projection supplies context,
+not authority: restrictions and replacements remain governed by the authenticated authority
+record, and model text, tool output, or a plan cannot expand it.
 Mission turn consumption is a separate durable authority fact. It is restored across process
 restart and deliberately survives conversation clear; persistence must succeed before the
 turn proceeds, so restart, clear, or a failed journal write cannot replenish mission bounds.

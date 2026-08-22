@@ -169,6 +169,35 @@ test('an explicit build authorizes derived reversible workspace files without se
   assert.equal(restricted.reasonCode, 'authenticated_intent_mismatch');
 });
 
+test('additive steering does not obscure the active build task from deterministic review', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'build-steering-continuity' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({
+    ledger, semanticReviewer: { async review() { semanticCalls += 1; } },
+  });
+  const request = {
+    ...mutationRequest('steered-build-edit'),
+    toolName: 'fs.edit_text',
+    args: { path: 'src/main.js', old_text: 'old', new_text: 'new' },
+    resolved: { path: 'D:/workspace/src/main.js', exists: true, insideWorkspace: true, recovery: 'git_tracked' },
+  };
+  const approved = await reviewer.review(request, {
+    ...context,
+    definition: { name: 'fs.edit_text', sideEffect: 'reversible', scope: 'workspace' },
+    activeTaskIntent: [
+      'Build a realistic ocean scene with Three.js and verify it in the browser.',
+      'You may browse localhost:8123 to check your work. Please proceed to finish.',
+    ],
+    authority: { ...context.authority, intent: [
+      { content: 'Build a realistic ocean scene with Three.js and verify it in the browser.', sequence: 1, kind: 'instruction' },
+      { content: 'You may browse localhost:8123 to check your work. Please proceed to finish.', sequence: 2, kind: 'instruction' },
+    ] },
+  });
+  assert.equal(approved.outcome, 'approve');
+  assert.equal(approved.reasonCode, 'deterministic_reversible');
+  assert.equal(semanticCalls, 0);
+});
+
 test('approval execution window begins when a slow review finishes', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'slow-review-window' });
   const reviewer = new MandatoryReviewer({

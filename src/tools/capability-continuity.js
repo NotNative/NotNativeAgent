@@ -4,11 +4,13 @@ const OPERATOR_TRUST = 'operator';
 const WORK_PROVENANCE = 'conversation_work';
 const MAX_QUERY_BYTES = 32_768;
 
-export function capabilitySelectionQuery(context = []) {
+export function capabilitySelectionQuery(context = [], activeTurnIntent = []) {
+  const anchored = boundedIntent(activeTurnIntent);
+  const work = activeWorkIntent(context);
+  if (anchored.length > 0) return joinBounded(...anchored, work ? 'active durable plan' : '');
   const latestIndex = findLatestOperator(context);
   if (latestIndex < 0) return '';
   const latest = bounded(context[latestIndex]?.content);
-  const work = activeWorkIntent(context);
   if (!isTerseContinuation(latest)) return work ? joinBounded(latest, 'active durable plan') : latest;
   if (work) return joinBounded(work, latest);
   for (let index = latestIndex - 1; index >= 0; index -= 1) {
@@ -18,6 +20,11 @@ export function capabilitySelectionQuery(context = []) {
     if (prior && !isTerseContinuation(prior)) return joinBounded(prior, latest);
   }
   return latest;
+}
+
+function boundedIntent(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(-32).map((item) => bounded(item)).filter(Boolean);
 }
 
 export function isTerseContinuation(value) {
