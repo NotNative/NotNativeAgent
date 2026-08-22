@@ -144,7 +144,7 @@ test('successful tool continuation resumes without re-acknowledging the active r
   const hint = toolContinuationHint([{
     result: { status: 'succeeded', tool_name: 'fs.read_text' },
   }]);
-  assert.match(hint, /Continue the existing active request[^]*Do not greet[^]*repeat the existing plan/iu);
+  assert.match(hint, /Continue the existing active request[^]*Choose and perform the next useful action from this evidence[^]*Do not greet[^]*repeat the existing plan/iu);
 });
 
 test('review denial continuation favors safer progress before operator interruption', () => {

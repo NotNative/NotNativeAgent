@@ -33,9 +33,11 @@ communication and authority, context, action and verification, grounding, NNA se
 and completion. Host- or operation-specific coaching belongs in the relevant tool definition
 and its in-band errors. Specialized workflows belong in skills or attributed project guidance.
 Runtime state machines own recovery and enforcement. The general action section asks the model to
-acknowledge briefly, inspect only enough to select a safe next step, take one useful bounded action,
-and continue planning from observed results. This is medium-agnostic execution guidance that avoids
-both oversized front-loaded artifacts and prolonged speculative planning without prescribing a workflow.
+acknowledge briefly, choose the smallest useful next action after each request or tool result, invoke a
+needed tool in the same response, and adapt from returned evidence. It keeps private reasoning concise
+and permits completion only when the request is satisfied or specific operator input is required. This is
+medium-agnostic execution guidance that avoids oversized front-loaded artifacts and prolonged speculative
+planning without prescribing a visible Thought/Action/Observation protocol.
 
 Legacy granular tools remain installed so sealed requests, old manifests, resumed sessions,
 specialized skills, and internal recovery do not lose functionality. They are hidden from the
