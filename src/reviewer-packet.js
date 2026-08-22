@@ -29,6 +29,13 @@ function safeMutationEvidence(value) {
 }
 
 function safeArguments(args) {
+  if (args.edit_mode === 'lines' && typeof args.replacement === 'string') {
+    return Object.freeze({
+      path: args.path, expected_sha256: args.expected_sha256,
+      start_line: args.start_line, end_line: args.end_line,
+      replacement_bytes: Buffer.byteLength(args.replacement, 'utf8'), replacement_sha256: digest(args.replacement),
+    });
+  }
   if (typeof args.old_text === 'string' && typeof args.new_text === 'string') {
     return Object.freeze({
       path: args.path, expected_sha256: args.expected_sha256, replace_all: args.replace_all === true,

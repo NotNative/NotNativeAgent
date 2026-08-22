@@ -309,7 +309,7 @@ export class SessionEngine {
       });
     }
     assertTurnActive(active);
-    const calls = active.toolAssembler.complete();
+    const calls = active.toolAssembler.complete(active.finishReason);
     if (active.stepText.length > 0 || calls.length > 0) resetReasoningRecovery(active);
     if (calls.length === 0) return this.#afterTextStep(active);
     await this.#settleAttempt(active, 'completed'); this.reliability.captureReasoningContinuation(active, calls);

@@ -85,6 +85,51 @@ test('filesystem mutations accept unambiguous common argument spellings and reta
   } finally { await item.close(); }
 });
 
+test('fs.edit_text exposes one forgiving contract for exact and line-range edits', async () => {
+  const item = await fixture();
+  try {
+    const exposed = item.registry.providerDefinitions('edit a project file')
+      .find((entry) => entry.function.name === 'fs.edit_text').function.parameters;
+    assert.deepEqual(exposed.required, ['path', 'content']);
+    assert.deepEqual(Object.keys(exposed.properties), ['path', 'content', 'find', 'start_line', 'end_line', 'all']);
+
+    const path = join(item.root, 'editable.txt');
+    await writeFile(path, 'one\r\ntwo\r\nthree\r\n', 'utf8');
+    const edit = item.registry.definition('fs.edit_text');
+    const exact = await edit.validate({ path: 'editable.txt', search: 'one\ntwo', text: 'ONE\nTWO' });
+    assert.equal(exact.args.edit_mode, 'exact');
+    assert.equal(exact.args.old_text, 'one\r\ntwo');
+    await edit.executor(exact, new AbortController().signal);
+    assert.equal(await readFile(path, 'utf8'), 'ONE\nTWO\r\nthree\r\n');
+
+    const lines = await edit.validate({ path: 'editable.txt', line: 2, text: 'SECOND' });
+    assert.deepEqual([lines.args.start_line, lines.args.end_line], [2, 2]);
+    assert.equal(lines.args.edit_mode, 'lines');
+    await edit.executor(lines, new AbortController().signal);
+    assert.equal(await readFile(path, 'utf8'), 'ONE\r\nSECOND\r\nthree\r\n');
+  } finally { await item.close(); }
+});
+
+test('fs.edit_text rejects ambiguous selectors and revalidates line content after review', async () => {
+  const item = await fixture();
+  try {
+    const path = join(item.root, 'editable.txt');
+    await writeFile(path, 'one\ntwo\nthree\n', 'utf8');
+    const edit = item.registry.definition('fs.edit_text');
+    await assert.rejects(edit.validate({ path: 'editable.txt', content: 'x' }), { code: 'tool_schema_invalid' });
+    await assert.rejects(edit.validate({
+      path: 'editable.txt', content: 'x', find: 'one', start_line: 1,
+    }), { code: 'tool_schema_invalid' });
+    await assert.rejects(edit.validate({
+      path: 'editable.txt', content: 'x', start_line: 1, all: true,
+    }), { code: 'tool_schema_invalid' });
+
+    const prepared = await edit.validate({ path: 'editable.txt', content: 'TWO', start_line: 2 });
+    await writeFile(path, 'one\nexternally changed\nthree\n', 'utf8');
+    await assert.rejects(edit.executor(prepared, new AbortController().signal), { code: 'tool_revalidation_drift' });
+  } finally { await item.close(); }
+});
+
 test('approved same-batch file mutations advance across NNA-authored states without accepting external drift', async () => {
   const item = await fixture();
   try {

@@ -165,16 +165,20 @@ the repository script and says so. Results include exact commands, exit codes, b
 the manifest digest, and a stable receipt id in the durable turn record. A completed non-zero
 check is a failed tool result, not a green execution success. The Console aliases this boundary
 as `/verify [focused|affected|full] [PATH ...]`.
-- `fs.edit_text`: replace an exact, normally unique text match. In-workspace exact edits use
-  the same request-local transaction snapshot when no explicit read receipt exists;
-  `replace_all` must be explicit for multiple matches. The runtime accepts the canonical
-  `path`, `old_text`, `new_text`, and `replace_all` spellings plus common unambiguous camel-case
-  equivalents. Conflicting aliases fail closed.
+- `fs.edit_text`: make one bounded edit using either an exact, normally unique `find` match or
+  an inclusive `start_line`/`end_line` range, with `content` as the replacement. `end_line`
+  defaults to `start_line`; an empty `content` deletes the selected text; and `all` must be
+  explicit for multiple exact matches. Exact matching safely normalizes LF/CRLF differences.
+  The runtime accepts the former `old_text`, `new_text`, and `replace_all` spellings plus common
+  unambiguous aliases, but seals every accepted request into one canonical reviewed mutation.
+  Conflicting aliases and calls containing both selector forms fail closed. Edit arguments are
+  capped at 65,536 bytes so a model is directed toward a smaller region before consuming an
+  entire provider completion on one oversized call.
 
 Installed compatibility definitions retain the narrower historical operations:
 
-- `fs.edit_lines`: replace an inclusive numbered range only when that complete range was
-  displayed by `fs.read_lines` for the same file snapshot.
+- `fs.edit_lines`: historical compatibility form for replacing an inclusive numbered range
+  previously displayed by `fs.read_lines`. New calls use the line selector in `fs.edit_text`.
 - `fs.delete_file`: permanently delete one regular file after semantic review and
   exact-content revalidation.
 - `fs.metadata`: inspect bounded file or directory metadata without reading content.
@@ -184,9 +188,9 @@ Installed compatibility definitions retain the narrower historical operations:
   destination. They refuse overwrites and revalidate immediately before commit.
 
 Every existing-file mutation is bound to runtime-observed state; knowing or guessing a digest
-is insufficient. Exact in-workspace whole-file writes and text edits may use a transaction
-snapshot owned by that single sealed request. Line edits, copies, moves, deletions, and host
-paths require an explicit model-visible read receipt. New-file and new-directory creation are
+is insufficient. In-workspace whole-file writes and canonical text edits may use a transaction
+snapshot owned by that single sealed request. Compatibility line edits, copies, moves, deletions,
+and host paths require an explicit model-visible read receipt. New-file and new-directory creation are
 exempt. Transaction snapshots never enter the reusable state-receipt ledger; a successfully
 committed full write does, because the model supplied the complete resulting content.
 When multiple already-reviewed whole-file writes or independent exact-text edits target the

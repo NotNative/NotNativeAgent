@@ -17,6 +17,7 @@ import { projectVerifyDefinition } from './tools/project-verification.js';
 import { filesystemExtraDefinitions } from './tools/filesystem-extra.js';
 import { lspDiagnosticsDefinition } from './tools/lsp-diagnostics.js';
 import { filesystemReadDefinitions, ReadReceiptLedger } from './tools/filesystem-read.js';
+import { filesystemEditDefinition } from './tools/filesystem-edit.js';
 import { filesystemDiscoveryDefinitions } from './tools/filesystem-discovery.js';
 import { canonicalFilesystemDefinitions } from './tools/filesystem-canonical.js';
 import { imageInspectDefinition } from './tools/image-inspection.js';
@@ -26,19 +27,19 @@ import { selfDiagnosticsDefinitions } from './tools/self-diagnostics.js';
 import { mcpControlDefinitions } from './mcp-control-tools.js';
 import { subagentDefinition } from './subagent-tool.js';
 import { gitInspectionDefinition } from './tools/git-inspection.js';
-import { prepareLineEdit, prepareTextEdit } from './stale-edit-recovery.js';
+import { prepareLineEdit } from './stale-edit-recovery.js';
 import { providerSchema, schemaShapeValidator, schemaValidator } from './tools/schema.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { ReferenceStore, referenceDefinitions } from './tools/reference-store.js';
 import { ALWAYS_EXPOSED, PROVIDER_NATIVE, allowedByManifest, catalogVisible, providerVisible } from './tools/provider-surface.js';
 import { withPreparedWriteTarget } from './tools/write-target.js';
 import { normalizeArgumentAliases } from './tools/argument-normalization.js';
-import { advanceFromAuthoredState, mutationEvidence, transactionalReceipt, transactionalSnapshot,
+import { advanceFromAuthoredState, mutationEvidence, transactionalSnapshot,
   withAuthoredAdvanceMetadata } from './tools/filesystem-mutation-state.js';
 import { SITUATIONAL_TOOL_NAMES, taskActivatedToolNames } from './tools/capability-activation.js';
 import { telegramNotificationDefinition } from './notifications/telegram.js';
 import { sessionHistoryDefinitions } from './session-history-tools.js';
-import { countOccurrences, logicalLines, replaceLineRange, replaceText } from './tools/text-edit-helpers.js';
+import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const SITUATIONAL = new Set(SITUATIONAL_TOOL_NAMES);
 export class ToolRegistry {
@@ -84,7 +85,7 @@ export class ToolRegistry {
     ];
     for (const definition of legacyFilesystem) this.#install(definition);
     this.#install(writeDefinition(this.paths, this.#changes, this.#readReceipts));
-    this.#install(editDefinition(this.paths, this.#changes, this.#readReceipts));
+    this.#install(filesystemEditDefinition(this.paths, this.#changes, this.#readReceipts, atomicWrite, verifyExpectedState));
     this.#install(editLinesDefinition(this.paths, this.#changes, this.#readReceipts));
     this.#install(deleteDefinition(this.paths, this.#changes, this.#readReceipts));
     const filesystemExtras = filesystemExtraDefinitions(this.paths, this.#changes, this.#readReceipts);
@@ -190,7 +191,7 @@ export class ToolRegistry {
       }
       return;
     }
-    if (name === 'fs.edit_lines') {
+    if (name === 'fs.edit_lines' || (name === 'fs.edit_text' && normalized.args.edit_mode === 'lines')) {
       this.#readReceipts.require(target, normalized.args.expected_sha256, {
         start: normalized.args.start_line, end: normalized.args.end_line,
       });
@@ -278,27 +279,6 @@ async function executeFullWrite(paths, receipts, request, signal, changes) {
   receipts.recordAuthored(prepared.request.resolved.path, sha256(prepared.request.args.content), prepared.request.args.content);
   return withAuthoredAdvanceMetadata(result, prepared.advanced);
 }
-function editDefinition(paths, changes, receipts) {
-  return {
-    name: 'fs.edit_text', version: 1,
-    purpose: 'Replace exact text in one existing accessible file without rewriting unrelated content.',
-    sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
-    inputSchema: objectSchema({
-      path: { type: 'string', maxLength: 4096, description: 'Required path to the existing UTF-8 file.' },
-      old_text: { type: 'string', minLength: 1, maxLength: MAX_TEXT_BYTES, description: 'Required exact text previously observed in the file.' },
-      new_text: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required replacement text; use an empty string to remove old_text.' },
-      replace_all: { type: 'boolean', description: 'Replace every exact occurrence. Defaults to false and requires old_text to be unique.' },
-    }, ['path', 'old_text', 'new_text']),
-    normalizeArgs: (args) => normalizeArgumentAliases(args, {
-      path: ['filePath', 'file_path'],
-      old_text: ['oldString', 'oldText'],
-      new_text: ['newString', 'newText', 'replacement'],
-      replace_all: ['replaceAll'],
-    }),
-    validate: async (args) => validateEdit(paths, args, receipts),
-    executor: (request, signal) => executeEdit(request, signal, changes, receipts),
-  };
-}
 function editLinesDefinition(paths, changes, receipts) {
   return {
     name: 'fs.edit_lines', version: 1,
@@ -346,63 +326,6 @@ function editLinesDefinition(paths, changes, receipts) {
       }, changes);
     },
   };
-}
-async function validateEdit(paths, args, receipts) {
-  requireShape(args, ['path', 'old_text', 'new_text'], ['replace_all']);
-  if (typeof args.old_text !== 'string' || args.old_text.length === 0
-    || typeof args.new_text !== 'string' || (args.replace_all !== undefined && typeof args.replace_all !== 'boolean')) {
-    throw new ContractError('tool_schema_invalid', 'text edit arguments are invalid');
-  }
-  const resolved = await paths.withRecovery(await paths.resolveRead(args.path));
-  if (resolved.size > MAX_TEXT_BYTES) throw new ContractError('tool_target_too_large', 'file exceeds edit bound');
-  const content = await readFile(resolved.path, 'utf8');
-  const actual = sha256(content);
-  const receipt = receipts.peek(resolved.path, { full: true });
-  const transaction = !receipt && resolved.insideWorkspace ? transactionalReceipt(resolved.path, content, actual) : null;
-  if (!receipt && !transaction) receipts.latest(resolved.path, { full: true });
-  const boundArgs = { ...args, expected_sha256: receipt?.digest ?? transaction?.digest };
-  const prepared = receipt
-    ? prepareTextEdit(receipts, resolved.path, boundArgs, content, actual)
-    : { expectedSha256: actual, recovered: false };
-  const occurrences = countOccurrences(content, args.old_text);
-  if (occurrences === 0 || (!args.replace_all && occurrences !== 1)) {
-    throw new ContractError('tool_edit_match_invalid', occurrences === 0
-      ? 'old_text was not found in the current file snapshot'
-      : 'old_text is not unique; provide more context or set replace_all');
-  }
-  const updated = replaceText(content, args.old_text, args.new_text, Boolean(args.replace_all));
-  if (Buffer.byteLength(updated, 'utf8') > MAX_TEXT_BYTES) {
-    throw new ContractError('tool_arguments_too_large', 'edited content exceeds bound');
-  }
-  return {
-    args: {
-      path: args.path, old_text: args.old_text, new_text: args.new_text,
-      replace_all: Boolean(args.replace_all), expected_sha256: prepared.expectedSha256,
-    },
-    resolved: {
-      ...resolved, staleEditRecovered: prepared.recovered,
-      readReceiptId: receipt?.id ?? null, readReceiptSha256: receipt?.digest ?? null,
-      transactionalReceipt: transaction,
-      mutationEvidence: mutationEvidence('exact_text_edit', prepared.expectedSha256, updated, Buffer.byteLength(content, 'utf8')),
-    },
-  };
-}
-async function executeEdit(request, signal, changes, receipts) {
-  if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
-  const prepared = await advanceFromAuthoredState(request, receipts);
-  await verifyExpectedState(prepared.request);
-  const content = await readFile(prepared.request.resolved.path, 'utf8');
-  const occurrences = countOccurrences(content, prepared.request.args.old_text);
-  if (occurrences === 0 || (!prepared.request.args.replace_all && occurrences !== 1)) {
-    throw new ContractError('tool_revalidation_drift', 'edit match changed after review');
-  }
-  const updated = replaceText(content, prepared.request.args.old_text, prepared.request.args.new_text,
-    prepared.request.args.replace_all);
-  const result = await atomicWrite({ ...prepared.request, args: { ...prepared.request.args, content: updated } }, signal, {
-    message: 'edit completed', replacements: prepared.request.args.replace_all ? occurrences : 1,
-  }, changes);
-  receipts.recordAuthored(prepared.request.resolved.path, sha256(updated), updated);
-  return withAuthoredAdvanceMetadata(result, prepared.advanced);
 }
 function deleteDefinition(paths, changes, receipts) {
   return {

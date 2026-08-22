@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:125c55f3c876bb9c6ee496f33ec4cdc5e794837e5ffb3efaa8573d7186ee264f",
+  "source_digest": "sha256:b483defb85cbfde2472b3bb4e8c84caa6e04f5274b1ab9c9a047e05a9c951b59",
   "counts": {
-    "modules": 311,
+    "modules": 312,
     "component_edges": 68
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 38
+      "module_count": 39
     },
     {
       "id": "guidance",
@@ -125,8 +125,8 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 47,
-      "module_count": 31
+      "import_count": 49,
+      "module_count": 32
     },
     {
       "from": "reliability-engine",
@@ -135,16 +135,16 @@
       "module_count": 21
     },
     {
+      "from": "tools",
+      "to": "tools",
+      "import_count": 37,
+      "module_count": 7
+    },
+    {
       "from": "agentic-engine",
       "to": "foundation",
       "import_count": 34,
       "module_count": 13
-    },
-    {
-      "from": "tools",
-      "to": "tools",
-      "import_count": 33,
-      "module_count": 6
     },
     {
       "from": "agentic-engine",
@@ -2548,6 +2548,7 @@
         "src/tools/capability-activation.js",
         "src/tools/filesystem-canonical.js",
         "src/tools/filesystem-discovery.js",
+        "src/tools/filesystem-edit.js",
         "src/tools/filesystem-extra.js",
         "src/tools/filesystem-mutation-state.js",
         "src/tools/filesystem-read.js",
@@ -2642,6 +2643,18 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/tools/filesystem-edit.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/stale-edit-recovery.js",
+        "src/tools/argument-normalization.js",
+        "src/tools/filesystem-mutation-state.js",
+        "src/tools/text-edit-helpers.js"
       ]
     },
     {

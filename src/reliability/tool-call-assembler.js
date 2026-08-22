@@ -16,7 +16,7 @@ export class ToolCallAssembler {
     for (const fragment of fragments) this.#addOne(fragment);
   }
 
-  complete() {
+  complete(finishReason = null) {
     return [...this.#calls.values()].sort((a, b) => a.index - b.index).map((call) => {
       const providerCallId = call.providerCallId || syntheticIdentity(call);
       const name = call.name || 'unknown_tool_call';
@@ -25,7 +25,11 @@ export class ToolCallAssembler {
       try {
         args = JSON.parse(call.arguments);
       } catch {
-        return invalidCall(call, providerCallId, name, 'tool_arguments_malformed', 'tool arguments are not valid JSON');
+        const truncated = ['length', 'max_tokens', 'max_output_tokens'].includes(String(finishReason ?? '').toLowerCase());
+        return invalidCall(call, providerCallId, name,
+          truncated ? 'tool_arguments_truncated' : 'tool_arguments_malformed',
+          truncated ? 'tool arguments were cut off by the provider output limit; retry one smaller bounded edit'
+            : 'tool arguments are not valid JSON');
       }
       return Object.freeze({ ...call, providerCallId, name, args: deepFreeze(args) });
     });
