@@ -314,6 +314,42 @@ test('configured reasoning controls use documented OpenAI and Qwen fields', asyn
   assert.deepEqual(body.chat_template_kwargs, { enable_thinking: true });
 });
 
+test('Qwen requests omit unsupported OpenAI reasoning effort controls', async () => {
+  let body;
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null,
+    model: 'qwen3.8-27b@q6_k_xl', capabilities: {}, trustZone: 'loopback',
+  }, {}, { fetch: async (_url, options) => {
+    body = JSON.parse(options.body);
+    return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  for await (const _item of provider.stream({
+    model: 'qwen3.8-27b@q6_k_xl', messages: [], reasoningEffort: 'low',
+  }, new AbortController().signal)) { /* consume */ }
+  assert.equal(Object.hasOwn(body, 'reasoning_effort'), false);
+  assert.equal(Object.hasOwn(body, 'chat_template_kwargs'), false);
+});
+
+test('Qwen reasoning off uses its supported binary thinking control', async () => {
+  let body;
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null,
+    model: 'qwen3.8-27b@q6_k_xl', capabilities: {}, trustZone: 'loopback',
+  }, {}, { fetch: async (_url, options) => {
+    body = JSON.parse(options.body);
+    return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  for await (const _item of provider.stream({
+    model: 'qwen3.8-27b@q6_k_xl', messages: [], reasoningMode: 'off', reasoningEffort: 'low',
+  }, new AbortController().signal)) { /* consume */ }
+  assert.equal(Object.hasOwn(body, 'reasoning_effort'), false);
+  assert.deepEqual(body.chat_template_kwargs, { enable_thinking: false });
+});
+
 test('AC-PROV-01 capability metadata is byte-bounded before JSON parsing', async () => {
   const provider = new OpenAICompatibleProvider({
     endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'fixture', capabilities: {},

@@ -25,14 +25,24 @@ export function providerReasoningControls(request) {
     throw new ContractError('provider_reasoning_mode_invalid', 'provider reasoning mode is invalid');
   }
   if (request.reasoningMode === 'off') {
-    return { reasoning_effort: 'none', chat_template_kwargs: { enable_thinking: false } };
+    return binaryThinkingModel(request.model)
+      ? { chat_template_kwargs: { enable_thinking: false } }
+      : { reasoning_effort: 'none', chat_template_kwargs: { enable_thinking: false } };
   }
   const effort = validateReasoningEffort(request.reasoningEffort);
   const thinking = validateEnableThinking(request.enableThinking);
   return {
-    ...(present(effort) ? { reasoning_effort: effort } : {}),
+    ...(present(effort) && !binaryThinkingModel(request.model) ? { reasoning_effort: effort } : {}),
     ...(present(thinking) ? { chat_template_kwargs: { enable_thinking: thinking } } : {}),
   };
+}
+
+// Qwen-compatible chat templates expose binary thinking rather than the
+// OpenAI reasoning-effort scale. Some hosts promote an unsupported value such
+// as "low" to fully enabled reasoning, so leave the model at its native default
+// unless the route explicitly selects the supported enable_thinking control.
+function binaryThinkingModel(model) {
+  return typeof model === 'string' && /(?:^|[\/@._-])qwen/iu.test(model);
 }
 
 function validateOptional(value, predicate, code, message) {

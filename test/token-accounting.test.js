@@ -16,7 +16,7 @@ import { detailedTokenText, receiptTokenText, statusTokenText } from '../src/exp
 test('complete provider envelope inventories prompt sections, schemas, configuration, and output reserve', () => {
   const context = [{ role: 'user', content: 'inspect', provenance: 'transcript' }];
   const request = {
-    model: 'qwen', messages: [{ role: 'system', content: 'dialect' }, ...context],
+    model: 'generic-reasoning-model', messages: [{ role: 'system', content: 'dialect' }, ...context],
     tools: [{ type: 'function', function: { name: 'read', parameters: { type: 'object' } } }],
     temperature: 0, maxOutputTokens: 2048, reasoningEffort: 'medium', enableThinking: true,
   };
@@ -42,6 +42,20 @@ test('complete provider envelope inventories prompt sections, schemas, configura
   assert.equal(envelope.shape.tool_call_count, 0);
   assert.throws(() => assertProviderEnvelopeFits(envelope, { scaledTokens: 1 }), { code: 'context_too_large' });
   assert.equal(assertProviderEnvelopeFits(envelope, { scaledTokens: 100_000, windowTokens: 100_000 }), true);
+});
+
+test('provider envelope reports the controls actually sent for Qwen models', () => {
+  const envelope = measureProviderEnvelope({
+    model: 'qwen3.8-27b@q6_k_xl', messages: [], tools: [], reasoningEffort: 'low',
+  });
+  assert.deepEqual(envelope.configuration.reasoning_effort, { sent: false, value: null });
+  assert.deepEqual(envelope.configuration.enable_thinking, { sent: false, value: null });
+
+  const disabled = measureProviderEnvelope({
+    model: 'qwen3.8-27b@q6_k_xl', messages: [], tools: [], reasoningMode: 'off',
+  });
+  assert.deepEqual(disabled.configuration.reasoning_effort, { sent: false, value: null });
+  assert.deepEqual(disabled.configuration.enable_thinking, { sent: true, value: false });
 });
 
 test('provider envelope reports canonical multi-call message shape without retaining content or arguments', () => {

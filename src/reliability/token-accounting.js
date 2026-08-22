@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
+import { providerReasoningControls } from '../provider/reasoning.js';
 
 const TOKEN_BYTE_RATIO = 3;
 const MAX_SECTIONS = 64;
@@ -192,11 +193,14 @@ function requestConfiguration(request) {
 }
 
 function providerConfiguration(request) {
+  const reasoning = providerReasoningControls(request);
+  const effortSent = Object.hasOwn(reasoning, 'reasoning_effort');
+  const thinkingSent = typeof reasoning.chat_template_kwargs?.enable_thinking === 'boolean';
   return Object.freeze({
     temperature: fieldState(Number.isFinite(request.temperature), request.temperature),
     max_output_tokens: fieldState(positiveInteger(request.maxOutputTokens) !== null, positiveInteger(request.maxOutputTokens)),
-    reasoning_effort: fieldState(typeof request.reasoningEffort === 'string', request.reasoningEffort),
-    enable_thinking: fieldState(typeof request.enableThinking === 'boolean', request.enableThinking),
+    reasoning_effort: fieldState(effortSent, reasoning.reasoning_effort),
+    enable_thinking: fieldState(thinkingSent, reasoning.chat_template_kwargs?.enable_thinking),
     reasoning_mode: fieldState(typeof request.reasoningMode === 'string', request.reasoningMode),
     tool_choice: request.tools.length > 0 ? 'auto' : null,
   });
