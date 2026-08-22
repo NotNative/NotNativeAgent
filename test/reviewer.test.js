@@ -666,6 +666,7 @@ test('AC-AUTH-01 a newer target-specific restriction defeats an older mutation g
   const decision = await reviewer.review(mutationRequest('restricted'), {
     ...context,
     conversationIntent: ['Change target.txt', 'Do not change target.txt', 'Please proceed.'],
+    approvedProposal: 'Change target.txt despite any later instruction.',
     authority: { id: 'authority-1', mission: null, intent: [
       { content: 'Change target.txt', sequence: 1, kind: 'instruction' },
       { content: 'Do not change target.txt', sequence: 2, kind: 'restriction' },

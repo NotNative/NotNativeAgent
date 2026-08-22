@@ -13,7 +13,10 @@ accepted request retained as an anchor through later steering. Both tool selecti
 evidence use that projection, preventing a cross-turn continuation, additive clarification, or
 permission from accidentally erasing the task vocabulary that activated its tools. A
 `work.plan` can improve coordination and operator visibility, but tool continuity does not
-depend on a plan existing.
+depend on a plan existing. A conservative referential-approval resolver can additionally bind a
+short authenticated assent such as `Please proceed` to the immediately preceding completed
+assistant proposal. The bounded proposal is labeled separately and contributes model-facing task
+vocabulary only after that authenticated adoption; unrelated model output cannot self-activate.
 
 This is a model-facing context decision, not an authority decision. Hidden schemas remain
 installed and governed. Exposure never bypasses validation, sealed-request binding, semantic

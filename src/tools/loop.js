@@ -158,6 +158,7 @@ export class ToolLoop {
       request: item.request,
       authenticatedIntent: active.authority?.intent,
       conversationIntent: active.conversationIntent,
+      approvedProposal: active.approvedProposal,
       justification: '',
     });
     this.telemetry?.record('review.context_retrieval', 'succeeded', {
@@ -178,6 +179,7 @@ export class ToolLoop {
       authority: active.authority, definition: this.tools.definition(item.request.toolName),
       surface: this.surface, justification: '', signal: active.controller.signal,
       causalEvidence: reviewEvidence.evidence, conversationIntent: active.conversationIntent,
+      approvedProposal: active.approvedProposal,
     };
     const event = this.eventFactory.create(
       'permission.pre', 'permission', 'pre', active, { request_id: item.request.id },

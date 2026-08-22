@@ -4,10 +4,13 @@ const OPERATOR_TRUST = 'operator';
 const WORK_PROVENANCE = 'conversation_work';
 const MAX_QUERY_BYTES = 32_768;
 
-export function capabilitySelectionQuery(context = [], conversationIntent = []) {
+export function capabilitySelectionQuery(context = [], conversationIntent = [], approvedProposal = '') {
   const anchored = boundedIntent(conversationIntent);
   const work = activeWorkIntent(context);
-  if (anchored.length > 0) return joinBounded(...anchored, work ? 'active durable plan' : '');
+  if (anchored.length > 0) return joinBounded(
+    ...anchored, approvedProposal ? `approved assistant proposal: ${approvedProposal}` : '',
+    work ? 'active durable plan' : '',
+  );
   const latestIndex = findLatestOperator(context);
   if (latestIndex < 0) return '';
   const latest = bounded(context[latestIndex]?.content);

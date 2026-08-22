@@ -38,20 +38,26 @@ The engine validates every adapter event independently of the provider parser. U
 malformed semantic events, data after a terminal marker, incomplete tool identities, and
 malformed tool arguments end the model step before any tool review or execution begins.
 
-Empty output and unchanged tool-result fingerprints consume a turn-scoped
-three-attempt no-progress ladder. Every authenticated user turn creates a fresh
-supervisor, so progress fingerprints, episode counts, and recovery actions never
-carry into the next turn. Distinct repeated tool-request fingerprints also own
-distinct episodes; unrelated read-only exploration cannot jointly exhaust one
-generic tool-no-progress counter. The ladder records a nudge and deterministic
-context compaction before exhaustion. New authenticated steering, a unique
+Empty provider output remains bounded by the configured local retry limit. Uncertain
+task progress is supervisory evidence rather than a terminal condition: after the
+configured nudge/compaction ladder, recovery escalates through reassessment, a materially
+different strategy, and explicit recovery of the authenticated conversation objective.
+Completion promises, unfinished optional plans, and other ambiguous progress signals may
+therefore continue until fresh evidence settles them or the absolute model-step boundary
+is reached. An unchanged tool request and observable effect is stronger evidence; it ends
+only after a patient exact-no-effect ceiling of at least twelve identical episodes.
+
+Every authenticated user turn creates a fresh supervisor, so progress fingerprints,
+episode counts, and recovery actions never carry into the next turn. Distinct repeated
+tool-request fingerprints also own distinct episodes; unrelated read-only exploration
+cannot jointly exhaust one generic tool-no-progress counter. New authenticated steering, a unique
 successful tool-result fingerprint, or the first completed-nonzero diagnostic
 for a distinct tool invocation is progress evidence. A completed-nonzero result
 does not become successful verification: it only proves that the command ran and
 returned new negative evidence. Repeating the same tool and arguments receives
 no additional progress credit, even if volatile output such as timestamps changes.
 Distinct progressing steps continue for as long as they produce distinct verified progress. There is no
-generic productive-step cutoff. No-progress exhaustion ends the turn as incomplete
+generic productive-step cutoff. Exact-loop or hard-boundary exhaustion ends the turn as incomplete
 with a concise explanation to the operator; it records completed progress, recovery
 actions, the last checkpoint, remaining work, effect certainty, and a safe resumption
 condition. Completed progress is

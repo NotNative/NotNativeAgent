@@ -13,6 +13,7 @@ const MIN_USEFUL_CHECKPOINT_CHARACTERS = 160;
 const MAX_CHECKPOINT_CHARACTERS = 2_400;
 const CHECKPOINT_HEAD_RATIO = 0.7;
 const CHECKPOINT_SEPARATOR_RESERVE = 32;
+const MIN_EXACT_NO_EFFECT_LIMIT = 12;
 
 export class RecoverySupervisor {
   #episodes = new Map();
@@ -22,6 +23,8 @@ export class RecoverySupervisor {
   constructor(options = {}) {
     this.localLimit = options.localLimit ?? 3;
     this.ladder = options.ladder ?? ['nudge', 'compact'];
+    this.exactNoEffectLimit = options.exactNoEffectLimit
+      ?? Math.max(MIN_EXACT_NO_EFFECT_LIMIT, this.localLimit * 4);
     this.#actions = (options.restoredActions ?? []).slice(-MAX_ACTION_HISTORY);
   }
 
@@ -69,9 +72,11 @@ export class RecoverySupervisor {
       this.#episodes.delete(this.#episodes.keys().next().value);
     }
     this.#episodes.set(episode, count);
-    if (count >= this.localLimit) return Object.freeze({ continue: false, exhausted: true, count });
-    const configuredAction = this.ladder[count - 1] ?? this.ladder.at(-1) ?? 'nudge';
-    const action = configuredAction === 'compact' && options.allowCompaction === false ? 'nudge' : configuredAction;
+    const limit = terminalNoProgressLimit(category, this.localLimit, this.exactNoEffectLimit);
+    if (limit !== null && count >= limit) {
+      return Object.freeze({ continue: false, exhausted: true, count });
+    }
+    const action = recoveryAction(count, this.localLimit, this.ladder, options.allowCompaction);
     return Object.freeze({
       continue: true, progress: false, count,
       action: this.#record(category, action, count, {
@@ -164,6 +169,12 @@ export function recoveryExhaustionText(detail, options = {}) {
       + `Completed tool effects and diagnostics remain preserved.${preserved}\n\n`
       + 'The remaining step was not completed. Resume from the activity details or provide new direction.';
   }
+  if (detail.exhaustion_category === 'tool_no_progress') {
+    const attempts = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} repetitions` : '';
+    return `The same tool request and observable effect remained unchanged${attempts}, even after escalating recovery guidance.\n\n`
+      + 'I ended this exact no-effect loop at its hard boundary. Completed effects and diagnostics remain preserved; '
+      + 'resume with new authenticated direction or changed external evidence.';
+  }
   const reasons = detail.reason_codes?.length > 0
     ? ` The repeated operation reported: ${detail.reason_codes.join(', ')}.` : '';
   return `I couldn't complete the request because the turn stopped making verifiable progress.${reasons}\n\n`
@@ -239,11 +250,28 @@ export function recoveryHint(action) {
       : 'Previous work made no observable progress. Reassess the task and choose a materially different bounded action.',
     retry_continuation: 'Continue the active operator request using new evidence or a materially different action. Do not restart the conversation, greet the user again, ask what task to perform, or repeat an unchanged failed request.',
     compact: 'Context was reduced after repeated no-progress behavior. Preserve the operator task and use the last verified result.',
+    reassess: 'Progress is still unclear. Inspect the latest committed evidence, recover the active objective from the recent authenticated conversation, and take one bounded next action.',
+    change_strategy: 'The current approach has not demonstrated new progress. Keep the same objective, but change the hypothesis, tool, arguments, or verification method materially before continuing.',
+    recover_objective: 'Re-anchor on the authenticated user intent and any explicitly adopted proposal. Preserve completed work, identify the smallest unfinished outcome, and continue with a new bounded action unless waiting for user input.',
     compact_context_limit: 'The provider rejected the previous context size. Continue from the preserved task using the reduced context; do not reconstruct omitted transcript.',
     retry_without_reasoning: 'The prior attempt produced hidden reasoning but no usable response. Continue the same task directly with reasoning disabled and produce visible text or a tool call.',
     retry_reasoning_to_action: 'The prior completion reached its output ceiling during reasoning before it could emit an action. Continue the same task with reasoning enabled, reason more concisely, and proceed to visible text or a tool call.',
   };
   return guidance[action.action] ?? null;
+}
+
+function terminalNoProgressLimit(category, localLimit, exactNoEffectLimit) {
+  if (category === 'empty_output') return localLimit;
+  if (category === 'tool_no_progress') return exactNoEffectLimit;
+  return null;
+}
+
+function recoveryAction(count, localLimit, ladder, allowCompaction) {
+  const configured = ladder[count - 1];
+  if (configured) return configured === 'compact' && allowCompaction === false ? 'nudge' : configured;
+  if (count <= localLimit) return 'reassess';
+  if (count <= localLimit * 2) return 'change_strategy';
+  return 'recover_objective';
 }
 
 function boundedDelay(attempt) {

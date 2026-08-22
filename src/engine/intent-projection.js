@@ -19,6 +19,26 @@ export function projectConversationIntent(authority, options = {}) {
   return Object.freeze(selected);
 }
 
+export function resolveApprovedAssistantProposal(transcript, instruction) {
+  if (!isReferentialApproval(instruction) || !Array.isArray(transcript)) return '';
+  for (let index = transcript.length - 1; index >= 0; index -= 1) {
+    const item = transcript[index];
+    if (item?.type !== 'message' || item.partial) continue;
+    if (item.role === 'user') return '';
+    if (item.role === 'assistant') return takeBytes(item.content, MAX_ITEM_BYTES);
+  }
+  return '';
+}
+
+function isReferentialApproval(value) {
+  const text = typeof value === 'string'
+    ? value.toLowerCase().replace(/[.!?]+$/u, '').trim() : '';
+  if (!text || text.length > 200 || text.includes('\n')) return false;
+  const continuation = /(?:^|[.!]\s*)(?:(?:please )?(?:continue|proceed|resume|go ahead|carry on|keep going|do it|do that|make it happen|make it so|move forward)|let'?s (?:do it|proceed|move forward))(?: (?:with it|with that|from there|as planned|the task|the work))?$/u;
+  const assent = /^(?:yes|yeah|yep|ok(?:ay)?|agreed|sounds good|i agree(?: with (?:that|this|your (?:idea|plan|proposal|recommendation)s?))?)$/u;
+  return continuation.test(text) || assent.test(text);
+}
+
 function retainTurnAnchor(selected, value) {
   const anchor = takeBytes(value, MAX_ITEM_BYTES);
   if (!anchor || selected.includes(anchor)) return;

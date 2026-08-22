@@ -20,6 +20,10 @@ selection and semantic review receive this projection so a terse continuation or
 instruction does not obscure older causal evidence or the broader objective. This projection
 supplies context, not authority: restrictions and replacements remain governed by the complete
 authenticated authority record, and model text, tool output, or a plan cannot expand it.
+When authenticated input is a conservative referential approval, the engine may also present the
+immediately preceding completed assistant proposal as separately attributed, user-adopted objective
+context. Semantic review may use it only where it remains compatible with the authenticated intent
+ledger; it cannot override a restriction, invent scope, or become standalone authority.
 Mission turn consumption is a separate durable authority fact. It is restored across process
 restart and deliberately survives conversation clear; persistence must succeed before the
 turn proceeds, so restart, clear, or a failed journal write cannot replenish mission bounds.

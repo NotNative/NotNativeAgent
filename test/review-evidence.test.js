@@ -108,6 +108,7 @@ test('conversation intent keeps earlier task evidence relevant after later conti
       'You may browse localhost:8123.',
       'Please proceed.',
     ],
+    approvedProposal: 'Inspect the Oceanview render, then finish the implementation.',
   });
   assert.equal(packet.evidence.some((item) => item.recordIndex === 0), true);
 });

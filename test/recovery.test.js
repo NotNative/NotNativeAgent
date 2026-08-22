@@ -50,7 +50,7 @@ test('AC-FAIL-12 exhaustion record identifies bounded completed evidence and act
   assert.equal(record.recovery_actions.length, 1);
 });
 
-test('configured recovery ladder remains finite and consumes its declared actions', () => {
+test('configured recovery ladder escalates without treating uncertain progress as terminal', () => {
   const manifest = config(process.cwd(), 'ephemeral', {
     recovery: { max_model_steps: 4096, local_retry_limit: 5, ladder: ['nudge', 'nudge', 'compact', 'compact'] },
   });
@@ -63,7 +63,15 @@ test('configured recovery ladder remains finite and consumes its declared action
   const actions = [];
   for (let count = 0; count < 4; count += 1) actions.push(recovery.noProgress('configured').action.action);
   assert.deepEqual(actions, ['nudge', 'nudge', 'compact', 'compact']);
-  assert.deepEqual(recovery.noProgress('configured'), { continue: false, exhausted: true, count: 5 });
+  assert.deepEqual(recovery.noProgress('configured'), {
+    continue: true, progress: false, count: 5,
+    action: recovery.actions.at(-1),
+  });
+  assert.equal(recovery.actions.at(-1).action, 'reassess');
+  for (let count = 0; count < 5; count += 1) recovery.noProgress('configured');
+  assert.equal(recovery.actions.at(-1).action, 'change_strategy');
+  recovery.noProgress('configured');
+  assert.equal(recovery.actions.at(-1).action, 'recover_objective');
 });
 
 test('low-pressure no-progress recovery does not substitute compaction for correction', () => {
@@ -79,9 +87,11 @@ test('tool recovery budgets are isolated by stable failure fingerprint', () => {
   const different = recovery.noProgress('tool_no_progress', null, {}, { failureFingerprint: 'task-detail' });
   assert.equal(different.count, 1);
   assert.equal(different.action.failure_fingerprint, 'task-detail');
-  assert.deepEqual(recovery.noProgress('tool_no_progress', null, {}, { failureFingerprint: 'search-glob' }), {
-    continue: false, exhausted: true, count: 3,
-  });
+  let repeated;
+  for (let count = 3; count <= 12; count += 1) {
+    repeated = recovery.noProgress('tool_no_progress', null, {}, { failureFingerprint: 'search-glob' });
+  }
+  assert.deepEqual(repeated, { continue: false, exhausted: true, count: 12 });
 });
 
 test('distinct repeated successful requests do not consume one shared no-progress budget', () => {
@@ -101,9 +111,9 @@ test('distinct repeated successful requests do not consume one shared no-progres
   assert.equal(recovery.noProgress('tool_no_progress', directory).count, 1);
   assert.equal(recovery.noProgress('tool_no_progress', file).count, 1);
   assert.equal(recovery.noProgress('tool_no_progress', directory).count, 2);
-  assert.deepEqual(recovery.noProgress('tool_no_progress', directory), {
-    continue: false, exhausted: true, count: 3,
-  });
+  let repeated;
+  for (let count = 3; count <= 12; count += 1) repeated = recovery.noProgress('tool_no_progress', directory);
+  assert.deepEqual(repeated, { continue: false, exhausted: true, count: 12 });
 });
 
 test('a new turn supervisor starts with fresh progress evidence and recovery episodes', () => {
@@ -181,6 +191,38 @@ test('successful tool work prevents nonconsecutive narration checkpoints from ex
   const workRecovery = result.recovery.filter((item) => item.category === 'unfinished_conversation_work');
   assert.deepEqual(workRecovery.map((item) => item.action), ['retry_continuation', 'nudge', 'nudge', 'nudge']);
   assert.deepEqual(workRecovery.map((item) => item.count), [1, 1, 1, 1]);
+});
+
+test('unchanged unfinished work receives escalating guidance instead of premature termination', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-patient-supervision-'));
+  let calls = 0;
+  let engine;
+  const provider = { async *stream() {
+    calls += 1;
+    if (calls <= 5) {
+      yield { type: 'text', text: 'The implementation still needs verification, so I will continue now.' };
+    } else {
+      await engine.updateTask('T1', 'completed', 'verification completed');
+      await engine.completeGoal('implementation verified');
+      yield { type: 'text', text: 'The implementation and verification are complete.' };
+    }
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  engine = new SessionEngine({
+    config: config(root, 'ephemeral', { recovery: { max_model_steps: 16 } }),
+    providerFactory: () => provider,
+  });
+  await engine.initialize();
+  await engine.setGoal('Implement and verify the change');
+  await engine.addTask('Complete verification');
+
+  const result = await engine.submit({ request_id: 'patient-supervision', content: 'Please proceed.' }, 'operator');
+
+  assert.equal(result.outcome, 'completed');
+  assert.equal(calls, 6);
+  assert.deepEqual(result.recovery.map((item) => item.action), [
+    'retry_continuation', 'nudge', 'nudge', 'reassess', 'change_strategy',
+  ]);
 });
 
 function toolCall(id, path) {
@@ -774,7 +816,7 @@ test('AC-PROD-03/AC-TURN-10 a completion claim cannot erase unresolved tool fail
   assert.equal(engine.transcript.some((item) => item.partial && item.content === 'The task is complete.'), true);
 });
 
-test('AC-PROD-03 unchanged malformed calls stop at the local recovery budget', async () => {
+test('AC-PROD-03 unchanged malformed calls receive patient escalation before the exact-loop boundary', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-malformed-loop-'));
   let count = 0;
   const provider = { async *stream() {
@@ -789,7 +831,7 @@ test('AC-PROD-03 unchanged malformed calls stop at the local recovery budget', a
   const result = await engine.submit({ request_id: 'malformed-loop', content: 'Do not loop.' }, 'operator');
   assert.equal(result.outcome, 'incomplete');
   assert.equal(result.failure.code, 'recovery_exhausted');
-  assert.equal(count, 3);
+  assert.equal(count, 12);
 });
 
 test('AC-FAIL-06 overflow compaction safely truncates an oversized historical message', async () => {
@@ -858,7 +900,7 @@ test('configured model-step ceiling terminates a still-progressing turn at the d
   assert.equal(result.failure.exhaustion_count, 16);
 });
 
-test('AC-REV-09 unchanged successful polling is stopped as no progress', async () => {
+test('AC-REV-09 unchanged successful polling stops only at the patient exact-loop boundary', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-churn-'));
   await writeFile(join(root, 'same.txt'), 'unchanged', 'utf8');
   let count = 0;
@@ -870,7 +912,7 @@ test('AC-REV-09 unchanged successful polling is stopped as no progress', async (
   await engine.initialize();
   const result = await engine.submit({ request_id: 'churn-turn', content: 'Read same.txt repeatedly' }, 'operator');
   assert.equal(result.outcome, 'incomplete');
-  assert.equal(count, 4);
+  assert.equal(count, 13);
   assert.equal(result.failure.code, 'recovery_exhausted');
   assert.equal(result.failure.side_effect_certainty, 'completed');
   assert.equal(result.failure.last_verified_checkpoint, 'tool_results_committed');

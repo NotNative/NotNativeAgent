@@ -23,7 +23,7 @@ export function buildReviewEvidence(transcript, options = {}) {
   const currentRequestId = options.currentRequestId ?? null;
   const currentTurnId = options.currentTurnId ?? findCurrentTurn(records, currentRequestId);
   const terms = queryTerms(options.request, options.authenticatedIntent, options.justification,
-    options.conversationIntent);
+    options.conversationIntent, options.approvedProposal);
   const recentTurnIds = newestTurnIds(records, currentTurnId);
   const candidates = [];
   let scanned = 0;
@@ -119,9 +119,10 @@ function newestTurnIds(records, currentTurnId) {
   return result;
 }
 
-function queryTerms(request, authenticatedIntent, justification, conversationIntent) {
+function queryTerms(request, authenticatedIntent, justification, conversationIntent, approvedProposal) {
   const values = [];
   for (const item of (conversationIntent ?? []).slice(-8)) collectSearchValues(item, values);
+  collectSearchValues(approvedProposal, values);
   for (const item of (authenticatedIntent ?? []).slice(-3)) collectSearchValues(item?.content, values);
   collectSearchValues(request?.resolved, values);
   collectSearchValues(request?.args, values);

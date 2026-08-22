@@ -13,8 +13,11 @@ authenticated objectives, clarifications, restrictions, and consumed steering. T
 request remains anchored if later steering fills the recent window. Provider tool selection
 and reviewer evidence both use that projection, so a later turn such as `Please proceed` or
 additive guidance such as `You may browse localhost` cannot hide the broader build objective or
-remove tools needed to complete it. Tool output and model narration cannot activate a bundle.
-A small set of additional tools is selected lexically from the same bounded selection text.
+remove tools needed to complete it. When a short authenticated approval refers to the immediately
+preceding completed assistant proposal, NNA carries that proposal separately as attributed,
+user-adopted objective context. It may help select tools but remains distinguishable from the
+authenticated authority ledger. Unapproved model narration and tool output cannot activate a
+bundle. A small set of additional tools is selected lexically from the same bounded selection text.
 Each provider step also receives a bounded, deterministically sorted JSON array containing
 the names of every other authorized tool whose full schema is not loaded. This includes
 tools discovered from MCP servers in that conversation. The array contains names only;

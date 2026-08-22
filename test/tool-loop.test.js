@@ -71,11 +71,9 @@ test('long productive workflows may use many distinct negative diagnostics witho
   }
   assert.equal(recovery.actions.length, 0);
 
-  assert.equal(recovery.noProgress('tool_no_progress', lastEvidence).count, 1);
-  assert.equal(recovery.noProgress('tool_no_progress', lastEvidence).count, 2);
-  assert.deepEqual(recovery.noProgress('tool_no_progress', lastEvidence), {
-    continue: false, exhausted: true, count: 3,
-  });
+  let repeated;
+  for (let count = 1; count <= 12; count += 1) repeated = recovery.noProgress('tool_no_progress', lastEvidence);
+  assert.deepEqual(repeated, { continue: false, exhausted: true, count: 12 });
 });
 
 test('failure fingerprints group the same repair condition but isolate different tools and messages', () => {

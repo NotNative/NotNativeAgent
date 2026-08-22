@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { capabilitySelectionQuery, isTerseContinuation } from '../src/tools/capability-continuity.js';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { projectConversationIntent } from '../src/engine/intent-projection.js';
+import { projectConversationIntent, resolveApprovedAssistantProposal } from '../src/engine/intent-projection.js';
 
 test('terse continuation inherits active unfinished work capability intent', async () => {
   const context = [
@@ -98,6 +98,25 @@ test('conversation intent projection retains the accepted turn anchor through la
   assert.equal(projection.length, 8);
   assert.equal(projection[0], anchor);
   assert.equal(projection.at(-1), 'steering 9');
+});
+
+test('authenticated referential approval resolves only the immediately preceding assistant proposal', async () => {
+  const proposal = 'I will implement and verify the workspace application.';
+  const transcript = [{
+    type: 'message', role: 'assistant', trust: 'model', partial: false, content: proposal,
+  }];
+  assert.equal(resolveApprovedAssistantProposal(transcript, 'I agree with your proposal. Please proceed.'), proposal);
+  assert.equal(resolveApprovedAssistantProposal(transcript, 'Please inspect a different repository.'), '');
+  assert.equal(resolveApprovedAssistantProposal([
+    ...transcript, { type: 'message', role: 'user', partial: false, content: 'intervening request' },
+  ], 'Please proceed.'), '');
+
+  const registry = new ToolRegistry(process.cwd(), { conversationWork: {} });
+  await registry.initialize();
+  const query = capabilitySelectionQuery([], ['Please proceed.'], proposal);
+  assert.match(query, /approved assistant proposal: I will implement/u);
+  const visible = registry.providerDefinitions(query).map((item) => item.function.name);
+  assert.ok(visible.includes('fs.write_text'));
 });
 
 test('continuation classification is narrow and malformed work state fails closed', () => {

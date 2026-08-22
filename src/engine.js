@@ -33,7 +33,7 @@ import { initializeEngine } from './engine/initialize.js';
 import { persistEngineRecord } from './engine/persistence.js';
 import { runEngineSubagent, subagentParallelLimit } from './subagent-runtime.js';
 import { finalizeEngineTurn } from './engine/finalization.js';
-import { projectConversationIntent } from './engine/intent-projection.js';
+import { projectConversationIntent, resolveApprovedAssistantProposal } from './engine/intent-projection.js';
 
 export class SessionEngine {
   state = new StateAuthority();
@@ -120,6 +120,7 @@ export class SessionEngine {
       active.authority = this.authority.snapshot(this.config);
       active.authority = await authorizeAndPersistTurn(this.authority, this.config, (record) => this.#persist('mission_turn_authorized', record));
       active.conversationIntent = projectConversationIntent(active.authority, { anchor: active.prompt });
+      active.approvedProposal = resolveApprovedAssistantProposal(this.transcript, command.content);
       armMissionDeadline(active);
       await this.#persist('message', userMessage(turn.id, command.content));
       await this.#persist('turn_accepted', { turnId: turn.id, requestId: command.request_id });
@@ -408,6 +409,8 @@ export class SessionEngine {
       await persistAuthenticatedIntent(this.authority, steering.content, steering.principal, (intent) => this.#persist('authority_intent', intent));
       active.authority = this.authority.snapshot(this.config);
       active.conversationIntent = projectConversationIntent(active.authority, { anchor: active.prompt });
+      active.approvedProposal = resolveApprovedAssistantProposal(this.transcript, steering.content)
+        || active.approvedProposal;
       const message = userMessage(active.turnId, steering.content, { steeringId: steering.id });
       const consumedRecord = { id: steering.id, consumedAt: new Date().toISOString(), message };
       if (this.store) await this.store.append('steering_consumed', consumedRecord);
@@ -444,7 +447,6 @@ export class SessionEngine {
   #settleAttempt(active, outcome) {
     return settleEngineAttempt(this, active, outcome, (...args) => this.#publish(...args));
   }
-
   #settleStep(active, outcome) {
     return settleEngineStep(this, active, outcome, (...args) => this.#publish(...args));
   }
@@ -456,7 +458,6 @@ export class SessionEngine {
     await this.#persist('lifecycle_event', event);
     return dispatch;
   }
-
   async #persist(type, payload) {
     return persistEngineRecord(this, type, payload);
   }
@@ -479,7 +480,6 @@ export class SessionEngine {
     await this.store.append('turn_interrupted', record);
     this.recoveryNotices.push(Object.freeze(record));
   }
-
   async #repairInterruptedTools(repairs) {
     for (const repair of repairs) await this.#persist('tool_result', repair);
   }

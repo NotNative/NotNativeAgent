@@ -97,6 +97,7 @@ export class MandatoryReviewer {
       toolDefinition: safeReviewDefinition(context.definition),
       authenticatedIntent: context.authority.intent,
       conversationIntent: context.conversationIntent ?? [],
+      approvedProposal: context.approvedProposal ?? '',
       mission: context.authority.mission, justification: context.justification ?? '',
       justificationTrust: 'untrusted_model', causalEvidence: context.causalEvidence ?? [],
       intentRelation, ledgerSummary: this.ledger.summary(request),

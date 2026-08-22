@@ -10,7 +10,9 @@ export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
   const messages = toProviderMessages(context, route);
   const dialect = engine.reliability?.instructions(route);
-  const tools = engine.tools.providerDefinitions(capabilitySelectionQuery(context, options.conversationIntent));
+  const tools = engine.tools.providerDefinitions(capabilitySelectionQuery(
+    context, options.conversationIntent, options.approvedProposal,
+  ));
   const catalog = toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);
   const system = [dialect, catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
   const reasoning = routeReasoningFields(route);
@@ -90,6 +92,7 @@ export function modelStepRequestOptions(reasoningMode, active) {
     reasoningMode,
     outputReserveTokens: active.contextBudget?.outputReserveTokens,
     conversationIntent: active.conversationIntent,
+    approvedProposal: active.approvedProposal,
   };
 }
 
