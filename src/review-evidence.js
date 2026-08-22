@@ -31,21 +31,23 @@ export function buildReviewEvidence(transcript, options = {}) {
     scanned += 1;
     const item = evidenceItem(records[index], currentRequestId, index);
     if (!item) continue;
+    const relevance = relevanceScore(item, terms);
     if (recentTurnIds.has(item.turnId)) {
-      candidates.push({ ...item, source: 'recent', relevance: null });
+      candidates.push({ ...item, source: 'recent', relevance });
       continue;
     }
-    const relevance = relevanceScore(item, terms);
     if (relevance > 0) candidates.push({ ...item, source: 'history_match', relevance });
   }
 
   const recent = candidates
     .filter((item) => item.source === 'recent')
     .sort((left, right) => left.recordIndex - right.recordIndex);
-  const older = candidates
-    .filter((item) => item.source === 'history_match')
+  const recentTail = recent.slice(-MAX_RECENT_RECORDS);
+  const recentTailIndexes = new Set(recentTail.map((item) => item.recordIndex));
+  const relevant = candidates
+    .filter((item) => item.relevance > 0 && !recentTailIndexes.has(item.recordIndex))
     .sort((left, right) => right.relevance - left.relevance || right.recordIndex - left.recordIndex);
-  const selected = [...recent.slice(-MAX_RECENT_RECORDS), ...older.slice(0, MAX_HISTORY_MATCHES)]
+  const selected = [...recentTail, ...relevant.slice(0, MAX_HISTORY_MATCHES)]
     .filter((item, index, all) => all.findIndex((entry) => entry.recordIndex === item.recordIndex) === index)
     .slice(0, MAX_RECORDS)
     .sort((left, right) => left.recordIndex - right.recordIndex);

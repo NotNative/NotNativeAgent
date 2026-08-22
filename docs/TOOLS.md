@@ -219,9 +219,12 @@ trailing-dot/space segments remain rejected consistently on every platform.
 ping, traceroute, and exact PowerShell `Test-Connection` or `Resolve-DnsName` commands are
 identified as non-mutating discovery. An authenticated request to find, resolve, or test a host
 covers a diagnostic continuation from its hostname to an address returned by a prior tool. The
-semantic reviewer receives that recent result as bounded, redacted, untrusted causal evidence;
-tool output can connect targets but can never grant authority. Shell composition or additional
-commands do not receive this classification.
+semantic reviewer receives a bounded, redacted, untrusted causal-evidence packet. The packet keeps
+the newest causal tail and supplements it with relevance-ranked records from anywhere in the
+bounded journal scan, including earlier in the same long turn. This prevents intervening work from
+displacing prior evidence about the exact target under review. Tool output can connect targets but
+can never grant authority. Shell composition or additional commands do not receive this
+classification.
 
 The Console command `/diff` shows the text changes NNA has recorded during the active
 conversation runtime; `/diff PATH` narrows the view to one file. This ledger is observational
