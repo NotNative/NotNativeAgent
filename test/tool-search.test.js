@@ -164,7 +164,7 @@ test('hosted tool catalogs cannot install, expose, or search for root subagents'
   assert.equal(registry.search('spawn exploration agent').some((item) => item.name === 'agent.run'), false);
 });
 
-test('provider tool schemas omit grammar-hostile bounds while runtime schemas retain them', async () => {
+test('compact provider facades retain callable shape while runtime schemas retain documentation and bounds', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   const runtime = registry.snapshot().find((item) => item.name === 'fs.read');
@@ -176,11 +176,13 @@ test('provider tool schemas omit grammar-hostile bounds while runtime schemas re
   assert.equal(Object.hasOwn(wire.function.parameters.properties.start_line, 'maximum'), false);
   assert.equal(Object.hasOwn(wire.function.parameters.properties.path, 'maxLength'), false);
   assert.equal(wire.function.parameters.properties.start_line.type, 'integer');
-  assert.match(wire.function.parameters.properties.path.description, /UTF-8 text file/u);
+  assert.equal(Object.hasOwn(wire.function.parameters.properties.path, 'description'), false);
+  assert.match(runtime.inputSchema.properties.path.description, /UTF-8 text file/u);
+  assert.ok(wire.function.description.length <= 180);
   const listWire = registry.providerDefinitions().find((item) => item.function.name === 'fs.list');
   assert.equal(listWire.function.parameters.required.includes('pattern'), false);
   assert.equal(listWire.function.parameters.properties.pattern.type, 'string');
-  assert.match(listWire.function.parameters.properties.pattern.description, /Optional glob/u);
+  assert.equal(Object.hasOwn(listWire.function.parameters.properties.pattern, 'description'), false);
 });
 
 test('every bundled filesystem argument has provider-visible semantic guidance', async () => {

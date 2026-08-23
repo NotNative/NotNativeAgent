@@ -134,7 +134,7 @@ export class ToolRegistry {
       && (providerVisible(item.name, this.#exposed.has(item.name), activated.has(item.name))
         || this.allowedTools?.has(item.name))).map((item) => ({
       type: 'function',
-      function: { name: item.name, description: item.purpose, parameters: providerSchema(item.inputSchema) },
+      function: { name: item.name, description: compactPurpose(item), parameters: providerSchema(item.inputSchema) },
     }));
     return definitions;
   }
@@ -234,6 +234,14 @@ export class ToolRegistry {
     this.#history.set(`${definition.name}@${definition.version}`, frozen);
     return true;
   }
+}
+
+function compactPurpose(definition) {
+  const override = definition.providerFacade?.description;
+  const purpose = typeof override === 'string' && override.trim() ? override.trim() : definition.purpose;
+  const text = typeof purpose === 'string' ? purpose.trim().replace(/\s+/gu, ' ') : `Call ${definition.name}`;
+  const sentence = text.match(/^.*?[.!?](?:\s|$)/u)?.[0]?.trim() ?? text;
+  return sentence.length <= 180 ? sentence : `${sentence.slice(0, 179)}…`;
 }
 function writeDefinition(paths, changes, receipts) {
   return {

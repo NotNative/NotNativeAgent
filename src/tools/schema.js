@@ -5,12 +5,20 @@ const PROVIDER_GRAMMAR_CONSTRAINTS = new Set([
   'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf',
   'minLength', 'maxLength', 'pattern', 'minItems', 'maxItems',
 ]);
+const PROVIDER_DOCUMENTATION_FIELDS = new Set([
+  'description', 'title', 'examples', 'example', 'default', '$comment',
+  'deprecated', 'readOnly', 'writeOnly',
+]);
 
-export function providerSchema(value) {
-  return projectProviderSchema(value, new WeakSet(), 0, { nodes: 0 });
+export function providerSchema(value, options = {}) {
+  const mode = options.mode ?? 'compact';
+  if (!['compact', 'documented'].includes(mode)) {
+    throw new ContractError('invalid_external_schema', 'provider schema projection mode is invalid');
+  }
+  return projectProviderSchema(value, new WeakSet(), 0, { nodes: 0 }, mode);
 }
 
-function projectProviderSchema(value, ancestors, depth, state) {
+function projectProviderSchema(value, ancestors, depth, state, mode) {
   if (!value || typeof value !== 'object') return value;
   state.nodes += 1;
   if (depth > 24 || state.nodes > 10_000 || ancestors.has(value)) {
@@ -18,17 +26,18 @@ function projectProviderSchema(value, ancestors, depth, state) {
   }
   ancestors.add(value);
   if (Array.isArray(value)) {
-    const result = value.map((item) => projectProviderSchema(item, ancestors, depth + 1, state));
+    const result = value.map((item) => projectProviderSchema(item, ancestors, depth + 1, state, mode));
     ancestors.delete(value);
     return result;
   }
   const result = {};
   for (const [key, child] of Object.entries(value)) {
     if (PROVIDER_GRAMMAR_CONSTRAINTS.has(key)) continue;
+    if (mode === 'compact' && PROVIDER_DOCUMENTATION_FIELDS.has(key)) continue;
     if (key === 'properties' && child && typeof child === 'object' && !Array.isArray(child)) {
       result[key] = Object.fromEntries(Object.entries(child)
-        .map(([name, rule]) => [name, projectProviderSchema(rule, ancestors, depth + 1, state)]));
-    } else result[key] = projectProviderSchema(child, ancestors, depth + 1, state);
+        .map(([name, rule]) => [name, projectProviderSchema(rule, ancestors, depth + 1, state, mode)]));
+    } else result[key] = projectProviderSchema(child, ancestors, depth + 1, state, mode);
   }
   ancestors.delete(value);
   return result;
