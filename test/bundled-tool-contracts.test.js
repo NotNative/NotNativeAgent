@@ -24,7 +24,7 @@ function optionalControls() {
   };
 }
 
-test('all bundled tool arguments provide provider-visible semantic guidance', async () => {
+test('bundled tools retain rich internal guidance while compact provider facades omit repeated prose', async () => {
   const registry = new ToolRegistry(process.cwd(), optionalControls());
   await registry.initialize();
   try {
@@ -32,10 +32,12 @@ test('all bundled tool arguments provide provider-visible semantic guidance', as
     assert.ok(tools.length >= 39);
     for (const tool of tools) {
       const wire = providerSchema(tool.inputSchema);
+      const documented = providerSchema(tool.inputSchema, { mode: 'documented' });
       for (const [name, property] of Object.entries(tool.inputSchema.properties ?? {})) {
         assert.equal(typeof property.description, 'string', `${tool.name}.${name} lacks a description`);
         assert.ok(property.description.length > 0, `${tool.name}.${name} has an empty description`);
-        assert.equal(wire.properties[name].description, property.description);
+        assert.equal(Object.hasOwn(wire.properties[name], 'description'), false);
+        assert.equal(documented.properties[name].description, property.description);
       }
     }
   } finally { await registry.close(); }

@@ -15,7 +15,7 @@ test('tool catalog keeps observational tools visible and effectful tools situati
   });
   const baseline = registry.providerDefinitions().map((item) => item.function.name);
   assert.deepEqual(baseline.sort(),
-    ['fs.list', 'fs.read', 'fs.search_text', 'tool.search', 'web.browse', 'web.fetch', 'web.search']);
+    ['fs.list', 'fs.read', 'fs.search_text', 'tool.search', 'web.search']);
   assert.ok(!baseline.includes('fs.list_directory'));
   assert.ok(!baseline.includes('fs.read_text'));
   assert.ok(!baseline.includes('fs.edit_text'));
@@ -29,6 +29,8 @@ test('tool catalog keeps observational tools visible and effectful tools situati
   assert.ok(!baseline.includes('work.task_add'));
   assert.ok(!baseline.includes('notification.telegram'));
   assert.ok(baseline.includes('web.search'));
+  assert.ok(!baseline.includes('web.fetch'));
+  assert.ok(!baseline.includes('web.browse'));
   assert.ok(!baseline.includes('nna.search_guidance'));
   assert.ok(!baseline.includes('nna.diagnose_turn'));
   assert.ok(!baseline.includes('session.search_history'));
@@ -44,8 +46,12 @@ test('authenticated task intent activates bounded effectful capability bundles',
   assert.ok(!inspect.includes('process.run'));
 
   const build = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
+  assert.ok(build.includes('shell.run'));
+  for (const name of ['fs.directory', 'fs.write_text', 'fs.edit_text']) assert.ok(!build.includes(name));
+  const groundedBuild = registry.providerDefinitions('build and test the application', { phase: 'action' })
+    .map((item) => item.function.name);
   for (const name of ['fs.directory', 'fs.write_text', 'fs.edit_text', 'shell.run']) {
-    assert.ok(build.includes(name), `${name} was not activated`);
+    assert.ok(groundedBuild.includes(name), `${name} was not activated after grounding`);
   }
   assert.ok(!build.includes('process.run'));
   assert.ok(!build.includes('fs.delete_file'));
@@ -53,7 +59,7 @@ test('authenticated task intent activates bounded effectful capability bundles',
   assert.ok(!build.includes('project.verify'));
   assert.ok(!build.includes('work.plan'));
 
-  const cleanup = registry.providerDefinitions('remove the obsolete file').map((item) => item.function.name);
+  const cleanup = registry.providerDefinitions('remove the obsolete file', { phase: 'action' }).map((item) => item.function.name);
   assert.ok(cleanup.includes('fs.directory'));
   assert.ok(!cleanup.includes('fs.delete_file'));
 
@@ -71,6 +77,24 @@ test('authenticated task intent activates bounded effectful capability bundles',
   assert.equal(actionOrientedIntent('build and test the application'), true);
   assert.equal(actionOrientedIntent('inspect and explain the repository structure'), false);
   assert.equal(actionOrientedIntent('research the latest release online'), false);
+});
+
+test('provider surface receipts make phase selection and byte budgets auditable', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  const orientation = registry.providerSurface('build and test the application');
+  assert.equal(orientation.receipt.phase, 'orientation');
+  assert.ok(orientation.definitions.length <= 6);
+  assert.ok(orientation.receipt.schemaBytes <= 4 * 1024);
+  assert.equal(orientation.receipt.selectionReasons['shell.run'], 'task_intent');
+  assert.ok(!orientation.receipt.selectedToolNames.includes('fs.write_text'));
+  assert.match(orientation.receipt.fingerprint, /^[a-f0-9]{64}$/u);
+
+  const action = registry.providerSurface('build and test the application', { phase: 'action' });
+  assert.equal(action.receipt.phase, 'action');
+  assert.ok(action.definitions.length <= 10);
+  assert.ok(action.receipt.schemaBytes <= 8 * 1024);
+  assert.equal(action.receipt.selectionReasons['fs.write_text'], 'task_intent');
 });
 
 test('hosted execution falls back to process.run when no shell tool exists', async () => {

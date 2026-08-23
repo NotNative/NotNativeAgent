@@ -710,7 +710,8 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   const root = await mkdtemp(join(tmpdir(), 'nna-registry-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const providerWrite = registry.providerDefinitions('write a project file').find((item) => item.function.name === 'fs.write_text');
+  const providerWrite = registry.providerDefinitions('write a project file', { phase: 'action' })
+    .find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list', 'fs.list_directory',

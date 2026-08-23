@@ -88,7 +88,7 @@ test('filesystem mutations accept unambiguous common argument spellings and reta
 test('fs.edit_text exposes one forgiving contract for exact and line-range edits', async () => {
   const item = await fixture();
   try {
-    const exposed = item.registry.providerDefinitions('edit a project file')
+    const exposed = item.registry.providerDefinitions('edit a project file', { phase: 'action' })
       .find((entry) => entry.function.name === 'fs.edit_text').function.parameters;
     assert.deepEqual(exposed.required, ['path', 'content']);
     assert.deepEqual(Object.keys(exposed.properties), ['path', 'content', 'find', 'start_line', 'end_line', 'all']);

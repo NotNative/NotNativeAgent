@@ -19,7 +19,7 @@ import { userDataPaths } from './product.js';
 import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
-  executionContext, modelStepRequestOptions, prepareTrustedToolHandoff, providerRequest,
+  deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, prepareTrustedToolHandoff, providerRequest,
   resetReasoningRecovery, resetStep, toolContext,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
@@ -34,7 +34,6 @@ import { persistEngineRecord } from './engine/persistence.js';
 import { runEngineSubagent, subagentParallelLimit } from './subagent-runtime.js';
 import { finalizeEngineTurn } from './engine/finalization.js';
 import { projectConversationIntent, resolveApprovedAssistantProposal } from './engine/intent-projection.js';
-import { deduplicateToolCallBatch } from './reliability/tool-call-deduplication.js';
 
 export class SessionEngine {
   state = new StateAuthority();
@@ -313,19 +312,10 @@ export class SessionEngine {
       });
     }
     assertTurnActive(active);
-    const assembledCalls = active.toolAssembler.complete(active.finishReason);
-    const deduplicated = deduplicateToolCallBatch(assembledCalls);
-    const calls = deduplicated.calls;
-    for (const item of deduplicated.suppressed) {
-      await this.#persist('tool_call_deduplicated', {
-        schema: 'nna.tool-call-deduplicated.v1', turnId: active.turnId, stepId: active.stepId,
-        providerCallId: item.providerCallId, retainedProviderCallId: item.retainedProviderCallId,
-        toolName: item.toolName, identityFingerprint: item.identityFingerprint,
-      });
-    }
+    const calls = await deduplicateProviderToolCalls(active.toolAssembler.complete(active.finishReason), active, (...args) => this.#persist(...args));
     if (active.stepText.length > 0 || calls.length > 0) resetReasoningRecovery(active);
     if (calls.length === 0) return this.#afterTextStep(active);
-    await this.#settleAttempt(active, 'completed'); this.reliability.captureReasoningContinuation(active, calls);
+    await this.#settleAttempt(active, 'completed'); active.capabilityPhase = 'action'; this.reliability.captureReasoningContinuation(active, calls);
     if (active.stepText.length > 0) {
       await this.#persist('message', assistantMessage(active.turnId, active.stepText, { stepId: active.stepId }));
       active.committedStepText = active.stepText;

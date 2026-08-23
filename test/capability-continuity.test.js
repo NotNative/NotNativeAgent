@@ -24,8 +24,11 @@ test('terse continuation inherits active unfinished work capability intent', asy
   const registry = new ToolRegistry(process.cwd(), { conversationWork: {} });
   await registry.initialize();
   const visible = registry.providerDefinitions(query).map((item) => item.function.name);
+  assert.ok(visible.includes('shell.run'));
+  for (const name of ['fs.write_text', 'fs.edit_text']) assert.ok(!visible.includes(name));
+  const grounded = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
   for (const name of ['fs.write_text', 'fs.edit_text', 'shell.run']) {
-    assert.ok(visible.includes(name), `${name} was not inherited`);
+    assert.ok(grounded.includes(name), `${name} was not inherited after grounding`);
   }
   assert.ok(!visible.includes('project.verify'));
   assert.ok(!visible.includes('process.run'));
@@ -76,7 +79,7 @@ test('conversation intent keeps task capabilities through a later continuation t
 
   const registry = new ToolRegistry(process.cwd(), { conversationWork: {} });
   await registry.initialize();
-  const visible = registry.providerDefinitions(query).map((item) => item.function.name);
+  const visible = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
   for (const name of ['fs.write_text', 'fs.edit_text', 'fs.directory', 'web.browse']) {
     assert.ok(visible.includes(name), `${name} was not retained`);
   }
@@ -115,7 +118,7 @@ test('authenticated referential approval resolves only the immediately preceding
   await registry.initialize();
   const query = capabilitySelectionQuery([], ['Please proceed.'], proposal);
   assert.match(query, /approved assistant proposal: I will implement/u);
-  const visible = registry.providerDefinitions(query).map((item) => item.function.name);
+  const visible = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
   assert.ok(visible.includes('fs.write_text'));
 });
 

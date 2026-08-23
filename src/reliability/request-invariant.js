@@ -25,6 +25,7 @@ export function providerRequestManifest(request, context, route, active, envelop
     providerProfile: route?.profile?.id ?? null, model: request.model,
     requestFingerprint: digest(request), messagesFingerprint: digest(messages),
     toolsFingerprint: digest(tools), configFingerprint: digest(configuration),
+    toolSurface: active?.providerToolSurface ?? null,
     envelope,
     sourceFingerprint: digest(sources),
     messageCount: messages.length, toolCount: tools.length,

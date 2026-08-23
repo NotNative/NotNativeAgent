@@ -31,7 +31,7 @@ import { prepareLineEdit } from './stale-edit-recovery.js';
 import { providerSchema, schemaShapeValidator, schemaValidator } from './tools/schema.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { ReferenceStore, referenceDefinitions } from './tools/reference-store.js';
-import { ALWAYS_EXPOSED, PROVIDER_NATIVE, allowedByManifest, catalogVisible, providerVisible } from './tools/provider-surface.js';
+import { PROVIDER_NATIVE, allowedByManifest, catalogVisible, providerVisible } from './tools/provider-surface.js';
 import { withPreparedWriteTarget } from './tools/write-target.js';
 import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 import { advanceFromAuthoredState, mutationEvidence, transactionalSnapshot,
@@ -40,6 +40,7 @@ import { SITUATIONAL_TOOL_NAMES, taskActivatedToolNames } from './tools/capabili
 import { telegramNotificationDefinition } from './notifications/telegram.js';
 import { sessionHistoryDefinitions } from './session-history-tools.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
+import { planProviderToolNames, providerSurfacePhase } from './tools/provider-surface-planner.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const SITUATIONAL = new Set(SITUATIONAL_TOOL_NAMES);
 export class ToolRegistry {
@@ -119,7 +120,11 @@ export class ToolRegistry {
   catalogSnapshot() {
     return Object.freeze(this.snapshot().filter((item) => catalogVisible(item.name) || this.allowedTools?.has(item.name)));
   }
-  providerDefinitions(query = '') {
+  providerDefinitions(query = '', options = {}) {
+    return this.providerSurface(query, options).definitions;
+  }
+  providerSurface(query = '', options = {}) {
+    const phase = providerSurfacePhase(options.phase);
     const activated = new Set(taskActivatedToolNames(query));
     // Hosted or explicitly-ceilinged registries may provide process.run without a shell.
     // Preserve execution capability there without making process.run compete with shell.run
@@ -129,14 +134,30 @@ export class ToolRegistry {
     }
     const relevant = new Set(query.trim() ? this.searchCatalog(query, 6).map((item) => item.name)
       .filter((name) => !SITUATIONAL.has(name) || activated.has(name)) : []);
-    const definitions = this.snapshot().filter((item) => (ALWAYS_EXPOSED.has(item.name) || this.#exposed.has(item.name)
-      || relevant.has(item.name) || activated.has(item.name) || this.allowedTools?.has(item.name))
-      && (providerVisible(item.name, this.#exposed.has(item.name), activated.has(item.name))
-        || this.allowedTools?.has(item.name))).map((item) => ({
+    const snapshot = this.snapshot();
+    const callable = snapshot.filter((item) => providerVisible(
+      item.name, this.#exposed.has(item.name), activated.has(item.name),
+    ) || this.allowedTools?.has(item.name));
+    const projected = new Map(callable.map((item) => [item.name, {
       type: 'function',
       function: { name: item.name, description: compactPurpose(item), parameters: providerSchema(item.inputSchema) },
-    }));
-    return definitions;
+    }]));
+    const plan = planProviderToolNames({
+      availableNames: callable.map((item) => item.name), activatedNames: activated,
+      relevantNames: relevant, exposedNames: this.#exposed.keys(), allowedNames: this.allowedTools,
+      phase, encodedDefinition: (name) => Buffer.byteLength(JSON.stringify(projected.get(name)), 'utf8'),
+    });
+    const definitions = Object.freeze(plan.names.map((name) => Object.freeze(projected.get(name))));
+    const receiptCore = {
+      schema: 'nna.provider-tool-surface.v1', policyVersion: 'progressive-action-clarity-v1',
+      phase: plan.phase, selectedToolNames: plan.names, omittedToolNames: plan.omitted,
+      schemaBytes: plan.schemaBytes, limits: plan.limits, selectionReasons: plan.reasons,
+    };
+    return Object.freeze({
+      definitions,
+      receipt: Object.freeze({ ...receiptCore, fingerprint: createHash('sha256')
+        .update(JSON.stringify(receiptCore)).digest('hex') }),
+    });
   }
   search(query, limit = 12) {
     return rankToolDefinitions(this.snapshot(), query, limit);

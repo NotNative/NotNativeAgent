@@ -5,14 +5,18 @@ import { toolCatalogContext } from '../tools/catalog-context.js';
 import { routeReasoningFields } from '../provider/reasoning.js';
 import { ContractError } from '../ids.js';
 import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
+import { deduplicateToolCallBatch } from '../reliability/tool-call-deduplication.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
   const messages = toProviderMessages(context, route);
   const dialect = engine.reliability?.instructions(route);
-  const tools = engine.tools.providerDefinitions(capabilitySelectionQuery(
-    context, options.conversationIntent, options.approvedProposal,
-  ));
+  const query = capabilitySelectionQuery(context, options.conversationIntent, options.approvedProposal);
+  const surface = typeof engine.tools.providerSurface === 'function'
+    ? engine.tools.providerSurface(query, { phase: options.capabilityPhase })
+    : { definitions: engine.tools.providerDefinitions(query), receipt: null };
+  const tools = surface.definitions;
+  if (options.active) options.active.providerToolSurface = surface.receipt;
   const catalog = toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);
   const system = [dialect, catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
   const reasoning = routeReasoningFields(route);
@@ -33,7 +37,8 @@ function boundedOutputTokens(routeLimit, reserveLimit) {
 }
 
 function validateProviderRequestInputs(engine, route, context) {
-  if (!engine?.tools || typeof engine.tools.providerDefinitions !== 'function') {
+  if (!engine?.tools || (typeof engine.tools.providerSurface !== 'function'
+    && typeof engine.tools.providerDefinitions !== 'function')) {
     throw new ContractError('provider_request_invalid', 'provider request requires a tool registry');
   }
   if (!route || typeof route.model !== 'string' || route.model.length === 0
@@ -93,10 +98,22 @@ export function modelStepRequestOptions(reasoningMode, active) {
     outputReserveTokens: active.contextBudget?.outputReserveTokens,
     conversationIntent: active.conversationIntent,
     approvedProposal: active.approvedProposal,
+    capabilityPhase: active.capabilityPhase,
+    active,
   };
 }
 
 export function resetReasoningRecovery(active) {
   active.reasoningFallbackUsed = false;
   active.reasoningHeadroomRetryUsed = false;
+}
+
+export async function deduplicateProviderToolCalls(calls, active, persist) {
+  const deduplicated = deduplicateToolCallBatch(calls);
+  for (const item of deduplicated.suppressed) await persist('tool_call_deduplicated', {
+    schema: 'nna.tool-call-deduplicated.v1', turnId: active.turnId, stepId: active.stepId,
+    providerCallId: item.providerCallId, retainedProviderCallId: item.retainedProviderCallId,
+    toolName: item.toolName, identityFingerprint: item.identityFingerprint,
+  });
+  return deduplicated.calls;
 }
