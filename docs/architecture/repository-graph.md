@@ -43,7 +43,7 @@ graph LR
 | Reliability Engine | 39 | Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Persistence, Product foundation, Providers, Reliability Engine, Tools |
 | Gateway | 4 | Agentic Engine, Gateway, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine | Experience Engine, Gateway, Product foundation |
 | Persistence | 11 | Persistence, Product foundation, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Governance Engine, Integration surfaces, Persistence, Product foundation, Providers, Tools |
-| Providers | 15 | Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Providers, Reliability Engine |
+| Providers | 16 | Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Providers, Reliability Engine |
 | Tools | 40 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Reliability Engine, Tools | Agentic Engine, Experience Engine, Governance Engine, Reliability Engine, Tools |
 | Guidance and extensions | 9 | Governance Engine, Guidance and extensions, Product foundation | Agentic Engine, Experience Engine, Guidance and extensions, Product foundation, Tools |
 | Integration surfaces | 10 | Agentic Engine, Integration surfaces, Persistence, Product foundation, Providers | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
@@ -77,8 +77,8 @@ Counts represent static local imports. Same-component imports are included becau
 | Experience Engine | Persistence | 8 | 7 |
 | Product foundation | Persistence | 8 | 6 |
 | Integration surfaces | Integration surfaces | 8 | 4 |
+| Agentic Engine | Providers | 7 | 2 |
 | Product foundation | Experience Engine | 7 | 5 |
-| Providers | Providers | 7 | 6 |
 
 ## Process entry points
 
@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:6fb2cbf9799befe243e48b3d6904b373e0d96bdc976d89ab8ec71a2ebbb6d4dd`.
+Source fingerprint: `sha256:61a52940136f5a5886b83d8f8b4ff123f45dd0c004c49a114855a3d0b904aa1a`.

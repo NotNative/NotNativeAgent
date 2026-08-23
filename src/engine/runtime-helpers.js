@@ -7,6 +7,7 @@ import { ContractError } from '../ids.js';
 import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
 import { deduplicateToolCallBatch } from '../reliability/tool-call-deduplication.js';
 import { monitoringIntent } from '../tools/capability-activation.js';
+import { attachProviderRequestMetadata } from '../provider/request-metadata.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
@@ -20,16 +21,28 @@ export function providerRequest(engine, route, context, options = {}) {
   if (options.active) options.active.providerToolSurface = surface.receipt;
   const catalog = toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);
   const system = [dialect, catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
+  const ordered = insertGeneratedSystemMessages(messages, system);
   const reasoning = routeReasoningFields(route);
   // The assembled request is a boundary value. Provider adapters must not mutate shared turn state through it.
-  return Object.freeze({
-    model: route.model, messages: [...system, ...messages],
+  const request = Object.freeze({
+    model: route.model, messages: ordered.messages,
     tools, temperature: route.temperature, parallelToolCalls: false,
     maxOutputTokens: boundedOutputTokens(route.maxOutputTokens, options.outputReserveTokens),
     ...(reasoning.reasoningEffort === undefined ? {} : { reasoningEffort: reasoning.reasoningEffort }),
     ...(reasoning.enableThinking === undefined ? {} : { enableThinking: reasoning.enableThinking }),
     ...(options.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
   });
+  return attachProviderRequestMetadata(request, { injectedMessageIndexes: ordered.injectedMessageIndexes });
+}
+
+function insertGeneratedSystemMessages(messages, generated) {
+  if (generated.length === 0) return { messages, injectedMessageIndexes: [] };
+  let index = 0;
+  while (messages[index]?.role === 'system') index += 1;
+  return {
+    messages: [...messages.slice(0, index), ...generated, ...messages.slice(index)],
+    injectedMessageIndexes: generated.map((_, offset) => index + offset),
+  };
 }
 
 function boundedOutputTokens(routeLimit, reserveLimit) {

@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { providerReasoningControls } from '../provider/reasoning.js';
+import { providerRequestMetadata } from '../provider/request-metadata.js';
 
 const TOKEN_BYTE_RATIO = 3;
 const MAX_SECTIONS = 64;
@@ -10,11 +11,16 @@ export function measureProviderEnvelope(request, context = [], options = {}) {
   validateRequest(request);
   const messages = request.messages ?? [];
   const injectedCount = Math.max(0, messages.length - context.length);
+  const declaredInjected = providerRequestMetadata(request)?.injectedMessageIndexes;
+  const injectedIndexes = new Set(declaredInjected ?? Array.from({ length: injectedCount }, (_, index) => index));
   const sections = new Map();
+  let contextIndex = 0;
   for (let index = 0; index < messages.length; index += 1) {
-    const provenance = index < injectedCount ? 'request.injected_system'
-      : `context.${sectionLabel(context[index - injectedCount]?.provenance)}`;
+    const injected = injectedIndexes.has(index);
+    const provenance = injected ? 'request.injected_system'
+      : `context.${sectionLabel(context[contextIndex]?.provenance)}`;
     addSection(sections, provenance, messages[index]);
+    if (!injected) contextIndex += 1;
   }
   addSection(sections, 'request.framing', { messages: [], tools: [] });
   addSection(sections, 'request.tool_schemas', request.tools ?? []);

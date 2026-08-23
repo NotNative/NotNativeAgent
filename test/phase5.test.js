@@ -746,9 +746,10 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
   assert.equal(request.maxOutputTokens, 128);
   assert.equal(request.reasoningEffort, 'medium');
   assert.equal(request.enableThinking, true);
-  assert.match(request.messages[0].content, /\["git\.inspect","mcp\.memory\.search"\]/u);
-  assert.match(request.messages[0].content, /Use tool\.search/u);
-  assert.doesNotMatch(request.messages[0].content, /fs\.read_text/u);
+  assert.match(request.messages[0].content, /NotNativeAgent/u);
+  const catalog = request.messages.find((item) => /Use tool\.search/u.test(item.content));
+  assert.match(catalog.content, /\["git\.inspect","mcp\.memory\.search"\]/u);
+  assert.doesNotMatch(catalog.content, /fs\.read_text/u);
   assert.doesNotMatch(JSON.stringify(request), /credential|api.?key|secret-reference/iu);
 });
 

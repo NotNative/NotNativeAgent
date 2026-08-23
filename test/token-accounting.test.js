@@ -12,6 +12,7 @@ import {
 } from '../src/reliability/token-accounting.js';
 import { JournalStore } from '../src/store.js';
 import { detailedTokenText, receiptTokenText, statusTokenText } from '../src/experience/token-accounting.js';
+import { providerRequest } from '../src/engine/runtime-helpers.js';
 
 test('complete provider envelope inventories prompt sections, schemas, configuration, and output reserve', () => {
   const context = [{ role: 'user', content: 'inspect', provenance: 'transcript' }];
@@ -43,6 +44,32 @@ test('complete provider envelope inventories prompt sections, schemas, configura
   assert.equal(envelope.shape.tool_call_count, 0);
   assert.throws(() => assertProviderEnvelopeFits(envelope, { scaledTokens: 1 }), { code: 'context_too_large' });
   assert.equal(assertProviderEnvelopeFits(envelope, { scaledTokens: 100_000, windowTokens: 100_000 }), true);
+});
+
+test('generated system guidance follows identity while retaining injected envelope attribution', () => {
+  const context = [
+    { role: 'system', content: 'identity', provenance: 'engine_policy' },
+    { role: 'user', content: 'inspect', provenance: 'transcript' },
+  ];
+  const request = providerRequest({
+    reliability: { instructions: () => 'dialect guidance' },
+    tools: {
+      providerSurface: () => ({
+        definitions: [{ type: 'function', function: { name: 'fs.read', parameters: { type: 'object' } } }],
+        receipt: null,
+      }),
+      catalogSnapshot: () => [{ name: 'fs.read' }, { name: 'tool.search' }],
+    },
+  }, { model: 'fixture', maxOutputTokens: 1024 }, context);
+  assert.deepEqual(request.messages.map((item) => item.content), [
+    'identity', 'dialect guidance',
+    'Additional authorized tool names whose schemas are not loaded in this step:\n["tool.search"]\nUse tool.search to inspect and load matching tool schemas before calling them.',
+    'inspect',
+  ]);
+  const envelope = measureProviderEnvelope(request, context);
+  assert.equal(envelope.sections.find((item) => item.id === 'request.injected_system').items, 2);
+  assert.equal(envelope.sections.find((item) => item.id === 'context.engine_policy').items, 1);
+  assert.equal(envelope.sections.find((item) => item.id === 'context.transcript').items, 1);
 });
 
 test('provider envelope reports the controls actually sent for Qwen models', () => {

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:6fb2cbf9799befe243e48b3d6904b373e0d96bdc976d89ab8ec71a2ebbb6d4dd",
+  "source_digest": "sha256:61a52940136f5a5886b83d8f8b4ff123f45dd0c004c49a114855a3d0b904aa1a",
   "counts": {
-    "modules": 315,
+    "modules": 316,
     "component_edges": 68
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "providers",
       "label": "Providers",
       "ownership": "Owns model routing and provider wire adaptation.",
-      "module_count": 15
+      "module_count": 16
     },
     {
       "id": "tools",
@@ -237,6 +237,12 @@
       "module_count": 4
     },
     {
+      "from": "agentic-engine",
+      "to": "providers",
+      "import_count": 7,
+      "module_count": 2
+    },
+    {
       "from": "foundation",
       "to": "experience-engine",
       "import_count": 7,
@@ -247,12 +253,6 @@
       "to": "providers",
       "import_count": 7,
       "module_count": 6
-    },
-    {
-      "from": "agentic-engine",
-      "to": "providers",
-      "import_count": 6,
-      "module_count": 2
     },
     {
       "from": "gateway",
@@ -339,6 +339,12 @@
       "module_count": 3
     },
     {
+      "from": "reliability-engine",
+      "to": "providers",
+      "import_count": 3,
+      "module_count": 2
+    },
+    {
       "from": "tools",
       "to": "guidance",
       "import_count": 3,
@@ -395,12 +401,6 @@
     {
       "from": "providers",
       "to": "persistence",
-      "import_count": 2,
-      "module_count": 2
-    },
-    {
-      "from": "reliability-engine",
-      "to": "providers",
       "import_count": 2,
       "module_count": 2
     },
@@ -1024,6 +1024,7 @@
         "src/context.js",
         "src/ids.js",
         "src/provider/reasoning.js",
+        "src/provider/request-metadata.js",
         "src/reliability/tool-call-assembler.js",
         "src/reliability/tool-call-deduplication.js",
         "src/tools/capability-activation.js",
@@ -2028,6 +2029,12 @@
       ]
     },
     {
+      "path": "src/provider/request-metadata.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/provider/route-configuration.js",
       "component": "providers",
       "entrypoint": false,
@@ -2278,7 +2285,8 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
-        "src/provider/reasoning.js"
+        "src/provider/reasoning.js",
+        "src/provider/request-metadata.js"
       ]
     },
     {
