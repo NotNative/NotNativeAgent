@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:98bd8a2d2a6e0a78d0e839404c874ac5aa61c0afb1a2a793fd3811d6730c2b75`.
+Source fingerprint: `sha256:017f63ef63fb890e8a59800c52dfb51929875d25377bbce2904003fe21915606`.

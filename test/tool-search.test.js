@@ -35,7 +35,8 @@ test('tool catalog keeps observational tools visible and effectful tools situati
   assert.ok(!baseline.includes('nna.diagnose_turn'));
   assert.ok(!baseline.includes('session.search_history'));
   const relevant = registry.providerDefinitions('open and navigate a browser page').map((item) => item.function.name);
-  assert.ok(relevant.includes('browser.navigate'));
+  assert.ok(relevant.includes('web.browse'));
+  assert.ok(!relevant.includes('browser.navigate'));
 });
 
 test('authenticated task intent activates bounded effectful capability bundles', async () => {
@@ -100,6 +101,9 @@ test('provider surface receipts make phase selection and byte budgets auditable'
   assert.ok(!fileRead.receipt.selectedToolNames.includes('web.fetch'));
   assert.deepEqual(fileRead.receipt.selectedToolNames,
     ['tool.search', 'fs.list', 'fs.read', 'fs.search_text', 'web.search']);
+  assert.ok(!fileRead.receipt.selectedToolNames.includes('web.browse'));
+  const browser = registry.providerSurface('Navigate the browser to http://localhost:8123');
+  assert.equal(browser.receipt.selectionReasons['web.browse'], 'task_intent');
 });
 
 test('hosted execution falls back to process.run when no shell tool exists', async () => {

@@ -9,7 +9,7 @@ const ORIENTATION_BASELINE = Object.freeze([
 const ACTION_BASELINE = Object.freeze(['tool.search', 'fs.list', 'fs.read']);
 const RECOVERY_BASELINE = Object.freeze(['tool.search', 'fs.list', 'fs.read']);
 const DEFERRED_UNTIL_GROUNDED = new Set([
-  'web.fetch',
+  'web.fetch', 'web.browse',
   'fs.directory', 'fs.write_text', 'fs.edit_text',
   'fs.create_directory', 'fs.edit_lines', 'fs.copy_file', 'fs.move_file', 'fs.delete_file',
 ]);
@@ -19,6 +19,7 @@ const LIMITS = Object.freeze({
   recovery: Object.freeze({ count: 6, bytes: 4 * 1024 }),
   monitoring: Object.freeze({ count: 6, bytes: 4 * 1024 }),
 });
+const DIRECT_ORIENTATION = new Set(['web.browse']);
 
 export function providerSurfacePhase(value) {
   const phase = value ?? 'orientation';
@@ -51,7 +52,9 @@ export function planProviderToolNames({
   for (const name of baseline) add(name, 'phase_baseline', true);
   for (const name of exposedNames) add(name, 'explicit_exposure', true);
   for (const name of activatedNames) {
-    if (phase !== 'orientation' || !DEFERRED_UNTIL_GROUNDED.has(name)) add(name, 'task_intent');
+    if (phase !== 'orientation' || !DEFERRED_UNTIL_GROUNDED.has(name) || DIRECT_ORIENTATION.has(name)) {
+      add(name, 'task_intent');
+    }
   }
   if (phase !== 'recovery') for (const name of relevantNames) {
     if (phase !== 'orientation' || !DEFERRED_UNTIL_GROUNDED.has(name)) add(name, 'semantic_relevance');
