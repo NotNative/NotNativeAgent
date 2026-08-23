@@ -14,7 +14,10 @@ const DEFERRED_UNTIL_GROUNDED = new Set([
   'fs.create_directory', 'fs.edit_lines', 'fs.copy_file', 'fs.move_file', 'fs.delete_file',
 ]);
 const LIMITS = Object.freeze({
-  orientation: Object.freeze({ count: 6, bytes: 4 * 1024 }),
+  // Two task-specific tools may accompany the five-tool observation baseline.
+  // Web applications commonly need both shell execution and browser verification
+  // on the opening step; forcing either through discovery obscures the outcome.
+  orientation: Object.freeze({ count: 7, bytes: 6 * 1024 }),
   action: Object.freeze({ count: 10, bytes: 8 * 1024 }),
   recovery: Object.freeze({ count: 6, bytes: 4 * 1024 }),
   monitoring: Object.freeze({ count: 6, bytes: 4 * 1024 }),

@@ -85,8 +85,8 @@ test('provider surface receipts make phase selection and byte budgets auditable'
   await registry.initialize();
   const orientation = registry.providerSurface('build and test the application');
   assert.equal(orientation.receipt.phase, 'orientation');
-  assert.ok(orientation.definitions.length <= 6);
-  assert.ok(orientation.receipt.schemaBytes <= 4 * 1024);
+  assert.ok(orientation.definitions.length <= 7);
+  assert.ok(orientation.receipt.schemaBytes <= 6 * 1024);
   assert.equal(orientation.receipt.selectionReasons['shell.run'], 'task_intent');
   assert.ok(!orientation.receipt.selectedToolNames.includes('fs.write_text'));
   assert.match(orientation.receipt.fingerprint, /^[a-f0-9]{64}$/u);
@@ -104,6 +104,23 @@ test('provider surface receipts make phase selection and byte budgets auditable'
   assert.ok(!fileRead.receipt.selectedToolNames.includes('web.browse'));
   const browser = registry.providerSurface('Navigate the browser to http://localhost:8123');
   assert.equal(browser.receipt.selectionReasons['web.browse'], 'task_intent');
+
+  for (const query of [
+    'research current laptop prices online',
+    'compare hotel availability and prices',
+    'check the latest release using authoritative web sources',
+    'build a realistic ocean scene using Three.js',
+    'verify this WebGL application renders correctly',
+  ]) {
+    const surface = registry.providerSurface(query);
+    assert.equal(surface.receipt.selectionReasons['web.browse'], 'task_intent', query);
+    assert.ok(surface.receipt.selectedToolNames.includes('web.browse'), query);
+  }
+  const webApplication = registry.providerSurface('build and test this Three.js web app');
+  assert.ok(webApplication.receipt.selectedToolNames.includes('shell.run'));
+  assert.ok(webApplication.receipt.selectedToolNames.includes('web.browse'));
+  assert.ok(!registry.providerSurface('research the repository implementation')
+    .receipt.selectedToolNames.includes('web.browse'));
 });
 
 test('hosted execution falls back to process.run when no shell tool exists', async () => {

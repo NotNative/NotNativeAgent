@@ -31,7 +31,7 @@ const INTENTS = Object.freeze([
   ['reference_staging', /\b(?:reference|stage|store|stdin|large (?:content|payload)|reusable (?:content|payload))\b/iu],
   ['conversation_work', /\b(?:durable plan|goal|milestone|plan|task|track)\b/iu],
   ['notification', /\b(?:alert|notify|notification|telegram)\b/iu],
-  ['browser_interaction', /(?:\b(?:browse|browser)\b|\bnavigate\s+(?:to|the)\b|\bweb\s+page\b|\blocalhost\b|https?:\/\/)/iu],
+  ['browser_interaction', /(?:\b(?:browse|browser)\b|\bnavigate\s+(?:to|the)\b|\b(?:online|internet|web[ -]?(?:page|site))\b|\blocalhost\b|https?:\/\/|\b(?:research|investigate|look\s+up|find|compare|check|scan|shop)\b.{0,48}\b(?:availability|current|internet|latest|news|online|prices?|products?|retailers?|sources?|web)\b|\b(?:availability|current|latest|news|prices?|products?|retailers?)\b.{0,48}\b(?:compare|check|find|investigate|research|scan|shop)\b|\b(?:three\.js|webgl|website|web[ -]?app|frontend|landing\s+page|browser\s+game)\b)/iu],
   ['code_inspection', /\b(?:code|codebase|compile|diagnostic|git|repository|repo|symbol|typecheck)\b/iu],
   ['image_inspection', /\b(?:image|picture|render|screenshot|visual|visually)\b/iu],
   ['nna_guidance', /\b(?:nna|notnativeagent|agent harness|skill authoring|provider profile)\b/iu],

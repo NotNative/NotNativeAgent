@@ -133,7 +133,12 @@ export class ToolRegistry {
       activated.add('process.run');
     }
     const relevant = new Set(query.trim() ? this.searchCatalog(query, 6).map((item) => item.name)
-      .filter((name) => !SITUATIONAL.has(name) || activated.has(name)) : []);
+      .filter((name) => !SITUATIONAL.has(name) || activated.has(name))
+      // The governed canonical browser is the direct task-intent capability.
+      // Do not let a semantically similar external browser schema compete with
+      // it unless that exact external tool was explicitly exposed or granted.
+      .filter((name) => !activated.has('web.browse') || name === 'web.browse'
+        || !/(?:browser|browse)/u.test(name) || this.#exposed.has(name)) : []);
     const snapshot = this.snapshot();
     const callable = snapshot.filter((item) => providerVisible(
       item.name, this.#exposed.has(item.name), activated.has(item.name),
