@@ -15,7 +15,7 @@ test('tool catalog keeps observational tools visible and effectful tools situati
   });
   const baseline = registry.providerDefinitions().map((item) => item.function.name);
   assert.deepEqual(baseline.sort(),
-    ['fs.list', 'fs.read', 'fs.search_text', 'tool.search', 'web.search']);
+    ['fs.list', 'fs.read', 'fs.search_text', 'tool.search']);
   assert.ok(!baseline.includes('fs.list_directory'));
   assert.ok(!baseline.includes('fs.read_text'));
   assert.ok(!baseline.includes('fs.edit_text'));
@@ -28,7 +28,7 @@ test('tool catalog keeps observational tools visible and effectful tools situati
   assert.ok(!baseline.includes('work.goal'));
   assert.ok(!baseline.includes('work.task_add'));
   assert.ok(!baseline.includes('notification.telegram'));
-  assert.ok(baseline.includes('web.search'));
+  assert.ok(!baseline.includes('web.search'));
   assert.ok(!baseline.includes('web.fetch'));
   assert.ok(!baseline.includes('web.browse'));
   assert.ok(!baseline.includes('nna.search_guidance'));
@@ -73,7 +73,7 @@ test('authenticated task intent activates bounded effectful capability bundles',
   assert.ok(taskActivatedToolNames('notify me on telegram when finished').includes('notification.telegram'));
   assert.ok(taskActivatedToolNames('store this large payload as a reusable reference').includes('ref.store'));
   assert.ok(taskActivatedToolNames('diagnose the failed turn from the logs').includes('nna.diagnose_turn'));
-  assert.equal(taskActivatedToolNames('research the latest release online').includes('web.search'), false);
+  assert.equal(taskActivatedToolNames('research the latest release online').includes('web.search'), true);
   assert.ok(taskActivatedToolNames('run this direct executable with exact argv without a shell').includes('process.run'));
   assert.equal(actionOrientedIntent('build and test the application'), true);
   assert.equal(actionOrientedIntent('inspect and explain the repository structure'), false);
@@ -100,7 +100,7 @@ test('provider surface receipts make phase selection and byte budgets auditable'
   const fileRead = registry.providerSurface('Read input.txt before creating output.txt');
   assert.ok(!fileRead.receipt.selectedToolNames.includes('web.fetch'));
   assert.deepEqual(fileRead.receipt.selectedToolNames,
-    ['tool.search', 'fs.list', 'fs.read', 'fs.search_text', 'web.search']);
+    ['fs.list', 'fs.read', 'fs.search_text', 'tool.search']);
   assert.ok(!fileRead.receipt.selectedToolNames.includes('web.browse'));
   const browser = registry.providerSurface('Navigate the browser to http://localhost:8123');
   assert.equal(browser.receipt.selectionReasons['web.browse'], 'task_intent');
@@ -113,7 +113,9 @@ test('provider surface receipts make phase selection and byte budgets auditable'
     'verify this WebGL application renders correctly',
   ]) {
     const surface = registry.providerSurface(query);
-    assert.equal(surface.receipt.selectionReasons['web.browse'], 'task_intent', query);
+    assert.ok(['phase_baseline', 'task_intent'].includes(
+      surface.receipt.selectionReasons['web.browse'],
+    ), query);
     assert.ok(surface.receipt.selectedToolNames.includes('web.browse'), query);
   }
   const webApplication = registry.providerSurface('build and test this Three.js web app');

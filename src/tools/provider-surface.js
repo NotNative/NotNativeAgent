@@ -14,9 +14,12 @@ export function catalogVisible(name) {
 }
 
 export function providerVisible(name, exposed, activated) {
-  return PROVIDER_NATIVE.has(name) || exposed || activated || !NATIVE_NAMES.has(name);
+  // External and MCP capabilities remain catalog-searchable, but enter the
+  // provider action surface only after explicit discovery or task activation.
+  return PROVIDER_NATIVE.has(name) || exposed || activated;
 }
 
 export function allowedByManifest(allowedTools, name) {
   return !allowedTools || allowedTools.has(name);
 }
+

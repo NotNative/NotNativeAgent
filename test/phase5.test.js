@@ -687,12 +687,12 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /activated packaged-guidance workflow/u);
   assert.match(policy, /skills and skill authoring/u);
   assert.match(policy, /instead of guessing/u);
-  assert.match(policy, /model knowledge as a starting hypothesis/u);
+  assert.match(policy, /Model knowledge may be used directly for implementation choices/u);
   assert.match(policy, /bounded hot working set/u);
   assert.match(policy, /Absence from hot context is not evidence/u);
   assert.match(policy, /session\.search_history then session\.read_history/u);
   assert.match(policy, /Verify material claims about the active environment from local evidence/u);
-  assert.match(policy, /use web\.search to discover[^]*web\.fetch[^]*web\.browse/u);
+  assert.match(policy, /Use external retrieval[^]*web\.search[^]*web\.fetch[^]*web\.browse/u);
   assert.match(policy, /web\.fetch fails[^]*web\.browse navigate on that same URL/u);
   assert.match(policy, /ordinary terminal work, use shell\.run[^]*exact-process capability only when/u);
   assert.match(policy, /tool\.search once[^]*loads matching schemas for the next model step/u);

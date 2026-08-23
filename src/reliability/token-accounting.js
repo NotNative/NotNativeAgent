@@ -10,17 +10,22 @@ const MAX_SECTIONS = 64;
 export function measureProviderEnvelope(request, context = [], options = {}) {
   validateRequest(request);
   const messages = request.messages ?? [];
-  const injectedCount = Math.max(0, messages.length - context.length);
-  const declaredInjected = providerRequestMetadata(request)?.injectedMessageIndexes;
-  const injectedIndexes = new Set(declaredInjected ?? Array.from({ length: injectedCount }, (_, index) => index));
   const sections = new Map();
-  let contextIndex = 0;
-  for (let index = 0; index < messages.length; index += 1) {
-    const injected = injectedIndexes.has(index);
-    const provenance = injected ? 'request.injected_system'
-      : `context.${sectionLabel(context[contextIndex]?.provenance)}`;
-    addSection(sections, provenance, messages[index]);
-    if (!injected) contextIndex += 1;
+  const metadata = providerRequestMetadata(request);
+  if (Array.isArray(metadata?.accountingSections) && metadata.accountingSections.length > 0) {
+    for (const item of metadata.accountingSections) addSection(sections, item.id, item.message);
+  } else {
+    const injectedCount = Math.max(0, messages.length - context.length);
+    const declaredInjected = metadata?.injectedMessageIndexes;
+    const injectedIndexes = new Set(declaredInjected ?? Array.from({ length: injectedCount }, (_, index) => index));
+    let contextIndex = 0;
+    for (let index = 0; index < messages.length; index += 1) {
+      const injected = injectedIndexes.has(index);
+      const provenance = injected ? 'request.injected_system'
+        : `context.${sectionLabel(context[contextIndex]?.provenance)}`;
+      addSection(sections, provenance, messages[index]);
+      if (!injected) contextIndex += 1;
+    }
   }
   addSection(sections, 'request.framing', { messages: [], tools: [] });
   addSection(sections, 'request.tool_schemas', request.tools ?? []);
@@ -276,3 +281,4 @@ function aggregateMeasurement(value) {
   if (value.measured === 0 && value.mixedAttempts === 0) return 'estimated';
   return 'mixed';
 }
+

@@ -13,7 +13,7 @@ import { buildReviewEvidence } from '../review-evidence.js';
 import { WebUrlProvenance } from '../web-url-provenance.js';
 import { missingFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
 
-const SUCCESSFUL_TOOL_CONTINUATION = 'Continue the existing active request from the newly committed tool results. Choose and perform the next useful action from this evidence. Do not greet, re-acknowledge the request, or repeat the existing plan. If a progress note is useful, state only what materially changed, then continue the work.';
+const SUCCESSFUL_TOOL_CONTINUATION = null;
 
 export class ToolLoop {
   constructor(options) {
@@ -393,3 +393,4 @@ export function toolContinuationHint(items, fallback = null) {
     ? 'A tool reached an immutable policy boundary. Do not retry it or ask for authorization to bypass it. Continue the active task within the remaining capabilities, and report the boundary only if it prevents the objective.'
     : 'A tool was denied. Treat the denial as a route constraint, not the end of the task. Do not repeat an equivalent call unchanged. Continue with a safer, narrower, or more reversible approach. Ask the operator only after reasonable alternatives are exhausted; if blocked, state the attempted operation, denial, and exact clarification needed.';
 }
+

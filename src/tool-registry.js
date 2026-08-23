@@ -36,7 +36,7 @@ import { withPreparedWriteTarget } from './tools/write-target.js';
 import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 import { advanceFromAuthoredState, mutationEvidence, transactionalSnapshot,
   withAuthoredAdvanceMetadata } from './tools/filesystem-mutation-state.js';
-import { SITUATIONAL_TOOL_NAMES, taskActivatedToolNames } from './tools/capability-activation.js';
+import { directBrowserIntent, SITUATIONAL_TOOL_NAMES, taskActivatedToolNames } from './tools/capability-activation.js';
 import { telegramNotificationDefinition } from './notifications/telegram.js';
 import { sessionHistoryDefinitions } from './session-history-tools.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
@@ -149,7 +149,8 @@ export class ToolRegistry {
     }]));
     const plan = planProviderToolNames({
       availableNames: callable.map((item) => item.name), activatedNames: activated,
-      relevantNames: relevant, exposedNames: this.#exposed.keys(), allowedNames: this.allowedTools,
+      relevantNames: relevant, exposedNames: this.#exposed.keys(),
+      directNames: directBrowserIntent(query) ? ['web.browse'] : [], allowedNames: this.allowedTools,
       phase, encodedDefinition: (name) => Buffer.byteLength(JSON.stringify(projected.get(name)), 'utf8'),
     });
     const definitions = Object.freeze(plan.names.map((name) => Object.freeze(projected.get(name))));
@@ -454,3 +455,4 @@ function deepFreeze(value) {
   if (value && typeof value === 'object') { Object.freeze(value); for (const child of Object.values(value)) deepFreeze(child); }
   return value;
 }
+

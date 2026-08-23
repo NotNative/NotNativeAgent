@@ -49,7 +49,7 @@ test('complete provider envelope inventories prompt sections, schemas, configura
 test('generated system guidance follows identity while retaining injected envelope attribution', () => {
   const context = [
     { role: 'system', content: 'identity', provenance: 'engine_policy' },
-    { role: 'user', content: 'inspect', provenance: 'transcript' },
+    { role: 'user', content: 'inspect', provenance: 'transcript', trust: 'operator' },
   ];
   const request = providerRequest({
     reliability: { instructions: () => 'dialect guidance' },
@@ -61,15 +61,34 @@ test('generated system guidance follows identity while retaining injected envelo
       catalogSnapshot: () => [{ name: 'fs.read' }, { name: 'tool.search' }],
     },
   }, { model: 'fixture', maxOutputTokens: 1024 }, context);
-  assert.deepEqual(request.messages.map((item) => item.content), [
-    'identity', 'dialect guidance',
-    'Additional authorized tool names whose schemas are not loaded in this step:\n["tool.search"]\nUse tool.search to inspect and load matching tool schemas before calling them.',
-    'inspect',
-  ]);
+  assert.equal(request.messages.length, 2);
+  assert.equal(request.messages[0].role, 'system');
+  assert.match(request.messages[0].content, /^identity\n\ndialect guidance/iu);
+  assert.match(request.messages[0].content, /Additional authorized tool names/iu);
+  assert.equal(request.messages[1].content, 'inspect');
+  assert.equal(request.messages.filter((item) => item.role === 'system').length, 1);
   const envelope = measureProviderEnvelope(request, context);
   assert.equal(envelope.sections.find((item) => item.id === 'request.injected_system').items, 2);
   assert.equal(envelope.sections.find((item) => item.id === 'context.engine_policy').items, 1);
   assert.equal(envelope.sections.find((item) => item.id === 'context.transcript').items, 1);
+});
+
+test('ordinary conversation receives no tool schemas while retaining one system message', () => {
+  const context = [
+    { role: 'system', content: 'identity', provenance: 'engine_policy' },
+    { role: 'user', content: 'What makes cooperative board games fun?', provenance: 'transcript', trust: 'operator' },
+  ];
+  const request = providerRequest({
+    reliability: { instructions: () => 'tool dialect' },
+    tools: {
+      providerSurface: (_query, options) => ({ definitions: options.phase === 'conversation' ? [] : ['unexpected'], receipt: null }),
+      catalogSnapshot: () => [{ name: 'tool.search' }],
+    },
+  }, { model: 'fixture', maxOutputTokens: 32_000 }, context);
+  assert.equal(request.messages.filter((item) => item.role === 'system').length, 1);
+  assert.deepEqual(request.tools, []);
+  assert.doesNotMatch(request.messages[0].content, /tool dialect/iu);
+  assert.equal(request.maxOutputTokens, 32_000);
 });
 
 test('provider envelope reports the controls actually sent for Qwen models', () => {

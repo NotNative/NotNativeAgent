@@ -13,11 +13,24 @@ export function providerContextLimitDecision(active) {
 }
 
 export function reasoningOnlyDecision(active) {
-  if (active.stepText.length > 0 || active.stepReasoningBytes === 0 || active.reasoningFallbackUsed) return null;
-  if (isOutputTruncation(active.finishReason) && !active.reasoningHeadroomRetryUsed) {
+  if (active.stepText.length > 0 || active.stepReasoningBytes === 0 || active.reasoningHeadroomRetryUsed) return null;
+  if (isOutputTruncation(active.finishReason) || reachedReportedOutputCeiling(active)) {
     return Object.freeze({ action: active.recovery.reasoningTruncated(), reasoningMode: 'preserve' });
   }
-  return Object.freeze({ action: active.recovery.reasoningOnly(), reasoningMode: 'off' });
+  // Some OpenAI-compatible providers omit a terminal finish reason for a
+  // reasoning-only completion. Preserve native reasoning on the bounded retry;
+  // the recovery hint, not a thinking-mode mutation, should steer it to action.
+  return Object.freeze({ action: active.recovery.reasoningTruncated(), reasoningMode: 'preserve' });
+}
+
+function reachedReportedOutputCeiling(active) {
+  const limit = active.attemptOutputLimitTokens;
+  if (!Number.isSafeInteger(limit) || limit < 1) return false;
+  const usage = active.attemptUsage;
+  if (!usage || typeof usage !== 'object') return false;
+  const output = ['completion_tokens', 'output_tokens', 'outputTokens']
+    .map((key) => usage[key]).find((value) => Number.isSafeInteger(value) && value >= 0);
+  return Number.isSafeInteger(output) && output >= limit;
 }
 
 export function contextPressureScale(runtime) {
@@ -25,3 +38,4 @@ export function contextPressureScale(runtime) {
     ? Math.max(1, runtime.parallelCapacity) : 1;
   return parallel > 1 ? Math.max(0.125, 1 / parallel) : 0.75;
 }
+

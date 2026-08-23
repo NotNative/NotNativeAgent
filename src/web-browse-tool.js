@@ -8,6 +8,7 @@ import { WebFetchDestinationPolicy, allowedWebAddresses } from './web-fetch-tool
 const ACTIONS = new Set(['navigate', 'inspect', 'click', 'fill', 'fill_secret', 'press', 'screenshot', 'close']);
 const MAX_TEXT = 65_536;
 const MAX_ELEMENTS = 100;
+const PROVIDER_TEXT_BYTES = 16_384;
 
 export function webBrowseDefinition(options = {}) {
   const manager = options.manager ?? new BrowserSessionManager(options);
@@ -15,6 +16,7 @@ export function webBrowseDefinition(options = {}) {
     name: 'web.browse', version: 1,
     purpose: 'Operate an ephemeral Chromium session. This is the required fallback for a verified exact URL that web.fetch could not retrieve: navigate to the same URL, then inspect it. In a standalone root Console, an exact HTTP(S) loopback development URL such as localhost may be proposed for reviewer approval; this does not trust LAN hosts or web.fetch. It can also click controls, fill non-secret values, inject a named secret field without exposing it to the model, press keys, save a screenshot, or close the browser. Screenshot capture returns a durable PNG path immediately; use image.inspect in a separate tool call when visual interpretation is needed. Use inspect after navigation to obtain stable element references such as e1.',
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 60_000,
+    maxOutputBytes: PROVIDER_TEXT_BYTES,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['action'], properties: {
         action: { type: 'string', enum: [...ACTIONS], description: 'Required browser operation.' },
@@ -101,8 +103,10 @@ export class BrowserSessionManager {
     const context = this.context; const browser = this.browser;
     this.page = null; this.pagePromise = null; this.context = null; this.browser = null;
     this.refs.clear(); this.secretValues.clear(); this.activeLoopbackOrigin = null;
-    await context?.close().catch(() => undefined);
+    // The browser owns its contexts. Closing Chromium first avoids waiting
+    // indefinitely on a page/context that is stalled in navigation or challenge code.
     await browser?.close().catch(() => undefined);
+    await context?.close().catch(() => undefined);
     if (this.root) await rm(this.root, { recursive: true, force: true }).catch(() => undefined);
   }
 
@@ -211,3 +215,4 @@ function metadata(action, page, extra = {}) { return { action, url: page.url(), 
 function invalid(message = 'web.browse arguments do not match the requested browser action') {
   return new ContractError('tool_schema_invalid', message);
 }
+

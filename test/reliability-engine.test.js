@@ -59,8 +59,11 @@ test('Reliability Engine returns bounded provider recovery decisions without exe
   assert.equal(context.continue, true);
   assert.equal(context.scale, 0.25);
   const reasoning = reliability.reasoningOnly(active);
-  assert.equal(reasoning.reasoningMode, 'off');
-  assert.equal(reasoning.action.action, 'retry_without_reasoning');
+  assert.equal(reasoning.reasoningMode, 'preserve');
+  assert.equal(reasoning.action.action, 'retry_reasoning_to_action');
+  active.reasoningHeadroomRetryUsed = true;
+  assert.equal(reliability.reasoningOnly(active), null);
+  active.reasoningHeadroomRetryUsed = false;
   active.finishReason = 'length';
   const truncated = reliability.reasoningOnly(active);
   assert.equal(truncated.reasoningMode, 'preserve');

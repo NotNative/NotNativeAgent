@@ -38,7 +38,7 @@ export class ModelDialectRegistry {
     const failures = profile.failures ?? {};
     const guidance = [
       'Follow tool JSON schemas exactly. Use native tool calls only; do not print tool-call JSON, XML, or markdown as assistant text.',
-      'Emit needed tool calls promptly. Batch independent read-only calls; wait for results before dependent work or completion claims.',
+      'Emit needed tool calls promptly. Batch independent read-only calls only; emit exactly one mutating tool call per response, then wait for its result before the next mutation or completion claim.',
     ];
     if (profile.family === 'qwen') guidance.push('Keep tool arguments literal and complete; never abbreviate hashes, paths, or line ranges.');
     if (profile.family === 'gemma') guidance.push('When a tool is required, emit its call before explanatory prose.');
@@ -160,3 +160,4 @@ function validFailures(value) {
 
 function nonNegativeInteger(value) { return Number.isSafeInteger(value) && value >= 0; }
 function validTimestamp(value) { return typeof value === 'string' && Number.isFinite(Date.parse(value)); }
+

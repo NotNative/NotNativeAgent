@@ -33,19 +33,42 @@ export function toolSearchDefinition(registry) {
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool search was cancelled');
       const matches = registry.searchCatalog(request.args.query, DEFAULT_SEARCH_RESULTS);
-      registry.expose(matches.map((item) => item.name));
       const named = exactRequestedName(request.args.query, matches);
+      const visibleMatches = named
+        ? matches.filter((item) => item.name === named)
+        : matches.filter((item) => item.scope !== 'external'
+          || explicitlyRequestsExternal(request.args.query, item)).slice(0, 4);
+      registry.expose(visibleMatches.map((item) => item.name));
       const schema = named ? registry.definition(named)?.inputSchema : null;
+      const found = visibleMatches.length > 0;
       return {
         content: JSON.stringify({
-          status: 'schemas_loaded_for_next_model_step',
-          instruction: 'Call the matching tool directly on the next model step. Do not search for the same tool again.',
-          matches,
+          status: found ? 'schemas_loaded_for_next_model_step' : 'no_relevant_capability_found',
+          instruction: found
+            ? 'Call the matching tool directly on the next model step. Do not search for the same tool again.'
+            : 'No relevant catalog capability matched. Continue with already visible tools or refine once using an exact tool or service name; do not repeat this search unchanged.',
+          matches: visibleMatches.map(compactMatch),
           ...(named && schema ? { exact_match: { name: named, input_schema: schema } } : {}),
         }, null, 2),
-        metadata: { matches: matches.length, exposed: matches.map((item) => item.name), exactMatch: named },
+        metadata: { matches: visibleMatches.length, exposed: visibleMatches.map((item) => item.name), exactMatch: named },
       };
     },
+  };
+}
+
+function explicitlyRequestsExternal(query, item) {
+  const queryTerms = new Set(tokens(query));
+  if (queryTerms.has('mcp') || queryTerms.has('external')) return true;
+  const identityTerms = tokens(item.name.replace(/^mcp[._-]/u, ''));
+  return identityTerms.some((term) => term.length >= 4 && queryTerms.has(term));
+}
+
+function compactMatch(item) {
+  const purpose = String(item.purpose ?? '').trim().replace(/\s+/gu, ' ');
+  const sentence = purpose.match(/^.*?[.!?](?:\s|$)/u)?.[0]?.trim() ?? purpose;
+  return {
+    ...item,
+    purpose: sentence.length <= 240 ? sentence : `${sentence.slice(0, 239)}…`,
   };
 }
 
@@ -87,3 +110,4 @@ function bm25(query, document) {
       / (frequency + BM25_LENGTH_SENSITIVITY * normalization);
   }, 0);
 }
+

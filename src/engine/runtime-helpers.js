@@ -6,33 +6,56 @@ import { routeReasoningFields } from '../provider/reasoning.js';
 import { ContractError } from '../ids.js';
 import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
 import { deduplicateToolCallBatch } from '../reliability/tool-call-deduplication.js';
-import { monitoringIntent } from '../tools/capability-activation.js';
+import { monitoringIntent, taskActivatedToolNames, toolOrientedIntent } from '../tools/capability-activation.js';
 import { attachProviderRequestMetadata } from '../provider/request-metadata.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
-  const messages = toProviderMessages(context, { ...route, reasoningMode: options.reasoningMode });
-  const dialect = engine.reliability?.instructions(route);
   const query = capabilitySelectionQuery(context, options.conversationIntent, options.approvedProposal);
+  const toolOriented = toolOrientedIntent(query);
+  const webResearch = taskActivatedToolNames(query).includes('web.search');
+  const providerContext = toolOriented ? context : conversationalProviderContext(context);
+  const messages = toProviderMessages(providerContext, { ...route, reasoningMode: options.reasoningMode });
+  const dialect = toolOriented ? engine.reliability?.instructions(route) : null;
+  const surfacePhase = toolOriented ? options.capabilityPhase : 'conversation';
   const surface = typeof engine.tools.providerSurface === 'function'
-    ? engine.tools.providerSurface(query, { phase: options.capabilityPhase })
+    ? engine.tools.providerSurface(query, { phase: surfacePhase })
     : { definitions: engine.tools.providerDefinitions(query), receipt: null };
   const tools = surface.definitions;
   if (options.active) options.active.providerToolSurface = surface.receipt;
-  const catalog = toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);
-  const system = [dialect, catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
+  const catalog = surfacePhase === 'conversation' ? null
+    : toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);
+  const system = [dialect, catalog, webResearch ? researchExecutionPolicy() : null]
+    .filter(Boolean).map((content) => ({ role: 'system', content }));
   const ordered = insertGeneratedSystemMessages(messages, system);
+  const accountingSections = providerAccountingSections(ordered.messages, providerContext, ordered.injectedMessageIndexes);
+  const flattenedMessages = flattenLeadingSystemMessages(ordered.messages);
   const reasoning = routeReasoningFields(route);
   // The assembled request is a boundary value. Provider adapters must not mutate shared turn state through it.
   const request = Object.freeze({
-    model: route.model, messages: ordered.messages,
+    model: route.model, messages: flattenedMessages,
     tools, temperature: route.temperature, parallelToolCalls: false,
     maxOutputTokens: boundedOutputTokens(route.maxOutputTokens, options.outputReserveTokens),
     ...(reasoning.reasoningEffort === undefined ? {} : { reasoningEffort: reasoning.reasoningEffort }),
     ...(reasoning.enableThinking === undefined ? {} : { enableThinking: reasoning.enableThinking }),
     ...(options.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
   });
-  return attachProviderRequestMetadata(request, { injectedMessageIndexes: ordered.injectedMessageIndexes });
+  return attachProviderRequestMetadata(request, { injectedMessageIndexes: [], accountingSections });
+}
+
+function researchExecutionPolicy() {
+  return 'Research execution policy: before the first call, choose the smallest sufficient evidence plan and act promptly. When the user gives a numeric range, start with exactly its lower bound; for "one or two," research one candidate and do not announce or verify a couple unless the first candidate fails or comparison is explicitly required. Verify only decision-critical facts. Batch independent facts for that minimal answer. An empty result, access-denied page, CAPTCHA, or bot challenge ends that source path: do not inspect, refresh, or retry it; use at most one materially different source path, then answer from available evidence with explicit uncertainty. One trustworthy source is enough for an uncontested low-stakes fact. Once the minimum answer is supported, answer in that same model step without cleanup-only calls.';
+}
+
+function conversationalProviderContext(context) {
+  const retained = context.filter((item) => [
+    'application_policy', 'transcript', 'tool_result', 'engine_compaction',
+    'engine_active_checkpoint', 'conversation_work', 'authenticated_submission',
+  ].includes(item?.provenance));
+  return [{
+    role: 'system', provenance: 'engine_policy', trust: 'kernel',
+    content: 'You are NotNativeAgent. Answer the authenticated conversational request directly and use native private reasoning only as much as the question benefits from. Be specific and practical. For ordinary low-stakes conversation, answer in at most 250 words unless the user explicitly requests depth. For subjective recommendations, use a short private checklist of the explicit criteria, select reasonable familiar options, and answer immediately; do not exhaustively optimize or enumerate the possibility space. Do not inspect or modify the workspace, invoke tools, or claim current external facts in this conversational mode. Ask one concise clarifying question only when the missing information would materially change the answer.',
+  }, ...retained];
 }
 
 function insertGeneratedSystemMessages(messages, generated) {
@@ -43,6 +66,32 @@ function insertGeneratedSystemMessages(messages, generated) {
     messages: [...messages.slice(0, index), ...generated, ...messages.slice(index)],
     injectedMessageIndexes: generated.map((_, offset) => index + offset),
   };
+}
+
+function flattenLeadingSystemMessages(messages) {
+  let index = 0;
+  while (messages[index]?.role === 'system') index += 1;
+  if (index <= 1) return messages;
+  return [{
+    role: 'system',
+    content: messages.slice(0, index).map((item) => item.content).filter(Boolean).join('\n\n'),
+  }, ...messages.slice(index)];
+}
+
+function providerAccountingSections(messages, context, injectedIndexes) {
+  const injected = new Set(injectedIndexes);
+  let contextIndex = 0;
+  return messages.map((message, index) => {
+    if (injected.has(index)) return { id: 'request.injected_system', message };
+    const provenance = context[contextIndex]?.provenance;
+    contextIndex += 1;
+    return { id: `context.${sectionLabel(provenance)}`, message };
+  });
+}
+
+function sectionLabel(value) {
+  const label = typeof value === 'string' ? value : 'unattributed';
+  return label.split(':', 1)[0].replace(/[^a-z0-9_.-]/giu, '_').slice(0, 64) || 'unattributed';
 }
 
 function boundedOutputTokens(routeLimit, reserveLimit) {
@@ -90,7 +139,7 @@ export function prepareTrustedToolHandoff(engine, items) {
 export function resetStep(active) {
   // `active` is the single engine-owned mutable accumulator for the current turn; reset it in place
   // so lifecycle and provider callbacks retain the same authoritative identity across model steps.
-  const reasoningMode = active.reasoningFallbackPending || active.toolEvidenceObserved ? 'off' : undefined;
+  const reasoningMode = undefined;
   active.reasoningFallbackPending = false;
   active.stepText = '';
   active.committedStepText = null;
@@ -108,9 +157,13 @@ export function resetStep(active) {
 
 export function modelStepRequestOptions(reasoningMode, active) {
   const plannedReserve = active.contextBudget?.outputReserveTokens;
-  const outputReserveTokens = active.toolEvidenceObserved
-    ? Math.min(Number.isSafeInteger(plannedReserve) ? plannedReserve : 8_192, 8_192)
-    : plannedReserve;
+  // Preserve native reasoning on every call, while preventing a stochastic
+  // opening step from consuming the provider's entire 32K output allowance.
+  // A reasoning-only ceiling receives one reasoning-enabled checkpoint retry.
+  const outputReserveTokens = Math.min(
+    Number.isSafeInteger(plannedReserve) ? plannedReserve : 4_096,
+    4_096,
+  );
   return {
     reasoningMode,
     outputReserveTokens,
@@ -122,8 +175,13 @@ export function modelStepRequestOptions(reasoningMode, active) {
 }
 
 export function suppressPostToolReasoningReplay(active) {
-  if (!active?.toolEvidenceObserved || !active.enrichment) return false;
-  active.enrichment.reasoningContinuations = [];
+  // Keep reasoning enabled and fully accounted, but do not serialize a prior
+  // private chain back into the next tool continuation. OpenCode's custom
+  // OpenAI-compatible model path records reasoning parts while leaving
+  // interleaved reasoning replay disabled; the next call reasons freshly from
+  // visible text, tool calls, and tool results.
+  active.reasoningContinuations = [];
+  if (active.enrichment) active.enrichment.reasoningContinuations = [];
   return true;
 }
 
@@ -139,6 +197,7 @@ export function groundCapabilityPhase(active) {
 export function resetReasoningRecovery(active) {
   active.reasoningFallbackUsed = false;
   active.reasoningHeadroomRetryUsed = false;
+  if (active.enrichment) delete active.enrichment.reasoningRecoveryContinuation;
 }
 
 export async function deduplicateProviderToolCalls(calls, active, persist) {

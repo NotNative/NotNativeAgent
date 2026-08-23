@@ -12,7 +12,9 @@ const BUNDLES = Object.freeze({
   reference_staging: Object.freeze(['ref.inspect', 'ref.store']),
   conversation_work: Object.freeze(['work.plan']),
   notification: Object.freeze(['notification.telegram']),
+  web_research: Object.freeze(['web.search', 'web.fetch', 'web.browse']),
   browser_interaction: Object.freeze(['web.browse']),
+  browser_verification: Object.freeze(['web.browse']),
   code_inspection: Object.freeze(['git.inspect', 'code.diagnostics']),
   image_inspection: Object.freeze(['image.inspect']),
   nna_guidance: Object.freeze(['nna.search_guidance', 'nna.read_guidance']),
@@ -23,15 +25,19 @@ const BUNDLES = Object.freeze({
 });
 
 const INTENTS = Object.freeze([
+  ['web_research', /(?=[\s\S]*\b(?:choose|choosing|pick|recommend|recommendation)\b)(?=[\s\S]*\b(?:players?|minutes?|hours?|budget|prices?|under|over|at\s+least|no\s+more|criteria|requirements?|availability)\b)/iu],
+  ['web_research', /\b(?:weather|forecast|temperature|news|prices?|availability|today|tonight)\b/iu],
+  ['web_research', /\b(?:latest|current)\s+(?:weather|forecast|temperature|news|prices?|availability|release|version|status|events?|conditions?)\b/iu],
   ['filesystem_mutation', /\b(?:add|build|change|create|delete|develop|edit|fix|generate|implement|make|modify|patch|refactor|remove|rename|repair|scaffold|update|upgrade|write)\b/iu],
-  ['execution', /\b(?:benchmark|build|check|compile|deploy|execute|format|install|launch|lint|run|serve|start|test|verify)\b/iu],
+  ['execution', /\b(?:benchmark|build|compile|deploy|execute|format|install|launch|lint|run|serve|start|test)\b/iu],
   ['verification', /\b(?:project\.verify|verification receipt|\/verify)\b/iu],
   ['exact_process', /\b(?:direct executable|exact argv|process\.run|single executable|without (?:a )?shell)\b/iu],
   ['delegation', /\b(?:delegate|parallel|sub[ -]?agent|specialist)\b/iu],
   ['reference_staging', /\b(?:reference|stage|store|stdin|large (?:content|payload)|reusable (?:content|payload))\b/iu],
   ['conversation_work', /\b(?:durable plan|goal|milestone|plan|task|track)\b/iu],
   ['notification', /\b(?:alert|notify|notification|telegram)\b/iu],
-  ['browser_interaction', /(?:\b(?:browse|browser)\b|\bnavigate\s+(?:to|the)\b|\b(?:online|internet|web[ -]?(?:page|site))\b|\blocalhost\b|https?:\/\/|\b(?:research|investigate|look\s+up|find|compare|check|scan|shop)\b.{0,48}\b(?:availability|current|internet|latest|news|online|prices?|products?|retailers?|sources?|web)\b|\b(?:availability|current|latest|news|prices?|products?|retailers?)\b.{0,48}\b(?:compare|check|find|investigate|research|scan|shop)\b|\b(?:three\.js|webgl|website|web[ -]?app|frontend|landing\s+page|browser\s+game)\b)/iu],
+  ['browser_interaction', /(?:\b(?:browse|browser)\b|\bnavigate\s+(?:to|the)\b|\b(?:online|internet|web[ -]?(?:page|site))\b|\blocalhost\b|https?:\/\/|\b(?:research|investigate|look\s+up|find|compare|check|scan|shop)\b.{0,48}\b(?:availability|current|internet|latest|news|online|prices?|products?|retailers?|sources?|web)\b|\b(?:availability|current|latest|news|prices?|products?|retailers?)\b.{0,48}\b(?:compare|check|find|investigate|research|scan|shop)\b)/iu],
+  ['browser_verification', /\b(?:three\.js|webgl|website|web[ -]?app|frontend|landing\s+page|browser\s+game)\b/iu],
   ['code_inspection', /\b(?:code|codebase|compile|diagnostic|git|repository|repo|symbol|typecheck)\b/iu],
   ['image_inspection', /\b(?:image|picture|render|screenshot|visual|visually)\b/iu],
   ['nna_guidance', /\b(?:nna|notnativeagent|agent harness|skill authoring|provider profile)\b/iu],
@@ -55,6 +61,20 @@ export function taskActivatedToolNames(query = '') {
 
 export function actionOrientedIntent(query = '') {
   return activatedBundles(query).some((bundle) => OPENING_ACTION_BUNDLES.has(bundle));
+}
+
+export function toolOrientedIntent(query = '') {
+  const text = String(query).slice(0, 32_768);
+  if (!text.trim()) return false;
+  if (activatedBundles(text).length > 0) return true;
+  return /\b(?:inspect|read|list|search|find|locate|open|fetch|browse|research|look\s+up|download|upload)\b/iu.test(text)
+    || /\b(?:workspace|files?|director(?:y|ies)|folders?|repository|repo|codebase|source\s+code|logs?|database)\b/iu.test(text)
+    || /\b(?:weather|forecast|temperature|news|prices?|availability|latest|current|today|tonight|now)\b/iu.test(text);
+}
+
+export function directBrowserIntent(query = '') {
+  const bundles = activatedBundles(query);
+  return bundles.includes('browser_interaction') || bundles.includes('browser_verification');
 }
 
 export function monitoringIntent(query = '') {

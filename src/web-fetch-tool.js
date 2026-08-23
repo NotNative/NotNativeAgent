@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { createHash } from 'node:crypto';
 import { ContractError } from './ids.js';
 import { VERSION } from './product.js';
 import { pinnedHttpRequest } from './pinned-http.js';
@@ -10,6 +11,7 @@ const MAX_BYTES = 1_048_576;
 const MAX_REDIRECTS = 5;
 const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
 const TOOL_TIMEOUT_MS = 20_000;
+const PROVIDER_TEXT_BYTES = 16_384;
 
 export function webFetchDefinition(options = {}) {
   const policy = options.policy ?? new WebFetchDestinationPolicy(options.configPath);
@@ -18,6 +20,7 @@ export function webFetchDefinition(options = {}) {
     name: 'web.fetch', version: 1,
     purpose: 'Fetch bounded HTTP(S) text from a public URL or an explicitly trusted private origin without browser execution. Use this to read an authoritative source found through web.search before making a detailed current factual claim. If this tool fails for a verified exact URL, do not retry it; use web.browse navigate on that same URL when available.',
     sideEffect: 'read_only', scope: 'network', cancellation: true, timeoutMs: TOOL_TIMEOUT_MS,
+    maxOutputBytes: PROVIDER_TEXT_BYTES,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['url'], properties: {
         url: { type: 'string', minLength: 1, maxLength: 4096, description: 'Required complete HTTP(S) URL without embedded credentials.' },
@@ -33,12 +36,39 @@ export function webFetchDefinition(options = {}) {
     executor: async (request, signal) => {
       const result = await client.fetchText(request.args.url, signal);
       const urlRef = options.references?.remember('url', result.url, 'web_fetch');
-      return { content: result.text, metadata: {
+      const content = providerReadableText(result.text, result.contentType);
+      return { content, metadata: {
         finalUrl: result.url, status: result.status, contentType: result.contentType, bytes: result.bytes,
+        responseSha256: createHash('sha256').update(result.text, 'utf8').digest('hex'),
+        providerTextCompacted: content !== result.text,
         ...(urlRef ? { url_ref: urlRef.id } : {}),
       } };
     },
   };
+}
+
+function providerReadableText(text, contentType) {
+  if (contentType !== 'text/html') return text;
+  const title = text.match(/<title\b[^>]*>([\s\S]*?)<\/title>/iu)?.[1] ?? '';
+  const body = text.match(/<body\b[^>]*>([\s\S]*?)<\/body>/iu)?.[1] ?? text;
+  const readable = body
+    .replace(/<(?:script|style|noscript|svg|template)\b[^>]*>[\s\S]*?<\/(?:script|style|noscript|svg|template)>/giu, ' ')
+    .replace(/<!--([\s\S]*?)-->/gu, ' ')
+    .replace(/<br\s*\/?\s*>/giu, '\n')
+    .replace(/<\/(?:p|div|li|section|article|header|footer|h[1-6]|tr)>/giu, '\n')
+    .replace(/<[^>]+>/gu, ' ');
+  const decoded = decodeHtml(`${title ? `Title: ${title}\n\n` : ''}${readable}`)
+    .replace(/[\t\f\v ]+/gu, ' ').replace(/ *\n */gu, '\n').replace(/\n{3,}/gu, '\n\n').trim();
+  return decoded || '[The page contained no readable text.]';
+}
+
+function decodeHtml(value) {
+  const named = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+  return value.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));/giu, (match, decimal, hex, name) => {
+    if (decimal) return String.fromCodePoint(Number(decimal));
+    if (hex) return String.fromCodePoint(Number.parseInt(hex, 16));
+    return named[name.toLowerCase()] ?? match;
+  });
 }
 
 export class WebFetchClient {
@@ -181,3 +211,4 @@ function textType(value) {
 function isRedirect(status) { return [301, 302, 303, 307, 308].includes(status); }
 function invalid() { return new ContractError('tool_schema_invalid', 'web.fetch requires one HTTP(S) URL without embedded credentials'); }
 function blocked() { return new ContractError('web_fetch_destination_blocked', 'WebFetch destination is private or reserved and its exact origin is not trusted'); }
+

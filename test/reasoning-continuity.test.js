@@ -7,6 +7,7 @@ import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { buildContext, measureContext, toProviderMessages } from '../src/context.js';
 import { SessionEngine } from '../src/engine.js';
+import { modelStepRequestOptions } from '../src/engine/runtime-helpers.js';
 import {
   appendReasoningChunk, boundedReasoningContinuations, captureReasoningContinuation,
 } from '../src/reliability/reasoning-continuity.js';
@@ -120,7 +121,7 @@ test('context pressure evicts whole oldest reasoning blocks', () => {
   assert.equal(provider.every((item) => item.reasoning_content === undefined || item.reasoning_content.length === 40_000), true);
 });
 
-test('engine suppresses private reasoning replay on a reasoning-disabled tool continuation', async () => {
+test('engine keeps reasoning enabled but does not replay completed reasoning after a tool', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-continuity-'));
   const requests = [];
   const provider = { async *stream(request) {
@@ -149,10 +150,59 @@ test('engine suppresses private reasoning replay on a reasoning-disabled tool co
   const result = await engine.submit({ request_id: 'continuity-turn', content: 'Inspect this workspace.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(requests.length, 2);
-  assert.equal(requests[1].reasoningMode, 'off');
+  assert.equal(requests[1].reasoningMode, undefined);
   assert.equal(requests[1].messages.find((message) => message.tool_calls)?.reasoning_content, undefined);
   assert.doesNotMatch(JSON.stringify(engine.transcript), /retain this implementation decision/u);
   await engine.shutdown({ request_id: 'continuity-shutdown', type: 'shutdown' });
+});
+
+test('reasoning-only truncation checkpoints the private chain for one enabled action retry', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-checkpoint-'));
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length === 1) {
+      yield { type: 'reasoning', text: 'inspect first, then act', field: 'reasoning_content' };
+      yield { type: 'terminal', finishReason: 'length' };
+      return;
+    }
+    if (requests.length === 2) {
+      yield { type: 'text', text: 'The first useful action is listing the workspace.' };
+      yield { type: 'tool_fragment', fragments: [{
+        index: 0, id: 'call-list', function: { name: 'fs.list', arguments: '{"path":"."}' },
+      }] };
+      yield { type: 'terminal', finishReason: 'tool_calls' };
+      return;
+    }
+    yield { type: 'text', text: 'Workspace inspected.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({
+    config: resolveManifest({
+      persistence: 'ephemeral', workspace_root: root,
+      provider: { id: 'local-qwen', endpoint: 'http://127.0.0.1:9/v1', model: 'qwen3.8-27b', trust_zone: 'loopback' },
+    }),
+    providerFactory: () => provider,
+    hookRoot: join(process.cwd(), '.nna-test-hooks-none'),
+  });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'checkpoint-turn', content: 'Inspect this workspace.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(requests.length, 3);
+  assert.equal(requests[0].maxOutputTokens, 4096);
+  assert.equal(requests[1].maxOutputTokens, 4096);
+  assert.equal(requests[1].reasoningMode, undefined);
+  assert.equal(requests[1].messages.find((message) => message.reasoning_content)?.reasoning_content,
+    'inspect first, then act');
+  assert.equal(requests[2].messages.some((message) => typeof message.reasoning_content === 'string'), false);
+  await engine.shutdown({ request_id: 'checkpoint-shutdown', type: 'shutdown' });
+});
+
+test('every primary model step receives the bounded reasoning quantum', () => {
+  assert.equal(modelStepRequestOptions(undefined, { contextBudget: { outputReserveTokens: 32_000 } })
+    .outputReserveTokens, 4096);
+  assert.equal(modelStepRequestOptions(undefined, { contextBudget: { outputReserveTokens: 2048 } })
+    .outputReserveTokens, 2048);
 });
 
 test('engine omits an oversized reasoning block instead of replaying a partial thought', async () => {
