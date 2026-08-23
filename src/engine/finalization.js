@@ -31,6 +31,9 @@ export async function finalizeEngineTurn(engine, outcome, text, failureDetail, o
   await faults.capture('state', () => engine.state.transition(
     'idle', { trigger: 'finalization_committed', turnId: active.turnId },
   ));
+  // Browser sessions are turn-scoped evidence collectors. Closing them here is
+  // deterministic lifecycle work and must not consume another provider/review step.
+  await faults.capture('cleanup', () => engine.tools?.close?.());
   engine.active = null;
   const work = engine.work?.snapshot();
   if (work && (work.goal || work.tasks.length > 0)) {

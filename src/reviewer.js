@@ -352,7 +352,12 @@ function authenticatedIntentRelation(request, authority, definition, conversatio
     const evidence = item.content.toLowerCase();
     return targets.some((target) => evidenceNamesTarget(evidence, target));
   });
-  if (relevant?.kind === 'restriction') return 'conflict';
+  if (relevant?.kind === 'restriction') {
+    const scopedGrant = grantBeforeOtherFilesRestriction(relevant.content);
+    if (scopedGrant && targets.every((target) => evidenceNamesTarget(scopedGrant, target))
+      && action.test(scopedGrant)) return 'covered';
+    return 'conflict';
+  }
   if (taskResultArtifactCovered(request, authority, targets)) return 'covered';
   if (workspaceBuildMutationCovered(request, authority, targets, conversationIntent)) return 'covered';
   if (!relevant) return clearlyReadOnlyIntent(authority) ? 'conflict' : 'uncertain';
@@ -391,8 +396,19 @@ function taskResultArtifactCovered(request, authority, targets) {
 }
 
 function broadFilesystemMutationRestriction(value) {
+  // A scoped prohibition such as "do not modify any other file" preserves the
+  // explicitly named target grant; it is not a blanket revocation of all file
+  // mutation authority.
+  if (/\b(?:any\s+)?other\s+files?\b/iu.test(value)) return false;
   return /\b(?:write|change|replace|create|update|edit|modify|delete|remove|move|rename|copy)\b/iu.test(value)
     && /\b(?:any(?:thing)?|files?|workspace|repository|repo|codebase|reports?|artifacts?|documents?)\b/iu.test(value);
+}
+
+function grantBeforeOtherFilesRestriction(value) {
+  const parts = String(value).toLowerCase().split(
+    /\b(?:do\s+not|don't|never)\s+(?:write|change|replace|create|update|edit|modify|delete|remove|move|rename|copy)\s+(?:any\s+)?other\s+files?\b/iu,
+  );
+  return parts.length > 1 ? parts[0] : null;
 }
 
 function clearlyReadOnlyIntent(authority) {
@@ -468,8 +484,13 @@ function resolvedTargets(request) {
 
 function evidenceNamesTarget(evidence, target) {
   const normalizedEvidence = evidence.replaceAll('\\', '/');
-  const name = target.split('/').at(-1);
+  const segments = target.split('/').filter(Boolean);
+  const name = segments.at(-1);
+  const relativeSuffixes = segments.slice(1, -1)
+    .map((_, index) => segments.slice(index + 1).join('/'))
+    .filter((value) => value.includes('/'));
   return containsPathReference(normalizedEvidence, target)
+    || relativeSuffixes.some((suffix) => containsPathReference(normalizedEvidence, suffix))
     || (name.length > 0 && containsPathReference(normalizedEvidence, name));
 }
 

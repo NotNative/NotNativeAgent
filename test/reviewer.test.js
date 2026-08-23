@@ -169,6 +169,26 @@ test('an explicit build authorizes derived reversible workspace files without se
   assert.equal(restricted.reasonCode, 'authenticated_intent_mismatch');
 });
 
+test('a scoped other-files restriction preserves its explicitly named target grant', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'scoped-target-grant' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
+  const request = {
+    ...mutationRequest('scoped-target'),
+    args: { path: 'src/main.js', content: 'export default true;', expected_sha256: null },
+    resolved: { path: 'D:/workspace/src/main.js', exists: false, insideWorkspace: true, recovery: 'new_target' },
+  };
+  const decision = await reviewer.review(request, {
+    ...context,
+    authority: { ...context.authority, intent: [{
+      content: 'Create src/main.js, but do not modify any other files.', sequence: 1, kind: 'restriction',
+    }] },
+  });
+  assert.equal(decision.outcome, 'approve');
+  assert.equal(decision.reasonCode, 'deterministic_reversible');
+  assert.equal(semanticCalls, 0);
+});
+
 test('additive steering does not obscure the active build task from deterministic review', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'build-steering-continuity' });
   let semanticCalls = 0;
