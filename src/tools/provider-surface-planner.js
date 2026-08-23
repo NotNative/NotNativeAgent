@@ -9,6 +9,7 @@ const ORIENTATION_BASELINE = Object.freeze([
 const ACTION_BASELINE = Object.freeze(['tool.search', 'fs.list', 'fs.read']);
 const RECOVERY_BASELINE = Object.freeze(['tool.search', 'fs.list', 'fs.read']);
 const DEFERRED_UNTIL_GROUNDED = new Set([
+  'web.fetch',
   'fs.directory', 'fs.write_text', 'fs.edit_text',
   'fs.create_directory', 'fs.edit_lines', 'fs.copy_file', 'fs.move_file', 'fs.delete_file',
 ]);

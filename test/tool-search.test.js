@@ -95,6 +95,11 @@ test('provider surface receipts make phase selection and byte budgets auditable'
   assert.ok(action.definitions.length <= 10);
   assert.ok(action.receipt.schemaBytes <= 8 * 1024);
   assert.equal(action.receipt.selectionReasons['fs.write_text'], 'task_intent');
+
+  const fileRead = registry.providerSurface('Read input.txt before creating output.txt');
+  assert.ok(!fileRead.receipt.selectedToolNames.includes('web.fetch'));
+  assert.deepEqual(fileRead.receipt.selectedToolNames,
+    ['tool.search', 'fs.list', 'fs.read', 'fs.search_text', 'web.search']);
 });
 
 test('hosted execution falls back to process.run when no shell tool exists', async () => {
