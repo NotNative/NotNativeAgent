@@ -335,7 +335,7 @@ test('AC-PROV-02 reasoning is typed and counted without entering transcript or o
   assert.equal(output.some((item) => item.type === 'state_status' && item.semantic_state === 'reasoning'), true);
 });
 
-test('tool continuations disable reasoning and use a bounded output allowance', async () => {
+test('tool continuations retain native reasoning with a bounded output allowance', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-opening-action-thinking-'));
   await writeFile(join(root, 'target.txt'), 'verified evidence', 'utf8');
   const requests = [];
@@ -352,8 +352,8 @@ test('tool continuations disable reasoning and use a bounded output allowance', 
   await engine.initialize();
   const result = await engine.submit({ request_id: 'opening-action-thinking', content: 'Build the project after reading target.txt.' }, 'operator');
   assert.equal(result.outcome, 'completed');
-  assert.deepEqual(requests.map((request) => request.reasoningMode), [undefined, 'off']);
-  assert.equal(requests[1].maxOutputTokens, 8_192);
+  assert.deepEqual(requests.map((request) => request.reasoningMode), [undefined, undefined]);
+  assert.equal(requests[1].maxOutputTokens, 4_096);
 });
 
 test('read-only analytical turns retain configured opening-step reasoning', async () => {
@@ -371,7 +371,7 @@ test('read-only analytical turns retain configured opening-step reasoning', asyn
   assert.equal(requests[0].reasoningMode, undefined);
 });
 
-test('reasoning-only output receives one reasoning-disabled retry before normal empty recovery', async () => {
+test('reasoning-only output receives one reasoning-preserving checkpoint retry', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-empty-'));
   const requests = [];
   const provider = { async *stream(request) {
@@ -390,9 +390,11 @@ test('reasoning-only output receives one reasoning-disabled retry before normal 
   assert.equal(result.outcome, 'completed');
   assert.equal(requests.length, 2);
   assert.equal(requests[0].reasoningMode, undefined);
-  assert.equal(requests[1].reasoningMode, 'off');
+  assert.equal(requests[1].reasoningMode, undefined);
+  assert.equal(requests[1].messages.find((message) => message.reasoning_content)?.reasoning_content,
+    'hidden reasoning without a final answer');
   assert.equal(result.text, 'Visible answer after the bounded fallback.');
-  assert.deepEqual(result.recovery.map((item) => item.action), ['retry_without_reasoning']);
+  assert.deepEqual(result.recovery.map((item) => item.action), ['retry_reasoning_to_action']);
 });
 
 test('reasoning truncated at the output ceiling gets one reasoning-preserving action retry', async () => {
@@ -413,11 +415,11 @@ test('reasoning truncated at the output ceiling gets one reasoning-preserving ac
   const result = await engine.submit({ request_id: 'reasoning-truncated', content: 'Act after reasoning.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.deepEqual(requests.map((request) => request.reasoningMode), [undefined, undefined]);
-  assert.equal(requests.every((request) => request.maxOutputTokens === 32_000), true);
+  assert.equal(requests.every((request) => request.maxOutputTokens === 4_096), true);
   assert.deepEqual(result.recovery.map((item) => item.action), ['retry_reasoning_to_action']);
 });
 
-test('reasoning-disabled fallback occurs once before bounded empty-output exhaustion', async () => {
+test('reasoning checkpoint retry occurs once before bounded empty-output exhaustion', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-empty-bounded-'));
   const modes = [];
   const provider = { async *stream(request) {
@@ -429,8 +431,8 @@ test('reasoning-disabled fallback occurs once before bounded empty-output exhaus
   await engine.initialize();
   const result = await engine.submit({ request_id: 'reasoning-empty-bounded', content: 'Answer visibly.' }, 'operator');
   assert.equal(result.outcome, 'incomplete');
-  assert.deepEqual(modes, [undefined, 'off', undefined, undefined]);
-  assert.deepEqual(result.recovery.map((item) => item.action), ['retry_without_reasoning', 'nudge', 'nudge']);
+  assert.deepEqual(modes, [undefined, undefined, undefined, undefined]);
+  assert.deepEqual(result.recovery.map((item) => item.action), ['retry_reasoning_to_action', 'nudge', 'nudge']);
   assert.equal(result.failure.exhaustion_category, 'empty_output');
 });
 
@@ -944,7 +946,8 @@ test('explicit monitoring intent permits bounded repeated observations', async (
   }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(requests.length, 6);
-  assert.deepEqual(requests.slice(1).map((request) => request.reasoningMode), ['off', 'off', 'off', 'off', 'off']);
+  assert.deepEqual(requests.slice(1).map((request) => request.reasoningMode),
+    [undefined, undefined, undefined, undefined, undefined]);
 });
 
 test('AC-TURN-09/AC-TURN-10 steering overrides a bare completion claim at the supervised checkpoint', async () => {

@@ -48,10 +48,10 @@ function researchExecutionPolicy() {
 }
 
 function conversationalProviderContext(context) {
-  const retained = context.filter((item) => [
-    'application_policy', 'transcript', 'tool_result', 'engine_compaction',
-    'engine_active_checkpoint', 'conversation_work', 'authenticated_submission',
-  ].includes(item?.provenance));
+  // Replace only the large general engine policy. Authenticated application
+  // policy, hooks, memory, attachments, and other attributed evidence remain
+  // available to conversational requests even though their tool surface is empty.
+  const retained = context.filter((item) => item?.provenance !== 'engine_policy');
   return [{
     role: 'system', provenance: 'engine_policy', trust: 'kernel',
     content: 'You are NotNativeAgent. Answer the authenticated conversational request directly and use native private reasoning only as much as the question benefits from. Be specific and practical. For ordinary low-stakes conversation, answer in at most 250 words unless the user explicitly requests depth. For subjective recommendations, use a short private checklist of the explicit criteria, select reasonable familiar options, and answer immediately; do not exhaustively optimize or enumerate the possibility space. Do not inspect or modify the workspace, invoke tools, or claim current external facts in this conversational mode. Ask one concise clarifying question only when the missing information would materially change the answer.',

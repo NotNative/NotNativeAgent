@@ -48,11 +48,11 @@ test('provider request manifest is durable, content-free, and precedes provider 
   assert.ok(manifest.envelope.estimated_input_tokens > 0);
   assert.equal(manifest.envelope.configuration.temperature.sent, false);
   assert.ok(manifest.envelope.shape.message_count > 0);
-  assert.ok(manifest.envelope.shape.tool_schema_count > 0);
+  assert.equal(manifest.envelope.shape.tool_schema_count, 0);
   assert.equal(manifest.toolSurface.schema, 'nna.provider-tool-surface.v1');
-  assert.equal(manifest.toolSurface.phase, 'orientation');
-  assert.ok(manifest.toolSurface.selectedToolNames.length <= 6);
-  assert.ok(manifest.toolSurface.schemaBytes <= 4 * 1024);
+  assert.equal(manifest.toolSurface.phase, 'conversation');
+  assert.deepEqual(manifest.toolSurface.selectedToolNames, []);
+  assert.equal(manifest.toolSurface.schemaBytes, 0);
   assert.match(manifest.toolSurface.fingerprint, /^[a-f0-9]{64}$/u);
   assert.equal(JSON.stringify(manifest).includes(secretMarker), false);
   await store.close();

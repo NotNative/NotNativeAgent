@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:ffc7a21b0230d32797579ff47e304a53f8780455f3780c2356115a9f8435df09",
+  "source_digest": "sha256:112ef277cc66455b96ba90c0b1ad6b7bec5366a0f86cc7ab504819a42c54b030",
   "counts": {
-    "modules": 316,
+    "modules": 317,
     "component_edges": 68
   },
   "components": [
@@ -72,7 +72,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 77
+      "module_count": 78
     }
   ],
   "entrypoints": [
@@ -179,7 +179,7 @@
     {
       "from": "governance-engine",
       "to": "foundation",
-      "import_count": 11,
+      "import_count": 12,
       "module_count": 10
     },
     {
@@ -2334,6 +2334,12 @@
       ]
     },
     {
+      "path": "src/review-target-evidence.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/reviewer-packet.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2346,6 +2352,7 @@
       "imports": [
         "src/ids.js",
         "src/persistence/reviewer-ledger.js",
+        "src/review-target-evidence.js",
         "src/reviewer-packet.js"
       ]
     },

@@ -288,10 +288,10 @@ test('AC-MEM-01/AC-MEM-02/AC-MEM-03/AC-PRIV-02 recall is governed, attributed, s
   });
   await engine.submit({ request_id: 'memory-turn', content: 'Recall context' }, 'operator');
   assert.equal(received.query, 'Recall context');
-  const memories = providerRequest.messages.filter((item) => item.content?.startsWith?.('Untrusted recalled memory'));
-  assert.equal(memories.length, 2);
-  assert.match(memories[0].content, /pinned fact/u);
-  assert.match(memories[0].content, /assertion assertable_with_attribution/u);
+  const system = providerRequest.messages.find((item) => item.role === 'system')?.content ?? '';
+  assert.equal(system.match(/Untrusted recalled memory/gu)?.length, 2);
+  assert.match(system, /pinned fact/u);
+  assert.match(system, /assertion assertable_with_attribution/u);
   assert.equal(providerRequest.messages.some((item) => item.content?.includes?.('older user fact')), false);
   assert.doesNotMatch(JSON.stringify(providerRequest), /secret project/u);
   const audit = engine.governance.audit().filter((item) => item.domain === 'memory_eligibility');

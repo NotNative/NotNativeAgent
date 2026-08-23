@@ -142,7 +142,7 @@ test('successful tool continuation resumes without re-acknowledging the active r
   const hint = toolContinuationHint([{
     result: { status: 'succeeded', tool_name: 'fs.read_text' },
   }]);
-  assert.match(hint, /Continue the existing active request[^]*Choose and perform the next useful action from this evidence[^]*Do not greet[^]*repeat the existing plan/iu);
+  assert.equal(hint, null);
 });
 
 test('review denial continuation favors safer progress before operator interruption', () => {
@@ -327,8 +327,9 @@ test('AC-TURN-03 safe read is reviewed, executed, reinjected, and completed', as
       assert.match(result.content, /trusted fixture text/u);
       assert.match(result.content, /"untrusted":true/u);
       assert.match(result.content, /"sha256":"[0-9a-f]{64}"/u);
+      assert.equal(request.messages.filter((item) => item.role === 'system').length, 1);
       assert.equal(request.messages.some((item) => item.role === 'system'
-        && /Do not greet, re-acknowledge the request/iu.test(item.content)), true);
+        && /Do not greet, re-acknowledge the request/iu.test(item.content)), false);
     },
   );
   const engine = new SessionEngine({
