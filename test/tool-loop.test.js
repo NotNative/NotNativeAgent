@@ -1027,6 +1027,36 @@ test('AC-ARCH-02/AC-TURN-05 multiple tool calls retain nested lifecycle and dete
   assert.equal(lifecycles.filter((item) => item.parentId !== null).every((item) => identities.has(item.parentId)), true);
 });
 
+test('exact duplicate calls in one provider batch execute and replay only once', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-duplicate-batch-'));
+  await writeFile(join(root, 'result.txt'), 'one result', 'utf8');
+  let count = 0;
+  const provider = { async *stream(request) {
+    count += 1;
+    if (count === 1) {
+      assert.equal(request.parallelToolCalls, false);
+      yield { type: 'tool_fragment', fragments: [
+        { index: 0, id: 'retained-call', function: { name: 'fs.read', arguments: '{"path":"result.txt"}' } },
+        { index: 1, id: 'suppressed-call', function: { name: 'fs.read', arguments: '{"path":"result.txt"}' } },
+      ] };
+      yield { type: 'terminal', finishReason: 'tool_calls' };
+      return;
+    }
+    const results = request.messages.filter((item) => item.role === 'tool');
+    assert.deepEqual(results.map((item) => item.tool_call_id), ['retained-call']);
+    yield { type: 'text', text: 'The file was read once.' };
+    yield { type: 'terminal' };
+  } };
+  const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'duplicate-batch-turn', content: 'Read result.txt' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.deepEqual(
+    engine.transcript.filter((item) => item.type === 'tool_result').map((item) => item.providerCallId),
+    ['retained-call'],
+  );
+});
+
 test('same-batch writes to one file execute in request order across runtime-authored state', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-ordered-writes-'));
   let count = 0;

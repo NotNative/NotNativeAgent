@@ -34,6 +34,7 @@ import { persistEngineRecord } from './engine/persistence.js';
 import { runEngineSubagent, subagentParallelLimit } from './subagent-runtime.js';
 import { finalizeEngineTurn } from './engine/finalization.js';
 import { projectConversationIntent, resolveApprovedAssistantProposal } from './engine/intent-projection.js';
+import { deduplicateToolCallBatch } from './reliability/tool-call-deduplication.js';
 
 export class SessionEngine {
   state = new StateAuthority();
@@ -312,7 +313,16 @@ export class SessionEngine {
       });
     }
     assertTurnActive(active);
-    const calls = active.toolAssembler.complete(active.finishReason);
+    const assembledCalls = active.toolAssembler.complete(active.finishReason);
+    const deduplicated = deduplicateToolCallBatch(assembledCalls);
+    const calls = deduplicated.calls;
+    for (const item of deduplicated.suppressed) {
+      await this.#persist('tool_call_deduplicated', {
+        schema: 'nna.tool-call-deduplicated.v1', turnId: active.turnId, stepId: active.stepId,
+        providerCallId: item.providerCallId, retainedProviderCallId: item.retainedProviderCallId,
+        toolName: item.toolName, identityFingerprint: item.identityFingerprint,
+      });
+    }
     if (active.stepText.length > 0 || calls.length > 0) resetReasoningRecovery(active);
     if (calls.length === 0) return this.#afterTextStep(active);
     await this.#settleAttempt(active, 'completed'); this.reliability.captureReasoningContinuation(active, calls);
