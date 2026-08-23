@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { actionOrientedIntent, taskActivatedToolNames } from '../src/tools/capability-activation.js';
+import { actionOrientedIntent, taskActivatedToolNames, toolOrientedIntent } from '../src/tools/capability-activation.js';
 
 test('tool catalog keeps observational tools visible and effectful tools situational', async () => {
   const registry = new ToolRegistry(process.cwd());
@@ -78,6 +78,10 @@ test('authenticated task intent activates bounded effectful capability bundles',
   assert.equal(actionOrientedIntent('build and test the application'), true);
   assert.equal(actionOrientedIntent('inspect and explain the repository structure'), false);
   assert.equal(actionOrientedIntent('research the latest release online'), false);
+  assert.equal(toolOrientedIntent('Recommend a cooperative board game for four friends in 60 minutes.'), false);
+  assert.equal(taskActivatedToolNames('Recommend a cooperative board game for four friends in 60 minutes.')
+    .includes('web.search'), false);
+  assert.equal(toolOrientedIntent('Find current prices for a cooperative board game.'), true);
 });
 
 test('provider surface receipts make phase selection and byte budgets auditable', async () => {

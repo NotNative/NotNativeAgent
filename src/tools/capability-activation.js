@@ -25,7 +25,6 @@ const BUNDLES = Object.freeze({
 });
 
 const INTENTS = Object.freeze([
-  ['web_research', /(?=[\s\S]*\b(?:choose|choosing|pick|recommend|recommendation)\b)(?=[\s\S]*\b(?:players?|minutes?|hours?|budget|prices?|under|over|at\s+least|no\s+more|criteria|requirements?|availability)\b)/iu],
   ['web_research', /\b(?:weather|forecast|temperature|news|prices?|availability|today|tonight)\b/iu],
   ['web_research', /\b(?:latest|current)\s+(?:weather|forecast|temperature|news|prices?|availability|release|version|status|events?|conditions?)\b/iu],
   ['filesystem_mutation', /\b(?:add|build|change|create|delete|develop|edit|fix|generate|implement|make|modify|patch|refactor|remove|rename|repair|scaffold|update|upgrade|write)\b/iu],
