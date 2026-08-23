@@ -9,7 +9,7 @@ import { deduplicateToolCallBatch } from '../reliability/tool-call-deduplication
 
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
-  const messages = toProviderMessages(context, route);
+  const messages = toProviderMessages(context, { ...route, reasoningMode: options.reasoningMode });
   const dialect = engine.reliability?.instructions(route);
   const query = capabilitySelectionQuery(context, options.conversationIntent, options.approvedProposal);
   const surface = typeof engine.tools.providerSurface === 'function'
@@ -76,7 +76,7 @@ export function prepareTrustedToolHandoff(engine, items) {
 export function resetStep(active) {
   // `active` is the single engine-owned mutable accumulator for the current turn; reset it in place
   // so lifecycle and provider callbacks retain the same authoritative identity across model steps.
-  const reasoningMode = active.reasoningFallbackPending ? 'off' : undefined;
+  const reasoningMode = active.reasoningFallbackPending || active.capabilityPhase === 'action' ? 'off' : undefined;
   active.reasoningFallbackPending = false;
   active.stepText = '';
   active.committedStepText = null;
@@ -93,14 +93,24 @@ export function resetStep(active) {
 }
 
 export function modelStepRequestOptions(reasoningMode, active) {
+  const plannedReserve = active.contextBudget?.outputReserveTokens;
+  const outputReserveTokens = active.capabilityPhase === 'action'
+    ? Math.min(Number.isSafeInteger(plannedReserve) ? plannedReserve : 8_192, 8_192)
+    : plannedReserve;
   return {
     reasoningMode,
-    outputReserveTokens: active.contextBudget?.outputReserveTokens,
+    outputReserveTokens,
     conversationIntent: active.conversationIntent,
     approvedProposal: active.approvedProposal,
     capabilityPhase: active.capabilityPhase,
     active,
   };
+}
+
+export function suppressPostToolReasoningReplay(active) {
+  if (active?.capabilityPhase !== 'action' || !active.enrichment) return false;
+  active.enrichment.reasoningContinuations = [];
+  return true;
 }
 
 export function resetReasoningRecovery(active) {

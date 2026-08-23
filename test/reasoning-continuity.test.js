@@ -32,6 +32,10 @@ test('same-route private reasoning continues across a tool boundary without ente
   assert.doesNotMatch(context.find((item) => item.role === 'assistant' && typeof item.content === 'string').content, /private implementation plan/u);
   const matching = toProviderMessages(context, { profile: { id: 'local-qwen' }, model: 'qwen3.8-27b' });
   assert.equal(matching.find((item) => item.tool_calls)?.reasoning_content, 'private implementation plan');
+  const disabled = toProviderMessages(context, {
+    profile: { id: 'local-qwen' }, model: 'qwen3.8-27b', reasoningMode: 'off',
+  });
+  assert.equal(disabled.find((item) => item.tool_calls)?.reasoning_content, undefined);
   const fallback = toProviderMessages(context, { profile: { id: 'fallback' }, model: 'other-model' });
   assert.equal(fallback.find((item) => item.tool_calls)?.reasoning_content, undefined);
   assert.doesNotMatch(JSON.stringify(transcript), /private implementation plan/u);
@@ -116,7 +120,7 @@ test('context pressure evicts whole oldest reasoning blocks', () => {
   assert.equal(provider.every((item) => item.reasoning_content === undefined || item.reasoning_content.length === 40_000), true);
 });
 
-test('engine replays private reasoning on the next same-route model step only', async () => {
+test('engine suppresses private reasoning replay on a reasoning-disabled tool continuation', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-continuity-'));
   const requests = [];
   const provider = { async *stream(request) {
@@ -145,8 +149,8 @@ test('engine replays private reasoning on the next same-route model step only', 
   const result = await engine.submit({ request_id: 'continuity-turn', content: 'Inspect this workspace.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(requests.length, 2);
-  assert.equal(requests[1].messages.find((message) => message.tool_calls)?.reasoning_content,
-    'retain this implementation decision');
+  assert.equal(requests[1].reasoningMode, 'off');
+  assert.equal(requests[1].messages.find((message) => message.tool_calls)?.reasoning_content, undefined);
   assert.doesNotMatch(JSON.stringify(engine.transcript), /retain this implementation decision/u);
   await engine.shutdown({ request_id: 'continuity-shutdown', type: 'shutdown' });
 });

@@ -335,7 +335,7 @@ test('AC-PROV-02 reasoning is typed and counted without entering transcript or o
   assert.equal(output.some((item) => item.type === 'state_status' && item.semantic_state === 'reasoning'), true);
 });
 
-test('action-oriented turns preserve configured reasoning behavior across tool continuations', async () => {
+test('tool continuations disable reasoning and use a bounded output allowance', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-opening-action-thinking-'));
   await writeFile(join(root, 'target.txt'), 'verified evidence', 'utf8');
   const requests = [];
@@ -352,7 +352,8 @@ test('action-oriented turns preserve configured reasoning behavior across tool c
   await engine.initialize();
   const result = await engine.submit({ request_id: 'opening-action-thinking', content: 'Build the project after reading target.txt.' }, 'operator');
   assert.equal(result.outcome, 'completed');
-  assert.deepEqual(requests.map((request) => request.reasoningMode), [undefined, undefined]);
+  assert.deepEqual(requests.map((request) => request.reasoningMode), [undefined, 'off']);
+  assert.equal(requests[1].maxOutputTokens, 8_192);
 });
 
 test('read-only analytical turns retain configured opening-step reasoning', async () => {

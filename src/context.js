@@ -312,7 +312,8 @@ export function toProviderMessages(context, route = null) {
       _nnaReasoningProvider: provider, _nnaReasoningModel: model,
       reasoning_content: reasoningContent, ...message
     } = item;
-    const sameRoute = provider && model && provider === route?.profile?.id && model === route?.model;
+    const sameRoute = route?.reasoningMode !== 'off'
+      && provider && model && provider === route?.profile?.id && model === route?.model;
     return sameRoute && typeof reasoningContent === 'string'
       ? { ...message, reasoning_content: reasoningContent }
       : message;

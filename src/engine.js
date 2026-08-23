@@ -20,7 +20,7 @@ import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
   deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, prepareTrustedToolHandoff, providerRequest,
-  resetReasoningRecovery, resetStep, toolContext,
+  resetReasoningRecovery, resetStep, suppressPostToolReasoningReplay, toolContext,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
 import { recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
@@ -315,7 +315,7 @@ export class SessionEngine {
     const calls = await deduplicateProviderToolCalls(active.toolAssembler.complete(active.finishReason), active, (...args) => this.#persist(...args));
     if (active.stepText.length > 0 || calls.length > 0) resetReasoningRecovery(active);
     if (calls.length === 0) return this.#afterTextStep(active);
-    await this.#settleAttempt(active, 'completed'); active.capabilityPhase = 'action'; this.reliability.captureReasoningContinuation(active, calls);
+    await this.#settleAttempt(active, 'completed'); active.capabilityPhase = 'action'; this.reliability.captureReasoningContinuation(active, calls); suppressPostToolReasoningReplay(active);
     if (active.stepText.length > 0) {
       await this.#persist('message', assistantMessage(active.turnId, active.stepText, { stepId: active.stepId }));
       active.committedStepText = active.stepText;
