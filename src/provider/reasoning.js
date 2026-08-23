@@ -25,9 +25,10 @@ export function providerReasoningControls(request) {
     throw new ContractError('provider_reasoning_mode_invalid', 'provider reasoning mode is invalid');
   }
   if (request.reasoningMode === 'off') {
-    return binaryThinkingModel(request.model)
-      ? { chat_template_kwargs: { enable_thinking: false } }
-      : { reasoning_effort: 'none', chat_template_kwargs: { enable_thinking: false } };
+    // OpenAI-compatible hosts do not agree on which control disables hidden
+    // reasoning. LM Studio's Qwen path requires both controls; the template
+    // flag alone can be ignored by the serving layer.
+    return { reasoning_effort: 'none', chat_template_kwargs: { enable_thinking: false } };
   }
   const effort = validateReasoningEffort(request.reasoningEffort);
   const thinking = validateEnableThinking(request.enableThinking);

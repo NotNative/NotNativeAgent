@@ -88,7 +88,12 @@ export class OpenAICompatibleProvider {
           ...(Number.isFinite(request.temperature) ? { temperature: request.temperature } : {}),
           ...(this.profile.capabilities?.usage === false ? {} : { stream_options: { include_usage: true } }),
           ...(Number.isInteger(request.maxOutputTokens) ? { max_tokens: request.maxOutputTokens } : {}),
-          ...(request.tools?.length ? { tools: request.tools, tool_choice: 'auto' } : {}),
+          ...(request.tools?.length ? {
+            tools: request.tools,
+            tool_choice: 'auto',
+            ...(typeof request.parallelToolCalls === 'boolean'
+              ? { parallel_tool_calls: request.parallelToolCalls } : {}),
+          } : {}),
           ...(responseFormat ? { response_format: responseFormat } : {}),
           ...reasoningControls,
         }),

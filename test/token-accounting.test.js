@@ -34,6 +34,7 @@ test('complete provider envelope inventories prompt sections, schemas, configura
     enable_thinking: { sent: true, value: true },
     reasoning_mode: { sent: false, value: null },
     tool_choice: 'auto',
+    parallel_tool_calls: { sent: false, value: null },
   });
   assert.deepEqual(envelope.shape.message_roles, { system: 1, user: 1 });
   assert.equal(envelope.shape.tool_schema_count, 1);
@@ -54,7 +55,7 @@ test('provider envelope reports the controls actually sent for Qwen models', () 
   const disabled = measureProviderEnvelope({
     model: 'qwen3.8-27b@q6_k_xl', messages: [], tools: [], reasoningMode: 'off',
   });
-  assert.deepEqual(disabled.configuration.reasoning_effort, { sent: false, value: null });
+  assert.deepEqual(disabled.configuration.reasoning_effort, { sent: true, value: 'none' });
   assert.deepEqual(disabled.configuration.enable_thinking, { sent: true, value: false });
 });
 

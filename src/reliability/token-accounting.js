@@ -203,6 +203,10 @@ function providerConfiguration(request) {
     enable_thinking: fieldState(thinkingSent, reasoning.chat_template_kwargs?.enable_thinking),
     reasoning_mode: fieldState(typeof request.reasoningMode === 'string', request.reasoningMode),
     tool_choice: request.tools.length > 0 ? 'auto' : null,
+    parallel_tool_calls: fieldState(
+      request.tools.length > 0 && typeof request.parallelToolCalls === 'boolean',
+      request.parallelToolCalls,
+    ),
   });
 }
 

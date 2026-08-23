@@ -19,7 +19,7 @@ export function providerRequest(engine, route, context, options = {}) {
   // The assembled request is a boundary value. Provider adapters must not mutate shared turn state through it.
   return Object.freeze({
     model: route.model, messages: [...system, ...messages],
-    tools, temperature: route.temperature,
+    tools, temperature: route.temperature, parallelToolCalls: false,
     maxOutputTokens: boundedOutputTokens(route.maxOutputTokens, options.outputReserveTokens),
     ...(reasoning.reasoningEffort === undefined ? {} : { reasoningEffort: reasoning.reasoningEffort }),
     ...(reasoning.enableThinking === undefined ? {} : { enableThinking: reasoning.enableThinking }),
