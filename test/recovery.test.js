@@ -817,7 +817,7 @@ test('AC-PROD-03/AC-TURN-10 a completion claim cannot erase unresolved tool fail
   assert.equal(engine.transcript.some((item) => item.partial && item.content === 'The task is complete.'), true);
 });
 
-test('AC-PROD-03 unchanged malformed calls receive patient escalation before the exact-loop boundary', async () => {
+test('AC-PROD-03 unchanged malformed calls stop at the concise exact-loop boundary', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-malformed-loop-'));
   let count = 0;
   const provider = { async *stream() {
@@ -832,7 +832,7 @@ test('AC-PROD-03 unchanged malformed calls receive patient escalation before the
   const result = await engine.submit({ request_id: 'malformed-loop', content: 'Do not loop.' }, 'operator');
   assert.equal(result.outcome, 'incomplete');
   assert.equal(result.failure.code, 'recovery_exhausted');
-  assert.equal(count, 12);
+  assert.equal(count, 3);
 });
 
 test('AC-FAIL-06 overflow compaction safely truncates an oversized historical message', async () => {
@@ -901,7 +901,7 @@ test('configured model-step ceiling terminates a still-progressing turn at the d
   assert.equal(result.failure.exhaustion_count, 16);
 });
 
-test('AC-REV-09 unchanged successful polling stops only at the patient exact-loop boundary', async () => {
+test('AC-REV-09 unchanged successful observations stop at the concise exact-loop boundary', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-churn-'));
   await writeFile(join(root, 'same.txt'), 'unchanged', 'utf8');
   let count = 0;
@@ -913,7 +913,7 @@ test('AC-REV-09 unchanged successful polling stops only at the patient exact-loo
   await engine.initialize();
   const result = await engine.submit({ request_id: 'churn-turn', content: 'Read same.txt repeatedly' }, 'operator');
   assert.equal(result.outcome, 'incomplete');
-  assert.equal(count, 13);
+  assert.equal(count, 4);
   assert.equal(result.failure.code, 'recovery_exhausted');
   assert.equal(result.failure.side_effect_certainty, 'completed');
   assert.equal(result.failure.last_verified_checkpoint, 'tool_results_committed');
@@ -922,6 +922,29 @@ test('AC-REV-09 unchanged successful polling stops only at the patient exact-loo
     request_fingerprints: [result.failure.completed_progress.evidence[0].summary.request_fingerprints[0]],
   });
   assert.match(result.failure.completed_progress.evidence[0].summary.request_fingerprints[0], /^[a-f0-9]{64}$/u);
+});
+
+test('explicit monitoring intent permits bounded repeated observations', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-monitoring-'));
+  await writeFile(join(root, 'same.txt'), 'unchanged', 'utf8');
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length <= 5) {
+      yield* toolCall(`monitor-call-${requests.length}`, 'same.txt');
+      return;
+    }
+    yield { type: 'text', text: 'Five checks completed; the file remained unchanged.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({
+    request_id: 'monitoring-turn', content: 'Monitor same.txt for five checks and report whether it changes.',
+  }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(requests.length, 6);
+  assert.deepEqual(requests.slice(1).map((request) => request.reasoningMode), ['off', 'off', 'off', 'off', 'off']);
 });
 
 test('AC-TURN-09/AC-TURN-10 steering overrides a bare completion claim at the supervised checkpoint', async () => {

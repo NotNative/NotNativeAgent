@@ -55,6 +55,11 @@ export function actionOrientedIntent(query = '') {
   return activatedBundles(query).some((bundle) => OPENING_ACTION_BUNDLES.has(bundle));
 }
 
+export function monitoringIntent(query = '') {
+  const text = String(query).slice(0, 32_768);
+  return /\b(?:keep checking|monitor|poll|repeatedly check|wait for|watch)\b/iu.test(text);
+}
+
 function activatedBundles(query) {
   const text = String(query).slice(0, 32_768);
   if (!text.trim()) return [];

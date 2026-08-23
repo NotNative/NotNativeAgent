@@ -20,7 +20,7 @@ import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
   deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, prepareTrustedToolHandoff, providerRequest,
-  resetReasoningRecovery, resetStep, suppressPostToolReasoningReplay, toolContext,
+  groundCapabilityPhase, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
 import { recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
@@ -115,7 +115,7 @@ export class SessionEngine {
     let operation;
     try {
       this.state.transition('preparing_turn', { trigger: 'submission_accepted', turnId: turn.id });
-      active.prompt = command.content;
+      active.prompt = command.content; setInitialCapabilityPhase(active, command.content);
       await persistAuthenticatedIntent(this.authority, command.content, principal, (intent) => this.#persist('authority_intent', intent));
       active.authority = this.authority.snapshot(this.config);
       active.authority = await authorizeAndPersistTurn(this.authority, this.config, (record) => this.#persist('mission_turn_authorized', record));
@@ -315,7 +315,7 @@ export class SessionEngine {
     const calls = await deduplicateProviderToolCalls(active.toolAssembler.complete(active.finishReason), active, (...args) => this.#persist(...args));
     if (active.stepText.length > 0 || calls.length > 0) resetReasoningRecovery(active);
     if (calls.length === 0) return this.#afterTextStep(active);
-    await this.#settleAttempt(active, 'completed'); active.capabilityPhase = 'action'; this.reliability.captureReasoningContinuation(active, calls); suppressPostToolReasoningReplay(active);
+    await this.#settleAttempt(active, 'completed'); groundCapabilityPhase(active); this.reliability.captureReasoningContinuation(active, calls); suppressPostToolReasoningReplay(active);
     if (active.stepText.length > 0) {
       await this.#persist('message', assistantMessage(active.turnId, active.stepText, { stepId: active.stepId }));
       active.committedStepText = active.stepText;
@@ -332,7 +332,7 @@ export class SessionEngine {
     const steeringApplied = await this.#consumeSteering(active);
     const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints });
     const progress = this.reliability.noProgress(active, 'tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact',
-      failureFingerprint: this.reliability.toolFailureFingerprint(items),
+      failureFingerprint: this.reliability.toolFailureFingerprint(items), monitoring: active.capabilityPhase === 'monitoring',
     });
     if (progress.action) await this.#recordRecovery(progress.action, active);
     await this.#settleStep(active, 'continued');

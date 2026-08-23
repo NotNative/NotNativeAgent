@@ -13,7 +13,8 @@ const MIN_USEFUL_CHECKPOINT_CHARACTERS = 160;
 const MAX_CHECKPOINT_CHARACTERS = 2_400;
 const CHECKPOINT_HEAD_RATIO = 0.7;
 const CHECKPOINT_SEPARATOR_RESERVE = 32;
-const MIN_EXACT_NO_EFFECT_LIMIT = 12;
+const MIN_EXACT_NO_EFFECT_LIMIT = 3;
+const MIN_MONITORING_NO_EFFECT_LIMIT = 12;
 
 export class RecoverySupervisor {
   #episodes = new Map();
@@ -24,7 +25,7 @@ export class RecoverySupervisor {
     this.localLimit = options.localLimit ?? 3;
     this.ladder = options.ladder ?? ['nudge', 'compact'];
     this.exactNoEffectLimit = options.exactNoEffectLimit
-      ?? Math.max(MIN_EXACT_NO_EFFECT_LIMIT, this.localLimit * 4);
+      ?? Math.max(MIN_EXACT_NO_EFFECT_LIMIT, this.localLimit);
     this.#actions = (options.restoredActions ?? []).slice(-MAX_ACTION_HISTORY);
   }
 
@@ -72,7 +73,7 @@ export class RecoverySupervisor {
       this.#episodes.delete(this.#episodes.keys().next().value);
     }
     this.#episodes.set(episode, count);
-    const limit = terminalNoProgressLimit(category, this.localLimit, this.exactNoEffectLimit);
+    const limit = terminalNoProgressLimit(category, this.localLimit, this.exactNoEffectLimit, options.monitoring);
     if (limit !== null && count >= limit) {
       return Object.freeze({ continue: false, exhausted: true, count });
     }
@@ -260,9 +261,10 @@ export function recoveryHint(action) {
   return guidance[action.action] ?? null;
 }
 
-function terminalNoProgressLimit(category, localLimit, exactNoEffectLimit) {
+function terminalNoProgressLimit(category, localLimit, exactNoEffectLimit, monitoring = false) {
   if (category === 'empty_output') return localLimit;
-  if (category === 'tool_no_progress') return exactNoEffectLimit;
+  if (category === 'tool_no_progress') return monitoring
+    ? Math.max(MIN_MONITORING_NO_EFFECT_LIMIT, exactNoEffectLimit * 4) : exactNoEffectLimit;
   return null;
 }
 

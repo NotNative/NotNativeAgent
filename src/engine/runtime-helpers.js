@@ -6,6 +6,7 @@ import { routeReasoningFields } from '../provider/reasoning.js';
 import { ContractError } from '../ids.js';
 import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
 import { deduplicateToolCallBatch } from '../reliability/tool-call-deduplication.js';
+import { monitoringIntent } from '../tools/capability-activation.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
@@ -76,7 +77,7 @@ export function prepareTrustedToolHandoff(engine, items) {
 export function resetStep(active) {
   // `active` is the single engine-owned mutable accumulator for the current turn; reset it in place
   // so lifecycle and provider callbacks retain the same authoritative identity across model steps.
-  const reasoningMode = active.reasoningFallbackPending || active.capabilityPhase === 'action' ? 'off' : undefined;
+  const reasoningMode = active.reasoningFallbackPending || active.toolEvidenceObserved ? 'off' : undefined;
   active.reasoningFallbackPending = false;
   active.stepText = '';
   active.committedStepText = null;
@@ -94,7 +95,7 @@ export function resetStep(active) {
 
 export function modelStepRequestOptions(reasoningMode, active) {
   const plannedReserve = active.contextBudget?.outputReserveTokens;
-  const outputReserveTokens = active.capabilityPhase === 'action'
+  const outputReserveTokens = active.toolEvidenceObserved
     ? Math.min(Number.isSafeInteger(plannedReserve) ? plannedReserve : 8_192, 8_192)
     : plannedReserve;
   return {
@@ -108,9 +109,18 @@ export function modelStepRequestOptions(reasoningMode, active) {
 }
 
 export function suppressPostToolReasoningReplay(active) {
-  if (active?.capabilityPhase !== 'action' || !active.enrichment) return false;
+  if (!active?.toolEvidenceObserved || !active.enrichment) return false;
   active.enrichment.reasoningContinuations = [];
   return true;
+}
+
+export function setInitialCapabilityPhase(active, content) {
+  active.capabilityPhase = monitoringIntent(content) ? 'monitoring' : 'orientation';
+}
+
+export function groundCapabilityPhase(active) {
+  active.toolEvidenceObserved = true;
+  if (active.capabilityPhase === 'orientation') active.capabilityPhase = 'action';
 }
 
 export function resetReasoningRecovery(active) {

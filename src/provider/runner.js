@@ -5,6 +5,7 @@ import { FairScheduler } from './fair-scheduler.js';
 const ITERATOR_CLOSE_TIMEOUT_MS = 25;
 const LOCAL_HEALTH_PROBE_INTERVAL_MS = 60_000;
 const LOCAL_HEALTH_PROBE_TIMEOUT_MS = 5_000;
+const TRUSTED_LOCAL_IDLE_WATCHDOG_MS = 120_000;
 
 export class ProviderRunner {
   constructor(options) {
@@ -148,7 +149,7 @@ export class ProviderRunner {
         const request = requestFactory(route);
         const manifest = await this.prepareRequest?.(request, route, active, context) ?? null;
         await this.run(router.provider(route), request,
-          effectiveDeadlines(deadlines, route), active, manifest, route);
+          effectiveProviderDeadlines(deadlines, route), active, manifest, route);
         return route;
       } catch (error) {
         lastError = error;
@@ -370,12 +371,12 @@ async function boundedNext(iterator, milliseconds, code) {
   }
 }
 
-function effectiveDeadlines(deadlines, route) {
+export function effectiveProviderDeadlines(deadlines, route) {
   const trustedLocal = route.profile.trustZone !== 'public_network';
   return {
     overallMs: route.deadlineMs,
     firstTokenMs: trustedLocal && !deadlines.firstTokenExplicit ? null : deadlines.firstTokenMs,
-    idleMs: trustedLocal && !deadlines.idleExplicit ? null : deadlines.idleMs,
+    idleMs: trustedLocal && !deadlines.idleExplicit ? TRUSTED_LOCAL_IDLE_WATCHDOG_MS : deadlines.idleMs,
   };
 }
 

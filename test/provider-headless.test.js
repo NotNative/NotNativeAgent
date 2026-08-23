@@ -5,6 +5,7 @@ import { PassThrough, Readable, Writable } from 'node:stream';
 import test from 'node:test';
 import { ProtocolWriter, runHeadless } from '../src/headless.js';
 import { OpenAICompatibleProvider } from '../src/provider.js';
+import { effectiveProviderDeadlines } from '../src/provider/runner.js';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
 import { JournalStore } from '../src/store.js';
@@ -13,6 +14,17 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 
 const EMPTY_HOOK_ROOT = join(process.cwd(), '.nna-test-hooks-none');
+
+test('trusted local routes retain a no-byte watchdog without imposing an overall deadline', () => {
+  const effective = effectiveProviderDeadlines({
+    firstTokenMs: 600_000, firstTokenExplicit: false, idleMs: 300_000, idleExplicit: false,
+  }, { deadlineMs: null, profile: { trustZone: 'loopback' } });
+  assert.deepEqual(effective, { overallMs: null, firstTokenMs: null, idleMs: 120_000 });
+  const explicit = effectiveProviderDeadlines({
+    firstTokenMs: 30_000, firstTokenExplicit: true, idleMs: 45_000, idleExplicit: true,
+  }, { deadlineMs: 90_000, profile: { trustZone: 'loopback' } });
+  assert.deepEqual(explicit, { overallMs: 90_000, firstTokenMs: 30_000, idleMs: 45_000 });
+});
 
 test('AC-HEAD-07 output writer bounds admitted bytes and rejects excess concurrent output', async () => {
   const output = new PassThrough({ highWaterMark: 1 });
