@@ -144,7 +144,7 @@ first-token, idle, and overall deadlines are distinct. Trusted local inference u
 deadline-owned native transport without a hidden HTTP body timeout; during a silent stream,
 successful content-free health probes renew the inherited no-byte lease without overriding
 explicit operator deadlines. Local no-progress work
-stops after three equivalent failures while unique progress may continue under
+parks for operator attention after three equivalent failures while unique progress may continue under
 the generous step limit. Contributions and feedback are welcome and voluntary;
 they are not additional license conditions.
 

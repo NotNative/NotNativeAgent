@@ -37,7 +37,7 @@ graph LR
 
 | Component | Modules | Imports from | Imported by |
 |---|---:|---|---|
-| Agentic Engine | 16 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
+| Agentic Engine | 17 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
 | Governance Engine | 10 | Governance Engine, Persistence, Product foundation, Tools | Agentic Engine, Experience Engine, Governance Engine, Guidance and extensions, Product foundation, Tools |
 | Experience Engine | 84 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools | Experience Engine, Product foundation |
 | Reliability Engine | 39 | Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Persistence, Product foundation, Providers, Reliability Engine, Tools |
@@ -61,8 +61,8 @@ Counts represent static local imports. Same-component imports are included becau
 | Tools | Product foundation | 50 | 33 |
 | Reliability Engine | Reliability Engine | 45 | 21 |
 | Tools | Tools | 38 | 7 |
-| Agentic Engine | Product foundation | 34 | 13 |
-| Agentic Engine | Agentic Engine | 24 | 6 |
+| Agentic Engine | Product foundation | 36 | 14 |
+| Agentic Engine | Agentic Engine | 26 | 7 |
 | Providers | Product foundation | 17 | 14 |
 | Integration surfaces | Product foundation | 16 | 10 |
 | Agentic Engine | Reliability Engine | 13 | 8 |
@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:719867cad2e8a1afffab56aebcb6b6dce1affdeaaa28e4e80ba3358021215fd3`.
+Source fingerprint: `sha256:df854c8af1b06a31585086c620c437689cfe605cfbdd971c228f2925eef0cd12`.

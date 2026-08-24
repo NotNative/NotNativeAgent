@@ -160,27 +160,32 @@ function repeatedEvidenceDetail(detail) {
 }
 
 export function recoveryExhaustionText(detail, options = {}) {
+  if (detail.exhaustion_category === 'model_step_limit') {
+    const steps = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} model steps` : '';
+    return `The configured model-step ceiling was reached${steps}. Completed work and diagnostics remain preserved.\n\n`
+      + 'This explicit runtime boundary ended the turn. Increase the configured ceiling or start a continuation turn if more work is intended.';
+  }
   if (detail.exhaustion_category === 'empty_output') {
     const checkpoint = usefulAssistantCheckpoint(options.transcript, options.turnId);
     const attempts = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} attempts` : '';
     const preserved = checkpoint
       ? `\n\nLast useful assistant checkpoint:\n${checkpoint}`
       : '';
-    return `The model returned no usable continuation${attempts}, so I stopped retrying. `
+    return `The model returned no usable continuation${attempts}, so automatic recovery is parked. `
       + `Completed tool effects and diagnostics remain preserved.${preserved}\n\n`
-      + 'The remaining step was not completed. Resume from the activity details or provide new direction.';
+      + 'The turn remains active. Provide direction to resume from the preserved activity, or cancel the turn.';
   }
   if (detail.exhaustion_category === 'tool_no_progress') {
     const attempts = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} repetitions` : '';
     return `The same tool request and observable effect remained unchanged${attempts}, even after escalating recovery guidance.\n\n`
-      + 'I ended this exact no-effect loop at its hard boundary. Completed effects and diagnostics remain preserved; '
-      + 'resume with new authenticated direction or changed external evidence.';
+      + 'I parked this exact no-effect loop at its supervision boundary. Completed effects and diagnostics remain preserved. '
+      + 'The turn remains active; provide new authenticated direction to resume, or cancel it.';
   }
   const reasons = detail.reason_codes?.length > 0
     ? ` The repeated operation reported: ${detail.reason_codes.join(', ')}.` : '';
-  return `I couldn't complete the request because the turn stopped making verifiable progress.${reasons}\n\n`
-    + 'I ended the turn to avoid repeating the same unsuccessful work. Any completed work and diagnostics remain preserved. '
-    + 'You can retry after correcting the reported condition or provide new direction.';
+  return `The active request stopped making verifiable progress.${reasons}\n\n`
+    + 'I parked automatic recovery to avoid repeating the same unsuccessful work. Completed work and diagnostics remain preserved. '
+    + 'Provide new direction to resume this turn, or cancel it.';
 }
 
 export function recoveryExhaustionDetail(recovery, transcript, reasonCodes, result) {

@@ -10,7 +10,7 @@ const MAX_TUI_SESSIONS = 8;
 
 const STATES = new Set([
   'idle', 'preparing', 'waiting_provider', 'reasoning', 'streaming', 'awaiting_approval',
-  'running_tool', 'recovering', 'cancelling', 'failed', 'needs_input',
+  'running_tool', 'recovering', 'attention_required', 'cancelling', 'failed', 'needs_input',
 ]);
 
 export class EditorBuffer {

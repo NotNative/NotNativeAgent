@@ -34,6 +34,7 @@ function liveActivityLabel(session) {
   if (state === 'awaiting_approval') return 'Reviewing tool use…';
   if (state === 'running_tool') return runningToolLabel(session);
   if (state === 'recovering') return 'Recovering…';
+  if (state === 'attention_required') return 'Attention required — enter guidance or cancel…';
   if (state === 'cancelling') return 'Cancelling…';
   return 'Working…';
 }

@@ -24,6 +24,16 @@ function config(root, persistence = 'ephemeral', extra = {}) {
   });
 }
 
+async function waitForEngineState(engine, expected, timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (engine.state.state !== expected) {
+    if (Date.now() >= deadline) {
+      assert.fail(`engine did not reach ${expected}; current state is ${engine.state.state}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+}
+
 test('provider runner accepts only declared constructor dependencies', () => {
   const runner = new ProviderRunner({ run: null, unexpected: true });
   assert.equal(typeof runner.run, 'function');
@@ -419,21 +429,25 @@ test('reasoning truncated at the output ceiling gets one reasoning-preserving ac
   assert.deepEqual(result.recovery.map((item) => item.action), ['retry_reasoning_to_action']);
 });
 
-test('reasoning checkpoint retry occurs once before bounded empty-output exhaustion', async () => {
+test('reasoning checkpoint retry occurs once before empty-output recovery parks for attention', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-empty-bounded-'));
   const modes = [];
   const provider = { async *stream(request) {
     modes.push(request.reasoningMode);
     if (modes.length === 1) yield { type: 'reasoning', text: 'hidden only' };
+    if (modes.length > 4) yield { type: 'text', text: 'Visible answer after operator guidance.' };
     yield { type: 'terminal', finishReason: 'stop' };
   } };
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
-  const result = await engine.submit({ request_id: 'reasoning-empty-bounded', content: 'Answer visibly.' }, 'operator');
-  assert.equal(result.outcome, 'incomplete');
+  const operation = engine.submit({ request_id: 'reasoning-empty-bounded', content: 'Answer visibly.' }, 'operator');
+  await waitForEngineState(engine, 'awaiting_attention');
   assert.deepEqual(modes, [undefined, undefined, undefined, undefined]);
+  await engine.steer({ request_id: 'reasoning-empty-direction', content: 'Answer directly now.' }, 'operator');
+  const result = await operation;
+  assert.equal(result.outcome, 'completed');
+  assert.deepEqual(modes, [undefined, undefined, undefined, undefined, undefined]);
   assert.deepEqual(result.recovery.map((item) => item.action), ['retry_reasoning_to_action', 'nudge', 'nudge']);
-  assert.equal(result.failure.exhaustion_category, 'empty_output');
 });
 
 test('AC-FAIL-06 provider size rejection compacts once and never resends unchanged context', async () => {
@@ -722,23 +736,41 @@ test('AC-PROD-03/AC-ENGP-02/AC-FAIL-01/AC-FAIL-03/AC-FAIL-11/AC-FAIL-12 stalled 
   let count = 0;
   const provider = { async *stream() {
     count += 1;
+    if (count > 3) yield { type: 'text', text: 'Completed after operator guidance.' };
     yield { type: 'terminal' };
   } };
+  const output = [];
+  const engine = new SessionEngine({
+    config: config(root), providerFactory: () => provider,
+    output: async (record) => output.push(record),
+  });
+  await engine.initialize();
+  const operation = engine.submit({ request_id: 'empty-turn', content: 'Produce output' }, 'operator');
+  await waitForEngineState(engine, 'awaiting_attention');
+  assert.equal(count, 3);
+  assert.equal(output.some((record) => record.type === 'turn_result'), false);
+  const attention = output.find((record) => record.delta_type === 'recovery_attention');
+  assert.match(attention.text, /model returned no usable continuation after 3 attempts/u);
+  assert.match(attention.text, /turn remains active/u);
+  await engine.steer({ request_id: 'empty-turn-direction', content: 'Produce the answer directly.' }, 'operator');
+  const result = await operation;
+  assert.equal(result.outcome, 'completed');
+  assert.equal(count, 4);
+  assert.equal(result.recovery.length, 2);
+});
+
+test('operator cancellation wakes a parked recovery turn immediately', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-attention-cancel-'));
+  const provider = { async *stream() { yield { type: 'terminal' }; } };
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
-  const result = await engine.submit({ request_id: 'empty-turn', content: 'Produce output' }, 'operator');
-  assert.equal(result.outcome, 'incomplete');
-  assert.equal(count, 3);
-  assert.equal(result.failure.code, 'recovery_exhausted');
-  assert.match(result.text, /model returned no usable continuation after 3 attempts/u);
-  assert.equal(result.failure.resume_condition, 'new authenticated input or changed external evidence');
-  assert.deepEqual(result.failure.completed_progress, { unique_evidence_count: 0, fingerprints: [], evidence: [] });
-  assert.equal(result.failure.last_checkpoint, 'turn_start');
-  assert.equal(result.failure.last_verified_checkpoint, 'turn_start');
-  assert.match(result.failure.remaining_work, /continuation/u);
-  assert.equal(result.failure.side_effect_certainty, 'none');
-  assert.deepEqual(result.failure.recovery_actions.map((item) => [item.action, item.count]), [['nudge', 1], ['nudge', 2]]);
-  assert.equal(result.recovery.length, 2);
+  const operation = engine.submit({ request_id: 'attention-cancel-turn', content: 'Produce output' }, 'operator');
+  await waitForEngineState(engine, 'awaiting_attention');
+  await engine.cancel({ request_id: 'attention-cancel' });
+  const result = await operation;
+  assert.equal(result.outcome, 'cancelled');
+  assert.equal(engine.state.state, 'idle');
+  assert.equal(engine.active, null);
 });
 
 test('empty continuation exhaustion preserves a useful partial handoff', async () => {
@@ -753,6 +785,7 @@ test('empty continuation exhaustion preserves a useful partial handoff', async (
       yield* toolCall('partial-handoff-read', 'target.txt');
       return;
     }
+    if (count > 4) yield { type: 'text', text: 'Explanation completed after operator direction.' };
     yield { type: 'terminal' };
   } };
   const output = [];
@@ -761,19 +794,18 @@ test('empty continuation exhaustion preserves a useful partial handoff', async (
     output: async (record) => output.push(record),
   });
   await engine.initialize();
-  const result = await engine.submit({ request_id: 'empty-partial-turn', content: 'Read and explain target.txt.' }, 'operator');
-  assert.equal(result.outcome, 'incomplete');
+  const operation = engine.submit({ request_id: 'empty-partial-turn', content: 'Read and explain target.txt.' }, 'operator');
+  await waitForEngineState(engine, 'awaiting_attention');
   assert.equal(count, 4);
-  assert.equal(result.failure.exhaustion_category, 'empty_output');
-  assert.equal(result.failure.exhaustion_count, 3);
-  assert.match(result.text, /Completed tool effects and diagnostics remain preserved/u);
-  assert.match(result.text, /Verified checkpoint: the requested target was read successfully/u);
-  assert.doesNotMatch(result.text, /turn stopped making verifiable progress/u);
-  const explanation = output.filter((record) => record.type === 'stream_delta').at(-1);
-  assert.equal(explanation.delta_type, 'recovery_explanation');
+  const explanation = output.find((record) => record.delta_type === 'recovery_attention');
   assert.match(explanation.text, /model returned no usable continuation after 3 attempts/u);
-  assert.match(explanation.text, /The remaining step was not completed/u);
-  assert.equal(output.at(-1).type, 'turn_result');
+  assert.match(explanation.text, /Completed tool effects and diagnostics remain preserved/u);
+  assert.match(explanation.text, /Verified checkpoint: the requested target was read successfully/u);
+  assert.equal(output.some((record) => record.type === 'turn_result'), false);
+  await engine.steer({ request_id: 'empty-partial-direction', content: 'Finish the explanation from that checkpoint.' }, 'operator');
+  const result = await operation;
+  assert.equal(result.outcome, 'completed');
+  assert.equal(count, 5);
   assert.equal(output.filter((record) => record.type === 'turn_result').length, 1);
 });
 
@@ -897,17 +929,21 @@ test('AC-PROD-03 unchanged malformed calls stop at the concise exact-loop bounda
   let count = 0;
   const provider = { async *stream() {
     count += 1;
-    yield { type: 'tool_fragment', fragments: [{
+    if (count > 3) yield { type: 'text', text: 'Stopped the malformed call and completed safely.' };
+    else yield { type: 'tool_fragment', fragments: [{
       index: 0, id: 'same-malformed-call', function: { name: 'fs.read_text', arguments: '{' },
     }] };
     yield { type: 'terminal' };
   } };
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
-  const result = await engine.submit({ request_id: 'malformed-loop', content: 'Do not loop.' }, 'operator');
-  assert.equal(result.outcome, 'incomplete');
-  assert.equal(result.failure.code, 'recovery_exhausted');
+  const operation = engine.submit({ request_id: 'malformed-loop', content: 'Do not loop.' }, 'operator');
+  await waitForEngineState(engine, 'awaiting_attention');
   assert.equal(count, 3);
+  await engine.steer({ request_id: 'malformed-loop-direction', content: 'Do not issue that tool call again; report the blocker.' }, 'operator');
+  const result = await operation;
+  assert.equal(result.outcome, 'completed');
+  assert.equal(count, 4);
 });
 
 test('AC-FAIL-06 overflow compaction safely truncates an oversized historical message', async () => {
@@ -974,6 +1010,7 @@ test('configured model-step ceiling terminates a still-progressing turn at the d
   assert.equal(count, 16);
   assert.equal(result.failure.exhaustion_category, 'model_step_limit');
   assert.equal(result.failure.exhaustion_count, 16);
+  assert.match(result.text, /explicit runtime boundary ended the turn/u);
 });
 
 test('AC-REV-09 unchanged successful observations stop at the concise exact-loop boundary', async () => {
@@ -981,22 +1018,23 @@ test('AC-REV-09 unchanged successful observations stop at the concise exact-loop
   await writeFile(join(root, 'same.txt'), 'unchanged', 'utf8');
   let count = 0;
   const provider = { async *stream() {
-    yield* toolCall(`same-call-${count}`, 'same.txt');
     count += 1;
+    if (count > 4) {
+      yield { type: 'text', text: 'The repeated observation is unchanged; reporting it now.' };
+      yield { type: 'terminal' };
+      return;
+    }
+    yield* toolCall(`same-call-${count}`, 'same.txt');
   } };
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
-  const result = await engine.submit({ request_id: 'churn-turn', content: 'Read same.txt repeatedly' }, 'operator');
-  assert.equal(result.outcome, 'incomplete');
+  const operation = engine.submit({ request_id: 'churn-turn', content: 'Read same.txt repeatedly' }, 'operator');
+  await waitForEngineState(engine, 'awaiting_attention');
   assert.equal(count, 4);
-  assert.equal(result.failure.code, 'recovery_exhausted');
-  assert.equal(result.failure.side_effect_certainty, 'completed');
-  assert.equal(result.failure.last_verified_checkpoint, 'tool_results_committed');
-  assert.deepEqual(result.failure.completed_progress.evidence[0].summary, {
-    successful_tool_calls: 1, tool_names: ['fs.read_text'],
-    request_fingerprints: [result.failure.completed_progress.evidence[0].summary.request_fingerprints[0]],
-  });
-  assert.match(result.failure.completed_progress.evidence[0].summary.request_fingerprints[0], /^[a-f0-9]{64}$/u);
+  await engine.steer({ request_id: 'churn-direction', content: 'Stop rereading and report the unchanged result.' }, 'operator');
+  const result = await operation;
+  assert.equal(result.outcome, 'completed');
+  assert.equal(count, 5);
 });
 
 test('explicit monitoring intent permits bounded repeated observations', async () => {

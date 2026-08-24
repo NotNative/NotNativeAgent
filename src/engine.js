@@ -35,6 +35,7 @@ import { persistEngineRecord } from './engine/persistence.js';
 import { runEngineSubagent, subagentParallelLimit } from './subagent-runtime.js';
 import { finalizeEngineTurn } from './engine/finalization.js';
 import { projectConversationIntent, resolveApprovedAssistantProposal } from './engine/intent-projection.js';
+import { awaitEngineAttention } from './engine/attention.js';
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -140,7 +141,6 @@ export class SessionEngine {
   retryAttachment(command, principal) {
     return this.submit({ ...command, retry_attachment_id: command.attachment_id }, principal);
   }
-
   async removeAttachment(command) {
     if (this.state.state !== 'idle') throw new ContractError('attachment_busy', 'attachment cannot be removed during an active turn');
     const removed = await this.attachments.remove(command.attachment_id);
@@ -188,6 +188,7 @@ export class SessionEngine {
       accepted: true, command_type: 'steer', steering_id: record.id,
       turn_id: this.active.turnId, session_id: this.sessionId,
     });
+    this.active.attentionWaiter?.resolve('steering');
     return { accepted: true, steering_id: record.id };
   }
   async shutdown(command) {
@@ -213,7 +214,6 @@ export class SessionEngine {
   deleteMemory(id, expectedVersion) {
     return this.memory.delete(id, this.config.workspaceRoot, expectedVersion);
   }
-
   async compactConversation() {
     return compactEngineConversation(this);
   }
@@ -260,10 +260,13 @@ export class SessionEngine {
       for (let modelStepIndex = 0; modelStepIndex < maxModelSteps; modelStepIndex += 1) {
         const result = await this.#runModelStep(context, active);
         if (result.exhausted) {
-          const detail = this.reliability.exhaustionDetail(active.recovery, this.transcript, active.unresolvedToolFailures, result);
-          return this.#finalize('incomplete', this.reliability.exhaustionText(detail, {
-            transcript: this.transcript, turnId: active.turnId,
-          }), detail, { emitText: true });
+          const hint = await awaitEngineAttention(this, active, result, {
+            persist: (...args) => this.#persist(...args), consumeSteering: (turn) => this.#consumeSteering(turn),
+          });
+          applyPendingConfiguration(this, active);
+          context = await this.#prepareContext(this.transcript, '', active);
+          context = appendRecoveryHint(context, hint);
+          continue;
         }
         if (!result.continue) return this.#completeFromStep(result, active);
         applyPendingConfiguration(this, active);
@@ -282,7 +285,6 @@ export class SessionEngine {
       return this.#finalize(outcome, active.stepText, normalizeFailure(error, active.stepText.length > 0, active.turnId));
     }
   }
-
   async #runModelStep(context, active) {
     assertTurnActive(active);
     assertMissionBudget(active);
@@ -388,7 +390,6 @@ export class SessionEngine {
     this.state.transition('preparing_continuation', { trigger: supervised.category, turnId: active.turnId });
     return { continue: true, hint: supervised.hint ?? this.reliability.hint(plan.action) };
   }
-
   async #recordRecovery(action, active) {
     await emitEngineStatus(this, 'recovering', active);
     const lifecycle = this.lifecycles.start('recovery', active.stepId ?? active.turnId);
@@ -399,7 +400,6 @@ export class SessionEngine {
     this.lifecycles.finish(lifecycle.id, 'applied');
     await this.#publish('recovery.terminal', 'recovery', 'terminal', active, 'applied');
   }
-
   async #consumeSteering(active) {
     const consumed = [];
     while (this.steering.length > 0) {

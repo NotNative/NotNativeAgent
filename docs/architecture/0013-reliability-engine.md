@@ -41,7 +41,7 @@ The Reliability Engine owns:
   recovery guidance that requires a missing ancestor before descendant mutations;
 - convergence-aware productive-loop supervision: distinct successful evidence may continue
   through the configured model-step ceiling, while unchanged success, narration, and repeated
-  failures consume bounded no-progress budgets; and
+  failures consume bounded no-progress budgets before parking for operator attention; and
 - provider-activity interpretation in which typed reasoning, text, tool fragments, usage, and
   terminal events are live stream activity without exposing private reasoning content.
 

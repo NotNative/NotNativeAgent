@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:719867cad2e8a1afffab56aebcb6b6dce1affdeaaa28e4e80ba3358021215fd3",
+  "source_digest": "sha256:df854c8af1b06a31585086c620c437689cfe605cfbdd971c228f2925eef0cd12",
   "counts": {
-    "modules": 317,
+    "modules": 318,
     "component_edges": 68
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "agentic-engine",
       "label": "Agentic Engine",
       "ownership": "Owns turns, steps, lifecycle, and orchestration.",
-      "module_count": 16
+      "module_count": 17
     },
     {
       "id": "governance-engine",
@@ -143,14 +143,14 @@
     {
       "from": "agentic-engine",
       "to": "foundation",
-      "import_count": 34,
-      "module_count": 13
+      "import_count": 36,
+      "module_count": 14
     },
     {
       "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 24,
-      "module_count": 6
+      "import_count": 26,
+      "module_count": 7
     },
     {
       "from": "providers",
@@ -826,6 +826,7 @@
         "src/authority.js",
         "src/context.js",
         "src/engine/active.js",
+        "src/engine/attention.js",
         "src/engine/components.js",
         "src/engine/context-controls.js",
         "src/engine/context-preparation.js",
@@ -864,6 +865,16 @@
       "imports": [
         "src/reliability/recovery-supervisor.js",
         "src/reliability/tool-call-assembler.js"
+      ]
+    },
+    {
+      "path": "src/engine/attention.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/engine/output.js",
+        "src/ids.js",
+        "src/turn-cancellation.js"
       ]
     },
     {

@@ -10,6 +10,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     // Lifecycle and cancellation ownership.
     turnId, requestId, stepId: null, attemptId: null, authority: null,
     controller: new AbortController(), cancelled: false, finalized: false,
+    attentionWaiter: null,
     text: '', stepText: '', committedStepText: null, finalText: '', usage: null, finishReason: null, reasoningBytes: 0,
     stepReasoningBytes: 0, stepReasoningText: '', stepReasoningReplayable: false,
     attemptReasoningText: '', attemptReasoningReplayable: false, attemptReasoningOverflow: false,

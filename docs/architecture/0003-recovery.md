@@ -57,8 +57,10 @@ does not become successful verification: it only proves that the command ran and
 returned new negative evidence. Repeating the same tool and arguments receives
 no additional progress credit, even if volatile output such as timestamps changes.
 Distinct progressing steps continue for as long as they produce distinct verified progress. There is no
-generic productive-step cutoff. Exact-loop or hard-boundary exhaustion ends the turn as incomplete
-with a concise explanation to the operator; it records completed progress, recovery
+generic productive-step cutoff. Exact-loop exhaustion parks automatic recovery in a non-terminal
+`awaiting_attention` state with a concise explanation to the operator. The active turn, authority,
+and completed work remain live until authenticated steering resumes from the last verified checkpoint
+or the operator cancels. The journal records completed progress, recovery
 actions, the last checkpoint, remaining work, effect certainty, and a safe resumption
 condition. Completed progress is
 represented by bounded SHA-256 evidence fingerprints, content-free summaries,
@@ -94,6 +96,9 @@ for primary or delegated model work.
 
 The configured model-step ceiling remains a final bounded guard (1,024 by default), so a
 long build can exceed dozens of useful tool steps without being mistaken for a loop.
+Explicit mission deadlines and budgets, cancellation, security/authority denials, the model-step
+ceiling, and irrecoverable runtime failures remain terminal boundaries. Attention parking does not
+weaken or defer those boundaries; abort signals wake a parked turn immediately.
 
 Steering is appended durably before acknowledgement and is never approval. The
 engine consumes it once at a post-stream or post-tool-result checkpoint, adds it

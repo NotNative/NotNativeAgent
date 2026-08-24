@@ -50,7 +50,10 @@ test('trusted project and user hook roots are bounded, scoped, and collision-saf
 });
 
 class ScriptlessProvider {
-  async *stream() { yield { type: 'terminal' }; }
+  async *stream() {
+    yield { type: 'text', text: 'Hook fixture completed.' };
+    yield { type: 'terminal' };
+  }
 }
 
 function nodeCommand() {
@@ -190,7 +193,7 @@ test('hook health reports invocation failures without exposing hook payloads', a
   });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'hook-failure', content: 'private prompt' }, 'operator');
-  assert.equal(result.outcome, 'incomplete');
+  assert.equal(result.outcome, 'completed');
   const health = engine.hooks.health();
   assert.equal(health.status, 'degraded');
   assert.equal(health.invocation_failures, 1);
