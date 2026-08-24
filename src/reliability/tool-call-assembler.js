@@ -39,6 +39,20 @@ export class ToolCallAssembler {
     return this.#calls.size;
   }
 
+  get hasEquivalentCompleteCalls() {
+    const seen = new Set();
+    for (const call of this.#calls.values()) {
+      if (!call.providerCallId || !call.name) continue;
+      let args;
+      try { args = JSON.parse(call.arguments); } catch { continue; }
+      if (!args || typeof args !== 'object' || Array.isArray(args)) continue;
+      const identity = `${call.name}\0${canonicalJson(args)}`;
+      if (seen.has(identity)) return true;
+      seen.add(identity);
+    }
+    return false;
+  }
+
   #addOne(fragment) {
     if (!Number.isInteger(fragment?.index) || fragment.index < 0 || fragment.index >= MAX_TOOL_CALLS) {
       throw new ContractError('tool_fragment_index', 'tool fragment index is invalid');
@@ -95,4 +109,10 @@ function deepFreeze(value, visited = new WeakSet()) {
     for (const child of Object.values(value)) deepFreeze(child, visited);
   }
   return value;
+}
+
+function canonicalJson(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
 }

@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { BrowserSessionManager, webBrowseDefinition } from '../src/web-browse-tool.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
+import { PathPolicy } from '../src/path-policy.js';
 
 test('web.browse advertises itself as the failed-fetch recovery path', () => {
   const definition = webBrowseDefinition({ manager: { close() {} } });
   assert.match(definition.purpose, /required fallback[^]*web\.fetch[^]*navigate to the same URL/iu);
   assert.match(definition.purpose, /screenshot capture returns[^]*image\.inspect[^]*separate tool call/iu);
+  assert.match(definition.purpose, /workspace web app[^]*path[^]*temporary loopback server/iu);
 });
 
 function fakeRuntime(state) {
@@ -86,7 +88,36 @@ test('web.browse identifies the action-specific argument that needs repair', asy
   await assert.rejects(definition.validate({ action: 'click' }), {
     code: 'tool_schema_invalid', message: 'browser action "click" requires argument "target"',
   });
+  await assert.rejects(definition.validate({ action: 'navigate' }), {
+    code: 'tool_schema_invalid', message: /exactly one/u,
+  });
   await manager.close();
+});
+
+test('web.browse serves a workspace entry with an owned temporary server and no project dependency', async () => {
+  const workspace = await mkdtemp(join(tmpdir(), 'nna-browser-workspace-'));
+  await writeFile(join(workspace, 'index.html'), '<!doctype html><title>Ocean</title><script src="/main.js"></script>');
+  await writeFile(join(workspace, 'main.js'), 'document.body.dataset.ready = "true";');
+  const paths = new PathPolicy(workspace, { boundedToWorkspace: true });
+  await paths.initialize();
+  const runtimeRoot = await mkdtemp(join(tmpdir(), 'nna-browser-runtime-'));
+  const state = {};
+  const manager = new BrowserSessionManager({
+    root: runtimeRoot, managedPlaywrightRoot: runtimeRoot, paths,
+    loadPlaywright: async () => fakeRuntime(state),
+    policy: { classify: async () => 'public_network' }, resolveHost: async () => ['127.0.0.1'],
+  });
+  const definition = webBrowseDefinition({ manager });
+  const request = await definition.validate({ action: 'navigate', path: 'index.html' });
+  assert.equal(request.resolved.destination, 'managed_workspace_origin');
+  const result = await definition.executor(request, new AbortController().signal);
+  assert.equal(result.metadata.destination, 'managed_workspace_origin');
+  assert.match(state.url, /^http:\/\/127\.0\.0\.1:\d+\/index\.html$/u);
+  const response = await fetch(new URL('/main.js', state.url));
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /dataset\.ready/u);
+  await manager.close();
+  await assert.rejects(fetch(state.url));
 });
 
 test('standalone browser admits exact loopback navigation for review without trusting private LAN hosts', async () => {
@@ -155,6 +186,11 @@ test('browser observation is deterministic-safe while interaction requires seman
   const context = { definition, authority: { intent: [{ content: 'Browse example and click Continue' }] }, surface: 'interactive_tui', signal: new AbortController().signal };
   const observed = await reviewer.review({ ...base, resolved: { action: 'inspect', readOnly: true, destination: null } }, context);
   assert.equal(observed.reasonCode, 'deterministic_safe');
+  const workspace = await reviewer.review({
+    ...base, id: 'tool_workspace', args: { action: 'navigate', path: 'index.html' },
+    resolved: { action: 'navigate', readOnly: true, destination: 'managed_workspace_origin', path: 'D:/workspace/index.html' },
+  }, context);
+  assert.equal(workspace.reasonCode, 'deterministic_safe');
   const clicked = await reviewer.review({ ...base, id: 'tool_2', args: { action: 'click', target: 'e1' }, resolved: { action: 'click', readOnly: false, destination: null } }, context);
   assert.equal(clicked.reasonCode, 'semantic_intent_match');
   assert.equal(semanticCalls, 1);

@@ -99,7 +99,7 @@ export class ToolRegistry {
     for (const definition of mcpControlDefinitions(this.mcpControl)) this.#install(definition);
     this.#install(webSearchDefinition({ configPath: this.webSearchConfigPath, client: this.webSearchClient, references: this.#references }));
     this.#install(webFetchDefinition({ configPath: this.webFetchConfigPath, references: this.#references }));
-    if (!this.hosted) this.#install(webBrowseDefinition({ manager: this.browserManager, root: this.browserRoot,
+    if (!this.hosted) this.#install(webBrowseDefinition({ manager: this.browserManager, root: this.browserRoot, paths: this.paths,
       managedPlaywrightRoot: this.managedPlaywrightRoot, configPath: this.webFetchConfigPath,
       secretBroker: this.secretBroker, sessionId: this.sessionId }));
     this.#install(imageInspectDefinition(this.paths, this.observeImage, { maxBytes: this.imageMaxBytes })); this.#install(toolSearchDefinition(this));
@@ -176,10 +176,13 @@ export class ToolRegistry {
   searchCatalog(query, limit = 12) { return rankToolDefinitions(this.catalogSnapshot(), query, limit); }
   diff(path = null) { return this.#changes.diff(path); }
   changeSnapshot() { return this.#changes.snapshot(); }
-  expose(names) {
+  expose(names, options = {}) {
+    const uses = Number.isSafeInteger(options.uses) ? Math.max(1, Math.min(32, options.uses)) : 1;
     for (const name of names) {
       if (!this.#definitions.has(name)) continue;
-      this.#exposed.delete(name); this.#exposed.set(name, true);
+      const prior = this.#exposed.get(name);
+      this.#exposed.delete(name);
+      this.#exposed.set(name, { remainingUses: Math.max(prior?.remainingUses ?? 0, uses) });
       while (this.#exposed.size > 32) this.#exposed.delete(this.#exposed.keys().next().value);
     }
   }
@@ -197,13 +200,18 @@ export class ToolRegistry {
     };
     this.#assertReadBeforeMutation(call.name, normalized);
     this.#providerIds.add(call.providerCallId);
-    this.#exposed.delete(call.name);
+    const exposure = this.#exposed.get(call.name);
+    if (exposure) {
+      if (exposure.remainingUses <= 1) this.#exposed.delete(call.name);
+      else this.#exposed.set(call.name, { remainingUses: exposure.remainingUses - 1 });
+    }
     return deepFreeze({
       id: newId('tool'), providerCallId: call.providerCallId, toolName: call.name,
       args: normalized.args, resolved: normalized.resolved,
       definitionVersion: definition.version, policyVersion: context.policyVersion,
       authorityId: context.authority.id, authorityVersion: context.authority.version,
       authorityRestrictionVersion: context.authority.restrictionVersion ?? 0,
+      stateRevision: context.stateRevision ?? 0,
       stepId: context.stepId, caller: context.caller, surface: context.surface,
       workspaceRoot: this.paths.root, createdAt: Date.now(), expiresAt: Date.now() + 60_000,
     });

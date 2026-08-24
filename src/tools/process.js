@@ -4,7 +4,7 @@ import { ContractError } from '../ids.js';
 import { normalizeShellExecutionError, shellReliabilitySignals, shellToolGuidance } from '../reliability/host-environment.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 import { portableExecutableName } from '../reliability/executable-name.js';
-import { detachedProcessInvocation } from '../reliability/process-lifecycle.js';
+import { detachedProcessInvocation, longRunningForegroundInvocation } from '../reliability/process-lifecycle.js';
 
 const MAX_SCRIPT_LENGTH = 32_768;
 const MAX_FIELD_LENGTH = 4_096;
@@ -44,7 +44,7 @@ export function shellRunDefinition(paths, references = null, platform = process.
   const guidance = shellToolGuidance(platform);
   return {
     name: 'shell.run', version: 1,
-    purpose: `Run a bounded foreground terminal workflow in the host platform shell. ${guidance} Use this for ordinary command-line programs as well as pipelines, redirection, expansion, or multiple commands; prefer a more specific structured NNA tool when one describes the operation. The workflow must normally terminate within this call. Do not use Start-Process, Start-Job, nohup, disown, background &, or equivalent detachment unless authenticated user intent explicitly requests a persistent or background process; detached requests receive mandatory intent review. Keep one coherent purpose per call when practical. Avoid large loops, nested substitutions, deeply nested quoting, and combining mutation with verification. The complete script is reviewed before execution. Handle expected predicate statuses explicitly: diff and no-match grep commonly exit 1, while pipefail can expose an upstream SIGPIPE from pipelines ending in head.`,
+    purpose: `Run a bounded foreground terminal workflow in the host platform shell. ${guidance} Use this for ordinary command-line programs as well as pipelines, redirection, expansion, or multiple commands; prefer a more specific structured NNA tool when one describes the operation. The workflow must normally terminate within this call. For workspace web verification use web.browse navigate with path; it owns a temporary server, so do not start python -m http.server or install browser automation in the project. Do not use Start-Process, Start-Job, nohup, disown, background &, or equivalent detachment unless authenticated user intent explicitly requests a persistent or background process; detached requests receive mandatory intent review. Keep one coherent purpose per call when practical. Avoid large loops, nested substitutions, deeply nested quoting, and combining mutation with verification. The complete script is reviewed before execution. Handle expected predicate statuses explicitly: diff and no-match grep commonly exit 1, while pipefail can expose an upstream SIGPIPE from pipelines ending in head.`,
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
@@ -117,6 +117,7 @@ export function shellInvocation(requested, script, platform = process.platform) 
 function shellComplexity(script, signals = shellReliabilitySignals(script)) {
   if (/(?:^|[;&|\n]\s*)(?:rm\s+-[^\n]*r[^\n]*f|format\b|diskpart\b|shutdown\b|reboot\b|git\s+(?:clean\s+-[^\n]*f|reset\s+--hard)|Remove-Item\b[^\n]*(?:-Recurse|-Force)|(?:del|erase|rmdir)\b)/iu.test(script)) return 'destructive_shell';
   if (signals.includes('detached_process')) return 'detached_shell';
+  if (signals.includes('long_running_foreground')) return 'long_running_foreground_shell';
   if (signals.length >= 2) return 'fragile_shell';
   if (/\r?\n|&&|\|\||[|;<>]/u.test(script)) return 'compound_shell';
   return 'simple_shell';
@@ -167,6 +168,8 @@ function processReliabilitySignals(executable, args) {
   const lifecycleSource = commandIndex >= 0 ? args[commandIndex + 1] : args.join(' ');
   if (detachedProcessInvocation(lifecycleSource, executable)) {
     signals.push('detached_process');
+  } else if (longRunningForegroundInvocation(`${executable} ${args.join(' ')}`)) {
+    signals.push('long_running_foreground');
   }
   return Object.freeze(signals);
 }

@@ -17,6 +17,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     attemptOutputLimitTokens: null,
     reasoningContinuations: [],
     reasoningFallbackPending: false, reasoningFallbackUsed: false,
+    actionRepairStepPending: false,
     startedAt: Date.now(), toolCalls: 0,
     capabilityPhase: 'orientation', toolEvidenceObserved: false, providerToolSurface: null,
     observableStateRevision: 0, visualEvidence: null,

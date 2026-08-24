@@ -25,14 +25,14 @@ test('active constraints retain structured repairs and clear them after verified
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs.search_text', 'succeeded')]), []);
 });
 
-test('truncated argument repair persists for the turn and deduplicates repeated failures', () => {
+test('truncated argument lesson persists while the immediate repair mode stays one-step', () => {
   const first = item('fs.edit_text', 'invalid_request', {
     reason: 'tool_arguments_truncated', args: {}, content: 'tool arguments were cut off by the provider output limit',
   });
   const constraints = mergeToolConstraints([], [first]);
   assert.equal(constraints[0].kind, 'action_repair');
   assert.equal(constraints[0].occurrences, 1);
-  assert.match(constraints[0].instruction, /rest of this turn[^]*no private reasoning[^]*smallest unique anchor/iu);
+  assert.match(constraints[0].instruction, /immediate repair step[^]*optional thinking disabled[^]*smallest unique anchor[^]*Later steps may reason normally/iu);
   assert.equal(mergeToolConstraints(constraints, [item('fs.edit_text', 'succeeded')]).length, 1);
 
   const repeated = mergeToolConstraints(constraints, [item('fs.edit_text', 'invalid_request', {

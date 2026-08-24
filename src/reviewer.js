@@ -3,10 +3,8 @@ import { ContractError, newId } from './ids.js';
 import { requestDigest } from './persistence/reviewer-ledger.js';
 import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
 import { evidenceNamesTarget, grantBeforeOtherFilesRestriction } from './review-target-evidence.js';
-import { DETACHED_PROCESS_GUIDANCE, detachedProcessAuthorized } from './reliability/process-lifecycle.js';
-
+import { DETACHED_PROCESS_GUIDANCE, LONG_RUNNING_FOREGROUND_GUIDANCE, detachedProcessAuthorized } from './reliability/process-lifecycle.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
-
 export class MandatoryReviewer {
   constructor(options) {
     this.ledger = options.ledger;
@@ -16,7 +14,6 @@ export class MandatoryReviewer {
     this.semanticTimeoutMs = options.semanticTimeoutMs ?? 15_000;
     this.decisionTtlMs = options.decisionTtlMs ?? 120_000;
   }
-
   health() {
     return Object.freeze({
       mandatory: true, semantic_component: this.semantic.constructor.name,
@@ -24,7 +21,6 @@ export class MandatoryReviewer {
       semantic_timeout_ms: this.semanticTimeoutMs,
     });
   }
-
   async review(request, context) {
     const classification = classify(request, context.definition);
     const correlation = {
@@ -51,6 +47,7 @@ export class MandatoryReviewer {
         );
       }
       else if (unauthorizedDetachedProcess(request, context.authority)) decision = detachedProcessDenial(request);
+      else if (longRunningForegroundProcess(request)) decision = deny('long_running_foreground_not_bounded', LONG_RUNNING_FOREGROUND_GUIDANCE, request);
       else if (classification.risk === 'safe' && conversationOnly(context.authority)) {
         decision = deny('tool_not_justified_by_request', 'The user made a conversational request that does not require tools.', request);
       } else if (classification.risk === 'safe') decision = approve('deterministic_safe', request);
@@ -84,7 +81,6 @@ export class MandatoryReviewer {
       throw error;
     }
   }
-
   async #semanticDecision(request, context, entry, intentRelation) {
     const prior = this.ledger.summary(request).slice(0, -1);
     if (entry.repetition >= 1 && prior.some((item) => item.decision === 'deny_with_guidance')) {
@@ -111,16 +107,13 @@ export class MandatoryReviewer {
     return normalizeCandidate(candidate, request, context.surface);
   }
 }
-
 function refreshApprovalWindow(decision, ttlMs) {
   const committedAt = Date.now();
   return Object.freeze({ ...decision, committedAt, expiresAt: committedAt + ttlMs });
 }
-
 function reviewTelemetryStatus(outcome) {
   return outcome === 'approve' ? 'succeeded' : outcome === 'escalate_to_operator' ? 'skipped' : 'denied';
 }
-
 function elapsedMs(started) {
   return Number(process.hrtime.bigint() - started) / 1_000_000;
 }
@@ -193,9 +186,11 @@ function classify(request, definition) {
 function processClassification(request) {
   const complexity = request.resolved.reviewComplexity ?? 'unknown';
   const detached = request.resolved?.reliabilitySignals?.includes('detached_process');
+  const foregroundServer = request.resolved?.reliabilitySignals?.includes('long_running_foreground');
   return Object.freeze({
     risk: 'review_required',
     reason: detached ? 'detached_process_request'
+      : foregroundServer ? 'long_running_foreground_request'
       : ['simple_argv', 'simple_shell'].includes(complexity) ? 'process_execution' : 'opaque_process_request',
     effect: 'unknown', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity,
     purpose: request.resolved.reviewPurpose ?? 'general_process',
@@ -205,6 +200,10 @@ function processClassification(request) {
 function unauthorizedDetachedProcess(request, authority) {
   return request.resolved?.reliabilitySignals?.includes('detached_process')
     && !detachedProcessAuthorized(authority);
+}
+
+function longRunningForegroundProcess(request) {
+  return request.resolved?.reliabilitySignals?.includes('long_running_foreground');
 }
 
 function detachedProcessDenial(request) { return deny('detached_process_not_authorized', DETACHED_PROCESS_GUIDANCE, request); }
@@ -242,6 +241,7 @@ function elevationClassification() {
 
 function browserClassification(request) {
   const destination = request.resolved?.destination ?? null;
+  if (request.resolved?.readOnly === true && destination === 'managed_workspace_origin') return Object.freeze({ risk: 'safe', reason: 'managed_workspace_browser_navigation', effect: 'read_only', scope: 'workspace', complexity: 'simple' });
   if (request.resolved?.readOnly === true && destination === 'reviewable_loopback_origin') {
     return Object.freeze({ risk: 'review_required', reason: 'loopback_browser_navigation', effect: 'read_only', scope: 'loopback', complexity: 'simple' });
   }

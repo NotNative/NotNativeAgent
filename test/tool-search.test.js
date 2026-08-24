@@ -148,7 +148,7 @@ test('explicit exposure makes an exact recovery tool visible without broadening 
   assert.ok(!visible.includes('fs.delete_file'));
 });
 
-test('tool.search keeps bounded provider-catalog matches visible until a validated call consumes them', async () => {
+test('tool.search keeps bounded provider-catalog matches visible for a workflow lease', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   const search = registry.definition('tool.search');
@@ -162,6 +162,13 @@ test('tool.search keeps bounded provider-catalog matches visible until a validat
     policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
     stepId: 'step', caller: 'primary', surface: 'test',
   });
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'nna.diagnose_turn'), true);
+  for (let index = 1; index < 16; index += 1) {
+    await registry.seal({ name: 'nna.diagnose_turn', providerCallId: `diagnose-call-${index}`, args: {} }, {
+      policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
+      stepId: 'step', caller: 'primary', surface: 'test',
+    });
+  }
   assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'nna.diagnose_turn'), false);
   assert.ok(JSON.parse(result.content).matches.length <= 12);
 });

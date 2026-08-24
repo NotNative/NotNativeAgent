@@ -623,6 +623,61 @@ test('a current restriction overrides earlier detached-process authorization', a
   assert.equal(semanticCalls, 0);
 });
 
+test('foreground Python static servers are redirected to the managed browser path', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'foreground-server' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1;
+    return { outcome: 'approve', confidence: 1, reason_code: 'should_not_run' };
+  } } });
+  const request = {
+    ...readRequest('foreground-server'), toolName: 'process.run',
+    args: { executable: 'python', args: ['-m', 'http.server', '8643'] },
+    resolved: {
+      path: 'D:/workspace', reviewComplexity: 'simple_argv',
+      reliabilitySignals: ['long_running_foreground'],
+    },
+  };
+  const result = await reviewer.review(request, {
+    ...context,
+    authority: { ...context.authority, intent: [{ content: 'Build and verify the ocean scene', sequence: 1 }] },
+    definition: { name: 'process.run', sideEffect: 'unknown', scope: 'workspace' },
+  });
+  assert.equal(result.outcome, 'deny_with_guidance');
+  assert.equal(result.reasonCode, 'long_running_foreground_not_bounded');
+  assert.match(result.guidance, /web\.browse[^]*path[^]*Do not install Playwright/iu);
+  assert.equal(semanticCalls, 0);
+});
+
+test('a successful state mutation reopens semantic review of an otherwise equivalent operation', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'state-revision-review' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1;
+    return semanticCalls === 1
+      ? { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'prerequisite_missing', guidance: 'Install the verified prerequisite.' }
+      : { outcome: 'approve', confidence: 1, reason_code: 'prerequisite_now_present' };
+  } } });
+  const definition = { name: 'process.run', sideEffect: 'unknown', scope: 'workspace' };
+  const reviewContext = {
+    ...context, definition,
+    authority: { ...context.authority, intent: [{ content: 'Run verify.mjs after installing its prerequisite', sequence: 1 }] },
+  };
+  const base = {
+    ...readRequest('state-revision-0'), toolName: 'process.run',
+    args: { executable: 'node', args: ['verify.mjs'] },
+    resolved: { path: 'D:/workspace', reviewComplexity: 'simple_argv', reliabilitySignals: [] },
+    stateRevision: 0,
+  };
+  const first = await reviewer.review(base, reviewContext);
+  assert.equal(first.outcome, 'deny_with_guidance');
+  const second = await reviewer.review({
+    ...base, id: 'state-revision-1', providerCallId: 'provider-state-revision-1', stateRevision: 1,
+  }, reviewContext);
+  assert.equal(second.outcome, 'approve');
+  assert.equal(semanticCalls, 2);
+});
+
 test('explicit SSH intent and target reach semantic review with the tool definition packet', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'ssh-intent' });
   let captured;

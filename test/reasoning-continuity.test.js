@@ -204,16 +204,17 @@ test('every primary model step receives the context-planned output headroom', ()
   assert.equal(modelStepRequestOptions(undefined, { contextBudget: { outputReserveTokens: 2048 } })
     .outputReserveTokens, 2048);
   assert.equal(modelStepRequestOptions(undefined, { contextBudget: null }).outputReserveTokens, undefined);
+  assert.equal(modelStepRequestOptions('off', { contextBudget: { outputReserveTokens: 32_000 } })
+    .outputReserveTokens, 16_000);
 });
 
-test('turn-scoped truncated argument repair disables thinking on later action steps', () => {
+test('truncated argument repair disables thinking for only one immediate action step', () => {
   const active = {
     capabilityPhase: 'action', toolConstraints: [{
       kind: 'action_repair', reason_code: 'tool_arguments_truncated',
-    }], enrichment: {}, toolAssemblerFactory: null,
+    }], actionRepairStepPending: true, enrichment: {}, toolAssemblerFactory: null,
   };
   assert.equal(resetStep(active), 'off');
-  active.capabilityPhase = 'orientation';
   assert.equal(resetStep(active), undefined);
 });
 

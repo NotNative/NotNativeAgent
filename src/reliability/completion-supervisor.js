@@ -41,6 +41,7 @@ export function evaluateCompletion(active, text, work = null) {
 
 function visualEvidenceGate(evidence, text) {
   if (!evidence || evidence.verdict === 'pass' || !claimsVisualPass(text)) return null;
+  if (evidence.verdict === 'minor_caveat' && qualifiesVisualCaveat(text)) return null;
   return Object.freeze({
     disposition: 'continue', category: 'visual_evidence_conflict', progressEvidence: null,
     hint: 'The latest image.inspect verdict does not support an absolute visual-pass claim. DOM inspection, console output, and textual reasoning cannot supersede visible evidence. Either obtain a newer screenshot and image.inspect verdict after a material change, or finish with a qualified description of the remaining visible caveat. Do not claim that artifacts are absent without newer visual evidence.',
@@ -51,7 +52,14 @@ function claimsVisualPass(text) {
   const tail = String(text ?? '').slice(-4_096);
   return /\b(?:no|without)\s+(?:real\s+)?(?:visible\s+)?(?:artifact|defect|issue|problem|seam|error)s?\b/iu.test(tail)
     || /\b(?:visually|render(?:ed|s|ing)?)\s+(?:is\s+|was\s+)?(?:clean|correct|flawless|verified|perfect)\b/iu.test(tail)
-    || /\bvisual (?:inspection|verification)\s+(?:confirms?|confirmed|shows?|showed)\b[^.!?]{0,120}\b(?:no|clean|correct|pass)/iu.test(tail);
+    || /\bvisual (?:inspection|verification)\s+(?:confirms?|confirmed|shows?|showed)\b[^.!?]{0,120}\b(?:no|clean|correct|pass)/iu.test(tail)
+    || /\b(?:all|every)\s+(?:tested\s+)?(?:view|state|viewport|screenshot)s?\s+(?:now\s+)?pass(?:es|ed)?\b/iu.test(tail);
+}
+
+function qualifiesVisualCaveat(text) {
+  const tail = String(text ?? '').slice(-4_096);
+  return /\b(?:minor\s+)?(?:caveat|limitation|imperfection|artifact|issue|defect|seam)s?\b/iu.test(tail)
+    && /\b(?:remain(?:s|ing)?|still|except|although|however|but|with)\b/iu.test(tail);
 }
 
 function reachedReportedOutputCeiling(active) {

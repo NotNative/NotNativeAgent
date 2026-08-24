@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdir, rm } from 'node:fs/promises';
-import { isAbsolute, join, resolve } from 'node:path';
+import { createServer } from 'node:http';
+import { mkdir, readFile, rm } from 'node:fs/promises';
+import { extname, isAbsolute, relative, resolve, sep, join } from 'node:path';
 import { ContractError } from './ids.js';
 import { loadManagedPlaywright } from './playwright-runtime.js';
 import { WebFetchDestinationPolicy, allowedWebAddresses } from './web-fetch-tool.js';
@@ -9,18 +10,26 @@ const ACTIONS = new Set(['navigate', 'inspect', 'click', 'fill', 'fill_secret', 
 const MAX_TEXT = 65_536;
 const MAX_ELEMENTS = 100;
 const PROVIDER_TEXT_BYTES = 16_384;
+const STATIC_MIME_TYPES = Object.freeze({
+  '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif', '.webp': 'image/webp', '.wasm': 'application/wasm',
+});
 
 export function webBrowseDefinition(options = {}) {
   const manager = options.manager ?? new BrowserSessionManager(options);
   const definition = {
     name: 'web.browse', version: 1,
-    purpose: 'Operate an ephemeral Chromium session. This is the required fallback for a verified exact URL that web.fetch could not retrieve: navigate to the same URL, then inspect it. In a standalone root Console, an exact HTTP(S) loopback development URL such as localhost may be proposed for reviewer approval; this does not trust LAN hosts or web.fetch. It can also click controls, fill non-secret values, inject a named secret field without exposing it to the model, press keys, save a screenshot, or close the browser. Screenshot capture returns a durable PNG path immediately; use image.inspect in a separate tool call when visual interpretation is needed. Use inspect after navigation to obtain stable element references such as e1.',
+    purpose: 'Operate an ephemeral Chromium session. For a workspace web app, navigate with path and NNA will serve it from an owned temporary loopback server that is cleaned up with the browser; do not install Playwright or start a project server. This is also the required fallback for a verified exact URL that web.fetch could not retrieve: navigate to the same URL, then inspect it. In a standalone root Console, an exact HTTP(S) loopback development URL such as localhost may be proposed for reviewer approval; this does not trust LAN hosts or web.fetch. It can also click controls, fill non-secret values, inject a named secret field without exposing it to the model, press keys, save a screenshot, or close the browser. Screenshot capture returns a durable PNG path immediately; use image.inspect in a separate tool call when visual interpretation is needed. Use inspect after navigation to obtain stable element references such as e1.',
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 60_000,
     maxOutputBytes: PROVIDER_TEXT_BYTES,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['action'], properties: {
-        action: { type: 'string', enum: [...ACTIONS], description: 'Required operation. Arguments: navigate=url; click=target; fill=target+value; fill_secret=target+secret_id+secret_field; press=target+key; inspect, screenshot, and close need no other fields.' },
-        url: { type: 'string', maxLength: 4096, description: 'Required only for action navigate: one complete HTTP(S) URL.' },
+        action: { type: 'string', enum: [...ACTIONS], description: 'Required operation. Arguments: navigate=url or navigate=path (exactly one); click=target; fill=target+value; fill_secret=target+secret_id+secret_field; press=target+key; inspect, screenshot, and close need no other fields.' },
+        url: { type: 'string', maxLength: 4096, description: 'For action navigate, one complete HTTP(S) URL. Do not combine with path.' },
+        path: { type: 'string', maxLength: 4096, description: 'For action navigate, an existing workspace HTML entry file. NNA serves it with an owned temporary loopback server; do not combine with url.' },
         target: { type: 'string', maxLength: 1024, description: 'Required for click, fill, fill_secret, and press: an element reference from inspect (for example e1) or a CSS selector.' },
         value: { type: 'string', maxLength: 20_000, description: 'Required only for action fill: non-secret text.' },
         key: { type: 'string', maxLength: 64, description: 'Required only for action press: a keyboard key or chord such as Enter or Control+A.' },
@@ -41,11 +50,14 @@ export class BrowserSessionManager {
     this.managedPlaywrightRoot = options.managedPlaywrightRoot;
     this.loadPlaywright = options.loadPlaywright ?? loadManagedPlaywright;
     this.policy = options.policy ?? new WebFetchDestinationPolicy(options.configPath);
+    this.paths = options.paths ?? null;
     this.resolveHost = options.resolveHost;
     this.secretBroker = options.secretBroker ?? null;
     this.sessionId = options.sessionId ?? 'session';
     this.browser = null; this.context = null; this.page = null; this.pagePromise = null;
+    this.workspaceServer = null;
     this.activeLoopbackOrigin = null;
+    this.activeLoopbackDestination = null;
     this.refs = new Map(); this.secretValues = new Set();
   }
 
@@ -64,10 +76,20 @@ export class BrowserSessionManager {
   async classifyRouteUrl(value) {
     const url = normalizeHttpUrl(value);
     if (this.activeLoopbackOrigin === url.origin && isExactLoopbackUrl(url)) {
+      const destination = this.activeLoopbackDestination ?? 'reviewable_loopback_origin';
       await allowedWebAddresses(url, this.resolveHost, 'reviewable_loopback_origin');
-      return { url, destination: 'reviewable_loopback_origin' };
+      return { url, destination };
     }
     return this.classifyUrl(url.href);
+  }
+
+  async classifyWorkspacePath(value) {
+    if (!this.paths) throw new ContractError('browser_workspace_path_unavailable', 'workspace path navigation is unavailable');
+    const resolved = await this.paths.resolveRead(value);
+    if (resolved.insideWorkspace !== true || !['.html', '.htm'].includes(extname(resolved.path).toLowerCase())) {
+      throw new ContractError('browser_workspace_path_invalid', 'browser workspace navigation requires an HTML file inside the active workspace');
+    }
+    return resolved;
   }
 
   async execute(args, signal, execution = {}) {
@@ -75,11 +97,20 @@ export class BrowserSessionManager {
     if (args.action === 'close') { await this.close(); return result('Browser session closed.', { action: 'close' }); }
     const page = await this.#page();
     if (args.action === 'navigate') {
-      const destination = await this.classifyUrl(args.url, { reviewableLoopback: true });
+      const destination = args.path
+        ? await this.#workspaceDestination(args.path)
+        : await this.classifyUrl(args.url, { reviewableLoopback: true });
       const previousLoopbackOrigin = this.activeLoopbackOrigin;
-      this.activeLoopbackOrigin = destination.destination === 'reviewable_loopback_origin' ? destination.url.origin : null;
+      const previousLoopbackDestination = this.activeLoopbackDestination;
+      this.activeLoopbackOrigin = ['reviewable_loopback_origin', 'managed_workspace_origin'].includes(destination.destination)
+        ? destination.url.origin : null;
+      this.activeLoopbackDestination = this.activeLoopbackOrigin ? destination.destination : null;
       try { await page.goto(destination.url.href, { waitUntil: 'domcontentloaded', timeout: 45_000 }); }
-      catch (error) { this.activeLoopbackOrigin = previousLoopbackOrigin; throw error; }
+      catch (error) {
+        this.activeLoopbackOrigin = previousLoopbackOrigin;
+        this.activeLoopbackDestination = previousLoopbackDestination;
+        throw error;
+      }
       this.refs.clear();
       return result(await this.#summary(page), metadata(args.action, page, { destination: destination.destination }));
     }
@@ -102,12 +133,29 @@ export class BrowserSessionManager {
   async close() {
     const context = this.context; const browser = this.browser;
     this.page = null; this.pagePromise = null; this.context = null; this.browser = null;
-    this.refs.clear(); this.secretValues.clear(); this.activeLoopbackOrigin = null;
+    this.refs.clear(); this.secretValues.clear(); this.activeLoopbackOrigin = null; this.activeLoopbackDestination = null;
     // The browser owns its contexts. Closing Chromium first avoids waiting
     // indefinitely on a page/context that is stalled in navigation or challenge code.
     await browser?.close().catch(() => undefined);
     await context?.close().catch(() => undefined);
+    await this.#closeWorkspaceServer();
     if (this.root) await rm(this.root, { recursive: true, force: true }).catch(() => undefined);
+  }
+
+  async #workspaceDestination(path) {
+    const entry = await this.classifyWorkspacePath(path);
+    if (!this.workspaceServer) this.workspaceServer = await startWorkspaceServer(this.paths);
+    const pathname = relative(this.paths.root, entry.path).split(sep).map(encodeURIComponent).join('/');
+    const url = new URL(`/${pathname}`, this.workspaceServer.origin);
+    return { url, destination: 'managed_workspace_origin' };
+  }
+
+  async #closeWorkspaceServer() {
+    const owned = this.workspaceServer;
+    this.workspaceServer = null;
+    if (!owned) return;
+    owned.server.closeAllConnections?.();
+    await new Promise((done) => owned.server.close(() => done())).catch(() => undefined);
   }
 
   async #page() {
@@ -182,20 +230,56 @@ export class BrowserSessionManager {
 
 async function validateBrowseArgs(args, manager) {
   if (!args || typeof args !== 'object' || Array.isArray(args) || !ACTIONS.has(args.action)
-    || Object.keys(args).some((key) => !['action', 'url', 'target', 'value', 'key', 'secret_id', 'secret_field'].includes(key))) throw invalid();
-  const limits = { url: 4096, target: 1024, value: 20_000, key: 64, secret_id: 128, secret_field: 64 };
+    || Object.keys(args).some((key) => !['action', 'url', 'path', 'target', 'value', 'key', 'secret_id', 'secret_field'].includes(key))) throw invalid();
+  const limits = { url: 4096, path: 4096, target: 1024, value: 20_000, key: 64, secret_id: 128, secret_field: 64 };
   for (const [key, maximum] of Object.entries(limits)) {
     if (args[key] !== undefined && (typeof args[key] !== 'string' || args[key].length > maximum || /\u0000/u.test(args[key]))) {
       throw invalid(`browser argument "${key}" is invalid`);
     }
   }
-  const required = { navigate: ['url'], click: ['target'], fill: ['target', 'value'], fill_secret: ['target', 'secret_id', 'secret_field'], press: ['target', 'key'] }[args.action] ?? [];
+  if (args.action === 'navigate' && (Boolean(args.url) === Boolean(args.path))) {
+    throw invalid('browser action "navigate" requires exactly one of argument "url" or "path"');
+  }
+  const required = { click: ['target'], fill: ['target', 'value'], fill_secret: ['target', 'secret_id', 'secret_field'], press: ['target', 'key'] }[args.action] ?? [];
   const missing = required.find((key) => typeof args[key] !== 'string' || !args[key].length);
   if (missing) throw invalid(`browser action "${args.action}" requires argument "${missing}"`);
   const normalized = Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined));
   let destination = null; let origin = null;
-  if (args.action === 'navigate') { const checked = await manager.classifyUrl(args.url, { reviewableLoopback: true }); normalized.url = checked.url.href; destination = checked.destination; origin = checked.url.origin; }
-  return { args: normalized, resolved: { action: args.action, destination, origin, readOnly: ['navigate', 'inspect', 'close'].includes(args.action) } };
+  if (args.action === 'navigate' && args.url) { const checked = await manager.classifyUrl(args.url, { reviewableLoopback: true }); normalized.url = checked.url.href; destination = checked.destination; origin = checked.url.origin; }
+  if (args.action === 'navigate' && args.path) { const checked = await manager.classifyWorkspacePath(args.path); normalized.path = checked.path; destination = 'managed_workspace_origin'; }
+  return { args: normalized, resolved: { action: args.action, destination, origin, path: normalized.path ?? null, readOnly: ['navigate', 'inspect', 'close'].includes(args.action) } };
+}
+
+async function startWorkspaceServer(paths) {
+  const server = createServer(async (request, response) => {
+    try {
+      if (!['GET', 'HEAD'].includes(request.method ?? '')) return respond(response, 405, 'Method not allowed');
+      const pathname = decodeURIComponent(new URL(request.url ?? '/', 'http://127.0.0.1').pathname);
+      const requested = pathname.replace(/^\/+/, '').replace(/\//gu, sep);
+      if (!requested || requested.split(sep).includes('..')) return respond(response, 404, 'Not found');
+      const file = await paths.resolveRead(requested);
+      if (file.insideWorkspace !== true) return respond(response, 404, 'Not found');
+      const body = request.method === 'HEAD' ? null : await readFile(file.path);
+      response.writeHead(200, {
+        'content-type': STATIC_MIME_TYPES[extname(file.path).toLowerCase()] ?? 'application/octet-stream',
+        'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
+      });
+      response.end(body);
+    } catch { respond(response, 404, 'Not found'); }
+  });
+  await new Promise((done, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => { server.off('error', reject); done(); });
+  });
+  server.unref();
+  const address = server.address();
+  return { server, origin: `http://127.0.0.1:${address.port}` };
+}
+
+function respond(response, status, content) {
+  if (response.headersSent) return response.end();
+  response.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+  response.end(content);
 }
 
 function normalizeHttpUrl(value) {

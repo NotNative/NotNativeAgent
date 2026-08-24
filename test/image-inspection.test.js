@@ -27,6 +27,7 @@ test('image.inspect gives visual inference its own tool lifecycle', async () => 
   assert.equal(observed[0].path, image);
   assert.equal(observed[0].mimeType, 'image/png');
   assert.match(observed[0].prompt, /^Check the rendered scene\.[^]*VISUAL_VERDICT: pass/iu);
+  assert.match(observed[0].prompt, /requested major scene element[^]*material_issue/iu);
   assert.match(result.content, /Visual observation \(vision route\)[^]*blue ocean/iu);
   assert.equal(result.metadata.visualRoute, 'vision');
   assert.equal(result.metadata.visualVerdict, 'pass');

@@ -306,6 +306,9 @@ test('execution contracts identify detachment while preserving bounded wait form
   assert.equal(detachedProcessInvocation('Start-Job { npm test }', 'powershell'), true);
   assert.equal(detachedProcessInvocation('npm run dev &', 'sh'), true);
   assert.equal(detachedProcessInvocation('npm test && npm run build', 'sh'), false);
+  const foregroundServer = await shell.validate({ script: 'python -m http.server 8643', shell: 'powershell' });
+  assert.equal(foregroundServer.resolved.reviewComplexity, 'long_running_foreground_shell');
+  assert.deepEqual(foregroundServer.resolved.reliabilitySignals, ['long_running_foreground']);
   assert.equal(explicitDetachedProcessIntent('Start the preview server and leave it running in the background.'), true);
   assert.equal(explicitDetachedProcessIntent('Start the preview server.'), false);
   assert.equal(explicitDetachedProcessIntent('Do not leave the preview server running in the background.'), false);
@@ -319,6 +322,8 @@ test('execution contracts identify detachment while preserving bounded wait form
     executable: 'node', args: ['-e', "spawn('npm', ['run', 'dev'], { detached: true })"],
   });
   assert.equal(runtimeDetach.resolved.reliabilitySignals.includes('detached_process'), true);
+  const directServer = await processTool.validate({ executable: 'python', args: ['-m', 'http.server', '8643'] });
+  assert.equal(directServer.resolved.reliabilitySignals.includes('long_running_foreground'), true);
 });
 
 async function waitForProcessExit(pid, timeoutMs) {

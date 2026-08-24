@@ -220,6 +220,17 @@ export class ProviderRunner {
         }
         const usage = await this.#consumeEvent(item, active);
         if (usage) attemptUsage = usage;
+        if (item.type === 'tool_fragment' && active.toolAssembler.hasEquivalentCompleteCalls) {
+          // parallel_tool_calls is disabled. Once a second complete equivalent
+          // call arrives, later copies cannot add useful work and some local
+          // providers otherwise stream dozens of them until the output limit.
+          active.providerTerminal = true;
+          active.finishReason = 'tool_calls';
+          this.telemetry?.record('provider.tool_stream', 'stopped', {
+            reason: 'equivalent_complete_tool_call', tool_call_count: active.toolAssembler.size,
+          }, providerCorrelation(active, `provider-request:${active.attemptId}`));
+          break;
+        }
       }
       if (!opened) throw new ContractError('provider_empty_stream', 'provider produced no stream items', true);
       if (!active.providerTerminal) throw new ContractError('provider_missing_terminal', 'provider did not terminate cleanly');

@@ -120,6 +120,7 @@ export function toolContext(engine, active) {
     sessionId: engine.sessionId, turnId: active.turnId, stepId: active.stepId,
     caller: 'primary', surface: engine.surface,
     reviewPosture: engine.reviewPosture,
+    stateRevision: active.observableStateRevision ?? 0,
   };
 }
 
@@ -139,9 +140,9 @@ export function prepareTrustedToolHandoff(engine, items) {
 export function resetStep(active) {
   // `active` is the single engine-owned mutable accumulator for the current turn; reset it in place
   // so lifecycle and provider callbacks retain the same authoritative identity across model steps.
-  const reasoningMode = active.capabilityPhase === 'action'
-    && active.toolConstraints?.some((item) => item.kind === 'action_repair'
-      && item.reason_code === 'tool_arguments_truncated') ? 'off' : undefined;
+  const reasoningMode = active.capabilityPhase === 'action' && active.actionRepairStepPending === true
+    ? 'off' : undefined;
+  if (reasoningMode === 'off') active.actionRepairStepPending = false;
   active.reasoningFallbackPending = false;
   active.stepText = '';
   active.committedStepText = null;
@@ -163,6 +164,13 @@ const OBSERVABLE_MUTATIONS = new Set([
 ]);
 
 export function observeToolState(active, items) {
+  if (items.some((item) => item.result?.reason_code === 'tool_arguments_truncated')) {
+    // Disable optional thinking only for the immediate repair attempt. Keeping
+    // it off for the remainder of a long turn makes later implementation and
+    // verification steps markedly worse, while a new truncation arms one new
+    // bounded repair attempt.
+    active.actionRepairStepPending = true;
+  }
   if (items.some((item) => item.result?.status === 'succeeded'
     && OBSERVABLE_MUTATIONS.has(item.result?.tool_name ?? item.request?.toolName ?? item.call?.name))) {
     active.observableStateRevision = (active.observableStateRevision ?? 0) + 1;
@@ -183,8 +191,11 @@ export function modelStepRequestOptions(reasoningMode, active) {
   // preserves input space. Do not impose a second, smaller per-step ceiling:
   // reasoning models can consume that hidden budget before producing a tool
   // call, turning otherwise valid JSON into a deterministic truncated tail.
-  const outputReserveTokens = Number.isSafeInteger(plannedReserve) && plannedReserve > 0
+  const normalReserve = Number.isSafeInteger(plannedReserve) && plannedReserve > 0
     ? plannedReserve : undefined;
+  const outputReserveTokens = reasoningMode === 'off'
+    ? Math.min(normalReserve ?? 16_000, 16_000)
+    : normalReserve;
   return {
     reasoningMode,
     outputReserveTokens,

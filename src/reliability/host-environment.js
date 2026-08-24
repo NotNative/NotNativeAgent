@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ContractError } from '../ids.js';
-import { detachedProcessInvocation } from './process-lifecycle.js';
+import { detachedProcessInvocation, longRunningForegroundInvocation } from './process-lifecycle.js';
 
 const HOSTS = Object.freeze({
   win32: Object.freeze({
@@ -58,5 +58,6 @@ export function shellReliabilitySignals(script, shell = 'auto') {
   if ((script.match(/["']/gu)?.length ?? 0) >= 8 && /\$\(|`|\\["']/u.test(script)) signals.push('nested_quoting');
   if (/\b(?:do|done|then|fi)\b/iu.test(script) && /\b(?:Get-|Set-|Write-|Select-|ForEach-Object)\w*/iu.test(script)) signals.push('mixed_shell_dialects');
   if (detachedProcessInvocation(script, shell)) signals.push('detached_process');
+  else if (longRunningForegroundInvocation(script)) signals.push('long_running_foreground');
   return Object.freeze(signals);
 }

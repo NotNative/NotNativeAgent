@@ -7,7 +7,7 @@ const MIME_TYPES = Object.freeze({
   '.gif': 'image/gif', '.webp': 'image/webp',
 });
 const DEFAULT_PROMPT = 'Visually inspect this image. Describe the rendered scene, layout, visible defects, missing content, and evidence relevant to verifying the active task.';
-const VERDICT_RUBRIC = 'Judge only visible evidence against the requested criteria. Distinguish a material defect from a minor subjective polish opportunity; do not invent optional work. End with exactly one line: VISUAL_VERDICT: pass, VISUAL_VERDICT: minor_caveat, VISUAL_VERDICT: material_issue, or VISUAL_VERDICT: uncertain.';
+const VERDICT_RUBRIC = 'Judge only visible evidence against the requested criteria. A requested major scene element, interaction, control, or required state that is visibly absent or unusable is a material_issue, not subjective polish. Distinguish that from a minor cosmetic caveat and do not invent optional work. End with exactly one line: VISUAL_VERDICT: pass, VISUAL_VERDICT: minor_caveat, VISUAL_VERDICT: material_issue, or VISUAL_VERDICT: uncertain.';
 
 export function imageInspectDefinition(paths, observeImage, options = {}) {
   return {

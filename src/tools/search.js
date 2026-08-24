@@ -10,6 +10,7 @@ const BM25_LENGTH_SENSITIVITY = 1.2;
 const BM25_MIN_NORMALIZATION = 0.25;
 const BM25_LENGTH_WEIGHT = 0.75;
 const BM25_REFERENCE_LENGTH = 24;
+const WORKFLOW_LEASE_USES = 16;
 
 export function toolSearchDefinition(registry) {
   return {
@@ -38,14 +39,17 @@ export function toolSearchDefinition(registry) {
         ? matches.filter((item) => item.name === named)
         : matches.filter((item) => item.scope !== 'external'
           || explicitlyRequestsExternal(request.args.query, item)).slice(0, 4);
-      registry.expose(visibleMatches.map((item) => item.name));
+      // A discovery is useful for a workflow, not just one invocation. Visual
+      // verification commonly needs repeated screenshot inspections, and
+      // forcing an identical catalog search between each call wastes context.
+      registry.expose(visibleMatches.map((item) => item.name), { uses: WORKFLOW_LEASE_USES });
       const schema = named ? registry.definition(named)?.inputSchema : null;
       const found = visibleMatches.length > 0;
       return {
         content: JSON.stringify({
           status: found ? 'schemas_loaded_for_next_model_step' : 'no_relevant_capability_found',
           instruction: found
-            ? 'Call the matching tool directly on the next model step. Do not search for the same tool again.'
+            ? 'Call the matching tool directly. It remains available for this bounded workflow lease, so reuse it without searching again.'
             : 'No relevant catalog capability matched. Continue with already visible tools or refine once using an exact tool or service name; do not repeat this search unchanged.',
           matches: visibleMatches.map(compactMatch),
           ...(named && schema ? { exact_match: { name: named, input_schema: schema } } : {}),
@@ -110,4 +114,3 @@ function bm25(query, document) {
       / (frequency + BM25_LENGTH_SENSITIVITY * normalization);
   }, 0);
 }
-

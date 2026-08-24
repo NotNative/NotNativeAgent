@@ -218,6 +218,7 @@ export function operationSignature(request) {
     toolName: request.toolName, args: request.args, resolved: request.resolved,
     authorityId: request.authorityId, authorityVersion: request.authorityVersion,
     authorityRestrictionVersion: request.authorityRestrictionVersion ?? 0,
+    stateRevision: request.stateRevision ?? 0,
     policyVersion: request.policyVersion,
     definitionVersion: request.definitionVersion,
   };

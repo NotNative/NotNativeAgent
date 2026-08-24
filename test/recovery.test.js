@@ -574,6 +574,45 @@ test('reasoning chunks count as provider activity throughout a long productive g
   assert.ok(active.reasoningBytes > 0);
 });
 
+test('provider streaming stops after a second complete equivalent tool call', async () => {
+  const state = new StateAuthority();
+  state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-duplicate-stream' });
+  const lifecycles = new LifecycleRegistry();
+  const turn = lifecycles.start('turn');
+  const step = lifecycles.start('model_step', turn.id);
+  const active = {
+    turnId: 'turn-duplicate-stream', stepId: step.id, attemptId: null,
+    controller: new AbortController(), cancelled: false, stepText: '',
+    toolAssembler: new ToolCallAssembler(), providerTerminal: false,
+    recovery: new RecoverySupervisor(), reasoningBytes: 0, stepReasoningBytes: 0,
+    usage: null, finishReason: null,
+  };
+  const telemetry = [];
+  const runner = new ProviderRunner({
+    state, lifecycles, publish: async () => undefined,
+    acceptText: async (text) => { active.stepText += text; },
+    settleAttempt: async () => undefined, recordRecovery: async () => undefined,
+    telemetry: { record: (name, outcome, detail) => telemetry.push({ name, outcome, detail }) },
+  });
+  const provider = { async *stream() {
+    yield { type: 'tool_fragment', fragments: [{
+      index: 0, id: 'duplicate-0', function: { name: 'fs.write_text', arguments: '{"path":"capture.mjs","content":"same"}' },
+    }] };
+    yield { type: 'tool_fragment', fragments: [{
+      index: 1, id: 'duplicate-1', function: { name: 'fs.write_text', arguments: '{"content":"same","path":"capture.mjs"}' },
+    }] };
+    yield { type: 'text', text: 'must not be consumed' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  await runner.run(provider, {}, { overallMs: null, firstTokenMs: 50, idleMs: 50 }, active);
+  assert.equal(active.stepText, '');
+  assert.equal(active.providerTerminal, true);
+  assert.equal(active.finishReason, 'tool_calls');
+  assert.equal(active.toolAssembler.hasEquivalentCompleteCalls, true);
+  assert.ok(telemetry.some((item) => item.name === 'provider.tool_stream'
+    && item.detail.reason === 'equivalent_complete_tool_call'));
+});
+
 test('an unset overall route deadline does not create an immediate timeout', async () => {
   const state = new StateAuthority();
   state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-unbounded' });
@@ -855,7 +894,7 @@ test('AC-PROD-03 malformed small-model tool arguments become an in-band repair o
   assert.equal(invalid.reasonCode, 'tool_arguments_malformed');
 });
 
-test('output-truncated tool arguments enable turn-scoped reasoning-off action repair', async () => {
+test('output-truncated tool arguments enable one bounded reasoning-off action repair', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-truncated-action-repair-'));
   await writeFile(join(root, 'target.txt'), 'verified', 'utf8');
   const requests = [];
@@ -871,10 +910,11 @@ test('output-truncated tool arguments enable turn-scoped reasoning-off action re
     }
     if (requests.length === 2) {
       assert.equal(request.reasoningMode, 'off');
+      assert.equal(request.maxOutputTokens, 16_000);
       yield* toolCall('corrected-call', 'target.txt');
       return;
     }
-    assert.equal(request.reasoningMode, 'off');
+    assert.equal(request.reasoningMode, undefined);
     yield { type: 'text', text: 'The corrected read verified the target.' };
     yield { type: 'terminal', finishReason: 'stop' };
   } };

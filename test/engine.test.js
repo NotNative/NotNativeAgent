@@ -73,6 +73,14 @@ test('text and DOM claims cannot erase a newer non-pass visual verdict', () => {
   const qualified = evaluateCompletion(active,
     'The scene is complete. A few faint near-field seams remain as a minor visual caveat.');
   assert.equal(qualified.disposition, 'completed');
+
+  const allViews = evaluateCompletion(active, 'The task is complete. All tested views pass.');
+  assert.equal(allViews.disposition, 'continue');
+  assert.equal(allViews.category, 'visual_evidence_conflict');
+
+  const qualifiedViews = evaluateCompletion(active,
+    'The task is complete. All tested views pass, but one faint seam remains as a minor caveat.');
+  assert.equal(qualifiedViews.disposition, 'completed');
 });
 
 function config(persistence = 'ephemeral') {

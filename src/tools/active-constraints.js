@@ -91,7 +91,7 @@ function instruction(kind, result, item, prerequisite = null) {
       + 'Rebuild the call from the currently presented schema, use only its allowed fields, and do not repeat the same request fingerprint.';
   }
   if (kind === CONSTRAINT_KIND.action) {
-    return 'The provider output limit was reached before the tool JSON closed. For the rest of this turn, make concise action calls with no private reasoning preamble. For edits, select the smallest unique anchor and bounded replacement; split larger changes across calls. Do not repeat the oversized request shape.';
+    return 'The provider output limit was reached before the tool JSON closed. The immediate repair step uses a smaller output budget with optional thinking disabled. Make that one concise action call; for edits, select the smallest unique anchor and bounded replacement, then split larger changes across calls. Later steps may reason normally, but do not repeat the oversized request shape.';
   }
   if (kind === CONSTRAINT_KIND.governance) return 'Do not repeat an equivalent request unless new authenticated operator input changes its authority.';
   if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, process.run, or a structured tool unless the requested interpreter is positively discovered.';
