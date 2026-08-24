@@ -25,6 +25,24 @@ test('active constraints retain structured repairs and clear them after verified
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs.search_text', 'succeeded')]), []);
 });
 
+test('truncated argument repair persists for the turn and deduplicates repeated failures', () => {
+  const first = item('fs.edit_text', 'invalid_request', {
+    reason: 'tool_arguments_truncated', args: {}, content: 'tool arguments were cut off by the provider output limit',
+  });
+  const constraints = mergeToolConstraints([], [first]);
+  assert.equal(constraints[0].kind, 'action_repair');
+  assert.equal(constraints[0].occurrences, 1);
+  assert.match(constraints[0].instruction, /rest of this turn[^]*no private reasoning[^]*smallest unique anchor/iu);
+  assert.equal(mergeToolConstraints(constraints, [item('fs.edit_text', 'succeeded')]).length, 1);
+
+  const repeated = mergeToolConstraints(constraints, [item('fs.edit_text', 'invalid_request', {
+    reason: 'tool_arguments_truncated', args: { path: 'different.js' }, content: 'truncated again',
+  })]);
+  assert.equal(repeated.length, 1);
+  assert.equal(repeated[0].id, constraints[0].id);
+  assert.equal(repeated[0].occurrences, 2);
+});
+
 test('governance constraints survive unrelated success and clear on new authority', () => {
   const denied = mergeToolConstraints([], [item('fs.write_text', 'deny_with_guidance', {
     reason: 'authenticated_intent_mismatch', content: 'The requested write is outside authenticated intent.',

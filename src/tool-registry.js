@@ -42,6 +42,7 @@ import { sessionHistoryDefinitions } from './session-history-tools.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
 import { planProviderToolNames, providerSurfacePhase } from './tools/provider-surface-planner.js';
 const MAX_TEXT_BYTES = 1_048_576;
+const MAX_MODEL_AUTHORED_TEXT_BYTES = 32_768;
 const SITUATIONAL = new Set(SITUATIONAL_TOOL_NAMES);
 export class ToolRegistry {
   #definitions = new Map();
@@ -276,19 +277,19 @@ function compactPurpose(definition) {
 }
 function writeDefinition(paths, changes, receipts) {
   return {
-    name: 'fs.write_text', version: 1, purpose: 'Atomically write bounded UTF-8 text to one accessible file, creating missing parent directories for a new target. A successful full write becomes the current authored file state, so a redundant read is not required before a subsequent edit.',
+    name: 'fs.write_text', version: 2, purpose: 'Atomically write one provider-safe UTF-8 file payload, creating missing parent directories for a new target. Keep generated files compact and split larger implementations across files or follow with anchored edits. A successful full write becomes the current authored file state, so a redundant read is not required before a subsequent edit.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required destination file path.' },
-      content: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required complete UTF-8 content to write.' },
+      content: { type: 'string', maxLength: MAX_MODEL_AUTHORED_TEXT_BYTES, description: 'Required complete UTF-8 content, at most 32 KiB. Split larger implementations across files or use subsequent anchored edits.' },
     }, ['path', 'content']),
     normalizeArgs: (args) => normalizeArgumentAliases(args, {
       path: ['filePath', 'file_path'], content: ['text'],
     }),
     validate: async (args) => {
       requireShape(args, ['path', 'content']);
-      if (Buffer.byteLength(args.content, 'utf8') > MAX_TEXT_BYTES) {
-        throw new ContractError('tool_arguments_too_large', 'write content exceeds bound');
+      if (Buffer.byteLength(args.content, 'utf8') > MAX_MODEL_AUTHORED_TEXT_BYTES) {
+        throw new ContractError('tool_arguments_too_large', 'write content exceeds the provider-safe 32 KiB payload bound; split the implementation across files or edits');
       }
       const resolved = await paths.withRecovery(await paths.resolveWriteWithParents(args.path));
       const existingSize = resolved.exists ? (await stat(resolved.path)).size : 0;
@@ -320,14 +321,14 @@ async function executeFullWrite(paths, receipts, request, signal, changes) {
 }
 function editLinesDefinition(paths, changes, receipts) {
   return {
-    name: 'fs.edit_lines', version: 2,
+    name: 'fs.edit_lines', version: 3,
     purpose: 'Replace one inclusive line range in an existing UTF-8 file. Supply only path, start_line, end_line, and replacement; use fs.edit_text instead when selecting exact text. Read the relevant numbered lines first so NNA can anchor and revalidate the edit.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path previously read with fs.read or fs.read_lines.' },
       start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required first one-based line in the inclusive replacement range.' },
       end_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required last one-based line in the inclusive replacement range.' },
-      replacement: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required replacement text; use an empty string to remove the selected lines.' },
+      replacement: { type: 'string', maxLength: MAX_MODEL_AUTHORED_TEXT_BYTES, description: 'Required replacement text, at most 32 KiB. Keep the range focused and use multiple edits for larger rewrites; use an empty string to remove the selected lines.' },
     }, ['path', 'start_line', 'end_line', 'replacement']),
     validate: async (args) => {
       requireShape(args, ['path', 'start_line', 'end_line', 'replacement']);
@@ -335,8 +336,8 @@ function editLinesDefinition(paths, changes, receipts) {
         || args.start_line < 1 || args.end_line < args.start_line || args.end_line - args.start_line >= 400) {
         throw new ContractError('tool_schema_invalid', 'line range must be ordered, positive, and at most 400 lines');
       }
-      if (typeof args.replacement !== 'string' || Buffer.byteLength(args.replacement, 'utf8') > MAX_TEXT_BYTES) {
-        throw new ContractError('tool_arguments_too_large', 'replacement exceeds the text bound');
+      if (typeof args.replacement !== 'string' || Buffer.byteLength(args.replacement, 'utf8') > MAX_MODEL_AUTHORED_TEXT_BYTES) {
+        throw new ContractError('tool_arguments_too_large', 'replacement exceeds the provider-safe 32 KiB payload bound; edit a smaller line range');
       }
       const resolved = await paths.withRecovery(await paths.resolveRead(args.path));
       const receipt = receipts.latest(resolved.path, { start: args.start_line, end: args.end_line });

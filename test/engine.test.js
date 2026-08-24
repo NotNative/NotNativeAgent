@@ -59,6 +59,22 @@ test('completion supervision accepts a settled result with optional future avail
   assert.equal(result.category, 'settled_output');
 });
 
+test('text and DOM claims cannot erase a newer non-pass visual verdict', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    recovery: { actions: [] }, visualEvidence: { verdict: 'minor_caveat', path: 'latest.png' },
+  };
+  const contradicted = evaluateCompletion(active,
+    'The detailed DOM inspection confirms there are no real visible artifacts. The task is complete.');
+  assert.equal(contradicted.disposition, 'continue');
+  assert.equal(contradicted.category, 'visual_evidence_conflict');
+  assert.match(contradicted.hint, /newer screenshot and image\.inspect|qualified description/iu);
+
+  const qualified = evaluateCompletion(active,
+    'The scene is complete. A few faint near-field seams remain as a minor visual caveat.');
+  assert.equal(qualified.disposition, 'completed');
+});
+
 function config(persistence = 'ephemeral') {
   return resolveManifest({
     persistence,

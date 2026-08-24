@@ -13,6 +13,7 @@ import { ProviderRunner } from '../src/provider/runner.js';
 import { RecoverySupervisor } from '../src/recovery.js';
 import { ToolCallAssembler } from '../src/tools/calls.js';
 import { contextPressureScale } from '../src/engine/provider-recovery.js';
+import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
 
 function config(root, persistence = 'ephemeral', extra = {}) {
   return resolveManifest({
@@ -124,6 +125,19 @@ test('distinct repeated successful requests do not consume one shared no-progres
   let repeated;
   for (let count = 3; count <= 12; count += 1) repeated = recovery.noProgress('tool_no_progress', directory);
   assert.deepEqual(repeated, { continue: false, exhausted: true, count: 12 });
+});
+
+test('the same observation is fresh progress after an observable workspace revision', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  const items = [{
+    request: { toolName: 'web.browse', args: { action: 'navigate', url: 'http://127.0.0.1:4173' } },
+    result: { tool_name: 'web.browse', status: 'succeeded', content: 'same rendered page' },
+  }];
+  const before = toolProgressEvidence(items, [], { stateRevision: 0 });
+  const after = toolProgressEvidence(items, [], { stateRevision: 1 });
+  assert.equal(recovery.noProgress('tool_no_progress', before).progress, true);
+  assert.equal(recovery.noProgress('tool_no_progress', before).count, 1);
+  assert.equal(recovery.noProgress('tool_no_progress', after).progress, true);
 });
 
 test('a new turn supervisor starts with fresh progress evidence and recovery episodes', () => {
@@ -839,6 +853,39 @@ test('AC-PROD-03 malformed small-model tool arguments become an in-band repair o
   const invalid = engine.transcript.find((item) => item.type === 'tool_result');
   assert.equal(invalid.status, 'invalid_request');
   assert.equal(invalid.reasonCode, 'tool_arguments_malformed');
+});
+
+test('output-truncated tool arguments enable turn-scoped reasoning-off action repair', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-truncated-action-repair-'));
+  await writeFile(join(root, 'target.txt'), 'verified', 'utf8');
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length === 1) {
+      yield { type: 'tool_fragment', fragments: [{
+        index: 0, id: 'truncated-call', function: { name: 'fs.read_text', arguments: '{"path":' },
+      }] };
+      yield { type: 'usage', usage: { completion_tokens: 32_000, total_tokens: 32_100 } };
+      yield { type: 'terminal', finishReason: 'tool_calls' };
+      return;
+    }
+    if (requests.length === 2) {
+      assert.equal(request.reasoningMode, 'off');
+      yield* toolCall('corrected-call', 'target.txt');
+      return;
+    }
+    assert.equal(request.reasoningMode, 'off');
+    yield { type: 'text', text: 'The corrected read verified the target.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'truncated-action-repair', content: 'Inspect the requested file.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(requests.length, 3);
+  const repair = engine.active?.toolConstraints?.find((item) => item.kind === 'action_repair');
+  assert.equal(repair, undefined);
+  assert.equal(engine.transcript.some((item) => item.reasonCode === 'tool_arguments_truncated'), true);
 });
 
 test('AC-PROD-03/AC-TURN-10 truncated useful output is preserved and continued', async () => {

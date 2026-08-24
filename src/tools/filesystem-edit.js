@@ -9,17 +9,19 @@ import { advanceFromAuthoredState, mutationEvidence, transactionalReceipt,
 import { countOccurrences, replaceText } from './text-edit-helpers.js';
 
 const MAX_TEXT_BYTES = 1_048_576;
-const MAX_EDIT_ARGUMENT_BYTES = 65_536;
+const MAX_EDIT_FIND_BYTES = 16_384;
+const MAX_EDIT_CONTENT_BYTES = 32_768;
+const MAX_EDIT_ARGUMENT_BYTES = 40_960;
 
 export function filesystemEditDefinition(paths, changes, receipts, atomicWrite, verifyExpectedState) {
   return {
-    name: 'fs.edit_text', version: 3,
+    name: 'fs.edit_text', version: 4,
     purpose: 'Replace one exact, normally unique text match in an existing UTF-8 file. Supply only path, find, content, and optionally all; use fs.edit_lines instead when selecting by line number. Use an empty content string to delete the matched text. Read the relevant file first when practical; NNA still snapshots and revalidates every edit.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path to the existing UTF-8 file.' },
-      content: { type: 'string', maxLength: MAX_EDIT_ARGUMENT_BYTES, description: 'Required replacement text. Use an empty string to delete the selected text.' },
-      find: { type: 'string', minLength: 1, maxLength: MAX_EDIT_ARGUMENT_BYTES, description: 'Exact text to replace. Normally must occur once; use all only when every occurrence should change.' },
+      content: { type: 'string', maxLength: MAX_EDIT_CONTENT_BYTES, description: 'Required replacement text, at most 32 KiB. Keep this to the smallest complete change; use multiple anchored edits for large rewrites. Use an empty string to delete the selected text.' },
+      find: { type: 'string', minLength: 1, maxLength: MAX_EDIT_FIND_BYTES, description: 'Smallest exact text, at most 16 KiB, that uniquely anchors the replacement. Normally must occur once; use all only when every occurrence should change. Find plus content must stay within 40 KiB.' },
       all: { type: 'boolean', description: 'Replace every exact occurrence instead of requiring one unique match. Defaults to false.' },
     }, ['path', 'find', 'content']),
     normalizeArgs: (args) => normalizeArgumentAliases(args, {
@@ -35,9 +37,12 @@ export function filesystemEditDefinition(paths, changes, receipts, atomicWrite, 
 
 async function validateEdit(paths, args, receipts) {
   requireShape(args, ['path', 'find', 'content'], ['all']);
-  if (Buffer.byteLength(args.content, 'utf8') > MAX_EDIT_ARGUMENT_BYTES
-    || Buffer.byteLength(args.find, 'utf8') > MAX_EDIT_ARGUMENT_BYTES) {
-    throw new ContractError('tool_arguments_too_large', 'edit arguments exceed the 65536-byte bound; edit a smaller region');
+  const findBytes = Buffer.byteLength(args.find, 'utf8');
+  const contentBytes = Buffer.byteLength(args.content, 'utf8');
+  if (findBytes > MAX_EDIT_FIND_BYTES || contentBytes > MAX_EDIT_CONTENT_BYTES
+    || findBytes + contentBytes > MAX_EDIT_ARGUMENT_BYTES) {
+    throw new ContractError('tool_arguments_too_large',
+      'edit arguments exceed the provider-safe payload bound; select a smaller unique anchor and replacement');
   }
   if (args.find.length === 0 || (args.all !== undefined && typeof args.all !== 'boolean')) {
     throw invalid('find must be non-empty and all must be boolean');

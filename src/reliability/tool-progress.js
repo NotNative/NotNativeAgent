@@ -15,6 +15,9 @@ export function toolProgressEvidence(items, steeringApplied = [], options = {}) 
     : [];
   if (completed.length === 0 && steeringIds.length === 0) return null;
   const hash = createHash('sha256');
+  if (Number.isSafeInteger(options.stateRevision) && options.stateRevision >= 0) {
+    hash.update('\0observable_state_revision\0').update(String(options.stateRevision));
+  }
   const requestFingerprints = [];
   for (const item of completed) {
     const toolName = item.result.tool_name ?? item.request?.toolName ?? 'unknown';

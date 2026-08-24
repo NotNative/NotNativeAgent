@@ -21,7 +21,7 @@ import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
   completeProviderToolCalls, deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, observeToolContracts,
   prepareTrustedToolHandoff, providerRequest,
-  groundCapabilityPhase, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext,
+  groundCapabilityPhase, observeToolState, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
 import { recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
@@ -332,10 +332,10 @@ export class SessionEngine {
     active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded')
       .map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
     const steeringApplied = await this.#consumeSteering(active);
-    const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints });
+    const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints, stateRevision: active.observableStateRevision });
     const progress = this.reliability.noProgress(active, 'tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact',
       failureFingerprint: this.reliability.toolFailureFingerprint(items), monitoring: active.capabilityPhase === 'monitoring',
-    });
+    }); observeToolState(active, items);
     if (progress.action) await this.#recordRecovery(progress.action, active);
     await this.#settleStep(active, 'continued');
     if (!progress.continue) return { exhausted: true, category: 'tool_no_progress', count: progress.count };

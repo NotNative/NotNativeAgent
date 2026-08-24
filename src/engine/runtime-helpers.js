@@ -139,7 +139,9 @@ export function prepareTrustedToolHandoff(engine, items) {
 export function resetStep(active) {
   // `active` is the single engine-owned mutable accumulator for the current turn; reset it in place
   // so lifecycle and provider callbacks retain the same authoritative identity across model steps.
-  const reasoningMode = undefined;
+  const reasoningMode = active.capabilityPhase === 'action'
+    && active.toolConstraints?.some((item) => item.kind === 'action_repair'
+      && item.reason_code === 'tool_arguments_truncated') ? 'off' : undefined;
   active.reasoningFallbackPending = false;
   active.stepText = '';
   active.committedStepText = null;
@@ -153,6 +155,26 @@ export function resetStep(active) {
   active.providerTerminal = false;
   active.toolAssembler = active.toolAssemblerFactory?.() ?? new ToolCallAssembler();
   return reasoningMode;
+}
+
+const OBSERVABLE_MUTATIONS = new Set([
+  'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.directory', 'fs.create_directory',
+  'fs.copy_file', 'fs.move_file', 'fs.delete_file', 'process.run', 'shell.run',
+]);
+
+export function observeToolState(active, items) {
+  if (items.some((item) => item.result?.status === 'succeeded'
+    && OBSERVABLE_MUTATIONS.has(item.result?.tool_name ?? item.request?.toolName ?? item.call?.name))) {
+    active.observableStateRevision = (active.observableStateRevision ?? 0) + 1;
+  }
+  for (const item of items) {
+    if (item.result?.status !== 'succeeded' || item.result?.tool_name !== 'image.inspect') continue;
+    active.visualEvidence = Object.freeze({
+      verdict: item.result.metadata?.visualVerdict ?? 'uncertain',
+      path: item.result.metadata?.path ?? null,
+      stepId: active.stepId,
+    });
+  }
 }
 
 export function modelStepRequestOptions(reasoningMode, active) {

@@ -358,6 +358,10 @@ function missionToolDisposition(active, items) {
 export { toolFailureFingerprint, toolProgressEvidence } from '../reliability/tool-progress.js';
 
 export function toolContinuationHint(items, fallback = null) {
+  const truncatedArguments = items.find((item) => item.result?.reason_code === 'tool_arguments_truncated');
+  if (truncatedArguments) {
+    return 'The provider output limit cut off the tool arguments before the JSON closed. Action-repair mode now persists for this turn and disables private thinking on subsequent action steps. Retry with one concise bounded call. For edits, use the smallest unique anchor and replacement, and split larger changes across calls.';
+  }
   const missingParent = items.map(missingFilesystemPrerequisite).find(Boolean);
   if (missingParent) {
     return `A required ancestor directory is missing. The next filesystem mutation must be ${missingParent.tool} with exactly ${JSON.stringify({ action: 'create', path: missingParent.path })}. `
@@ -383,6 +387,15 @@ export function toolContinuationHint(items, fallback = null) {
     const failures = [...new Set(invalid.map((item) => `${item.result.tool_name ?? 'tool'}: ${item.result.reason_code ?? 'invalid_request'}`))];
     return `The tool request was invalid (${failures.join(', ')}). Read the returned tool error for the exact field, expected value, and received value; correct that argument and retry the operation. Do not repeat unchanged arguments. Context reduction cannot repair a schema mismatch.`;
   }
+  const visual = [...items].reverse().find((item) => item.result?.status === 'succeeded'
+    && item.result?.tool_name === 'image.inspect');
+  if (visual) {
+    const verdict = visual.result.metadata?.visualVerdict ?? 'uncertain';
+    if (verdict === 'pass') return 'The newest visual inspection passed the requested criteria. Finish unless another explicit acceptance criterion remains unverified.';
+    if (verdict === 'minor_caveat') return 'The newest visual inspection found only a minor caveat. Do not start an open-ended polish loop; finish with a qualified note unless that caveat violates an explicit acceptance criterion.';
+    if (verdict === 'material_issue') return 'The newest visual inspection found a material visible issue. Make one targeted correction and obtain newer visual evidence, or finish only with an honest qualification if no safe correction remains.';
+    return 'The newest visual inspection was uncertain. Do not claim a visual pass from DOM text or reasoning; obtain one newer focused image inspection after a material change, or qualify the result.';
+  }
   const denied = items.filter((item) => ['deny_with_guidance', 'hard_deny'].includes(item.result?.status));
   if (denied.length === 0) {
     return items.length > 0 && items.every((item) => item.result?.status === 'succeeded')
@@ -393,4 +406,3 @@ export function toolContinuationHint(items, fallback = null) {
     ? 'A tool reached an immutable policy boundary. Do not retry it or ask for authorization to bypass it. Continue the active task within the remaining capabilities, and report the boundary only if it prevents the objective.'
     : 'A tool was denied. Treat the denial as a route constraint, not the end of the task. Do not repeat an equivalent call unchanged. Continue with a safer, narrower, or more reversible approach. Ask the operator only after reasonable alternatives are exhausted; if blocked, state the attempted operation, denial, and exact clarification needed.';
 }
-

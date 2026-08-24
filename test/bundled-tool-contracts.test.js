@@ -62,6 +62,11 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
     assert.equal(Object.hasOwn(exact.inputSchema.properties, 'start_line'), false);
     assert.deepEqual(Object.keys(lines.inputSchema.properties), ['path', 'start_line', 'end_line', 'replacement']);
     assert.equal(Object.hasOwn(lines.inputSchema.properties, 'find'), false);
+    assert.equal(exact.inputSchema.properties.find.maxLength, 16_384);
+    assert.equal(exact.inputSchema.properties.content.maxLength, 32_768);
+    assert.equal(lines.inputSchema.properties.replacement.maxLength, 32_768);
+    assert.equal(registry.definition('fs.write_text').inputSchema.properties.content.maxLength, 32_768);
+    assert.equal(registry.definition('ref.store').inputSchema.properties.value.maxLength, 32_768);
 
     const surface = registry.providerDefinitions('build and edit a project file', { phase: 'action' });
     for (const name of ['fs.edit_text', 'fs.edit_lines']) {

@@ -28,7 +28,7 @@ export class ToolCallAssembler {
         const truncated = outputWasTruncated(finishReason, outputEvidence);
         return invalidCall(call, providerCallId, name,
           truncated ? 'tool_arguments_truncated' : 'tool_arguments_malformed',
-          truncated ? 'tool arguments were cut off by the provider output limit; retry one smaller bounded edit'
+          truncated ? 'tool arguments were cut off by the provider output limit; retry one smaller bounded call, using the smallest anchored region for edits'
             : 'tool arguments are not valid JSON');
       }
       return Object.freeze({ ...call, providerCallId, name, args: deepFreeze(args) });

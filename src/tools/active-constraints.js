@@ -5,7 +5,10 @@ import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../relia
 import { missingFilesystemPrerequisite, satisfiesFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
 
 const MAX_CONSTRAINTS = 64;
-const CONSTRAINT_KIND = Object.freeze({ prerequisite: 'prerequisite_repair', schema: 'schema_repair', execution: 'execution_failure', governance: 'governance_boundary' });
+const CONSTRAINT_KIND = Object.freeze({
+  prerequisite: 'prerequisite_repair', schema: 'schema_repair', action: 'action_repair',
+  execution: 'execution_failure', governance: 'governance_boundary',
+});
 const PROCESS_TOOLS = new Set(['process.run', 'shell.run']);
 
 export function mergeToolConstraints(current = [], items = []) {
@@ -18,13 +21,16 @@ export function mergeToolConstraints(current = [], items = []) {
     const constraint = constraintFor(item);
     if (!constraint) continue;
     if (constraintSatisfied(constraint, items)) continue;
+    const prior = indexed.get(constraint.id);
     indexed.delete(constraint.id);
     if (constraint.kind === CONSTRAINT_KIND.schema) {
       for (const [id, existing] of indexed) {
         if (existing.kind === constraint.kind && existing.tool === constraint.tool) indexed.delete(id);
       }
     }
-    indexed.set(constraint.id, constraint);
+    indexed.set(constraint.id, Object.freeze({
+      ...constraint, occurrences: (prior?.occurrences ?? 0) + 1,
+    }));
   }
   return Object.freeze([...indexed.values()].slice(-MAX_CONSTRAINTS));
 }
@@ -37,14 +43,16 @@ function constraintFor(item) {
   const result = item.result;
   if (!result || result.status === 'succeeded' || result.status === 'cancelled') return null;
   const prerequisite = missingFilesystemPrerequisite(item);
-  const kind = prerequisite ? CONSTRAINT_KIND.prerequisite : constraintKind(result.status);
+  const kind = prerequisite ? CONSTRAINT_KIND.prerequisite : constraintKind(result.status, result.reason_code);
   const tool = prerequisite?.tool ?? result.tool_name ?? item.call?.name ?? 'unknown';
   const reasonCode = safeDiagnostic(result.reason_code ?? result.status, 128);
   const requestFingerprint = digest(stableJson(item.call?.args ?? item.request?.args ?? {}));
   const detail = prerequisite ? `missing ancestor directory: ${prerequisite.path}` : constraintDetail(kind, result);
   const identity = prerequisite
     ? `${kind}\0${prerequisite.tool}\0${prerequisite.path}`
-    : `${kind}\0${tool}\0${reasonCode}\0${requestFingerprint}\0${detail}`;
+    : kind === CONSTRAINT_KIND.action
+      ? `${kind}\0${tool}\0${reasonCode}`
+      : `${kind}\0${tool}\0${reasonCode}\0${requestFingerprint}\0${detail}`;
   return Object.freeze({
     id: digest(identity).slice(0, 32),
     kind, tool, status: result.status, reason_code: reasonCode,
@@ -54,7 +62,8 @@ function constraintFor(item) {
   });
 }
 
-function constraintKind(status) {
+function constraintKind(status, reasonCode = null) {
+  if (reasonCode === 'tool_arguments_truncated') return CONSTRAINT_KIND.action;
   if (status === 'invalid_request') return CONSTRAINT_KIND.schema;
   if (['deny_with_guidance', 'hard_deny'].includes(status)) return CONSTRAINT_KIND.governance;
   return CONSTRAINT_KIND.execution;
@@ -80,6 +89,9 @@ function instruction(kind, result, item, prerequisite = null) {
     const detail = constraintDetail(kind, result);
     return `The prior ${result.tool_name ?? item?.call?.name ?? 'tool'} request was rejected: ${detail}. `
       + 'Rebuild the call from the currently presented schema, use only its allowed fields, and do not repeat the same request fingerprint.';
+  }
+  if (kind === CONSTRAINT_KIND.action) {
+    return 'The provider output limit was reached before the tool JSON closed. For the rest of this turn, make concise action calls with no private reasoning preamble. For edits, select the smallest unique anchor and bounded replacement; split larger changes across calls. Do not repeat the oversized request shape.';
   }
   if (kind === CONSTRAINT_KIND.governance) return 'Do not repeat an equivalent request unless new authenticated operator input changes its authority.';
   if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, process.run, or a structured tool unless the requested interpreter is positively discovered.';

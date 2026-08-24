@@ -7,6 +7,7 @@ const KINDS = new Set(['path', 'url', 'snapshot', 'draft']);
 const MAX_ENTRIES = 2048;
 const MAX_BYTES = 16_777_216;
 const MAX_VALUE_BYTES = 1_048_576;
+const MAX_MODEL_VALUE_BYTES = 32_768;
 
 export class ReferenceStore {
   #entries = new Map();
@@ -103,18 +104,21 @@ export function referenceDefinitions(store, paths) {
 
 function storeDefinition(store, paths) {
   return {
-    name: 'ref.store', version: 1,
+    name: 'ref.store', version: 2,
     purpose: 'Store one bounded path, URL, or draft as an ephemeral typed reference. Reuse the returned reference wherever a later tool accepts that exact path or URL string instead of reproducing values from model memory.',
     sideEffect: 'reversible', scope: 'ephemeral_reference', cancellation: true, timeoutMs: 10_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['kind', 'value'], properties: {
         kind: { type: 'string', enum: ['path', 'url', 'draft'], description: 'Reference type: path, URL, or draft text.' },
-        value: { type: 'string', maxLength: 1_048_576, description: 'Exact bounded value to retain for later tool calls.' },
+        value: { type: 'string', maxLength: MAX_MODEL_VALUE_BYTES, description: 'Exact value to retain, at most 32 KiB. Store only the focused draft needed by a later call.' },
       },
     },
     validate: async (args) => {
       if (!args || typeof args !== 'object' || Array.isArray(args)
         || !['path', 'url', 'draft'].includes(args.kind) || typeof args.value !== 'string') throw invalid();
+      if (Buffer.byteLength(args.value, 'utf8') > MAX_MODEL_VALUE_BYTES) {
+        throw new ContractError('tool_arguments_too_large', 'reference value exceeds the provider-safe 32 KiB payload bound');
+      }
       let value = args.value;
       if (args.kind === 'path') value = await canonicalPath(paths, value);
       if (args.kind === 'url') {

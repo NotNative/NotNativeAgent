@@ -7,7 +7,7 @@ import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { buildContext, measureContext, toProviderMessages } from '../src/context.js';
 import { SessionEngine } from '../src/engine.js';
-import { modelStepRequestOptions } from '../src/engine/runtime-helpers.js';
+import { modelStepRequestOptions, resetStep } from '../src/engine/runtime-helpers.js';
 import {
   appendReasoningChunk, boundedReasoningContinuations, captureReasoningContinuation,
 } from '../src/reliability/reasoning-continuity.js';
@@ -204,6 +204,17 @@ test('every primary model step receives the context-planned output headroom', ()
   assert.equal(modelStepRequestOptions(undefined, { contextBudget: { outputReserveTokens: 2048 } })
     .outputReserveTokens, 2048);
   assert.equal(modelStepRequestOptions(undefined, { contextBudget: null }).outputReserveTokens, undefined);
+});
+
+test('turn-scoped truncated argument repair disables thinking on later action steps', () => {
+  const active = {
+    capabilityPhase: 'action', toolConstraints: [{
+      kind: 'action_repair', reason_code: 'tool_arguments_truncated',
+    }], enrichment: {}, toolAssemblerFactory: null,
+  };
+  assert.equal(resetStep(active), 'off');
+  active.capabilityPhase = 'orientation';
+  assert.equal(resetStep(active), undefined);
 });
 
 test('engine omits an oversized reasoning block instead of replaying a partial thought', async () => {

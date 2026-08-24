@@ -7,11 +7,12 @@ const MIME_TYPES = Object.freeze({
   '.gif': 'image/gif', '.webp': 'image/webp',
 });
 const DEFAULT_PROMPT = 'Visually inspect this image. Describe the rendered scene, layout, visible defects, missing content, and evidence relevant to verifying the active task.';
+const VERDICT_RUBRIC = 'Judge only visible evidence against the requested criteria. Distinguish a material defect from a minor subjective polish opportunity; do not invent optional work. End with exactly one line: VISUAL_VERDICT: pass, VISUAL_VERDICT: minor_caveat, VISUAL_VERDICT: material_issue, or VISUAL_VERDICT: uncertain.';
 
 export function imageInspectDefinition(paths, observeImage, options = {}) {
   return {
-    name: 'image.inspect', version: 1,
-    purpose: 'Visually interpret an existing bounded PNG, JPEG, GIF, or WebP image in a separate provider step. Use the exact path returned by web.browse screenshot to analyze a captured page. Image inference has its own lifecycle and cannot change a successful screenshot capture into a browser failure.',
+    name: 'image.inspect', version: 2,
+    purpose: 'Visually interpret an existing bounded PNG, JPEG, GIF, or WebP image in a separate provider step. Use the exact path returned by web.browse screenshot to analyze a captured page. Its visual verdict remains authoritative until a newer image.inspect result supersedes it; DOM or text inspection cannot prove a visible defect absent. Image inference has its own lifecycle and cannot change a successful screenshot capture into a browser failure.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 600_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['path'], properties: {
@@ -22,17 +23,25 @@ export function imageInspectDefinition(paths, observeImage, options = {}) {
     validate: async (args) => validate(args, paths, options.maxBytes ?? 10_485_760),
     executor: async (request, signal) => {
       if (!observeImage) throw new ContractError('image_observer_unavailable', 'no managed image observer is configured');
-      const observation = await observeImage(request.resolved.path, request.resolved.mimeType,
-        request.args.prompt ?? DEFAULT_PROMPT, signal);
+      const prompt = `${request.args.prompt ?? DEFAULT_PROMPT}\n\n${VERDICT_RUBRIC}`;
+      const observation = await observeImage(request.resolved.path, request.resolved.mimeType, prompt, signal);
       const text = String(observation?.text ?? '').trim();
       if (!text) throw new ContractError('attachment_empty_observation', 'image observer returned no visual description');
       const route = observation?.route === 'vision' ? 'vision' : 'primary';
       return {
         content: `Visual observation (${route} route):\n${text.slice(0, 131_072)}`,
-        metadata: { path: request.resolved.path, mimeType: request.resolved.mimeType, visualRoute: route },
+        metadata: {
+          path: request.resolved.path, mimeType: request.resolved.mimeType, visualRoute: route,
+          visualVerdict: visualVerdict(text),
+        },
       };
     },
   };
+}
+
+export function visualVerdict(text) {
+  const matches = [...String(text ?? '').matchAll(/(?:^|\n)\s*VISUAL_VERDICT:\s*(pass|minor_caveat|material_issue|uncertain)\s*(?=\n|$)/giu)];
+  return matches.at(-1)?.[1]?.toLowerCase() ?? 'uncertain';
 }
 
 async function validate(args, paths, maxBytes) {

@@ -56,7 +56,8 @@ The canonical model-facing filesystem tools are:
   NNA data root cannot be mutation targets. The canonical arguments are `action` and `path`;
   the runtime also normalizes common unambiguous spellings such as `operation` and
   `directoryPath` before review.
-- `fs.write_text`: atomically create or replace a bounded text file. Missing parent
+- `fs.write_text`: atomically create or replace a provider-safe text payload of at most
+  32 KiB. Larger implementations are split across files or completed with focused edits. Missing parent
   directories for a new target are created as part of the same governed operation. A
   successful full write records the resulting content as authored state, allowing an
   immediate follow-up edit without a redundant read. For an existing file
@@ -176,20 +177,19 @@ the repository script and says so. Results include exact commands, exit codes, b
 the manifest digest, and a stable receipt id in the durable turn record. A completed non-zero
 check is a failed tool result, not a green execution success. The Console aliases this boundary
 as `/verify [focused|affected|full] [PATH ...]`.
-- `fs.edit_text`: make one bounded edit using either an exact, normally unique `find` match or
-  an inclusive `start_line`/`end_line` range, with `content` as the replacement. `end_line`
-  defaults to `start_line`; an empty `content` deletes the selected text; and `all` must be
+- `fs.edit_text`: make one bounded edit using an exact, normally unique `find` match and
+  `content` as the replacement. An empty `content` deletes the selected text, and `all` must be
   explicit for multiple exact matches. Exact matching safely normalizes LF/CRLF differences.
   The runtime accepts the former `old_text`, `new_text`, and `replace_all` spellings plus common
   unambiguous aliases, but seals every accepted request into one canonical reviewed mutation.
-  Conflicting aliases and calls containing both selector forms fail closed. Edit arguments are
-  capped at 65,536 bytes so a model is directed toward a smaller region before consuming an
-  entire provider completion on one oversized call.
+  Conflicting aliases fail closed. The exact anchor is capped at 16 KiB, replacement content at
+  32 KiB, and their combined UTF-8 payload at 40 KiB so the complete JSON call remains inside a
+  practical local-provider output envelope.
 
 Installed compatibility definitions retain the narrower historical operations:
 
-- `fs.edit_lines`: historical compatibility form for replacing an inclusive numbered range
-  previously displayed by `fs.read_lines`. New calls use the line selector in `fs.edit_text`.
+- `fs.edit_lines`: replace an inclusive numbered range previously displayed by `fs.read_lines`.
+  Replacement content is capped at 32 KiB; larger rewrites use multiple focused edits.
 - `fs.delete_file`: permanently delete one regular file after semantic review and
   exact-content revalidation.
 - `fs.metadata`: inspect bounded file or directory metadata without reading content.
@@ -257,7 +257,9 @@ The global WebSearch tool is:
   interact with a selected element, save a managed screenshot, and close itself. Screenshot
   capture returns the durable PNG path as a completed browser result and deterministically exposes
   `image.inspect` for the following model step; `image.inspect` performs
-  optional visual interpretation in a separate provider-backed tool step. Read-only
+  optional visual interpretation in a separate provider-backed tool step and returns a bounded
+  pass, minor-caveat, material-issue, or uncertain verdict. Only a newer visual inspection can
+  supersede that verdict; DOM text and console output cannot. Read-only
   observation is deterministically safe after destination validation; screenshots, clicks, key
   presses, ordinary form entry, and Secret Broker field injection require semantic review.
   Standalone root sessions may also propose an exact `localhost`, `127.0.0.1`, or `[::1]`

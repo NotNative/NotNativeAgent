@@ -19,6 +19,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     reasoningFallbackPending: false, reasoningFallbackUsed: false,
     startedAt: Date.now(), toolCalls: 0,
     capabilityPhase: 'orientation', toolEvidenceObserved: false, providerToolSurface: null,
+    observableStateRevision: 0, visualEvidence: null,
     providerTerminal: false,
     toolAssemblerFactory: () => reliability?.createToolCallAssembler?.() ?? new ToolCallAssembler(),
     toolAssembler: reliability?.createToolCallAssembler?.() ?? new ToolCallAssembler(),
