@@ -138,6 +138,7 @@ function reviewerPolicy() {
     'Approve only the exact request when materially necessary and within authenticated intent.',
     'Default to approval when the operation is a reasonable, proportionate step toward authenticated intent and no concrete conflict or disproportionate irreversible harm is present.',
     'Do not require the operator to name ordinary intermediate commands or targets derived from causal evidence. Destructive effect alone is not a denial when it is proportionate and authorized.',
+    'A detached or background process can outlive its reviewed call and active turn. Approve one only when authenticated intent explicitly requests that persistent process; otherwise deny with guidance to use a bounded foreground operation or obtain operator authorization.',
     'Deny for concrete divergence, contradiction, or disproportionate irreversible harm. Escalate only when genuine high-consequence ambiguity requires human judgment.',
     'Authenticated intent is chronological: a newer matching restriction, revocation, or narrowing controls over an older grant.',
     'Conversation intent is a bounded recent projection for understanding the ongoing objective; use authenticated intent as the authority record.',

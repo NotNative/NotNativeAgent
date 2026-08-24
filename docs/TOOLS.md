@@ -99,7 +99,13 @@ non-native interpreter only after positive discovery, and prefer structured NNA 
 shell-built discovery loops. Shell calls should keep one coherent purpose
 and avoid unnecessary nested substitutions, deeply nested quoting, or combined mutation and
 verification. Reliability signals classify fragile compound scripts for review without imposing
-an arbitrary command-length rejection.
+an arbitrary command-length rejection. Shell execution is foreground by default and should
+terminate within the reviewed call. Detachment primitives such as PowerShell `Start-Process` or
+`Start-Job`, POSIX `nohup`, `disown`, or background `&`, and equivalent runtime flags are detected
+as lifecycle-changing requests. They are denied with corrective guidance unless authenticated
+user intent explicitly requests the persistent or background process; explicit intent permits
+semantic review but never bypasses it. This preserves a small tool surface without silently
+allowing a child process to outlive the reviewed call and active turn.
 The complete script, working directory, and interpreter are sealed into the reviewer request;
 NNA then owns interpreter argv, cancellation, output bounds, and process-tree cleanup.
 An interpreter launch failure returns `shell_interpreter_unavailable` with the detected host,

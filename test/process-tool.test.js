@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { operationalEnvironment, shellInvocation, shellRunDefinition } from '../src/tools/process.js';
 import { toolProgressEvidence } from '../src/tools/loop.js';
+import { detachedProcessInvocation, explicitDetachedProcessIntent } from '../src/reliability/process-lifecycle.js';
 
 test('process.run executes bounded shell-free argv inside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-'));
@@ -273,6 +274,7 @@ test('shell.run classifies compound and destructive scripts for semantic review 
   const registry = new ToolRegistry(root);
   await registry.initialize();
   const definition = registry.definition('shell.run');
+  assert.match(definition.purpose, /Do not use Start-Process, Start-Job, nohup, disown, background &/u);
   assert.equal((await definition.validate({ script: 'git status; npm test' })).resolved.reviewComplexity, 'compound_shell');
   const fragile = await definition.validate({
     script: 'echo start; for f in a b; do printf "%s" "$(wc -l < "$f")"; done',
@@ -285,6 +287,38 @@ test('shell.run classifies compound and destructive scripts for semantic review 
   const hosted = new ToolRegistry(root, { hosted: true, boundedToWorkspace: true, allowedTools: ['shell.run'] });
   await hosted.initialize();
   assert.equal(hosted.definition('shell.run'), undefined);
+});
+
+test('execution contracts identify detachment while preserving bounded wait forms', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-process-lifecycle-'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const shell = registry.definition('shell.run');
+  const detachedProcess = await shell.validate({
+    shell: 'powershell', script: 'Start-Process powershell.exe -ArgumentList "-File server.ps1"',
+  });
+  assert.equal(detachedProcess.resolved.reviewComplexity, 'detached_shell');
+  assert.deepEqual(detachedProcess.resolved.reliabilitySignals, ['detached_process']);
+  assert.equal((await shell.validate({
+    shell: 'powershell', script: 'Start-Process npm -ArgumentList "test" -Wait',
+  })).resolved.reliabilitySignals.includes('detached_process'), false);
+  assert.equal(detachedProcessInvocation('$job = Start-Job { npm test }; Wait-Job $job', 'powershell'), false);
+  assert.equal(detachedProcessInvocation('Start-Job { npm test }', 'powershell'), true);
+  assert.equal(detachedProcessInvocation('npm run dev &', 'sh'), true);
+  assert.equal(detachedProcessInvocation('npm test && npm run build', 'sh'), false);
+  assert.equal(explicitDetachedProcessIntent('Start the preview server and leave it running in the background.'), true);
+  assert.equal(explicitDetachedProcessIntent('Start the preview server.'), false);
+  assert.equal(explicitDetachedProcessIntent('Do not leave the preview server running in the background.'), false);
+
+  const processTool = registry.definition('process.run');
+  const indirect = await processTool.validate({
+    executable: 'powershell.exe', args: ['-Command', 'Start-Process npm -ArgumentList run,dev'],
+  });
+  assert.equal(indirect.resolved.reliabilitySignals.includes('detached_process'), true);
+  const runtimeDetach = await processTool.validate({
+    executable: 'node', args: ['-e', "spawn('npm', ['run', 'dev'], { detached: true })"],
+  });
+  assert.equal(runtimeDetach.resolved.reliabilitySignals.includes('detached_process'), true);
 });
 
 async function waitForProcessExit(pid, timeoutMs) {

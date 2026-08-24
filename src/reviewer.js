@@ -3,6 +3,7 @@ import { ContractError, newId } from './ids.js';
 import { requestDigest } from './persistence/reviewer-ledger.js';
 import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
 import { evidenceNamesTarget, grantBeforeOtherFilesRestriction } from './review-target-evidence.js';
+import { DETACHED_PROCESS_GUIDANCE, detachedProcessAuthorized } from './reliability/process-lifecycle.js';
 
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 
@@ -39,9 +40,8 @@ export class MandatoryReviewer {
       const entry = await this.ledger.propose(request, classification);
       let decision;
       const missionViolation = missionBoundaryViolation(request, context.definition, context.authority?.mission);
-      const intentRelation = authenticatedIntentRelation(
-        request, context.authority, context.definition, context.conversationIntent,
-      );
+      const intentRelation = authenticatedIntentRelation(request, context.authority, context.definition,
+        context.conversationIntent);
       if (missionViolation) decision = hardDeny(missionViolation, request);
       else if (context.authority?.complete === false && !context.authority?.mission && classification.risk !== 'safe') {
         decision = deny(
@@ -50,6 +50,7 @@ export class MandatoryReviewer {
           request,
         );
       }
+      else if (unauthorizedDetachedProcess(request, context.authority)) decision = detachedProcessDenial(request);
       else if (classification.risk === 'safe' && conversationOnly(context.authority)) {
         decision = deny('tool_not_justified_by_request', 'The user made a conversational request that does not require tools.', request);
       } else if (classification.risk === 'safe') decision = approve('deterministic_safe', request);
@@ -185,17 +186,28 @@ function classify(request, definition) {
     });
   }
   if (definition.name === 'system.elevate') return elevationClassification();
-  if (['process.run', 'shell.run'].includes(definition.name)) {
-    const complexity = request.resolved.reviewComplexity ?? 'unknown';
-    return Object.freeze({
-      risk: 'review_required',
-      reason: ['simple_argv', 'simple_shell'].includes(complexity) ? 'process_execution' : 'opaque_process_request',
-      effect: 'unknown', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity,
-      purpose: request.resolved.reviewPurpose ?? 'general_process',
-    });
-  }
+  if (['process.run', 'shell.run'].includes(definition.name)) return processClassification(request);
   return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
 }
+
+function processClassification(request) {
+  const complexity = request.resolved.reviewComplexity ?? 'unknown';
+  const detached = request.resolved?.reliabilitySignals?.includes('detached_process');
+  return Object.freeze({
+    risk: 'review_required',
+    reason: detached ? 'detached_process_request'
+      : ['simple_argv', 'simple_shell'].includes(complexity) ? 'process_execution' : 'opaque_process_request',
+    effect: 'unknown', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity,
+    purpose: request.resolved.reviewPurpose ?? 'general_process',
+  });
+}
+
+function unauthorizedDetachedProcess(request, authority) {
+  return request.resolved?.reliabilitySignals?.includes('detached_process')
+    && !detachedProcessAuthorized(authority);
+}
+
+function detachedProcessDenial(request) { return deny('detached_process_not_authorized', DETACHED_PROCESS_GUIDANCE, request); }
 
 function definitionMismatchClassification() {
   return Object.freeze({ risk: 'prohibited', reason: 'definition_mismatch', effect: 'unknown', scope: 'unknown', complexity: 'unknown' });

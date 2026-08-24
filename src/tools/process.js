@@ -4,6 +4,7 @@ import { ContractError } from '../ids.js';
 import { normalizeShellExecutionError, shellReliabilitySignals, shellToolGuidance } from '../reliability/host-environment.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 import { portableExecutableName } from '../reliability/executable-name.js';
+import { detachedProcessInvocation } from '../reliability/process-lifecycle.js';
 
 const MAX_SCRIPT_LENGTH = 32_768;
 const MAX_FIELD_LENGTH = 4_096;
@@ -43,11 +44,11 @@ export function shellRunDefinition(paths, references = null, platform = process.
   const guidance = shellToolGuidance(platform);
   return {
     name: 'shell.run', version: 1,
-    purpose: `Run a bounded terminal workflow in the host platform shell. ${guidance} Use this for ordinary command-line programs as well as pipelines, redirection, expansion, or multiple commands; prefer a more specific structured NNA tool when one describes the operation. Keep one coherent purpose per call when practical. Avoid large loops, nested substitutions, deeply nested quoting, and combining mutation with verification. The complete script is reviewed before execution. Handle expected predicate statuses explicitly: diff and no-match grep commonly exit 1, while pipefail can expose an upstream SIGPIPE from pipelines ending in head.`,
+    purpose: `Run a bounded foreground terminal workflow in the host platform shell. ${guidance} Use this for ordinary command-line programs as well as pipelines, redirection, expansion, or multiple commands; prefer a more specific structured NNA tool when one describes the operation. The workflow must normally terminate within this call. Do not use Start-Process, Start-Job, nohup, disown, background &, or equivalent detachment unless authenticated user intent explicitly requests a persistent or background process; detached requests receive mandatory intent review. Keep one coherent purpose per call when practical. Avoid large loops, nested substitutions, deeply nested quoting, and combining mutation with verification. The complete script is reviewed before execution. Handle expected predicate statuses explicitly: diff and no-match grep commonly exit 1, while pipefail can expose an upstream SIGPIPE from pipelines ending in head.`,
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
-        script: { type: 'string', minLength: 1, maxLength: 32768, description: `Required complete script using the selected interpreter's exact syntax. NNA does not translate syntax. ${guidance}` },
+        script: { type: 'string', minLength: 1, maxLength: 32768, description: `Required complete foreground script using the selected interpreter's exact syntax. NNA does not translate syntax. Detaching a process requires explicit authenticated user intent for that persistent or background process. ${guidance}` },
         shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'], description: `Interpreter; defaults to auto. ${guidance}` },
         cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the script. Defaults to the agent working directory.' },
         stdin_ref: { type: 'string', maxLength: 180, description: 'Optional nna_ref_draft identifier whose exact stored text is sent to standard input.' },
@@ -82,12 +83,13 @@ async function validateShellRequest(paths, input, references) {
   const invocation = shellInvocation(shell, input.script, process.platform);
   const stdinRef = validateStdinReference(input.stdin_ref, references);
   const acceptedExitCodes = validateAcceptedExitCodes(input.accepted_exit_codes, 'shell_exit_codes_invalid');
+  const reliabilitySignals = shellReliabilitySignals(input.script, invocation.shell);
   return {
     args: { script: input.script, shell: invocation.shell, cwd: cwd.path, timeout_ms: timeoutMs,
       accepted_exit_codes: acceptedExitCodes, ...(stdinRef ? { stdin_ref: stdinRef } : {}) },
     resolved: {
       path: cwd.path, executable: invocation.executable, shell: invocation.shell, script: input.script,
-      reviewComplexity: shellComplexity(input.script), reliabilitySignals: shellReliabilitySignals(input.script),
+      reviewComplexity: shellComplexity(input.script, reliabilitySignals), reliabilitySignals,
       reviewPurpose: shellReviewPurpose(input.script),
       insideWorkspace: cwd.insideWorkspace, recovery: cwd.recovery,
     },
@@ -112,9 +114,10 @@ export function shellInvocation(requested, script, platform = process.platform) 
   return { shell: 'sh', executable: 'sh', args: ['-c', script] };
 }
 
-function shellComplexity(script) {
+function shellComplexity(script, signals = shellReliabilitySignals(script)) {
   if (/(?:^|[;&|\n]\s*)(?:rm\s+-[^\n]*r[^\n]*f|format\b|diskpart\b|shutdown\b|reboot\b|git\s+(?:clean\s+-[^\n]*f|reset\s+--hard)|Remove-Item\b[^\n]*(?:-Recurse|-Force)|(?:del|erase|rmdir)\b)/iu.test(script)) return 'destructive_shell';
-  if (shellReliabilitySignals(script).length >= 2) return 'fragile_shell';
+  if (signals.includes('detached_process')) return 'detached_shell';
+  if (signals.length >= 2) return 'fragile_shell';
   if (/\r?\n|&&|\|\||[|;<>]/u.test(script)) return 'compound_shell';
   return 'simple_shell';
 }
@@ -151,10 +154,21 @@ async function validateProcessRequest(paths, input, references) {
     accepted_exit_codes: acceptedExitCodes, ...(stdinRef ? { stdin_ref: stdinRef } : {}) }, resolved: {
     path: cwd.path, executable: input.executable, argv: [...args], shell: false,
     reviewComplexity: processComplexity(executable, args),
-    reliabilitySignals: inlineInterpreterInvocation(executable, args) ? Object.freeze(['inline_interpreter_code']) : Object.freeze([]),
+    reliabilitySignals: processReliabilitySignals(executable, args),
     insideWorkspace: cwd.insideWorkspace,
     reviewPurpose: processReviewPurpose(executable, args), recovery: cwd.recovery,
   } };
+}
+
+function processReliabilitySignals(executable, args) {
+  const signals = [];
+  if (inlineInterpreterInvocation(executable, args)) signals.push('inline_interpreter_code');
+  const commandIndex = args.findIndex((item) => /^(?:-c|-command|\/c)$/iu.test(item));
+  const lifecycleSource = commandIndex >= 0 ? args[commandIndex + 1] : args.join(' ');
+  if (detachedProcessInvocation(lifecycleSource, executable)) {
+    signals.push('detached_process');
+  }
+  return Object.freeze(signals);
 }
 
 function processReviewPurpose(executable, args) {

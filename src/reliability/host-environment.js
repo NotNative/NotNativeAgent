@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ContractError } from '../ids.js';
+import { detachedProcessInvocation } from './process-lifecycle.js';
 
 const HOSTS = Object.freeze({
   win32: Object.freeze({
@@ -49,12 +50,13 @@ export function normalizeShellExecutionError(error, shell, platform = process.pl
   return new ContractError('shell_interpreter_unavailable', unavailableShellMessage(shell, platform), { cause: error });
 }
 
-export function shellReliabilitySignals(script) {
+export function shellReliabilitySignals(script, shell = 'auto') {
   const signals = [];
   const separators = script.match(/(?:&&|\|\||[;|\n])/gu)?.length ?? 0;
   if (separators >= 3) signals.push('many_operations');
   if (/\b(?:for|foreach|while)\b/iu.test(script) && /\$\(|`[^`]+`/u.test(script)) signals.push('loop_with_substitution');
   if ((script.match(/["']/gu)?.length ?? 0) >= 8 && /\$\(|`|\\["']/u.test(script)) signals.push('nested_quoting');
   if (/\b(?:do|done|then|fi)\b/iu.test(script) && /\b(?:Get-|Set-|Write-|Select-|ForEach-Object)\w*/iu.test(script)) signals.push('mixed_shell_dialects');
+  if (detachedProcessInvocation(script, shell)) signals.push('detached_process');
   return Object.freeze(signals);
 }

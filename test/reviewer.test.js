@@ -552,6 +552,77 @@ test('AC-REV-08/AC-TOOL-02 opaque process requests require authenticated user in
   assert.equal(semanticCalls, 2);
 });
 
+test('detached processes require explicit authenticated lifecycle intent before semantic review', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'detached-process-intent' });
+  let semanticCalls = 0;
+  let captured;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    semanticCalls += 1;
+    captured = input;
+    return { outcome: 'approve', confidence: 1, reason_code: 'persistent_server_authorized' };
+  } } });
+  const request = {
+    ...readRequest('detached-process'), toolName: 'shell.run',
+    args: { shell: 'powershell', script: 'Start-Process powershell.exe -ArgumentList "-File server.ps1"' },
+    resolved: {
+      path: 'D:/workspace', shell: 'powershell', reviewComplexity: 'detached_shell',
+      reliabilitySignals: ['detached_process'],
+    },
+  };
+  const definition = { name: 'shell.run', purpose: 'Run a bounded foreground shell workflow.', sideEffect: 'unknown', scope: 'workspace' };
+  const denied = await reviewer.review(request, {
+    ...context,
+    authority: { ...context.authority, intent: [{ content: 'Build and verify the ocean scene', sequence: 1 }] },
+    definition,
+  });
+  assert.equal(denied.outcome, 'deny_with_guidance');
+  assert.equal(denied.reasonCode, 'detached_process_not_authorized');
+  assert.match(denied.guidance, /Use a bounded foreground command/u);
+  assert.equal(semanticCalls, 0);
+
+  const approved = await reviewer.review({
+    ...request, id: 'detached-process-authorized', providerCallId: 'provider-detached-authorized', authorityVersion: 2,
+  }, {
+    ...context,
+    authority: {
+      ...context.authority, version: 2,
+      intent: [{ content: 'Start the preview server and leave it running in the background.', sequence: 2 }],
+    },
+    definition,
+  });
+  assert.equal(approved.outcome, 'approve');
+  assert.equal(semanticCalls, 1);
+  assert.equal(captured.classification.reason, 'detached_process_request');
+});
+
+test('a current restriction overrides earlier detached-process authorization', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'detached-process-restriction' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1;
+    return { outcome: 'approve', confidence: 1, reason_code: 'should_not_run' };
+  } } });
+  const request = {
+    ...readRequest('detached-process-restricted'), toolName: 'shell.run',
+    args: { shell: 'powershell', script: 'Start-Job { npm run dev }' },
+    resolved: { path: 'D:/workspace', reviewComplexity: 'detached_shell', reliabilitySignals: ['detached_process'] },
+  };
+  const result = await reviewer.review(request, {
+    ...context,
+    authority: {
+      ...context.authority,
+      intent: [
+        { content: 'Start the preview server in the background.', sequence: 1 },
+        { content: 'Do not leave any server or job running in the background.', sequence: 2, kind: 'restriction' },
+      ],
+    },
+    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+  });
+  assert.equal(result.outcome, 'deny_with_guidance');
+  assert.equal(result.reasonCode, 'detached_process_not_authorized');
+  assert.equal(semanticCalls, 0);
+});
+
 test('explicit SSH intent and target reach semantic review with the tool definition packet', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'ssh-intent' });
   let captured;
