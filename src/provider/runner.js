@@ -204,7 +204,11 @@ export class ProviderRunner {
       while (true) {
         const boundary = opened ? 'provider_idle_timeout' : 'provider_first_token_timeout';
         const duration = opened ? deadlines.idleMs : deadlines.firstTokenMs;
-        const next = await boundedNext(iterator, duration, boundary);
+        const renewFromHealth = opened ? deadlines.renewIdleOnHealth : deadlines.renewFirstTokenOnHealth;
+        const next = await boundedNext(
+          iterator, duration, boundary,
+          renewFromHealth ? () => active.lastProviderHealthAt : null,
+        );
         if (next.done) break;
         const item = next.value;
         active.lastProviderActivityAt = Date.now();
@@ -289,6 +293,7 @@ function initializeAttempt(active, outputLimitTokens = null) {
   active.attemptReasoningOverflow = false;
   active.providerDispatched = false;
   active.lastProviderActivityAt = Date.now();
+  active.lastProviderHealthAt = null;
 }
 
 function providerCorrelation(active, spanId) {
@@ -351,23 +356,30 @@ function fallbackEligible(error) {
   ]).has(error?.code);
 }
 
-async function boundedNext(iterator, milliseconds, code) {
+async function boundedNext(iterator, milliseconds, code, renewedAt = null) {
   if (!Number.isFinite(milliseconds)) return iterator.next();
-  let timer;
-  const timeout = new Promise((resolve) => {
-    timer = setTimeout(() => resolve({ timeout: true }), milliseconds);
-  });
+  const startedAt = Date.now();
   const operation = iterator.next().then(
     (value) => ({ value }),
     (error) => ({ error }),
   );
-  try {
-    const settled = await Promise.race([operation, timeout]);
-    if (settled.timeout) throw new ContractError(code, 'provider stream deadline expired', true);
-    if (settled.error) throw settled.error;
-    return settled.value;
-  } finally {
-    clearTimeout(timer);
+  while (true) {
+    const renewal = typeof renewedAt === 'function' ? renewedAt() : null;
+    const leaseStartedAt = Number.isFinite(renewal) ? Math.max(startedAt, renewal) : startedAt;
+    const remaining = Math.max(0, milliseconds - (Date.now() - leaseStartedAt));
+    if (remaining === 0) throw new ContractError(code, 'provider stream deadline expired', true);
+    let timer;
+    const timeout = new Promise((resolve) => {
+      timer = setTimeout(() => resolve({ timeout: true }), remaining);
+    });
+    try {
+      const settled = await Promise.race([operation, timeout]);
+      if (settled.timeout) continue;
+      if (settled.error) throw settled.error;
+      return settled.value;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
 
@@ -377,6 +389,8 @@ export function effectiveProviderDeadlines(deadlines, route) {
     overallMs: route.deadlineMs,
     firstTokenMs: trustedLocal && !deadlines.firstTokenExplicit ? null : deadlines.firstTokenMs,
     idleMs: trustedLocal && !deadlines.idleExplicit ? TRUSTED_LOCAL_IDLE_WATCHDOG_MS : deadlines.idleMs,
+    renewFirstTokenOnHealth: trustedLocal && !deadlines.firstTokenExplicit,
+    renewIdleOnHealth: trustedLocal && !deadlines.idleExplicit,
   };
 }
 
@@ -401,15 +415,15 @@ function startProviderHealthMonitor({ provider, active, signal, telemetry, inter
   let pending = null;
   let probeController = null;
   let sequence = 0;
-  const schedule = () => {
+  const schedule = (delayMs = intervalMs) => {
     if (stopped) return;
-    timer = setTimeout(() => { pending = run(); }, intervalMs);
+    timer = setTimeout(() => { pending = run(); }, delayMs);
     timer.unref?.();
   };
   const run = async () => {
     if (stopped || signal.aborted) return;
     const silenceMs = Date.now() - (active.lastProviderActivityAt ?? Date.now());
-    if (silenceMs < intervalMs) { schedule(); return; }
+    if (silenceMs < intervalMs) { schedule(Math.max(1, intervalMs - silenceMs)); return; }
     sequence += 1;
     const controller = new AbortController();
     probeController = controller;
@@ -423,6 +437,7 @@ function startProviderHealthMonitor({ provider, active, signal, telemetry, inter
     }, providerCorrelation(active, spanId));
     try {
       await provider.health(controller.signal);
+      active.lastProviderHealthAt = Date.now();
       telemetry?.record('provider.health', 'succeeded', {
         model: active.modelName, provider_profile: active.providerResource, silence_ms: silenceMs,
       }, { ...providerCorrelation(active, spanId), outcome: 'completed' });

@@ -15,15 +15,21 @@ import { tmpdir } from 'node:os';
 
 const EMPTY_HOOK_ROOT = join(process.cwd(), '.nna-test-hooks-none');
 
-test('trusted local routes retain a no-byte watchdog without imposing an overall deadline', () => {
+test('trusted local routes retain a health-renewed no-byte lease without imposing an overall deadline', () => {
   const effective = effectiveProviderDeadlines({
     firstTokenMs: 600_000, firstTokenExplicit: false, idleMs: 300_000, idleExplicit: false,
   }, { deadlineMs: null, profile: { trustZone: 'loopback' } });
-  assert.deepEqual(effective, { overallMs: null, firstTokenMs: null, idleMs: 120_000 });
+  assert.deepEqual(effective, {
+    overallMs: null, firstTokenMs: null, idleMs: 120_000,
+    renewFirstTokenOnHealth: true, renewIdleOnHealth: true,
+  });
   const explicit = effectiveProviderDeadlines({
     firstTokenMs: 30_000, firstTokenExplicit: true, idleMs: 45_000, idleExplicit: true,
   }, { deadlineMs: 90_000, profile: { trustZone: 'loopback' } });
-  assert.deepEqual(explicit, { overallMs: 90_000, firstTokenMs: 30_000, idleMs: 45_000 });
+  assert.deepEqual(explicit, {
+    overallMs: 90_000, firstTokenMs: 30_000, idleMs: 45_000,
+    renewFirstTokenOnHealth: false, renewIdleOnHealth: false,
+  });
 });
 
 test('AC-HEAD-07 output writer bounds admitted bytes and rejects excess concurrent output', async () => {

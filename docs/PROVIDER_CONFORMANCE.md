@@ -54,5 +54,6 @@ retain the input/report outside the distributed product tree.
 
 Trusted loopback and private-network entries use NNA's deadline-owned local HTTP transport.
 It does not impose a client-library body-idle cutoff on buffered reasoning, but it retains the
-adapter byte ceiling and immediate cancellation. Content-free health probes are diagnostic
-only and cannot convert elapsed time into progress or failure.
+adapter byte ceiling and immediate cancellation. Successful content-free health probes renew
+the inherited trusted-local no-byte lease without fabricating model output or overriding an
+explicit operator deadline. Failed probes leave the lease unchanged.

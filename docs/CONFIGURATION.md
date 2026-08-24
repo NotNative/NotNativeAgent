@@ -94,8 +94,11 @@ Trusted local routes also avoid the HTTP client's implicit response-body timeout
 their deadlines end to end instead of allowing a lower transport layer to disconnect a
 server that is still generating buffered reasoning. After 60 seconds without a stream event,
 NNA makes a bounded, content-free `/models` health probe and records the result in local
-telemetry. That probe is diagnostic only: success does not count as stream progress or extend
-an explicit deadline, and failure does not terminate an otherwise live generation.
+telemetry. On inherited trusted-local policy, a successful probe renews the no-byte stream
+lease so slow or server-buffered inference can continue regardless of generation rate. A
+failed probe does not renew that lease, but it does not terminate inference immediately.
+Explicit operator first-token, idle, and overall deadlines remain authoritative and are never
+extended by a health probe.
 
 The mandatory semantic reviewer always disables model thinking. Its decision is a small,
 strictly validated JSON authorization result. Generic OpenAI-compatible models receive the

@@ -573,7 +573,7 @@ test('an unset overall route deadline does not create an immediate timeout', asy
   assert.equal(active.stepText, 'completed');
 });
 
-test('silent trusted-local inference receives non-authoritative out-of-band health probes', async () => {
+test('successful trusted-local health probes renew the default silent-stream lease', async () => {
   const state = new StateAuthority();
   state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-health-probe' });
   const lifecycles = new LifecycleRegistry();
@@ -592,22 +592,95 @@ test('silent trusted-local inference receives non-authoritative out-of-band heal
     state, lifecycles, publish: async () => undefined,
     acceptText: async (text) => { active.stepText += text; },
     settleAttempt: async () => undefined, recordRecovery: async () => undefined,
-    healthProbeIntervalMs: 10, healthProbeTimeoutMs: 5,
+    healthProbeIntervalMs: 8, healthProbeTimeoutMs: 5,
     telemetry: { record: (name, outcome) => events.push([name, outcome]) },
   });
   const provider = {
     profile: { trustZone: 'loopback' },
-    health: async () => { probes += 1; throw Object.assign(new Error('offline probe'), { code: 'ECONNREFUSED' }); },
+    health: async () => { probes += 1; return true; },
     async *stream() {
-      await new Promise((resolve) => setTimeout(resolve, 35));
+      yield { type: 'text', text: 'working' };
+      await new Promise((resolve) => setTimeout(resolve, 55));
       yield { type: 'text', text: 'completed' };
       yield { type: 'terminal', finishReason: 'stop' };
     },
   };
-  await runner.run(provider, {}, { overallMs: null, firstTokenMs: null, idleMs: null }, active);
-  assert.equal(active.stepText, 'completed');
-  assert.ok(probes >= 1);
-  assert.ok(events.some(([name, outcome]) => name === 'provider.health' && outcome === 'failed'));
+  await runner.run(provider, {}, {
+    overallMs: 200, firstTokenMs: 20, idleMs: 20,
+    renewFirstTokenOnHealth: true, renewIdleOnHealth: true,
+  }, active);
+  assert.equal(active.stepText, 'workingcompleted');
+  assert.ok(probes >= 3);
+  assert.ok(events.some(([name, outcome]) => name === 'provider.health' && outcome === 'succeeded'));
+});
+
+test('failed trusted-local health probes do not renew a silent-stream lease', async () => {
+  const state = new StateAuthority();
+  state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-failed-health-probe' });
+  const lifecycles = new LifecycleRegistry();
+  const turn = lifecycles.start('turn');
+  const step = lifecycles.start('model_step', turn.id);
+  const active = {
+    turnId: 'turn-failed-health-probe', stepId: step.id, attemptId: null,
+    controller: new AbortController(), cancelled: false, stepText: '',
+    toolAssembler: new ToolCallAssembler(), providerTerminal: false,
+    recovery: new RecoverySupervisor(), reasoningBytes: 0, stepReasoningBytes: 0,
+    usage: null, finishReason: null, providerResource: 'local', modelName: 'slow-model',
+  };
+  const runner = new ProviderRunner({
+    state, lifecycles, publish: async () => undefined,
+    acceptText: async (text) => { active.stepText += text; },
+    settleAttempt: async () => undefined, recordRecovery: async () => undefined,
+    healthProbeIntervalMs: 8, healthProbeTimeoutMs: 5,
+  });
+  const provider = {
+    profile: { trustZone: 'loopback' },
+    health: async () => { throw Object.assign(new Error('offline probe'), { code: 'ECONNREFUSED' }); },
+    async *stream() {
+      yield { type: 'text', text: 'working' };
+      await new Promise((resolve) => setTimeout(resolve, 55));
+      yield { type: 'text', text: 'late' };
+    },
+  };
+  await assert.rejects(runner.run(provider, {}, {
+    overallMs: 200, firstTokenMs: 20, idleMs: 20,
+    renewFirstTokenOnHealth: true, renewIdleOnHealth: true,
+  }, active), { code: 'provider_idle_timeout' });
+  assert.equal(active.stepText, 'working');
+});
+
+test('explicit trusted-local idle deadlines are not renewed by successful health probes', async () => {
+  const state = new StateAuthority();
+  state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-explicit-idle' });
+  const lifecycles = new LifecycleRegistry();
+  const turn = lifecycles.start('turn');
+  const step = lifecycles.start('model_step', turn.id);
+  const active = {
+    turnId: 'turn-explicit-idle', stepId: step.id, attemptId: null,
+    controller: new AbortController(), cancelled: false, stepText: '',
+    toolAssembler: new ToolCallAssembler(), providerTerminal: false,
+    recovery: new RecoverySupervisor(), reasoningBytes: 0, stepReasoningBytes: 0,
+    usage: null, finishReason: null, providerResource: 'local', modelName: 'slow-model',
+  };
+  const runner = new ProviderRunner({
+    state, lifecycles, publish: async () => undefined,
+    acceptText: async (text) => { active.stepText += text; },
+    settleAttempt: async () => undefined, recordRecovery: async () => undefined,
+    healthProbeIntervalMs: 8, healthProbeTimeoutMs: 5,
+  });
+  const provider = {
+    profile: { trustZone: 'loopback' }, health: async () => true,
+    async *stream() {
+      yield { type: 'text', text: 'working' };
+      await new Promise((resolve) => setTimeout(resolve, 55));
+      yield { type: 'text', text: 'late' };
+    },
+  };
+  await assert.rejects(runner.run(provider, {}, {
+    overallMs: 200, firstTokenMs: 20, idleMs: 20,
+    renewFirstTokenOnHealth: false, renewIdleOnHealth: false,
+  }, active), { code: 'provider_idle_timeout' });
+  assert.equal(active.stepText, 'working');
 });
 
 test('provider cache observation is scoped to the successful transport attempt', async () => {

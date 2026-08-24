@@ -81,9 +81,11 @@ partial sentence or promised next action to terminate the turn.
 Trusted local routes therefore use a provider-only native HTTP transport with no implicit
 response-body deadline; the Reliability Engine remains the sole timeout authority. A bounded
 out-of-band health probe runs after 60 seconds without a stream event and leaves a content-free
-telemetry receipt. Probe success never fabricates stream activity, and probe failure never
-terminates inference. Transport failures are normalized through nested client causes into
-stable retryable provider codes rather than escaping as `internal_failure`.
+telemetry receipt. Under inherited trusted-local policy, probe success renews the no-byte lease
+without fabricating model output or progress. Probe failure does not renew the lease and does
+not terminate inference before that lease expires. Explicit operator deadlines are never
+renewed. Transport failures are normalized through nested client causes into stable retryable
+provider codes rather than escaping as `internal_failure`.
 
 Semantic permission review is explicitly non-thinking. The reviewer requests one bounded,
 schema-constrained decision and sends both generic and Qwen-compatible reasoning-disable
