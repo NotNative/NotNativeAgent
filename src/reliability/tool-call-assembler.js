@@ -16,7 +16,7 @@ export class ToolCallAssembler {
     for (const fragment of fragments) this.#addOne(fragment);
   }
 
-  complete(finishReason = null) {
+  complete(finishReason = null, outputEvidence = {}) {
     return [...this.#calls.values()].sort((a, b) => a.index - b.index).map((call) => {
       const providerCallId = call.providerCallId || syntheticIdentity(call);
       const name = call.name || 'unknown_tool_call';
@@ -25,7 +25,7 @@ export class ToolCallAssembler {
       try {
         args = JSON.parse(call.arguments);
       } catch {
-        const truncated = ['length', 'max_tokens', 'max_output_tokens'].includes(String(finishReason ?? '').toLowerCase());
+        const truncated = outputWasTruncated(finishReason, outputEvidence);
         return invalidCall(call, providerCallId, name,
           truncated ? 'tool_arguments_truncated' : 'tool_arguments_malformed',
           truncated ? 'tool arguments were cut off by the provider output limit; retry one smaller bounded edit'
@@ -56,6 +56,17 @@ export class ToolCallAssembler {
     current.arguments += addition;
     this.#calls.set(fragment.index, current);
   }
+}
+
+function outputWasTruncated(finishReason, evidence) {
+  if (['length', 'max_tokens', 'max_output_tokens'].includes(String(finishReason ?? '').toLowerCase())) return true;
+  const limit = evidence?.outputLimitTokens;
+  if (!Number.isSafeInteger(limit) || limit < 1) return false;
+  const usage = evidence?.usage;
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return false;
+  const output = ['completion_tokens', 'output_tokens', 'outputTokens']
+    .map((key) => usage[key]).find((value) => Number.isSafeInteger(value) && value >= 0);
+  return Number.isSafeInteger(output) && output >= limit;
 }
 
 function invalidCall(call, providerCallId, name, code, message) {

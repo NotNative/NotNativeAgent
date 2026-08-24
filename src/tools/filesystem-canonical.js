@@ -28,7 +28,7 @@ function readDefinition(legacy) {
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path to one UTF-8 text file.' },
       start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Optional first one-based line. Omit for the complete file.' },
-      line_count: { type: 'integer', minimum: 1, maximum: 400, description: 'Optional maximum lines to return. Defaults to 200 when start_line is provided.' },
+      line_count: { type: 'integer', minimum: 1, maximum: 400, description: 'Optional maximum lines to return. Defaults to 200 when start_line is provided; without start_line, begins at line 1.' },
     }, ['path']),
     validate: async (args) => {
       shape(args, ['path'], ['start_line', 'line_count']);

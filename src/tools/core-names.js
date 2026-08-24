@@ -8,13 +8,13 @@ export const CORE_TOOL_NAMES = Object.freeze([
 
 export const PROVIDER_NATIVE_TOOL_NAMES = Object.freeze([
   ...CORE_TOOL_NAMES,
-  'fs.directory', 'fs.write_text', 'fs.edit_text', 'shell.run', 'work.plan', 'agent.run', 'image.inspect',
+  'fs.directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'shell.run', 'work.plan', 'agent.run', 'image.inspect',
   'session.search_history', 'session.read_history', 'nna.diagnose_turn', 'notification.telegram',
 ]);
 
 export const LEGACY_PROVIDER_TOOL_NAMES = Object.freeze([
   'fs.glob', 'fs.list_directory', 'fs.metadata', 'fs.read_lines', 'fs.read_text',
-  'fs.create_directory', 'fs.edit_lines', 'fs.copy_file', 'fs.move_file', 'fs.delete_file',
+  'fs.create_directory', 'fs.copy_file', 'fs.move_file', 'fs.delete_file',
   'work.status', 'work.goal', 'work.task_add', 'work.task_update', 'nna.list_sessions',
 ]);
 

@@ -2,34 +2,30 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { ContractError } from '../ids.js';
-import { prepareLineEdit, prepareTextEdit } from '../stale-edit-recovery.js';
+import { prepareTextEdit } from '../stale-edit-recovery.js';
 import { normalizeArgumentAliases } from './argument-normalization.js';
 import { advanceFromAuthoredState, mutationEvidence, transactionalReceipt,
   withAuthoredAdvanceMetadata } from './filesystem-mutation-state.js';
-import { countOccurrences, logicalLines, replaceLineRange, replaceText } from './text-edit-helpers.js';
+import { countOccurrences, replaceText } from './text-edit-helpers.js';
 
 const MAX_TEXT_BYTES = 1_048_576;
 const MAX_EDIT_ARGUMENT_BYTES = 65_536;
 
 export function filesystemEditDefinition(paths, changes, receipts, atomicWrite, verifyExpectedState) {
   return {
-    name: 'fs.edit_text', version: 2,
-    purpose: 'Make one bounded edit to an existing UTF-8 file. Supply path and content, then select the target with either find for an exact normally-unique match, or start_line with optional end_line for an inclusive line range. Use an empty content string to delete the selected text. Read the relevant file first when practical; NNA still snapshots and revalidates every edit.',
+    name: 'fs.edit_text', version: 3,
+    purpose: 'Replace one exact, normally unique text match in an existing UTF-8 file. Supply only path, find, content, and optionally all; use fs.edit_lines instead when selecting by line number. Use an empty content string to delete the matched text. Read the relevant file first when practical; NNA still snapshots and revalidates every edit.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path to the existing UTF-8 file.' },
       content: { type: 'string', maxLength: MAX_EDIT_ARGUMENT_BYTES, description: 'Required replacement text. Use an empty string to delete the selected text.' },
       find: { type: 'string', minLength: 1, maxLength: MAX_EDIT_ARGUMENT_BYTES, description: 'Exact text to replace. Normally must occur once; use all only when every occurrence should change.' },
-      start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'One-based first line of an inclusive replacement range. Do not combine with find.' },
-      end_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Optional one-based last line. Defaults to start_line and may span at most 400 lines.' },
-      all: { type: 'boolean', description: 'With find only, replace every exact occurrence. Defaults to false.' },
-    }, ['path', 'content']),
+      all: { type: 'boolean', description: 'Replace every exact occurrence instead of requiring one unique match. Defaults to false.' },
+    }, ['path', 'find', 'content']),
     normalizeArgs: (args) => normalizeArgumentAliases(args, {
       path: ['filePath', 'file_path'],
       find: ['old_text', 'oldString', 'oldText', 'search'],
       content: ['new_text', 'newString', 'newText', 'replacement', 'text'],
-      start_line: ['start', 'startLine', 'line'],
-      end_line: ['end', 'endLine'],
       all: ['replace_all', 'replaceAll'],
     }),
     validate: async (args) => validateEdit(paths, args, receipts),
@@ -38,20 +34,15 @@ export function filesystemEditDefinition(paths, changes, receipts, atomicWrite, 
 }
 
 async function validateEdit(paths, args, receipts) {
-  requireShape(args, ['path', 'content'], ['find', 'start_line', 'end_line', 'all']);
-  const hasFind = Object.hasOwn(args, 'find');
-  const hasStart = Object.hasOwn(args, 'start_line');
-  if (hasFind === hasStart) throw invalid('select exactly one edit target: find or start_line');
-  if (Object.hasOwn(args, 'end_line') && !hasStart) throw invalid('end_line requires start_line');
-  if (Object.hasOwn(args, 'all') && !hasFind) throw invalid('all is only valid with find');
+  requireShape(args, ['path', 'find', 'content'], ['all']);
   if (Buffer.byteLength(args.content, 'utf8') > MAX_EDIT_ARGUMENT_BYTES
-    || (hasFind && Buffer.byteLength(args.find, 'utf8') > MAX_EDIT_ARGUMENT_BYTES)) {
+    || Buffer.byteLength(args.find, 'utf8') > MAX_EDIT_ARGUMENT_BYTES) {
     throw new ContractError('tool_arguments_too_large', 'edit arguments exceed the 65536-byte bound; edit a smaller region');
   }
-  if (hasFind && (args.find.length === 0 || (args.all !== undefined && typeof args.all !== 'boolean'))) {
+  if (args.find.length === 0 || (args.all !== undefined && typeof args.all !== 'boolean')) {
     throw invalid('find must be non-empty and all must be boolean');
   }
-  return hasStart ? validateLineEdit(paths, args, receipts) : validateExactEdit(paths, args, receipts);
+  return validateExactEdit(paths, args, receipts);
 }
 
 async function validateExactEdit(paths, args, receipts) {
@@ -73,33 +64,6 @@ async function validateExactEdit(paths, args, receipts) {
   const updated = replaceText(content, exactArgs.old_text, exactArgs.new_text, exactArgs.replace_all);
   assertUpdatedBound(updated);
   return preparedEdit(resolved, receipt, transaction, prepared, boundArgs, updated, content, 'exact_text_edit');
-}
-
-async function validateLineEdit(paths, args, receipts) {
-  const startLine = args.start_line;
-  const endLine = args.end_line ?? startLine;
-  if (!Number.isSafeInteger(startLine) || !Number.isSafeInteger(endLine)
-    || startLine < 1 || endLine < startLine || endLine - startLine >= 400) {
-    throw invalid('line range must be ordered, positive, and at most 400 lines');
-  }
-  const coverage = { start: startLine, end: endLine };
-  const { resolved, content, actual, receipt, transaction } = await editSnapshot(paths, args, receipts, coverage);
-  const boundArgs = {
-    path: args.path, edit_mode: 'lines', start_line: startLine, end_line: endLine,
-    replacement: args.content, expected_sha256: receipt?.digest ?? transaction?.digest,
-  };
-  const prepared = receipt
-    ? prepareLineEdit(receipts, resolved.path, boundArgs, content, actual)
-    : { startLine, endLine, recovered: false, expectedSha256: actual };
-  const lines = logicalLines(content);
-  if (prepared.endLine > lines.length) throw new ContractError('edit_line_out_of_range', 'line range exceeds the file snapshot');
-  const selected = lines.slice(prepared.startLine - 1, prepared.endLine).join('\n');
-  const updated = replaceLineRange(content, prepared.startLine, prepared.endLine, args.content);
-  assertUpdatedBound(updated);
-  return preparedEdit(resolved, receipt, transaction, prepared, {
-    ...boundArgs, start_line: prepared.startLine, end_line: prepared.endLine,
-    selected_sha256: sha256(selected),
-  }, updated, content, 'line_range_edit');
 }
 
 async function editSnapshot(paths, args, receipts, coverage) {
@@ -130,24 +94,13 @@ async function executeEdit(request, signal, changes, receipts, atomicWrite, veri
   const prepared = await advanceFromAuthoredState(request, receipts);
   await verifyExpectedState(prepared.request);
   const content = await readFile(prepared.request.resolved.path, 'utf8');
-  const updated = prepared.request.args.edit_mode === 'lines'
-    ? executeLineReplacement(prepared.request, content) : executeExactReplacement(prepared.request, content);
-  const replacements = prepared.request.args.edit_mode === 'lines'
-    ? prepared.request.args.end_line - prepared.request.args.start_line + 1
-    : prepared.request.args.replace_all ? countOccurrences(content, prepared.request.args.old_text) : 1;
+  const updated = executeExactReplacement(prepared.request, content);
+  const replacements = prepared.request.args.replace_all ? countOccurrences(content, prepared.request.args.old_text) : 1;
   const result = await atomicWrite({ ...prepared.request, args: { ...prepared.request.args, content: updated } }, signal, {
-    message: prepared.request.args.edit_mode === 'lines' ? 'line edit completed' : 'edit completed', replacements,
+    message: 'edit completed', replacements,
   }, changes);
   receipts.recordAuthored(prepared.request.resolved.path, sha256(updated), updated);
   return withAuthoredAdvanceMetadata(result, prepared.advanced);
-}
-
-function executeLineReplacement(request, content) {
-  const lines = logicalLines(content);
-  if (request.args.end_line > lines.length) throw drift('edit line range changed after review');
-  const selected = lines.slice(request.args.start_line - 1, request.args.end_line).join('\n');
-  if (sha256(selected) !== request.args.selected_sha256) throw drift('edit line range changed after review');
-  return replaceLineRange(content, request.args.start_line, request.args.end_line, request.args.replacement);
 }
 
 function executeExactReplacement(request, content) {

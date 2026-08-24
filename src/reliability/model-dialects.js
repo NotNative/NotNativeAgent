@@ -6,6 +6,9 @@ import { dirname } from 'node:path';
 const MAX_PROFILES = 256;
 const FAILURE_GUIDANCE_THRESHOLD = 2;
 const MAX_FAILURE_COUNT = 10_000;
+const MAX_TOOL_CONTRACT_CANDIDATES = 64;
+export const TOOL_CONTRACT_LEARNING_EPOCH = 2;
+export const TOOL_CONTRACT_LEARNING_MODE = 'shadow';
 const KNOWN_FAILURES = new Set([
   'provider_event_invalid', 'provider_missing_terminal', 'provider_empty_stream',
   'provider_conflicting_terminal', 'provider_usage_invalid', 'tool_arguments_invalid',
@@ -26,7 +29,7 @@ export class ModelDialectRegistry {
     try {
       const value = JSON.parse(await readFile(this.path, 'utf8'));
       for (const item of Array.isArray(value?.profiles) ? value.profiles.slice(0, MAX_PROFILES) : []) {
-        if (validProfile(item)) this.profiles.set(item.key, item);
+        if (validProfile(item)) this.profiles.set(item.key, normalizeProfile(item));
       }
     } catch (error) {
       if (error.code !== 'ENOENT') this.telemetry?.record('model.dialect', 'failed', { code: 'dialect_store_invalid' });
@@ -42,8 +45,8 @@ export class ModelDialectRegistry {
     ];
     if (profile.family === 'qwen') guidance.push('Keep tool arguments literal and complete; never abbreviate hashes, paths, or line ranges.');
     if (profile.family === 'gemma') guidance.push('When a tool is required, emit its call before explanatory prose.');
-    if ((failures.provider_event_invalid ?? 0) + (failures.tool_arguments_invalid ?? 0) >= FAILURE_GUIDANCE_THRESHOLD) {
-      guidance.push('Recent local schema failures were observed: verify every required property; batch only independent calls with complete arguments.');
+    if ((failures.provider_event_invalid ?? 0) >= FAILURE_GUIDANCE_THRESHOLD) {
+      guidance.push('Recent local provider-event failures were observed: emit native calls with complete arguments and no surrounding serialization.');
     }
     if ((failures.provider_missing_terminal ?? 0) + (failures.provider_conflicting_terminal ?? 0) >= FAILURE_GUIDANCE_THRESHOLD) {
       guidance.push('End each response exactly once and never emit content after termination.');
@@ -63,7 +66,7 @@ export class ModelDialectRegistry {
     this.dirty = true;
     this.telemetry?.record('model.dialect', outcome.status, {
       profile_key: profile.key, family: profile.family, observation: outcome,
-      learned_guidance_active: Object.values(profile.failures).some((count) => count >= 2),
+      learned_guidance_active: learnedGuidanceActive(profile.failures),
     }, { reasonCode: outcome.code });
     // Observation persistence is non-blocking; unexpected rejection is recorded.
     void this.flush().catch((error) => {
@@ -72,6 +75,38 @@ export class ModelDialectRegistry {
         code: 'dialect_store_flush_failed',
       }, { reasonCode: error?.code ?? 'dialect_store_flush_failed' });
     });
+  }
+
+  observeToolContract(route, observation) {
+    if (!observation || !['failed', 'repaired'].includes(observation.status)
+      || typeof observation.tool !== 'string' || !Number.isSafeInteger(observation.version)) return false;
+    const profile = this.#profile(route);
+    const state = currentToolLearning(profile.tool_contract_learning);
+    profile.tool_contract_learning = state;
+    const reason = boundedKey(observation.reason_code ?? 'tool_schema_invalid', 128);
+    const key = boundedKey(`${observation.tool}@${observation.version}/${reason}`, 512);
+    const existing = state.candidates[key] ?? {
+      tool: observation.tool, version: observation.version, reason_code: reason,
+      failures: 0, validated_repairs: 0, last_seen_at: new Date().toISOString(),
+    };
+    if (observation.status === 'failed') existing.failures = Math.min(MAX_FAILURE_COUNT, existing.failures + 1);
+    else existing.validated_repairs = Math.min(MAX_FAILURE_COUNT, existing.validated_repairs + 1);
+    existing.last_seen_at = new Date().toISOString();
+    delete state.candidates[key];
+    state.candidates[key] = existing;
+    while (Object.keys(state.candidates).length > MAX_TOOL_CONTRACT_CANDIDATES) delete state.candidates[Object.keys(state.candidates)[0]];
+    this.dirty = true;
+    this.telemetry?.record('model.tool_contract_learning', 'observed', {
+      profile_key: profile.key, mode: state.mode, epoch: state.epoch,
+      observation: { ...observation, reason_code: reason }, promoted: false,
+    });
+    void this.flush().catch((error) => {
+      this.dirty = true;
+      this.telemetry?.record('model.tool_contract_learning', 'failed', {
+        code: 'dialect_store_flush_failed',
+      }, { reasonCode: error?.code ?? 'dialect_store_flush_failed' });
+    });
+    return true;
   }
 
   snapshot(route) { return structuredClone(this.#profile(route, false)); }
@@ -97,7 +132,7 @@ export class ModelDialectRegistry {
     const temporary = `${this.path}.tmp-${process.pid}-${randomUUID()}`;
     try {
       await mkdir(dirname(this.path), { recursive: true });
-      await writeFile(temporary, `${JSON.stringify({ format: 1, profiles }, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+      await writeFile(temporary, `${JSON.stringify({ format: 2, profiles }, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
       await rename(temporary, this.path);
       return true;
     } catch (error) {
@@ -143,8 +178,29 @@ function validProfile(value) {
 function newProfile(key, provider, model) {
   const now = new Date().toISOString();
   return { key, provider_id: provider, model, family: modelFamily(model), observations: 0,
-    successes: 0, failures: {}, first_seen_at: now, last_seen_at: now };
+    successes: 0, failures: {}, tool_contract_learning: newToolLearning(), first_seen_at: now, last_seen_at: now };
 }
+
+function normalizeProfile(profile) {
+  return { ...profile, tool_contract_learning: currentToolLearning(profile.tool_contract_learning) };
+}
+
+function newToolLearning() {
+  return { mode: TOOL_CONTRACT_LEARNING_MODE, epoch: TOOL_CONTRACT_LEARNING_EPOCH, candidates: {} };
+}
+
+function currentToolLearning(value) {
+  if (!value || value.mode !== TOOL_CONTRACT_LEARNING_MODE || value.epoch !== TOOL_CONTRACT_LEARNING_EPOCH
+    || !value.candidates || typeof value.candidates !== 'object' || Array.isArray(value.candidates)) return newToolLearning();
+  return value;
+}
+
+function learnedGuidanceActive(failures) {
+  return (failures.provider_event_invalid ?? 0) >= FAILURE_GUIDANCE_THRESHOLD
+    || (failures.provider_missing_terminal ?? 0) + (failures.provider_conflicting_terminal ?? 0) >= FAILURE_GUIDANCE_THRESHOLD;
+}
+
+function boundedKey(value, maximum) { return String(value).slice(0, maximum); }
 
 function oldestProfileKey(profiles) {
   return [...profiles.values()].reduce((oldest, profile) => (
@@ -160,4 +216,3 @@ function validFailures(value) {
 
 function nonNegativeInteger(value) { return Number.isSafeInteger(value) && value >= 0; }
 function validTimestamp(value) { return typeof value === 'string' && Number.isFinite(Date.parse(value)); }
-

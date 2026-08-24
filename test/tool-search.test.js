@@ -232,13 +232,13 @@ test('compact provider facades retain callable shape while runtime schemas retai
   assert.equal(Object.hasOwn(wire.function.parameters.properties.start_line, 'maximum'), false);
   assert.equal(Object.hasOwn(wire.function.parameters.properties.path, 'maxLength'), false);
   assert.equal(wire.function.parameters.properties.start_line.type, 'integer');
-  assert.equal(Object.hasOwn(wire.function.parameters.properties.path, 'description'), false);
+  assert.match(wire.function.parameters.properties.path.description, /UTF-8 text file/u);
   assert.match(runtime.inputSchema.properties.path.description, /UTF-8 text file/u);
   assert.ok(wire.function.description.length <= 180);
   const listWire = registry.providerDefinitions().find((item) => item.function.name === 'fs.list');
   assert.equal(listWire.function.parameters.required.includes('pattern'), false);
   assert.equal(listWire.function.parameters.properties.pattern.type, 'string');
-  assert.equal(Object.hasOwn(listWire.function.parameters.properties.pattern, 'description'), false);
+  assert.match(listWire.function.parameters.properties.pattern.description, /glob/u);
 });
 
 test('every bundled filesystem argument has provider-visible semantic guidance', async () => {

@@ -353,7 +353,7 @@ test('tool continuations retain native reasoning with a bounded output allowance
   const result = await engine.submit({ request_id: 'opening-action-thinking', content: 'Build the project after reading target.txt.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.deepEqual(requests.map((request) => request.reasoningMode), [undefined, undefined]);
-  assert.equal(requests[1].maxOutputTokens, 4_096);
+  assert.equal(requests[1].maxOutputTokens, 32_000);
 });
 
 test('read-only analytical turns retain configured opening-step reasoning', async () => {
@@ -415,7 +415,7 @@ test('reasoning truncated at the output ceiling gets one reasoning-preserving ac
   const result = await engine.submit({ request_id: 'reasoning-truncated', content: 'Act after reasoning.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.deepEqual(requests.map((request) => request.reasoningMode), [undefined, undefined]);
-  assert.equal(requests.every((request) => request.maxOutputTokens === 4_096), true);
+  assert.equal(requests.every((request) => request.maxOutputTokens === 32_000), true);
   assert.deepEqual(result.recovery.map((item) => item.action), ['retry_reasoning_to_action']);
 });
 
@@ -1176,4 +1176,10 @@ test('truncated malformed tool arguments are classified separately from ordinary
   const malformed = new ToolCallAssembler();
   malformed.add([{ index: 0, id: 'malformed-edit', function: { name: 'fs.edit_text', arguments: '{nope}' } }]);
   assert.equal(malformed.complete('tool_calls')[0].invalid.code, 'tool_arguments_malformed');
+
+  const ceiling = new ToolCallAssembler();
+  ceiling.add([{ index: 0, id: 'ceiling-edit', function: { name: 'fs.edit_text', arguments: '{"path":"a.js"' } }]);
+  assert.equal(ceiling.complete('tool_calls', {
+    usage: { completion_tokens: 4096 }, outputLimitTokens: 4096,
+  })[0].invalid.code, 'tool_arguments_truncated');
 });

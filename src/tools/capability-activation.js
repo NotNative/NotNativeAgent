@@ -2,7 +2,7 @@
 
 const BUNDLES = Object.freeze({
   filesystem_mutation: Object.freeze([
-    'fs.directory', 'fs.write_text', 'fs.edit_text',
+    'fs.directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines',
   ]),
   execution: Object.freeze(['shell.run']),
   verification: Object.freeze(['project.verify']),

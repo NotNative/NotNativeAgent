@@ -189,8 +189,8 @@ test('reasoning-only truncation checkpoints the private chain for one enabled ac
   const result = await engine.submit({ request_id: 'checkpoint-turn', content: 'Inspect this workspace.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(requests.length, 3);
-  assert.equal(requests[0].maxOutputTokens, 4096);
-  assert.equal(requests[1].maxOutputTokens, 4096);
+  assert.equal(requests[0].maxOutputTokens, 32_000);
+  assert.equal(requests[1].maxOutputTokens, 32_000);
   assert.equal(requests[1].reasoningMode, undefined);
   assert.equal(requests[1].messages.find((message) => message.reasoning_content)?.reasoning_content,
     'inspect first, then act');
@@ -198,11 +198,12 @@ test('reasoning-only truncation checkpoints the private chain for one enabled ac
   await engine.shutdown({ request_id: 'checkpoint-shutdown', type: 'shutdown' });
 });
 
-test('every primary model step receives the bounded reasoning quantum', () => {
+test('every primary model step receives the context-planned output headroom', () => {
   assert.equal(modelStepRequestOptions(undefined, { contextBudget: { outputReserveTokens: 32_000 } })
-    .outputReserveTokens, 4096);
+    .outputReserveTokens, 32_000);
   assert.equal(modelStepRequestOptions(undefined, { contextBudget: { outputReserveTokens: 2048 } })
     .outputReserveTokens, 2048);
+  assert.equal(modelStepRequestOptions(undefined, { contextBudget: null }).outputReserveTokens, undefined);
 });
 
 test('engine omits an oversized reasoning block instead of replaying a partial thought', async () => {

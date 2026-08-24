@@ -19,7 +19,8 @@ import { userDataPaths } from './product.js';
 import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
-  deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, prepareTrustedToolHandoff, providerRequest,
+  completeProviderToolCalls, deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, observeToolContracts,
+  prepareTrustedToolHandoff, providerRequest,
   groundCapabilityPhase, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
@@ -34,7 +35,6 @@ import { persistEngineRecord } from './engine/persistence.js';
 import { runEngineSubagent, subagentParallelLimit } from './subagent-runtime.js';
 import { finalizeEngineTurn } from './engine/finalization.js';
 import { projectConversationIntent, resolveApprovedAssistantProposal } from './engine/intent-projection.js';
-
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -312,7 +312,7 @@ export class SessionEngine {
       });
     }
     assertTurnActive(active);
-    const calls = await deduplicateProviderToolCalls(active.toolAssembler.complete(active.finishReason), active, (...args) => this.#persist(...args));
+    const calls = await deduplicateProviderToolCalls(completeProviderToolCalls(active), active, (...args) => this.#persist(...args));
     if (active.stepText.length > 0 || calls.length > 0) resetReasoningRecovery(active);
     if (calls.length === 0) return this.#afterTextStep(active);
     await this.#settleAttempt(active, 'completed'); groundCapabilityPhase(active); this.reliability.captureReasoningContinuation(active, calls); suppressPostToolReasoningReplay(active);
@@ -324,7 +324,7 @@ export class SessionEngine {
     const delegatedAccounting = items.map((item) => item.result?.metadata?.token_accounting).filter(Boolean);
     if (delegatedAccounting.length > 0) active.delegatedTokenAccounting = this.reliability.combineTokenAccounting([
       active.delegatedTokenAccounting, ...delegatedAccounting,
-    ]);
+    ]); observeToolContracts(this, active, items);
     active.toolConstraints = mergeToolConstraints(active.toolConstraints, items);
     this.tools.expose(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean));
     active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded')

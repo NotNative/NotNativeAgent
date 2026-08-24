@@ -157,13 +157,12 @@ export function resetStep(active) {
 
 export function modelStepRequestOptions(reasoningMode, active) {
   const plannedReserve = active.contextBudget?.outputReserveTokens;
-  // Preserve native reasoning on every call, while preventing a stochastic
-  // opening step from consuming the provider's entire 32K output allowance.
-  // A reasoning-only ceiling receives one reasoning-enabled checkpoint retry.
-  const outputReserveTokens = Math.min(
-    Number.isSafeInteger(plannedReserve) ? plannedReserve : 4_096,
-    4_096,
-  );
+  // The context planner already bounds output against the provider limit and
+  // preserves input space. Do not impose a second, smaller per-step ceiling:
+  // reasoning models can consume that hidden budget before producing a tool
+  // call, turning otherwise valid JSON into a deterministic truncated tail.
+  const outputReserveTokens = Number.isSafeInteger(plannedReserve) && plannedReserve > 0
+    ? plannedReserve : undefined;
   return {
     reasoningMode,
     outputReserveTokens,
@@ -172,6 +171,19 @@ export function modelStepRequestOptions(reasoningMode, active) {
     capabilityPhase: active.capabilityPhase,
     active,
   };
+}
+
+export function completeProviderToolCalls(active) {
+  return active.toolAssembler.complete(active.finishReason, {
+    usage: active.attemptUsage, outputLimitTokens: active.attemptOutputLimitTokens,
+  });
+}
+
+export function observeToolContracts(engine, active, items) {
+  engine.reliability.observeToolContracts?.(
+    { profile: { id: active.providerResource }, model: active.modelName }, items, active.toolConstraints,
+    (name) => engine.tools.definition(name)?.version ?? null,
+  );
 }
 
 export function suppressPostToolReasoningReplay(active) {

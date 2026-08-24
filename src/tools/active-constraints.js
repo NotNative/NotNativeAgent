@@ -76,7 +76,11 @@ function instruction(kind, result, item, prerequisite = null) {
     return `Repair the missing ancestor by calling ${prerequisite.tool} with path ${JSON.stringify(prerequisite.path)}. `
       + 'Use action create and do not retry descendant writes until this exact ancestor exists. If another action already created it, verify the exact path with fs.list.';
   }
-  if (kind === CONSTRAINT_KIND.schema) return 'Correct the reported field and value; do not repeat the same request fingerprint.';
+  if (kind === CONSTRAINT_KIND.schema) {
+    const detail = constraintDetail(kind, result);
+    return `The prior ${result.tool_name ?? item?.call?.name ?? 'tool'} request was rejected: ${detail}. `
+      + 'Rebuild the call from the currently presented schema, use only its allowed fields, and do not repeat the same request fingerprint.';
+  }
   if (kind === CONSTRAINT_KIND.governance) return 'Do not repeat an equivalent request unless new authenticated operator input changes its authority.';
   if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, process.run, or a structured tool unless the requested interpreter is positively discovered.';
   const args = item?.call?.args ?? item?.request?.args;

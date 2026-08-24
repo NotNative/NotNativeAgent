@@ -152,6 +152,27 @@ export class ReliabilityEngine {
 
   instructions(route) { return this.modelDialects.instructions(route); }
   observe(route, outcome) { return this.modelDialects.observe(route, outcome); }
+  observeToolContracts(route, items = [], priorConstraints = [], versionFor = () => null) {
+    const schemaFailures = new Set(['tool_schema_invalid', 'tool_arguments_malformed', 'tool_arguments_truncated']);
+    for (const item of items) {
+      const tool = item?.result?.tool_name ?? item?.call?.name;
+      const version = versionFor(tool);
+      if (typeof tool !== 'string' || !Number.isSafeInteger(version)) continue;
+      const reason = item?.result?.reason_code;
+      if (item?.result?.status === 'invalid_request' && schemaFailures.has(reason)) {
+        this.modelDialects.observeToolContract(route, {
+          status: 'failed', tool, version, reason_code: reason,
+        });
+      }
+      if (item?.result?.status === 'succeeded') {
+        for (const constraint of priorConstraints.filter((entry) => entry.kind === 'schema_repair' && entry.tool === tool)) {
+          this.modelDialects.observeToolContract(route, {
+            status: 'repaired', tool, version, reason_code: constraint.reason_code,
+          });
+        }
+      }
+    }
+  }
   modelSnapshot(route) { return this.modelDialects.snapshot(route); }
 
   health() {

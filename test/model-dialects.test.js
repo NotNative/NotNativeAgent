@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { ModelDialectRegistry } from '../src/provider/model-dialects.js';
 import { qualifyModel } from '../src/provider/model-qualification.js';
 
-test('model dialect profiles persist observations and tighten guidance after repeated failures', async () => {
+test('model dialect profiles persist provider observations while tool-contract lessons stay quarantined', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-dialect-'));
   const path = join(root, 'dialects.json');
   const route = { profile: { id: 'local' }, model: 'qwen3.8-27b' };
@@ -16,7 +16,13 @@ test('model dialect profiles persist observations and tighten guidance after rep
   assert.match(registry.instructions(route), /native tool calls/u);
   registry.observe(route, { status: 'failed', code: 'provider_event_invalid' });
   registry.observe(route, { status: 'failed', code: 'tool_arguments_invalid' });
-  assert.match(registry.instructions(route), /recent local schema failures/iu);
+  assert.doesNotMatch(registry.instructions(route), /recent local schema failures/iu);
+  registry.observeToolContract(route, {
+    status: 'failed', tool: 'fs.edit_text', version: 3, reason_code: 'tool_schema_invalid',
+  });
+  registry.observeToolContract(route, {
+    status: 'repaired', tool: 'fs.edit_text', version: 3, reason_code: 'tool_schema_invalid',
+  });
   await registry.close();
 
   const restored = new ModelDialectRegistry({ path });
@@ -25,7 +31,11 @@ test('model dialect profiles persist observations and tighten guidance after rep
   assert.equal(profile.family, 'qwen');
   assert.equal(profile.observations, 2);
   assert.equal(profile.failures.provider_event_invalid, 1);
-  assert.match(restored.instructions(route), /batch only independent calls/u);
+  assert.equal(profile.tool_contract_learning.mode, 'shadow');
+  assert.equal(profile.tool_contract_learning.epoch, 2);
+  assert.equal(profile.tool_contract_learning.candidates['fs.edit_text@3/tool_schema_invalid'].failures, 1);
+  assert.equal(profile.tool_contract_learning.candidates['fs.edit_text@3/tool_schema_invalid'].validated_repairs, 1);
+  assert.doesNotMatch(restored.instructions(route), /recent local schema failures/iu);
   await restored.close();
 });
 

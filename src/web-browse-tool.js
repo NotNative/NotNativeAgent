@@ -19,13 +19,13 @@ export function webBrowseDefinition(options = {}) {
     maxOutputBytes: PROVIDER_TEXT_BYTES,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['action'], properties: {
-        action: { type: 'string', enum: [...ACTIONS], description: 'Required browser operation.' },
-        url: { type: 'string', maxLength: 4096, description: 'Required complete HTTP(S) URL only for navigate.' },
-        target: { type: 'string', maxLength: 1024, description: 'Element reference from inspect (for example e1) or a CSS selector.' },
-        value: { type: 'string', maxLength: 20_000, description: 'Non-secret text for fill.' },
-        key: { type: 'string', maxLength: 64, description: 'Keyboard key or chord required for press, for example Enter or Control+A.' },
-        secret_id: { type: 'string', maxLength: 128, description: 'Configured secret-broker id required for fill_secret.' },
-        secret_field: { type: 'string', maxLength: 64, description: 'Named field within secret_id required for fill_secret.' },
+        action: { type: 'string', enum: [...ACTIONS], description: 'Required operation. Arguments: navigate=url; click=target; fill=target+value; fill_secret=target+secret_id+secret_field; press=target+key; inspect, screenshot, and close need no other fields.' },
+        url: { type: 'string', maxLength: 4096, description: 'Required only for action navigate: one complete HTTP(S) URL.' },
+        target: { type: 'string', maxLength: 1024, description: 'Required for click, fill, fill_secret, and press: an element reference from inspect (for example e1) or a CSS selector.' },
+        value: { type: 'string', maxLength: 20_000, description: 'Required only for action fill: non-secret text.' },
+        key: { type: 'string', maxLength: 64, description: 'Required only for action press: a keyboard key or chord such as Enter or Control+A.' },
+        secret_id: { type: 'string', maxLength: 128, description: 'Required only for action fill_secret: configured secret-broker id.' },
+        secret_field: { type: 'string', maxLength: 64, description: 'Required only for action fill_secret: named field within secret_id.' },
       },
     },
     validate: async (args) => validateBrowseArgs(args, manager),
@@ -215,4 +215,3 @@ function metadata(action, page, extra = {}) { return { action, url: page.url(), 
 function invalid(message = 'web.browse arguments do not match the requested browser action') {
   return new ContractError('tool_schema_invalid', message);
 }
-

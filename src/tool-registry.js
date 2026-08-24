@@ -145,7 +145,11 @@ export class ToolRegistry {
     ) || this.allowedTools?.has(item.name));
     const projected = new Map(callable.map((item) => [item.name, {
       type: 'function',
-      function: { name: item.name, description: compactPurpose(item), parameters: providerSchema(item.inputSchema) },
+      // Keep human-readable field semantics on the wire. The compact projection
+      // removed every property description, leaving local models to infer
+      // conditional contracts from names alone while runtime validation still
+      // enforced the omitted rules.
+      function: { name: item.name, description: compactPurpose(item), parameters: providerSchema(item.inputSchema, { mode: 'documented' }) },
     }]));
     const plan = planProviderToolNames({
       availableNames: callable.map((item) => item.name), activatedNames: activated,
@@ -316,11 +320,11 @@ async function executeFullWrite(paths, receipts, request, signal, changes) {
 }
 function editLinesDefinition(paths, changes, receipts) {
   return {
-    name: 'fs.edit_lines', version: 1,
-    purpose: 'Replace an inclusive line range previously shown by fs.read_lines in the same exact file snapshot.',
+    name: 'fs.edit_lines', version: 2,
+    purpose: 'Replace one inclusive line range in an existing UTF-8 file. Supply only path, start_line, end_line, and replacement; use fs.edit_text instead when selecting exact text. Read the relevant numbered lines first so NNA can anchor and revalidate the edit.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
-      path: { type: 'string', maxLength: 4096, description: 'Required path previously read with fs.read_lines.' },
+      path: { type: 'string', maxLength: 4096, description: 'Required path previously read with fs.read or fs.read_lines.' },
       start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required first one-based line in the inclusive replacement range.' },
       end_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required last one-based line in the inclusive replacement range.' },
       replacement: { type: 'string', maxLength: MAX_TEXT_BYTES, description: 'Required replacement text; use an empty string to remove the selected lines.' },
@@ -455,4 +459,3 @@ function deepFreeze(value) {
   if (value && typeof value === 'object') { Object.freeze(value); for (const child of Object.values(value)) deepFreeze(child); }
   return value;
 }
-
