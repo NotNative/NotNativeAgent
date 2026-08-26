@@ -16,7 +16,17 @@ While a trusted consumer is using a secret, exact values and their common encode
 
 ## Console behavior
 
-`/secrets` is a keyboard-driven, write-only manager for local secrets. Operators can create, rotate, revoke, enable, and delete records. Existing values are never displayed. Secret management is restricted to the Main conversation.
+`/secrets` is a keyboard-driven, write-only manager for local secrets. Operators can create,
+replace, disable, enable, and delete records. Existing values are never displayed. Disabling or
+deleting the local record does not revoke the external credential. Secret management is restricted
+to the Main conversation, and deletion is blocked while a Provider or MCP binding references it.
+
+Provider and MCP configuration store structured record/field bindings, never values. The same
+binding contract covers provider bearer authentication, MCP bearer authentication, stdio
+child-process environment injection, and named custom MCP headers. The broker releases a value only
+inside the trusted transport callback. Existing environment-variable references remain an advanced
+compatibility source. Historical restricted provider/MCP credential files remain readable for
+migration compatibility, but new guided configuration writes to the Secret Broker.
 
 ## NNO integration boundary
 

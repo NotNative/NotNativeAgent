@@ -134,7 +134,9 @@ export class TerminalInputDecoder {
     if (enhancedKey?.pending) return false;
     if (enhancedKey) {
       this.#buffer = this.#buffer.slice(enhancedKey.bytes);
-      if (enhancedKey.action) {
+      if (enhancedKey.text !== undefined) {
+        actions.push({ action: 'insert', text: enhancedKey.text });
+      } else if (enhancedKey.action) {
         actions.push(enhancedKey.action === 'newline'
           ? { action: 'newline', text: '\n' }
           : { action: enhancedKey.action });
@@ -180,19 +182,22 @@ export class TerminalInputDecoder {
 }
 
 function enhancedKeyboardSequence(value, bindings) {
-  const match = /^\u001b\[(\d+)(?::[\d:]*)?(?:;(\d+)(?::[\d:]*)?)?(?:;[\d:]*)?u/u.exec(value);
+  const match = /^\u001b\[(\d+)(?::([\d:]*))?(?:;(\d+)(?::(\d+))?)?(?:;([\d:]+))?u/u.exec(value);
   if (!match) {
     // Raw terminal input may split one escape sequence across multiple data
     // events. Do not discard an incomplete CSI-u prefix before its final `u`.
     if (/^\u001b\[[\d:;]*$/u.test(value)) return { pending: true };
     return null;
   }
-  const codepoint = Number(match[1]);
-  const modifierBits = Math.max(0, Number(match[2] ?? 1) - 1);
+  const alternateCodepoints = String(match[2] ?? '').split(':').filter(Boolean).map(Number);
+  const modifierBits = Math.max(0, Number(match[3] ?? 1) - 1);
+  const eventType = Number(match[4] ?? 1);
   const shift = (modifierBits & 1) !== 0;
   const alt = (modifierBits & 2) !== 0;
   const ctrl = (modifierBits & 4) !== 0;
+  const codepoint = shift && alternateCodepoints.length > 0 ? alternateCodepoints[0] : Number(match[1]);
   let action = null;
+  if (eventType === 3) return { bytes: match[0].length, action: null };
   if (codepoint === 13) action = shift || alt ? 'newline' : 'submit';
   else if (codepoint === 27) action = 'back';
   else if (codepoint === 127) action = 'backspace';
@@ -206,7 +211,25 @@ function enhancedKeyboardSequence(value, bindings) {
       action = keySequence(String.fromCodePoint(letter - 96), bindings)?.action ?? null;
     }
   }
-  return { bytes: match[0].length, action };
+  if (action) return { bytes: match[0].length, action };
+  const reportedText = decodeEnhancedText(match[5]);
+  if (reportedText !== null) return { bytes: match[0].length, text: reportedText };
+  if (!ctrl && !alt && printableCodepoint(codepoint)) {
+    return { bytes: match[0].length, text: String.fromCodePoint(codepoint) };
+  }
+  return { bytes: match[0].length, action: null };
+}
+
+function decodeEnhancedText(value) {
+  if (value === undefined) return null;
+  const codepoints = value.split(':').map(Number);
+  if (codepoints.length === 0 || codepoints.some((point) => !printableCodepoint(point))) return null;
+  return String.fromCodePoint(...codepoints);
+}
+
+function printableCodepoint(value) {
+  return Number.isSafeInteger(value) && value >= 0x20 && value <= 0x10ffff
+    && value !== 0x7f && !(value >= 0xd800 && value <= 0xdfff);
 }
 
 function mouseSequence(value) {

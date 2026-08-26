@@ -26,6 +26,7 @@ import { GroundingPolicy } from '../governance/grounding-policy.js';
 import { join } from 'node:path';
 import { ConversationWork } from '../conversation-work.js';
 import { TelegramNotificationQueue } from '../notifications/telegram.js';
+import { CredentialResolver } from '../credential-bindings.js';
 
 export function installEngineComponents(engine, options, storeRoot, hooks) {
   installRouting(engine, options);
@@ -43,7 +44,10 @@ export function installEngineComponents(engine, options, storeRoot, hooks) {
 }
 
 function installRouting(engine, options) {
-  engine.router = new ModelRouter(engine.config, options.providerFactory);
+  engine.credentialResolver = options.credentialResolver ?? new CredentialResolver({ secretBroker: options.secretBroker });
+  engine.router = new ModelRouter(engine.config, options.providerFactory, {
+    credentialResolver: engine.credentialResolver, sessionId: engine.sessionId,
+  });
   engine.projectGuidance = options.projectGuidance ?? new ProjectGuidance(engine.config.workspaceRoot, {
     telemetry: engine.telemetry,
   });
@@ -103,8 +107,7 @@ function installExtensions(engine, options) {
 }
 
 function installCapabilities(engine, options, storeRoot, hooks) {
-  installNotifications(engine, options); const imageObserver = createImageObserver(engine);
-  engine.work = options.conversationWork ?? new ConversationWork({
+  installNotifications(engine, options); const imageObserver = createImageObserver(engine); engine.work = options.conversationWork ?? new ConversationWork({
     persist: hooks.persist, output: engine.output, telemetry: engine.telemetry, sessionId: engine.sessionId,
   });
   engine.skills = options.skillRegistry ?? new SkillRegistry({
@@ -160,6 +163,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
   engine.mcp = new McpManager({
     registry: engine.tools, configs: engine.config.mcpServers ?? [],
     transportFactory: options.mcpTransportFactory,
+    credentialResolver: engine.credentialResolver, sessionId: engine.sessionId,
   });
 }
 

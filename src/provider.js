@@ -3,23 +3,23 @@ import { ContractError } from './ids.js';
 import { providerReasoningControls } from './provider/reasoning.js';
 import { providerRetryAfterMs } from './reliability/retry-after.js';
 import { localProviderFetch } from './provider/local-http-transport.js';
-
+import { CredentialResolver, normalizeCredentialBinding } from './credential-bindings.js';
 const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
 const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
 const MAX_PROVIDER_STREAM_BYTES = 268_435_456;
 const PROVIDER_STREAM_BYTES_PER_OUTPUT_TOKEN = 1_024;
-
 export class OpenAICompatibleProvider {
   constructor(profile, limits = {}, options = {}) {
     this.profile = profile;
     this.limits = limits;
     this.fetch = options.fetch ?? (profile.trustZone === 'public_network' ? globalThis.fetch : localProviderFetch);
+    this.credentialResolver = options.credentialResolver ?? new CredentialResolver();
+    this.sessionId = options.sessionId;
+    this.credential = normalizeCredentialBinding(profile.credential, profile.credentialEnv);
   }
 
   async capabilities(signal) {
-    const response = await this.fetch(`${this.profile.endpoint}/models`, {
-      headers: this.#headers(), signal,
-    });
+    const response = await this.#fetch(`${this.profile.endpoint}/models`, { signal }, 'Discover provider models');
     if (!response.ok) throw providerError(response.status, 'model enumeration failed');
     const body = await boundedResponseJson(response);
     const entries = Array.isArray(body.data) ? body.data : [];
@@ -45,7 +45,7 @@ export class OpenAICompatibleProvider {
     const root = this.profile.endpoint.replace(/\/+v1\/?$/u, '');
     for (const [path, parser] of [['/api/v1/models', parseLmStudioV1], ['/api/v0/models', parseLmStudioV0]]) {
       try {
-        const response = await this.fetch(`${root}${path}`, { headers: this.#headers(), signal });
+        const response = await this.#fetch(`${root}${path}`, { signal }, 'Discover provider runtime limits');
         if (!response.ok) continue;
         const snapshot = parser(await boundedResponseJson(response), this.profile.model, declared);
         if (snapshot) return snapshot;
@@ -58,9 +58,7 @@ export class OpenAICompatibleProvider {
 
   async health(signal) {
     try {
-      const response = await this.fetch(`${this.profile.endpoint}/models`, {
-        headers: this.#headers(), signal,
-      });
+      const response = await this.#fetch(`${this.profile.endpoint}/models`, { signal }, 'Check provider health');
       if (!response.ok) throw providerError(response.status, 'provider health probe failed');
       await response.body?.cancel();
       return true;
@@ -80,8 +78,8 @@ export class OpenAICompatibleProvider {
       // OpenAI-compatible hosts may load a model before returning response headers.
       // The ProviderRunner owns this whole admission phase with its first-token
       // deadline; a short fetch timer here would abort legitimate local model loads.
-      response = await this.fetch(`${this.profile.endpoint}/chat/completions`, {
-        method: 'POST', headers: this.#headers(), signal: transport.signal,
+      response = await this.#fetch(`${this.profile.endpoint}/chat/completions`, {
+        method: 'POST', signal: transport.signal,
         body: JSON.stringify({
           model: request.model, messages: normalizeSystemMessages(request.messages ?? []),
           stream: true,
@@ -97,7 +95,7 @@ export class OpenAICompatibleProvider {
           ...(responseFormat ? { response_format: responseFormat } : {}),
           ...reasoningControls,
         }),
-      });
+      }, 'Authenticate provider inference');
     } catch (error) {
       signal.removeEventListener('abort', cancel);
       transport.abort();
@@ -115,14 +113,16 @@ export class OpenAICompatibleProvider {
     }
   }
 
-  #headers() {
+  #fetch(url, init, purpose) {
+    return this.credentialResolver.withCredential(this.credential, {
+      consumer: `provider:${this.profile.id}`, destination: this.profile.endpoint,
+      purpose, authorityRef: `provider-configuration:${this.profile.id}`, sessionId: this.sessionId,
+    }, (secret) => this.fetch(url, { ...init, headers: this.#headers(secret) }));
+  }
+
+  #headers(secret) {
     const headers = { 'content-type': 'application/json', accept: 'text/event-stream' };
-    const name = this.profile.credentialEnv;
-    if (name) {
-      const secret = process.env[name];
-      if (!secret) throw new ContractError('missing_credential', 'configured provider credential is unavailable');
-      headers.authorization = `Bearer ${secret}`;
-    }
+    if (secret) headers.authorization = `Bearer ${secret}`;
     return headers;
   }
 }

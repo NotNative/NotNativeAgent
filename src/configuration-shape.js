@@ -2,7 +2,7 @@
 import { ContractError } from './ids.js';
 
 const SECURITY_KEY = /review|permission|ledger|revalid|auto.?approv|security|sandbox|secret|credential|token|auth|redact|sensitive|encrypt/iu;
-const PROVIDER = ['id', 'display_name', 'endpoint', 'model', 'trust_zone', 'credential_env', 'context_limit_bytes', 'output_limit_tokens', 'capabilities'];
+const PROVIDER = ['id', 'display_name', 'endpoint', 'model', 'trust_zone', 'credential', 'credential_env', 'context_limit_bytes', 'output_limit_tokens', 'capabilities'];
 const CAPABILITIES = ['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation'];
 const ROUTE = [
   'provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature',
@@ -10,7 +10,7 @@ const ROUTE = [
 ];
 const MCP = [
   'id', 'transport', 'enabled', 'timeout_ms', 'connect_timeout_ms', 'list_timeout_ms',
-  'call_timeout_ms', 'shutdown_timeout_ms', 'tool_effects', 'credential_env', 'header_env',
+  'call_timeout_ms', 'shutdown_timeout_ms', 'tool_effects', 'credential', 'credential_env', 'credential_target', 'header_env', 'header_credentials',
   'trusted', 'protocol_version', 'command', 'args', 'cwd', 'endpoint',
 ];
 
@@ -37,7 +37,10 @@ export function validateNestedManifestKeys(manifest) {
 }
 
 function inspectProviderCapabilities(value, path, warnings) {
-  if (record(value)) inspectObject(value.capabilities, `${path}.capabilities`, CAPABILITIES, warnings);
+  if (record(value)) {
+    inspectObject(value.capabilities, `${path}.capabilities`, CAPABILITIES, warnings);
+    inspectObject(value.credential, `${path}.credential`, ['source', 'name', 'secret_id', 'field'], warnings);
+  }
 }
 
 function inspectRoutes(value, warnings) {
@@ -50,6 +53,12 @@ function inspectRoutes(value, warnings) {
 
 function inspectMcpChildren(value, path, warnings) {
   if (!record(value)) return;
+  inspectObject(value.credential, `${path}.credential`, ['source', 'name', 'secret_id', 'field'], warnings);
+  if (record(value.header_credentials)) {
+    for (const [header, binding] of Object.entries(value.header_credentials)) {
+      inspectObject(binding, `${path}.header_credentials.${header}`, ['source', 'name', 'secret_id', 'field'], warnings);
+    }
+  }
   inspectDynamic(value.header_env, `${path}.header_env`, warnings);
   inspectDynamic(value.tool_effects, `${path}.tool_effects`, warnings);
 }

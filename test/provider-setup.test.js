@@ -103,14 +103,58 @@ test('provider setup requests a credential reference only when environment authe
   await handleProviderSetupAction({ action: 'submit' }, workspace);
   await handleProviderSetupAction({ action: 'submit' }, workspace);
   await handleProviderSetupAction({ action: 'submit' }, workspace);
-  projection.moveOverlaySelection(1);
+  projection.moveOverlaySelection(projection.overlay.items.findIndex((item) => item.id === 'environment'));
   await handleProviderSetupAction({ action: 'submit' }, workspace);
   assert.equal(projection.overlay.kind, 'provider-form');
   assert.match(projection.overlay.lines.join('\n'), /API key source/u);
   projection.overlay.editor.set('MY_LLM_API_KEY');
   await handleProviderSetupAction({ action: 'submit' }, workspace);
   assert.equal(discoveryInput.credentialEnv, 'MY_LLM_API_KEY');
+  assert.deepEqual(discoveryInput.credential, { source: 'environment', name: 'MY_LLM_API_KEY' });
   assert.equal(projection.overlay.kind, 'provider-model-select');
+});
+
+test('provider setup can create or select encrypted Secret Broker credentials', async () => {
+  const config = resolveManifest({
+    provider: { id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'a', trust_zone: 'loopback' },
+  });
+  const makeWorkspace = () => {
+    const projection = new TuiProjection();
+    projection.addSession('main', 'Main', { provider: 'one', model: 'a' }, 'primary');
+    const created = [];
+    return {
+      projection, config, created, discoveryInput: null, onChange() {}, activeConfig: () => config,
+      async listSecrets() { return created.length > 0 ? created : [{ id: 'sec_saved', label: 'Saved key', kind: 'api_key', fields: ['api_key'], enabled: true }]; },
+      async createSecret(input) {
+        const secret = { id: 'sec_created', label: input.label, kind: input.kind, fields: Object.keys(input.fields), enabled: true };
+        created.push(secret); return secret;
+      },
+      async discoverProviderModels(input) { this.discoveryInput = input; return { ready: true, models: ['secured-model'] }; },
+    };
+  };
+  const advanceToAuth = async (workspace) => {
+    beginProviderManagement('add', workspace);
+    await handleProviderSetupAction({ action: 'submit' }, workspace);
+    await handleProviderSetupAction({ action: 'submit' }, workspace);
+    await handleProviderSetupAction({ action: 'submit' }, workspace);
+  };
+
+  const entered = makeWorkspace();
+  await advanceToAuth(entered);
+  entered.projection.moveOverlaySelection(entered.projection.overlay.items.findIndex((item) => item.id === 'new'));
+  await handleProviderSetupAction({ action: 'submit' }, entered);
+  entered.projection.overlay.editor.set('new-provider-secret');
+  await handleProviderSetupAction({ action: 'submit' }, entered);
+  assert.equal(entered.created[0].label, 'LM Studio · API key');
+  assert.deepEqual(entered.discoveryInput.credential, { source: 'secret', secretId: 'sec_created', field: 'api_key' });
+
+  const selected = makeWorkspace();
+  await advanceToAuth(selected);
+  selected.projection.moveOverlaySelection(selected.projection.overlay.items.findIndex((item) => item.id === 'saved'));
+  await handleProviderSetupAction({ action: 'submit' }, selected);
+  assert.equal(selected.projection.overlay.kind, 'provider-secret-select');
+  await handleProviderSetupAction({ action: 'submit' }, selected);
+  assert.deepEqual(selected.discoveryInput.credential, { source: 'secret', secretId: 'sec_saved', field: 'api_key' });
 });
 
 test('provider setup preserves a same-level back path and supports manual model fallback', async () => {

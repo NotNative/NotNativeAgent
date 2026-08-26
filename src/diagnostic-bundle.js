@@ -145,7 +145,7 @@ function safeConfiguration(config) {
     workspaceRoot: config.workspaceRoot, routes: config.routes,
     providers: profiles.filter((profile) => profile && typeof profile === 'object').map((profile) => ({
       id: profile.id, endpoint: profile.endpoint, model: profile.model, trustZone: profile.trustZone,
-      credential: profile.credentialEnv ? '[reference configured]' : '[none]',
+      credential: profile.credential || profile.credentialEnv ? '[reference configured]' : '[none]',
     })),
     memory: { ...memory, enabled: memory.enabled === true },
     mcp: mcpServers.filter((server) => server && typeof server === 'object')

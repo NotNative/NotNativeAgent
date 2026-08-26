@@ -38,7 +38,8 @@ lineage.
 }
 ```
 
-Add `credential_env` only when a server requires it; the value is an environment-variable
+When a server requires authentication, use a Secret Broker `credential` binding in normal
+operation. The advanced `credential_env` compatibility field contains an environment-variable
 name, never a secret. Run:
 
 ```text

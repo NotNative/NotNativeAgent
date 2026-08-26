@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
+import { credentialReference } from './credential-bindings.js';
 
 export class AuthorityRecord {
   #id = newId('auth');
@@ -103,7 +104,8 @@ export class AuthorityRecord {
     if (mission) {
       this.snapshot(config);
       const primaryProviderId = config.routes?.primary?.providerId;
-      const credential = primaryProviderId ? config.providerProfiles?.[primaryProviderId]?.credentialEnv : null;
+      const profile = primaryProviderId ? config.providerProfiles?.[primaryProviderId] : null;
+      const credential = credentialReference(profile?.credential);
       if (credential && !mission.credentialRefs.includes(credential)) {
         throw new ContractError('mission_credential_denied', 'primary provider credential is outside the mission envelope');
       }

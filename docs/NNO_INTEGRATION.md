@@ -103,7 +103,7 @@ Create body:
   "display_name": "Lab Qwen 35B",
   "endpoint": "http://model-host.example:1234/v1",
   "model": "qwen3.6-35b-a3b",
-  "credential_env": "NNA_PROVIDER_LAB",
+  "credential": { "source": "secret", "secret_id": "sec_...", "field": "api_key" },
   "context_limit_bytes": null,
   "output_limit_tokens": null
 }
@@ -113,8 +113,9 @@ Create body:
 fields but never changes `profile_id`. Responses wrap a secret-free `profile` object; list
 uses `{ "profiles": [...] }`. Discovery returns `{ "profile_id", "models": [...] }`.
 Test returns `{ "profile_id", "status", "selected_model", "discovered_models" }`.
-Provider authentication currently remains an environment-variable reference; literal
-provider credentials are neither accepted nor returned by this API.
+Provider authentication accepts a Secret Broker record/field binding. The compatibility
+field `credential_env` may instead name an environment variable available to the NNA process.
+Literal provider credentials are neither accepted nor returned by this API.
 
 ### Provider response schemas
 

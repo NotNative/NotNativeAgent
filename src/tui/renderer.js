@@ -15,6 +15,7 @@ import { decorateContent, decorateFooter, decorateHeader } from './decoration.js
 import { workSummaryRows } from './work-summary.js';
 import { detailedTokenText, receiptTokenText } from '../experience/token-accounting.js';
 import { latestToolStatusIndexes, toolStatusIdentity } from '../experience/tool-lifecycle.js';
+import { overlayControlLabel } from './surface-engine.js';
 export class TuiRenderer {
   frame(projection, capabilities) {
     const session = projection.active();
@@ -208,9 +209,7 @@ function footerLines(projection, session, width, capabilities = {}, suggestionCa
     return lines;
   }
   if (projection.overlay) {
-    const action = projection.overlay.actionLabel
-      ?? (projection.overlay.items?.length ? '↑↓ choose · Enter select' : '↑↓ scroll');
-    add(crop(`${action} · Esc back · Ctrl+G/Ctrl+C close · ${projection.overlay.kind}`, width), 'controls');
+    add(crop(overlayControlLabel(projection.overlay), width), 'controls');
     add(footerStatusLine(projection, session, width), 'status');
     return lines;
   }

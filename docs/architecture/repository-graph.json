@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:744bd63511143adbca7032a8e5ccf5ef5b5af62457957033e9a86bcb44785570",
+  "source_digest": "sha256:921d254531be37b194007944b7be3411db1f5af652c65b23fc5f9e4d8aaf9172",
   "counts": {
-    "modules": 319,
+    "modules": 323,
     "component_edges": 69
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "experience-engine",
       "label": "Experience Engine",
       "ownership": "Owns operator interaction and presentation.",
-      "module_count": 84
+      "module_count": 86
     },
     {
       "id": "reliability-engine",
@@ -72,7 +72,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 78
+      "module_count": 80
     }
   ],
   "entrypoints": [
@@ -107,19 +107,19 @@
     {
       "from": "experience-engine",
       "to": "experience-engine",
-      "import_count": 149,
-      "module_count": 48
+      "import_count": 154,
+      "module_count": 50
     },
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 139,
-      "module_count": 67
+      "import_count": 145,
+      "module_count": 69
     },
     {
       "from": "experience-engine",
       "to": "foundation",
-      "import_count": 75,
+      "import_count": 77,
       "module_count": 54
     },
     {
@@ -143,7 +143,7 @@
     {
       "from": "agentic-engine",
       "to": "foundation",
-      "import_count": 36,
+      "import_count": 37,
       "module_count": 14
     },
     {
@@ -155,7 +155,7 @@
     {
       "from": "providers",
       "to": "foundation",
-      "import_count": 17,
+      "import_count": 21,
       "module_count": 14
     },
     {
@@ -179,7 +179,7 @@
     {
       "from": "governance-engine",
       "to": "foundation",
-      "import_count": 12,
+      "import_count": 13,
       "module_count": 10
     },
     {
@@ -543,6 +543,7 @@
       "component": "governance-engine",
       "entrypoint": false,
       "imports": [
+        "src/credential-bindings.js",
         "src/ids.js"
       ]
     },
@@ -641,6 +642,7 @@
         "src/config-context.js",
         "src/configuration-shape.js",
         "src/contracts.js",
+        "src/credential-bindings.js",
         "src/dream-config.js",
         "src/execution-policy.js",
         "src/experience/key-bindings.js",
@@ -721,6 +723,14 @@
     },
     {
       "path": "src/conversation-work.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/credential-bindings.js",
       "component": "foundation",
       "entrypoint": false,
       "imports": [
@@ -890,6 +900,7 @@
       "imports": [
         "src/attachments.js",
         "src/conversation-work.js",
+        "src/credential-bindings.js",
         "src/elevation-broker.js",
         "src/extensions.js",
         "src/governance-engine.js",
@@ -1118,6 +1129,7 @@
         "src/searxng-client.js",
         "src/searxng-deployment.js",
         "src/secret-broker.js",
+        "src/secret-management.js",
         "src/web-fetch-cli.js"
       ]
     },
@@ -1213,6 +1225,7 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
+        "src/credential-bindings.js",
         "src/ids.js",
         "src/mcp-manager.js",
         "src/tool-registry.js"
@@ -1702,6 +1715,7 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": [
+        "src/credential-bindings.js",
         "src/ids.js",
         "src/mcp-transport.js",
         "src/product.js"
@@ -1712,6 +1726,7 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": [
+        "src/credential-bindings.js",
         "src/ids.js",
         "src/product.js"
       ]
@@ -1729,6 +1744,7 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": [
+        "src/credential-bindings.js",
         "src/web-fetch-config.js",
         "src/web-search-config.js"
       ]
@@ -1943,6 +1959,7 @@
       "component": "providers",
       "entrypoint": false,
       "imports": [
+        "src/credential-bindings.js",
         "src/ids.js",
         "src/provider/local-http-transport.js",
         "src/provider/reasoning.js",
@@ -1958,7 +1975,8 @@
         "src/ids.js",
         "src/persistence/atomic-json.js",
         "src/provider/route-configuration.js",
-        "src/reliability/output-headroom.js"
+        "src/reliability/output-headroom.js",
+        "src/secret-broker.js"
       ]
     },
     {
@@ -2033,6 +2051,7 @@
       "entrypoint": false,
       "imports": [
         "src/config.js",
+        "src/credential-bindings.js",
         "src/ids.js",
         "src/provider/route-configuration.js"
       ]
@@ -2057,6 +2076,7 @@
       "entrypoint": false,
       "imports": [
         "src/config.js",
+        "src/credential-bindings.js",
         "src/ids.js",
         "src/persistence/atomic-json.js",
         "src/reliability/output-headroom.js"
@@ -2443,6 +2463,14 @@
     },
     {
       "path": "src/secret-contracts.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/secret-management.js",
       "component": "foundation",
       "entrypoint": false,
       "imports": [
@@ -3006,7 +3034,8 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/tui/surface-engine.js"
       ]
     },
     {
@@ -3075,6 +3104,15 @@
       ]
     },
     {
+      "path": "src/tui/form-engine.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/experience/projection.js",
+        "src/tui/editor-actions.js"
+      ]
+    },
+    {
       "path": "src/tui/gateway-command.js",
       "component": "experience-engine",
       "entrypoint": false,
@@ -3121,12 +3159,12 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
-        "src/experience/projection.js",
         "src/hook-runner.js",
         "src/ids.js",
         "src/mcp-credentials.js",
-        "src/tui/editor-actions.js",
-        "src/tui/overlays.js"
+        "src/tui/form-engine.js",
+        "src/tui/overlays.js",
+        "src/tui/surface-engine.js"
       ]
     },
     {
@@ -3153,7 +3191,8 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
-        "src/tui/context.js"
+        "src/tui/context.js",
+        "src/tui/surface-engine.js"
       ]
     },
     {
@@ -3188,10 +3227,10 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
-        "src/experience/projection.js",
         "src/ids.js",
         "src/provider/reasoning.js",
-        "src/tui/editor-actions.js"
+        "src/tui/form-engine.js",
+        "src/tui/surface-engine.js"
       ]
     },
     {
@@ -3199,11 +3238,11 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
-        "src/experience/projection.js",
         "src/ids.js",
         "src/reliability/output-headroom.js",
-        "src/tui/editor-actions.js",
-        "src/tui/overlays.js"
+        "src/tui/form-engine.js",
+        "src/tui/overlays.js",
+        "src/tui/surface-engine.js"
       ]
     },
     {
@@ -3230,6 +3269,7 @@
         "src/tui/permission-renderer.js",
         "src/tui/selection.js",
         "src/tui/status-line.js",
+        "src/tui/surface-engine.js",
         "src/tui/terminal-adapter.js",
         "src/tui/terminal-markdown.js",
         "src/tui/work-summary.js"
@@ -3275,10 +3315,10 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
-        "src/experience/projection.js",
         "src/secret-contracts.js",
-        "src/tui/editor-actions.js",
-        "src/tui/secret-command.js"
+        "src/tui/form-engine.js",
+        "src/tui/secret-command.js",
+        "src/tui/surface-engine.js"
       ]
     },
     {
@@ -3318,6 +3358,12 @@
         "src/tui/overlays.js",
         "src/tui/session-stats.js"
       ]
+    },
+    {
+      "path": "src/tui/surface-engine.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/tui/telemetry.js",

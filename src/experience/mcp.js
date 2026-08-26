@@ -2,6 +2,7 @@
 import { ContractError } from '../ids.js';
 import { McpManager } from '../mcp-manager.js';
 import { ToolRegistry } from '../tool-registry.js';
+import { CredentialResolver } from '../credential-bindings.js';
 
 const MCP_RESTART_REQUIRED = 'restart_required';
 const MCP_READY = 'ready';
@@ -29,6 +30,7 @@ export async function testConfiguredMcpServer(options, id) {
   await registry.initialize();
   const manager = new McpManager({
     registry, configs: [{ ...server, enabled: true }], transportFactory: options.transportFactory,
+    credentialResolver: new CredentialResolver({ secretBroker: options.secretBroker }),
   });
   let operationError = null;
   try {

@@ -5,7 +5,8 @@ import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
 import { OUTPUT_HEADROOM_VERSION } from '../reliability/output-headroom.js';
 import { persistManifest } from './route-configuration.js';
-import { persistAtomicJson, quarantineMalformedJson } from '../persistence/atomic-json.js';
+import { quarantineMalformedJson } from '../persistence/atomic-json.js';
+import { SecretBroker } from '../secret-broker.js';
 
 const CREDENTIAL_ENV = 'NNA_PROVIDER_INITIAL_KEY';
 const MAX_RESPONSE_BYTES = 1_048_576;
@@ -62,19 +63,29 @@ export async function configureInitialProvider(paths, input) {
   if (status.configured) return { configured: true, skipped: true };
   const endpoint = normalizeEndpoint(input.endpoint);
   if (!validModel(input.model)) throw new ContractError('invalid_model', 'selected provider model is invalid');
-  const credentialEnv = input.key ? CREDENTIAL_ENV : undefined;
+  if (input.key) validateProviderKey(input.key);
+  const broker = input.key ? new SecretBroker({
+    vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
+  }) : null;
+  const secret = broker ? await broker.create({
+    label: 'Initial provider · API key', kind: 'api_key', fields: { api_key: input.key },
+  }) : null;
   const manifest = {
     format_version: 1, routing_inheritance_version: 1, output_headroom_version: OUTPUT_HEADROOM_VERSION, persistence: 'durable',
     providers: [{
       id: 'initial-provider', display_name: input.model, endpoint, model: input.model,
-      trust_zone: endpointTrustZone(endpoint), ...(credentialEnv ? { credential_env: credentialEnv } : {}),
+      trust_zone: endpointTrustZone(endpoint), ...(secret ? {
+        credential: { source: 'secret', secret_id: secret.id, field: 'api_key' },
+      } : {}),
     }],
     routes: { primary: { provider_id: 'initial-provider', model: input.model } },
   };
   resolveManifest(manifest);
-  if (input.key) await persistCredential(paths.providerCredentials, credentialEnv, input.key);
-  await persistManifest(join(paths.config, 'manifest.json'), manifest);
-  if (credentialEnv) process.env[credentialEnv] = input.key;
+  try { await persistManifest(join(paths.config, 'manifest.json'), manifest); }
+  catch (error) {
+    if (secret) await broker.remove(secret.id).catch(() => undefined);
+    throw error;
+  }
   return { configured: true, skipped: false, endpoint, model: input.model, authenticated: Boolean(input.key) };
 }
 
@@ -101,9 +112,10 @@ export async function loadManagedProviderCredentials(paths, environment = proces
   return count;
 }
 
-async function persistCredential(path, name, value) {
-  if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > MAX_KEY_BYTES) throw new ContractError('provider_key_invalid', 'provider API key exceeds its bound');
-  await persistAtomicJson(path, { format_version: 1, credentials: { [name]: value } });
+function validateProviderKey(value) {
+  if (typeof value !== 'string' || value.length < 1 || Buffer.byteLength(value, 'utf8') > MAX_KEY_BYTES || /[\r\n\u0000]/u.test(value)) {
+    throw new ContractError('provider_key_invalid', 'provider API key must contain 1–16,384 bytes without line breaks');
+  }
 }
 
 async function readKey(input) {

@@ -104,9 +104,11 @@ async function requiredProfile(store, id) {
 async function discoverModels(store, id, configuredTimeoutMs) {
   const profile = await requiredProfile(store, id);
   const endpoint = providerEndpoint(profile.endpoint);
-  const models = await discoverProviderModels(endpoint, await store.credential(id), {
-    fetch: store.fetch, timeoutMs: boundedTimeout(configuredTimeoutMs, DEFAULT_REQUEST_TIMEOUT_MS, 'provider'),
-  });
+  const models = await store.withCredential(id, { purpose: 'Discover provider models' }, (credential) => (
+    discoverProviderModels(endpoint, credential ?? '', {
+      fetch: store.fetch, timeoutMs: boundedTimeout(configuredTimeoutMs, DEFAULT_REQUEST_TIMEOUT_MS, 'provider'),
+    })
+  ));
   return { profile, models };
 }
 
@@ -127,7 +129,7 @@ function providerId(encoded) {
 }
 
 function assertProviderStore(store) {
-  if (!store || ['list', 'get', 'create', 'update', 'remove', 'credential'].some((method) => typeof store[method] !== 'function')) {
+  if (!store || ['list', 'get', 'create', 'update', 'remove', 'withCredential'].some((method) => typeof store[method] !== 'function')) {
     throw new ContractError('provider_store_unavailable', 'provider profile store is unavailable');
   }
 }

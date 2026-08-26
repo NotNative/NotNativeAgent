@@ -94,6 +94,31 @@ test('AC-MCP-04 configured header references resolve only at the HTTP boundary',
   assert.equal(JSON.stringify(transport.config).includes('boundary-secret'), false);
 });
 
+test('structured Secret Broker header credentials resolve only at the HTTP boundary', async (t) => {
+  let received;
+  const server = createServer(async (request, response) => {
+    for await (const _chunk of request) { /* drain */ }
+    received = request.headers['x-workspace-token'];
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ jsonrpc: '2.0', id: 'ignored', result: {} }));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const credentialResolver = {
+    async withCredential(binding, _context, consumer) {
+      return consumer(binding ? 'broker-boundary-secret' : null);
+    },
+  };
+  const config = {
+    id: 'remote', endpoint: `http://127.0.0.1:${server.address().port}/mcp`, protocolVersion: MCP_CURRENT_VERSION,
+    headerCredentials: { 'X-Workspace-Token': { source: 'secret', secretId: 'sec_123', field: 'token' } },
+  };
+  const transport = new HttpMcpTransport(config, { credentialResolver });
+  await transport.request('ping');
+  assert.equal(received, 'broker-boundary-secret');
+  assert.equal(JSON.stringify(config).includes('broker-boundary-secret'), false);
+});
+
 test('AC-MCP-02 stateful HTTP session shutdown is bounded and explicitly released', async (t) => {
   const protocolVersion = '2025-11-25';
   const requests = [];

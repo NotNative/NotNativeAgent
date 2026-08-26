@@ -178,6 +178,25 @@ test('Kitty keyboard reporting preserves Enter, Shift+Enter, and configured Ctrl
   ]);
 });
 
+test('Kitty keyboard reporting preserves printable, shifted, Unicode, and reported text input', () => {
+  const decoder = new TerminalInputDecoder();
+  assert.deepEqual(decoder.push(Buffer.from(
+    '\u001b[97u\u001b[97:65;2u\u001b[955u\u001b[97;1;128512u',
+  )), [
+    { action: 'insert', text: 'a' },
+    { action: 'insert', text: 'A' },
+    { action: 'insert', text: 'λ' },
+    { action: 'insert', text: '😀' },
+  ]);
+});
+
+test('Kitty keyboard reporting ignores key releases and unsupported modified printable keys', () => {
+  const decoder = new TerminalInputDecoder();
+  assert.deepEqual(decoder.push(Buffer.from(
+    '\u001b[97;1:3u\u001b[97;3u\u001b[97;5u',
+  )), []);
+});
+
 test('fragmented Kitty keyboard sequences are retained until their final byte arrives', () => {
   const decoder = new TerminalInputDecoder();
   assert.deepEqual(decoder.push(Buffer.from('\u001b[13;')), []);

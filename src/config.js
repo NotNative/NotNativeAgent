@@ -13,12 +13,10 @@ import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
 import { migrateRoutingInheritance } from './persistence/manifest-migration.js';
 import { validateDream } from './dream-config.js';
 import { validateEnableThinking, validateReasoningEffort } from './provider/reasoning.js';
-const TRUST_ZONES = new Set(['loopback', 'private_network', 'public_network']);
-const ROUTE_CAPABILITIES = new Set(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']);
-const PRINCIPAL_IDS = Object.freeze({ host: 'authenticated-stdio-host', localOperator: 'authenticated-local-operator' });
-const MAX_MISSION_OUTCOME_BYTES = 131_072;
-const MISSION_EFFECTS = new Set(['read_only', 'reversible', 'irreversible', 'unknown']);
-const MISSION_CONDITIONS = new Set([
+import { credentialReference, credentialTarget, normalizeCredentialBinding, validateCredentialHeaders } from './credential-bindings.js';
+const TRUST_ZONES = new Set(['loopback', 'private_network', 'public_network']), ROUTE_CAPABILITIES = new Set(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']);
+const PRINCIPAL_IDS = Object.freeze({ host: 'authenticated-stdio-host', localOperator: 'authenticated-local-operator' }), MAX_MISSION_OUTCOME_BYTES = 131_072;
+const MISSION_EFFECTS = new Set(['read_only', 'reversible', 'irreversible', 'unknown']), MISSION_CONDITIONS = new Set([
   'review_denial', 'provider_failure', 'tool_failure', 'unknown_effect', 'cancellation',
   'budget_exhaustion', 'expiration', 'disconnect',
 ]);
@@ -146,7 +144,7 @@ function validateExecutionManifest(manifest, options, routes, profiles, skills) 
     persistence: manifest.persistence ?? 'durable', configurationVersion: 1,
     primaryRoute: {
       providerId: primary.providerId, model: primary.model, endpoint: provider.endpoint,
-      trustZone: provider.trustZone, credentialRef: provider.credentialEnv ?? null,
+      trustZone: provider.trustZone, credentialRef: credentialReference(provider.credential),
     },
     applicationPolicy: {
       present: typeof manifest.application_system_prompt === 'string' && manifest.application_system_prompt.length > 0,
@@ -197,13 +195,14 @@ function validateProvider(value) {
   if (typeof value.model !== 'string' || value.model.length === 0 || value.model.length > 256) {
     throw new ContractError('invalid_model', 'provider model is required and bounded');
   }
+  const credentialEnv = optionalString(value.credential_env), credential = normalizeCredentialBinding(value.credential, credentialEnv);
   return {
     id: typeof value.id === 'string' ? value.id : 'manifest-primary',
     displayName: optionalString(value.display_name) ?? (typeof value.id === 'string' ? value.id : 'Manifest primary'),
     endpoint: endpoint.href.replace(/\/$/u, ''),
     model: value.model,
     trustZone: value.trust_zone,
-    credentialEnv: optionalString(value.credential_env),
+    credential, credentialEnv: credential?.source === 'environment' ? credential.name : undefined,
     contextLimitBytes: optionalBoundedInteger(value.context_limit_bytes, 65_536, 16_777_216),
     outputLimitTokens: optionalBoundedInteger(value.output_limit_tokens, 1, 1_048_576),
     capabilities: Object.freeze({
@@ -315,6 +314,8 @@ function validateMcpServer(entry) {
     throw new ContractError('invalid_mcp_transport', 'MCP transport must be stdio or streamable_http');
   }
   const timeoutMs = entry.timeout_ms ?? 20_000;
+  const credentialEnv = optionalString(entry.credential_env), credential = normalizeCredentialBinding(entry.credential, credentialEnv);
+  const target = credentialTarget(optionalString(entry.credential_target));
   const common = {
     id: entry.id, transport: entry.transport, enabled: entry.enabled === true,
     timeoutMs: boundedInteger(entry.timeout_ms, timeoutMs, 100, 120_000),
@@ -323,8 +324,10 @@ function validateMcpServer(entry) {
     callTimeoutMs: boundedInteger(entry.call_timeout_ms, timeoutMs, 100, 120_000),
     shutdownTimeoutMs: boundedInteger(entry.shutdown_timeout_ms, 2_000, 100, 30_000),
     effects: isRecord(entry.tool_effects) ? { ...entry.tool_effects } : {},
-    credentialEnv: optionalString(entry.credential_env),
+    credential, credentialEnv: credential?.source === 'environment' ? credential.name : undefined,
+    credentialTarget: target,
     headerEnv: validateHeaderEnvironment(entry.header_env),
+    headerCredentials: validateCredentialHeaders(entry.header_credentials),
     trusted: entry.trusted === true,
     protocolVersion: entry.protocol_version ?? '2026-07-28',
   };

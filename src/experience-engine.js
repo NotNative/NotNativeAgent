@@ -25,7 +25,6 @@ import { restoreWorkspace } from './experience/restore.js';
 import { validateKeyBindings } from './experience/key-bindings.js';
 import { WorkspaceTabPersistence } from './experience/tab-persistence.js';
 import { isGeneratedConversationName, maybeAutoNameConversation, renameWorkspaceConversation } from './experience/conversation-title.js';
-
 const INTERACTIVE_OPERATOR = 'authenticated-interactive-operator';
 import { boundedProviderCapabilities } from './provider/capabilities.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './experience/models.js';
@@ -40,6 +39,7 @@ import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './experience
 import { resumeWorkspaceConversation } from './experience/resume.js';
 import { SecretBroker } from './secret-broker.js';
 import { ConsoleAuthority } from './experience/console-authority.js';
+import { deleteUnreferencedSecret, listSecretsWithReferences } from './secret-management.js';
 import { cancelWorkspaceSession, clearWorkspaceSession, compactWorkspaceSession, handoffWorkspaceSession, initializeWorkspaceSessionBroker, submitWorkspaceSession, workspaceBrokerSessions } from './experience/session-broker.js';
 export class ExperienceEngine {
   #tasks = new Set();
@@ -400,6 +400,7 @@ export class ExperienceEngine {
     return testConfiguredMcpServer({
       config: this.config, webSearchConfigPath: this.webSearchConfigPath,
       webSearchClient: this.webSearchClient, transportFactory: this.options.mcpTransportFactory,
+      secretBroker: this.secretBroker,
     }, id);
   }
   async availableModels() { return availableWorkspaceModels(this); }
@@ -412,11 +413,11 @@ export class ExperienceEngine {
   async removeWebSearchDeployment() { return removeWebSearchDeployment(this.#webSearchState()); }
   manageWebSearch(action) { return manageWebSearch(this.#webSearchState(), action); }
   gatewayCommand(args) { return runGatewayCommand(args, this.options.dataPaths ?? userDataPaths()); }
-  listSecrets() { this.#requirePrimarySecretManagement(); return this.secretBroker.list(); }
+  listSecrets() { this.#requirePrimarySecretManagement(); return listSecretsWithReferences(this.secretBroker, this.config); }
   createSecret(input) { this.#requirePrimarySecretManagement(); return this.secretBroker.create(input); }
   rotateSecret(id, fields) { this.#requirePrimarySecretManagement(); return this.secretBroker.rotate(id, fields); }
   setSecretEnabled(id, enabled) { this.#requirePrimarySecretManagement(); return this.secretBroker.setEnabled(id, enabled); }
-  deleteSecret(id) { this.#requirePrimarySecretManagement(); return this.secretBroker.remove(id); }
+  deleteSecret(id) { this.#requirePrimarySecretManagement(); return deleteUnreferencedSecret(this.secretBroker, this.config, id); }
   webFetchCommand(args) { return runWebFetchCommand(args, this.options.dataPaths ?? userDataPaths()); }
   reportError(error) {
     this.projection.showNotice(error.code ?? 'console', error.message ?? 'Console input failed.');

@@ -5,10 +5,11 @@ import { join } from 'node:path';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
 import { persistManifest, withProvider, withUpdatedProvider, withoutProvider } from './route-configuration.js';
+import { CredentialResolver, credentialManifest, normalizeCredentialBinding } from '../credential-bindings.js';
 
 const FILE_LIMIT = 1_048_576;
 const CREATE_FIELDS = new Set([
-  'profile_id', 'display_name', 'endpoint', 'model', 'credential_env',
+  'profile_id', 'display_name', 'endpoint', 'model', 'credential', 'credential_env',
   'context_limit_bytes', 'output_limit_tokens',
 ]);
 const UPDATE_FIELDS = new Set([...CREATE_FIELDS].filter((field) => field !== 'profile_id'));
@@ -20,6 +21,9 @@ export class ProviderProfileStore {
     this.path = options.path ?? join(options.configRoot, 'manifest.json');
     this.environment = options.environment ?? process.env;
     this.fetch = options.fetch ?? globalThis.fetch;
+    this.credentialResolver = options.credentialResolver ?? new CredentialResolver({
+      secretBroker: options.secretBroker, environment: this.environment,
+    });
     this.lastMutationFailure = null;
   }
 
@@ -51,10 +55,21 @@ export class ProviderProfileStore {
   async credential(id) {
     const config = await this.#read();
     const profile = requireProfile(config, id);
-    if (!profile.credentialEnv) return '';
-    const value = this.environment[profile.credentialEnv];
-    if (typeof value !== 'string') throw new ContractError('missing_credential', `provider credential ${profile.credentialEnv} is unavailable`);
-    return value;
+    return this.credentialResolver.withCredential(profile.credential, {
+      consumer: `provider:${id}`, destination: profile.endpoint, purpose: 'Discover provider models',
+      authorityRef: `provider-configuration:${id}`,
+    }, async (value) => value ?? '');
+  }
+
+  async withCredential(id, context, consumer) {
+    const config = await this.#read();
+    const profile = requireProfile(config, id);
+    return this.credentialResolver.withCredential(profile.credential, {
+      consumer: `provider:${id}`, destination: profile.endpoint,
+      purpose: context?.purpose ?? 'Use provider credential',
+      authorityRef: context?.authorityRef ?? `provider-configuration:${id}`,
+      sessionId: context?.sessionId,
+    }, consumer);
   }
 
   async config() { return this.#read(); }
@@ -95,7 +110,9 @@ export class ProviderProfileStore {
 export function publicProfile(profile, active = false) {
   return Object.freeze({
     profile_id: profile.id, display_name: profile.displayName, endpoint: profile.endpoint,
-    model: profile.model, credential_env: profile.credentialEnv ?? null,
+    model: profile.model,
+    credential: profile.credential?.source === 'secret' ? credentialManifest(profile.credential) : null,
+    credential_env: profile.credential?.source === 'environment' ? profile.credential.name : null,
     context_limit_bytes: profile.contextLimitBytes ?? null,
     output_limit_tokens: profile.outputLimitTokens ?? null,
     active,
@@ -114,6 +131,7 @@ function normalizeInput(input, creating) {
   assign(result, 'displayName', input.display_name);
   assign(result, 'endpoint', input.endpoint);
   assign(result, 'model', input.model);
+  if (input.credential !== undefined) result.credential = input.credential === null ? null : normalizeCredentialBinding(input.credential);
   assign(result, 'credentialEnv', input.credential_env);
   assign(result, 'contextLimitBytes', input.context_limit_bytes);
   assign(result, 'outputLimitTokens', input.output_limit_tokens);
@@ -133,6 +151,7 @@ function validateInputValues(input, creating) {
       throw new ContractError('provider_request_invalid', `${key} must be a bounded string or null`);
     }
   }
+  if (input.credential !== undefined && input.credential !== null) normalizeCredentialBinding(input.credential);
   for (const key of ['context_limit_bytes', 'output_limit_tokens']) {
     if (input[key] !== undefined && input[key] !== null && (!Number.isSafeInteger(input[key]) || input[key] < 1)) {
       throw new ContractError('provider_request_invalid', `${key} must be a positive integer or null`);

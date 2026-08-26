@@ -17,8 +17,9 @@ test('integration service authenticates exact principals and manages provider pr
   await mkdir(configRoot, { recursive: true });
   await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
   const seen = [];
+  const broker = new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') });
   const providerStore = new ProviderProfileStore({
-    configRoot, environment: { TEST_PROVIDER_KEY: 'secret-value' },
+    configRoot, environment: { TEST_PROVIDER_KEY: 'secret-value' }, secretBroker: broker,
     fetch: async (url, options) => {
       seen.push({ url: String(url), redirect: options.redirect, authorization: options.headers.authorization });
       return new Response(JSON.stringify({ data: [{ id: 'model-a' }, { id: 'model-b' }] }), {
@@ -26,7 +27,6 @@ test('integration service authenticates exact principals and manages provider pr
       });
     },
   });
-  const broker = new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') });
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test', providerStore, broker, port: 0,
   });
@@ -59,6 +59,18 @@ test('integration service authenticates exact principals and manages provider pr
     assert.equal(seen[0].authorization, 'Bearer secret-value');
     const tested = await request(base, '/v1/provider-profiles/lab/test', manager, { method: 'POST' });
     assert.equal(tested.value.status, 'ready');
+
+    const secret = await broker.create({ label: 'NNO provider key', kind: 'api_key', fields: { api_key: 'broker-secret-value' } });
+    const secretProfile = await request(base, '/v1/provider-profiles', manager, {
+      method: 'POST', body: {
+        profile_id: 'lab-secret', endpoint: 'http://127.0.0.1:5/v1', model: 'model-a',
+        credential: { source: 'secret', secret_id: secret.id, field: 'api_key' },
+      },
+    });
+    assert.equal(secretProfile.status, 201);
+    assert.deepEqual(secretProfile.value.profile.credential, { source: 'secret', secret_id: secret.id, field: 'api_key' });
+    await request(base, '/v1/provider-profiles/lab-secret/discover', manager, { method: 'POST' });
+    assert.equal(seen.at(-1).authorization, 'Bearer broker-secret-value');
 
     const edited = await request(base, '/v1/provider-profiles/lab', manager, {
       method: 'PATCH', body: { display_name: 'Renamed Lab', model: 'model-b' },

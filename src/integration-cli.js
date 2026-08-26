@@ -18,7 +18,7 @@ export async function runIntegrationCommand(args, paths, options = {}) {
     realm: `nno:${activation.deploymentId}`,
     vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
   });
-  const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment });
+  const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker });
   const service = await startIntegrationServer({
     activation, token, instanceId, broker, providerStore, host: '127.0.0.1', port: 0,
   });

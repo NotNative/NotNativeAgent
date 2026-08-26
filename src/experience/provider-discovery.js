@@ -16,7 +16,8 @@ export async function discoverWorkspaceProviderModels(workspace, input) {
   for (let suffix = 2; workspace.config.providerProfiles[probeId]; suffix += 1) probeId = `nna-provider-setup-${suffix}`;
   const profile = withProvider(workspace.config, {
     id: probeId, displayName: input.displayName ?? probeId, endpoint: input.endpoint,
-    model: input.model || 'nna-model-discovery', credentialEnv: input.credentialEnv || undefined,
+    model: input.model || 'nna-model-discovery', credential: input.credential ?? undefined,
+    credentialEnv: input.credentialEnv || undefined,
   }).config.providerProfiles[probeId];
   const provider = workspace.activeEngine()?.router?.providerForProfile(profile);
   if (!provider || typeof provider !== 'object') {

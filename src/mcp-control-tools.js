@@ -90,7 +90,7 @@ function boundedToolNames(value) {
 }
 
 function hasAuthentication(server) {
-  if (typeof server.credentialEnv === 'string' && server.credentialEnv.length > 0) return true;
+  if (server.credential || (typeof server.credentialEnv === 'string' && server.credentialEnv.length > 0)) return true;
   return server.headerEnv && typeof server.headerEnv === 'object'
     && !Array.isArray(server.headerEnv) && Object.keys(server.headerEnv).length > 0;
 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
+import { createMenuOverlay } from './surface-engine.js';
 
 export function contextOverlay(session, config, options = {}) {
   const tokenAware = session.contextLimitTokens > 0;
@@ -95,8 +96,7 @@ function contextItem(id, label, value, detail) {
 }
 
 function menu(kind, title, lines, items, activeId) {
-  return Object.freeze({ kind, title, lines: Object.freeze(lines), items: Object.freeze(items.map((item) => Object.freeze(item))),
-    selected: Math.max(0, items.findIndex((item) => item.id === activeId)), actionLabel: 'Up/Down choose | Enter edit' });
+  return createMenuOverlay(kind, title, lines, items, { activeId, actionLabel: 'Up/Down choose · Enter edit' });
 }
 
 function count(value) { return Number.isFinite(value) ? Math.round(value).toLocaleString('en-US') : '--'; }

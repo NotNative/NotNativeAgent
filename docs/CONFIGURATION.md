@@ -4,9 +4,10 @@
 
 Console and single-prompt launches may select an existing profile with
 `--provider-profile ID` and may choose a temporary `--model NAME`. A new endpoint can be
-used with `--provider-endpoint URL --model NAME`. Authenticated endpoints accept only an
-environment-variable reference through `--provider-credential-env NAME`; literal secrets
-are never CLI values. These overrides exist only for the launched process and do not
+used with `--provider-endpoint URL --model NAME`. The temporary CLI compatibility path accepts
+an environment-variable reference through `--provider-credential-env NAME`; literal secrets
+are never CLI values. Saved profiles normally bind an encrypted Secret Broker field instead.
+These overrides exist only for the launched process and do not
 rewrite saved provider profiles.
 
 ## Adaptive model dialects, project guidance, and optional LSP
@@ -38,8 +39,10 @@ and attributes them as workspace guidance that cannot grant tool authority.
 
 The CLI accepts a UTF-8 JSON manifest with `--config PATH` (`--manifest` remains a
 compatibility alias); host mode supplies the
-same object in its `initialize` command. Secrets are references such as `credential_env`,
-never command-line values. Unknown security-like keys fail. This validation applies at
+same object in its `initialize` command. Credentials are references: a structured Secret
+Broker binding such as `{ "source": "secret", "secret_id": "sec_...", "field": "token" }`,
+or the advanced compatibility field `credential_env`. They are never literal manifest or
+command-line values. Unknown security-like keys fail. This validation applies at
 the full nested path across provider, route, attachment, memory, MCP, Console, telemetry,
 reviewer-ledger, and mission objects. Other unknown keys are reported in the effective
 configuration warnings and ignored for forward compatibility.
@@ -250,11 +253,12 @@ durable session fails with `execution_manifest_required` and waits for a compati
 initialization; it never substitutes current saved defaults.
 
 Each MCP server may set independent `connect_timeout_ms`, `list_timeout_ms`,
-`call_timeout_ms`, and `shutdown_timeout_ms` bounds. `credential_env` supplies a bearer
-token reference; `/mcp` can generate that reference while storing a masked token in the
-restricted local `config/mcp-credentials.json` credential file. Advanced users may instead
-name an existing environment variable. `header_env` maps non-reserved HTTP header names to
-environment-variable references. Literal credentials in the manifest and endpoint user-info are rejected. `/mcp` and health
+`call_timeout_ms`, and `shutdown_timeout_ms` bounds. `credential` binds a bearer token to an
+encrypted Secret Broker field. For stdio, `credential_target` names the environment variable
+that receives that value in the child process only. `header_credentials` maps non-reserved HTTP
+header names to Secret Broker bindings. `/mcp` can create these encrypted values or select an
+enabled saved secret. Advanced users may instead use `credential_env` and `header_env` to name
+existing environment variables. Literal credentials in the manifest and endpoint user-info are rejected. `/mcp` and health
 views expose transport, trust, credential/header references, state, negotiated revision,
 and redacted failure code without resolving or displaying secret values.
 Initialization negotiation, the `notifications/initialized` acknowledgement, discovery,
@@ -482,7 +486,8 @@ configuration source:
 Explicit command-line choices take precedence over manifest presentation choices. The
 two safety/accessibility environment controls can only reduce presentation: `NO_COLOR`
 disables color and `NNA_REDUCED_MOTION=1` disables motion. Provider and MCP credential
-fields contain environment-variable *names*. Secret values are resolved only at the
+bindings contain only Secret Broker record/field references or, on the advanced compatibility
+path, environment-variable *names*. Secret values are resolved only at the
 transport boundary by the adapter for that exact profile and are never merged into,
 displayed with, or persisted in effective configuration, request bodies, events,
 transcripts, or typed errors. A profile cannot receive another profile's credential.
@@ -526,17 +531,17 @@ conversation's Primary route.
 Add and edit remain inside the provider manager: choose LM Studio, Ollama, or another
 OpenAI-compatible endpoint; complete the guided fields; then choose from the endpoint's
 discovered model catalog. If discovery is unavailable, the same form offers bounded manual
-  model entry. Provider credentials are referenced by environment-variable name and are never
-  entered as raw secret values in the profile form.
+  model entry. Authentication can be omitted, entered as a masked value that is encrypted in
+  the Secret Broker, selected from enabled saved secrets, or configured through an existing
+  environment variable on the advanced compatibility path.
 
 The native installers provide a first-profile bootstrap before WebSearch and gateway
 setup. When no provider profile exists, they request the endpoint and an optional API
 key, query the endpoint's OpenAI-compatible `/models` catalog, enumerate the returned
 models, and accept either a list number or exact model identifier. The API key is read
-without terminal echo and never enters process arguments or `manifest.json`. When one is
-provided, it is kept in the permission-restricted
-`$NNA_HOME/config/provider-credentials.json` store and injected only into the fixed
-`NNA_PROVIDER_INITIAL_KEY` reference used by that initial profile. A blank key creates an
+without terminal echo, encrypted in the Secret Broker, and represented in `manifest.json`
+only by its record ID and `api_key` field name. It is decrypted transiently at the provider
+transport boundary. A blank key creates an
 unauthenticated profile. Subsequent installer runs detect the existing profile and skip
 the entire bootstrap without modifying it.
 Clear a specialist assignment with “No dedicated profile” or `/provider ROLE clear`. Profile

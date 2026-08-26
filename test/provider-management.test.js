@@ -43,6 +43,18 @@ test('provider edit updates matching default routes but preserves explicit model
   assert.equal(limited.config.providerProfiles.one.outputLimitTokens, 8192);
 });
 
+test('provider credential edits switch cleanly between Secret Broker and environment bindings', () => {
+  const current = resolveManifest({ provider: {
+    id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'old', trust_zone: 'loopback',
+    credential: { source: 'secret', secret_id: 'sec_123', field: 'api_key' },
+  } });
+  const preserved = withUpdatedProvider(current, 'one', { model: 'new' }).config.providerProfiles.one;
+  assert.equal(preserved.credential.source, 'secret');
+  const switched = withUpdatedProvider(current, 'one', { credentialEnv: 'NNA_KEY' }).config.providerProfiles.one;
+  assert.equal(switched.credential.source, 'environment');
+  assert.equal(switched.credentialEnv, 'NNA_KEY');
+});
+
 test('provider deletion refuses assigned and final profiles', () => {
   const current = configuration(process.cwd());
   assert.throws(() => withoutProvider(current, 'one'), { code: 'provider_in_use' });

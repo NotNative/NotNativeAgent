@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { EditorBuffer } from '../experience/projection.js';
-import { handleEditorAction } from './editor-actions.js';
 import { REASONING_EFFORTS } from '../provider/reasoning.js';
+import { createFormOverlay, formField, handleFormEditing } from './form-engine.js';
+import { createMenuOverlay } from './surface-engine.js';
 
 const LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
@@ -90,13 +90,12 @@ function settingOptionsOverlay(parentSettings, setting) {
   const items = choices.map((choice) => ({
     ...choice, badge: choice.value === current ? 'active' : '', section: SETTINGS[setting].label,
   }));
-  return Object.freeze({
-    kind: 'provider-route-setting-options', title: SETTINGS[setting].label,
-    lines: Object.freeze([SETTINGS[setting].detail, '', 'Choose one of the supported values.']),
-    items: Object.freeze(items), selected: Math.max(0, items.findIndex((item) => item.value === current)), offset: 0,
-    role: parentSettings.role, setting, parentSettings,
-    actionLabel: 'Up/Down choose | Enter save | Ctrl+G back',
-  });
+  return createMenuOverlay('provider-route-setting-options', SETTINGS[setting].label,
+    [SETTINGS[setting].detail, '', 'Choose one of the supported values.'], items, {
+      activeId: items.find((item) => item.value === current)?.id,
+      role: parentSettings.role, setting, parentSettings,
+      actionLabel: 'Up/Down choose · Enter save',
+    });
 }
 
 export function routeSettingsOverlay(config, role, options = {}) {
@@ -132,20 +131,16 @@ export function routeSettingsOverlay(config, role, options = {}) {
     id: 'temperature-default', label: 'Restore default temperature', badge: PROVIDER_DEFAULT,
     detail: 'Remove the configured temperature and let the provider choose its default.', section: 'Setting defaults',
   });
-  return Object.freeze({
-    kind: 'provider-route-settings', title: `${LABELS[role] ?? role} settings`, lines: Object.freeze(lines),
-    items: Object.freeze(items), selected: 0, offset: 0, role, editable,
-    parentProvider: options.parentProvider, config,
-    actionLabel: editable ? 'Up/Down choose | Enter edit | Ctrl+G back' : 'Read only | Ctrl+G back',
+  return createMenuOverlay('provider-route-settings', `${LABELS[role] ?? role} settings`, lines, items, {
+    role, editable, parentProvider: options.parentProvider, config,
+    actionLabel: editable ? 'Up/Down choose · Enter edit' : 'Read only',
   });
 }
 
 async function handleForm(action, workspace, overlay) {
   if (action.action === 'back') { workspace.projection.openOverlay(overlay.parentSettings); return true; }
   if (['cancel', 'help'].includes(action.action)) { workspace.projection.closeOverlay(); return true; }
-  if (action.action === 'home') overlay.editor.moveLine('start');
-  else if (action.action === 'end') overlay.editor.moveLine('end');
-  else if (action.action === 'submit') {
+  if (action.action === 'submit') {
     try {
       const value = parseSetting(overlay.setting, overlay.editor.text);
       await workspace.configureProviderRoute(overlay.role, overlay.setting, value);
@@ -154,19 +149,23 @@ async function handleForm(action, workspace, overlay) {
       workspace.projection.openOverlay(settingFormOverlay(overlay.parentSettings, overlay.setting, overlay.editor, error.message));
     }
     return true;
-  } else if (action.action !== 'newline' && handleEditorAction(singleLine(action), overlay.editor)) { /* edited */ }
+  } else if (handleFormEditing(action, overlay.editor)) { /* edited */ }
   workspace.projection.openOverlay(settingFormOverlay(overlay.parentSettings, overlay.setting, overlay.editor));
   return true;
 }
 
 function settingFormOverlay(parentSettings, setting, existingEditor = null, error = null) {
-  const editor = existingEditor ?? editorWith(editValue(parentSettings.config, parentSettings.role, setting));
-  return Object.freeze({
+  const form = {
+    stepIndex: 0, error,
+    draft: { value: editValue(parentSettings.config, parentSettings.role, setting) },
+    steps: [formField('value', SETTINGS[setting].label, SETTINGS[setting].detail, { limit: SETTING_EDITOR_BYTES })],
+  };
+  const base = createFormOverlay(form, {
     kind: 'provider-route-setting-form', title: SETTINGS[setting].label,
-    lines: Object.freeze([SETTINGS[setting].detail, '', ...(error ? [`Cannot save · ${error}`, ''] : []),
-      'Enter a value:', '', `  ${renderEditor(editor)}`]),
-    items: Object.freeze([]), selected: 0, offset: 0, role: parentSettings.role, setting, parentSettings, editor,
-    actionLabel: 'Type value | Enter save | Ctrl+G back',
+    actionLabel: 'Type value · Enter save · Esc previous',
+  }, existingEditor);
+  return Object.freeze({
+    ...base, role: parentSettings.role, setting, parentSettings,
   });
 }
 
@@ -255,17 +254,6 @@ function parseSetting(setting, raw) {
   return value === 0 ? null : value;
 }
 
-function editorWith(value) { const editor = new EditorBuffer(SETTING_EDITOR_BYTES); editor.set(value); return editor; }
-function renderEditor(editor) {
-  const selection = editor.selection();
-  const before = editor.text.slice(0, selection.start);
-  const selected = editor.text.slice(selection.start, selection.end);
-  const after = editor.text.slice(selection.end);
-  return `${before}${selected ? `⟦${selected}⟧` : '│'}${after}`;
-}
-function singleLine(action) {
-  return action.action === 'paste' ? { ...action, text: String(action.text).split(/\r?\n/u, 1)[0] } : action;
-}
 function formatMs(value) {
   return value === null || value === undefined ? 'No limit' : `${Math.round(value / 1_000).toLocaleString('en-US')}s`;
 }

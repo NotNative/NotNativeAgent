@@ -7,9 +7,10 @@ import { effectiveModelOutputTokens } from '../reliability/output-headroom.js';
 const TRUST_ZONE_RANK = Object.freeze({ loopback: 0, private_network: 1, public_network: 2 });
 
 export class ModelRouter {
-  constructor(config, providerFactory = defaultFactory) {
+  constructor(config, providerFactory = defaultFactory, options = {}) {
     this.config = config;
     this.providerFactory = providerFactory;
+    this.providerOptions = options;
   }
 
   resolve(role, options = {}) {
@@ -55,7 +56,7 @@ export class ModelRouter {
   }
 
   providerForProfile(profile) {
-    try { return this.providerFactory(profile, this.config.limits); }
+    try { return this.providerFactory(profile, this.config.limits, this.providerOptions); }
     catch (error) {
       if (error instanceof ContractError) throw error;
       const failure = new ContractError('route_provider_invalid', 'provider adapter creation failed for the selected route');
@@ -101,6 +102,6 @@ function trustCompatible(origin, candidate) {
   return TRUST_ZONE_RANK[candidate] <= TRUST_ZONE_RANK[origin];
 }
 
-function defaultFactory(profile, limits) {
-  return new OpenAICompatibleProvider(profile, limits);
+function defaultFactory(profile, limits, options) {
+  return new OpenAICompatibleProvider(profile, limits, options);
 }

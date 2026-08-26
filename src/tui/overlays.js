@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { contextPercentText } from './context.js';
+import { createMenuOverlay } from './surface-engine.js';
 const PROVIDER_ROLE_LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
 });
@@ -9,7 +10,6 @@ const PROVIDER_ROLE_PURPOSES = Object.freeze({
   reviewer: 'Global profile used for permission and safety review.',
   vision: 'Global profile used for image analysis when the requesting agent cannot process images.',
 });
-
 export function auditOverlay(entries, governance = [], health = null) {
   if ((!Array.isArray(entries) || entries.length === 0)
       && (!Array.isArray(governance) || governance.length === 0) && !health) {
@@ -121,7 +121,6 @@ function providerScope(role, isMain) {
   if (role !== 'primary') return 'Global workspace role (shared by every conversation)';
   return isMain ? 'Main workspace default (new conversations copy this once)' : 'This conversation only';
 }
-
 export function modelOverlay(engine, models = [], options = {}) {
   const active = engine.config.routes.primary;
   const profile = engine.config.providerProfiles[active.providerId];
@@ -187,14 +186,15 @@ export function secretsOverlay(secrets, options = {}) {
   const lines = [
     'Managed values are write-only. NNA shows labels and field names, never stored values.',
     'Local secrets belong only to this NNA installation and are invisible to NNO realms.',
+    'Disabling or deleting a secret here does not revoke it at the issuing service.',
   ];
   if (options.message) lines.push('', options.message);
   const items = secrets.map((secret) => ({
-    id: secret.id, label: secret.label, badge: secret.enabled ? 'available' : 'revoked',
-    detail: `${String(secret.kind ?? 'unknown').replaceAll('_', ' ')} · ${(secret.fields ?? []).join(', ')}${secret.rotatedAt ? ` · rotated ${secret.rotatedAt.slice(0, 10)}` : ''}`,
+    id: secret.id, label: secret.label, badge: secret.enabled ? 'enabled' : 'disabled',
+    detail: `${secretKindDisplayName(secret.kind)} · ${(secret.fields ?? []).join(', ')}${secret.rotatedAt ? ` · replaced ${secret.rotatedAt.slice(0, 10)}` : ''}`,
     section: 'Local secrets',
   }));
-  items.push({ id: 'action:add', label: '+ Add secret', detail: 'Store a new write-only value', section: 'Manage secrets' });
+  items.push({ id: 'action:add', label: '+ Add secret', detail: 'Store a new encrypted, write-only credential', section: 'Manage secrets' });
   return Object.freeze({
     ...menuOverlay('secrets', 'Secrets', lines, items, options.selectedId ?? items[0]?.id),
     parent: options.parent,
@@ -468,16 +468,17 @@ function overlay(kind, title, lines) {
 }
 
 function menuOverlay(kind, title, lines, items, activeId) {
-  const selected = Math.max(0, items.findIndex((item) => item.id === activeId));
-  return Object.freeze({
-    ...overlay(kind, title, lines), selected,
-    items: Object.freeze(items.slice(0, 256).map((item) => Object.freeze({ ...item }))),
-  });
+  return createMenuOverlay(kind, title, lines, items, { activeId });
 }
 
 function actionItem(id, label, detail) { return { id: `action:${id}`, label: `+ ${label}`, detail }; }
 
 function providerAction(id, label, detail) { return { ...actionItem(id, label, detail), section: 'Manage profiles' }; }
+
+function secretKindDisplayName(kind) {
+  return ({ api_key: 'API key', token: 'Access token', text: 'Other secret', username_password: 'Username and password' })[kind]
+    ?? String(kind ?? 'Unknown').replaceAll('_', ' ');
+}
 
 function flatten(value, prefix = '', depth = 0, seen = new WeakSet()) {
   if (depth > 5) return [`${prefix}: [bounded]`];
@@ -491,7 +492,6 @@ function flatten(value, prefix = '', depth = 0, seen = new WeakSet()) {
   }
   return lines.length > 0 ? lines : ['No data.'];
 }
-
 function formatBytes(value) {
   if (!Number.isFinite(value)) return '--'; if (value < 1024) return `${value} B`;
   if (value < 1_048_576) return `${(value / 1024).toFixed(1)} KiB`;

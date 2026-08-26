@@ -59,7 +59,9 @@ export function applyPendingConfiguration(engine, active) {
 function applyConfiguration(engine, config, active) {
   assertConfigurationDependencies(engine, active);
   engine.config = config;
-  engine.router = new ModelRouter(config, engine.providerFactory);
+  engine.router = new ModelRouter(config, engine.providerFactory, {
+    credentialResolver: engine.credentialResolver, sessionId: engine.sessionId,
+  });
   engine.attachments.config = config.attachments;
   engine.attachments.router = new AttachmentObservationRouter(engine.router);
   engine.memory.config = config.memory;

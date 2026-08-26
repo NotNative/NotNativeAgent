@@ -33,3 +33,21 @@ test('/secrets opens a write-only keyboard manager and begins a guided creation 
   assert.equal(workspace.projection.overlay.kind, 'secret-form');
   assert.match(workspace.projection.overlay.title, /Create secret/u);
 });
+
+test('secret creation form accepts keyboard input through the shared form engine', async () => {
+  const workspace = fixture();
+  await handleSecretsCommand('', workspace);
+  await beginSecretManagementSelection(workspace.projection.overlay.items[0], workspace, workspace.projection.overlay);
+  await handleSecretSetupAction({ action: 'submit' }, workspace);
+  for (const character of 'Production API') {
+    await handleSecretSetupAction({ action: 'insert', text: character }, workspace);
+  }
+  assert.match(workspace.projection.overlay.lines.join('\n'), /Production API/u);
+  await handleSecretSetupAction({ action: 'submit' }, workspace);
+  await handleSecretSetupAction({ action: 'paste', text: 'key-secret-value' }, workspace);
+  assert.doesNotMatch(workspace.projection.overlay.lines.join('\n'), /key-secret-value/u);
+  assert.match(workspace.projection.overlay.lines.join('\n'), /16 characters entered/u);
+  await handleSecretSetupAction({ action: 'submit' }, workspace);
+  assert.equal(workspace.records[0].label, 'Production API');
+  assert.deepEqual(workspace.records[0].fields, ['api_key']);
+});

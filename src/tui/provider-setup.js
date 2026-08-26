@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { EditorBuffer } from '../experience/projection.js';
-import { handleEditorAction } from './editor-actions.js';
 import { providerOverlay, valueOverlay } from './overlays.js';
 import { DEFAULT_MODEL_OUTPUT_TOKENS } from '../reliability/output-headroom.js';
+import { createFormOverlay, formEditor, formField, handleFormEditing } from './form-engine.js';
+import { createConfirmationOverlay, createMenuOverlay } from './surface-engine.js';
 
 const SETUP_KINDS = new Set([
   'provider-preset', 'provider-profile-select', 'provider-form',
-  'provider-auth-select', 'provider-model-select', 'provider-delete-confirm',
+  'provider-auth-select', 'provider-secret-select', 'provider-model-select', 'provider-delete-confirm',
 ]);
 const PROFILE_OPERATIONS = new Set(['edit', 'limits', 'test', 'delete']);
 const MIN_CONTEXT_LIMIT_BYTES = 65_536;
@@ -69,8 +69,7 @@ export function handleProviderRoleNavigation(action, workspace) {
 }
 
 export async function handleProviderSetupAction(action, workspace) {
-  const overlay = workspace.projection.overlay;
-  if (!isProviderSetupOverlay(overlay)) return false;
+  const overlay = workspace.projection.overlay; if (!isProviderSetupOverlay(overlay)) return false;
   if (overlay.kind === 'provider-form') return handleFormAction(action, workspace, overlay);
   if (['history_up', 'history_down'].includes(action.action)) {
     workspace.projection.moveOverlaySelection(action.action === 'history_up' ? -1 : 1);
@@ -89,15 +88,24 @@ export async function handleProviderSetupAction(action, workspace) {
   if (overlay.kind === 'provider-preset') {
     const preset = PRESETS[selected.id];
     workspace.projection.openOverlay(profileFormOverlay({
-      operation: 'add', draft: { ...preset, credentialEnv: '', model: '' }, stepIndex: 0,
+      operation: 'add', draft: { ...preset, credential: null, credentialEnv: '', model: '' }, stepIndex: 0,
       returnParent: overlay.returnParent,
     }));
   } else if (overlay.kind === 'provider-profile-select') {
     await selectProfileAction(selected.id, overlay, workspace);
   } else if (overlay.kind === 'provider-auth-select') {
     const next = { ...overlay.formState, draft: { ...overlay.formState.draft, credentialEnv: '' } };
-    if (selected.id === 'environment') workspace.projection.openOverlay(credentialFormOverlay(next));
-    else await discoverModels(next, workspace);
+    if (selected.id === 'environment') workspace.projection.openOverlay(credentialFormOverlay({ ...next, draft: { ...next.draft, credential: null } }));
+    else if (selected.id === 'new') workspace.projection.openOverlay(newCredentialFormOverlay(next));
+    else if (selected.id === 'saved') workspace.projection.openOverlay(await savedSecretOverlay(next, workspace));
+    else if (selected.id === 'keep') await discoverModels(overlay.formState, workspace);
+    else await discoverModels({ ...next, draft: { ...next.draft, credential: null } }, workspace);
+  } else if (overlay.kind === 'provider-secret-select') {
+    const [secretId, field] = selected.id.split('#');
+    await discoverModels({
+      ...overlay.formState,
+      draft: { ...overlay.formState.draft, credential: { source: 'secret', secretId, field }, credentialEnv: '' },
+    }, workspace);
   } else if (overlay.kind === 'provider-model-select') {
     if (selected.id === 'manual') {
       workspace.projection.openOverlay(modelFormOverlay(overlay.formState, overlay.discoveryError));
@@ -120,7 +128,6 @@ export async function handleProviderSetupAction(action, workspace) {
   }
   return true;
 }
-
 async function selectProfileAction(profileId, overlay, workspace) {
   const profile = workspace.activeConfig().providerProfiles[profileId];
   if (!profile) throw new ContractError('provider_profile_missing', `provider profile does not exist: ${profileId}`);
@@ -145,7 +152,7 @@ async function selectProfileAction(profileId, overlay, workspace) {
       operation: 'edit', profileId, returnParent: overlay.returnParent,
       draft: {
         id: profile.id, displayName: profile.displayName, endpoint: profile.endpoint,
-        credentialEnv: profile.credentialEnv ?? '', model: profile.model,
+        credential: profile.credential ?? null, credentialEnv: profile.credentialEnv ?? '', model: profile.model,
       }, stepIndex: 0,
     }));
   }
@@ -161,15 +168,13 @@ async function handleFormAction(action, workspace, overlay) {
     workspace.projection.closeOverlay();
     return true;
   }
-  if (action.action === 'home') overlay.editor.moveLine('start');
-  else if (action.action === 'end') overlay.editor.moveLine('end');
-  else if (action.action === 'submit') {
+  if (action.action === 'submit') {
     try { await submitFormStep(workspace, overlay); }
     catch (error) {
       workspace.projection.openOverlay(formOverlay({ ...overlay.form, formError: error.message }, overlay.editor));
     }
     return true;
-  } else if (action.action !== 'newline' && handleEditorAction(singleLineAction(action), overlay.editor)) { /* editor mutated */ }
+  } else if (handleFormEditing(action, overlay.editor)) { /* editor mutated */ }
   else return true;
   workspace.projection.openOverlay(formOverlay(overlay.form, overlay.editor));
   return true;
@@ -199,7 +204,17 @@ async function submitFormStep(workspace, overlay) {
     return;
   }
   if (form.mode === 'credential') {
-    await discoverModels(next, workspace);
+    if (step.key === 'credentialValue') {
+      const secret = await workspace.createSecret({
+        label: await availableSecretLabel(workspace, `${form.draft.displayName} · API key`),
+        kind: 'api_key', fields: { api_key: value },
+      });
+      await discoverModels({
+        ...next, draft: { ...next.draft, credential: { source: 'secret', secretId: secret.id, field: 'api_key' }, credentialEnv: '' },
+      }, workspace);
+    } else await discoverModels({
+      ...next, draft: { ...next.draft, credential: { source: 'environment', name: value } },
+    }, workspace);
     return;
   }
   workspace.projection.openOverlay(authenticationOverlay(next));
@@ -223,11 +238,13 @@ async function saveProfile(form, workspace) {
     : form.profileId;
   const input = {
     id, displayName: form.draft.displayName, endpoint: form.draft.endpoint,
-    model: form.draft.model, credentialEnv: form.draft.credentialEnv || null,
+    model: form.draft.model, credential: form.draft.credential ?? null,
+    credentialEnv: form.draft.credential?.source === 'environment' ? form.draft.credential.name : null,
   };
-  if (form.operation === 'add') await workspace.addProvider({ ...input, credentialEnv: input.credentialEnv ?? undefined });
+  if (form.operation === 'add') await workspace.addProvider(input);
   else await workspace.editProvider(form.profileId, {
-    displayName: input.displayName, endpoint: input.endpoint, model: input.model, credentialEnv: input.credentialEnv,
+    displayName: input.displayName, endpoint: input.endpoint, model: input.model,
+    credential: input.credential, credentialEnv: input.credentialEnv,
   });
   openProviderManager(workspace, form.returnParent, form.operation === 'add' ? input.id : form.profileId);
   workspace.projection.showNotice('provider', `${form.operation === 'add' ? 'Added' : 'Updated'} provider ${form.operation === 'add' ? input.id : form.profileId}.`);
@@ -246,6 +263,9 @@ function validateField(key, value) {
   }
   if (key === 'credentialEnv' && value && !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/u.test(value)) {
     throw new ContractError('provider_credential_invalid', 'Enter an environment-variable name, or leave this field blank.');
+  }
+  if (key === 'credentialValue' && (value.length < 1 || value.length > 20_000 || /[\r\n\u0000]/u.test(value))) {
+    throw new ContractError('provider_credential_invalid', 'Enter an API key or token containing 1–20,000 characters without line breaks.');
   }
   if (key === 'model' && (value.length < 1 || value.length > 256)) {
     throw new ContractError('invalid_model', 'Model name must contain 1–256 characters.');
@@ -300,14 +320,48 @@ function credentialFormOverlay(state) {
   });
 }
 
+function newCredentialFormOverlay(state) {
+  return formOverlay({
+    ...state, mode: 'credential', stepIndex: 0,
+    steps: [formField('credentialValue', 'API key or token', 'Paste the credential. NNA will encrypt it in the Secret Broker.', { secret: true, limit: 20_000 })],
+  });
+}
+
 function authenticationOverlay(formState) {
+  const current = formState.draft.credential;
+  const items = [];
+  if (current) items.push({ id: 'keep', label: 'Keep current authentication', detail: current.source === 'secret' ? 'Continue using the selected Secret Broker record' : `Continue using environment variable ${current.name}` });
+  items.push(
+    { id: 'none', label: 'No authentication', detail: 'Connect without an Authorization header' },
+    { id: 'new', label: 'Enter a new API key or token', detail: 'Encrypt a new credential in the Secret Broker and use it here' },
+    { id: 'saved', label: 'Select a saved secret', detail: 'Use an enabled single-value credential already stored in NNA' },
+    { id: 'environment', label: 'Use environment variable', detail: 'Advanced: read a credential managed outside NNA' },
+  );
   return menu('provider-auth-select', 'Provider authentication', [
     'Choose how this LLM host authenticates model discovery and inference.',
     '', 'Local LM Studio and Ollama normally require no authentication.',
-  ], [
-    { id: 'none', label: 'No authentication', detail: 'Connect without an Authorization header' },
-    { id: 'environment', label: 'API key from environment', detail: 'Read a bearer token from a named environment variable' },
-  ], { formState, actionLabel: 'Up/Down choose · Enter continue', activeId: formState.draft.credentialEnv ? 'environment' : 'none' });
+  ], items, { formState, actionLabel: 'Up/Down choose · Enter continue', activeId: current ? 'keep' : 'none' });
+}
+
+async function savedSecretOverlay(formState, workspace) {
+  const secrets = (await workspace.listSecrets()).filter((secret) => secret.enabled
+    && ['api_key', 'token', 'text'].includes(secret.kind) && secret.fields.length === 1);
+  return menu('provider-secret-select', 'Select provider credential', [
+    'Choose an enabled single-value secret. Stored values remain hidden.',
+  ], secrets.map((secret) => ({
+    id: `${secret.id}#${secret.fields[0]}`, label: secret.label,
+    detail: `${secret.kind.replaceAll('_', ' ')} · field ${secret.fields[0]}`,
+  })), { formState, actionLabel: 'Up/Down choose · Enter use secret' });
+}
+
+async function availableSecretLabel(workspace, base) {
+  const labels = new Set((await workspace.listSecrets()).map((secret) => secret.label.toLocaleLowerCase('en-US')));
+  if (!labels.has(base.toLocaleLowerCase('en-US'))) return base;
+  for (let index = 2; index <= 9_999; index += 1) {
+    const candidate = `${base} ${index}`;
+    if (!labels.has(candidate.toLocaleLowerCase('en-US'))) return candidate;
+  }
+  throw new ContractError('secret_label_exhausted', 'Unable to choose a unique credential label.');
 }
 
 function limitsFormOverlay(state) {
@@ -325,25 +379,14 @@ function modelFormOverlay(state, discoveryError) {
 }
 
 function formOverlay(form, existingEditor) {
-  const step = form.steps[form.stepIndex];
-  const editor = existingEditor ?? editorWith(form.draft[step.key] ?? '', step.key === 'credentialEnv' ? 128 : 2048);
-  const selection = editor.selection();
-  const before = editor.text.slice(0, selection.start);
-  const selected = editor.text.slice(selection.start, selection.end);
-  const after = editor.text.slice(selection.end);
-  const rendered = `${before}${selected ? `⟦${selected}⟧` : '│'}${after}`;
-  return Object.freeze({
-    kind: 'provider-form', title: form.operation === 'add' ? 'Create provider profile' : form.operation === 'limits' ? 'Provider model limits' : 'Edit provider profile',
-    lines: Object.freeze([
-      `Step ${form.stepIndex + 1} of ${form.steps.length} · ${step.label}`,
-      step.description,
-      ...(form.discoveryError ? ['', `Model discovery unavailable · ${form.discoveryError}`] : []),
-      ...(form.formError ? ['', `Cannot continue · ${form.formError}`] : []),
-      '', `  ${rendered || '│'}`,
-    ]),
-    items: Object.freeze([]), selected: 0, offset: 0, actionLabel: 'Type value · Enter continue · Esc previous',
-    form: Object.freeze(form), editor,
-  });
+  return createFormOverlay(form, {
+    kind: 'provider-form',
+    title: (state) => state.operation === 'add' ? 'Create provider profile'
+      : state.operation === 'limits' ? 'Provider model limits' : 'Edit provider profile',
+    limit: (step) => step.limit ?? (step.key === 'credentialEnv' ? 128 : 2_048),
+    extraLines: (state) => state.discoveryError
+      ? ['', `Model discovery unavailable · ${state.discoveryError}`] : [],
+  }, existingEditor);
 }
 
 function modelSelectionOverlay(formState, models) {
@@ -379,7 +422,7 @@ function modelSaveErrorOverlay(overlay, error) {
 }
 
 function deleteConfirmationOverlay(profile, returnParent) {
-  return menu('provider-delete-confirm', 'Delete provider profile', [
+  return createConfirmationOverlay('provider-delete-confirm', 'Delete provider profile', [
     `Profile   ${profile.displayName}`,
     `ID        ${profile.id}`,
     `Endpoint  ${profile.endpoint}`,
@@ -387,7 +430,7 @@ function deleteConfirmationOverlay(profile, returnParent) {
   ], [
     { id: 'cancel', label: 'Keep profile', detail: 'Return without changing configuration.' },
     { id: 'delete', label: 'Delete profile', detail: 'Permanently remove this unused provider profile.' },
-  ], { profileId: profile.id, returnParent, actionLabel: 'Up/Down choose · Enter confirm' });
+  ], { profileId: profile.id, returnParent, safeId: 'cancel' });
 }
 
 function progressOverlay(form) {
@@ -395,7 +438,7 @@ function progressOverlay(form) {
     kind: 'provider-form', title: 'Discovering provider models',
     lines: Object.freeze([`Connecting to ${form.draft.endpoint}`, '', 'Please wait…']),
     items: Object.freeze([]), selected: 0, offset: 0, actionLabel: 'Discovering models',
-    form: Object.freeze(form), editor: editorWith(''),
+    form: Object.freeze(form), editor: formEditor('', 2_048),
   });
 }
 
@@ -413,6 +456,8 @@ function openSetupBack(workspace, overlay) {
     else workspace.projection.openOverlay(profileSelectionOverlay(overlay.form.operation, Object.values(workspace.activeConfig().providerProfiles), parent));
   } else if (overlay.kind === 'provider-auth-select') {
     workspace.projection.openOverlay(profileFormOverlay({ ...overlay.formState, stepIndex: 1 }));
+  } else if (overlay.kind === 'provider-secret-select') {
+    workspace.projection.openOverlay(authenticationOverlay(overlay.formState));
   } else if (overlay.kind === 'provider-model-select') {
     workspace.projection.openOverlay(authenticationOverlay(overlay.formState));
   } else if (overlay.kind === 'provider-delete-confirm') {
@@ -435,11 +480,6 @@ function parentFrom(overlay) {
   return overlay.parent ? { parent: overlay.parent, configSection: overlay.configSection } : null;
 }
 
-function singleLineAction(action) {
-  if (action.action !== 'paste') return action;
-  return { ...action, text: String(action.text).split(/\r?\n/u, 1)[0] };
-}
-
 export function availableProfileId(label, existingIds = []) {
   const stem = label.normalize('NFKD').replaceAll(/\p{Mark}/gu, '').toLowerCase()
     .replaceAll(/[^a-z0-9]+/gu, '-').replaceAll(/^-+|-+$/gu, '').slice(0, 56) || 'provider';
@@ -453,12 +493,7 @@ export function availableProfileId(label, existingIds = []) {
   throw new ContractError('provider_id_exhausted', 'Unable to generate a unique provider profile identifier.');
 }
 
-function field(key, label, description) { return Object.freeze({ key, label, description }); }
-function editorWith(value, limit = 2048) { const editor = new EditorBuffer(limit); editor.set(String(value)); return editor; }
+function field(key, label, description) { return formField(key, label, description); }
 function menu(kind, title, lines, items, extra = {}) {
-  const selected = Math.max(0, items.findIndex((item) => item.id === extra.activeId));
-  return Object.freeze({
-    kind, title, lines: Object.freeze(lines), items: Object.freeze(items.map((item) => Object.freeze(item))),
-    selected, offset: 0, ...extra,
-  });
+  return createMenuOverlay(kind, title, lines, items, extra);
 }

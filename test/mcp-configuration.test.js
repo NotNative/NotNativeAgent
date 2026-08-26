@@ -10,7 +10,6 @@ import { mcpOverlay } from '../src/tui/overlays.js';
 import {
   availableMcpId, beginMcpManagementSelection, handleMcpSetupAction,
 } from '../src/tui/mcp-setup.js';
-import { managedMcpCredentialReference } from '../src/mcp-credentials.js';
 
 function configuration(root) {
   return resolveManifest({
@@ -49,6 +48,7 @@ test('Main manages durable MCP topology and marks it for new-session activation'
     id: 'memory', transport: 'streamable_http', endpoint: 'http://127.0.0.1:8899/mcp',
   });
   assert.equal(workspace.mcpStatus()[0].endpoint, 'http://127.0.0.1:8899/mcp');
+  assert.equal(workspace.mcpStatus()[0].credentialEnv, 'NNM_MCP_TOKEN');
   await workspace.setMcpEnabled('memory', false);
   assert.equal(workspace.mcpStatus()[0].enabled, false);
   await workspace.deleteMcpServer('memory');
@@ -91,7 +91,10 @@ test('MCP connection testing fails truthfully when initialization cannot complet
 test('MCP management uses guided menus for add, edit, and authentication', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-mcp-guided-'));
   const configPath = join(root, 'settings.json');
-  const dataPaths = { mcpCredentials: join(root, 'mcp-credentials.json') };
+  const dataPaths = {
+    mcpCredentials: join(root, 'mcp-credentials.json'),
+    secretVault: join(root, 'secrets.json'), secretKey: join(root, 'secret.key'), secretAudit: join(root, 'secret-audit.jsonl'),
+  };
   const workspace = new InteractiveWorkspace({
     config: configuration(root), configPath, dataPaths,
     providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
@@ -119,12 +122,13 @@ test('MCP management uses guided menus for add, edit, and authentication', async
   await handleMcpSetupAction({ action: 'submit' }, workspace);
   assert.equal(workspace.mcpStatus()[0].id, 'notnative-memory');
   assert.equal(workspace.projection.overlay.kind, 'mcp');
-  const reference = managedMcpCredentialReference('notnative-memory');
+  const [secret] = await workspace.listSecrets();
+  assert.equal(secret.label, 'NotNative Memory · MCP token');
+  assert.deepEqual(secret.fields, ['token']);
   const manifestText = await readFile(configPath, 'utf8');
-  assert.match(manifestText, new RegExp(reference, 'u'));
+  assert.match(manifestText, new RegExp(secret.id, 'u'));
   assert.doesNotMatch(manifestText, /private-token-value/u);
-  assert.match(await readFile(dataPaths.mcpCredentials, 'utf8'), /private-token-value/u);
-  assert.equal(process.env[reference], 'private-token-value');
+  assert.doesNotMatch(await readFile(dataPaths.secretVault, 'utf8'), /private-token-value/u);
 
   beginMcpManagementSelection(workspace.projection.overlay.items[0], workspace, workspace.projection.overlay);
   assert.equal(workspace.projection.overlay.kind, 'mcp-server');
@@ -136,12 +140,65 @@ test('MCP management uses guided menus for add, edit, and authentication', async
   await handleMcpSetupAction({ action: 'submit' }, workspace);
   assert.equal(workspace.mcpStatus()[0].endpoint, 'http://127.0.0.1:9600/mcp');
   await workspace.shutdown();
-  delete process.env[reference];
 });
 
 test('MCP names produce stable collision-safe identifiers', () => {
   assert.equal(availableMcpId('NotNative Memory'), 'notnative-memory');
   assert.equal(availableMcpId('NotNative Memory', ['notnative-memory']), 'notnative-memory-2');
+});
+
+test('MCP HTTP setup stores a new custom-header credential in the Secret Broker', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-mcp-header-'));
+  const configPath = join(root, 'settings.json');
+  const workspace = new InteractiveWorkspace({
+    config: configuration(root), configPath,
+    dataPaths: {
+      secretVault: join(root, 'secrets.json'), secretKey: join(root, 'secret.key'), secretAudit: join(root, 'secret-audit.jsonl'),
+    },
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
+  });
+  await workspace.create('Main', 'main');
+  workspace.projection.openOverlay(mcpOverlay([], { canManage: true }));
+  beginMcpManagementSelection({ id: 'action:add' }, workspace, workspace.projection.overlay);
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  workspace.projection.overlay.editor.set('Header Service');
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  workspace.projection.overlay.editor.set('http://127.0.0.1:9501/mcp');
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  workspace.projection.moveOverlaySelection(4);
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  workspace.projection.overlay.editor.set('X-Service-Key');
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  workspace.projection.overlay.editor.set('custom-header-secret');
+  await handleMcpSetupAction({ action: 'submit' }, workspace);
+  const [server] = workspace.mcpStatus();
+  const [secret] = await workspace.listSecrets();
+  assert.deepEqual(server.headerCredentials['X-Service-Key'], { source: 'secret', secretId: secret.id, field: 'token' });
+  const manifestText = await readFile(configPath, 'utf8');
+  assert.match(manifestText, /X-Service-Key/u);
+  assert.doesNotMatch(manifestText, /custom-header-secret/u);
+  await workspace.shutdown();
+});
+
+test('referenced secrets expose their consumers and cannot be deleted', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-secret-reference-'));
+  const workspace = new InteractiveWorkspace({
+    config: configuration(root), configPath: join(root, 'settings.json'),
+    dataPaths: {
+      secretVault: join(root, 'secrets.json'), secretKey: join(root, 'secret.key'), secretAudit: join(root, 'secret-audit.jsonl'),
+    },
+    providerFactory: () => ({ async *stream() { yield { type: 'terminal' }; } }),
+  });
+  await workspace.create('Main', 'main');
+  const secret = await workspace.createSecret({ label: 'Bound MCP token', kind: 'token', fields: { token: 'private' } });
+  await workspace.addMcpServer({
+    id: 'bound', transport: 'streamable_http', endpoint: 'http://127.0.0.1:9502/mcp',
+    credential: { source: 'secret', secretId: secret.id, field: 'token' },
+  });
+  const [listed] = await workspace.listSecrets();
+  assert.deepEqual(listed.references, [{ kind: 'mcp', id: 'bound', label: 'MCP bound' }]);
+  assert.throws(() => workspace.deleteSecret(secret.id), { code: 'secret_in_use' });
+  await workspace.shutdown();
 });
 
 test('MCP stdio setup parses a quoted launch command and keeps forms single-line', async () => {

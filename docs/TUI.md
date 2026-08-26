@@ -259,7 +259,9 @@ model catalog before opening its model menu. Use Up/Down to choose and Enter to 
 `/provider add`, `/provider edit`, `/provider test`, and `/provider delete`; run `/help` for
 their exact forms. Those operations are also selectable inside `/provider`; Enter closes
 the menu and places the corresponding command form in the editor for completion.
-Credential arguments name environment variables and never contain the credential itself.
+The guided form can enter a masked API key, select an enabled saved secret, omit authentication,
+or use an environment-variable name as an advanced compatibility source. Entered values are
+encrypted in the Secret Broker; profile configuration contains only the record and field reference.
 Deletion is refused while any conversation Primary route or global specialist role still uses the
 profile, and every persisted manifest replacement retains a last-known-good `.bak` file. Left/Right
 selects a pronounced Primary, Sub-agents, Permission reviewer, or Vision role tab. Only Main's
@@ -278,6 +280,12 @@ logic. Esc returns to the hub when a manager was opened from it. The hub does no
 memory service policy, attachment admission, context ceilings, recovery behavior,
 deadlines, concurrency, or key maps as ordinary toggles.
 
+Configuration surfaces share one menu, detail, confirmation, and form contract. The terminal
+adapter decodes ordinary and enhanced keyboard protocols once; forms then receive the same insert,
+selection, paste, submit, previous, and cancel actions. Single-line fields keep only the first
+pasted line, secret fields are masked, validation remains visible in place, Enter advances or
+submits, and Esc returns one level without discarding unrelated configuration.
+
 `/websearch` opens the global SearXNG manager. It can test, disable, or forget an existing
 endpoint, deploy/start/stop NNA's optional local container, and preserves managed data
 when stopped. `/websearch URL` validates a remote, private-network, or local endpoint
@@ -288,9 +296,12 @@ servers, test connection and discovery, enable or disable entries, and safely re
 Selecting a configured server opens a focused action menu. Add and edit use bounded,
 single-line, keyboard-navigable forms with same-level Esc/back behavior; deletion requires
 an explicit confirmation. The menu never requires users to complete raw slash-command syntax.
-Authentication may be omitted, entered directly as a masked token, or supplied through an
-existing environment variable. Directly entered tokens are saved in NNA's restricted local
-MCP credential file; only a generated reference is written to the MCP configuration. Because an MCP topology changes
+Authentication may be omitted, entered directly as a masked token, selected from enabled saved
+secrets, or supplied through an existing environment variable as an advanced option. HTTP servers
+may use either bearer authentication or a named custom-header credential; stdio servers choose the
+child-process environment variable that receives the selected value. Directly entered values are
+encrypted in the Secret Broker, and only record/field references are written to MCP configuration.
+Because an MCP topology changes
 the callable tool catalog, saved changes apply to new conversations and after restart;
 the manager reports this explicitly instead of pretending to hot-load the active engine.
 The agent can call `nna.mcp_status` to inspect this global registry and `nna.mcp_test` to

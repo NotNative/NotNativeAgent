@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { credentialReference } from './credential-bindings.js';
 import { loadWebSearchConfig } from './web-search-config.js';
 import { DEFAULT_WEB_FETCH_CONFIG, loadWebFetchConfig } from './web-fetch-config.js';
 
@@ -40,7 +41,7 @@ function addProviders(result, config) {
     kind: 'provider', id: profile.id, destination: profile.endpoint,
     trust_zone: profile.trustZone, purpose: 'model_data',
     state: roles.has(profile.id) ? 'routed' : 'configured', active_roles: roles.get(profile.id) ?? [],
-    credential_reference: profile.credentialEnv ?? null,
+    credential_reference: credentialReference(profile.credential) ?? profile.credentialEnv ?? null,
     });
   }
 }
@@ -51,7 +52,7 @@ function addMcp(result, servers) {
     destination: server.transport === 'streamable_http' ? server.endpoint : `process:${server.command}`,
     trust_zone: server.transport === 'streamable_http' ? zone(server.endpoint) : 'operator_process',
     purpose: 'mcp_extension', state: 'configured', transport: server.transport,
-    credential_reference: server.credentialEnv ?? null,
+    credential_reference: credentialReference(server.credential) ?? server.credentialEnv ?? null,
   });
 }
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import { EditorBuffer } from '../experience/projection.js';
-import { handleEditorAction } from './editor-actions.js';
 import { SECRET_KINDS } from '../secret-contracts.js';
 import { openSecretsManager } from './secret-command.js';
+import { createFormOverlay, formField, handleFormEditing } from './form-engine.js';
+import { createConfirmationOverlay, createDetailOverlay, createMenuOverlay } from './surface-engine.js';
 
 const KINDS = new Set(['secret-kind', 'secret-detail', 'secret-form', 'secret-delete-confirm']);
 
@@ -49,8 +49,13 @@ async function detailAction(action, workspace, overlay) {
   if (action === 'rotate') openForm(workspace, rotateForm(secret, overlay.returnParent));
   else if (action === 'toggle') {
     const updated = await workspace.setSecretEnabled(secret.id, !secret.enabled);
-    workspace.projection.openOverlay(detailOverlay(updated, overlay.returnParent, updated.enabled ? 'Secret enabled.' : 'Secret revoked.'));
-  } else if (action === 'delete') workspace.projection.openOverlay(deleteOverlay(secret, overlay.returnParent));
+    workspace.projection.openOverlay(detailOverlay(updated, overlay.returnParent, updated.enabled ? 'Secret enabled.' : 'Secret disabled in NNA.'));
+  } else if (action === 'delete') {
+    if (secret.references?.length) {
+      workspace.projection.openOverlay(detailOverlay(secret, overlay.returnParent,
+        `Cannot delete · remove ${secret.references.map((item) => item.label).join(', ')} binding first.`));
+    } else workspace.projection.openOverlay(deleteOverlay(secret, overlay.returnParent));
+  }
 }
 
 async function handleForm(action, workspace, overlay) {
@@ -60,13 +65,11 @@ async function handleForm(action, workspace, overlay) {
     return true;
   }
   if (['cancel', 'help'].includes(action.action)) { workspace.projection.closeOverlay(); return true; }
-  if (action.action === 'home') overlay.editor.moveLine('start');
-  else if (action.action === 'end') overlay.editor.moveLine('end');
-  else if (action.action === 'submit') {
+  if (action.action === 'submit') {
     try { await submitStep(workspace, overlay); }
     catch (error) { workspace.projection.openOverlay(formOverlay({ ...overlay.form, error: error.message }, overlay.editor)); }
     return true;
-  } else if (action.action !== 'newline' && handleEditorAction(singleLine(action), overlay.editor)) { /* edited */ }
+  } else if (handleFormEditing(action, overlay.editor)) { /* edited */ }
   else return true;
   workspace.projection.openOverlay(formOverlay(overlay.form, overlay.editor));
   return true;
@@ -106,47 +109,59 @@ function valueSteps(kind) {
   return [field(key, kind === 'api_key' ? 'API key' : kind === 'token' ? 'Token' : 'Secret value', 'Write-only value. It will be masked while entered.', true)];
 }
 
-function field(key, label, description, secret) { return { key, label, description, secret }; }
+function field(key, label, description, secret) { return formField(key, label, description, { secret }); }
 
 function openForm(workspace, form) { workspace.projection.openOverlay(formOverlay(form)); }
 
-function formOverlay(form, editor = new EditorBuffer('', 20_000)) {
-  const item = form.steps[form.step];
-  const selection = editor.selection();
-  const rendered = item.secret ? `${'*'.repeat(Math.min(editor.text.length, 64))}|`
-    : `${editor.text.slice(0, selection.start)}|${editor.text.slice(selection.end)}`;
-  return Object.freeze({
-    kind: 'secret-form', title: form.operation === 'create' ? 'Create secret' : `Rotate secret · ${form.secret.label}`,
-    lines: Object.freeze([
-      `Step ${form.step + 1} of ${form.steps.length} · ${item.label}`, item.description,
-      ...(form.error ? ['', `Cannot continue · ${form.error}`] : []), '', `  ${rendered || '|'}`,
-    ]), items: Object.freeze([]), selected: 0, offset: 0, form: Object.freeze(form), editor,
-    actionLabel: 'Type value · Enter continue · Esc previous',
-  });
+function formOverlay(form, editor) {
+  return createFormOverlay(form, {
+    kind: 'secret-form',
+    title: (state) => state.operation === 'create' ? 'Create secret' : `Replace stored value · ${state.secret.label}`,
+  }, editor);
 }
 
 function kindOverlay(returnParent) {
-  return menu('secret-kind', 'Add secret', ['Choose the shape of the credential.'], SECRET_KINDS.map((id) => ({
-    id, label: id.replaceAll('_', ' '), detail: id === 'username_password' ? 'Username and password fields' : 'One write-only value',
-  })), { returnParent });
+  const order = ['api_key', 'token', 'text', 'username_password'].filter((id) => SECRET_KINDS.includes(id));
+  return menu('secret-kind', 'Add secret', [
+    'Choose the credential type. Every stored value is encrypted and write-only.',
+  ], order.map(secretKindItem), { returnParent });
 }
 
 function detailOverlay(secret, returnParent, message) {
-  const lines = [`Label     ${secret.label}`, `Kind      ${secret.kind.replaceAll('_', ' ')}`, `Fields    ${secret.fields.join(', ')}`, `Status    ${secret.enabled ? 'available' : 'revoked'}`];
+  const references = secret.references ?? [];
+  const lines = [
+    `Label     ${secret.label}`, `Kind      ${secretKindLabel(secret.kind)}`,
+    `Fields    ${secret.fields.join(', ')}`, `Status    ${secret.enabled ? 'enabled' : 'disabled'}`,
+    `Used by   ${references.length > 0 ? references.map((item) => item.label).join(', ') : 'Nothing configured'}`,
+  ];
   if (message) lines.push('', message);
-  return menu('secret-detail', `Secret · ${secret.label}`, lines, [
-    { id: 'rotate', label: 'Rotate value', detail: 'Replace all write-only fields' },
-    { id: 'toggle', label: secret.enabled ? 'Revoke secret' : 'Enable secret', detail: secret.enabled ? 'Prevent future use without deleting it' : 'Allow approved trusted consumers to use it' },
-    { id: 'delete', label: 'Delete secret', detail: 'Permanently remove metadata and encrypted fields' },
+  return createDetailOverlay('secret-detail', `Secret · ${secret.label}`, lines, [
+    { id: 'rotate', label: 'Replace stored value', detail: 'Replace all write-only fields; this does not rotate the credential at its issuing service' },
+    { id: 'toggle', label: secret.enabled ? 'Disable in NNA' : 'Enable in NNA', detail: secret.enabled ? 'Prevent future NNA use without changing the external credential' : 'Allow approved trusted consumers to use it' },
+    { id: 'delete', label: 'Delete from NNA', detail: references.length > 0
+      ? 'Unavailable until Provider and MCP bindings are removed'
+      : 'Permanently remove local metadata and encrypted fields; the external credential remains active' },
   ], { secret, returnParent });
 }
 
 function deleteOverlay(secret, returnParent) {
-  return menu('secret-delete-confirm', 'Delete secret', [`Secret  ${secret.label}`, '', 'This permanently removes its encrypted value.'], [
+  return createConfirmationOverlay('secret-delete-confirm', 'Delete secret from NNA', [`Secret  ${secret.label}`, '', 'This permanently removes the locally encrypted value.', 'It does not revoke the credential at its issuing service.'], [
     { id: 'cancel', label: 'Keep secret', detail: 'Return without changing it' },
     { id: 'delete', label: 'Delete secret', detail: 'Permanently remove this secret' },
-  ], { secret, returnParent });
+  ], { secret, returnParent, safeId: 'cancel' });
 }
+
+function secretKindItem(id) {
+  const values = {
+    api_key: { label: 'API key', detail: 'A service-issued key; consumers refer to the field as api_key', section: 'Single value' },
+    token: { label: 'Access token', detail: 'A bearer, OAuth, or personal-access token; field name token', section: 'Single value' },
+    text: { label: 'Other secret', detail: 'Any other sensitive value; field name value', section: 'Single value' },
+    username_password: { label: 'Username and password', detail: 'Separate username and password fields', section: 'Multiple values' },
+  };
+  return { id, ...values[id] };
+}
+
+function secretKindLabel(id) { return secretKindItem(id).label; }
 
 async function goBack(workspace, overlay) {
   if (overlay.kind === 'secret-form') {
@@ -157,11 +172,7 @@ async function goBack(workspace, overlay) {
 }
 
 function menu(kind, title, lines, items, extra = {}) {
-  return Object.freeze({ kind, title, lines: Object.freeze(lines), items: Object.freeze(items.map(Object.freeze)), selected: 0, offset: 0, actionLabel: 'Up/Down choose · Enter select · Esc back', ...extra });
-}
-
-function singleLine(action) {
-  return ['insert', 'paste'].includes(action.action) ? { ...action, text: String(action.text).replaceAll(/[\r\n]+/gu, ' ') } : action;
+  return createMenuOverlay(kind, title, lines, items, extra);
 }
 
 function parentFrom(overlay) { return overlay.parent ? { parent: overlay.parent, configSection: overlay.configSection } : {}; }

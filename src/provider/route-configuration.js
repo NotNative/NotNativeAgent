@@ -3,6 +3,7 @@ import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
 import { persistAtomicJson, persistAtomicJsonIfAbsent } from '../persistence/atomic-json.js';
 import { OUTPUT_HEADROOM_VERSION } from '../reliability/output-headroom.js';
+import { credentialManifest } from '../credential-bindings.js';
 
 export const SPECIALIST_ROUTE_ROLES = Object.freeze(['subagent', 'reviewer', 'vision']);
 export function manifestFromConfig(config) {
@@ -134,7 +135,9 @@ export function withProvider(config, input) {
   const manifest = manifestFromConfig(config);
   manifest.providers.push(compact({
     id: input.id, display_name: input.displayName ?? input.id, endpoint: input.endpoint, model: input.model,
-    trust_zone: endpointTrustZone(input.endpoint), credential_env: input.credentialEnv,
+    trust_zone: endpointTrustZone(input.endpoint),
+    credential: input.credential?.source === 'secret' ? credentialManifest(input.credential) : undefined,
+    credential_env: input.credential?.source === 'environment' ? input.credential.name : input.credentialEnv,
     context_limit_bytes: input.contextLimitBytes,
     output_limit_tokens: input.outputLimitTokens,
   }));
@@ -155,9 +158,17 @@ export function withUpdatedProvider(config, id, input) {
     endpoint,
     model,
     trust_zone: endpointTrustZone(endpoint),
-    credential_env: input.credentialEnv === null ? undefined : (input.credentialEnv ?? current.credentialEnv),
-    context_limit_bytes: input.contextLimitBytes ?? (preserveLimits ? current.contextLimitBytes : undefined),
-    output_limit_tokens: input.outputLimitTokens ?? (preserveLimits ? current.outputLimitTokens : undefined),
+    credential: input.credential !== undefined
+      ? (input.credential?.source === 'secret' ? credentialManifest(input.credential) : undefined)
+      : Object.hasOwn(input, 'credentialEnv') ? undefined
+        : current.credential?.source === 'secret' ? credentialManifest(current.credential) : undefined,
+    credential_env: input.credential !== undefined
+      ? (input.credential?.source === 'environment' ? input.credential.name : undefined)
+      : Object.hasOwn(input, 'credentialEnv')
+        ? (input.credentialEnv === null ? undefined : input.credentialEnv)
+        : current.credentialEnv,
+    context_limit_bytes: input.contextLimitBytes ?? (preserveLimits ? current.contextLimitBytes ?? undefined : undefined),
+    output_limit_tokens: input.outputLimitTokens ?? (preserveLimits ? current.outputLimitTokens ?? undefined : undefined),
   });
   for (const route of Object.values(manifest.routes)) {
     if (route.provider_id === id && route.model === current.model) route.model = model;
@@ -286,7 +297,11 @@ export function withMcpServer(config, input) {
   manifest.mcp_servers.push(compact({
     id: input.id, transport: input.transport, enabled: input.enabled !== false,
     endpoint: input.endpoint, command: input.command, args: input.args,
-    cwd: input.cwd, credential_env: input.credentialEnv, header_env: input.headerEnv,
+    cwd: input.cwd,
+    credential: input.credential?.source === 'secret' ? credentialManifest(input.credential) : undefined,
+    credential_env: input.credential?.source === 'environment' ? input.credential.name : input.credentialEnv,
+    credential_target: input.credentialTarget,
+    header_env: input.headerEnv, header_credentials: credentialMapManifest(input.headerCredentials),
     trusted: input.trusted === true,
     connect_timeout_ms: input.connectTimeoutMs, list_timeout_ms: input.listTimeoutMs,
     call_timeout_ms: input.callTimeoutMs, shutdown_timeout_ms: input.shutdownTimeoutMs,
@@ -316,7 +331,18 @@ export function withMcpServerUpdate(config, id, input) {
     server.args = input.args ?? [];
     setOptional(server, 'cwd', input.cwd);
   }
-  setOptional(server, 'credential_env', input.credentialEnv);
+  if (Object.hasOwn(input, 'credential')) {
+    setOptional(server, 'credential', input.credential?.source === 'secret' ? credentialManifest(input.credential) : undefined);
+    setOptional(server, 'credential_env', input.credential?.source === 'environment' ? input.credential.name : undefined);
+  } else if (Object.hasOwn(input, 'credentialEnv')) {
+    setOptional(server, 'credential', undefined);
+    setOptional(server, 'credential_env', input.credentialEnv);
+  }
+  if (Object.hasOwn(input, 'credentialTarget')) setOptional(server, 'credential_target', input.credentialTarget);
+  if (Object.hasOwn(input, 'headerCredentials')) {
+    setOptional(server, 'header_credentials', credentialMapManifest(input.headerCredentials));
+  }
+  if (Object.hasOwn(input, 'headerEnv')) setOptional(server, 'header_env', input.headerEnv);
   return { manifest, config: resolveManifest(manifest) };
 }
 
@@ -354,7 +380,9 @@ function providerManifest(profile) {
   });
   return compact({
     id: profile.id, display_name: profile.displayName, endpoint: profile.endpoint, model: profile.model,
-    trust_zone: profile.trustZone, credential_env: profile.credentialEnv,
+    trust_zone: profile.trustZone,
+    credential: profile.credential?.source === 'secret' ? credentialManifest(profile.credential) : undefined,
+    credential_env: profile.credential?.source === 'environment' ? profile.credential.name : profile.credentialEnv,
     context_limit_bytes: profile.contextLimitBytes ?? undefined,
     output_limit_tokens: profile.outputLimitTokens ?? undefined,
     capabilities: Object.keys(capabilities).length > 0 ? capabilities : undefined,
@@ -366,10 +394,20 @@ function mcpManifest(value) {
     id: value.id, transport: value.transport, enabled: value.enabled, timeout_ms: value.timeoutMs,
     connect_timeout_ms: value.connectTimeoutMs, list_timeout_ms: value.listTimeoutMs,
     call_timeout_ms: value.callTimeoutMs, shutdown_timeout_ms: value.shutdownTimeoutMs,
-    tool_effects: value.effects, credential_env: value.credentialEnv, protocol_version: value.protocolVersion,
+    tool_effects: value.effects,
+    credential: value.credential?.source === 'secret' ? credentialManifest(value.credential) : undefined,
+    credential_env: value.credential?.source === 'environment' ? value.credential.name : value.credentialEnv,
+    credential_target: value.credentialTarget,
+    header_credentials: credentialMapManifest(value.headerCredentials),
+    protocol_version: value.protocolVersion,
     header_env: value.headerEnv, trusted: value.trusted,
     command: value.command, args: value.args, cwd: value.cwd, endpoint: value.endpoint,
   });
+}
+
+function credentialMapManifest(value = {}) {
+  const entries = Object.entries(value).map(([name, binding]) => [name, credentialManifest(binding)]);
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
 function endpointTrustZone(endpoint) {

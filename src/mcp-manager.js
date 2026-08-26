@@ -2,6 +2,7 @@
 import { ContractError } from './ids.js';
 import { HttpMcpTransport, MCP_CURRENT_VERSION, StdioMcpTransport } from './mcp-transport.js';
 import { VERSION } from './product.js';
+import { credentialReference } from './credential-bindings.js';
 
 const STATES = new Set(['disabled', 'connecting', 'authenticating', 'ready', 'degraded', 'failed', 'reconnecting', 'closed']);
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -16,7 +17,10 @@ export class McpManager {
   constructor(options) {
     this.registry = options.registry;
     this.configs = options.configs;
-    this.transportFactory = options.transportFactory ?? createTransport;
+    this.credentialResolver = options.credentialResolver;
+    this.sessionId = options.sessionId;
+    this.transportFactory = options.transportFactory
+      ?? ((config) => createTransport(config, { credentialResolver: this.credentialResolver, sessionId: this.sessionId }));
     this.connections = new Map();
     this.lifecycle = new AbortController();
     this.initialization = null;
@@ -41,8 +45,11 @@ export class McpManager {
       id: item.config.id, state: item.state, capabilities: item.capabilities,
       protocolVersion: item.protocolVersion, transport: item.config.transport,
       address: item.config.endpoint ?? item.config.command ?? null,
-      credentialRef: item.config.credentialEnv ?? null,
-      headerRefs: Object.freeze({ ...(item.config.headerEnv ?? {}) }),
+      credentialRef: credentialReference(item.config.credential),
+      headerRefs: Object.freeze({
+        ...Object.fromEntries(Object.entries(item.config.headerCredentials ?? {}).map(([header, binding]) => [header, credentialReference(binding)])),
+        ...(item.config.headerEnv ?? {}),
+      }),
       trusted: item.config.trusted, lastError: item.lastError ?? null,
     })));
   }
@@ -112,7 +119,8 @@ export class McpManager {
         return this.#queueCapabilityRefresh(connection, notification);
       });
       await bounded((signal) => connection.transport.open(signal), config.connectTimeoutMs, parentSignal);
-      if (config.credentialEnv || Object.keys(config.headerEnv).length > 0) connection.state = 'authenticating';
+      if (config.credential || config.credentialEnv || Object.keys(config.headerEnv).length > 0
+        || Object.keys(config.headerCredentials ?? {}).length > 0) connection.state = 'authenticating';
       connection.protocolVersion = connection.transport.protocolVersion ?? MCP_CURRENT_VERSION;
       await negotiate(connection, config.listTimeoutMs, parentSignal);
       const tools = await discoverTools(connection, config.listTimeoutMs, parentSignal);
@@ -162,7 +170,9 @@ export class McpManager {
         cancellation: true, timeoutMs: connection.config.callTimeoutMs,
         inputSchema: tool.inputSchema, source: `mcp:${connection.config.id}`,
         credentialRefs: Object.freeze([
-          connection.config.credentialEnv, ...Object.values(connection.config.headerEnv ?? {}),
+          credentialReference(connection.config.credential),
+          ...Object.values(connection.config.headerCredentials ?? {}).map(credentialReference),
+          ...Object.values(connection.config.headerEnv ?? {}),
         ].filter(Boolean)),
         attribution: { serverId: connection.config.id, remoteName: tool.name },
         executor: async (request, signal) => {
@@ -332,9 +342,9 @@ function isConnectionFailure(error) {
   ].includes(error?.code);
 }
 
-function createTransport(config) {
-  if (config.transport === 'stdio') return new StdioMcpTransport(config);
-  return new HttpMcpTransport(config);
+function createTransport(config, options) {
+  if (config.transport === 'stdio') return new StdioMcpTransport(config, undefined, undefined, options);
+  return new HttpMcpTransport(config, options);
 }
 
 export function assertMcpState(state) {

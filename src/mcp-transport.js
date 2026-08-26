@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import { ContractError } from './ids.js';
 import { VERSION } from './product.js';
+import { CredentialResolver, normalizeCredentialBinding } from './credential-bindings.js';
 
 export const MCP_CURRENT_VERSION = '2026-07-28';
 const MAX_MCP_MESSAGE_BYTES = 2_097_152;
@@ -15,18 +16,27 @@ export class StdioMcpTransport {
   #buffer = '';
   #closed = false;
 
-  constructor(config, spawnProcess = spawn, onDiagnostic = null) {
+  constructor(config, spawnProcess = spawn, onDiagnostic = null, options = {}) {
     this.config = config;
     this.spawnProcess = spawnProcess;
     this.onDiagnostic = typeof onDiagnostic === 'function' ? onDiagnostic : null;
     this.protocolVersion = config.protocolVersion ?? MCP_CURRENT_VERSION;
+    this.credentialResolver = options.credentialResolver ?? new CredentialResolver();
+    this.sessionId = options.sessionId;
+    this.credential = normalizeCredentialBinding(config.credential, config.credentialEnv);
   }
 
   async open() {
     if (this.#closed) throw new ContractError('mcp_closed', 'MCP transport is closed');
-    this.child = this.spawnProcess(this.config.command, this.config.args, {
-      cwd: this.config.cwd, shell: false, windowsHide: true,
-      stdio: ['pipe', 'pipe', 'pipe'], env: minimalEnvironment(this.config.credentialEnv, this.config.headerEnv),
+    await this.credentialResolver.withCredential(this.credential, this.#credentialContext('Launch MCP process'), async (secret) => {
+      const target = this.config.credentialTarget
+        ?? (this.credential?.source === 'environment' ? this.credential.name : null);
+      const environment = minimalEnvironment(this.config.headerEnv);
+      if (secret && target) environment[target] = secret;
+      this.child = this.spawnProcess(this.config.command, this.config.args, {
+        cwd: this.config.cwd, shell: false, windowsHide: true,
+        stdio: ['pipe', 'pipe', 'pipe'], env: environment,
+      });
     });
     this.child.stdout.setEncoding('utf8');
     this.child.stdout.on('data', (chunk) => this.#consume(chunk));
@@ -37,6 +47,13 @@ export class StdioMcpTransport {
     this.child.stdin.on?.('error', (error) => this.#failAll(error, true));
     this.child.on('error', (error) => this.#failAll(error, true));
     this.child.on('exit', () => this.#failAll(new ContractError('mcp_closed', 'MCP subprocess closed'), true));
+  }
+
+  #credentialContext(purpose) {
+    return {
+      consumer: `mcp:${this.config.id}`, destination: this.config.command, purpose,
+      authorityRef: `mcp-configuration:${this.config.id}`, sessionId: this.sessionId,
+    };
   }
 
   request(method, params = {}, signal) {
@@ -157,18 +174,19 @@ export class StdioMcpTransport {
 }
 
 export class HttpMcpTransport {
-  constructor(config) {
+  constructor(config, options = {}) {
     this.config = config;
     this.protocolVersion = config.protocolVersion ?? MCP_CURRENT_VERSION;
+    this.credentialResolver = options.credentialResolver ?? new CredentialResolver();
+    this.consoleSessionId = options.sessionId;
+    this.credential = normalizeCredentialBinding(config.credential, config.credentialEnv);
   }
 
   async open() {}
 
   async request(method, params = {}, signal) {
     const message = withMetadata({ jsonrpc: '2.0', id: crypto.randomUUID(), method, params }, this.protocolVersion);
-    const response = await fetch(this.config.endpoint, {
-      method: 'POST', signal, headers: this.#headers(method, params), body: JSON.stringify(message),
-    });
+    const response = await this.#fetch({ method: 'POST', signal, body: JSON.stringify(message) }, method, params);
     if (!response.ok) throw new ContractError('mcp_http_error', `MCP HTTP request failed (${response.status})`, response.status >= 500);
     // The current protocol is deliberately stateless; legacy negotiated versions
     // may still establish a server-owned session that must be echoed and closed.
@@ -184,9 +202,7 @@ export class HttpMcpTransport {
   async close(signal) {
     if (!this.sessionId) return;
     try {
-      const response = await fetch(this.config.endpoint, {
-        method: 'DELETE', signal, headers: this.#headers('session/close', {}),
-      });
+      const response = await this.#fetch({ method: 'DELETE', signal }, 'session/close', {});
       if (!response.ok) {
         throw new ContractError('mcp_http_close_error', `MCP HTTP session close failed (${response.status})`, response.status >= 500);
       }
@@ -197,14 +213,33 @@ export class HttpMcpTransport {
 
   async notify(method, params = {}, signal) {
     const message = withMetadata({ jsonrpc: '2.0', method, params }, this.protocolVersion);
-    const response = await fetch(this.config.endpoint, {
-      method: 'POST', signal, headers: this.#headers(method, params), body: JSON.stringify(message),
-    });
+    const response = await this.#fetch({ method: 'POST', signal, body: JSON.stringify(message) }, method, params);
     if (!response.ok) throw new ContractError('mcp_http_error', `MCP HTTP notification failed (${response.status})`);
     if (response.body) await readBounded(response);
   }
 
-  #headers(method, params) {
+  #fetch(init, method, params) {
+    return this.credentialResolver.withCredential(this.credential, {
+      consumer: `mcp:${this.config.id}`, destination: this.config.endpoint,
+      purpose: `Authenticate MCP ${method}`, authorityRef: `mcp-configuration:${this.config.id}`,
+      sessionId: this.consoleSessionId,
+    }, (secret) => this.#withHeaderCredentials(Object.entries(this.config.headerCredentials ?? {}), 0, {}, method,
+      (credentialHeaders) => fetch(this.config.endpoint, {
+        ...init, headers: this.#headers(method, params, secret, credentialHeaders),
+      })));
+  }
+
+  #withHeaderCredentials(entries, index, values, method, consumer) {
+    if (index >= entries.length) return consumer(values);
+    const [header, binding] = entries[index];
+    return this.credentialResolver.withCredential(binding, {
+      consumer: `mcp:${this.config.id}`, destination: this.config.endpoint,
+      purpose: `Supply MCP ${header} header for ${method}`, authorityRef: `mcp-configuration:${this.config.id}`,
+      sessionId: this.consoleSessionId,
+    }, (secret) => this.#withHeaderCredentials(entries, index + 1, { ...values, [header]: secret }, method, consumer));
+  }
+
+  #headers(method, params, credential, credentialHeaders = {}) {
     const headers = {
       accept: 'application/json, text/event-stream', 'content-type': 'application/json',
       'mcp-protocol-version': this.protocolVersion, 'mcp-method': method,
@@ -212,16 +247,13 @@ export class HttpMcpTransport {
     if (['tools/call', 'resources/read', 'prompts/get'].includes(method)) {
       headers['mcp-name'] = String(params.name ?? params.uri);
     }
-    if (this.config.credentialEnv) {
-      const secret = process.env[this.config.credentialEnv];
-      if (!secret) throw new ContractError('missing_credential', 'configured MCP credential is unavailable');
-      headers.authorization = `Bearer ${secret}`;
-    }
+    if (credential) headers.authorization = `Bearer ${credential}`;
     for (const [header, environmentName] of Object.entries(this.config.headerEnv ?? {})) {
       const secret = process.env[environmentName];
       if (!secret) throw new ContractError('missing_credential', `configured MCP header credential ${environmentName} is unavailable`);
       headers[header] = secret;
     }
+    Object.assign(headers, credentialHeaders);
     if (this.sessionId && this.protocolVersion !== MCP_CURRENT_VERSION) {
       headers['mcp-session-id'] = this.sessionId;
     }
@@ -271,9 +303,8 @@ function parseJson(text) {
   }
 }
 
-function minimalEnvironment(credentialEnv, headerEnv = {}) {
+function minimalEnvironment(headerEnv = {}) {
   const allowed = ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TMP', 'TEMP', 'LANG'];
-  if (credentialEnv) allowed.push(credentialEnv);
   allowed.push(...Object.values(headerEnv));
   return Object.fromEntries(allowed.filter((key) => process.env[key]).map((key) => [key, process.env[key]]));
 }

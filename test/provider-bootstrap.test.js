@@ -8,9 +8,9 @@ import {
   configureInitialProvider, discoverProviderModels, loadManagedProviderCredentials, providerBootstrapStatus,
 } from '../src/provider/bootstrap.js';
 
-test('installer provider bootstrap discovers, persists, injects, and then skips an existing profile', async () => {
+test('installer provider bootstrap discovers, encrypts, binds, and then skips an existing profile', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-provider-bootstrap-'));
-  const paths = { config: join(root, 'config'), providerCredentials: join(root, 'config', 'provider-credentials.json') };
+  const paths = providerPaths(root);
   assert.deepEqual(await providerBootstrapStatus(paths), { configured: false });
   const models = await discoverProviderModels('http://127.0.0.1:1234/v1/', 'private-key', {
     fetch: async (url, init) => {
@@ -26,19 +26,18 @@ test('installer provider bootstrap discovers, persists, injects, and then skips 
   assert.equal(configured.authenticated, true);
   const manifest = JSON.parse(await readFile(join(paths.config, 'manifest.json'), 'utf8'));
   assert.equal(manifest.providers[0].model, 'a-model');
-  assert.equal(manifest.providers[0].credential_env, 'NNA_PROVIDER_INITIAL_KEY');
+  assert.equal(manifest.providers[0].credential.source, 'secret');
+  assert.equal(manifest.providers[0].credential.field, 'api_key');
   assert.doesNotMatch(JSON.stringify(manifest), /private-key/u);
-  const environment = {};
-  assert.equal(await loadManagedProviderCredentials(paths, environment), 1);
-  assert.equal(environment.NNA_PROVIDER_INITIAL_KEY, 'private-key');
+  assert.doesNotMatch(await readFile(paths.secretVault, 'utf8'), /private-key/u);
+  assert.equal(await loadManagedProviderCredentials(paths, {}), 0);
   assert.deepEqual(await providerBootstrapStatus(paths), { configured: true, count: 1 });
   assert.equal((await configureInitialProvider(paths, { endpoint: 'http://elsewhere/v1', model: 'other', key: '' })).skipped, true);
-  delete process.env.NNA_PROVIDER_INITIAL_KEY;
 });
 
 test('installer provider bootstrap supports providers without authentication', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-provider-no-key-'));
-  const paths = { config: join(root, 'config'), providerCredentials: join(root, 'config', 'provider-credentials.json') };
+  const paths = providerPaths(root);
   const configured = await configureInitialProvider(paths, {
     endpoint: 'http://localhost:1234', model: 'local-model', key: '',
   });
@@ -50,7 +49,7 @@ test('installer provider bootstrap supports providers without authentication', a
 
 test('provider credentials publish atomically and malformed JSON is quarantined with an actionable path', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-provider-atomic-'));
-  const paths = { config: join(root, 'config'), providerCredentials: join(root, 'config', 'provider-credentials.json') };
+  const paths = providerPaths(root);
   await configureInitialProvider(paths, { endpoint: 'http://localhost:1234', model: 'local-model', key: 'private-key' });
   assert.equal((await readdir(paths.config)).some((name) => name.includes('.tmp-')), false);
   await writeFile(paths.providerCredentials, '{"format_version":', 'utf8');
@@ -63,6 +62,14 @@ test('provider credentials publish atomically and malformed JSON is quarantined 
   assert.equal(names.includes('provider-credentials.json'), false);
   assert.equal(names.filter((name) => /^provider-credentials\.json\.corrupt-\d+$/u.test(name)).length, 1);
 });
+
+function providerPaths(root) {
+  return {
+    config: join(root, 'config'), providerCredentials: join(root, 'config', 'provider-credentials.json'),
+    secretVault: join(root, 'config', 'secrets.json'), secretKey: join(root, 'config', 'secret.key'),
+    secretAudit: join(root, 'config', 'secret-audit.jsonl'),
+  };
+}
 
 test('installer sources expose idempotent interactive provider setup', async () => {
   const root = new URL('../', import.meta.url);

@@ -44,6 +44,8 @@ function resolvePrimaryRoute(workspace) {
   const engine = workspace?.activeEngine?.();
   const config = workspace?.activeConfig?.();
   if (!engine || !config) throw new ContractError('provider_unavailable', 'the active model runtime is unavailable');
-  const router = new ModelRouter(config, engine.providerFactory);
+  const router = new ModelRouter(config, engine.providerFactory, {
+    credentialResolver: engine.credentialResolver, sessionId: engine.sessionId,
+  });
   return { engine, router, route: router.resolve('primary') };
 }
