@@ -78,10 +78,11 @@ export function providerOverlay(engine, options = {}) {
   });
   for (const profile of Object.values(engine.config.providerProfiles)) {
     const isActive = assigned && profile.id === active.providerId;
+    const isAuthenticated = Boolean(profile.credential || profile.credentialEnv);
     items.push({
       id: profile.id,
       label: profile.displayName,
-      detail: `${profile.id} · ${profile.model} · ${profile.endpoint}${isActive ? ' · Active' : ''}`,
+      detail: `${profile.id} · ${profile.model} · ${profile.endpoint}${isAuthenticated ? ' · Authenticated' : ''}${isActive ? ' · Active' : ''}`,
       section: role === 'primary' ? 'Provider profiles' : `Assign profile to ${roleLabel}`,
     });
   }
@@ -230,7 +231,6 @@ export function gatewayOverlay(status, options = {}) {
   ];
   return menuOverlay('gateway', 'Telegram gateway', lines, items, options.selectedId ?? items[0].id);
 }
-
 export function workspaceTrustOverlay(workspaceRoot) {
   return menuOverlay('workspace-trust', 'Workspace trust', [
     `Workspace: ${workspaceRoot}`,

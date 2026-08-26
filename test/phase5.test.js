@@ -1195,7 +1195,8 @@ test('AC-TUI-03 pending permission traps mouse focus in the owning decision view
 test('provider and model overlays expose keyboard-selectable route choices', () => {
   const engine = { config: resolveManifest({
     providers: [
-      { id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'a', trust_zone: 'loopback' },
+      { id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'a', trust_zone: 'loopback',
+        credential: { source: 'secret', secret_id: 'sec_123', field: 'api_key' } },
       { id: 'two', endpoint: 'http://127.0.0.1:2/v1', model: 'b', trust_zone: 'loopback' },
     ],
     routes: { primary: { provider_id: 'one', model: 'a' } },
@@ -1203,7 +1204,8 @@ test('provider and model overlays expose keyboard-selectable route choices', () 
   const providers = providerOverlay(engine);
   const models = modelOverlay(engine, ['a', 'c']);
   assert.deepEqual(providers.items.map((item) => item.id), ['route-settings', 'one', 'two']);
-  assert.match(providers.items[1].detail, / · Active$/u);
+  assert.match(providers.items[1].detail, / · Authenticated · Active$/u);
+  assert.doesNotMatch(providers.items[2].detail, /Authenticated|Active/u);
   assert.doesNotMatch(providers.items[1].detail, /loopback/u);
   assert.equal(providers.items[1].section, 'Provider profiles');
   assert.equal(providers.tabs.find((tab) => tab.active).id, 'primary');
@@ -1235,7 +1237,7 @@ test('provider and model overlays expose keyboard-selectable route choices', () 
   const providerFrame = new TuiRenderer().frame(projection, { width: 100, height: 30, color: false });
   assert.match(providerFrame, /PROVIDER PROFILES/u);
   assert.match(providerFrame, /MANAGE PROFILES/u);
-  assert.match(providerFrame, /http:\/\/127\.0\.0\.1:1\/v1 · Active/u);
+  assert.match(providerFrame, /http:\/\/127\.0\.0\.1:1\/v1 · Authenticated · Active/u);
   assert.doesNotMatch(providerFrame, /\/provider add ID ENDPOINT/u);
   assert.doesNotMatch(providerFrame, /Profile management unavailable/u);
   const secondary = providerOverlay(engine, { canManage: false, isMain: false });
