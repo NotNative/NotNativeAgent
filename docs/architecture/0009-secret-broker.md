@@ -28,6 +28,11 @@ inside the trusted transport callback. Existing environment-variable references 
 compatibility source. Historical restricted provider/MCP credential files remain readable for
 migration compatibility, but new guided configuration writes to the Secret Broker.
 
+The secret ID is immutable identity; the label is mutable display metadata. Renaming a record
+therefore cannot retarget or break a Provider or MCP binding. Guided Provider and MCP creation use
+origin-oriented initial labels (`<provider label>-Provider` and `<MCP name>-MCP`) without making
+those labels part of the binding contract.
+
 ## NNO integration boundary
 
 NNO's browser must call its authenticated backend. The backend may then call NNA's authenticated broker management API over loopback. A high-entropy bearer credential authenticates the NNO service channel; the request also carries the already authenticated actor's platform role, permissions, and workspace/group/role memberships. NNA rechecks those claims against the requested secret scope on every operation. The broker endpoint is bound to one configured `nno:<deployment-id>` realm and cannot select another realm per request.

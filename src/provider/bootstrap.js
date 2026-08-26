@@ -68,7 +68,7 @@ export async function configureInitialProvider(paths, input) {
     vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
   }) : null;
   const secret = broker ? await broker.create({
-    label: 'Initial provider · API key', kind: 'api_key', fields: { api_key: input.key },
+    label: `${input.model}-Provider`, kind: 'api_key', fields: { api_key: input.key },
   }) : null;
   const manifest = {
     format_version: 1, routing_inheritance_version: 1, output_headroom_version: OUTPUT_HEADROOM_VERSION, persistence: 'durable',

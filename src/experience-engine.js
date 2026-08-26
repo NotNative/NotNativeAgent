@@ -414,7 +414,7 @@ export class ExperienceEngine {
   manageWebSearch(action) { return manageWebSearch(this.#webSearchState(), action); }
   gatewayCommand(args) { return runGatewayCommand(args, this.options.dataPaths ?? userDataPaths()); }
   listSecrets() { this.#requirePrimarySecretManagement(); return listSecretsWithReferences(this.secretBroker, this.config); }
-  createSecret(input) { this.#requirePrimarySecretManagement(); return this.secretBroker.create(input); }
+  createSecret(input) { this.#requirePrimarySecretManagement(); return this.secretBroker.create(input); } renameSecret(id, label) { this.#requirePrimarySecretManagement(); return this.secretBroker.update(id, { label }); }
   rotateSecret(id, fields) { this.#requirePrimarySecretManagement(); return this.secretBroker.rotate(id, fields); }
   setSecretEnabled(id, enabled) { this.#requirePrimarySecretManagement(); return this.secretBroker.setEnabled(id, enabled); }
   deleteSecret(id) { this.#requirePrimarySecretManagement(); return deleteUnreferencedSecret(this.secretBroker, this.config, id); }

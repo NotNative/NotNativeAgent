@@ -206,7 +206,7 @@ async function submitFormStep(workspace, overlay) {
   if (form.mode === 'credential') {
     if (step.key === 'credentialValue') {
       const secret = await workspace.createSecret({
-        label: await availableSecretLabel(workspace, `${form.draft.displayName} · API key`),
+        label: await availableSecretLabel(workspace, `${form.draft.displayName}-Provider`),
         kind: 'api_key', fields: { api_key: value },
       });
       await discoverModels({

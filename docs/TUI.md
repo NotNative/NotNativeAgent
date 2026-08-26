@@ -286,6 +286,11 @@ selection, paste, submit, previous, and cancel actions. Single-line fields keep 
 pasted line, secret fields are masked, validation remains visible in place, Enter advances or
 submits, and Esc returns one level without discarding unrelated configuration.
 
+Secret labels are mutable display metadata. Renaming a secret does not change its immutable
+record ID or field names, so existing Provider and MCP consumers remain bound. Credentials
+created while configuring a Provider or MCP server receive an origin-oriented initial label such
+as `<provider label>-Provider` or `<MCP name>-MCP`; operators may rename them for broader reuse.
+
 `/websearch` opens the global SearXNG manager. It can test, disable, or forget an existing
 endpoint, deploy/start/stop NNA's optional local container, and preserves managed data
 when stopped. `/websearch URL` validates a remote, private-network, or local endpoint

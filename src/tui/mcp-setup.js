@@ -160,7 +160,7 @@ async function submitFormStep(workspace, overlay) {
   if (form.mode === 'credential-new') {
     const id = form.operation === 'add' ? availableMcpId(form.draft.name, workspace.mcpStatus().map((server) => server.id)) : form.serverId;
     const secret = await workspace.createSecret({
-      label: await availableSecretLabel(workspace, `${form.draft.name ?? id} · MCP token`),
+      label: await availableSecretLabel(workspace, `${form.draft.name ?? id}-MCP`),
       kind: 'token', fields: { token: value },
     });
     const bound = { ...next, draft: {
@@ -171,7 +171,7 @@ async function submitFormStep(workspace, overlay) {
   } else if (form.mode === 'credential-header-new') {
     const id = form.operation === 'add' ? availableMcpId(form.draft.name, workspace.mcpStatus().map((server) => server.id)) : form.serverId;
     const secret = await workspace.createSecret({
-      label: await availableSecretLabel(workspace, `${form.draft.name ?? id} · MCP ${next.draft.headerName} credential`),
+      label: await availableSecretLabel(workspace, `${form.draft.name ?? id}-MCP`),
       kind: 'token', fields: { token: value },
     });
     await saveServer(bindHeader(next, { source: 'secret', secretId: secret.id, field: 'token' }), workspace);

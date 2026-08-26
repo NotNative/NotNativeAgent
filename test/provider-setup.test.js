@@ -145,7 +145,7 @@ test('provider setup can create or select encrypted Secret Broker credentials', 
   await handleProviderSetupAction({ action: 'submit' }, entered);
   entered.projection.overlay.editor.set('new-provider-secret');
   await handleProviderSetupAction({ action: 'submit' }, entered);
-  assert.equal(entered.created[0].label, 'LM Studio · API key');
+  assert.equal(entered.created[0].label, 'LM Studio-Provider');
   assert.deepEqual(entered.discoveryInput.credential, { source: 'secret', secretId: 'sec_created', field: 'api_key' });
 
   const selected = makeWorkspace();

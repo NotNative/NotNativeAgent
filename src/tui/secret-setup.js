@@ -46,7 +46,8 @@ export async function handleSecretSetupAction(action, workspace) {
 async function detailAction(action, workspace, overlay) {
   const secret = (await workspace.listSecrets()).find((item) => item.id === overlay.secret.id);
   if (!secret) return openSecretsManager(workspace, overlay.returnParent);
-  if (action === 'rotate') openForm(workspace, rotateForm(secret, overlay.returnParent));
+  if (action === 'rename') openForm(workspace, renameForm(secret, overlay.returnParent));
+  else if (action === 'rotate') openForm(workspace, rotateForm(secret, overlay.returnParent));
   else if (action === 'toggle') {
     const updated = await workspace.setSecretEnabled(secret.id, !secret.enabled);
     workspace.projection.openOverlay(detailOverlay(updated, overlay.returnParent, updated.enabled ? 'Secret enabled.' : 'Secret disabled in NNA.'));
@@ -85,8 +86,10 @@ async function submitStep(workspace, overlay) {
   const fields = Object.fromEntries(form.steps.filter((item) => item.secret).map((item) => [item.key, draft[item.key]]));
   const result = form.operation === 'create'
     ? await workspace.createSecret({ label: draft.label, kind: form.kind, fields })
-    : await workspace.rotateSecret(form.secret.id, fields);
-  await openSecretsManager(workspace, { ...form.returnParent, selectedId: result.id, message: `${form.operation === 'create' ? 'Created' : 'Rotated'} ${result.label}.` });
+    : form.operation === 'rename' ? await workspace.renameSecret(form.secret.id, draft.label)
+      : await workspace.rotateSecret(form.secret.id, fields);
+  const verb = { create: 'Created', rename: 'Renamed', rotate: 'Replaced' }[form.operation];
+  await openSecretsManager(workspace, { ...form.returnParent, selectedId: result.id, message: `${verb} ${result.label}.` });
 }
 
 function newForm(kind, returnParent) {
@@ -98,6 +101,11 @@ function newForm(kind, returnParent) {
 
 function rotateForm(secret, returnParent) {
   return { operation: 'rotate', kind: secret.kind, secret, draft: {}, step: 0, returnParent, steps: valueSteps(secret.kind) };
+}
+
+function renameForm(secret, returnParent) {
+  return { operation: 'rename', kind: secret.kind, secret, draft: { label: secret.label }, step: 0, returnParent,
+    steps: [field('label', 'Secret label', 'Display label only. Provider and MCP bindings continue to use the immutable secret ID.', false)] };
 }
 
 function valueSteps(kind) {
@@ -116,7 +124,8 @@ function openForm(workspace, form) { workspace.projection.openOverlay(formOverla
 function formOverlay(form, editor) {
   return createFormOverlay(form, {
     kind: 'secret-form',
-    title: (state) => state.operation === 'create' ? 'Create secret' : `Replace stored value · ${state.secret.label}`,
+    title: (state) => state.operation === 'create' ? 'Create secret'
+      : state.operation === 'rename' ? `Rename secret · ${state.secret.label}` : `Replace stored value · ${state.secret.label}`,
   }, editor);
 }
 
@@ -136,6 +145,7 @@ function detailOverlay(secret, returnParent, message) {
   ];
   if (message) lines.push('', message);
   return createDetailOverlay('secret-detail', `Secret · ${secret.label}`, lines, [
+    { id: 'rename', label: 'Rename secret', detail: 'Change only the display label; configured consumers remain bound to the secret ID' },
     { id: 'rotate', label: 'Replace stored value', detail: 'Replace all write-only fields; this does not rotate the credential at its issuing service' },
     { id: 'toggle', label: secret.enabled ? 'Disable in NNA' : 'Enable in NNA', detail: secret.enabled ? 'Prevent future NNA use without changing the external credential' : 'Allow approved trusted consumers to use it' },
     { id: 'delete', label: 'Delete from NNA', detail: references.length > 0

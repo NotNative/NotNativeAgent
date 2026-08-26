@@ -29,7 +29,9 @@ test('installer provider bootstrap discovers, encrypts, binds, and then skips an
   assert.equal(manifest.providers[0].credential.source, 'secret');
   assert.equal(manifest.providers[0].credential.field, 'api_key');
   assert.doesNotMatch(JSON.stringify(manifest), /private-key/u);
-  assert.doesNotMatch(await readFile(paths.secretVault, 'utf8'), /private-key/u);
+  const vaultText = await readFile(paths.secretVault, 'utf8');
+  assert.doesNotMatch(vaultText, /private-key/u);
+  assert.equal(JSON.parse(vaultText).records[0].label, 'a-model-Provider');
   assert.equal(await loadManagedProviderCredentials(paths, {}), 0);
   assert.deepEqual(await providerBootstrapStatus(paths), { configured: true, count: 1 });
   assert.equal((await configureInitialProvider(paths, { endpoint: 'http://elsewhere/v1', model: 'other', key: '' })).skipped, true);

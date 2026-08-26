@@ -123,7 +123,7 @@ test('MCP management uses guided menus for add, edit, and authentication', async
   assert.equal(workspace.mcpStatus()[0].id, 'notnative-memory');
   assert.equal(workspace.projection.overlay.kind, 'mcp');
   const [secret] = await workspace.listSecrets();
-  assert.equal(secret.label, 'NotNative Memory · MCP token');
+  assert.equal(secret.label, 'NotNative Memory-MCP');
   assert.deepEqual(secret.fields, ['token']);
   const manifestText = await readFile(configPath, 'utf8');
   assert.match(manifestText, new RegExp(secret.id, 'u'));
@@ -197,6 +197,11 @@ test('referenced secrets expose their consumers and cannot be deleted', async ()
   });
   const [listed] = await workspace.listSecrets();
   assert.deepEqual(listed.references, [{ kind: 'mcp', id: 'bound', label: 'MCP bound' }]);
+  const renamed = await workspace.renameSecret(secret.id, 'Reusable service token');
+  assert.equal(renamed.id, secret.id);
+  assert.equal(renamed.label, 'Reusable service token');
+  assert.equal(workspace.mcpStatus()[0].credential.secretId, secret.id);
+  assert.deepEqual((await workspace.listSecrets())[0].references, [{ kind: 'mcp', id: 'bound', label: 'MCP bound' }]);
   assert.throws(() => workspace.deleteSecret(secret.id), { code: 'secret_in_use' });
   await workspace.shutdown();
 });
