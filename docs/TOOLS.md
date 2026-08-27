@@ -2,26 +2,24 @@
 
 ## Discovery and context economy
 
-Fresh provider steps have exactly seven always-visible tools: `tool.search`, `fs.list`,
-`fs.read`, `fs.search_text`, `web.search`, `web.fetch`, and `web.browse`. This keeps bounded
-observation and knowledge gathering available without forcing the model to choose among
-overlapping aliases. Mutation, execution, diagnostics, session history, delegation,
-notifications, and conversation work are activated in bounded capability bundles only when
-authenticated operator intent indicates that kind of work. During an active turn, NNA owns a
-bounded conversation-intent projection containing the accepted turn request and recent
-authenticated objectives, clarifications, restrictions, and consumed steering. The accepted
-request remains anchored if later steering fills the recent window. Provider tool selection
-and reviewer evidence both use that projection, so a later turn such as `Please proceed` or
-additive guidance such as `You may browse localhost` cannot hide the broader build objective or
-remove tools needed to complete it. When a short authenticated approval refers to the immediately
-preceding completed assistant proposal, NNA carries that proposal separately as attributed,
-user-adopted objective context. It may help select tools but remains distinguishable from the
-authenticated authority ledger. Unapproved model narration and tool output cannot activate a
-bundle. A small set of additional tools is selected lexically from the same bounded selection text.
+Every ordinary provider step receives a deterministic foundational surface, with `tool.search`
+first: `tool.search`; `fs.list`, `fs.read`, and `fs.search_text`; `shell.run` and `web.search`;
+`work.plan`, `work.status`, `work.goal`, `work.task_add`, and `work.task_update`; `git.inspect`;
+`session.search_history` and `session.read_history`; `nna.search_guidance`,
+`nna.read_guidance`, and `nna.diagnose_turn`; `ref.inspect`; and `skill.search` and
+`skill.load`. A tool is omitted only when that subsystem is genuinely unavailable or an
+authenticated host manifest removes it. NNA never selects or withholds schemas by matching
+words in the operator's request, and ordinary root conversations never enter a zero-tool mode.
+
+During an active turn, NNA still maintains a bounded conversation-intent projection for
+continuity, reviewer evidence, and completion supervision. It is not a capability classifier.
+A short continuation or approval therefore cannot erase task context, but neither user wording,
+model narration, nor tool output silently grants a specialist schema.
+
 Each provider step also receives a bounded, deterministically sorted JSON array containing
-the names of every other authorized tool whose full schema is not loaded. This includes
-tools discovered from MCP servers in that conversation. The array contains names only;
-the model uses `tool.search` to inspect and promote a matching schema before calling it.
+the names of every other authorized tool whose full schema is not loaded, including tools
+discovered from MCP servers in that conversation. The array contains names only; the model
+uses `tool.search` to inspect and promote a matching schema before calling it.
 Calling `tool.search` exposes its bounded matches until a validated call consumes the
 selected schema. The result explicitly tells the model to call the tool on its next step;
 when the query names one exact tool, the result also includes that tool's input schema.
@@ -30,14 +28,22 @@ tool for the next step; recovery guidance therefore never names an unavailable s
 This keeps large MCP and future built-in catalogs out of every provider request without
 making capabilities undiscoverable.
 
-Ephemeral references, conversation work, and outbound notification follow the same
-task-activated rule. Build and implementation requests activate the complete conversation
-work family, explicit staging/reference language activates reference inspection and storage,
-and notification or Telegram language activates the notification boundary.
+Specialist mutation, browser automation, verification, exact-process execution, delegation,
+reference storage, and notification schemas become visible only through `tool.search`, a
+typed recovery/skill workflow lease, or an authenticated host grant. Schema visibility never
+grants execution authority: validation, governance, semantic review, revalidation, and
+journaling remain mandatory.
 
 NNA owns the contracts, validation, review classification, execution boundary, bounded
 results, and audit behavior of its built-in tools. Tool output is treated as untrusted
 content even when the operation itself is safe.
+
+The shared validation boundary normalizes schema-declared integer fields before tool-specific
+validation. Safe decimal integer strings such as `"3"`, `"003"`, `"3.0"`, or `"1e2"` become
+the numbers `3`, `3`, `3`, and `100`, including inside nested objects and arrays. Fractional,
+non-numeric, non-finite, and unsafe integer values remain rejected. String fields are never
+coerced merely because their text resembles a number. The normalized value is the value sealed
+for review and execution.
 
 The canonical model-facing filesystem tools are:
 
@@ -49,7 +55,9 @@ The canonical model-facing filesystem tools are:
   NNA transparently uses `rg` when available and falls back to its bounded native search.
 - `fs.read`: read up to 1 MiB of UTF-8 text or, when `start_line`/`line_count` are supplied,
   at most 400 numbered lines. It returns a SHA-256 snapshot tag and an internal receipt for
-  exactly what was observed.
+  exactly what was observed. Its public arguments are only `path`, `start_line`, and
+  `line_count`; complete-file versus numbered-window selection is internal metadata, not a
+  model-facing `mode` argument.
 - `fs.directory`: create or remove a directory. Creation is recursive and idempotent by
   default. Removal is non-recursive unless requested and remains review-required and bounded.
   Filesystem roots, the home directory, the active workspace root and its ancestors, and the
@@ -295,16 +303,20 @@ NNA installs bounded self-inspection tools independently of the workspace:
 - `agent.run`: run one bounded foreground specialist through the configured Sub-agents provider route; available only to standalone root NNA and absent from hosted catalogs and search.
 - `git.inspect`: inspect bounded repository status, working or staged diffs, and recent commit history through explicit read-only Git argv.
 
-Conversation work uses one canonical engine tool:
+Conversation work has one atomic tool and four granular tools in the foundational surface:
 
 - `work.plan`: atomically replace the bounded goal and ordered tasks; terminal states require
   evidence or a reason and at most one task may be in progress.
+- `work.status`: inspect the current durable goal and ordered tasks.
+- `work.goal`: create or update the durable goal.
+- `work.task_add`: append one task to the current goal.
+- `work.task_update`: update one existing task by its stable id.
 
 They mutate only bounded conversation work state in the existing session journal and grant
-no filesystem, process, network, secret, or host authority. `work.plan` is task-activated by
-goal, plan, task, build, implementation, repair, refactor, or project intent. The granular
-work definitions remain installed for compatibility. Hosted manifests retain exact grants:
-`work.plan` is never inferred from a narrower legacy grant.
+no filesystem, process, network, secret, or host authority. Their presence does not require
+the model to create a plan. When the operator explicitly asks to set, create, load, or track a
+goal or task list, the model must persist it with one of these tools before beginning dependent
+work. Hosted manifests retain their exact grants and never infer one work tool from another.
 
 Compacted history remains queryable without returning it wholesale to the provider:
 
@@ -313,8 +325,8 @@ Compacted history remains queryable without returning it wholesale to the provid
 - `session.read_history`: reads one exact indexed record plus at most three neighboring
   records on either side. The result is redacted and capped before reinjection.
 
-These tools are read-only and conversation-local, but are activated only when omitted history
-may matter.
+These tools are read-only, conversation-local, and foundational when session history is
+available.
 They do not search other sessions, bypass `/clear`, or widen a hosted manifest. A hosted
 session receives them only when its authenticated tool grant names them explicitly.
 When provider pressure or durable compaction removes records from the hot working set, NNA may
@@ -331,10 +343,10 @@ blocked. Typical commands are `winget install --id BurntSushi.ripgrep.MSVC --exa
 Windows, `brew install ripgrep` on macOS, and the distribution package manager's
 `install ripgrep` command on Linux. Installing software remains an operator-authorized action.
 
-The provider receives an immutable prompt-visible working set: the seven canonical read and
-discovery tools remain loaded, while specialized bundles are selected from authenticated
-intent. Ordinary execution activates `shell.run`; explicit verification can activate
-`project.verify`, while exact-process execution remains an internal specialist path.
-Registries without a shell use `process.run` as their bounded fallback. A host execution
-manifest may ceiling the complete tool capability, in which
-case the provider receives an empty tool list and requests remain unknown at governance.
+The provider receives an immutable prompt-visible working set: the available foundational
+tools remain loaded in deterministic order, while specialist schemas are added only by an
+explicit workflow lease or authenticated host manifest. Root NNA includes `shell.run` in the
+foundation; a hosted manifest may instead grant `process.run`. A host execution manifest may
+ceiling the complete capability set, including to an empty list. Regardless of visibility,
+every tool call remains unknown to governance until it passes the normal validation and review
+pipeline.

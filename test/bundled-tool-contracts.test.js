@@ -68,6 +68,7 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
     assert.equal(registry.definition('fs.write_text').inputSchema.properties.content.maxLength, 32_768);
     assert.equal(registry.definition('ref.store').inputSchema.properties.value.maxLength, 32_768);
 
+    registry.expose(['fs.edit_text', 'fs.edit_lines']);
     const surface = registry.providerDefinitions('build and edit a project file', { phase: 'action' });
     for (const name of ['fs.edit_text', 'fs.edit_lines']) {
       const parameters = surface.find((entry) => entry.function.name === name)?.function.parameters;
@@ -124,5 +125,30 @@ test('repair-complete format errors bound ordinary values and redact sensitive v
   await assert.rejects(sensitive({ api_key: 'wrong-secret-value' }), {
     code: 'tool_schema_invalid',
     message: /received \[redacted string; 18 characters\]$/u,
+  });
+});
+
+test('schema validation normalizes safe integer strings at every schema depth', async () => {
+  const validate = schemaShapeValidator({
+    type: 'object', additionalProperties: false, required: ['count', 'codes', 'nested', 'label'],
+    properties: {
+      count: { type: 'integer', minimum: 0 },
+      codes: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 255 } },
+      nested: {
+        type: 'object', additionalProperties: false, required: ['offset'],
+        properties: { offset: { type: 'integer' } },
+      },
+      label: { type: 'string' },
+    },
+  });
+  const original = { count: ' 003 ', codes: ['0', '1e2'], nested: { offset: '-4.0' }, label: '3' };
+  const normalized = await validate(original);
+  assert.deepEqual(normalized, { count: 3, codes: [0, 100], nested: { offset: -4 }, label: '3' });
+  assert.deepEqual(original, { count: ' 003 ', codes: ['0', '1e2'], nested: { offset: '-4.0' }, label: '3' });
+  await assert.rejects(validate({ count: '3.5', codes: [0], nested: { offset: 1 }, label: 'x' }), {
+    code: 'tool_schema_invalid', message: 'argument "count" must be an integer; received string',
+  });
+  await assert.rejects(validate({ count: '9007199254740993', codes: [0], nested: { offset: 1 }, label: 'x' }), {
+    code: 'tool_schema_invalid', message: 'argument "count" must be an integer; received string',
   });
 });

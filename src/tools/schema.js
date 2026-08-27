@@ -46,16 +46,51 @@ function projectProviderSchema(value, ancestors, depth, state, mode) {
 export function schemaValidator(schema) {
   const prepared = prepareObjectSchema(schema);
   return async (args) => {
-    validateArguments(args, schema, prepared);
-    return { args: structuredClone(args), resolved: { source: 'external' } };
+    const normalized = normalizeArguments(args, schema);
+    validateArguments(normalized, schema, prepared);
+    return { args: normalized, resolved: { source: 'external' } };
   };
 }
 
 export function schemaShapeValidator(schema) {
   const prepared = prepareObjectSchema(schema);
   return async (args) => {
-    validateArguments(args, schema, prepared);
+    const normalized = normalizeArguments(args, schema);
+    validateArguments(normalized, schema, prepared);
+    return normalized;
   };
+}
+
+function normalizeArguments(args, schema) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
+  validateInputStructure(args);
+  return normalizeValue(structuredClone(args), schema, new WeakSet());
+}
+
+function normalizeValue(value, rule, visited) {
+  const types = Array.isArray(rule?.type) ? rule.type : [rule?.type];
+  if (typeof value === 'string' && types.includes('integer') && !types.includes('string')) {
+    return integerFromString(value);
+  }
+  if (!value || typeof value !== 'object' || visited.has(value)) return value;
+  visited.add(value);
+  if (Array.isArray(value)) {
+    for (let index = 0; index < value.length; index += 1) {
+      value[index] = normalizeValue(value[index], rule?.items, visited);
+    }
+  } else {
+    for (const key of Object.keys(value)) {
+      value[key] = normalizeValue(value[key], rule?.properties?.[key], visited);
+    }
+  }
+  return value;
+}
+
+function integerFromString(value) {
+  const candidate = value.trim();
+  if (!/^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/u.test(candidate)) return value;
+  const parsed = Number(candidate);
+  return Number.isSafeInteger(parsed) ? parsed : value;
 }
 
 function prepareObjectSchema(schema) {

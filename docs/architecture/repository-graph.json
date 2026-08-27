@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:9c2675096469da924acfaf47a68672487b816bba98433267171d000e34ca732f",
+  "source_digest": "sha256:ccc0f9ffcc360fa294300a0a71c89c0328699df557ea948830e58da7848bccf0",
   "counts": {
-    "modules": 323,
+    "modules": 322,
     "component_edges": 69
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 40
+      "module_count": 39
     },
     {
       "id": "guidance",
@@ -138,7 +138,7 @@
       "from": "tools",
       "to": "tools",
       "import_count": 38,
-      "module_count": 7
+      "module_count": 8
     },
     {
       "from": "agentic-engine",
@@ -195,12 +195,6 @@
       "module_count": 5
     },
     {
-      "from": "agentic-engine",
-      "to": "tools",
-      "import_count": 9,
-      "module_count": 4
-    },
-    {
       "from": "guidance",
       "to": "foundation",
       "import_count": 9,
@@ -217,6 +211,12 @@
       "to": "foundation",
       "import_count": 9,
       "module_count": 9
+    },
+    {
+      "from": "agentic-engine",
+      "to": "tools",
+      "import_count": 8,
+      "module_count": 4
     },
     {
       "from": "experience-engine",
@@ -1055,7 +1055,6 @@
         "src/provider/request-metadata.js",
         "src/reliability/tool-call-assembler.js",
         "src/reliability/tool-call-deduplication.js",
-        "src/tools/capability-activation.js",
         "src/tools/capability-continuity.js",
         "src/tools/catalog-context.js"
       ]
@@ -2630,7 +2629,6 @@
         "src/stale-edit-recovery.js",
         "src/subagent-tool.js",
         "src/tools/argument-normalization.js",
-        "src/tools/capability-activation.js",
         "src/tools/filesystem-canonical.js",
         "src/tools/filesystem-discovery.js",
         "src/tools/filesystem-edit.js",
@@ -2680,12 +2678,6 @@
       "imports": [
         "src/reliability/tool-call-assembler.js"
       ]
-    },
-    {
-      "path": "src/tools/capability-activation.js",
-      "component": "tools",
-      "entrypoint": false,
-      "imports": []
     },
     {
       "path": "src/tools/capability-continuity.js",
@@ -2852,7 +2844,8 @@
       "component": "tools",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/tools/core-names.js"
       ]
     },
     {

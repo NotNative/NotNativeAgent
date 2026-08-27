@@ -48,11 +48,15 @@ test('provider request manifest is durable, content-free, and precedes provider 
   assert.ok(manifest.envelope.estimated_input_tokens > 0);
   assert.equal(manifest.envelope.configuration.temperature.sent, false);
   assert.ok(manifest.envelope.shape.message_count > 0);
-  assert.equal(manifest.envelope.shape.tool_schema_count, 0);
+  assert.ok(manifest.envelope.shape.tool_schema_count > 0);
   assert.equal(manifest.toolSurface.schema, 'nna.provider-tool-surface.v1');
-  assert.equal(manifest.toolSurface.phase, 'conversation');
-  assert.deepEqual(manifest.toolSurface.selectedToolNames, []);
-  assert.equal(manifest.toolSurface.schemaBytes, 0);
+  assert.equal(manifest.toolSurface.phase, 'orientation');
+  assert.equal(manifest.toolSurface.selectedToolNames[0], 'tool.search');
+  for (const name of ['shell.run', 'work.plan', 'work.goal', 'work.task_add', 'work.task_update']) {
+    assert.ok(manifest.toolSurface.selectedToolNames.includes(name), `${name} missing from provider manifest`);
+  }
+  assert.equal(manifest.envelope.shape.tool_schema_count, manifest.toolSurface.selectedToolNames.length);
+  assert.ok(manifest.toolSurface.schemaBytes > 0);
   assert.match(manifest.toolSurface.fingerprint, /^[a-f0-9]{64}$/u);
   assert.equal(JSON.stringify(manifest).includes(secretMarker), false);
   await store.close();

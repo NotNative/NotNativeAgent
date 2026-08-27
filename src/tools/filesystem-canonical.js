@@ -38,15 +38,18 @@ function readDefinition(legacy) {
         : await whole.validate({ path: args.path });
       return {
         args: {
-          path: args.path, mode: windowed ? 'lines' : 'full',
+          path: args.path,
           ...(windowed ? { start_line: delegated.args.start_line, line_count: delegated.args.line_count } : {}),
         },
-        resolved: delegated.resolved,
+        resolved: { ...delegated.resolved, readMode: windowed ? 'lines' : 'full' },
       };
     },
     executor: (request, signal) => {
-      const delegate = request.args.mode === 'lines' ? lines : whole;
-      const args = request.args.mode === 'lines'
+      // args.mode is accepted only as an internal backward-compatibility path
+      // for already-sealed requests created before readMode moved to metadata.
+      const readMode = request.resolved.readMode ?? request.args.mode;
+      const delegate = readMode === 'lines' ? lines : whole;
+      const args = readMode === 'lines'
         ? { path: request.args.path, start_line: request.args.start_line, line_count: request.args.line_count }
         : { path: request.args.path };
       return delegate.executor({ ...request, args }, signal);

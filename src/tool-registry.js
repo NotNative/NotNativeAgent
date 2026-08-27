@@ -36,14 +36,12 @@ import { withPreparedWriteTarget } from './tools/write-target.js';
 import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 import { advanceFromAuthoredState, mutationEvidence, transactionalSnapshot,
   withAuthoredAdvanceMetadata } from './tools/filesystem-mutation-state.js';
-import { directBrowserIntent, SITUATIONAL_TOOL_NAMES, taskActivatedToolNames } from './tools/capability-activation.js';
 import { telegramNotificationDefinition } from './notifications/telegram.js';
 import { sessionHistoryDefinitions } from './session-history-tools.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
 import { planProviderToolNames, providerSurfacePhase } from './tools/provider-surface-planner.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const MAX_MODEL_AUTHORED_TEXT_BYTES = 32_768;
-const SITUATIONAL = new Set(SITUATIONAL_TOOL_NAMES);
 export class ToolRegistry {
   #definitions = new Map();
   #history = new Map();
@@ -126,23 +124,9 @@ export class ToolRegistry {
   }
   providerSurface(query = '', options = {}) {
     const phase = providerSurfacePhase(options.phase);
-    const activated = new Set(taskActivatedToolNames(query));
-    // Hosted or explicitly-ceilinged registries may provide process.run without a shell.
-    // Preserve execution capability there without making process.run compete with shell.run
-    // in the ordinary root model surface.
-    if (activated.has('shell.run') && !this.#definitions.has('shell.run') && this.#definitions.has('process.run')) {
-      activated.add('process.run');
-    }
-    const relevant = new Set(query.trim() ? this.searchCatalog(query, 6).map((item) => item.name)
-      .filter((name) => !SITUATIONAL.has(name) || activated.has(name))
-      // The governed canonical browser is the direct task-intent capability.
-      // Do not let a semantically similar external browser schema compete with
-      // it unless that exact external tool was explicitly exposed or granted.
-      .filter((name) => !activated.has('web.browse') || name === 'web.browse'
-        || !/(?:browser|browse)/u.test(name) || this.#exposed.has(name)) : []);
     const snapshot = this.snapshot();
     const callable = snapshot.filter((item) => providerVisible(
-      item.name, this.#exposed.has(item.name), activated.has(item.name),
+      item.name, this.#exposed.has(item.name),
     ) || this.allowedTools?.has(item.name));
     const projected = new Map(callable.map((item) => [item.name, {
       type: 'function',
@@ -153,9 +137,8 @@ export class ToolRegistry {
       function: { name: item.name, description: compactPurpose(item), parameters: providerSchema(item.inputSchema, { mode: 'documented' }) },
     }]));
     const plan = planProviderToolNames({
-      availableNames: callable.map((item) => item.name), activatedNames: activated,
-      relevantNames: relevant, exposedNames: this.#exposed.keys(),
-      directNames: directBrowserIntent(query) ? ['web.browse'] : [], allowedNames: this.allowedTools,
+      availableNames: callable.map((item) => item.name), exposedNames: this.#exposed.keys(),
+      allowedNames: this.allowedTools,
       phase, encodedDefinition: (name) => Buffer.byteLength(JSON.stringify(projected.get(name)), 'utf8'),
     });
     const definitions = Object.freeze(plan.names.map((name) => Object.freeze(projected.get(name))));
@@ -266,7 +249,7 @@ export class ToolRegistry {
     const frozen = Object.freeze({
       ...installedDefinition, maxOutputBytes,
       validate: async (args) => {
-        const normalized = normalizeArgs(args); await validateShape(normalized);
+        const aliased = normalizeArgs(args); const normalized = await validateShape(aliased);
         return validate(normalized);
       },
     });

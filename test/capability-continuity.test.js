@@ -5,7 +5,7 @@ import { capabilitySelectionQuery, isTerseContinuation } from '../src/tools/capa
 import { ToolRegistry } from '../src/tool-registry.js';
 import { projectConversationIntent, resolveApprovedAssistantProposal } from '../src/engine/intent-projection.js';
 
-test('terse continuation inherits active unfinished work capability intent', async () => {
+test('terse continuation preserves active unfinished work context without changing the tool surface', async () => {
   const context = [
     workMessage({
       goal: { objective: 'Build and visually verify an ocean scene', status: 'active' },
@@ -25,11 +25,11 @@ test('terse continuation inherits active unfinished work capability intent', asy
   await registry.initialize();
   const visible = registry.providerDefinitions(query).map((item) => item.function.name);
   assert.ok(visible.includes('shell.run'));
+  assert.ok(visible.includes('tool.search'));
+  assert.ok(visible.includes('work.plan'));
   for (const name of ['fs.write_text', 'fs.edit_text']) assert.ok(!visible.includes(name));
   const grounded = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
-  for (const name of ['fs.write_text', 'fs.edit_text', 'shell.run']) {
-    assert.ok(grounded.includes(name), `${name} was not inherited after grounding`);
-  }
+  assert.deepEqual(grounded, visible);
   assert.ok(!visible.includes('project.verify'));
   assert.ok(!visible.includes('process.run'));
 });
@@ -46,7 +46,7 @@ test('terse continuation falls back to the nearest substantive authenticated req
   assert.doesNotMatch(query, /delete everything/u);
 });
 
-test('substantive new operator input replaces active work capability selection', async () => {
+test('substantive new operator input replaces projected context but retains foundational tools', async () => {
   const context = [
     workMessage({ goal: { objective: 'Build the application', status: 'active' }, tasks: [] }),
     { role: 'user', content: 'Only inspect the repository structure.', trust: 'operator' },
@@ -60,7 +60,7 @@ test('substantive new operator input replaces active work capability selection',
   assert.ok(visible.includes('work.plan'));
 });
 
-test('conversation intent keeps task capabilities through a later continuation turn', async () => {
+test('conversation intent survives a continuation while specialists still require explicit exposure', async () => {
   const original = 'Build and visually verify an ocean scene';
   const clarification = 'You may browse localhost:8123 to check your work.';
   const continuation = 'Please proceed.';
@@ -81,7 +81,13 @@ test('conversation intent keeps task capabilities through a later continuation t
   await registry.initialize();
   const visible = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
   for (const name of ['fs.write_text', 'fs.edit_text', 'fs.directory', 'web.browse']) {
-    assert.ok(visible.includes(name), `${name} was not retained`);
+    assert.ok(!visible.includes(name), `${name} was inferred from user wording`);
+  }
+  registry.expose(['fs.write_text', 'fs.edit_text', 'fs.directory', 'web.browse']);
+  const expanded = registry.providerDefinitions('different wording', { phase: 'recovery' })
+    .map((item) => item.function.name);
+  for (const name of ['fs.write_text', 'fs.edit_text', 'fs.directory', 'web.browse']) {
+    assert.ok(expanded.includes(name), `${name} explicit workflow lease was lost`);
   }
 });
 
@@ -103,7 +109,7 @@ test('conversation intent projection retains the accepted turn anchor through la
   assert.equal(projection.at(-1), 'steering 9');
 });
 
-test('authenticated referential approval resolves only the immediately preceding assistant proposal', async () => {
+test('authenticated referential approval resolves context but does not silently grant specialist tools', async () => {
   const proposal = 'I will implement and verify the workspace application.';
   const transcript = [{
     type: 'message', role: 'assistant', trust: 'model', partial: false, content: proposal,
@@ -119,7 +125,8 @@ test('authenticated referential approval resolves only the immediately preceding
   const query = capabilitySelectionQuery([], ['Please proceed.'], proposal);
   assert.match(query, /approved assistant proposal: I will implement/u);
   const visible = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
-  assert.ok(visible.includes('fs.write_text'));
+  assert.ok(!visible.includes('fs.write_text'));
+  assert.ok(visible.includes('tool.search'));
 });
 
 test('continuation classification is narrow and malformed work state fails closed', () => {

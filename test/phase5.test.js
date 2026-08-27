@@ -694,7 +694,7 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /without rereading it or inventing a guidance file/u);
   assert.equal(policy.includes(config(process.cwd()).workspaceRoot), true);
   assert.match(policy, /user refers to this project, repository, codebase, or workspace/u);
-  assert.match(policy, /begin with one brief visible acknowledgement/u);
+  assert.match(policy, /begin with one brief visible statement of intent, viewpoint/u);
   assert.match(policy, /use tools promptly/u);
   assert.match(policy, /do not repeat that acknowledgement on continuations/iu);
   assert.match(policy, /Batch independent read-only discovery/u);
@@ -714,11 +714,11 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /version-sensitive external APIs[^]*web\.search[^]*web\.fetch[^]*web\.browse/u);
   assert.match(policy, /web\.fetch fails[^]*web\.browse navigate on that same URL/u);
   assert.match(policy, /ordinary terminal work, use shell\.run[^]*exact-process capability only when/u);
-  assert.match(policy, /tool\.search once[^]*loads matching schemas for the next model step/u);
+  assert.match(policy, /tool\.search once[^]*loads matching schemas for the bounded workflow lease/u);
   assert.match(policy, /runtime binds and revalidates receipts/u);
   assert.match(policy, /Do not claim completion while required work is unfinished/u);
   assert.match(policy, /Planning is optional/u);
-  assert.match(policy, /do not create work state merely because a task is substantive or multi-step/u);
+  assert.match(policy, /explicit request[^]*persist it with work\.plan or the granular work tools/u);
 });
 
 test('provider context keeps its policy prefix byte-stable while placing the clock at the mutable tail', () => {

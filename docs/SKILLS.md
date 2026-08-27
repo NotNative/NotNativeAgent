@@ -26,8 +26,8 @@ Read relevant files before reporting prioritized findings.
 
 `invocation` is `user`, `agent`, or `both`. `/skills` opens the catalog and `/skill ID
 [REQUEST]` invokes a user-accessible skill for one turn. Agents see bounded catalog
-summaries. Skill-related task intent activates `skill.search` and `skill.load`; otherwise
-the agent can load their schemas through `tool.search` when a catalog entry proves relevant.
+summaries. `skill.search` and `skill.load` are foundational when the skill subsystem is
+available; no wording classifier is required to expose them.
 `nna skills --json` provides machine-readable introspection.
 
 ## Authoring a skill

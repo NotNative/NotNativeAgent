@@ -6,29 +6,26 @@ import { routeReasoningFields } from '../provider/reasoning.js';
 import { ContractError } from '../ids.js';
 import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
 import { deduplicateToolCallBatch } from '../reliability/tool-call-deduplication.js';
-import { monitoringIntent, taskActivatedToolNames, toolOrientedIntent } from '../tools/capability-activation.js';
 import { attachProviderRequestMetadata } from '../provider/request-metadata.js';
 
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
+  // Preserve the bounded authenticated task projection for provider-surface
+  // compatibility and audit correlation. ToolRegistry does not use its wording
+  // to select schemas; the foundational surface is deterministic.
   const query = capabilitySelectionQuery(context, options.conversationIntent, options.approvedProposal);
-  const toolOriented = toolOrientedIntent(query);
-  const webResearch = taskActivatedToolNames(query).includes('web.search');
-  const providerContext = toolOriented ? context : conversationalProviderContext(context);
-  const messages = toProviderMessages(providerContext, { ...route, reasoningMode: options.reasoningMode });
-  const dialect = toolOriented ? engine.reliability?.instructions(route) : null;
-  const surfacePhase = toolOriented ? options.capabilityPhase : 'conversation';
+  const messages = toProviderMessages(context, { ...route, reasoningMode: options.reasoningMode });
+  const dialect = engine.reliability?.instructions(route);
+  const surfacePhase = options.capabilityPhase;
   const surface = typeof engine.tools.providerSurface === 'function'
     ? engine.tools.providerSurface(query, { phase: surfacePhase })
-    : { definitions: engine.tools.providerDefinitions(query), receipt: null };
+    : { definitions: engine.tools.providerDefinitions(query, { phase: surfacePhase }), receipt: null };
   const tools = surface.definitions;
   if (options.active) options.active.providerToolSurface = surface.receipt;
-  const catalog = surfacePhase === 'conversation' ? null
-    : toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);
-  const system = [dialect, catalog, webResearch ? researchExecutionPolicy() : null]
-    .filter(Boolean).map((content) => ({ role: 'system', content }));
+  const catalog = toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);
+  const system = [dialect, catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
   const ordered = insertGeneratedSystemMessages(messages, system);
-  const accountingSections = providerAccountingSections(ordered.messages, providerContext, ordered.injectedMessageIndexes);
+  const accountingSections = providerAccountingSections(ordered.messages, context, ordered.injectedMessageIndexes);
   const flattenedMessages = flattenLeadingSystemMessages(ordered.messages);
   const reasoning = routeReasoningFields(route);
   // The assembled request is a boundary value. Provider adapters must not mutate shared turn state through it.
@@ -41,21 +38,6 @@ export function providerRequest(engine, route, context, options = {}) {
     ...(options.reasoningMode ? { reasoningMode: options.reasoningMode } : {}),
   });
   return attachProviderRequestMetadata(request, { injectedMessageIndexes: [], accountingSections });
-}
-
-function researchExecutionPolicy() {
-  return 'Research execution policy: before the first call, choose the smallest sufficient evidence plan and act promptly. When the user gives a numeric range, start with exactly its lower bound; for "one or two," research one candidate and do not announce or verify a couple unless the first candidate fails or comparison is explicitly required. Verify only decision-critical facts. Batch independent facts for that minimal answer. An empty result, access-denied page, CAPTCHA, or bot challenge ends that source path: do not inspect, refresh, or retry it; use at most one materially different source path, then answer from available evidence with explicit uncertainty. One trustworthy source is enough for an uncontested low-stakes fact. Once the minimum answer is supported, answer in that same model step without cleanup-only calls.';
-}
-
-function conversationalProviderContext(context) {
-  // Replace only the large general engine policy. Authenticated application
-  // policy, hooks, memory, attachments, and other attributed evidence remain
-  // available to conversational requests even though their tool surface is empty.
-  const retained = context.filter((item) => item?.provenance !== 'engine_policy');
-  return [{
-    role: 'system', provenance: 'engine_policy', trust: 'kernel',
-    content: 'You are NotNativeAgent. Answer the authenticated conversational request directly and use native private reasoning only as much as the question benefits from. Be specific and practical. For ordinary low-stakes conversation, answer in at most 250 words unless the user explicitly requests depth. For subjective recommendations, use a short private checklist of the explicit criteria, select reasonable familiar options, and answer immediately; do not exhaustively optimize or enumerate the possibility space. Do not inspect or modify the workspace, invoke tools, or claim current external facts in this conversational mode. Ask one concise clarifying question only when the missing information would materially change the answer.',
-  }, ...retained];
 }
 
 function insertGeneratedSystemMessages(messages, generated) {
@@ -230,8 +212,15 @@ export function suppressPostToolReasoningReplay(active) {
   return true;
 }
 
-export function setInitialCapabilityPhase(active, content) {
-  active.capabilityPhase = monitoringIntent(content) ? 'monitoring' : 'orientation';
+export function setInitialCapabilityPhase(active, _content) {
+  // Monitoring changes only the no-progress allowance for intentionally repeated
+  // observations. It never selects, adds, or removes provider tool schemas.
+  active.capabilityPhase = explicitMonitoringRequest(_content) ? 'monitoring' : 'orientation';
+}
+
+function explicitMonitoringRequest(content) {
+  const text = String(content ?? '').slice(0, 32_768);
+  return /\b(?:keep checking|monitor|poll|repeatedly check|wait for|watch)\b/iu.test(text);
 }
 
 export function groundCapabilityPhase(active) {

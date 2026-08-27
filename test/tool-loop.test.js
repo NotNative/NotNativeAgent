@@ -711,6 +711,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   const root = await mkdtemp(join(tmpdir(), 'nna-registry-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
+  registry.expose(['fs.write_text']);
   const providerWrite = registry.providerDefinitions('write a project file', { phase: 'action' })
     .find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);

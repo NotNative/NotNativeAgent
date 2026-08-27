@@ -73,7 +73,7 @@ test('generated system guidance follows identity while retaining injected envelo
   assert.equal(envelope.sections.find((item) => item.id === 'context.transcript').items, 1);
 });
 
-test('ordinary conversation receives no tool schemas while retaining one system message', () => {
+test('ordinary conversation retains its foundational tool surface and one system message', () => {
   const context = [
     { role: 'system', content: 'identity', provenance: 'engine_policy' },
     { role: 'user', content: 'What makes cooperative board games fun?', provenance: 'transcript', trust: 'operator' },
@@ -81,13 +81,13 @@ test('ordinary conversation receives no tool schemas while retaining one system 
   const request = providerRequest({
     reliability: { instructions: () => 'tool dialect' },
     tools: {
-      providerSurface: (_query, options) => ({ definitions: options.phase === 'conversation' ? [] : ['unexpected'], receipt: null }),
+      providerSurface: () => ({ definitions: ['foundation'], receipt: null }),
       catalogSnapshot: () => [{ name: 'tool.search' }],
     },
   }, { model: 'fixture', maxOutputTokens: 32_000 }, context);
   assert.equal(request.messages.filter((item) => item.role === 'system').length, 1);
-  assert.deepEqual(request.tools, []);
-  assert.doesNotMatch(request.messages[0].content, /tool dialect/iu);
+  assert.deepEqual(request.tools, ['foundation']);
+  assert.match(request.messages[0].content, /tool dialect/iu);
   assert.equal(request.maxOutputTokens, 32_000);
 });
 

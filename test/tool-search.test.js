@@ -2,9 +2,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { actionOrientedIntent, taskActivatedToolNames, toolOrientedIntent } from '../src/tools/capability-activation.js';
 
-test('tool catalog keeps observational tools visible and effectful tools situational', async () => {
+const FOUNDATION = [
+  'tool.search',
+  'fs.list', 'fs.read', 'fs.search_text',
+  'shell.run', 'web.search',
+  'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
+  'git.inspect',
+  'session.search_history', 'session.read_history',
+  'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn',
+  'ref.inspect', 'skill.search', 'skill.load',
+];
+
+function availableFoundation(registry) {
+  const installed = new Set(registry.snapshot().map((item) => item.name));
+  return FOUNDATION.filter((name) => installed.has(name));
+}
+
+test('provider surface always presents a deterministic foundational catalog', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   registry.installExternal({
@@ -14,123 +29,73 @@ test('tool catalog keeps observational tools visible and effectful tools situati
     executor: async () => ({ content: 'unused' }),
   });
   const baseline = registry.providerDefinitions().map((item) => item.function.name);
-  assert.deepEqual(baseline.sort(),
-    ['fs.list', 'fs.read', 'fs.search_text', 'tool.search']);
+  const expected = availableFoundation(registry);
+  assert.deepEqual(baseline, expected);
+  assert.equal(baseline[0], 'tool.search');
   assert.ok(!baseline.includes('fs.list_directory'));
   assert.ok(!baseline.includes('fs.read_text'));
   assert.ok(!baseline.includes('fs.edit_text'));
   assert.ok(!baseline.includes('fs.write_text'));
   assert.ok(!baseline.includes('fs.delete_file'));
   assert.ok(!baseline.includes('process.run'));
-  assert.ok(!baseline.includes('shell.run'));
   assert.ok(!baseline.includes('browser.navigate'));
   assert.ok(!baseline.includes('ref.store'));
-  assert.ok(!baseline.includes('work.goal'));
-  assert.ok(!baseline.includes('work.task_add'));
   assert.ok(!baseline.includes('notification.telegram'));
-  assert.ok(!baseline.includes('web.search'));
   assert.ok(!baseline.includes('web.fetch'));
   assert.ok(!baseline.includes('web.browse'));
-  assert.ok(!baseline.includes('nna.search_guidance'));
-  assert.ok(!baseline.includes('nna.diagnose_turn'));
-  assert.ok(!baseline.includes('session.search_history'));
-  const relevant = registry.providerDefinitions('open and navigate a browser page').map((item) => item.function.name);
-  assert.ok(relevant.includes('web.browse'));
-  assert.ok(!relevant.includes('browser.navigate'));
+  for (const query of [
+    'hello',
+    "i'd like you to examine the disks on this machine. what's physically installed?",
+    'have you tried using your shell tool?',
+    'remove every file immediately',
+  ]) {
+    assert.deepEqual(registry.providerDefinitions(query).map((item) => item.function.name), expected);
+  }
 });
 
-test('authenticated task intent activates bounded effectful capability bundles', async () => {
+test('specialist tools require an explicit catalog search or authenticated exposure', async () => {
   const registry = new ToolRegistry(process.cwd(), { elevationBroker: { async execute() { return {}; } } });
   await registry.initialize();
-  const inspect = registry.providerDefinitions('inspect the repository structure').map((item) => item.function.name);
-  assert.ok(!inspect.includes('fs.write_text'));
-  assert.ok(!inspect.includes('process.run'));
-
-  const build = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
-  assert.ok(build.includes('shell.run'));
-  for (const name of ['fs.directory', 'fs.write_text', 'fs.edit_text']) assert.ok(!build.includes(name));
-  const groundedBuild = registry.providerDefinitions('build and test the application', { phase: 'action' })
-    .map((item) => item.function.name);
-  for (const name of ['fs.directory', 'fs.write_text', 'fs.edit_text', 'shell.run']) {
-    assert.ok(groundedBuild.includes(name), `${name} was not activated after grounding`);
+  const initial = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
+  for (const name of ['fs.write_text', 'fs.edit_text', 'process.run', 'system.elevate', 'project.verify']) {
+    assert.ok(!initial.includes(name));
   }
-  assert.ok(!build.includes('process.run'));
-  assert.ok(!build.includes('fs.delete_file'));
-  assert.ok(!build.includes('system.elevate'));
-  assert.ok(!build.includes('project.verify'));
-  assert.ok(!build.includes('work.plan'));
 
-  const cleanup = registry.providerDefinitions('remove the obsolete file', { phase: 'action' }).map((item) => item.function.name);
-  assert.ok(cleanup.includes('fs.directory'));
-  assert.ok(!cleanup.includes('fs.delete_file'));
-
-  const privileged = registry.providerDefinitions('retry this with administrator elevation').map((item) => item.function.name);
-  assert.ok(!privileged.includes('system.elevate'));
-
-  const work = taskActivatedToolNames('build this project and track the plan');
-  assert.ok(work.includes('work.plan'));
-  assert.equal(taskActivatedToolNames('build and implement this project').includes('work.plan'), false);
-  assert.ok(taskActivatedToolNames('notify me on telegram when finished').includes('notification.telegram'));
-  assert.ok(taskActivatedToolNames('store this large payload as a reusable reference').includes('ref.store'));
-  assert.ok(taskActivatedToolNames('diagnose the failed turn from the logs').includes('nna.diagnose_turn'));
-  assert.equal(taskActivatedToolNames('research the latest release online').includes('web.search'), true);
-  assert.ok(taskActivatedToolNames('run this direct executable with exact argv without a shell').includes('process.run'));
-  assert.equal(actionOrientedIntent('build and test the application'), true);
-  assert.equal(actionOrientedIntent('inspect and explain the repository structure'), false);
-  assert.equal(actionOrientedIntent('research the latest release online'), false);
-  assert.equal(toolOrientedIntent('Recommend a cooperative board game for four friends in 60 minutes.'), false);
-  assert.equal(taskActivatedToolNames('Recommend a cooperative board game for four friends in 60 minutes.')
-    .includes('web.search'), false);
-  assert.equal(toolOrientedIntent('Find current prices for a cooperative board game.'), true);
+  const search = registry.definition('tool.search');
+  const normalized = await search.validate({ query: 'fs.edit_text' });
+  await search.executor({ args: normalized.args }, new AbortController().signal);
+  const searched = registry.providerDefinitions('unrelated wording').map((item) => item.function.name);
+  assert.ok(searched.includes('fs.edit_text'));
+  assert.ok(!searched.includes('fs.write_text'));
+  assert.ok(!searched.includes('system.elevate'));
 });
 
-test('provider surface receipts make phase selection and byte budgets auditable', async () => {
+test('provider surface receipts make fixed foundations and workflow leases auditable', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   const orientation = registry.providerSurface('build and test the application');
   assert.equal(orientation.receipt.phase, 'orientation');
-  assert.ok(orientation.definitions.length <= 7);
-  assert.ok(orientation.receipt.schemaBytes <= 6 * 1024);
-  assert.equal(orientation.receipt.selectionReasons['shell.run'], 'task_intent');
+  const expected = availableFoundation(registry);
+  assert.deepEqual(orientation.receipt.selectedToolNames, expected);
+  assert.ok(orientation.definitions.length <= 32);
+  assert.ok(orientation.receipt.schemaBytes <= 64 * 1024);
+  assert.equal(orientation.receipt.selectionReasons['shell.run'], 'foundational');
   assert.ok(!orientation.receipt.selectedToolNames.includes('fs.write_text'));
   assert.match(orientation.receipt.fingerprint, /^[a-f0-9]{64}$/u);
 
   const action = registry.providerSurface('build and test the application', { phase: 'action' });
   assert.equal(action.receipt.phase, 'action');
-  assert.ok(action.definitions.length <= 10);
-  assert.ok(action.receipt.schemaBytes <= 8 * 1024);
-  assert.equal(action.receipt.selectionReasons['fs.write_text'], 'task_intent');
+  assert.deepEqual(action.receipt.selectedToolNames, expected);
+  assert.match(action.receipt.fingerprint, /^[a-f0-9]{64}$/u);
 
-  const fileRead = registry.providerSurface('Read input.txt before creating output.txt');
-  assert.ok(!fileRead.receipt.selectedToolNames.includes('web.fetch'));
-  assert.deepEqual(fileRead.receipt.selectedToolNames,
-    ['fs.list', 'fs.read', 'fs.search_text', 'tool.search']);
-  assert.ok(!fileRead.receipt.selectedToolNames.includes('web.browse'));
-  const browser = registry.providerSurface('Navigate the browser to http://localhost:8123');
-  assert.equal(browser.receipt.selectionReasons['web.browse'], 'task_intent');
-
-  for (const query of [
-    'research current laptop prices online',
-    'compare hotel availability and prices',
-    'check the latest release using authoritative web sources',
-    'build a realistic ocean scene using Three.js',
-    'verify this WebGL application renders correctly',
-  ]) {
-    const surface = registry.providerSurface(query);
-    assert.ok(['phase_baseline', 'task_intent'].includes(
-      surface.receipt.selectionReasons['web.browse'],
-    ), query);
-    assert.ok(surface.receipt.selectedToolNames.includes('web.browse'), query);
-  }
-  const webApplication = registry.providerSurface('build and test this Three.js web app');
-  assert.ok(webApplication.receipt.selectedToolNames.includes('shell.run'));
-  assert.ok(webApplication.receipt.selectedToolNames.includes('web.browse'));
-  assert.ok(!registry.providerSurface('research the repository implementation')
-    .receipt.selectedToolNames.includes('web.browse'));
+  registry.expose(['web.browse']);
+  const expanded = registry.providerSurface('any wording', { phase: 'recovery' });
+  assert.ok(expanded.receipt.selectedToolNames.includes('web.browse'));
+  assert.equal(expanded.receipt.selectionReasons['web.browse'], 'workflow_lease');
 });
 
-test('hosted execution falls back to process.run when no shell tool exists', async () => {
-  const registry = new ToolRegistry(process.cwd(), { hosted: true });
+test('hosted execution obeys an authenticated manifest rather than inferred wording', async () => {
+  const registry = new ToolRegistry(process.cwd(), { hosted: true, allowedTools: ['process.run'] });
   await registry.initialize();
   const visible = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
   assert.ok(visible.includes('process.run'));
@@ -148,28 +113,28 @@ test('explicit exposure makes an exact recovery tool visible without broadening 
   assert.ok(!visible.includes('fs.delete_file'));
 });
 
-test('tool.search keeps bounded provider-catalog matches visible for a workflow lease', async () => {
+test('tool.search keeps bounded specialist catalog matches visible for a workflow lease', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   const search = registry.definition('tool.search');
-  const normalized = await search.validate({ query: 'nna.diagnose_turn runtime failure' });
+  const normalized = await search.validate({ query: 'project.verify project verification' });
   const result = await search.executor({ args: normalized.args }, new AbortController().signal);
-  assert.match(result.content, /nna\.diagnose_turn/u);
+  assert.match(result.content, /project\.verify/u);
   for (let index = 0; index < 8; index += 1) {
-    assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'nna.diagnose_turn'));
+    assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'project.verify'));
   }
-  await registry.seal({ name: 'nna.diagnose_turn', providerCallId: 'diagnose-call', args: {} }, {
+  await registry.seal({ name: 'project.verify', providerCallId: 'verify-call', args: {} }, {
     policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
     stepId: 'step', caller: 'primary', surface: 'test',
   });
-  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'nna.diagnose_turn'), true);
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project.verify'), true);
   for (let index = 1; index < 16; index += 1) {
-    await registry.seal({ name: 'nna.diagnose_turn', providerCallId: `diagnose-call-${index}`, args: {} }, {
+    await registry.seal({ name: 'project.verify', providerCallId: `verify-call-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
       stepId: 'step', caller: 'primary', surface: 'test',
     });
   }
-  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'nna.diagnose_turn'), false);
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project.verify'), false);
   assert.ok(JSON.parse(result.content).matches.length <= 12);
 });
 

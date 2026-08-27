@@ -15,14 +15,14 @@ therefore restores progress without a parallel state store, and context compacti
 erase it.
 
 The provider receives only the current snapshot as trusted engine state when work exists.
-Mutation history does not consume prompt context. Explicit planning and tracking intent,
-plus any already-active plan, activates `work.plan`, which atomically replaces the bounded
-goal and ordered task snapshot. It maintains the same state machine used by operator commands
-without forcing a model through several overlapping schemas. The granular legacy work tools
-remain installed for compatibility but are not part of the fresh model-facing catalog. These
-tools add no filesystem, process, secret, or network authority. Hosted sessions receive the
-canonical tool only when their execution manifest grants `work.plan`; legacy manifests retain
-their exact granular grants without silently widening authority.
+Mutation history does not consume prompt context. `work.plan`, `work.status`, `work.goal`,
+`work.task_add`, and `work.task_update` are foundational schemas whenever conversation work is
+available. `work.plan` atomically replaces the bounded goal and ordered task snapshot; the
+granular tools support direct, intuitive updates to the same state machine. Their visibility
+does not itself create a plan. Explicit operator requests to set, create, load, or track a goal
+or task list must be persisted before dependent work begins. These tools add no filesystem,
+process, secret, or network authority. Hosted sessions receive only the exact work tools named
+by their execution manifest; one grant never implies another.
 
 The Console's `/plan` hub is the primary view. `/tasks` is an alias for the same hub, while
 `/goal` and `/task` provide direct keyboard workflows. The footer shows only a compact

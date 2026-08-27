@@ -44,7 +44,7 @@ graph LR
 | Gateway | 4 | Agentic Engine, Gateway, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine | Experience Engine, Gateway, Product foundation |
 | Persistence | 11 | Persistence, Product foundation, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Governance Engine, Integration surfaces, Persistence, Product foundation, Providers, Tools |
 | Providers | 16 | Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Providers, Reliability Engine |
-| Tools | 40 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Reliability Engine, Tools | Agentic Engine, Experience Engine, Governance Engine, Reliability Engine, Tools |
+| Tools | 39 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Reliability Engine, Tools | Agentic Engine, Experience Engine, Governance Engine, Reliability Engine, Tools |
 | Guidance and extensions | 9 | Governance Engine, Guidance and extensions, Product foundation | Agentic Engine, Experience Engine, Guidance and extensions, Product foundation, Tools |
 | Integration surfaces | 10 | Agentic Engine, Integration surfaces, Persistence, Product foundation, Providers | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
 | Product foundation | 80 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools |
@@ -60,7 +60,7 @@ Counts represent static local imports. Same-component imports are included becau
 | Experience Engine | Product foundation | 77 | 54 |
 | Tools | Product foundation | 50 | 33 |
 | Reliability Engine | Reliability Engine | 46 | 22 |
-| Tools | Tools | 38 | 7 |
+| Tools | Tools | 38 | 8 |
 | Agentic Engine | Product foundation | 37 | 14 |
 | Agentic Engine | Agentic Engine | 26 | 7 |
 | Providers | Product foundation | 21 | 14 |
@@ -70,10 +70,10 @@ Counts represent static local imports. Same-component imports are included becau
 | Governance Engine | Product foundation | 13 | 10 |
 | Product foundation | Providers | 10 | 8 |
 | Tools | Reliability Engine | 10 | 5 |
-| Agentic Engine | Tools | 9 | 4 |
 | Guidance and extensions | Product foundation | 9 | 8 |
 | Persistence | Product foundation | 9 | 9 |
 | Reliability Engine | Product foundation | 9 | 9 |
+| Agentic Engine | Tools | 8 | 4 |
 | Experience Engine | Persistence | 8 | 7 |
 | Product foundation | Persistence | 8 | 6 |
 | Integration surfaces | Integration surfaces | 8 | 4 |
@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:9c2675096469da924acfaf47a68672487b816bba98433267171d000e34ca732f`.
+Source fingerprint: `sha256:ccc0f9ffcc360fa294300a0a71c89c0328699df557ea948830e58da7848bccf0`.

@@ -6,9 +6,9 @@ authoring, architecture,
 installation, troubleshooting, hooks, MCP integration, memory, provider routing, or
 permission system. It must not substitute general knowledge about other agent products.
 
-The engine prompt instructs the model to use packaged guidance rather than guess. NNA-related
-intent activates `nna.search_guidance` and `nna.read_guidance`; the model grounds its answer
-in those results. If installed guidance does not cover the question, NNA must state that
+The engine prompt instructs the model to use packaged guidance rather than guess.
+`nna.search_guidance` and `nna.read_guidance` are foundational tools; the model grounds its
+answer in those results. If installed guidance does not cover the question, NNA must state that
 limitation rather than invent behavior.
 Before creating or modifying an NNA skill, it must read `SKILLS.md` and follow the NNA
 package, scope, metadata, invocation, and verification conventions instead of borrowing
@@ -75,9 +75,9 @@ Optional long-horizon progress is maintained through `/plan` (with `/tasks` as a
 ordered task state accurate. A current work snapshot is
 kernel-grounded independently of transcript compaction and restores with the session. The
 agent must record concrete evidence before completing a task or goal, and must not create
-planning state merely because the capability exists or the work has multiple steps. Explicit
-planning or tracking intent activates the tool; an active plan keeps it available. While a plan
-exists, completion supervision nudges unfinished work forward but yields when the model is
+planning state merely because the capability exists or the work has multiple steps. When the
+operator explicitly requests a goal or task list, the agent persists it before dependent work.
+While a plan exists, completion supervision nudges unfinished work forward but yields when the model is
 genuinely waiting for operator input.
 
 Provider context is a bounded hot working set rather than the complete durable transcript.

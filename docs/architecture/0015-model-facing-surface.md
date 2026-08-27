@@ -1,56 +1,54 @@
-# Architecture decision 0015: compact model-facing surface
+# Architecture decision 0015: stable model-facing foundation
 
 Status: accepted and implemented.
 
-NNA keeps its complete governed capability registry while presenting a smaller task-specific
-surface to each provider step. The always-visible set is exactly `tool.search`, `fs.list`,
-`fs.read`, `fs.search_text`, `web.search`, `web.fetch`, and `web.browse`. Authenticated task
-intent activates the canonical mutation and coordination tools `fs.directory`,
-`fs.write_text`, `fs.edit_text`, `shell.run`, `work.plan`, and `agent.run`, plus narrowly
-specialized diagnostics, session history, and notification tools. An active turn maintains a
-bounded conversation-intent projection from recent authenticated operator statements, with its
-accepted request retained as an anchor through later steering. Both tool selection and reviewer
-evidence use that projection, preventing a cross-turn continuation, additive clarification, or
-permission from accidentally erasing the task vocabulary that activated its tools. A
-`work.plan` can improve coordination and operator visibility, but tool continuity does not
-depend on a plan existing. A conservative referential-approval resolver can additionally bind a
-short authenticated assent such as `Please proceed` to the immediately preceding completed
-assistant proposal. The bounded proposal is labeled separately and contributes model-facing task
-vocabulary only after that authenticated adoption; unrelated model output cannot self-activate.
+NNA keeps its complete governed capability registry while presenting a stable foundational
+surface to every ordinary provider step. The deterministic order is:
 
-This is a model-facing context decision, not an authority decision. Hidden schemas remain
-installed and governed. Exposure never bypasses validation, sealed-request binding, semantic
-review, revalidation, execution limits, or journaling. An execution manifest can still remove
-a capability entirely.
+1. `tool.search`;
+2. `fs.list`, `fs.read`, and `fs.search_text`;
+3. `shell.run` and `web.search`;
+4. `work.plan`, `work.status`, `work.goal`, `work.task_add`, and `work.task_update`;
+5. `git.inspect`;
+6. `session.search_history` and `session.read_history`;
+7. `nna.search_guidance`, `nna.read_guidance`, and `nna.diagnose_turn`;
+8. `ref.inspect`;
+9. `skill.search` and `skill.load`.
 
-`tool.search` is the escape hatch for authorized capabilities that task selection did not
-load. A successful search keeps bounded matching schemas visible until a validated call
-consumes the selected tool. An exact-name query also returns the input schema and explicit
-next-step guidance. Provider-definition assembly does not age discovery state, because route
-qualification, retry, and review may assemble definitions more than once before the primary
-model receives another actionable step.
+A definition is omitted only when its subsystem is unavailable or an authenticated host
+manifest ceilings it. Root conversations do not have a text-only or zero-tool phase. The
+operator's wording is not classified with regular expressions, lexical relevance, or another
+front-loaded intent matcher to decide which schemas exist.
 
-Ordinary build, test, install, and terminal intent activates `shell.run`; `project.verify`
-is selected only by explicit verification intent and `process.run` does not compete in the
-routine surface. Both remain installed as internal compatibility/specialist capabilities. Hosted or
-manifest-ceilinged registries that provide `process.run` without `shell.run` use it as the
-execution fallback, preserving capability without widening the normal root surface.
+Specialist schemas—mutation, browser automation, verification, exact-process execution,
+delegation, reference storage, notifications, and future MCP tools—remain discoverable through
+the name-only catalog. `tool.search` is first so the model can inspect and load the relevant
+schema. A successful search creates a bounded workflow lease; an exact-name search also returns
+the input schema and direct next-step guidance. Typed recovery and skills may create the same
+explicit lease. Provider-definition assembly does not age lease state because qualification,
+retry, and review can assemble definitions more than once before the model receives another
+actionable step.
 
-The kernel prompt is organized as short, named invariant sections: role and scope,
-communication and authority, context, action and verification, grounding, NNA self-knowledge,
-and completion. Host- or operation-specific coaching belongs in the relevant tool definition
-and its in-band errors. Specialized workflows belong in skills or attributed project guidance.
-Runtime state machines own recovery and enforcement. The general action section asks the model to
-acknowledge briefly, choose the smallest useful next action after each request or tool result, invoke a
-needed tool in the same response, and adapt from returned evidence. It keeps private reasoning concise
-and permits completion only when the request is satisfied or specific operator input is required. This is
-medium-agnostic execution guidance that avoids oversized front-loaded artifacts and prolonged speculative
-planning without prescribing a visible Thought/Action/Observation protocol.
+This is a model-facing context decision, never an authority decision. Visibility and search do
+not grant permission. Every call still passes schema validation, sealed-request binding,
+governance, mandatory semantic review where classified, revalidation, execution bounds, and
+journaling. Authenticated execution manifests remain hard capability ceilings and can provide
+an exact surface, including no tools. Governance is never bypassed by the foundation, a search
+result, a skill, recovery guidance, or model confidence.
 
-Legacy granular tools remain installed so sealed requests, old manifests, resumed sessions,
-specialized skills, and internal recovery do not lose functionality. They are hidden from the
-ordinary catalog and are not competing aliases for fresh model decisions.
+NNA continues to maintain a bounded conversation-intent projection from authenticated operator
+statements. It supports continuity, reviewer evidence, and completion supervision; it does not
+select tools. A short continuation, clarification, or accepted assistant proposal can therefore
+retain the task's meaning without silently granting or removing a schema.
 
-The intended result is broad freedom of approach with few simultaneous choices. Small and
-medium models spend less context selecting between overlapping mechanisms, while governance
-and receipts remain independent of model compliance.
+The kernel prompt asks the model to respond first with a terse statement of intent, viewpoint,
+and high-level action, then invoke the smallest useful visible tool in the same response. If the
+foundation is insufficient, it calls `tool.search` before claiming a capability is unavailable.
+If the operator explicitly asks to create, load, set, or track a goal or task list, the model
+must persist that state with a work tool before beginning dependent work. Merely narrating a
+plan is not a state change.
+
+Legacy granular filesystem aliases remain installed for sealed requests, old manifests,
+resumed sessions, specialist workflows, and recovery, but they do not compete in the
+foundational catalog. The intended result is predictable affordance for small and local models,
+without brittle language gating or any reduction in governance.

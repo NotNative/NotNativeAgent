@@ -24,14 +24,19 @@ test('canonical filesystem tools list names, read snapshots, and preserve conten
     await writeFile(join(item.root, 'src', 'components', 'widgets', 'button.js'), 'export const marker = true;\n');
 
     const list = item.registry.definition('fs.list');
-    const listed = await list.validate({ path: '.', pattern: '**/*button*', depth: 8 });
+    const listed = await list.validate({ path: '.', pattern: '**/*button*', depth: '8', max_results: '200' });
+    assert.deepEqual([listed.args.depth, listed.args.max_results], [8, 200]);
     const listResult = await list.executor(listed, new AbortController().signal);
     assert.match(listResult.content, /file\tsrc\/components\/widgets\/button\.js/u);
 
     const read = item.registry.definition('fs.read');
     const complete = await read.validate({ path: 'src/components/widgets/button.js' });
+    assert.deepEqual(complete.args, { path: 'src/components/widgets/button.js' });
+    assert.equal(complete.resolved.readMode, 'full');
     assert.equal((await read.executor(complete, new AbortController().signal)).content, 'export const marker = true;\n');
-    const window = await read.validate({ path: 'src/components/widgets/button.js', start_line: 1, line_count: 1 });
+    const window = await read.validate({ path: 'src/components/widgets/button.js', start_line: '1', line_count: '1' });
+    assert.deepEqual(window.args, { path: 'src/components/widgets/button.js', start_line: 1, line_count: 1 });
+    assert.equal(window.resolved.readMode, 'lines');
     assert.match((await read.executor(window, new AbortController().signal)).content, /1: export const marker = true;/u);
 
     const search = item.registry.definition('fs.search_text');
@@ -88,6 +93,7 @@ test('filesystem mutations accept unambiguous common argument spellings and reta
 test('exact-text and line-range edits expose separate unambiguous contracts', async () => {
   const item = await fixture();
   try {
+    item.registry.expose(['fs.edit_text', 'fs.edit_lines']);
     const exposed = item.registry.providerDefinitions('edit a project file', { phase: 'action' })
       .find((entry) => entry.function.name === 'fs.edit_text').function.parameters;
     assert.deepEqual(exposed.required, ['path', 'find', 'content']);
@@ -196,13 +202,18 @@ test('work.plan atomically replaces the durable goal and ordered tasks', async (
   } finally { await item.close(); }
 });
 
-test('agent.run is task-activated only when a usable root subagent route exists', async () => {
+test('agent.run is searchable only when a usable root subagent route exists', async () => {
   const item = await fixture({
     subagentControl: { workspaceRoot: process.cwd(), run: async () => ({ session_id: 'child', outcome: 'completed', text: 'done' }) },
   });
   try {
     assert.equal(item.registry.providerDefinitions().some((entry) => entry.function.name === 'agent.run'), false);
     assert.equal(item.registry.providerDefinitions('delegate this bounded task to a specialist')
+      .some((entry) => entry.function.name === 'agent.run'), false);
+    const search = item.registry.definition('tool.search');
+    const normalized = await search.validate({ query: 'agent.run' });
+    await search.executor({ args: normalized.args }, new AbortController().signal);
+    assert.equal(item.registry.providerDefinitions()
       .some((entry) => entry.function.name === 'agent.run'), true);
   } finally { await item.close(); }
 });

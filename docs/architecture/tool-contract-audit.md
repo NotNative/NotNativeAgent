@@ -1,6 +1,6 @@
 # Model-visible tool contract audit
 
-Audit date: 2026-08-24
+Audit date: 2026-08-27
 Scope: all 46 bundled tools installed by `ToolRegistry` when optional controls are present. Dynamically loaded MCP and extension tools are governed by the same generic schema validator but require a separate provider-specific semantic audit.
 
 ## Method
@@ -11,7 +11,9 @@ The audit compared each tool's JSON schema, normalization aliases, runtime valid
 - declare every required property exactly once;
 - document every top-level property;
 - retain those descriptions in the actual provider projection; and
-- keep exact-text and line-range edit selectors in separate contracts.
+- keep exact-text and line-range edit selectors in separate contracts;
+- normalize safe strings for every schema-declared integer at the shared boundary; and
+- keep internal routing discriminators out of sealed model-facing arguments.
 
 ## Results
 
@@ -39,6 +41,7 @@ The audit compared each tool's JSON schema, normalization aliases, runtime valid
 7. A successful call cleared schema recovery immediately, allowing the same oversized call shape to recur later in the turn. Output-truncated calls now create a deduplicated turn-scoped action repair that keeps later action steps concise and disables optional model thinking for that turn.
 8. Repeated browser checks after a workspace mutation could hash identically to an older observation. Progress evidence now includes the observable workspace revision, while genuinely unchanged checks in the same revision still consume the no-progress budget.
 9. DOM inspection could be narrated as if it disproved a visual defect. Visual verdicts now remain active until newer image evidence supersedes them, and completion supervision rejects absolute visual-pass claims that conflict with the latest verdict.
+10. Integer-like provider values such as `"3"` failed before otherwise valid tool-specific validation. The shared schema boundary now normalizes safe integer strings recursively across every bundled, MCP, and extension tool. `fs.read` also leaked its internal full-versus-lines discriminator as an apparent `mode` argument; routing now lives in resolved metadata while old sealed requests retain an execution-only compatibility path.
 
 ## Residual policy
 
