@@ -12,6 +12,7 @@ import { TelegramGateway } from './gateway/telegram.js';
 import { SessionLock } from './persistence/session-lock.js';
 import { ProcessIdentity, validIdentity } from './reliability/process-identity.js';
 import { persistAtomicJson } from './persistence/atomic-json.js';
+import { SecretBroker } from './secret-broker.js';
 
 const MAX_TOKEN_BYTES = 1_024;
 
@@ -53,13 +54,16 @@ async function runForeground(config, paths, options) {
     workspaceRoot, securityAudit: () => undefined,
   });
   const engineConfig = Object.freeze({ ...effective.config, workspaceRoot });
+  const secretBroker = options.engineOptions?.secretBroker ?? new SecretBroker({
+    vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
+  });
   await writePid(paths, process.pid, options);
-  const gateway = new TelegramGateway({
+  const gateway = (options.gatewayFactory ?? ((gatewayOptions) => new TelegramGateway(gatewayOptions)))({
     api: new TelegramApi(token, { fetch: options.fetch }), config, engineConfig, paths,
     engineOptions: {
       dataPaths: paths, webSearchConfigPath: paths.webSearchConfig, webFetchConfigPath: paths.webFetchConfig,
       hookRoots: runtimeHookRoots(paths, effective.project), skillRoots: runtimeSkillRoots(paths, effective.project),
-      ...options.engineOptions,
+      secretBroker, ...options.engineOptions,
     },
   });
   let shutdown = null;

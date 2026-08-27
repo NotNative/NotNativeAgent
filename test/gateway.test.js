@@ -15,6 +15,7 @@ import { readTelegramOutbox, TelegramNotificationQueue } from '../src/notificati
 import { commandDefinition } from '../src/tui/commands.js';
 import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui/overlays.js';
 import { gatewayShutdownDiagnostic, runGatewayCommand, runtimeStatus } from '../src/gateway-cli.js';
+import { SecretBroker } from '../src/secret-broker.js';
 
 async function waitUntil(predicate, timeoutMs = 2_000) {
   const deadline = Date.now() + timeoutMs;
@@ -126,6 +127,8 @@ test('gateway foreground startup publishes its process identity before polling',
     trustedWorkspaces: join(root, 'config', 'trusted-workspaces.json'),
     hooks: join(root, 'hooks'), skills: join(root, 'skills'),
     sessionBrokers: join(root, 'runtime', 'session-brokers'),
+    secretVault: join(root, 'secrets', 'vault.json'), secretKey: join(root, 'secrets', 'master-key.json'),
+    secretAudit: join(root, 'secrets', 'audit.ndjson'),
   };
   await mkdir(paths.config, { recursive: true });
   await writeFile(join(paths.config, 'manifest.json'), `${JSON.stringify({
@@ -136,7 +139,7 @@ test('gateway foreground startup publishes its process identity before polling',
     enabled: true, token: 'TEST_FIXTURE_NOT_A_REAL_TELEGRAM_TOKEN',
     authorized_user_ids: ['42'], workspace_root: root,
   });
-  const captured = []; const methods = [];
+  const captured = []; const methods = []; let gatewayEngineOptions;
   const processIdentity = {
     async capture(pid) {
       captured.push(pid);
@@ -152,9 +155,16 @@ test('gateway foreground startup publishes its process identity before polling',
 
   await assert.rejects(runGatewayCommand(['run'], paths, {
     environment: {}, input: null, processIdentity, fetch,
+    gatewayFactory: (options) => {
+      gatewayEngineOptions = options.engineOptions;
+      return new TelegramGateway(options);
+    },
   }), { name: 'TypeError', message: 'updates is not iterable' });
   assert.deepEqual(captured, [process.pid]);
   assert.deepEqual(methods, ['getMe', 'getUpdates']);
+  assert.ok(gatewayEngineOptions.secretBroker instanceof SecretBroker);
+  assert.equal(gatewayEngineOptions.secretBroker.vault.path, paths.secretVault);
+  assert.equal(gatewayEngineOptions.secretBroker.vault.keyPath, paths.secretKey);
   await assert.rejects(readFile(join(paths.gateway, 'gateway.pid')), { code: 'ENOENT' });
 });
 

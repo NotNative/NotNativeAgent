@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:5e82c4346e2e475b689e66e8c9b82853c53803d7d9fe34fc1306b344b1bc9ecd",
+  "source_digest": "sha256:9c2675096469da924acfaf47a68672487b816bba98433267171d000e34ca732f",
   "counts": {
     "modules": 323,
     "component_edges": 69
@@ -249,16 +249,16 @@
       "module_count": 5
     },
     {
+      "from": "gateway",
+      "to": "foundation",
+      "import_count": 7,
+      "module_count": 4
+    },
+    {
       "from": "providers",
       "to": "providers",
       "import_count": 7,
       "module_count": 6
-    },
-    {
-      "from": "gateway",
-      "to": "foundation",
-      "import_count": 6,
-      "module_count": 4
     },
     {
       "from": "providers",
@@ -1450,6 +1450,7 @@
         "src/persistence/atomic-json.js",
         "src/persistence/session-lock.js",
         "src/reliability/process-identity.js",
+        "src/secret-broker.js",
         "src/startup-configuration.js"
       ]
     },
