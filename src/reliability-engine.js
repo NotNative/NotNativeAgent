@@ -62,6 +62,9 @@ export class ReliabilityEngine {
   continuation(active, category, evidence = null, detail = {}, options = {}) {
     return active.recovery.continuation(category, evidence, detail, options);
   }
+  behavioralCheckpoint(active, category, action, count, detail = {}) {
+    return active.recovery.behavioralCheckpoint(category, action, count, detail);
+  }
   externalEvidence(active, value) { return active.recovery.externalEvidence(value); }
   createToolCallAssembler() { return new ToolCallAssembler(); }
   evaluateCompletion(active, text, work = null) { return evaluateCompletion(active, text, work); }

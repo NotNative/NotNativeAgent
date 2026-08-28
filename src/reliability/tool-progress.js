@@ -56,11 +56,16 @@ export function toolFailureFingerprint(items) {
     const paths = [...new Set(prerequisites.map((item) => item.path))].sort();
     return createHash('sha256').update(`filesystem_prerequisite\0${paths.join('\0')}`).digest('hex');
   }
+  const contractFailures = items.filter((item) => item.result?.status === 'invalid_request'
+    && ['tool_schema_invalid', 'tool_arguments_malformed', 'tool_arguments_truncated']
+      .includes(item.result?.reason_code ?? item.result?.reasonCode));
+  if (contractFailures.length > 0) {
+    return createHash('sha256').update('tool_contract_repair').digest('hex');
+  }
   const shapes = items.filter((item) => item.result?.status !== 'succeeded').map((item) => stableJson({
     tool: item.result?.tool_name ?? item.request?.toolName ?? 'unknown',
     status: item.result?.status ?? 'unknown',
     reason: item.result?.reason_code ?? item.result?.reasonCode ?? 'unknown',
-    message: item.result?.content ?? '',
   }));
   if (shapes.length === 0) return null;
   return createHash('sha256').update([...new Set(shapes)].sort().join('\n')).digest('hex');

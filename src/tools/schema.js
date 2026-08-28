@@ -69,9 +69,8 @@ function normalizeArguments(args, schema) {
 
 function normalizeValue(value, rule, visited) {
   const types = Array.isArray(rule?.type) ? rule.type : [rule?.type];
-  if (typeof value === 'string' && types.includes('integer') && !types.includes('string')) {
-    return integerFromString(value);
-  }
+  if (typeof value === 'string' && types.includes('integer') && !types.includes('string')) return integerFromString(value);
+  if (typeof value === 'string' && types.includes('boolean') && !types.includes('string')) return booleanFromString(value);
   if (!value || typeof value !== 'object' || visited.has(value)) return value;
   visited.add(value);
   if (Array.isArray(value)) {
@@ -91,6 +90,13 @@ function integerFromString(value) {
   if (!/^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/u.test(candidate)) return value;
   const parsed = Number(candidate);
   return Number.isSafeInteger(parsed) ? parsed : value;
+}
+
+function booleanFromString(value) {
+  const candidate = value.trim().toLowerCase();
+  if (candidate === 'true') return true;
+  if (candidate === 'false') return false;
+  return value;
 }
 
 function prepareObjectSchema(schema) {

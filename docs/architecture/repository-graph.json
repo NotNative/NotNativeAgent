@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:ccc0f9ffcc360fa294300a0a71c89c0328699df557ea948830e58da7848bccf0",
+  "source_digest": "sha256:34805a2286ed8ead8b722067831ee0ebe7d19b501baebf863d64764514052267",
   "counts": {
-    "modules": 322,
+    "modules": 323,
     "component_edges": 69
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 39
+      "module_count": 40
     },
     {
       "id": "guidance",
@@ -125,8 +125,8 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 50,
-      "module_count": 33
+      "import_count": 51,
+      "module_count": 34
     },
     {
       "from": "reliability-engine",
@@ -137,8 +137,8 @@
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 38,
-      "module_count": 8
+      "import_count": 44,
+      "module_count": 13
     },
     {
       "from": "agentic-engine",
@@ -2646,6 +2646,7 @@
         "src/tools/schema.js",
         "src/tools/search.js",
         "src/tools/self-diagnostics.js",
+        "src/tools/system-time.js",
         "src/tools/text-edit-helpers.js",
         "src/tools/write-target.js",
         "src/web-browse-tool.js",
@@ -2720,7 +2721,8 @@
       "component": "tools",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/tools/argument-normalization.js"
       ]
     },
     {
@@ -2740,7 +2742,8 @@
       "component": "tools",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/tools/argument-normalization.js"
       ]
     },
     {
@@ -2827,7 +2830,8 @@
         "src/reliability/command-shaping.js",
         "src/reliability/executable-name.js",
         "src/reliability/host-environment.js",
-        "src/reliability/process-lifecycle.js"
+        "src/reliability/process-lifecycle.js",
+        "src/tools/argument-normalization.js"
       ]
     },
     {
@@ -2896,6 +2900,15 @@
       "imports": [
         "src/ids.js",
         "src/store.js"
+      ]
+    },
+    {
+      "path": "src/tools/system-time.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/tools/argument-normalization.js"
       ]
     },
     {
@@ -3570,6 +3583,7 @@
       "imports": [
         "src/ids.js",
         "src/searxng-client.js",
+        "src/tools/argument-normalization.js",
         "src/web-search-config.js"
       ]
     },

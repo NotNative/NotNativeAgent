@@ -38,6 +38,7 @@ import { advanceFromAuthoredState, mutationEvidence, transactionalSnapshot,
   withAuthoredAdvanceMetadata } from './tools/filesystem-mutation-state.js';
 import { telegramNotificationDefinition } from './notifications/telegram.js';
 import { sessionHistoryDefinitions } from './session-history-tools.js';
+import { systemTimeDefinition } from './tools/system-time.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
 import { planProviderToolNames, providerSurfacePhase } from './tools/provider-surface-planner.js';
 const MAX_TEXT_BYTES = 1_048_576;
@@ -111,6 +112,7 @@ export class ToolRegistry {
     if (this.conversationWork) for (const definition of conversationWorkDefinitions(this.conversationWork)) this.#install(definition);
     if (this.telegramNotifications) this.#install(telegramNotificationDefinition(this.telegramNotifications, this.activeTurnId));
     for (const definition of sessionHistoryDefinitions(this.sessionHistory)) this.#install(definition);
+    this.#install(systemTimeDefinition());
   }
   async close() { await this.definition('web.browse')?.manager?.close?.(); }
   snapshot() {
@@ -190,7 +192,7 @@ export class ToolRegistry {
     }
     return deepFreeze({
       id: newId('tool'), providerCallId: call.providerCallId, toolName: call.name,
-      args: normalized.args, resolved: normalized.resolved,
+      args: normalized.args, publicArgs: normalized.publicArgs ?? normalized.args, resolved: normalized.resolved,
       definitionVersion: definition.version, policyVersion: context.policyVersion,
       authorityId: context.authority.id, authorityVersion: context.authority.version,
       authorityRestrictionVersion: context.authority.restrictionVersion ?? 0,
@@ -250,7 +252,8 @@ export class ToolRegistry {
       ...installedDefinition, maxOutputBytes,
       validate: async (args) => {
         const aliased = normalizeArgs(args); const normalized = await validateShape(aliased);
-        return validate(normalized);
+        const validated = await validate(normalized);
+        return { ...validated, publicArgs: normalized };
       },
     });
     this.#definitions.set(definition.name, frozen);
@@ -268,7 +271,7 @@ function compactPurpose(definition) {
 }
 function writeDefinition(paths, changes, receipts) {
   return {
-    name: 'fs.write_text', version: 2, purpose: 'Atomically write one provider-safe UTF-8 file payload, creating missing parent directories for a new target. Keep generated files compact and split larger implementations across files or follow with anchored edits. A successful full write becomes the current authored file state, so a redundant read is not required before a subsequent edit.',
+    name: 'fs.write_text', version: 2, purpose: 'Atomically write one bounded UTF-8 file payload, creating missing parent directories for a new target and recording the resulting authored state.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required destination file path.' },
@@ -313,7 +316,7 @@ async function executeFullWrite(paths, receipts, request, signal, changes) {
 function editLinesDefinition(paths, changes, receipts) {
   return {
     name: 'fs.edit_lines', version: 3,
-    purpose: 'Replace one inclusive line range in an existing UTF-8 file. Supply only path, start_line, end_line, and replacement; use fs.edit_text instead when selecting exact text. Read the relevant numbered lines first so NNA can anchor and revalidate the edit.',
+    purpose: 'Replace one inclusive line range in an existing UTF-8 file after snapshot revalidation.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path previously read with fs.read or fs.read_lines.' },
@@ -321,6 +324,10 @@ function editLinesDefinition(paths, changes, receipts) {
       end_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required last one-based line in the inclusive replacement range.' },
       replacement: { type: 'string', maxLength: MAX_MODEL_AUTHORED_TEXT_BYTES, description: 'Required replacement text, at most 32 KiB. Keep the range focused and use multiple edits for larger rewrites; use an empty string to remove the selected lines.' },
     }, ['path', 'start_line', 'end_line', 'replacement']),
+    normalizeArgs: (args) => normalizeArgumentAliases(args, {
+      path: ['filePath', 'file_path'], start_line: ['startLine'], end_line: ['endLine'],
+      replacement: ['content', 'text', 'new_text', 'newText'],
+    }),
     validate: async (args) => {
       requireShape(args, ['path', 'start_line', 'end_line', 'replacement']);
       if (!Number.isSafeInteger(args.start_line) || !Number.isSafeInteger(args.end_line)
@@ -366,6 +373,7 @@ function deleteDefinition(paths, changes, receipts) {
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path to the existing regular file.' },
     }, ['path']),
+    normalizeArgs: (args) => normalizeArgumentAliases(args, { path: ['filePath', 'file_path'] }),
     validate: async (args) => {
       requireShape(args, ['path']);
       const resolved = await paths.withRecovery(await paths.resolveRead(args.path));

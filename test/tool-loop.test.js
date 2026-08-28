@@ -19,6 +19,7 @@ import { declaredSubscription } from './event-fixture.js';
 import { ToolLoop, toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from '../src/tools/loop.js';
 import { selfDiagnosticsDefinitions } from '../src/tools/self-diagnostics.js';
 import { openRuntimeInspection } from '../src/tui/runtime-inspection.js';
+import { observeToolState } from '../src/engine/runtime-helpers.js';
 
 test('tool loop accepts only declared constructor dependencies', () => {
   const loop = new ToolLoop({ process: null, unexpected: true });
@@ -76,7 +77,7 @@ test('long productive workflows may use many distinct negative diagnostics witho
   assert.deepEqual(repeated, { continue: false, exhausted: true, count: 12 });
 });
 
-test('failure fingerprints group the same repair condition but isolate different tools and messages', () => {
+test('failure fingerprints group schema-contract repair across malformed tool attempts', () => {
   const failed = (tool, content) => ({ result: {
     status: 'invalid_request', tool_name: tool, reason_code: 'tool_schema_invalid', content,
   } });
@@ -84,7 +85,38 @@ test('failure fingerprints group the same repair condition but isolate different
   assert.equal(first, toolFailureFingerprint([
     failed('fs.search_text', 'file_glob is invalid'), failed('fs.search_text', 'file_glob is invalid'),
   ]));
-  assert.notEqual(first, toolFailureFingerprint([failed('work.task_update', 'detail exceeds 1024 characters')]));
+  assert.equal(first, toolFailureFingerprint([failed('work.task_update', 'detail exceeds 1024 characters')]));
+  assert.notEqual(first, toolFailureFingerprint([{ result: {
+    status: 'failed', tool_name: 'work.task_update', reason_code: 'provider_rejected', content: 'offline',
+  } }]));
+});
+
+test('read-only behavior is supervised from tool metadata and work updates count as state progress', () => {
+  const active = { observableStateRevision: 0, readOnlyBatchStreak: 0 };
+  const definitions = new Map([
+    ['fs.read', { sideEffect: 'read_only' }], ['work.plan', { sideEffect: 'reversible' }],
+    ['fs.directory', { sideEffect: 'reversible' }],
+  ]);
+  const definitionFor = (name) => definitions.get(name);
+  for (let count = 1; count <= 12; count += 1) {
+    const observed = observeToolState(active, [{
+      request: { args: { path: `file-${count}` } },
+      result: { status: 'succeeded', tool_name: 'fs.read' },
+    }], definitionFor);
+    assert.equal(observed.readOnlyBatchStreak, count);
+  }
+  observeToolState(active, [{
+    request: { args: { action: 'list', path: '.' } },
+    result: { status: 'succeeded', tool_name: 'fs.directory' },
+  }], definitionFor);
+  assert.equal(active.readOnlyBatchStreak, 13);
+  assert.equal(active.observableStateRevision, 0);
+  observeToolState(active, [{
+    request: { args: { objective: 'Finish', tasks: [] } },
+    result: { status: 'succeeded', tool_name: 'work.plan' },
+  }], definitionFor);
+  assert.equal(active.readOnlyBatchStreak, 0);
+  assert.equal(active.observableStateRevision, 1);
 });
 
 test('filesystem failures share a missing-ancestor fingerprint and require that exact repair', () => {
@@ -256,6 +288,7 @@ test('self diagnostics reject invalid optional values', async () => {
   const diagnose = definitions.find((item) => item.name === 'nna.diagnose_turn');
   await assert.rejects(list.validate({ limit: null }), /limit must be an optional integer/u);
   await assert.rejects(diagnose.validate({ session_id: '../outside' }), /diagnostic selector, limit, session_id, or turn_id is invalid or conflicting/u);
+  assert.deepEqual((await diagnose.validate({})).args, { selector: 'current', limit: 20 });
 });
 
 function manifest(workspaceRoot) {
@@ -718,7 +751,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list', 'fs.list_directory',
     'fs.metadata', 'fs.move_file', 'fs.read', 'fs.read_lines', 'fs.read_text', 'fs.search_text', 'fs.write_text', 'git.inspect',
-    'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'project.verify', 'ref.inspect', 'ref.store', 'shell.run', 'tool.search', 'web.browse', 'web.fetch', 'web.search',
+    'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'project.verify', 'ref.inspect', 'ref.store', 'shell.run', 'system.time', 'tool.search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
 });
@@ -736,6 +769,8 @@ test('existing in-workspace writes use a request-bound runtime transaction snaps
   };
   const transactional = await registry.seal({ providerCallId: 'write-before-read', name: 'fs.write_text', args }, context);
   assert.equal(transactional.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
+  assert.deepEqual(transactional.publicArgs, args);
+  assert.equal(Object.hasOwn(transactional.publicArgs, 'expected_sha256'), false);
   assert.match(transactional.resolved.transactionalReceipt.id, /^transaction_receipt_/u);
   assert.equal(transactional.resolved.transactionalReceipt.origin, 'runtime_transaction');
   assert.equal(transactional.resolved.readReceiptId, null);

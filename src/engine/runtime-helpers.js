@@ -143,9 +143,10 @@ export function resetStep(active) {
 const OBSERVABLE_MUTATIONS = new Set([
   'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.directory', 'fs.create_directory',
   'fs.copy_file', 'fs.move_file', 'fs.delete_file', 'process.run', 'shell.run',
+  'work.plan', 'work.goal', 'work.task_add', 'work.task_update',
 ]);
 
-export function observeToolState(active, items) {
+export function observeToolState(active, items, definitionFor = () => null) {
   if (items.some((item) => item.result?.reason_code === 'tool_arguments_truncated')) {
     // Disable optional thinking only for the immediate repair attempt. Keeping
     // it off for the remainder of a long turn makes later implementation and
@@ -153,9 +154,21 @@ export function observeToolState(active, items) {
     // bounded repair attempt.
     active.actionRepairStepPending = true;
   }
-  if (items.some((item) => item.result?.status === 'succeeded'
-    && OBSERVABLE_MUTATIONS.has(item.result?.tool_name ?? item.request?.toolName ?? item.call?.name))) {
+  const succeeded = items.filter((item) => item.result?.status === 'succeeded');
+  const mutated = succeeded.some((item) => {
+    const name = item.result?.tool_name ?? item.request?.toolName ?? item.call?.name;
+    if (name === 'fs.directory' && (item.request?.args?.action ?? item.call?.args?.action) === 'list') return false;
+    return OBSERVABLE_MUTATIONS.has(name) || definitionFor(name)?.sideEffect !== 'read_only';
+  });
+  if (mutated) {
     active.observableStateRevision = (active.observableStateRevision ?? 0) + 1;
+    active.readOnlyBatchStreak = 0;
+  } else if (succeeded.length > 0 && succeeded.every((item) => {
+    const name = item.result?.tool_name ?? item.request?.toolName ?? item.call?.name;
+    return (name === 'fs.directory' && (item.request?.args?.action ?? item.call?.args?.action) === 'list')
+      || definitionFor(name)?.sideEffect === 'read_only';
+  })) {
+    active.readOnlyBatchStreak = (active.readOnlyBatchStreak ?? 0) + 1;
   }
   for (const item of items) {
     if (item.result?.status !== 'succeeded' || item.result?.tool_name !== 'image.inspect') continue;
@@ -165,6 +178,22 @@ export function observeToolState(active, items) {
       stepId: active.stepId,
     });
   }
+  return Object.freeze({ mutated, readOnlyBatchStreak: active.readOnlyBatchStreak ?? 0 });
+}
+
+export function discoveryCheckpoint(reliability, active, behavior) {
+  const count = behavior?.readOnlyBatchStreak ?? 0;
+  if (count === 12) {
+    return reliability.behavioralCheckpoint(active, 'read_only_discovery_plateau', 'review_discovery_progress', count, {
+      observable_state_revision: active.observableStateRevision ?? 0,
+    });
+  }
+  if (count > 0 && count % 24 === 0) {
+    return reliability.behavioralCheckpoint(active, 'read_only_discovery_plateau', 'compact', count, {
+      observable_state_revision: active.observableStateRevision ?? 0,
+    });
+  }
+  return null;
 }
 
 export function modelStepRequestOptions(reasoningMode, active) {

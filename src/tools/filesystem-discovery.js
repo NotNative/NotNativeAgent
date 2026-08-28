@@ -3,6 +3,7 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { basename, dirname, join, matchesGlob, relative } from 'node:path';
 import { ContractError } from '../ids.js';
+import { normalizeArgumentAliases } from './argument-normalization.js';
 
 const DEFAULT_SKIPS = new Set(['.git', 'node_modules']);
 const MAX_FILES = 10_000;
@@ -24,6 +25,10 @@ function globDefinition(paths) {
       max_depth: { type: 'integer', minimum: 0, maximum: 64, description: 'Maximum directory depth below path. Defaults to 32.' },
       max_results: { type: 'integer', minimum: 1, maximum: 1000, description: 'Maximum matching paths to return. Defaults to 200.' },
     }, ['pattern']),
+    normalizeArgs: (args) => normalizeArgumentAliases(args, {
+      path: ['directoryPath', 'directory_path'], pattern: ['glob', 'file_glob'],
+      max_depth: ['depth', 'maxDepth'], max_results: ['limit', 'maxResults'],
+    }),
     validate: async (args) => {
       shape(args, ['pattern'], ['path', 'max_depth', 'max_results']);
       requireString(args.pattern, 'pattern');
@@ -58,6 +63,11 @@ function searchDefinition(paths) {
       max_depth: { type: 'integer', minimum: 0, maximum: 64, description: 'Maximum directory depth when path is a directory. Defaults to 32.' },
       max_results: { type: 'integer', minimum: 1, maximum: 1000, description: 'Maximum line matches to return. Defaults to 200.' },
     }, ['query']),
+    normalizeArgs: (args) => normalizeArgumentAliases(args, {
+      path: ['directoryPath', 'directory_path', 'filePath', 'file_path'], query: ['search'],
+      match_mode: ['mode', 'matchMode'], file_glob: ['glob', 'pattern'], case_sensitive: ['caseSensitive'],
+      max_depth: ['depth', 'maxDepth'], max_results: ['limit', 'maxResults'],
+    }),
     validate: async (args) => {
       shape(args, ['query'], ['path', 'match_mode', 'file_glob', 'case_sensitive', 'max_depth', 'max_results']);
       requireString(args.query, 'query');

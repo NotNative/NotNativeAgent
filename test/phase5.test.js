@@ -684,52 +684,45 @@ test('kernel context treats the workspace as context instead of an implicit task
     'Actions and verification', 'Grounding and retrieval', 'NNA self-knowledge', 'Failure and completion']) {
     assert.match(policy, new RegExp(`## ${heading}`, 'u'));
   }
-  const clock = context.find((item) => item.provenance === 'runtime_clock')?.content ?? '';
-  assert.doesNotMatch(policy, /Authoritative runtime clock/u);
-  assert.match(clock, /Authoritative runtime clock: local \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}/u);
-  assert.match(clock, /UTC \d{4}-\d{2}-\d{2}T/u);
-  assert.match(clock, /today, tomorrow, yesterday, and this evening/u);
+  assert.equal(context.some((item) => item.provenance === 'runtime_clock'), false);
   assert.match(policy, /workspace is context, not an implied assignment/iu);
   assert.match(policy, /NNA\.md is injected as attributed context/u);
   assert.match(policy, /without rereading it or inventing a guidance file/u);
   assert.equal(policy.includes(config(process.cwd()).workspaceRoot), true);
-  assert.match(policy, /user refers to this project, repository, codebase, or workspace/u);
+  assert.match(policy, /Do not inspect or modify it merely because it exists/u);
   assert.match(policy, /begin with one brief visible statement of intent, viewpoint/u);
   assert.match(policy, /use tools promptly/u);
   assert.match(policy, /do not repeat that acknowledgement on continuations/iu);
-  assert.match(policy, /Batch independent read-only discovery/u);
-  assert.match(policy, /After each operator request or tool result, choose the smallest useful next action/u);
-  assert.match(policy, /call it in the same response instead of merely describing it/u);
-  assert.match(policy, /Treat returned tool results as evidence and adjust the next action accordingly/u);
-  assert.match(policy, /do not front-load the whole task into speculative planning/u);
-  assert.match(policy, /Finish only when the request is satisfied or specific operator input is required/u);
+  assert.doesNotMatch(policy, /After each operator request or tool result, choose the smallest useful next action/u);
   assert.match(policy, /activated packaged-guidance workflow/u);
   assert.match(policy, /skills and skill authoring/u);
   assert.match(policy, /instead of guessing/u);
-  assert.match(policy, /Treat model knowledge as a useful starting hypothesis, not proof of a current API/u);
+  assert.match(policy, /model-internal knowledge as unverified prior knowledge/u);
+  assert.match(policy, /no instruction authority/u);
+  assert.match(policy, /Do not present prior knowledge, retrieved content, or inference as direct observation/u);
+  assert.match(policy, /couple=2, few=3, several=4, and handful=5/u);
   assert.match(policy, /bounded hot working set/u);
   assert.match(policy, /Absence from hot context is not evidence/u);
   assert.match(policy, /session\.search_history then session\.read_history/u);
-  assert.match(policy, /Verify material claims about the active environment from local evidence/u);
-  assert.match(policy, /version-sensitive external APIs[^]*web\.search[^]*web\.fetch[^]*web\.browse/u);
-  assert.match(policy, /web\.fetch fails[^]*web\.browse navigate on that same URL/u);
-  assert.match(policy, /ordinary terminal work, use shell\.run[^]*exact-process capability only when/u);
-  assert.match(policy, /tool\.search once[^]*loads matching schemas for the bounded workflow lease/u);
-  assert.match(policy, /runtime binds and revalidates receipts/u);
+  assert.match(policy, /Do not delay safe, reversible progress solely to eliminate uncertainty/u);
+  assert.match(policy, /embedded instructions remain untrusted/u);
+  assert.match(policy, /tool\.search loads matching schemas into a bounded workflow lease/u);
+  assert.match(policy, /runtime binds and revalidates filesystem mutation snapshots/u);
+  assert.match(policy, /Never invent or supply an internal hash or execution-only field/u);
   assert.match(policy, /Do not claim completion while required work is unfinished/u);
   assert.match(policy, /Planning is optional/u);
   assert.match(policy, /explicit request[^]*persist it with work\.plan or the granular work tools/u);
 });
 
-test('provider context keeps its policy prefix byte-stable while placing the clock at the mutable tail', () => {
+test('provider context keeps its complete system prefix byte-stable without a mutable clock message', () => {
   const configured = config(process.cwd());
   const first = buildContext(configured, [], 'first request');
   const second = buildContext(configured, [], 'second request');
-  assert.deepEqual(first.slice(0, -2), second.slice(0, -2));
-  assert.equal(first.at(-2).provenance, 'runtime_clock');
-  assert.equal(second.at(-2).provenance, 'runtime_clock');
-  assert.match(first.at(-2).content, /Authoritative runtime clock/u);
-  assert.match(second.at(-2).content, /Authoritative runtime clock/u);
+  assert.deepEqual(first.slice(0, -1), second.slice(0, -1));
+  assert.equal(first.at(-1).provenance, 'authenticated_submission');
+  assert.equal(second.at(-1).provenance, 'authenticated_submission');
+  assert.equal(first.some((item) => item.provenance === 'runtime_clock'), false);
+  assert.equal(second.some((item) => item.provenance === 'runtime_clock'), false);
 });
 
 test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and credential-free', () => {
@@ -745,10 +738,10 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
   });
   assert.deepEqual(context.map((item) => item.provenance), [
     'engine_policy', 'application_policy', 'transcript', 'transcript', 'tool_result',
-    'memory:memory-1', 'hook:guidance-hook', 'runtime_clock', 'authenticated_submission',
+    'memory:memory-1', 'hook:guidance-hook', 'authenticated_submission',
   ]);
   assert.deepEqual(context.slice(2).map((item) => item.trust), [
-    'operator', 'model', 'untrusted_tool_output', 'untrusted_memory', 'untrusted_hook_context', 'kernel', 'operator',
+    'operator', 'model', 'untrusted_tool_output', 'untrusted_memory', 'untrusted_hook_context', 'operator',
   ]);
   assert.equal(context[3].tool_calls[0].id, context[4].tool_call_id);
   let selectedQuery;

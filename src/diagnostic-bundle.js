@@ -195,5 +195,8 @@ function supportReadme(createdAt) {
 }
 
 function containsSecret(value) {
-  return /(?:bearer\s+[A-Za-z0-9._~+/-]{16,}|(?:api[_-]?key|password|secret|token)\s*["']?\s*[=:]\s*["']?[^"'\s]{8,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b|[a-z][a-z0-9+.-]*:\/\/[^\s/:]+:[^\s/@]+@)/iu.test(value);
+  const inspected = String(value)
+    .replaceAll('[reference configured]', '[redacted]')
+    .replaceAll('[none]', '[redacted]');
+  return /(?:bearer\s+[A-Za-z0-9._~+/-]{16,}|(?:api[_-]?key|password|secret|token)\s*["']?\s*[=:]\s*["']?(?!\[)(?=[^"'\s]{8,}(?:["'\s,}]|$))(?=[^"'\s]*[A-Za-z])[^"'\s]{8,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b|[a-z][a-z0-9+.-]*:\/\/[^\s/:]+:[^\s/@]+@)/iu.test(inspected);
 }

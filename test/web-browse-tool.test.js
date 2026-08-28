@@ -8,11 +8,11 @@ import { BrowserSessionManager, webBrowseDefinition } from '../src/web-browse-to
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { PathPolicy } from '../src/path-policy.js';
 
-test('web.browse advertises itself as the failed-fetch recovery path', () => {
+test('web.browse describes browser capabilities without prescribing a workflow', () => {
   const definition = webBrowseDefinition({ manager: { close() {} } });
-  assert.match(definition.purpose, /required fallback[^]*web\.fetch[^]*navigate to the same URL/iu);
-  assert.match(definition.purpose, /screenshot capture returns[^]*image\.inspect[^]*separate tool call/iu);
-  assert.match(definition.purpose, /workspace web app[^]*path[^]*temporary loopback server/iu);
+  assert.match(definition.purpose, /navigate, inspect, interact, capture a screenshot, or close/iu);
+  assert.match(definition.purpose, /workspace HTML path[^]*temporary loopback server/iu);
+  assert.doesNotMatch(definition.purpose, /required fallback|must|always|first use/iu);
 });
 
 function fakeRuntime(state) {

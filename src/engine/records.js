@@ -29,7 +29,7 @@ export function assistantMessage(turnId, content, detail) {
 export function toolRequestRecord(request, turnId, stepId = null) {
   return {
     type: 'tool_request', turnId, stepId, requestId: request.id,
-    providerCallId: request.providerCallId, toolName: request.toolName, args: request.args,
+    providerCallId: request.providerCallId, toolName: request.toolName, args: request.publicArgs ?? request.args,
   };
 }
 
@@ -79,7 +79,7 @@ export function reviewStatus(engine, active, item) {
 
 export function toolStatus(engine, active, item, status) {
   const definition = item.request ? engine.tools.definition(item.request.toolName, item.request.definitionVersion) : null;
-  const args = item.request?.args ?? item.call?.args;
+  const args = item.request?.publicArgs ?? item.request?.args ?? item.call?.args;
   const presentedArgs = args && typeof args === 'object' ? safeToolArguments(args) : null;
   const failed = !['review_pending', 'approved', 'running', 'succeeded', 'duplicate_ignored'].includes(status);
   const completedNonzero = status === 'completed_nonzero';

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { providerSchema, schemaShapeValidator } from '../src/tools/schema.js';
+import { systemTimeDefinition } from '../src/tools/system-time.js';
 
 function optionalControls() {
   const snapshot = { revision: 0, goal: null, tasks: [] };
@@ -35,7 +36,12 @@ test('all bundled tool schemas are closed, documented, and safe to project to pr
       assert.equal(tool.inputSchema.additionalProperties, false, `${tool.name} must reject unknown fields`);
       assert.equal(typeof tool.purpose, 'string', `${tool.name} lacks a purpose`);
       assert.ok(tool.purpose.trim().length > 0, `${tool.name} has an empty purpose`);
+      assert.doesNotMatch(tool.purpose, /\b(?:use this|prefer this|always use|first use)\b/iu,
+        `${tool.name} purpose prescribes model strategy instead of describing the capability`);
       const propertyNames = new Set(Object.keys(tool.inputSchema.properties ?? {}));
+      for (const internal of ['expected_sha256', 'read_receipt_id', 'edit_mode', 'old_text', 'new_text', 'replace_all']) {
+        assert.equal(propertyNames.has(internal), false, `${tool.name} exposes sealed execution field ${internal}`);
+      }
       const required = tool.inputSchema.required ?? [];
       assert.equal(new Set(required).size, required.length, `${tool.name} repeats a required field`);
       for (const name of required) assert.ok(propertyNames.has(name), `${tool.name} requires unknown field ${name}`);
@@ -128,9 +134,9 @@ test('repair-complete format errors bound ordinary values and redact sensitive v
   });
 });
 
-test('schema validation normalizes safe integer strings at every schema depth', async () => {
+test('schema validation normalizes safe integer and canonical boolean strings at every schema depth', async () => {
   const validate = schemaShapeValidator({
-    type: 'object', additionalProperties: false, required: ['count', 'codes', 'nested', 'label'],
+    type: 'object', additionalProperties: false, required: ['count', 'codes', 'nested', 'label', 'enabled'],
     properties: {
       count: { type: 'integer', minimum: 0 },
       codes: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 255 } },
@@ -139,16 +145,50 @@ test('schema validation normalizes safe integer strings at every schema depth', 
         properties: { offset: { type: 'integer' } },
       },
       label: { type: 'string' },
+      enabled: { type: 'boolean' },
     },
   });
-  const original = { count: ' 003 ', codes: ['0', '1e2'], nested: { offset: '-4.0' }, label: '3' };
+  const original = { count: ' 003 ', codes: ['0', '1e2'], nested: { offset: '-4.0' }, label: '3', enabled: ' FALSE ' };
   const normalized = await validate(original);
-  assert.deepEqual(normalized, { count: 3, codes: [0, 100], nested: { offset: -4 }, label: '3' });
-  assert.deepEqual(original, { count: ' 003 ', codes: ['0', '1e2'], nested: { offset: '-4.0' }, label: '3' });
-  await assert.rejects(validate({ count: '3.5', codes: [0], nested: { offset: 1 }, label: 'x' }), {
+  assert.deepEqual(normalized, { count: 3, codes: [0, 100], nested: { offset: -4 }, label: '3', enabled: false });
+  assert.deepEqual(original, { count: ' 003 ', codes: ['0', '1e2'], nested: { offset: '-4.0' }, label: '3', enabled: ' FALSE ' });
+  await assert.rejects(validate({ count: '3.5', codes: [0], nested: { offset: 1 }, label: 'x', enabled: true }), {
     code: 'tool_schema_invalid', message: 'argument "count" must be an integer; received string',
   });
-  await assert.rejects(validate({ count: '9007199254740993', codes: [0], nested: { offset: 1 }, label: 'x' }), {
+  await assert.rejects(validate({ count: '9007199254740993', codes: [0], nested: { offset: 1 }, label: 'x', enabled: true }), {
     code: 'tool_schema_invalid', message: 'argument "count" must be an integer; received string',
   });
+});
+
+test('system.time observes the host clock and applies calendar weeks before elapsed offsets', async () => {
+  const instant = new Date('2026-08-27T22:15:42.381Z');
+  const definition = systemTimeDefinition({ now: () => new Date(instant) });
+  const plain = await definition.executor(await definition.validate({}), new AbortController().signal);
+  const observed = JSON.parse(plain.content);
+  assert.equal(observed.utc, instant.toISOString());
+  assert.equal(observed.source, 'host_clock');
+  assert.equal(typeof observed.local_date, 'string');
+  assert.equal(typeof observed.yesterday_date, 'string');
+  assert.equal(typeof observed.tomorrow_date, 'string');
+
+  const adjustedRequest = await definition.validate({ weeks: 2, minutes: 30 });
+  const adjusted = JSON.parse((await definition.executor(adjustedRequest, new AbortController().signal)).content);
+  assert.deepEqual(adjusted.offset, { weeks: 2, minutes: 30 });
+  assert.equal(adjusted.normalized_calendar_days, 14);
+  assert.equal(adjusted.result.unix_ms - adjusted.observed.unix_ms, 14 * 86_400_000 + 30 * 60_000);
+  assert.deepEqual(adjusted.range, {
+    start_date: adjusted.observed.local_date, end_date: adjusted.result.local_date, inclusive: true,
+  });
+});
+
+test('system.time is foundational and normalizes singular aliases and integer strings', async () => {
+  const registry = new ToolRegistry(process.cwd(), optionalControls());
+  await registry.initialize();
+  try {
+    const time = registry.definition('system.time');
+    const normalized = await time.validate({ week: '2', minute: '-30' });
+    assert.deepEqual(normalized.args, { weeks: 2, minutes: -30 });
+    const names = registry.providerDefinitions('', { phase: 'orientation' }).map((entry) => entry.function.name);
+    assert.ok(names.includes('system.time'));
+  } finally { await registry.close(); }
 });

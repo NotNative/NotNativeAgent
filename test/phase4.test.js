@@ -22,7 +22,7 @@ function base(root, extra = {}) {
   });
 }
 
-test('AC-ATT-01/AC-ROUTE-04 primary-first image fallback returns a tool-less attributed vision observation', async () => {
+test('AC-ATT-01/AC-ROUTE-04 a dedicated vision route receives image work without probing primary', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-attachment-'));
   const image = join(root, 'sample.png');
   await writeFile(image, Buffer.from('89504e470d0a1a0a00000000', 'hex'));
@@ -47,7 +47,6 @@ test('AC-ATT-01/AC-ROUTE-04 primary-first image fallback returns a tool-less att
       return;
     }
     primaryCalls += 1;
-    if (primaryCalls === 1) throw new ContractError('provider_image_unsupported', 'unsupported');
     taskRequest = request;
     yield { type: 'text', text: 'done' };
     yield { type: 'terminal' };
@@ -67,11 +66,11 @@ test('AC-ATT-01/AC-ROUTE-04 primary-first image fallback returns a tool-less att
   assert.match(taskRequest.messages.find((item) => item.content?.includes?.('a blue square')).content, /untrusted attachment/iu);
   const followup = await engine.submit({ request_id: 'attachment-followup', content: 'Continue without an image' }, 'operator');
   assert.equal(followup.outcome, 'completed');
-  assert.deepEqual(providerCalls, ['primary', 'vision', 'primary', 'primary']);
+  assert.deepEqual(providerCalls, ['vision', 'primary', 'primary']);
   assert.equal(await readFile(image, 'hex'), '89504e470d0a1a0a00000000');
 });
 
-test('primary image attempt is never bypassed by declarations or a prior rejection', async () => {
+test('a configured dedicated vision route remains preferred for later image requests', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-primary-image-retry-'));
   const firstImage = join(root, 'first.png');
   const secondImage = join(root, 'second.png');
@@ -115,9 +114,9 @@ test('primary image attempt is never bypassed by declarations or a prior rejecti
     request_id: 'second-image', content: 'Inspect second', attachments: [{ path: secondImage, mime_type: 'image/png' }],
   }, 'operator');
   assert.equal(first.attachment_admission.admitted[0].route, 'vision');
-  assert.equal(second.attachment_admission.admitted[0].route, 'primary');
-  assert.equal(primaryImageAttempts, 2);
-  assert.equal(visionCalls, 1);
+  assert.equal(second.attachment_admission.admitted[0].route, 'vision');
+  assert.equal(primaryImageAttempts, 0);
+  assert.equal(visionCalls, 2);
 });
 
 test('AC-ATT-02 no eligible vision route rejects managed copy and retains text for retry', async () => {

@@ -192,11 +192,20 @@ export class AttachmentObservationRouter {
     const logicalRequestId = newId('vision_request');
     const attempts = [];
     const primary = this.router.resolve('primary');
+    const vision = this.router.resolve('vision');
+    if (!sameRoute(primary, vision)) {
+      try {
+        const result = await observeWith(this.router, vision, 'vision', item, prompt, signal, this.recordTokenReceipt);
+        this.cache.record(vision, 'image_input', this.router.config.version, true);
+        attempts.push(attemptFact(vision, 'consumed'));
+        return { ...result, logicalRequestId, attempts };
+      } catch (error) {
+        this.cache.record(vision, 'image_input', this.router.config.version, false);
+        attempts.push(attemptFact(vision, error.code ?? 'failed'));
+        throw annotateRouteError(error, logicalRequestId, attempts);
+      }
+    }
     try {
-      // Always let the active primary model see the image first. Capability
-      // declarations and prior observations are advisory only: local hosts can
-      // change a model or chat template without changing the saved profile.
-      // Vision is a request-scoped fallback after an explicit provider reject.
       const result = await observeWith(this.router, primary, 'primary', item, prompt, signal, this.recordTokenReceipt);
       this.cache.record(primary, 'image_input', this.router.config.version, true);
       attempts.push(attemptFact(primary, 'consumed'));
@@ -208,22 +217,10 @@ export class AttachmentObservationRouter {
       }
       this.cache.record(primary, 'image_input', this.router.config.version, false);
       attempts.push(attemptFact(primary, 'unsupported'));
-      const vision = this.router.resolve('vision');
-      if (sameRoute(primary, vision)) {
-        throw annotateRouteError(
-          new ContractError('no_eligible_vision_route', 'no eligible vision route is configured'),
-          logicalRequestId, attempts,
-        );
-      }
-      try {
-        const result = await observeWith(this.router, vision, 'vision', item, prompt, signal, this.recordTokenReceipt);
-        this.cache.record(vision, 'image_input', this.router.config.version, true);
-        attempts.push(attemptFact(vision, 'consumed'));
-        return { ...result, logicalRequestId, attempts };
-      } catch (visionError) {
-        attempts.push(attemptFact(vision, visionError.code ?? 'failed'));
-        throw annotateRouteError(visionError, logicalRequestId, attempts);
-      }
+      throw annotateRouteError(
+        new ContractError('no_eligible_vision_route', 'no distinct eligible vision route is configured'),
+        logicalRequestId, attempts,
+      );
     }
   }
 }

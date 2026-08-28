@@ -17,7 +17,7 @@ export function selfDiagnosticsDefinitions(contextProvider) {
 function diagnoseTurnDefinition(contextProvider) {
   return {
     name: 'nna.diagnose_turn', version: 1,
-    purpose: 'Inspect bounded, content-redacted lifecycle evidence for the active or most recent NNA turn. Use this when troubleshooting NNA behavior before guessing from visible output.',
+    purpose: 'Inspect bounded, content-redacted lifecycle evidence for the active or a recent NNA turn.',
     sideEffect: 'read_only', scope: 'runtime_diagnostics', cancellation: true, timeoutMs: 10_000,
     inputSchema: {
       type: 'object', additionalProperties: false,
@@ -38,38 +38,44 @@ function diagnoseTurnDefinition(contextProvider) {
         || (args.turn_id !== undefined && args.selector === 'list')) {
         throw new ContractError('tool_schema_invalid', 'diagnostic selector, limit, session_id, or turn_id is invalid or conflicting');
       }
-      return { args: { selector: args.selector ?? 'current', limit: args.limit ?? DEFAULT_SESSION_LIMIT, session_id: args.session_id ?? null, turn_id: args.turn_id ?? null } };
+      return { args: {
+        selector: args.selector ?? 'current', limit: args.limit ?? DEFAULT_SESSION_LIMIT,
+        ...(args.session_id === undefined ? {} : { session_id: args.session_id }),
+        ...(args.turn_id === undefined ? {} : { turn_id: args.turn_id }),
+      } };
     },
-    executor: async (request, signal) => {
-      if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
-      const context = contextProvider?.();
-      if (!context?.journalPath) throw new ContractError('diagnostics_unavailable', 'the current runtime has no readable durable journal');
-      if (request.args.selector === 'list') {
-        const sessions = await listDurableSessions(context, request.args.limit, signal);
-        return { content: JSON.stringify({ schema: 'nna.session_catalog.v1', sessions }, null, 2), metadata: { sessions: sessions.length, redacted: true } };
-      }
-      let selectedSessionId = request.args.session_id;
-      if (!selectedSessionId && ['latest', 'latest_failed'].includes(request.args.selector)) {
-        const sessions = await listDurableSessions(context, MAX_SESSION_LIMIT, signal);
-        const selected = request.args.selector === 'latest_failed'
-          ? sessions.find((item) => item.latest_failure_code) : sessions[0];
-        if (!selected) throw new ContractError('diagnostics_session_not_found', `no ${request.args.selector === 'latest_failed' ? 'failed ' : ''}durable session was found`);
-        selectedSessionId = selected.session_id;
-      }
-      const sessionId = selectedSessionId ?? context.sessionId;
-      const journalPath = selectedSessionId && selectedSessionId !== context.sessionId
-        ? containedSessionJournalPath(context.sessionsRoot, selectedSessionId) : context.journalPath;
-      const page = await readDiagnosticPage(journalPath);
-      const turnId = request.args.turn_id
-        ?? (sessionId === context.sessionId ? context.activeTurnId : null) ?? latestTurnId(page.records);
-      if (!turnId) throw new ContractError('diagnostics_turn_unavailable', 'no recent turn is available to diagnose');
-      const records = page.records.filter((record) => recordTurnId(record) === turnId);
-      if (records.length === 0) throw new ContractError('diagnostics_turn_not_found', 'the requested turn is outside the bounded recent journal window');
-      return {
-        content: JSON.stringify(summarize(sessionId, turnId, records, sessionId === context.sessionId ? context.state : null), null, 2),
-        metadata: { session_id: sessionId, turn_id: turnId, records_examined: records.length, redacted: true, truncated_history: page.hasMore },
-      };
-    },
+    executor: (request, signal) => executeTurnDiagnosis(contextProvider, request, signal),
+  };
+}
+
+async function executeTurnDiagnosis(contextProvider, request, signal) {
+  if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
+  const context = contextProvider?.();
+  if (!context?.journalPath) throw new ContractError('diagnostics_unavailable', 'the current runtime has no readable durable journal');
+  if (request.args.selector === 'list') {
+    const sessions = await listDurableSessions(context, request.args.limit, signal);
+    return { content: JSON.stringify({ schema: 'nna.session_catalog.v1', sessions }, null, 2), metadata: { sessions: sessions.length, redacted: true } };
+  }
+  let selectedSessionId = request.args.session_id;
+  if (!selectedSessionId && ['latest', 'latest_failed'].includes(request.args.selector)) {
+    const sessions = await listDurableSessions(context, MAX_SESSION_LIMIT, signal);
+    const selected = request.args.selector === 'latest_failed'
+      ? sessions.find((item) => item.latest_failure_code) : sessions[0];
+    if (!selected) throw new ContractError('diagnostics_session_not_found', `no ${request.args.selector === 'latest_failed' ? 'failed ' : ''}durable session was found`);
+    selectedSessionId = selected.session_id;
+  }
+  const sessionId = selectedSessionId ?? context.sessionId;
+  const journalPath = selectedSessionId && selectedSessionId !== context.sessionId
+    ? containedSessionJournalPath(context.sessionsRoot, selectedSessionId) : context.journalPath;
+  const page = await readDiagnosticPage(journalPath);
+  const turnId = request.args.turn_id
+    ?? (sessionId === context.sessionId ? context.activeTurnId : null) ?? latestTurnId(page.records);
+  if (!turnId) throw new ContractError('diagnostics_turn_unavailable', 'no recent turn is available to diagnose');
+  const records = page.records.filter((record) => recordTurnId(record) === turnId);
+  if (records.length === 0) throw new ContractError('diagnostics_turn_not_found', 'the requested turn is outside the bounded recent journal window');
+  return {
+    content: JSON.stringify(summarize(sessionId, turnId, records, sessionId === context.sessionId ? context.state : null), null, 2),
+    metadata: { session_id: sessionId, turn_id: turnId, records_examined: records.length, redacted: true, truncated_history: page.hasMore },
   };
 }
 

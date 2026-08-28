@@ -21,7 +21,7 @@ import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
   completeProviderToolCalls, deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, observeToolContracts,
   prepareTrustedToolHandoff, providerRequest,
-  groundCapabilityPhase, observeToolState, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext,
+  discoveryCheckpoint, groundCapabilityPhase, observeToolState, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
 import { recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
@@ -293,9 +293,7 @@ export class SessionEngine {
     active.stepId = step.id;
     await this.#publish('model_step.started', 'model_step', 'active', active);
     const routes = this.router.candidates('primary', { requiredCapabilities: ['tools'] });
-    if (routes.length === 0) {
-      throw new ContractError('route_capability_unavailable', 'no Primary provider route supports tool calls');
-    }
+    if (routes.length === 0) throw new ContractError('route_capability_unavailable', 'no Primary provider route supports tool calls');
     active.sessionId = this.sessionId;
     await emitEngineStatus(this, 'waiting_provider', active);
     try {
@@ -329,21 +327,22 @@ export class SessionEngine {
     ]); observeToolContracts(this, active, items);
     active.toolConstraints = mergeToolConstraints(active.toolConstraints, items);
     this.tools.expose(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean));
-    active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded')
-      .map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
+    active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded').map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
     const steeringApplied = await this.#consumeSteering(active);
+    const behavior = observeToolState(active, items, (name) => this.tools.definition(name));
     const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints, stateRevision: active.observableStateRevision });
     const progress = this.reliability.noProgress(active, 'tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact',
       failureFingerprint: this.reliability.toolFailureFingerprint(items), monitoring: active.capabilityPhase === 'monitoring',
-    }); observeToolState(active, items);
+    });
+    const behavioralAction = discoveryCheckpoint(this.reliability, active, behavior);
     if (progress.action) await this.#recordRecovery(progress.action, active);
+    if (behavioralAction) await this.#recordRecovery(behavioralAction, active);
     await this.#settleStep(active, 'continued');
     if (!progress.continue) return { exhausted: true, category: 'tool_no_progress', count: progress.count };
     this.state.transition('preparing_continuation', { trigger: 'tool_results_committed', turnId: active.turnId });
-    return {
-      continue: true, hint: trustedHandoff?.hint ?? toolContinuationHint(items, this.reliability.hint(progress.action)),
-      forceCompact: progress.action?.action === 'compact',
-    };
+    return { continue: true,
+      hint: trustedHandoff?.hint ?? toolContinuationHint(items, this.reliability.hint(behavioralAction) ?? this.reliability.hint(progress.action)),
+      forceCompact: progress.action?.action === 'compact' || behavioralAction?.action === 'compact' };
   }
   async #afterTextStep(active) {
     const retry = await recoverReasoningOnly(this, active); if (retry) return retry;

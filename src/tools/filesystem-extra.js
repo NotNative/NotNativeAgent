@@ -4,6 +4,7 @@ import { createReadStream } from 'node:fs';
 import { constants } from 'node:fs';
 import { copyFile, mkdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { ContractError } from '../ids.js';
+import { normalizeArgumentAliases } from './argument-normalization.js';
 
 export function filesystemExtraDefinitions(paths, changes, receipts) {
   return [metadataDefinition(paths), directoryDefinition(paths), copyDefinition(paths, changes, receipts), moveDefinition(paths, changes, receipts)];
@@ -78,13 +79,20 @@ function fileTransferDefinition(paths, name, purpose, operation, changes, receip
     }
     const transferLabel = name === 'fs.move_file' ? 'move' : 'copy';
     return { content: `${transferLabel} completed`, metadata: { source: request.args.source, destination: request.args.destination } };
+  }, {
+    source: ['source_path', 'sourcePath', 'from'],
+    destination: ['destination_path', 'destinationPath', 'to'],
   });
 }
 
-function definition(name, purpose, sideEffect, properties, required, validate, executor) {
+function definition(name, purpose, sideEffect, properties, required, validate, executor, aliases = null) {
   return {
     name, version: 1, purpose, sideEffect, scope: 'workspace', cancellation: true, timeoutMs: 10_000,
-    inputSchema: { type: 'object', properties, required, additionalProperties: false }, validate, executor,
+    inputSchema: { type: 'object', properties, required, additionalProperties: false },
+    ...(aliases ? { normalizeArgs: (args) => normalizeArgumentAliases(args, aliases) } : {
+      normalizeArgs: (args) => normalizeArgumentAliases(args, { path: ['filePath', 'file_path', 'directoryPath', 'directory_path'] }),
+    }),
+    validate, executor,
   };
 }
 

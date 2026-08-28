@@ -15,7 +15,8 @@ test('process.run executes bounded shell-free argv inside the workspace', async 
   const registry = new ToolRegistry(root);
   await registry.initialize();
   const definition = registry.definition('process.run');
-  assert.match(definition.purpose, /Avoid embedding generated multi-statement programs/u);
+  assert.equal(definition.purpose, 'Run one bounded installed host program with an explicit argument vector and captured output.');
+  assert.match(definition.inputSchema.properties.args.description, /Avoid embedding generated multi-statement programs/u);
   assert.match(definition.inputSchema.properties.stdin_ref.description, /node args \["-"\]/u);
   assert.deepEqual(definition.inputSchema.properties.args.items, { type: 'string' });
   await assert.rejects(definition.validate({ executable: 'node', args: ['x'.repeat(4097)] }), { code: 'process_args_invalid' });
@@ -274,7 +275,11 @@ test('shell.run classifies compound and destructive scripts for semantic review 
   const registry = new ToolRegistry(root);
   await registry.initialize();
   const definition = registry.definition('shell.run');
-  assert.match(definition.purpose, /Do not use Start-Process, Start-Job, nohup, disown, background &/u);
+  assert.match(definition.purpose, /including background or detached behavior, is reviewed/u);
+  assert.doesNotMatch(definition.purpose, /python -m http\.server|install browser automation/u);
+  const aliased = await definition.validate({ command: 'Write-Output ok', workingDirectory: '.', timeout: '1000' });
+  assert.equal(aliased.args.script, 'Write-Output ok');
+  assert.equal(aliased.args.timeout_ms, 1000);
   assert.equal((await definition.validate({ script: 'git status; npm test' })).resolved.reviewComplexity, 'compound_shell');
   const fragile = await definition.validate({
     script: 'echo start; for f in a b; do printf "%s" "$(wc -l < "$f")"; done',

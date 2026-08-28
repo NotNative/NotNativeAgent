@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ConversationWork } from '../src/conversation-work.js';
@@ -58,6 +58,32 @@ test('fs.directory removes only reviewed bounded trees and refuses protected wor
   } finally { await item.close(); }
 });
 
+test('directory listing is intuitive, one level deep, and default tree skips are explicit', async () => {
+  const item = await fixture();
+  try {
+    await mkdir(join(item.root, 'src', 'nested'), { recursive: true });
+    await mkdir(join(item.root, 'node_modules', 'dependency'), { recursive: true });
+    await mkdir(join(item.root, '.git', 'objects'), { recursive: true });
+    await writeFile(join(item.root, 'src', 'top.js'), 'top');
+    await writeFile(join(item.root, 'src', 'nested', 'deep.js'), 'deep');
+
+    const directory = item.registry.definition('fs.directory');
+    const requested = await directory.validate({ operation: 'list', directory_path: '.' });
+    assert.deepEqual(requested.publicArgs, { action: 'list', path: '.' });
+    const immediate = await directory.executor(requested, new AbortController().signal);
+    assert.match(immediate.content, /directory\tsrc/u);
+    assert.doesNotMatch(immediate.content, /deep\.js/u);
+    assert.deepEqual(immediate.metadata.skipped, ['.git', 'node_modules']);
+    assert.equal(immediate.metadata.action, 'list');
+
+    const list = item.registry.definition('fs.list');
+    const recursive = await list.validate({ directoryPath: 'src', max_depth: '2', limit: '20' });
+    assert.deepEqual(recursive.args, { path: 'src', depth: 2, max_results: 20 });
+    assert.match((await list.executor(recursive, new AbortController().signal)).content, /nested\/deep\.js/u);
+    await assert.rejects(list.validate({ path: '.', depth: 0 }), { code: 'tool_schema_invalid' });
+  } finally { await item.close(); }
+});
+
 test('filesystem mutations accept unambiguous common argument spellings and retain canonical sealed requests', async () => {
   const item = await fixture();
   try {
@@ -81,8 +107,16 @@ test('filesystem mutations accept unambiguous common argument spellings and reta
       path: edited.args.path, old_text: edited.args.old_text,
       new_text: edited.args.new_text, replace_all: edited.args.replace_all,
     }, { path: 'src/generated/value.txt', old_text: 'before', new_text: 'after', replace_all: false });
+    assert.deepEqual(edited.publicArgs, {
+      path: 'src/generated/value.txt', find: 'before', content: 'after', all: false,
+    });
+    assert.equal(Object.hasOwn(edited.publicArgs, 'expected_sha256'), false);
     await edit.executor(edited, new AbortController().signal);
     assert.equal(await readFile(join(item.root, 'src', 'generated', 'value.txt'), 'utf8'), 'after');
+
+    const read = item.registry.definition('fs.read');
+    const readAlias = await read.validate({ filePath: 'src/generated/value.txt', startLine: '1', limit: '1' });
+    assert.deepEqual(readAlias.args, { path: 'src/generated/value.txt', start_line: 1, line_count: 1 });
 
     await assert.rejects(write.validate({ path: 'one.txt', filePath: 'two.txt', content: 'x' }), {
       code: 'tool_schema_invalid',

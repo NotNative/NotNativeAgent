@@ -12,7 +12,7 @@ const VERDICT_RUBRIC = 'Judge only visible evidence against the requested criter
 export function imageInspectDefinition(paths, observeImage, options = {}) {
   return {
     name: 'image.inspect', version: 2,
-    purpose: 'Visually interpret an existing bounded PNG, JPEG, GIF, or WebP image in a separate provider step. Use the exact path returned by web.browse screenshot to analyze a captured page. Its visual verdict remains authoritative until a newer image.inspect result supersedes it; DOM or text inspection cannot prove a visible defect absent. Image inference has its own lifecycle and cannot change a successful screenshot capture into a browser failure.',
+    purpose: 'Visually interpret one existing bounded PNG, JPEG, GIF, or WebP image in a separate managed provider step and return an attributed verdict.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 600_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['path'], properties: {

@@ -63,7 +63,9 @@ function applyConfiguration(engine, config, active) {
     credentialResolver: engine.credentialResolver, sessionId: engine.sessionId,
   });
   engine.attachments.config = config.attachments;
-  engine.attachments.router = new AttachmentObservationRouter(engine.router);
+  engine.attachments.router = new AttachmentObservationRouter(engine.router, undefined, {
+    recordTokenReceipt: engine.recordProviderAttempt,
+  });
   engine.memory.config = config.memory;
   engine.reviewer.semanticTimeoutMs = config.limits.semanticReviewMs;
   if (engine.permissionBroker) engine.permissionBroker.timeoutMs = config.limits.approvalMs;

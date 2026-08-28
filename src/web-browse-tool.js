@@ -22,7 +22,7 @@ export function webBrowseDefinition(options = {}) {
   const manager = options.manager ?? new BrowserSessionManager(options);
   const definition = {
     name: 'web.browse', version: 1,
-    purpose: 'Operate an ephemeral Chromium session. For a workspace web app, navigate with path and NNA will serve it from an owned temporary loopback server that is cleaned up with the browser; do not install Playwright or start a project server. This is also the required fallback for a verified exact URL that web.fetch could not retrieve: navigate to the same URL, then inspect it. In a standalone root Console, an exact HTTP(S) loopback development URL such as localhost may be proposed for reviewer approval; this does not trust LAN hosts or web.fetch. It can also click controls, fill non-secret values, inject a named secret field without exposing it to the model, press keys, save a screenshot, or close the browser. Screenshot capture returns a durable PNG path immediately; use image.inspect in a separate tool call when visual interpretation is needed. Use inspect after navigation to obtain stable element references such as e1.',
+    purpose: 'Operate an ephemeral managed Chromium session: navigate, inspect, interact, capture a screenshot, or close it. A workspace HTML path is served by an owned temporary loopback server that is cleaned up with the browser.',
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 60_000,
     maxOutputBytes: PROVIDER_TEXT_BYTES,
     inputSchema: {

@@ -2,12 +2,13 @@
 import { ContractError } from './ids.js';
 import { loadWebSearchConfig } from './web-search-config.js';
 import { SearxngClient } from './searxng-client.js';
+import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 
 export function webSearchDefinition(options) {
   const client = options.client ?? new SearxngClient();
   return {
     name: 'web.search', version: 1,
-    purpose: 'Search the web through the user-configured SearXNG service and return bounded source summaries. Use this before answering current versions, releases, support status, recent or version-specific technology, news, or event questions. Results locate sources; fetch an authoritative source before making a detailed definitive claim.',
+    purpose: 'Search the web through the user-configured SearXNG service and return bounded source summaries.',
     sideEffect: 'read_only', scope: 'web_search', cancellation: true, timeoutMs: 20_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['query'], properties: {
@@ -15,11 +16,15 @@ export function webSearchDefinition(options) {
         categories: { type: 'string', maxLength: 256, description: 'Optional SearXNG category filter.' },
         language: { type: 'string', maxLength: 32, description: 'Optional search language code.' },
         page: { type: 'integer', minimum: 1, maximum: 20, description: 'One-based results page. Defaults to 1.' },
-        time_range: { type: 'string', enum: ['day', 'month', 'year'], description: 'Optional recency filter.' },
+        time_range: { type: 'string', enum: ['day', 'week', 'month', 'year'], description: 'Optional recency filter.' },
         safe_search: { type: 'integer', minimum: 0, maximum: 2, description: 'SearXNG safe-search level: 0 off, 1 moderate, or 2 strict.' },
         limit: { type: 'integer', minimum: 1, maximum: 20, description: 'Maximum normalized results to return. Defaults to 8.' },
       },
     },
+    normalizeArgs: (args) => normalizeArgumentAliases(args, {
+      query: ['q', 'search'], page: ['page_number', 'pageNumber'], time_range: ['recency', 'timeRange'],
+      safe_search: ['safeSearch'], limit: ['max_results', 'maxResults'],
+    }),
     validate: async (args) => validate(args, options.configPath),
     executor: async (request, signal) => {
       const result = await client.search(request.resolved.endpoint, request.args, signal);
@@ -45,7 +50,7 @@ async function validate(args, configPath) {
   if (args.page !== undefined && (!Number.isInteger(args.page) || args.page < 1 || args.page > 20)) throw invalid();
   if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > 20)) throw invalid();
   if (args.safe_search !== undefined && ![0, 1, 2].includes(args.safe_search)) throw invalid();
-  if (args.time_range !== undefined && !['day', 'month', 'year'].includes(args.time_range)) throw invalid();
+  if (args.time_range !== undefined && !['day', 'week', 'month', 'year'].includes(args.time_range)) throw invalid();
   let config;
   try { config = await loadWebSearchConfig(configPath); }
   catch (error) {

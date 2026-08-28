@@ -5,6 +5,7 @@ import { normalizeShellExecutionError, shellReliabilitySignals, shellToolGuidanc
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 import { portableExecutableName } from '../reliability/executable-name.js';
 import { detachedProcessInvocation, longRunningForegroundInvocation } from '../reliability/process-lifecycle.js';
+import { normalizeArgumentAliases } from './argument-normalization.js';
 
 const MAX_SCRIPT_LENGTH = 32_768;
 const MAX_FIELD_LENGTH = 4_096;
@@ -21,7 +22,7 @@ export function processRunDefinition(paths, references = null) {
   const inlineGuidance = inlineInterpreterGuidance();
   return {
     name: 'process.run', version: 1,
-    purpose: `Run one bounded installed host program with explicit argv for local or remote tasks. Prefer a direct executable; shell interpreters are optional host software and receive semantic review. ${inlineGuidance} Root NNA may target host paths; hosted sessions remain workspace-bounded.`,
+    purpose: 'Run one bounded installed host program with an explicit argument vector and captured output.',
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
     inputSchema: {
       type: 'object', properties: {
@@ -44,7 +45,7 @@ export function shellRunDefinition(paths, references = null, platform = process.
   const guidance = shellToolGuidance(platform);
   return {
     name: 'shell.run', version: 1,
-    purpose: `Run a bounded foreground terminal workflow in the host platform shell. ${guidance} Use this for ordinary command-line programs as well as pipelines, redirection, expansion, or multiple commands; prefer a more specific structured NNA tool when one describes the operation. The workflow must normally terminate within this call. For workspace web verification use web.browse navigate with path; it owns a temporary server, so do not start python -m http.server or install browser automation in the project. Do not use Start-Process, Start-Job, nohup, disown, background &, or equivalent detachment unless authenticated user intent explicitly requests a persistent or background process; detached requests receive mandatory intent review. Keep one coherent purpose per call when practical. Avoid large loops, nested substitutions, deeply nested quoting, and combining mutation with verification. The complete script is reviewed before execution. Handle expected predicate statuses explicitly: diff and no-match grep commonly exit 1, while pipefail can expose an upstream SIGPIPE from pipelines ending in head.`,
+    purpose: `Run one bounded terminal workflow in the host platform shell and capture its output. ${guidance} The complete script, including background or detached behavior, is reviewed before execution.`,
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
@@ -56,6 +57,10 @@ export function shellRunDefinition(paths, references = null, platform = process.
         timeout_ms: { type: 'integer', minimum: 100, maximum: 3600000, description: 'Script deadline in milliseconds. Defaults to 600000.' },
       }, required: ['script'], additionalProperties: false,
     },
+    normalizeArgs: (args) => normalizeArgumentAliases(args, {
+      script: ['command'], cwd: ['working_directory', 'workingDirectory'],
+      stdin_ref: ['stdinRef'], accepted_exit_codes: ['acceptedExitCodes'], timeout_ms: ['timeout', 'timeoutMs'],
+    }),
     validate: async (args) => validateShellRequest(paths, args, references),
     executor: (request, signal) => runShell(request.args, signal, references),
   };

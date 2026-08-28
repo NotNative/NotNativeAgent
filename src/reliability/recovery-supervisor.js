@@ -109,6 +109,10 @@ export class RecoverySupervisor {
     this.#episodes.clear();
   }
 
+  behavioralCheckpoint(category, action, count, detail = {}) {
+    return this.#record(category, action, count, detail);
+  }
+
   exhaustion(records = [], reasonCodes = []) {
     const evidence = [...this.#progress.values()].slice(-MAX_EXHAUSTION_EVIDENCE);
     const checkpoint = evidence.at(-1)?.checkpoint ?? 'turn_start';
@@ -259,6 +263,7 @@ export function recoveryHint(action) {
     reassess: 'Progress is still unclear. Inspect the latest committed evidence, recover the active objective from the recent authenticated conversation, and take one bounded next action.',
     change_strategy: 'The current approach has not demonstrated new progress. Keep the same objective, but change the hypothesis, tool, arguments, or verification method materially before continuing.',
     recover_objective: 'Re-anchor on the authenticated user intent and any explicitly adopted proposal. Preserve completed work, identify the smallest unfinished outcome, and continue with a new bounded action unless waiting for user input.',
+    review_discovery_progress: 'Read-only discovery has continued for many tool batches. Compare the collected evidence with the unfinished outcome, state what material uncertainty remains, and either proceed or continue only with evidence that resolves that uncertainty.',
     compact_context_limit: 'The provider rejected the previous context size. Continue from the preserved task using the reduced context; do not reconstruct omitted transcript.',
     retry_without_reasoning: 'The prior attempt produced hidden reasoning but no usable response. Continue the same task directly with reasoning disabled and produce visible text or a tool call.',
     retry_reasoning_to_action: 'The prior completion reached its output ceiling during reasoning before it could emit an action. Continue the same task with reasoning enabled, reason more concisely, and proceed to visible text or a tool call.',

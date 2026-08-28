@@ -54,12 +54,16 @@ test('web.search is globally configured and unavailable when disabled', async ()
   try {
     await mkdir(workspace);
     await registry.initialize();
-    assert.match(registry.definition('web.search').purpose, /current versions, releases, support status/u);
-    assert.match(registry.definition('web.search').purpose, /fetch an authoritative source/u);
+    assert.equal(registry.definition('web.search').purpose,
+      'Search the web through the user-configured SearXNG service and return bounded source summaries.');
     await assert.rejects(registry.seal({ providerCallId: 'disabled', name: 'web.search', args: { query: 'hello' } }, sealContext()), { code: 'web_search_disabled' });
     await saveWebSearchConfig(configPath, { enabled: true, provider: 'searxng', endpoint: 'http://10.0.0.5:8080' });
-    const request = await registry.seal({ providerCallId: 'enabled', name: 'web.search', args: { query: 'hello' } }, sealContext());
+    const request = await registry.seal({
+      providerCallId: 'enabled', name: 'web.search',
+      args: { q: 'hello', recency: 'week', maxResults: '6' },
+    }, sealContext());
     assert.equal(request.resolved.endpoint, 'http://10.0.0.5:8080');
+    assert.deepEqual(request.publicArgs, { query: 'hello', time_range: 'week', limit: 6 });
     const result = await registry.definition('web.search').executor(request, new AbortController().signal);
     assert.equal(JSON.parse(result.content).query, 'hello');
   } finally { await rm(root, { recursive: true, force: true }); }

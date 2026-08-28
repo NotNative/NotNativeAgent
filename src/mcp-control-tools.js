@@ -17,7 +17,7 @@ export function mcpControlDefinitions(control) {
 function statusDefinition(control) {
   return {
     name: 'nna.mcp_status', version: 1,
-    purpose: 'Inspect configured MCP servers and whether each is active in this conversation. Use this instead of searching the workspace for NNA configuration.',
+    purpose: 'Inspect configured MCP servers and whether each is active in this conversation.',
     sideEffect: 'read_only', scope: 'mcp_control', cancellation: true, timeoutMs: STATUS_TIMEOUT_MS,
     inputSchema: objectSchema({}, []),
     validate: async (args) => {

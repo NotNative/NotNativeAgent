@@ -26,7 +26,10 @@ test('published diagnostic bundles survive temporary-file cleanup failure', asyn
 test('support command reports its exact local destination before and after publication', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-support-command-'));
   const engine = {
-    sessionId: 'session-support', config: {}, telemetry: {
+    sessionId: 'session-support', config: {
+      routes: { primary: { max_output_tokens: 262144 } },
+      providerProfiles: { local: { id: 'local', outputLimitTokens: 131072 } },
+    }, telemetry: {
       async flush() {}, async supportSnapshot() { return { format: 1, rows: [], open_spans: [] }; },
     },
     async health() { return { status: 'ready' }; },
@@ -110,6 +113,27 @@ test('oversized support input opens a persistent red failure view instead of dis
   assert.match(notices.at(-1).text, /ZIP_INPUT_TOO_LARGE/u);
   assert.match(decorateContent('SUPPORT BUNDLE FAILED', 80, true, 0, 'support-error', 'overlay:error'), /\u001b\[1;38;5;203m/u);
   assert.match(decorateFooter('[ERROR] failed', 1, 3, true, 0, 'error'), /\u001b\[1;38;5;203m/u);
+});
+
+test('privacy verification failures remain visible and publish no partial support bundle', async () => {
+  class RedactionFailureBundle {
+    defaultPath() { return 'support.zip'; }
+    async create() { throw Object.assign(new Error('blocked'), { code: 'bundle_redaction_failed' }); }
+  }
+  const notices = []; let opened;
+  const engine = { sessionId: 'session-active' };
+  const workspace = {
+    options: {}, activeEngine: () => engine,
+    projection: {
+      activeId: 'session-active', sessions: new Map([['session-active', {}]]),
+      showNotice: (kind, text) => notices.push({ kind, text }),
+      openOverlay: (overlay) => { opened = overlay; },
+    },
+  };
+  await handleSupportCommand('/support', '', workspace, { DiagnosticBundle: RedactionFailureBundle });
+  assert.equal(opened.kind, 'support-error');
+  assert.match(opened.lines.join('\n'), /BUNDLE_REDACTION_FAILED.*NOT CREATED/su);
+  assert.equal(notices.at(-1).kind, 'error');
 });
 
 test('diagnostic bundle default path stays within its configured support directory', async () => {

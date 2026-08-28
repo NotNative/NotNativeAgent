@@ -35,20 +35,7 @@ export async function handleSupportCommand(name, argument, workspace, dependenci
   try {
     result = await bundle.create(outputPath);
   } catch (error) {
-    if (error?.code !== 'zip_input_too_large') throw error;
-    const lines = [
-      '[ZIP_INPUT_TOO_LARGE] SUPPORT ZIP WAS NOT CREATED',
-      '',
-      'The current conversation diagnostic data exceeds the 16 MiB safety bound.',
-      'Nothing was uploaded and no partial ZIP was published.',
-      '',
-      'Use /support preview to review what is included, then retry after the session is smaller.',
-    ];
-    workspace.projection.openOverlay({
-      ...valueOverlay('support-error', 'Support bundle failed', lines.join('\n')),
-      lineKinds: lines.map(() => 'error'),
-    });
-    workspace.projection.showNotice('error', '[ZIP_INPUT_TOO_LARGE] Support ZIP was not created; current session exceeds 16 MiB.');
+    if (!showSupportFailure(error, workspace)) throw error;
     return;
   }
   workspace.projection.openOverlay(valueOverlay('support', 'Support bundle ready to send', [
@@ -60,4 +47,29 @@ export async function handleSupportCommand(name, argument, workspace, dependenci
     'Copy this ZIP to the machine where it will be inspected. Review it before sending.',
   ].join('\n')));
   workspace.projection.showNotice('support', `Support bundle saved to ${result.path}`);
+}
+
+function showSupportFailure(error, workspace) {
+  if (!['zip_input_too_large', 'bundle_redaction_failed'].includes(error?.code)) return false;
+  const redactionFailure = error.code === 'bundle_redaction_failed';
+  const label = redactionFailure ? 'BUNDLE_REDACTION_FAILED' : 'ZIP_INPUT_TOO_LARGE';
+  const lines = redactionFailure ? [
+    `[${label}] SUPPORT ZIP WAS NOT CREATED`, '',
+    'Privacy verification found secret-like material in the diagnostic projection.',
+    'Nothing was uploaded and no partial ZIP was published.', '',
+    'Use /support preview to review the included categories. Runtime diagnostics remain unchanged.',
+  ] : [
+    `[${label}] SUPPORT ZIP WAS NOT CREATED`, '',
+    'The current conversation diagnostic data exceeds the 16 MiB safety bound.',
+    'Nothing was uploaded and no partial ZIP was published.', '',
+    'Use /support preview to review what is included, then retry after the session is smaller.',
+  ];
+  workspace.projection.openOverlay({
+    ...valueOverlay('support-error', 'Support bundle failed', lines.join('\n')),
+    lineKinds: lines.map(() => 'error'),
+  });
+  workspace.projection.showNotice('error', redactionFailure
+    ? `[${label}] Support ZIP was not created; privacy verification rejected the diagnostic projection.`
+    : `[${label}] Support ZIP was not created; current session exceeds 16 MiB.`);
+  return true;
 }

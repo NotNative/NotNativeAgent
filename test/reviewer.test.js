@@ -297,6 +297,26 @@ test('a greeting does not authorize gratuitous workspace inspection', async () =
   assert.equal(result.reasonCode, 'tool_not_justified_by_request');
 });
 
+test('fs.directory list is governed as a deterministic read despite sharing a mutation tool', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'directory-list-read' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1; throw new Error('semantic review should not run');
+  } } });
+  const request = {
+    ...readRequest('directory-list'), toolName: 'fs.directory', args: { action: 'list', path: 'src' },
+    resolved: { path: 'D:/workspace/src', insideWorkspace: true },
+  };
+  const result = await reviewer.review(request, {
+    ...context,
+    authority: { ...context.authority, intent: [{ content: 'Inspect the src directory.', sequence: 1 }] },
+    definition: { name: 'fs.directory', sideEffect: 'reversible', scope: 'workspace' },
+  });
+  assert.equal(result.outcome, 'approve');
+  assert.equal(result.reasonCode, 'deterministic_safe');
+  assert.equal(semanticCalls, 0);
+});
+
 test('validated public web.fetch is deterministic safe and does not invoke semantic review', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'public-fetch' });
   let semanticCalls = 0;
@@ -623,12 +643,12 @@ test('a current restriction overrides earlier detached-process authorization', a
   assert.equal(semanticCalls, 0);
 });
 
-test('foreground Python static servers are redirected to the managed browser path', async () => {
+test('foreground Python static servers receive ordinary semantic review instead of a blanket denial', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'foreground-server' });
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'should_not_run' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'bounded_server_workflow' };
   } } });
   const request = {
     ...readRequest('foreground-server'), toolName: 'process.run',
@@ -643,10 +663,9 @@ test('foreground Python static servers are redirected to the managed browser pat
     authority: { ...context.authority, intent: [{ content: 'Build and verify the ocean scene', sequence: 1 }] },
     definition: { name: 'process.run', sideEffect: 'unknown', scope: 'workspace' },
   });
-  assert.equal(result.outcome, 'deny_with_guidance');
-  assert.equal(result.reasonCode, 'long_running_foreground_not_bounded');
-  assert.match(result.guidance, /web\.browse[^]*path[^]*Do not install Playwright/iu);
-  assert.equal(semanticCalls, 0);
+  assert.equal(result.outcome, 'approve');
+  assert.equal(result.reasonCode, 'semantic_intent_match');
+  assert.equal(semanticCalls, 1);
 });
 
 test('a successful state mutation reopens semantic review of an otherwise equivalent operation', async () => {

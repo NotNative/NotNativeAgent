@@ -3,7 +3,7 @@ import { ContractError, newId } from './ids.js';
 import { requestDigest } from './persistence/reviewer-ledger.js';
 import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
 import { evidenceNamesTarget, grantBeforeOtherFilesRestriction } from './review-target-evidence.js';
-import { DETACHED_PROCESS_GUIDANCE, LONG_RUNNING_FOREGROUND_GUIDANCE, detachedProcessAuthorized } from './reliability/process-lifecycle.js';
+import { DETACHED_PROCESS_GUIDANCE, detachedProcessAuthorized } from './reliability/process-lifecycle.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 export class MandatoryReviewer {
   constructor(options) {
@@ -47,7 +47,6 @@ export class MandatoryReviewer {
         );
       }
       else if (unauthorizedDetachedProcess(request, context.authority)) decision = detachedProcessDenial(request);
-      else if (longRunningForegroundProcess(request)) decision = deny('long_running_foreground_not_bounded', LONG_RUNNING_FOREGROUND_GUIDANCE, request);
       else if (classification.risk === 'safe' && conversationOnly(context.authority)) {
         decision = deny('tool_not_justified_by_request', 'The user made a conversational request that does not require tools.', request);
       } else if (classification.risk === 'safe') decision = approve('deterministic_safe', request);
@@ -132,6 +131,12 @@ export class UnavailableSemanticReviewer {
 
 function classify(request, definition) {
   if (!definition || request.toolName !== definition.name) return definitionMismatchClassification();
+  if (definition.name === 'fs.directory' && request.args?.action === 'list') {
+    return Object.freeze({
+      risk: 'safe', reason: resolvedOutsideWorkspace(request) ? 'host_read' : 'workspace_read',
+      effect: 'read_only', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
+    });
+  }
   if (definition.sideEffect === 'read_only' && definition.scope === 'workspace') {
     return Object.freeze({
       risk: 'safe', reason: resolvedOutsideWorkspace(request) ? 'host_read' : 'workspace_read',
@@ -200,10 +205,6 @@ function processClassification(request) {
 function unauthorizedDetachedProcess(request, authority) {
   return request.resolved?.reliabilitySignals?.includes('detached_process')
     && !detachedProcessAuthorized(authority);
-}
-
-function longRunningForegroundProcess(request) {
-  return request.resolved?.reliabilitySignals?.includes('long_running_foreground');
 }
 
 function detachedProcessDenial(request) { return deny('detached_process_not_authorized', DETACHED_PROCESS_GUIDANCE, request); }
@@ -348,6 +349,7 @@ function decision(outcome, reasonCode, request, guidance) {
 }
 
 function authenticatedIntentRelation(request, authority, definition, conversationIntent = []) {
+  if (request.toolName === 'fs.directory' && request.args?.action === 'list') return 'covered';
   if (definition.sideEffect === 'read_only') return 'covered';
   if (['process.run', 'shell.run', 'system.elevate'].includes(request.toolName)) return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
   if (!request.toolName.startsWith('fs.')) return 'uncertain';
@@ -467,9 +469,9 @@ function missionBoundaryViolation(request, definition, mission) {
 }
 
 function effectiveSideEffect(request, definition) {
+  if (definition.name === 'fs.directory' && request.args?.action === 'list') return 'read_only';
   return definition.name === 'fs.directory' && request.args?.action === 'remove' ? 'irreversible' : definition.sideEffect;
 }
-
 function missionTargetMatches(rule, request, definition, resolved = null) {
   if (rule === '*' || rule === `tool:${request.toolName}` || rule === `scope:${definition.scope}`) return true;
   const target = (resolved ?? String(request.resolved?.path ?? request.resolved?.source ?? '')).replaceAll('\\', '/').toLowerCase();
@@ -480,7 +482,6 @@ function missionTargetMatches(rule, request, definition, resolved = null) {
   }
   return target === normalized;
 }
-
 function resolvedTargets(request) {
   const values = [request.resolved?.path, request.resolved?.source?.path, request.resolved?.destination?.path]
     .filter((value) => typeof value === 'string');

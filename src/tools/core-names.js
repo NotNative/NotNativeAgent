@@ -2,6 +2,7 @@
 
 export const CORE_TOOL_NAMES = Object.freeze([
   'tool.search',
+  'system.time',
   'fs.list', 'fs.read', 'fs.search_text',
   'shell.run', 'web.search',
   'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
