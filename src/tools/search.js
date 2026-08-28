@@ -24,12 +24,19 @@ export function toolSearchDefinition(registry) {
       required: ['query'], additionalProperties: false,
     },
     validate: async (args) => {
-      if (!args || typeof args.query !== 'string'
-        || args.query.trim().length < 2 || args.query.length > MAX_QUERY_CHARACTERS
-        || Object.keys(args).some((key) => key !== 'query')) {
-        throw new ContractError('tool_search_invalid', 'tool search requires one bounded query');
+      if (!args || typeof args !== 'object' || Array.isArray(args)) {
+        throw new ContractError('tool_search_invalid', 'tool search arguments must be an object containing query');
       }
-      return { args: { query: args.query.trim() }, resolved: { source: 'tool_catalog' } };
+      const unknown = Object.keys(args).find((key) => key !== 'query');
+      if (unknown) throw new ContractError('tool_search_invalid', `unknown tool search argument "${unknown}"; allowed argument: query`);
+      if (typeof args.query !== 'string') throw new ContractError('tool_search_invalid', 'tool search query must be a string');
+      const query = args.query.trim();
+      const length = [...query].length;
+      if (length < 2) throw new ContractError('tool_search_invalid', `tool search query must contain at least 2 non-whitespace characters; received ${length}`);
+      if (length > MAX_QUERY_CHARACTERS) {
+        throw new ContractError('tool_search_invalid', `tool search query must contain at most ${MAX_QUERY_CHARACTERS} characters; received ${length}`);
+      }
+      return { args: { query }, resolved: { source: 'tool_catalog' } };
     },
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool search was cancelled');

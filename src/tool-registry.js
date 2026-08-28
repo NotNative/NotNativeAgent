@@ -126,6 +126,7 @@ export class ToolRegistry {
   }
   providerSurface(query = '', options = {}) {
     const phase = providerSurfacePhase(options.phase);
+    const selectionContext = typeof query === 'string' ? query : '';
     const snapshot = this.snapshot();
     const callable = snapshot.filter((item) => providerVisible(
       item.name, this.#exposed.has(item.name),
@@ -148,6 +149,8 @@ export class ToolRegistry {
       schema: 'nna.provider-tool-surface.v1', policyVersion: 'progressive-action-clarity-v1',
       phase: plan.phase, selectedToolNames: plan.names, omittedToolNames: plan.omitted,
       schemaBytes: plan.schemaBytes, limits: plan.limits, selectionReasons: plan.reasons,
+      selectionContextBytes: Buffer.byteLength(selectionContext, 'utf8'),
+      selectionContextFingerprint: createHash('sha256').update(selectionContext).digest('hex'),
     };
     return Object.freeze({
       definitions,

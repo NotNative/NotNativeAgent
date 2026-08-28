@@ -81,6 +81,8 @@ test('provider surface receipts make fixed foundations and workflow leases audit
   assert.ok(orientation.definitions.length <= 32);
   assert.ok(orientation.receipt.schemaBytes <= 64 * 1024);
   assert.equal(orientation.receipt.selectionReasons['shell.run'], 'foundational');
+  assert.ok(orientation.receipt.selectionContextBytes > 0);
+  assert.match(orientation.receipt.selectionContextFingerprint, /^[a-f0-9]{64}$/u);
   assert.ok(!orientation.receipt.selectedToolNames.includes('fs.write_text'));
   assert.match(orientation.receipt.fingerprint, /^[a-f0-9]{64}$/u);
 
@@ -93,6 +95,24 @@ test('provider surface receipts make fixed foundations and workflow leases audit
   const expanded = registry.providerSurface('any wording', { phase: 'recovery' });
   assert.ok(expanded.receipt.selectedToolNames.includes('web.browse'));
   assert.equal(expanded.receipt.selectionReasons['web.browse'], 'workflow_lease');
+});
+
+test('tool.search reports repair-complete query diagnostics without conflating surface context', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  const search = registry.definition('tool.search');
+  await assert.rejects(search.validate({ query: '   ' }), {
+    code: 'tool_search_invalid',
+    message: 'tool search query must contain at least 2 non-whitespace characters; received 0',
+  });
+  await assert.rejects(search.validate({ query: 'x'.repeat(513) }), {
+    code: 'tool_schema_invalid',
+    message: 'argument "query" must contain at most 512 characters; received 513',
+  });
+  const context = 'authenticated context '.repeat(1_000);
+  const surface = registry.providerSurface(context);
+  assert.equal(surface.receipt.selectionContextBytes, Buffer.byteLength(context, 'utf8'));
+  assert.deepEqual(surface.receipt.selectedToolNames, registry.providerSurface('different context').receipt.selectedToolNames);
 });
 
 test('hosted execution obeys an authenticated manifest rather than inferred wording', async () => {
