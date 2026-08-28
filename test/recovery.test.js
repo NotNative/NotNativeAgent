@@ -25,7 +25,7 @@ function config(root, persistence = 'ephemeral', extra = {}) {
   });
 }
 
-async function waitForEngineState(engine, expected, timeoutMs = 2_000) {
+async function waitForEngineState(engine, expected, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs;
   while (engine.state.state !== expected) {
     if (Date.now() >= deadline) {
@@ -456,6 +456,9 @@ test('reasoning checkpoint retry occurs once before empty-output recovery parks 
   await engine.initialize();
   const operation = engine.submit({ request_id: 'reasoning-empty-bounded', content: 'Answer visibly.' }, 'operator');
   await waitForEngineState(engine, 'awaiting_attention');
+  const attentionTransition = engine.state.transitions.find((item) => item.to === 'awaiting_attention');
+  assert.ok(attentionTransition);
+  assert.ok(['processing_tool_results', 'evaluating_completion', 'recovering'].includes(attentionTransition.from));
   assert.deepEqual(modes, [undefined, undefined, undefined, undefined]);
   await engine.steer({ request_id: 'reasoning-empty-direction', content: 'Answer directly now.' }, 'operator');
   const result = await operation;

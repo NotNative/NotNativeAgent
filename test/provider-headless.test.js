@@ -628,15 +628,27 @@ test('AC-HEAD-01/AC-OBS-02 emits protocol-only lifecycle and correlated local me
     { version: '1.0', type: 'submit', request_id: 'submit-1', content: 'finish' },
     { version: '1.0', type: 'shutdown', request_id: 'shutdown-1' },
   ];
+  let markTurnSettled;
+  const turnSettled = new Promise((resolve) => { markTurnSettled = resolve; });
   const input = Readable.from((async function* commandStream() {
     yield `${JSON.stringify(commands[0])}\n`;
     yield `${JSON.stringify(commands[1])}\n`;
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    let timer;
+    try {
+      await Promise.race([
+        turnSettled,
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('turn result was not observed before shutdown')), 5_000); }),
+      ]);
+    } finally { clearTimeout(timer); }
     yield `${JSON.stringify(commands[2])}\n`;
   }()));
   let stdout = '';
   let stderr = '';
-  const output = new Writable({ write(chunk, _encoding, next) { stdout += chunk; next(); } });
+  const output = new Writable({ write(chunk, _encoding, next) {
+    stdout += chunk;
+    if (String(chunk).includes('"type":"turn_result"')) markTurnSettled();
+    next();
+  } });
   const diagnostics = new Writable({ write(chunk, _encoding, next) { stderr += chunk; next(); } });
   await runHeadless(input, output, diagnostics, {
     providerFactory: () => new Provider(), hookRoot: EMPTY_HOOK_ROOT, logPath,
