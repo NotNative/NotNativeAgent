@@ -16,6 +16,7 @@ const MAX_EXIT_CODE = 255;
 const MAX_PROCESS_TIMEOUT_MS = 120_000;
 const MAX_SHELL_TIMEOUT_MS = 3_600_000;
 const MAX_OUTPUT_BYTES = 1_048_576;
+const MAX_CAPTURED_OUTPUT_BYTES = 262_144;
 const TERMINATION_ESCALATION_MS = 250;
 const SECRET_LITERAL = /(?:bearer\s*[:=]?\s+|(?:api[_-]?key|token|password)\s*["']?\s*[:=]\s*["']?)/iu;
 
@@ -217,12 +218,12 @@ export async function runProcess(input, signal, shellTool = false, references = 
   child.stdin.on('error', () => undefined);
   child.stdin.end(stdin ?? '');
   const output = collectOutput(child, MAX_OUTPUT_BYTES);
-  const abort = () => terminateTree(child);
+  const abort = () => terminateTree(child, 'cancelled');
   signal.addEventListener('abort', abort, { once: true });
   let timer;
   const timeout = new Promise((resolve) => {
     timer = setTimeout(() => {
-      terminateTree(child);
+      terminateTree(child, 'timeout');
       resolve({ boundary: 'timeout' });
     }, input.timeout_ms);
   });
@@ -232,6 +233,18 @@ export async function runProcess(input, signal, shellTool = false, references = 
     if (settled.boundary === 'timeout') throw new ContractError('tool_timeout', 'process exceeded its deadline');
     const result = settled.value;
     const acceptedExitCodes = input.accepted_exit_codes ?? [0];
+    if (result.output_limit_exceeded) {
+      return {
+        status: 'failed', reasonCode: 'process_output_too_large', effectCertainty: 'unknown',
+        content: JSON.stringify(result, null, 2),
+        metadata: {
+          exitCode: result.exit_code, signal: result.signal, acceptedExitCodes: [...acceptedExitCodes],
+          shell: shellTool ? input.shell : false, bytesObserved: result.bytes_observed,
+          outputLimitBytes: MAX_OUTPUT_BYTES, captureLimitBytes: result.capture_limit_bytes,
+          terminationRequested: result.termination_requested,
+        },
+      };
+    }
     const succeeded = result.signal === null && acceptedExitCodes.includes(result.exit_code);
     const completedNonzero = result.signal === null && Number.isSafeInteger(result.exit_code);
     return {
@@ -248,24 +261,64 @@ export async function runProcess(input, signal, shellTool = false, references = 
 
 function collectOutput(child, limit) {
   return new Promise((resolve, reject) => {
-    let stdout = '', stderr = '', bytes = 0, timedOut = false;
+    const perStreamCapture = Math.floor(MAX_CAPTURED_OUTPUT_BYTES / 2);
+    const stdout = boundedOutputCapture(perStreamCapture);
+    const stderr = boundedOutputCapture(perStreamCapture);
+    let bytes = 0, timedOut = false, outputLimitExceeded = false, terminationReason = null;
     const consume = (kind, chunk) => {
       bytes += chunk.length;
-      if (bytes > limit) { terminateTree(child); reject(new ContractError('process_output_too_large', 'process output exceeded 1 MiB')); return; }
-      if (kind === 'stdout') stdout += chunk.toString('utf8'); else stderr += chunk.toString('utf8');
+      if (kind === 'stdout') stdout.observe(chunk); else stderr.observe(chunk);
+      if (!outputLimitExceeded && bytes > limit) {
+        outputLimitExceeded = true;
+        terminateTree(child, 'output_limit');
+      }
     };
     child.stdout.on('data', (chunk) => consume('stdout', chunk));
     child.stderr.on('data', (chunk) => consume('stderr', chunk));
     child.on('error', reject);
-    child.on('exit', (code, signal) => resolve({ exit_code: code, signal, stdout, stderr, timedOut }));
+    child.on('close', (code, signal) => resolve({
+      exit_code: code, signal, stdout: stdout.text(), stderr: stderr.text(), timedOut,
+      ...(outputLimitExceeded ? {
+        output_limit_exceeded: true, bytes_observed: bytes,
+        capture_limit_bytes: MAX_CAPTURED_OUTPUT_BYTES, termination_requested: true,
+        termination_reason: terminationReason,
+      } : {}),
+    }));
     child.markTimedOut = () => { timedOut = true; };
+    child.markTermination = (reason) => { terminationReason ??= reason; };
   });
 }
 
-function terminateTree(child) {
+function boundedOutputCapture(maximum) {
+  const marker = Buffer.from('\n...[observed output omitted]...\n', 'utf8');
+  const contentLimit = Math.max(0, maximum - marker.length);
+  const headLimit = Math.ceil(contentLimit * 0.7);
+  const tailLimit = contentLimit - headLimit;
+  let head = Buffer.alloc(0), tail = Buffer.alloc(0), observed = 0;
+  return Object.freeze({
+    observe(chunk) {
+      const value = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      observed += value.length;
+      const headRemaining = Math.max(0, headLimit - head.length);
+      if (headRemaining > 0) head = Buffer.concat([head, value.subarray(0, headRemaining)]);
+      if (tailLimit > 0) tail = Buffer.concat([tail, value]).subarray(-tailLimit);
+    },
+    text() {
+      if (observed <= contentLimit) return cleanUtf8(Buffer.concat([head, tail.subarray(Math.max(0, tail.length - (observed - head.length)))]));
+      return `${cleanUtf8(head)}${marker.toString('utf8')}${cleanUtf8(tail)}`;
+    },
+  });
+}
+
+function cleanUtf8(value) {
+  return value.toString('utf8').replace(/^\uFFFD|\uFFFD$/gu, '');
+}
+
+function terminateTree(child, reason = 'termination') {
   if (child.terminationStarted) return;
   child.terminationStarted = true;
-  child.markTimedOut?.();
+  child.markTermination?.(reason);
+  if (reason === 'timeout') child.markTimedOut?.();
   if (child.exitCode !== null || !Number.isSafeInteger(child.pid)) return;
   if (process.platform === 'win32') {
     const killer = spawn('taskkill.exe', ['/pid', String(child.pid), '/t', '/f'], { windowsHide: true, stdio: 'ignore', shell: false });

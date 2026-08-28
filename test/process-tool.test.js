@@ -90,6 +90,34 @@ test('unexpected nonzero process exits preserve diagnostics without becoming suc
   assert.equal(progress.detail.summary.diagnostic_tool_calls, 1);
 });
 
+test('process output overflow remains failed while preserving bounded observed evidence', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-process-overflow-'));
+  await writeFile(join(root, 'overflow.js'), [
+    "process.stderr.write('diagnostic-before-overflow\\n');",
+    "process.stdout.write('HEAD-' + 'x'.repeat(1_200_000));",
+  ].join('\n'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const definition = registry.definition('process.run');
+  const normalized = await definition.validate({ executable: 'node', args: ['overflow.js'], timeout_ms: 5_000 });
+  const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
+  const output = JSON.parse(result.content);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.reasonCode, 'process_output_too_large');
+  assert.equal(result.effectCertainty, 'unknown');
+  assert.equal(output.output_limit_exceeded, true);
+  assert.ok(output.bytes_observed > 1_048_576);
+  assert.equal(output.termination_requested, true);
+  assert.equal(output.termination_reason, 'output_limit');
+  assert.match(output.stdout, /^HEAD-/u);
+  assert.match(output.stdout, /observed output omitted/u);
+  assert.match(output.stderr, /diagnostic-before-overflow/u);
+  assert.ok(Buffer.byteLength(result.content, 'utf8') < 300_000);
+  assert.equal(result.metadata.bytesObserved, output.bytes_observed);
+  assert.equal(result.metadata.outputLimitBytes, 1_048_576);
+  assert.equal(result.metadata.terminationRequested, true);
+});
+
 test('process tools accept only explicit bounded exit-code protocols containing zero', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-exit-codes-'));
   await writeFile(join(root, 'predicate.js'), 'process.exitCode=1;\n');
