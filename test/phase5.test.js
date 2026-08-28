@@ -2113,7 +2113,8 @@ test('AC-OBS-01/AC-OBS-04 health and diagnostic bundle are read-only and content
   assert.equal(entry.name, 'manifest.json');
   assert.equal(archive.readUInt32LE(0), 0x04034b50);
   assert.doesNotMatch(JSON.stringify(decoded), /top-secret-value/u);
-  assert.equal(decoded.uploaded, false);
+  assert.equal(decoded.preview.destination, 'local_file');
+  assert.equal(Object.hasOwn(decoded, 'uploaded'), false);
   assert.equal(decoded.product.version, VERSION);
   assert.equal(sessionDecoded.health.installation.version, VERSION);
   assert.equal(sessionDecoded.logs.product.version, VERSION);

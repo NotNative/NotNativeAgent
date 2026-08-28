@@ -38,13 +38,13 @@ export async function handleSupportCommand(name, argument, workspace, dependenci
     if (!showSupportFailure(error, workspace)) throw error;
     return;
   }
-  workspace.projection.openOverlay(valueOverlay('support', 'Support bundle ready to send', [
-    'Created locally; nothing was uploaded.',
+  workspace.projection.openOverlay(valueOverlay('support', 'Local support ZIP ready', [
+    'Local ZIP created.',
     '',
     `File: ${result.path}`,
     `Size: ${result.bytes} bytes`,
     '',
-    'Copy this ZIP to the machine where it will be inspected. Review it before sending.',
+    'Review or copy this ZIP as needed.',
   ].join('\n')));
   workspace.projection.showNotice('support', `Support bundle saved to ${result.path}`);
 }
@@ -56,12 +56,12 @@ function showSupportFailure(error, workspace) {
   const lines = redactionFailure ? [
     `[${label}] SUPPORT ZIP WAS NOT CREATED`, '',
     'Privacy verification found secret-like material in the diagnostic projection.',
-    'Nothing was uploaded and no partial ZIP was published.', '',
+    'No ZIP or temporary archive remains.', '',
     'Use /support preview to review the included categories. Runtime diagnostics remain unchanged.',
   ] : [
     `[${label}] SUPPORT ZIP WAS NOT CREATED`, '',
     'The current conversation diagnostic data exceeds the 16 MiB safety bound.',
-    'Nothing was uploaded and no partial ZIP was published.', '',
+    'No ZIP or temporary archive remains.', '',
     'Use /support preview to review what is included, then retry after the session is smaller.',
   ];
   workspace.projection.openOverlay({

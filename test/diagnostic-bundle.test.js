@@ -8,7 +8,7 @@ import { atomicWrite, DiagnosticBundle } from '../src/diagnostic-bundle.js';
 import { handleSupportCommand } from '../src/tui/support-command.js';
 import { decorateContent, decorateFooter } from '../src/tui/decoration.js';
 
-test('published diagnostic bundles survive temporary-file cleanup failure', async () => {
+test('written diagnostic bundles survive temporary-file cleanup failure', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-diagnostic-publish-'));
   const path = join(root, 'support.zip');
   let cleanupAttempts = 0;
@@ -23,7 +23,7 @@ test('published diagnostic bundles survive temporary-file cleanup failure', asyn
   assert.deepEqual(await readFile(path), Buffer.from('bundle'));
 });
 
-test('support command reports its exact local destination before and after publication', async () => {
+test('support command reports its exact local destination before and after creation', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-support-command-'));
   const engine = {
     sessionId: 'session-support', config: {
@@ -56,6 +56,7 @@ test('support command reports its exact local destination before and after publi
   assert.equal(path.startsWith(root), true);
   assert.equal(path.endsWith('.zip'), true);
   assert.match(opened.lines.join('\n'), new RegExp(escapeRegex(path), 'u'));
+  assert.doesNotMatch(opened.lines.join('\n'), /upload|publish|send/iu);
   assert.equal((await readFile(path)).readUInt32LE(0), 0x04034b50);
 });
 
@@ -115,7 +116,7 @@ test('oversized support input opens a persistent red failure view instead of dis
   assert.match(decorateFooter('[ERROR] failed', 1, 3, true, 0, 'error'), /\u001b\[1;38;5;203m/u);
 });
 
-test('privacy verification failures remain visible and publish no partial support bundle', async () => {
+test('privacy verification failures remain visible and leave no partial support bundle', async () => {
   class RedactionFailureBundle {
     defaultPath() { return 'support.zip'; }
     async create() { throw Object.assign(new Error('blocked'), { code: 'bundle_redaction_failed' }); }
@@ -134,6 +135,22 @@ test('privacy verification failures remain visible and publish no partial suppor
   assert.equal(opened.kind, 'support-error');
   assert.match(opened.lines.join('\n'), /BUNDLE_REDACTION_FAILED.*NOT CREATED/su);
   assert.equal(notices.at(-1).kind, 'error');
+});
+
+test('privacy verification distinguishes benign token-suffixed diagnostics from secrets', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-support-privacy-'));
+  const engine = {
+    sessionId: 'session-privacy', config: {}, telemetry: { async flush() {}, async supportSnapshot() {
+      return { format: 1, rows: [{ status_token: 'unavailable', token: null }], open_spans: [] };
+    } },
+    async health() { return { status_token: 'unavailable', credential: '' }; },
+    reviewerAudit() { return []; }, governanceAudit() { return []; },
+  };
+  const bundle = new DiagnosticBundle({ engine, supportRoot: root });
+  const result = await bundle.create(join(root, 'benign.zip'));
+  assert.equal((await readFile(result.path)).readUInt32LE(0), 0x04034b50);
+  engine.health = async () => ({ token: 'actual-secret-value' });
+  await assert.rejects(bundle.create(join(root, 'secret.zip')), { code: 'bundle_redaction_failed' });
 });
 
 test('diagnostic bundle default path stays within its configured support directory', async () => {

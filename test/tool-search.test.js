@@ -7,7 +7,7 @@ const FOUNDATION = [
   'tool.search',
   'system.time',
   'fs.list', 'fs.read', 'fs.search_text',
-  'shell.run', 'web.search',
+  'shell.run', 'web.search', 'web.fetch', 'web.browse',
   'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
   'git.inspect',
   'session.search_history', 'session.read_history',
@@ -42,8 +42,8 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.ok(!baseline.includes('browser.navigate'));
   assert.ok(!baseline.includes('ref.store'));
   assert.ok(!baseline.includes('notification.telegram'));
-  assert.ok(!baseline.includes('web.fetch'));
-  assert.ok(!baseline.includes('web.browse'));
+  assert.ok(baseline.includes('web.fetch'));
+  assert.ok(baseline.includes('web.browse'));
   for (const query of [
     'hello',
     "i'd like you to examine the disks on this machine. what's physically installed?",
@@ -91,10 +91,11 @@ test('provider surface receipts make fixed foundations and workflow leases audit
   assert.deepEqual(action.receipt.selectedToolNames, expected);
   assert.match(action.receipt.fingerprint, /^[a-f0-9]{64}$/u);
 
-  registry.expose(['web.browse']);
+  registry.expose(['fs.write_text']);
   const expanded = registry.providerSurface('any wording', { phase: 'recovery' });
-  assert.ok(expanded.receipt.selectedToolNames.includes('web.browse'));
-  assert.equal(expanded.receipt.selectionReasons['web.browse'], 'workflow_lease');
+  assert.equal(expanded.receipt.selectionReasons['web.fetch'], 'foundational');
+  assert.equal(expanded.receipt.selectionReasons['web.browse'], 'foundational');
+  assert.equal(expanded.receipt.selectionReasons['fs.write_text'], 'workflow_lease');
 });
 
 test('tool.search reports repair-complete query diagnostics without conflating surface context', async () => {

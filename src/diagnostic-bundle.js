@@ -6,6 +6,9 @@ import { ContractError } from './ids.js';
 import { PRODUCT_NAME, userDataPaths, VERSION } from './product.js';
 import { createZip } from './zip-archive.js';
 
+const PRIVACY_SECRET_KEY = /^(?:api[_-]?key|authorization|auth[_-]?token|bearer|credential(?:_env)?|password|private[_-]?key|secret|access[_-]?token|refresh[_-]?token|token)(?:[_-](?:bearer|hash|reset|value))?$/iu;
+const SAFE_SECRET_MARKERS = new Set(['[redacted]', '[reference configured]', '[none]']);
+
 export class DiagnosticBundle {
   constructor(options) {
     if (!options?.engine) throw new ContractError('bundle_engine_required', 'diagnostic bundle requires an engine');
@@ -24,7 +27,7 @@ export class DiagnosticBundle {
       categories: ['health', 'effective_configuration', 'structured_logs', 'reviewer_audit', 'governance_audit', 'forensic_trace', 'idle_maintenance'],
       skipped: ['raw_transcript_content', 'raw_prompt_content', 'raw_tool_content', 'memory_content', 'credentials'],
       redactions: ['secret-like keys', 'credential values', 'free-form content'],
-      archive: 'zip', layout: 'one folder per conversation session', upload: false,
+      archive: 'zip', destination: 'local_file', layout: 'one folder per conversation session',
     });
   }
 
@@ -41,6 +44,7 @@ export class DiagnosticBundle {
     const createdAt = new Date().toISOString();
     const logSnapshot = this.logger?.snapshot() ?? emptyLogs();
     const entries = [];
+    const privacyInspection = [preview];
     const manifestSessions = [];
     for (const [index, session] of this.sessions.entries()) {
       const sessionId = session.id ?? session.engine.sessionId;
@@ -58,22 +62,23 @@ export class DiagnosticBundle {
           format: forensicTrace.format, rows: forensicTrace.rows.length,
           open_spans: forensicTrace.open_spans.length,
         },
-        uploaded: false,
       };
       entries.push(
         { name: `${folder}/diagnostics.json`, content: `${JSON.stringify(diagnostics, null, 2)}\n` },
         { name: `${folder}/forensic-trace.json`, content: `${JSON.stringify(forensicTrace, null, 2)}\n` },
       );
+      privacyInspection.push(diagnostics, forensicTrace);
       manifestSessions.push({ session_id: sessionId, folder, active: sessionId === this.activeSessionId });
     }
     const manifest = {
       format: 2, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
-      preview, sessions: manifestSessions, uploaded: false,
+      preview, sessions: manifestSessions,
     };
     entries.unshift({ name: 'manifest.json', content: `${JSON.stringify(manifest, null, 2)}\n` });
-    entries.push({ name: 'README.txt', content: supportReadme(createdAt) });
-    const inspection = entries.map((entry) => String(entry.content)).join('\n');
-    if (containsSecret(inspection)) throw new ContractError('bundle_redaction_failed', 'diagnostic bundle failed privacy verification');
+    const readme = supportReadme(createdAt);
+    entries.push({ name: 'README.txt', content: readme });
+    privacyInspection.push(manifest, readme);
+    if (containsSecret(privacyInspection)) throw new ContractError('bundle_redaction_failed', 'diagnostic bundle failed privacy verification');
     const archive = createZip(entries);
     await atomicWrite(outputPath, archive);
     return Object.freeze({ path: outputPath, bytes: archive.length, manifest: preview });
@@ -171,7 +176,7 @@ export async function atomicWrite(path, content, operations = {}) {
     }
     throw error;
   }
-  // Cleanup failures cannot replace the publication result.
+  // Cleanup failures cannot replace a completed local write.
   await removeFile(temporary).catch(() => undefined);
 }
 
@@ -186,17 +191,32 @@ function supportReadme(createdAt) {
     `Version: ${VERSION}`,
     `Created: ${createdAt}`,
     '',
-    'This archive was generated locally for troubleshooting and was not uploaded automatically.',
+    'This archive was generated as a local troubleshooting file.',
     'manifest.json lists the included conversations. Each sessions/<id>/ folder contains that conversation\'s diagnostics.json and forensic-trace.json.',
     'Raw transcript, prompt, tool-result, memory, and credential content are excluded.',
-    `Review the archive before sending it to the ${PRODUCT_NAME} maintainers.`,
+    'The operator controls whether and how this file is shared.',
     '',
   ].join('\n');
 }
 
-function containsSecret(value) {
-  const inspected = String(value)
-    .replaceAll('[reference configured]', '[redacted]')
-    .replaceAll('[none]', '[redacted]');
-  return /(?:bearer\s+[A-Za-z0-9._~+/-]{16,}|(?:api[_-]?key|password|secret|token)\s*["']?\s*[=:]\s*["']?(?!\[)(?=[^"'\s]{8,}(?:["'\s,}]|$))(?=[^"'\s]*[A-Za-z])[^"'\s]{8,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b|[a-z][a-z0-9+.-]*:\/\/[^\s/:]+:[^\s/@]+@)/iu.test(inspected);
+function containsSecret(value, active = new WeakSet()) {
+  if (typeof value === 'string') return containsSecretText(value);
+  if (!value || typeof value !== 'object') return false;
+  if (active.has(value)) return true;
+  active.add(value);
+  const entries = Array.isArray(value) ? value.map((child) => [null, child]) : Object.entries(value);
+  for (const [key, child] of entries) {
+    if (key !== null && PRIVACY_SECRET_KEY.test(key) && !safeSecretField(child)) return true;
+    if (containsSecret(child, active)) return true;
+  }
+  active.delete(value);
+  return false;
+}
+
+function safeSecretField(value) {
+  return value === null || value === undefined || value === '' || SAFE_SECRET_MARKERS.has(value);
+}
+
+function containsSecretText(value) {
+  return /(?:bearer\s+[A-Za-z0-9._~+/-]{16,}|(?:api[_-]?key|password|secret|token)\s*[=:]\s*(?!\[)(?=[^"'\s]{8,}(?:["'\s,}]|$))(?=[^"'\s]*[A-Za-z])[^"'\s]{8,}|-----BEGIN [A-Z ]+PRIVATE KEY-----|\bAKIA[A-Z0-9]{16}\b|\b(?:ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b|[a-z][a-z0-9+.-]*:\/\/[^\s/:]+:[^\s/@]+@)/iu.test(value);
 }

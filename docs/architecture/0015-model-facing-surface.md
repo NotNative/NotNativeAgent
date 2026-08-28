@@ -7,7 +7,7 @@ surface to every ordinary provider step. The deterministic order is:
 
 1. `tool.search`;
 2. `fs.list`, `fs.read`, and `fs.search_text`;
-3. `shell.run` and `web.search`;
+3. `shell.run`, `web.search`, `web.fetch`, and `web.browse`;
 4. `work.plan`, `work.status`, `work.goal`, `work.task_add`, and `work.task_update`;
 5. `git.inspect`;
 6. `session.search_history` and `session.read_history`;

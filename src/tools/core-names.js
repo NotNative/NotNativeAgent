@@ -4,7 +4,7 @@ export const CORE_TOOL_NAMES = Object.freeze([
   'tool.search',
   'system.time',
   'fs.list', 'fs.read', 'fs.search_text',
-  'shell.run', 'web.search',
+  'shell.run', 'web.search', 'web.fetch', 'web.browse',
   'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
   'git.inspect',
   'session.search_history', 'session.read_history',
@@ -15,7 +15,7 @@ export const CORE_TOOL_NAMES = Object.freeze([
 export const PROVIDER_NATIVE_TOOL_NAMES = Object.freeze([
   ...CORE_TOOL_NAMES,
   'fs.directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines',
-  'web.fetch', 'web.browse', 'agent.run', 'image.inspect', 'notification.telegram',
+  'agent.run', 'image.inspect', 'notification.telegram',
 ]);
 
 export const LEGACY_PROVIDER_TOOL_NAMES = Object.freeze([

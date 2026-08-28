@@ -3,7 +3,8 @@
 ## Discovery and context economy
 
 Every ordinary provider step receives a deterministic foundational surface, with `tool.search`
-first: `tool.search`; `fs.list`, `fs.read`, and `fs.search_text`; `shell.run` and `web.search`;
+first: `tool.search`; `fs.list`, `fs.read`, and `fs.search_text`; `shell.run`, `web.search`,
+`web.fetch`, and `web.browse`;
 `work.plan`, `work.status`, `work.goal`, `work.task_add`, and `work.task_update`; `git.inspect`;
 `session.search_history` and `session.read_history`; `nna.search_guidance`,
 `nna.read_guidance`, and `nna.diagnose_turn`; `ref.inspect`; and `skill.search` and
