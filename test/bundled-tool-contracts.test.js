@@ -51,7 +51,11 @@ test('all bundled tool schemas are closed, documented, and safe to project to pr
         assert.equal(typeof property.description, 'string', `${tool.name}.${name} lacks a description`);
         assert.ok(property.description.length > 0, `${tool.name}.${name} has an empty description`);
         assert.equal(Object.hasOwn(wire.properties[name], 'description'), false);
-        assert.equal(documented.properties[name].description, property.description);
+        assert.ok(documented.properties[name].description.startsWith(property.description));
+        const hasHiddenConstraint = ['minimum', 'maximum', 'minLength', 'maxLength', 'maxUtf8Bytes', 'pattern', 'minItems', 'maxItems']
+          .some((constraint) => Object.hasOwn(property, constraint));
+        if (hasHiddenConstraint) assert.match(documented.properties[name].description, /Constraints:/u);
+        assert.equal(Object.hasOwn(documented.properties[name], 'maxUtf8Bytes'), false);
       }
     }
   } finally { await registry.close(); }
@@ -157,6 +161,29 @@ test('schema validation normalizes safe integer and canonical boolean strings at
   });
   await assert.rejects(validate({ count: '9007199254740993', codes: [0], nested: { offset: 1 }, label: 'x', enabled: true }), {
     code: 'tool_schema_invalid', message: 'argument "count" must be an integer; received string',
+  });
+});
+
+test('provider documentation exposes locally enforced bounds while UTF-8 byte limits remain transport-safe', async () => {
+  const schema = {
+    type: 'object', additionalProperties: false, required: ['value', 'count'], properties: {
+      value: { type: 'string', minLength: 1, maxLength: 4, maxUtf8Bytes: 4, pattern: '^.+$', description: 'A short value.' },
+      count: { type: 'integer', minimum: -4, maximum: 12, description: 'Signed count.' },
+    },
+  };
+  const projected = providerSchema(schema, { mode: 'documented' });
+  assert.equal(Object.hasOwn(projected.properties.value, 'maxLength'), false);
+  assert.equal(Object.hasOwn(projected.properties.value, 'maxUtf8Bytes'), false);
+  assert.match(projected.properties.value.description, /1-4 characters/u);
+  assert.match(projected.properties.value.description, /UTF-8 encoding at most 4 bytes/u);
+  assert.match(projected.properties.value.description, /must match/u);
+  assert.match(projected.properties.count.description, /-4-12 numeric value/u);
+
+  const validate = schemaShapeValidator(schema);
+  assert.deepEqual(await validate({ value: '🙂', count: '3' }), { value: '🙂', count: 3 });
+  await assert.rejects(validate({ value: '🙂a', count: 3 }), {
+    code: 'tool_schema_invalid',
+    message: 'argument "value" UTF-8 encoding must be at most 4 bytes; received 5',
   });
 });
 

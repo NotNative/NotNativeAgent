@@ -3,7 +3,7 @@ import { ContractError } from '../ids.js';
 
 const PROVIDER_GRAMMAR_CONSTRAINTS = new Set([
   'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf',
-  'minLength', 'maxLength', 'pattern', 'minItems', 'maxItems',
+  'minLength', 'maxLength', 'maxUtf8Bytes', 'pattern', 'minItems', 'maxItems',
 ]);
 const PROVIDER_DOCUMENTATION_FIELDS = new Set([
   'description', 'title', 'examples', 'example', 'default', '$comment',
@@ -39,9 +39,48 @@ function projectProviderSchema(value, ancestors, depth, state, mode) {
         .map(([name, rule]) => [name, projectProviderSchema(rule, ancestors, depth + 1, state, mode)]));
     } else result[key] = projectProviderSchema(child, ancestors, depth + 1, state, mode);
   }
+  if (mode === 'documented') {
+    const description = documentedDescription(value);
+    if (description) result.description = description;
+  }
   ancestors.delete(value);
   return result;
 }
+
+function documentedDescription(rule) {
+  const original = typeof rule.description === 'string' ? rule.description.trim() : '';
+  const constraints = providerConstraintSummary(rule);
+  if (!constraints) return original;
+  return `${original}${original ? ' ' : ''}Constraints: ${constraints}.`;
+}
+
+function providerConstraintSummary(rule) {
+  const constraints = [];
+  const types = Array.isArray(rule.type) ? rule.type : [rule.type];
+  if (types.includes('string')) {
+    constraints.push(boundedRange(rule.minLength, rule.maxLength, 'characters'));
+    if (Number.isSafeInteger(rule.maxUtf8Bytes)) {
+      constraints.push(`UTF-8 encoding at most ${formattedNumber(rule.maxUtf8Bytes)} bytes`);
+    }
+    if (typeof rule.pattern === 'string') constraints.push(`must match ${JSON.stringify(bounded(rule.pattern, 160))}`);
+  }
+  if (types.includes('integer') || types.includes('number')) {
+    constraints.push(boundedRange(rule.minimum, rule.maximum, 'numeric value'));
+  }
+  if (types.includes('array')) constraints.push(boundedRange(rule.minItems, rule.maxItems, 'items'));
+  return constraints.filter(Boolean).join('; ');
+}
+
+function boundedRange(minimum, maximum, noun) {
+  const hasMinimum = Number.isFinite(minimum);
+  const hasMaximum = Number.isFinite(maximum);
+  if (hasMinimum && hasMaximum) return `${formattedNumber(minimum)}-${formattedNumber(maximum)} ${noun}`;
+  if (hasMinimum) return `at least ${formattedNumber(minimum)} ${noun}`;
+  if (hasMaximum) return `at most ${formattedNumber(maximum)} ${noun}`;
+  return '';
+}
+
+function formattedNumber(value) { return Number(value).toLocaleString('en-US', { useGrouping: true }); }
 
 export function schemaValidator(schema) {
   const prepared = prepareObjectSchema(schema);
@@ -139,12 +178,19 @@ function validateValue(value, rule, depth, path) {
 }
 
 function validateString(value, rule, path) {
-  if (Number.isSafeInteger(rule.minLength) && value.length < rule.minLength) {
-    throw new ContractError('tool_schema_invalid', `${path} must contain at least ${rule.minLength} characters; received ${value.length}`);
+  const length = characterLength(value);
+  if (Number.isSafeInteger(rule.minLength) && length < rule.minLength) {
+    throw new ContractError('tool_schema_invalid', `${path} must contain at least ${rule.minLength} characters; received ${length}`);
   }
   const maximum = rule.maxLength ?? 131_072;
-  if (value.length > maximum) {
-    throw new ContractError('tool_schema_invalid', `${path} must contain at most ${maximum} characters; received ${value.length}`);
+  if (length > maximum) {
+    throw new ContractError('tool_schema_invalid', `${path} must contain at most ${maximum} characters; received ${length}`);
+  }
+  if (Number.isSafeInteger(rule.maxUtf8Bytes)) {
+    const bytes = Buffer.byteLength(value, 'utf8');
+    if (bytes > rule.maxUtf8Bytes) {
+      throw new ContractError('tool_schema_invalid', `${path} UTF-8 encoding must be at most ${rule.maxUtf8Bytes} bytes; received ${bytes}`);
+    }
   }
   if (typeof rule.pattern === 'string' && !(new RegExp(rule.pattern, 'u')).test(value)) {
     throw new ContractError(
@@ -198,10 +244,11 @@ function acceptedFormat(rule) {
 
 function receivedValue(value, path) {
   if (typeof value === 'string') {
+    const length = characterLength(value);
     if (/(?:secret|token|password|credential|authorization|api[_ -]?key)/iu.test(path)) {
-      return `[redacted string; ${value.length} characters]`;
+      return `[redacted string; ${length} characters]`;
     }
-    return `${JSON.stringify(bounded(value, 160))}${value.length > 160 ? ` (${value.length} characters)` : ''}`;
+    return `${JSON.stringify(bounded(value, 160))}${length > 160 ? ` (${length} characters)` : ''}`;
   }
   const encoded = JSON.stringify(value);
   return typeof encoded === 'string' ? bounded(encoded, 160) : valueType(value);
@@ -216,8 +263,11 @@ function unknownArgument(name, properties = {}) {
 }
 
 function bounded(value, maximum) {
-  return value.length <= maximum ? value : `${value.slice(0, maximum - 1)}…`;
+  const characters = [...value];
+  return characters.length <= maximum ? value : `${characters.slice(0, maximum - 1).join('')}…`;
 }
+
+function characterLength(value) { return [...value].length; }
 
 function valueType(value) {
   return value === null ? 'null' : Array.isArray(value) ? 'an array' : typeof value;

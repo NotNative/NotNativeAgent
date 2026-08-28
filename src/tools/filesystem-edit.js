@@ -20,8 +20,8 @@ export function filesystemEditDefinition(paths, changes, receipts, atomicWrite, 
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path to the existing UTF-8 file.' },
-      content: { type: 'string', maxLength: MAX_EDIT_CONTENT_BYTES, description: 'Required replacement text, at most 32 KiB. Keep this to the smallest complete change; use multiple anchored edits for large rewrites. Use an empty string to delete the selected text.' },
-      find: { type: 'string', minLength: 1, maxLength: MAX_EDIT_FIND_BYTES, description: 'Smallest exact text, at most 16 KiB, that uniquely anchors the replacement. Normally must occur once; use all only when every occurrence should change. Find plus content must stay within 40 KiB.' },
+      content: { type: 'string', maxLength: MAX_EDIT_CONTENT_BYTES, maxUtf8Bytes: MAX_EDIT_CONTENT_BYTES, description: 'Required replacement text, at most 32 KiB. Keep this to the smallest complete change; use multiple anchored edits for large rewrites. Use an empty string to delete the selected text.' },
+      find: { type: 'string', minLength: 1, maxLength: MAX_EDIT_FIND_BYTES, maxUtf8Bytes: MAX_EDIT_FIND_BYTES, description: 'Smallest exact text, at most 16 KiB, that uniquely anchors the replacement. Normally must occur once; use all only when every occurrence should change. Find plus content must stay within 40 KiB.' },
       all: { type: 'boolean', description: 'Replace every exact occurrence instead of requiring one unique match. Defaults to false.' },
     }, ['path', 'find', 'content']),
     normalizeArgs: (args) => normalizeArgumentAliases(args, {

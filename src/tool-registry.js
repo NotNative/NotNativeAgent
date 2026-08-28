@@ -275,7 +275,7 @@ function writeDefinition(paths, changes, receipts) {
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required destination file path.' },
-      content: { type: 'string', maxLength: MAX_MODEL_AUTHORED_TEXT_BYTES, description: 'Required complete UTF-8 content, at most 32 KiB. Split larger implementations across files or use subsequent anchored edits.' },
+      content: { type: 'string', maxLength: MAX_MODEL_AUTHORED_TEXT_BYTES, maxUtf8Bytes: MAX_MODEL_AUTHORED_TEXT_BYTES, description: 'Required complete UTF-8 content, at most 32 KiB. Split larger implementations across files or use subsequent anchored edits.' },
     }, ['path', 'content']),
     normalizeArgs: (args) => normalizeArgumentAliases(args, {
       path: ['filePath', 'file_path'], content: ['text'],
@@ -322,7 +322,7 @@ function editLinesDefinition(paths, changes, receipts) {
       path: { type: 'string', maxLength: 4096, description: 'Required path previously read with fs.read or fs.read_lines.' },
       start_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required first one-based line in the inclusive replacement range.' },
       end_line: { type: 'integer', minimum: 1, maximum: 10_000_000, description: 'Required last one-based line in the inclusive replacement range.' },
-      replacement: { type: 'string', maxLength: MAX_MODEL_AUTHORED_TEXT_BYTES, description: 'Required replacement text, at most 32 KiB. Keep the range focused and use multiple edits for larger rewrites; use an empty string to remove the selected lines.' },
+      replacement: { type: 'string', maxLength: MAX_MODEL_AUTHORED_TEXT_BYTES, maxUtf8Bytes: MAX_MODEL_AUTHORED_TEXT_BYTES, description: 'Required replacement text, at most 32 KiB. Keep the range focused and use multiple edits for larger rewrites; use an empty string to remove the selected lines.' },
     }, ['path', 'start_line', 'end_line', 'replacement']),
     normalizeArgs: (args) => normalizeArgumentAliases(args, {
       path: ['filePath', 'file_path'], start_line: ['startLine'], end_line: ['endLine'],

@@ -110,7 +110,7 @@ function storeDefinition(store, paths) {
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['kind', 'value'], properties: {
         kind: { type: 'string', enum: ['path', 'url', 'draft'], description: 'Reference type: path, URL, or draft text.' },
-        value: { type: 'string', maxLength: MAX_MODEL_VALUE_BYTES, description: 'Exact value to retain, at most 32 KiB. Store only the focused draft needed by a later call.' },
+        value: { type: 'string', maxLength: MAX_MODEL_VALUE_BYTES, maxUtf8Bytes: MAX_MODEL_VALUE_BYTES, description: 'Exact value to retain, at most 32 KiB. Store only the focused draft needed by a later call.' },
       },
     },
     validate: async (args) => {
