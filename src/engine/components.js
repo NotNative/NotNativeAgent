@@ -8,7 +8,7 @@ import { ProviderRunner } from '../provider/runner.js';
 import { RoutedSemanticReviewer } from '../provider/model-reviewer.js';
 import { ReviewerLedger } from '../persistence/reviewer-ledger.js';
 import { MandatoryReviewer } from '../reviewer.js';
-import { ToolGovernor } from '../tools/governor.js';
+import { mandatoryReviewEventTimeout, ToolGovernor } from '../tools/governor.js';
 import { ToolLoop } from '../tools/loop.js';
 import { ToolRegistry } from '../tool-registry.js';
 import { ElevationBroker } from '../elevation-broker.js';
@@ -213,6 +213,7 @@ function browserToolOptions(engine, options, imageObserver) {
 }
 
 function installReview(engine, options) {
+  const semanticTimeoutMs = options.semanticReviewTimeoutMs ?? engine.config.limits.semanticReviewMs;
   engine.ledger = new ReviewerLedger({
     durable: engine.config.persistence === 'durable',
     root: options.reviewerRoot ?? userDataPaths().reviewerLedger, sessionId: engine.sessionId,
@@ -228,13 +229,14 @@ function installReview(engine, options) {
       dialects: engine.reliability, sessionId: engine.sessionId,
       recordTokenReceipt: engine.recordProviderAttempt,
     }),
-    semanticTimeoutMs: options.semanticReviewTimeoutMs ?? engine.config.limits.semanticReviewMs,
+    semanticTimeoutMs,
     decisionTtlMs: engine.config.limits.approvalMs,
   });
   engine.governor = new ToolGovernor({
     events: engine.events, reviewer: engine.reviewer, registry: engine.tools,
     governance: engine.governance,
     permissionBroker: engine.permissionBroker,
+    reviewTimeoutMs: mandatoryReviewEventTimeout(semanticTimeoutMs),
   });
 }
 

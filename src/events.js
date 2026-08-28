@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
 
+export const MAX_SUBSCRIPTION_TIMEOUT_MS = 86_405_000;
+
 const PHASES = Object.freeze({
   session: { pre: true, post: false },
   turn: { pre: true, active: false, terminal: false },
@@ -199,7 +201,7 @@ function validateDeclaration(value, handler) {
     throw new ContractError('invalid_subscription', 'blocking mode is required');
   }
   if (!Number.isInteger(value.priority)) throw new ContractError('invalid_subscription', 'subscription priority is required');
-  requiredInteger(value.timeoutMs, 1, 3_605_000);
+  requiredInteger(value.timeoutMs, 1, MAX_SUBSCRIPTION_TIMEOUT_MS);
   if (!['continue', 'deny'].includes(value.failurePolicy)) throw new ContractError('invalid_subscription', 'subscription failure policy is required');
   if (!['propagate', 'detach'].includes(value.cancellation)) throw new ContractError('invalid_subscription', 'subscription cancellation behavior is required');
   if (value.blocking && value.cancellation !== 'propagate') throw new ContractError('invalid_subscription', 'blocking subscriptions must propagate cancellation');

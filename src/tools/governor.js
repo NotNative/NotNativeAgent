@@ -1,10 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
 import { requestDigest } from '../persistence/reviewer-ledger.js';
+import { MAX_SUBSCRIPTION_TIMEOUT_MS } from '../events.js';
 
 // This outer event boundary must remain above the largest configured semantic-review
 // deadline. The reviewer owns the operative timeout; this is only a stuck-handler backstop.
-export const MANDATORY_REVIEW_EVENT_TIMEOUT_MS = 3_605_000;
+const REVIEW_SETTLEMENT_GRACE_MS = 5_000;
+export const MANDATORY_REVIEW_EVENT_TIMEOUT_MS = MAX_SUBSCRIPTION_TIMEOUT_MS;
+
+export function mandatoryReviewEventTimeout(semanticReviewMs) {
+  const maximumSemanticMs = MAX_SUBSCRIPTION_TIMEOUT_MS - REVIEW_SETTLEMENT_GRACE_MS;
+  if (!Number.isInteger(semanticReviewMs) || semanticReviewMs < 1 || semanticReviewMs > maximumSemanticMs) {
+    throw new ContractError('invalid_review_timeout', `semantic review timeout must be an integer from 1 to ${maximumSemanticMs}`);
+  }
+  return semanticReviewMs + REVIEW_SETTLEMENT_GRACE_MS;
+}
 
 export class ToolGovernor {
   #pending = new Map();

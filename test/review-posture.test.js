@@ -6,7 +6,9 @@ import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { nextReviewPosture } from '../src/review-posture.js';
 import { TerminalInputDecoder } from '../src/tui/terminal-adapter.js';
-import { MANDATORY_REVIEW_EVENT_TIMEOUT_MS, ToolGovernor } from '../src/tools/governor.js';
+import {
+  mandatoryReviewEventTimeout, MANDATORY_REVIEW_EVENT_TIMEOUT_MS, ToolGovernor,
+} from '../src/tools/governor.js';
 import { semanticReviewTimeout } from '../src/config-bounds.js';
 
 function safeRequest(id = 'safe-1') {
@@ -25,8 +27,14 @@ test('review postures cycle in the documented order and Shift+Tab is decoded', (
 });
 
 test('mandatory review event ceiling exceeds the slowest configurable semantic review', () => {
-  const maximumSemanticReview = semanticReviewTimeout({ semantic_review_timeout_ms: 3_600_000 }, 3_600_000);
-  assert.ok(MANDATORY_REVIEW_EVENT_TIMEOUT_MS > maximumSemanticReview);
+  const maximumSemanticReview = semanticReviewTimeout({ semantic_review_timeout_ms: 86_400_000 }, 86_400_000);
+  const eventTimeout = mandatoryReviewEventTimeout(maximumSemanticReview);
+  assert.equal(eventTimeout, MANDATORY_REVIEW_EVENT_TIMEOUT_MS);
+  assert.ok(eventTimeout > maximumSemanticReview);
+});
+
+test('mandatory review event deadline follows the configured semantic reviewer with settlement grace', () => {
+  assert.equal(mandatoryReviewEventTimeout(125_000), 130_000);
 });
 
 test('Prompt posture escalates a deterministically safe reviewed request', async () => {
