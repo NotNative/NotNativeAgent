@@ -1,7 +1,7 @@
 # Model-visible tool contract audit
 
-Audit date: 2026-08-27
-Scope: all 46 bundled tools installed by `ToolRegistry` when optional controls are present. Dynamically loaded MCP and extension tools are governed by the same generic schema validator but require a separate provider-specific semantic audit.
+Audit date: 2026-08-28
+Scope: all 47 bundled tools installed by `ToolRegistry` with the maximal regression fixture: MCP status/test control, skill registry, root subagent control, conversation-work store, Telegram notifications, elevation broker, and session history. The exact expected names are asserted in `test/bundled-tool-contracts.test.js`; adding, removing, or conditionally omitting a bundled tool now changes the audit mechanically. Dynamically loaded MCP and extension tools are governed by the same generic schema validator but require a separate provider-specific semantic audit.
 
 ## Method
 
@@ -14,6 +14,8 @@ The audit compared each tool's JSON schema, normalization aliases, runtime valid
 - keep exact-text and line-range edit selectors in separate contracts;
 - normalize safe strings for every schema-declared integer at the shared boundary; and
 - keep internal routing discriminators out of sealed model-facing arguments.
+- preserve exact assistant-authored native tool-call arguments whenever a call is retained through compaction; and
+- render locally enforced numeric, string, item-count, UTF-8 byte, and format constraints into provider-visible descriptions without sending grammar keywords rejected by local providers.
 
 ## Results
 
@@ -29,6 +31,7 @@ The audit compared each tool's JSON schema, normalization aliases, runtime valid
 | Skills and delegation | `skill.search`, `skill.load`, `agent.run` | Pass. Role/id/task contracts are closed and bounded. |
 | Durable work | `work.plan`, `work.status`, `work.goal`, `work.task_add`, `work.task_update` | Pass with documented relational rules. Atomic plan replacement is intentionally retained; completion evidence and blocking detail requirements are visible. |
 | Notifications/history | `notification.telegram`, `session.search_history`, `session.read_history` | Pass. Message, filters, indexes, and surrounding-record bounds match runtime checks. |
+| Host time | `system.time` | Pass. Calendar and elapsed offsets share bounded integer normalization, including weeks, without embedding a volatile timestamp in the system prompt. |
 
 ## Defects corrected
 
@@ -47,4 +50,4 @@ The audit compared each tool's JSON schema, normalization aliases, runtime valid
 
 Some failures are intentionally runtime-only: missing files, stale receipts, unavailable executables, unsafe destinations, review denials, and external state drift cannot be expressed as argument grammar. They return precise in-band evidence and do not count as learned schema lessons. The payload audit also confirmed that the remaining model-authored free-text fields are bounded at or below 32 KiB (the browser fill value is 20,000 characters); larger internal observation and result bounds do not advertise model-authored payloads. Any future tool that adds a second mutually exclusive selector to one schema will fail the contract regression test until it is split or explicitly redesigned.
 
-For compatibility with local OpenAI-style grammar compilers, the provider projection still omits JSON Schema regex and numeric/string-size constraint keywords. Required fields, types, enums, and semantic descriptions are visible; the shared validator returns an exact accepted range or format when a bound is violated. This is an intentional transport-compatibility boundary rather than a second runtime contract.
+For compatibility with local OpenAI-style grammar compilers, the provider projection still omits JSON Schema regex and numeric/string-size constraint keywords. Required fields, types, enums, semantic descriptions, and mechanically rendered constraint summaries remain visible; the shared validator returns the same exact accepted range or format when a bound is violated. UTF-8 byte ceilings are internal schema constraints, stripped from transport grammar but included in those summaries. This is an intentional transport-compatibility boundary rather than a second runtime contract.

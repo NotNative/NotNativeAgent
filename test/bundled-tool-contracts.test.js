@@ -5,6 +5,20 @@ import { ToolRegistry } from '../src/tool-registry.js';
 import { providerSchema, schemaShapeValidator } from '../src/tools/schema.js';
 import { systemTimeDefinition } from '../src/tools/system-time.js';
 
+const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
+  'ref.store', 'ref.inspect',
+  'fs.list_directory', 'fs.read_text', 'fs.read_lines', 'fs.glob', 'fs.search_text',
+  'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file', 'fs.metadata',
+  'fs.create_directory', 'fs.copy_file', 'fs.move_file', 'fs.read', 'fs.list', 'fs.directory',
+  'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn', 'nna.list_sessions',
+  'nna.mcp_status', 'nna.mcp_test',
+  'web.search', 'web.fetch', 'web.browse', 'image.inspect', 'tool.search',
+  'process.run', 'shell.run', 'system.elevate', 'project.verify', 'git.inspect', 'code.diagnostics',
+  'skill.search', 'skill.load', 'agent.run',
+  'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
+  'notification.telegram', 'session.search_history', 'session.read_history', 'system.time',
+]);
+
 function optionalControls() {
   const snapshot = { revision: 0, goal: null, tasks: [] };
   return {
@@ -30,7 +44,7 @@ test('all bundled tool schemas are closed, documented, and safe to project to pr
   await registry.initialize();
   try {
     const tools = registry.snapshot();
-    assert.ok(tools.length >= 39);
+    assert.deepEqual(tools.map((tool) => tool.name).sort(), [...MAXIMAL_BUNDLED_TOOL_NAMES].sort());
     for (const tool of tools) {
       assert.equal(tool.inputSchema.type, 'object', `${tool.name} must accept one object`);
       assert.equal(tool.inputSchema.additionalProperties, false, `${tool.name} must reject unknown fields`);
