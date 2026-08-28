@@ -334,6 +334,27 @@ test('validated public web.fetch is deterministic safe and does not invoke seman
   assert.equal(semanticCalls, 0);
 });
 
+test('system.time clock observations and bounded arithmetic are deterministic safe', async () => {
+  for (const [label, args] of [['current', {}], ['offset', { weeks: 2, days: -1 }]]) {
+    const ledger = new ReviewerLedger({ durable: false, sessionId: `system-time-${label}` });
+    let semanticCalls = 0;
+    const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+      semanticCalls += 1; throw new Error('semantic review should not run');
+    } } });
+    const result = await reviewer.review({
+      ...readRequest(`system-time-${label}`), toolName: 'system.time', args,
+      resolved: { source: 'host_clock' },
+    }, {
+      ...context,
+      authority: { id: 'authority-1', intent: [{ content: 'Anchor this week to actual calendar dates.' }], mission: null },
+      definition: { name: 'system.time', sideEffect: 'read_only', scope: 'runtime_info' },
+    });
+    assert.equal(result.outcome, 'approve');
+    assert.equal(result.reasonCode, 'deterministic_safe');
+    assert.equal(semanticCalls, 0);
+  }
+});
+
 test('configured MCP status and connection tests are deterministic read-only inspection', async () => {
   for (const toolName of ['nna.mcp_status', 'nna.mcp_test']) {
     const ledger = new ReviewerLedger({ durable: false, sessionId: toolName });
