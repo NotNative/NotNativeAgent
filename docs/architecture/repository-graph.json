@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:19872361819feb6d5ea516cc0453d61697d215c04aa1575b48870c6582f52100",
+  "source_digest": "sha256:44be199cd6a5f8ef9a78bbc2063b857d08dff2a0243f2d978784255320f8771f",
   "counts": {
     "modules": 324,
     "component_edges": 69
@@ -125,7 +125,7 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 51,
+      "import_count": 52,
       "module_count": 34
     },
     {
@@ -2785,6 +2785,7 @@
       "component": "tools",
       "entrypoint": false,
       "imports": [
+        "src/events.js",
         "src/ids.js",
         "src/persistence/reviewer-ledger.js"
       ]
