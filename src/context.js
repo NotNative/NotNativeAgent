@@ -13,7 +13,7 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
   if (enrichment.skillCatalog?.length > 0) messages.push(skillCatalogMessage(enrichment.skillCatalog));
   if (enrichment.work?.goal || enrichment.work?.tasks?.length > 0) messages.push(conversationWorkMessage(enrichment.work));
   if (enrichment.toolConstraints?.length > 0) messages.push(toolConstraintsMessage(enrichment.toolConstraints));
-  appendTranscriptMessages(messages, activeContextRecords(transcript).slice(-512));
+  appendTranscriptMessages(messages, activeContextRecords(transcript));
   if (enrichment.reasoningRecoveryContinuation) {
     messages.push(reasoningRecoveryMessage(enrichment.reasoningRecoveryContinuation));
   }

@@ -37,7 +37,7 @@ export async function buildReportedContext(
     effectiveInputTokens: budget?.effectiveInputTokens ?? null,
   }) : null;
   const contextRecords = projection?.records ?? records;
-  const providerRecords = activeContextRecords(contextRecords).slice(-512);
+  const providerRecords = activeContextRecords(contextRecords);
   const coldEvidence = engine.reliability?.buildColdEvidence(records, providerRecords, content)
     ?? buildColdEvidence(records, providerRecords, content);
   const resolvedEnrichment = { ...baseEnrichment, coldEvidence };

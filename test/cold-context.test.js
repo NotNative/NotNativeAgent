@@ -80,3 +80,31 @@ test('reported context inventories projected-out evidence and emits content-free
   assert.equal(telemetry[0][2].available_records, 1);
   assert.equal(JSON.stringify(telemetry[0]).includes('cobalt'), false);
 });
+
+test('active context is never silently reduced to a fixed record tail', async () => {
+  const originalUser = {
+    type: 'message', role: 'user', turn_id: 'turn-active',
+    content: 'Preserve this authenticated objective across the entire active context.',
+  };
+  const records = [
+    originalUser,
+    ...Array.from({ length: 600 }, (_, index) => ({
+      type: 'message', role: 'assistant', turn_id: 'turn-active', content: `progress ${index}`,
+    })),
+  ];
+  const telemetry = [];
+  const engine = {
+    config, surface: 'headless', sessionId: 'session-long',
+    skills: { catalog: () => [] }, work: { snapshot: () => null },
+    telemetry: { record: (...args) => telemetry.push(args) },
+  };
+  const context = await buildReportedContext(
+    engine, records, '', {}, { turnId: 'turn-active', stepId: 'step-601' },
+    1_048_576, 1_048_576,
+  );
+
+  assert.ok(context.some((item) => item.role === 'user' && item.content === originalUser.content));
+  assert.equal(context.filter((item) => item.provenance === 'transcript').length, records.length);
+  assert.equal(context.some((item) => item.provenance === 'cold_session_evidence'), false);
+  assert.equal(telemetry.length, 0);
+});
