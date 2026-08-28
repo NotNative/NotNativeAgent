@@ -615,6 +615,29 @@ test('detached processes require explicit authenticated lifecycle intent before 
   assert.equal(captured.classification.reason, 'detached_process_request');
 });
 
+test('external browser processes are denied before semantic review in favor of managed web tools', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'external-browser-process' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1;
+    return { outcome: 'approve', confidence: 1, reason_code: 'browser_allowed' };
+  } } });
+  const request = {
+    ...readRequest('external-browser'), toolName: 'shell.run',
+    args: { shell: 'powershell', script: '& chrome.exe --headless page.html' },
+    resolved: { path: 'D:/workspace', reviewComplexity: 'simple_shell', reliabilitySignals: ['external_browser'] },
+  };
+  const result = await reviewer.review(request, {
+    ...context,
+    authority: { ...context.authority, intent: [{ content: 'Build and verify the ocean scene in a browser.', sequence: 1 }] },
+    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+  });
+  assert.equal(result.outcome, 'deny_with_guidance');
+  assert.equal(result.reasonCode, 'external_browser_tool_required');
+  assert.match(result.guidance, /web\.fetch[^]*web\.browse/u);
+  assert.equal(semanticCalls, 0);
+});
+
 test('a current restriction overrides earlier detached-process authorization', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'detached-process-restriction' });
   let semanticCalls = 0;

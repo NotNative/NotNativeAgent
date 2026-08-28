@@ -4,6 +4,7 @@ import { requestDigest } from './persistence/reviewer-ledger.js';
 import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
 import { evidenceNamesTarget, grantBeforeOtherFilesRestriction } from './review-target-evidence.js';
 import { DETACHED_PROCESS_GUIDANCE, detachedProcessAuthorized } from './reliability/process-lifecycle.js';
+import { EXTERNAL_BROWSER_GUIDANCE } from './reliability/external-browser.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 export class MandatoryReviewer {
   constructor(options) {
@@ -46,7 +47,7 @@ export class MandatoryReviewer {
           request,
         );
       }
-      else if (unauthorizedDetachedProcess(request, context.authority)) decision = detachedProcessDenial(request);
+      else if (request.resolved?.reliabilitySignals?.includes('external_browser')) decision = deny('external_browser_tool_required', EXTERNAL_BROWSER_GUIDANCE, request); else if (unauthorizedDetachedProcess(request, context.authority)) decision = detachedProcessDenial(request);
       else if (classification.risk === 'safe' && conversationOnly(context.authority)) {
         decision = deny('tool_not_justified_by_request', 'The user made a conversational request that does not require tools.', request);
       } else if (classification.risk === 'safe') decision = approve('deterministic_safe', request);
@@ -116,7 +117,6 @@ function reviewTelemetryStatus(outcome) {
 function elapsedMs(started) {
   return Number(process.hrtime.bigint() - started) / 1_000_000;
 }
-
 function conversationOnly(authority) {
   const latest = authority?.intent?.at(-1)?.content;
   if (typeof latest !== 'string') return false;

@@ -13,8 +13,14 @@ export function filesystemExtraDefinitions(paths, changes, receipts) {
 function metadataDefinition(paths) {
   return definition('fs.metadata', 'Inspect bounded metadata for one accessible file or directory.', 'read_only', {
     path: { type: 'string', maxLength: 4096, description: 'Required path to one existing file or directory.' },
-  }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveMetadata(args.path) }),
-  async (request) => ({ content: JSON.stringify({ ...request.resolved, path: request.args.path }), metadata: { path: request.args.path } }));
+  }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveOptionalMetadata(args.path) }),
+  async (request) => ({
+    content: request.resolved.exists ? JSON.stringify({ ...request.resolved, path: request.args.path }) : `target not found: ${request.args.path}`,
+    metadata: {
+      path: request.args.path, target_exists: request.resolved.exists,
+      ...(request.resolved.exists ? {} : { observation_outcome: 'target_not_found' }),
+    },
+  }));
 }
 
 function directoryDefinition(paths) {

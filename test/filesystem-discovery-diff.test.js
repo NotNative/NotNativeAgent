@@ -55,9 +55,10 @@ test('fs.glob and fs.search_text discover bounded files without a platform shell
   const filteredResult = await search.executor(filteredExactFile, new AbortController().signal);
   assert.equal(filteredResult.content, 'no text matches');
   assert.equal(filteredResult.metadata.files_examined, 0);
+  assert.equal(filteredResult.metadata.observation_outcome, 'no_matches');
 });
 
-test('filesystem discovery schemas explain path and pattern roles with actionable repair errors', async () => {
+test('filesystem discovery schemas explain path and treat missing roots as negative observations', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-discovery-schema-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
@@ -76,9 +77,18 @@ test('filesystem discovery schemas explain path and pattern roles with actionabl
   await assert.rejects(glob.validate({ path: root }), {
     code: 'tool_schema_invalid', message: 'required argument "pattern" is missing',
   });
-  await assert.rejects(search.validate({ path: 'missing.js', query: 'needle' }), {
-    code: 'tool_target_not_found', message: 'search path does not exist: missing.js. Use fs.glob to locate it, or omit path to search the working directory',
-  });
+  const missingSearch = await search.validate({ path: 'missing.js', query: 'needle' });
+  const missingSearchResult = await search.executor(missingSearch, new AbortController().signal);
+  assert.equal(missingSearchResult.content, 'target not found: missing.js');
+  assert.deepEqual({
+    target_exists: missingSearchResult.metadata.target_exists,
+    observation_outcome: missingSearchResult.metadata.observation_outcome,
+    matches: missingSearchResult.metadata.matches,
+  }, { target_exists: false, observation_outcome: 'target_not_found', matches: 0 });
+
+  const missingGlob = await glob.validate({ path: 'missing-directory', pattern: '**/*.js' });
+  const missingGlobResult = await glob.executor(missingGlob, new AbortController().signal);
+  assert.equal(missingGlobResult.metadata.observation_outcome, 'target_not_found');
   await registry.close();
 });
 

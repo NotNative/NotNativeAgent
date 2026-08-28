@@ -5,6 +5,7 @@ import { normalizeShellExecutionError, shellReliabilitySignals, shellToolGuidanc
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 import { portableExecutableName } from '../reliability/executable-name.js';
 import { detachedProcessInvocation, longRunningForegroundInvocation } from '../reliability/process-lifecycle.js';
+import { processLaunchesExternalBrowser } from '../reliability/external-browser.js';
 import { normalizeArgumentAliases } from './argument-normalization.js';
 
 const MAX_SCRIPT_LENGTH = 32_768;
@@ -176,6 +177,7 @@ function processReliabilitySignals(executable, args) {
   } else if (longRunningForegroundInvocation(`${executable} ${args.join(' ')}`)) {
     signals.push('long_running_foreground');
   }
+  if (processLaunchesExternalBrowser(executable, args)) signals.push('external_browser');
   return Object.freeze(signals);
 }
 

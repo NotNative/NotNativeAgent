@@ -81,8 +81,8 @@ function listDefinition(paths) {
     validate: async (args) => {
       shape(args, [], ['path', 'pattern', 'depth', 'max_results']);
       const path = typeof args.path === 'string' && args.path.trim() ? args.path : '.';
-      const resolved = await paths.resolveMetadata(path);
-      if (!['file', 'directory'].includes(resolved.kind)) throw new ContractError('tool_target_invalid', 'fs.list path must identify a regular file or directory');
+      const resolved = await paths.resolveOptionalMetadata(path);
+      if (resolved.exists && !['file', 'directory'].includes(resolved.kind)) throw new ContractError('tool_target_invalid', 'fs.list path must identify a regular file or directory');
       const pattern = args.pattern;
       if (pattern !== undefined) validateGlob(pattern);
       return {
@@ -95,6 +95,7 @@ function listDefinition(paths) {
       };
     },
     executor: async (request, signal) => {
+      if (!request.resolved.exists) return missingListResult(request);
       if (request.resolved.kind === 'file') {
         const name = request.args.path;
         if (request.args.pattern && !globMatch(name.replaceAll('\\', '/'), request.args.pattern)) return listResult([], request, false, []);
@@ -243,7 +244,18 @@ function listResult(lines, request, truncated, skipped) {
     content: [...notices, listing].join('\n'),
     metadata: {
       path: request.args.path, pattern: request.args.pattern ?? null, depth: request.args.depth,
-      entries: lines.length, skipped, truncated,
+      entries: lines.length, skipped, truncated, target_exists: true,
+      ...(lines.length === 0 ? { observation_outcome: request.args.pattern ? 'no_matches' : 'empty_directory' } : {}),
+    },
+  };
+}
+
+function missingListResult(request) {
+  return {
+    content: `target not found: ${request.args.path}`,
+    metadata: {
+      path: request.args.path, pattern: request.args.pattern ?? null, depth: request.args.depth,
+      entries: 0, skipped: [], truncated: false, target_exists: false, observation_outcome: 'target_not_found',
     },
   };
 }

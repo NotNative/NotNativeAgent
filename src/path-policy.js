@@ -134,6 +134,20 @@ export class PathPolicy {
     });
   }
 
+  async resolveOptionalMetadata(input) {
+    try { return await this.resolveMetadata(input); }
+    catch (error) {
+      if (!['ENOENT', 'ENOTDIR'].includes(error?.code)) throw error;
+      const candidate = this.#candidate(input);
+      const canonical = await this.#prospectiveTarget(candidate);
+      this.#assertAllowed(canonical);
+      return Object.freeze({
+        path: canonical, exists: false, size: null, kind: 'missing', modifiedMs: null,
+        ...await this.#classification(canonical, false),
+      });
+    }
+  }
+
   async resolveNew(input) {
     const resolved = await this.resolveWrite(input);
     if (resolved.exists) throw new ContractError('tool_target_exists', 'destination already exists');

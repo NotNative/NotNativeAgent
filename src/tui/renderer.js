@@ -134,7 +134,7 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
     const start = lines.length;
     lines.push(...rendered);
     const lineKind = record.type === 'tool_status'
-      ? `${record.type}:${record.status ?? 'unknown'}`
+      ? `${record.type}:${record.observation_outcome ? 'observed' : record.status ?? 'unknown'}`
       : record.type;
     for (let index = start; index < lines.length; index += 1) lineKinds.set(index, lineKind);
     lastVisibleKind = isActivity(record) ? 'activity' : record.type;
@@ -310,7 +310,7 @@ function recordLines(record, width) {
   if (record.type === 'tool_status') {
     if (record.tool === 'agent.run' && ['running', 'succeeded'].includes(record.status)) return [];
     const outcome = toolOutcome(record);
-    return wrapIndentedTerminalLine(`    ${toolSymbol(record.status)} ${record.tool}${toolTargetSuffix(record)} | ${outcome}`, width);
+    return wrapIndentedTerminalLine(`    ${toolSymbol(record.status, record.observation_outcome)} ${record.tool}${toolTargetSuffix(record)} | ${outcome}`, width);
   }
   if (record.type === 'subagent_progress') return subagentProgressLines(record, width);
   if (record.type === 'review_status') return record.outcome === 'approve' ? [] : wrap(`    X REVIEW | ${record.outcome} | ${record.reason_code ?? ''}`, width);
@@ -332,7 +332,12 @@ function toolOutcome(record) {
   if (record.status === 'approved') return 'approved';
   if (record.status === 'running') return 'running';
   if (record.status === 'completed_nonzero') return `completed · exit ${record.exit_code ?? 'nonzero'}`;
+  if (record.status === 'succeeded' && record.observation_outcome) return observationLabel(record.observation_outcome);
   return `${record.status}${toolFailureSuffix(record)}`;
+}
+
+function observationLabel(value) {
+  return { no_matches: 'no matches', target_not_found: 'target not found', empty_directory: 'empty directory' }[value] ?? value;
 }
 
 function editorLines(session, width) {

@@ -33,17 +33,21 @@ function globDefinition(paths) {
       shape(args, ['pattern'], ['path', 'max_depth', 'max_results']);
       requireString(args.pattern, 'pattern');
       const path = optionalRoot(args.path);
-      const resolved = await paths.resolveDirectory(path);
+      const resolved = await paths.resolveOptionalMetadata(path);
+      if (resolved.exists && resolved.kind !== 'directory') invalid('path must identify a directory');
       return {
         args: { path, pattern: args.pattern, max_depth: integer(args.max_depth, 32, 0, 64), max_results: integer(args.max_results, 200, 1, 1000) },
         resolved,
       };
     },
     executor: async (request, signal) => {
+      if (!request.resolved.exists) return missingDiscoveryResult(request, 'glob');
       const walk = await walkFiles(request.resolved.path, request.args.max_depth, request.args.max_results, signal, (relativePath) => globMatch(relativePath, request.args.pattern));
       return {
         content: walk.files.map((path) => displayPath(request.resolved.path, path)).join('\n') || 'no matching files',
-        metadata: { root: request.args.path, pattern: request.args.pattern, matches: walk.files.length, examined: walk.examined, skipped: walk.skipped, truncated: walk.truncated },
+        metadata: { root: request.args.path, pattern: request.args.pattern, matches: walk.files.length, examined: walk.examined,
+          skipped: walk.skipped, truncated: walk.truncated, target_exists: true,
+          ...(walk.files.length === 0 ? { observation_outcome: 'no_matches' } : {}) },
       };
     },
   };
@@ -76,7 +80,7 @@ function searchDefinition(paths) {
       if (args.case_sensitive !== undefined && typeof args.case_sensitive !== 'boolean') invalid('case_sensitive must be boolean');
       const path = optionalRoot(args.path);
       const resolved = await resolveSearchTarget(paths, path);
-      if (!['file', 'directory'].includes(resolved.kind)) invalid('path must identify a regular file or directory');
+      if (resolved.exists && !['file', 'directory'].includes(resolved.kind)) invalid('path must identify a regular file or directory');
       return {
         args: {
           path, query: args.query, match_mode: args.match_mode ?? 'literal', file_glob: args.file_glob ?? '**/*',
@@ -91,6 +95,7 @@ function searchDefinition(paths) {
 }
 
 async function executeSearch(request, signal) {
+  if (!request.resolved.exists) return missingDiscoveryResult(request, 'search');
   if (!exactFileMatchesGlob(request)) return emptySearchResult(request);
   const ripgrep = await ripgrepSearch(request, signal);
   if (ripgrep) return ripgrep;
@@ -159,7 +164,9 @@ function finishRipgrep(code, stopped, stderr, matches, request, finish, resolve,
   }
   finish(() => resolve({
     content: matches.join('\n') || 'no text matches',
-    metadata: { root: request.args.path, query: request.args.query, match_mode: request.args.match_mode, matches: matches.length, backend: 'ripgrep', truncated: stopped },
+    metadata: { root: request.args.path, query: request.args.query, match_mode: request.args.match_mode,
+      matches: matches.length, backend: 'ripgrep', truncated: stopped, target_exists: true,
+      ...(matches.length === 0 ? { observation_outcome: 'no_matches' } : {}) },
   }));
 }
 
@@ -201,7 +208,7 @@ async function searchFiles(request, signal) {
       backend: 'javascript',
       files_examined: candidates.examined, bytes_examined: bytesExamined,
       binary_skipped: binarySkipped, oversized_skipped: oversizedSkipped, inaccessible_skipped: candidates.skipped,
-      truncated,
+      truncated, target_exists: true, ...(matches.length === 0 ? { observation_outcome: 'no_matches' } : {}),
     },
   };
 }
@@ -300,18 +307,23 @@ function emptySearchResult(request) {
       root: request.args.path, query: request.args.query, match_mode: request.args.match_mode,
       matches: 0, files_examined: 0, bytes_examined: 0, binary_skipped: 0,
       oversized_skipped: 0, inaccessible_skipped: 0, truncated: false,
+      target_exists: true, observation_outcome: 'no_matches',
     },
   };
 }
 
 async function resolveSearchTarget(paths, path) {
-  try { return await paths.resolveMetadata(path); }
-  catch (error) {
-    if (['ENOENT', 'ENOTDIR'].includes(error?.code)) {
-      throw new ContractError('tool_target_not_found', `search path does not exist: ${path}. Use fs.glob to locate it, or omit path to search the working directory`);
-    }
-    throw error;
-  }
+  return paths.resolveOptionalMetadata(path);
+}
+
+function missingDiscoveryResult(request, kind) {
+  const metadata = {
+    root: request.args.path, matches: 0, target_exists: false, observation_outcome: 'target_not_found',
+    ...(kind === 'glob' ? { pattern: request.args.pattern, examined: 0, skipped: 0, truncated: false }
+      : { query: request.args.query, match_mode: request.args.match_mode, files_examined: 0, bytes_examined: 0,
+        binary_skipped: 0, oversized_skipped: 0, inaccessible_skipped: 0, truncated: false }),
+  };
+  return { content: `target not found: ${request.args.path}`, metadata };
 }
 
 function optionalRoot(value) {

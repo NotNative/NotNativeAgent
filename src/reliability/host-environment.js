@@ -2,6 +2,7 @@
 
 import { ContractError } from '../ids.js';
 import { detachedProcessInvocation, longRunningForegroundInvocation } from './process-lifecycle.js';
+import { shellLaunchesExternalBrowser } from './external-browser.js';
 
 const HOSTS = Object.freeze({
   win32: Object.freeze({
@@ -59,5 +60,6 @@ export function shellReliabilitySignals(script, shell = 'auto') {
   if (/\b(?:do|done|then|fi)\b/iu.test(script) && /\b(?:Get-|Set-|Write-|Select-|ForEach-Object)\w*/iu.test(script)) signals.push('mixed_shell_dialects');
   if (detachedProcessInvocation(script, shell)) signals.push('detached_process');
   else if (longRunningForegroundInvocation(script)) signals.push('long_running_foreground');
+  if (shellLaunchesExternalBrowser(script)) signals.push('external_browser');
   return Object.freeze(signals);
 }

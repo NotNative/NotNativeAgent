@@ -16,6 +16,7 @@ const TARGET_ELLIPSIS_LENGTH = 3;
 export function decorateToolActivityLine(line, lineKind, paint) {
   if (lineKind?.startsWith('tool_status:')) {
     const status = lineKind.slice('tool_status:'.length);
+    if (status === 'observed') return paint(TUI_THEME.muted, line);
     if (status === TOOL_STATUS.SUCCEEDED) {
       const match = line.match(/^(\s*)(\u2713)(.*)$/u);
       return match ? `${match[1]}${paint(TUI_THEME.success, match[2])}${paint(TUI_THEME.muted, match[3])}` : paint(TUI_THEME.muted, line);
@@ -55,7 +56,7 @@ export function compactActivityRows(records) {
     const timing = formatElapsed(item.result?.elapsed_ms);
     const target = toolTargetSuffix(item);
     const failure = toolFailureSuffix(item.result);
-    return `    ${toolSymbol(item.result?.status)} ${item.tool}${target}${timing}${failure}`;
+    return `    ${toolSymbol(item.result?.status, item.result?.observation_outcome)} ${item.tool}${target}${timing}${toolObservationSuffix(item.result)}${failure}`;
   });
 }
 
@@ -72,10 +73,11 @@ export function collapsedFailureRows(records) {
 export function summaryActivityRows(records) {
   const groups = new Map();
   for (const item of toolCalls(records)) {
-    const group = groups.get(item.tool) ?? { tool: item.tool, count: 0, failed: 0, nonzero: 0, elapsed: 0, targets: [] };
+    const group = groups.get(item.tool) ?? { tool: item.tool, count: 0, failed: 0, nonzero: 0, observed: 0, elapsed: 0, targets: [] };
     group.count += 1;
     if (item.result?.status === TOOL_STATUS.COMPLETED_NONZERO) group.nonzero += 1;
     else if (!successfulToolStatus(item.result?.status)) group.failed += 1;
+    if (item.result?.observation_outcome) group.observed += 1;
     if (Number.isFinite(item.result?.elapsed_ms)) group.elapsed += item.result.elapsed_ms;
     if (item.target && !group.targets.includes(item.target)) group.targets.push(item.target);
     groups.set(item.tool, group);
@@ -89,7 +91,7 @@ export function activityDetailRows(records, width, wrap) {
   const lines = [wrap('    v Activity detail', width)[0]];
   for (const item of toolCalls(records)) {
     const boundary = [item.effect, item.scope].filter(Boolean).join(' | ');
-    lines.push(...wrap(`    ${toolSymbol(item.result?.status)} ${item.tool}${item.target ? ` (${item.target})` : ''}${boundary ? ` | ${boundary}` : ''}`, width));
+    lines.push(...wrap(`    ${toolSymbol(item.result?.status, item.result?.observation_outcome)} ${item.tool}${item.target ? ` (${item.target})` : ''}${boundary ? ` | ${boundary}` : ''}`, width));
     if (item.arguments) lines.push(...wrap(`      Arguments: ${JSON.stringify(item.arguments)}`, width));
     if (item.review) lines.push(...wrap(`      Review: ${item.review.outcome ?? '--'} | ${item.review.reason_code ?? '--'}`, width));
     if (item.result) lines.push(...wrap(`      Result: ${resultDetail(item.result)}`, width));
@@ -101,15 +103,16 @@ export function activityDetailRows(records, width, wrap) {
 }
 
 function summaryGroupRow(group) {
-  const succeeded = group.count - group.failed - group.nonzero;
+  const succeeded = group.count - group.failed - group.nonzero - group.observed;
   const parts = [`${succeeded} succeeded`];
+  if (group.observed) parts.push(`${group.observed} neutral observation${group.observed === 1 ? '' : 's'}`);
   if (group.nonzero) parts.push(`${group.nonzero} completed nonzero`);
   if (group.failed) parts.push(`${group.failed} failed`);
-  const status = group.failed || group.nonzero ? parts.join(' | ') : 'all succeeded';
+  const status = group.failed || group.nonzero || group.observed ? parts.join(' | ') : 'all succeeded';
   const elapsed = group.elapsed ? ` | ${Math.round(group.elapsed)} ms` : '';
   const targets = group.targets.slice(0, 2).map((value) => compactTarget(value));
   const target = targets.length ? ` | ${targets.join('; ')}${group.targets.length > 2 ? '; ...' : ''}` : '';
-  return `      ${group.failed ? 'X' : group.nonzero ? '!' : '\u2713'} ${group.tool} x${group.count} | ${status}${elapsed}${target}`;
+  return `      ${group.failed ? 'X' : group.nonzero ? '!' : group.observed ? '–' : '\u2713'} ${group.tool} x${group.count} | ${status}${elapsed}${target}`;
 }
 
 function compactTarget(value) {
@@ -152,17 +155,26 @@ function resultDetail(record) {
   const values = [record.status === TOOL_STATUS.COMPLETED_NONZERO ? `completed · exit ${record.exit_code ?? 'nonzero'}` : record.status];
   if (Number.isFinite(record.elapsed_ms)) values.push(`${Math.round(record.elapsed_ms)} ms`);
   if (record.effect_certainty) values.push(`effect ${record.effect_certainty}`);
+  if (record.observation_outcome) values.push(observationLabel(record.observation_outcome));
   const failure = toolFailureText(record); if (failure) values.push(failure);
   return values.join(' | ');
 }
 
-export function toolSymbol(status) {
+export function toolSymbol(status, observationOutcome = null) {
   if (!status) return '-';
   if (status === TOOL_STATUS.REVIEW_PENDING || status === TOOL_STATUS.APPROVED) return '\u25cf';
   if (status === TOOL_STATUS.RUNNING) return '+';
-  if (status === TOOL_STATUS.SUCCEEDED) return '\u2713';
+  if (status === TOOL_STATUS.SUCCEEDED) return observationOutcome ? '–' : '\u2713';
   if (status === TOOL_STATUS.COMPLETED_NONZERO) return '!';
   return 'X';
+}
+
+function toolObservationSuffix(record) {
+  return record?.observation_outcome ? ` | ${observationLabel(record.observation_outcome)}` : '';
+}
+
+function observationLabel(value) {
+  return { no_matches: 'no matches', target_not_found: 'target not found', empty_directory: 'empty directory' }[value] ?? value;
 }
 
 function successfulToolStatus(status) {

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:34805a2286ed8ead8b722067831ee0ebe7d19b501baebf863d64764514052267",
+  "source_digest": "sha256:f18dab9a84773fd8e33f2d4afa24abf9497173d8a6deff78d53681d8e14751ad",
   "counts": {
-    "modules": 323,
+    "modules": 324,
     "component_edges": 69
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "reliability-engine",
       "label": "Reliability Engine",
       "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
-      "module_count": 40
+      "module_count": 41
     },
     {
       "id": "gateway",
@@ -131,8 +131,8 @@
     {
       "from": "reliability-engine",
       "to": "reliability-engine",
-      "import_count": 46,
-      "module_count": 22
+      "import_count": 48,
+      "module_count": 23
     },
     {
       "from": "tools",
@@ -183,16 +183,16 @@
       "module_count": 10
     },
     {
+      "from": "tools",
+      "to": "reliability-engine",
+      "import_count": 11,
+      "module_count": 5
+    },
+    {
       "from": "foundation",
       "to": "providers",
       "import_count": 10,
       "module_count": 8
-    },
-    {
-      "from": "tools",
-      "to": "reliability-engine",
-      "import_count": 10,
-      "module_count": 5
     },
     {
       "from": "guidance",
@@ -387,6 +387,12 @@
       "module_count": 2
     },
     {
+      "from": "governance-engine",
+      "to": "reliability-engine",
+      "import_count": 2,
+      "module_count": 1
+    },
+    {
       "from": "guidance",
       "to": "guidance",
       "import_count": 2,
@@ -466,12 +472,6 @@
     },
     {
       "from": "gateway",
-      "to": "reliability-engine",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "governance-engine",
       "to": "reliability-engine",
       "import_count": 1,
       "module_count": 1
@@ -2234,6 +2234,14 @@
       "imports": []
     },
     {
+      "path": "src/reliability/external-browser.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/executable-name.js"
+      ]
+    },
+    {
       "path": "src/reliability/filesystem-recovery.js",
       "component": "reliability-engine",
       "entrypoint": false,
@@ -2245,6 +2253,7 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
+        "src/reliability/external-browser.js",
         "src/reliability/process-lifecycle.js"
       ]
     },
@@ -2396,6 +2405,7 @@
       "imports": [
         "src/ids.js",
         "src/persistence/reviewer-ledger.js",
+        "src/reliability/external-browser.js",
         "src/reliability/process-lifecycle.js",
         "src/review-target-evidence.js",
         "src/reviewer-packet.js"
@@ -2829,6 +2839,7 @@
         "src/ids.js",
         "src/reliability/command-shaping.js",
         "src/reliability/executable-name.js",
+        "src/reliability/external-browser.js",
         "src/reliability/host-environment.js",
         "src/reliability/process-lifecycle.js",
         "src/tools/argument-normalization.js"

@@ -331,6 +331,28 @@ test('execution contracts identify detachment while preserving bounded wait form
   assert.equal(directServer.resolved.reliabilitySignals.includes('long_running_foreground'), true);
 });
 
+test('execution contracts identify external browser launches without flagging browser-related text inspection', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-external-browser-'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const shell = registry.definition('shell.run');
+  const variableLaunch = await shell.validate({
+    shell: 'powershell',
+    script: "$chrome = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'; & $chrome --headless page.html",
+  });
+  assert.equal(variableLaunch.resolved.reliabilitySignals.includes('external_browser'), true);
+  const directLaunch = await shell.validate({ shell: 'powershell', script: "& 'C:\\Program Files\\Mozilla Firefox\\firefox.exe' --headless" });
+  assert.equal(directLaunch.resolved.reliabilitySignals.includes('external_browser'), true);
+  const textSearch = await shell.validate({ shell: 'powershell', script: 'rg "chrome.exe" src' });
+  assert.equal(textSearch.resolved.reliabilitySignals.includes('external_browser'), false);
+
+  const processTool = registry.definition('process.run');
+  assert.equal((await processTool.validate({ executable: 'msedge.exe', args: ['--headless'] }))
+    .resolved.reliabilitySignals.includes('external_browser'), true);
+  assert.equal((await processTool.validate({ executable: 'npx', args: ['playwright', 'screenshot', 'https://example.test'] }))
+    .resolved.reliabilitySignals.includes('external_browser'), true);
+});
+
 async function waitForProcessExit(pid, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (processExists(pid) && Date.now() < deadline) {
