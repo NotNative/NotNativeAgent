@@ -6,7 +6,7 @@ import {
 } from './continuation-artifact.js';
 import { retainedRecordsFingerprint } from './long-horizon-context.js';
 import { projectDuplicateToolResults } from './duplicate-results.js';
-import { compactToolRequest, createToolContextReceipt } from '../tools/context-receipt.js';
+import { createToolContextReceipt } from '../tools/context-receipt.js';
 
 export { attachTaskCheckpoint, enrichCompactionFact, enrichHandoffFact } from './continuation-artifact.js';
 
@@ -283,7 +283,12 @@ function compactRecord(item, budget, protectedRecord = false, request = null) {
         : boundedMetadata(item.metadata),
     };
   }
-  if (item.type === 'tool_request' && !protectedRecord) return compactToolRequest(item);
+  // A retained tool request is replayed as an assistant-authored native tool
+  // call. Its arguments therefore remain historical evidence, not a payload we
+  // may summarize. Selection already treats a request/result exchange as one
+  // indivisible unit; if the exact request does not fit, omit the whole unit and
+  // let the engine-authored continuation describe it.
+  if (item.type === 'tool_request') return { ...item };
   if (item.type === 'message') {
     if (protectedRecord) return { ...item };
     const content = boundedHeadTail(item.content ?? '', COLD_MESSAGE_BYTES);

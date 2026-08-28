@@ -7,7 +7,7 @@ const MAX_PROFILES = 256;
 const FAILURE_GUIDANCE_THRESHOLD = 2;
 const MAX_FAILURE_COUNT = 10_000;
 const MAX_TOOL_CONTRACT_CANDIDATES = 64;
-export const TOOL_CONTRACT_LEARNING_EPOCH = 2;
+export const TOOL_CONTRACT_LEARNING_EPOCH = 3;
 export const TOOL_CONTRACT_LEARNING_MODE = 'shadow';
 const KNOWN_FAILURES = new Set([
   'provider_event_invalid', 'provider_missing_terminal', 'provider_empty_stream',

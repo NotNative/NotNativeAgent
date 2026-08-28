@@ -32,7 +32,7 @@ test('model dialect profiles persist provider observations while tool-contract l
   assert.equal(profile.observations, 2);
   assert.equal(profile.failures.provider_event_invalid, 1);
   assert.equal(profile.tool_contract_learning.mode, 'shadow');
-  assert.equal(profile.tool_contract_learning.epoch, 2);
+  assert.equal(profile.tool_contract_learning.epoch, 3);
   assert.equal(profile.tool_contract_learning.candidates['fs.edit_text@3/tool_schema_invalid'].failures, 1);
   assert.equal(profile.tool_contract_learning.candidates['fs.edit_text@3/tool_schema_invalid'].validated_repairs, 1);
   assert.doesNotMatch(restored.instructions(route), /recent local schema failures/iu);

@@ -274,7 +274,7 @@ test('oversized protected history falls back to a bounded hierarchical continuat
   assert.ok(Buffer.byteLength(JSON.stringify(context), 'utf8') < 65_536);
 });
 
-test('settled tool exchanges become typed causal receipts while recent turns remain verbatim', () => {
+test('settled tool exchanges become typed causal receipts while tool-call arguments remain exact', () => {
   const transcript = [
     message('user', 'Inspect the host.', 'turn-old'),
     { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'shell-old', toolName: 'shell.run', args: { script: `hostname && ${'x'.repeat(3_000)}`, shell: 'auto' } },
@@ -290,7 +290,7 @@ test('settled tool exchanges become typed causal receipts while recent turns rem
   const receipt = JSON.parse(result.content);
   assert.equal(request.providerCallId, result.providerCallId);
   assert.equal(request.args.shell, 'auto');
-  assert.ok(request.args.script.length < 1_000);
+  assert.equal(request.args.script, transcript[1].args.script);
   assert.equal(receipt.schema, 'nna.tool-receipt.v1');
   assert.equal(receipt.category, 'shell');
   assert.equal(receipt.outcome, 'succeeded');
@@ -298,6 +298,43 @@ test('settled tool exchanges become typed causal receipts while recent turns rem
   assert.equal(receipt.ledger_ref, 'request-old');
   assert.match(receipt.result_fingerprint, /^[a-f0-9]{64}$/u);
   assert.equal(result.metadata.reason, 'semantic_tool_receipt');
+});
+
+test('compaction either replays exact native tool-call arguments or omits the complete exchange', () => {
+  const requests = [
+    { providerCallId: 'read', toolName: 'fs.read', args: { path: 'README.md', start_line: 3, line_count: 120 } },
+    { providerCallId: 'search', toolName: 'fs.search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js', max_results: 17 } },
+    { providerCallId: 'web', toolName: 'web.search', args: { query: 'current provider documentation', max_results: 4 } },
+    { providerCallId: 'plan', toolName: 'work.plan', args: { objective: 'Keep history truthful', tasks: ['test', 'ship'] } },
+    { providerCallId: 'shell', toolName: 'shell.run', args: { script: 'node --test', timeout_ms: 90_000 } },
+  ];
+  const transcript = [message('user', 'Exercise several tool shapes.', 'turn-old')];
+  for (const request of requests) {
+    transcript.push({ type: 'tool_request', turnId: 'turn-old', ...request });
+    transcript.push({
+      type: 'tool_result', turnId: 'turn-old', providerCallId: request.providerCallId,
+      toolName: request.toolName, status: 'succeeded', content: `evidence-${'x'.repeat(2_000)}`,
+    });
+  }
+  for (let index = 0; index < 5; index += 1) {
+    transcript.push(message('user', `Recent request ${index}`, `turn-${index}`));
+    transcript.push(message('assistant', `Recent answer ${index}`, `turn-${index}`));
+  }
+
+  const compacted = compactTranscript(transcript, 80_000);
+  const context = buildContext({ ...config, limits: { maxContextBytes: 80_000 } }, [compacted.fact], 'Continue.');
+  for (const original of requests) {
+    const retainedRequest = compacted.records.find((item) => item.type === 'tool_request'
+      && item.providerCallId === original.providerCallId);
+    const retainedResult = compacted.records.find((item) => item.type === 'tool_result'
+      && item.providerCallId === original.providerCallId);
+    assert.equal(Boolean(retainedRequest), Boolean(retainedResult), 'request/result pairs remain indivisible');
+    if (!retainedRequest) continue;
+    assert.deepEqual(retainedRequest.args, original.args);
+    const replay = context.flatMap((item) => item.tool_calls ?? [])
+      .find((call) => call.id === original.providerCallId);
+    assert.deepEqual(JSON.parse(replay.function.arguments), original.args);
+  }
 });
 
 test('semantic continuation enrichment is schema validated and failure falls back deterministically', async () => {
