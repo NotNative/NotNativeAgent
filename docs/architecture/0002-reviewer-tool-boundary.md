@@ -50,8 +50,10 @@ mechanically safe work, enforces mission ceilings and clear authenticated-intent
 and reserves a short immutable denial floor for prohibited operations. Other uncertain
 or consequential operations reach semantic review. Review-required work uses a
 tool-less `reviewer` model route with a portable structural JSON Schema response
-constraint, strict local decision validation, bounded time, and a
-fail-closed default. The semantic default is permissive toward a reasonable, proportionate
+constraint, including an explicit outcome enumeration, strict local decision validation, bounded
+time, and a fail-closed default. If the first response is malformed, NNA records that provider
+attempt and makes one schema-repair attempt with a separate receipt. A second malformed response
+fails closed. The semantic default is permissive toward a reasonable, proportionate
 means of carrying out authenticated intent; ordinary intermediate commands and targets
 derived from prior results need not be named verbatim.
 

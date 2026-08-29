@@ -25,20 +25,8 @@ export class RoutedSemanticReviewer {
   async review(input, signal, correlation = {}) {
     const route = this.router.resolve('reviewer', { requiredCapabilities: ['structured_output'] });
     const provider = this.router.provider(route);
-    const request = Object.freeze({
-      model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 4096, 4096),
-      reasoningMode: 'off',
-      messages: [
-        { role: 'system', content: reviewerPolicy() },
-        { role: 'user', content: JSON.stringify(input) },
-      ],
-      tools: [],
-      responseFormat: reviewerResponseFormat(),
-    });
     const profileId = route.profile?.id ?? route.providerId ?? 'unknown-provider';
-    const requestId = newId('reviewer_route');
-    const spanId = `provider-request:${requestId}`;
-    const started = process.hrtime.bigint();
+    const logicalRequestId = newId('reviewer_route');
     const capacityInfo = this.modelRuntime
       ? await this.modelRuntime.resolve(this.router, route, signal) : null;
     const release = this.scheduler
@@ -46,16 +34,45 @@ export class RoutedSemanticReviewer {
         profileId, this.sessionId, signal, () => undefined, capacityInfo?.parallelCapacity ?? null,
       )
       : () => undefined;
+    try {
+      let invalidOutput = null;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const request = reviewerRequest(route, input, invalidOutput);
+        try {
+          return await this.#runAttempt({
+            provider, request, signal, route, profileId, logicalRequestId, correlation,
+          });
+        } catch (error) {
+          if (attempt === 0 && error?.code === 'reviewer_output_malformed') {
+            invalidOutput = error.reviewerOutput ?? '';
+            continue;
+          }
+          throw error;
+        }
+      }
+      throw new ContractError('reviewer_output_malformed', 'reviewer repair attempt did not produce a decision');
+    } finally {
+      release();
+    }
+  }
+
+  async #runAttempt({ provider, request, signal, route, profileId, logicalRequestId, correlation }) {
+    const attemptId = newId('reviewer_attempt');
+    const spanId = `provider-request:${attemptId}`;
+    const started = process.hrtime.bigint();
+    const accounting = { dispatched: false, usage: null, outputBytes: 0, outcome: 'failed', reasonCode: null };
     this.telemetry?.record('provider.request', 'started', {
       request, role: 'reviewer', model: route.model, provider_profile: profileId,
-    }, { ...correlation, spanId, providerRequestId: requestId });
-    const accounting = { dispatched: false, usage: null, outputBytes: 0, outcome: 'failed', reasonCode: null };
+    }, { ...correlation, spanId, providerRequestId: attemptId, logicalRequestId });
     try {
       accounting.dispatched = true;
-      const { decision, usage } = await collectReviewerDecision(provider, request, signal, accounting);
+      const output = await collectReviewerOutput(provider, request, signal, accounting);
+      let decision;
+      try { decision = parseDecision(output.text); }
+      catch (error) { error.reviewerOutput = output.text; throw error; }
       this.telemetry?.record('provider.request', 'succeeded', {
-        role: 'reviewer', model: route.model, provider_profile: profileId, usage,
-      }, { ...correlation, spanId, providerRequestId: requestId, durationMs: elapsedMs(started), outcome: 'completed' });
+        role: 'reviewer', model: route.model, provider_profile: profileId, usage: output.usage,
+      }, { ...correlation, spanId, providerRequestId: attemptId, logicalRequestId, durationMs: elapsedMs(started), outcome: 'completed' });
       this.dialects?.observe(route, { status: 'succeeded' });
       accounting.outcome = 'completed';
       return decision;
@@ -64,24 +81,36 @@ export class RoutedSemanticReviewer {
       accounting.reasonCode = error?.code ?? 'reviewer_provider_failed';
       this.telemetry?.record('provider.request', signal.aborted ? 'cancelled' : 'failed', {
         role: 'reviewer', model: route.model, provider_profile: profileId,
-        failure: { code: error?.code ?? 'reviewer_provider_failed', retryable: error?.retryable === true },
-      }, { ...correlation, spanId, providerRequestId: requestId, durationMs: elapsedMs(started), reasonCode: error?.code });
-      this.dialects?.observe(route, { status: signal.aborted ? 'cancelled' : 'failed', code: error?.code ?? 'reviewer_provider_failed' });
+        failure: { code: accounting.reasonCode, retryable: error?.retryable === true },
+      }, { ...correlation, spanId, providerRequestId: attemptId, logicalRequestId, durationMs: elapsedMs(started), reasonCode: accounting.reasonCode });
+      this.dialects?.observe(route, { status: accounting.outcome, code: accounting.reasonCode });
       throw error;
     } finally {
-      try {
-        if (accounting.dispatched) await this.recordTokenReceipt?.({
-          request, context: request.messages, route, role: 'reviewer', attemptId: requestId,
-          logicalRequestId: requestId,
-          outcome: accounting.outcome, reasonCode: accounting.reasonCode,
-          usage: accounting.usage, outputBytes: accounting.outputBytes, durationMs: elapsedMs(started),
-        });
-      } finally { release(); }
+      if (accounting.dispatched) await this.recordTokenReceipt?.({
+        request, context: request.messages, route, role: 'reviewer', attemptId, logicalRequestId,
+        outcome: accounting.outcome, reasonCode: accounting.reasonCode,
+        usage: accounting.usage, outputBytes: accounting.outputBytes, durationMs: elapsedMs(started),
+      });
     }
   }
 }
 
-async function collectReviewerDecision(provider, request, signal, accounting) {
+function reviewerRequest(route, input, invalidOutput) {
+  const messages = [
+    { role: 'system', content: reviewerPolicy() },
+    { role: 'user', content: JSON.stringify(input) },
+  ];
+  if (invalidOutput !== null) messages.push(
+    { role: 'assistant', content: invalidOutput },
+    { role: 'user', content: 'The prior response did not match the required schema. Return one corrected JSON decision.' },
+  );
+  return Object.freeze({
+    model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 4096, 4096),
+    reasoningMode: 'off', messages, tools: [], responseFormat: reviewerResponseFormat(),
+  });
+}
+
+async function collectReviewerOutput(provider, request, signal, accounting) {
   let text = '';
   let textBytes = 0;
   let terminal = false;
@@ -102,7 +131,7 @@ async function collectReviewerDecision(provider, request, signal, accounting) {
   }
   if (signal?.aborted) throw new ContractError('reviewer_cancelled', 'reviewer request was cancelled');
   if (!terminal) throw new ContractError('reviewer_missing_terminal', 'reviewer stream did not terminate');
-  return { decision: parseDecision(text), usage };
+  return { text, usage };
 }
 
 function elapsedMs(started) {
@@ -118,7 +147,7 @@ function reviewerResponseFormat() {
         type: 'object', additionalProperties: false,
         required: ['outcome', 'confidence', 'reason_code'],
         properties: {
-          outcome: { type: 'string' },
+          outcome: { type: 'string', enum: [...REVIEW_OUTCOMES] },
           confidence: { type: 'number' },
           reason_code: { type: 'string' },
           guidance: { type: 'string' },

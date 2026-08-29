@@ -512,7 +512,8 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
   assert.equal(captured.responseFormat.json_schema.strict, true);
   assert.deepEqual(captured.responseFormat.json_schema.schema.required, ['outcome', 'confidence', 'reason_code']);
   assert.deepEqual(captured.responseFormat.json_schema.schema.properties, {
-    outcome: { type: 'string' }, confidence: { type: 'number' },
+    outcome: { type: 'string', enum: ['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator'] },
+    confidence: { type: 'number' },
     reason_code: { type: 'string' }, guidance: { type: 'string' },
   });
   assert.deepEqual(scheduled, [
@@ -525,6 +526,56 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
     ['provider.request', 'started', 'reviewer', 'reviewer-model'],
     ['provider.request', 'succeeded', 'reviewer', 'reviewer-model'],
   ]);
+});
+
+test('semantic reviewer makes one bounded schema-repair attempt with separate evidence', async () => {
+  const requests = [];
+  const telemetry = [];
+  const receipts = [];
+  const outputs = [
+    '{"outcome":"allow","confidence":1,"reason_code":"wrong_enum"}',
+    '{"outcome":"approve","confidence":1,"reason_code":"intent_match"}',
+  ];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    yield { type: 'text', text: outputs[requests.length - 1] };
+    yield { type: 'terminal' };
+  } };
+  const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
+  const reviewer = new RoutedSemanticReviewer({ resolve: () => route, provider: () => provider }, {
+    telemetry: { record(event, status) { telemetry.push({ event, status }); } },
+    recordTokenReceipt: async (receipt) => receipts.push(receipt),
+  });
+
+  const result = await reviewer.review({ request: {}, authenticatedIntent: [] }, new AbortController().signal);
+
+  assert.equal(result.outcome, 'approve');
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].messages.at(-1).content, 'The prior response did not match the required schema. Return one corrected JSON decision.');
+  assert.equal(receipts.length, 2);
+  assert.equal(receipts[0].outcome, 'failed');
+  assert.equal(receipts[0].reasonCode, 'reviewer_output_malformed');
+  assert.equal(receipts[1].outcome, 'completed');
+  assert.equal(receipts[0].logicalRequestId, receipts[1].logicalRequestId);
+  assert.notEqual(receipts[0].attemptId, receipts[1].attemptId);
+  assert.deepEqual(telemetry.map(({ status }) => status), ['started', 'failed', 'started', 'succeeded']);
+});
+
+test('semantic reviewer fails closed after the one schema-repair attempt', async () => {
+  let calls = 0;
+  const provider = { async *stream() {
+    calls += 1;
+    yield { type: 'text', text: '{"outcome":"not_an_outcome"}' };
+    yield { type: 'terminal' };
+  } };
+  const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
+  const reviewer = new RoutedSemanticReviewer({ resolve: () => route, provider: () => provider });
+
+  await assert.rejects(
+    reviewer.review({ request: {}, authenticatedIntent: [] }, new AbortController().signal),
+    { code: 'reviewer_output_malformed' },
+  );
+  assert.equal(calls, 2);
 });
 
 test('AC-REV-05 semantic reviewer output is locally schema-validated even when a provider claims structured output', async () => {
