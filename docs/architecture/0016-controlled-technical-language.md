@@ -19,6 +19,11 @@ The machine-readable terminology contract is
 [nna-terminology.json](nna-terminology.json). The contract is the source for automated checks.
 This decision explains how people and future checks use that contract.
 
+The generated [controlled-language-report.json](controlled-language-report.json) records the
+current maximal bundled-tool prose metrics, unqualified boundary-field candidates, and explicit
+rationale-marker baseline. Quality gates reject a stale report but do not convert its advisory
+candidates into inferred semantic failures.
+
 ## Scope
 
 NNA-CTL applies to NNA-authored surfaces:

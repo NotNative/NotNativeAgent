@@ -102,8 +102,8 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
       }
     }
     const browse = providerSchema(registry.definition('web.browse').inputSchema, { mode: 'documented' });
-    assert.match(browse.properties.action.description, /navigate=url/u);
-    assert.match(browse.properties.action.description, /fill_secret=target\+secret_id\+secret_field/u);
+    assert.match(browse.properties.action.description, /Navigate: set exactly one of url or path/u);
+    assert.match(browse.properties.action.description, /Fill_secret: set target, secret_id, and secret_field/u);
   } finally { await registry.close(); }
 });
 

@@ -27,7 +27,7 @@ export function webBrowseDefinition(options = {}) {
     maxOutputBytes: PROVIDER_TEXT_BYTES,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['action'], properties: {
-        action: { type: 'string', enum: [...ACTIONS], description: 'Required operation. Arguments: navigate=url or navigate=path (exactly one); click=target; fill=target+value; fill_secret=target+secret_id+secret_field; press=target+key; inspect, screenshot, and close need no other fields.' },
+        action: { type: 'string', enum: [...ACTIONS], description: 'Required operation. Navigate: set exactly one of url or path. Click: set target. Fill: set target and value. Fill_secret: set target, secret_id, and secret_field. Press: set target and key. Inspect, screenshot, and close need no other fields.' },
         url: { type: 'string', maxLength: 4096, description: 'For action navigate, one complete HTTP(S) URL. Do not combine with path.' },
         path: { type: 'string', maxLength: 4096, description: 'For action navigate, an existing workspace HTML entry file. NNA serves it with an owned temporary loopback server; do not combine with url.' },
         target: { type: 'string', maxLength: 1024, description: 'Required for click, fill, fill_secret, and press: an element reference from inspect (for example e1) or a CSS selector.' },

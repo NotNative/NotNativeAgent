@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { ToolRegistry } from '../src/tool-registry.js';
 
 const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MAX_SOURCE_FILES = 2_000;
 const TERM_ID = /^CTL-TERM-\d{3}$/u;
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/u;
+const REPORT_SCHEMA = 'nna.controlled-language-report.v1';
+const UNQUALIFIED_BOUNDARY_FIELDS = new Set(['decision', 'result', 'status']);
+const sentenceSegmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
+const wordSegmenter = new Intl.Segmenter('en', { granularity: 'word' });
 
 export function validateTerminologyContract(contract) {
   const errors = [];
@@ -90,6 +95,66 @@ export function auditDeprecatedIdentifiers(contract, files) {
   return Object.freeze({ errors: Object.freeze(errors), advisories: Object.freeze(advisories), counts });
 }
 
+export function auditModelFacingDefinitions(definitions) {
+  const prose = [];
+  const unqualified = [];
+  for (const definition of definitions) {
+    addProse(prose, definition.name, 'purpose', definition.purpose);
+    addProse(prose, definition.name, 'providerFacade.description', definition.providerFacade?.description);
+    inspectSchema(definition.inputSchema, definition.name, 'inputSchema', prose, unqualified);
+  }
+  const longProse = prose.filter((item) => item.words > 25)
+    .sort((left, right) => right.words - left.words || left.tool.localeCompare(right.tool) || left.field.localeCompare(right.field));
+  unqualified.sort((left, right) => left.tool.localeCompare(right.tool) || left.field.localeCompare(right.field));
+  return Object.freeze({
+    schema: REPORT_SCHEMA,
+    standard: 'NNA-CTL/1',
+    scope: 'maximal bundled tool registry; purpose, provider facade description, and input-schema description fields',
+    stats: Object.freeze({
+      tools: definitions.length, proseFields: new Set(prose.map((item) => `${item.tool}\0${item.field}`)).size,
+      proseSentences: prose.length, longProseCandidates: longProse.length,
+      unqualifiedBoundaryCandidates: unqualified.length,
+      maximumSentenceWords: prose.reduce((maximum, item) => Math.max(maximum, item.words), 0),
+    }),
+    long_prose_candidates: Object.freeze(longProse),
+    unqualified_boundary_candidates: Object.freeze(unqualified),
+  });
+}
+
+export function countRationaleMarkers(markers, files) {
+  const counts = Object.fromEntries(markers.map((marker) => [marker, 0]));
+  const markerSet = new Set(markers);
+  for (const file of files) {
+    for (const line of file.source.split(/\r?\n/u)) {
+      const match = /^\s*(?:\/\/|\/\*+|\*)\s*([A-Za-z]+):/u.exec(line);
+      if (match && markerSet.has(match[1])) counts[match[1]] += 1;
+    }
+  }
+  return Object.freeze(counts);
+}
+
+function inspectSchema(schema, tool, path, prose, unqualified) {
+  if (!record(schema)) return;
+  addProse(prose, tool, `${path}.description`, schema.description);
+  for (const [name, property] of Object.entries(schema.properties ?? {})) {
+    const field = `${path}.properties.${name}`;
+    if (UNQUALIFIED_BOUNDARY_FIELDS.has(name)) unqualified.push(Object.freeze({ tool, field }));
+    inspectSchema(property, tool, field, prose, unqualified);
+  }
+  if (schema.items) inspectSchema(schema.items, tool, `${path}.items`, prose, unqualified);
+  for (const keyword of ['oneOf', 'anyOf', 'allOf']) {
+    for (const [index, branch] of (schema[keyword] ?? []).entries()) inspectSchema(branch, tool, `${path}.${keyword}[${index}]`, prose, unqualified);
+  }
+}
+
+function addProse(target, tool, field, value) {
+  if (typeof value !== 'string' || value.trim().length === 0) return;
+  for (const segment of sentenceSegmenter.segment(value.trim())) {
+    const words = [...wordSegmenter.segment(segment.segment)].filter((item) => item.isWordLike).length;
+    if (words > 0) target.push(Object.freeze({ tool, field, words }));
+  }
+}
+
 export async function runControlledLanguageGates(options = {}) {
   const root = options.root ?? scriptRoot;
   const contractFile = options.contractPath ?? join(root, 'docs', 'architecture', 'nna-terminology.json');
@@ -99,10 +164,51 @@ export async function runControlledLanguageGates(options = {}) {
   const files = await Promise.all(paths.map(async (path) => ({ path, source: await readFile(path, 'utf8') })));
   const audit = auditDeprecatedIdentifiers(contract, files);
   errors.push(...audit.errors);
-  return Object.freeze({
-    errors: Object.freeze(errors), advisories: audit.advisories,
-    stats: Object.freeze({ sourceFiles: files.length, terms: contract.terms?.length ?? 0, deprecatedIdentifiers: audit.counts.size }),
+  const definitions = options.toolDefinitions ?? await maximalBundledToolDefinitions(root);
+  const modelFacingReport = auditModelFacingDefinitions(definitions);
+  const rationaleMarkerCounts = countRationaleMarkers(contract.rationale_markers ?? [], files);
+  const report = Object.freeze({
+    ...modelFacingReport,
+    stats: Object.freeze({
+      ...modelFacingReport.stats,
+      rationaleMarkers: Object.values(rationaleMarkerCounts).reduce((total, count) => total + count, 0),
+    }),
+    rationale_marker_counts: rationaleMarkerCounts,
   });
+  const reportPath = options.reportPath ?? join(root, 'docs', 'architecture', 'controlled-language-report.json');
+  const renderedReport = `${JSON.stringify(report, null, 2)}\n`;
+  if (options.writeReport === true) await writeFile(reportPath, renderedReport, 'utf8');
+  else {
+    const committed = await readFile(reportPath, 'utf8').catch(() => null);
+    if (committed !== renderedReport) errors.push('controlled-language report is stale; run npm run language:report');
+  }
+  return Object.freeze({
+    errors: Object.freeze(errors), advisories: audit.advisories, report,
+    stats: Object.freeze({
+      sourceFiles: files.length, terms: contract.terms?.length ?? 0,
+      deprecatedIdentifiers: audit.counts.size, modelFacingTools: definitions.length,
+    }),
+  });
+}
+
+async function maximalBundledToolDefinitions(root) {
+  const snapshot = { revision: 0, goal: null, tasks: [] };
+  const registry = new ToolRegistry(root, {
+    mcpControl: { async status() { return {}; }, async test() { return {}; } },
+    skillRegistry: {
+      search() { return []; },
+      load() { return { id: 'audit', version: 1, source: 'audit', requiresTools: [], body: '' }; },
+    },
+    subagentControl: { workspaceRoot: root, async run() { return {}; } },
+    conversationWork: {
+      snapshot() { return snapshot; }, async setGoal() { return snapshot; }, async completeGoal() { return snapshot; },
+      async reopenGoal() { return snapshot; }, async addTask() { return snapshot; }, async updateTask() { return snapshot; },
+    },
+    telegramNotifications: { schedule() {} }, activeTurnId: () => 'controlled-language-audit',
+    elevationBroker: { async execute() { return {}; } }, sessionHistory: { transcript() { return []; } },
+  });
+  await registry.initialize();
+  try { return registry.snapshot(); } finally { await registry.close(); }
 }
 
 function validateTerm(term, index, state, errors) {
@@ -174,12 +280,14 @@ function identifierStart(value) { return typeof value === 'string' && /[A-Za-z_$
 function identifierPart(value) { return typeof value === 'string' && /[A-Za-z0-9_$]/u.test(value); }
 
 async function main() {
-  const result = await runControlledLanguageGates();
+  const unknown = process.argv.slice(2).filter((value) => value !== '--write-report');
+  if (unknown.length > 0) throw new Error(`unknown option ${unknown[0]}`);
+  const result = await runControlledLanguageGates({ writeReport: process.argv.includes('--write-report') });
   for (const advisory of result.advisories) process.stdout.write(`CTL debt: ${advisory}\n`);
   if (result.errors.length > 0) {
     process.stderr.write(`${result.errors.join('\n')}\n`); process.exitCode = 1; return;
   }
-  process.stdout.write(`controlled-language gates passed for ${result.stats.terms} terms and ${result.stats.sourceFiles} source files\n`);
+  process.stdout.write(`controlled-language gates passed for ${result.stats.terms} terms, ${result.stats.sourceFiles} source files, and ${result.stats.modelFacingTools} bundled tools\n`);
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {

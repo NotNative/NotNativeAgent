@@ -11,7 +11,7 @@ export function elevationDefinition(paths, broker, options = {}) {
   if (!broker || typeof broker.execute !== 'function') return null;
   return {
     name: 'system.elevate', version: 1,
-    purpose: 'Run one exact host executable with operating-system elevation after mandatory semantic review, a fresh one-shot local operator confirmation, and native UAC or sudo authentication. Interactive shells are rejected: shell executables require an explicit non-interactive command or script in argv. Never supplies, stores, or exposes an administrator password.',
+    purpose: 'Run one exact host executable with operating-system elevation after mandatory semantic review. A fresh one-shot local operator confirmation and native UAC or sudo authentication are also required. Interactive shells are rejected: shell executables require an explicit non-interactive command or script in argv. Never supplies, stores, or exposes an administrator password.',
     sideEffect: 'unknown', scope: 'host', cancellation: false, timeoutMs: MAX_TIMEOUT_MS + 60_000,
     operatorConfirmation: 'one_shot',
     inputSchema: {

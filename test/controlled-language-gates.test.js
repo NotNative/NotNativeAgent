@@ -2,7 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  auditDeprecatedIdentifiers, scanJavaScriptIdentifiers, validateTerminologyContract,
+  auditDeprecatedIdentifiers, auditModelFacingDefinitions, countRationaleMarkers,
+  scanJavaScriptIdentifiers, validateTerminologyContract,
 } from '../scripts/controlled-language-gates.js';
 
 function contract(overrides = {}) {
@@ -57,4 +58,36 @@ test('deprecated identifier counts ratchet in both directions', () => {
   assert.match(increased.errors[0], /occurs 2 times/u);
   const improved = auditDeprecatedIdentifiers(contract(), [{ path: 'a.js', source: 'grantWorkflowLease(value);' }]);
   assert.match(improved.errors[0], /improved to 0 occurrences/u);
+});
+
+test('model-facing audit reports measurable candidates without judging prose intent', () => {
+  const longPurpose = `${Array.from({ length: 26 }, (_, index) => `word${index}`).join(' ')}.`;
+  const report = auditModelFacingDefinitions([{
+    name: 'work.example', purpose: longPurpose,
+    inputSchema: {
+      type: 'object', description: 'A short object.', properties: {
+        status: { type: 'string', description: 'A typed state value.' },
+        nested: { type: 'object', properties: { result: { type: 'string', description: 'Observed content.' } } },
+      },
+    },
+  }]);
+  assert.deepEqual(report.stats, {
+    tools: 1, proseFields: 4, proseSentences: 4, longProseCandidates: 1,
+    unqualifiedBoundaryCandidates: 2, maximumSentenceWords: 26,
+  });
+  assert.deepEqual(report.long_prose_candidates, [{ tool: 'work.example', field: 'purpose', words: 26 }]);
+  assert.deepEqual(report.unqualified_boundary_candidates, [
+    { tool: 'work.example', field: 'inputSchema.properties.nested.properties.result' },
+    { tool: 'work.example', field: 'inputSchema.properties.status' },
+  ]);
+});
+
+test('rationale audit counts only explicit comment markers', () => {
+  const counts = countRationaleMarkers(['Why', 'Security'], [{ path: 'a.js', source: [
+    '// Why: preserve the contract.',
+    'const text = "// Security: not a comment marker";',
+    '/* Security: fail closed. */',
+    '// Note: ordinary comment.',
+  ].join('\n') }]);
+  assert.deepEqual(counts, { Why: 1, Security: 1 });
 });

@@ -1,0 +1,31 @@
+{
+  "schema": "nna.controlled-language-report.v1",
+  "standard": "NNA-CTL/1",
+  "scope": "maximal bundled tool registry; purpose, provider facade description, and input-schema description fields",
+  "stats": {
+    "tools": 47,
+    "proseFields": 177,
+    "proseSentences": 284,
+    "longProseCandidates": 0,
+    "unqualifiedBoundaryCandidates": 2,
+    "maximumSentenceWords": 24,
+    "rationaleMarkers": 2
+  },
+  "long_prose_candidates": [],
+  "unqualified_boundary_candidates": [
+    {
+      "tool": "work.plan",
+      "field": "inputSchema.properties.tasks.items.properties.status"
+    },
+    {
+      "tool": "work.task_update",
+      "field": "inputSchema.properties.status"
+    }
+  ],
+  "rationale_marker_counts": {
+    "Why": 0,
+    "Invariant": 1,
+    "Compatibility": 1,
+    "Security": 0
+  }
+}

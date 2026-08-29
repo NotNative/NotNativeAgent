@@ -28,7 +28,7 @@ terminology migration removed every deprecated identifier from production source
 The zero baselines prevent these names from returning. Future deprecated terms use the same
 ratchet: a migration lowers the matching baseline in the same change.
 
-## Findings for later slices
+## Migration findings
 
 ### A. Tool-surface eligibility names
 
@@ -68,19 +68,26 @@ outcome remains separate. Failure reason codes remain separate from both domains
 
 ### E. Model-facing prose
 
-Priority: medium. Migration risk: low when changed in bounded groups.
+Status: measured and resolved for the maximal bundled-tool input surface. Migration risk was low.
 
-Audit tool `purpose`, `description`, `guidance`, and `hint` fields against the glossary. Shorten
-sentences only when all conditions and consequences remain explicit. Preserve raw evidence and
-durable rationale comments.
+The committed [controlled-language-report.json](controlled-language-report.json) inventories all
+47 bundled tools under the maximal control fixture. It measures 177 purpose or input-schema prose
+fields and 284 sentences. No sentence exceeds 25 words; the maximum is 24 words. The audit uses
+`Intl.Segmenter` for lexical sentence and word boundaries. It does not infer intent from prose.
+
+Two `status` candidates remain in `work.plan` task objects and `work.task_update`. Both name the
+same closed task-lifecycle enum, and their containing tool and task object qualify the concept.
+Renaming this compatible public field would add another model-facing spelling without separating
+two meanings, so the audit accepts both uses.
 
 ### F. Rationale comments
 
-Priority: medium. Migration risk: low.
+Status: advisory baseline established. Migration risk is low.
 
 Use `Why:`, `Invariant:`, `Compatibility:`, and `Security:` for durable design rationale in new
-or materially revised code. Do not mechanically rewrite existing comments. Add stronger checks
-only after the repository has an explicit rationale baseline.
+or materially revised code. Do not mechanically rewrite existing comments. The committed report
+records exact marker counts from comment-leading syntax without guessing which ordinary comments
+contain rationale. This baseline is advisory; it supports review without creating cosmetic churn.
 
 ## Gate boundaries
 
@@ -89,15 +96,18 @@ terms, unique identifiers, definition sentence length, declared replacements, an
 counts for deprecated identifiers. It excludes comments and string or template prose. It includes
 JavaScript expressions inside template substitutions.
 
-The gate does not infer prose intent. It does not classify passive voice, ambiguous pronouns, or
-synonyms with regular expressions. These concerns require human review or a future advisory
-analyzer with measured precision.
+The gate also verifies that the committed report matches the maximal bundled-tool registry. It
+reports lexical sentence length, exact unqualified boundary-field candidates, and explicit
+rationale markers. The gate does not infer prose intent. It does not classify passive voice,
+ambiguous pronouns, or synonyms with regular expressions. These concerns require human review.
 
-## Planned sequence
+## Completed sequence
 
-1. Audit model-facing tool text in bounded tool families.
-2. Add advisory reports for sentence length and unqualified boundary names.
-3. Promote an advisory rule to a hard gate only after false positives are mechanically excluded.
+1. Audited the maximal bundled-tool model-facing input surface.
+2. Added a deterministic advisory report for sentence length, unqualified boundary names, and
+   explicit rationale markers.
+3. Kept semantic candidates advisory. Only report freshness and mechanically exact terminology
+   regressions are hard failures.
 
 Each slice must run the full test suite, advance the canonical version, and produce one focused
 commit. NNA-CTL is a reliability control, not permission for broad cosmetic churn.
