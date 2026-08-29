@@ -4,7 +4,9 @@ import { ContractError } from '../ids.js';
 import { redactText } from '../redaction.js';
 import { toolLifecycleStatus } from './tool-result-contract.js';
 
-const SUMMARY_BYTES = Object.freeze({ filesystem: 768, search: 1024, shell: 1024, web: 1024, mcp: 1024, subagent: 1536, other: 768 });
+// Why: filesystem evidence is frequently consumed across several reasoning steps; retaining
+// a useful window is cheaper than forcing another provider/tool round trip after compaction.
+const SUMMARY_BYTES = Object.freeze({ filesystem: 4096, search: 2048, shell: 1024, web: 1024, mcp: 1024, subagent: 1536, other: 768 });
 const RECEIPT_SCHEMA = 'nna.tool-receipt.v1';
 
 export function createToolContextReceipt(result, request) {

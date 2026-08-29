@@ -31,8 +31,10 @@ test('receipt pressure keeps recent steps and replaces settled payloads without 
   assert.equal(projected.tier, 'receipts');
   assert.equal(projected.records.length, records.length);
   assert.match(projected.records[2].content, /durable session journal/u);
+  assert.ok(Buffer.byteLength(projected.records[2].content, 'utf8') > 4_000);
   assert.equal(records[2].content, 'old result '.repeat(1_000));
   assert.equal(projected.records.find((item) => item.providerCallId === 'call-4' && item.type === 'tool_result').content, 'latest result');
+  assert.ok(projected.evidenceRetention.sourceToolResultBytes > projected.evidenceRetention.projectedToolResultBytes);
 });
 
 test('checkpoint pressure journals settled work and retains only hot active steps in prompt projection', () => {
@@ -75,6 +77,18 @@ test('receipt pressure identifies duplicate cold results across different tool r
   assert.equal(projected.duplicateResultRecords, 1);
   assert.ok(projected.duplicateResultBytesSaved > 4_000);
   assert.equal(records[2].content, repeated);
+});
+
+test('active pressure measures repeated exact reads without retaining request content in telemetry', () => {
+  const records = fixture();
+  records.splice(4, 0,
+    { type: 'tool_request', toolName: 'fs.read_text', args: { path: 'old.txt' }, providerCallId: 'call-repeat', requestId: 'req-repeat', turnId: 'turn-1', stepId: 'step-2' },
+    { type: 'tool_result', toolName: 'fs.read_text', content: 'recovered evidence', status: 'succeeded', providerCallId: 'call-repeat', requestId: 'req-repeat', turnId: 'turn-1', stepId: 'step-2' });
+  const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'checkpoint' });
+  assert.equal(projected.evidenceRetention.repeatedReadRequests, 1);
+  assert.ok(projected.evidenceRetention.sourceToolResultBytes > 0);
+  assert.ok(projected.evidenceRetention.checkpointBytes > 0);
+  assert.equal(Object.hasOwn(projected.evidenceRetention, 'path'), false);
 });
 
 function fixture() {

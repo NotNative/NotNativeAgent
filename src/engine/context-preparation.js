@@ -134,7 +134,7 @@ async function createCompactionCandidate(engine, records, active, plan) {
   const source = includeUnprojectedActiveRecords(records, engine.transcript, active.turnId);
   const compacted = engine.reliability.compactTranscript(source, plan.budget, {
     activeTurnId: active.turnId, activeStepId: active.stepId,
-    protectedActiveSteps: 2, requireProgress: true,
+    protectedActiveSteps: 3, requireProgress: true,
   });
   const repeated = active.lastCompactionSourceFingerprint === compacted.fact.sourceFingerprint
     ? active.compactionNoProgressAttempts + 1 : 0;
@@ -256,6 +256,10 @@ async function pressureProjection(engine, active, operations, measurement) {
     effective_input_tokens: measurement.effectiveInputTokens,
     cold_records: projection.coldRecords,
     retained_active_steps: projection.retainedActiveSteps,
+    source_tool_result_bytes: projection.evidenceRetention.sourceToolResultBytes,
+    projected_tool_result_bytes: projection.evidenceRetention.projectedToolResultBytes,
+    checkpoint_bytes: projection.evidenceRetention.checkpointBytes,
+    repeated_read_requests: projection.evidenceRetention.repeatedReadRequests,
     duplicate_result_records: projection.duplicateResultRecords,
     duplicate_result_bytes_saved: projection.duplicateResultBytesSaved,
     source_fingerprint: projection.sourceFingerprint,

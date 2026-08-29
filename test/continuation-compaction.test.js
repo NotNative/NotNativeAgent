@@ -309,13 +309,13 @@ test('settled tool exchanges become typed causal receipts while tool-call argume
   const productionResult = toolResultRecord({
     lifecycle: { id: 'request-old' },
     result: {
-      request_id: 'request-old', provider_call_id: 'shell-old', tool_name: 'shell.run',
+      request_id: 'request-old', provider_call_id: 'read-old', tool_name: 'fs.read',
       status: 'succeeded', effect_certainty: 'completed', content: `host-a\n${'output '.repeat(2_000)}`,
     },
   }, 'turn-old');
   const transcript = [
     message('user', 'Inspect the host.', 'turn-old'),
-    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'shell-old', toolName: 'shell.run', args: { script: `hostname && ${'x'.repeat(3_000)}`, shell: 'auto' } },
+    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'read-old', toolName: 'fs.read', args: { path: `host-${'x'.repeat(3_000)}.txt` } },
     productionResult,
     ...Array.from({ length: 5 }, (_, index) => [
       message('user', `Recent request ${index}`, `turn-${index}`),
@@ -323,17 +323,18 @@ test('settled tool exchanges become typed causal receipts while tool-call argume
     ]).flat(),
   ];
   const compacted = compactTranscript(transcript, 80_000);
-  const request = compacted.records.find((item) => item.providerCallId === 'shell-old' && item.type === 'tool_request');
-  const result = compacted.records.find((item) => item.providerCallId === 'shell-old' && item.type === 'tool_result');
+  const request = compacted.records.find((item) => item.providerCallId === 'read-old' && item.type === 'tool_request');
+  const result = compacted.records.find((item) => item.providerCallId === 'read-old' && item.type === 'tool_result');
   const receipt = JSON.parse(result.content);
   assert.equal(request.providerCallId, result.providerCallId);
-  assert.equal(request.args.shell, 'auto');
-  assert.equal(request.args.script, transcript[1].args.script);
+  assert.equal(request.args.path, transcript[1].args.path);
   assert.equal(receipt.schema, 'nna.tool-receipt.v1');
-  assert.equal(receipt.category, 'shell');
+  assert.equal(receipt.category, 'filesystem');
   assert.equal(receipt.outcome, 'succeeded');
   assert.equal(receipt.effect_certainty, 'completed');
   assert.equal(receipt.ledger_ref, 'request-old');
+  assert.ok(Buffer.byteLength(receipt.summary, 'utf8') > 3_500);
+  assert.ok(Buffer.byteLength(receipt.summary, 'utf8') <= 4_096);
   assert.match(receipt.result_fingerprint, /^[a-f0-9]{64}$/u);
   assert.equal(result.metadata.reason, 'semantic_tool_receipt');
 });

@@ -63,14 +63,15 @@ type counts, hint count, and a deterministic catalog fingerprint.
 - Omitted records remain deterministically discoverable; absence from hot context is never
   treated as proof that an event or decision did not occur.
 - The active user request is always retained.
-- Full compaction protects the newest two active model/tool steps rather than the entire active
+- Full compaction protects the newest three active model/tool steps rather than the entire active
   turn, so audits and research runs can shed settled work while continuing.
 - Deterministic checkpoints record the objective, bounded model-reported progress, and settled
   tool receipts. The agent can retrieve exact older evidence from session history when needed.
 - Compaction has no lifetime per-turn count. It stops only after repeated attempts against the
   same unchanged source fail to make progress.
-- Pressure tier, raw projected tokens, checkpoint fingerprints, and retained-step counts are
-  emitted to local telemetry.
+- Pressure tier, raw projected tokens, checkpoint fingerprints, retained-step counts, source and
+  projected tool-result bytes, checkpoint bytes, and repeated exact file-read counts are emitted
+  to local telemetry. These measurements contain counts and byte totals, not paths or content.
 - Compression efficacy records pre/post bytes and tokens, reducer attribution, tokenizer
   identity, and fallback status. History retrieval records rediscovery cost so nominal token
   savings cannot conceal repeated recovery work.

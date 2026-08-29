@@ -9,6 +9,10 @@ export const CONTEXT_PRESSURE = Object.freeze({
   aggressive: 0.70,
   compact: 0.75,
 });
+// Why: active filesystem evidence needs enough local context to prevent avoidable repeat reads;
+// byte-only telemetry below measures whether this budget improves the intended outcome.
+const ACTIVE_RECEIPT_BYTES = Object.freeze({ filesystem: 4096, search: 2048, other: 1024 });
+const READ_TOOLS = new Set(['fs.read', 'fs.read_lines', 'fs.read_text']);
 
 export function contextPressurePolicy(
   compression = CONTEXT_PRESSURE.receipts,
@@ -36,15 +40,15 @@ export function pressureTier(estimatedTokens, effectiveInputTokens, policy = CON
 
 export function projectActiveTurn(records, options) {
   const tier = options.tier ?? 'none';
-  if (tier === 'none' || !options.turnId) return unchanged(records, tier);
+  if (tier === 'none' || !options.turnId) return unchanged(records, tier, options.turnId);
   const active = records.map((item, index) => ({ item, index }))
     .filter((entry) => recordTurnId(entry.item) === options.turnId);
-  if (active.length === 0) return unchanged(records, tier);
+  if (active.length === 0) return unchanged(records, tier, options.turnId);
   const steps = orderedSteps(active);
   const keepCount = ({ receipts: 3, checkpoint: 2 }[tier] ?? 1);
   const hotSteps = new Set(steps.slice(-keepCount));
   const cold = new Set(active.filter((entry) => isCold(entry.item, hotSteps)).map((entry) => entry.index));
-  if (cold.size === 0) return unchanged(records, tier);
+  if (cold.size === 0) return unchanged(records, tier, options.turnId);
   const checkpoint = createActiveCheckpoint(records, cold, options, tier);
   const protectedIndexes = new Set(records.map((_item, index) => index).filter((index) => !cold.has(index)));
   const duplicates = tier === 'receipts'
@@ -53,12 +57,13 @@ export function projectActiveTurn(records, options) {
   const projected = tier === 'receipts'
     ? receiptProjection(duplicates.records, cold)
     : checkpointProjection(records, cold, checkpoint);
+  const evidenceRetention = measureEvidenceRetention(records, projected, options.turnId);
   return Object.freeze({
     records: Object.freeze(projected), checkpoint, tier,
     coldRecords: cold.size, retainedActiveSteps: hotSteps.size,
     duplicateResultRecords: duplicates.duplicateRecords,
     duplicateResultBytesSaved: duplicates.bytesSaved,
-    sourceFingerprint: checkpoint.sourceFingerprint,
+    sourceFingerprint: checkpoint.sourceFingerprint, evidenceRetention,
   });
 }
 
@@ -132,12 +137,49 @@ function renderCheckpoint(checkpointData) {
 }
 
 function toolResultReceipt(item) {
-  const excerpt = boundedHeadTail(item.content ?? '', 1_024);
+  const budget = ACTIVE_RECEIPT_BYTES[receiptCategory(item.toolName)];
+  const excerpt = boundedHeadTail(item.content ?? '', budget);
   return {
     ...item,
     content: `${excerpt}${excerpt ? '\n' : ''}[Settled tool output compressed for active context; full output remains in the durable session journal.]`,
     metadata: { ...boundedMetadata(item.metadata), compacted: true, reason: 'active_pressure_receipt', ledgerRef: ledgerRef(item) },
   };
+}
+
+function receiptCategory(name = '') {
+  if (/^(?:fs\.|code\.)/u.test(name)) {
+    return /(?:search|glob|list|diagnostic)/u.test(name) ? 'search' : 'filesystem';
+  }
+  return 'other';
+}
+
+function measureEvidenceRetention(source, projected, turnId) {
+  const sourceResults = source.filter((item) => isTurnRecord(item, turnId) && item.type === 'tool_result');
+  const projectedResults = projected.filter((item) => isTurnRecord(item, turnId) && item.type === 'tool_result');
+  const checkpoints = projected.filter((item) => isTurnRecord(item, turnId) && item.type === 'context_checkpoint');
+  return Object.freeze({
+    sourceToolResultBytes: contentBytes(sourceResults),
+    projectedToolResultBytes: contentBytes(projectedResults),
+    checkpointBytes: contentBytes(checkpoints),
+    repeatedReadRequests: repeatedReadRequests(source, turnId),
+  });
+}
+
+function contentBytes(records) {
+  return records.reduce((total, item) => {
+    return total + Buffer.byteLength(String(item.content ?? item.summary ?? ''), 'utf8');
+  }, 0);
+}
+
+function repeatedReadRequests(records, turnId) {
+  const seen = new Set(); let repeated = 0;
+  for (const item of records) {
+    if (!isTurnRecord(item, turnId) || item.type !== 'tool_request' || !READ_TOOLS.has(item.toolName)) continue;
+    const identity = JSON.stringify({ tool: item.toolName, args: item.args ?? {} });
+    if (seen.has(identity)) repeated += 1;
+    else seen.add(identity);
+  }
+  return repeated;
 }
 
 function toolRequestReceipt(item) {
@@ -202,9 +244,12 @@ function fingerprint(records) {
   return createHash('sha256').update(JSON.stringify(records)).digest('hex');
 }
 
-function unchanged(records, tier) {
+function unchanged(records, tier, turnId) {
   return Object.freeze({
     records, checkpoint: null, tier, coldRecords: 0, retainedActiveSteps: 0,
     duplicateResultRecords: 0, duplicateResultBytesSaved: 0, sourceFingerprint: null,
+    evidenceRetention: measureEvidenceRetention(records, records, turnId),
   });
 }
+
+function isTurnRecord(item, turnId) { return !turnId || recordTurnId(item) === turnId; }
