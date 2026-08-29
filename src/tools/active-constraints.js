@@ -59,7 +59,9 @@ function constraintFor(item) {
     id: digest(identity).slice(0, 32),
     kind, tool, status, reason_code: reasonCode,
     ...(toolReviewOutcome(result) ? { review_outcome: toolReviewOutcome(result) } : {}),
-    request_fingerprint: requestFingerprint, detail,
+    // Why: the hash remains part of the internal identity above, but a provider cannot
+    // compute or act on it. Exposing it would turn kernel telemetry into model ceremony.
+    detail,
     ...(prerequisite ? { required_tool: prerequisite.tool, required_path: prerequisite.path } : {}),
     instruction: instruction(kind, result, item, prerequisite),
   });
@@ -91,7 +93,7 @@ function instruction(kind, result, item, prerequisite = null) {
   if (kind === CONSTRAINT_KIND.schema) {
     const detail = constraintDetail(kind, result);
     return `The prior ${result.tool_name ?? item?.call?.name ?? 'tool'} request was rejected: ${detail}. `
-      + 'Rebuild the call from the currently presented schema, use only its allowed fields, and do not repeat the same request fingerprint.';
+      + 'Rebuild the call from the currently presented schema, use only its allowed fields, and do not repeat the same invalid request shape.';
   }
   if (kind === CONSTRAINT_KIND.action) {
     return 'The provider output limit was reached before the tool JSON closed. The immediate repair step uses a smaller output budget with optional thinking disabled. Make that one concise action call; for edits, select the smallest unique anchor and bounded replacement, then split larger changes across calls. Later steps may reason normally, but do not repeat the oversized request shape.';

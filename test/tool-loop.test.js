@@ -539,7 +539,8 @@ test('schema repair constraints are injected into the next model continuation', 
         && item.content.includes('Active tool constraints'));
       assert.match(constraint.content, /"kind":"schema_repair"/u);
       assert.match(constraint.content, /required argument \\"pattern\\" is missing/u);
-      assert.match(constraint.content, /request_fingerprint/u);
+      assert.match(constraint.content, /same invalid request shape/u);
+      assert.doesNotMatch(constraint.content, /request_fingerprint/u);
     },
   );
   const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider });

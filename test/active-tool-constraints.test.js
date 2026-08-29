@@ -20,7 +20,8 @@ test('active constraints retain structured repairs and clear them after verified
   });
   const constraints = mergeToolConstraints([], [invalid]);
   assert.equal(constraints[0].kind, 'schema_repair');
-  assert.match(constraints[0].request_fingerprint, /^[0-9a-f]{64}$/u);
+  assert.equal(constraints[0].request_fingerprint, undefined);
+  assert.match(constraints[0].instruction, /same invalid request shape/u);
   assert.match(constraints[0].instruction, /do not repeat/u);
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs.search_text', 'succeeded')]), []);
 });
@@ -63,6 +64,7 @@ test('machine-readable tool constraints remain in context beside a compacted tra
   const message = context.find((entry) => entry.provenance === 'active_tool_constraints');
   assert.match(message.content, /"kind":"execution_failure"/u);
   assert.match(message.content, /process exited 1/u);
+  assert.doesNotMatch(message.content, /request_fingerprint/u);
   assert.match(message.content, /context reduction/u);
 });
 
