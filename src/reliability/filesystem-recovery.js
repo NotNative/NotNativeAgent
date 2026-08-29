@@ -25,6 +25,15 @@ export function missingParentMessage(path) {
     + 'Call fs.directory with action create; it creates the complete path and missing ancestors recursively.';
 }
 
+export function missingTargetMessage(path) {
+  const supplied = String(path ?? '');
+  const characters = [...supplied].length;
+  const diagnostic = characters <= 2
+    ? ` The supplied path contains ${characters} character${characters === 1 ? '' : 's'} and may be incomplete; verify that the provider sent the complete path.`
+    : '';
+  return `target does not exist: ${JSON.stringify(supplied)}.${diagnostic} Use fs.list to locate the target before retrying.`;
+}
+
 export function satisfiesFilesystemPrerequisite(item, prerequisite) {
   if (item?.result?.status !== 'succeeded' || prerequisite?.kind !== 'prerequisite_repair') return false;
   if (prerequisite.required_tool !== 'fs.directory' || typeof prerequisite.required_path !== 'string') return false;

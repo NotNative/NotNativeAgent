@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { promisify } from 'node:util';
 import { basename, dirname, isAbsolute, join, parse, relative, resolve } from 'node:path';
 import { ContractError } from './ids.js';
-import { missingParentMessage } from './reliability/filesystem-recovery.js';
+import { missingParentMessage, missingTargetMessage } from './reliability/filesystem-recovery.js';
 
 export class PathPolicy {
   constructor(workspaceRoot, options = {}) {
@@ -23,7 +23,7 @@ export class PathPolicy {
 
   async resolveRead(input) {
     const candidate = this.#candidate(input);
-    const canonical = await realpath(candidate);
+    const canonical = await requiredRealpath(candidate, input);
     this.#assertAllowed(canonical);
     const info = await stat(canonical);
     if (!info.isFile()) throw new ContractError('tool_target_invalid', 'target is not a regular file');
@@ -124,7 +124,7 @@ export class PathPolicy {
 
   async resolveMetadata(input) {
     const candidate = this.#candidate(input);
-    const canonical = await realpath(candidate);
+    const canonical = await requiredRealpath(candidate, input);
     this.#assertAllowed(canonical);
     const info = await stat(canonical);
     return Object.freeze({
@@ -137,7 +137,7 @@ export class PathPolicy {
   async resolveOptionalMetadata(input) {
     try { return await this.resolveMetadata(input); }
     catch (error) {
-      if (!['ENOENT', 'ENOTDIR'].includes(error?.code)) throw error;
+      if (!['ENOENT', 'ENOTDIR', 'tool_target_not_found'].includes(error?.code)) throw error;
       const candidate = this.#candidate(input);
       const canonical = await this.#prospectiveTarget(candidate);
       this.#assertAllowed(canonical);
@@ -199,6 +199,16 @@ export class PathPolicy {
   async #classification(candidate, exists) {
     const insideWorkspace = this.#insideWorkspace(candidate);
     return { insideWorkspace, workspaceGitBacked: Boolean(this.gitRoot), recovery: exists ? 'none' : 'new_target' };
+  }
+}
+
+async function requiredRealpath(candidate, supplied) {
+  try { return await realpath(candidate); }
+  catch (error) {
+    if (!['ENOENT', 'ENOTDIR'].includes(error?.code)) throw error;
+    // Why: a stable reason code is insufficient recovery guidance when provider output
+    // truncated the path. Report only the supplied value and do not guess its intended target.
+    throw new ContractError('tool_target_not_found', missingTargetMessage(supplied));
   }
 }
 

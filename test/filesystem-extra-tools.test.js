@@ -15,7 +15,7 @@ async function fixture(options = {}) {
   const paths = new PathPolicy(root, options); await paths.initialize();
   const receipts = new ReadReceiptLedger();
   receipts.record(join(root, 'source.txt'), createHash('sha256').update('original').digest('hex'), { full: true }, 'original');
-  return { root, definitions: new Map(filesystemExtraDefinitions(paths, null, receipts).map((item) => [item.name, item])) };
+  return { root, paths, definitions: new Map(filesystemExtraDefinitions(paths, null, receipts).map((item) => [item.name, item])) };
 }
 
 test('root metadata and directory tools may target host paths while hosted tools remain bounded', async () => {
@@ -34,6 +34,24 @@ test('root metadata and directory tools may target host paths while hosted tools
   await directory.executor(outsideRequest, new AbortController().signal);
   const hosted = await fixture({ boundedToWorkspace: true });
   await assert.rejects(hosted.definitions.get('fs.create_directory').validate({ path: join(outside, 'hosted-denied') }), { code: 'tool_scope_denied' });
+});
+
+test('missing filesystem targets expose the supplied path without guessing its intent', async () => {
+  const { paths } = await fixture();
+  await assert.rejects(paths.resolveRead('D'), (error) => {
+    assert.equal(error.code, 'tool_target_not_found');
+    assert.match(error.message, /target does not exist: "D"/u);
+    assert.match(error.message, /contains 1 character and may be incomplete/u);
+    assert.match(error.message, /Use fs\.list to locate the target/u);
+    assert.doesNotMatch(error.message, /intended|should have been/iu);
+    return true;
+  });
+  await assert.rejects(paths.resolveRead('missing/file.txt'), (error) => {
+    assert.equal(error.code, 'tool_target_not_found');
+    assert.ok(error.message.includes('target does not exist: "missing/file.txt"'));
+    assert.doesNotMatch(error.message, /may be incomplete/u);
+    return true;
+  });
 });
 
 test('directory creation is recursive and idempotent while retaining resolved path governance', async () => {
