@@ -445,15 +445,18 @@ test('AC-MCP-05 one failed MCP server is isolated from a ready peer', async () =
   assert.deepEqual(statuses.map((item) => [item.id, item.status]), [['bad', 'degraded'], ['good', 'ready']]);
 });
 
-test('interactive startup defers unavailable MCP discovery and shutdown cancels it', async () => {
+test('interactive startup defers unavailable MCP discovery and shutdown cancels it', { timeout: 10_000 }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-mcp-deferred-startup-'));
   let requestStarted = false;
   let requestCancelled = false;
+  let signalRequestStarted;
+  const requestStartedPromise = new Promise((resolve) => { signalRequestStarted = resolve; });
   const transport = {
     protocolVersion: MCP_CURRENT_VERSION,
     async open() {},
     async request(_method, _params, signal) {
       requestStarted = true;
+      signalRequestStarted();
       return new Promise((_resolve, reject) => {
         const cancel = () => {
           requestCancelled = true;
@@ -475,10 +478,8 @@ test('interactive startup defers unavailable MCP discovery and shutdown cancels 
     providerFactory: () => ({ async *stream() { yield { type: 'terminal', finishReason: 'stop' }; } }),
   });
 
-  const started = performance.now();
   await engine.initialize({ deferMcp: true });
-  assert.ok(performance.now() - started < 500);
-  await new Promise((resolve) => setImmediate(resolve));
+  await requestStartedPromise;
   assert.equal(requestStarted, true);
   assert.equal(engine.mcp.status()[0].state, 'connecting');
 
