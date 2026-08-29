@@ -19,8 +19,13 @@ function powershellFilesystemObservation(value) {
   let listed = false;
   for (const segment of segments) {
     if (/^\$ErrorActionPreference\s*=\s*(['"])SilentlyContinue\1$/iu.test(segment)) continue;
-    if (segment.includes('$')) return false;
-    const command = /^([A-Za-z][A-Za-z0-9-]*)\b/u.exec(segment)?.[1]?.toLowerCase();
+    // Invariant: assigning the output of an allowlisted observation command to one
+    // local variable changes no durable state. The right-hand side still passes the
+    // same closed command grammar; other variable expressions remain uncertain.
+    const assignment = /^\$[A-Za-z_][A-Za-z0-9_]*\s*=\s*(.+)$/u.exec(segment);
+    const operation = assignment?.[1]?.trim() ?? segment;
+    if (operation.includes('$')) return false;
+    const command = /^([A-Za-z][A-Za-z0-9-]*)\b/u.exec(operation)?.[1]?.toLowerCase();
     if (!POWERSHELL_OBSERVATION_COMMANDS.has(command)) return false;
     if (command === 'get-childitem') listed = true;
   }

@@ -327,11 +327,19 @@ test('shell.run classifies compound and destructive scripts for semantic review 
   });
   assert.equal(observation.resolved.reviewPurpose, 'filesystem_observation');
   assert.equal(observation.resolved.readOnly, true);
+  const assignedObservation = await definition.validate({
+    shell: 'powershell',
+    script: '$src = Get-ChildItem -Path src -Recurse -Include *.js -ErrorAction SilentlyContinue',
+  });
+  assert.equal(assignedObservation.resolved.reviewPurpose, 'filesystem_observation');
+  assert.equal(assignedObservation.resolved.readOnly, true);
   for (const script of [
     'Get-ChildItem | Remove-Item',
     'Get-ChildItem $(Remove-Item target.txt)',
     'Get-ChildItem; Set-Content out.txt changed',
     'Get-ChildItem 12>out.txt',
+    '$src = Get-ChildItem; $src | Remove-Item',
+    '$src = Invoke-Expression "Get-ChildItem"',
   ]) assert.equal((await definition.validate({ shell: 'powershell', script })).resolved.readOnly, false);
   await assert.rejects(definition.validate({ script: 'curl -H "Authorization: Bearer literal" example.test' }), { code: 'shell_secret_argument_forbidden' });
   const hosted = new ToolRegistry(root, { hosted: true, boundedToWorkspace: true, allowedTools: ['shell.run'] });
