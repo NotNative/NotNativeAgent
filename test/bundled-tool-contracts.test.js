@@ -17,6 +17,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'skill.search', 'skill.load', 'agent.run',
   'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
   'notification.telegram', 'session.search_history', 'session.read_history', 'system.time',
+  'workspace.change',
 ]);
 
 function optionalControls() {
@@ -28,6 +29,7 @@ function optionalControls() {
       load() { return { id: 'fixture', version: 1, source: 'test', requiresTools: [], body: '' }; },
     },
     subagentControl: { workspaceRoot: process.cwd(), async run() { return {}; } },
+    workspaceControl: { async change() { return { previousWorkspace: process.cwd(), workspaceRoot: process.cwd(), changed: false }; } },
     conversationWork: {
       snapshot() { return snapshot; }, async setGoal() { return snapshot; },
       async completeGoal() { return snapshot; }, async reopenGoal() { return snapshot; },

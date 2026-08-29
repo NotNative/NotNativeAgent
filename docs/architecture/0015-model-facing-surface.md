@@ -7,14 +7,15 @@ surface to every ordinary provider step. The deterministic order is:
 
 1. `tool.search`;
 2. `system.time`;
-3. `fs.list`, `fs.read`, and `fs.search_text`;
-4. `shell.run`, `web.search`, `web.fetch`, and `web.browse`;
-5. `work.plan`, `work.status`, `work.goal`, `work.task_add`, and `work.task_update`;
-6. `git.inspect`;
-7. `session.search_history` and `session.read_history`;
-8. `nna.search_guidance`, `nna.read_guidance`, and `nna.diagnose_turn`;
-9. `ref.inspect`;
-10. `skill.search` and `skill.load`.
+3. `workspace.change`;
+4. `fs.list`, `fs.read`, and `fs.search_text`;
+5. `shell.run`, `web.search`, `web.fetch`, and `web.browse`;
+6. `work.plan`, `work.status`, `work.goal`, `work.task_add`, and `work.task_update`;
+7. `git.inspect`;
+8. `session.search_history` and `session.read_history`;
+9. `nna.search_guidance`, `nna.read_guidance`, and `nna.diagnose_turn`;
+10. `ref.inspect`;
+11. `skill.search` and `skill.load`.
 
 A definition is omitted only when its subsystem is unavailable or an authenticated host
 manifest ceilings it. Root conversations do not have a text-only or zero-tool phase. The
@@ -58,3 +59,10 @@ Legacy granular filesystem aliases remain installed for sealed requests, old man
 resumed sessions, specialist workflows, and recovery, but they do not compete in the
 foundational catalog. The intended result is predictable affordance for small and local models,
 without brittle language gating or any reduction in governance.
+
+`workspace.change` is the only model-callable persistent working-directory transition. It
+validates one existing directory and always reaches mandatory semantic review. A successful
+transition replaces that conversation's automatic filesystem scope, reloads applicable project
+guidance, and persists across restoration. An explicit operator request can authorize one
+outside-CWD operation without changing the CWD. Neither route changes a tool classification,
+host capability ceiling, mission boundary, or governance policy.

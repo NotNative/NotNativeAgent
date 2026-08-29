@@ -43,4 +43,16 @@ test('bounded-tail recovery identifies an authoritative conversation reset', () 
   assert.deepEqual(reset.authority.map((item) => item.content), ['new lineage']);
 });
 
+test('session history restores the newest durable working directory transition', () => {
+  const restored = restoreSessionRecords([
+    record('workspace_changed', { workspaceRoot: 'D:/first' }),
+    record('workspace_changed', { workspaceRoot: 'D:/second' }),
+  ]);
+  assert.equal(restored.workspaceRoot, 'D:/second');
+  assert.throws(
+    () => restoreSessionRecords([record('workspace_changed', { workspaceRoot: '' })]),
+    { code: 'session_history_invalid' },
+  );
+});
+
 function record(type, payload) { return { type, payload }; }

@@ -5,6 +5,7 @@ import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
 import { evidenceNamesTarget, grantBeforeOtherFilesRestriction } from './review-target-evidence.js';
 import { DETACHED_PROCESS_GUIDANCE, detachedProcessAuthorized } from './reliability/process-lifecycle.js';
 import { EXTERNAL_BROWSER_GUIDANCE } from './reliability/external-browser.js';
+import { workspaceTransitionClassification } from './reliability/workspace-scope.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 export class MandatoryReviewer {
   constructor(options) {
@@ -109,12 +110,8 @@ function refreshApprovalWindow(decision, ttlMs) {
   const committedAt = Date.now();
   return Object.freeze({ ...decision, committedAt, expiresAt: committedAt + ttlMs });
 }
-function reviewTelemetryStatus(outcome) {
-  return outcome === 'approve' ? 'succeeded' : outcome === 'escalate_to_operator' ? 'skipped' : 'denied';
-}
-function elapsedMs(started) {
-  return Number(process.hrtime.bigint() - started) / 1_000_000;
-}
+function reviewTelemetryStatus(outcome) { return outcome === 'approve' ? 'succeeded' : outcome === 'escalate_to_operator' ? 'skipped' : 'denied'; }
+function elapsedMs(started) { return Number(process.hrtime.bigint() - started) / 1_000_000; }
 export class UnavailableSemanticReviewer {
   async review() {
     throw new ContractError('semantic_reviewer_unavailable', 'semantic reviewer is unavailable');
@@ -122,6 +119,7 @@ export class UnavailableSemanticReviewer {
 }
 function classify(request, definition) {
   if (!definition || request.toolName !== definition.name) return definitionMismatchClassification();
+  if (definition.name === 'workspace.change') return workspaceTransitionClassification(resolvedOutsideWorkspace(request));
   if (definition.name === 'fs.directory' && request.args?.action === 'list') {
     return Object.freeze({
       risk: 'safe', reason: resolvedOutsideWorkspace(request) ? 'host_read' : 'workspace_read',
@@ -344,6 +342,8 @@ function decision(outcome, reasonCode, request, guidance) {
 }
 
 function authenticatedIntentRelation(request, authority, definition, conversationIntent = []) {
+  // Security: only semantic review interprets authenticated authority for a scope transition.
+  if (request.toolName === 'workspace.change') return 'uncertain';
   if (request.toolName === 'fs.directory' && request.args?.action === 'list') return 'covered';
   if (definition.sideEffect === 'read_only') return 'covered';
   // Do not classify free-form operator language with keywords. Risky actions grounded in

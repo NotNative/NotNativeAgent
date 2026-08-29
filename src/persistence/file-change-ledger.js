@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { isAbsolute, relative } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import { ContractError } from '../ids.js';
 
 const MAX_SNAPSHOT_BYTES = 1_048_576;
@@ -11,6 +11,13 @@ export class FileChangeLedger {
   #entries = new Map();
 
   constructor(root) { this.#root = root; }
+
+  rebase(root) {
+    this.#root = resolve(root);
+    this.#entries = new Map([...this.#entries].map(([path, entry]) => [path, Object.freeze({
+      ...entry, displayPath: displayPath(this.#root, path),
+    })]));
+  }
 
   record(path, before, after, operation) {
     const prior = this.#entries.get(path);

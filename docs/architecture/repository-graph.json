@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:7a26e31964039484da5146a02e131df9e78aa978d876e177316f57022395dbb4",
+  "source_digest": "sha256:8f42e8a2b10a660b036aba3979b315519bf92a63031aeeb5d23413e25885695b",
   "counts": {
-    "modules": 327,
+    "modules": 330,
     "component_edges": 69
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "agentic-engine",
       "label": "Agentic Engine",
       "ownership": "Owns turns, steps, lifecycle, and orchestration.",
-      "module_count": 17
+      "module_count": 18
     },
     {
       "id": "governance-engine",
@@ -30,7 +30,7 @@
       "id": "reliability-engine",
       "label": "Reliability Engine",
       "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
-      "module_count": 42
+      "module_count": 43
     },
     {
       "id": "gateway",
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 42
+      "module_count": 43
     },
     {
       "id": "guidance",
@@ -125,13 +125,13 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 51,
-      "module_count": 33
+      "import_count": 52,
+      "module_count": 34
     },
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 50,
+      "import_count": 51,
       "module_count": 18
     },
     {
@@ -143,13 +143,13 @@
     {
       "from": "agentic-engine",
       "to": "foundation",
-      "import_count": 37,
-      "module_count": 14
+      "import_count": 39,
+      "module_count": 15
     },
     {
       "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 27,
+      "import_count": 28,
       "module_count": 8
     },
     {
@@ -267,6 +267,12 @@
       "module_count": 6
     },
     {
+      "from": "agentic-engine",
+      "to": "guidance",
+      "import_count": 6,
+      "module_count": 3
+    },
+    {
       "from": "providers",
       "to": "reliability-engine",
       "import_count": 6,
@@ -275,12 +281,6 @@
     {
       "from": "agentic-engine",
       "to": "governance-engine",
-      "import_count": 5,
-      "module_count": 2
-    },
-    {
-      "from": "agentic-engine",
-      "to": "guidance",
       "import_count": 5,
       "module_count": 2
     },
@@ -345,6 +345,12 @@
       "module_count": 3
     },
     {
+      "from": "governance-engine",
+      "to": "reliability-engine",
+      "import_count": 3,
+      "module_count": 1
+    },
+    {
       "from": "reliability-engine",
       "to": "providers",
       "import_count": 3,
@@ -391,12 +397,6 @@
       "to": "reliability-engine",
       "import_count": 2,
       "module_count": 2
-    },
-    {
-      "from": "governance-engine",
-      "to": "reliability-engine",
-      "import_count": 2,
-      "module_count": 1
     },
     {
       "from": "governance-engine",
@@ -857,6 +857,7 @@
         "src/engine/provider-recovery.js",
         "src/engine/records.js",
         "src/engine/runtime-helpers.js",
+        "src/engine/workspace-transition.js",
         "src/event-factory.js",
         "src/events.js",
         "src/forensic-telemetry.js",
@@ -1061,6 +1062,16 @@
         "src/reliability/tool-call-deduplication.js",
         "src/tools/capability-continuity.js",
         "src/tools/catalog-context.js"
+      ]
+    },
+    {
+      "path": "src/engine/workspace-transition.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/guidance/project.js",
+        "src/ids.js",
+        "src/project-intake.js"
       ]
     },
     {
@@ -2388,6 +2399,12 @@
       "imports": []
     },
     {
+      "path": "src/reliability/workspace-scope.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/review-evidence.js",
       "component": "governance-engine",
       "entrypoint": false,
@@ -2425,6 +2442,7 @@
         "src/persistence/reviewer-ledger.js",
         "src/reliability/external-browser.js",
         "src/reliability/process-lifecycle.js",
+        "src/reliability/workspace-scope.js",
         "src/review-target-evidence.js",
         "src/reviewer-packet.js"
       ]
@@ -2676,6 +2694,7 @@
         "src/tools/self-diagnostics.js",
         "src/tools/system-time.js",
         "src/tools/text-edit-helpers.js",
+        "src/tools/workspace.js",
         "src/tools/write-target.js",
         "src/web-browse-tool.js",
         "src/web-fetch-tool.js",
@@ -2964,6 +2983,14 @@
       "component": "tools",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/tools/workspace.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
     },
     {
       "path": "src/tools/write-target.js",

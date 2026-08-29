@@ -39,6 +39,7 @@ import { advanceFromAuthoredState, mutationEvidence, transactionalSnapshot,
 import { telegramNotificationDefinition } from './notifications/telegram.js';
 import { sessionHistoryDefinitions } from './session-history-tools.js';
 import { systemTimeDefinition } from './tools/system-time.js';
+import { workspaceChangeDefinition } from './tools/workspace.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
 import { planProviderToolNames } from './tools/provider-surface-planner.js';
 const MAX_TEXT_BYTES = 1_048_576;
@@ -71,6 +72,7 @@ export class ToolRegistry {
     this.diagnosticContext = options.diagnosticContext;
     this.mcpControl = options.mcpControl;
     this.subagentControl = options.subagentControl;
+    this.workspaceControl = options.workspaceControl;
     this.conversationWork = options.conversationWork;
     this.telegramNotifications = options.telegramNotifications; this.activeTurnId = options.activeTurnId; this.sessionHistory = options.sessionHistory;
     this.elevationBroker = options.elevationBroker;
@@ -113,6 +115,7 @@ export class ToolRegistry {
     if (this.telegramNotifications) this.#install(telegramNotificationDefinition(this.telegramNotifications, this.activeTurnId));
     for (const definition of sessionHistoryDefinitions(this.sessionHistory)) this.#install(definition);
     this.#install(systemTimeDefinition());
+    if (!this.hosted && this.workspaceControl) this.#install(workspaceChangeDefinition(this.paths, this.workspaceControl));
   }
   async close() { await this.definition('web.browse')?.manager?.close?.(); }
   snapshot() {
@@ -163,6 +166,12 @@ export class ToolRegistry {
   searchCatalog(query, limit = 12) { return rankToolDefinitions(this.catalogSnapshot(), query, limit); }
   diff(path = null) { return this.#changes.diff(path); }
   changeSnapshot() { return this.#changes.snapshot(); }
+  prepareWorkspaceRoot(root) { return this.paths.prepareWorkspaceRoot(root); }
+  commitWorkspaceRoot(prepared) {
+    this.paths.commitWorkspaceRoot(prepared);
+    this.#changes.rebase(prepared.root);
+    if (this.subagentControl) this.subagentControl.workspaceRoot = prepared.root;
+  }
   grantWorkflowLease(names, options = {}) {
     const uses = Number.isSafeInteger(options.uses) ? Math.max(1, Math.min(32, options.uses)) : 1;
     for (const name of names) {

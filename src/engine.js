@@ -36,6 +36,7 @@ import { runEngineSubagent, subagentParallelLimit } from './subagent-runtime.js'
 import { finalizeEngineTurn } from './engine/finalization.js';
 import { projectConversationIntent, resolveApprovedAssistantProposal } from './engine/intent-projection.js';
 import { awaitEngineAttention } from './engine/attention.js';
+import { changeEngineWorkspace, restoreEngineWorkspace } from './engine/workspace-transition.js';
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -49,8 +50,7 @@ export class SessionEngine {
     this.reviewPosture = options.reviewPosture ?? 'auto-review';
     this.runtimeId = options.runtimeId ?? newId('runtime');
     this.sessionId = options.sessionId ?? newId('session');
-    this.dataPaths = options.dataPaths ?? userDataPaths();
-    this.subagentDepth = options.subagentDepth ?? 0;
+    this.dataPaths = options.dataPaths ?? userDataPaths(); this.subagentDepth = options.subagentDepth ?? 0;
     this.subagentOptions = {
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
       memoryAdapter: options.memoryAdapter, mcpTransportFactory: options.mcpTransportFactory,
@@ -97,8 +97,7 @@ export class SessionEngine {
         turn_id: active.turnId, position,
       }),
     });
-  }
-  async initialize(options = {}) {
+  } async initialize(options = {}) {
     return initializeEngine(this, {
       restore: (records, truncated) => this.#restore(records, truncated),
       repairInterruptedTools: (repairs) => this.#repairInterruptedTools(repairs),
@@ -223,9 +222,8 @@ export class SessionEngine {
   async clearConversation() {
     return clearEngineConversation(this);
   }
-  async runSubagent(input, signal) {
-    return runEngineSubagent(this, input, signal, (options) => new SessionEngine(options));
-  }
+  async runSubagent(input, signal) { return runEngineSubagent(this, input, signal, (options) => new SessionEngine(options)); }
+  async changeWorkspace(target) { return changeEngineWorkspace(this, target, { persist: (type, payload) => this.#persist(type, payload) }); }
   parallelToolLimit(group, signal) { return subagentParallelLimit(this, group, signal); }
   async #runTurn(content, attachmentInputs, retryAttachmentId) {
     const active = this.active;
@@ -469,7 +467,7 @@ export class SessionEngine {
     await this.store.append('session_created', {
       sessionId: this.sessionId, runtimeId: this.runtimeId,
       configVersion: this.config.version, manifestProvenance: this.config.provenance,
-      executionManifest: this.config.executionManifest, mission: this.config.mission,
+      executionManifest: this.config.executionManifest, mission: this.config.mission, workspaceRoot: this.config.workspaceRoot,
     });
   }
   async #markInterrupted(turnId) {
@@ -487,8 +485,8 @@ export class SessionEngine {
     await this.output({ type: 'accepted', request_id: command.request_id, accepted: false, reason: 'busy' });
     return { accepted: false, reason: 'busy' };
   }
-  #restore(records, truncated = false) {
-    const restored = restoreSessionRecords(records);
+  async #restore(records, truncated = false) {
+    const restored = restoreSessionRecords(records); await restoreEngineWorkspace(this, restored.workspaceRoot);
     this.work.restore(records);
     this.transcript.push(...restored.transcript);
     this.authority.restore(restored.authority, restored.missionTurns, { conversationComplete: !truncated || restored.authorityReset, requireMissionUsage: Boolean(this.config.mission), missionUsageComplete: !truncated || restored.missionTurns.length > 0 });

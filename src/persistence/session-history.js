@@ -15,6 +15,7 @@ export function restoreSessionRecords(records, maxRecords = MAX_RESTORED_RECORDS
   const interruptedTurns = new Set();
   const authority = [];
   const missionTurns = [];
+  let workspaceRoot = null;
   let authorityReset = false;
   for (const record of records.slice(0, maxRecords)) {
     validateRecord(record);
@@ -44,6 +45,12 @@ export function restoreSessionRecords(records, maxRecords = MAX_RESTORED_RECORDS
     } else if (record.type === 'steering_consumed') {
       steering.delete(record.payload.id);
       transcript.push(record.payload.message);
+    } else if (record.type === 'workspace_changed') {
+      if (typeof record.payload.workspaceRoot !== 'string' || record.payload.workspaceRoot.length === 0
+        || record.payload.workspaceRoot.length > 4096) {
+        throw new ContractError('session_history_invalid', 'working directory recovery record is invalid');
+      }
+      workspaceRoot = record.payload.workspaceRoot;
     }
   }
   return Object.freeze({
@@ -53,6 +60,7 @@ export function restoreSessionRecords(records, maxRecords = MAX_RESTORED_RECORDS
     authorityReset,
     missionTurns: Object.freeze(missionTurns),
     interrupted: Object.freeze([...activeTurns].filter((id) => !interruptedTurns.has(id))),
+    workspaceRoot,
   });
 }
 

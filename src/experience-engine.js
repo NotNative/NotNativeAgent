@@ -20,7 +20,7 @@ import {
 import { nextReviewPosture, reviewPostureNotice } from './review-posture.js';
 import { restoreTranscript } from './experience/transcript.js';
 import { restorePresentation, tabPoolRecords } from './experience/presentation.js';
-import { createNextConversation, createWorkspaceConversation } from './experience/directory.js';
+import { createNextConversation, createWorkspaceConversation, observeWorkspaceChange } from './experience/directory.js';
 import { restoreWorkspace } from './experience/restore.js';
 import { validateKeyBindings } from './experience/key-bindings.js';
 import { WorkspaceTabPersistence } from './experience/tab-persistence.js';
@@ -79,8 +79,7 @@ export class ExperienceEngine {
       },
     });
   }
-  initializeDream() { return initializeWorkspaceDream(this); } initializeSessionBroker() { return initializeWorkspaceSessionBroker(this); }
-  dreamCommand(action) { return runWorkspaceDreamCommand(this, action); }
+  initializeDream() { return initializeWorkspaceDream(this); } initializeSessionBroker() { return initializeWorkspaceSessionBroker(this); } dreamCommand(action) { return runWorkspaceDreamCommand(this, action); }
   async restore() {
     const result = await restoreWorkspace(this); if (result.complete) await this._savePoolRecoverable();
     return result.mainId;
@@ -112,6 +111,7 @@ export class ExperienceEngine {
       skillRoots: options.skillRoots ?? this.options.skillRoots,
       scheduler: this.scheduler, secretBroker: this.secretBroker,
       webSearchConfigPath: this.webSearchConfigPath, webSearchClient: this.webSearchClient,
+      workspaceChanged: (event) => observeWorkspaceChange(this, sessionId, event),
       mcpControl: {
         status: () => ({ configured: this.config.mcpServers, active: sessionConfig.mcpServers }),
         test: (id) => this.testMcpServer(id),

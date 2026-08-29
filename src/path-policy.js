@@ -17,8 +17,37 @@ export class PathPolicy {
   }
 
   async initialize() {
-    this.root = await realpath(this.inputRoot);
-    this.gitRoot = await discoverGitRoot(this.root);
+    this.commitWorkspaceRoot(await this.prepareWorkspaceRoot(this.inputRoot));
+  }
+
+  async prepareWorkspaceRoot(input) {
+    if (typeof input !== 'string' || input.length === 0 || input.length > 4096 || input.includes('\0')) {
+      throw new ContractError('workspace_path_invalid', 'working directory path is invalid or exceeds bounds');
+    }
+    let root;
+    try { root = await realpath(resolve(input)); }
+    catch (error) {
+      const message = error?.code === 'ENOENT'
+        ? 'working directory does not exist' : 'working directory could not be resolved';
+      throw new ContractError('workspace_path_invalid', message, { cause: error });
+    }
+    if (!(await stat(root)).isDirectory()) {
+      throw new ContractError('workspace_path_invalid', 'working directory path is not a directory');
+    }
+    if (this.boundedToWorkspace && this.root && !this.#insideWorkspace(root)) {
+      throw new ContractError('tool_scope_denied', 'working directory is outside the approved workspace');
+    }
+    return Object.freeze({ root, gitRoot: await discoverGitRoot(root) });
+  }
+
+  commitWorkspaceRoot(prepared) {
+    if (!prepared || typeof prepared.root !== 'string' || !isAbsolute(prepared.root)
+      || (prepared.gitRoot !== null && typeof prepared.gitRoot !== 'string')) {
+      throw new ContractError('workspace_transition_invalid', 'prepared working directory transition is invalid');
+    }
+    this.inputRoot = prepared.root;
+    this.root = prepared.root;
+    this.gitRoot = prepared.gitRoot;
   }
 
   async resolveRead(input) {

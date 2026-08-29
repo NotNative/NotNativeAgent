@@ -458,13 +458,18 @@ canonical effective leaf. Values supplied by the user manifest, trusted project,
 explicit manifest, environment, or CLI retain that source label; values introduced only
 by resolution are labeled `compiled_default`. Provenance records paths and source names,
 never configuration values or resolved secrets. Runtime `configuration_update` uses a complete manifest and publishes an immutable
-version at idle or the next model-step boundary. Workspace, persistence, and MCP changes
-require a new session.
+version at idle or the next model-step boundary. Persistence and MCP changes require a new
+session. Generic configuration publication cannot change the workspace.
 
 In the Console, `/workspace PATH` applies this rule by opening a new conversation rooted
 at the canonical directory. NNA recomputes exact-workspace trust, project settings,
 project guidance and hooks, tool roots, and project MCP eligibility before starting the
 new engine. The existing conversation is not mutated and remains independently usable.
+During an active standalone conversation, the reviewed `workspace.change` tool instead replaces
+that tab's current working directory. It does not reload project settings, hooks, skills, provider
+routes, or MCP topology. It does rebase tool paths, project intake, and applicable `AGENTS.md`
+guidance before the next model step. The committed directory is stored in the session journal and
+tab manifest. Hosted execution manifests cannot use this transition.
 
 Default key bindings are documented in [TUI.md](TUI.md). Conflicting bindings fail
 validation; unknown action names fail validation; cancel, help, and reset actions must

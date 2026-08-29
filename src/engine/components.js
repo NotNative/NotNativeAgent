@@ -44,6 +44,7 @@ export function installEngineComponents(engine, options, storeRoot, hooks) {
 }
 
 function installRouting(engine, options) {
+  engine.workspaceChanged = options.workspaceChanged ?? null;
   engine.credentialResolver = options.credentialResolver ?? new CredentialResolver({ secretBroker: options.secretBroker });
   engine.router = new ModelRouter(engine.config, options.providerFactory, {
     credentialResolver: engine.credentialResolver, sessionId: engine.sessionId,
@@ -141,10 +142,10 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       workspaceRoot: engine.config.workspaceRoot,
       run: (input, signal) => engine.runSubagent(input, signal),
     } : null,
+    workspaceControl: engine.config.executionManifest === null ? { change: (path) => engine.changeWorkspace(path) } : null,
     conversationWork: engine.work,
     telegramNotifications: engine.telegramNotifications,
-    activeTurnId: () => engine.active?.turnId ?? null,
-    sessionHistory: historyToolOptions(engine),
+    activeTurnId: () => engine.active?.turnId ?? null, sessionHistory: historyToolOptions(engine),
   });
   engine.memory = new MemoryBoundary(engine.config.memory ?? { enabled: false }, options.memoryAdapter, { grounding: engine.grounding });
   engine.attachments = new AttachmentManager({

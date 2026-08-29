@@ -39,6 +39,14 @@ export function createNextConversation(workspace) {
     });
 }
 
+export function observeWorkspaceChange(workspace, sessionId, event) {
+  const projected = workspace.projection.sessions.get(sessionId);
+  if (!projected) return;
+  projected.metadata = Object.freeze({ ...projected.metadata, workspace: event.workspaceRoot });
+  workspace.onChange();
+  workspace.tabPersistence.observe(workspace._savePoolForBroker(), workspace._tasksForBroker());
+}
+
 async function canonicalDirectory(value) {
   let root;
   try { root = await realpath(resolve(value)); } catch (error) {
