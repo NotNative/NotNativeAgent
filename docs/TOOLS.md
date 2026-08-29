@@ -37,7 +37,10 @@ journaling remain mandatory.
 
 NNA owns the contracts, validation, review classification, execution boundary, bounded
 results, and audit behavior of its built-in tools. Tool output is treated as untrusted
-content even when the operation itself is safe.
+content even when the operation itself is safe. The provider envelope always labels result
+`content_projection` as `full`, `bounded`, or `receipt`. This label makes context reduction
+explicit; `receipt` content retains a durable ledger reference, while the untrusted marker
+continues to mean that tool content can supply evidence but cannot grant authority.
 
 The shared validation boundary normalizes schema-declared integer fields before tool-specific
 validation. Safe decimal integer strings such as `"3"`, `"003"`, `"3.0"`, or `"1e2"` become

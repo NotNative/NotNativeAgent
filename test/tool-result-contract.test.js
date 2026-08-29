@@ -55,6 +55,30 @@ test('provider projection names lifecycle and review fields explicitly', () => {
   assert.equal(projected.tool_lifecycle_status, 'denied');
   assert.equal(projected.status, 'denied');
   assert.equal(projected.review_outcome, 'hard_deny');
+  assert.equal(projected.content_projection, 'full');
+  assert.equal(projected.untrusted, true);
+});
+
+test('provider projection distinguishes full, bounded, and receipt content', () => {
+  const project = (metadata) => {
+    const transcript = [
+      { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs.read', args: { path: 'a.txt' } },
+      {
+        type: 'tool_result', providerCallId: 'call-1', toolName: 'fs.read',
+        toolLifecycleStatus: 'succeeded', content: 'evidence', metadata,
+      },
+    ];
+    const context = buildContext({
+      workspaceRoot: process.cwd(), limits: { maxContextBytes: 1_048_576 }, executionManifest: null,
+    }, transcript, 'Continue.');
+    return JSON.parse(context.find((item) => item.role === 'tool').content);
+  };
+
+  assert.equal(project(null).content_projection, 'full');
+  assert.equal(project({ compacted: true, reason: 'active_pressure_receipt' }).content_projection, 'bounded');
+  assert.equal(project({
+    compacted: true, reason: 'semantic_tool_receipt', receiptSchema: 'nna.tool-receipt.v1',
+  }).content_projection, 'receipt');
 });
 
 test('result cache restores legacy journal status through the compatibility reader', () => {

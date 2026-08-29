@@ -358,13 +358,19 @@ function toolResultMessage(item) {
       tool_lifecycle_status: lifecycleStatus,
       // Compatibility: provider conversations historically consume status.
       // It now carries only tool lifecycle state and never a review decision.
-      status: lifecycleStatus, content: item.content,
+      status: lifecycleStatus, content_projection: toolContentProjection(item), content: item.content,
       ...(reviewOutcome ? { review_outcome: reviewOutcome } : {}),
       metadata: item.metadata ?? null, untrusted: true,
       reason_code: item.reasonCode ?? null,
     }),
     provenance: 'tool_result', trust: 'untrusted_tool_output',
   };
+}
+
+function toolContentProjection(item) {
+  if (typeof item.metadata?.receiptSchema === 'string') return 'receipt';
+  if (item.metadata?.compacted === true || item.pressureCompacted === true) return 'bounded';
+  return 'full';
 }
 
 function enforceBudget(messages, maxBytes) {
