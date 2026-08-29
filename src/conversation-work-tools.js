@@ -8,7 +8,8 @@ export function conversationWorkDefinitions(work) {
 }
 
 function planDefinition(work) {
-  return definition('work.plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
+  return definition('work.plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Output from work.plan or work.status can be passed back unchanged. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
+    revision: { type: 'integer', minimum: 0, description: 'Optional revision returned by work.plan or work.status. A stale revision is rejected without changing work.' },
     objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required current goal objective.' },
     goal_status: { type: 'string', enum: ['active', 'completed'], description: 'Goal status. Defaults to active.' },
     goal_evidence: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required only when goal_status is completed.' },
@@ -23,12 +24,12 @@ function planDefinition(work) {
         },
       },
     },
-  }, ['objective', 'tasks'], async (args) => result(await work.replacePlan(args)));
+  }, ['objective', 'tasks'], async (args) => planResult(await work.replacePlan(args)));
 }
 
 function statusDefinition(work) {
-  return definition('work.status', 'Read the current conversation goal and ordered task progress.', 'read_only', {}, [],
-    async () => result(work.snapshot()));
+  return definition('work.status', 'Read the current conversation goal and ordered task progress. When a plan exists, the output can be passed unchanged to work.plan.', 'read_only', {}, [],
+    async () => planResult(work.snapshot()));
 }
 
 function goalDefinition(work) {
@@ -80,9 +81,25 @@ function definition(name, purpose, sideEffect, properties, requiredKeys, executo
   };
 }
 
-function result(snapshot) {
+function planResult(snapshot) {
   requireSnapshot(snapshot);
-  return { content: JSON.stringify(snapshot, null, 2), metadata: { revision: snapshot.revision, tasks: snapshot.tasks.length } };
+  const plan = snapshot.goal === null
+    ? { revision: snapshot.revision, objective: null, goal_status: null, tasks: [] }
+    : {
+      revision: snapshot.revision,
+      objective: snapshot.goal.objective,
+      goal_status: snapshot.goal.status,
+      ...(snapshot.goal.status === 'completed' ? { goal_evidence: snapshot.goal.evidence } : {}),
+      tasks: snapshot.tasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        ...(['completed', 'blocked'].includes(task.status)
+          ? { detail: task.status === 'completed' ? task.evidence : task.blockedReason }
+          : {}),
+      })),
+    };
+  return { content: JSON.stringify(plan, null, 2), metadata: { revision: snapshot.revision, tasks: snapshot.tasks.length } };
 }
 function mutationResult(snapshot, options = {}) {
   requireSnapshot(snapshot);
@@ -99,6 +116,8 @@ function mutationResult(snapshot, options = {}) {
 }
 function validateProperty(tool, key, value, schema, pattern) {
   if (schema.type === 'string' && typeof value !== 'string') invalid(tool, key);
+  if (schema.type === 'integer' && !Number.isSafeInteger(value)) invalid(tool, key);
+  if (schema.minimum !== undefined && value < schema.minimum) invalid(tool, key);
   if (schema.enum && !schema.enum.includes(value)) invalid(tool, key);
   if (schema.minLength && value.length < schema.minLength) invalid(tool, key);
   if (schema.maxLength && value.length > schema.maxLength) invalid(tool, key);

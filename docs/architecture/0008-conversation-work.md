@@ -19,7 +19,10 @@ Mutation history does not consume prompt context. `work.plan`, `work.status`, `w
 `work.task_add`, and `work.task_update` are foundational schemas whenever conversation work is
 available. `work.plan` atomically replaces the bounded goal and ordered task snapshot; the
 granular tools support direct, intuitive updates to the same state machine. Their visibility
-does not itself create a plan. Explicit operator requests to set, create, load, or track a goal
+does not itself create a plan. `work.plan` and `work.status` expose one round-trip-safe provider
+shape while durable snapshots retain their separate engine fields and timestamps. A returned
+revision is an optimistic concurrency guard: stale replacement is rejected without mutation.
+Explicit operator requests to set, create, load, or track a goal
 or task list must be persisted before dependent work begins. These tools add no filesystem,
 process, secret, or network authority. Hosted sessions receive only the exact work tools named
 by their execution manifest; one grant never implies another.

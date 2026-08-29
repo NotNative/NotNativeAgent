@@ -54,6 +54,60 @@ test('agent work tools share the same durable state machine', async () => {
   );
 });
 
+test('work plan and status expose one lossless round-trip contract', async () => {
+  const work = new ConversationWork();
+  const definitions = new Map(conversationWorkDefinitions(work).map((item) => [item.name, item]));
+  const plan = definitions.get('work.plan');
+  const status = definitions.get('work.status');
+  const signal = new AbortController().signal;
+  const initial = await plan.validate({
+    objective: 'Keep durable work lossless',
+    tasks: [
+      { title: 'Preserve completion proof', status: 'completed', detail: 'Proof retained.' },
+      { title: 'Preserve blocking reason', status: 'blocked', detail: 'Waiting for operator evidence.' },
+    ],
+  });
+  await plan.executor(initial, signal);
+  const before = work.snapshot();
+  const exposed = JSON.parse((await status.executor({ args: {} }, signal)).content);
+
+  assert.deepEqual(exposed, {
+    revision: 1,
+    objective: 'Keep durable work lossless',
+    goal_status: 'active',
+    tasks: [
+      { id: 'T1', title: 'Preserve completion proof', status: 'completed', detail: 'Proof retained.' },
+      { id: 'T2', title: 'Preserve blocking reason', status: 'blocked', detail: 'Waiting for operator evidence.' },
+    ],
+  });
+  assert.equal(JSON.stringify(exposed).includes('blockedReason'), false);
+  assert.equal(JSON.stringify(exposed).includes('createdAt'), false);
+
+  const roundTrip = await plan.validate(exposed);
+  await plan.executor(roundTrip, signal);
+  const after = work.snapshot();
+  assert.deepEqual(
+    after.tasks.map(({ id, title, status, evidence, blockedReason }) => ({ id, title, status, evidence, blockedReason })),
+    before.tasks.map(({ id, title, status, evidence, blockedReason }) => ({ id, title, status, evidence, blockedReason })),
+  );
+  assert.equal(after.goal.objective, before.goal.objective);
+  assert.equal(after.goal.status, before.goal.status);
+});
+
+test('work plan rejects a stale returned revision without mutation', async () => {
+  const work = new ConversationWork();
+  const plan = conversationWorkDefinitions(work).find((item) => item.name === 'work.plan');
+  const signal = new AbortController().signal;
+  const initial = await plan.validate({ objective: 'Protect current work', tasks: [{ title: 'Do not overwrite this task' }] });
+  const stale = JSON.parse((await plan.executor(initial, signal)).content);
+  await work.addTask('Newer task');
+  const before = work.snapshot();
+
+  const normalized = await plan.validate(stale);
+  await assert.rejects(plan.executor(normalized, signal), { code: 'work_revision_conflict' });
+  assert.deepEqual(work.snapshot(), before);
+});
+
 test('clearing conversation work records a durable empty revision', async () => {
   const records = [];
   const work = new ConversationWork({ persist: async (type, payload) => records.push({ type, payload }) });

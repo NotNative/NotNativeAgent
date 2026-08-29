@@ -76,6 +76,12 @@ export class ConversationWork {
   }
 
   async replacePlan(value) {
+    if (value?.revision !== undefined && value.revision !== this.state.revision) {
+      throw new ContractError(
+        'work_revision_conflict',
+        `work plan revision ${value.revision} is stale; current revision is ${this.state.revision}`,
+      );
+    }
     const plan = normalizePlan(value, this.state);
     const now = new Date().toISOString();
     let nextTaskNumber = this.state.nextTaskNumber;

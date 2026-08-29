@@ -307,8 +307,10 @@ NNA installs bounded self-inspection tools independently of the workspace:
 Conversation work has one atomic tool and four granular tools in the foundational surface:
 
 - `work.plan`: atomically replace the bounded goal and ordered tasks; terminal states require
-  evidence or a reason and at most one task may be in progress.
-- `work.status`: inspect the current durable goal and ordered tasks.
+  evidence or a reason and at most one task may be in progress. Its result uses the same
+  model-facing shape as its input. The optional returned `revision` prevents stale replacement.
+- `work.status`: inspect the current durable goal and ordered tasks. When work exists, its result
+  can be passed unchanged to `work.plan`.
 - `work.goal`: create or update the durable goal.
 - `work.task_add`: append one task to the current goal.
 - `work.task_update`: update one existing task by its stable id.

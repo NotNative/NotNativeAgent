@@ -233,11 +233,11 @@ test('work.plan atomically replaces the durable goal and ordered tasks', async (
     const first = JSON.parse((await plan.executor(initial, new AbortController().signal)).content);
     assert.equal(first.tasks.length, 2);
     const completed = await plan.validate({
-      objective: first.goal.objective, goal_status: 'completed', goal_evidence: 'Focused tests passed',
+      revision: first.revision, objective: first.objective, goal_status: 'completed', goal_evidence: 'Focused tests passed',
       tasks: first.tasks.map((task) => ({ id: task.id, title: task.title, status: 'completed', detail: `${task.title} verified` })),
     });
     const final = JSON.parse((await plan.executor(completed, new AbortController().signal)).content);
-    assert.equal(final.goal.status, 'completed');
+    assert.equal(final.goal_status, 'completed');
     assert.equal(final.tasks.every((task) => task.status === 'completed'), true);
     assert.equal(final.revision, 2);
   } finally { await item.close(); }

@@ -4,8 +4,8 @@
   "scope": "maximal bundled tool registry; purpose, provider facade description, and input-schema description fields",
   "stats": {
     "tools": 47,
-    "proseFields": 177,
-    "proseSentences": 284,
+    "proseFields": 178,
+    "proseSentences": 288,
     "longProseCandidates": 0,
     "unqualifiedBoundaryCandidates": 2,
     "maximumSentenceWords": 24,
