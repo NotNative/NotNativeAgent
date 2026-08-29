@@ -132,10 +132,15 @@ test('durable work state is kernel-grounded independently of compacted transcrip
   const work = { schema: 'nna.conversation_work.v1', revision: 4, nextTaskNumber: 2,
     goal: { id: 'goal_1', objective: 'Finish the slice', status: 'active' },
     tasks: [{ id: 'T1', title: 'Run tests', status: 'in_progress' }] };
-  const context = buildContext(config, [{ type: 'compaction', summary: 'Older history compacted.', retainedRecords: [] }], 'Continue.', { work });
+  const context = buildContext(config,
+    [{ type: 'compaction', summary: 'Older history compacted.', retainedRecords: [] }],
+    'Continue.', { work, workCadence: { revision: 4, stepsSinceUpdate: 7 } });
   const state = context.find((item) => item.provenance === 'conversation_work');
   assert.equal(state.trust, 'kernel');
   assert.match(state.content, /Finish the slice/u);
+  assert.match(state.content, /current task T1 "Run tests"/u);
+  assert.match(state.content, /model steps since the durable work revision changed: 7/u);
+  assert.match(state.content, /descriptive, not a demand to update/u);
 });
 
 test('plan and task overlays expose structured progress with a compact footer indicator', () => {

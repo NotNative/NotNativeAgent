@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:cc008d21ef2e36167a115e08755fea46c43d802953e7887ef1213df9e5be2eb5",
+  "source_digest": "sha256:7d92173efb2e67df393f3824b3060e9c31c457cc8480627a8f59ffc8649eebdc",
   "counts": {
     "modules": 327,
     "component_edges": 69
@@ -149,8 +149,8 @@
     {
       "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 26,
-      "module_count": 7
+      "import_count": 27,
+      "module_count": 8
     },
     {
       "from": "providers",
@@ -957,6 +957,7 @@
       "entrypoint": false,
       "imports": [
         "src/context.js",
+        "src/engine/runtime-helpers.js",
         "src/ids.js",
         "src/project-intake.js",
         "src/reliability/cold-context.js",

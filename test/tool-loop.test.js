@@ -14,17 +14,42 @@ import { ContractError } from '../src/ids.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { denialResult } from '../src/tools/governor.js';
-import { RecoverySupervisor } from '../src/recovery.js';
+import { RecoverySupervisor, recoveryHint } from '../src/recovery.js';
 import { declaredSubscription } from './event-fixture.js';
 import { ToolLoop, toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from '../src/tools/loop.js';
 import { selfDiagnosticsDefinitions } from '../src/tools/self-diagnostics.js';
 import { openRuntimeInspection } from '../src/tui/runtime-inspection.js';
-import { observeToolState } from '../src/engine/runtime-helpers.js';
+import {
+  advanceWorkCadence, observeToolState, synchronizeWorkCadence, workConvergenceCheckpoint,
+} from '../src/engine/runtime-helpers.js';
 
 test('tool loop accepts only declared constructor dependencies', () => {
   const loop = new ToolLoop({ process: null, unexpected: true });
   assert.equal(typeof loop.process, 'function');
   assert.equal(Object.hasOwn(loop, 'unexpected'), false);
+});
+
+test('work convergence cadence is advisory and resets only on a durable revision change', () => {
+  const recovery = new RecoverySupervisor();
+  const reliability = {
+    behavioralCheckpoint: (_active, ...args) => recovery.behavioralCheckpoint(...args),
+  };
+  const active = { workCadence: null };
+  const work = {
+    revision: 4, goal: { status: 'active' },
+    tasks: [{ id: 'T1', title: 'Verify evidence', status: 'in_progress' }],
+  };
+  synchronizeWorkCadence(active, work);
+  for (let index = 0; index < 8; index += 1) advanceWorkCadence(active);
+  const checkpoint = workConvergenceCheckpoint(reliability, active, work);
+  assert.equal(checkpoint.action, 'review_work_convergence');
+  assert.equal(checkpoint.count, 8);
+  assert.equal(checkpoint.current_task_id, 'T1');
+  assert.match(recoveryHint(checkpoint), /not a demand for plan ceremony/u);
+  synchronizeWorkCadence(active, work);
+  assert.equal(active.workCadence.stepsSinceUpdate, 8);
+  assert.equal(workConvergenceCheckpoint(reliability, active, { ...work, revision: 5 }), null);
+  assert.equal(active.workCadence.stepsSinceUpdate, 0);
 });
 
 test('different search arguments count as progress even when their results are identical', () => {

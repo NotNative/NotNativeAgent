@@ -4,6 +4,7 @@ import { estimateContextTokens } from '../reliability/context-budget.js';
 import { buildColdEvidence } from '../reliability/cold-context.js';
 import { ContractError } from '../ids.js';
 import { shouldInspectProject } from '../project-intake.js';
+import { synchronizeWorkCadence } from './runtime-helpers.js';
 
 const INTERACTIVE_SURFACE = 'interactive_tui';
 const CONTEXT_STATUS_EVENT = 'context_status';
@@ -22,8 +23,10 @@ export async function buildReportedContext(
   if (!enrichment.projectIntake && content && shouldInspectProject(content) && engine.projectIntake?.inspect) {
     enrichment.projectIntake = await engine.projectIntake.inspect();
   }
+  const work = engine.work?.snapshot();
+  const workCadence = synchronizeWorkCadence(active, work);
   const baseEnrichment = {
-    ...enrichment, projectGuidance, skillCatalog: engine.skills?.catalog() ?? [], work: engine.work?.snapshot(),
+    ...enrichment, projectGuidance, skillCatalog: engine.skills?.catalog() ?? [], work, workCadence,
     toolConstraints: active.toolConstraints ?? [],
   };
   active.contextMeasurementEnrichment = baseEnrichment;

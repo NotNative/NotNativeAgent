@@ -12,7 +12,9 @@ export function buildContext(config, transcript, currentContent, enrichment = {}
     messages.push({ role: 'system', content: config.applicationPolicy, provenance: 'application_policy', trust: 'host' });
   }
   if (enrichment.skillCatalog?.length > 0) messages.push(skillCatalogMessage(enrichment.skillCatalog));
-  if (enrichment.work?.goal || enrichment.work?.tasks?.length > 0) messages.push(conversationWorkMessage(enrichment.work));
+  if (enrichment.work?.goal || enrichment.work?.tasks?.length > 0) {
+    messages.push(conversationWorkMessage(enrichment.work, enrichment.workCadence));
+  }
   if (enrichment.toolConstraints?.length > 0) messages.push(toolConstraintsMessage(enrichment.toolConstraints));
   appendTranscriptMessages(messages, activeContextRecords(transcript));
   if (enrichment.reasoningRecoveryContinuation) {
@@ -270,10 +272,15 @@ function skillCatalogMessage(items) {
   };
 }
 
-function conversationWorkMessage(work) {
+function conversationWorkMessage(work, cadence = null) {
+  const current = work.tasks?.find((task) => task.status === 'in_progress')
+    ?? work.tasks?.find((task) => task.status !== 'completed');
+  const orientation = cadence && current
+    ? ` Work-state orientation: current task ${current.id} ${JSON.stringify(current.title)}; model steps since the durable work revision changed: ${cadence.stepsSinceUpdate}. This counter is descriptive, not a demand to update the plan. Update work state only when status, evidence, or a blocker materially changes.`
+    : '';
   return {
     role: 'system',
-    content: `An optional durable conversation plan is active (engine-maintained, revision ${work.revision}). Because this plan exists, keep it current with work.plan as meaningful progress occurs; preserve existing task ids and omit id only for a new task. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: continue the work or update the plan truthfully. If operator input is genuinely required, ask one concrete question and, when possible, mark the relevant task blocked with the exact reason. Optional follow-up offers are not input requests. This state survives context compaction and session resume:\n${JSON.stringify(work)}`,
+    content: `An optional durable conversation plan is active (engine-maintained, revision ${work.revision}). Because this plan exists, keep it current with work.plan as meaningful progress occurs; preserve existing task ids and omit id only for a new task. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: continue the work or update the plan truthfully. If operator input is genuinely required, ask one concrete question and, when possible, mark the relevant task blocked with the exact reason. Optional follow-up offers are not input requests. This state survives context compaction and session resume.${orientation}\n${JSON.stringify(work)}`,
     provenance: 'conversation_work', trust: 'kernel',
   };
 }

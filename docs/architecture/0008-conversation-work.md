@@ -34,3 +34,9 @@ operator explicitly requests tracking or the agent deliberately decides durable 
 would materially help. Once a plan exists, completion supervision continues unfinished work,
 keeps `work.plan` available, and yields instead of nudging when the model genuinely requires
 operator input.
+
+While work is active, the provider projection identifies the current unfinished task and reports
+the number of model steps since the durable work revision changed. The counter is descriptive:
+it does not require a plan update and never ends a productive turn. At a bounded cadence, the
+recovery supervisor asks the model to compare evidence with the current outcome, update work only
+for a material state change, or choose one action that resolves the remaining uncertainty.

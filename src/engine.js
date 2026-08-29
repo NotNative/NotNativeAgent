@@ -20,8 +20,8 @@ import { dispatchTurnPreHook } from './engine/hooks.js';
 import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
   completeProviderToolCalls, deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, observeToolContracts,
-  prepareTrustedToolHandoff, providerRequest,
-  discoveryCheckpoint, groundCapabilityPhase, observeToolState, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext,
+  advanceWorkCadence, discoveryCheckpoint, prepareTrustedToolHandoff, providerRequest,
+  groundCapabilityPhase, observeToolState, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext, workConvergenceCheckpoint,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
 import { recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
@@ -287,7 +287,7 @@ export class SessionEngine {
   }
   async #runModelStep(context, active) {
     assertTurnActive(active);
-    assertMissionBudget(active);
+    assertMissionBudget(active); advanceWorkCadence(active);
     const reasoningMode = resetStep(active);
     const step = this.lifecycles.start('model_step', active.turnId);
     active.stepId = step.id;
@@ -334,7 +334,8 @@ export class SessionEngine {
     const progress = this.reliability.noProgress(active, 'tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact',
       failureFingerprint: this.reliability.toolFailureFingerprint(items), monitoring: active.capabilityPhase === 'monitoring',
     });
-    const behavioralAction = discoveryCheckpoint(this.reliability, active, behavior);
+    const behavioralAction = discoveryCheckpoint(this.reliability, active, behavior)
+      ?? workConvergenceCheckpoint(this.reliability, active, this.work?.snapshot());
     if (progress.action) await this.#recordRecovery(progress.action, active);
     if (behavioralAction) await this.#recordRecovery(behavioralAction, active);
     await this.#settleStep(active, 'continued');

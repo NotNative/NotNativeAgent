@@ -139,6 +139,23 @@ export function resetStep(active) {
   return reasoningMode;
 }
 
+export function synchronizeWorkCadence(active, work) {
+  const enabled = Boolean(work?.goal || work?.tasks?.length > 0);
+  if (!enabled) { active.workCadence = null; return null; }
+  if (!active.workCadence || active.workCadence.revision !== work.revision) {
+    active.workCadence = Object.freeze({ revision: work.revision, stepsSinceUpdate: 0 });
+  }
+  return active.workCadence;
+}
+
+export function advanceWorkCadence(active) {
+  if (!active.workCadence) return null;
+  active.workCadence = Object.freeze({
+    ...active.workCadence, stepsSinceUpdate: active.workCadence.stepsSinceUpdate + 1,
+  });
+  return active.workCadence;
+}
+
 const OBSERVABLE_MUTATIONS = new Set([
   'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.directory', 'fs.create_directory',
   'fs.copy_file', 'fs.move_file', 'fs.delete_file', 'process.run', 'shell.run',
@@ -195,6 +212,17 @@ export function discoveryCheckpoint(reliability, active, behavior) {
     });
   }
   return null;
+}
+
+export function workConvergenceCheckpoint(reliability, active, work) {
+  const count = synchronizeWorkCadence(active, work)?.stepsSinceUpdate ?? 0;
+  if (count !== 8 && (count === 0 || count % 16 !== 0)) return null;
+  const current = work?.tasks?.find((task) => task.status === 'in_progress')
+    ?? work?.tasks?.find((task) => task.status !== 'completed');
+  return reliability.behavioralCheckpoint(active, 'work_convergence', 'review_work_convergence', count, {
+    work_revision: active.workCadence.revision,
+    current_task_id: current?.id ?? null,
+  });
 }
 
 export function modelStepRequestOptions(reasoningMode, active) {
