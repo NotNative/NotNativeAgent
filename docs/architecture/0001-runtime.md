@@ -42,6 +42,13 @@ request identity and its own lifecycle identity. Credentials are resolved inside
 The initial adapter implements the public OpenAI-compatible chat-completions
 SSE shape and emits typed text, metadata, and terminal records.
 
+Failure envelopes classify stable error codes by their qualified leading namespace. Exact
+overrides cover the few historical codes that do not begin with their owning domain. Terminal
+`_timeout` and `_cancelled` codes retain lifecycle categories while their component namespace
+identifies the boundary. NNA does not infer ownership from an arbitrary substring: for example,
+`provider_event_invalid` belongs to the provider category and provider boundary, while an
+unrecognized code that merely contains “provider” remains internal.
+
 At milestone 1, reviewer and tool execution were reserved as separate packages
 and no executor was registered. ADR 0002 now supplies the mandatory reviewer,
 private ledger, and governed executors without changing this boundary. Authority

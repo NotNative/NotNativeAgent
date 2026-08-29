@@ -1,19 +1,59 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
 
-const FAILURE_RULES = Object.freeze([
-  { category: 'timeout', fragments: ['timeout'] },
-  { category: 'cancelled', fragments: ['cancel'] },
-  { category: 'authorization', fragments: ['permission', 'review', 'authority', 'denied'] },
-  { category: 'contract', fragments: ['config', 'manifest', 'version', 'protocol', 'schema', 'invalid'] },
-  { category: 'provider', fragments: ['provider'] },
-  { category: 'tool', fragments: ['tool', 'process', 'edit', 'delete', 'file'] },
-  { category: 'persistence', fragments: ['persist', 'journal', 'store', 'ledger'] },
-  { category: 'mcp', fragments: ['mcp'] },
-  { category: 'memory', fragments: ['memory'] },
-  { category: 'extension', fragments: ['hook', 'event', 'subscriber'] },
-]);
-const BOUNDARIES = Object.freeze(['provider', 'tool', 'persistence', 'shutdown', 'memory', 'mcp', 'hook', 'permission']);
+const FAILURE_DOMAINS = Object.freeze({
+  provider: Object.freeze({ category: 'provider', boundary: 'provider' }),
+  route: Object.freeze({ category: 'provider', boundary: 'provider' }),
+  model: Object.freeze({ category: 'provider', boundary: 'provider' }),
+  tool: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  process: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  shell: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  edit: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  read: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  file: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  filesystem: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  web: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  browser: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  image: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  lsp: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  git: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  project: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  verification: Object.freeze({ category: 'tool', boundary: 'tool' }),
+  persistence: Object.freeze({ category: 'persistence', boundary: 'persistence' }),
+  journal: Object.freeze({ category: 'persistence', boundary: 'persistence' }),
+  store: Object.freeze({ category: 'persistence', boundary: 'persistence' }),
+  ledger: Object.freeze({ category: 'persistence', boundary: 'persistence' }),
+  reviewer: Object.freeze({ category: 'authorization', boundary: 'permission' }),
+  review: Object.freeze({ category: 'authorization', boundary: 'permission' }),
+  permission: Object.freeze({ category: 'authorization', boundary: 'permission' }),
+  authority: Object.freeze({ category: 'authorization', boundary: 'permission' }),
+  governance: Object.freeze({ category: 'authorization', boundary: 'permission' }),
+  preauthorization: Object.freeze({ category: 'authorization', boundary: 'permission' }),
+  principal: Object.freeze({ category: 'authorization', boundary: 'permission' }),
+  credential: Object.freeze({ category: 'authorization', boundary: 'permission' }),
+  secret: Object.freeze({ category: 'authorization', boundary: 'permission' }),
+  mcp: Object.freeze({ category: 'mcp', boundary: 'mcp' }),
+  memory: Object.freeze({ category: 'memory', boundary: 'memory' }),
+  hook: Object.freeze({ category: 'extension', boundary: 'hook' }),
+  event: Object.freeze({ category: 'extension', boundary: 'hook' }),
+  subscriber: Object.freeze({ category: 'extension', boundary: 'hook' }),
+  extension: Object.freeze({ category: 'extension', boundary: 'hook' }),
+  config: Object.freeze({ category: 'contract', boundary: null }),
+  configuration: Object.freeze({ category: 'contract', boundary: null }),
+  manifest: Object.freeze({ category: 'contract', boundary: null }),
+  invalid: Object.freeze({ category: 'contract', boundary: null }),
+  protocol: Object.freeze({ category: 'contract', boundary: null }),
+  schema: Object.freeze({ category: 'contract', boundary: null }),
+  version: Object.freeze({ category: 'contract', boundary: null }),
+  shutdown: Object.freeze({ category: 'internal', boundary: 'shutdown' }),
+});
+
+const FAILURE_CODE_OVERRIDES = Object.freeze({
+  duplicate_provider: FAILURE_DOMAINS.provider,
+  empty_model_output: FAILURE_DOMAINS.provider,
+  missing_provider: FAILURE_DOMAINS.provider,
+  no_eligible_vision_route: FAILURE_DOMAINS.provider,
+});
 
 export function failureEnvelope(error, options = {}) {
   const known = error instanceof ContractError;
@@ -37,14 +77,19 @@ export function failureEnvelope(error, options = {}) {
 }
 
 function failureCategory(code) {
-  return FAILURE_RULES.find((rule) => matchesAny(code, rule.fragments))?.category ?? 'internal';
+  if (code.endsWith('_cancelled')) return 'cancelled';
+  if (code.endsWith('_timeout')) return 'timeout';
+  return failureDomain(code)?.category ?? 'internal';
 }
 
 function boundaryFor(code, fallback) {
-  for (const value of BOUNDARIES) if (code.includes(value)) return value;
-  return fallback;
+  return failureDomain(code)?.boundary ?? fallback;
 }
 
-function matchesAny(code, fragments) {
-  return fragments.some((fragment) => code.includes(fragment));
+function failureDomain(code) {
+  const exact = FAILURE_CODE_OVERRIDES[code];
+  if (exact) return exact;
+  const separator = code.indexOf('_');
+  const namespace = separator < 0 ? code : code.slice(0, separator);
+  return FAILURE_DOMAINS[namespace] ?? null;
 }
