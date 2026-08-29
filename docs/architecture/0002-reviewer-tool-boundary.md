@@ -55,6 +55,11 @@ fail-closed default. The semantic default is permissive toward a reasonable, pro
 means of carrying out authenticated intent; ordinary intermediate commands and targets
 derived from prior results need not be named verbatim.
 
+Deterministic safe-tool review depends on the sealed tool effect and scope. NNA does not use
+greeting words or other natural-language patterns to revoke a safe tool mid-turn. This rule does
+not bypass review: every request still crosses the mandatory reviewer, and all non-safe effects
+retain their authority, policy, and semantic-review requirements.
+
 File, web, memory, MCP, hook, attachment, and tool-result content remains explicitly
 untrusted evidence in provider context. It is never added to the authority record. Even
 when such content induces a later mutation, it cannot independently authorize the call.

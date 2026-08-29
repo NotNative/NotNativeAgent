@@ -48,9 +48,7 @@ export class MandatoryReviewer {
         );
       }
       else if (request.resolved?.reliabilitySignals?.includes('external_browser')) decision = deny('external_browser_tool_required', EXTERNAL_BROWSER_GUIDANCE, request); else if (unauthorizedDetachedProcess(request, context.authority)) decision = detachedProcessDenial(request);
-      else if (classification.risk === 'safe' && conversationOnly(context.authority)) {
-        decision = deny('tool_not_justified_by_request', 'The user made a conversational request that does not require tools.', request);
-      } else if (classification.risk === 'safe') decision = approve('deterministic_safe', request);
+      else if (classification.risk === 'safe') decision = approve('deterministic_safe', request);
       else if (!['safe', 'prohibited'].includes(classification.risk) && intentRelation === 'conflict') {
         decision = deny(
           'authenticated_intent_mismatch',
@@ -117,12 +115,6 @@ function reviewTelemetryStatus(outcome) {
 function elapsedMs(started) {
   return Number(process.hrtime.bigint() - started) / 1_000_000;
 }
-function conversationOnly(authority) {
-  const latest = authority?.intent?.at(-1)?.content;
-  if (typeof latest !== 'string') return false;
-  return /^\s*(?:hi|hello|hey|good\s+(?:morning|afternoon|evening)|how\s+are\s+you|thanks|thank\s+you)[!,.?\s]*$/iu.test(latest);
-}
-
 export class UnavailableSemanticReviewer {
   async review() {
     throw new ContractError('semantic_reviewer_unavailable', 'semantic reviewer is unavailable');

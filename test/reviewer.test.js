@@ -285,7 +285,7 @@ test('semantic review receives content-free transactional mutation evidence', as
   assert.doesNotMatch(JSON.stringify(captured), new RegExp(`${secretOld}|${secretNew}`, 'u'));
 });
 
-test('a greeting does not authorize gratuitous workspace inspection', async () => {
+test('conversational wording cannot revoke deterministic safe-tool eligibility', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'greeting' });
   const reviewer = new MandatoryReviewer({ ledger });
   const result = await reviewer.review(readRequest('tool-greeting'), {
@@ -293,8 +293,8 @@ test('a greeting does not authorize gratuitous workspace inspection', async () =
     definition: { name: 'fs.read_text', sideEffect: 'read_only', scope: 'workspace' },
     surface: 'interactive_tui', justification: '',
   });
-  assert.equal(result.outcome, 'deny_with_guidance');
-  assert.equal(result.reasonCode, 'tool_not_justified_by_request');
+  assert.equal(result.outcome, 'approve');
+  assert.equal(result.reasonCode, 'deterministic_safe');
 });
 
 test('fs.directory list is governed as a deterministic read despite sharing a mutation tool', async () => {
