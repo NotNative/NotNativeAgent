@@ -32,7 +32,7 @@ ratchet: a migration lowers the matching baseline in the same change.
 
 ### A. Tool-surface eligibility names
 
-Status: resolved. Migration risk was medium.
+Status: resolved in version `20260828-6`. Migration risk was medium.
 
 NNA now names eligibility, foundational tools, internal tools, and workflow leases explicitly.
 Provider receipt fields and reason values did not change. Tests verify provider surfaces, trusted
@@ -52,11 +52,10 @@ the problem. The migration target is a public or durable field with more than on
 
 ### C. Compaction request signatures
 
-Priority: high. Migration risk: medium.
+Status: resolved. Migration risk was medium.
 
-The compaction signature for `fs.search_text` reads `glob`, while the canonical tool contract uses
-`file_glob`. This is a field-name conflict and can weaken duplicate detection. Correct it with a
-focused reliability test before changing any related terminology.
+The compaction signature now reads canonical `file_glob`. A regression test proves that a newer
+search supersedes an older search only when their paths, queries, and file filters are equal.
 
 ### D. Review decisions and tool results
 
@@ -95,11 +94,10 @@ analyzer with measured precision.
 
 ## Planned sequence
 
-1. Correct the `fs.search_text` compaction signature with a focused regression test.
-2. Separate durable review outcomes from tool lifecycle status.
-3. Audit model-facing tool text in bounded tool families.
-4. Add advisory reports for sentence length and unqualified boundary names.
-5. Promote an advisory rule to a hard gate only after false positives are mechanically excluded.
+1. Separate durable review outcomes from tool lifecycle status.
+2. Audit model-facing tool text in bounded tool families.
+3. Add advisory reports for sentence length and unqualified boundary names.
+4. Promote an advisory rule to a hard gate only after false positives are mechanically excluded.
 
 Each slice must run the full test suite, advance the canonical version, and produce one focused
 commit. NNA-CTL is a reliability control, not permission for broad cosmetic churn.

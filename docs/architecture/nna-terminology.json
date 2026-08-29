@@ -298,6 +298,13 @@
       "kind": "technical_noun",
       "definition": "A tool that supports runtime operation but is not part of the ordinary provider surface.",
       "identifiers": ["internalTool", "INTERNAL_TOOL_NAMES"]
+    },
+    {
+      "id": "CTL-TERM-040",
+      "term": "file glob",
+      "kind": "data_term",
+      "definition": "A bounded pattern that selects file paths for a filesystem operation.",
+      "identifiers": ["file_glob"]
     }
   ],
   "deprecated_identifiers": [

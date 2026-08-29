@@ -249,7 +249,7 @@ function supersessionKey(request) {
     case 'fs.list_directory': return keyed(request.toolName, [args.path, args.depth]);
     case 'fs.glob': return keyed(request.toolName, [args.path, args.pattern]);
     case 'fs.list': return keyed(request.toolName, [args.path, args.pattern, args.depth]);
-    case 'fs.search_text': return keyed(request.toolName, [args.path, args.query, args.glob]);
+    case 'fs.search_text': return keyed(request.toolName, [args.path, args.query, args.file_glob]);
     case 'code.diagnostics': return keyed(request.toolName, [args.path]);
     case 'web.fetch': return keyed(request.toolName, [args.url]);
     default: return null;

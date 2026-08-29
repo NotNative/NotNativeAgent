@@ -123,6 +123,34 @@ test('compaction projection replaces only older large successful results for the
   assert.match(transcript[2].content, /old-marker/u);
 });
 
+test('search compaction distinguishes canonical file_glob filters', () => {
+  const transcript = [
+    message('user', 'Search JavaScript files.', 'turn-js-old'),
+    { type: 'tool_request', turnId: 'turn-js-old', providerCallId: 'js-old', toolName: 'fs.search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js' } },
+    { type: 'tool_result', turnId: 'turn-js-old', providerCallId: 'js-old', toolName: 'fs.search_text', status: 'succeeded', content: `old-js-${'j'.repeat(4_000)}` },
+    ...Array.from({ length: 5 }, (_, index) => [
+      message('user', `Intervening JavaScript request ${index}`, `turn-js-gap-${index}`),
+      message('assistant', `Intervening JavaScript answer ${index}`, `turn-js-gap-${index}`),
+    ]).flat(),
+    message('user', 'Search text files.', 'turn-txt'),
+    { type: 'tool_request', turnId: 'turn-txt', providerCallId: 'txt', toolName: 'fs.search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.txt' } },
+    { type: 'tool_result', turnId: 'turn-txt', providerCallId: 'txt', toolName: 'fs.search_text', status: 'succeeded', content: `txt-marker-${'t'.repeat(4_000)}` },
+    ...Array.from({ length: 5 }, (_, index) => [
+      message('user', `Intervening text request ${index}`, `turn-txt-gap-${index}`),
+      message('assistant', `Intervening text answer ${index}`, `turn-txt-gap-${index}`),
+    ]).flat(),
+    message('user', 'Search JavaScript files again.', 'turn-js-new'),
+    { type: 'tool_request', turnId: 'turn-js-new', providerCallId: 'js-new', toolName: 'fs.search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js' } },
+    { type: 'tool_result', turnId: 'turn-js-new', providerCallId: 'js-new', toolName: 'fs.search_text', status: 'succeeded', content: `new-js-${'n'.repeat(4_000)}` },
+  ];
+  const compacted = compactTranscript(transcript, 80_000);
+  const result = (id) => compacted.records.find((item) => item.type === 'tool_result' && item.providerCallId === id);
+  assert.match(result('js-old').content, /superseded by a newer result/u);
+  assert.match(result('txt').content, /txt-marker/u);
+  assert.doesNotMatch(result('txt').content, /superseded by a newer result/u);
+  assert.match(result('js-new').content, /new-js/u);
+});
+
 test('compaction replaces cold byte-identical successful results with recoverable duplicate receipts', () => {
   const repeated = `identical-evidence-${'x'.repeat(5_000)}`;
   const transcript = [
