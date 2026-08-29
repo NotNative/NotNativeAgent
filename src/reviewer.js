@@ -343,6 +343,13 @@ function decision(outcome, reasonCode, request, guidance) {
 function authenticatedIntentRelation(request, authority, definition, conversationIntent = []) {
   if (request.toolName === 'fs.directory' && request.args?.action === 'list') return 'covered';
   if (definition.sideEffect === 'read_only') return 'covered';
+  // Do not classify free-form operator language with keywords. Risky actions grounded in
+  // unclassified statements require semantic review unless a deterministic ceiling applies.
+  if (!authority?.mission && [...(authority?.intent ?? [])].some((item) => item.kind === 'statement')) {
+    // Semantic review may interpret nuanced positive authority, but it cannot
+    // manufacture mutation authority from an explicitly read-only request.
+    return clearlyReadOnlyIntent(authority) ? 'conflict' : 'uncertain';
+  }
   if (['process.run', 'shell.run', 'system.elevate'].includes(request.toolName)) return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
   if (!request.toolName.startsWith('fs.')) return 'uncertain';
   const mission = authority?.mission?.outcome?.toLowerCase() ?? '';

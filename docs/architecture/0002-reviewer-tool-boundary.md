@@ -10,10 +10,12 @@ authenticated operator input and authenticated mission updates. Agent responses,
 tool output, reviewer explanations, and restatements of operator intent are evidence,
 not authority, and cannot mutate that record.
 Authenticated submissions and consumed steering are persisted as dedicated authority
-facts with stable conversation lineage, snapshot version, and restriction epoch. Durable
+facts with stable conversation lineage and snapshot version. Durable
 resume rebuilds authority only from those facts; transcript text is never promoted back
-into authority. Ordinary later turns preserve scoped preauthorization, while a newer
-authenticated clarification or restriction invalidates it before execution.
+into authority. NNA does not classify free-form operator prose as a restriction with keyword
+or pattern matching. Risky actions grounded in an unclassified statement reach mandatory
+semantic review. Scoped preauthorization is removed by expiry, scope mismatch, policy or
+definition drift, or the explicit `/permissions revoke ID` operator action.
 Within a turn, the engine also retains a bounded projection of recent authenticated conversation
 intent, with the accepted turn request anchored through later steering. Reviewer evidence
 selection and semantic review receive this projection so a terse continuation or recent additive
@@ -118,4 +120,5 @@ and reviewer unavailability remain distinct and cannot be presented as withheld 
 Interactive operation preauthorization fingerprints the complete canonical target set. File
 transfers bind source and destination together; process requests bind working directory,
 executable, and argv. Workspace-scoped grants remain deliberately broader but still bind the
-tool, side-effect class, authority restriction epoch, policy, definition, workspace, and expiry.
+tool, side-effect class, policy, definition, workspace, and expiry. The retained restriction
+epoch field supports structured and legacy authority records; ordinary prose does not mutate it.

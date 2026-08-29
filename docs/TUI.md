@@ -208,7 +208,9 @@ attempts every other engine close and flushes local diagnostics; the Console com
 latch is always released and a safe stable failure code is written to the fallback stream.
 `/permissions` shows only bounded redacted metadata for the active conversation's
 preauthorizations; `/permissions revoke ID` removes one immediately. Grants are in-memory,
-tab-local, expire within four hours, and never survive closing NNA.
+tab-local, expire within four hours, and never survive closing NNA. Free-form prompt wording
+does not silently revoke a grant; it is evaluated by mandatory review, while revocation remains
+an explicit operator action.
 `/copy` explicitly copies the latest assistant response; `/copy N` selects the Nth-latest.
 It never copies user, tool, or reviewer content and rejects payloads over 100,000 bytes.
 Clipboard transfer uses an explicit OSC 52 terminal action, so unsupported terminals may

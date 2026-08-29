@@ -2,6 +2,8 @@
 import { ContractError, newId } from './ids.js';
 import { credentialReference } from './credential-bindings.js';
 
+const AUTHORITY_STATEMENT_KINDS = new Set(['statement', 'instruction', 'clarification', 'restriction']);
+
 export class AuthorityRecord {
   #id = newId('auth');
   #version = 0;
@@ -12,10 +14,14 @@ export class AuthorityRecord {
   #missionToolCalls = new Map();
   #missionStartedAt = new Map();
 
-  addAuthenticatedIntent(content, origin) {
+  addAuthenticatedIntent(content, origin, options = {}) {
     this.#version += 1;
-    const kind = authorityStatementKind(content);
-    if (kind !== 'instruction') this.#restrictionVersion += 1;
+    const kind = options.kind ?? 'statement';
+    if (!AUTHORITY_STATEMENT_KINDS.has(kind)) {
+      this.#version -= 1;
+      throw new ContractError('authority_statement_kind_invalid', 'authenticated authority statement kind is invalid');
+    }
+    if (kind === 'restriction') this.#restrictionVersion += 1;
     const item = Object.freeze({
       content, origin, sequence: this.#version, kind,
     });
@@ -28,7 +34,7 @@ export class AuthorityRecord {
     if (!item || item.sequence !== sequence) throw new ContractError('authority_rollback_invalid', 'authority rollback is not the latest intent');
     this.#intent.pop();
     this.#version -= 1;
-    if (item.kind !== 'instruction') this.#restrictionVersion -= 1;
+    if (item.kind === 'restriction') this.#restrictionVersion -= 1;
   }
 
   restore(records, missionUsage = [], options = {}) {
@@ -45,7 +51,7 @@ export class AuthorityRecord {
         throw new ContractError('authority_journal_invalid', 'authority recovery record is invalid');
       }
       lineage ??= record.lineageId;
-      this.addAuthenticatedIntent(record.content, record.origin);
+      this.addAuthenticatedIntent(record.content, record.origin, { kind: record.kind ?? 'statement' });
     }
     if (lineage) this.#id = lineage;
     this.#missionTurns.clear();
@@ -149,15 +155,6 @@ export class AuthorityRecord {
       this.#missionStartedAt.delete(id);
     } else this.#missionTurns.set(id, turns - 1);
   }
-}
-
-function authorityStatementKind(content) {
-  const text = String(content);
-  if (/\b(?:do\s+not|don't|must\s+not|mustn't|should\s+not|shouldn't|never|stop|revoke|withdraw|cancel|avoid|refrain\s+from)\b/iu.test(text)) {
-    return 'restriction';
-  }
-  if (/^\s*(?:clarification|actually|only|instead)\b/iu.test(text)) return 'clarification';
-  return 'instruction';
 }
 
 export function assertMissionBudget(active, additionalToolCalls = 0) {

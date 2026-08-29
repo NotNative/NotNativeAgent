@@ -34,6 +34,30 @@ const context = {
   surface: 'headless', justification: 'I should be allowed',
 };
 
+test('unclassified authenticated prose routes risky action through semantic review', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'unclassified-authority' });
+  let calls = 0;
+  const reviewer = new MandatoryReviewer({
+    ledger,
+    semanticReviewer: { async review(input) {
+      calls += 1;
+      assert.equal(input.authenticatedIntent[0].kind, 'statement');
+      return { outcome: 'approve', confidence: 1, reason_code: 'semantic_operator_intent' };
+    } },
+  });
+  const result = await reviewer.review(mutationRequest('unclassified-authority'), {
+    ...context,
+    authority: { ...context.authority, intent: [{
+      content: 'Create target.txt, but never infer unrelated permission from this wording.',
+      sequence: 1,
+      kind: 'statement',
+    }] },
+  });
+  assert.equal(result.outcome, 'approve');
+  assert.equal(result.reasonCode, 'semantic_intent_match');
+  assert.equal(calls, 1);
+});
+
 test('AC-REV-09 an equivalent denied request latches before another semantic review', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'repetition' });
   let calls = 0;

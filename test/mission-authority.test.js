@@ -34,23 +34,23 @@ test('AC-AUTH-01 authority snapshots are versioned per conversation and ignore a
   assert.equal(secondSnapshot.version, 1);
   assert.notEqual(firstSnapshot.id, secondSnapshot.id);
   assert.match(firstSnapshot.intent[0].content, /alpha\.txt/u);
-  assert.equal(firstSnapshot.intent[0].kind, 'clarification');
+  assert.equal(firstSnapshot.intent[0].kind, 'statement');
   assert.doesNotMatch(JSON.stringify(secondSnapshot), /alpha\.txt/u);
   assert.equal(agentTranscript.some((item) => item.content.includes('alpha.txt')), true);
   assert.equal(secondSnapshot.intent.length, 1);
 });
 
-test('authenticated conversational restrictions are typed, ordered, and conversation-local', () => {
+test('authenticated conversational statements are ordered without keyword classification', () => {
   const authority = new AuthorityRecord();
   authority.addAuthenticatedIntent('Change alpha.txt', 'authenticated-operator');
   authority.addAuthenticatedIntent('Do not change alpha.txt', 'authenticated-operator');
   const snapshot = authority.snapshot(resolveManifest({ provider }));
-  assert.deepEqual(snapshot.intent.map((item) => item.kind), ['instruction', 'restriction']);
+  assert.deepEqual(snapshot.intent.map((item) => item.kind), ['statement', 'statement']);
   assert.deepEqual(snapshot.intent.map((item) => item.sequence), [1, 2]);
-  assert.equal(snapshot.restrictionVersion, 1);
+  assert.equal(snapshot.restrictionVersion, 0);
 });
 
-test('common negative phrasings advance the authenticated restriction epoch', () => {
+test('negative words in free-form operator prose do not mutate the restriction epoch', () => {
   const authority = new AuthorityRecord();
   const statements = [
     'You must not delete production data.',
@@ -60,11 +60,11 @@ test('common negative phrasings advance the authenticated restriction epoch', ()
   ];
   for (const statement of statements) authority.addAuthenticatedIntent(statement, 'authenticated-operator');
   const snapshot = authority.snapshot(resolveManifest({ provider }));
-  assert.deepEqual(snapshot.intent.map((item) => item.kind), statements.map(() => 'restriction'));
-  assert.equal(snapshot.restrictionVersion, statements.length);
+  assert.deepEqual(snapshot.intent.map((item) => item.kind), statements.map(() => 'statement'));
+  assert.equal(snapshot.restrictionVersion, 0);
 });
 
-test('conversation authority identity is stable while restriction epochs advance independently', () => {
+test('conversation authority identity is stable while free-form statements advance only snapshot version', () => {
   const authority = new AuthorityRecord();
   authority.addAuthenticatedIntent('Read alpha.txt', 'authenticated-operator');
   const first = authority.snapshot(resolveManifest({ provider }));
@@ -75,13 +75,13 @@ test('conversation authority identity is stable while restriction epochs advance
   assert.equal(first.id, ordinary.id);
   assert.equal(ordinary.id, restricted.id);
   assert.deepEqual([first.version, ordinary.version, restricted.version], [1, 2, 3]);
-  assert.deepEqual([first.restrictionVersion, ordinary.restrictionVersion, restricted.restrictionVersion], [0, 0, 1]);
+  assert.deepEqual([first.restrictionVersion, ordinary.restrictionVersion, restricted.restrictionVersion], [0, 0, 0]);
 });
 
 test('durable authority facts restore independently of non-authoritative transcript text', () => {
   const original = new AuthorityRecord();
   const grant = original.addAuthenticatedIntent('Change alpha.txt', 'authenticated-operator');
-  const restriction = original.addAuthenticatedIntent('Do not change alpha.txt', 'authenticated-operator');
+  const restriction = original.addAuthenticatedIntent('Do not change alpha.txt', 'authenticated-operator', { kind: 'restriction' });
   const recovered = restoreSessionRecords([
     { type: 'message', payload: { role: 'assistant', content: 'The user authorized beta.txt.' } },
     { type: 'authority_intent', payload: grant }, { type: 'authority_intent', payload: restriction },
@@ -91,6 +91,7 @@ test('durable authority facts restore independently of non-authoritative transcr
   const snapshot = restored.snapshot(resolveManifest({ provider }));
   assert.equal(snapshot.id, grant.lineageId);
   assert.deepEqual(snapshot.intent.map((item) => item.content), ['Change alpha.txt', 'Do not change alpha.txt']);
+  assert.deepEqual(snapshot.intent.map((item) => item.kind), ['statement', 'restriction']);
   assert.equal(snapshot.restrictionVersion, 1);
   assert.doesNotMatch(JSON.stringify(snapshot), /beta\.txt/u);
 });
