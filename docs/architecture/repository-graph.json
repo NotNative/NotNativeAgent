@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:34b5a0bb164c4e46941bf59494c71ca87e7bbb2552954abbe8062ced570ad33b",
+  "source_digest": "sha256:daa5f388e2a86b6e291abaa8ad21cd248c62da6bfc679ff223b9d4420b336a75",
   "counts": {
-    "modules": 325,
+    "modules": 326,
     "component_edges": 69
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 41
+      "module_count": 42
     },
     {
       "id": "guidance",
@@ -129,16 +129,16 @@
       "module_count": 34
     },
     {
+      "from": "tools",
+      "to": "tools",
+      "import_count": 50,
+      "module_count": 18
+    },
+    {
       "from": "reliability-engine",
       "to": "reliability-engine",
       "import_count": 49,
       "module_count": 23
-    },
-    {
-      "from": "tools",
-      "to": "tools",
-      "import_count": 49,
-      "module_count": 17
     },
     {
       "from": "agentic-engine",
@@ -2800,7 +2800,8 @@
       "imports": [
         "src/events.js",
         "src/ids.js",
-        "src/persistence/reviewer-ledger.js"
+        "src/persistence/reviewer-ledger.js",
+        "src/tools/reason-code.js"
       ]
     },
     {
@@ -2885,6 +2886,12 @@
       "imports": [
         "src/tools/core-names.js"
       ]
+    },
+    {
+      "path": "src/tools/reason-code.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/tools/reference-store.js",

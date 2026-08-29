@@ -124,3 +124,35 @@ test('governor converts numeric executor error codes into governance-safe reason
   assert.equal(result.status, 'failed');
   assert.equal(result.reason_code, 'executor_failure_code_23');
 });
+
+test('governor converts platform error codes into stable tool reason identifiers', async () => {
+  const definition = {
+    name: 'fs.read', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'read_only',
+    async executor() { throw Object.assign(new Error('platform detail'), { code: 'ENOENT' }); },
+  };
+  const governor = new ToolGovernor({
+    events: new EventHub(),
+    reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
+    registry: { definition: () => definition },
+  });
+  const request = { id: 'read-missing', providerCallId: 'provider-missing', toolName: 'fs.read', definitionVersion: 1 };
+  const result = await governor.executePrepared(request, { id: 'decision-missing' }, new AbortController().signal);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.reason_code, 'tool_target_not_found');
+  assert.doesNotMatch(JSON.stringify(result), /ENOENT/u);
+});
+
+test('governor normalizes platform codes reported by a failed tool result', async () => {
+  const definition = {
+    name: 'fs.read', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'read_only',
+    async executor() { return { status: 'failed', reasonCode: 'EACCES', content: 'target could not be read' }; },
+  };
+  const governor = new ToolGovernor({
+    events: new EventHub(),
+    reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
+    registry: { definition: () => definition },
+  });
+  const request = { id: 'read-denied', providerCallId: 'provider-denied', toolName: 'fs.read', definitionVersion: 1 };
+  const result = await governor.executePrepared(request, { id: 'decision-denied' }, new AbortController().signal);
+  assert.equal(result.reason_code, 'tool_access_denied');
+});

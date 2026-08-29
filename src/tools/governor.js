@@ -2,6 +2,7 @@
 import { ContractError } from '../ids.js';
 import { requestDigest } from '../persistence/reviewer-ledger.js';
 import { MAX_SUBSCRIPTION_TIMEOUT_MS } from '../events.js';
+import { normalizeToolReasonCode } from './reason-code.js';
 
 // This outer event boundary must remain above the largest configured semantic-review
 // deadline. The reviewer owns the operative timeout; this is only a stuck-handler backstop.
@@ -95,7 +96,7 @@ export class ToolGovernor {
       const status = ['failed', 'completed_nonzero'].includes(raw.status) ? raw.status : 'succeeded';
       return normalizeResult(request, definition, status, raw.content, raw.metadata, started, definition.maxOutputBytes,
         raw.effectCertainty,
-        status !== 'succeeded' ? normalizeReasonCode(raw.reasonCode, 'tool_reported_failure') : null);
+        status !== 'succeeded' ? normalizeToolReasonCode(raw.reasonCode, 'tool_reported_failure') : null);
     } catch (error) {
       return normalizeFailure(request, definition, error, started);
     }
@@ -180,7 +181,7 @@ export function invalidResult(call, error) {
     tool_name: call.name ?? null, status: 'invalid_request',
     content: error instanceof ContractError ? error.message : 'invalid tool request',
     truncated: false, elapsed_ms: 0, effect_certainty: 'none',
-    untrusted: true, reason_code: normalizeReasonCode(error?.code, 'tool_invalid'),
+    untrusted: true, reason_code: normalizeToolReasonCode(error?.code, 'tool_invalid'),
   });
 }
 
@@ -190,7 +191,7 @@ export function blockedResult(request, error) {
     tool_name: request.toolName, status: 'failed',
     content: error instanceof ContractError ? error.message : 'execution-boundary revalidation failed',
     truncated: false, elapsed_ms: 0, effect_certainty: 'none',
-    untrusted: true, reason_code: normalizeReasonCode(error?.code, 'tool_revalidation_failed'),
+    untrusted: true, reason_code: normalizeToolReasonCode(error?.code, 'tool_revalidation_failed'),
     ledger_started: false,
   });
 }
@@ -262,18 +263,8 @@ function normalizeFailure(request, definition, error, started) {
     content: error instanceof ContractError ? error.message : 'tool execution failed',
     truncated: false, elapsed_ms: Math.max(0, performance.now() - started),
     effect_certainty: effectCertainty(definition, error),
-    untrusted: true, reason_code: normalizeReasonCode(error?.code, 'executor_failure'), ledger_started: true,
+    untrusted: true, reason_code: normalizeToolReasonCode(error?.code, 'executor_failure'), ledger_started: true,
   });
-}
-
-function normalizeReasonCode(value, fallback) {
-  if (value && typeof value === 'object' && 'code' in value) return normalizeReasonCode(value.code, fallback);
-  if (typeof value === 'string') {
-    const normalized = value.trim().replace(/[^A-Za-z0-9_.:@/-]+/gu, '_').slice(0, 160);
-    if (/^[A-Za-z0-9]/u.test(normalized)) return normalized;
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) return `${fallback}_code_${Math.trunc(value)}`;
-  return fallback;
 }
 
 function effectCertainty(definition, error) {
