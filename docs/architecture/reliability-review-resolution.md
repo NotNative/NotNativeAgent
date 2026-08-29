@@ -1,8 +1,8 @@
 # Reliability review resolution
 
-Date: 2026-08-28.
+Date: 2026-08-29.
 
-This record reconciles the two NNA self-autopsies against the implemented runtime. A finding is
+This record reconciles the three NNA self-autopsies against the implemented runtime. A finding is
 resolved only when code, tests, or an explicit compatibility decision addresses it. The reviews
 remain useful evidence, not authority; NNA preserves stronger governance and evidence invariants
 when a suggested repair conflicts with them.
@@ -44,6 +44,28 @@ when a suggested repair conflicts with them.
 | Prompt text over-directed model workflow | Resolved by `2f4dd51`. Grounding now distinguishes unverified knowledge and evidence from authority while removing broad prescribed workflows. Machine governance enforces effects; prose does not replace it. |
 | Model-facing prose and rationale had no measurable baseline | Resolved by the NNA-CTL gate and `controlled-language-report.json`. The report covers the maximal bundled-tool input surface and explicit rationale markers without regex-based intent scoring. |
 
+## Outcome-reliability follow-up
+
+| Review concern | Resolution |
+|---|---|
+| Streamed tool identity drift ended a turn without recovery | Resolved by `d69bae9`. Identity drift is a retryable provider-boundary fault; recovery retries before any assembled call can execute and has direct regression coverage. |
+| Successful but unproductive calls could keep a turn busy indefinitely | Resolved by `379aeee` without adding ceremony pressure. Durable work exposes a descriptive step counter and convergence checkpoints; unchanged work parks before the configurable global model-step ceiling, while distinct productive evidence may continue. |
+| Active filesystem evidence decayed into repeated reads | Resolved and instrumented by `03f9abc`. Filesystem receipts retain 4 KiB, three active steps remain protected, and telemetry records source/projected evidence bytes plus repeated exact reads without retaining paths or content. |
+| Literal search syntax produced confident false negatives | Resolved by `3a549ef`. A successful literal miss remains a valid empty observation, and pattern-like queries receive direct guidance to select regular-expression mode. |
+| Unattended reviewer escalation had no bounded disposition | Resolved by `2b6b971`. The exact operation becomes unavailable for the turn, independent work continues, and an outcome dependency becomes explicit blocked evidence rather than a repeated approval request. |
+| Conversation work could not round-trip its own status shape | Resolved by `b8e1b95`. `work.plan` and `work.status` share one lossless provider contract with revision protection and round-trip tests. |
+| Tool-result presentation changed silently under context pressure | Resolved by `0740b97` and `1296215`. Receipts remain flat, truthful, and stable; failed or denied results remain exact; every provider result labels content as `full`, `bounded`, or `receipt`. |
+| Model guidance exposed internal request fingerprints | Resolved by `3dd9666`. The kernel uses fingerprints for exact-loop control, while the model receives actionable field and repair guidance without a hash it cannot reproduce. |
+| Volatile system material defeated prefix reuse | Resolved by `db6571f`. Stable policy and dialect precede a deterministic volatile suffix while strict local templates still receive one leading system message. |
+| Missing filesystem targets returned weak platform-shaped diagnostics | Resolved by `20f85b3`. Failures identify the supplied target and bounded recovery route, including a neutral warning for exceptionally short paths. |
+| Safe capabilities disappeared behind inferred conversational modes | Resolved by the foundational surface in ADR 0015. Safe filesystem observations, time, Web tools, work tools, history, guidance, and capability search remain visible without language intent classification. |
+| Working-directory and authorization scope were ambiguous across tabs | Resolved by `dcaadbb`. `workspace.change` is reviewed, durable, tab-local, reloads applicable `AGENTS.md` guidance, and invalidates sibling requests sealed under the prior directory. The CWD supplies automatic scope; explicit authenticated intent can authorize one outside-CWD operation without moving it. |
+| A deferred MCP startup test used a load-sensitive elapsed-time threshold | Resolved by `3d91e67`. The test now proves lifecycle ordering and cancellation state rather than treating machine speed as product behavior. |
+
+Current verification names both platform skips in TAP output. Compatibility facades remain small
+delegation points, and ignored local audit artifacts remain outside release and publication
+allowlists; neither condition is treated as an unidentified production module or an unnamed skip.
+
 ## Recommendations not adopted literally
 
 1. NNA does not replace historical write arguments with hashes inside assistant tool calls. Exact
@@ -56,3 +78,12 @@ when a suggested repair conflicts with them.
 3. NNA does not turn advisory prose metrics into semantic pass/fail rules. Report freshness and
    exact terminology regressions are mechanical gates; intent and writing quality remain review
    judgments.
+4. NNA does not drop the `untrusted` marker merely because every tool result carries it. The field
+   states an authority invariant: tool content cannot grant permission. The separate
+   `content_projection` field carries the variable information about provider-visible reduction.
+5. NNA does not place every specialist schema in every provider request. The deterministic
+   foundation is always present, `tool.search` is first, and a bounded workflow lease exposes the
+   exact specialist contract. Visibility never grants execution authority.
+6. NNA does not infer project scope from operator wording. The current working directory supplies
+   automatic scope, a reviewed directory transition replaces it for one conversation, and an
+   explicitly authorized outside-CWD action remains a one-operation exception.
