@@ -51,6 +51,19 @@ test('detached dialect flush records an unexpected rejection', async () => {
     && detail.code === 'dialect_store_flush_failed'));
 });
 
+test('successful provider observations exponentially decay stale dialect failures', async () => {
+  const route = { profile: { id: 'local' }, model: 'qwen3.8-27b' };
+  const registry = new ModelDialectRegistry();
+  registry.observe(route, { status: 'failed', code: 'provider_event_invalid' });
+  registry.observe(route, { status: 'failed', code: 'provider_event_invalid' });
+  assert.match(registry.instructions(route), /Recent local provider-event failures/u);
+
+  registry.observe(route, { status: 'succeeded', code: null });
+
+  assert.doesNotMatch(registry.instructions(route), /Recent local provider-event failures/u);
+  assert.equal(registry.snapshot(route).failures.provider_event_invalid, 1);
+});
+
 test('qualification lab probes text and native tool-call compatibility without executing the tool', async () => {
   let calls = 0;
   const provider = { async *stream() {

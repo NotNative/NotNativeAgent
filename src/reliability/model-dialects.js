@@ -58,7 +58,11 @@ export class ModelDialectRegistry {
     const profile = this.#profile(route);
     profile.observations += 1;
     profile.last_seen_at = new Date().toISOString();
-    if (outcome.status === 'succeeded') profile.successes += 1;
+    let decayedFailureCodes = 0;
+    if (outcome.status === 'succeeded') {
+      profile.successes += 1;
+      decayedFailureCodes = decayFailures(profile.failures);
+    }
     else {
       const code = KNOWN_FAILURES.has(outcome.code) ? outcome.code : 'other_failure';
       profile.failures[code] = Math.min(MAX_FAILURE_COUNT, (profile.failures[code] ?? 0) + 1);
@@ -67,6 +71,7 @@ export class ModelDialectRegistry {
     this.telemetry?.record('model.dialect', outcome.status, {
       profile_key: profile.key, family: profile.family, observation: outcome,
       learned_guidance_active: learnedGuidanceActive(profile.failures),
+      decayed_failure_codes: decayedFailureCodes,
     }, { reasonCode: outcome.code });
     // Observation persistence is non-blocking; unexpected rejection is recorded.
     void this.flush().catch((error) => {
@@ -198,6 +203,18 @@ function currentToolLearning(value) {
 function learnedGuidanceActive(failures) {
   return (failures.provider_event_invalid ?? 0) >= FAILURE_GUIDANCE_THRESHOLD
     || (failures.provider_missing_terminal ?? 0) + (failures.provider_conflicting_terminal ?? 0) >= FAILURE_GUIDANCE_THRESHOLD;
+}
+
+function decayFailures(failures) {
+  let changed = 0;
+  for (const [code, count] of Object.entries(failures)) {
+    const next = Math.floor(count / 2);
+    if (next === count) continue;
+    changed += 1;
+    if (next === 0) delete failures[code];
+    else failures[code] = next;
+  }
+  return changed;
 }
 
 function boundedKey(value, maximum) { return String(value).slice(0, maximum); }

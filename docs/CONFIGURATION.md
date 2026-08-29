@@ -14,7 +14,10 @@ rewrite saved provider profiles.
 
 NNA maintains a bounded local dialect profile for each provider/model pair in
 `~/.nna/provider/model-dialects.json`. It records compatibility outcomes, never credentials, and
-tightens schema/termination guidance after repeated observed failures. `/model qualify`
+tightens schema/termination guidance after repeated observed failures. Each verified successful
+provider observation halves prior failure counts, so transient faults cannot make corrective
+guidance permanent. Tool-contract candidates remain separate, de-duplicated shadow evidence and
+are never promoted by this decay. `/model qualify`
 runs two bounded inference probes (exact text and one synthetic native tool call); the
 synthetic tool is never executed. This is local qualification, not a benchmark.
 
