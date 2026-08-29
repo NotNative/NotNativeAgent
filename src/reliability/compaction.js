@@ -8,6 +8,7 @@ import {
 import { retainedRecordsFingerprint } from './long-horizon-context.js';
 import { projectDuplicateToolResults } from './duplicate-results.js';
 import { createToolContextReceipt } from '../tools/context-receipt.js';
+import { contextCompressionPolicy } from './context-compression.js';
 
 export { attachTaskCheckpoint, enrichCompactionFact, enrichHandoffFact } from './continuation-artifact.js';
 
@@ -265,6 +266,7 @@ function keyed(name, values) {
 function compactRecord(item, budget, protectedRecord = false, request = null) {
   if (item.type === 'tool_result') {
     if (item.metadata?.reason === 'duplicate_result') return { ...item };
+    if (contextCompressionPolicy(item).automatic === false) return { ...item };
     const cap = protectedRecord
       ? Math.max(16_384, Math.min(131_072, Math.floor(budget / 4)))
       : Math.max(2_048, Math.min(16_384, Math.floor(budget / 8)));

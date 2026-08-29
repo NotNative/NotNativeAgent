@@ -2,8 +2,10 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { redactText } from '../redaction.js';
+import { toolLifecycleStatus } from './tool-result-contract.js';
 
 const SUMMARY_BYTES = Object.freeze({ filesystem: 768, search: 1024, shell: 1024, web: 1024, mcp: 1024, subagent: 1536, other: 768 });
+const RECEIPT_SCHEMA = 'nna.tool-receipt.v1';
 
 export function createToolContextReceipt(result, request) {
   if (!result || typeof result !== 'object' || Array.isArray(result)) {
@@ -11,13 +13,16 @@ export function createToolContextReceipt(result, request) {
   }
   const category = toolCategory(result.toolName ?? request?.toolName);
   const target = toolTarget(request, category);
+  const prior = existingReceipt(result);
   const receipt = Object.freeze({
-    schema: 'nna.tool-receipt.v1', tool: result.toolName ?? request?.toolName ?? 'unknown',
-    category, target, outcome: result.status ?? 'unknown',
-    effect_certainty: result.effectCertainty ?? result.effect_certainty ?? 'unknown',
-    reason_code: result.reasonCode ?? result.reason_code ?? null,
-    summary: boundedHeadTail(safeRedact(result.content), SUMMARY_BYTES[category]),
-    result_fingerprint: resultFingerprint(result), ledger_ref: ledgerReference(result),
+    schema: RECEIPT_SCHEMA, tool: result.toolName ?? request?.toolName ?? prior?.tool ?? 'unknown',
+    category: prior?.category ?? category, target: prior?.target ?? target,
+    outcome: toolLifecycleStatus(result) ?? prior?.outcome ?? 'unknown',
+    effect_certainty: result.effectCertainty ?? result.effect_certainty ?? prior?.effect_certainty ?? 'unknown',
+    reason_code: result.reasonCode ?? result.reason_code ?? prior?.reason_code ?? null,
+    summary: prior?.summary ?? boundedHeadTail(safeRedact(result.content), SUMMARY_BYTES[category]),
+    result_fingerprint: prior?.result_fingerprint ?? resultFingerprint(result),
+    ledger_ref: prior?.ledger_ref ?? ledgerReference(result),
   });
   return {
     ...result, content: JSON.stringify(receipt),
@@ -56,7 +61,7 @@ function commandText(args) {
 
 function resultFingerprint(result) {
   const fields = {
-    tool: result.toolName, status: result.status, content: result.content,
+    tool: result.toolName, toolLifecycleStatus: toolLifecycleStatus(result), content: result.content,
     effect: result.effectCertainty ?? result.effect_certainty,
     reason: result.reasonCode ?? result.reason_code,
   };
@@ -65,11 +70,38 @@ function resultFingerprint(result) {
   catch {
     serialized = JSON.stringify({
       tool: typeof fields.tool === 'string' ? fields.tool : '[unknown]',
-      status: typeof fields.status === 'string' ? fields.status : '[unknown]',
+      toolLifecycleStatus: typeof fields.toolLifecycleStatus === 'string' ? fields.toolLifecycleStatus : '[unknown]',
       content: '[unserializable]',
     });
   }
   return createHash('sha256').update(serialized ?? '[undefined]').digest('hex');
+}
+
+function existingReceipt(result) {
+  if (result.metadata?.receiptSchema !== RECEIPT_SCHEMA
+    && result.metadata?.reason !== 'semantic_tool_receipt') return null;
+  let receipt = parseReceipt(result.content);
+  if (!receipt) return null;
+  for (let depth = 0; depth < 256; depth += 1) {
+    const nested = parseReceipt(receipt.summary);
+    if (!nested) break;
+    receipt = {
+      ...receipt,
+      summary: nested.summary,
+      result_fingerprint: nested.result_fingerprint ?? receipt.result_fingerprint,
+      ledger_ref: nested.ledger_ref ?? receipt.ledger_ref,
+    };
+  }
+  return receipt;
+}
+
+function parseReceipt(value) {
+  if (typeof value !== 'string' || value.length === 0) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      && parsed.schema === RECEIPT_SCHEMA && typeof parsed.summary === 'string' ? parsed : null;
+  } catch { return null; }
 }
 
 function ledgerReference(item) { return item.requestId ?? item.providerCallId ?? item.turnId ?? item.turn_id ?? null; }

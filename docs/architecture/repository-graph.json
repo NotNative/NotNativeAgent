@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:80278f27e7bddd88711f3ffade02dafebb342233bbf55cb3dfe255a926838e1c",
+  "source_digest": "sha256:34b5a0bb164c4e46941bf59494c71ca87e7bbb2552954abbe8062ced570ad33b",
   "counts": {
     "modules": 325,
     "component_edges": 69
@@ -131,14 +131,14 @@
     {
       "from": "reliability-engine",
       "to": "reliability-engine",
-      "import_count": 48,
+      "import_count": 49,
       "module_count": 23
     },
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 48,
-      "module_count": 16
+      "import_count": 49,
+      "module_count": 17
     },
     {
       "from": "agentic-engine",
@@ -2169,6 +2169,7 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
+        "src/reliability/context-compression.js",
         "src/reliability/continuation-artifact.js",
         "src/reliability/duplicate-results.js",
         "src/reliability/long-horizon-context.js",
@@ -2719,7 +2720,8 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
-        "src/redaction.js"
+        "src/redaction.js",
+        "src/tools/tool-result-contract.js"
       ]
     },
     {

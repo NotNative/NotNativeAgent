@@ -5,6 +5,7 @@ import { compactTranscript, createHandoffFact } from '../src/compaction.js';
 import { buildContext } from '../src/context.js';
 import { ContinuationCompactor } from '../src/continuation-compactor.js';
 import { FairScheduler } from '../src/provider/fair-scheduler.js';
+import { toolResultRecord } from '../src/engine/records.js';
 
 const config = {
   workspaceRoot: 'D:\\workspace', applicationPolicy: null,
@@ -305,10 +306,17 @@ test('oversized protected history falls back to a bounded hierarchical continuat
 });
 
 test('settled tool exchanges become typed causal receipts while tool-call arguments remain exact', () => {
+  const productionResult = toolResultRecord({
+    lifecycle: { id: 'request-old' },
+    result: {
+      request_id: 'request-old', provider_call_id: 'shell-old', tool_name: 'shell.run',
+      status: 'succeeded', effect_certainty: 'completed', content: `host-a\n${'output '.repeat(2_000)}`,
+    },
+  }, 'turn-old');
   const transcript = [
     message('user', 'Inspect the host.', 'turn-old'),
     { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'shell-old', toolName: 'shell.run', args: { script: `hostname && ${'x'.repeat(3_000)}`, shell: 'auto' } },
-    { type: 'tool_result', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'shell-old', toolName: 'shell.run', status: 'succeeded', effectCertainty: 'completed', content: `host-a\n${'output '.repeat(2_000)}` },
+    productionResult,
     ...Array.from({ length: 5 }, (_, index) => [
       message('user', `Recent request ${index}`, `turn-${index}`),
       message('assistant', `Recent answer ${index}`, `turn-${index}`),
@@ -328,6 +336,66 @@ test('settled tool exchanges become typed causal receipts while tool-call argume
   assert.equal(receipt.ledger_ref, 'request-old');
   assert.match(receipt.result_fingerprint, /^[a-f0-9]{64}$/u);
   assert.equal(result.metadata.reason, 'semantic_tool_receipt');
+});
+
+test('semantic tool receipts remain flat and stable across repeated compaction', () => {
+  const transcript = [
+    message('user', 'Inspect the host.', 'turn-old'),
+    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'shell-old', toolName: 'shell.run', args: { script: 'hostname', shell: 'auto' } },
+    toolResultRecord({ lifecycle: { id: 'request-old' }, result: {
+      request_id: 'request-old', provider_call_id: 'shell-old', tool_name: 'shell.run',
+      status: 'succeeded', effect_certainty: 'completed', content: `host-a\n${'output '.repeat(2_000)}`,
+    } }, 'turn-old'),
+    ...Array.from({ length: 6 }, (_, index) => [
+      message('user', `Recent request ${index}`, `turn-${index}`),
+      message('assistant', `Recent answer ${index}`, `turn-${index}`),
+    ]).flat(),
+  ];
+  const first = compactTranscript(transcript, 80_000);
+  const second = compactTranscript([first.fact], 80_000);
+  const receiptFor = (result) => JSON.parse(result.records.find((item) => item.providerCallId === 'shell-old'
+    && item.type === 'tool_result').content);
+  const firstReceipt = receiptFor(first);
+  const secondReceipt = receiptFor(second);
+  assert.equal(firstReceipt.outcome, 'succeeded');
+  assert.deepEqual(secondReceipt, firstReceipt);
+  const retainedResult = (projection) => projection.records.find((item) => item.providerCallId === 'shell-old'
+    && item.type === 'tool_result');
+  assert.equal(retainedResult(second).metadata.resultFingerprint,
+    retainedResult(first).metadata.resultFingerprint);
+  assert.throws(() => JSON.parse(secondReceipt.summary));
+});
+
+test('hierarchical continuation resolves request and result pairs across chunk boundaries', () => {
+  const transcript = [
+    message('user', 'Inspect the large result.', 'turn-old'),
+    { type: 'tool_request', turnId: 'turn-old', providerCallId: 'cross-chunk', toolName: 'fs.read', args: { path: `fixture-${'x'.repeat(70_000)}` } },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'cross-chunk', toolName: 'fs.read', toolLifecycleStatus: 'succeeded', content: 'verified result' },
+  ];
+  const compacted = compactTranscript(transcript, 200_000);
+  assert.ok(compacted.fact.continuation.hierarchyChunks > 1);
+  assert.deepEqual(compacted.fact.continuation.unresolvedTools, []);
+  assert.ok(compacted.fact.continuation.verifiedFacts.includes('fs.read completed successfully'));
+});
+
+test('failed and denied tool results remain exact instead of becoming semantic receipts', () => {
+  const failure = {
+    type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-call', toolName: 'fs.read',
+    toolLifecycleStatus: 'invalid_request', reasonCode: 'tool_schema_invalid', content: 'required argument "path" is missing',
+  };
+  const transcript = [
+    message('user', 'Read the file.', 'turn-old'),
+    { type: 'tool_request', turnId: 'turn-old', providerCallId: 'failed-call', toolName: 'fs.read', args: {} },
+    failure,
+    ...Array.from({ length: 6 }, (_, index) => [
+      message('user', `Recent request ${index}`, `turn-${index}`),
+      message('assistant', `Recent answer ${index}`, `turn-${index}`),
+    ]).flat(),
+  ];
+  const compacted = compactTranscript(transcript, 80_000);
+  const retained = compacted.records.find((item) => item.providerCallId === 'failed-call' && item.type === 'tool_result');
+  assert.equal(retained.content, failure.content);
+  assert.notEqual(retained.metadata?.reason, 'semantic_tool_receipt');
 });
 
 test('compaction either replays exact native tool-call arguments or omits the complete exchange', () => {

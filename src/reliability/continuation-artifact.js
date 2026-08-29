@@ -3,12 +3,13 @@ import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 
 export function hierarchicalContinuationArtifact(transcript, omitted) {
   const chunks = chunkRecords(transcript, 65_536);
+  const results = toolResults(transcript);
   if (chunks.length <= 1) return Object.freeze({
-    ...baseContinuationArtifact(transcript, omitted), hierarchyChunks: Math.max(1, chunks.length),
+    ...baseContinuationArtifact(transcript, omitted, results), hierarchyChunks: Math.max(1, chunks.length),
   });
   // Chunk artifacts are intermediate projections. Only the final aggregate can
   // truthfully report how many durable records the caller omitted.
-  const artifacts = chunks.map((chunk) => baseContinuationArtifact(chunk, 0));
+  const artifacts = chunks.map((chunk) => baseContinuationArtifact(chunk, 0, results));
   const objective = [...artifacts].reverse().find((item) => item.objective)?.objective ?? '';
   return Object.freeze({
     schema: 'nna.continuation.v1', objective,
@@ -23,7 +24,7 @@ export function hierarchicalContinuationArtifact(transcript, omitted) {
   });
 }
 
-function baseContinuationArtifact(transcript, omitted) {
+function baseContinuationArtifact(transcript, omitted, results = toolResults(transcript)) {
   const userMessages = transcript.filter((item) => item.type === 'message' && item.role === 'user');
   const objective = userMessages.at(-1);
   const objectiveIndex = objective ? transcript.lastIndexOf(objective) : -1;
@@ -32,8 +33,6 @@ function baseContinuationArtifact(transcript, omitted) {
   const assistantMessages = currentAssistantMessages.length > 0
     ? currentAssistantMessages
     : transcript.filter((item) => item.type === 'message' && item.role === 'assistant');
-  const results = new Map(transcript.filter((item) => item.type === 'tool_result')
-    .map((item) => [item.providerCallId, item]));
   const allToolRequests = transcript.filter((item) => item.type === 'tool_request');
   const toolRequests = currentRecords.filter((item) => item.type === 'tool_request');
   const changedFiles = [];
@@ -57,6 +56,11 @@ function baseContinuationArtifact(transcript, omitted) {
     latestOutcome: bounded([...currentRecords].reverse().find((item) => item.type === 'turn_outcome')?.outcome ?? '', 64),
     omittedRecords: omitted,
   });
+}
+
+function toolResults(transcript) {
+  return new Map(transcript.filter((item) => item.type === 'tool_result')
+    .map((item) => [item.providerCallId, item]));
 }
 
 export function renderContinuation(item, maximumBytes = 49_152) {
