@@ -1,34 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ContractError } from '../ids.js';
 import { FOUNDATIONAL_TOOL_NAMES } from './core-names.js';
 
-export const PROVIDER_SURFACE_PHASES = Object.freeze(['orientation', 'action', 'recovery', 'monitoring']);
-
 const FOUNDATIONAL_BASELINE = Object.freeze([...FOUNDATIONAL_TOOL_NAMES]);
-const LIMITS = Object.freeze({
-  orientation: Object.freeze({ count: 32, bytes: 64 * 1024 }),
-  action: Object.freeze({ count: 32, bytes: 64 * 1024 }),
-  recovery: Object.freeze({ count: 32, bytes: 64 * 1024 }),
-  monitoring: Object.freeze({ count: 32, bytes: 64 * 1024 }),
-});
-
-export function providerSurfacePhase(value) {
-  const phase = value ?? 'orientation';
-  if (!PROVIDER_SURFACE_PHASES.includes(phase)) {
-    throw new ContractError('provider_surface_phase_invalid', 'provider tool-surface phase is invalid');
-  }
-  return phase;
-}
+const LIMITS = Object.freeze({ count: 32, bytes: 64 * 1024 });
 
 export function planProviderToolNames({
   availableNames = [], workflowLeaseNames = [], allowedNames = null,
-  phase = 'orientation', encodedDefinition,
+  encodedDefinition,
 }) {
-  phase = providerSurfacePhase(phase);
   const available = new Set(availableNames);
   if (allowedNames) {
     const names = availableNames.filter((name) => allowedNames.has(name));
-    return finalize(names, [], phase, names.map((name) => [name, 'host_manifest']), encodedDefinition, null);
+    return finalize(names, [], 'host_manifest', names.map((name) => [name, 'host_manifest']), encodedDefinition, null);
   }
   const reasons = new Map();
   const protectedNames = new Set();
@@ -40,7 +23,7 @@ export function planProviderToolNames({
   };
   for (const name of FOUNDATIONAL_BASELINE) add(name, 'foundational', true);
   for (const name of workflowLeaseNames) add(name, 'workflow_lease');
-  const limits = LIMITS[phase];
+  const limits = LIMITS;
   const selected = [];
   const omitted = [];
   let bytes = 0;
@@ -52,14 +35,14 @@ export function planProviderToolNames({
     }
     selected.push(name); bytes += definitionBytes;
   }
-  return finalize(selected, omitted, phase, [...reasons], encodedDefinition, limits);
+  return finalize(selected, omitted, 'foundation_with_leases', [...reasons], encodedDefinition, limits);
 }
 
-function finalize(names, omitted, phase, reasons, encodedDefinition, limits) {
+function finalize(names, omitted, composition, reasons, encodedDefinition, limits) {
   const reasonMap = new Map(reasons);
   const bytes = names.reduce((total, name) => total + encodedDefinition(name), 0);
   return Object.freeze({
-    phase, names: Object.freeze(names), omitted: Object.freeze(omitted),
+    composition, names: Object.freeze(names), omitted: Object.freeze(omitted),
     schemaBytes: bytes, limits,
     reasons: Object.freeze(Object.fromEntries(names.map((name) => [name, reasonMap.get(name)]))),
   });

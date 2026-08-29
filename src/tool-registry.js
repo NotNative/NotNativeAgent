@@ -40,7 +40,7 @@ import { telegramNotificationDefinition } from './notifications/telegram.js';
 import { sessionHistoryDefinitions } from './session-history-tools.js';
 import { systemTimeDefinition } from './tools/system-time.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
-import { planProviderToolNames, providerSurfacePhase } from './tools/provider-surface-planner.js';
+import { planProviderToolNames } from './tools/provider-surface-planner.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const MAX_MODEL_AUTHORED_TEXT_BYTES = 32_768;
 export class ToolRegistry {
@@ -121,11 +121,10 @@ export class ToolRegistry {
   catalogSnapshot() {
     return Object.freeze(this.snapshot().filter((item) => catalogVisible(item.name) || this.allowedTools?.has(item.name)));
   }
-  providerDefinitions(query = '', options = {}) {
-    return this.providerSurface(query, options).definitions;
+  providerDefinitions(query = '') {
+    return this.providerSurface(query).definitions;
   }
-  providerSurface(query = '', options = {}) {
-    const phase = providerSurfacePhase(options.phase);
+  providerSurface(query = '') {
     const selectionContext = typeof query === 'string' ? query : '';
     const snapshot = this.snapshot();
     const callable = snapshot.filter((item) => isToolSurfaceEligible(
@@ -142,12 +141,12 @@ export class ToolRegistry {
     const plan = planProviderToolNames({
       availableNames: callable.map((item) => item.name), workflowLeaseNames: this.#workflowLeases.keys(),
       allowedNames: this.allowedTools,
-      phase, encodedDefinition: (name) => Buffer.byteLength(JSON.stringify(projected.get(name)), 'utf8'),
+      encodedDefinition: (name) => Buffer.byteLength(JSON.stringify(projected.get(name)), 'utf8'),
     });
     const definitions = Object.freeze(plan.names.map((name) => Object.freeze(projected.get(name))));
     const receiptCore = {
-      schema: 'nna.provider-tool-surface.v1', policyVersion: 'progressive-action-clarity-v1',
-      phase: plan.phase, selectedToolNames: plan.names, omittedToolNames: plan.omitted,
+      schema: 'nna.provider-tool-surface.v2', policyVersion: 'bounded-foundation-with-leases-v1',
+      composition: plan.composition, selectedToolNames: plan.names, omittedToolNames: plan.omitted,
       schemaBytes: plan.schemaBytes, limits: plan.limits, selectionReasons: plan.reasons,
       selectionContextBytes: Buffer.byteLength(selectionContext, 'utf8'),
       selectionContextFingerprint: createHash('sha256').update(selectionContext).digest('hex'),

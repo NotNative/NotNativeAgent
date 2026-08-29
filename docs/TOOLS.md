@@ -3,7 +3,7 @@
 ## Discovery and context economy
 
 Every ordinary provider step receives a deterministic foundational surface, with `tool.search`
-first: `tool.search`; `fs.list`, `fs.read`, and `fs.search_text`; `shell.run`, `web.search`,
+first: `tool.search`; `system.time`; `fs.list`, `fs.read`, and `fs.search_text`; `shell.run`, `web.search`,
 `web.fetch`, and `web.browse`;
 `work.plan`, `work.status`, `work.goal`, `work.task_add`, and `work.task_update`; `git.inspect`;
 `session.search_history` and `session.read_history`; `nna.search_guidance`,
@@ -353,3 +353,8 @@ foundation; a hosted manifest may instead grant `process.run`. A host execution 
 ceiling the complete capability set, including to an empty list. Regardless of visibility,
 every tool call remains unknown to governance until it passes the normal validation and review
 pipeline.
+
+The durable provider-surface receipt reports the composition actually enforced:
+`foundation_with_leases` for a root conversation or `host_manifest` for an authenticated host
+ceiling. It does not report orientation, action, recovery, or monitoring phases because those
+labels do not change tool selection or its limits.

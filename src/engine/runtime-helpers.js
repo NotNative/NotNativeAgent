@@ -16,10 +16,9 @@ export function providerRequest(engine, route, context, options = {}) {
   const query = capabilitySelectionQuery(context, options.conversationIntent, options.approvedProposal);
   const messages = toProviderMessages(context, { ...route, reasoningMode: options.reasoningMode });
   const dialect = engine.reliability?.instructions(route);
-  const surfacePhase = options.capabilityPhase;
   const surface = typeof engine.tools.providerSurface === 'function'
-    ? engine.tools.providerSurface(query, { phase: surfacePhase })
-    : { definitions: engine.tools.providerDefinitions(query, { phase: surfacePhase }), receipt: null };
+    ? engine.tools.providerSurface(query)
+    : { definitions: engine.tools.providerDefinitions(query), receipt: null };
   const tools = surface.definitions;
   if (options.active) options.active.providerToolSurface = surface.receipt;
   const catalog = toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);

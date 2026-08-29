@@ -74,25 +74,23 @@ test('specialist tools require an explicit catalog search or authenticated expos
 test('provider surface receipts make fixed foundations and workflow leases auditable', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  const orientation = registry.providerSurface('build and test the application');
-  assert.equal(orientation.receipt.phase, 'orientation');
+  const baseline = registry.providerSurface('build and test the application');
+  assert.equal(baseline.receipt.composition, 'foundation_with_leases');
   const expected = availableFoundation(registry);
-  assert.deepEqual(orientation.receipt.selectedToolNames, expected);
-  assert.ok(orientation.definitions.length <= 32);
-  assert.ok(orientation.receipt.schemaBytes <= 64 * 1024);
-  assert.equal(orientation.receipt.selectionReasons['shell.run'], 'foundational');
-  assert.ok(orientation.receipt.selectionContextBytes > 0);
-  assert.match(orientation.receipt.selectionContextFingerprint, /^[a-f0-9]{64}$/u);
-  assert.ok(!orientation.receipt.selectedToolNames.includes('fs.write_text'));
-  assert.match(orientation.receipt.fingerprint, /^[a-f0-9]{64}$/u);
+  assert.deepEqual(baseline.receipt.selectedToolNames, expected);
+  assert.ok(baseline.definitions.length <= 32);
+  assert.ok(baseline.receipt.schemaBytes <= 64 * 1024);
+  assert.equal(baseline.receipt.selectionReasons['shell.run'], 'foundational');
+  assert.ok(baseline.receipt.selectionContextBytes > 0);
+  assert.match(baseline.receipt.selectionContextFingerprint, /^[a-f0-9]{64}$/u);
+  assert.ok(!baseline.receipt.selectedToolNames.includes('fs.write_text'));
+  assert.match(baseline.receipt.fingerprint, /^[a-f0-9]{64}$/u);
 
-  const action = registry.providerSurface('build and test the application', { phase: 'action' });
-  assert.equal(action.receipt.phase, 'action');
-  assert.deepEqual(action.receipt.selectedToolNames, expected);
-  assert.match(action.receipt.fingerprint, /^[a-f0-9]{64}$/u);
+  const legacyOption = registry.providerSurface('build and test the application', { phase: 'action' });
+  assert.deepEqual(legacyOption, baseline);
 
   registry.grantWorkflowLease(['fs.write_text']);
-  const expanded = registry.providerSurface('any wording', { phase: 'recovery' });
+  const expanded = registry.providerSurface('any wording');
   assert.equal(expanded.receipt.selectionReasons['web.fetch'], 'foundational');
   assert.equal(expanded.receipt.selectionReasons['web.browse'], 'foundational');
   assert.equal(expanded.receipt.selectionReasons['fs.write_text'], 'workflow_lease');

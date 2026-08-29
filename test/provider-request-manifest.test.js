@@ -49,8 +49,9 @@ test('provider request manifest is durable, content-free, and precedes provider 
   assert.equal(manifest.envelope.configuration.temperature.sent, false);
   assert.ok(manifest.envelope.shape.message_count > 0);
   assert.ok(manifest.envelope.shape.tool_schema_count > 0);
-  assert.equal(manifest.toolSurface.schema, 'nna.provider-tool-surface.v1');
-  assert.equal(manifest.toolSurface.phase, 'orientation');
+  assert.equal(manifest.toolSurface.schema, 'nna.provider-tool-surface.v2');
+  assert.equal(manifest.toolSurface.composition, 'foundation_with_leases');
+  assert.equal(Object.hasOwn(manifest.toolSurface, 'phase'), false);
   assert.equal(manifest.toolSurface.selectedToolNames[0], 'tool.search');
   for (const name of ['shell.run', 'work.plan', 'work.goal', 'work.task_add', 'work.task_update']) {
     assert.ok(manifest.toolSurface.selectedToolNames.includes(name), `${name} missing from provider manifest`);
