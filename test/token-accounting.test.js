@@ -49,6 +49,7 @@ test('complete provider envelope inventories prompt sections, schemas, configura
 test('generated system guidance follows identity while retaining injected envelope attribution', () => {
   const context = [
     { role: 'system', content: 'identity', provenance: 'engine_policy' },
+    { role: 'system', content: 'volatile work state', provenance: 'conversation_work' },
     { role: 'user', content: 'inspect', provenance: 'transcript', trust: 'operator' },
   ];
   const request = providerRequest({
@@ -64,12 +65,14 @@ test('generated system guidance follows identity while retaining injected envelo
   assert.equal(request.messages.length, 2);
   assert.equal(request.messages[0].role, 'system');
   assert.match(request.messages[0].content, /^identity\n\ndialect guidance/iu);
-  assert.match(request.messages[0].content, /Additional authorized tool names/iu);
+  assert.match(request.messages[0].content,
+    /^identity\n\ndialect guidance\n\nvolatile work state\n\nAdditional authorized tool names/iu);
   assert.equal(request.messages[1].content, 'inspect');
   assert.equal(request.messages.filter((item) => item.role === 'system').length, 1);
   const envelope = measureProviderEnvelope(request, context);
   assert.equal(envelope.sections.find((item) => item.id === 'request.injected_system').items, 2);
   assert.equal(envelope.sections.find((item) => item.id === 'context.engine_policy').items, 1);
+  assert.equal(envelope.sections.find((item) => item.id === 'context.conversation_work').items, 1);
   assert.equal(envelope.sections.find((item) => item.id === 'context.transcript').items, 1);
 });
 

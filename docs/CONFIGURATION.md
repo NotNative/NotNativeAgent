@@ -130,10 +130,13 @@ Reasoning deltas and partial tool-call arguments are still independently typed a
 The short connection value
 is reserved for connectivity and metadata probes; it does not abort a healthy LM Studio,
 Ollama, llama.cpp, vLLM, SGLang, or other compatible host while that host loads a model.
-Before inference, NNA coalesces its attributed policy, clock, memory, hook, project,
-continuation, and recovery fragments into one leading system message. Conversation and
-tool chronology remain unchanged. This supports strict local chat templates that reject
-multiple system messages or any system role after the first message.
+Before inference, NNA orders attributed system fragments into a stable prefix and volatile
+suffix, then coalesces them into one leading system message. Engine and application policy plus
+the selected model dialect remain first; current work, tool constraints, catalogs, clock,
+memory, hook, project, continuation, and recovery material follow deterministically. Conversation
+and tool chronology remain unchanged. The stable-first layout supports token-prefix reuse while
+the single wire message supports strict local chat templates that reject multiple system messages
+or any system role after the first message.
 `provider_concurrency` and `tool_concurrency` default
 to one for constrained local systems and accept one through sixteen. Tool concurrency
 applies only to consecutive independently reviewed read-only operations; mutations remain

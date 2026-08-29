@@ -22,8 +22,11 @@ export function providerRequest(engine, route, context, options = {}) {
   const tools = surface.definitions;
   if (options.active) options.active.providerToolSurface = surface.receipt;
   const catalog = toolCatalogContext(engine.tools.catalogSnapshot?.() ?? engine.tools.snapshot?.() ?? [], tools);
-  const system = [dialect, catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
-  const ordered = insertGeneratedSystemMessages(messages, system);
+  const stableSystem = [dialect].filter(Boolean).map((content) => ({ role: 'system', content }));
+  const volatileSystem = [catalog].filter(Boolean).map((content) => ({ role: 'system', content }));
+  const ordered = insertGeneratedSystemMessages(
+    messages, stableSystem, volatileSystem, stableSystemPrefixLength(context),
+  );
   const accountingSections = providerAccountingSections(ordered.messages, context, ordered.injectedMessageIndexes);
   const flattenedMessages = flattenLeadingSystemMessages(ordered.messages);
   const reasoning = routeReasoningFields(route);
@@ -39,20 +42,39 @@ export function providerRequest(engine, route, context, options = {}) {
   return attachProviderRequestMetadata(request, { injectedMessageIndexes: [], accountingSections });
 }
 
-function insertGeneratedSystemMessages(messages, generated) {
-  if (generated.length === 0) return { messages, injectedMessageIndexes: [] };
-  let index = 0;
-  while (messages[index]?.role === 'system') index += 1;
+function insertGeneratedSystemMessages(messages, stable, volatile, stablePrefixLength) {
+  if (stable.length === 0 && volatile.length === 0) return { messages, injectedMessageIndexes: [] };
+  let leadingEnd = 0;
+  while (messages[leadingEnd]?.role === 'system') leadingEnd += 1;
+  const stableIndex = Math.min(stablePrefixLength, leadingEnd);
+  const volatileIndex = leadingEnd + stable.length;
   return {
-    messages: [...messages.slice(0, index), ...generated, ...messages.slice(index)],
-    injectedMessageIndexes: generated.map((_, offset) => index + offset),
+    messages: [
+      ...messages.slice(0, stableIndex), ...stable,
+      ...messages.slice(stableIndex, leadingEnd), ...volatile,
+      ...messages.slice(leadingEnd),
+    ],
+    injectedMessageIndexes: [
+      ...stable.map((_, offset) => stableIndex + offset),
+      ...volatile.map((_, offset) => volatileIndex + offset),
+    ],
   };
+}
+
+function stableSystemPrefixLength(context) {
+  const stable = new Set(['engine_policy', 'application_policy']);
+  let length = 0;
+  while (context[length]?.role === 'system' && stable.has(context[length]?.provenance)) length += 1;
+  return length;
 }
 
 function flattenLeadingSystemMessages(messages) {
   let index = 0;
   while (messages[index]?.role === 'system') index += 1;
   if (index <= 1) return messages;
+  // Compatibility: strict local chat templates require one leading system role.
+  // Stable policy and dialect are ordered before volatile suffixes prior to this join,
+  // so token-prefix caching can reuse the invariant portion without changing wire shape.
   return [{
     role: 'system',
     content: messages.slice(0, index).map((item) => item.content).filter(Boolean).join('\n\n'),
