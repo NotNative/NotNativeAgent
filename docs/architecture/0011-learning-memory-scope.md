@@ -4,9 +4,11 @@ NNA, NNM, and NNO share one learning contract without requiring one another to r
 
 ## Ownership
 
-- NNA owns workspace continuity in `NNA.md`: project policies, naming and layout
-  conventions, architecture, verified environment state, known problems, and unresolved
-  work. This path remains available when no external memory system is installed.
+- NNA owns optional local workspace continuity in `NNA.md`: project knowledge, decisions,
+  architecture, verified environment state, known problems, and unresolved work. This path
+  remains available when no external memory system is installed.
+- Repositories own portable agent policy in `AGENTS.md`: engineering rules, commands, naming,
+  layout, and contribution cadence.
 - NNM owns structured durable knowledge: user preferences, named entities, relationships,
   provenance, confidence, conflicts, supersession, and cross-session retrieval.
 - NNO owns authenticated business identity and scope. It supplies subject, workspace,

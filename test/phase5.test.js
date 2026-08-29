@@ -687,8 +687,9 @@ test('kernel context treats the workspace as context instead of an implicit task
   }
   assert.equal(context.some((item) => item.provenance === 'runtime_clock'), false);
   assert.match(policy, /workspace is context, not an implied assignment/iu);
-  assert.match(policy, /NNA\.md is injected as attributed context/u);
-  assert.match(policy, /without rereading it or inventing a guidance file/u);
+  assert.match(policy, /AGENTS\.md supplies repository instructions/u);
+  assert.match(policy, /NNA\.md supplies optional local project memory/u);
+  assert.match(policy, /Do not reread or invent guidance files/u);
   assert.equal(policy.includes(config(process.cwd()).workspaceRoot), true);
   assert.match(policy, /Do not inspect or modify it merely because it exists/u);
   assert.match(policy, /begin with one brief visible statement of intent, viewpoint/u);

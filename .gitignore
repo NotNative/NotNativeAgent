@@ -9,3 +9,5 @@
 /.npm-cache/
 # Local autonomous-run transcript produced by development harnesses.
 /autonomy-test-run.log
+# Local NNA-managed project memory. Repository instructions belong in AGENTS.md.
+/NNA.md

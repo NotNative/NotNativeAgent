@@ -2,9 +2,11 @@
 import { lstat, readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
-const MAX_DOCUMENTS = 32;
+const MAX_DIRECTORIES = 32;
+const MAX_DOCUMENTS = 64;
 const MAX_DOCUMENT_BYTES = 65_536;
 const MAX_TOTAL_BYTES = 131_072;
+const AGENT_INSTRUCTION_NAMES = Object.freeze(['AGENTS.override.md', 'AGENTS.md']);
 
 export class ProjectGuidance {
   constructor(workspaceRoot, options = {}) {
@@ -20,33 +22,55 @@ export class ProjectGuidance {
       addAncestors(directories, this.root, absolute);
       addAncestors(directories, this.root, dirname(absolute));
     }
-    const items = [];
+    const directoriesInScope = [...directories]
+      .sort((left, right) => pathDepth(this.root, left) - pathDepth(this.root, right)
+        || left.localeCompare(right)).slice(0, MAX_DIRECTORIES);
+    const instructions = [];
+    const memories = [];
     let total = 0;
-    for (const directory of [...directories].sort((left, right) => left.length - right.length).slice(0, MAX_DOCUMENTS)) {
-      const path = join(directory, 'NNA.md');
-      try {
-        const metadata = await lstat(path);
-        if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size > MAX_DOCUMENT_BYTES) continue;
-        const content = await readFile(path, 'utf8');
-        const bytes = Buffer.byteLength(content, 'utf8');
-        if (bytes === 0 || total + bytes > MAX_TOTAL_BYTES) continue;
-        items.push(Object.freeze({
-          path: relative(this.root, path) || 'NNA.md', content,
-          depth: pathDepth(this.root, directory), updatedAt: Math.trunc(metadata.mtimeMs),
-        }));
-        total += bytes;
-      } catch (error) {
-        if (error.code !== 'ENOENT') this.telemetry?.record('project.guidance', 'failed', {
-          relative_path: relative(this.root, path), code: error.code ?? 'guidance_read_failed',
-        }, { reasonCode: error.code });
-      }
+    for (const directory of directoriesInScope) {
+      const item = await firstDocument(this.root, directory, AGENT_INSTRUCTION_NAMES,
+        'agent_instructions', this.telemetry);
+      if (!item || total + item.bytes > MAX_TOTAL_BYTES) continue;
+      instructions.push(item); total += item.bytes;
     }
+    for (const directory of directoriesInScope) {
+      if (instructions.length + memories.length >= MAX_DOCUMENTS) break;
+      const item = await firstDocument(this.root, directory, ['NNA.md'], 'project_memory', this.telemetry);
+      if (!item || total + item.bytes > MAX_TOTAL_BYTES) continue;
+      memories.push(item); total += item.bytes;
+    }
+    // Invariant: mutable local memory is projected before portable repository instructions.
+    // Later AGENTS.md content therefore wins when the two sources conflict.
+    const items = [...memories, ...instructions];
     this.telemetry?.record('project.guidance', 'succeeded', {
       documents: items.map((item) => ({ path: item.path, bytes: Buffer.byteLength(item.content), depth: item.depth })),
       total_bytes: total,
     });
     return Object.freeze(items);
   }
+}
+
+async function firstDocument(root, directory, names, kind, telemetry) {
+  for (const name of names) {
+    const path = join(directory, name);
+    try {
+      const metadata = await lstat(path);
+      if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size > MAX_DOCUMENT_BYTES) continue;
+      const content = await readFile(path, 'utf8');
+      const bytes = Buffer.byteLength(content, 'utf8');
+      if (bytes === 0) continue;
+      return Object.freeze({
+        path: relative(root, path) || name, content, bytes, kind,
+        depth: pathDepth(root, directory), updatedAt: Math.trunc(metadata.mtimeMs),
+      });
+    } catch (error) {
+      if (error.code !== 'ENOENT') telemetry?.record('project.guidance', 'failed', {
+        relative_path: relative(root, path), code: error.code ?? 'guidance_read_failed',
+      }, { reasonCode: error.code });
+    }
+  }
+  return null;
 }
 
 function guidanceTargets(records) {

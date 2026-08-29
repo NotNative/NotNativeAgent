@@ -35,10 +35,11 @@ Optional language-server diagnostics use `~/.nna/config/lsp.json`:
 Commands are spawned directly with an argv array and no shell. A missing or unmatched
 configuration returns `lsp_not_configured` without changing the workspace.
 
-Repository guidance is independent of external memory. A root `NNA.md` applies to the
-workspace; additional `NNA.md` files apply beneath their directory. NNA discovers them
-from actual tool targets, loads them root-to-leaf with strict bounds, rejects symlinks,
-and attributes them as workspace guidance that cannot grant tool authority.
+Repository instructions are independent of external memory. NNA loads `AGENTS.md` from the
+workspace root toward actual tool targets. A same-directory `AGENTS.override.md` takes precedence,
+and instructions closer to a target override broader instructions. NNA also loads optional local
+project memory from `NNA.md`, but that memory cannot override `AGENTS.md`. Discovery is bounded,
+rejects symlinks, and attributes every document as workspace context that cannot grant authority.
 
 The CLI accepts a UTF-8 JSON manifest with `--config PATH` (`--manifest` remains a
 compatibility alias); host mode supplies the

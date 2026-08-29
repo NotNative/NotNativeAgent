@@ -7,12 +7,17 @@ import { join } from 'node:path';
 import { ProjectGuidance } from '../src/guidance/project.js';
 import { buildContext } from '../src/context.js';
 
-test('project guidance resolves root-to-target hierarchy and ignores outside paths', async () => {
+test('project guidance resolves portable instructions and lower-priority local memory root-to-target', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-project-guidance-'));
   await mkdir(join(root, 'src', 'feature'), { recursive: true });
-  await writeFile(join(root, 'NNA.md'), 'root guidance');
-  await writeFile(join(root, 'src', 'NNA.md'), 'source guidance');
-  await writeFile(join(root, 'src', 'feature', 'NNA.md'), 'feature guidance');
+  await writeFile(join(root, 'AGENTS.md'), 'root instructions');
+  await writeFile(join(root, 'NNA.md'), 'root memory');
+  await writeFile(join(root, 'src', 'AGENTS.md'), 'ignored source instructions');
+  await writeFile(join(root, 'src', 'AGENTS.override.md'), 'source override');
+  await writeFile(join(root, 'src', 'NNA.md'), 'source memory');
+  await writeFile(join(root, 'src', 'feature', 'AGENTS.md'), 'feature instructions');
+  await writeFile(join(root, 'src', 'feature', 'AGENTS.override.md'), '');
+  await writeFile(join(root, 'src', 'feature', 'NNA.md'), 'feature memory');
   const catalog = new ProjectGuidance(root);
   const items = await catalog.resolve([
     { type: 'tool_request', args: { path: 'src/feature/file.js' } },
@@ -20,16 +25,26 @@ test('project guidance resolves root-to-target hierarchy and ignores outside pat
   ]);
   assert.deepEqual(items.map((item) => item.path.replaceAll('\\', '/')), [
     'NNA.md', 'src/NNA.md', 'src/feature/NNA.md',
+    'AGENTS.md', 'src/AGENTS.override.md', 'src/feature/AGENTS.md',
   ]);
-  assert.deepEqual(items.map((item) => item.depth), [0, 1, 2]);
+  assert.deepEqual(items.map((item) => item.kind), [
+    'project_memory', 'project_memory', 'project_memory',
+    'agent_instructions', 'agent_instructions', 'agent_instructions',
+  ]);
+  assert.deepEqual(items.map((item) => item.depth), [0, 1, 2, 0, 1, 2]);
 });
 
 test('project guidance is attributed workspace policy and cannot masquerade as kernel authority', () => {
   const config = { workspaceRoot: 'D:/work', limits: { maxContextBytes: 1_048_576 } };
   const context = buildContext(config, [], 'work here', {
-    projectGuidance: [{ path: 'src/NNA.md', depth: 1, content: 'Use focused modules.' }],
+    projectGuidance: [
+      { path: 'src/NNA.md', depth: 1, kind: 'project_memory', content: 'Use focused modules.' },
+      { path: 'src/AGENTS.md', depth: 1, kind: 'agent_instructions', content: 'Run focused tests.' },
+    ],
   });
-  const item = context.find((entry) => entry.provenance === 'project_guidance:src/NNA.md');
-  assert.equal(item.trust, 'workspace_guidance');
-  assert.match(item.content, /cannot grant tool authority/u);
+  const memory = context.find((entry) => entry.provenance === 'project_guidance:src/NNA.md');
+  const instructions = context.find((entry) => entry.provenance === 'project_guidance:src/AGENTS.md');
+  assert.equal(memory.trust, 'workspace_guidance');
+  assert.match(memory.content, /cannot override applicable AGENTS\.md instructions/u);
+  assert.match(instructions.content, /does not prove factual claims, grant tool authority/u);
 });

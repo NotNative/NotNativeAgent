@@ -2,7 +2,7 @@
 import { lstat, readFile, readdir } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 
-const GUIDANCE_FILES = Object.freeze(['README.md', 'README', 'NNA.md', 'AGENTS.md', 'CONTRIBUTING.md', 'SECURITY.md', 'LICENSE']);
+const GUIDANCE_FILES = Object.freeze(['README.md', 'README', 'AGENTS.md', 'NNA.md', 'CONTRIBUTING.md', 'SECURITY.md', 'LICENSE']);
 const MANIFEST_FILES = Object.freeze(['package.json', 'pyproject.toml', 'Cargo.toml', 'go.mod', 'pom.xml', 'build.gradle']);
 const ROOT_FILES = Object.freeze([...GUIDANCE_FILES, ...MANIFEST_FILES]);
 const SOURCE_DIRECTORIES = ['src', 'lib', 'app', 'packages', 'apps', 'cmd', 'internal'];

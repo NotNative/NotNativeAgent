@@ -324,7 +324,7 @@ is the explicit, secret-screened write path; `/memory delete ID [EXPECTED_VERSIO
 an item with an optional optimistic-concurrency guard. Enabling memory does not install an
 adapter or configure an MCP server, and the view reports an absent adapter as unavailable.
 This boundary refers to an external structured memory service such as NNM; it is unrelated
-to repository guidance files such as `NNA.md`.
+to repository instructions in `AGENTS.md` or optional local project memory in `NNA.md`.
 
 Permission prompts show the exact tool, scope, effect, reversibility evidence, blast
 radius, reviewer reason, redacted arguments, expiry, and distinct allow/deny/cancel
