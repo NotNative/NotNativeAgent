@@ -92,7 +92,7 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
     assert.equal(registry.definition('fs.write_text').inputSchema.properties.content.maxLength, 32_768);
     assert.equal(registry.definition('ref.store').inputSchema.properties.value.maxLength, 32_768);
 
-    registry.expose(['fs.edit_text', 'fs.edit_lines']);
+    registry.grantWorkflowLease(['fs.edit_text', 'fs.edit_lines']);
     const surface = registry.providerDefinitions('build and edit a project file', { phase: 'action' });
     for (const name of ['fs.edit_text', 'fs.edit_lines']) {
       const parameters = surface.find((entry) => entry.function.name === name)?.function.parameters;

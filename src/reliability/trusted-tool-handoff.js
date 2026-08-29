@@ -12,7 +12,7 @@ export function trustedToolHandoff(items = []) {
     source_tool: SCREENSHOT_TOOL,
     source_action: 'screenshot',
     required_tool: INSPECTION_TOOL,
-    expose: Object.freeze([INSPECTION_TOOL]),
+    workflowLeaseTools: Object.freeze([INSPECTION_TOOL]),
     args,
     hint: `The browser screenshot has already been captured successfully. Do not wait, sleep, echo readiness, or recapture it. `
       + `If visual interpretation is needed, call ${INSPECTION_TOOL} next with exactly ${JSON.stringify(args)}; `

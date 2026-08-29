@@ -134,7 +134,7 @@ test('filesystem mutations accept unambiguous common argument spellings and reta
 test('exact-text and line-range edits expose separate unambiguous contracts', async () => {
   const item = await fixture();
   try {
-    item.registry.expose(['fs.edit_text', 'fs.edit_lines']);
+    item.registry.grantWorkflowLease(['fs.edit_text', 'fs.edit_lines']);
     const exposed = item.registry.providerDefinitions('edit a project file', { phase: 'action' })
       .find((entry) => entry.function.name === 'fs.edit_text').function.parameters;
     assert.deepEqual(exposed.required, ['path', 'find', 'content']);

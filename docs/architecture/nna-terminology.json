@@ -115,14 +115,14 @@
       "term": "tool surface eligibility",
       "kind": "data_term",
       "definition": "A tool property that permits selection for a provider request but grants no execution authority.",
-      "identifiers": ["TOOL_SURFACE_ELIGIBLE", "isToolSurfaceEligible"]
+      "identifiers": ["TOOL_SURFACE_ELIGIBLE", "TOOL_SURFACE_ELIGIBLE_NAMES", "isToolSurfaceEligible"]
     },
     {
       "id": "CTL-TERM-014",
       "term": "foundational tool",
       "kind": "technical_noun",
       "definition": "A safe and generally useful tool that appears on every available ordinary provider surface.",
-      "identifiers": ["foundationalTool"]
+      "identifiers": ["foundationalTool", "FOUNDATIONAL_TOOL_NAMES"]
     },
     {
       "id": "CTL-TERM-015",
@@ -291,6 +291,13 @@
       "kind": "lifecycle_term",
       "definition": "An outcome where NNA cannot prove whether the requested effect occurred.",
       "identifiers": ["unknownEffect"]
+    },
+    {
+      "id": "CTL-TERM-039",
+      "term": "internal tool",
+      "kind": "technical_noun",
+      "definition": "A tool that supports runtime operation but is not part of the ordinary provider surface.",
+      "identifiers": ["internalTool", "INTERNAL_TOOL_NAMES"]
     }
   ],
   "deprecated_identifiers": [
@@ -298,19 +305,43 @@
       "identifier": "PROVIDER_NATIVE",
       "replacement": "TOOL_SURFACE_ELIGIBLE",
       "reason": "The old name incorrectly implies provider ownership or permanent availability.",
-      "baseline_occurrences": 3
+      "baseline_occurrences": 0
     },
     {
       "identifier": "providerVisible",
       "replacement": "isToolSurfaceEligible",
       "reason": "The old name hides that visibility is eligibility and grants no authority.",
-      "baseline_occurrences": 3
+      "baseline_occurrences": 0
     },
     {
       "identifier": "expose",
       "replacement": "grantWorkflowLease",
       "reason": "The old name hides the bounded lifetime and purpose of the operation.",
-      "baseline_occurrences": 6
+      "baseline_occurrences": 0
+    },
+    {
+      "identifier": "PROVIDER_NATIVE_TOOL_NAMES",
+      "replacement": "TOOL_SURFACE_ELIGIBLE_NAMES",
+      "reason": "The old name incorrectly implies provider ownership or permanent availability.",
+      "baseline_occurrences": 0
+    },
+    {
+      "identifier": "CORE_TOOL_NAMES",
+      "replacement": "FOUNDATIONAL_TOOL_NAMES",
+      "reason": "The old name does not identify the model-facing foundation concept.",
+      "baseline_occurrences": 0
+    },
+    {
+      "identifier": "ALWAYS_EXPOSED",
+      "replacement": "FOUNDATIONAL_TOOL_NAMES",
+      "reason": "Availability depends on installed subsystems and authenticated host ceilings.",
+      "baseline_occurrences": 0
+    },
+    {
+      "identifier": "INTERNAL_NATIVE_TOOL_NAMES",
+      "replacement": "INTERNAL_TOOL_NAMES",
+      "reason": "Native does not describe the internal tool category.",
+      "baseline_occurrences": 0
     }
   ]
 }

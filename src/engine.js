@@ -326,7 +326,7 @@ export class SessionEngine {
       active.delegatedTokenAccounting, ...delegatedAccounting,
     ]); observeToolContracts(this, active, items);
     active.toolConstraints = mergeToolConstraints(active.toolConstraints, items);
-    this.tools.expose(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean));
+    this.tools.grantWorkflowLease(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean));
     active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded').map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
     const steeringApplied = await this.#consumeSteering(active);
     const behavior = observeToolState(active, items, (name) => this.tools.definition(name));

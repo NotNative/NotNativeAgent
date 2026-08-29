@@ -12,27 +12,31 @@ NNA already has strong typed boundaries, but several names blur distinct concept
 risk is not grammar. The largest risk is a name that makes visibility look like authority, or a
 generic field that carries unrelated lifecycle states.
 
-The foundation gate now protects 38 preferred terms and three deprecated identifiers. The
-deprecated identifier baseline is exact for the current production source:
+The foundation gate now protects 39 preferred terms and seven deprecated identifiers. The first
+terminology migration removed every deprecated identifier from production source:
 
 | Deprecated identifier | Occurrences | Preferred identifier | Finding |
 |---|---:|---|---|
-| `PROVIDER_NATIVE` | 3 | `TOOL_SURFACE_ELIGIBLE` | “Native” implies ownership or permanent presence. The set only establishes surface eligibility. |
-| `providerVisible` | 3 | `isToolSurfaceEligible` | “Visible” does not explain that the result grants no execution authority. |
-| `expose` | 6 | `grantWorkflowLease` | The operation creates a bounded lease. The old verb hides its duration and purpose. |
+| `PROVIDER_NATIVE` | 0 | `TOOL_SURFACE_ELIGIBLE` | “Native” implied ownership or permanent presence. The set only establishes surface eligibility. |
+| `providerVisible` | 0 | `isToolSurfaceEligible` | “Visible” did not explain that the result grants no execution authority. |
+| `expose` | 0 | `grantWorkflowLease` | The operation creates a bounded lease. The old verb hid its duration and purpose. |
+| `PROVIDER_NATIVE_TOOL_NAMES` | 0 | `TOOL_SURFACE_ELIGIBLE_NAMES` | The old name implied provider ownership or permanent availability. |
+| `CORE_TOOL_NAMES` | 0 | `FOUNDATIONAL_TOOL_NAMES` | The old name did not identify the model-facing foundation concept. |
+| `ALWAYS_EXPOSED` | 0 | `FOUNDATIONAL_TOOL_NAMES` | Availability depends on installed subsystems and authenticated host ceilings. |
+| `INTERNAL_NATIVE_TOOL_NAMES` | 0 | `INTERNAL_TOOL_NAMES` | “Native” did not describe the internal tool category. |
 
-The gate fails if any count increases. A later migration must lower the matching baseline in the
-same change. This behavior prevents hidden terminology regressions and stale exceptions.
+The zero baselines prevent these names from returning. Future deprecated terms use the same
+ratchet: a migration lowers the matching baseline in the same change.
 
 ## Findings for later slices
 
 ### A. Tool-surface eligibility names
 
-Priority: high. Migration risk: medium.
+Status: resolved. Migration risk was medium.
 
-Rename the three baseline identifiers as one compatibility-tested slice. Verify provider surface
-receipts, trusted handoffs, tool search leases, resumed sessions, and authenticated host
-manifests. The rename must not change authority or lease consumption.
+NNA now names eligibility, foundational tools, internal tools, and workflow leases explicitly.
+Provider receipt fields and reason values did not change. Tests verify provider surfaces, trusted
+handoffs, tool-search leases, lease consumption, and authenticated host manifests.
 
 ### B. Overloaded lifecycle fields
 
@@ -91,12 +95,11 @@ analyzer with measured precision.
 
 ## Planned sequence
 
-1. Migrate tool-surface eligibility names with compatibility tests.
-2. Correct the `fs.search_text` compaction signature with a focused regression test.
-3. Separate durable review outcomes from tool lifecycle status.
-4. Audit model-facing tool text in bounded tool families.
-5. Add advisory reports for sentence length and unqualified boundary names.
-6. Promote an advisory rule to a hard gate only after false positives are mechanically excluded.
+1. Correct the `fs.search_text` compaction signature with a focused regression test.
+2. Separate durable review outcomes from tool lifecycle status.
+3. Audit model-facing tool text in bounded tool families.
+4. Add advisory reports for sentence length and unqualified boundary names.
+5. Promote an advisory rule to a hard gate only after false positives are mechanically excluded.
 
 Each slice must run the full test suite, advance the canonical version, and produce one focused
 commit. NNA-CTL is a reliability control, not permission for broad cosmetic churn.

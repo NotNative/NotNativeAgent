@@ -49,7 +49,7 @@ export function toolSearchDefinition(registry) {
       // A discovery is useful for a workflow, not just one invocation. Visual
       // verification commonly needs repeated screenshot inspections, and
       // forcing an identical catalog search between each call wastes context.
-      registry.expose(visibleMatches.map((item) => item.name), { uses: WORKFLOW_LEASE_USES });
+      registry.grantWorkflowLease(visibleMatches.map((item) => item.name), { uses: WORKFLOW_LEASE_USES });
       const schema = named ? registry.definition(named)?.inputSchema : null;
       const found = visibleMatches.length > 0;
       return {

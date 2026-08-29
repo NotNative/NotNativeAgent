@@ -31,7 +31,7 @@ import { prepareLineEdit } from './stale-edit-recovery.js';
 import { providerSchema, schemaShapeValidator, schemaValidator } from './tools/schema.js';
 import { conversationWorkDefinitions } from './conversation-work-tools.js';
 import { ReferenceStore, referenceDefinitions } from './tools/reference-store.js';
-import { PROVIDER_NATIVE, allowedByManifest, catalogVisible, providerVisible } from './tools/provider-surface.js';
+import { allowedByManifest, catalogVisible, isToolSurfaceEligible } from './tools/provider-surface.js';
 import { withPreparedWriteTarget } from './tools/write-target.js';
 import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 import { advanceFromAuthoredState, mutationEvidence, transactionalSnapshot,
@@ -47,7 +47,7 @@ export class ToolRegistry {
   #definitions = new Map();
   #history = new Map();
   #providerIds = new Set();
-  #exposed = new Map();
+  #workflowLeases = new Map();
   #readReceipts = new ReadReceiptLedger();
   #references = new ReferenceStore();
   #changes;
@@ -128,8 +128,8 @@ export class ToolRegistry {
     const phase = providerSurfacePhase(options.phase);
     const selectionContext = typeof query === 'string' ? query : '';
     const snapshot = this.snapshot();
-    const callable = snapshot.filter((item) => providerVisible(
-      item.name, this.#exposed.has(item.name),
+    const callable = snapshot.filter((item) => isToolSurfaceEligible(
+      item.name, this.#workflowLeases.has(item.name),
     ) || this.allowedTools?.has(item.name));
     const projected = new Map(callable.map((item) => [item.name, {
       type: 'function',
@@ -140,7 +140,7 @@ export class ToolRegistry {
       function: { name: item.name, description: compactPurpose(item), parameters: providerSchema(item.inputSchema, { mode: 'documented' }) },
     }]));
     const plan = planProviderToolNames({
-      availableNames: callable.map((item) => item.name), exposedNames: this.#exposed.keys(),
+      availableNames: callable.map((item) => item.name), workflowLeaseNames: this.#workflowLeases.keys(),
       allowedNames: this.allowedTools,
       phase, encodedDefinition: (name) => Buffer.byteLength(JSON.stringify(projected.get(name)), 'utf8'),
     });
@@ -164,14 +164,14 @@ export class ToolRegistry {
   searchCatalog(query, limit = 12) { return rankToolDefinitions(this.catalogSnapshot(), query, limit); }
   diff(path = null) { return this.#changes.diff(path); }
   changeSnapshot() { return this.#changes.snapshot(); }
-  expose(names, options = {}) {
+  grantWorkflowLease(names, options = {}) {
     const uses = Number.isSafeInteger(options.uses) ? Math.max(1, Math.min(32, options.uses)) : 1;
     for (const name of names) {
       if (!this.#definitions.has(name)) continue;
-      const prior = this.#exposed.get(name);
-      this.#exposed.delete(name);
-      this.#exposed.set(name, { remainingUses: Math.max(prior?.remainingUses ?? 0, uses) });
-      while (this.#exposed.size > 32) this.#exposed.delete(this.#exposed.keys().next().value);
+      const prior = this.#workflowLeases.get(name);
+      this.#workflowLeases.delete(name);
+      this.#workflowLeases.set(name, { remainingUses: Math.max(prior?.remainingUses ?? 0, uses) });
+      while (this.#workflowLeases.size > 32) this.#workflowLeases.delete(this.#workflowLeases.keys().next().value);
     }
   }
   async seal(call, context) {
@@ -188,10 +188,10 @@ export class ToolRegistry {
     };
     this.#assertReadBeforeMutation(call.name, normalized);
     this.#providerIds.add(call.providerCallId);
-    const exposure = this.#exposed.get(call.name);
-    if (exposure) {
-      if (exposure.remainingUses <= 1) this.#exposed.delete(call.name);
-      else this.#exposed.set(call.name, { remainingUses: exposure.remainingUses - 1 });
+    const lease = this.#workflowLeases.get(call.name);
+    if (lease) {
+      if (lease.remainingUses <= 1) this.#workflowLeases.delete(call.name);
+      else this.#workflowLeases.set(call.name, { remainingUses: lease.remainingUses - 1 });
     }
     return deepFreeze({
       id: newId('tool'), providerCallId: call.providerCallId, toolName: call.name,

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  CORE_TOOL_NAMES, LEGACY_PROVIDER_TOOL_NAMES, PROVIDER_NATIVE_TOOL_NAMES,
+  LEGACY_PROVIDER_TOOL_NAMES, TOOL_SURFACE_ELIGIBLE_NAMES,
 } from './core-names.js';
 
-export const ALWAYS_EXPOSED = new Set(CORE_TOOL_NAMES);
-export const PROVIDER_NATIVE = new Set(PROVIDER_NATIVE_TOOL_NAMES);
+export const TOOL_SURFACE_ELIGIBLE = new Set(TOOL_SURFACE_ELIGIBLE_NAMES);
 
 const LEGACY_PROVIDER = new Set(LEGACY_PROVIDER_TOOL_NAMES);
 export function catalogVisible(name) {
@@ -14,10 +13,10 @@ export function catalogVisible(name) {
   return !LEGACY_PROVIDER.has(name);
 }
 
-export function providerVisible(name, exposed) {
+export function isToolSurfaceEligible(name, hasWorkflowLease) {
   // External and MCP capabilities remain catalog-searchable, but enter the
   // provider action surface only after an explicit workflow lease.
-  return PROVIDER_NATIVE.has(name) || exposed;
+  return TOOL_SURFACE_ELIGIBLE.has(name) || hasWorkflowLease;
 }
 
 export function allowedByManifest(allowedTools, name) {

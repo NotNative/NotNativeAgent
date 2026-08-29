@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { CORE_TOOL_NAMES } from './core-names.js';
+import { FOUNDATIONAL_TOOL_NAMES } from './core-names.js';
 
 export const PROVIDER_SURFACE_PHASES = Object.freeze(['orientation', 'action', 'recovery', 'monitoring']);
 
-const FOUNDATIONAL_BASELINE = Object.freeze([...CORE_TOOL_NAMES]);
+const FOUNDATIONAL_BASELINE = Object.freeze([...FOUNDATIONAL_TOOL_NAMES]);
 const LIMITS = Object.freeze({
   orientation: Object.freeze({ count: 32, bytes: 64 * 1024 }),
   action: Object.freeze({ count: 32, bytes: 64 * 1024 }),
@@ -21,7 +21,7 @@ export function providerSurfacePhase(value) {
 }
 
 export function planProviderToolNames({
-  availableNames = [], exposedNames = [], allowedNames = null,
+  availableNames = [], workflowLeaseNames = [], allowedNames = null,
   phase = 'orientation', encodedDefinition,
 }) {
   phase = providerSurfacePhase(phase);
@@ -39,7 +39,7 @@ export function planProviderToolNames({
     if (protect) protectedNames.add(name);
   };
   for (const name of FOUNDATIONAL_BASELINE) add(name, 'foundational', true);
-  for (const name of exposedNames) add(name, 'workflow_lease');
+  for (const name of workflowLeaseNames) add(name, 'workflow_lease');
   const limits = LIMITS[phase];
   const selected = [];
   const omitted = [];

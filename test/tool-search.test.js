@@ -91,7 +91,7 @@ test('provider surface receipts make fixed foundations and workflow leases audit
   assert.deepEqual(action.receipt.selectedToolNames, expected);
   assert.match(action.receipt.fingerprint, /^[a-f0-9]{64}$/u);
 
-  registry.expose(['fs.write_text']);
+  registry.grantWorkflowLease(['fs.write_text']);
   const expanded = registry.providerSurface('any wording', { phase: 'recovery' });
   assert.equal(expanded.receipt.selectionReasons['web.fetch'], 'foundational');
   assert.equal(expanded.receipt.selectionReasons['web.browse'], 'foundational');
@@ -128,7 +128,7 @@ test('hosted execution obeys an authenticated manifest rather than inferred word
 test('explicit exposure makes an exact recovery tool visible without broadening its bundle', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  registry.expose(['fs.create_directory']);
+  registry.grantWorkflowLease(['fs.create_directory']);
   const visible = registry.providerDefinitions('inspect the missing path').map((item) => item.function.name);
   assert.ok(visible.includes('fs.create_directory'));
   assert.ok(!visible.includes('fs.write_text'));

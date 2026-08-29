@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-export const CORE_TOOL_NAMES = Object.freeze([
+export const FOUNDATIONAL_TOOL_NAMES = Object.freeze([
   'tool.search',
   'system.time',
   'fs.list', 'fs.read', 'fs.search_text',
@@ -12,8 +12,8 @@ export const CORE_TOOL_NAMES = Object.freeze([
   'ref.inspect', 'skill.search', 'skill.load',
 ]);
 
-export const PROVIDER_NATIVE_TOOL_NAMES = Object.freeze([
-  ...CORE_TOOL_NAMES,
+export const TOOL_SURFACE_ELIGIBLE_NAMES = Object.freeze([
+  ...FOUNDATIONAL_TOOL_NAMES,
   'fs.directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines',
   'agent.run', 'image.inspect', 'notification.telegram',
 ]);
@@ -24,6 +24,6 @@ export const LEGACY_PROVIDER_TOOL_NAMES = Object.freeze([
   'nna.list_sessions',
 ]);
 
-export const INTERNAL_NATIVE_TOOL_NAMES = Object.freeze([
+export const INTERNAL_TOOL_NAMES = Object.freeze([
   'project.verify', 'code.diagnostics', 'ref.store', 'process.run', 'system.elevate',
 ]);
