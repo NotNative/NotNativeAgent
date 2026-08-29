@@ -53,6 +53,11 @@ export class ToolCallAssembler {
     return false;
   }
 
+  reset() {
+    this.#calls.clear();
+    this.#argumentBytes = 0;
+  }
+
   #addOne(fragment) {
     if (!Number.isInteger(fragment?.index) || fragment.index < 0 || fragment.index >= MAX_TOOL_CALLS) {
       throw new ContractError('tool_fragment_index', 'tool fragment index is invalid');
@@ -99,7 +104,10 @@ function appendStable(current, fragment) {
   if (typeof fragment !== 'string' || fragment.length === 0) return current;
   if (current.length === 0) return fragment;
   if (current === fragment) return current;
-  throw new ContractError('tool_identity_drift', 'tool identity changed across fragments');
+  // Why: streamed identity fragments are provider transport data. No tool can
+  // execute until assembly completes, so a drifted attempt is safe to discard
+  // and retry when it has not emitted user-visible text.
+  throw new ContractError('tool_identity_drift', 'tool identity changed across fragments', true);
 }
 
 function deepFreeze(value, visited = new WeakSet()) {

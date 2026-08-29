@@ -71,13 +71,13 @@ export class ProviderRunner {
         attemptOutcome = active.cancelled ? 'cancelled' : 'failed';
         attemptReason = error?.code ?? 'provider_failed';
         this.#recordFailed(active, error, requestSpan, requestStarted);
-        const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
+        const partial = hasCommittedAttemptOutput(error, active);
         const plan = error.retryable
           ? (this.reliability?.providerRetry(active, error.code, attempt, partial, error.retryAfterMs)
             ?? active.recovery.providerRetry(error.code, attempt, partial, error.retryAfterMs))
           : { retry: false };
         if (!plan.retry || active.cancelled) throw error;
-        await this.settleAttempt(active, 'failed');
+        await this.#settleRetryableAttempt(active);
         this.state.transition('recovering', { trigger: error.code, turnId: active.turnId });
         await this.recordRecovery(plan.action, active);
         retryDelay = plan.delayMs;
@@ -102,6 +102,11 @@ export class ProviderRunner {
     if (active.attemptUsageAccounted) return;
     active.usage = mergeUsage(active.usage, active.attemptUsage);
     active.attemptUsageAccounted = true;
+  }
+
+  async #settleRetryableAttempt(active) {
+    await this.settleAttempt(active, 'failed');
+    active.toolAssembler.reset();
   }
 
   #recordSucceeded(active, requestSpan, requestStarted) {
@@ -283,6 +288,13 @@ export class ProviderRunner {
     }
     return null;
   }
+}
+
+function hasCommittedAttemptOutput(error, active) {
+  if (active.stepText.length > 0) return true;
+  // Invariant: identity drift happens while provider fragments are still only
+  // buffered. They have not crossed the tool validation or execution boundary.
+  return error?.code !== 'tool_identity_drift' && active.toolAssembler.size > 0;
 }
 
 function mergeUsage(current, update) {

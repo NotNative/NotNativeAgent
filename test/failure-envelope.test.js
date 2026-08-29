@@ -18,6 +18,12 @@ test('failure taxonomy gives qualified provider codes provider ownership', () =>
   );
 });
 
+test('streamed tool identity drift belongs to the provider boundary', () => {
+  const failure = classified('tool_identity_drift');
+  assert.equal(failure.category, 'provider');
+  assert.equal(failure.boundary, 'provider');
+});
+
 test('failure taxonomy separates lifecycle category from component boundary', () => {
   const provider = classified('provider_timeout');
   assert.equal(provider.category, 'timeout');

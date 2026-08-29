@@ -631,6 +631,52 @@ test('provider streaming stops after a second complete equivalent tool call', as
     && item.detail.reason === 'equivalent_complete_tool_call'));
 });
 
+test('provider retries tool identity drift before any assembled call can execute', async () => {
+  const state = new StateAuthority();
+  state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-identity-drift' });
+  const lifecycles = new LifecycleRegistry();
+  const turn = lifecycles.start('turn');
+  const step = lifecycles.start('model_step', turn.id);
+  const active = {
+    turnId: 'turn-identity-drift', stepId: step.id, attemptId: null,
+    controller: new AbortController(), cancelled: false, stepText: '',
+    toolAssembler: new ToolCallAssembler(), providerTerminal: false,
+    recovery: new RecoverySupervisor(), reasoningBytes: 0, stepReasoningBytes: 0,
+    usage: null, finishReason: null,
+  };
+  let attempts = 0; let settlements = 0; const recoveries = [];
+  const runner = new ProviderRunner({
+    state, lifecycles, publish: async () => undefined,
+    acceptText: async (text) => { active.stepText += text; },
+    settleAttempt: async () => { settlements += 1; },
+    recordRecovery: async (action) => recoveries.push(action),
+  });
+  const provider = { async *stream() {
+    attempts += 1;
+    if (attempts === 1) {
+      yield { type: 'tool_fragment', fragments: [{
+        index: 0, id: 'drift-a', function: { name: 'fs.read', arguments: '{"path":' },
+      }] };
+      yield { type: 'tool_fragment', fragments: [{
+        index: 0, id: 'drift-b', function: { name: '', arguments: '"README.md"}' },
+      }] };
+      return;
+    }
+    yield { type: 'tool_fragment', fragments: [{
+      index: 0, id: 'stable-call', function: { name: 'fs.read', arguments: '{"path":"README.md"}' },
+    }] };
+    yield { type: 'terminal', finishReason: 'tool_calls' };
+  } };
+
+  await runner.run(provider, {}, { overallMs: null, firstTokenMs: 50, idleMs: 50 }, active);
+
+  assert.equal(attempts, 2);
+  assert.equal(settlements, 1);
+  assert.equal(recoveries[0].category, 'tool_identity_drift');
+  assert.equal(active.toolAssembler.size, 1);
+  assert.equal(active.toolAssembler.complete()[0].providerCallId, 'stable-call');
+});
+
 test('an unset overall route deadline does not create an immediate timeout', async () => {
   const state = new StateAuthority();
   state.transition('preparing_turn', { trigger: 'test', turnId: 'turn-unbounded' });

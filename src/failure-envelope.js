@@ -53,6 +53,9 @@ const FAILURE_CODE_OVERRIDES = Object.freeze({
   empty_model_output: FAILURE_DOMAINS.provider,
   missing_provider: FAILURE_DOMAINS.provider,
   no_eligible_vision_route: FAILURE_DOMAINS.provider,
+  // Compatibility: keep the historical reason code while assigning ownership
+  // to the provider stream boundary where identity fragments originate.
+  tool_identity_drift: FAILURE_DOMAINS.provider,
 });
 
 export function failureEnvelope(error, options = {}) {
