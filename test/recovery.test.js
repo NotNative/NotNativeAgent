@@ -177,6 +177,21 @@ test('new verified progress settles stale no-progress budgets across categories'
   assert.equal(resumedWork.action.action, 'nudge');
 });
 
+test('unchanged durable work parks before the global model-step ceiling', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  const unchangedWork = '2 unfinished task(s); goal active; work revision 10';
+  assert.equal(recovery.continuation('unfinished_conversation_work', unchangedWork).progress, true);
+  for (let count = 1; count < 6; count += 1) {
+    const result = recovery.continuation('unfinished_conversation_work', unchangedWork);
+    assert.equal(result.continue, true);
+    assert.equal(result.count, count);
+  }
+  const terminal = recovery.continuation('unfinished_conversation_work', unchangedWork);
+  assert.equal(terminal.continue, false);
+  assert.equal(terminal.exhausted, true);
+  assert.equal(terminal.count, 6);
+});
+
 test('successful tool work prevents nonconsecutive narration checkpoints from exhausting the turn', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-cross-category-progress-'));
   for (let index = 0; index < 3; index += 1) {

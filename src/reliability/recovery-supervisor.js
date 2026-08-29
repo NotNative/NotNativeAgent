@@ -15,6 +15,11 @@ const CHECKPOINT_HEAD_RATIO = 0.7;
 const CHECKPOINT_SEPARATOR_RESERVE = 32;
 const MIN_EXACT_NO_EFFECT_LIMIT = 3;
 const MIN_MONITORING_NO_EFFECT_LIMIT = 12;
+const MIN_DURABLE_WORK_CONTINUATION_LIMIT = 6;
+const BOUNDED_COMPLETION_CATEGORIES = new Set([
+  'missing_tool_call', 'task_context_lost', 'unresolved_tool_failure',
+  'visual_evidence_conflict', 'future_action_pledge',
+]);
 
 export class RecoverySupervisor {
   #episodes = new Map();
@@ -275,6 +280,10 @@ function terminalNoProgressLimit(category, localLimit, exactNoEffectLimit, monit
   if (category === 'empty_output') return localLimit;
   if (category === 'tool_no_progress') return monitoring
     ? Math.max(MIN_MONITORING_NO_EFFECT_LIMIT, exactNoEffectLimit * 4) : exactNoEffectLimit;
+  if (category === 'unfinished_conversation_work') {
+    return Math.max(MIN_DURABLE_WORK_CONTINUATION_LIMIT, localLimit * 2);
+  }
+  if (BOUNDED_COMPLETION_CATEGORIES.has(category)) return localLimit;
   return null;
 }
 

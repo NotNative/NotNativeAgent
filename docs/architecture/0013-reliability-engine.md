@@ -121,6 +121,10 @@ aliases to Reliability Engine-owned components. They do not represent independen
     as truncation even when a compatible provider labels the finish `stop`. Concrete future-action
     pledges such as `let me verify` or `I will implement` are partial progress, not terminal task
     completion; the engine preserves the text and issues a bounded continuation hint.
+17. Language-derived completion judgments and unchanged durable-work state have category-specific
+    continuation limits below the global model-step ceiling. When the evidence does not change,
+    NNA parks the active turn for operator attention instead of manufacturing progress or ending
+    the durable goal. New tool evidence or authenticated steering resets stale recovery episodes.
 
 ## Consequences
 
