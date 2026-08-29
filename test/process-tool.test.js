@@ -161,6 +161,11 @@ test('AC-AUTH-04 process.run seals shells and destructive commands for semantic 
   const definition = registry.definition('process.run');
   assert.equal((await definition.validate({ executable: 'rm', args: ['-rf', '.'] })).resolved.reviewComplexity, 'destructive_command');
   assert.equal((await definition.validate({ executable: 'powershell', args: ['-Command', 'dir'] })).resolved.reviewComplexity, 'shell_command');
+  const observation = await definition.validate({
+    executable: 'powershell', args: ['-Command', 'Get-ChildItem -Path . | Out-Null'],
+  });
+  assert.equal(observation.resolved.reviewPurpose, 'filesystem_observation');
+  assert.equal(observation.resolved.readOnly, true);
   assert.equal((await definition.validate({ executable: 'node', args: ['-e', 'process.exit()'] })).resolved.reviewComplexity, 'inline_code');
   assert.deepEqual((await definition.validate({ executable: 'node', args: ['-e', 'process.exit()'] })).resolved.reliabilitySignals, ['inline_interpreter_code']);
   assert.deepEqual((await definition.validate({ executable: 'node', args: ['-'] })).resolved.reliabilitySignals, []);
@@ -316,6 +321,18 @@ test('shell.run classifies compound and destructive scripts for semantic review 
   assert.deepEqual(fragile.resolved.reliabilitySignals, ['many_operations', 'loop_with_substitution']);
   assert.equal((await definition.validate({ script: 'git reset --hard' })).resolved.reviewComplexity, 'destructive_shell');
   assert.equal((await definition.validate({ script: 'Resolve-DnsName fixture-host' })).resolved.reviewPurpose, 'network_diagnostic');
+  const observation = await definition.validate({
+    shell: 'powershell',
+    script: "$ErrorActionPreference = 'SilentlyContinue'; Get-ChildItem -Path . 2>$null | Out-Null",
+  });
+  assert.equal(observation.resolved.reviewPurpose, 'filesystem_observation');
+  assert.equal(observation.resolved.readOnly, true);
+  for (const script of [
+    'Get-ChildItem | Remove-Item',
+    'Get-ChildItem $(Remove-Item target.txt)',
+    'Get-ChildItem; Set-Content out.txt changed',
+    'Get-ChildItem 12>out.txt',
+  ]) assert.equal((await definition.validate({ shell: 'powershell', script })).resolved.readOnly, false);
   await assert.rejects(definition.validate({ script: 'curl -H "Authorization: Bearer literal" example.test' }), { code: 'shell_secret_argument_forbidden' });
   const hosted = new ToolRegistry(root, { hosted: true, boundedToWorkspace: true, allowedTools: ['shell.run'] });
   await hosted.initialize();

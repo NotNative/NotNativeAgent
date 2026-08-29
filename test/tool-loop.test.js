@@ -95,7 +95,7 @@ test('read-only behavior is supervised from tool metadata and work updates count
   const active = { observableStateRevision: 0, readOnlyBatchStreak: 0 };
   const definitions = new Map([
     ['fs.read', { sideEffect: 'read_only' }], ['work.plan', { sideEffect: 'reversible' }],
-    ['fs.directory', { sideEffect: 'reversible' }],
+    ['fs.directory', { sideEffect: 'reversible' }], ['shell.run', { sideEffect: 'unknown' }],
   ]);
   const definitionFor = (name) => definitions.get(name);
   for (let count = 1; count <= 12; count += 1) {
@@ -110,6 +110,12 @@ test('read-only behavior is supervised from tool metadata and work updates count
     result: { status: 'succeeded', tool_name: 'fs.directory' },
   }], definitionFor);
   assert.equal(active.readOnlyBatchStreak, 13);
+  assert.equal(active.observableStateRevision, 0);
+  observeToolState(active, [{
+    request: { resolved: { readOnly: true }, args: { script: 'Get-ChildItem -Path .' } },
+    result: { status: 'succeeded', tool_name: 'shell.run' },
+  }], definitionFor);
+  assert.equal(active.readOnlyBatchStreak, 14);
   assert.equal(active.observableStateRevision, 0);
   observeToolState(active, [{
     request: { args: { objective: 'Finish', tasks: [] } },

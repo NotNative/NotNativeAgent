@@ -156,6 +156,7 @@ export function observeToolState(active, items, definitionFor = () => null) {
   const succeeded = items.filter((item) => item.result?.status === 'succeeded');
   const mutated = succeeded.some((item) => {
     const name = item.result?.tool_name ?? item.request?.toolName ?? item.call?.name;
+    if (item.request?.resolved?.readOnly === true) return false;
     if (name === 'fs.directory' && (item.request?.args?.action ?? item.call?.args?.action) === 'list') return false;
     return OBSERVABLE_MUTATIONS.has(name) || definitionFor(name)?.sideEffect !== 'read_only';
   });
@@ -164,7 +165,8 @@ export function observeToolState(active, items, definitionFor = () => null) {
     active.readOnlyBatchStreak = 0;
   } else if (succeeded.length > 0 && succeeded.every((item) => {
     const name = item.result?.tool_name ?? item.request?.toolName ?? item.call?.name;
-    return (name === 'fs.directory' && (item.request?.args?.action ?? item.call?.args?.action) === 'list')
+    return item.request?.resolved?.readOnly === true
+      || (name === 'fs.directory' && (item.request?.args?.action ?? item.call?.args?.action) === 'list')
       || definitionFor(name)?.sideEffect === 'read_only';
   })) {
     active.readOnlyBatchStreak = (active.readOnlyBatchStreak ?? 0) + 1;

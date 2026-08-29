@@ -182,6 +182,9 @@ function classify(request, definition) {
 
 function processClassification(request) {
   const complexity = request.resolved.reviewComplexity ?? 'unknown';
+  if (request.resolved?.readOnly === true) return Object.freeze({ risk: 'safe',
+    reason: request.resolved.reviewPurpose ?? 'process_observation', effect: 'read_only',
+    scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity });
   const detached = request.resolved?.reliabilitySignals?.includes('detached_process');
   const foregroundServer = request.resolved?.reliabilitySignals?.includes('long_running_foreground');
   return Object.freeze({
@@ -427,7 +430,6 @@ function clearlyReadOnlyText(value) {
   return /\b(?:read|inspect|audit|autopsy|review|summarize|explain|show|list|search|find|check|diagnose|answer|respond|tell)\b/iu.test(value)
     && !/\b(?:write|change|replace|create|update|edit|modify|delete|remove|move|rename|copy|fix|build|implement|install)\b/iu.test(value);
 }
-
 function authorityCoversProcess(request, authority) {
   const latest = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction');
   if (!latest) return false;
@@ -446,7 +448,6 @@ function authorityCoversProcess(request, authority) {
   }
   return false;
 }
-
 function tokenSet(value) {
   const ignored = new Set(['run', 'exec', 'command', 'the', 'this', 'that', 'with', 'from', 'into', 'and', 'for']);
   return new Set(String(value).replace(/([a-z])([A-Z])/gu, '$1 $2').toLowerCase().split(/[^a-z0-9]+/u)

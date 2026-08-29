@@ -358,6 +358,27 @@ test('validated public web.fetch is deterministic safe and does not invoke seman
   assert.equal(semanticCalls, 0);
 });
 
+test('proven Get-ChildItem shell observations are deterministic safe', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'shell-filesystem-observation' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
+  const result = await reviewer.review({
+    ...readRequest('shell-filesystem-observation'), toolName: 'shell.run',
+    args: { shell: 'powershell', script: 'Get-ChildItem -Path . | Out-Null' },
+    resolved: {
+      path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'compound_shell',
+      reviewPurpose: 'filesystem_observation', readOnly: true, reliabilitySignals: [],
+    },
+  }, {
+    ...context,
+    authority: { id: 'authority-1', intent: [{ content: 'Audit this repository.', kind: 'statement' }], mission: null },
+    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+  });
+  assert.equal(result.outcome, 'approve');
+  assert.equal(result.reasonCode, 'deterministic_safe');
+  assert.equal(semanticCalls, 0);
+});
+
 test('system.time clock observations and bounded arithmetic are deterministic safe', async () => {
   for (const [label, args] of [['current', {}], ['offset', { weeks: 2, days: -1 }]]) {
     const ledger = new ReviewerLedger({ durable: false, sessionId: `system-time-${label}` });

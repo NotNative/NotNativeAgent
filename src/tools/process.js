@@ -6,6 +6,7 @@ import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../relia
 import { portableExecutableName } from '../reliability/executable-name.js';
 import { detachedProcessInvocation, longRunningForegroundInvocation } from '../reliability/process-lifecycle.js';
 import { processLaunchesExternalBrowser } from '../reliability/external-browser.js';
+import { shellObservationPurpose } from '../reliability/shell-observation.js';
 import { normalizeArgumentAliases } from './argument-normalization.js';
 
 const MAX_SCRIPT_LENGTH = 32_768;
@@ -91,13 +92,14 @@ async function validateShellRequest(paths, input, references) {
   const stdinRef = validateStdinReference(input.stdin_ref, references);
   const acceptedExitCodes = validateAcceptedExitCodes(input.accepted_exit_codes, 'shell_exit_codes_invalid');
   const reliabilitySignals = shellReliabilitySignals(input.script, invocation.shell);
+  const reviewPurpose = shellReviewPurpose(input.script, invocation.shell);
   return {
     args: { script: input.script, shell: invocation.shell, cwd: cwd.path, timeout_ms: timeoutMs,
       accepted_exit_codes: acceptedExitCodes, ...(stdinRef ? { stdin_ref: stdinRef } : {}) },
     resolved: {
       path: cwd.path, executable: invocation.executable, shell: invocation.shell, script: input.script,
       reviewComplexity: shellComplexity(input.script, reliabilitySignals), reliabilitySignals,
-      reviewPurpose: shellReviewPurpose(input.script),
+      reviewPurpose, readOnly: reviewPurpose === 'filesystem_observation',
       insideWorkspace: cwd.insideWorkspace, recovery: cwd.recovery,
     },
   };
@@ -130,7 +132,9 @@ function shellComplexity(script, signals = shellReliabilitySignals(script)) {
   return 'simple_shell';
 }
 
-function shellReviewPurpose(script) {
+function shellReviewPurpose(script, shell) {
+  const observation = shellObservationPurpose(script, shell);
+  if (observation) return observation;
   return /^\s*(?:ping|ping6|nslookup|host|dig|traceroute|tracert|pathping|Test-Connection|Resolve-DnsName)\b[^;&|\n]*\s*$/iu.test(script)
     ? 'network_diagnostic' : null;
 }
@@ -158,13 +162,14 @@ async function validateProcessRequest(paths, input, references) {
   }
   const stdinRef = validateStdinReference(input.stdin_ref, references);
   const acceptedExitCodes = validateAcceptedExitCodes(input.accepted_exit_codes, 'process_exit_codes_invalid');
+  const reviewPurpose = processReviewPurpose(executable, args);
   return { args: { executable: input.executable, args: [...args], cwd: cwd.path, timeout_ms: timeoutMs,
     accepted_exit_codes: acceptedExitCodes, ...(stdinRef ? { stdin_ref: stdinRef } : {}) }, resolved: {
     path: cwd.path, executable: input.executable, argv: [...args], shell: false,
     reviewComplexity: processComplexity(executable, args),
     reliabilitySignals: processReliabilitySignals(executable, args),
-    insideWorkspace: cwd.insideWorkspace,
-    reviewPurpose: processReviewPurpose(executable, args), recovery: cwd.recovery,
+    insideWorkspace: cwd.insideWorkspace, reviewPurpose,
+    readOnly: reviewPurpose === 'filesystem_observation', recovery: cwd.recovery,
   } };
 }
 
@@ -189,6 +194,8 @@ function processReviewPurpose(executable, args) {
   if (!['powershell', 'pwsh'].includes(executable) || args.length !== 2
     || !/^(?:-c|-command)$/iu.test(args[0])) return null;
   const command = args[1].trim();
+  const observation = shellObservationPurpose(command, executable);
+  if (observation) return observation;
   return /^(?:Test-Connection\s+(?:-ComputerName\s+)?[A-Za-z0-9._:-]+(?:\s+-Count\s+\d{1,3})?|Resolve-DnsName\s+(?:-Name\s+)?[A-Za-z0-9._:-]+)$/iu.test(command)
     ? 'network_diagnostic' : null;
 }

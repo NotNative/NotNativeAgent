@@ -109,7 +109,12 @@ non-native interpreter only after positive discovery, and prefer structured NNA 
 shell-built discovery loops. Shell calls should keep one coherent purpose
 and avoid unnecessary nested substitutions, deeply nested quoting, or combined mutation and
 verification. Reliability signals classify fragile compound scripts for review without imposing
-an arbitrary command-length rejection. Shell execution is foreground by default and should
+an arbitrary command-length rejection. A conservatively parsed PowerShell `Get-ChildItem`
+pipeline is classified as a read-only filesystem observation when every stage is a passive
+projection, formatting, sorting, measurement, or `Out-Null` command. Subexpressions, script
+blocks, mutation commands, unsafe redirection, and unknown stages keep the call review-required.
+The proven read-only effect is used consistently by governance, effect certainty, progress
+accounting, and Console presentation. Shell execution is foreground by default and should
 terminate within the reviewed call. Detachment primitives such as PowerShell `Start-Process` or
 `Start-Job`, POSIX `nohup`, `disown`, or background `&`, and equivalent runtime flags are detected
 as lifecycle-changing requests. They are denied with corrective guidance unless authenticated

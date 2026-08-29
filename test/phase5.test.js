@@ -1802,6 +1802,17 @@ test('process tool status shows the executable and argv in its compact target', 
   projection.apply('s1', record);
   const frame = new TuiRenderer().frame(projection, { width: 120, height: 24, color: false });
   assert.match(frame, /✓ process\.run \(ssh \["fixture-host","hostname && uname -a"\]\) \| succeeded/u);
+
+  const observation = toolStatus({
+    sessionId: 'session-1', tools: { definition: () => ({ sideEffect: 'unknown', scope: 'workspace' }) },
+  }, { turnId: 'turn-1' }, {
+    request: {
+      id: 'shell-1', toolName: 'shell.run', definitionVersion: 1,
+      args: { shell: 'powershell', script: 'Get-ChildItem -Path .' }, resolved: { readOnly: true },
+    },
+    call: { providerCallId: 'provider-2', name: 'shell.run' },
+  }, 'running');
+  assert.equal(observation.effect, 'read_only');
 });
 
 test('AC-TURN-06 active-turn submit becomes acknowledged steering and clears only after acceptance', async () => {

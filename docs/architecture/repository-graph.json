@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:09c711bf28e5abd781355f92aa51b29cb111070e80a0c0640f8096457be23da3",
+  "source_digest": "sha256:c064e4495ae5ae909cf6b0a3c698350d7c75cc3ac298d096d943e350741d2cd1",
   "counts": {
-    "modules": 326,
+    "modules": 327,
     "component_edges": 69
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "reliability-engine",
       "label": "Reliability Engine",
       "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
-      "module_count": 41
+      "module_count": 42
     },
     {
       "id": "gateway",
@@ -185,7 +185,7 @@
     {
       "from": "tools",
       "to": "reliability-engine",
-      "import_count": 11,
+      "import_count": 12,
       "module_count": 5
     },
     {
@@ -2343,6 +2343,12 @@
       "imports": []
     },
     {
+      "path": "src/reliability/shell-observation.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/reliability/token-accounting.js",
       "component": "reliability-engine",
       "entrypoint": false,
@@ -2858,6 +2864,7 @@
         "src/reliability/external-browser.js",
         "src/reliability/host-environment.js",
         "src/reliability/process-lifecycle.js",
+        "src/reliability/shell-observation.js",
         "src/tools/argument-normalization.js"
       ]
     },

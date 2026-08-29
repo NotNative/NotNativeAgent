@@ -236,16 +236,16 @@ function normalizeResult(request, definition, status, content, metadata, started
     tool_name: request.toolName, status, content: bounded,
     truncated: Buffer.byteLength(bounded) !== Buffer.byteLength(source),
     elapsed_ms: Math.max(0, performance.now() - started),
-    effect_certainty: returnedEffectCertainty(definition, status, reportedEffectCertainty),
+    effect_certainty: returnedEffectCertainty(definition, request, status, reportedEffectCertainty),
     untrusted: true, metadata, ledger_started: true,
     ...(reasonCode ? { reason_code: reasonCode } : {}),
   });
 }
 
-function returnedEffectCertainty(definition, status, reported) {
+function returnedEffectCertainty(definition, request, status, reported) {
   if (['none', 'completed', 'unknown'].includes(reported)) return reported;
   if (status === 'succeeded') return 'completed';
-  return definition?.sideEffect === 'read_only' ? 'none' : 'unknown';
+  return toolRequestReadOnly(definition, request) ? 'none' : 'unknown';
 }
 
 function truncateUtf8(value, maximum) {
@@ -262,15 +262,19 @@ function normalizeFailure(request, definition, error, started) {
     tool_name: request.toolName, status: timeout ? 'timed_out' : cancelled ? 'cancelled' : 'failed',
     content: error instanceof ContractError ? error.message : 'tool execution failed',
     truncated: false, elapsed_ms: Math.max(0, performance.now() - started),
-    effect_certainty: effectCertainty(definition, error),
+    effect_certainty: effectCertainty(definition, request, error),
     untrusted: true, reason_code: normalizeToolReasonCode(error?.code, 'executor_failure'), ledger_started: true,
   });
 }
 
-function effectCertainty(definition, error) {
-  if (definition?.sideEffect === 'read_only') return 'none';
+function effectCertainty(definition, request, error) {
+  if (toolRequestReadOnly(definition, request)) return 'none';
   if (error.code === 'tool_revalidation_drift') return 'none';
   return 'unknown';
+}
+
+function toolRequestReadOnly(definition, request) {
+  return definition?.sideEffect === 'read_only' || request?.resolved?.readOnly === true;
 }
 
 function fingerprintResult(result) {
