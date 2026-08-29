@@ -12,6 +12,7 @@ import { ContractError } from '../ids.js';
 import { buildReviewEvidence } from '../review-evidence.js';
 import { WebUrlProvenance } from '../web-url-provenance.js';
 import { missingFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
+import { toolLifecycleStatus, toolReviewOutcome } from './tool-result-contract.js';
 
 const SUCCESSFUL_TOOL_CONTINUATION = null;
 
@@ -396,12 +397,12 @@ export function toolContinuationHint(items, fallback = null) {
     if (verdict === 'material_issue') return 'The newest visual inspection found a material visible issue. Make one targeted correction and obtain newer visual evidence, or finish only with an honest qualification if no safe correction remains.';
     return 'The newest visual inspection was uncertain. Do not claim a visual pass from DOM text or reasoning; obtain one newer focused image inspection after a material change, or qualify the result.';
   }
-  const denied = items.filter((item) => ['deny_with_guidance', 'hard_deny'].includes(item.result?.status));
+  const denied = items.filter((item) => toolLifecycleStatus(item.result) === 'denied');
   if (denied.length === 0) {
     return items.length > 0 && items.every((item) => item.result?.status === 'succeeded')
       ? SUCCESSFUL_TOOL_CONTINUATION : fallback;
   }
-  const immutable = denied.some((item) => item.result.status === 'hard_deny');
+  const immutable = denied.some((item) => toolReviewOutcome(item.result) === 'hard_deny');
   return immutable
     ? 'A tool reached an immutable policy boundary. Do not retry it or ask for authorization to bypass it. Continue the active task within the remaining capabilities, and report the boundary only if it prevents the objective.'
     : 'A tool was denied. Treat the denial as a route constraint, not the end of the task. Do not repeat an equivalent call unchanged. Continue with a safer, narrower, or more reversible approach. Ask the operator only after reasonable alternatives are exhausted; if blocked, state the attempted operation, denial, and exact clarification needed.';

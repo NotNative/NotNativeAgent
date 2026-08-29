@@ -40,7 +40,7 @@ function syntheticResult(request, executionStarted) {
     type: 'tool_result', turnId: turnIdOf(request), stepId: request.stepId ?? null,
     requestId: request.requestId, providerCallId: request.providerCallId,
     toolName: request.toolName,
-    status: executionStarted ? 'unknown_effect' : 'cancelled',
+    toolLifecycleStatus: executionStarted ? 'unknown_effect' : 'cancelled',
     content: executionStarted
       ? 'The process stopped after this tool entered execution, but before a result was durably recorded. The external outcome is unknown. Verify external state before retrying; repeat automatically only when the operation is read-only or demonstrably idempotent.'
       : 'The process stopped before this tool entered execution. It produced no external effect and may be retried if it is still needed.',

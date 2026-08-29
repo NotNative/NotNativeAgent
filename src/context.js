@@ -2,6 +2,7 @@
 import { ContractError } from './ids.js';
 import { hostEnvironmentInstruction } from './reliability/host-environment.js';
 import { boundedReasoningContinuations } from './reliability/reasoning-continuity.js';
+import { toolLifecycleStatus, toolReviewOutcome } from './tools/tool-result-contract.js';
 
 export function buildContext(config, transcript, currentContent, enrichment = {}, maxBytes = config.limits.maxContextBytes) {
   const messages = [];
@@ -337,10 +338,16 @@ function toolRequestMessage(items, content = null) {
 }
 
 function toolResultMessage(item) {
+  const lifecycleStatus = toolLifecycleStatus(item);
+  const reviewOutcome = toolReviewOutcome(item);
   return {
     role: 'tool', tool_call_id: item.providerCallId,
     content: JSON.stringify({
-      status: item.status, content: item.content,
+      tool_lifecycle_status: lifecycleStatus,
+      // Compatibility: provider conversations historically consume status.
+      // It now carries only tool lifecycle state and never a review decision.
+      status: lifecycleStatus, content: item.content,
+      ...(reviewOutcome ? { review_outcome: reviewOutcome } : {}),
       metadata: item.metadata ?? null, untrusted: true,
       reason_code: item.reasonCode ?? null,
     }),

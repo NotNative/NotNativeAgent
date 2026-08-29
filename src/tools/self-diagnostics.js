@@ -3,6 +3,7 @@ import { readdir, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { readJournalPage, readJournalPrefix } from '../store.js';
 import { ContractError } from '../ids.js';
+import { toolLifecycleStatus, toolReviewOutcome } from './tool-result-contract.js';
 
 const SESSION_ID = /^[A-Za-z0-9_-]{1,256}$/u;
 const DEFAULT_SESSION_LIMIT = 20;
@@ -198,7 +199,10 @@ function summarize(sessionId, turnId, records, state) {
     } else if (record.type === 'recovery_decision') {
       recoveries.push({ category: payload.category ?? null, action: payload.action ?? null, count: payload.count ?? null });
     } else if (record.type === 'tool_result') {
-      tools.push({ tool: payload.toolName ?? null, status: payload.status ?? null, reason_code: payload.reasonCode ?? null });
+      tools.push({
+        tool: payload.toolName ?? null, tool_lifecycle_status: toolLifecycleStatus(payload),
+        review_outcome: toolReviewOutcome(payload), reason_code: payload.reasonCode ?? null,
+      });
     } else if (record.type === 'compaction') {
       compactions.push({ omitted_records: payload.omitted ?? null, objective_present: Boolean(payload.continuation?.objective), next_actions: payload.continuation?.nextActions?.length ?? 0 });
     } else if (record.type === 'turn_outcome') {

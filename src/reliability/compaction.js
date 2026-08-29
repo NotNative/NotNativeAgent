@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
+import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 import {
   bounded, boundedHeadTail, hierarchicalContinuationArtifact, renderContinuation,
   renderHandoff, terseTail,
@@ -216,7 +217,7 @@ function supersedeColdToolResults(transcript, protectedIndexes) {
   const keys = new Map();
   for (let index = 0; index < transcript.length; index += 1) {
     const item = transcript[index];
-    if (item.type !== 'tool_result' || item.status !== 'succeeded') continue;
+    if (item.type !== 'tool_result' || toolLifecycleStatus(item) !== 'succeeded') continue;
     const request = requests.get(item.providerCallId);
     const key = supersessionKey(request);
     if (!key) continue;

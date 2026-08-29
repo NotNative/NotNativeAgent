@@ -47,6 +47,8 @@ test('governance constraints survive unrelated success and clear on new authorit
   const denied = mergeToolConstraints([], [item('fs.write_text', 'deny_with_guidance', {
     reason: 'authenticated_intent_mismatch', content: 'The requested write is outside authenticated intent.',
   })]);
+  assert.equal(denied[0].status, 'denied');
+  assert.equal(denied[0].review_outcome, 'deny_with_guidance');
   assert.equal(mergeToolConstraints(denied, [item('fs.read_text', 'succeeded')]).length, 1);
   assert.deepEqual(clearAuthorityConstraints(denied), []);
 });

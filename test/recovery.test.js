@@ -893,7 +893,7 @@ test('AC-PROD-03 malformed small-model tool arguments become an in-band repair o
   assert.equal(result.outcome, 'completed');
   assert.equal(count, 3);
   const invalid = engine.transcript.find((item) => item.type === 'tool_result');
-  assert.equal(invalid.status, 'invalid_request');
+  assert.equal(invalid.toolLifecycleStatus, 'invalid_request');
   assert.equal(invalid.reasonCode, 'tool_arguments_malformed');
 });
 

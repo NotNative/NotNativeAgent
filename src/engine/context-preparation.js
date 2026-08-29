@@ -6,6 +6,7 @@ import { providerRequest } from './runtime-helpers.js';
 import { addHookContexts, hookPayload } from './hooks.js';
 import { ContractError } from '../ids.js';
 import { writeTaskCheckpoint } from '../task-checkpoint.js';
+import { toolLifecycleStatus, toolReviewOutcome } from '../tools/tool-result-contract.js';
 
 const MIN_COMPACTION_BUDGET_BYTES = 8_192;
 const COMPACTION_REDUCTION_FACTOR = 0.6;
@@ -200,7 +201,8 @@ function recordIdentity(record) {
     return createHash('sha256').update(JSON.stringify({
       type: record.type, role: record.role, turnId: record.turnId ?? record.turn_id,
       stepId: record.stepId ?? record.step_id, providerCallId: record.providerCallId,
-      requestId: record.requestId, toolName: record.toolName, status: record.status,
+      requestId: record.requestId, toolName: record.toolName,
+      toolLifecycleStatus: toolLifecycleStatus(record), reviewOutcome: toolReviewOutcome(record),
       content: record.content, args: record.args,
     })).digest('hex');
   } catch {

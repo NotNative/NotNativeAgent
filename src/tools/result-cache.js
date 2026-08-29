@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
+import { toolLifecycleStatus, toolReviewOutcome } from './tool-result-contract.js';
 
 const DEFAULT_CACHE_LIMIT = 1_024;
 
@@ -49,7 +50,8 @@ export class ToolResultCache {
     if (!request) return;
     this.record({ providerCallId: request.providerCallId, name: request.toolName, args: request.args }, {
       request_id: result.requestId, provider_call_id: result.providerCallId,
-      tool_name: result.toolName, status: result.status, content: result.content,
+      tool_name: result.toolName, status: toolLifecycleStatus(result), content: result.content,
+      ...(toolReviewOutcome(result) ? { review_outcome: toolReviewOutcome(result) } : {}),
       metadata: result.metadata, reason_code: result.reasonCode,
       effect_certainty: result.effectCertainty, elapsed_ms: result.elapsedMs,
       truncated: result.truncated,

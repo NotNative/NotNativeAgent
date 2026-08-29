@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { redactText } from './redaction.js';
+import { toolLifecycleStatus, toolReviewOutcome } from './tools/tool-result-contract.js';
 
 const RECENT_TURNS = 3;
 const MAX_RECORDS = 10;
@@ -94,9 +95,11 @@ function evidenceItem(record, currentRequestId, recordIndex) {
   }
   if (record.type === 'tool_result') {
     if (record.content === null || record.content === undefined) return null;
+    const reviewOutcome = toolReviewOutcome(record);
     return {
       type: 'tool_result', trust: 'untrusted_tool', turnId: record.turnId ?? null,
-      recordIndex, tool: record.toolName, status: record.status, content: redactText(record.content),
+      recordIndex, tool: record.toolName, tool_lifecycle_status: toolLifecycleStatus(record),
+      ...(reviewOutcome ? { review_outcome: reviewOutcome } : {}), content: redactText(record.content),
     };
   }
   return null;
@@ -160,7 +163,7 @@ function collectSearchValues(value, output, key = '', depth = 0) {
 
 function relevanceScore(item, terms) {
   if (terms.size === 0) return 0;
-  const searchable = `${item.tool ?? ''} ${item.status ?? ''} ${item.content}`.toLowerCase();
+  const searchable = `${item.tool ?? ''} ${item.tool_lifecycle_status ?? ''} ${item.review_outcome ?? ''} ${item.content}`.toLowerCase();
   let score = 0;
   for (const term of terms) {
     if (!searchable.includes(term)) continue;

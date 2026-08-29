@@ -4,6 +4,7 @@ import { failureEnvelope } from '../failure-envelope.js';
 import { safeToolArguments } from '../tools/presentation.js';
 import { requestsInput } from '../reliability/completion-supervisor.js';
 import { redactText } from '../redaction.js';
+import { durableToolResultState } from '../tools/tool-result-contract.js';
 
 const MAX_TARGET_LENGTH = 512;
 const MAX_TASK_LENGTH = 180;
@@ -42,10 +43,11 @@ export function invalidRequestRecord(call, lifecycleId, turnId, stepId = null) {
 
 export function toolResultRecord(item, turnId, stepId = null) {
   const result = item.result ?? {};
+  const state = durableToolResultState(result);
   return {
     type: 'tool_result', turnId, stepId, requestId: result.request_id ?? item.lifecycle?.id ?? null,
     providerCallId: result.provider_call_id, toolName: result.tool_name,
-    status: result.status, content: result.content,
+    ...state, content: result.content,
     metadata: result.metadata ?? null,
     reasonCode: result.reason_code ?? null, untrusted: true,
     effectCertainty: result.effect_certainty,

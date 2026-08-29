@@ -12,7 +12,7 @@ NNA already has strong typed boundaries, but several names blur distinct concept
 risk is not grammar. The largest risk is a name that makes visibility look like authority, or a
 generic field that carries unrelated lifecycle states.
 
-The foundation gate now protects 39 preferred terms and seven deprecated identifiers. The first
+The foundation gate now protects 40 preferred terms and seven deprecated identifiers. The first
 terminology migration removed every deprecated identifier from production source:
 
 | Deprecated identifier | Occurrences | Preferred identifier | Finding |
@@ -40,12 +40,13 @@ handoffs, tool-search leases, lease consumption, and authenticated host manifest
 
 ### B. Overloaded lifecycle fields
 
-Priority: high. Migration risk: high.
+Status: resolved in version `20260828-8`. Migration risk was high.
 
-`status` currently represents tool execution states in result envelopes. Some governance records
-also place a review outcome in a field named `status`. Use `tool_lifecycle_status` for tool state
-and `review_outcome` for review state at durable boundaries. Keep compatibility readers until old
-session journals and reviewer records are no longer supported.
+New session records now store tool state in `toolLifecycleStatus` and review state in
+`reviewOutcome`. Provider projections use `tool_lifecycle_status` and `review_outcome`. The
+provider projection retains `status` as a compatibility alias, but that alias contains only the
+tool lifecycle state. One central compatibility reader interprets old session records whose
+`status` field contains either kind of state.
 
 Do not replace every local variable named `status`. Local variables with one obvious type are not
 the problem. The migration target is a public or durable field with more than one meaning.
@@ -59,11 +60,11 @@ search supersedes an older search only when their paths, queries, and file filte
 
 ### D. Review decisions and tool results
 
-Priority: medium. Migration risk: high.
+Status: resolved in version `20260828-8`. Migration risk was high.
 
 Keep `approve`, `deny_with_guidance`, `hard_deny`, and `escalate_to_operator` inside the typed
-review-decision domain. Do not present them as tool lifecycle states. Keep failure reason codes
-separate from both domains.
+review-decision domain. Denied tool requests now have the lifecycle state `denied`; their review
+outcome remains separate. Failure reason codes remain separate from both domains.
 
 ### E. Model-facing prose
 
@@ -94,10 +95,9 @@ analyzer with measured precision.
 
 ## Planned sequence
 
-1. Separate durable review outcomes from tool lifecycle status.
-2. Audit model-facing tool text in bounded tool families.
-3. Add advisory reports for sentence length and unqualified boundary names.
-4. Promote an advisory rule to a hard gate only after false positives are mechanically excluded.
+1. Audit model-facing tool text in bounded tool families.
+2. Add advisory reports for sentence length and unqualified boundary names.
+3. Promote an advisory rule to a hard gate only after false positives are mechanically excluded.
 
 Each slice must run the full test suite, advance the canonical version, and produce one focused
 commit. NNA-CTL is a reliability control, not permission for broad cosmetic churn.

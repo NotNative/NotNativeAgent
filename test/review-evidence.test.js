@@ -85,7 +85,7 @@ test('long current turns retain relevant earlier evidence beyond the newest caus
   });
   const prior = packet.evidence.find((item) => item.recordIndex === 0);
   assert.equal(prior?.tool, 'web.browse');
-  assert.equal(prior?.status, 'succeeded');
+  assert.equal(prior?.tool_lifecycle_status, 'succeeded');
   assert.match(prior?.content ?? '', /localhost:8123/u);
   assert.equal(packet.metadata.recentRecords, 7);
   assert.equal(packet.metadata.packetTruncated, true);

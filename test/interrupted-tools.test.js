@@ -18,10 +18,10 @@ test('interrupted tool repair distinguishes undispatched and unknown effects', (
   assert.equal(repairs.length, 2);
   const safe = repairs.find((item) => item.requestId === 'request-safe');
   const unknown = repairs.find((item) => item.requestId === 'request-unknown');
-  assert.equal(safe.status, 'cancelled');
+  assert.equal(safe.toolLifecycleStatus, 'cancelled');
   assert.equal(safe.effectCertainty, 'none');
   assert.equal(safe.reasonCode, 'process_interrupted_before_dispatch');
-  assert.equal(unknown.status, 'unknown_effect');
+  assert.equal(unknown.toolLifecycleStatus, 'unknown_effect');
   assert.equal(unknown.effectCertainty, 'unknown');
   assert.equal(unknown.reasonCode, 'process_interrupted_outcome_unknown');
 });

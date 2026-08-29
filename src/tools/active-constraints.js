@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { redactText } from '../redaction.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 import { missingFilesystemPrerequisite, satisfiesFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
+import { toolLifecycleStatus, toolReviewOutcome } from './tool-result-contract.js';
 
 const MAX_CONSTRAINTS = 64;
 const CONSTRAINT_KIND = Object.freeze({
@@ -41,9 +42,10 @@ export function clearAuthorityConstraints(constraints = []) {
 
 function constraintFor(item) {
   const result = item.result;
-  if (!result || result.status === 'succeeded' || result.status === 'cancelled') return null;
+  const status = toolLifecycleStatus(result);
+  if (!result || status === 'succeeded' || status === 'cancelled') return null;
   const prerequisite = missingFilesystemPrerequisite(item);
-  const kind = prerequisite ? CONSTRAINT_KIND.prerequisite : constraintKind(result.status, result.reason_code);
+  const kind = prerequisite ? CONSTRAINT_KIND.prerequisite : constraintKind(status, result.reason_code);
   const tool = prerequisite?.tool ?? result.tool_name ?? item.call?.name ?? 'unknown';
   const reasonCode = safeDiagnostic(result.reason_code ?? result.status, 128);
   const requestFingerprint = digest(stableJson(item.call?.args ?? item.request?.args ?? {}));
@@ -55,7 +57,8 @@ function constraintFor(item) {
       : `${kind}\0${tool}\0${reasonCode}\0${requestFingerprint}\0${detail}`;
   return Object.freeze({
     id: digest(identity).slice(0, 32),
-    kind, tool, status: result.status, reason_code: reasonCode,
+    kind, tool, status, reason_code: reasonCode,
+    ...(toolReviewOutcome(result) ? { review_outcome: toolReviewOutcome(result) } : {}),
     request_fingerprint: requestFingerprint, detail,
     ...(prerequisite ? { required_tool: prerequisite.tool, required_path: prerequisite.path } : {}),
     instruction: instruction(kind, result, item, prerequisite),
@@ -65,7 +68,7 @@ function constraintFor(item) {
 function constraintKind(status, reasonCode = null) {
   if (reasonCode === 'tool_arguments_truncated') return CONSTRAINT_KIND.action;
   if (status === 'invalid_request') return CONSTRAINT_KIND.schema;
-  if (['deny_with_guidance', 'hard_deny'].includes(status)) return CONSTRAINT_KIND.governance;
+  if (status === 'denied') return CONSTRAINT_KIND.governance;
   return CONSTRAINT_KIND.execution;
 }
 

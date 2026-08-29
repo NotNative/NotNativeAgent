@@ -24,7 +24,9 @@ test('compaction creates a bounded fingerprinted continuation artifact with oper
   assert.equal(compacted.fact.continuation.schema, 'nna.continuation.v1');
   assert.equal(compacted.fact.continuation.objective, 'Keep the existing terminal UX.');
   assert.deepEqual(compacted.fact.continuation.recentDirectives, ['Build the feature safely.']);
-  assert.deepEqual(compacted.fact.continuation.changedFiles, [{ path: 'src/a.js', operation: 'fs.edit_text', status: 'succeeded' }]);
+  assert.deepEqual(compacted.fact.continuation.changedFiles, [{
+    path: 'src/a.js', operation: 'fs.edit_text', toolLifecycleStatus: 'succeeded',
+  }]);
   assert.deepEqual(compacted.fact.continuation.verifiedFacts, []);
   assert.ok(compacted.fact.omitted < transcript.length);
   assert.ok(compacted.records.length > 0);

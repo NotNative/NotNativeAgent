@@ -149,7 +149,7 @@ export function denialResult(request, decision) {
   const recovery = denialRecovery(decision);
   return Object.freeze({
     request_id: request.id, provider_call_id: request.providerCallId,
-    tool_name: request.toolName, status: decision.outcome,
+    tool_name: request.toolName, status: 'denied', review_outcome: decision.outcome,
     content: `${decision.guidance ?? decision.reasonCode}\n\n${recovery.instruction}`, truncated: false,
     elapsed_ms: 0, effect_certainty: 'none', untrusted: true,
     reason_code: decision.reasonCode, metadata: Object.freeze({

@@ -193,7 +193,8 @@ test('parallel sub-agent cancellation drains children and commits terminal tool 
   assert.equal(settled, 2);
   assert.equal(engine.transcript.filter((item) => item.role === 'assistant'
     && item.content === 'I am delegating both reviews.').length, 1);
-  assert.deepEqual(engine.transcript.filter((item) => item.type === 'tool_result').map((item) => item.status), ['cancelled', 'cancelled']);
+  assert.deepEqual(engine.transcript.filter((item) => item.type === 'tool_result')
+    .map((item) => item.toolLifecycleStatus), ['cancelled', 'cancelled']);
   assert.equal(engine.state.transitions.some((item) => item.from === 'cancelling' && item.to === 'processing_tool_results'), false);
   assert.equal(engine.lifecycles.snapshot().some((item) => item.outcome === null), false);
   assert.equal(output.filter((item) => item.type === 'turn_result').length, 1);

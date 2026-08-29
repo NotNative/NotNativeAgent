@@ -122,7 +122,8 @@ test('AC-HEAD-10 host business policy remains usable but cannot bypass mandatory
   assert.equal(result.outcome, 'completed');
   assert.equal(requests[0].messages.some((item) => item.content?.includes('ACME response format')), true);
   const denied = engine.transcript.find((item) => item.type === 'tool_result');
-  assert.equal(denied.status, 'deny_with_guidance');
+  assert.equal(denied.toolLifecycleStatus, 'denied');
+  assert.equal(denied.reviewOutcome, 'deny_with_guidance');
   assert.equal(denied.reasonCode, 'authenticated_intent_mismatch');
   await assert.rejects(readFile(join(root, 'unauthorized.txt')), { code: 'ENOENT' });
 });

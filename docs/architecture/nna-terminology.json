@@ -73,7 +73,7 @@
       "term": "review decision",
       "kind": "data_term",
       "definition": "The typed outcome of a review.",
-      "identifiers": ["reviewDecision"]
+      "identifiers": ["reviewDecision", "reviewOutcome", "review_outcome"]
     },
     {
       "id": "CTL-TERM-008",
@@ -178,7 +178,7 @@
       "term": "tool lifecycle status",
       "kind": "lifecycle_term",
       "definition": "The current execution state of one tool request.",
-      "identifiers": ["toolLifecycleStatus"]
+      "identifiers": ["toolLifecycleStatus", "tool_lifecycle_status"]
     },
     {
       "id": "CTL-TERM-023",

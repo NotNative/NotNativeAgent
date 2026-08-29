@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { estimateContextTokens } from './context-budget.js';
+import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 
 export const CONTEXT_COMPRESSION_POLICY_SCHEMA = 'nna.context-compression-policy.v1';
 export const CONTEXT_COMPRESSION_MEASUREMENT_SCHEMA = 'nna.context-compression-measurement.v1';
@@ -86,7 +87,7 @@ function compressionClassFor(record, options) {
   if (kind === 'message' && ['user', 'system'].includes(record?.role)) return COMPRESSION_CLASS.protected;
   if (kind === 'context_checkpoint' || kind === 'compaction') return COMPRESSION_CLASS.protected;
   if (kind === 'tool_result') {
-    return record?.status === 'succeeded' && options.durableSource !== false
+    return toolLifecycleStatus(record) === 'succeeded' && options.durableSource !== false
       ? COMPRESSION_CLASS.recoverable : COMPRESSION_CLASS.protected;
   }
   if (kind === 'tool_request') {
@@ -105,7 +106,7 @@ function compressionReason(record, options, compressionClass) {
   if (record?.type === 'message' && record?.role === 'user') return 'authenticated_user_input';
   if (record?.type === 'message' && record?.role === 'system') return 'system_contract';
   if (options.durableSource === false && compressionClass !== COMPRESSION_CLASS.lossless) return 'durable_source_unavailable';
-  if (record?.type === 'tool_result' && record?.status !== 'succeeded') return 'unsettled_or_failed_result';
+  if (record?.type === 'tool_result' && toolLifecycleStatus(record) !== 'succeeded') return 'unsettled_or_failed_result';
   return `${compressionClass}_content`;
 }
 

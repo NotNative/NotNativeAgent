@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { contextCompressionPolicy } from './context-compression.js';
+import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 
 const DEFAULT_MINIMUM_SAVINGS_BYTES = 512;
 const RECEIPT_SCHEMA = 'nna.duplicate-result-receipt.v1';
@@ -45,7 +46,7 @@ function duplicateReceipt(record, duplicateOf, digest) {
   const receipt = Object.freeze({
     schema: RECEIPT_SCHEMA,
     tool: record.toolName ?? 'unknown',
-    outcome: record.status,
+    outcome: toolLifecycleStatus(record),
     content_sha256: digest,
     original_bytes: Buffer.byteLength(record.content, 'utf8'),
     ledger_ref: ledgerRef,
@@ -70,7 +71,7 @@ function duplicateReceipt(record, duplicateOf, digest) {
 
 function eligible(record) {
   return record?.type === 'tool_result'
-    && record.status === 'succeeded'
+    && toolLifecycleStatus(record) === 'succeeded'
     && typeof record.content === 'string'
     && record.metadata?.reason !== 'duplicate_result'
     && contextCompressionPolicy(record).allowedReducers.includes('content_identity_dedup_v1');

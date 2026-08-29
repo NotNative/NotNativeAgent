@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
+import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 import { projectDuplicateToolResults } from './duplicate-results.js';
 
 export const CONTEXT_PRESSURE = Object.freeze({
@@ -97,7 +98,7 @@ function createActiveCheckpoint(records, cold, options, tier) {
     const target = requestTarget(request);
     const excerpt = boundedHeadTail(item.content ?? '', 768).replace(/\s+/gu, ' ').trim();
     return Object.freeze({
-      tool: item.toolName ?? request?.toolName ?? 'unknown', status: item.status ?? 'unknown',
+      tool: item.toolName ?? request?.toolName ?? 'unknown', toolLifecycleStatus: toolLifecycleStatus(item) ?? 'unknown',
       requestId: item.requestId ?? item.providerCallId ?? null, target,
       excerpt: excerpt || null,
     });
@@ -123,7 +124,7 @@ function renderCheckpoint(checkpointData) {
     lines.push(`Settled tool receipts:\n${checkpointData.tools.map((entry) => {
       const target = entry.target ? ` ${entry.target}` : '';
       const excerpt = entry.excerpt ? `: ${entry.excerpt}` : '';
-      return `- ${entry.status} ${entry.tool}${target} [${entry.requestId ?? 'no-id'}]${excerpt}`;
+      return `- ${entry.toolLifecycleStatus} ${entry.tool}${target} [${entry.requestId ?? 'no-id'}]${excerpt}`;
     }).join('\n')}`);
   }
   lines.push('Use session.search_history and session.read_history when complete omitted evidence is needed.');

@@ -432,7 +432,7 @@ test('Unattended posture converts semantic escalation to guidance without openin
   assert.equal(outputs.some((item) => item.type === 'permission_prompt'), false);
   assert.equal(outputs.find((item) => item.type === 'review_status').outcome, 'deny_with_guidance');
   assert.deepEqual(outputs.filter((item) => item.type === 'tool_status').map((item) => item.status), [
-    'review_pending', 'deny_with_guidance',
+    'review_pending', 'denied',
   ]);
   assert.equal(await readFile(path, 'utf8'), 'before');
 });
@@ -517,7 +517,7 @@ test('AC-TOOL-01 unknown tool never reaches review or execution', async () => {
   const result = await engine.submit({ request_id: 'invalid-turn', content: 'Inspect safely' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(engine.reviewerAudit().length, 0);
-  assert.equal(engine.transcript.find((item) => item.type === 'tool_result').status, 'invalid_request');
+  assert.equal(engine.transcript.find((item) => item.type === 'tool_result').toolLifecycleStatus, 'invalid_request');
   const terminal = output.find((item) => item.type === 'tool_status');
   assert.equal(terminal.target, 'anything');
   assert.equal(terminal.reason_code, 'unknown_tool');
@@ -662,7 +662,7 @@ test('AC-TOOL-03 execution-boundary drift blocks an approved write', async () =>
   assert.equal(result.outcome, 'completed');
   assert.equal(await readFile(path, 'utf8'), 'external-change');
   const toolResult = engine.transcript.find((item) => item.type === 'tool_result');
-  assert.equal(toolResult.status, 'failed');
+  assert.equal(toolResult.toolLifecycleStatus, 'failed');
   assert.equal(toolResult.reasonCode, 'tool_revalidation_drift');
   assert.equal(engine.reviewerAudit()[0].result, 'failed');
 });
@@ -684,7 +684,7 @@ test('root NNA can read an explicitly requested host path outside its working di
   await engine.submit({ request_id: 'scope-turn', content: 'Read outside file' }, 'operator');
   assert.equal(reviewerCalls, 0);
   const toolResult = engine.transcript.find((item) => item.type === 'tool_result');
-  assert.equal(toolResult.status, 'succeeded');
+  assert.equal(toolResult.toolLifecycleStatus, 'succeeded');
   assert.equal(toolResult.content, 'outside content');
 });
 
@@ -711,7 +711,8 @@ test('AC-SEC-03 hostile tool output remains untrusted and cannot authorize a lat
   assert.equal(result.outcome, 'completed');
   assert.equal(step, 3);
   const denied = engine.transcript.find((item) => item.type === 'tool_result' && item.toolName === 'fs.write_text');
-  assert.equal(denied.status, 'deny_with_guidance');
+  assert.equal(denied.toolLifecycleStatus, 'denied');
+  assert.equal(denied.reviewOutcome, 'deny_with_guidance');
   assert.equal(denied.reasonCode, 'authenticated_intent_mismatch');
   await assert.rejects(readFile(join(root, 'hacked.txt')), { code: 'ENOENT' });
 });
@@ -1127,7 +1128,7 @@ test('same-batch writes to one file execute in request order across runtime-auth
   assert.equal(result.outcome, 'completed');
   assert.equal(await readFile(join(root, 'result.txt'), 'utf8'), 'final');
   assert.equal(engine.transcript.filter((item) => item.type === 'tool_result')
-    .every((item) => item.status === 'succeeded'), true);
+    .every((item) => item.toolLifecycleStatus === 'succeeded'), true);
 });
 
 test('AC-PERF-03/AC-TURN-05 configured independent reads execute concurrently but reinject in request order', async () => {

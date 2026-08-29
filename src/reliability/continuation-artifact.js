@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 
 export function hierarchicalContinuationArtifact(transcript, omitted) {
   const chunks = chunkRecords(transcript, 65_536);
@@ -40,12 +41,12 @@ function baseContinuationArtifact(transcript, omitted) {
     if (!/^fs\.(?:edit|write|delete|move|copy|make_directory)/u.test(item.toolName ?? '')) continue;
     const result = results.get(item.providerCallId);
     for (const target of toolTargets(item.args)) changedFiles.push(Object.freeze({
-      path: target, operation: item.toolName, status: result?.status ?? 'unresolved',
+      path: target, operation: item.toolName, toolLifecycleStatus: toolLifecycleStatus(result) ?? 'unresolved',
     }));
   }
   const unresolvedTools = allToolRequests.filter((item) => !results.has(item.providerCallId)).slice(-32)
     .map((item) => Object.freeze({ id: bounded(item.providerCallId, 256), tool: bounded(item.toolName, 256) }));
-  const verifiedFacts = toolRequests.filter((item) => results.get(item.providerCallId)?.status === 'succeeded')
+  const verifiedFacts = toolRequests.filter((item) => toolLifecycleStatus(results.get(item.providerCallId)) === 'succeeded')
     .slice(-32).map((item) => `${bounded(item.toolName, 256)} completed successfully`);
   return Object.freeze({
     schema: 'nna.continuation.v1', objective: boundedHeadTail(objective?.content ?? '', 8_192),
@@ -65,7 +66,7 @@ export function renderContinuation(item, maximumBytes = 49_152) {
   ];
   if (item.recentDirectives.length) sections.push(`Recent authenticated directives:\n- ${item.recentDirectives.join('\n- ')}`);
   if (item.completedWork.length) sections.push(`Recent reported work:\n- ${item.completedWork.join('\n- ')}`);
-  if (item.changedFiles.length) sections.push(`Observed file operations:\n${item.changedFiles.map((entry) => `- ${entry.operation} ${entry.path} (${entry.status})`).join('\n')}`);
+  if (item.changedFiles.length) sections.push(`Observed file operations:\n${item.changedFiles.map((entry) => `- ${entry.operation} ${entry.path} (${entry.toolLifecycleStatus})`).join('\n')}`);
   if (item.unresolvedTools.length) sections.push(`Unresolved tool calls:\n${item.unresolvedTools.map((entry) => `- ${entry.tool} (${entry.id})`).join('\n')}`);
   if (item.verifiedFacts?.length) sections.push(`Verified facts:\n- ${item.verifiedFacts.join('\n- ')}`);
   if (item.openQuestions?.length) sections.push(`Open questions:\n- ${item.openQuestions.join('\n- ')}`);
