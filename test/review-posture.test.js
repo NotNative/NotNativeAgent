@@ -7,7 +7,7 @@ import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { nextReviewPosture } from '../src/review-posture.js';
 import { TerminalInputDecoder } from '../src/tui/terminal-adapter.js';
 import {
-  mandatoryReviewEventTimeout, MANDATORY_REVIEW_EVENT_TIMEOUT_MS, ToolGovernor,
+  denialResult, mandatoryReviewEventTimeout, MANDATORY_REVIEW_EVENT_TIMEOUT_MS, ToolGovernor,
 } from '../src/tools/governor.js';
 import { semanticReviewTimeout } from '../src/config-bounds.js';
 
@@ -63,6 +63,13 @@ test('Unattended posture converts unresolved escalation into actionable denial',
   }, { category: 'permission', phase: 'pre', payload: { request_id: 'safe-1' } });
   assert.equal(result.outcome, 'deny_with_guidance');
   assert.equal(result.reasonCode, 'unattended_escalation_denied');
+  assert.doesNotMatch(result.guidance, /explicitly authorized/u);
+  const denied = denialResult(safeRequest(), result);
+  assert.equal(denied.metadata.denial_kind, 'operator_unavailable');
+  assert.equal(denied.metadata.continuation, 'continue_without_escalated_operation');
+  assert.equal(denied.metadata.retry, 'never_this_turn');
+  assert.equal(denied.metadata.user_clarification, false);
+  assert.match(denied.content, /preserve it as blocked evidence/u);
 });
 
 test('governor preserves a returned failure without claiming its side effects completed', async () => {

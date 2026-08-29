@@ -30,9 +30,11 @@ The visible review posture has three operator-facing states:
    semantic reviewer. Only an unresolved interactive escalation opens the permission
    surface. This is the startup default.
 3. **Unattended:** the same mandatory auto-review pipeline runs without opening operator
-   prompts. A semantic escalation becomes a bounded denial with actionable guidance, so
-   the agent may choose a safer or more explicit approach instead of blocking the terminal
-   on a human response. Hard policy remains unchanged.
+   prompts. A semantic escalation becomes a bounded denial for that exact operation, which
+   cannot be retried during the turn. The agent continues independent work through already
+   authorized routes; when the objective materially depends on the denied operation, it
+   preserves a blocker instead of seeking an unavailable approval channel. Hard policy
+   remains unchanged.
 
 Scoped preauthorization is an explicit response available from Prompt or Auto-review, not
 an operating posture. It remains inspectable, revocable, expiring, conversation-bounded,

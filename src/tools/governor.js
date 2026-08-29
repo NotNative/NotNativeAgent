@@ -57,7 +57,7 @@ export class ToolGovernor {
         if (context.reviewPosture === 'unattended') {
           return Object.freeze({
             outcome: 'deny_with_guidance', reasonCode: 'unattended_escalation_denied',
-            guidance: 'Unattended posture cannot pause for operator approval; choose a safer or explicitly authorized approach.',
+            guidance: 'Unattended posture cannot obtain operator approval. This exact operation is unavailable for the remainder of the turn; continue only through an independently authorized route.',
             requestId: request.id,
           });
         }
@@ -155,12 +155,19 @@ export function denialResult(request, decision) {
     elapsed_ms: 0, effect_certainty: 'none', untrusted: true,
     reason_code: decision.reasonCode, metadata: Object.freeze({
       denial_kind: recovery.kind, continuation: recovery.continuation,
-      retry: 'materially_different_only', user_clarification: recovery.userClarification,
+      retry: recovery.retry ?? 'materially_different_only', user_clarification: recovery.userClarification,
     }),
   });
 }
 
 function denialRecovery(decision) {
+  if (decision.reasonCode === 'unattended_escalation_denied') return {
+    // Why: unattended execution has no live approval channel. Recommending a retry or
+    // clarification would create an impossible recovery loop rather than useful progress.
+    kind: 'operator_unavailable', continuation: 'continue_without_escalated_operation',
+    userClarification: false, retry: 'never_this_turn',
+    instruction: 'Do not retry this operation during the current turn and do not ask for interactive approval. Continue independent work through a safer already-authorized route. If the objective materially depends on this operation, preserve it as blocked evidence and report that bounded blocker.',
+  };
   if (decision.outcome === 'hard_deny') return {
     kind: 'immutable_policy', continuation: 'continue_within_boundary', userClarification: false,
     instruction: 'This is an immutable policy boundary. Do not retry or imply that additional user authorization can override it. Continue all remaining work within the boundary; report it only if it blocks the objective.',
