@@ -56,16 +56,7 @@ export class ToolLoop {
       this.state.transition('validating_tool_requests', { trigger: 'tool_calls_sealed', turnId: active.turnId });
       await this.#validate(calls, active, items);
       const valid = items.filter((item) => item.request);
-      if (valid.length > 0) {
-        this.state.transition('awaiting_tool_approval', { trigger: 'mandatory_review', turnId: active.turnId });
-        for (const item of valid) { assertTurnActive(active); await this.#review(item, active); }
-      }
-      assertTurnActive(active);
-      const approved = valid.filter((item) => item.decision?.outcome === 'approve');
-      if (approved.length > 0) {
-        this.state.transition('executing_tools', { trigger: 'approved_tools', turnId: active.turnId });
-        await this.#executeApproved(approved, active);
-      }
+      if (valid.length > 0) await this.#reviewAndExecute(valid, active);
       assertTurnActive(active);
       if (this.state.state !== 'processing_tool_results') {
         this.state.transition('processing_tool_results', { trigger: 'tools_settled', turnId: active.turnId });
@@ -252,18 +243,32 @@ export class ToolLoop {
     }
   }
 
-  async #executeApproved(items, active) {
+  async #reviewAndExecute(items, active) {
     for (let index = 0; index < items.length;) {
       assertTurnActive(active);
       const parallelGroup = this.#parallelGroup(items[index]);
-      if (parallelGroup === null) {
-        await this.#execute(items[index], active); index += 1; continue;
-      }
       let end = index + 1;
-      while (end < items.length && this.#parallelGroup(items[end]) === parallelGroup) end += 1;
+      if (parallelGroup !== null) {
+        while (end < items.length && this.#parallelGroup(items[end]) === parallelGroup) end += 1;
+      }
+      if (this.state.state === 'validating_tool_requests' || this.state.state === 'executing_tools') {
+        this.state.transition('awaiting_tool_approval', {
+          trigger: 'mandatory_review', turnId: active.turnId,
+        });
+      }
+      const group = items.slice(index, end);
+      for (const item of group) { assertTurnActive(active); await this.#review(item, active); }
+      const approved = group.filter((item) => item.decision?.outcome === 'approve');
+      if (approved.length === 0) { index = end; continue; }
+      this.state.transition('executing_tools', { trigger: 'approved_tools', turnId: active.turnId });
+      // Invariant: every approval is obtained immediately before its execution group. A long
+      // earlier tool cannot consume the approval lifetime of a later independent request.
+      if (parallelGroup === null) {
+        await this.#execute(approved[0], active); index = end; continue;
+      }
       const limit = parallelGroup === 'read_only' ? this.concurrency
         : await this.parallelLimit(parallelGroup, active.controller.signal);
-      await boundedParallel(items.slice(index, end), limit, (item) => this.#execute(item, active));
+      await boundedParallel(approved, limit, (item) => this.#execute(item, active));
       index = end;
     }
   }

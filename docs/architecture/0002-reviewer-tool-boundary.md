@@ -66,10 +66,13 @@ operation hashes, redacted target fingerprints, decisions, repetition counts,
 and executor facts rather than raw arguments or tool content. An approval binds
 the request digest, authority and policy versions, and expiry. Execution starts
 only after exact revalidation; results are persisted and ledger-settled before
-the next model step. The bounded approval window begins when the reviewer or operator commits
-the decision so slow local semantic review cannot consume the execution window while the call
-is still waiting for judgment. Revalidation still rejects expired decisions and any drift in
-the exact request, authority, policy, tool definition, or workspace binding.
+the next model step. NNA reviews each sequential request or parallel execution group immediately
+before that group starts. A long-running earlier tool therefore cannot consume the approval
+window of a later request in the same provider batch. The bounded approval window begins when
+the reviewer or operator commits the decision, so slow local semantic review cannot consume the
+execution window while the call is still waiting for judgment. Revalidation still rejects
+expired decisions and any drift in the exact request, authority, policy, tool definition, or
+workspace binding.
 
 Built-in filesystem executors are structured, canonicalized, and operationally bounded.
 Ordinary root sessions may address host-visible paths; execution-manifest sessions retain a

@@ -1098,6 +1098,7 @@ test('exact duplicate calls in one provider batch execute and replay only once',
 
 test('same-batch writes to one file execute in request order across runtime-authored state', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-ordered-writes-'));
+  const output = [];
   let count = 0;
   const provider = { async *stream(request) {
     count += 1;
@@ -1122,13 +1123,21 @@ test('same-batch writes to one file execute in request order across runtime-auth
   const semanticReviewer = { async review() {
     return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
   } };
-  const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider, semanticReviewer });
+  const engine = new SessionEngine({
+    config: manifest(root), providerFactory: () => provider, semanticReviewer,
+    output: async (record) => output.push(record),
+  });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'ordered-writes', content: 'Create result.txt with final content.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(await readFile(join(root, 'result.txt'), 'utf8'), 'final');
   assert.equal(engine.transcript.filter((item) => item.type === 'tool_result')
     .every((item) => item.toolLifecycleStatus === 'succeeded'), true);
+  const draftRunning = output.findIndex((item) => item.type === 'tool_status'
+    && item.provider_call_id === 'draft-write' && item.status === 'running');
+  const finalApproved = output.findIndex((item) => item.type === 'tool_status'
+    && item.provider_call_id === 'final-write' && item.status === 'approved');
+  assert.equal(draftRunning >= 0 && finalApproved > draftRunning, true);
 });
 
 test('AC-PERF-03/AC-TURN-05 configured independent reads execute concurrently but reinject in request order', async () => {

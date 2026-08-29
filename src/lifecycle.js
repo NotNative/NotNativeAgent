@@ -11,7 +11,7 @@ const TRANSITIONS = Object.freeze({
   streaming_model: ['validating_tool_requests', 'evaluating_completion', 'recovering', 'finalizing_turn', 'cancelling'],
   validating_tool_requests: ['awaiting_tool_approval', 'executing_tools', 'processing_tool_results', 'finalizing_turn', 'cancelling'],
   awaiting_tool_approval: ['executing_tools', 'processing_tool_results', 'cancelling'],
-  executing_tools: ['processing_tool_results', 'cancelling'],
+  executing_tools: ['awaiting_tool_approval', 'processing_tool_results', 'cancelling'],
   processing_tool_results: ['preparing_continuation', 'awaiting_attention', 'finalizing_turn', 'cancelling'],
   preparing_continuation: ['invoking_model', 'compacting_context', 'finalizing_turn', 'cancelling'],
   evaluating_completion: ['preparing_continuation', 'recovering', 'awaiting_attention', 'finalizing_turn', 'cancelling'],
