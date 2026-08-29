@@ -9,6 +9,7 @@ const DEFAULT_SKIPS = new Set(['.git', 'node_modules']);
 const MAX_FILES = 10_000;
 const MAX_SEARCH_BYTES = 64 * 1024 * 1024;
 const MAX_FILE_BYTES = 1024 * 1024;
+const EXPRESSION_CHARACTERS = new Set(['|', '(', ')', '[', ']', '{', '}', '*', '+', '?', '^', '$', '\\']);
 
 export function filesystemDiscoveryDefinitions(paths) {
   return [globDefinition(paths), searchDefinition(paths)];
@@ -163,10 +164,10 @@ function finishRipgrep(code, stopped, stderr, matches, request, finish, resolve,
     finish(() => resolve(null)); return;
   }
   finish(() => resolve({
-    content: matches.join('\n') || 'no text matches',
+    content: searchResultContent(matches, request),
     metadata: { root: request.args.path, query: request.args.query, match_mode: request.args.match_mode,
       matches: matches.length, backend: 'ripgrep', truncated: stopped, target_exists: true,
-      ...(matches.length === 0 ? { observation_outcome: 'no_matches' } : {}) },
+      ...searchMissMetadata(matches, request) },
   }));
 }
 
@@ -202,13 +203,13 @@ async function searchFiles(request, signal) {
   }
   const truncated = matches.length >= request.args.max_results || candidates.truncated || bytesExamined >= MAX_SEARCH_BYTES;
   return {
-    content: matches.join('\n') || 'no text matches',
+    content: searchResultContent(matches, request),
     metadata: {
       root: request.args.path, query: request.args.query, match_mode: request.args.match_mode, matches: matches.length,
       backend: 'javascript',
       files_examined: candidates.examined, bytes_examined: bytesExamined,
       binary_skipped: binarySkipped, oversized_skipped: oversizedSkipped, inaccessible_skipped: candidates.skipped,
-      truncated, target_exists: true, ...(matches.length === 0 ? { observation_outcome: 'no_matches' } : {}),
+      truncated, target_exists: true, ...searchMissMetadata(matches, request),
     },
   };
 }
@@ -302,14 +303,36 @@ function exactFileMatchesGlob(request) {
 
 function emptySearchResult(request) {
   return {
-    content: 'no text matches',
+    content: searchResultContent([], request),
     metadata: {
       root: request.args.path, query: request.args.query, match_mode: request.args.match_mode,
       matches: 0, files_examined: 0, bytes_examined: 0, binary_skipped: 0,
       oversized_skipped: 0, inaccessible_skipped: 0, truncated: false,
-      target_exists: true, observation_outcome: 'no_matches',
+      target_exists: true, ...searchMissMetadata([], request),
     },
   };
+}
+
+function searchResultContent(matches, request) {
+  if (matches.length > 0) return matches.join('\n');
+  if (!literalQueryHasExpressionCharacters(request)) return 'no text matches';
+  return 'no literal text matches; query contains expression characters; use match_mode "regex" if expression matching was intended';
+}
+
+function searchMissMetadata(matches, request) {
+  if (matches.length > 0) return {};
+  return {
+    observation_outcome: 'no_matches',
+    ...(literalQueryHasExpressionCharacters(request)
+      ? { possible_expression_query: true, suggested_match_mode: 'regex' }
+      : {}),
+  };
+}
+
+function literalQueryHasExpressionCharacters(request) {
+  // Why: this reports query syntax mechanically; it does not infer intent from natural language.
+  return request.args.match_mode === 'literal'
+    && Array.from(request.args.query).some((character) => EXPRESSION_CHARACTERS.has(character));
 }
 
 async function resolveSearchTarget(paths, path) {

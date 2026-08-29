@@ -40,6 +40,14 @@ test('fs.glob and fs.search_text discover bounded files without a platform shell
   assert.match(regexResult.content, /src\/alpha\.js:2:1: Needle here/u);
   assert.match(regexResult.content, /src\/beta\.txt:1:1: needle elsewhere/u);
 
+  const expressionAsLiteral = await search.validate({ query: 'Needle|elsewhere', file_glob: '**/*' });
+  const literalMiss = await search.executor(expressionAsLiteral, new AbortController().signal);
+  assert.equal(literalMiss.content,
+    'no literal text matches; query contains expression characters; use match_mode "regex" if expression matching was intended');
+  assert.equal(literalMiss.metadata.observation_outcome, 'no_matches');
+  assert.equal(literalMiss.metadata.possible_expression_query, true);
+  assert.equal(literalMiss.metadata.suggested_match_mode, 'regex');
+
   const exactFileRequest = await search.validate({ path: join(root, 'src', 'alpha.js'), query: 'Needle' });
   const exactFileResult = await search.executor(exactFileRequest, new AbortController().signal);
   assert.match(exactFileResult.content, /alpha\.js:2:1: Needle here/u);
@@ -56,6 +64,7 @@ test('fs.glob and fs.search_text discover bounded files without a platform shell
   assert.equal(filteredResult.content, 'no text matches');
   assert.equal(filteredResult.metadata.files_examined, 0);
   assert.equal(filteredResult.metadata.observation_outcome, 'no_matches');
+  assert.equal(filteredResult.metadata.possible_expression_query, undefined);
 });
 
 test('filesystem discovery schemas explain path and treat missing roots as negative observations', async () => {

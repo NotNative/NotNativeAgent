@@ -53,6 +53,9 @@ The canonical model-facing filesystem tools are:
   list the parent to discover whether a prospective child exists.
 - `fs.search_text`: search bounded UTF-8 files with line-numbered snippets. Literal matching
   is the default; `match_mode: "regex"` enables explicit expressions such as `foo|bar`.
+  A successful literal search with no matches remains a negative observation, not a failure.
+  When its query contains expression syntax, the result suggests `match_mode: "regex"` without
+  assuming that expression matching was the operator's intent.
   NNA transparently uses `rg` when available and falls back to its bounded native search.
 - `fs.read`: read up to 1 MiB of UTF-8 text or, when `start_line`/`line_count` are supplied,
   at most 400 numbered lines. It returns a SHA-256 snapshot tag and an internal receipt for
