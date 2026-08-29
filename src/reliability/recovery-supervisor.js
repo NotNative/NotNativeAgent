@@ -186,7 +186,7 @@ export function recoveryExhaustionText(detail, options = {}) {
   }
   if (detail.exhaustion_category === 'tool_no_progress') {
     const attempts = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} repetitions` : '';
-    return `The same tool request and observable effect remained unchanged${attempts}, even after escalating recovery guidance.\n\n`
+    return `The same failure condition, request shape, and observable effect remained unchanged${attempts}, even after escalating recovery guidance.\n\n`
       + 'I parked this exact no-effect loop at its supervision boundary. Completed effects and diagnostics remain preserved. '
       + 'The turn remains active; provide new authenticated direction to resume, or cancel it.';
   }

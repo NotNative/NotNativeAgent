@@ -102,18 +102,60 @@ test('long productive workflows may use many distinct negative diagnostics witho
   assert.deepEqual(repeated, { continue: false, exhausted: true, count: 12 });
 });
 
-test('failure fingerprints group schema-contract repair across malformed tool attempts', () => {
-  const failed = (tool, content) => ({ result: {
-    status: 'invalid_request', tool_name: tool, reason_code: 'tool_schema_invalid', content,
-  } });
-  const first = toolFailureFingerprint([failed('fs.search_text', 'file_glob is invalid')]);
+test('failure fingerprints group only identical schema-contract repair attempts', () => {
+  const failed = (tool, args, content) => ({
+    request: { toolName: tool, args },
+    result: { status: 'invalid_request', tool_name: tool, reason_code: 'tool_schema_invalid', content },
+  });
+  const firstFailure = failed('fs.search_text', { path: '.', file_glob: 3 }, 'file_glob is invalid');
+  const first = toolFailureFingerprint([firstFailure]);
   assert.equal(first, toolFailureFingerprint([
-    failed('fs.search_text', 'file_glob is invalid'), failed('fs.search_text', 'file_glob is invalid'),
+    firstFailure, firstFailure,
   ]));
-  assert.equal(first, toolFailureFingerprint([failed('work.task_update', 'detail exceeds 1024 characters')]));
+  assert.notEqual(first, toolFailureFingerprint([
+    failed('fs.search_text', { path: '.', file_glob: '*.js' }, 'file_glob is invalid'),
+  ]));
+  assert.notEqual(first, toolFailureFingerprint([
+    failed('work.task_update', { id: 'T1', status: 'completed' }, 'detail is required'),
+  ]));
   assert.notEqual(first, toolFailureFingerprint([{ result: {
     status: 'failed', tool_name: 'work.task_update', reason_code: 'provider_rejected', content: 'offline',
   } }]));
+});
+
+test('materially corrected plan repairs do not consume one exact-loop budget', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  const failedPlan = (args, content) => ({
+    request: { toolName: 'work.plan', args },
+    result: { status: 'invalid_request', tool_name: 'work.plan', reason_code: 'tool_schema_invalid', content },
+  });
+  const missingTitle = failedPlan(
+    { objective: 'Audit NNA', tasks: [{ id: 'T1', status: 'completed', evidence: 'Mapped source.' }] },
+    'argument "tasks"[0] is missing required property "title"',
+  );
+  const legacyEvidence = failedPlan(
+    { objective: 'Audit NNA', tasks: [{ id: 'T1', title: 'Map source', status: 'completed', evidence: 'Mapped source.' }] },
+    'argument "tasks"[0] contains unknown property "evidence"',
+  );
+  const correctedDetail = failedPlan(
+    { objective: 'Audit NNA', tasks: [
+      { id: 'T1', title: 'Map source', status: 'completed', detail: 'Mapped source.' },
+      { id: 'T2', title: 'Audit tools', status: 'completed', evidence: 'Checked contracts.' },
+    ] },
+    'argument "tasks"[1] contains unknown property "evidence"',
+  );
+  for (const failure of [missingTitle, legacyEvidence, correctedDetail]) {
+    const result = recovery.noProgress('tool_no_progress', null, {}, {
+      failureFingerprint: toolFailureFingerprint([failure]),
+    });
+    assert.equal(result.continue, true);
+    assert.equal(result.count, 1);
+  }
+  const repeated = recovery.noProgress('tool_no_progress', null, {}, {
+    failureFingerprint: toolFailureFingerprint([correctedDetail]),
+  });
+  assert.equal(repeated.continue, true);
+  assert.equal(repeated.count, 2);
 });
 
 test('read-only behavior is supervised from tool metadata and work updates count as state progress', () => {
@@ -206,6 +248,16 @@ test('successful tool continuation resumes without re-acknowledging the active r
     result: { status: 'succeeded', tool_name: 'fs.read_text' },
   }]);
   assert.equal(hint, null);
+});
+
+test('invalid plan guidance keeps bookkeeping subordinate to substantive work', () => {
+  const hint = toolContinuationHint([{
+    result: {
+      status: 'invalid_request', tool_name: 'work.plan', reason_code: 'tool_schema_invalid',
+      content: 'task detail is invalid',
+    },
+  }]);
+  assert.match(hint, /bookkeeping, not as completion of or a blocker[^]*work\.task_update[^]*independent task action[^]*Do not repeat unchanged/iu);
 });
 
 test('review denial continuation favors safer progress before operator interruption', () => {

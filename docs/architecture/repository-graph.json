@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:3acfa1f6193ce36b7758b4d35471274e82ec1a5058f2cca9a613dd2b9eda83f3",
+  "source_digest": "sha256:a521b80cd202448bafa6a4366e521a8717b9751931cb1dbe8bd7952c0a0e0a91",
   "counts": {
-    "modules": 330,
+    "modules": 331,
     "component_edges": 69
   },
   "components": [
@@ -72,7 +72,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 80
+      "module_count": 81
     }
   ],
   "entrypoints": [
@@ -113,8 +113,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 145,
-      "module_count": 69
+      "import_count": 146,
+      "module_count": 70
     },
     {
       "from": "experience-engine",
@@ -125,14 +125,14 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 52,
+      "import_count": 53,
       "module_count": 34
     },
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 51,
-      "module_count": 18
+      "import_count": 52,
+      "module_count": 19
     },
     {
       "from": "reliability-engine",
@@ -201,6 +201,12 @@
       "module_count": 8
     },
     {
+      "from": "reliability-engine",
+      "to": "foundation",
+      "import_count": 10,
+      "module_count": 9
+    },
+    {
       "from": "guidance",
       "to": "foundation",
       "import_count": 9,
@@ -208,12 +214,6 @@
     },
     {
       "from": "persistence",
-      "to": "foundation",
-      "import_count": 9,
-      "module_count": 9
-    },
-    {
-      "from": "reliability-engine",
       "to": "foundation",
       "import_count": 9,
       "module_count": 9
@@ -683,6 +683,7 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
+        "src/conversation-work-projection.js",
         "src/ids.js",
         "src/reliability/host-environment.js",
         "src/reliability/reasoning-continuity.js",
@@ -715,11 +716,21 @@
       ]
     },
     {
+      "path": "src/conversation-work-projection.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
       "path": "src/conversation-work-tools.js",
       "component": "tools",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/conversation-work-projection.js",
+        "src/ids.js",
+        "src/tools/argument-normalization.js"
       ]
     },
     {

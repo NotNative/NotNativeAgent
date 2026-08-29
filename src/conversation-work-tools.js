@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
+import { projectConversationWork, requireConversationWorkSnapshot } from './conversation-work-projection.js';
+import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 
 const TASK_STATUSES = Object.freeze(['pending', 'in_progress', 'completed', 'blocked']);
 
@@ -24,7 +26,7 @@ function planDefinition(work) {
         },
       },
     },
-  }, ['objective', 'tasks'], async (args) => planResult(await work.replacePlan(args)));
+  }, ['objective', 'tasks'], async (args) => planResult(await work.replacePlan(args)), normalizeWorkPlanArgs);
 }
 
 function statusDefinition(work) {
@@ -58,14 +60,16 @@ function taskUpdateDefinition(work) {
   }, ['id', 'status'], async (args) => mutationResult(await work.updateTask(args.id, args.status, args.detail), { taskId: args.id }));
 }
 
-function definition(name, purpose, sideEffect, properties, requiredKeys, executor) {
+function definition(name, purpose, sideEffect, properties, requiredKeys, executor, normalizeArgs = null) {
   const patterns = Object.fromEntries(Object.entries(properties)
     .filter(([, schema]) => typeof schema.pattern === 'string')
     .map(([key, schema]) => [key, new RegExp(schema.pattern, 'u')]));
   return {
     name, version: 1, purpose, sideEffect, scope: 'conversation_work', cancellation: true, timeoutMs: 2_000,
     inputSchema: { type: 'object', properties, required: requiredKeys, additionalProperties: false },
-    validate: async (args) => {
+    ...(normalizeArgs ? { normalizeArgs } : {}),
+    validate: async (rawArgs) => {
+      const args = normalizeArgs ? normalizeArgs(rawArgs) : rawArgs;
       if (!args || typeof args !== 'object' || Array.isArray(args)
         || Object.keys(args).some((key) => !(key in properties))
         || requiredKeys.some((key) => args[key] === undefined)) {
@@ -82,27 +86,11 @@ function definition(name, purpose, sideEffect, properties, requiredKeys, executo
 }
 
 function planResult(snapshot) {
-  requireSnapshot(snapshot);
-  const plan = snapshot.goal === null
-    ? { revision: snapshot.revision, objective: null, goal_status: null, tasks: [] }
-    : {
-      revision: snapshot.revision,
-      objective: snapshot.goal.objective,
-      goal_status: snapshot.goal.status,
-      ...(snapshot.goal.status === 'completed' ? { goal_evidence: snapshot.goal.evidence } : {}),
-      tasks: snapshot.tasks.map((task) => ({
-        id: task.id,
-        title: task.title,
-        status: task.status,
-        ...(['completed', 'blocked'].includes(task.status)
-          ? { detail: task.status === 'completed' ? task.evidence : task.blockedReason }
-          : {}),
-      })),
-    };
+  const plan = projectConversationWork(snapshot);
   return { content: JSON.stringify(plan, null, 2), metadata: { revision: snapshot.revision, tasks: snapshot.tasks.length } };
 }
 function mutationResult(snapshot, options = {}) {
-  requireSnapshot(snapshot);
+  requireConversationWorkSnapshot(snapshot);
   const counts = Object.fromEntries(TASK_STATUSES
     .map((status) => [status, snapshot.tasks.filter((task) => task.status === status).length]));
   const task = options.task === 'last' ? snapshot.tasks.at(-1)
@@ -124,14 +112,18 @@ function validateProperty(tool, key, value, schema, pattern) {
   if (pattern && !pattern.test(value)) invalid(tool, key);
   if (schema.type === 'array' && !Array.isArray(value)) invalid(tool, key);
 }
-function requireSnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || !Array.isArray(snapshot.tasks)
-    || !Number.isSafeInteger(snapshot.revision)) {
-    throw new ContractError('work_snapshot_invalid', 'conversation work returned an invalid snapshot');
-  }
-}
 function invalid(tool, key) { throw new ContractError('tool_schema_invalid', `${tool} received an invalid ${key}`); }
 function required(value, name) {
   if (typeof value !== 'string' || !value.trim()) throw new ContractError('tool_schema_invalid', `${name} is required for this action`);
   return value;
+}
+
+function normalizeWorkPlanArgs(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || !Array.isArray(value.tasks)) return value;
+  return {
+    ...value,
+    tasks: value.tasks.map((task) => normalizeArgumentAliases(task, {
+      detail: ['evidence', 'blockedReason', 'blocked_reason'],
+    })),
+  };
 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
+import { projectConversationWork } from './conversation-work-projection.js';
 import { hostEnvironmentInstruction } from './reliability/host-environment.js';
 import { boundedReasoningContinuations } from './reliability/reasoning-continuity.js';
 import { toolLifecycleStatus, toolReviewOutcome } from './tools/tool-result-contract.js';
@@ -273,14 +274,15 @@ function skillCatalogMessage(items) {
 }
 
 function conversationWorkMessage(work, cadence = null) {
-  const current = work.tasks?.find((task) => task.status === 'in_progress')
-    ?? work.tasks?.find((task) => task.status !== 'completed');
+  const plan = projectConversationWork(work);
+  const current = plan.tasks.find((task) => task.status === 'in_progress')
+    ?? plan.tasks.find((task) => task.status !== 'completed');
   const orientation = cadence && current
     ? ` Work-state orientation: current task ${current.id} ${JSON.stringify(current.title)}; model steps since the durable work revision changed: ${cadence.stepsSinceUpdate}. This counter is descriptive, not a demand to update the plan. Update work state only when status, evidence, or a blocker materially changes.`
     : '';
   return {
     role: 'system',
-    content: `An optional durable conversation plan is active (engine-maintained, revision ${work.revision}). Because this plan exists, keep it current with work.plan as meaningful progress occurs; preserve existing task ids and omit id only for a new task. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: continue the work or update the plan truthfully. If operator input is genuinely required, ask one concrete question and, when possible, mark the relevant task blocked with the exact reason. Optional follow-up offers are not input requests. This state survives context compaction and session resume.${orientation}\n${JSON.stringify(work)}`,
+    content: `An optional durable conversation plan is active (engine-maintained, revision ${plan.revision}). Because this plan exists, keep it current with work.plan as meaningful progress occurs; preserve existing task ids and omit id only for a new task. The JSON below is the canonical work.plan shape and can be passed back unchanged. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: continue the work or update the plan truthfully. If operator input is genuinely required, ask one concrete question and, when possible, mark the relevant task blocked with the exact reason. Optional follow-up offers are not input requests. This state survives context compaction and session resume.${orientation}\n${JSON.stringify(plan)}`,
     provenance: 'conversation_work', trust: 'kernel',
   };
 }

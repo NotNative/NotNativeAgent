@@ -94,6 +94,29 @@ test('work plan and status expose one lossless round-trip contract', async () =>
   assert.equal(after.goal.status, before.goal.status);
 });
 
+test('work plan normalizes unambiguous durable-state detail aliases', async () => {
+  const work = new ConversationWork();
+  const plan = conversationWorkDefinitions(work).find((item) => item.name === 'work.plan');
+  const normalized = await plan.validate({
+    objective: 'Repair a provider-visible plan without ceremony',
+    tasks: [
+      { title: 'Completed task', status: 'completed', evidence: 'Verified output.' },
+      { title: 'Blocked task', status: 'blocked', blockedReason: 'Waiting for operator input.' },
+    ],
+  });
+  assert.deepEqual(normalized.args.tasks, [
+    { title: 'Completed task', status: 'completed', detail: 'Verified output.' },
+    { title: 'Blocked task', status: 'blocked', detail: 'Waiting for operator input.' },
+  ]);
+  const exposed = JSON.parse((await plan.executor(normalized, new AbortController().signal)).content);
+  assert.equal(exposed.tasks[0].detail, 'Verified output.');
+  assert.equal(exposed.tasks[1].detail, 'Waiting for operator input.');
+  await assert.rejects(plan.validate({
+    objective: 'Reject ambiguous aliases',
+    tasks: [{ title: 'Conflicted task', status: 'completed', detail: 'One value.', evidence: 'Another value.' }],
+  }), { code: 'tool_schema_invalid' });
+});
+
 test('work plan rejects a stale returned revision without mutation', async () => {
   const work = new ConversationWork();
   const plan = conversationWorkDefinitions(work).find((item) => item.name === 'work.plan');
@@ -141,6 +164,14 @@ test('durable work state is kernel-grounded independently of compacted transcrip
   assert.match(state.content, /current task T1 "Run tests"/u);
   assert.match(state.content, /model steps since the durable work revision changed: 7/u);
   assert.match(state.content, /descriptive, not a demand to update/u);
+  assert.match(state.content, /canonical work\.plan shape and can be passed back unchanged/u);
+  const exposed = JSON.parse(state.content.slice(state.content.lastIndexOf('\n') + 1));
+  assert.deepEqual(exposed, {
+    revision: 4, objective: 'Finish the slice', goal_status: 'active',
+    tasks: [{ id: 'T1', title: 'Run tests', status: 'in_progress' }],
+  });
+  assert.equal(Object.hasOwn(exposed, 'schema'), false);
+  assert.equal(Object.hasOwn(exposed, 'nextTaskNumber'), false);
 });
 
 test('plan and task overlays expose structured progress with a compact footer indicator', () => {

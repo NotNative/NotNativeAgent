@@ -60,7 +60,16 @@ export function toolFailureFingerprint(items) {
     && ['tool_schema_invalid', 'tool_arguments_malformed', 'tool_arguments_truncated']
       .includes(item.result?.reason_code ?? item.result?.reasonCode));
   if (contractFailures.length > 0) {
-    return createHash('sha256').update('tool_contract_repair').digest('hex');
+    const shapes = contractFailures.map((item) => stableJson({
+      tool: item.result?.tool_name ?? item.request?.toolName ?? 'unknown',
+      status: item.result?.status ?? 'unknown',
+      reason: item.result?.reason_code ?? item.result?.reasonCode ?? 'unknown',
+      args: item.request?.args ?? item.call?.args ?? {},
+      error: item.result?.content ?? '',
+    }));
+    // Why: a changed argument or diagnostic is a distinct repair attempt. Only
+    // an exact repeated contract failure belongs to the same no-progress episode.
+    return createHash('sha256').update([...new Set(shapes)].sort().join('\n')).digest('hex');
   }
   const shapes = items.filter((item) => item.result?.status !== 'succeeded').map((item) => stableJson({
     tool: item.result?.tool_name ?? item.request?.toolName ?? 'unknown',

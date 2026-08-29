@@ -390,6 +390,9 @@ export function toolContinuationHint(items, fallback = null) {
   }
   const invalid = items.filter((item) => item.result?.status === 'invalid_request');
   if (invalid.length > 0) {
+    if (invalid.some((item) => item.result?.tool_name === 'work.plan')) {
+      return 'The durable plan update was invalid. Treat plan synchronization as bookkeeping, not as completion of or a blocker to independent substantive work. Correct the exact field reported by the tool. Use work.task_update when only one existing task status changed; use work.plan only for a complete snapshot change. If another independent task action remains available, continue it before retrying plan synchronization. Do not repeat unchanged arguments.';
+    }
     const failures = [...new Set(invalid.map((item) => `${item.result.tool_name ?? 'tool'}: ${item.result.reason_code ?? 'invalid_request'}`))];
     return `The tool request was invalid (${failures.join(', ')}). Read the returned tool error for the exact field, expected value, and received value; correct that argument and retry the operation. Do not repeat unchanged arguments. Context reduction cannot repair a schema mismatch.`;
   }
