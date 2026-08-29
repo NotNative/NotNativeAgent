@@ -1,0 +1,316 @@
+{
+  "schema": "nna.controlled-technical-language.v1",
+  "standard": "NNA-CTL/1",
+  "inspiration": {
+    "name": "ASD-STE100",
+    "issue": 9,
+    "url": "https://www.asd-ste100.org/"
+  },
+  "term_kinds": [
+    "technical_noun",
+    "technical_verb",
+    "data_term",
+    "lifecycle_term"
+  ],
+  "model_facing_fields": [
+    "purpose",
+    "description",
+    "guidance",
+    "hint"
+  ],
+  "rationale_markers": [
+    "Why",
+    "Invariant",
+    "Compatibility",
+    "Security"
+  ],
+  "terms": [
+    {
+      "id": "CTL-TERM-001",
+      "term": "operator",
+      "kind": "technical_noun",
+      "definition": "The authenticated person who directs an NNA conversation.",
+      "identifiers": ["operator"],
+      "avoid_for_concept": ["user"]
+    },
+    {
+      "id": "CTL-TERM-002",
+      "term": "agent",
+      "kind": "technical_noun",
+      "definition": "A model-driven participant that pursues assigned work through the NNA runtime.",
+      "identifiers": ["agent"]
+    },
+    {
+      "id": "CTL-TERM-003",
+      "term": "authority",
+      "kind": "technical_noun",
+      "definition": "The bounded right to request or execute an effect.",
+      "identifiers": ["authority"]
+    },
+    {
+      "id": "CTL-TERM-004",
+      "term": "authorization",
+      "kind": "technical_noun",
+      "definition": "A recorded grant of authority for a defined effect and scope.",
+      "identifiers": ["authorization"]
+    },
+    {
+      "id": "CTL-TERM-005",
+      "term": "governance",
+      "kind": "technical_noun",
+      "definition": "The deterministic policy layer that constrains tool execution.",
+      "identifiers": ["governance"]
+    },
+    {
+      "id": "CTL-TERM-006",
+      "term": "review",
+      "kind": "technical_noun",
+      "definition": "An evaluation of a sealed tool request before execution.",
+      "identifiers": ["review"]
+    },
+    {
+      "id": "CTL-TERM-007",
+      "term": "review decision",
+      "kind": "data_term",
+      "definition": "The typed outcome of a review.",
+      "identifiers": ["reviewDecision"]
+    },
+    {
+      "id": "CTL-TERM-008",
+      "term": "approval",
+      "kind": "lifecycle_term",
+      "definition": "A review decision that permits the sealed request to continue through remaining controls.",
+      "identifiers": ["approval"]
+    },
+    {
+      "id": "CTL-TERM-009",
+      "term": "denial",
+      "kind": "lifecycle_term",
+      "definition": "A review decision that stops the sealed request or requires a materially different request.",
+      "identifiers": ["denial"]
+    },
+    {
+      "id": "CTL-TERM-010",
+      "term": "tool registry",
+      "kind": "technical_noun",
+      "definition": "The complete governed collection of installed tool definitions.",
+      "identifiers": ["toolRegistry"]
+    },
+    {
+      "id": "CTL-TERM-011",
+      "term": "tool catalog",
+      "kind": "technical_noun",
+      "definition": "The searchable name and purpose projection of eligible tools.",
+      "identifiers": ["toolCatalog"]
+    },
+    {
+      "id": "CTL-TERM-012",
+      "term": "tool surface",
+      "kind": "technical_noun",
+      "definition": "The tool definitions included in one provider request.",
+      "identifiers": ["toolSurface"]
+    },
+    {
+      "id": "CTL-TERM-013",
+      "term": "tool surface eligibility",
+      "kind": "data_term",
+      "definition": "A tool property that permits selection for a provider request but grants no execution authority.",
+      "identifiers": ["TOOL_SURFACE_ELIGIBLE", "isToolSurfaceEligible"]
+    },
+    {
+      "id": "CTL-TERM-014",
+      "term": "foundational tool",
+      "kind": "technical_noun",
+      "definition": "A safe and generally useful tool that appears on every available ordinary provider surface.",
+      "identifiers": ["foundationalTool"]
+    },
+    {
+      "id": "CTL-TERM-015",
+      "term": "specialist tool",
+      "kind": "technical_noun",
+      "definition": "A discoverable tool that enters the provider surface for a relevant workflow.",
+      "identifiers": ["specialistTool"]
+    },
+    {
+      "id": "CTL-TERM-016",
+      "term": "workflow lease",
+      "kind": "technical_noun",
+      "definition": "A bounded grant that makes a specialist tool eligible for provider selection.",
+      "identifiers": ["workflowLease", "grantWorkflowLease"]
+    },
+    {
+      "id": "CTL-TERM-017",
+      "term": "tool request",
+      "kind": "data_term",
+      "definition": "A named tool call with structured arguments and request identity.",
+      "identifiers": ["toolRequest"]
+    },
+    {
+      "id": "CTL-TERM-018",
+      "term": "tool result",
+      "kind": "data_term",
+      "definition": "The typed execution or non-execution outcome returned for a tool request.",
+      "identifiers": ["toolResult"]
+    },
+    {
+      "id": "CTL-TERM-019",
+      "term": "negative observation",
+      "kind": "data_term",
+      "definition": "A successful inspection that finds no matching item or condition.",
+      "identifiers": ["negativeObservation"]
+    },
+    {
+      "id": "CTL-TERM-020",
+      "term": "failure",
+      "kind": "lifecycle_term",
+      "definition": "An unsuccessful operation caused by a defined technical or policy condition.",
+      "identifiers": ["failure"]
+    },
+    {
+      "id": "CTL-TERM-021",
+      "term": "reason code",
+      "kind": "data_term",
+      "definition": "A stable machine-readable identifier for an outcome cause.",
+      "identifiers": ["reasonCode"]
+    },
+    {
+      "id": "CTL-TERM-022",
+      "term": "tool lifecycle status",
+      "kind": "lifecycle_term",
+      "definition": "The current execution state of one tool request.",
+      "identifiers": ["toolLifecycleStatus"]
+    },
+    {
+      "id": "CTL-TERM-023",
+      "term": "provider",
+      "kind": "technical_noun",
+      "definition": "A service endpoint that accepts model inference requests.",
+      "identifiers": ["provider"]
+    },
+    {
+      "id": "CTL-TERM-024",
+      "term": "provider profile",
+      "kind": "data_term",
+      "definition": "A stored provider endpoint, model, credentials reference, and capability configuration.",
+      "identifiers": ["providerProfile"]
+    },
+    {
+      "id": "CTL-TERM-025",
+      "term": "provider route",
+      "kind": "technical_noun",
+      "definition": "The selected provider profile and role for one inference request.",
+      "identifiers": ["providerRoute"]
+    },
+    {
+      "id": "CTL-TERM-026",
+      "term": "provider role",
+      "kind": "data_term",
+      "definition": "A configured inference responsibility such as primary, vision, reviewer, or sub-agent.",
+      "identifiers": ["providerRole"]
+    },
+    {
+      "id": "CTL-TERM-027",
+      "term": "session ledger",
+      "kind": "technical_noun",
+      "definition": "The authoritative append-only chronology of a session.",
+      "identifiers": ["sessionLedger"]
+    },
+    {
+      "id": "CTL-TERM-028",
+      "term": "transcript",
+      "kind": "technical_noun",
+      "definition": "The conversation messages presented to an operator or provider.",
+      "identifiers": ["transcript"]
+    },
+    {
+      "id": "CTL-TERM-029",
+      "term": "provider projection",
+      "kind": "data_term",
+      "definition": "A bounded view of session evidence prepared for a provider request.",
+      "identifiers": ["providerProjection"]
+    },
+    {
+      "id": "CTL-TERM-030",
+      "term": "compaction",
+      "kind": "technical_noun",
+      "definition": "A recorded transformation that preserves required state while reducing provider context size.",
+      "identifiers": ["compaction"]
+    },
+    {
+      "id": "CTL-TERM-031",
+      "term": "continuation",
+      "kind": "technical_noun",
+      "definition": "A new provider step that resumes incomplete work from durable state.",
+      "identifiers": ["continuation"]
+    },
+    {
+      "id": "CTL-TERM-032",
+      "term": "checkpoint",
+      "kind": "data_term",
+      "definition": "A durable progress record used to resume or inspect work.",
+      "identifiers": ["checkpoint"]
+    },
+    {
+      "id": "CTL-TERM-033",
+      "term": "goal",
+      "kind": "technical_noun",
+      "definition": "A durable objective that can contain ordered tasks.",
+      "identifiers": ["goal"]
+    },
+    {
+      "id": "CTL-TERM-034",
+      "term": "plan",
+      "kind": "technical_noun",
+      "definition": "The ordered strategy for reaching a goal or completing requested work.",
+      "identifiers": ["plan"]
+    },
+    {
+      "id": "CTL-TERM-035",
+      "term": "task",
+      "kind": "technical_noun",
+      "definition": "One bounded unit of work in a plan.",
+      "identifiers": ["task"]
+    },
+    {
+      "id": "CTL-TERM-036",
+      "term": "mission",
+      "kind": "technical_noun",
+      "definition": "A host-defined objective and authority boundary for an agent session.",
+      "identifiers": ["mission"]
+    },
+    {
+      "id": "CTL-TERM-037",
+      "term": "effect certainty",
+      "kind": "data_term",
+      "definition": "The recorded confidence that a requested effect did or did not occur.",
+      "identifiers": ["effectCertainty"]
+    },
+    {
+      "id": "CTL-TERM-038",
+      "term": "unknown effect",
+      "kind": "lifecycle_term",
+      "definition": "An outcome where NNA cannot prove whether the requested effect occurred.",
+      "identifiers": ["unknownEffect"]
+    }
+  ],
+  "deprecated_identifiers": [
+    {
+      "identifier": "PROVIDER_NATIVE",
+      "replacement": "TOOL_SURFACE_ELIGIBLE",
+      "reason": "The old name incorrectly implies provider ownership or permanent availability.",
+      "baseline_occurrences": 3
+    },
+    {
+      "identifier": "providerVisible",
+      "replacement": "isToolSurfaceEligible",
+      "reason": "The old name hides that visibility is eligibility and grants no authority.",
+      "baseline_occurrences": 3
+    },
+    {
+      "identifier": "expose",
+      "replacement": "grantWorkflowLease",
+      "reason": "The old name hides the bounded lifetime and purpose of the operation.",
+      "baseline_occurrences": 6
+    }
+  ]
+}

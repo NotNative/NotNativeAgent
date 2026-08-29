@@ -40,6 +40,10 @@ if (Object.keys(packageJson.dependencies ?? {}).length > 0) {
 const graphCheck = spawnSync(process.execPath, [join(root, 'scripts', 'repository-graph.js'), '--check'], { encoding: 'utf8' });
 if (graphCheck.status !== 0) errors.push(graphCheck.stderr.trim() || 'repository graph check failed');
 
+const languageCheck = spawnSync(process.execPath, [join(root, 'scripts', 'controlled-language-gates.js')], { encoding: 'utf8' });
+if (languageCheck.status !== 0) errors.push(languageCheck.stderr.trim() || 'controlled-language check failed');
+else if (languageCheck.stdout) process.stdout.write(languageCheck.stdout);
+
 if (errors.length > 0) {
   process.stderr.write(`${errors.join('\n')}\n`);
   process.exitCode = 1;
