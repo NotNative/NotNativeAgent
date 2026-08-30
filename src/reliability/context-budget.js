@@ -11,7 +11,7 @@ const OUTPUT_RESERVE_RATIO = 0.125;
 const TARGET_MIN_OUTPUT_RESERVE_TOKENS = 1024;
 const MAX_OUTPUT_RESERVE_TOKENS = DEFAULT_MODEL_OUTPUT_TOKENS;
 
-export function contextBudget(config, routes, runtime, retryScale = 1) {
+export function contextBudget(config, routes, runtime, retryScale = 1, estimateScale = 1) {
   const knownBytes = routes.slice(0, routes[0]?.budget ?? routes.length)
     .map((route) => route.contextLimitBytes).filter(positive);
   if (positive(runtime?.contextLimitBytes)) knownBytes.push(runtime.contextLimitBytes);
@@ -27,7 +27,9 @@ export function contextBudget(config, routes, runtime, retryScale = 1) {
   const compressionLevel3Threshold = config.limits.contextCompressionLevel3Threshold ?? 0.70;
   const thresholdTokens = effectiveInputTokens
     ? Math.max(1, Math.floor(effectiveInputTokens * compactionThreshold)) : null;
-  const scaledTokens = thresholdTokens ? Math.max(1, Math.floor(thresholdTokens * retryScale)) : null;
+  const conservativeEstimateScale = boundedEstimateScale(estimateScale);
+  const scaledTokens = thresholdTokens
+    ? Math.max(1, Math.floor((thresholdTokens * retryScale) / conservativeEstimateScale)) : null;
   const thresholdBytes = Math.min(
     Math.floor(hardLimitBytes * compactionThreshold * retryScale),
     scaledTokens ? scaledTokens * TOKEN_BYTE_RATIO : Number.MAX_SAFE_INTEGER,
@@ -43,7 +45,7 @@ export function contextBudget(config, routes, runtime, retryScale = 1) {
       ? Math.max(1, Math.floor(effectiveInputTokens * compressionLevel3Threshold)) : null,
     source: runtime?.source ?? 'configured_bytes', compactionThreshold, compressionThreshold,
     compressionLevel2Threshold, compressionLevel3Threshold,
-    parallelCapacity: positiveValue(runtime?.parallelCapacity),
+    parallelCapacity: positiveValue(runtime?.parallelCapacity), estimateScale: conservativeEstimateScale,
     estimated: true,
   });
 }
@@ -79,4 +81,8 @@ function positive(value) {
 
 function positiveValue(value) {
   return positive(value) ? value : null;
+}
+
+function boundedEstimateScale(value) {
+  return Number.isFinite(value) ? Math.max(1, Math.min(8, value)) : 1;
 }

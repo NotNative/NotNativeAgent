@@ -512,7 +512,7 @@ test('provider overflow pressure scaling uses advertised parallel capacity only 
   assert.equal(contextPressureScale({ parallelCapacity: 16 }), 0.125);
 });
 
-test('AC-FAIL-06 repeated provider size rejection stops after one changed retry', async () => {
+test('AC-FAIL-06 repeated provider size rejection stops when no smaller request evidence exists', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-provider-overflow-stop-'));
   let calls = 0;
   const provider = { async *stream() {
@@ -525,6 +525,32 @@ test('AC-FAIL-06 repeated provider size rejection stops after one changed retry'
   assert.equal(result.outcome, 'failed');
   assert.equal(result.failure.code, 'provider_context_limit');
   assert.equal(calls, 2);
+});
+
+test('AC-FAIL-06 a second provider size recovery requires and produces a smaller request', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-provider-overflow-twice-'));
+  const sizes = [];
+  const provider = { async *stream(request) {
+    sizes.push(Buffer.byteLength(JSON.stringify(request.messages)));
+    if (sizes.length < 3) throw new ContractError('provider_context_limit', 'still too large');
+    yield { type: 'text', text: 'Recovered after a second evidence-gated compaction.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  for (let index = 0; index < 200; index += 1) {
+    engine.transcript.push({
+      type: 'message', role: 'assistant', content: `${index}:${'文'.repeat(2_000)}`, trust: 'model',
+    });
+  }
+  const result = await engine.submit({ request_id: 'provider-overflow-twice', content: 'Continue' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(sizes.length, 3);
+  assert.ok(sizes[1] < sizes[0]);
+  assert.ok(sizes[2] < sizes[1]);
+  const recovery = result.recovery.filter((item) => item.action === 'compact_context_limit');
+  assert.deepEqual(recovery.map((item) => item.scale), [0.75, 0.375]);
+  assert.ok(recovery[1].estimated_input_tokens < recovery[1].previous_estimated_input_tokens);
 });
 
 test('AC-FAIL-02 idle deadline is distinct and cancels a partial stalled stream', async () => {

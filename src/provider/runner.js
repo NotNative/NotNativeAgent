@@ -60,7 +60,7 @@ export class ProviderRunner {
         }, providerCorrelation(active, requestSpan));
         const attemptUsage = await this.#invoke(provider, request, deadlines, active);
         this.#accountAttemptUsage(active);
-        this.#observeCacheUsage(active, attemptUsage);
+        this.#observeProviderUsage(active, attemptUsage, manifest);
         this.#recordSucceeded(active, requestSpan, requestStarted);
         attemptOutcome = 'completed';
         active.stepReasoningText = active.attemptReasoningText;
@@ -92,10 +92,10 @@ export class ProviderRunner {
     }
   }
 
-  #observeCacheUsage(active, usage) {
+  #observeProviderUsage(active, usage, manifest) {
     this.reliability?.observeProviderUsage?.({
       providerProfile: active.providerResource, model: active.modelName,
-    }, usage);
+    }, usage, manifest);
   }
 
   #accountAttemptUsage(active) {
@@ -153,6 +153,7 @@ export class ProviderRunner {
       try {
         const request = requestFactory(route);
         const manifest = await this.prepareRequest?.(request, route, active, context) ?? null;
+        active.attemptRequestManifest = manifest;
         await this.run(router.provider(route), request,
           effectiveProviderDeadlines(deadlines, route), active, manifest, route);
         return route;

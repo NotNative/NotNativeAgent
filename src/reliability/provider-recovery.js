@@ -5,7 +5,9 @@ import { isOutputTruncation } from './output-headroom.js';
 export function providerContextLimitDecision(active) {
   const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
   const pressureScale = contextPressureScale(active.runtimeModel);
-  const plan = active.recovery.contextLimit(partial, pressureScale);
+  const plan = active.recovery.contextLimit(partial, pressureScale, {
+    estimatedInputTokens: active.attemptRequestManifest?.envelope?.estimated_input_tokens ?? null,
+  });
   if (plan.continue && (!Number.isFinite(plan.scale) || plan.scale <= 0 || plan.scale > 1)) {
     throw new ContractError('context_recovery_invalid', 'context recovery produced an invalid pressure scale');
   }
@@ -38,4 +40,3 @@ export function contextPressureScale(runtime) {
     ? Math.max(1, runtime.parallelCapacity) : 1;
   return parallel > 1 ? Math.max(0.125, 1 / parallel) : 0.75;
 }
-

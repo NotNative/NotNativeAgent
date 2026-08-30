@@ -87,6 +87,50 @@ test('Reliability Engine records cache evidence only for the observed provider a
   assert.equal(reliability.cacheUsage({ profile: { id: 'other' }, model: 'qwen' }), null);
 });
 
+test('Reliability Engine tightens future context budgets from provider-reported prompt usage', () => {
+  const reliability = new ReliabilityEngine({
+    modelDialects: { initialize() {}, close() {}, instructions() {}, observe() {}, snapshot() {} },
+    continuationCompactor: { refine() {}, handoff() {} },
+  });
+  const route = { profile: { id: 'local' }, model: 'multilingual' };
+  assert.equal(reliability.observeProviderUsage(route, { prompt_tokens: 2_000 }, {
+    envelope: { estimated_input_tokens: 1_000 },
+  }), true);
+  assert.equal(reliability.contextEstimateScale(route), 2);
+  const budget = reliability.planContextBudget({ limits: {
+    maxContextBytes: 2_097_152, contextCompactionThreshold: 0.75,
+  } }, [route], { contextWindowTokens: 10_000, outputLimitTokens: 1_000 });
+  assert.equal(budget.estimateScale, 2);
+  assert.equal(budget.scaledTokens, Math.floor(budget.thresholdTokens / 2));
+
+  reliability.observeProviderUsage(route, { prompt_tokens: 500 }, {
+    envelope: { estimated_input_tokens: 1_000 },
+  });
+  assert.equal(reliability.contextEstimateScale(route), 2);
+});
+
+test('provider context recovery permits one evidence-gated smaller retry and remains bounded', () => {
+  const reliability = new ReliabilityEngine({
+    modelDialects: { initialize() {}, close() {}, instructions() {}, observe() {}, snapshot() {} },
+    continuationCompactor: { refine() {}, handoff() {} },
+  });
+  const active = {
+    stepText: '', toolAssembler: { size: 0 }, runtimeModel: { parallelCapacity: 1 },
+    recovery: reliability.createTurnSupervisor(),
+    attemptRequestManifest: { envelope: { estimated_input_tokens: 1_000 } },
+  };
+  assert.equal(reliability.providerContextLimit(active).scale, 0.75);
+  active.attemptRequestManifest = { envelope: { estimated_input_tokens: 800 } };
+  assert.equal(reliability.providerContextLimit(active).scale, 0.375);
+  active.attemptRequestManifest = { envelope: { estimated_input_tokens: 700 } };
+  assert.equal(reliability.providerContextLimit(active).continue, false);
+
+  const unchanged = { ...active, recovery: reliability.createTurnSupervisor() };
+  unchanged.attemptRequestManifest = { envelope: { estimated_input_tokens: 1_000 } };
+  assert.equal(reliability.providerContextLimit(unchanged).continue, true);
+  assert.equal(reliability.providerContextLimit(unchanged).continue, false);
+});
+
 test('Reliability Engine accepts normalized cache counters and rejects incomplete route identity', () => {
   const reliability = new ReliabilityEngine({
     modelDialects: { initialize() {}, close() {}, instructions() {}, observe() {}, snapshot() {} },

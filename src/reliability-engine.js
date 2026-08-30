@@ -46,6 +46,7 @@ export class ReliabilityEngine {
     this.contextTokenizerIdentity = options.contextTokenizerIdentity ?? null;
     this.contextTokenizerExact = options.contextTokenizerExact === true;
     this.cacheUsageByRoute = new Map();
+    this.contextEstimateScaleByRoute = new Map();
   }
 
   async initialize() { await this.modelDialects.initialize(); }
@@ -81,7 +82,10 @@ export class ReliabilityEngine {
   }
   projectActiveTurn(records, options) { return projectActiveTurn(records, options); }
   planContextBudget(config, routes, runtime, retryScale = 1) {
-    return contextBudget(config, routes, runtime, retryScale);
+    const estimateScale = routes.reduce(
+      (maximum, route) => Math.max(maximum, this.contextEstimateScale(route)), 1,
+    );
+    return contextBudget(config, routes, runtime, retryScale, estimateScale);
   }
   estimateContextTokens(context) { return estimateContextTokens(context); }
   contextCompressionPolicy(record, options = {}) { return contextCompressionPolicy(record, options); }
@@ -118,18 +122,30 @@ export class ReliabilityEngine {
   boundedReasoningContinuations(entries, maxContextBytes) {
     return boundedReasoningContinuations(entries, maxContextBytes);
   }
-  observeProviderUsage(route, usage) {
+  observeProviderUsage(route, usage, manifest = null) {
     const key = routeKey(route);
     const cacheTokens = cacheTokenEvidence(usage);
-    if (!key || cacheTokens <= 0) return false;
-    if (!this.cacheUsageByRoute.has(key) && this.cacheUsageByRoute.size >= 128) {
-      this.cacheUsageByRoute.delete(this.cacheUsageByRoute.keys().next().value);
+    if (!key) return false;
+    let observed = false;
+    if (cacheTokens > 0) {
+      retainBounded(this.cacheUsageByRoute, key, Object.freeze({ cache_read_tokens: cacheTokens }));
+      observed = true;
     }
-    this.cacheUsageByRoute.delete(key);
-    this.cacheUsageByRoute.set(key, Object.freeze({ cache_read_tokens: cacheTokens }));
-    return true;
+    const promptTokens = promptTokenEvidence(usage);
+    const estimatedTokens = manifest?.envelope?.estimated_input_tokens;
+    if (promptTokens > 0 && Number.isSafeInteger(estimatedTokens) && estimatedTokens > 0) {
+      // Why: provider-reported prompt usage is the only model-specific tokenizer
+      // evidence available to a provider-agnostic harness. It may tighten the
+      // conservative estimate, but never widen a previously safe budget.
+      const scale = Math.max(1, Math.min(8, promptTokens / estimatedTokens));
+      const learned = Math.max(this.contextEstimateScaleByRoute.get(key) ?? 1, scale);
+      retainBounded(this.contextEstimateScaleByRoute, key, learned);
+      observed = true;
+    }
+    return observed;
   }
   cacheUsage(route) { return this.cacheUsageByRoute.get(routeKey(route)) ?? null; }
+  contextEstimateScale(route) { return this.contextEstimateScaleByRoute.get(routeKey(route)) ?? 1; }
   longHorizonTrigger(records, options = {}) { return longHorizonCompressionTrigger(records, options); }
   compactTranscript(records, maxBytes, options = {}) { return compactTranscript(records, maxBytes, options); }
   createHandoffFact(records) { return createHandoffFact(records); }
@@ -211,4 +227,16 @@ function cacheTokenEvidence(usage) {
   if (!usage || typeof usage !== 'object') return 0;
   return ['cache_read_tokens', 'cacheReadTokens', 'prompt_cache_hit_tokens', 'cached_tokens']
     .reduce((maximum, key) => Number.isSafeInteger(usage[key]) ? Math.max(maximum, usage[key]) : maximum, 0);
+}
+
+function promptTokenEvidence(usage) {
+  if (!usage || typeof usage !== 'object') return 0;
+  return ['prompt_tokens', 'input_tokens', 'inputTokens']
+    .reduce((maximum, key) => Number.isSafeInteger(usage[key]) ? Math.max(maximum, usage[key]) : maximum, 0);
+}
+
+function retainBounded(map, key, value) {
+  if (!map.has(key) && map.size >= 128) map.delete(map.keys().next().value);
+  map.delete(key);
+  map.set(key, value);
 }

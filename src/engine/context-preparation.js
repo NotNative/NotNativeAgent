@@ -373,6 +373,7 @@ function recordBudget(engine, runtime, planned, active) {
     compression_threshold_tokens: planned.compressionThresholdTokens,
     compaction_threshold_tokens: planned.thresholdTokens,
     output_reserve_tokens: planned.outputReserveTokens,
+    context_estimate_scale: planned.estimateScale,
     parallel_capacity: planned.parallelCapacity,
     hard_limit_bytes: planned.hardLimitBytes,
   }, { turnId: active.turnId, stepId: active.stepId });

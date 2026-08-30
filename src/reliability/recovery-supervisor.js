@@ -25,6 +25,7 @@ export class RecoverySupervisor {
   #episodes = new Map();
   #progress = new Map();
   #actions = [];
+  #lastContextLimitTokens = null;
 
   constructor(options = {}) {
     this.localLimit = options.localLimit ?? 3;
@@ -43,15 +44,27 @@ export class RecoverySupervisor {
     return Object.freeze({ retry: true, delayMs, action });
   }
 
-  contextLimit(partial, scale = 0.5) {
+  contextLimit(partial, scale = 0.5, evidence = {}) {
     const category = 'provider_context_limit';
     const count = this.#episodes.get(category) ?? 0;
-    if (partial || count >= 1) return Object.freeze({ continue: false, exhausted: true });
+    const estimatedInputTokens = positiveInteger(evidence.estimatedInputTokens);
+    const materiallySmaller = count === 0 || (
+      estimatedInputTokens !== null && this.#lastContextLimitTokens !== null
+      && estimatedInputTokens < this.#lastContextLimitTokens
+    );
+    if (partial || count >= 2 || !materiallySmaller) {
+      return Object.freeze({ continue: false, exhausted: true });
+    }
+    const retryScale = count === 0 ? scale : Math.max(0.0625, scale / 2);
+    const previousInputTokens = this.#lastContextLimitTokens;
+    this.#lastContextLimitTokens = estimatedInputTokens;
     this.#episodes.set(category, count + 1);
     const action = this.#record(category, 'compact_context_limit', count + 1, {
-      target: 'current_route', partial: false, scale,
+      target: 'current_route', partial: false, scale: retryScale,
+      estimated_input_tokens: estimatedInputTokens,
+      previous_estimated_input_tokens: previousInputTokens,
     });
-    return Object.freeze({ continue: true, scale, action });
+    return Object.freeze({ continue: true, scale: retryScale, action });
   }
 
   reasoningOnly() {
@@ -298,6 +311,10 @@ function recoveryAction(count, localLimit, ladder, allowCompaction) {
 
 function boundedDelay(attempt) {
   return Math.min(1000, 50 * (2 ** attempt) + randomInt(0, 26));
+}
+
+function positiveInteger(value) {
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
 }
 
 function digest(value) {

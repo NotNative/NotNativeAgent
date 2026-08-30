@@ -66,6 +66,20 @@ test('context planning honors configured thresholds and never divides by paralle
   assert.ok(estimateContextTokens([{ role: 'user', content: 'hello' }]) > 0);
 });
 
+test('context planning applies a bounded conservative provider usage calibration', () => {
+  const config = { limits: { maxContextBytes: 2_097_152, contextCompactionThreshold: 0.8 } };
+  const baseline = contextBudget(config, [route], {
+    contextWindowTokens: 10_000, outputLimitTokens: 1_000, source: 'declared',
+  });
+  const calibrated = contextBudget(config, [route], {
+    contextWindowTokens: 10_000, outputLimitTokens: 1_000, source: 'declared',
+  }, 1, 2);
+  assert.equal(calibrated.estimateScale, 2);
+  assert.equal(calibrated.scaledTokens, Math.floor(baseline.scaledTokens / 2));
+  assert.equal(contextBudget(config, [route], { contextWindowTokens: 10_000 }, 1, 0.25).estimateScale, 1);
+  assert.equal(contextBudget(config, [route], { contextWindowTokens: 10_000 }, 1, 100).estimateScale, 8);
+});
+
 test('small local-model windows retain useful proportional input budgets', () => {
   const config = { limits: { maxContextBytes: 2_097_152, contextCompactionThreshold: 0.85 } };
   const small = contextBudget(config, [route], { contextWindowTokens: 8192, source: 'declared' });
