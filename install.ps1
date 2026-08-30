@@ -549,6 +549,13 @@ try {
     $SecureProviderKey = $null
 }
 
+function Invoke-WebSearchInstallerAction([string[]]$Arguments) {
+    & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch @Arguments | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "WebSearch setup action '$($Arguments[0])' failed validation."
+    }
+}
+
 Write-InstallerSection 'WebSearch integration'
 $PriorNnaHome = $env:NNA_HOME
 $env:NNA_HOME = $DataRoot
@@ -570,19 +577,23 @@ try {
         }
     } elseif ($WebSearchEndpoint) {
         Write-InstallerStep "Validating existing SearXNG endpoint: $WebSearchEndpoint"
-        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch configure $WebSearchEndpoint | Out-Null
+        Invoke-WebSearchInstallerAction @('configure', $WebSearchEndpoint)
         Write-InstallerOk "WebSearch configured at $WebSearchEndpoint"
     } elseif ($DeployLocalSearch) {
         Write-InstallerStep 'Checking Docker and deploying loopback-only SearXNG'
-        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch deploy | Out-Null
+        Invoke-WebSearchInstallerAction @('deploy')
         Write-InstallerOk 'Loopback-only SearXNG deployed and configured'
     } elseif (-not $SkipWebSearchSetup -and -not [Console]::IsInputRedirected) {
         $ConfigureSearch = Read-Host 'Configure WebSearch now? [y/N]'
         if ($ConfigureSearch -match '^(?i:y|yes)$') {
             $Endpoint = Read-Host 'Enter the base URL of your existing SearXNG server (example: http://192.168.1.50:8080), or leave blank to deploy a new local instance with Docker'
-            if ($Endpoint) { & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch configure $Endpoint | Out-Null }
-            else { & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') websearch deploy | Out-Null }
-            Write-InstallerOk 'WebSearch configured and validated'
+            try {
+                if ($Endpoint) { Invoke-WebSearchInstallerAction @('configure', $Endpoint) }
+                else { Invoke-WebSearchInstallerAction @('deploy') }
+                Write-InstallerOk 'WebSearch configured and validated'
+            } catch {
+                Write-InstallerWarning 'WebSearch validation failed; no WebSearch configuration was saved. Continue installation and use /websearch to configure it later.'
+            }
         }
     } else { Write-InstallerSkip 'WebSearch setup not requested' }
 } finally {

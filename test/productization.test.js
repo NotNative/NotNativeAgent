@@ -10,6 +10,7 @@ import { ensureUserDataPaths, userDataPaths, VERSION } from '../src/product.js';
 import { parseCli } from '../src/cli-options.js';
 import { discoverLocalProvider, loadStartupManifest } from '../src/onboarding.js';
 import { runUninstallCommand } from '../src/uninstall-cli.js';
+import { loadWebSearchConfig } from '../src/web-search-config.js';
 
 const projectRoot = resolve(dirname(new URL(import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/u, (value) => value.slice(1))), '..');
 
@@ -217,6 +218,9 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /Playwright Chromium v.*already installed; setup skipped/u);
   assert.match(windowsInstall, /webbrowse verify/u);
   assert.match(windowsInstall, /base URL of your existing SearXNG server/u);
+  assert.match(windowsInstall, /function Invoke-WebSearchInstallerAction/u);
+  assert.match(windowsInstall, /WebSearch setup action[^\r\n]+failed validation/u);
+  assert.match(windowsInstall, /WebSearch validation failed; no WebSearch configuration was saved/u);
   assert.match(windowsInstall, /Test-LegacyGatewayTask/u);
   assert.match(windowsInstall, /NotNativeAgentGateway/u);
   assert.match(windowsInstall, /Unregister-ScheduledTask/u);
@@ -268,6 +272,26 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(unixUninstall, /\[ -t 0 \] && \[ -t 1 \]/u);
   assert.match(unixUninstall, /UNINSTALL %s/u);
   assert.match(unixUninstall, /Permanently delete all NNA user data/u);
+});
+
+test('Windows installer rejects an invalid explicit WebSearch endpoint without reporting success', {
+  skip: process.platform !== 'win32', timeout: 30_000,
+}, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-invalid-websearch-install-'));
+  const app = join(root, 'app');
+  const data = join(root, 'home', '.nna');
+  try {
+    const result = spawnSync('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(projectRoot, 'install.ps1'),
+      '-SourceRoot', projectRoot, '-InstallRoot', app, '-DataRoot', data,
+      '-SkipPathUpdate', '-SkipDependencyInstall', '-SkipRipgrepSetup', '-SkipProviderSetup',
+      '-SkipPlaywrightSetup', '-SkipGatewaySetup', '-WebSearchEndpoint', 'http://127.0.0.1:1',
+    ], { cwd: root, encoding: 'utf8', timeout: 25_000 });
+    assert.notEqual(result.status, 0, result.stdout);
+    assert.doesNotMatch(result.stdout, /WebSearch configured at|WebSearch configured and validated/u);
+    assert.match(`${result.stdout}\n${result.stderr}`, /failed validation/u);
+    assert.equal((await loadWebSearchConfig(join(data, 'config', 'web-search.json'))).enabled, false);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('AC-PROD-05 installation, primary, and headless guidance disclose operator responsibility', async () => {
