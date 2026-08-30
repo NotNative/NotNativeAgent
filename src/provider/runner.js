@@ -162,6 +162,10 @@ export class ProviderRunner {
         const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
         if (index === bounded.length - 1 || partial || !fallbackEligible(error)) throw error;
         await this.settleAttempt(active, 'failed');
+        // Why: a fallback route is a new transport attempt. Keep assembler
+        // hygiene explicit here even though fallback is admitted only when no
+        // partial text or tool fragment has been observed.
+        active.toolAssembler.reset();
         this.state.transition('recovering', { trigger: 'route_fallback', turnId: active.turnId });
         await this.recordRecovery({
           category: error.code, action: 'route_fallback', count: index + 1,

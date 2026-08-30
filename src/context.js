@@ -332,10 +332,10 @@ export function appendRecoveryHint(context, hint) {
     role: 'system', content: hint,
     provenance: 'engine_recovery', trust: 'kernel_recovery',
   });
-  // Keep authoritative instructions in the leading system block. Appending a
-  // fresh system message after a tool result makes the continuation look like
-  // a new high-priority task; stable front-loaded policy matches the request
-  // shape used by efficient tool loops while preserving the hint's authority.
+  // Why: recovery guidance must remain in the leading authoritative system
+  // block. This intentionally changes the cached prefix on a recovery step;
+  // preserving instruction authority is more important than provider KV-cache
+  // reuse during degraded operation.
   let index = 0;
   while (context[index]?.role === 'system') index += 1;
   return Object.freeze([...context.slice(0, index), message, ...context.slice(index)]);

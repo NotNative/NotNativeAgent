@@ -12,7 +12,7 @@ import { ContractError } from '../ids.js';
 import { buildReviewEvidence } from '../review-evidence.js';
 import { WebUrlProvenance } from '../web-url-provenance.js';
 import { missingFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
-import { toolLifecycleStatus, toolReviewOutcome } from './tool-result-contract.js';
+import { toolLifecycleStatus, toolReviewOutcome, toolTelemetryOutcome } from './tool-result-contract.js';
 
 const SUCCESSFUL_TOOL_CONTINUATION = null;
 
@@ -257,7 +257,7 @@ export class ToolLoop {
       item.result = await this.governor.executePrepared(item.request, item.decision, active.controller.signal);
       active.webUrlProvenance.observe(item.request, item.result);
       item.child.move(toolResultState(item.result));
-      this.telemetry?.record('tool.execution', toolTelemetryStatus(item.result.status), {
+      this.telemetry?.record('tool.execution', toolTelemetryOutcome(item.result), {
         tool_name: item.request.toolName, result: item.result,
       }, {
         ...correlation, durationMs: elapsedMs(started), outcome: item.result.status,
@@ -361,11 +361,6 @@ function restoredPendingSettlements(records) {
 function recordSettlementTelemetry(telemetry, status, detail, correlation) {
   try { telemetry?.record('tool.settlement', status, detail, correlation); }
   catch { /* Observability cannot change a durable settlement outcome. */ }
-}
-
-function toolTelemetryStatus(status) {
-  if (['succeeded', 'failed', 'cancelled', 'timed_out', 'unknown_effect'].includes(status)) return status;
-  return status === 'denied' ? 'denied' : 'failed';
 }
 
 function elapsedMs(started) {

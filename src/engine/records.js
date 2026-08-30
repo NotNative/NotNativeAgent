@@ -4,7 +4,7 @@ import { failureEnvelope } from '../failure-envelope.js';
 import { safeToolArguments } from '../tools/presentation.js';
 import { requestsInput } from '../reliability/completion-supervisor.js';
 import { redactText } from '../redaction.js';
-import { durableToolResultState } from '../tools/tool-result-contract.js';
+import { durableToolResultState, toolChildState } from '../tools/tool-result-contract.js';
 
 const MAX_TARGET_LENGTH = 512;
 const MAX_TASK_LENGTH = 180;
@@ -187,11 +187,7 @@ export function toolDecisionState(outcome) {
 }
 
 export function toolResultState(result) {
-  if (result.status === 'succeeded') return 'succeeded';
-  if (result.status === 'timed_out') return 'timed_out';
-  if (result.status === 'cancelled') return 'cancelled';
-  if (result.effect_certainty === 'unknown') return 'unknown_effect';
-  return 'failed';
+  return toolChildState(result);
 }
 
 export function classifyCompletion(text) {

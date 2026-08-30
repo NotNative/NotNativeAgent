@@ -277,8 +277,10 @@ function compactPurpose(definition) {
   const override = definition.providerFacade?.description;
   const purpose = typeof override === 'string' && override.trim() ? override.trim() : definition.purpose;
   const text = typeof purpose === 'string' ? purpose.trim().replace(/\s+/gu, ' ') : `Call ${definition.name}`;
-  const sentence = text.match(/^.*?[.!?](?:\s|$)/u)?.[0]?.trim() ?? text;
-  return sentence.length <= 180 ? sentence : `${sentence.slice(0, 179)}…`;
+  // Why: conditional contracts often live after the first sentence. Preserve
+  // the complete bounded purpose so local models do not have to infer omitted
+  // behavior from a tool name.
+  return text.length <= 320 ? text : `${text.slice(0, 319)}…`;
 }
 function writeDefinition(paths, changes, receipts) {
   return {

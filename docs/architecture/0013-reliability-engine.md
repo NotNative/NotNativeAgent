@@ -35,6 +35,7 @@ The Reliability Engine owns:
 - complete provider-envelope measurement, pre-transport context admission, and content-free
   per-attempt token receipts that distinguish provider measurements from conservative estimates;
 - bounded, route-specific observations of provider cache hits used to select cache-aligned semantic compaction;
+- conservative route-specific prompt-token calibration from provider-reported usage, which may tighten future context admission but never widen the baseline estimate;
 - tool-call stream assembly and protocol-integrity bounds;
 - stable tool-progress and failure fingerprints; and
 - deterministic filesystem-prerequisite extraction, shared-root failure grouping, and
@@ -125,6 +126,12 @@ aliases to Reliability Engine-owned components. They do not represent independen
     continuation limits below the global model-step ceiling. When the evidence does not change,
     NNA parks the active turn for operator attention instead of manufacturing progress or ending
     the durable goal. New tool evidence or authenticated steering resets stale recovery episodes.
+18. Provider context-limit recovery permits at most two compaction episodes. The second is admitted
+    only when the durable request manifests prove that the first compacted request was materially
+    smaller than the original rejected request.
+19. A recovery hint remains in the leading authoritative system block. This deliberately changes
+    the provider prompt prefix and may reduce KV-cache reuse during degraded operation; cache reuse
+    is an optimization and cannot weaken the authority or ordering of recovery guidance.
 
 ## Consequences
 

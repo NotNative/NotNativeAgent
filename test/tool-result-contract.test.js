@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  durableToolResultState, toolLifecycleStatus, toolReviewOutcome,
+  durableToolResultState, toolChildState, toolLifecycleStatus, toolReviewOutcome, toolTelemetryOutcome,
 } from '../src/tools/tool-result-contract.js';
 import { denialResult } from '../src/tools/governor.js';
 import { toolResultRecord } from '../src/engine/records.js';
@@ -38,6 +38,25 @@ test('ordinary tool results have one lifecycle field and no review outcome', () 
   assert.equal(record.toolLifecycleStatus, 'succeeded');
   assert.equal('reviewOutcome' in record, false);
   assert.equal(toolReviewOutcome(record), null);
+});
+
+test('all lifecycle statuses use one exhaustive child and telemetry projection table', () => {
+  const expected = {
+    succeeded: ['succeeded', 'succeeded'],
+    failed: ['failed', 'failed'],
+    completed_nonzero: ['failed', 'failed'],
+    cancelled: ['cancelled', 'cancelled'],
+    timed_out: ['timed_out', 'timed_out'],
+    invalid_request: ['failed', 'failed'],
+    denied: ['failed', 'denied'],
+    unknown_effect: ['unknown_effect', 'unknown_effect'],
+  };
+  for (const [status, [child, telemetry]] of Object.entries(expected)) {
+    assert.equal(toolChildState({ status }), child, status);
+    assert.equal(toolTelemetryOutcome({ status }), telemetry, status);
+  }
+  assert.equal(toolChildState({ status: 'failed', effect_certainty: 'unknown' }), 'unknown_effect');
+  assert.equal(toolTelemetryOutcome({ status: 'failed', effect_certainty: 'unknown' }), 'unknown_effect');
 });
 
 test('provider projection names lifecycle and review fields explicitly', () => {

@@ -226,7 +226,8 @@ test('compact provider facades retain callable shape while runtime schemas retai
   assert.equal(wire.function.parameters.properties.start_line.type, 'integer');
   assert.match(wire.function.parameters.properties.path.description, /UTF-8 text file/u);
   assert.match(runtime.inputSchema.properties.path.description, /UTF-8 text file/u);
-  assert.ok(wire.function.description.length <= 180);
+  assert.ok(wire.function.description.length <= 320);
+  assert.match(wire.function.description, /snapshot receipt required by later edits/u);
   const listWire = registry.providerDefinitions().find((item) => item.function.name === 'fs.list');
   assert.equal(listWire.function.parameters.required.includes('pattern'), false);
   assert.equal(listWire.function.parameters.properties.pattern.type, 'string');
