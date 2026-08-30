@@ -67,7 +67,7 @@ export class ToolCallAssembler {
     };
     current.providerCallId = appendStable(current.providerCallId, fragment.id);
     if (typeof fragment.function?.name === 'string') current.name += fragment.function.name;
-    const addition = typeof fragment.function?.arguments === 'string' ? fragment.function.arguments : '';
+    const addition = argumentFragment(current.arguments, fragment.function?.arguments);
     this.#argumentBytes += Buffer.byteLength(addition, 'utf8');
     if (this.#argumentBytes > MAX_ARGUMENT_BYTES) {
       throw new ContractError('tool_arguments_too_large', 'tool arguments exceed bound');
@@ -75,6 +75,27 @@ export class ToolCallAssembler {
     current.arguments += addition;
     this.#calls.set(fragment.index, current);
   }
+}
+
+function argumentFragment(current, value) {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    let encoded;
+    try { encoded = JSON.stringify(value); } catch {
+      throw new ContractError('tool_arguments_transport_invalid', 'provider tool arguments are not JSON-compatible');
+    }
+    if (typeof encoded !== 'string') {
+      throw new ContractError('tool_arguments_transport_invalid', 'provider tool arguments are not JSON-compatible');
+    }
+    // Compatibility: some OpenAI-compatible providers emit one already-parsed
+    // argument object instead of streamed JSON text. Accept one complete object,
+    // but never concatenate it with a different or partial representation.
+    if (current.length === 0) return encoded;
+    if (current === encoded) return '';
+    throw new ContractError('tool_arguments_transport_drift', 'provider changed the tool argument representation during one call', true);
+  }
+  throw new ContractError('tool_arguments_transport_invalid', 'provider tool arguments must be JSON text or one JSON object');
 }
 
 function outputWasTruncated(finishReason, evidence) {
