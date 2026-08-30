@@ -26,7 +26,7 @@ import { handleCopyCommand } from './tui/copy-command.js';
 import { createTuiWorkspace } from './tui/runtime-workspace.js';
 import { handleEditorAction } from './tui/editor-actions.js';
 import { handleGatewayCommand, handleGatewaySelection } from './tui/gateway-command.js';
-import { handleWebFetchCommand } from './tui/webfetch-command.js';
+import { handleWebFetchCommand } from './tui/webfetch-command.js'; import { beginWebSearchManagementSelection, handleWebSearchSetupAction } from './tui/websearch-setup.js';
 import { beginProviderManagementSelection, handleProviderRoleNavigation, handleProviderSetupAction } from './tui/provider-setup.js'; import { beginProviderRouteSettingsSelection, handleProviderRouteSettingsAction } from './tui/provider-route-settings.js';
 import { beginMcpManagementSelection, handleMcpSetupAction } from './tui/mcp-setup.js';
 import { DestructiveKeyGuard, handleDestructiveCancel, handleDestructiveEscape } from './tui/destructive-key-guard.js';
@@ -250,6 +250,7 @@ async function handleOverlayAction(action, workspace) {
     if (beginProviderManagementSelection(selected, workspace, overlay)) return;
     if (beginMcpManagementSelection(selected, workspace, overlay)) return;
     if (await beginSecretManagementSelection(selected, workspace, overlay)) return;
+    if (await beginWebSearchManagementSelection(selected, workspace, overlay)) return;
     const draft = overlayCommandDraft(overlay.kind, selected.id);
     if (draft) {
       projection.closeOverlay(); projection.active().editor.set(draft);
@@ -298,6 +299,7 @@ async function handleSpecialOverlayAction(action, workspace) {
   if (await handleProviderSetupAction(action, workspace)) return true;
   if (await handleMcpSetupAction(action, workspace)) return true;
   if (await handleSecretSetupAction(action, workspace)) return true;
+  if (await handleWebSearchSetupAction(action, workspace)) return true;
   return handleProviderRoleNavigation(action, workspace) || handleHealthOverlayAction(action, workspace);
 }
 function prepareSkillInvocation(projection, id) {

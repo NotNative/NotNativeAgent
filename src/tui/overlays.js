@@ -244,27 +244,28 @@ export function workspaceTrustOverlay(workspaceRoot) {
 export function webSearchOverlay(status, options = {}) {
   status = status ?? {}; const config = status.config ?? {};
   const lines = [
-    `State: ${config.enabled ? 'enabled' : 'disabled'}`,
-    `Provider: ${config.provider ?? '--'}`,
-    `Endpoint: ${config.endpoint ?? '--'}`,
-    `Ownership: ${config.managed ? 'managed by NNA' : 'user supplied'}`,
+    `Status     ${config.enabled ? 'Enabled' : 'Not configured'}`,
+    `Endpoint   ${config.endpoint ?? '--'}`,
+    `Source     ${config.enabled ? config.managed ? 'NNA-managed local service' : 'Existing SearXNG service' : '--'}`,
   ];
-  if (status.test) lines.push(`Health: ${status.test.ok ? `ready (${status.test.results} test results)` : `unavailable (${status.test.error})`}`);
+  if (status.test) lines.push(`Validation ${status.test.ok ? `Passed (${status.test.results} results)` : `Failed (${status.test.error})`}`);
   if (options.message) lines.push('', options.message);
-  lines.push('', 'Choose an action below. Configure accepts an existing local or remote SearXNG endpoint.');
+  lines.push('', config.enabled
+    ? 'WebSearch is available to every conversation. Choose an action below.'
+    : 'Connect an existing SearXNG service, or let NNA deploy one locally with Docker.');
   const items = [
-    { id: 'action:configure', label: 'Configure endpoint', detail: 'Set or replace the URL of an existing SearXNG service' },
+    { id: 'action:configure', label: config.enabled ? 'Change endpoint' : 'Connect existing SearXNG', detail: 'Enter its base URL, validate it, then save', section: 'Connection' },
   ];
-  if (config.enabled) items.push({ id: 'test', label: 'Test endpoint', detail: 'Run a bounded JSON search health check' });
-  items.push({ id: 'deploy', label: config.managed ? 'Redeploy local SearXNG' : 'Deploy local SearXNG', detail: 'Preflight Docker, recreate the local service, then validate' });
+  if (config.enabled) items.push({ id: 'test', label: 'Validate current endpoint', detail: 'Run a bounded JSON search without changing configuration', section: 'Connection' });
+  items.push({ id: 'deploy', label: config.managed ? 'Redeploy local SearXNG' : 'Deploy SearXNG locally', detail: 'Use Docker to create and validate an NNA-managed service', section: 'Managed local service' });
   if (config.managed) {
-    items.push({ id: 'start', label: 'Start managed SearXNG', detail: 'Start the preserved local deployment' });
-    items.push({ id: 'stop', label: 'Stop managed SearXNG', detail: 'Stop without deleting its container or data' });
+    items.push({ id: 'start', label: 'Start local service', detail: 'Start the preserved NNA-managed deployment', section: 'Managed local service' });
+    items.push({ id: 'stop', label: 'Stop local service', detail: 'Stop without deleting its container or data', section: 'Managed local service' });
   }
   if (config.enabled || config.endpoint) items.push({
-    id: 'disable', label: 'Disable and clear WebSearch', detail: 'Remove the active WebSearch configuration; preserve any local deployment',
+    id: 'disable', label: 'Disable WebSearch', detail: 'Clear the active connection; preserve any local deployment', section: 'Configuration',
   });
-  items.push({ id: 'remove', label: 'Remove local deployment', detail: 'Stop and delete NNA-managed SearXNG containers and local deployment data' });
+  items.push({ id: 'remove', label: 'Remove local deployment', detail: 'Stop and delete NNA-managed containers and deployment data', section: 'Managed local service' });
   return menuOverlay('websearch', 'WebSearch · SearXNG', lines, items, options.selectedId ?? items[0]?.id);
 }
 
@@ -365,7 +366,6 @@ export function overlayCommandDraft(kind, id) {
   const drafts = {
     gateway: { authorize: '/gateway authorize ', revoke: '/gateway revoke ', 'token-env': '/gateway token-env ', workspace: '/gateway workspace ' },
     webfetch: { trust: '/webfetch trust ', revoke: '/webfetch revoke ' },
-    websearch: { configure: '/websearch configure ' },
     tab: { rename: '/rename ' },
     plan: { 'set-goal': '/goal ', 'complete-goal': '/goal complete ', 'add-task': '/task add ' },
     context: {
