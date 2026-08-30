@@ -16,11 +16,15 @@ test('web.browse describes browser capabilities without prescribing a workflow',
 });
 
 function fakeRuntime(state) {
+  const interact = async (action, effect) => {
+    if (state.actionFailure?.action === action) throw state.actionFailure.error;
+    effect();
+  };
   const locator = (selector) => ({
     first: () => locator(selector), nth: (index) => locator(`${selector}:${index}`),
-    click: async () => { state.clicked = selector; },
-    fill: async (value) => { state.filled = { selector, value }; },
-    press: async (key) => { state.pressed = { selector, key }; },
+    click: async () => interact('click', () => { state.clicked = selector; }),
+    fill: async (value) => interact('fill', () => { state.filled = { selector, value }; }),
+    press: async (key) => interact('press', () => { state.pressed = { selector, key }; }),
     innerText: async () => state.body ?? 'Example body',
     evaluateAll: async () => [{ index: 0, tag: 'button', type: null, role: null, text: 'Continue' }],
   });
@@ -80,6 +84,23 @@ test('browser screenshots return the managed image before any visual inference',
   const captured = await manager.execute({ action: 'screenshot' }, new AbortController().signal);
   assert.equal(captured.metadata.path, state.screenshot);
   assert.match(captured.content, /Screenshot saved:[^]*image\.inspect[^]*exact path/iu);
+  await manager.close();
+});
+
+test('browser interaction failures preserve a bounded action-specific cause', async () => {
+  const { state, manager } = await fixture();
+  const timeout = Object.assign(new Error('locator.fill: target did not become editable\ntrace omitted'), { name: 'TimeoutError' });
+  state.actionFailure = { action: 'fill', error: timeout };
+  await assert.rejects(manager.execute(
+    { action: 'fill', target: 'e2', value: '30' }, new AbortController().signal,
+  ), (error) => {
+    assert.equal(error.code, 'browser_action_timeout');
+    assert.match(error.message, /action "fill" timed out[^]*target did not become editable/u);
+    assert.deepEqual(error.toolMetadata, {
+      action: 'fill', failure_kind: 'timeout', error_name: 'TimeoutError',
+    });
+    return true;
+  });
   await manager.close();
 });
 

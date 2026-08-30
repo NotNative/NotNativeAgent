@@ -279,8 +279,21 @@ function normalizeFailure(request, definition, error, started) {
     content: error instanceof ContractError ? error.message : 'tool execution failed',
     truncated: false, elapsed_ms: Math.max(0, performance.now() - started),
     effect_certainty: effectCertainty(definition, request, error),
-    untrusted: true, reason_code: normalizeToolReasonCode(error?.code, 'executor_failure'), ledger_started: true,
+    untrusted: true, metadata: failureMetadata(error),
+    reason_code: normalizeToolReasonCode(error?.code, 'executor_failure'), ledger_started: true,
   });
+}
+
+function failureMetadata(error) {
+  const candidate = error?.toolMetadata;
+  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)
+    || Object.keys(candidate).length > 16) return null;
+  const entries = Object.entries(candidate);
+  if (entries.some(([key, value]) => !/^[a-z][a-z0-9_]{0,63}$/u.test(key)
+    || !(value === null || typeof value === 'boolean'
+      || (typeof value === 'number' && Number.isFinite(value))
+      || (typeof value === 'string' && value.length <= 512)))) return null;
+  return Object.freeze(Object.fromEntries(entries));
 }
 
 function effectCertainty(definition, request, error) {

@@ -10,6 +10,7 @@ import {
   denialResult, mandatoryReviewEventTimeout, MANDATORY_REVIEW_EVENT_TIMEOUT_MS, ToolGovernor,
 } from '../src/tools/governor.js';
 import { semanticReviewTimeout } from '../src/config-bounds.js';
+import { ContractError } from '../src/ids.js';
 
 function safeRequest(id = 'safe-1') {
   return Object.freeze({
@@ -130,6 +131,27 @@ test('governor converts numeric executor error codes into governance-safe reason
   const result = await governor.executePrepared(request, { id: 'decision-1' }, new AbortController().signal);
   assert.equal(result.status, 'failed');
   assert.equal(result.reason_code, 'executor_failure_code_23');
+});
+
+test('governor preserves bounded executor-owned failure metadata', async () => {
+  const definition = {
+    name: 'web.browse', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
+    async executor() {
+      const error = new ContractError('browser_action_timeout', 'browser action "fill" timed out');
+      error.toolMetadata = { action: 'fill', failure_kind: 'timeout', error_name: 'TimeoutError' };
+      throw error;
+    },
+  };
+  const governor = new ToolGovernor({
+    events: new EventHub(), reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
+    registry: { definition: () => definition },
+  });
+  const request = { id: 'browse-1', providerCallId: 'provider-1', toolName: 'web.browse', definitionVersion: 1 };
+  const result = await governor.executePrepared(request, { id: 'decision-1' }, new AbortController().signal);
+  assert.equal(result.reason_code, 'browser_action_timeout');
+  assert.deepEqual(result.metadata, {
+    action: 'fill', failure_kind: 'timeout', error_name: 'TimeoutError',
+  });
 });
 
 test('governor converts platform error codes into stable tool reason identifiers', async () => {

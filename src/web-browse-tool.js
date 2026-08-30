@@ -93,6 +93,14 @@ export class BrowserSessionManager {
   }
 
   async execute(args, signal, execution = {}) {
+    try { return await this.#execute(args, signal, execution); }
+    catch (error) {
+      if (error instanceof ContractError) throw error;
+      throw browserOperationFailure(args?.action, error);
+    }
+  }
+
+  async #execute(args, signal, execution = {}) {
     if (signal?.aborted) throw new ContractError('tool_cancelled', 'browser operation was cancelled');
     if (args.action === 'close') { await this.close(); return result('Browser session closed.', { action: 'close' }); }
     const page = await this.#page();
@@ -298,4 +306,28 @@ function result(content, metadata) { return { content, metadata }; }
 function metadata(action, page, extra = {}) { return { action, url: page.url(), ...extra }; }
 function invalid(message = 'web.browse arguments do not match the requested browser action') {
   return new ContractError('tool_schema_invalid', message);
+}
+
+function browserOperationFailure(action, error) {
+  const operation = typeof action === 'string' && ACTIONS.has(action) ? action : 'unknown';
+  const timedOut = error?.name === 'TimeoutError';
+  const diagnostic = operation === 'fill_secret' ? '' : boundedBrowserDiagnostic(error?.message);
+  const message = `browser action "${operation}" ${timedOut ? 'timed out before it completed' : 'failed'}`
+    + (diagnostic ? `: ${diagnostic}` : '');
+  const failure = new ContractError(timedOut ? 'browser_action_timeout' : 'browser_action_failed', message, { cause: error });
+  failure.toolMetadata = Object.freeze({
+    action: operation,
+    failure_kind: timedOut ? 'timeout' : 'execution',
+    error_name: boundedBrowserErrorName(error?.name),
+  });
+  return failure;
+}
+
+function boundedBrowserDiagnostic(value) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/[\u0000-\u001F\u007F]+/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, 512);
+}
+
+function boundedBrowserErrorName(value) {
+  return typeof value === 'string' && /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/u.test(value) ? value : 'Error';
 }
