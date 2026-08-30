@@ -10,6 +10,10 @@ const DEFAULT_SESSION_LIMIT = 20;
 const MAX_SESSION_LIMIT = 64;
 const MAX_SESSION_CANDIDATES = 512;
 const SESSION_DIAGNOSTIC_RECORD_LIMIT = 256;
+const TURN_DIAGNOSTIC_PAGE_LIMIT = 2_000;
+const MAX_TURN_DIAGNOSTIC_RECORDS = 20_000;
+const MAX_TURN_OFFSET = 31;
+const MAX_AVAILABLE_TURNS = 32;
 
 export function selfDiagnosticsDefinitions(contextProvider) {
   return [diagnoseTurnDefinition(contextProvider), listSessionsDefinition(contextProvider)];
@@ -18,7 +22,7 @@ export function selfDiagnosticsDefinitions(contextProvider) {
 function diagnoseTurnDefinition(contextProvider) {
   return {
     name: 'nna.diagnose_turn', version: 1,
-    purpose: 'Inspect bounded, content-redacted lifecycle evidence for the active or a recent NNA turn.',
+    purpose: 'Inspect bounded, content-redacted lifecycle evidence for the active or an earlier NNA turn. Use turn_offset 1 for the previous turn.',
     sideEffect: 'read_only', scope: 'runtime_diagnostics', cancellation: true, timeoutMs: 10_000,
     inputSchema: {
       type: 'object', additionalProperties: false,
@@ -27,22 +31,28 @@ function diagnoseTurnDefinition(contextProvider) {
         limit: { type: 'integer', minimum: 1, maximum: 64, description: 'Maximum sessions when selector is list. Defaults to 20.' },
         session_id: { type: 'string', minLength: 1, maxLength: 256, description: 'Optional exact durable session id. Do not combine with selector.' },
         turn_id: { type: 'string', minLength: 1, maxLength: 256, description: 'Optional turn id. Defaults to the active or latest turn in the selected session.' },
+        turn_offset: { type: 'integer', minimum: 0, maximum: 31, description: 'Select a recent turn by position: 0 is current or latest, 1 is the previous turn, and larger values move further back. Do not combine with turn_id.' },
       },
     },
     validate: async (args) => {
-      if (!hasOnlyKeys(args, ['selector', 'limit', 'session_id', 'turn_id'])
+      if (!hasOnlyKeys(args, ['selector', 'limit', 'session_id', 'turn_id', 'turn_offset'])
         || !optionalIdentifier(args.session_id) || !optionalIdentifier(args.turn_id)
         || (args.session_id !== undefined && !SESSION_ID.test(args.session_id))
         || (args.selector !== undefined && !['current', 'latest', 'latest_failed', 'list'].includes(args.selector))
         || (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit < 1 || args.limit > MAX_SESSION_LIMIT))
+        || (args.turn_offset !== undefined && (!Number.isInteger(args.turn_offset)
+          || args.turn_offset < 0 || args.turn_offset > MAX_TURN_OFFSET))
         || (args.session_id !== undefined && args.selector !== undefined)
-        || (args.turn_id !== undefined && args.selector === 'list')) {
-        throw new ContractError('tool_schema_invalid', 'diagnostic selector, limit, session_id, or turn_id is invalid or conflicting');
+        || (args.turn_id !== undefined && args.turn_offset !== undefined)
+        || (args.turn_id !== undefined && args.selector === 'list')
+        || (args.turn_offset !== undefined && args.selector === 'list')) {
+        throw new ContractError('tool_schema_invalid', 'diagnostic selector, limit, session_id, turn_id, or turn_offset is invalid or conflicting');
       }
       return { args: {
         selector: args.selector ?? 'current', limit: args.limit ?? DEFAULT_SESSION_LIMIT,
         ...(args.session_id === undefined ? {} : { session_id: args.session_id }),
         ...(args.turn_id === undefined ? {} : { turn_id: args.turn_id }),
+        ...(args.turn_offset === undefined ? {} : { turn_offset: args.turn_offset }),
       } };
     },
     executor: (request, signal) => executeTurnDiagnosis(contextProvider, request, signal),
@@ -68,14 +78,25 @@ async function executeTurnDiagnosis(contextProvider, request, signal) {
   const sessionId = selectedSessionId ?? context.sessionId;
   const journalPath = selectedSessionId && selectedSessionId !== context.sessionId
     ? containedSessionJournalPath(context.sessionsRoot, selectedSessionId) : context.journalPath;
-  const page = await readDiagnosticPage(journalPath);
+  const page = await readRecentDiagnosticRecords(journalPath, signal);
+  const availableTurns = recentTurnCatalog(page.records);
   const turnId = request.args.turn_id
-    ?? (sessionId === context.sessionId ? context.activeTurnId : null) ?? latestTurnId(page.records);
+    ?? selectTurnByOffset(
+      availableTurns,
+      request.args.turn_offset ?? 0,
+      sessionId === context.sessionId ? context.activeTurnId : null,
+    );
   if (!turnId) throw new ContractError('diagnostics_turn_unavailable', 'no recent turn is available to diagnose');
   const records = page.records.filter((record) => recordTurnId(record) === turnId);
-  if (records.length === 0) throw new ContractError('diagnostics_turn_not_found', 'the requested turn is outside the bounded recent journal window');
+  if (records.length === 0) throw new ContractError(
+    'diagnostics_turn_not_found',
+    'the requested turn is outside the bounded recent journal window; inspect available_turns and choose a listed turn',
+  );
   return {
-    content: JSON.stringify(summarize(sessionId, turnId, records, sessionId === context.sessionId ? context.state : null), null, 2),
+    content: JSON.stringify({
+      ...summarize(sessionId, turnId, records, sessionId === context.sessionId ? context.state : null),
+      available_turns: availableTurns,
+    }, null, 2),
     metadata: { session_id: sessionId, turn_id: turnId, records_examined: records.length, redacted: true, truncated_history: page.hasMore },
   };
 }
@@ -175,6 +196,56 @@ async function readDiagnosticPage(path, limit = 2_000) {
     if (error.code === 'ENOENT') throw new ContractError('diagnostics_session_not_found', 'the requested durable session was not found');
     throw error;
   }
+}
+
+async function readRecentDiagnosticRecords(path, signal) {
+  const records = [];
+  let beforeSequence = Number.MAX_SAFE_INTEGER;
+  let hasMore = true;
+  try {
+    while (hasMore && records.length < MAX_TURN_DIAGNOSTIC_RECORDS) {
+      throwIfCancelled(signal);
+      const page = await readJournalPage(path, {
+        limit: Math.min(TURN_DIAGNOSTIC_PAGE_LIMIT, MAX_TURN_DIAGNOSTIC_RECORDS - records.length),
+        beforeSequence,
+      });
+      records.unshift(...page.records);
+      hasMore = page.hasMore;
+      if (page.beforeSequence === null || page.beforeSequence >= beforeSequence) break;
+      beforeSequence = page.beforeSequence;
+    }
+  } catch (error) {
+    if (error.code === 'ENOENT') throw new ContractError('diagnostics_session_not_found', 'the requested durable session was not found');
+    throw error;
+  }
+  return Object.freeze({ records: Object.freeze(records), hasMore });
+}
+
+function recentTurnCatalog(records) {
+  const turns = new Map();
+  for (const record of records) {
+    const turnId = recordTurnId(record);
+    if (!turnId) continue;
+    const current = turns.get(turnId) ?? {
+      turn_id: turnId, outcome: 'active_or_interrupted', failure_code: null,
+    };
+    if (record.type === 'turn_outcome') {
+      current.outcome = record.payload?.outcome ?? current.outcome;
+      current.failure_code = record.payload?.failure?.code ?? null;
+    }
+    turns.delete(turnId);
+    turns.set(turnId, current);
+  }
+  return Object.freeze([...turns.values()].slice(-MAX_AVAILABLE_TURNS).reverse()
+    .map((item, turnOffset) => Object.freeze({ ...item, turn_offset: turnOffset })));
+}
+
+function selectTurnByOffset(availableTurns, offset, activeTurnId) {
+  const activeIndex = activeTurnId
+    ? availableTurns.findIndex((item) => item.turn_id === activeTurnId) : -1;
+  if (activeIndex <= 0) return availableTurns[offset]?.turn_id ?? null;
+  const ordered = [availableTurns[activeIndex], ...availableTurns.filter((_item, index) => index !== activeIndex)];
+  return ordered[offset]?.turn_id ?? null;
 }
 
 function latestTurnId(records) {

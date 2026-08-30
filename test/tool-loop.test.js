@@ -369,6 +369,31 @@ test('turn diagnostics expose lifecycle classifications without transcript conte
   assert.doesNotMatch(result.content, /do-not-leak/u);
 });
 
+test('turn diagnostics select previous turns by offset and disclose bounded turn identifiers', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-previous-turn-diagnose-'));
+  const store = new JournalStore(root, 'diagnose-history');
+  await store.open();
+  await store.append('recovery_decision', { turn_id: 'turn-older', category: 'provider_timeout', secret: 'older-secret' });
+  await store.append('turn_outcome', { turn_id: 'turn-older', outcome: 'failed', failure: { code: 'provider_timeout' } });
+  await store.append('recovery_decision', { turn_id: 'turn-current', category: 'empty_output', secret: 'current-secret' });
+  await store.close();
+  const definition = selfDiagnosticsDefinitions(() => ({
+    journalPath: store.path, sessionsRoot: root, sessionId: 'diagnose-history',
+    activeTurnId: 'turn-current', state: 'RUNNING',
+  })).find((item) => item.name === 'nna.diagnose_turn');
+
+  const result = await definition.executor(
+    await definition.validate({ turn_offset: 1 }), new AbortController().signal,
+  );
+  const diagnosis = JSON.parse(result.content);
+  assert.equal(diagnosis.turn_id, 'turn-older');
+  assert.equal(diagnosis.terminal.failure_code, 'provider_timeout');
+  assert.deepEqual(diagnosis.available_turns.map((item) => [item.turn_id, item.turn_offset]), [
+    ['turn-current', 0], ['turn-older', 1],
+  ]);
+  assert.doesNotMatch(result.content, /older-secret|current-secret/u);
+});
+
 test('turn diagnostics can enumerate and inspect another durable session', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-cross-session-diagnose-'));
   const current = new JournalStore(root, 'current');
@@ -413,7 +438,9 @@ test('self diagnostics reject invalid optional values', async () => {
   const list = definitions.find((item) => item.name === 'nna.list_sessions');
   const diagnose = definitions.find((item) => item.name === 'nna.diagnose_turn');
   await assert.rejects(list.validate({ limit: null }), /limit must be an optional integer/u);
-  await assert.rejects(diagnose.validate({ session_id: '../outside' }), /diagnostic selector, limit, session_id, or turn_id is invalid or conflicting/u);
+  await assert.rejects(diagnose.validate({ session_id: '../outside' }), /diagnostic selector, limit, session_id, turn_id, or turn_offset is invalid or conflicting/u);
+  await assert.rejects(diagnose.validate({ turn_id: 'turn-1', turn_offset: 1 }), /turn_offset is invalid or conflicting/u);
+  await assert.rejects(diagnose.validate({ turn_offset: 32 }), /turn_offset is invalid or conflicting/u);
   assert.deepEqual((await diagnose.validate({})).args, { selector: 'current', limit: 20 });
 });
 
