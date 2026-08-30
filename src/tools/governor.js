@@ -103,20 +103,21 @@ export class ToolGovernor {
   }
 
   async settle(result) {
-    const terminal = await this.reviewer.ledger.settle(result.request_id, {
-      status: result.status, effect_certainty: result.effect_certainty,
-      result_fingerprint: fingerprintResult(result), elapsed_ms: result.elapsed_ms,
-    });
-    const decisionId = this.#activeDecisions.get(result.request_id);
-    if (decisionId) {
-      try {
-        await this.governance?.settleDecision(decisionId, {
-          status: governanceTerminal(result.status), effectCertainty: result.effect_certainty,
-          resultFingerprint: fingerprintResult(result), reasonCode: result.reason_code ?? null,
-        });
-      } finally { this.#activeDecisions.delete(result.request_id); }
+    return this.reconcile(result.request_id, toolSettlementTerminal(result));
+  }
+
+  async reconcile(requestId, terminal) {
+    const settled = await this.reviewer.ledger.settle(requestId, terminal);
+    const execution = this.reviewer.ledger.execution?.(requestId);
+    const decisionId = execution?.decisionId ?? this.#activeDecisions.get(requestId);
+    if (decisionId && this.governance) {
+      await this.governance.settleDecision(decisionId, {
+        status: governanceTerminal(settled.status), effectCertainty: settled.effect_certainty,
+        resultFingerprint: settled.result_fingerprint, reasonCode: settled.reason_code ?? null,
+      });
     }
-    return terminal;
+    this.#activeDecisions.delete(requestId);
+    return settled;
   }
 
   #revalidate(request, decision, current) {
@@ -144,6 +145,14 @@ export class ToolGovernor {
     const continuing = review.outcome === 'approve' || review.outcome === 'escalate_to_operator';
     return { decision: continuing ? 'continue' : 'deny', review };
   }
+}
+
+export function toolSettlementTerminal(result) {
+  return Object.freeze({
+    status: result.status, effect_certainty: result.effect_certainty,
+    result_fingerprint: fingerprintResult(result), elapsed_ms: result.elapsed_ms,
+    reason_code: result.reason_code ?? null,
+  });
 }
 
 export function denialResult(request, decision) {

@@ -13,7 +13,7 @@ import { JournalStore } from '../src/store.js';
 import { ContractError } from '../src/ids.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
-import { denialResult } from '../src/tools/governor.js';
+import { denialResult, ToolGovernor, toolSettlementTerminal } from '../src/tools/governor.js';
 import { RecoverySupervisor, recoveryHint } from '../src/recovery.js';
 import { declaredSubscription } from './event-fixture.js';
 import { ToolLoop, toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from '../src/tools/loop.js';
@@ -27,6 +27,49 @@ test('tool loop accepts only declared constructor dependencies', () => {
   const loop = new ToolLoop({ process: null, unexpected: true });
   assert.equal(typeof loop.process, 'function');
   assert.equal(Object.hasOwn(loop, 'unexpected'), false);
+});
+
+test('governance settlement retries idempotently after the reviewer ledger commits', async () => {
+  const terminal = toolSettlementTerminal({
+    request_id: 'request-settlement', status: 'succeeded', effect_certainty: 'completed',
+    content: 'bounded result', elapsed_ms: 4, reason_code: null,
+  });
+  let committed = null;
+  let governanceAttempts = 0;
+  const ledger = {
+    async settle(_requestId, candidate) { committed ??= candidate; return committed; },
+    execution() { return { decisionId: 'decision-settlement', status: 'succeeded', terminal: committed }; },
+  };
+  const governor = new ToolGovernor({
+    events: new EventHub(), reviewer: { ledger }, registry: {},
+    governance: { async settleDecision() {
+      governanceAttempts += 1;
+      if (governanceAttempts === 1) throw new ContractError('governance_write_failed', 'fixture failure');
+    } },
+  });
+  await assert.rejects(governor.reconcile('request-settlement', terminal), { code: 'governance_write_failed' });
+  await governor.reconcile('request-settlement', terminal);
+  assert.equal(governanceAttempts, 2);
+  assert.equal(ledger.execution().terminal, committed);
+});
+
+test('durable pending tool settlement reconciles without rerunning the tool', async () => {
+  const reconciled = [];
+  const persisted = [];
+  const loop = new ToolLoop({
+    governor: { async reconcile(requestId, terminal) { reconciled.push({ requestId, terminal }); } },
+    persist: async (type, payload) => persisted.push({ type, payload }),
+  });
+  const pending = {
+    requestId: 'request-pending', turnId: 'turn-prior',
+    terminal: { status: 'succeeded', effect_certainty: 'completed', result_fingerprint: 'result-one', elapsed_ms: 3 },
+    reasonCode: 'governance_write_failed',
+  };
+  loop.restore([], [{ type: 'tool_settlement_pending', payload: pending }]);
+  assert.equal(await loop.reconcilePendingSettlements(), 0);
+  assert.deepEqual(reconciled, [{ requestId: pending.requestId, terminal: pending.terminal }]);
+  assert.equal(persisted.length, 1);
+  assert.equal(persisted[0].type, 'tool_settlement_reconciled');
 });
 
 test('work convergence cadence is advisory and resets only on a durable revision change', () => {

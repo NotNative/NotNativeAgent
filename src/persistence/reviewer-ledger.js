@@ -79,6 +79,15 @@ export class ReviewerLedger {
     return terminal;
   }
 
+  execution(requestId) {
+    const execution = this.#entries.get(requestId)?.execution;
+    return execution ? Object.freeze({
+      decisionId: execution.decisionId,
+      status: execution.status,
+      terminal: execution.terminal ? Object.freeze({ ...execution.terminal }) : null,
+    }) : null;
+  }
+
   summary(request, limit = 16) {
     const signature = operationSignature(request);
     return [...this.#entries.values()].filter((entry) => entry.signature === signature)

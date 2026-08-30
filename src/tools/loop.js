@@ -4,7 +4,7 @@ import {
   invalidRequestRecord, reviewStatus, toolDecisionState, toolRequestRecord,
   toolResultRecord, toolResultState, toolStatus,
 } from '../engine/records.js';
-import { blockedResult, denialResult, invalidResult } from './governor.js';
+import { blockedResult, denialResult, invalidResult, toolSettlementTerminal } from './governor.js';
 import { assertMissionBudget, missionConditionFailure, reserveAndPersistMissionTools } from '../authority.js';
 import { ToolResultCache } from './result-cache.js';
 import { assertTurnActive } from '../turn-cancellation.js';
@@ -36,16 +36,45 @@ export class ToolLoop {
     this.concurrency = boundedConcurrency(options.concurrency ?? 1);
     this.parallelLimit ??= async () => 1;
     this.results = new ToolResultCache();
+    this.pendingSettlements = new Map();
   }
 
-  restore(transcript) {
+  restore(transcript, records = []) {
     this.results.restore(transcript);
+    this.pendingSettlements = restoredPendingSettlements(records);
+  }
+
+  async reconcilePendingSettlements(active = null) {
+    for (const [requestId, pending] of this.pendingSettlements) {
+      try {
+        await this.governor.reconcile(requestId, pending.terminal);
+        await this.persist('tool_settlement_reconciled', {
+          requestId, turnId: pending.turnId ?? active?.turnId ?? null,
+          reconciledAt: new Date().toISOString(),
+        });
+        this.pendingSettlements.delete(requestId);
+        recordSettlementTelemetry(this.telemetry, 'succeeded', {
+          request_id: requestId, reconciliation: true,
+        }, { turnId: active?.turnId ?? pending.turnId ?? null, toolRequestId: requestId });
+      } catch (error) {
+        // Security: an unsettled prior decision grants no authority. Keep its
+        // durable reconciliation record without rerunning the completed tool.
+        recordSettlementTelemetry(this.telemetry, 'failed', {
+          request_id: requestId, reconciliation: true,
+        }, {
+          turnId: active?.turnId ?? pending.turnId ?? null, toolRequestId: requestId,
+          reasonCode: error?.code ?? 'tool_settlement_failed',
+        });
+      }
+    }
+    return this.pendingSettlements.size;
   }
 
   async process(calls, active) {
     const items = [];
     try {
       assertTurnActive(active);
+      await this.reconcilePendingSettlements(active);
       active.webUrlProvenance ??= new WebUrlProvenance(active.prompt ?? '');
       assertMissionBudget(active, calls.length);
       active.authority = await reserveAndPersistMissionTools(
@@ -283,12 +312,23 @@ export class ToolLoop {
     if (item.duplicate) return;
     this.results.record(item.call, item.result);
     await this.persist('tool_result', toolResultRecord(item, active.turnId, active.stepId));
-    let settlementError = null;
     if (item.result.ledger_started) {
       try {
         await this.governor.settle(item.result);
       } catch (error) {
-        settlementError = error;
+        const pending = Object.freeze({
+          requestId: item.result.request_id, turnId: active.turnId,
+          terminal: toolSettlementTerminal(item.result),
+          reasonCode: error?.code ?? 'tool_settlement_failed',
+        });
+        await this.persist('tool_settlement_pending', pending);
+        this.pendingSettlements.set(pending.requestId, pending);
+        recordSettlementTelemetry(this.telemetry, 'failed', {
+          request_id: pending.requestId, reconciliation: false,
+        }, {
+          turnId: active.turnId, stepId: active.stepId, toolRequestId: pending.requestId,
+          reasonCode: pending.reasonCode,
+        });
       }
     }
     this.lifecycles.finish(item.lifecycle.id, item.result.status);
@@ -303,8 +343,24 @@ export class ToolLoop {
       model_name: active.modelName ?? '', loaded_skills: this.engine.skills?.loadedIds() ?? [],
     });
     await this.output(toolStatus(this.engine, active, item, item.result.status));
-    if (settlementError) throw settlementError;
   }
+}
+
+function restoredPendingSettlements(records) {
+  const pending = new Map();
+  for (const record of records) {
+    if (record?.type === 'tool_settlement_pending' && typeof record.payload?.requestId === 'string') {
+      pending.set(record.payload.requestId, Object.freeze(record.payload));
+    } else if (record?.type === 'tool_settlement_reconciled' && typeof record.payload?.requestId === 'string') {
+      pending.delete(record.payload.requestId);
+    }
+  }
+  return pending;
+}
+
+function recordSettlementTelemetry(telemetry, status, detail, correlation) {
+  try { telemetry?.record('tool.settlement', status, detail, correlation); }
+  catch { /* Observability cannot change a durable settlement outcome. */ }
 }
 
 function toolTelemetryStatus(status) {

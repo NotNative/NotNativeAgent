@@ -490,7 +490,8 @@ export class SessionEngine {
     this.work.restore(records);
     this.transcript.push(...restored.transcript);
     this.authority.restore(restored.authority, restored.missionTurns, { conversationComplete: !truncated || restored.authorityReset, requireMissionUsage: Boolean(this.config.mission), missionUsageComplete: !truncated || restored.missionTurns.length > 0 });
-    this.toolLoop.restore(restored.transcript);
+    this.toolLoop.restore(restored.transcript, records);
+    await this.toolLoop.reconcilePendingSettlements();
     this.steering.push(...restored.steering);
     return restored.interrupted;
   }
