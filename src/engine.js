@@ -370,9 +370,8 @@ export class SessionEngine {
       return { continue: true };
     }
     const supervised = this.reliability.evaluateCompletion(active, active.stepText, this.work?.snapshot());
-    if (supervised.disposition !== 'continue') {
-      return { continue: false, text: active.stepText, outcome: supervised.disposition };
-    }
+    if (supervised.disposition !== 'continue') return { continue: false, text: active.stepText, outcome: supervised.disposition };
+    if (supervised.obligation) active.completionObligation = supervised.obligation;
     await this.#settleAttempt(active, 'completed');
     await this.#persist('message', assistantMessage(active.turnId, active.stepText, {
       partial: true, stepId: active.stepId,

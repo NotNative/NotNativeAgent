@@ -133,6 +133,9 @@ test('web.browse serves a workspace entry with an owned temporary server and no 
   assert.equal(request.resolved.destination, 'managed_workspace_origin');
   const result = await definition.executor(request, new AbortController().signal);
   assert.equal(result.metadata.destination, 'managed_workspace_origin');
+  assert.equal(result.metadata.verification_route, 'managed_http');
+  assert.match(result.metadata.source_path, /index\.html$/u);
+  assert.match(result.content, /does not verify direct file:\/\/ or double-click launch/iu);
   assert.match(state.url, /^http:\/\/127\.0\.0\.1:\d+\/index\.html$/u);
   const response = await fetch(new URL('/main.js', state.url));
   assert.equal(response.status, 200);

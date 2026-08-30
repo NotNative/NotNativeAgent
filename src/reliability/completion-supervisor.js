@@ -2,11 +2,7 @@
 
 const TRUNCATED = new Set(['length', 'max_tokens', 'max_output_tokens']);
 const TOOL_SIGNAL = new Set(['tool_calls', 'function_call']);
-const ACTION_VERB = '(?:check|inspect|verify|read|search|fetch|look\\s+up|write|create|edit|modify|fix|implement|build|run|test|install|start|open|update|investigate|review)';
-const FUTURE_ACTION = new RegExp(
-  `(?:\\b(?:i(?:'ll| will)|i(?:'m| am) going to)\\s+(?:first\\s+|now\\s+|next\\s+)?${ACTION_VERB}\\b|\\blet me\\s+${ACTION_VERB}\\b)`,
-  'iu',
-);
+const SEQUENCING_WORDS = new Set(['also', 'first', 'just', 'next', 'now', 'then']);
 
 export function evaluateCompletion(active, text, work = null) {
   const finishReason = String(active.finishReason ?? '').toLowerCase();
@@ -30,9 +26,18 @@ export function evaluateCompletion(active, text, work = null) {
   const visualGate = visualEvidenceGate(active.visualEvidence, text);
   if (visualGate) return visualGate;
   if (requestsInput(text)) return Object.freeze({ disposition: 'needs_input', category: 'model_requested_input' });
+  if (hasUnfulfilledCompletionObligation(active)) {
+    return Object.freeze({
+      disposition: 'continue', category: 'unfulfilled_completion_obligation', progressEvidence: null,
+      hint: 'A prior response committed to continuing the work, but no successful tool evidence followed that commitment. Continue with an appropriate tool now, or ask one concrete question if operator input is genuinely required.',
+    });
+  }
   if (promisesFutureAction(text)) {
     return Object.freeze({
       disposition: 'continue', category: 'future_action_pledge', progressEvidence: text,
+      obligation: Object.freeze({
+        kind: 'future_action', evidenceRevision: active.toolEvidenceRevision ?? 0,
+      }),
       hint: 'The prior response promised a concrete next action but did not perform it. Continue now by taking that action with an appropriate tool; do not merely restate the promise.',
     });
   }
@@ -73,8 +78,45 @@ function reachedReportedOutputCeiling(active) {
 }
 
 function promisesFutureAction(text) {
-  const tail = String(text ?? '').trim().slice(-1_024);
-  return tail.length > 0 && FUTURE_ACTION.test(tail);
+  const words = modelOutputWords(String(text ?? '').trim().slice(-2_048));
+  for (let index = 0; index < words.length; index += 1) {
+    const cursor = futureCommitmentCursor(words, index);
+    if (cursor === null) continue;
+    let action = cursor;
+    while (SEQUENCING_WORDS.has(words[action])) action += 1;
+    if (words[action] === 'not' || words[action] === 'never' || isTerminalAvailability(words, action)) continue;
+    if (words[action]) return true;
+  }
+  return false;
+}
+
+function modelOutputWords(text) {
+  return text.replace(/’/gu, "'").replace(/[\p{P}\p{S}]+/gu, (value) => value.includes("'") ? value : ' ')
+    .toLowerCase().match(/[a-z]+(?:'[a-z]+)?/gu) ?? [];
+}
+
+function futureCommitmentCursor(words, index) {
+  if (words[index] === "i'll") return index + 1;
+  if (words[index] === 'i' && words[index + 1] === 'will') return index + 2;
+  if (words[index] === 'i' && words[index + 1] === 'am'
+    && words[index + 2] === 'going' && words[index + 3] === 'to') return index + 4;
+  if (words[index] === "i'm" && words[index + 1] === 'going' && words[index + 2] === 'to') return index + 3;
+  if (words[index] === 'let' && words[index + 1] === 'me') return index + 2;
+  return null;
+}
+
+function isTerminalAvailability(words, index) {
+  const current = words[index];
+  const next = words[index + 1];
+  if (['remain', 'stay'].includes(current) && ['available', 'ready', 'here'].includes(next)) return true;
+  if (current === 'be' && ['available', 'ready', 'here'].includes(next)) return true;
+  return ['help', 'assist'].includes(current) && ['if', 'with', 'you'].includes(next);
+}
+
+function hasUnfulfilledCompletionObligation(active) {
+  const obligation = active.completionObligation;
+  if (!obligation || obligation.kind !== 'future_action') return false;
+  return (active.toolEvidenceRevision ?? 0) <= obligation.evidenceRevision;
 }
 
 function unfinishedWorkGate(work, text) {

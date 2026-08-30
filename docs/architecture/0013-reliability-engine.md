@@ -121,15 +121,21 @@ aliases to Reliability Engine-owned components. They do not represent independen
 16. Completion supervision treats provider-reported output usage at the exact requested ceiling
     as truncation even when a compatible provider labels the finish `stop`. Concrete future-action
     pledges such as `let me verify` or `I will implement` are partial progress, not terminal task
-    completion; the engine preserves the text and issues a bounded continuation hint.
-17. Language-derived completion judgments and unchanged durable-work state have category-specific
+    completion; the engine preserves the text and issues a bounded continuation hint. Once
+    intercepted, that promise remains an engine-owned completion obligation until a later
+    successful tool result supplies fresh evidence or the model asks one concrete operator
+    question. A later prose-only completion claim cannot silently discard the obligation.
+17. Browser evidence records its verification route. Rendering a workspace path through NNA's
+    managed HTTP origin does not prove that the artifact works through a direct `file://` or
+    double-click launch route.
+18. Language-derived completion judgments and unchanged durable-work state have category-specific
     continuation limits below the global model-step ceiling. When the evidence does not change,
     NNA parks the active turn for operator attention instead of manufacturing progress or ending
     the durable goal. New tool evidence or authenticated steering resets stale recovery episodes.
-18. Provider context-limit recovery permits at most two compaction episodes. The second is admitted
+19. Provider context-limit recovery permits at most two compaction episodes. The second is admitted
     only when the durable request manifests prove that the first compacted request was materially
     smaller than the original rejected request.
-19. A recovery hint remains in the leading authoritative system block. This deliberately changes
+20. A recovery hint remains in the leading authoritative system block. This deliberately changes
     the provider prompt prefix and may reduce KV-cache reuse during degraded operation; cache reuse
     is an optimization and cannot weaken the authority or ordering of recovery guidance.
 

@@ -48,6 +48,33 @@ test('completion supervision continues an unfulfilled future-action pledge', () 
   assert.match(result.hint, /taking that action/iu);
 });
 
+test('completion supervision recognizes a Markdown-wrapped future action without a verb allowlist', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    recovery: { actions: [] }, toolEvidenceRevision: 4,
+  };
+  const result = evaluateCompletion(active,
+    'Node and npx are available. I\'ll **bundle everything into one self-contained `index.html`**. Setting up the build structure now.');
+  assert.equal(result.disposition, 'continue');
+  assert.equal(result.category, 'future_action_pledge');
+  assert.deepEqual(result.obligation, { kind: 'future_action', evidenceRevision: 4 });
+});
+
+test('completion obligations persist until fresh successful tool evidence is observed', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    recovery: { actions: [] }, toolEvidenceRevision: 4,
+    completionObligation: { kind: 'future_action', evidenceRevision: 4 },
+  };
+  const unsupported = evaluateCompletion(active, 'The requested work is complete.');
+  assert.equal(unsupported.disposition, 'continue');
+  assert.equal(unsupported.category, 'unfulfilled_completion_obligation');
+
+  active.toolEvidenceRevision = 5;
+  const supported = evaluateCompletion(active, 'The requested work is complete.');
+  assert.equal(supported.disposition, 'completed');
+});
+
 test('completion supervision accepts a settled result with optional future availability', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],

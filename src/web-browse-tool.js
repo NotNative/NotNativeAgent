@@ -120,7 +120,16 @@ export class BrowserSessionManager {
         throw error;
       }
       this.refs.clear();
-      return result(await this.#summary(page), metadata(args.action, page, { destination: destination.destination }));
+      const workspaceRoute = destination.destination === 'managed_workspace_origin';
+      const summary = await this.#summary(page);
+      const routeNotice = workspaceRoute
+        ? '\n\nVerification route: managed HTTP. This verifies the workspace entry through NNA\'s temporary loopback server; it does not verify direct file:// or double-click launch.'
+        : '';
+      return result(`${summary}${routeNotice}`, metadata(args.action, page, {
+        destination: destination.destination,
+        verification_route: workspaceRoute ? 'managed_http' : 'http',
+        ...(workspaceRoute ? { source_path: args.path } : {}),
+      }));
     }
     if (args.action === 'inspect') return result(await this.#inspect(page), metadata(args.action, page));
     if (args.action === 'screenshot') {

@@ -195,6 +195,7 @@ export function observeToolState(active, items, definitionFor = () => null) {
     active.actionRepairStepPending = true;
   }
   const succeeded = items.filter((item) => item.result?.status === 'succeeded');
+  if (succeeded.length > 0) active.toolEvidenceRevision = (active.toolEvidenceRevision ?? 0) + 1;
   const mutated = succeeded.some((item) => {
     const name = item.result?.tool_name ?? item.request?.toolName ?? item.call?.name;
     if (item.request?.resolved?.readOnly === true) return false;
@@ -213,6 +214,18 @@ export function observeToolState(active, items, definitionFor = () => null) {
     active.readOnlyBatchStreak = (active.readOnlyBatchStreak ?? 0) + 1;
   }
   for (const item of items) {
+    if (item.result?.status === 'succeeded' && item.result?.tool_name === 'web.browse') {
+      if (item.result.metadata?.action === 'close') active.browserEvidence = null;
+      else if (item.result.metadata?.action === 'navigate') {
+        active.browserEvidence = Object.freeze({
+          route: item.result.metadata?.verification_route ?? null,
+          destination: item.result.metadata?.destination ?? null,
+          url: item.result.metadata?.url ?? null,
+          sourcePath: item.result.metadata?.source_path ?? null,
+          stepId: active.stepId,
+        });
+      }
+    }
     if (item.result?.status !== 'succeeded' || item.result?.tool_name !== 'image.inspect') continue;
     active.visualEvidence = Object.freeze({
       verdict: item.result.metadata?.visualVerdict ?? 'uncertain',
