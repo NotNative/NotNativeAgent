@@ -251,6 +251,10 @@ test('shell.run owns platform interpreter argv and executes a readable reviewed 
   assert.match(definition.inputSchema.properties.shell.description, /Prefer auto/u);
   assert.match(definition.inputSchema.properties.script.description, /does not translate syntax/u);
   const script = process.platform === 'win32' ? "[Console]::Write('shell-ok')" : "printf 'shell-ok'";
+  assert.equal((await definition.validate({ content: script })).args.script, script);
+  assert.equal((await definition.validate({ code: script })).args.script, script);
+  assert.equal((await definition.validate({ command_text: script })).args.script, script);
+  await assert.rejects(definition.validate({ script, content: `${script} changed` }), /conflicting aliases/u);
   const normalized = await definition.validate({ script, timeout_ms: 5_000 });
   assert.equal(normalized.resolved.shell, process.platform === 'win32' ? 'powershell' : 'sh');
   assert.equal(normalized.resolved.reviewComplexity, 'simple_shell');

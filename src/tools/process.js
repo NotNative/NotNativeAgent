@@ -61,7 +61,7 @@ export function shellRunDefinition(paths, references = null, platform = process.
       }, required: ['script'], additionalProperties: false,
     },
     normalizeArgs: (args) => normalizeArgumentAliases(args, {
-      script: ['command'], cwd: ['working_directory', 'workingDirectory'],
+      script: ['command', 'content', 'code', 'command_text'], cwd: ['working_directory', 'workingDirectory'],
       stdin_ref: ['stdinRef'], accepted_exit_codes: ['acceptedExitCodes'], timeout_ms: ['timeout', 'timeoutMs'],
     }),
     validate: async (args) => validateShellRequest(paths, args, references),
