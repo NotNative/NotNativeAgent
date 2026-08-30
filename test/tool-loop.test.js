@@ -16,7 +16,9 @@ import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { denialResult, ToolGovernor, toolSettlementTerminal } from '../src/tools/governor.js';
 import { RecoverySupervisor, recoveryHint } from '../src/recovery.js';
 import { declaredSubscription } from './event-fixture.js';
-import { ToolLoop, toolContinuationHint, toolFailureFingerprint, toolProgressEvidence } from '../src/tools/loop.js';
+import {
+  ToolLoop, toolContinuationHint, toolFailureFingerprint, toolProgressEvidence, toolRequestFingerprint,
+} from '../src/tools/loop.js';
 import { selfDiagnosticsDefinitions } from '../src/tools/self-diagnostics.js';
 import { openRuntimeInspection } from '../src/tui/runtime-inspection.js';
 import {
@@ -164,6 +166,26 @@ test('failure fingerprints group only identical schema-contract repair attempts'
   assert.notEqual(first, toolFailureFingerprint([{ result: {
     status: 'failed', tool_name: 'work.task_update', reason_code: 'provider_rejected', content: 'offline',
   } }]));
+});
+
+test('ordinary executor failures group only the same canonical request and diagnostic', () => {
+  const failed = (args, content = 'tool execution failed') => ({
+    request: { toolName: 'web.browse', args },
+    result: { status: 'failed', tool_name: 'web.browse', reason_code: 'executor_failure', content },
+  });
+  const fill = failed({ action: 'fill', target: 'e2', value: '30' });
+  const fingerprint = toolFailureFingerprint([fill]);
+  assert.equal(fingerprint, toolFailureFingerprint([fill]));
+  assert.notEqual(fingerprint, toolFailureFingerprint([failed({ action: 'click', target: 'e2' })]));
+  assert.notEqual(fingerprint, toolFailureFingerprint([failed({ action: 'press', target: 'e2', key: 'ArrowRight' })]));
+  assert.notEqual(fingerprint, toolFailureFingerprint([failed(fill.request.args, 'target is not editable')]));
+});
+
+test('exact tool request fingerprints are canonical', () => {
+  assert.equal(
+    toolRequestFingerprint('web.browse', { target: 'e2', action: 'click' }),
+    toolRequestFingerprint('web.browse', { action: 'click', target: 'e2' }),
+  );
 });
 
 test('materially corrected plan repairs do not consume one exact-loop budget', () => {

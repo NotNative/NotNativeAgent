@@ -75,9 +75,22 @@ export function toolFailureFingerprint(items) {
     tool: item.result?.tool_name ?? item.request?.toolName ?? 'unknown',
     status: item.result?.status ?? 'unknown',
     reason: item.result?.reason_code ?? item.result?.reasonCode ?? 'unknown',
+    args: item.request?.args ?? item.call?.args ?? {},
+    error: item.result?.content ?? '',
   }));
   if (shapes.length === 0) return null;
   return createHash('sha256').update([...new Set(shapes)].sort().join('\n')).digest('hex');
+}
+
+export function toolRequestFingerprint(toolName, args = {}) {
+  return createHash('sha256').update(String(toolName ?? 'unknown')).update('\0').update(stableJson(args)).digest('hex');
+}
+
+export function toolRequestFingerprints(items) {
+  return [...new Set(items.map((item) => toolRequestFingerprint(
+    item.request?.toolName ?? item.result?.tool_name ?? item.call?.name ?? 'unknown',
+    item.request?.args ?? item.call?.args ?? {},
+  )))];
 }
 
 function stableJson(value) {

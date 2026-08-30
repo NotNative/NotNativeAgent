@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:fe06139101087d8aab212a8defef769e268ccfa28a207c4d3dcf9ce33f525c22",
+  "source_digest": "sha256:8b1a906554b6db2d97515287f5955b9e9f5936aa97f89a99cca096d7b94f179c",
   "counts": {
-    "modules": 332,
+    "modules": 333,
     "component_edges": 69
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "agentic-engine",
       "label": "Agentic Engine",
       "ownership": "Owns turns, steps, lifecycle, and orchestration.",
-      "module_count": 18
+      "module_count": 19
     },
     {
       "id": "governance-engine",
@@ -149,8 +149,8 @@
     {
       "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 28,
-      "module_count": 8
+      "import_count": 30,
+      "module_count": 9
     },
     {
       "from": "providers",
@@ -191,8 +191,8 @@
     {
       "from": "agentic-engine",
       "to": "tools",
-      "import_count": 10,
-      "module_count": 5
+      "import_count": 11,
+      "module_count": 6
     },
     {
       "from": "foundation",
@@ -868,6 +868,7 @@
         "src/engine/provider-recovery.js",
         "src/engine/records.js",
         "src/engine/runtime-helpers.js",
+        "src/engine/tool-recovery.js",
         "src/engine/workspace-transition.js",
         "src/event-factory.js",
         "src/events.js",
@@ -1073,6 +1074,15 @@
         "src/reliability/tool-call-deduplication.js",
         "src/tools/capability-continuity.js",
         "src/tools/catalog-context.js"
+      ]
+    },
+    {
+      "path": "src/engine/tool-recovery.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/engine/runtime-helpers.js",
+        "src/tools/loop.js"
       ]
     },
     {

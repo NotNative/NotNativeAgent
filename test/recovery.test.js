@@ -1101,7 +1101,7 @@ test('AC-PROD-03/AC-TURN-10 a completion claim cannot erase unresolved tool fail
   assert.equal(engine.transcript.some((item) => item.partial && item.content === 'The task is complete.'), true);
 });
 
-test('AC-PROD-03 unchanged malformed calls stop at the concise exact-loop boundary', async () => {
+test('AC-PROD-03 unchanged malformed calls trigger a call boundary without parking the turn', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-malformed-loop-'));
   let count = 0;
   const provider = { async *stream() {
@@ -1114,13 +1114,11 @@ test('AC-PROD-03 unchanged malformed calls stop at the concise exact-loop bounda
   } };
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
-  const operation = engine.submit({ request_id: 'malformed-loop', content: 'Do not loop.' }, 'operator');
-  await waitForEngineState(engine, 'awaiting_attention');
-  assert.equal(count, 3);
-  await engine.steer({ request_id: 'malformed-loop-direction', content: 'Do not issue that tool call again; report the blocker.' }, 'operator');
-  const result = await operation;
+  const result = await engine.submit({ request_id: 'malformed-loop', content: 'Do not loop.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(count, 4);
+  assert.equal(engine.state.transitions.some((item) => item.to === 'awaiting_attention'), false);
+  assert.equal(result.recovery.some((item) => item.action === 'block_exact_request'), true);
 });
 
 test('AC-FAIL-06 overflow compaction safely truncates an oversized historical message', async () => {
@@ -1190,13 +1188,13 @@ test('configured model-step ceiling terminates a still-progressing turn at the d
   assert.match(result.text, /explicit runtime boundary ended the turn/u);
 });
 
-test('AC-REV-09 unchanged successful observations stop at the concise exact-loop boundary', async () => {
+test('AC-REV-09 unchanged successful observations trigger a call boundary without parking the turn', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-churn-'));
   await writeFile(join(root, 'same.txt'), 'unchanged', 'utf8');
   let count = 0;
   const provider = { async *stream() {
     count += 1;
-    if (count > 4) {
+    if (count > 5) {
       yield { type: 'text', text: 'The repeated observation is unchanged; reporting it now.' };
       yield { type: 'terminal' };
       return;
@@ -1205,13 +1203,12 @@ test('AC-REV-09 unchanged successful observations stop at the concise exact-loop
   } };
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
-  const operation = engine.submit({ request_id: 'churn-turn', content: 'Read same.txt repeatedly' }, 'operator');
-  await waitForEngineState(engine, 'awaiting_attention');
-  assert.equal(count, 4);
-  await engine.steer({ request_id: 'churn-direction', content: 'Stop rereading and report the unchanged result.' }, 'operator');
-  const result = await operation;
+  const result = await engine.submit({ request_id: 'churn-turn', content: 'Read same.txt repeatedly' }, 'operator');
   assert.equal(result.outcome, 'completed');
-  assert.equal(count, 5);
+  assert.equal(count, 6);
+  assert.equal(engine.state.transitions.some((item) => item.to === 'awaiting_attention'), false);
+  assert.equal(result.recovery.some((item) => item.action === 'block_exact_request'), true);
+  assert.equal(engine.transcript.some((item) => item.reasonCode === 'tool_exact_request_blocked'), true);
 });
 
 test('explicit monitoring intent permits bounded repeated observations', async () => {

@@ -37,6 +37,7 @@ import { finalizeEngineTurn } from './engine/finalization.js';
 import { projectConversationIntent, resolveApprovedAssistantProposal } from './engine/intent-projection.js';
 import { awaitEngineAttention } from './engine/attention.js';
 import { changeEngineWorkspace, restoreEngineWorkspace } from './engine/workspace-transition.js';
+import { continueAfterExactToolBoundary } from './engine/tool-recovery.js';
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -337,7 +338,7 @@ export class SessionEngine {
     if (progress.action) await this.#recordRecovery(progress.action, active);
     if (behavioralAction) await this.#recordRecovery(behavioralAction, active);
     await this.#settleStep(active, 'continued');
-    if (!progress.continue) return { exhausted: true, category: 'tool_no_progress', count: progress.count };
+    if (!progress.continue) return continueAfterExactToolBoundary(this, active, items, progress, (action) => this.#recordRecovery(action, active));
     this.state.transition('preparing_continuation', { trigger: 'tool_results_committed', turnId: active.turnId });
     return { continue: true,
       hint: trustedHandoff?.hint ?? toolContinuationHint(items, this.reliability.hint(behavioralAction) ?? this.reliability.hint(progress.action)),

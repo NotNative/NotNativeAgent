@@ -5,7 +5,9 @@ import { contextPressurePolicy, pressureTier, projectActiveTurn } from './reliab
 import { ContinuationCompactor } from './reliability/continuation-compactor.js';
 import { ModelDialectRegistry } from './reliability/model-dialects.js';
 import { providerContextLimitDecision, reasoningOnlyDecision } from './reliability/provider-recovery.js';
-import { toolFailureFingerprint, toolProgressEvidence } from './reliability/tool-progress.js';
+import {
+  toolFailureFingerprint, toolProgressEvidence, toolRequestFingerprint, toolRequestFingerprints,
+} from './reliability/tool-progress.js';
 import { contextBudget, estimateContextTokens } from './reliability/context-budget.js';
 import { longHorizonCompressionTrigger } from './reliability/long-horizon-context.js';
 import { attachTaskCheckpoint, compactTranscript, createHandoffFact } from './reliability/compaction.js';
@@ -155,6 +157,8 @@ export class ReliabilityEngine {
   reasoningOnly(active) { return reasoningOnlyDecision(active); }
   toolProgressEvidence(items, steeringApplied = [], options = {}) { return toolProgressEvidence(items, steeringApplied, options); }
   toolFailureFingerprint(items) { return toolFailureFingerprint(items); }
+  toolRequestFingerprint(toolName, args) { return toolRequestFingerprint(toolName, args); }
+  toolRequestFingerprints(items) { return toolRequestFingerprints(items); }
   trustedToolHandoff(items) { return trustedToolHandoff(items); }
   hostEnvironment(platform) { return hostEnvironment(platform); }
   hostEnvironmentInstruction(platform) { return hostEnvironmentInstruction(platform); }

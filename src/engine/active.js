@@ -39,6 +39,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     lastCompactionSourceFingerprint: null, compactionFingerprints: new Set(),
     contextCheckpointFingerprints: new Set(),
     contextCompressionTrigger: null,
+    blockedToolRequests: new Map(),
   };
 }
 

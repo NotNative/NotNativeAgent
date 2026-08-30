@@ -8,6 +8,8 @@ import { capabilitySelectionQuery } from '../tools/capability-continuity.js';
 import { deduplicateToolCallBatch } from '../reliability/tool-call-deduplication.js';
 import { attachProviderRequestMetadata } from '../provider/request-metadata.js';
 
+const MAX_BLOCKED_TOOL_REQUESTS = 256;
+
 export function providerRequest(engine, route, context, options = {}) {
   validateProviderRequestInputs(engine, route, context);
   // Preserve the bounded authenticated task projection for provider-surface
@@ -219,6 +221,20 @@ export function observeToolState(active, items, definitionFor = () => null) {
     });
   }
   return Object.freeze({ mutated, readOnlyBatchStreak: active.readOnlyBatchStreak ?? 0 });
+}
+
+export function blockToolRequests(active, requestFingerprints) {
+  active.blockedToolRequests ??= new Map();
+  const revision = active.observableStateRevision ?? 0;
+  for (const fingerprint of requestFingerprints) {
+    if (typeof fingerprint !== 'string' || fingerprint.length === 0) continue;
+    active.blockedToolRequests.delete(fingerprint);
+    active.blockedToolRequests.set(fingerprint, revision);
+    while (active.blockedToolRequests.size > MAX_BLOCKED_TOOL_REQUESTS) {
+      active.blockedToolRequests.delete(active.blockedToolRequests.keys().next().value);
+    }
+  }
+  return revision;
 }
 
 export function discoveryCheckpoint(reliability, active, behavior) {

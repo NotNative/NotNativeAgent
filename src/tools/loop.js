@@ -13,6 +13,7 @@ import { buildReviewEvidence } from '../review-evidence.js';
 import { WebUrlProvenance } from '../web-url-provenance.js';
 import { missingFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
 import { toolLifecycleStatus, toolReviewOutcome, toolTelemetryOutcome } from './tool-result-contract.js';
+import { toolRequestFingerprint } from '../reliability/tool-progress.js';
 
 const SUCCESSFUL_TOOL_CONTINUATION = null;
 
@@ -121,6 +122,13 @@ export class ToolLoop {
         }
         if (call.invalid) throw new ContractError(call.invalid.code, call.invalid.message);
         const request = await this.tools.seal(call, this.toolContext(active));
+        const blockedAt = active.blockedToolRequests?.get(toolRequestFingerprint(request.toolName, request.args));
+        if (blockedAt === (active.observableStateRevision ?? 0)) {
+          throw new ContractError(
+            'tool_exact_request_blocked',
+            'This exact tool request already reached its no-effect retry boundary at the current observable state. Do not repeat it; change the action, target, arguments, tool, or verification method.',
+          );
+        }
         if (request.toolName === 'web.fetch') {
           item.urlProvenance = active.webUrlProvenance.classify(request.args.url);
           if (active.webUrlProvenance.hasFailed(request.args.url)) {
@@ -412,7 +420,9 @@ function missionToolDisposition(active, items) {
   return null;
 }
 
-export { toolFailureFingerprint, toolProgressEvidence } from '../reliability/tool-progress.js';
+export {
+  toolFailureFingerprint, toolProgressEvidence, toolRequestFingerprint, toolRequestFingerprints,
+} from '../reliability/tool-progress.js';
 
 export function toolContinuationHint(items, fallback = null) {
   const truncatedArguments = items.find((item) => item.result?.reason_code === 'tool_arguments_truncated');
