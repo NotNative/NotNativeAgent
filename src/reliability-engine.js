@@ -59,6 +59,10 @@ export class ReliabilityEngine {
   providerRetry(active, category, attempt, partial, suggestedDelayMs = null) {
     return active.recovery.providerRetry(category, attempt, partial, suggestedDelayMs);
   }
+  providerUnusableCompletion(active, detail = {}, options = {}) {
+    return active.recovery.providerUnusableCompletion(detail, options);
+  }
+  providerOutputObserved(active) { return active.recovery.providerOutputObserved(); }
   noProgress(active, category, evidence = null, detail = {}, options = {}) {
     return active.recovery.noProgress(category, evidence, detail, options);
   }

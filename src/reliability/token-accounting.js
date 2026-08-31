@@ -74,10 +74,30 @@ export function createProviderTokenReceipt(manifest, active, detail = {}) {
     request_fingerprint: manifest?.requestFingerprint ?? null,
     outcome: detail.outcome ?? 'failed', reason_code: detail.reasonCode ?? null,
     duration_ms: finiteNonnegative(detail.durationMs), dispatch: 'attempted',
+    event_shape: providerEventShape(detail.eventShape, detail.finishReason ?? active?.finishReason),
     envelope: manifest?.envelope ?? null, reported_usage: reported, accounting,
   };
   return Object.freeze({
     ...core, receipt_id: digest(core), recorded_at: new Date().toISOString(),
+  });
+}
+
+function providerEventShape(value, finishReason) {
+  if (!value || typeof value !== 'object') return null;
+  const count = (key) => Number.isSafeInteger(value[key]) && value[key] >= 0 ? value[key] : 0;
+  const fields = value.unrecognized_delta_fields instanceof Set
+    ? [...value.unrecognized_delta_fields]
+    : Array.isArray(value.unrecognized_delta_fields) ? value.unrecognized_delta_fields : [];
+  return Object.freeze({
+    transport_activity_events: count('transport_activity_events'), transport_bytes: count('transport_bytes'),
+    text_events: count('text_events'), text_bytes: count('text_bytes'),
+    reasoning_events: count('reasoning_events'), reasoning_bytes: count('reasoning_bytes'),
+    tool_fragment_events: count('tool_fragment_events'), tool_fragment_count: count('tool_fragment_count'),
+    usage_events: count('usage_events'), metadata_events: count('metadata_events'),
+    terminal_events: count('terminal_events'), unrecognized_delta_events: count('unrecognized_delta_events'),
+    unrecognized_delta_fields: Object.freeze(fields.slice(0, 16)),
+    finish_reason: typeof finishReason === 'string' ? finishReason.slice(0, 128) : null,
+    usage_present: count('usage_events') > 0,
   });
 }
 
@@ -281,4 +301,3 @@ function aggregateMeasurement(value) {
   if (value.measured === 0 && value.mixedAttempts === 0) return 'estimated';
   return 'mixed';
 }
-

@@ -38,8 +38,15 @@ The engine validates every adapter event independently of the provider parser. U
 malformed semantic events, data after a terminal marker, incomplete tool identities, and
 malformed tool arguments end the model step before any tool review or execution begins.
 
-Empty provider output remains bounded by the configured local retry limit. Uncertain
-task progress is supervisory evidence rather than a terminal condition: after the
+An otherwise successful provider response with no recognized text, reasoning, or tool call is
+a content-free provider completion. It is not task-progress evidence and does not require
+operator judgment. NNA first tries an eligible fallback route. If no fallback produces usable
+output, NNA uses a bounded exponential wait, checks trusted-local provider health, and retries
+with a changed recovery hint. A failed health check keeps the cancellable wait active. A
+successful check permits the next attempt. Authenticated steering wakes the wait and resets the
+episode. Content-free attempts do not consume the productive model-step ceiling.
+
+Uncertain task progress is supervisory evidence rather than a terminal condition: after the
 configured nudge/compaction ladder, recovery escalates through reassessment, a materially
 different strategy, and explicit recovery of the authenticated conversation objective.
 Completion promises, unfinished optional plans, and other ambiguous progress signals may
@@ -156,6 +163,8 @@ Preflight measures the complete provider envelope rather than transcript message
 serialized context, injected model guidance, the tool catalog and schemas, request
 configuration, and the reserved output budget all participate in admission. Every transport
 attempt then commits a content-free token receipt, including failed retries and route
-fallbacks. Reported provider usage is retained as measured evidence. When a provider omits
+fallbacks. The receipt records bounded event counts, byte counts, usage presence, finish reason,
+and unrecognized delta-field names. It never records unrecognized field values. Reported provider
+usage is retained as measured evidence. When a provider omits
 usage, the receipt records a conservative serialized-byte estimate as unreported usage so
 turn and conversation totals remain honest about their measurement coverage.

@@ -24,6 +24,7 @@ The Reliability Engine owns:
 - compaction projections, continuation artifacts, semantic continuation refinement, and
   handoff generation;
 - provider-context-limit, reasoning-only, and reasoning-truncated-before-action recovery decisions;
+- content-free provider-completion classification, route fallback, bounded backoff, and health-gated retry decisions;
 - bounded, turn-local continuation of provider-native `reasoning_content` across tool
   boundaries on the same provider profile and model;
 - model-dialect observations and reliability guidance;
@@ -83,7 +84,9 @@ aliases to Reliability Engine-owned components. They do not represent independen
 
 1. Reliability decisions are deterministic for the same facts except for an explicitly
    bounded retry delay.
-2. Recovery is finite, observable, checkpoint-aware, and never replays external effects.
+2. Each recovery action and wait is bounded, observable, checkpoint-aware, and never replays
+   external effects. Content-free provider completion episodes may repeat until usable output,
+   authenticated steering, cancellation, an explicit mission boundary, or an irrecoverable fault.
 3. New authenticated input or changed external evidence may settle stale recovery
    episodes; narration alone may not manufacture authority.
 4. Context projection never mutates or replaces the durable session ledger.
@@ -138,6 +141,11 @@ aliases to Reliability Engine-owned components. They do not represent independen
 20. A recovery hint remains in the leading authoritative system block. This deliberately changes
     the provider prompt prefix and may reduce KV-cache reuse during degraded operation; cache reuse
     is an optimization and cannot weaken the authority or ordering of recovery guidance.
+21. A terminal provider response without recognized text, reasoning, or tool calls does not park or
+    end the turn. Eligible route fallback runs first. Later retries use a changed recovery hint and
+    bounded exponential delay. Trusted-local health failure extends the cancellable wait; health
+    success permits retry. These attempts do not consume the productive model-step ceiling. Durable
+    receipts retain only bounded, content-free event-shape evidence and unknown field names.
 
 ## Consequences
 

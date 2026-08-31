@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { settleEngineStep } from './lifecycle-settlement.js';
+import { assertTurnActive } from '../turn-cancellation.js';
 
 const RECOVERING_STATE = 'recovering';
 const PREPARING_CONTINUATION_STATE = 'preparing_continuation';
@@ -40,5 +41,30 @@ export async function recoverReasoningOnly(engine, active) {
   return { continue: true, hint: engine.reliability.hint(plan.action) };
 }
 
-export { contextPressureScale } from '../reliability/provider-recovery.js';
+export async function recoverContentFreeCompletion(engine, active, operations) {
+  await operations.settleAttempt('empty');
+  engine.state.transition(RECOVERING_STATE, {
+    trigger: 'provider_unusable_completion', turnId: active.turnId,
+  });
+  const receipt = active.tokenReceipts.at(-1);
+  const routeIdentity = `${active.providerResource}\0${active.modelName}`;
+  const plan = engine.reliability.providerUnusableCompletion(active, {
+    event_shape: receipt?.event_shape ?? null,
+    reported_output_tokens: receipt?.reported_usage?.output_tokens ?? null,
+  }, { routeIdentity });
+  if (plan.action) await operations.recordRecovery(plan.action);
+  await operations.settleStep(RECOVERING_STATE);
+  let waitOutcome = 'steering';
+  if (engine.steering.length === 0) {
+    const provider = active.providerRoute ? engine.router.provider(active.providerRoute) : null;
+    waitOutcome = await engine.providerRunner.waitForProviderRecovery(provider, active, plan.delayMs);
+  }
+  assertTurnActive(active);
+  if (waitOutcome === 'steering' || engine.steering.length > 0) await operations.consumeSteering();
+  engine.state.transition(PREPARING_CONTINUATION_STATE, {
+    trigger: 'provider_completion_recovery', turnId: active.turnId,
+  });
+  return { continue: true, hint: engine.reliability.hint(plan.action), countModelStep: false };
+}
 
+export { contextPressureScale } from '../reliability/provider-recovery.js';

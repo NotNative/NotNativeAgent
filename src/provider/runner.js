@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
 import { FairScheduler } from './fair-scheduler.js';
+import {
+  fallbackAfterContentFreeCompletion, startProviderHealthMonitor, waitForProviderRecovery,
+} from './completion-recovery.js';
+import {
+  createProviderEventShape, isValidUnrecognizedDeltaEvent, observeProviderEventShape,
+} from './event-shape.js';
 
 const ITERATOR_CLOSE_TIMEOUT_MS = 25;
 const LOCAL_HEALTH_PROBE_INTERVAL_MS = 60_000;
@@ -85,7 +91,7 @@ export class ProviderRunner {
         try { await this.#recordAttemptReceipt(manifest, active, {
           outcome: attemptOutcome, reasonCode: attemptReason, attemptId,
           usage: active.attemptUsage, outputBytes: active.attemptOutputBytes,
-          durationMs: elapsedMs(requestStarted),
+          durationMs: elapsedMs(requestStarted), eventShape: active.attemptEventShape,
         }); } finally { release(); }
       }
       await cancellableDelay(retryDelay, active.controller.signal);
@@ -156,6 +162,10 @@ export class ProviderRunner {
         active.attemptRequestManifest = manifest;
         await this.run(router.provider(route), request,
           effectiveProviderDeadlines(deadlines, route), active, manifest, route);
+        if (await fallbackAfterContentFreeCompletion({
+          active, candidates: bounded, index, route, state: this.state,
+          settleAttempt: this.settleAttempt, recordRecovery: this.recordRecovery,
+        })) continue;
         return route;
       } catch (error) {
         lastError = error;
@@ -175,6 +185,12 @@ export class ProviderRunner {
       }
     }
     throw lastError ?? new ContractError('route_unavailable', 'no route candidate was attempted');
+  }
+
+  async waitForProviderRecovery(provider, active, delayMs) {
+    return waitForProviderRecovery(provider, active, {
+      delayMs, telemetry: this.telemetry, healthProbeTimeoutMs: this.healthProbeTimeoutMs,
+    });
   }
 
   async #invoke(provider, request, deadlines, active) {
@@ -252,9 +268,13 @@ export class ProviderRunner {
   }
 
   async #consumeEvent(item, active) {
-    if (item.type === 'transport_activity') active.attemptTransportBytes += item.bytes;
+    observeProviderEventShape(active.attemptEventShape, item);
+    if (item.type === 'transport_activity') {
+      active.attemptTransportBytes += item.bytes;
+    }
     else if (item.type === 'text') {
-      active.attemptOutputBytes += Buffer.byteLength(item.text, 'utf8');
+      const bytes = Buffer.byteLength(item.text, 'utf8');
+      active.attemptOutputBytes += bytes;
       await this.acceptText(item.text, active);
     } else if (item.type === 'reasoning') {
       if (active.stepReasoningBytes === 0) await this.status?.('reasoning', active);
@@ -282,7 +302,11 @@ export class ProviderRunner {
     } else if (item.type === 'usage') {
       active.attemptUsage = validatedUsage(item.usage);
       return active.attemptUsage;
-    } else if (item.type === 'metadata') active.finishReason = item.finishReason;
+    } else if (item.type === 'metadata') {
+      active.finishReason = item.finishReason;
+    } else if (item.type === 'unrecognized_delta') {
+      // Event-shape evidence is recorded above. Unrecognized field values stay discarded.
+    }
     else if (item.type === 'terminal') {
       active.providerTerminal = true;
       active.finishReason = item.finishReason ?? active.finishReason;
@@ -316,10 +340,13 @@ function initializeAttempt(active, outputLimitTokens = null) {
     ? outputLimitTokens : null;
   active.attemptOutputBytes = 0;
   active.attemptTransportBytes = 0;
+  active.attemptEventShape = createProviderEventShape();
   active.attemptReasoningText = '';
   active.attemptReasoningReplayable = false;
   active.attemptReasoningOverflow = false;
   active.providerDispatched = false;
+  active.providerTerminal = false;
+  active.finishReason = null;
   active.lastProviderActivityAt = Date.now();
   active.lastProviderHealthAt = null;
 }
@@ -364,6 +391,7 @@ function assertProviderEvent(item, terminalSeen) {
   if (item.type === 'tool_fragment' && Array.isArray(item.fragments)) return;
   if (item.type === 'usage' && item.usage && typeof item.usage === 'object') return;
   if (item.type === 'metadata' && typeof item.finishReason === 'string') return;
+  if (isValidUnrecognizedDeltaEvent(item)) return;
   if (item.type === 'terminal') return;
   throw new ContractError('provider_event_invalid', 'provider emitted an unsupported event');
 }
@@ -425,68 +453,15 @@ export function effectiveProviderDeadlines(deadlines, route) {
 async function cancellableDelay(milliseconds, signal) {
   if (signal.aborted) throw new ContractError('provider_cancelled', 'provider was cancelled');
   await new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, milliseconds);
-    signal.addEventListener('abort', () => {
+    const completed = () => {
+      signal.removeEventListener('abort', cancelled);
+      resolve();
+    };
+    const cancelled = () => {
       clearTimeout(timer);
       reject(new ContractError('provider_cancelled', 'provider was cancelled'));
-    }, { once: true });
+    };
+    const timer = setTimeout(completed, milliseconds);
+    signal.addEventListener('abort', cancelled, { once: true });
   });
-}
-
-function startProviderHealthMonitor({ provider, active, signal, telemetry, intervalMs, timeoutMs }) {
-  if (provider?.profile?.trustZone === 'public_network' || typeof provider?.health !== 'function'
-    || !Number.isFinite(intervalMs) || intervalMs <= 0 || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    return { stop: async () => undefined };
-  }
-  let stopped = false;
-  let timer = null;
-  let pending = null;
-  let probeController = null;
-  let sequence = 0;
-  const schedule = (delayMs = intervalMs) => {
-    if (stopped) return;
-    timer = setTimeout(() => { pending = run(); }, delayMs);
-    timer.unref?.();
-  };
-  const run = async () => {
-    if (stopped || signal.aborted) return;
-    const silenceMs = Date.now() - (active.lastProviderActivityAt ?? Date.now());
-    if (silenceMs < intervalMs) { schedule(Math.max(1, intervalMs - silenceMs)); return; }
-    sequence += 1;
-    const controller = new AbortController();
-    probeController = controller;
-    const cancel = () => controller.abort();
-    signal.addEventListener('abort', cancel, { once: true });
-    const deadline = setTimeout(() => controller.abort(), timeoutMs);
-    deadline.unref?.();
-    const spanId = `provider-health:${active.attemptId}:${sequence}`;
-    telemetry?.record('provider.health', 'started', {
-      model: active.modelName, provider_profile: active.providerResource, silence_ms: silenceMs,
-    }, providerCorrelation(active, spanId));
-    try {
-      await provider.health(controller.signal);
-      active.lastProviderHealthAt = Date.now();
-      telemetry?.record('provider.health', 'succeeded', {
-        model: active.modelName, provider_profile: active.providerResource, silence_ms: silenceMs,
-      }, { ...providerCorrelation(active, spanId), outcome: 'completed' });
-    } catch (error) {
-      if (!signal.aborted && !stopped) telemetry?.record('provider.health', 'failed', {
-        model: active.modelName, provider_profile: active.providerResource, silence_ms: silenceMs,
-        failure: { code: error?.code ?? 'provider_health_unavailable', retryable: true },
-      }, { ...providerCorrelation(active, spanId), outcome: 'failed', reasonCode: error?.code });
-    } finally {
-      clearTimeout(deadline);
-      signal.removeEventListener('abort', cancel);
-      probeController = null;
-      pending = null;
-      schedule();
-    }
-  };
-  schedule();
-  return { stop: async () => {
-    stopped = true;
-    clearTimeout(timer);
-    probeController?.abort();
-    await pending?.catch(() => undefined);
-  } };
 }

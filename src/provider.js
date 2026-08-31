@@ -4,6 +4,7 @@ import { providerReasoningControls } from './provider/reasoning.js';
 import { providerRetryAfterMs } from './reliability/retry-after.js';
 import { localProviderFetch } from './provider/local-http-transport.js';
 import { CredentialResolver, normalizeCredentialBinding } from './credential-bindings.js';
+import { sanitizeProviderUsage, unrecognizedDeltaEvent } from './provider/event-shape.js';
 const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
 const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
 const MAX_PROVIDER_STREAM_BYTES = 268_435_456;
@@ -381,24 +382,14 @@ function decodeChunk(value) {
     if (Array.isArray(delta.tool_calls) && delta.tool_calls.length > 0) {
       items.push({ type: 'tool_fragment', fragments: delta.tool_calls });
     }
+    const unrecognized = unrecognizedDeltaEvent(delta);
+    if (unrecognized) items.push(unrecognized);
     if (choice.finish_reason !== null && choice.finish_reason !== undefined) {
       items.push({ type: 'metadata', finishReason: choice.finish_reason });
     }
   }
-  if (value.usage) items.push({ type: 'usage', usage: sanitizeUsage(value.usage) });
+  if (value.usage) items.push({ type: 'usage', usage: sanitizeProviderUsage(value.usage) });
   return items;
-}
-
-function sanitizeUsage(usage) {
-  const result = {};
-  for (const key of ['prompt_tokens', 'completion_tokens', 'total_tokens']) {
-    if (usage[key] === undefined) continue;
-    if (!Number.isInteger(usage[key]) || usage[key] < 0) {
-      throw new ContractError('provider_usage_invalid', 'provider emitted invalid usage metadata');
-    }
-    result[key] = usage[key];
-  }
-  return result;
 }
 
 function providerError(status, message, retryAfterMs = null) {

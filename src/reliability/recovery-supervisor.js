@@ -16,6 +16,8 @@ const CHECKPOINT_SEPARATOR_RESERVE = 32;
 const MIN_EXACT_NO_EFFECT_LIMIT = 3;
 const MIN_MONITORING_NO_EFFECT_LIMIT = 12;
 const MIN_DURABLE_WORK_CONTINUATION_LIMIT = 6;
+const EMPTY_COMPLETION_BASE_DELAY_MS = 250;
+const EMPTY_COMPLETION_MAX_DELAY_MS = 30_000;
 const BOUNDED_COMPLETION_CATEGORIES = new Set([
   'missing_tool_call', 'task_context_lost', 'unresolved_tool_failure',
   'visual_evidence_conflict', 'future_action_pledge',
@@ -77,6 +79,33 @@ export class RecoverySupervisor {
     return this.#record('reasoning_truncated_before_action', 'retry_reasoning_to_action', 1, {
       target: 'current_route', partial: false,
     });
+  }
+
+  providerUnusableCompletion(detail = {}, options = {}) {
+    const routeFingerprint = options.routeIdentity ? digest(options.routeIdentity) : null;
+    const episode = episodeKey('provider_unusable_completion', routeFingerprint);
+    const count = (this.#episodes.get(episode) ?? 0) + 1;
+    if (!this.#episodes.has(episode) && this.#episodes.size >= MAX_EPISODES) {
+      this.#episodes.delete(this.#episodes.keys().next().value);
+    }
+    this.#episodes.set(episode, count);
+    const delayMs = emptyCompletionDelay(count);
+    const action = this.#record('provider_unusable_completion', 'retry_provider_completion', count, {
+      ...detail,
+      delay_ms: delayMs, target: 'current_route', partial: false,
+      ...(routeFingerprint ? { route_fingerprint: routeFingerprint } : {}),
+    });
+    // Why: a content-free provider completion says nothing about task intent.
+    // Keep the turn cancellable and observable instead of asking the operator to repair provider output.
+    return Object.freeze({ continue: true, progress: false, count, delayMs, action });
+  }
+
+  providerOutputObserved() {
+    for (const key of this.#episodes.keys()) {
+      if (key === 'provider_unusable_completion' || key.startsWith('provider_unusable_completion\0')) {
+        this.#episodes.delete(key);
+      }
+    }
   }
 
   noProgress(category, evidence = null, detail = {}, options = {}) {
@@ -287,12 +316,12 @@ export function recoveryHint(action) {
     compact_context_limit: 'The provider rejected the previous context size. Continue from the preserved task using the reduced context; do not reconstruct omitted transcript.',
     retry_without_reasoning: 'The prior attempt produced hidden reasoning but no usable response. Continue the same task directly with reasoning disabled and produce visible text or a tool call.',
     retry_reasoning_to_action: 'The prior completion reached its output ceiling during reasoning before it could emit an action. Continue the same task with reasoning enabled, reason more concisely, and proceed to visible text or a tool call.',
+    retry_provider_completion: `Provider recovery attempt ${action.count}: the prior response ended without recognized text, reasoning, or a tool call. Continue the same operator request and emit one visible response or one valid tool call. Do not repeat a content-free response.`,
   };
   return guidance[action.action] ?? null;
 }
 
 function terminalNoProgressLimit(category, localLimit, exactNoEffectLimit, monitoring = false) {
-  if (category === 'empty_output') return localLimit;
   if (category === 'tool_no_progress') return monitoring
     ? Math.max(MIN_MONITORING_NO_EFFECT_LIMIT, exactNoEffectLimit * 4) : exactNoEffectLimit;
   if (category === 'unfinished_conversation_work') {
@@ -312,6 +341,11 @@ function recoveryAction(count, localLimit, ladder, allowCompaction) {
 
 function boundedDelay(attempt) {
   return Math.min(1000, 50 * (2 ** attempt) + randomInt(0, 26));
+}
+
+function emptyCompletionDelay(count) {
+  const exponent = Math.min(16, Math.max(0, count - 1));
+  return Math.min(EMPTY_COMPLETION_MAX_DELAY_MS, EMPTY_COMPLETION_BASE_DELAY_MS * (2 ** exponent));
 }
 
 function positiveInteger(value) {

@@ -224,7 +224,7 @@ test('provider transport exposes raw SSE chunk activity independently of semanti
   const provider = new OpenAICompatibleProvider({
     endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'slow-model', capabilities: {},
   }, { maxOutputBytes: 4096 }, { fetch: async () => new Response(
-    'data: {"choices":[{"delta":{"role":"assistant"},"finish_reason":null}]}\n\n'
+    'data: {"choices":[{"delta":{"role":"assistant","analysis":"opaque"},"finish_reason":null}]}\n\n'
       + 'data: {"choices":[{"delta":{"content":"ready"},"finish_reason":"stop"}]}\n\n'
       + 'data: [DONE]\n\n',
     { status: 200, headers: { 'content-type': 'text/event-stream' } },
@@ -234,6 +234,7 @@ test('provider transport exposes raw SSE chunk activity independently of semanti
     items.push(item);
   }
   assert.ok(items.some((item) => item.type === 'transport_activity' && item.bytes > 0));
+  assert.deepEqual(items.find((item) => item.type === 'unrecognized_delta')?.fields, ['analysis']);
   assert.equal(items.filter((item) => item.type === 'text').map((item) => item.text).join(''), 'ready');
   assert.equal(items.filter((item) => item.type === 'terminal').length, 1);
 });

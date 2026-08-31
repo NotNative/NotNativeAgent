@@ -21,10 +21,10 @@ import { boundedShutdown, performEngineShutdown } from './shutdown-boundary.js';
 import {
   completeProviderToolCalls, deduplicateProviderToolCalls, executionContext, modelStepRequestOptions, observeToolContracts,
   advanceWorkCadence, discoveryCheckpoint, prepareTrustedToolHandoff, providerRequest,
-  groundCapabilityPhase, observeToolState, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext, workConvergenceCheckpoint,
+  groundCapabilityPhase, observeToolState, primaryProviderDeadlines, resetReasoningRecovery, resetStep, setInitialCapabilityPhase, suppressPostToolReasoningReplay, toolContext, workConvergenceCheckpoint,
 } from './engine/runtime-helpers.js';
 import { clearEngineConversation, compactEngineConversation, handoffEngineConversation } from './engine/context-controls.js';
-import { recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
+import { recoverContentFreeCompletion, recoverProviderContextLimit, recoverReasoningOnly } from './engine/provider-recovery.js';
 import { settleEngineAttempt, settleEngineStep } from './engine/lifecycle-settlement.js';
 import { acceptEngineText, emitEngineStatus } from './engine/output.js';
 import { assertTurnActive } from './turn-cancellation.js';
@@ -189,6 +189,7 @@ export class SessionEngine {
       turn_id: this.active.turnId, session_id: this.sessionId,
     });
     this.active.attentionWaiter?.resolve('steering');
+    this.active.providerRecoveryWaiter?.resolve('steering');
     return { accepted: true, steering_id: record.id };
   }
   async shutdown(command) {
@@ -256,8 +257,10 @@ export class SessionEngine {
       applyPendingConfiguration(this, active);
       let context = await this.#prepareContext(prior, content, active);
       const maxModelSteps = this.config.limits.maxModelSteps;
-      for (let modelStepIndex = 0; modelStepIndex < maxModelSteps; modelStepIndex += 1) {
+      let modelStepIndex = 0;
+      while (modelStepIndex < maxModelSteps) {
         const result = await this.#runModelStep(context, active);
+        if (result.countModelStep !== false) modelStepIndex += 1;
         if (result.exhausted) {
           const hint = await awaitEngineAttention(this, active, result, {
             persist: (...args) => this.#persist(...args), consumeSteering: (turn) => this.#consumeSteering(turn),
@@ -296,13 +299,8 @@ export class SessionEngine {
     active.sessionId = this.sessionId;
     await emitEngineStatus(this, 'waiting_provider', active);
     try {
-      await this.providerRunner.runRoutes(this.router, routes, (route) => providerRequest(this, route, context,
-        modelStepRequestOptions(reasoningMode, active)), {
-        firstTokenMs: this.config.limits.firstTokenMs,
-        firstTokenExplicit: this.config.limits.firstTokenOverrideMs !== null,
-        idleMs: this.config.limits.idleMs,
-        idleExplicit: this.config.limits.idleOverrideMs !== null,
-      }, active, context);
+      active.providerRoute = await this.providerRunner.runRoutes(this.router, routes, (route) => providerRequest(this, route, context,
+        modelStepRequestOptions(reasoningMode, active)), primaryProviderDeadlines(this.config), active, context);
     } catch (error) {
       if (error.code !== 'provider_context_limit') throw error;
       return recoverProviderContextLimit(this, error, active, {
@@ -312,7 +310,10 @@ export class SessionEngine {
     }
     assertTurnActive(active);
     const calls = await deduplicateProviderToolCalls(completeProviderToolCalls(active), active, (...args) => this.#persist(...args));
-    if (active.stepText.length > 0 || calls.length > 0) resetReasoningRecovery(active);
+    if (active.stepText.length > 0 || active.stepReasoningBytes > 0 || calls.length > 0) {
+      resetReasoningRecovery(active);
+      this.reliability.providerOutputObserved(active);
+    }
     if (calls.length === 0) return this.#afterTextStep(active);
     await this.#settleAttempt(active, 'completed'); groundCapabilityPhase(active); this.reliability.captureReasoningContinuation(active, calls); suppressPostToolReasoningReplay(active);
     if (active.stepText.length > 0) {
@@ -347,19 +348,12 @@ export class SessionEngine {
   async #afterTextStep(active) {
     const retry = await recoverReasoningOnly(this, active); if (retry) return retry;
     if (active.stepText.length === 0) {
-      await this.#settleAttempt(active, 'empty');
-      this.state.transition('recovering', { trigger: 'empty_output', turnId: active.turnId });
-      const plan = this.reliability.noProgress(
-        active, 'empty_output', null, {}, { allowCompaction: active.contextPressureTier === 'compact' },
-      );
-      if (plan.action) await this.#recordRecovery(plan.action, active);
-      await this.#settleStep(active, plan.continue ? 'recovering' : 'incomplete');
-      if (!plan.continue) return { exhausted: true, category: 'empty_output', count: plan.count };
-      this.state.transition('preparing_continuation', { trigger: 'empty_output_recovery', turnId: active.turnId });
-      return {
-        continue: true, hint: this.reliability.hint(plan.action),
-        forceCompact: plan.action?.action === 'compact',
-      };
+      return recoverContentFreeCompletion(this, active, {
+        settleAttempt: (outcome) => this.#settleAttempt(active, outcome),
+        settleStep: (outcome) => this.#settleStep(active, outcome),
+        recordRecovery: (action) => this.#recordRecovery(action, active),
+        consumeSteering: () => this.#consumeSteering(active),
+      });
     }
     if (this.steering.length > 0) {
       await this.#settleAttempt(active, 'completed');

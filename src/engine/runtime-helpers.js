@@ -297,6 +297,15 @@ export function modelStepRequestOptions(reasoningMode, active) {
   };
 }
 
+export function primaryProviderDeadlines(config) {
+  return {
+    firstTokenMs: config.limits.firstTokenMs,
+    firstTokenExplicit: config.limits.firstTokenOverrideMs !== null,
+    idleMs: config.limits.idleMs,
+    idleExplicit: config.limits.idleOverrideMs !== null,
+  };
+}
+
 export function completeProviderToolCalls(active) {
   return active.toolAssembler.complete(active.finishReason, {
     usage: active.attemptUsage, outputLimitTokens: active.attemptOutputLimitTokens,

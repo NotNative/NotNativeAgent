@@ -10,7 +10,7 @@ import { ContractError } from '../src/ids.js';
 import { JournalStore } from '../src/store.js';
 import { LifecycleRegistry, StateAuthority } from '../src/lifecycle.js';
 import { ProviderRunner } from '../src/provider/runner.js';
-import { RecoverySupervisor } from '../src/recovery.js';
+import { RecoverySupervisor, recoveryHint } from '../src/recovery.js';
 import { ToolCallAssembler } from '../src/tools/calls.js';
 import { contextPressureScale } from '../src/engine/provider-recovery.js';
 import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
@@ -89,6 +89,19 @@ test('low-pressure no-progress recovery does not substitute compaction for corre
   const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'compact'] });
   assert.equal(recovery.noProgress('schema', null, {}, { allowCompaction: false }).action.action, 'nudge');
   assert.equal(recovery.noProgress('schema', null, {}, { allowCompaction: false }).action.action, 'nudge');
+});
+
+test('content-free provider completions remain non-terminal with bounded distinct recovery', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  const plans = Array.from({ length: 12 }, () => recovery.providerUnusableCompletion(
+    { event_shape: { terminal_events: 1 } }, { routeIdentity: 'fixture\0model' },
+  ));
+  assert.equal(plans.every((plan) => plan.continue && !plan.exhausted), true);
+  assert.deepEqual(plans.slice(0, 4).map((plan) => plan.delayMs), [250, 500, 1000, 2000]);
+  assert.equal(plans.at(-1).delayMs, 30_000);
+  assert.equal(new Set(plans.map((plan) => recoveryHint(plan.action))).size, plans.length);
+  recovery.providerOutputObserved();
+  assert.equal(recovery.providerUnusableCompletion({}, { routeIdentity: 'fixture\0model' }).count, 1);
 });
 
 test('tool recovery budgets are isolated by stable failure fingerprint', () => {
@@ -458,7 +471,7 @@ test('reasoning truncated at the output ceiling gets one reasoning-preserving ac
   assert.deepEqual(result.recovery.map((item) => item.action), ['retry_reasoning_to_action']);
 });
 
-test('reasoning checkpoint retry occurs once before empty-output recovery parks for attention', async () => {
+test('reasoning checkpoint retry occurs once before non-terminal empty-completion recovery', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reasoning-empty-bounded-'));
   const modes = [];
   const provider = { async *stream(request) {
@@ -469,17 +482,14 @@ test('reasoning checkpoint retry occurs once before empty-output recovery parks 
   } };
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
-  const operation = engine.submit({ request_id: 'reasoning-empty-bounded', content: 'Answer visibly.' }, 'operator');
-  await waitForEngineState(engine, 'awaiting_attention');
-  const attentionTransition = engine.state.transitions.find((item) => item.to === 'awaiting_attention');
-  assert.ok(attentionTransition);
-  assert.ok(['processing_tool_results', 'evaluating_completion', 'recovering'].includes(attentionTransition.from));
-  assert.deepEqual(modes, [undefined, undefined, undefined, undefined]);
-  await engine.steer({ request_id: 'reasoning-empty-direction', content: 'Answer directly now.' }, 'operator');
-  const result = await operation;
+  const result = await engine.submit({ request_id: 'reasoning-empty-bounded', content: 'Answer visibly.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.deepEqual(modes, [undefined, undefined, undefined, undefined, undefined]);
-  assert.deepEqual(result.recovery.map((item) => item.action), ['retry_reasoning_to_action', 'nudge', 'nudge']);
+  assert.equal(engine.state.transitions.some((item) => item.to === 'awaiting_attention'), false);
+  assert.deepEqual(result.recovery.map((item) => item.action), [
+    'retry_reasoning_to_action', 'retry_provider_completion',
+    'retry_provider_completion', 'retry_provider_completion',
+  ]);
 });
 
 test('AC-FAIL-06 provider size rejection compacts once and never resends unchanged context', async () => {
@@ -874,12 +884,15 @@ test('provider cache observation is scoped to the successful transport attempt',
   assert.deepEqual(active.usage, { prompt_cache_hit_tokens: 1024 });
 });
 
-test('AC-PROD-03/AC-ENGP-02/AC-FAIL-01/AC-FAIL-03/AC-FAIL-11/AC-FAIL-12 stalled output has bounded deterministic recovery', async () => {
+test('content-free completions wait, change the recovery request, and preserve the turn', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-empty-'));
   let count = 0;
-  const provider = { async *stream() {
+  let healthChecks = 0;
+  const requests = [];
+  const provider = { profile: { trustZone: 'loopback' }, async health() { healthChecks += 1; return true; }, async *stream(request) {
+    requests.push(request);
     count += 1;
-    if (count > 3) yield { type: 'text', text: 'Completed after operator guidance.' };
+    if (count > 3) yield { type: 'text', text: 'Completed after provider recovery.' };
     yield { type: 'terminal' };
   } };
   const output = [];
@@ -888,27 +901,75 @@ test('AC-PROD-03/AC-ENGP-02/AC-FAIL-01/AC-FAIL-03/AC-FAIL-11/AC-FAIL-12 stalled 
     output: async (record) => output.push(record),
   });
   await engine.initialize();
-  const operation = engine.submit({ request_id: 'empty-turn', content: 'Produce output' }, 'operator');
-  await waitForEngineState(engine, 'awaiting_attention');
-  assert.equal(count, 3);
-  assert.equal(output.some((record) => record.type === 'turn_result'), false);
-  const attention = output.find((record) => record.delta_type === 'recovery_attention');
-  assert.match(attention.text, /model returned no usable continuation after 3 attempts/u);
-  assert.match(attention.text, /turn remains active/u);
-  await engine.steer({ request_id: 'empty-turn-direction', content: 'Produce the answer directly.' }, 'operator');
-  const result = await operation;
+  const result = await engine.submit({ request_id: 'empty-turn', content: 'Produce output' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(count, 4);
-  assert.equal(result.recovery.length, 2);
+  assert.equal(healthChecks, 3);
+  assert.equal(result.recovery.length, 3);
+  assert.equal(output.some((record) => record.delta_type === 'recovery_attention'), false);
+  const systemMessages = requests.slice(1).map((request) => request.messages[0].content);
+  assert.equal(new Set(systemMessages).size, systemMessages.length);
+  assert.match(systemMessages[0], /Provider recovery attempt 1/u);
 });
 
-test('operator cancellation wakes a parked recovery turn immediately', async () => {
+test('content-free completion uses an eligible fallback route before waiting', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-empty-route-fallback-'));
+  const calls = [];
+  const providers = {
+    primary: { async *stream() { calls.push('primary'); yield { type: 'terminal', finishReason: 'stop' }; } },
+    fallback: { async *stream() {
+      calls.push('fallback');
+      yield { type: 'text', text: 'Completed on the fallback route.' };
+      yield { type: 'terminal', finishReason: 'stop' };
+    } },
+  };
+  const manifest = resolveManifest({
+    persistence: 'ephemeral', workspace_root: root,
+    providers: [
+      { id: 'primary', endpoint: 'http://127.0.0.1:9001/v1', model: 'primary-model', trust_zone: 'loopback', capabilities: { tools: true } },
+      { id: 'fallback', endpoint: 'http://127.0.0.1:9002/v1', model: 'fallback-model', trust_zone: 'loopback', capabilities: { tools: true } },
+    ],
+    routes: {
+      primary: { provider_id: 'primary', fallbacks: ['subagent'], budget: 2 },
+      subagent: { provider_id: 'fallback' },
+    },
+  });
+  const engine = new SessionEngine({ config: manifest, providerFactory: (profile) => providers[profile.id] });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'empty-fallback-turn', content: 'Complete the request.' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.deepEqual(calls, ['primary', 'fallback']);
+  assert.equal(engine.state.transitions.some((item) => item.trigger === 'empty_route_fallback'), true);
+});
+
+test('authenticated steering wakes an empty-completion wait and resets its episode', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-empty-steering-'));
+  const requests = [];
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length > 1) yield { type: 'text', text: 'Continued with the new direction.' };
+    yield { type: 'terminal', finishReason: 'stop' };
+  } };
+  const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
+  await engine.initialize();
+  const operation = engine.submit({ request_id: 'empty-steering-turn', content: 'Start the request.' }, 'operator');
+  await waitForEngineState(engine, 'recovering');
+  await engine.steer({ request_id: 'empty-steering', content: 'Use this additional constraint.' }, 'operator');
+  const result = await operation;
+  assert.equal(result.outcome, 'completed');
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].messages.some((message) => message.role === 'user'
+    && message.content === 'Use this additional constraint.'), true);
+  assert.equal(result.recovery.filter((item) => item.action === 'retry_provider_completion').length, 1);
+});
+
+test('operator cancellation wakes an empty-completion recovery wait immediately', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-attention-cancel-'));
   const provider = { async *stream() { yield { type: 'terminal' }; } };
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
   await engine.initialize();
   const operation = engine.submit({ request_id: 'attention-cancel-turn', content: 'Produce output' }, 'operator');
-  await waitForEngineState(engine, 'awaiting_attention');
+  await waitForEngineState(engine, 'recovering');
   await engine.cancel({ request_id: 'attention-cancel' });
   const result = await operation;
   assert.equal(result.outcome, 'cancelled');
@@ -916,7 +977,7 @@ test('operator cancellation wakes a parked recovery turn immediately', async () 
   assert.equal(engine.active, null);
 });
 
-test('empty continuation exhaustion preserves a useful partial handoff', async () => {
+test('empty continuation recovery preserves a useful committed checkpoint', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-empty-partial-'));
   await writeFile(join(root, 'target.txt'), 'verified evidence', 'utf8');
   let count = 0;
@@ -937,19 +998,12 @@ test('empty continuation exhaustion preserves a useful partial handoff', async (
     output: async (record) => output.push(record),
   });
   await engine.initialize();
-  const operation = engine.submit({ request_id: 'empty-partial-turn', content: 'Read and explain target.txt.' }, 'operator');
-  await waitForEngineState(engine, 'awaiting_attention');
-  assert.equal(count, 4);
-  const explanation = output.find((record) => record.delta_type === 'recovery_attention');
-  assert.match(explanation.text, /model returned no usable continuation after 3 attempts/u);
-  assert.match(explanation.text, /Completed tool effects and diagnostics remain preserved/u);
-  assert.match(explanation.text, /Verified checkpoint: the requested target was read successfully/u);
-  assert.equal(output.some((record) => record.type === 'turn_result'), false);
-  await engine.steer({ request_id: 'empty-partial-direction', content: 'Finish the explanation from that checkpoint.' }, 'operator');
-  const result = await operation;
+  const result = await engine.submit({ request_id: 'empty-partial-turn', content: 'Read and explain target.txt.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(count, 5);
   assert.equal(output.filter((record) => record.type === 'turn_result').length, 1);
+  assert.equal(output.some((record) => record.delta_type === 'recovery_attention'), false);
+  assert.ok(engine.transcript.some((record) => record.role === 'assistant' && record.content === checkpoint));
 });
 
 test('AC-PROD-03 malformed small-model tool arguments become an in-band repair opportunity', async () => {

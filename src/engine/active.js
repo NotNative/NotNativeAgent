@@ -10,7 +10,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     // Lifecycle and cancellation ownership.
     turnId, requestId, stepId: null, attemptId: null, authority: null,
     controller: new AbortController(), cancelled: false, finalized: false,
-    attentionWaiter: null,
+    attentionWaiter: null, providerRecoveryWaiter: null,
     text: '', stepText: '', committedStepText: null, finalText: '', usage: null, finishReason: null, reasoningBytes: 0,
     stepReasoningBytes: 0, stepReasoningText: '', stepReasoningReplayable: false,
     attemptReasoningText: '', attemptReasoningReplayable: false, attemptReasoningOverflow: false,
@@ -23,7 +23,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     observableStateRevision: 0, toolEvidenceRevision: 0, completionObligation: null,
     visualEvidence: null, browserEvidence: null, readOnlyBatchStreak: 0,
     workCadence: null,
-    providerTerminal: false,
+    providerTerminal: false, providerRoute: null, attemptEventShape: null,
     toolAssemblerFactory: () => reliability?.createToolCallAssembler?.() ?? new ToolCallAssembler(),
     toolAssembler: reliability?.createToolCallAssembler?.() ?? new ToolCallAssembler(),
     deltaSequence: 1, origin: ENGINE_ORIGIN, completion: deferred.promise,

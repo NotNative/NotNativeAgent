@@ -142,12 +142,26 @@ test('token receipts keep provider measurements separate from estimates for unre
   const active = { turnId: 'turn', stepId: 'step', providerResource: 'local', modelName: 'qwen' };
   const measured = createProviderTokenReceipt(manifest, active, {
     attemptId: 'attempt-1', outcome: 'completed', usage: { prompt_tokens: 90, completion_tokens: 10, total_tokens: 100 },
+    eventShape: {
+      transport_activity_events: 2, transport_bytes: 240,
+      text_events: 0, text_bytes: 0, reasoning_events: 0, reasoning_bytes: 0,
+      tool_fragment_events: 0, tool_fragment_count: 0, usage_events: 1,
+      metadata_events: 1, terminal_events: 1, unrecognized_delta_events: 1,
+      unrecognized_delta_fields: new Set(['analysis']),
+    }, finishReason: 'stop',
   });
   const estimated = createProviderTokenReceipt(manifest, active, {
     attemptId: 'attempt-2', outcome: 'failed', outputBytes: 30,
   });
   const total = aggregateTokenReceipts([measured, estimated]);
   assert.equal(measured.accounting.measurement, 'provider');
+  assert.deepEqual(measured.event_shape, {
+    transport_activity_events: 2, transport_bytes: 240,
+    text_events: 0, text_bytes: 0, reasoning_events: 0, reasoning_bytes: 0,
+    tool_fragment_events: 0, tool_fragment_count: 0, usage_events: 1,
+    metadata_events: 1, terminal_events: 1, unrecognized_delta_events: 1,
+    unrecognized_delta_fields: ['analysis'], finish_reason: 'stop', usage_present: true,
+  });
   assert.equal(estimated.accounting.measurement, 'estimated');
   assert.equal(total.measured_total_tokens, 100);
   assert.equal(total.estimated_unreported_tokens, 110);
@@ -206,6 +220,9 @@ test('failed retry usage and successful usage both produce durable attempt recei
   const receipts = recovered.records.filter((item) => item.type === 'provider_token_receipt');
   assert.equal(receipts.length, 2);
   assert.deepEqual(receipts.map((item) => item.payload.outcome), ['failed', 'completed']);
+  assert.deepEqual(receipts.map((item) => item.payload.event_shape?.usage_events), [1, 1]);
+  assert.deepEqual(receipts.map((item) => item.payload.event_shape?.text_events), [0, 1]);
+  assert.deepEqual(receipts.map((item) => item.payload.event_shape?.terminal_events), [0, 1]);
   assert.ok(receipts.every((item) => /^[a-f0-9]{64}$/u.test(item.payload.receipt_id)));
   await store.close();
 });
