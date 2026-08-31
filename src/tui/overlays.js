@@ -282,7 +282,7 @@ export function webFetchOverlay(config, options = {}) {
     actionItem('trust', 'Trust exact origin', '/webfetch trust http://host:port'),
     actionItem('revoke', 'Revoke trusted origin', '/webfetch revoke http://host:port'),
   );
-  return menuOverlay('webfetch', 'WebFetch destinations', lines, items, options.selectedId ?? items[0]?.id);
+  return Object.freeze({ ...menuOverlay('webfetch', 'WebFetch destinations', lines, items, options.selectedId ?? items[0]?.id), actionLabel: 'Up/Down choose · Enter trust/revoke · Esc back' });
 }
 
 export function mcpOverlay(servers, options = {}) {
@@ -365,7 +365,6 @@ export function overlayCommandDraft(kind, id) {
   const action = id.slice(7);
   const drafts = {
     gateway: { authorize: '/gateway authorize ', revoke: '/gateway revoke ', 'token-env': '/gateway token-env ', workspace: '/gateway workspace ' },
-    webfetch: { trust: '/webfetch trust ', revoke: '/webfetch revoke ' },
     tab: { rename: '/rename ' },
     plan: { 'set-goal': '/goal ', 'complete-goal': '/goal complete ', 'add-task': '/task add ' },
     context: {
