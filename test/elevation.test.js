@@ -9,10 +9,9 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { elevationInvocation, elevationNotice } from '../src/elevation-broker.js';
+import { ElevationBroker, elevationInvocation, elevationNotice } from '../src/elevation-broker.js';
 import { runExact } from '../src/elevation-helper.js';
 import { assertNonInteractiveElevation } from '../src/elevation-tool.js';
-import { InteractivePermissionBroker } from '../src/permission-broker.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { ToolRegistry } from '../src/tool-registry.js';
@@ -24,7 +23,9 @@ test('system.elevate is an interactive root capability with exact resolved argv'
   await registry.initialize();
   const definition = registry.definition('system.elevate');
   assert.ok(definition);
-  assert.equal(definition.operatorConfirmation, 'one_shot');
+  assert.equal(definition.operatorConfirmation, undefined);
+  assert.equal(definition.timeoutMs, null);
+  assert.equal(definition.cancellation, true);
   const normalized = await definition.validate({
     executable: process.execPath, args: ['--version'], reason: 'Verify the privileged runtime',
     expected_effect: 'Read and print the installed Node.js version', timeout_ms: 5_000,
@@ -41,6 +42,21 @@ test('system.elevate is an interactive root capability with exact resolved argv'
   });
   await hosted.initialize();
   assert.equal(hosted.definition('system.elevate'), undefined);
+});
+
+test('ordinary process tools reject native elevation launchers', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-elevation-bypass-'));
+  const registry = new ToolRegistry(root, { elevationBroker: { async execute() { return {}; } } });
+  await registry.initialize();
+  await assert.rejects(registry.definition('process.run').validate({
+    executable: 'sudo', args: ['-n', 'docker', 'inspect', 'container'],
+  }), { code: 'native_elevation_requires_system_tool' });
+  await assert.rejects(registry.definition('shell.run').validate({
+    script: 'echo ready; sudo -n docker inspect container', shell: 'sh',
+  }), { code: 'native_elevation_requires_system_tool' });
+  await assert.rejects(registry.definition('shell.run').validate({
+    script: 'Start-Process powershell.exe -Verb RunAs -ArgumentList whoami', shell: 'powershell',
+  }), { code: 'native_elevation_requires_system_tool' });
 });
 
 test('system.elevate rejects shell launchers that would open an interactive prompt', () => {
@@ -89,7 +105,25 @@ test('elevation notice shows the exact argv, working directory, and expected eff
   assert.match(notice, /Expected effect: Print ok/u);
 });
 
-test('reviewed elevation still requires a fresh local one-shot decision', async () => {
+test('native authentication cancellation records no elevated effect', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-elevation-declined-'));
+  const broker = new ElevationBroker({
+    root,
+    interactive: { async run() { return { cancelled: true, exitCode: 1, signal: null }; } },
+  });
+  const result = await broker.execute({
+    id: 'declined-1', args: {
+      executable: process.execPath, args: ['--version'], cwd: root, timeout_ms: 5_000,
+      expected_effect: 'Print the installed Node.js version',
+    },
+  }, new AbortController().signal);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.reasonCode, 'elevation_not_authorized');
+  assert.equal(result.effectCertainty, 'none');
+  assert.equal(result.metadata.elevated, false);
+});
+
+test('reviewer approval proceeds directly to native elevation', async () => {
   const request = Object.freeze({
     id: 'elevate-1', providerCallId: 'provider-elevate-1', toolName: 'system.elevate',
     args: { executable: '/usr/bin/mount', args: ['/dev/nvme1n1p2', '/mnt/windows'], cwd: '/tmp' },
@@ -99,7 +133,6 @@ test('reviewed elevation still requires a fresh local one-shot decision', async 
   });
   const definition = {
     name: 'system.elevate', purpose: 'Elevate one exact command.', sideEffect: 'unknown', scope: 'host',
-    operatorConfirmation: 'one_shot',
   };
   const reviewer = new MandatoryReviewer({
     ledger: new ReviewerLedger({ durable: false, sessionId: 'elevation-review' }),
@@ -107,22 +140,10 @@ test('reviewed elevation still requires a fresh local one-shot decision', async 
   });
   const decision = await reviewer.review(request, {
     authority: { id: 'authority-1', intent: [{ content: 'Mount /dev/nvme1n1p2 at /mnt/windows', sequence: 1 }], mission: null },
-    definition, surface: 'interactive_tui', justification: '',
+    definition, surface: 'interactive_tui', reviewPosture: 'prompt', justification: '',
   });
-  assert.equal(decision.outcome, 'escalate_to_operator');
-  assert.equal(decision.reasonCode, 'elevation_operator_confirmation_required');
-
-  let prompt;
-  const permission = new InteractivePermissionBroker({ output: async (event) => { prompt = event; }, timeoutMs: 2_000 });
-  const controller = new AbortController();
-  const pending = permission.request(request, decision, { definition }, controller.signal);
-  await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(prompt.choices, ['allow_once', 'deny', 'cancel']);
-  assert.throws(() => permission.decide({
-    permission_token: prompt.permission_token, tool_request_id: request.id, choice: 'allow_workspace',
-  }, 'operator'), { code: 'permission_choice_invalid' });
-  permission.decide({ permission_token: prompt.permission_token, tool_request_id: request.id, choice: 'allow_once' }, 'operator');
-  assert.equal((await pending).outcome, 'approve');
+  assert.equal(decision.outcome, 'approve');
+  assert.equal(decision.reasonCode, 'semantic_intent_match');
 });
 
 test('sealed helper consumes one immutable request and returns bounded exact-process evidence', async () => {
@@ -132,7 +153,7 @@ test('sealed helper consumes one immutable request and returns bounded exact-pro
   const cancelPath = join(directory, 'cancel.requested');
   const now = Date.now();
   const record = {
-    version: '1.0', request_id: 'helper-1', issued_at: now, expires_at: now + 60_000,
+    version: '1.1', request_id: 'helper-1', issued_at: now - 86_400_000,
     executable: process.execPath, args: ['--version'], cwd: directory, timeout_ms: 5_000,
     expected_effect: 'Print the exact installed Node.js version without mutation',
   };
@@ -159,7 +180,7 @@ test('sealed helper observes cancellation and terminates the elevated process tr
   const cancelPath = join(directory, 'cancel.requested');
   const now = Date.now();
   const record = {
-    version: '1.0', request_id: 'helper-cancel', issued_at: now, expires_at: now + 60_000,
+    version: '1.1', request_id: 'helper-cancel', issued_at: now,
     executable: process.execPath, args: ['-e', 'setInterval(() => {}, 1000)'], cwd: directory,
     timeout_ms: 5_000, expected_effect: 'Remain active until cancelled by the parent runtime',
   };

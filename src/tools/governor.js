@@ -218,7 +218,9 @@ async function executeBounded(definition, request, parentSignal, executionContex
   const controller = new AbortController();
   let timeoutId;
   let parentAbort;
-  const timeout = new Promise((resolve) => {
+  // Invariant: a null outer deadline is valid only when the executor owns a bounded
+  // operation phase and a user-cancellable native acquisition phase.
+  const timeout = definition.timeoutMs === null ? null : new Promise((resolve) => {
     timeoutId = setTimeout(() => { controller.abort(); resolve({ boundary: 'timeout' }); }, definition.timeoutMs);
   });
   const cancelled = new Promise((resolve) => {
@@ -229,7 +231,7 @@ async function executeBounded(definition, request, parentSignal, executionContex
     .then(() => definition.executor(request, controller.signal, executionContext))
     .then((value) => ({ value }), (error) => ({ error }));
   try {
-    const settled = await Promise.race([operation, timeout, cancelled]);
+    const settled = await Promise.race([operation, cancelled, ...(timeout ? [timeout] : [])]);
     if (settled.boundary === 'timeout') throw new ContractError('tool_timeout', 'tool execution timed out');
     if (settled.boundary === 'cancelled') {
       // Sub-agent abort must close its child engine before parent settlement.

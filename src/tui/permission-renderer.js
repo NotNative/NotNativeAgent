@@ -21,7 +21,6 @@ export function permissionControlLine(permission, bindings) {
 }
 
 export function permissionLines(record, width, bindings) {
-  if (record.tool === 'system.elevate') return elevationLines(record, width, bindings);
   const values = [
     ['APPROVAL REQUIRED', `${record.tool}`], ['Action', record.action],
     ['Scope', record.scope], ['Effect', record.effect], ['Reversible', record.reversibility],
@@ -34,32 +33,7 @@ export function permissionLines(record, width, bindings) {
 }
 
 export function decoratePermissionLine(line) {
-  if (line === 'ELEVATED COMMAND APPROVAL') return paint(TUI_THEME.accent, line);
-  if (line.startsWith('Ctrl+Y')) return paint(TUI_THEME.successStrong, line);
-  if (line.startsWith('Ctrl+C')) return paint(TUI_THEME.dangerStrong, line);
-  if (/^(?:Reason|Expected effect|Command|Working directory|Reviewer):/u.test(line)) {
-    return line.replace(/^([^:]+:)(.*)$/u, (_, label, value) => `${paint(`1;${TUI_THEME.activity}`, label)}${value}`);
-  }
-  if (/^(?:This approval|NNA is requesting)/u.test(line)) return paint(TUI_THEME.secondaryStrong, line);
   return paint(TUI_THEME.muted, line);
-}
-
-function elevationLines(record, width, bindings) {
-  const args = record.arguments ?? {};
-  const values = [
-    'ELEVATED COMMAND APPROVAL',
-    'NNA is requesting administrator privileges for one exact command.',
-    '',
-    `Reason: ${args.reason ?? record.guidance ?? 'not provided'}`,
-    `Expected effect: ${args.expected_effect ?? 'not provided'}`,
-    `Command: ${commandText(args)}`,
-    `Working directory: ${args.cwd ?? 'current working directory'}`,
-    `Reviewer: ${record.guidance ?? 'approved for local operator confirmation'}`,
-    '',
-    'This approval applies once, to this exact command, and cannot be remembered.',
-    ...decisionLines(bindings),
-  ];
-  return values.flatMap((line) => line === '' ? [''] : wrap(line, width));
 }
 
 function decisionLines(bindings) {
@@ -69,17 +43,6 @@ function decisionLines(bindings) {
     `${keyLabel(bindings.cancel)}  CANCEL`,
     '',
   ];
-}
-
-function commandText(args) {
-  const executable = args.executable ?? 'unknown executable';
-  const argv = Array.isArray(args.args) ? args.args.map(displayArgument) : [];
-  return [executable, ...argv].join(' ');
-}
-
-function displayArgument(value) {
-  const text = String(value);
-  return /[\s"']/u.test(text) ? JSON.stringify(text) : text;
 }
 
 function choicesFor(permission) {

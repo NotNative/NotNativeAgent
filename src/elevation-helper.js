@@ -47,15 +47,14 @@ async function consumeRequest(envelope) {
 }
 
 function validateRequest(value) {
-  if (!value || value.version !== '1.0') throw new Error('invalid_request:version');
+  if (!value || value.version !== '1.1') throw new Error('invalid_request:version');
   if (typeof value.request_id !== 'string' || value.request_id.length < 1
     || value.request_id.length > 180 || value.request_id.includes('\0')) {
     throw new Error('invalid_request:request_id');
   }
-  if (!Number.isSafeInteger(value.issued_at) || !Number.isSafeInteger(value.expires_at)
-    || value.expires_at >= value.issued_at + 120_001 || value.expires_at < Date.now()) {
-    throw new Error('invalid_request:validity');
-  }
+  // Security: the private request is digest-bound and consumed once. It remains valid
+  // while native authentication blocks so an absent operator does not create a false denial.
+  if (!Number.isSafeInteger(value.issued_at) || value.issued_at > Date.now() + 60_000) throw new Error('invalid_request:validity');
   if (!isAbsolute(value.executable) || !isAbsolute(value.cwd)) throw new Error('invalid_request:path');
   if (typeof value.expected_effect !== 'string' || value.expected_effect.length < 1
     || value.expected_effect.length > 2048 || value.expected_effect.includes('\0')) {

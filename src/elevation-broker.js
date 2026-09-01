@@ -29,7 +29,11 @@ export class ElevationBroker {
       const launch = () => this.#launch(operation, signal);
       const status = await this.interactive.run(launch, elevationNotice(request));
       if (status.cancelled && !(await exists(operation.resultPath))) {
-        throw new ContractError('elevation_declined', 'operating-system elevation was cancelled or declined');
+        return {
+          status: 'failed', reasonCode: 'elevation_not_authorized', effectCertainty: 'none',
+          content: 'The operating system did not authorize the elevated operation.',
+          metadata: { elevated: false, exitCode: status.exitCode ?? null },
+        };
       }
       return await readResult(operation.resultPath);
     } finally {
@@ -74,7 +78,7 @@ export async function elevationInvocation(platform, broker, directory, envelope)
 
 function elevationRecord(request, now) {
   return Object.freeze({
-    version: '1.0', request_id: request.id, issued_at: now, expires_at: now + 120_000,
+    version: '1.1', request_id: request.id, issued_at: now,
     executable: request.args.executable, args: request.args.args, cwd: request.args.cwd,
     timeout_ms: request.args.timeout_ms, expected_effect: request.args.expected_effect,
   });

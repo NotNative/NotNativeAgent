@@ -81,6 +81,7 @@ async function validateShellRequest(paths, input, references) {
   if (SECRET_LITERAL.test(input.script)) {
     throw new ContractError('shell_secret_argument_forbidden', 'secret-like literal values cannot be placed in shell scripts');
   }
+  rejectNativeElevationScript(input.script);
   const shell = input.shell ?? 'auto';
   if (!['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'].includes(shell)) {
     throw new ContractError('shell_interpreter_invalid', 'requested shell is not supported');
@@ -159,6 +160,7 @@ async function validateProcessRequest(paths, input, references) {
   if (args.some((item) => SECRET_LITERAL.test(item))) {
     throw new ContractError('process_secret_argument_forbidden', 'secret-like values cannot be placed in process argv');
   }
+  rejectNativeElevationProcess(executable, args);
   const cwd = await paths.resolveDirectory(input.cwd ?? '.');
   const timeoutMs = input.timeout_ms ?? 60_000;
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > MAX_PROCESS_TIMEOUT_MS) {
@@ -391,6 +393,27 @@ export function operationalEnvironment(environment = process.env) {
 
 function normalizedExecutable(value) {
   return portableExecutableName(value);
+}
+
+function rejectNativeElevationProcess(executable, args) {
+  const direct = ['sudo', 'doas', 'pkexec', 'runas'].includes(executable);
+  const powershellRunAs = ['powershell', 'pwsh'].includes(executable)
+    && args.some((item) => /\bStart-Process\b/iu.test(item))
+    && args.some((item) => /(?:^|\s)-Verb\s+RunAs(?:\s|$)/iu.test(item));
+  if (direct || powershellRunAs) rejectNativeElevation();
+}
+
+function rejectNativeElevationScript(script) {
+  const direct = /(?:^|[;&|\n]\s*)(?:sudo|doas|pkexec|runas(?:\.exe)?)\b/iu.test(script);
+  const powershellRunAs = /\bStart-Process\b[^\n;&|]*\s-Verb\s+RunAs(?:\s|$)/iu.test(script);
+  if (direct || powershellRunAs) rejectNativeElevation();
+}
+
+function rejectNativeElevation() {
+  throw new ContractError(
+    'native_elevation_requires_system_tool',
+    'native privilege launchers are unavailable through process.run and shell.run; use system.elevate with the exact executable and argv',
+  );
 }
 
 function validateStdinReference(value, references) {

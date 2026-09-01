@@ -111,6 +111,14 @@ effects reach mandatory semantic review instead of being prohibited by the tool 
 `process.run` retains minimal-environment inheritance, bounded output, deadlines, and
 process-tree cancellation. `docs/TOOLS.md` is the canonical current catalog.
 
+Native elevation is a distinct execution boundary. A reviewed `system.elevate` approval
+starts native UAC or `sudo` authentication without a second NNA permission decision. Native
+authentication blocks the tool and agent workflow until it succeeds, is rejected, or is
+cancelled. The elevated command deadline starts only after authentication starts the sealed
+helper. Ordinary process tools reject native privilege launchers so they cannot bypass this
+boundary. Native rejection or cancellation is terminal not-authorized evidence and never
+causes an automatic retry.
+
 A guidance denial constrains the attempted route rather than completing the objective.
 Equivalent denied requests are latched within the same authority snapshot; a newer
 authenticated operator instruction creates a new snapshot and may reopen review. The engine

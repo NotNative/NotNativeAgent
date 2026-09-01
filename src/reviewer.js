@@ -52,8 +52,15 @@ export class MandatoryReviewer {
       }
       else if (classification.risk === 'prohibited') decision = hardDeny(classification.reason, request);
       else decision = await this.#semanticDecision(request, context, entry, intentRelation);
-      decision = requireOneShotConfirmation(decision, context.definition, request);
-      if (context.reviewPosture === 'prompt' && decision.outcome === 'approve') {
+      if (context.definition.name === 'system.elevate' && decision.outcome === 'escalate_to_operator') {
+        decision = deny(
+          'elevation_review_uncertain',
+          'The reviewer did not approve this elevated operation. Revise the operation or ask the operator for clearer intent.',
+          request,
+        );
+      }
+      if (context.reviewPosture === 'prompt' && decision.outcome === 'approve'
+        && context.definition.name !== 'system.elevate') {
         decision = escalate('prompt_posture_operator_decision', request, 'Prompt posture requires operator approval before execution.');
       }
       if (decision.outcome === 'approve') decision = refreshApprovalWindow(decision, this.decisionTtlMs);
@@ -199,14 +206,6 @@ function directoryRemovalClassification(request, definition) {
 
 function ephemeralReferenceClassification(definition) {
   return Object.freeze({ risk: 'safe', reason: 'bounded_ephemeral_reference', effect: definition.sideEffect, scope: 'ephemeral_reference', complexity: 'simple' });
-}
-
-function requireOneShotConfirmation(decision, definition, request) {
-  if (definition.operatorConfirmation !== 'one_shot' || decision.outcome !== 'approve') return decision;
-  return escalate(
-    'elevation_operator_confirmation_required', request,
-    'This exact privileged executable, argv, working directory, reason, and expected effect require a fresh local approval. Approval cannot be remembered.',
-  );
 }
 
 function elevationClassification() {

@@ -173,14 +173,21 @@ results need not be named verbatim. A concrete contradiction, scope divergence, 
 disproportionate irreversible effect remains a denial.
 
 `system.elevate` is the local root Console's one-shot operating-system elevation boundary.
-It runs one exact resolved executable and argv after mandatory semantic review, a fresh
-operator confirmation, and native Windows UAC or Unix-like `sudo` authentication. NNA
-temporarily returns control of the terminal while the operating system authenticates and
-then restores the Console. Approval is never remembered for the session or workspace, and
-NNA never requests, reads, stores, or forwards the administrator password. The agent should
-first try the operation with the current user's authority and use `system.elevate` only when
-the operating system reports that greater authority is required. Passwords, API tokens, and
-other literal secrets are forbidden in the elevated request.
+It runs one exact resolved executable and argv after mandatory semantic review. Reviewer
+approval proceeds directly to native Windows UAC or Unix-like `sudo` authentication; NNA does
+not show a second confirmation. NNA temporarily returns control of the terminal while the
+operating system authenticates and then restores the Console. The native request blocks the
+tool and agent workflow. Its acquisition wait has no NNA deadline, but the operator can cancel
+the turn and the operating system can reject or expire authentication. A rejection, cancellation,
+or operating-system timeout is a not-authorized result and does not execute or retry the command.
+NNA never requests, reads, stores, or forwards the administrator password.
+
+The agent should first try the operation with the current user's authority and use
+`system.elevate` only when the operating system reports that greater authority is required.
+`process.run` and `shell.run` reject `sudo`, `doas`, `pkexec`, `runas`, and PowerShell
+`Start-Process -Verb RunAs` launchers. This prevents an ordinary process tool from bypassing
+the sanctioned elevation boundary. Passwords, API tokens, and other literal secrets are
+forbidden in the elevated request.
 
 The tool is intentionally absent from hosted NNO sessions, headless manifests, Telegram,
 and sub-agents. A Console reached through SSH can use it only when that connection owns a
@@ -189,9 +196,9 @@ real pseudo-terminal, such as a normal interactive SSH login or `ssh -t`; withou
 the user to `sudoers`, create a persistent privileged daemon, or grant a reusable elevated
 shell.
 
-Its requested deadline returns a typed timeout immediately
-after requesting tree termination. External effects are therefore reported with unknown
-certainty and are never automatically retried. POSIX termination escalates from `SIGTERM`
+The requested command deadline starts after native authentication starts the elevated helper.
+It returns a typed timeout immediately after requesting tree termination. External effects are
+therefore reported with unknown certainty and are never automatically retried. POSIX termination escalates from `SIGTERM`
 to `SIGKILL`; Windows has both tree and direct-process termination paths. Remaining
 process requests are review-required because
 repository programs and package scripts may still have effects. The deterministic packet

@@ -17,6 +17,11 @@ reviewer escalation and authenticated operator outcome, after which the ordinary
 execution-boundary revalidation still controls execution. Headless and one-shot surfaces
 cannot express this command.
 
+Operating-system elevation is not a reviewer escalation prompt. After the reviewer approves
+`system.elevate`, the Console returns the terminal to native UAC or `sudo` authentication.
+That native operation blocks the active workflow and can wait for an absent operator. A native
+rejection, cancellation, or timeout records no authorization and does not run the command.
+
 Multiple attached conversations share a bounded fair provider scheduler while retaining
 independent engines, transcripts, authority, drafts, cancellation, and projections.
 Configuration changes publish immutable versions only at idle or a model-step boundary.
