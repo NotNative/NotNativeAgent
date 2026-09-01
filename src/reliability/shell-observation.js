@@ -1,22 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const POWERSHELL_OBSERVATION_COMMANDS = new Set([
-  'format-list', 'format-table', 'get-childitem', 'measure-object', 'out-null',
-  'select-object', 'sort-object',
+const POWERSHELL_FILESYSTEM_OBSERVATIONS = new Set(['get-childitem']);
+const POWERSHELL_HOST_OBSERVATIONS = new Set([
+  'get-ciminstance', 'get-computerinfo', 'get-counter', 'get-disk', 'get-eventlog',
+  'get-hotfix', 'get-netadapter', 'get-nettcpconnection', 'get-netudpendpoint',
+  'get-physicaldisk', 'get-process', 'get-scheduledtask', 'get-scheduledtaskinfo',
+  'get-service', 'get-volume', 'get-winevent',
+]);
+const POWERSHELL_OBSERVATION_TRANSFORMS = new Set([
+  'format-custom', 'format-list', 'format-table', 'format-wide', 'group-object',
+  'measure-object', 'out-null', 'out-string', 'select-object', 'sort-object',
 ]);
 
 export function shellObservationPurpose(script, shell) {
-  return ['powershell', 'pwsh'].includes(shell) && powershellFilesystemObservation(script)
-    ? 'filesystem_observation' : null;
+  return ['powershell', 'pwsh'].includes(shell) ? powershellObservationPurpose(script) : null;
 }
 
-function powershellFilesystemObservation(value) {
+function powershellObservationPurpose(value) {
   let script = String(value).trim();
   if (!script || /\$\(|[&{}()]|`|\b(?:ForEach-Object|Where-Object)\b/iu.test(script)) return false;
   script = script.replace(/2\s*>\s*\$null\b/giu, '');
   if (/[<>]/u.test(script)) return false;
   const segments = script.split(/(?:\r?\n|;|\|)/u).map((item) => item.trim()).filter(Boolean);
-  let listed = false;
+  let purpose = null;
   for (const segment of segments) {
     if (/^\$ErrorActionPreference\s*=\s*(['"])SilentlyContinue\1$/iu.test(segment)) continue;
     // Invariant: assigning the output of an allowlisted observation command to one
@@ -26,8 +32,15 @@ function powershellFilesystemObservation(value) {
     const operation = assignment?.[1]?.trim() ?? segment;
     if (operation.includes('$')) return false;
     const command = /^([A-Za-z][A-Za-z0-9-]*)\b/u.exec(operation)?.[1]?.toLowerCase();
-    if (!POWERSHELL_OBSERVATION_COMMANDS.has(command)) return false;
-    if (command === 'get-childitem') listed = true;
+    if (POWERSHELL_FILESYSTEM_OBSERVATIONS.has(command)) {
+      purpose ??= 'filesystem_observation';
+      continue;
+    }
+    if (POWERSHELL_HOST_OBSERVATIONS.has(command)) {
+      purpose = 'host_observation';
+      continue;
+    }
+    if (!POWERSHELL_OBSERVATION_TRANSFORMS.has(command)) return false;
   }
-  return listed;
+  return purpose;
 }

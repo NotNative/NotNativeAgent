@@ -346,6 +346,10 @@ function authenticatedIntentRelation(request, authority, definition, conversatio
   if (request.toolName === 'workspace.change') return 'uncertain';
   if (request.toolName === 'fs.directory' && request.args?.action === 'list') return 'covered';
   if (definition.sideEffect === 'read_only') return 'covered';
+  // Why: process intent is not safely reducible to command-token overlap. A
+  // mechanically proven observation is approved above; every other process
+  // request leaves nuanced action and target authorization to semantic review.
+  if (['process.run', 'shell.run', 'system.elevate'].includes(request.toolName)) return 'uncertain';
   // Do not classify free-form operator language with keywords. Risky actions grounded in
   // unclassified statements require semantic review unless a deterministic ceiling applies.
   if (!authority?.mission && [...(authority?.intent ?? [])].some((item) => item.kind === 'statement')) {
@@ -353,7 +357,6 @@ function authenticatedIntentRelation(request, authority, definition, conversatio
     // manufacture mutation authority from an explicitly read-only request.
     return clearlyReadOnlyIntent(authority) ? 'conflict' : 'uncertain';
   }
-  if (['process.run', 'shell.run', 'system.elevate'].includes(request.toolName)) return authorityCoversProcess(request, authority) ? 'covered' : 'uncertain';
   if (!request.toolName.startsWith('fs.')) return 'uncertain';
   const mission = authority?.mission?.outcome?.toLowerCase() ?? '';
   const targets = resolvedTargets(request);
@@ -429,24 +432,6 @@ function clearlyReadOnlyIntent(authority) {
 function clearlyReadOnlyText(value) {
   return /\b(?:read|inspect|audit|autopsy|review|summarize|explain|show|list|search|find|check|diagnose|answer|respond|tell)\b/iu.test(value)
     && !/\b(?:write|change|replace|create|update|edit|modify|delete|remove|move|rename|copy|fix|build|implement|install)\b/iu.test(value);
-}
-function authorityCoversProcess(request, authority) {
-  const latest = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction');
-  if (!latest) return false;
-  const evidence = tokenSet(latest.content);
-  const commandText = request.toolName === 'shell.run'
-    ? request.args?.script
-    : [request.args?.executable, ...(request.args?.args ?? [])].join(' ');
-  const command = tokenSet(commandText);
-  const destructive = request.resolved?.reviewComplexity === 'destructive_shell'
-    || ['rm', 'rmdir', 'del', 'erase', 'format', 'shutdown', 'reboot', 'diskpart', 'taskkill']
-      .includes(String(request.args?.executable ?? '').toLowerCase());
-  if (destructive && !/\b(?:delete|remove|erase|format|shutdown|reboot|kill|wipe)\b/iu.test(latest.content)) return false;
-  for (const token of command) if (evidence.has(token)) return true;
-  if (request.resolved?.reviewPurpose === 'network_diagnostic') {
-    return /\b(?:find|locate|discover|resolve|lookup|look\s+up|ping|reach|reachable|connectivity|network|dns|host)\b/iu.test(latest.content);
-  }
-  return false;
 }
 function tokenSet(value) {
   const ignored = new Set(['run', 'exec', 'command', 'the', 'this', 'that', 'with', 'from', 'into', 'and', 'for']);

@@ -324,6 +324,8 @@ test('shell.run classifies compound and destructive scripts for semantic review 
   assert.equal(fragile.resolved.reviewComplexity, 'fragile_shell');
   assert.deepEqual(fragile.resolved.reliabilitySignals, ['many_operations', 'loop_with_substitution']);
   assert.equal((await definition.validate({ script: 'git reset --hard' })).resolved.reviewComplexity, 'destructive_shell');
+  assert.equal((await definition.validate({ shell: 'powershell', script: 'format X: /FS:NTFS' })).resolved.reviewComplexity, 'destructive_shell');
+  assert.equal((await definition.validate({ shell: 'powershell', script: 'format.com X: /FS:NTFS' })).resolved.reviewComplexity, 'destructive_shell');
   assert.equal((await definition.validate({ script: 'Resolve-DnsName fixture-host' })).resolved.reviewPurpose, 'network_diagnostic');
   const observation = await definition.validate({
     shell: 'powershell',
@@ -338,12 +340,26 @@ test('shell.run classifies compound and destructive scripts for semantic review 
   assert.equal(assignedObservation.resolved.reviewPurpose, 'filesystem_observation');
   assert.equal(assignedObservation.resolved.readOnly, true);
   for (const script of [
+    'Get-Process | Select-Object -First 45 Name, Id, StartTime, Path | Format-Table -AutoSize | Out-String -Width 200',
+    'Get-Service | Sort-Object Status | Format-Table -AutoSize',
+    'Get-WinEvent -LogName System -MaxEvents 5 | Select-Object TimeCreated, Id, ProviderName | Format-List',
+    'Get-CimInstance Win32_OperatingSystem | Select-Object Caption, Version, LastBootUpTime',
+  ]) {
+    const hostObservation = await definition.validate({ shell: 'powershell', script });
+    assert.equal(hostObservation.resolved.reviewPurpose, 'host_observation');
+    assert.equal(hostObservation.resolved.readOnly, true);
+    assert.notEqual(hostObservation.resolved.reviewComplexity, 'destructive_shell');
+  }
+  for (const script of [
     'Get-ChildItem | Remove-Item',
     'Get-ChildItem $(Remove-Item target.txt)',
     'Get-ChildItem; Set-Content out.txt changed',
     'Get-ChildItem 12>out.txt',
     '$src = Get-ChildItem; $src | Remove-Item',
     '$src = Invoke-Expression "Get-ChildItem"',
+    'Get-Process | Stop-Process',
+    'Get-Service | Restart-Service',
+    'Get-Process | Where-Object { $_.CPU -gt 1 }',
   ]) assert.equal((await definition.validate({ shell: 'powershell', script })).resolved.readOnly, false);
   await assert.rejects(definition.validate({ script: 'curl -H "Authorization: Bearer literal" example.test' }), { code: 'shell_secret_argument_forbidden' });
   const hosted = new ToolRegistry(root, { hosted: true, boundedToWorkspace: true, allowedTools: ['shell.run'] });

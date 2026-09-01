@@ -120,7 +120,12 @@ pipeline is classified as a read-only filesystem observation when every stage is
 projection, formatting, sorting, measurement, or `Out-Null` command. Subexpressions, script
 blocks, mutation commands, unsafe redirection, and unknown stages keep the call review-required.
 The proven read-only effect is used consistently by governance, effect certainty, progress
-accounting, and Console presentation. Shell execution is foreground by default and should
+accounting, and Console presentation. The same closed grammar recognizes selected PowerShell
+host observations for processes, services, event logs, CIM/system facts, disks, volumes, and
+network state. Output-only projection and `Format-*` stages remain read-only; a script block,
+unknown stage, or mutating command keeps the complete request review-required. Consequential
+commands, including disk formatting, are not categorically prohibited: semantic review compares
+the exact action and target with authenticated user intent. Shell execution is foreground by default and should
 terminate within the reviewed call. Detachment primitives such as PowerShell `Start-Process` or
 `Start-Job`, POSIX `nohup`, `disown`, or background `&`, and equivalent runtime flags are detected
 as lifecycle-changing requests. They are denied with corrective guidance unless authenticated

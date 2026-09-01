@@ -99,7 +99,7 @@ async function validateShellRequest(paths, input, references) {
     resolved: {
       path: cwd.path, executable: invocation.executable, shell: invocation.shell, script: input.script,
       reviewComplexity: shellComplexity(input.script, reliabilitySignals), reliabilitySignals,
-      reviewPurpose, readOnly: reviewPurpose === 'filesystem_observation',
+      reviewPurpose, readOnly: isObservationPurpose(reviewPurpose),
       insideWorkspace: cwd.insideWorkspace, recovery: cwd.recovery,
     },
   };
@@ -124,7 +124,9 @@ export function shellInvocation(requested, script, platform = process.platform) 
 }
 
 function shellComplexity(script, signals = shellReliabilitySignals(script)) {
-  if (/(?:^|[;&|\n]\s*)(?:rm\s+-[^\n]*r[^\n]*f|format\b|diskpart\b|shutdown\b|reboot\b|git\s+(?:clean\s+-[^\n]*f|reset\s+--hard)|Remove-Item\b[^\n]*(?:-Recurse|-Force)|(?:del|erase|rmdir)\b)/iu.test(script)) return 'destructive_shell';
+  // Why: PowerShell Format-* cmdlets only shape output. Destructive format must
+  // end at the command token instead of matching the hyphen word boundary.
+  if (/(?:^|[;&|\n]\s*)(?:rm\s+-[^\n]*r[^\n]*f|format(?:\.com)?(?=\s|$)|diskpart\b|shutdown\b|reboot\b|git\s+(?:clean\s+-[^\n]*f|reset\s+--hard)|Remove-Item\b[^\n]*(?:-Recurse|-Force)|(?:del|erase|rmdir)\b)/iu.test(script)) return 'destructive_shell';
   if (signals.includes('detached_process')) return 'detached_shell';
   if (signals.includes('long_running_foreground')) return 'long_running_foreground_shell';
   if (signals.length >= 2) return 'fragile_shell';
@@ -169,8 +171,12 @@ async function validateProcessRequest(paths, input, references) {
     reviewComplexity: processComplexity(executable, args),
     reliabilitySignals: processReliabilitySignals(executable, args),
     insideWorkspace: cwd.insideWorkspace, reviewPurpose,
-    readOnly: reviewPurpose === 'filesystem_observation', recovery: cwd.recovery,
+    readOnly: isObservationPurpose(reviewPurpose), recovery: cwd.recovery,
   } };
+}
+
+function isObservationPurpose(value) {
+  return value === 'filesystem_observation' || value === 'host_observation';
 }
 
 function processReliabilitySignals(executable, args) {

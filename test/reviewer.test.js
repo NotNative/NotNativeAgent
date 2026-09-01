@@ -400,6 +400,83 @@ test('a local assignment of Get-ChildItem output remains deterministic safe', as
   assert.equal(semanticCalls, 0);
 });
 
+test('proven PowerShell host observations are deterministic safe', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'shell-host-observation' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1; throw new Error('semantic review should not run');
+  } } });
+  const result = await reviewer.review({
+    ...readRequest('shell-host-observation'), toolName: 'shell.run',
+    args: { shell: 'powershell', script: 'Get-Process | Select-Object -First 45 Name, Id | Format-Table -AutoSize' },
+    resolved: {
+      path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'compound_shell',
+      reviewPurpose: 'host_observation', readOnly: true, reliabilitySignals: [],
+    },
+  }, {
+    ...context,
+    authority: { id: 'authority-1', intent: [{ content: 'Perform a health check on this computer.', kind: 'statement' }], mission: null },
+    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+  });
+  assert.equal(result.outcome, 'approve');
+  assert.equal(result.reasonCode, 'deterministic_safe');
+  assert.equal(semanticCalls, 0);
+});
+
+test('uncertain process effects reach semantic review even when the request sounds read-only', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'uncertain-health-process' });
+  let captured;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    captured = input;
+    return { outcome: 'approve', confidence: 1, reason_code: 'health_check_matches_intent' };
+  } } });
+  const result = await reviewer.review({
+    ...readRequest('uncertain-health-process'), toolName: 'shell.run',
+    args: { shell: 'powershell', script: 'Get-Process | Where-Object { $_.CPU -gt 1 } | Format-Table' },
+    resolved: {
+      path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'compound_shell',
+      reviewPurpose: null, readOnly: false, reliabilitySignals: [],
+    },
+  }, {
+    ...context,
+    authority: { id: 'authority-1', intent: [{ content: 'Perform a health check on this computer.', kind: 'statement' }], mission: null },
+    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+  });
+  assert.equal(result.outcome, 'approve');
+  assert.equal(result.reasonCode, 'semantic_intent_match');
+  assert.equal(captured.intentRelation, 'uncertain');
+});
+
+test('consequential process requests leave exact action authorization to semantic review', async () => {
+  for (const [label, operatorIntent, semanticOutcome, expectedOutcome] of [
+    ['authorized', 'Mount and format the new X: disk as NTFS.', 'approve', 'approve'],
+    ['mismatched', 'Perform a read-only health check on this computer.', 'deny_with_guidance', 'deny_with_guidance'],
+  ]) {
+    const ledger = new ReviewerLedger({ durable: false, sessionId: `format-disk-${label}` });
+    let captured;
+    const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+      captured = input;
+      return semanticOutcome === 'approve'
+        ? { outcome: 'approve', confidence: 1, reason_code: 'disk_format_authorized' }
+        : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'disk_format_not_authorized', guidance: 'Do not format the disk.' };
+    } } });
+    const result = await reviewer.review({
+      ...readRequest(`format-disk-${label}`), toolName: 'shell.run',
+      args: { shell: 'powershell', script: 'format.com X: /FS:NTFS' },
+      resolved: {
+        path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'destructive_shell',
+        reviewPurpose: null, readOnly: false, reliabilitySignals: [],
+      },
+    }, {
+      ...context,
+      authority: { id: 'authority-1', intent: [{ content: operatorIntent, kind: 'statement' }], mission: null },
+      definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+    });
+    assert.equal(result.outcome, expectedOutcome);
+    assert.equal(captured.intentRelation, 'uncertain');
+  }
+});
+
 test('system.time clock observations and bounded arithmetic are deterministic safe', async () => {
   for (const [label, args] of [['current', {}], ['offset', { weeks: 2, days: -1 }]]) {
     const ledger = new ReviewerLedger({ durable: false, sessionId: `system-time-${label}` });
