@@ -4,10 +4,12 @@ import { dirname, join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { ContractError } from './ids.js';
 import { PRODUCT_NAME, userDataPaths, VERSION } from './product.js';
+import { redactText } from './redaction.js';
 import { createZip } from './zip-archive.js';
 
 const PRIVACY_SECRET_KEY = /^(?:api[_-]?key|authorization|auth[_-]?token|bearer|credential(?:_env)?|password|private[_-]?key|secret|access[_-]?token|refresh[_-]?token|token)(?:[_-](?:bearer|hash|reset|value))?$/iu;
 const SAFE_SECRET_MARKERS = new Set(['[redacted]', '[reference configured]', '[none]']);
+const STANDALONE_CREDENTIAL = /\b(?:AKIA[A-Z0-9]{16}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk_live_[A-Za-z0-9]{16,}|xox[baprs]-[A-Za-z0-9-]{16,})\b/giu;
 
 export class DiagnosticBundle {
   constructor(options) {
@@ -49,8 +51,8 @@ export class DiagnosticBundle {
     for (const [index, session] of this.sessions.entries()) {
       const sessionId = session.id ?? session.engine.sessionId;
       const folder = sessionFolder(sessionId, index);
-      const forensicTrace = await safeForensicTrace(session.engine);
-      const diagnostics = {
+      const forensicTrace = redactBundleData(await safeForensicTrace(session.engine));
+      const diagnostics = redactBundleData({
         format: 2, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
         session_id: sessionId, active: sessionId === this.activeSessionId,
         statistics: session.statistics ?? null,
@@ -62,7 +64,7 @@ export class DiagnosticBundle {
           format: forensicTrace.format, rows: forensicTrace.rows.length,
           open_spans: forensicTrace.open_spans.length,
         },
-      };
+      });
       entries.push(
         { name: `${folder}/diagnostics.json`, content: `${JSON.stringify(diagnostics, null, 2)}\n` },
         { name: `${folder}/forensic-trace.json`, content: `${JSON.stringify(forensicTrace, null, 2)}\n` },
@@ -70,12 +72,12 @@ export class DiagnosticBundle {
       privacyInspection.push(diagnostics, forensicTrace);
       manifestSessions.push({ session_id: sessionId, folder, active: sessionId === this.activeSessionId });
     }
-    const manifest = {
+    const manifest = redactBundleData({
       format: 2, created_at: createdAt, product: { name: PRODUCT_NAME, version: VERSION },
       preview, sessions: manifestSessions,
-    };
+    });
     entries.unshift({ name: 'manifest.json', content: `${JSON.stringify(manifest, null, 2)}\n` });
-    const readme = supportReadme(createdAt);
+    const readme = redactPrivacyText(supportReadme(createdAt));
     entries.push({ name: 'README.txt', content: readme });
     privacyInspection.push(manifest, readme);
     if (containsSecret(privacyInspection)) throw new ContractError('bundle_redaction_failed', 'diagnostic bundle failed privacy verification');
@@ -197,6 +199,27 @@ function supportReadme(createdAt) {
     'The operator controls whether and how this file is shared.',
     '',
   ].join('\n');
+}
+
+function redactBundleData(value, active = new WeakSet(), depth = 0) {
+  if (typeof value === 'string') return redactPrivacyText(value);
+  if (!value || typeof value !== 'object') return value;
+  if (depth > 32) return '[redacted:depth-limit]';
+  if (active.has(value)) return '[redacted:cycle]';
+  active.add(value);
+  const redacted = Array.isArray(value) ? value.map((child) => redactBundleData(child, active, depth + 1)) : {};
+  if (!Array.isArray(value)) {
+    for (const [key, child] of Object.entries(value)) {
+      redacted[key] = PRIVACY_SECRET_KEY.test(key) && !safeSecretField(child)
+        ? '[redacted]' : redactBundleData(child, active, depth + 1);
+    }
+  }
+  active.delete(value);
+  return redacted;
+}
+
+function redactPrivacyText(value) {
+  return redactText(value).replaceAll(STANDALONE_CREDENTIAL, '[redacted]');
 }
 
 function containsSecret(value, active = new WeakSet()) {

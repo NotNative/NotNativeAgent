@@ -55,9 +55,9 @@ function showSupportFailure(error, workspace) {
   const label = redactionFailure ? 'BUNDLE_REDACTION_FAILED' : 'ZIP_INPUT_TOO_LARGE';
   const lines = redactionFailure ? [
     `[${label}] SUPPORT ZIP WAS NOT CREATED`, '',
-    'Privacy verification found secret-like material in the diagnostic projection.',
+    'Bundle redaction could not safely remove all detected credential material.',
     'No ZIP or temporary archive remains.', '',
-    'Use /support preview to review the included categories. Runtime diagnostics remain unchanged.',
+    'This is an internal redaction failure. Runtime diagnostics remain unchanged.',
   ] : [
     `[${label}] SUPPORT ZIP WAS NOT CREATED`, '',
     'The current conversation diagnostic data exceeds the 16 MiB safety bound.',
@@ -69,7 +69,7 @@ function showSupportFailure(error, workspace) {
     lineKinds: lines.map(() => 'error'),
   });
   workspace.projection.showNotice('error', redactionFailure
-    ? `[${label}] Support ZIP was not created; privacy verification rejected the diagnostic projection.`
+    ? `[${label}] Support ZIP was not created because bundle redaction did not verify.`
     : `[${label}] Support ZIP was not created; current session exceeds 16 MiB.`);
   return true;
 }

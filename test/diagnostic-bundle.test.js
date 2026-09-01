@@ -4,6 +4,7 @@ import { mkdtemp, open, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { inflateRawSync } from 'node:zlib';
 import { atomicWrite, DiagnosticBundle } from '../src/diagnostic-bundle.js';
 import { handleSupportCommand } from '../src/tui/support-command.js';
 import { decorateContent, decorateFooter } from '../src/tui/decoration.js';
@@ -137,20 +138,29 @@ test('privacy verification failures remain visible and leave no partial support 
   assert.equal(notices.at(-1).kind, 'error');
 });
 
-test('privacy verification distinguishes benign token-suffixed diagnostics from secrets', async () => {
+test('support bundle recursively redacts secret-bearing diagnostics before privacy verification', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-support-privacy-'));
+  const githubToken = `ghp_${'a'.repeat(30)}`;
+  const bearerToken = 'Bearer abcdefghijklmnopqrstuvwxyz';
   const engine = {
     sessionId: 'session-privacy', config: {}, telemetry: { async flush() {}, async supportSnapshot() {
-      return { format: 1, rows: [{ status_token: 'unavailable', token: null }], open_spans: [] };
+      return {
+        format: 1,
+        rows: [{ status_token: 'unavailable', token: 'trace-secret-value', detail: `${bearerToken} ${githubToken}` }],
+        open_spans: [],
+      };
     } },
-    async health() { return { status_token: 'unavailable', credential: '' }; },
+    async health() { return { status_token: 'unavailable', credential: 'health-secret-value' }; },
     reviewerAudit() { return []; }, governanceAudit() { return []; },
   };
   const bundle = new DiagnosticBundle({ engine, supportRoot: root });
-  const result = await bundle.create(join(root, 'benign.zip'));
-  assert.equal((await readFile(result.path)).readUInt32LE(0), 0x04034b50);
-  engine.health = async () => ({ token: 'actual-secret-value' });
-  await assert.rejects(bundle.create(join(root, 'secret.zip')), { code: 'bundle_redaction_failed' });
+  const result = await bundle.create(join(root, 'redacted.zip'));
+  const content = zipEntries(await readFile(result.path)).map((entry) => entry.content.toString('utf8')).join('\n');
+  assert.doesNotMatch(content, /trace-secret-value|health-secret-value|abcdefghijklmnopqrstuv|ghp_/u);
+  assert.match(content, /"credential": "\[redacted\]"/u);
+  assert.match(content, /"token": "\[redacted\]"/u);
+  assert.match(content, /Bearer \[redacted\]/u);
+  assert.match(content, /"status_token": "unavailable"/u);
 });
 
 test('diagnostic bundle default path stays within its configured support directory', async () => {
@@ -162,4 +172,22 @@ test('diagnostic bundle default path stays within its configured support directo
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function zipEntries(archive) {
+  const entries = [];
+  let offset = 0;
+  while (offset + 30 <= archive.length && archive.readUInt32LE(offset) === 0x04034b50) {
+    const method = archive.readUInt16LE(offset + 8);
+    const compressedSize = archive.readUInt32LE(offset + 18);
+    const nameLength = archive.readUInt16LE(offset + 26);
+    const extraLength = archive.readUInt16LE(offset + 28);
+    const nameStart = offset + 30;
+    const name = archive.subarray(nameStart, nameStart + nameLength).toString('utf8');
+    const contentStart = nameStart + nameLength + extraLength;
+    const compressed = archive.subarray(contentStart, contentStart + compressedSize);
+    entries.push({ name, content: method === 8 ? inflateRawSync(compressed) : compressed });
+    offset = contentStart + compressedSize;
+  }
+  return entries;
 }

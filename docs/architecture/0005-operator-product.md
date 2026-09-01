@@ -41,6 +41,11 @@ transcript and reviewer-ledger records plus a category preview. Deletion require
 confirmation and moves controlled transcript, ledger, attachment, backup, migration, and
 recovery artifacts to recoverable local trash while reporting every incomplete move.
 
+Support-bundle creation applies recursive key, value, and free-text redaction to every
+included diagnostic projection before archive construction. A final privacy scan verifies
+the redacted projection. Finding credential material in source diagnostics therefore causes
+redaction, not bundle rejection; only a residual redactor invariant failure blocks publication.
+
 Authenticated stdio hosts receive one immutable execution snapshot per session. Host
 capability declarations are ceilings: disabling tools leaves the registry empty, while
 memory, attachment, MCP, and steering restrictions are enforced at their canonical

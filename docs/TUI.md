@@ -119,7 +119,11 @@ Commands include `/new NAME`, `/switch ID-OR-NAME`, `/sessions`, `/resume [SESSI
 `/plan`, `/tasks`, `/goal`, `/task`, `/support preview`, `/steer MESSAGE`, and `/quit`. `/support` creates a local redacted ZIP for only the current conversation under
 `%USERPROFILE%\.nna\support` on Windows or `$HOME/.nna/support` on Unix unless `NNA_HOME`
 or an explicit `/support PATH.zip` destination overrides it. The Console displays the exact
-destination while creating the bundle and again when it is ready. It can be sent to maintainers
+destination before work starts. `/support` recursively redacts secret-bearing fields and
+credential-like free text before it verifies and writes the archive. Source diagnostics that
+contain credentials are redacted and included; only a failure to verify the redacted output
+prevents archive creation.
+The Console displays the destination again when the bundle is ready. It can be sent to maintainers
 without including other open Console tabs; it never uploads the archive and refuses to overwrite
 an existing path. Its manifest lists the current conversation, with an isolated
 `sessions/<session-id>/` folder containing redacted diagnostics, repair statistics, and forensic

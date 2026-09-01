@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:3c7e254adc1f5f6d033b6e889e7a850f42021e851ad881a5524b83c20e9ea0ff",
+  "source_digest": "sha256:cbe48431b318572c268298f588f6622cec7f9f655f664a4bf9a932248c6200b3",
   "counts": {
     "modules": 335,
     "component_edges": 69
@@ -113,7 +113,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 146,
+      "import_count": 147,
       "module_count": 70
     },
     {
@@ -762,6 +762,7 @@
       "imports": [
         "src/ids.js",
         "src/product.js",
+        "src/redaction.js",
         "src/zip-archive.js"
       ]
     },
