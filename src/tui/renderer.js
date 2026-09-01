@@ -134,7 +134,7 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
     const start = lines.length;
     lines.push(...rendered);
     const lineKind = record.type === 'tool_status'
-      ? `${record.type}:${record.observation_outcome ? 'observed' : record.status ?? 'unknown'}`
+      ? `${record.type}:${record.observation_outcome ? 'observed' : toolHasDiagnostics(record) ? 'diagnostic' : record.status ?? 'unknown'}`
       : record.type;
     for (let index = start; index < lines.length; index += 1) lineKinds.set(index, lineKind);
     lastVisibleKind = isActivity(record) ? 'activity' : record.type;
@@ -310,7 +310,7 @@ function recordLines(record, width) {
   if (record.type === 'tool_status') {
     if (record.tool === 'agent.run' && ['running', 'succeeded'].includes(record.status)) return [];
     const outcome = toolOutcome(record);
-    return wrapIndentedTerminalLine(`    ${toolSymbol(record.status, record.observation_outcome)} ${record.tool}${toolTargetSuffix(record)} | ${outcome}`, width);
+    return wrapIndentedTerminalLine(`    ${toolSymbol(record.status, record.observation_outcome, toolHasDiagnostics(record))} ${record.tool}${toolTargetSuffix(record)} | ${outcome}`, width);
   }
   if (record.type === 'subagent_progress') return subagentProgressLines(record, width);
   if (record.type === 'review_status') return record.outcome === 'approve' ? [] : wrap(`    X REVIEW | ${record.outcome} | ${record.reason_code ?? ''}`, width);
@@ -333,7 +333,16 @@ function toolOutcome(record) {
   if (record.status === 'running') return 'running';
   if (record.status === 'completed_nonzero') return `completed · exit ${record.exit_code ?? 'nonzero'}`;
   if (record.status === 'succeeded' && record.observation_outcome) return observationLabel(record.observation_outcome);
+  if (record.status === 'succeeded' && toolHasDiagnostics(record)) {
+    const detail = [record.diagnostic_outcome === 'stderr_present' ? 'stderr present' : null,
+      record.diagnostic_visibility === 'reduced_by_script' ? 'visibility reduced' : null].filter(Boolean);
+    return `succeeded · ${detail.join(' · ')}`;
+  }
   return `${record.status}${toolFailureSuffix(record)}`;
+}
+
+function toolHasDiagnostics(record) {
+  return record.diagnostic_outcome === 'stderr_present' || record.diagnostic_visibility === 'reduced_by_script';
 }
 
 function observationLabel(value) {

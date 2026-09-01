@@ -102,6 +102,8 @@ export function toolStatus(engine, active, item, status) {
     exit_code: Number.isSafeInteger(item.result?.metadata?.exitCode) ? item.result.metadata.exitCode : null,
     signal: typeof item.result?.metadata?.signal === 'string' ? item.result.metadata.signal : null,
     observation_outcome: observationOutcome(item.result?.metadata?.observation_outcome),
+    diagnostic_outcome: diagnosticOutcome(item.result?.metadata?.diagnosticOutcome),
+    diagnostic_visibility: diagnosticVisibility(item.result?.metadata?.diagnosticVisibility),
     reason_code: failed ? item.result?.reason_code ?? null : null,
     failure_reason: failed && !completedNonzero && !processSignalExit ? boundedFailureReason(item.result?.content) : null,
   };
@@ -109,6 +111,14 @@ export function toolStatus(engine, active, item, status) {
 
 function observationOutcome(value) {
   return ['no_matches', 'target_not_found', 'empty_directory'].includes(value) ? value : null;
+}
+
+function diagnosticOutcome(value) {
+  return value === 'stderr_present' ? value : null;
+}
+
+function diagnosticVisibility(value) {
+  return value === 'reduced_by_script' ? value : null;
 }
 
 function boundedTarget(tool, args, resolved = null, agentRoute = null) {

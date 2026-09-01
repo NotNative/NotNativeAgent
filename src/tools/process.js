@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from 'node:child_process';
 import { ContractError } from '../ids.js';
-import { normalizeShellExecutionError, shellReliabilitySignals, shellToolGuidance } from '../reliability/host-environment.js';
+import {
+  normalizeShellExecutionError, shellDiagnosticVisibility, shellReliabilitySignals, shellToolGuidance,
+} from '../reliability/host-environment.js';
 import { inlineInterpreterGuidance, inlineInterpreterInvocation } from '../reliability/command-shaping.js';
 import { portableExecutableName } from '../reliability/executable-name.js';
 import { detachedProcessInvocation, longRunningForegroundInvocation } from '../reliability/process-lifecycle.js';
@@ -48,7 +50,7 @@ export function shellRunDefinition(paths, references = null, platform = process.
   const guidance = shellToolGuidance(platform);
   return {
     name: 'shell.run', version: 1,
-    purpose: `Run one bounded terminal workflow in the host platform shell and capture its output. ${guidance} The complete script, including background or detached behavior, is reviewed before execution.`,
+    purpose: `Run one bounded terminal workflow in the host platform shell and capture its output. ${guidance} A zero exit confirms process completion, not that every internal diagnostic succeeded. The result identifies standard-error output and scripts that reduce diagnostic visibility. The complete script, including background or detached behavior, is reviewed before execution.`,
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
@@ -244,8 +246,9 @@ export async function runProcess(input, signal, shellTool = false, references = 
     const settled = await Promise.race([output.then((value) => ({ value })), timeout]);
     if (signal.aborted) throw new ContractError('tool_cancelled', 'process was cancelled');
     if (settled.boundary === 'timeout') throw new ContractError('tool_timeout', 'process exceeded its deadline');
-    const result = settled.value;
+    const result = processResultEvidence(settled.value, shellTool ? shellDiagnosticVisibility(input.script, input.shell) : null);
     const acceptedExitCodes = input.accepted_exit_codes ?? [0];
+    const diagnosticMetadata = processDiagnosticMetadata(result);
     if (result.output_limit_exceeded) {
       return {
         status: 'failed', reasonCode: 'process_output_too_large', effectCertainty: 'unknown',
@@ -254,7 +257,7 @@ export async function runProcess(input, signal, shellTool = false, references = 
           exitCode: result.exit_code, signal: result.signal, acceptedExitCodes: [...acceptedExitCodes],
           shell: shellTool ? input.shell : false, bytesObserved: result.bytes_observed,
           outputLimitBytes: MAX_OUTPUT_BYTES, captureLimitBytes: result.capture_limit_bytes,
-          terminationRequested: result.termination_requested,
+          terminationRequested: result.termination_requested, ...diagnosticMetadata,
         },
       };
     }
@@ -267,7 +270,7 @@ export async function runProcess(input, signal, shellTool = false, references = 
       }),
       content: JSON.stringify(result, null, 2),
       metadata: { exitCode: result.exit_code, signal: result.signal,
-        acceptedExitCodes: [...acceptedExitCodes], shell: shellTool ? input.shell : false },
+        acceptedExitCodes: [...acceptedExitCodes], shell: shellTool ? input.shell : false, ...diagnosticMetadata },
     };
   } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
 }
@@ -277,10 +280,12 @@ function collectOutput(child, limit) {
     const perStreamCapture = Math.floor(MAX_CAPTURED_OUTPUT_BYTES / 2);
     const stdout = boundedOutputCapture(perStreamCapture);
     const stderr = boundedOutputCapture(perStreamCapture);
-    let bytes = 0, timedOut = false, outputLimitExceeded = false, terminationReason = null;
+    let bytes = 0, stdoutBytes = 0, stderrBytes = 0;
+    let timedOut = false, outputLimitExceeded = false, terminationReason = null;
     const consume = (kind, chunk) => {
       bytes += chunk.length;
-      if (kind === 'stdout') stdout.observe(chunk); else stderr.observe(chunk);
+      if (kind === 'stdout') { stdoutBytes += chunk.length; stdout.observe(chunk); }
+      else { stderrBytes += chunk.length; stderr.observe(chunk); }
       if (!outputLimitExceeded && bytes > limit) {
         outputLimitExceeded = true;
         terminateTree(child, 'output_limit');
@@ -291,6 +296,7 @@ function collectOutput(child, limit) {
     child.on('error', reject);
     child.on('close', (code, signal) => resolve({
       exit_code: code, signal, stdout: stdout.text(), stderr: stderr.text(), timedOut,
+      stdout_bytes: stdoutBytes, stderr_bytes: stderrBytes,
       ...(outputLimitExceeded ? {
         output_limit_exceeded: true, bytes_observed: bytes,
         capture_limit_bytes: MAX_CAPTURED_OUTPUT_BYTES, termination_requested: true,
@@ -299,6 +305,23 @@ function collectOutput(child, limit) {
     }));
     child.markTimedOut = () => { timedOut = true; };
     child.markTermination = (reason) => { terminationReason ??= reason; };
+  });
+}
+
+function processResultEvidence(result, diagnosticVisibility) {
+  return Object.freeze({
+    ...result,
+    ...(result.stderr_bytes > 0 ? { diagnostic_outcome: 'stderr_present' } : {}),
+    ...(diagnosticVisibility ? { diagnostic_visibility: diagnosticVisibility } : {}),
+  });
+}
+
+function processDiagnosticMetadata(result) {
+  return Object.freeze({
+    ...(result.diagnostic_outcome ? {
+      diagnosticOutcome: result.diagnostic_outcome, stderrBytes: result.stderr_bytes,
+    } : {}),
+    ...(result.diagnostic_visibility ? { diagnosticVisibility: result.diagnostic_visibility } : {}),
   });
 }
 

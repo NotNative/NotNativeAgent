@@ -146,6 +146,10 @@ aliases to Reliability Engine-owned components. They do not represent independen
     bounded exponential delay. Trusted-local health failure extends the cancellable wait; health
     success permits retry. These attempts do not consume the productive model-step ceiling. Durable
     receipts retain only bounded, content-free event-shape evidence and unknown field names.
+22. A successful process lifecycle proves that the host process reached an accepted exit code; it
+    does not prove every diagnostic assertion made inside the script. Stderr output and script-level
+    diagnostic suppression remain structured evidence qualifiers without being relabeled as process
+    failure.
 
 ## Consequences
 

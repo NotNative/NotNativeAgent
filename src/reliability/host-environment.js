@@ -61,5 +61,16 @@ export function shellReliabilitySignals(script, shell = 'auto') {
   if (detachedProcessInvocation(script, shell)) signals.push('detached_process');
   else if (longRunningForegroundInvocation(script)) signals.push('long_running_foreground');
   if (shellLaunchesExternalBrowser(script)) signals.push('external_browser');
+  if (shellDiagnosticVisibility(script, shell) === 'reduced_by_script') signals.push('diagnostic_visibility_reduced');
   return Object.freeze(signals);
+}
+
+export function shellDiagnosticVisibility(script, shell = 'auto') {
+  const value = String(script ?? '');
+  const powerShell = ['auto', 'powershell', 'pwsh'].includes(shell)
+    && /(?:\$ErrorActionPreference\s*=\s*['"](?:SilentlyContinue|Ignore)['"]|-(?:ErrorAction|EA)\s+(?:SilentlyContinue|Ignore)\b|2\s*>\s*\$null\b)/iu.test(value);
+  const nullRedirect = /(?:^|[\s;|&])(?:2|\*)\s*>\s*(?:\/dev\/null|nul\b)/iu.test(value);
+  // Why: an accepted process exit cannot prove that suppressed diagnostic streams were empty.
+  // This is a technical shell-shape observation. It does not infer operator intent or failure.
+  return powerShell || nullRedirect ? 'reduced_by_script' : null;
 }

@@ -82,12 +82,35 @@ test('unexpected nonzero process exits preserve diagnostics without becoming suc
   const output = JSON.parse(result.content);
   assert.equal(result.status, 'completed_nonzero');
   assert.equal(result.reasonCode, 'process_exit_nonzero');
-  assert.deepEqual(result.metadata, { exitCode: 7, signal: null, acceptedExitCodes: [0], shell: false });
+  assert.deepEqual(result.metadata, {
+    exitCode: 7, signal: null, acceptedExitCodes: [0], shell: false,
+    diagnosticOutcome: 'stderr_present', stderrBytes: 10,
+  });
   assert.equal(output.stdout, 'partial output');
   assert.equal(output.stderr, 'diagnostic');
+  assert.equal(output.stdout_bytes, 14);
+  assert.equal(output.stderr_bytes, 10);
+  assert.equal(output.diagnostic_outcome, 'stderr_present');
   const progress = toolProgressEvidence([{ request: normalized, result }]);
   assert.equal(progress.detail.summary.successful_tool_calls, 0);
   assert.equal(progress.detail.summary.diagnostic_tool_calls, 1);
+});
+
+test('accepted process exits identify stderr without converting execution into failure', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-process-diagnostics-'));
+  await writeFile(join(root, 'diagnostic.js'), "process.stdout.write('ok');process.stderr.write('warning');\n");
+  const registry = new ToolRegistry(root); await registry.initialize();
+  const definition = registry.definition('process.run');
+  const normalized = await definition.validate({ executable: 'node', args: ['diagnostic.js'] });
+  const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
+  const output = JSON.parse(result.content);
+  assert.equal(result.status, undefined);
+  assert.equal(output.exit_code, 0);
+  assert.equal(output.stdout_bytes, 2);
+  assert.equal(output.stderr_bytes, 7);
+  assert.equal(output.diagnostic_outcome, 'stderr_present');
+  assert.equal(result.metadata.diagnosticOutcome, 'stderr_present');
+  assert.equal(result.metadata.stderrBytes, 7);
 });
 
 test('process output overflow remains failed while preserving bounded observed evidence', async () => {
@@ -250,6 +273,7 @@ test('shell.run owns platform interpreter argv and executes a readable reviewed 
   assert.match(definition.purpose, new RegExp(`This host is .* \\(${process.platform}\\)`, 'u'));
   assert.match(definition.inputSchema.properties.shell.description, /Prefer auto/u);
   assert.match(definition.inputSchema.properties.script.description, /does not translate syntax/u);
+  assert.match(definition.purpose, /zero exit confirms process completion/u);
   const script = process.platform === 'win32' ? "[Console]::Write('shell-ok')" : "printf 'shell-ok'";
   assert.equal((await definition.validate({ content: script })).args.script, script);
   assert.equal((await definition.validate({ code: script })).args.script, script);
@@ -261,6 +285,23 @@ test('shell.run owns platform interpreter argv and executes a readable reviewed 
   const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
   assert.equal(JSON.parse(result.content).stdout, 'shell-ok');
   assert.equal(result.metadata.shell, normalized.resolved.shell);
+});
+
+test('shell.run identifies scripts that reduce diagnostic visibility', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-shell-diagnostic-visibility-'));
+  const registry = new ToolRegistry(root); await registry.initialize();
+  const definition = registry.definition('shell.run');
+  const script = process.platform === 'win32'
+    ? "$ErrorActionPreference='SilentlyContinue'; Write-Error hidden; Write-Output done"
+    : "false 2>/dev/null; printf done";
+  const normalized = await definition.validate({ script, timeout_ms: 5_000 });
+  assert.equal(normalized.resolved.reliabilitySignals.includes('diagnostic_visibility_reduced'), true);
+  const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
+  const output = JSON.parse(result.content);
+  assert.equal(result.status, undefined);
+  assert.equal(output.exit_code, 0);
+  assert.equal(output.diagnostic_visibility, 'reduced_by_script');
+  assert.equal(result.metadata.diagnosticVisibility, 'reduced_by_script');
 });
 
 test('shell.run reports completed nonzero when earlier compound-script effects occurred', async () => {

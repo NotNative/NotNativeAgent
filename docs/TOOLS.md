@@ -134,6 +134,11 @@ semantic review but never bypasses it. This preserves a small tool surface witho
 allowing a child process to outlive the reviewed call and active turn.
 The complete script, working directory, and interpreter are sealed into the reviewer request;
 NNA then owns interpreter argv, cancellation, output bounds, and process-tree cleanup.
+An accepted exit code means that the interpreter process completed under its declared protocol.
+It does not prove that every diagnostic inside a compound script succeeded. Process results record
+observed stdout and stderr byte counts. `stderr_present` identifies a non-empty stderr stream without
+turning the call into a failure. `reduced_by_script` identifies shell syntax that suppresses diagnostic
+output, so the model must preserve uncertainty about checks that might have been hidden.
 An interpreter launch failure returns `shell_interpreter_unavailable` with the detected host,
 native fallback, and a durable instruction not to repeat the unavailable shell.
 Both process tools accept a bounded `accepted_exit_codes` list that must contain zero. The

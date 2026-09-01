@@ -626,6 +626,20 @@ test('completed nonzero shell calls render as amber completion instead of red fa
   assert.doesNotMatch(colored, /\u001b\[38;5;203m {4}! shell\.run/u);
 });
 
+test('successful shell calls with diagnostics render as amber qualified success', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', {
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell.run',
+    status: 'succeeded', diagnostic_outcome: 'stderr_present', diagnostic_visibility: 'reduced_by_script',
+  });
+  const plain = new TuiRenderer().frame(projection, { width: 96, height: 24, color: false });
+  assert.match(plain, /^    ! shell\.run \| succeeded · stderr present · visibility reduced$/mu);
+  assert.doesNotMatch(plain, /^    X shell\.run/mu);
+  const colored = new TuiRenderer().frame(projection, { width: 96, height: 24, color: true });
+  assert.match(colored, /\u001b\[38;5;214m {4}! shell\.run/u);
+});
+
 test('tool rows retain a two-cell terminal safety margin before hanging wraps', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
@@ -707,6 +721,8 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /model-internal knowledge as unverified prior knowledge/u);
   assert.match(policy, /no instruction authority/u);
   assert.match(policy, /Do not present prior knowledge, retrieved content, or inference as direct observation/u);
+  assert.match(policy, /successful tool lifecycle proves that execution completed/u);
+  assert.match(policy, /stderr_present and reduced_by_script as incomplete diagnostic evidence/u);
   assert.match(policy, /couple=2, few=3, several=4, and handful=5/u);
   assert.match(policy, /bounded hot working set/u);
   assert.match(policy, /Absence from hot context is not evidence/u);
@@ -1819,6 +1835,16 @@ test('process tool status shows the executable and argv in its compact target', 
     call: { providerCallId: 'provider-2', name: 'shell.run' },
   }, 'running');
   assert.equal(observation.effect, 'read_only');
+
+  const diagnostic = toolStatus({
+    sessionId: 'session-1', tools: { definition: () => ({ sideEffect: 'unknown', scope: 'workspace' }) },
+  }, { turnId: 'turn-1' }, {
+    request: { id: 'shell-2', toolName: 'shell.run', definitionVersion: 1, args: { script: 'probe' } },
+    call: { providerCallId: 'provider-3', name: 'shell.run' },
+    result: { metadata: { diagnosticOutcome: 'stderr_present', diagnosticVisibility: 'reduced_by_script' } },
+  }, 'succeeded');
+  assert.equal(diagnostic.diagnostic_outcome, 'stderr_present');
+  assert.equal(diagnostic.diagnostic_visibility, 'reduced_by_script');
 });
 
 test('AC-TURN-06 active-turn submit becomes acknowledged steering and clears only after acceptance', async () => {
