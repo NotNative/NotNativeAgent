@@ -1,6 +1,6 @@
 # Reliability review resolution
 
-Date: 2026-08-29.
+Date: 2026-08-29. Updated: 2026-09-01.
 
 This record reconciles the three NNA self-autopsies against the implemented runtime. A finding is
 resolved only when code, tests, or an explicit compatibility decision addresses it. The reviews
@@ -39,7 +39,7 @@ when a suggested repair conflicts with them.
 | Review concern | Resolution |
 |---|---|
 | Greeting text could revoke safe reads | Resolved by `78b6440`. Natural-language greeting patterns cannot change deterministic safe-tool eligibility. Every call still crosses mandatory governance. |
-| Audit wording plus a file-extension heuristic denied an unnamed source artifact | Reviewed and retained as a fail-closed authority boundary. The observed request asked for a read-only audit, so denial of an unnamed source-file mutation was correct. An authenticated request to write or build a script does not match the read-only contradiction and can reach semantic review. Allowing a permissive reviewer to approve the read-only case failed AC-AUTH-05, AC-HEAD-10, and AC-SEC-03 by manufacturing mutation authority. |
+| Audit wording plus a file-extension heuristic denied an unnamed source artifact | Superseded by the semantic authorization boundary. File extensions, action verbs, target tokens, and read-only wording are free-form language, so deterministic review no longer interprets them. Mechanically safe reads remain deterministic; structured mission ceilings remain deterministic; other filesystem mutations reach semantic review with authenticated intent and an exact redacted request. |
 | Reviewer schema accepted any outcome string and had no repair | Resolved by `c848068`. The provider schema enumerates four outcomes and one bounded repair attempt receives a separate receipt under the same logical review. |
 | Prompt text over-directed model workflow | Resolved by `2f4dd51`. Grounding now distinguishes unverified knowledge and evidence from authority while removing broad prescribed workflows. Machine governance enforces effects; prose does not replace it. |
 | Model-facing prose and rationale had no measurable baseline | Resolved by the NNA-CTL gate and `controlled-language-report.json`. The report covers the maximal bundled-tool input surface and explicit rationale markers without regex-based intent scoring. |

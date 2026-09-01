@@ -47,7 +47,7 @@ graph LR
 | Tools | 43 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Reliability Engine, Tools | Agentic Engine, Experience Engine, Governance Engine, Reliability Engine, Tools |
 | Guidance and extensions | 9 | Governance Engine, Guidance and extensions, Product foundation | Agentic Engine, Experience Engine, Guidance and extensions, Product foundation, Tools |
 | Integration surfaces | 10 | Agentic Engine, Integration surfaces, Persistence, Product foundation, Providers | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
-| Product foundation | 81 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools |
+| Product foundation | 80 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine, Tools |
 
 ## Strongest observed component dependencies
 
@@ -67,7 +67,7 @@ Counts represent static local imports. Same-component imports are included becau
 | Integration surfaces | Product foundation | 16 | 10 |
 | Agentic Engine | Reliability Engine | 13 | 8 |
 | Experience Engine | Providers | 13 | 8 |
-| Governance Engine | Product foundation | 13 | 10 |
+| Governance Engine | Product foundation | 12 | 10 |
 | Tools | Reliability Engine | 12 | 5 |
 | Agentic Engine | Tools | 11 | 6 |
 | Product foundation | Providers | 10 | 8 |
@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:d03f607881214c80d5df5a997366cdb74941a0aca3bda9f25870216c3c6afc05`.
+Source fingerprint: `sha256:3fe8ac9d4f82a2dc14861d0a31ee74337d244e2c5027a57a9754e01f750627b1`.

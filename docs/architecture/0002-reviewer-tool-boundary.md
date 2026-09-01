@@ -48,7 +48,7 @@ drift. Durable transcript recovery rebuilds the cache for resumed conversations.
 
 The reviewer is mandatory kernel policy registered on the permission `pre`
 phase. Ordinary callers cannot remove that subscription. It deterministically approves
-mechanically safe work, enforces mission ceilings and clear authenticated-intent conflicts,
+mechanically safe work, enforces structured mission ceilings,
 and reserves a short immutable denial floor for prohibited operations. Other uncertain
 or consequential operations reach semantic review. Review-required work uses a
 tool-less `reviewer` model route with a portable structural JSON Schema response
@@ -101,10 +101,11 @@ receipt still fails closed. Built-in filesystem mutation tools also normalize a 
 unambiguous conventional argument aliases before validation and review; conflicting spellings are
 rejected, and the sealed request and audit record always use canonical field names.
 denied, failed, cancelled, or externally drifted writes never create that state.
-Git-tracked working-directory mutations and new targets can be classified as recoverable only
-when authenticated intent matches the action and target. An explicit build, implementation,
-scaffold, repair, or refactor objective covers proportionate derived reversible files inside
-that workspace; a read-only request or any later mutation restriction defeats that coverage.
+Git-tracked working-directory mutations and new targets can be classified as recoverable, but
+recovery evidence does not grant intent. Free-form authenticated language, including action,
+target, restriction, and derived-work meaning, is interpreted only by semantic review. A
+structured mission that passes its resource, effect, target, credential, schedule, and budget
+ceilings may deterministically cover a reversible request.
 Untracked, external, destructive, shell, and complex process
 effects reach mandatory semantic review instead of being prohibited by the tool layer.
 `process.run` retains minimal-environment inheritance, bounded output, deadlines, and

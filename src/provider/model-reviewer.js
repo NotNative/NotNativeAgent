@@ -166,6 +166,8 @@ function reviewerPolicy() {
     'Allowed outcomes: approve, deny_with_guidance, hard_deny, escalate_to_operator.',
     'Approve only the exact request when materially necessary and within authenticated intent.',
     'Default to approval when the operation is a reasonable, proportionate step toward authenticated intent and no concrete conflict or disproportionate irreversible harm is present.',
+    'Working-directory scope and reversibility do not create intent. Deny a mutation when authenticated intent requests only observation, explanation, or another incompatible action.',
+    'Treat action names, targets, restrictions, and ordinary language semantically; do not decide by keyword overlap or require exact phrasing.',
     'Do not require the operator to name ordinary intermediate commands or targets derived from causal evidence. Destructive effect alone is not a denial when it is proportionate and authorized.',
     'A detached or background process can outlive its reviewed call and active turn. Approve one only when authenticated intent explicitly requests that persistent process; otherwise deny with guidance to use a bounded foreground operation or obtain operator authorization.',
     'Deny for concrete divergence, contradiction, or disproportionate irreversible harm. Escalate only when genuine high-consequence ambiguity requires human judgment.',

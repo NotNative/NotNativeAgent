@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { operationalEnvironment, shellInvocation, shellRunDefinition } from '../src/tools/process.js';
 import { toolProgressEvidence } from '../src/tools/loop.js';
-import { detachedProcessInvocation, explicitDetachedProcessIntent } from '../src/reliability/process-lifecycle.js';
+import { detachedProcessInvocation } from '../src/reliability/process-lifecycle.js';
 
 test('process.run executes bounded shell-free argv inside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-'));
@@ -387,10 +387,6 @@ test('execution contracts identify detachment while preserving bounded wait form
   const foregroundServer = await shell.validate({ script: 'python -m http.server 8643', shell: 'powershell' });
   assert.equal(foregroundServer.resolved.reviewComplexity, 'long_running_foreground_shell');
   assert.deepEqual(foregroundServer.resolved.reliabilitySignals, ['long_running_foreground']);
-  assert.equal(explicitDetachedProcessIntent('Start the preview server and leave it running in the background.'), true);
-  assert.equal(explicitDetachedProcessIntent('Start the preview server.'), false);
-  assert.equal(explicitDetachedProcessIntent('Do not leave the preview server running in the background.'), false);
-
   const processTool = registry.definition('process.run');
   const indirect = await processTool.validate({
     executable: 'powershell.exe', args: ['-Command', 'Start-Process npm -ArgumentList run,dev'],

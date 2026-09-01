@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const PROCESS_NOUN = String.raw`(?:process|server|service|daemon|job|watcher|preview|listener|tunnel)`;
-
-export const DETACHED_PROCESS_GUIDANCE = 'The command would detach a process that can outlive shell.run and the active turn, but authenticated user intent does not explicitly request a persistent or background process. Use a bounded foreground command that terminates and cleans up descendants, or ask the operator to authorize the persistent process. Do not retry with an equivalent Start-Process, Start-Job, nohup, disown, or background form.';
 export const LONG_RUNNING_FOREGROUND_GUIDANCE = 'The command starts a long-running foreground development server, so shell.run cannot return while it is serving. For workspace browser verification, call web.browse with action navigate and path set to the HTML entry file; NNA owns the temporary loopback server and cleans it up automatically. Do not install Playwright in the project or retry the server with Start-Process, Start-Job, or another detached form. If the operator actually wants a persistent server, ask for explicit background-process authorization.';
 
 export function longRunningForegroundInvocation(source) {
@@ -20,25 +17,6 @@ export function detachedProcessInvocation(source, shell = 'auto') {
   if (/\b(?:nohup|setsid|disown|daemonize|systemd-run)\b/iu.test(text)) return true;
   if (/^(?:cmd(?:\.exe)?)?$/iu.test(shell) && /(?:^|[&\r\n])\s*start\s+(?!\/wait\b)/imu.test(text)) return true;
   return /^(?:sh|bash|zsh|fish)$/iu.test(shell) && hasTrailingBackgroundOperator(text);
-}
-
-export function detachedProcessAuthorized(authority) {
-  const latestIntent = authority?.intent?.at(-1)?.content;
-  if (detachedProcessProhibition(latestIntent)) return false;
-  return explicitDetachedProcessIntent(latestIntent)
-    || explicitDetachedProcessIntent(authority?.mission?.outcome);
-}
-
-export function explicitDetachedProcessIntent(value) {
-  const text = String(value ?? '');
-  if (detachedProcessProhibition(text)) return false;
-  const lifecycle = new RegExp(String.raw`\b(?:background|detach(?:ed|ment)?|persistent|daemon(?:ized)?)\b.{0,80}\b${PROCESS_NOUN}\b|\b${PROCESS_NOUN}\b.{0,80}\b(?:background|detach(?:ed|ment)?|persistent|keep\s+running|leave\s+(?:it\s+)?running)\b`, 'iu');
-  return lifecycle.test(text);
-}
-
-function detachedProcessProhibition(value) {
-  const negative = new RegExp(String.raw`\b(?:do\s+not|don't|never|avoid|stop)\b.{0,80}\b(?:background|detach(?:ed|ment)?|persistent|${PROCESS_NOUN})\b`, 'iu');
-  return negative.test(String(value ?? ''));
 }
 
 function hasTrailingBackgroundOperator(text) {

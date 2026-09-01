@@ -2,8 +2,6 @@
 import { ContractError, newId } from './ids.js';
 import { requestDigest } from './persistence/reviewer-ledger.js';
 import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
-import { evidenceNamesTarget, grantBeforeOtherFilesRestriction } from './review-target-evidence.js';
-import { DETACHED_PROCESS_GUIDANCE, detachedProcessAuthorized } from './reliability/process-lifecycle.js';
 import { EXTERNAL_BROWSER_GUIDANCE } from './reliability/external-browser.js';
 import { workspaceTransitionClassification } from './reliability/workspace-scope.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
@@ -38,8 +36,7 @@ export class MandatoryReviewer {
       const entry = await this.ledger.propose(request, classification);
       let decision;
       const missionViolation = missionBoundaryViolation(request, context.definition, context.authority?.mission);
-      const intentRelation = authenticatedIntentRelation(request, context.authority, context.definition,
-        context.conversationIntent);
+      const intentRelation = authenticatedIntentRelation(request, context.authority, context.definition);
       if (missionViolation) decision = hardDeny(missionViolation, request);
       else if (context.authority?.complete === false && !context.authority?.mission && classification.risk !== 'safe') {
         decision = deny(
@@ -48,15 +45,8 @@ export class MandatoryReviewer {
           request,
         );
       }
-      else if (request.resolved?.reliabilitySignals?.includes('external_browser')) decision = deny('external_browser_tool_required', EXTERNAL_BROWSER_GUIDANCE, request); else if (unauthorizedDetachedProcess(request, context.authority)) decision = detachedProcessDenial(request);
+      else if (request.resolved?.reliabilitySignals?.includes('external_browser')) decision = deny('external_browser_tool_required', EXTERNAL_BROWSER_GUIDANCE, request);
       else if (classification.risk === 'safe') decision = approve('deterministic_safe', request);
-      else if (!['safe', 'prohibited'].includes(classification.risk) && intentRelation === 'conflict') {
-        decision = deny(
-          'authenticated_intent_mismatch',
-          'The requested operation concretely conflicts with the authenticated action or target.',
-          request,
-        );
-      }
       else if (classification.risk === 'reversible' && intentRelation === 'covered') {
         decision = approve('deterministic_reversible', request);
       }
@@ -194,13 +184,6 @@ function processClassification(request) {
     purpose: request.resolved.reviewPurpose ?? 'general_process',
   });
 }
-
-function unauthorizedDetachedProcess(request, authority) {
-  return request.resolved?.reliabilitySignals?.includes('detached_process')
-    && !detachedProcessAuthorized(authority);
-}
-
-function detachedProcessDenial(request) { return deny('detached_process_not_authorized', DETACHED_PROCESS_GUIDANCE, request); }
 
 function definitionMismatchClassification() {
   return Object.freeze({ risk: 'prohibited', reason: 'definition_mismatch', effect: 'unknown', scope: 'unknown', complexity: 'unknown' });
@@ -341,103 +324,15 @@ function decision(outcome, reasonCode, request, guidance) {
   });
 }
 
-function authenticatedIntentRelation(request, authority, definition, conversationIntent = []) {
+function authenticatedIntentRelation(request, authority, definition) {
   // Security: only semantic review interprets authenticated authority for a scope transition.
   if (request.toolName === 'workspace.change') return 'uncertain';
   if (request.toolName === 'fs.directory' && request.args?.action === 'list') return 'covered';
   if (definition.sideEffect === 'read_only') return 'covered';
-  // Why: process intent is not safely reducible to command-token overlap. A
-  // mechanically proven observation is approved above; every other process
-  // request leaves nuanced action and target authorization to semantic review.
-  if (['process.run', 'shell.run', 'system.elevate'].includes(request.toolName)) return 'uncertain';
-  // Do not classify free-form operator language with keywords. Risky actions grounded in
-  // unclassified statements require semantic review unless a deterministic ceiling applies.
-  if (!authority?.mission && [...(authority?.intent ?? [])].some((item) => item.kind === 'statement')) {
-    // Semantic review may interpret nuanced positive authority, but it cannot
-    // manufacture mutation authority from an explicitly read-only request.
-    return clearlyReadOnlyIntent(authority) ? 'conflict' : 'uncertain';
-  }
-  if (!request.toolName.startsWith('fs.')) return 'uncertain';
-  const mission = authority?.mission?.outcome?.toLowerCase() ?? '';
-  const targets = resolvedTargets(request);
-  const action = filesystemActionPattern(request.toolName);
-  if (authority?.mission) {
-    const namesTargets = targets.every((target) => (authority.mission.targets ?? [])
-      .some((item) => missionTargetMatches(item, request, { scope: 'workspace' }, target)));
-    return namesTargets && action.test(mission) ? 'covered' : 'conflict';
-  }
-  if ([...(authority?.intent ?? [])].some((item) => item.kind === 'restriction'
-    && broadFilesystemMutationRestriction(item.content))) return 'conflict';
-  const relevant = [...(authority?.intent ?? [])].reverse().find((item) => {
-    const evidence = item.content.toLowerCase();
-    return targets.some((target) => evidenceNamesTarget(evidence, target));
-  });
-  if (relevant?.kind === 'restriction') {
-    const scopedGrant = grantBeforeOtherFilesRestriction(relevant.content);
-    if (scopedGrant && targets.every((target) => evidenceNamesTarget(scopedGrant, target))
-      && action.test(scopedGrant)) return 'covered';
-    return 'conflict';
-  }
-  if (taskResultArtifactCovered(request, authority, targets)) return 'covered';
-  if (workspaceBuildMutationCovered(request, authority, targets, conversationIntent)) return 'covered';
-  if (!relevant) return clearlyReadOnlyIntent(authority) ? 'conflict' : 'uncertain';
-  const evidence = relevant.content.toLowerCase();
-  if (targets.every((target) => evidenceNamesTarget(evidence, target)) && action.test(evidence)) return 'covered';
-  return clearlyReadOnlyText(evidence) ? 'conflict' : 'uncertain';
-}
-
-function workspaceBuildMutationCovered(request, authority, targets, conversationIntent = []) {
-  if (!['fs.directory', 'fs.create_directory', 'fs.write_text', 'fs.edit_text', 'fs.edit_lines'].includes(request.toolName)
-    || (request.toolName === 'fs.directory' && request.args?.action !== 'create')
-    || resolvedOutsideWorkspace(request) || targets.length !== 1) return false;
-  const buildPattern = /\b(?:build|create|develop|generate|implement|make|patch|refactor|repair|scaffold|upgrade)\b/iu;
-  const activeBuild = [...conversationIntent].reverse().find((item) => buildPattern.test(String(item)));
-  const latest = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction');
-  if (!activeBuild && (!latest || !buildPattern.test(latest.content))) {
-    return false;
-  }
-  return ![...(authority?.intent ?? [])].some((item) => item.kind === 'restriction'
-    && broadFilesystemMutationRestriction(item.content));
-}
-
-function taskResultArtifactCovered(request, authority, targets) {
-  if (request.toolName !== 'fs.write_text' || resolvedRecovery(request) !== 'new_target'
-    || resolvedOutsideWorkspace(request) || targets.length !== 1) return false;
-  const target = targets[0];
-  const extension = /\.([a-z0-9]+)$/u.exec(target)?.[1] ?? '';
-  if (!new Set(['md', 'txt', 'json', 'csv']).has(extension)) return false;
-  const artifactTerms = new Set(['audit', 'autopsy', 'report', 'finding', 'analysis', 'assessment', 'review', 'summary', 'result']);
-  if (![...tokenSet(target)].some((token) => artifactTerms.has(token))) return false;
-  const intent = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction'
-    && /\b(?:audit|autopsy|review|analy(?:s|z)e|analysis|assess|diagnose|investigate|research)\b/iu.test(item.content));
-  if (!intent) return false;
-  return ![...(authority?.intent ?? [])].some((item) => item.kind === 'restriction'
-    && broadFilesystemMutationRestriction(item.content));
-}
-
-function broadFilesystemMutationRestriction(value) {
-  // A scoped prohibition such as "do not modify any other file" preserves the
-  // explicitly named target grant; it is not a blanket revocation of all file
-  // mutation authority.
-  if (/\b(?:any\s+)?other\s+files?\b/iu.test(value)) return false;
-  return /\b(?:write|change|replace|create|update|edit|modify|delete|remove|move|rename|copy)\b/iu.test(value)
-    && /\b(?:any(?:thing)?|files?|workspace|repository|repo|codebase|reports?|artifacts?|documents?)\b/iu.test(value);
-}
-
-function clearlyReadOnlyIntent(authority) {
-  const latest = [...(authority?.intent ?? [])].reverse().find((item) => item.kind !== 'restriction');
-  return latest ? clearlyReadOnlyText(latest.content) : false;
-}
-
-function clearlyReadOnlyText(value) {
-  return /\b(?:read|inspect|audit|autopsy|review|summarize|explain|show|list|search|find|check|diagnose|answer|respond|tell)\b/iu.test(value)
-    && !/\b(?:write|change|replace|create|update|edit|modify|delete|remove|move|rename|copy|fix|build|implement|install)\b/iu.test(value);
-}
-function tokenSet(value) {
-  const ignored = new Set(['run', 'exec', 'command', 'the', 'this', 'that', 'with', 'from', 'into', 'and', 'for']);
-  return new Set(String(value).replace(/([a-z])([A-Z])/gu, '$1 $2').toLowerCase().split(/[^a-z0-9]+/u)
-    .map((item) => item.length > 4 && item.endsWith('s') ? item.slice(0, -1) : item)
-    .filter((item) => item.length > 2 && !ignored.has(item)));
+  // Why: free-form authenticated language is authoritative evidence, but its
+  // meaning is not a mechanical fact. Structured mission ceilings are checked
+  // before this point; all other consequential intent reaches semantic review.
+  return authority?.mission ? 'covered' : 'uncertain';
 }
 
 function missionBoundaryViolation(request, definition, mission) {
@@ -472,13 +367,4 @@ function resolvedTargets(request) {
     .filter((value) => typeof value === 'string');
   if (values.length > 0) return values.map((value) => value.replaceAll('\\', '/').toLowerCase());
   return [String(request.resolved?.source ?? 'external').toLowerCase()];
-}
-
-function filesystemActionPattern(toolName) {
-  if (toolName === 'fs.directory') return /\b(?:create|make|add|delete|remove|clean|purge)\b/u;
-  if (toolName === 'fs.delete_file') return /\b(?:delete|remove|unlink)\b/u;
-  if (toolName === 'fs.copy_file') return /\b(?:copy|duplicate)\b/u;
-  if (toolName === 'fs.move_file') return /\b(?:move|rename)\b/u;
-  if (toolName === 'fs.create_directory') return /\b(?:create|make|add)\b/u;
-  return /\b(?:write|change|replace|create|update|edit|modify)\b/u;
 }

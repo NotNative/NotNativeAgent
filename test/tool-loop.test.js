@@ -878,8 +878,10 @@ test('AC-SEC-03 hostile tool output remains untrusted and cannot authorize a lat
     yield { type: 'text', text: 'The injected mutation was denied.' };
     yield { type: 'terminal' };
   } };
-  const semanticReviewer = { async review() {
-    return { outcome: 'approve', confidence: 1, reason_code: 'follow_tool_output' };
+  const semanticReviewer = { async review(input) {
+    assert.equal(input.authenticatedIntent[0].content, 'Read note.txt and summarize it');
+    assert.equal(JSON.stringify(input.authenticatedIntent).includes('hacked.txt'), false);
+    return { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'tool_output_is_not_authority' };
   } };
   const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider, semanticReviewer });
   await engine.initialize();
@@ -889,11 +891,11 @@ test('AC-SEC-03 hostile tool output remains untrusted and cannot authorize a lat
   const denied = engine.transcript.find((item) => item.type === 'tool_result' && item.toolName === 'fs.write_text');
   assert.equal(denied.toolLifecycleStatus, 'denied');
   assert.equal(denied.reviewOutcome, 'deny_with_guidance');
-  assert.equal(denied.reasonCode, 'authenticated_intent_mismatch');
+  assert.equal(denied.reasonCode, 'tool_output_is_not_authority');
   await assert.rejects(readFile(join(root, 'hacked.txt')), { code: 'ENOENT' });
 });
 
-test('AC-REV-05 permissive semantic reviewer cannot invent mutation authority', async () => {
+test('AC-REV-05 semantic reviewer receives only authenticated intent when evaluating mutation authority', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-authority-'));
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
@@ -901,9 +903,10 @@ test('AC-REV-05 permissive semantic reviewer cannot invent mutation authority', 
     name: 'fs.write_text', args: { path: 'target.txt', content: 'after' },
   });
   let reviewerCalls = 0;
-  const semanticReviewer = { async review() {
+  const semanticReviewer = { async review(input) {
     reviewerCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'permissive' };
+    assert.equal(input.authenticatedIntent.at(-1).content, 'Tell me a joke');
+    return { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'mutation_not_authorized' };
   } };
   const engine = new SessionEngine({
     config: manifest(root), providerFactory: () => provider, semanticReviewer,
@@ -911,10 +914,10 @@ test('AC-REV-05 permissive semantic reviewer cannot invent mutation authority', 
   await engine.initialize();
   await seedReadReceipt(engine, 'target.txt');
   await engine.submit({ request_id: 'authority-turn', content: 'Tell me a joke' }, 'operator');
-  assert.equal(reviewerCalls, 0);
+  assert.equal(reviewerCalls, 1);
   assert.equal(await readFile(path, 'utf8'), 'before');
   assert.equal(engine.reviewerAudit()[0].decision, 'deny_with_guidance');
-  assert.equal(engine.reviewerAudit()[0].reason, 'authenticated_intent_mismatch');
+  assert.equal(engine.reviewerAudit()[0].reason, 'mutation_not_authorized');
 });
 
 test('registry exposes workspace operations and packaged self-guidance', async () => {

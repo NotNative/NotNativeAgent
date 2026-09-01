@@ -73,10 +73,15 @@ test('AC-REV-09 an equivalent denied request latches before another semantic rev
   assert.equal(calls, 1);
 });
 
-test('authenticated tracked-file mutations auto-approve as reversible without weakening target authority', async () => {
+test('reversible filesystem mutations use semantic authorization without deterministic prose matching', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'git-recovery' });
   let semanticCalls = 0;
-  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1;
+    return semanticCalls === 1
+      ? { outcome: 'approve', confidence: 1, reason_code: 'tracked_edit_authorized' }
+      : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'read_only_intent_conflict' };
+  } } });
   const request = {
     ...mutationRequest('tracked-edit'),
     args: { path: 'target.txt', content: 'after', expected_sha256: 'a'.repeat(64) },
@@ -84,17 +89,18 @@ test('authenticated tracked-file mutations auto-approve as reversible without we
   };
   const approved = await reviewer.review(request, context);
   assert.equal(approved.outcome, 'approve');
-  assert.equal(approved.reasonCode, 'deterministic_reversible');
-  assert.equal(semanticCalls, 0);
+  assert.equal(approved.reasonCode, 'semantic_intent_match');
+  assert.equal(semanticCalls, 1);
 
   const denied = await reviewer.review({ ...request, id: 'tracked-edit-unrequested', providerCallId: 'provider-unrequested' }, {
     ...context, authority: { ...context.authority, intent: [{ content: 'Summarize target.txt', sequence: 2 }] },
   });
   assert.equal(denied.outcome, 'deny_with_guidance');
-  assert.equal(denied.reasonCode, 'authenticated_intent_mismatch');
+  assert.equal(denied.reasonCode, 'read_only_intent_conflict');
+  assert.equal(semanticCalls, 2);
 });
 
-test('deterministic mutation authority requires an exact filename boundary', async () => {
+test('semantic mutation review receives exact target boundaries', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'target-boundary' });
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({
@@ -119,10 +125,15 @@ test('deterministic mutation authority requires an exact filename boundary', asy
   assert.equal(semanticCalls, 1);
 });
 
-test('a requested audit authorizes only a clearly named new in-workspace report artifact', async () => {
+test('audit artifacts and source mutations both receive semantic authorization', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'audit-report-artifact' });
   let semanticCalls = 0;
-  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1;
+    if (semanticCalls === 1) return { outcome: 'approve', confidence: 1, reason_code: 'report_artifact_authorized' };
+    return { outcome: 'deny_with_guidance', confidence: 1, reason_code: semanticCalls === 2
+      ? 'source_mutation_not_requested' : 'newer_write_restriction' };
+  } } });
   const auditContext = {
     ...context,
     authority: { ...context.authority, intent: [{
@@ -140,7 +151,7 @@ test('a requested audit authorizes only a clearly named new in-workspace report 
   };
   const approved = await reviewer.review(report, auditContext);
   assert.equal(approved.outcome, 'approve');
-  assert.equal(approved.reasonCode, 'deterministic_reversible');
+  assert.equal(approved.reasonCode, 'semantic_intent_match');
 
   const sourceWrite = await reviewer.review({
     ...report, id: 'audit-source', providerCallId: 'provider-audit-source',
@@ -150,7 +161,7 @@ test('a requested audit authorizes only a clearly named new in-workspace report 
       insideWorkspace: true, recovery: 'new_target',
     },
   }, auditContext);
-  assert.equal(sourceWrite.reasonCode, 'authenticated_intent_mismatch');
+  assert.equal(sourceWrite.reasonCode, 'source_mutation_not_requested');
 
   const restricted = await reviewer.review({
     ...report, id: 'audit-report-restricted', providerCallId: 'provider-audit-report-restricted',
@@ -160,14 +171,19 @@ test('a requested audit authorizes only a clearly named new in-workspace report 
       { content: 'Do not write any files.', sequence: 2, kind: 'restriction' },
     ] },
   });
-  assert.equal(restricted.reasonCode, 'authenticated_intent_mismatch');
-  assert.equal(semanticCalls, 0);
+  assert.equal(restricted.reasonCode, 'newer_write_restriction');
+  assert.equal(semanticCalls, 3);
 });
 
-test('an explicit build authorizes derived reversible workspace files without semantic review', async () => {
+test('an explicit build and a later restriction are interpreted by semantic review', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'derived-build-files' });
   let semanticCalls = 0;
-  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1;
+    return semanticCalls === 1
+      ? { outcome: 'approve', confidence: 1, reason_code: 'derived_build_file' }
+      : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'newer_build_restriction' };
+  } } });
   const buildContext = {
     ...context,
     authority: { ...context.authority, intent: [{
@@ -181,8 +197,8 @@ test('an explicit build authorizes derived reversible workspace files without se
   };
   const approved = await reviewer.review(request, buildContext);
   assert.equal(approved.outcome, 'approve');
-  assert.equal(approved.reasonCode, 'deterministic_reversible');
-  assert.equal(semanticCalls, 0);
+  assert.equal(approved.reasonCode, 'semantic_intent_match');
+  assert.equal(semanticCalls, 1);
 
   const restricted = await reviewer.review({ ...request, id: 'derived-build-restricted', providerCallId: 'provider-build-restricted' }, {
     ...buildContext, authority: { ...buildContext.authority, intent: [
@@ -190,13 +206,18 @@ test('an explicit build authorizes derived reversible workspace files without se
       { content: 'Do not create or modify any files.', sequence: 2, kind: 'restriction' },
     ] },
   });
-  assert.equal(restricted.reasonCode, 'authenticated_intent_mismatch');
+  assert.equal(restricted.reasonCode, 'newer_build_restriction');
+  assert.equal(semanticCalls, 2);
 });
 
-test('a scoped other-files restriction preserves its explicitly named target grant', async () => {
+test('semantic review can preserve a scoped target grant within a restriction', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'scoped-target-grant' });
   let semanticCalls = 0;
-  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    semanticCalls += 1;
+    assert.equal(input.intentRelation, 'uncertain');
+    return { outcome: 'approve', confidence: 1, reason_code: 'scoped_target_grant' };
+  } } });
   const request = {
     ...mutationRequest('scoped-target'),
     args: { path: 'src/main.js', content: 'export default true;', expected_sha256: null },
@@ -209,15 +230,19 @@ test('a scoped other-files restriction preserves its explicitly named target gra
     }] },
   });
   assert.equal(decision.outcome, 'approve');
-  assert.equal(decision.reasonCode, 'deterministic_reversible');
-  assert.equal(semanticCalls, 0);
+  assert.equal(decision.reasonCode, 'semantic_intent_match');
+  assert.equal(semanticCalls, 1);
 });
 
-test('additive steering does not obscure the active build task from deterministic review', async () => {
+test('additive steering remains available to semantic review with the active build task', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'build-steering-continuity' });
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({
-    ledger, semanticReviewer: { async review() { semanticCalls += 1; } },
+    ledger, semanticReviewer: { async review(input) {
+      semanticCalls += 1;
+      assert.equal(input.conversationIntent.length, 2);
+      return { outcome: 'approve', confidence: 1, reason_code: 'active_build_continues' };
+    } },
   });
   const request = {
     ...mutationRequest('steered-build-edit'),
@@ -238,8 +263,8 @@ test('additive steering does not obscure the active build task from deterministi
     ] },
   });
   assert.equal(approved.outcome, 'approve');
-  assert.equal(approved.reasonCode, 'deterministic_reversible');
-  assert.equal(semanticCalls, 0);
+  assert.equal(approved.reasonCode, 'semantic_intent_match');
+  assert.equal(semanticCalls, 1);
 });
 
 test('approval execution window begins when a slow review finishes', async () => {
@@ -787,14 +812,16 @@ test('AC-REV-08/AC-TOOL-02 opaque process requests require authenticated user in
   assert.equal(semanticCalls, 2);
 });
 
-test('detached processes require explicit authenticated lifecycle intent before semantic review', async () => {
+test('detached-process lifecycle intent is interpreted only by semantic review', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'detached-process-intent' });
   let semanticCalls = 0;
   let captured;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     semanticCalls += 1;
     captured = input;
-    return { outcome: 'approve', confidence: 1, reason_code: 'persistent_server_authorized' };
+    return semanticCalls === 1
+      ? { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'persistent_server_not_requested', guidance: 'Use a bounded foreground command.' }
+      : { outcome: 'approve', confidence: 1, reason_code: 'persistent_server_authorized' };
   } } });
   const request = {
     ...readRequest('detached-process'), toolName: 'shell.run',
@@ -811,9 +838,9 @@ test('detached processes require explicit authenticated lifecycle intent before 
     definition,
   });
   assert.equal(denied.outcome, 'deny_with_guidance');
-  assert.equal(denied.reasonCode, 'detached_process_not_authorized');
+  assert.equal(denied.reasonCode, 'persistent_server_not_requested');
   assert.match(denied.guidance, /Use a bounded foreground command/u);
-  assert.equal(semanticCalls, 0);
+  assert.equal(semanticCalls, 1);
 
   const approved = await reviewer.review({
     ...request, id: 'detached-process-authorized', providerCallId: 'provider-detached-authorized', authorityVersion: 2,
@@ -826,7 +853,7 @@ test('detached processes require explicit authenticated lifecycle intent before 
     definition,
   });
   assert.equal(approved.outcome, 'approve');
-  assert.equal(semanticCalls, 1);
+  assert.equal(semanticCalls, 2);
   assert.equal(captured.classification.reason, 'detached_process_request');
 });
 
@@ -858,7 +885,7 @@ test('a current restriction overrides earlier detached-process authorization', a
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'should_not_run' };
+    return { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'newer_detached_process_restriction' };
   } } });
   const request = {
     ...readRequest('detached-process-restricted'), toolName: 'shell.run',
@@ -877,8 +904,8 @@ test('a current restriction overrides earlier detached-process authorization', a
     definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'deny_with_guidance');
-  assert.equal(result.reasonCode, 'detached_process_not_authorized');
-  assert.equal(semanticCalls, 0);
+  assert.equal(result.reasonCode, 'newer_detached_process_restriction');
+  assert.equal(semanticCalls, 1);
 });
 
 test('foreground Python static servers receive ordinary semantic review instead of a blanket denial', async () => {
@@ -1064,7 +1091,8 @@ test('AC-AUTH-01 a newer target-specific restriction defeats an older mutation g
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'authority-restriction' });
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
-    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'model_allowed' };
+    semanticCalls += 1;
+    return { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'newer_target_restriction' };
   } } });
   const decision = await reviewer.review(mutationRequest('restricted'), {
     ...context,
@@ -1077,15 +1105,18 @@ test('AC-AUTH-01 a newer target-specific restriction defeats an older mutation g
     ] },
   });
   assert.equal(decision.outcome, 'deny_with_guidance');
-  assert.equal(decision.reasonCode, 'authenticated_intent_mismatch');
-  assert.equal(semanticCalls, 0);
+  assert.equal(decision.reasonCode, 'newer_target_restriction');
+  assert.equal(semanticCalls, 1);
 });
 
-test('AC-AUTH-05 permissive semantic output cannot manufacture filesystem action or target authority', async () => {
+test('AC-AUTH-05 semantic review receives authenticated intent before denying an unrelated filesystem action', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'filesystem-authority' });
   let semanticCalls = 0;
-  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
-    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'model_allowed' };
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    semanticCalls += 1;
+    assert.equal(input.authenticatedIntent[0].content, 'Read target.txt');
+    assert.equal(input.request.toolName, 'fs.delete_file');
+    return { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'delete_not_authorized' };
   } } });
   const request = {
     ...readRequest('unauthorized-delete'), toolName: 'fs.delete_file',
@@ -1098,6 +1129,6 @@ test('AC-AUTH-05 permissive semantic output cannot manufacture filesystem action
     ] },
     definition: { name: 'fs.delete_file', sideEffect: 'irreversible', scope: 'workspace' },
   });
-  assert.equal(decision.reasonCode, 'authenticated_intent_mismatch');
-  assert.equal(semanticCalls, 0);
+  assert.equal(decision.reasonCode, 'delete_not_authorized');
+  assert.equal(semanticCalls, 1);
 });

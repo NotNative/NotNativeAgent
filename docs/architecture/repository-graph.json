@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:d03f607881214c80d5df5a997366cdb74941a0aca3bda9f25870216c3c6afc05",
+  "source_digest": "sha256:3fe8ac9d4f82a2dc14861d0a31ee74337d244e2c5027a57a9754e01f750627b1",
   "counts": {
-    "modules": 336,
+    "modules": 335,
     "component_edges": 69
   },
   "components": [
@@ -72,7 +72,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 81
+      "module_count": 80
     }
   ],
   "entrypoints": [
@@ -179,7 +179,7 @@
     {
       "from": "governance-engine",
       "to": "foundation",
-      "import_count": 13,
+      "import_count": 12,
       "module_count": 10
     },
     {
@@ -345,12 +345,6 @@
       "module_count": 3
     },
     {
-      "from": "governance-engine",
-      "to": "reliability-engine",
-      "import_count": 3,
-      "module_count": 1
-    },
-    {
       "from": "reliability-engine",
       "to": "providers",
       "import_count": 3,
@@ -397,6 +391,12 @@
       "to": "reliability-engine",
       "import_count": 2,
       "module_count": 2
+    },
+    {
+      "from": "governance-engine",
+      "to": "reliability-engine",
+      "import_count": 2,
+      "module_count": 1
     },
     {
       "from": "governance-engine",
@@ -2461,12 +2461,6 @@
       ]
     },
     {
-      "path": "src/review-target-evidence.js",
-      "component": "foundation",
-      "entrypoint": false,
-      "imports": []
-    },
-    {
       "path": "src/reviewer-packet.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2480,9 +2474,7 @@
         "src/ids.js",
         "src/persistence/reviewer-ledger.js",
         "src/reliability/external-browser.js",
-        "src/reliability/process-lifecycle.js",
         "src/reliability/workspace-scope.js",
-        "src/review-target-evidence.js",
         "src/reviewer-packet.js"
       ]
     },
