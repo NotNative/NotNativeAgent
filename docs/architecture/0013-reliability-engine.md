@@ -150,6 +150,10 @@ aliases to Reliability Engine-owned components. They do not represent independen
     does not prove every diagnostic assertion made inside the script. Stderr output and script-level
     diagnostic suppression remain structured evidence qualifiers without being relabeled as process
     failure.
+23. Completion supervision distinguishes successful completion, required operator input, and a
+    terminal blocker. A blocked durable goal ends the turn without consuming continuation recovery.
+    Prose that reports a blocker cannot silently override active durable work; the model must first
+    record each unfinished task and the goal as blocked with bounded reasons.
 
 ## Consequences
 

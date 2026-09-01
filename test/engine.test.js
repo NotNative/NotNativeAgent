@@ -86,6 +86,41 @@ test('completion supervision accepts a settled result with optional future avail
   assert.equal(result.category, 'settled_output');
 });
 
+test('completion supervision settles an explicit terminal blocker without reporting completion', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    recovery: { actions: [] }, attemptOutputLimitTokens: 32_000,
+    attemptUsage: { completion_tokens: 200 },
+  };
+  const result = evaluateCompletion(active, "I can't complete this because the required host capability is unavailable.");
+  assert.equal(result.disposition, 'blocked');
+  assert.equal(result.category, 'terminal_blocker');
+
+  const alternative = evaluateCompletion(active, "I can't continue with that route. I will try a different bounded operation now.");
+  assert.equal(alternative.disposition, 'continue');
+  assert.equal(alternative.category, 'future_action_pledge');
+});
+
+test('completion supervision requires a terminal blocker to settle active durable work', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    recovery: { actions: [] },
+  };
+  const work = {
+    revision: 2, goal: { status: 'active' },
+    tasks: [{ id: 'T1', status: 'blocked' }],
+  };
+  const unrecorded = evaluateCompletion(active, "I can't complete this because the dependency is unavailable.", work);
+  assert.equal(unrecorded.disposition, 'continue');
+  assert.equal(unrecorded.category, 'unrecorded_work_blocker');
+  assert.match(unrecorded.hint, /goal_status to blocked/iu);
+
+  work.goal.status = 'blocked';
+  const recorded = evaluateCompletion(active, 'The dependency remains unavailable.', work);
+  assert.equal(recorded.disposition, 'blocked');
+  assert.equal(recorded.category, 'recorded_work_blocker');
+});
+
 test('text and DOM claims cannot erase a newer non-pass visual verdict', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
@@ -475,6 +510,27 @@ test('active durable work yields when the model genuinely requires operator inpu
   assert.equal(calls, 1);
   assert.equal(result.outcome, 'needs_input');
   assert.equal(engine.workStatus().tasks[0].status, 'pending');
+});
+
+test('a recorded terminal work blocker finalizes the turn without recovery', async () => {
+  let calls = 0;
+  const provider = { async *stream() {
+    calls += 1;
+    yield { type: 'text', text: "I can't complete the host operation because the required capability is unavailable." };
+    yield { type: 'terminal', finishReason: 'stop', usage: null };
+  } };
+  const engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  await engine.setGoal('Complete the host operation');
+  await engine.addTask('Use the required host capability');
+  await engine.updateTask('T1', 'blocked', 'The required host capability is unavailable.');
+  await engine.blockGoal('No available authorized route can supply the host capability.');
+
+  const result = await engine.submit({ request_id: 'work-blocked-turn', content: 'Finish the host operation' }, 'operator');
+
+  assert.equal(calls, 1);
+  assert.equal(result.outcome, 'blocked');
+  assert.equal(result.recovery.length, 0);
+  assert.match(result.text, /can't complete/u);
 });
 
 test('AC-EVENT-04/AC-STATE-05 a failing terminal observer cannot prevent one outcome or another observer', async () => {

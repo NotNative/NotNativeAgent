@@ -366,7 +366,7 @@ export function overlayCommandDraft(kind, id) {
   const drafts = {
     gateway: { authorize: '/gateway authorize ', revoke: '/gateway revoke ', 'token-env': '/gateway token-env ', workspace: '/gateway workspace ' },
     tab: { rename: '/rename ' },
-    plan: { 'set-goal': '/goal ', 'complete-goal': '/goal complete ', 'add-task': '/task add ' },
+    plan: { 'set-goal': '/goal ', 'complete-goal': '/goal complete ', 'block-goal': '/goal block ', 'add-task': '/task add ' },
     context: {
       level1: '/context level1 ', level2: '/context level2 ', level3: '/context level3 ',
       compaction: '/context compaction ',
@@ -374,7 +374,6 @@ export function overlayCommandDraft(kind, id) {
   };
   return drafts[kind]?.[action] ?? null;
 }
-
 export function planOverlay(work, options = {}) {
   const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
   const goal = work.goal;
@@ -383,11 +382,13 @@ export function planOverlay(work, options = {}) {
     goal ? goal.objective : 'No goal has been defined for this conversation.',
     goal ? `Status: ${goal.status ?? 'unknown'} | Progress: ${complete}/${tasks.length} tasks complete | Revision: ${work.revision ?? 0}`
       : 'Planning is optional. Add a goal only when structured progress helps the work.',
+    goal?.blockedReason ? `Blocked: ${goal.blockedReason}` : '',
   ];
   const items = [];
   items.push({ id: 'action:set-goal', label: goal ? 'Update goal' : 'Set goal', detail: 'Describe the durable outcome for this conversation', section: 'Goal' });
   if (goal?.status === 'active') items.push({ id: 'action:complete-goal', label: 'Complete goal', detail: 'Requires concrete completion evidence', section: 'Goal' });
-  if (goal?.status === 'completed') items.push({ id: 'action:goal-reopen', label: 'Reopen goal', detail: 'Return this goal to active work', section: 'Goal' });
+  if (goal?.status === 'active') items.push({ id: 'action:block-goal', label: 'Block goal', detail: 'Requires every unfinished task to be blocked', section: 'Goal' });
+  if (['completed', 'blocked'].includes(goal?.status)) items.push({ id: 'action:goal-reopen', label: 'Reopen goal', detail: 'Return this goal to active work', section: 'Goal' });
   items.push({ id: 'action:add-task', label: 'Add task', detail: 'Append one ordered pending task', section: 'Tasks' });
   for (const task of tasks) items.push({
     id: `task:${task.id}`, label: `${taskMarker(task.status)} ${task.id}  ${task.title}`,

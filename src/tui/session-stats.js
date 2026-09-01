@@ -27,6 +27,7 @@ export function sessionStats(session) {
     turns: Object.freeze({
       total: turns.length,
       completed: turns.filter((record) => record.outcome === 'completed').length,
+      blocked: turns.filter((record) => record.outcome === 'blocked').length,
       needs_input: turns.filter((record) => record.outcome === 'needs_input').length,
       failed: turns.filter((record) => ['failed', 'limit_reached'].includes(record.outcome)).length,
       elapsed_ms: sum(turns, 'elapsed_ms'),

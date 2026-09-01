@@ -5,7 +5,7 @@ import { ContractError, newId } from './ids.js';
 import { StructuredLog } from './structured-log.js';
 
 const PROTOCOL_VERSION = '1.0';
-const RECOVERABLE_OUTCOMES = new Set(['incomplete', 'needs_input', 'denied']);
+const RECOVERABLE_OUTCOMES = new Set(['blocked', 'incomplete', 'needs_input', 'denied']);
 
 export async function runPlainText(prompt, output, diagnostics, options) {
   validatePlainTextBoundary(output, diagnostics, options);

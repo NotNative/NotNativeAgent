@@ -49,7 +49,9 @@ function goalSummary(goal, progress) {
 }
 
 function goalKind(goal) {
-  return goal?.status === 'completed' ? 'work:goal:completed' : 'work:goal:active';
+  if (goal?.status === 'completed') return 'work:goal:completed';
+  if (goal?.status === 'blocked') return 'work:goal:blocked';
+  return 'work:goal:active';
 }
 
 function visibleTasks(tasks, limit) {

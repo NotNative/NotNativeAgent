@@ -4,6 +4,7 @@ import { projectConversationWork, requireConversationWorkSnapshot } from './conv
 import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 
 const TASK_STATUSES = Object.freeze(['pending', 'in_progress', 'completed', 'blocked']);
+const GOAL_STATUSES = Object.freeze(['active', 'completed', 'blocked']);
 
 export function conversationWorkDefinitions(work) {
   return [planDefinition(work), statusDefinition(work), goalDefinition(work), taskAddDefinition(work), taskUpdateDefinition(work)];
@@ -13,8 +14,9 @@ function planDefinition(work) {
   return definition('work.plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Output from work.plan or work.status can be passed back unchanged. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
     revision: { type: 'integer', minimum: 0, description: 'Optional revision returned by work.plan or work.status. A stale revision is rejected without changing work.' },
     objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required current goal objective.' },
-    goal_status: { type: 'string', enum: ['active', 'completed'], description: 'Goal status. Defaults to active.' },
+    goal_status: { type: 'string', enum: GOAL_STATUSES, description: 'Goal status. Defaults to active.' },
     goal_evidence: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required only when goal_status is completed.' },
+    goal_blocked_reason: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required only when goal_status is blocked.' },
     tasks: {
       type: 'array', maxItems: 64, description: 'Required complete ordered task list; omitted prior tasks are removed.',
       items: {
@@ -35,13 +37,15 @@ function statusDefinition(work) {
 }
 
 function goalDefinition(work) {
-  return definition('work.goal', 'Create, update, complete, or reopen the one durable goal for this conversation.', 'reversible', {
-    action: { type: 'string', enum: ['set', 'complete', 'reopen'], description: 'Required goal transition.' },
-    objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required goal text when action is set; omit for complete or reopen.' },
+  return definition('work.goal', 'Create, update, complete, block, or reopen the one durable goal for this conversation.', 'reversible', {
+    action: { type: 'string', enum: ['set', 'complete', 'block', 'reopen'], description: 'Required goal transition.' },
+    objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required goal text when action is set; omit otherwise.' },
     evidence: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required completion evidence when action is complete; omit otherwise.' },
+    reason: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required blocking reason when action is block; omit otherwise.' },
   }, ['action'], async (args) => {
     if (args.action === 'set') return mutationResult(await work.setGoal(required(args.objective, 'objective')));
     if (args.action === 'complete') return mutationResult(await work.completeGoal(required(args.evidence, 'evidence')));
+    if (args.action === 'block') return mutationResult(await work.blockGoal(required(args.reason, 'reason')));
     return mutationResult(await work.reopenGoal());
   });
 }

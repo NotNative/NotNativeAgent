@@ -25,7 +25,7 @@ test('conversation statistics summarize terminal outcomes without counting runni
       { type: 'review_status', outcome: 'deny_with_guidance' },
     ],
   });
-  assert.deepEqual(stats.turns, { total: 2, completed: 1, needs_input: 1, failed: 0, elapsed_ms: 1500 });
+  assert.deepEqual(stats.turns, { total: 2, completed: 1, blocked: 0, needs_input: 1, failed: 0, elapsed_ms: 1500 });
   assert.deepEqual(stats.tools, { total: 2, succeeded: 1, failed: 1 });
   assert.deepEqual(stats.reviews, { total: 2, denied: 1 });
   assert.deepEqual(stats.repair, {
@@ -55,4 +55,14 @@ test('conversation repair statistics distinguish recovered and exhausted turns b
   assert.equal(stats.repair.exhausted_turns, 1);
   assert.equal(stats.repair.rescue_rate, '50%');
   assert.deepEqual(stats.repair.by_kind.compact, { attempts: 1, recovered_turns: 0, exhausted_turns: 1 });
+});
+
+test('conversation statistics count blocked turns separately from failures', () => {
+  const stats = sessionStats({ records: [
+    { type: 'turn_result', outcome: 'blocked', elapsed_ms: 250 },
+    { type: 'turn_result', outcome: 'failed', elapsed_ms: 100 },
+  ] });
+  assert.deepEqual(stats.turns, {
+    total: 2, completed: 0, blocked: 1, needs_input: 0, failed: 1, elapsed_ms: 350,
+  });
 });

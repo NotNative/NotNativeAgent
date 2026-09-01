@@ -95,7 +95,7 @@ function recentHealthErrors(provider, servers, records) {
   }
   for (let index = records.length - 1; index >= 0; index -= 1) {
     const record = records[index];
-    if (record.type === 'turn_result' && ['failed', 'incomplete', 'limit_reached'].includes(record.outcome)) errors.push(`Turn ${shortId(record.turn_id)} | ${record.outcome} | ${record.failure?.code ?? record.failure?.message ?? 'no reason recorded'}`);
+    if (record.type === 'turn_result' && ['blocked', 'failed', 'incomplete', 'limit_reached'].includes(record.outcome)) errors.push(`Turn ${shortId(record.turn_id)} | ${record.outcome} | ${record.failure?.code ?? record.failure?.message ?? 'no reason recorded'}`);
     else if (record.type === 'tool_status' && !isIntermediateToolStatus(record.status)
       && !['succeeded', 'duplicate_ignored', 'cancelled'].includes(record.status)) errors.push(`${record.tool ?? 'tool'}${record.target ? ` (${boundedText(record.target, 90)})` : ''} | ${record.status} | ${record.reason_code ?? record.failure_reason ?? 'no reason recorded'}`);
     else if (record.type === 'review_status' && record.outcome && record.outcome !== 'approve') errors.push(`Review | ${record.outcome} | ${record.reason_code ?? 'no reason recorded'}`);

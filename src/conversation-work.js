@@ -2,6 +2,7 @@
 import { ContractError, newId } from './ids.js';
 
 const TASK_STATES = new Set(['pending', 'in_progress', 'completed', 'blocked']);
+const GOAL_STATES = new Set(['active', 'completed', 'blocked']);
 const MAX_TASKS = 64;
 const MAX_GOAL_TEXT = 2048;
 const MAX_TASK_TITLE = 512;
@@ -36,7 +37,7 @@ export class ConversationWork {
       revision: this.state.revision + 1,
       goal: Object.freeze({
         id: prior?.id ?? newId('goal'), objective: text, status: 'active',
-        createdAt: prior?.createdAt ?? now, updatedAt: now, evidence: null,
+        createdAt: prior?.createdAt ?? now, updatedAt: now, evidence: null, blockedReason: null,
       }),
     };
     return this.#commit(next, 'goal_set');
@@ -52,21 +53,50 @@ export class ConversationWork {
     const proof = boundedText(evidence, 'goal completion evidence', MAX_DETAIL);
     const next = {
       ...this.state, revision: this.state.revision + 1,
-      goal: Object.freeze({ ...this.state.goal, status: 'completed', evidence: proof, updatedAt: new Date().toISOString() }),
+      goal: Object.freeze({
+        ...this.state.goal, status: 'completed', evidence: proof, blockedReason: null,
+        updatedAt: new Date().toISOString(),
+      }),
     };
     return this.#commit(next, 'goal_completed');
   }
 
   async reopenGoal() {
     if (!this.state.goal) throw new ContractError('goal_missing', 'this conversation has no goal to reopen');
-    if (this.state.goal.status !== 'completed') {
-      throw new ContractError('goal_not_completed', 'only a completed conversation goal can be reopened');
+    if (!['completed', 'blocked'].includes(this.state.goal.status)) {
+      throw new ContractError('goal_not_terminal', 'only a completed or blocked conversation goal can be reopened');
     }
     const next = {
       ...this.state, revision: this.state.revision + 1,
-      goal: Object.freeze({ ...this.state.goal, status: 'active', evidence: null, updatedAt: new Date().toISOString() }),
+      goal: Object.freeze({
+        ...this.state.goal, status: 'active', evidence: null, blockedReason: null,
+        updatedAt: new Date().toISOString(),
+      }),
     };
     return this.#commit(next, 'goal_reopened');
+  }
+
+  async blockGoal(reason) {
+    if (!this.state.goal) throw new ContractError('goal_missing', 'this conversation has no active goal');
+    if (this.state.goal.status === 'completed') {
+      throw new ContractError('goal_already_completed', 'a completed conversation goal cannot be blocked');
+    }
+    if (this.state.goal.status === 'blocked') {
+      throw new ContractError('goal_already_blocked', 'the conversation goal is already blocked');
+    }
+    const actionable = this.state.tasks.filter((task) => !['completed', 'blocked'].includes(task.status));
+    if (actionable.length > 0) {
+      throw new ContractError('goal_tasks_actionable', `${actionable.length} task(s) must be completed or blocked first`);
+    }
+    const blockedReason = boundedText(reason, 'goal blocking reason', MAX_DETAIL);
+    const next = {
+      ...this.state, revision: this.state.revision + 1,
+      goal: Object.freeze({
+        ...this.state.goal, status: 'blocked', evidence: null, blockedReason,
+        updatedAt: new Date().toISOString(),
+      }),
+    };
+    return this.#commit(next, 'goal_blocked');
   }
 
   async clear() {
@@ -101,6 +131,7 @@ export class ConversationWork {
     const goal = Object.freeze({
       id: priorGoal?.id ?? newId('goal'), objective: plan.objective, status: plan.goalStatus,
       evidence: plan.goalStatus === 'completed' ? plan.goalEvidence : null,
+      blockedReason: plan.goalStatus === 'blocked' ? plan.goalBlockedReason : null,
       createdAt: priorGoal?.createdAt ?? now, updatedAt: now,
     });
     const next = {
@@ -184,13 +215,17 @@ function validateSnapshot(value) {
     });
   });
   if (value.goal !== null && (!value.goal || typeof value.goal !== 'object'
-    || !['active', 'completed'].includes(value.goal.status))) {
+    || !GOAL_STATES.has(value.goal.status))) {
     throw new ContractError('work_state_invalid', 'durable goal status is invalid');
   }
   const goal = value.goal === null ? null : Object.freeze({
     id: String(value.goal.id), objective: boundedText(value.goal.objective, 'goal objective', MAX_GOAL_TEXT),
     status: value.goal.status,
-    evidence: optionalText(value.goal.evidence), createdAt: String(value.goal.createdAt), updatedAt: String(value.goal.updatedAt),
+    evidence: value.goal.status === 'completed'
+      ? boundedText(value.goal.evidence, 'goal completion evidence', MAX_DETAIL) : optionalText(value.goal.evidence),
+    blockedReason: value.goal.status === 'blocked'
+      ? boundedText(value.goal.blockedReason, 'goal blocking reason', MAX_DETAIL) : optionalText(value.goal.blockedReason),
+    createdAt: String(value.goal.createdAt), updatedAt: String(value.goal.updatedAt),
   });
   return Object.freeze({ ...emptyState(), revision: value.revision, nextTaskNumber: value.nextTaskNumber, goal, tasks: Object.freeze(tasks) });
 }
@@ -220,9 +255,11 @@ function normalizePlan(value, state) {
   }
   const objective = boundedText(value.objective, 'goal objective', MAX_GOAL_TEXT);
   const goalStatus = value.goal_status ?? 'active';
-  if (!['active', 'completed'].includes(goalStatus)) throw new ContractError('work_plan_invalid', 'goal_status must be active or completed');
+  if (!GOAL_STATES.has(goalStatus)) throw new ContractError('work_plan_invalid', 'goal_status must be active, completed, or blocked');
   const goalEvidence = goalStatus === 'completed'
     ? boundedText(value.goal_evidence, 'goal completion evidence', MAX_DETAIL) : null;
+  const goalBlockedReason = goalStatus === 'blocked'
+    ? boundedText(value.goal_blocked_reason, 'goal blocking reason', MAX_DETAIL) : null;
   const known = new Set(state.tasks.map((task) => task.id));
   const ids = new Set(); let inProgress = 0;
   const tasks = value.tasks.map((item) => {
@@ -243,7 +280,10 @@ function normalizePlan(value, state) {
   if (goalStatus === 'completed' && tasks.some((task) => task.status !== 'completed')) {
     throw new ContractError('goal_tasks_unfinished', 'a completed goal cannot contain unfinished tasks');
   }
-  return Object.freeze({ objective, goalStatus, goalEvidence, tasks: Object.freeze(tasks) });
+  if (goalStatus === 'blocked' && tasks.some((task) => !['completed', 'blocked'].includes(task.status))) {
+    throw new ContractError('goal_tasks_actionable', 'a blocked goal can contain only completed or blocked tasks');
+  }
+  return Object.freeze({ objective, goalStatus, goalEvidence, goalBlockedReason, tasks: Object.freeze(tasks) });
 }
 function deepFreeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {

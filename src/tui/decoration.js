@@ -14,6 +14,7 @@ const FOOTER_POSTURE = /^(?:prompt|auto-review|unattended)/iu;
 const PASTED_IMAGES = /^\[pasted \d+ images?\]/u;
 const FOOTER_STYLE_BY_KIND = Object.freeze({
   'work:goal:active': TUI_THEME.accent,
+  'work:goal:blocked': TUI_THEME.warning,
   'work:goal:completed': TUI_THEME.mutedDark,
   'work:task:completed': TUI_THEME.mutedDark,
   'work:hint': TUI_THEME.mutedDark,

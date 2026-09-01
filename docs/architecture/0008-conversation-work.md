@@ -3,9 +3,12 @@
 Status: accepted and implemented.
 
 NNA provides an optional conversation-scoped work model consisting of one goal and an
-ordered list of tasks. A task is `pending`, `in_progress`, `completed`, or `blocked`, and
+ordered list of tasks. A goal is `active`, `completed`, or `blocked`. A task is
+`pending`, `in_progress`, `completed`, or `blocked`, and
 at most one task may be in progress. Completion requires bounded evidence; blocking
 requires a bounded reason. A goal cannot complete while any task remains unfinished.
+A goal can become blocked only after each unfinished task is blocked. A blocked goal
+ends the active turn without reporting successful completion and can later be reopened.
 
 Every mutation appends a complete versioned `work_state` snapshot to the conversation's
 hash-chained session journal and emits content-bounded forensic telemetry. Active work is
@@ -33,7 +36,8 @@ completed/total count. Ordinary and multi-step conversations remain plan-free un
 operator explicitly requests tracking or the agent deliberately decides durable coordination
 would materially help. Once a plan exists, completion supervision continues unfinished work,
 keeps `work.plan` available, and yields instead of nudging when the model genuinely requires
-operator input.
+operator input. A recorded blocked goal ends the turn as `blocked`; prose alone cannot override
+active durable work.
 
 While work is active, the provider projection identifies the current unfinished task and reports
 the number of model steps since the durable work revision changed. The counter is descriptive:

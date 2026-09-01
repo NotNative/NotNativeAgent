@@ -5,7 +5,7 @@ import { failureEnvelope } from './failure-envelope.js';
 export const PROTOCOL_VERSION = Object.freeze({ major: 1, minor: 0 });
 /** Terminal turn outcomes exposed to protocol consumers and configuration validation. */
 export const TURN_OUTCOMES = Object.freeze([
-  'completed', 'incomplete', 'needs_input', 'denied', 'cancelled', 'failed', 'limit_reached',
+  'completed', 'blocked', 'incomplete', 'needs_input', 'denied', 'cancelled', 'failed', 'limit_reached',
 ]);
 /** Execution roles accepted by manifests and route configuration. */
 export const ROLES = Object.freeze(['primary', 'reviewer', 'subagent', 'vision']);

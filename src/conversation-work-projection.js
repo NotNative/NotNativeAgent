@@ -21,6 +21,7 @@ export function projectConversationWork(snapshot) {
     objective: snapshot.goal.objective,
     goal_status: snapshot.goal.status,
     ...(snapshot.goal.status === 'completed' ? { goal_evidence: snapshot.goal.evidence } : {}),
+    ...(snapshot.goal.status === 'blocked' ? { goal_blocked_reason: snapshot.goal.blockedReason } : {}),
     tasks: Object.freeze(tasks),
   });
 }

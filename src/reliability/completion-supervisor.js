@@ -15,10 +15,12 @@ export function evaluateCompletion(active, text, work = null) {
   if (lostActiveTask(active, text)) {
     return Object.freeze({ disposition: 'continue', category: 'task_context_lost', progressEvidence: null });
   }
-  const workGate = unfinishedWorkGate(work, text);
+  const terminalBlocker = reportsTerminalBlocker(text);
+  const workGate = unfinishedWorkGate(work, text, terminalBlocker);
   if (workGate) return workGate;
   if ((active.unresolvedToolFailures?.length ?? 0) > 0) {
     if (requestsInput(text)) return Object.freeze({ disposition: 'needs_input', category: 'blocked_after_tool_failure' });
+    if (terminalBlocker) return Object.freeze({ disposition: 'blocked', category: 'terminal_tool_blocker' });
     if (claimsCompletion(text)) {
       return Object.freeze({ disposition: 'continue', category: 'unresolved_tool_failure', progressEvidence: null });
     }
@@ -26,6 +28,7 @@ export function evaluateCompletion(active, text, work = null) {
   const visualGate = visualEvidenceGate(active.visualEvidence, text);
   if (visualGate) return visualGate;
   if (requestsInput(text)) return Object.freeze({ disposition: 'needs_input', category: 'model_requested_input' });
+  if (terminalBlocker) return Object.freeze({ disposition: 'blocked', category: 'terminal_blocker' });
   if (hasUnfulfilledCompletionObligation(active)) {
     return Object.freeze({
       disposition: 'continue', category: 'unfulfilled_completion_obligation', progressEvidence: null,
@@ -119,10 +122,17 @@ function hasUnfulfilledCompletionObligation(active) {
   return (active.toolEvidenceRevision ?? 0) <= obligation.evidenceRevision;
 }
 
-function unfinishedWorkGate(work, text) {
+function unfinishedWorkGate(work, text, terminalBlocker) {
   const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
   const unfinished = tasks.filter((task) => task.status !== 'completed');
   const goalActive = work?.goal?.status === 'active';
+  const goalBlocked = work?.goal?.status === 'blocked';
+  if (goalBlocked) {
+    if (requestsInput(text)) {
+      return Object.freeze({ disposition: 'needs_input', category: 'blocked_work_requested_input' });
+    }
+    return Object.freeze({ disposition: 'blocked', category: 'recorded_work_blocker' });
+  }
   if (!goalActive && unfinished.length === 0) return null;
   if (requestsOperatorAuthorization(text)) {
     return Object.freeze({ disposition: 'needs_input', category: 'operator_authorization_requested' });
@@ -134,12 +144,29 @@ function unfinishedWorkGate(work, text) {
   if (requestsInput(text)) {
     return Object.freeze({ disposition: 'needs_input', category: 'active_work_requested_input' });
   }
+  if (terminalBlocker) {
+    return Object.freeze({
+      disposition: 'continue', category: 'unrecorded_work_blocker', required: true,
+      progressEvidence: `goal active; ${unfinished.length} unfinished task(s); work revision ${work?.revision ?? 0}`,
+      hint: 'The prior response reported a terminal blocker while durable work remained active. Update each unfinished task truthfully, then set goal_status to blocked with goal_blocked_reason using work.plan. If operator input can resolve the blocker, ask one concrete question instead.',
+    });
+  }
   const summary = `${unfinished.length} unfinished task(s); goal ${goalActive ? 'active' : 'settled'}; work revision ${work?.revision ?? 0}`;
   return Object.freeze({
     disposition: 'continue', category: 'unfinished_conversation_work', required: true,
     progressEvidence: summary,
     hint: 'An optional durable plan is active and still unfinished. Continue the work or use work.plan to update the complete task snapshot with concrete evidence; do not stop merely because a milestone changed. If operator input is genuinely required, ask one concrete question and mark the relevant task blocked when possible. Do not offer optional follow-up work or ask whether to continue.',
   });
+}
+
+function reportsTerminalBlocker(text) {
+  const tail = String(text ?? '').trim().toLowerCase().slice(-1_024);
+  if (!tail) return false;
+  const statement = tail.split(/(?<=[.!?])\s+/u).at(-1) ?? tail;
+  if (promisesFutureAction(statement)) return false;
+  return /\b(?:i|we)\s+(?:cannot|can't|am unable to|are unable to)\s+(?:complete|finish|continue|proceed|fulfil|fulfill)\b/u.test(statement)
+    || /\b(?:i|we)(?:'m| am|'re| are)\s+blocked\s+from\s+(?:completing|finishing|continuing|proceeding)\b/u.test(statement)
+    || /\b(?:task|work|request|operation|goal)\s+(?:is|remains)\s+blocked\b/u.test(statement);
 }
 
 export function partialOutputProgress(text) {

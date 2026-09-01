@@ -437,12 +437,13 @@ function turnReceipt(record, summary, mode, width) {
   const reviewCount = summary.reviews.size;
   const successful = record.outcome === 'completed';
   const marker = successful ? '*' : record.outcome === 'cancelled' ? '-'
-    : record.outcome === 'needs_input' ? '?' : '!';
+    : ['blocked', 'needs_input'].includes(record.outcome) ? '?' : '!';
   const label = successful ? 'Turn finished' : record.outcome === 'cancelled'
     ? 'Turn cancelled' : record.outcome === 'needs_input' ? 'Turn needs input'
+      : record.outcome === 'blocked' ? 'Turn blocked'
       : record.outcome === 'incomplete' ? 'Turn ended without completion'
       : `Turn ${record.outcome.replaceAll('_', ' ')}`;
-  if (successful || record.outcome === 'needs_input') {
+  if (successful || ['blocked', 'needs_input'].includes(record.outcome)) {
     const basic = [
       Number.isFinite(record.elapsed_ms) ? formatDuration(record.elapsed_ms) : null,
       receiptTokenText(record),
@@ -465,6 +466,7 @@ function turnReceipt(record, summary, mode, width) {
 }
 function recoveryAction(record) {
   if (record.outcome === 'needs_input') return null;
+  if (record.outcome === 'blocked') return 'review the blocker above';
   if (record.outcome === 'incomplete') return 'review the explanation above';
   if (record.retryable) return 'retry: Up then Enter';
   if (!['completed', 'cancelled'].includes(record.outcome)) return 'inspect: /health';

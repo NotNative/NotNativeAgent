@@ -39,6 +39,20 @@ test('conversation work restores the latest durable snapshot exactly', async () 
   assert.deepEqual(resumed.snapshot(), first.snapshot());
 });
 
+test('conversation work records and reopens a terminal blocked goal', async () => {
+  const work = new ConversationWork();
+  await work.setGoal('Complete work that depends on a host capability');
+  await work.addTask('Use the required host capability');
+  await assert.rejects(work.blockGoal('The host capability is unavailable.'), { code: 'goal_tasks_actionable' });
+  await work.updateTask('T1', 'blocked', 'The host capability is unavailable.');
+  await work.blockGoal('No authorized route can provide the required host capability.');
+  assert.equal(work.snapshot().goal.status, 'blocked');
+  assert.equal(work.snapshot().goal.blockedReason, 'No authorized route can provide the required host capability.');
+  await work.reopenGoal();
+  assert.equal(work.snapshot().goal.status, 'active');
+  assert.equal(work.snapshot().goal.blockedReason, null);
+});
+
 test('agent work tools share the same durable state machine', async () => {
   const work = new ConversationWork();
   const definitions = new Map(conversationWorkDefinitions(work).map((item) => [item.name, item]));
@@ -92,6 +106,25 @@ test('work plan and status expose one lossless round-trip contract', async () =>
   );
   assert.equal(after.goal.objective, before.goal.objective);
   assert.equal(after.goal.status, before.goal.status);
+});
+
+test('work plan round-trips a terminal blocked goal with its reason', async () => {
+  const work = new ConversationWork();
+  const definitions = new Map(conversationWorkDefinitions(work).map((item) => [item.name, item]));
+  const plan = definitions.get('work.plan');
+  const status = definitions.get('work.status');
+  const signal = new AbortController().signal;
+  const normalized = await plan.validate({
+    objective: 'Finish a host-dependent operation', goal_status: 'blocked',
+    goal_blocked_reason: 'Native elevation was not authorized.',
+    tasks: [{ title: 'Run the elevated operation', status: 'blocked', detail: 'Native elevation was not authorized.' }],
+  });
+  await plan.executor(normalized, signal);
+  const exposed = JSON.parse((await status.executor({ args: {} }, signal)).content);
+  assert.equal(exposed.goal_status, 'blocked');
+  assert.equal(exposed.goal_blocked_reason, 'Native elevation was not authorized.');
+  await plan.executor(await plan.validate(exposed), signal);
+  assert.equal(work.snapshot().goal.blockedReason, 'Native elevation was not authorized.');
 });
 
 test('work plan normalizes unambiguous durable-state detail aliases', async () => {

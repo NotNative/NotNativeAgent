@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { failureEnvelope } from './failure-envelope.js';
 
-const TERMINAL_OUTCOMES = new Set(['completed', 'needs_input', 'cancelled', 'denied', 'incomplete', 'failed']);
+const TERMINAL_OUTCOMES = new Set(['completed', 'blocked', 'needs_input', 'cancelled', 'denied', 'incomplete', 'failed']);
 
 export class FinalizationFaults {
   constructor(primary, outcome, causeId) {

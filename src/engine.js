@@ -209,6 +209,7 @@ export class SessionEngine {
   workStatus() { return this.work.snapshot(); }
   setGoal(objective) { return this.work.setGoal(objective); }
   completeGoal(evidence) { return this.work.completeGoal(evidence); }
+  blockGoal(reason) { return this.work.blockGoal(reason); }
   reopenGoal() { return this.work.reopenGoal(); }
   addTask(title) { return this.work.addTask(title); }
   updateTask(id, status, detail) { return this.work.updateTask(id, status, detail); }

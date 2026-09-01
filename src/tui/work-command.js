@@ -24,6 +24,8 @@ export async function handleWorkCommand(name, argument, workspace) {
     if (value === 'reopen') await engine.reopenGoal();
     else if (value.startsWith('complete ')) await engine.completeGoal(value.slice(9).trim());
     else if (value === 'complete') throw new ContractError('goal_evidence_required', 'use /goal complete EVIDENCE');
+    else if (value.startsWith('block ')) await engine.blockGoal(value.slice(6).trim());
+    else if (value === 'block') throw new ContractError('goal_reason_required', 'use /goal block REASON');
     else await engine.setGoal(value);
     return showWorkNotice(workspace, 'Goal updated.');
   }
