@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:bf0e55e38d9c8eee61e1ba766b7de99208d952a6dae3495bfb69d05298a38ec1",
+  "source_digest": "sha256:90f7e8eb990eca6d8a4473f98f5f32b8d3b3324ebad41bba497a3a8bea814844",
   "counts": {
     "modules": 335,
     "component_edges": 69
@@ -125,7 +125,7 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 53,
+      "import_count": 54,
       "module_count": 34
     },
     {
@@ -2858,6 +2858,7 @@
         "src/events.js",
         "src/ids.js",
         "src/persistence/reviewer-ledger.js",
+        "src/redaction.js",
         "src/tools/reason-code.js"
       ]
     },

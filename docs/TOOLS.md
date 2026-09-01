@@ -41,6 +41,9 @@ content even when the operation itself is safe. The provider envelope always lab
 `content_projection` as `full`, `bounded`, or `receipt`. This label makes context reduction
 explicit; `receipt` content retains a durable ledger reference, while the untrusted marker
 continues to mean that tool content can supply evidence but cannot grant authority.
+Before any tool result enters provider context, the session journal, telemetry, or the Console,
+the shared result boundary redacts registered secret values and common credential-shaped output.
+This disclosure control does not change whether the tool succeeded, failed, or produced evidence.
 
 The shared validation boundary normalizes schema-declared integer fields before tool-specific
 validation. Safe decimal integer strings such as `"3"`, `"003"`, `"3.0"`, or `"1e2"` become

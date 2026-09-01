@@ -2,9 +2,13 @@
 import { ContractError } from './ids.js';
 
 const SENSITIVE_KEY = /(?:api[_-]?key|authorization|bearer|credential|password|private[_-]?key|secret|token)/iu;
+const SECRET_LABEL = String.raw`(?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|authtoken|password|secret|token)`;
+const SECRET_VALUE = String.raw`(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)`;
 const TEXT_PATTERNS = Object.freeze([
   /\bbearer\s+[A-Za-z0-9._~+/-]{16,}={0,2}/giu,
-  /\b(api[_-]?key|password|secret|token)\s*([=:])\s*([^\s,;"']+)/giu,
+  new RegExp(String.raw`\b(${SECRET_LABEL})\b\s*([=:])\s*${SECRET_VALUE}`, 'giu'),
+  new RegExp(String.raw`(\b(?:add[-_]?authtoken|--?${SECRET_LABEL})\b(?:\s+|=))${SECRET_VALUE}`, 'giu'),
+  /([a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:)[^\s/@]+(@)/giu,
   /-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+PRIVATE KEY-----/gu,
 ]);
 const EXACT_VALUES = new Map();
@@ -61,8 +65,12 @@ export function redactText(value) {
       result = result.replaceAll(entry.encoded, `[nna-redacted-encoded:${entry.id}]`);
     }
   }
+  // Why: these patterns identify technical credential representations, not user intent.
+  // Discovered unmanaged credentials need protection before they can become durable evidence.
   result = result.replaceAll(TEXT_PATTERNS[0], 'Bearer [redacted]');
   result = result.replaceAll(TEXT_PATTERNS[1], '$1$2[redacted]');
-  result = result.replaceAll(TEXT_PATTERNS[2], '[redacted private key]');
+  result = result.replaceAll(TEXT_PATTERNS[2], '$1[redacted]');
+  result = result.replaceAll(TEXT_PATTERNS[3], '$1[redacted]$2');
+  result = result.replaceAll(TEXT_PATTERNS[4], '[redacted private key]');
   return result;
 }

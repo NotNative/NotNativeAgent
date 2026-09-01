@@ -2,6 +2,7 @@
 import { ContractError } from '../ids.js';
 import { requestDigest } from '../persistence/reviewer-ledger.js';
 import { MAX_SUBSCRIPTION_TIMEOUT_MS } from '../events.js';
+import { redactExtensionData, redactText } from '../redaction.js';
 import { normalizeToolReasonCode } from './reason-code.js';
 
 // This outer event boundary must remain above the largest configured semantic-review
@@ -160,7 +161,7 @@ export function denialResult(request, decision) {
   return Object.freeze({
     request_id: request.id, provider_call_id: request.providerCallId,
     tool_name: request.toolName, status: 'denied', review_outcome: decision.outcome,
-    content: `${decision.guidance ?? decision.reasonCode}\n\n${recovery.instruction}`, truncated: false,
+    content: redactText(`${decision.guidance ?? decision.reasonCode}\n\n${recovery.instruction}`), truncated: false,
     elapsed_ms: 0, effect_certainty: 'none', untrusted: true,
     reason_code: decision.reasonCode, metadata: Object.freeze({
       denial_kind: recovery.kind, continuation: recovery.continuation,
@@ -195,7 +196,7 @@ export function invalidResult(call, error) {
   return Object.freeze({
     request_id: null, provider_call_id: call.providerCallId ?? null,
     tool_name: call.name ?? null, status: 'invalid_request',
-    content: error instanceof ContractError ? error.message : 'invalid tool request',
+    content: redactText(error instanceof ContractError ? error.message : 'invalid tool request'),
     truncated: false, elapsed_ms: 0, effect_certainty: 'none',
     untrusted: true, reason_code: normalizeToolReasonCode(error?.code, 'tool_invalid'),
   });
@@ -205,7 +206,7 @@ export function blockedResult(request, error) {
   return Object.freeze({
     request_id: request.id, provider_call_id: request.providerCallId,
     tool_name: request.toolName, status: 'failed',
-    content: error instanceof ContractError ? error.message : 'execution-boundary revalidation failed',
+    content: redactText(error instanceof ContractError ? error.message : 'execution-boundary revalidation failed'),
     truncated: false, elapsed_ms: 0, effect_certainty: 'none',
     untrusted: true, reason_code: normalizeToolReasonCode(error?.code, 'tool_revalidation_failed'),
     ledger_started: false,
@@ -245,15 +246,18 @@ async function executeBounded(definition, request, parentSignal, executionContex
 
 function normalizeResult(request, definition, status, content, metadata, started, maxOutputBytes,
   reportedEffectCertainty = null, reasonCode = null) {
-  const source = String(content);
+  const rawBytes = Buffer.byteLength(String(content), 'utf8');
+  // Why: this is the single model-facing result boundary shared by bundled and external tools.
+  // Redact before bounding so a credential cannot be split into an unrecognizable partial value.
+  const source = redactText(String(content));
   const bounded = truncateUtf8(source, maxOutputBytes);
   return Object.freeze({
     request_id: request.id, provider_call_id: request.providerCallId,
     tool_name: request.toolName, status, content: bounded,
-    truncated: Buffer.byteLength(bounded) !== Buffer.byteLength(source),
+    truncated: rawBytes > maxOutputBytes || Buffer.byteLength(bounded) !== Buffer.byteLength(source),
     elapsed_ms: Math.max(0, performance.now() - started),
     effect_certainty: returnedEffectCertainty(definition, request, status, reportedEffectCertainty),
-    untrusted: true, metadata, ledger_started: true,
+    untrusted: true, metadata: redactExtensionData(metadata), ledger_started: true,
     ...(reasonCode ? { reason_code: reasonCode } : {}),
   });
 }
@@ -276,7 +280,7 @@ function normalizeFailure(request, definition, error, started) {
   return Object.freeze({
     request_id: request.id, provider_call_id: request.providerCallId,
     tool_name: request.toolName, status: timeout ? 'timed_out' : cancelled ? 'cancelled' : 'failed',
-    content: error instanceof ContractError ? error.message : 'tool execution failed',
+    content: redactText(error instanceof ContractError ? error.message : 'tool execution failed'),
     truncated: false, elapsed_ms: Math.max(0, performance.now() - started),
     effect_certainty: effectCertainty(definition, request, error),
     untrusted: true, metadata: failureMetadata(error),
@@ -293,7 +297,7 @@ function failureMetadata(error) {
     || !(value === null || typeof value === 'boolean'
       || (typeof value === 'number' && Number.isFinite(value))
       || (typeof value === 'string' && value.length <= 512)))) return null;
-  return Object.freeze(Object.fromEntries(entries));
+  return Object.freeze(redactExtensionData(Object.fromEntries(entries)));
 }
 
 function effectCertainty(definition, request, error) {

@@ -42,6 +42,21 @@ test('trusted consumer receives values transiently and exact-value redaction is 
   assert.equal((await broker.get(created.id)).useCount, 1);
 });
 
+test('central redaction recognizes common discovered credential representations', () => {
+  const source = [
+    'authtoken=discovered-token-value',
+    'ngrok config add-authtoken command-token-value',
+    "client --auth-token='flag-token-value'",
+    'origin=https://operator:embedded-password@example.test/path',
+  ].join('\n');
+  const redacted = redactText(source);
+  assert.match(redacted, /authtoken=\[redacted\]/u);
+  assert.match(redacted, /add-authtoken \[redacted\]/u);
+  assert.match(redacted, /--auth-token=\[redacted\]/u);
+  assert.match(redacted, /https:\/\/operator:\[redacted\]@example\.test/u);
+  assert.doesNotMatch(redacted, /discovered-token-value|command-token-value|flag-token-value|embedded-password/u);
+});
+
 test('realm separation prevents supported cross-realm enumeration and use', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-secret-realms-'));
   const paths = { vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json'), auditPath: join(root, 'audit.ndjson') };

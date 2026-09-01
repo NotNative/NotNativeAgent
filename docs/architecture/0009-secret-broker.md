@@ -14,6 +14,12 @@ Normal reads return metadata only: identifier, label, kind, field names, state, 
 
 While a trusted consumer is using a secret, exact values and their common encoded representations are registered with the central redactor. Lifecycle audit events contain identifiers and decisions, never secret values.
 
+Every model-facing tool result crosses that same central redaction boundary before output bounding,
+provider-context reinjection, transcript persistence, telemetry, or Console rendering. Exact-value
+registration protects managed broker secrets; bounded credential-shape redaction protects unmanaged
+credentials discovered in command output or external content. Redaction changes disclosure only and
+does not relabel the tool lifecycle, review decision, effect certainty, or evidence source.
+
 ## Console behavior
 
 `/secrets` is a keyboard-driven, write-only manager for local secrets. Operators can create,

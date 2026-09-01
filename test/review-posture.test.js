@@ -94,6 +94,50 @@ test('governor preserves a returned failure without claiming its side effects co
   assert.deepEqual(result.metadata, { passed: false });
 });
 
+test('governor redacts discovered credentials at the shared tool-result boundary', async () => {
+  const definition = {
+    name: 'system.inspect', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'read_only',
+    async executor() {
+      return {
+        content: 'ready\nauthtoken=discovered-output-token\nhttps://operator:url-password@example.test',
+        metadata: { token: 'metadata-token', note: 'access_token=metadata-note-token' },
+      };
+    },
+  };
+  const governor = new ToolGovernor({
+    events: new EventHub(), reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
+    registry: { definition: () => definition },
+  });
+  const request = { id: 'inspect-1', providerCallId: 'provider-inspect', toolName: 'system.inspect', definitionVersion: 1 };
+  const result = await governor.executePrepared(request, { id: 'decision-inspect' }, new AbortController().signal);
+  assert.equal(result.status, 'succeeded');
+  assert.match(result.content, /authtoken=\[redacted\]/u);
+  assert.match(result.content, /https:\/\/operator:\[redacted\]@example\.test/u);
+  assert.deepEqual(result.metadata, { token: '[redacted]', note: 'access_token=[redacted]' });
+  assert.doesNotMatch(JSON.stringify(result), /discovered-output-token|url-password|metadata-token|metadata-note-token/u);
+});
+
+test('governor redacts credentials from executor failure evidence', async () => {
+  const definition = {
+    name: 'system.inspect', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'read_only',
+    async executor() {
+      const error = new ContractError('inspection_failed', 'inspection failed with password=failure-password');
+      error.toolMetadata = { diagnostic: 'auth_token=failure-metadata-token' };
+      throw error;
+    },
+  };
+  const governor = new ToolGovernor({
+    events: new EventHub(), reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
+    registry: { definition: () => definition },
+  });
+  const request = { id: 'inspect-2', providerCallId: 'provider-inspect-2', toolName: 'system.inspect', definitionVersion: 1 };
+  const result = await governor.executePrepared(request, { id: 'decision-inspect-2' }, new AbortController().signal);
+  assert.equal(result.status, 'failed');
+  assert.equal(result.content, 'inspection failed with password=[redacted]');
+  assert.deepEqual(result.metadata, { diagnostic: 'auth_token=[redacted]' });
+  assert.doesNotMatch(JSON.stringify(result), /failure-password|failure-metadata-token/u);
+});
+
 test('governor accepts an executor-owned effect certainty for a returned failure', async () => {
   const definition = {
     name: 'project.verify', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
