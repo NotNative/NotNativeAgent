@@ -142,10 +142,17 @@ function renderCheckpoint(checkpointData) {
 function toolResultReceipt(item) {
   const budget = ACTIVE_RECEIPT_BYTES[receiptCategory(item.toolName)];
   const excerpt = boundedHeadTail(item.content ?? '', budget);
+  const originalBytes = item.metadata?.originalBytes ?? item.metadata?.original_bytes
+    ?? Buffer.byteLength(String(item.content ?? ''), 'utf8');
   return {
     ...item,
     content: `${excerpt}${excerpt ? '\n' : ''}[Settled tool output compressed for active context; full output remains in the durable session journal.]`,
-    metadata: { ...boundedMetadata(item.metadata), compacted: true, reason: 'active_pressure_receipt', ledgerRef: ledgerRef(item) },
+    // Invariant: provider projection must disclose the complete pre-projection size. Using the
+    // shortened receipt size here would falsely claim that visibly omitted evidence was complete.
+    metadata: {
+      ...boundedMetadata(item.metadata), originalBytes,
+      compacted: true, reason: 'active_pressure_receipt', ledgerRef: ledgerRef(item),
+    },
   };
 }
 

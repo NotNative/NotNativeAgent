@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   CONTEXT_PRESSURE, contextPressurePolicy, pressureTier, projectActiveTurn,
 } from '../src/active-context-pressure.js';
+import { buildContext } from '../src/context.js';
 
 test('active pressure tiers use conservative local-model boundaries', () => {
   assert.deepEqual(CONTEXT_PRESSURE, {
@@ -35,6 +36,22 @@ test('receipt pressure keeps recent steps and replaces settled payloads without 
   assert.equal(records[2].content, 'old result '.repeat(1_000));
   assert.equal(projected.records.find((item) => item.providerCallId === 'call-4' && item.type === 'tool_result').content, 'latest result');
   assert.ok(projected.evidenceRetention.sourceToolResultBytes > projected.evidenceRetention.projectedToolResultBytes);
+});
+
+test('receipt pressure reports true original and omitted tool-result bytes to the provider', () => {
+  const records = fixture();
+  const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'receipts' });
+  const result = projected.records.find((item) => item.providerCallId === 'call-1' && item.type === 'tool_result');
+  const originalBytes = Buffer.byteLength(records[2].content, 'utf8');
+  assert.equal(result.metadata.originalBytes, originalBytes);
+  const context = buildContext({
+    workspaceRoot: process.cwd(), limits: { maxContextBytes: 1_048_576 }, executionManifest: null,
+  }, projected.records, 'Continue.');
+  const envelope = JSON.parse(context.find((item) => item.role === 'tool').content);
+  assert.equal(envelope.projection_metadata.original_bytes, originalBytes);
+  assert.equal(envelope.projection_metadata.omitted_bytes,
+    originalBytes - envelope.projection_metadata.projected_bytes);
+  assert.ok(envelope.projection_metadata.omitted_bytes > 0);
 });
 
 test('receipt pressure preserves schema-valid native tool request arguments exactly', () => {
