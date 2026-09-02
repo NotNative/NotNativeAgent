@@ -207,6 +207,19 @@ test('schema admission and invocation values share the same 24-level nesting cei
   });
 });
 
+test('schema admission rejects cycles but accepts a repeated acyclic alias', () => {
+  const cyclic = { type: 'object', additionalProperties: false, properties: {} };
+  cyclic.properties.self = cyclic;
+  assert.throws(() => schemaShapeValidator(cyclic), {
+    code: 'invalid_external_schema', message: 'external tool schema contains a reference cycle',
+  });
+
+  const shared = { type: 'string', maxLength: 32 };
+  assert.doesNotThrow(() => schemaShapeValidator({
+    type: 'object', additionalProperties: false, properties: { first: shared, second: shared },
+  }));
+});
+
 test('provider documentation exposes locally enforced bounds while UTF-8 byte limits remain transport-safe', async () => {
   const schema = {
     type: 'object', additionalProperties: false, required: ['value', 'count'], properties: {

@@ -316,6 +316,7 @@ function validateInputStructure(input) {
 }
 
 function validateSchema(schema) {
+  rejectSchemaCycles(schema);
   let encoded;
   try { encoded = JSON.stringify(schema); } catch {
     throw new ContractError('invalid_external_schema', 'external tool schema is not serializable');
@@ -341,6 +342,30 @@ function validateSchema(schema) {
         }
       }
       for (const child of Object.values(value)) stack.push({ value: child, depth: depth + 1 });
+    }
+  }
+}
+
+function rejectSchemaCycles(schema) {
+  const ancestors = new WeakSet();
+  const stack = [{ value: schema, leaving: false }];
+  while (stack.length > 0) {
+    const { value, leaving } = stack.pop();
+    if (!value || typeof value !== 'object') continue;
+    if (leaving) {
+      ancestors.delete(value);
+      continue;
+    }
+    if (ancestors.has(value)) {
+      throw new ContractError('invalid_external_schema', 'external tool schema contains a reference cycle');
+    }
+    // Why: repeated aliases in separate branches are valid JSON-shaped input, while an
+    // ancestor reference can defeat later recursive consumers and must fail at admission.
+    ancestors.add(value);
+    stack.push({ value, leaving: true });
+    const children = Object.values(value);
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      stack.push({ value: children[index], leaving: false });
     }
   }
 }
