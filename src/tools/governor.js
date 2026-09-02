@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
+import { createHash } from 'node:crypto';
 import { requestDigest } from '../persistence/reviewer-ledger.js';
 import { MAX_SUBSCRIPTION_TIMEOUT_MS } from '../events.js';
 import { redactExtensionData, redactText } from '../redaction.js';
@@ -106,7 +107,7 @@ export class ToolGovernor {
     try {
       const raw = await executeBounded(definition, request, signal, { reviewerDecisionId: decision.id },
         this.subagentCancellationSettlementMs);
-      const status = ['failed', 'completed_nonzero'].includes(raw.status) ? raw.status : 'succeeded';
+      const status = returnedStatus(raw);
       return normalizeResult(request, definition, status, raw.content, raw.metadata, started, definition.maxOutputBytes,
         raw.effectCertainty,
         status !== 'succeeded' ? normalizeToolReasonCode(raw.reasonCode, 'tool_reported_failure') : null);
@@ -286,9 +287,22 @@ async function settlesWithin(operation, milliseconds) {
 
 function boundedPositiveMilliseconds(value, name) {
   if (!Number.isInteger(value) || value < 1 || value > MAX_SUBSCRIPTION_TIMEOUT_MS) {
-    throw new TypeError(`${name} must be an integer from 1 to ${MAX_SUBSCRIPTION_TIMEOUT_MS}`);
+    throw new ContractError('invalid_limit', `${name} must be an integer from 1 to ${MAX_SUBSCRIPTION_TIMEOUT_MS}`);
   }
   return value;
+}
+
+function returnedStatus(raw) {
+  const statuses = ['succeeded', 'failed', 'completed_nonzero', 'cancelled', 'timed_out',
+    'invalid_request', 'denied', 'unknown_effect'];
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)
+    || (raw.status !== undefined && !statuses.includes(raw.status))
+    || (raw.effectCertainty !== undefined && !['none', 'completed', 'unknown'].includes(raw.effectCertainty))) {
+    throw new ContractError('tool_result_invalid', 'executor returned an invalid lifecycle status or effect certainty');
+  }
+  // Invariant: an uncertain effect cannot become an applied success in the authorization ledger.
+  const status = raw.status ?? 'succeeded';
+  return status === 'succeeded' && raw.effectCertainty === 'unknown' ? 'unknown_effect' : status;
 }
 
 function normalizeResult(request, definition, status, content, metadata, started, maxOutputBytes,
@@ -368,7 +382,10 @@ function toolRequestReadOnly(definition, request) {
 }
 
 function fingerprintResult(result) {
-  return `${result.status}:${Buffer.byteLength(result.content, 'utf8')}:${result.truncated}`;
+  // Why: elapsed time is not result identity. Equal-length outputs can contain different evidence.
+  return createHash('sha256').update(JSON.stringify([
+    result.status, result.content, result.truncated, result.effect_certainty, result.reason_code ?? null,
+  ])).digest('hex');
 }
 
 function governanceTerminal(status) {

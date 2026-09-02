@@ -7,10 +7,18 @@ import { FinalizationFaults } from '../finalization-faults.js';
 
 export async function finalizeEngineTurn(engine, outcome, text, failureDetail, options, operations) {
   const active = engine.active;
+  if (active?.finalizationPromise) return active.finalizationPromise;
   if (!active || active.finalized) operations.rejectDuplicate();
-  active.finalized = true;
-  clearTimeout(active.missionTimer);
   const faults = new FinalizationFaults(failureDetail, outcome, active.turnId);
+  active.finalized = true;
+  // Invariant: concurrent finalization joins one operation and cannot emit a second terminal record.
+  active.finalizationPromise = Promise.resolve().then(() => finalizeOnce(engine, active, text, options, operations, faults));
+  return active.finalizationPromise;
+}
+
+async function finalizeOnce(engine, active, text, options, operations, faults) {
+  const outcome = faults.outcome;
+  clearTimeout(active.missionTimer);
   if (engine.state.state !== 'finalizing_turn') {
     await faults.capture('state', () => engine.state.transition(
       'finalizing_turn', { trigger: `terminal_${outcome}`, turnId: active.turnId },
@@ -19,7 +27,7 @@ export async function finalizeEngineTurn(engine, outcome, text, failureDetail, o
   await faults.capture('lifecycle', () => settleEngineChildren(
     engine, active, faults.outcome, operations.publish,
   ));
-  let finalMessagePersisted = text.length === 0 || text === active.committedStepText;
+  let finalMessagePersisted = text.length > 0 && text === active.committedStepText;
   if (text.length > 0 && text !== active.committedStepText) await faults.capture('persistence', async () => {
     await operations.persist('message', assistantMessage(active.turnId, text, { ...faults.primary, stepId: active.stepId }));
     finalMessagePersisted = true;

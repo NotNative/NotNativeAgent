@@ -115,7 +115,8 @@ function claimsCompletion(text) {
 function unfinishedWorkGate(work, declaration) {
   const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
   if (work?.pendingCompletion) {
-    return Object.freeze({ disposition: 'completed', category: 'pending_work_completion' });
+    // Why: staging a plan is bookkeeping, not evidence that terminal checks passed.
+    return null;
   }
   const unfinished = tasks.filter((task) => task.status !== 'completed');
   const goalActive = work?.goal?.status === 'active';
