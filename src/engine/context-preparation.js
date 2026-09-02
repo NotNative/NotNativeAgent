@@ -5,6 +5,7 @@ import { buildContext } from '../context.js';
 import { providerRequest } from './runtime-helpers.js';
 import { addHookContexts, hookPayload } from './hooks.js';
 import { ContractError } from '../ids.js';
+import { estimateUtf8Tokens } from '../reliability/context-budget.js';
 import { writeTaskCheckpoint } from '../task-checkpoint.js';
 import { toolLifecycleStatus, toolReviewOutcome } from '../tools/tool-result-contract.js';
 
@@ -360,8 +361,7 @@ function emitCompactionStatus(engine, active, status, detail) {
 }
 
 function estimatedTranscriptTokens(records, content) {
-  const bytes = Buffer.byteLength(JSON.stringify(records), 'utf8') + Buffer.byteLength(content, 'utf8');
-  return Math.ceil(bytes / ESTIMATED_BYTES_PER_TOKEN);
+  return estimateUtf8Tokens(JSON.stringify(records)) + estimateUtf8Tokens(content);
 }
 
 function recordBudget(engine, runtime, planned, active) {

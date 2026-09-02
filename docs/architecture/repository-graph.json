@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:b0cd95e090c131ecff68e11c96105b1fb5ad912ded5540def37541b6218c4093",
+  "source_digest": "sha256:363b269dfcb16714824a456abf7c8f1230a68e1dea2fa6b1a7573d45db905f31",
   "counts": {
     "modules": 341,
     "component_edges": 69
@@ -137,8 +137,8 @@
     {
       "from": "reliability-engine",
       "to": "reliability-engine",
-      "import_count": 49,
-      "module_count": 23
+      "import_count": 50,
+      "module_count": 24
     },
     {
       "from": "agentic-engine",
@@ -165,16 +165,16 @@
       "module_count": 10
     },
     {
+      "from": "agentic-engine",
+      "to": "reliability-engine",
+      "import_count": 13,
+      "module_count": 7
+    },
+    {
       "from": "experience-engine",
       "to": "providers",
       "import_count": 13,
       "module_count": 8
-    },
-    {
-      "from": "agentic-engine",
-      "to": "reliability-engine",
-      "import_count": 12,
-      "module_count": 7
     },
     {
       "from": "agentic-engine",
@@ -969,6 +969,7 @@
         "src/engine/hooks.js",
         "src/engine/runtime-helpers.js",
         "src/ids.js",
+        "src/reliability/context-budget.js",
         "src/task-checkpoint.js",
         "src/tools/tool-result-contract.js"
       ]
@@ -2436,7 +2437,8 @@
       "imports": [
         "src/ids.js",
         "src/provider/reasoning.js",
-        "src/provider/request-metadata.js"
+        "src/provider/request-metadata.js",
+        "src/reliability/context-budget.js"
       ]
     },
     {

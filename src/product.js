@@ -5,7 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
-export const VERSION = '20260902-17';
+export const VERSION = '20260902-18';
 // scripts/bump-version.js updates this canonical date-iteration version and all distribution mirrors atomically.
 
 const USER_DATA_FILE_KEYS = new Set([

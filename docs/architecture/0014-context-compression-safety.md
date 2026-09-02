@@ -81,7 +81,10 @@ reduction alone is not evidence of an equivalent agent outcome.
 
 ## Tokenizer identity
 
-The dependency-free UTF-8 estimator remains the universal fallback. A provider or host may
+The dependency-free UTF-8 estimator remains the universal fallback. It estimates ordinary
+ASCII from serialized bytes while counting non-ASCII UTF-16 units individually so combining
+characters, emoji, and finely split non-Latin scripts cannot inherit an English-only ratio.
+A provider or host may
 inject a model-specific token counter, including a Qwen tokenizer, but every measurement
 records its bounded identity and whether its count is exact. A failing, invalid, or
 unavailable counter degrades to the conservative estimator rather than blocking execution.

@@ -2,7 +2,7 @@
 import { measureContext } from '../context.js';
 import { DEFAULT_MODEL_OUTPUT_TOKENS } from './output-headroom.js';
 
-// Conservative empirical approximation used only when a provider tokenizer is unavailable.
+// Conservative empirical approximation used only for ASCII when a provider tokenizer is unavailable.
 const TOKEN_BYTE_RATIO = 3;
 const MESSAGE_OVERHEAD_TOKENS = 8;
 // Reserve 12.5% for output, targeting at least 1K tokens without consuming more
@@ -72,9 +72,21 @@ function adaptiveOutputReserve(windowTokens, declaredOutputLimit) {
 export function estimateContextTokens(messages) {
   return messages.reduce((total, item) => {
     const content = typeof item.content === 'string' ? item.content : JSON.stringify(item);
-    return total + Math.ceil(Buffer.byteLength(content, 'utf8') / TOKEN_BYTE_RATIO)
-      + MESSAGE_OVERHEAD_TOKENS;
+    return total + estimateUtf8Tokens(content) + MESSAGE_OVERHEAD_TOKENS;
   }, 0);
+}
+
+export function estimateUtf8Tokens(value) {
+  const text = String(value ?? '');
+  let asciiBytes = 0; let nonAsciiUtf16Units = 0;
+  for (const symbol of text) {
+    if (symbol.codePointAt(0) <= 0x7f) asciiBytes += 1;
+    else nonAsciiUtf16Units += symbol.length;
+  }
+  // Why: bytes/3 is useful for ordinary English but can undercount combining characters,
+  // emoji, and tokenizers that split non-Latin scripts finely. Counting each non-ASCII UTF-16
+  // unit keeps the dependency-free fallback cautious without tripling ordinary ASCII prompts.
+  return Math.ceil(asciiBytes / TOKEN_BYTE_RATIO) + nonAsciiUtf16Units;
 }
 
 export function contextMeasurements(messages) {

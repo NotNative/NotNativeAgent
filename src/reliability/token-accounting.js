@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { providerReasoningControls } from '../provider/reasoning.js';
 import { providerRequestMetadata } from '../provider/request-metadata.js';
+import { estimateUtf8Tokens } from './context-budget.js';
 
 const TOKEN_BYTE_RATIO = 3;
 const MAX_SECTIONS = 64;
@@ -35,7 +36,7 @@ export function measureProviderEnvelope(request, context = [], options = {}) {
   const outputReserve = positiveInteger(options.outputReserveTokens) ?? 0;
   return Object.freeze({
     schema: 'nna.provider-envelope.v1', measurement: 'estimated',
-    estimator: 'serialized_utf8_bytes_div_3_v1',
+    estimator: 'serialized_utf8_script_aware_v2',
     estimated_input_tokens: inputTokens,
     reserved_output_tokens: outputReserve,
     reserved_total_tokens: inputTokens + outputReserve,
@@ -198,9 +199,10 @@ function normalizedUsage(usage) {
 }
 
 function addSection(sections, id, value) {
-  const bytes = serializedBytes(value);
+  const serialized = serializedValue(value);
+  const bytes = Buffer.byteLength(serialized, 'utf8');
   const current = sections.get(id) ?? { bytes: 0, tokens: 0, items: 0 };
-  current.bytes += bytes; current.tokens += estimateBytes(bytes); current.items += 1;
+  current.bytes += bytes; current.tokens += estimateUtf8Tokens(serialized); current.items += 1;
   sections.set(id, current);
 }
 
@@ -287,7 +289,10 @@ function sectionLabel(value) {
 }
 
 function serializedBytes(value) {
-  try { return Buffer.byteLength(JSON.stringify(value ?? null), 'utf8'); }
+  return Buffer.byteLength(serializedValue(value), 'utf8');
+}
+function serializedValue(value) {
+  try { return JSON.stringify(value ?? null); }
   catch { throw new ContractError('provider_envelope_invalid', 'provider envelope contains a non-JSON value'); }
 }
 function estimateBytes(bytes) { return Math.ceil(Math.max(0, bytes) / TOKEN_BYTE_RATIO); }

@@ -55,7 +55,7 @@ export function measureContextCompression(before, after, options = {}) {
     tokens_saved: tokensSaved,
     token_reduction_ratio: reductionRatio(beforeTokens.value, afterTokens.value),
     tokenizer: Object.freeze({
-      identity: degraded ? 'conservative_utf8_v1' : counter.identity,
+      identity: degraded ? 'conservative_utf8_v2' : counter.identity,
       requested_identity: counter.identity,
       exact: degraded ? false : counter.exact,
       degraded,
@@ -122,7 +122,7 @@ function resolveTokenCounter(options) {
       exact: configured.exact === true,
     };
   }
-  return { count: estimateContextTokens, identity: 'conservative_utf8_v1', exact: false };
+  return { count: estimateContextTokens, identity: 'conservative_utf8_v2', exact: false };
 }
 
 function countTokens(counter, records) {
@@ -131,7 +131,7 @@ function countTokens(counter, records) {
     if (!Number.isSafeInteger(value) || value < 0) throw new TypeError('invalid token count');
     return { value, degraded: false };
   } catch {
-    return { value: estimateContextTokens(records), degraded: counter.identity !== 'conservative_utf8_v1' };
+    return { value: estimateContextTokens(records), degraded: counter.identity !== 'conservative_utf8_v2' };
   }
 }
 

@@ -132,6 +132,16 @@ test('context planning honors configured thresholds and never divides by paralle
   assert.ok(estimateContextTokens([{ role: 'user', content: 'hello' }]) > 0);
 });
 
+test('fallback token estimation does not undercount non-ASCII UTF-16 units', () => {
+  const cjk = estimateContextTokens([{ role: 'user', content: '界'.repeat(300) }]);
+  const combining = estimateContextTokens([{ role: 'user', content: '\u0301'.repeat(300) }]);
+  const emoji = estimateContextTokens([{ role: 'user', content: '😀'.repeat(300) }]);
+  assert.ok(cjk >= 308);
+  assert.ok(combining >= 308);
+  assert.ok(emoji >= 608);
+  assert.ok(estimateContextTokens([{ role: 'user', content: 'a'.repeat(300) }]) < 200);
+});
+
 test('context planning applies a bounded conservative provider usage calibration', () => {
   const config = { limits: { maxContextBytes: 2_097_152, contextCompactionThreshold: 0.8 } };
   const baseline = contextBudget(config, [route], {

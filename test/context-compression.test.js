@@ -29,7 +29,7 @@ test('compression measurement reports per-reducer savings and rediscovery-adjust
   assert.ok(measured.bytes_saved > 3_000);
   assert.ok(measured.tokens_saved > 800);
   assert.equal(measured.net_tokens_saved, measured.tokens_saved - 100);
-  assert.equal(measured.tokenizer.identity, 'conservative_utf8_v1');
+  assert.equal(measured.tokenizer.identity, 'conservative_utf8_v2');
   assert.equal(measured.tokenizer.exact, false);
   assert.deepEqual(measured.reducers[0], {
     name: 'fixture', class: 'recoverable', records: 1, bytes_saved: 3_600,
@@ -46,7 +46,7 @@ test('optional tokenizer identity is explicit and invalid counters degrade conse
   const degraded = measureContextCompression(['before'], ['after'], {
     tokenCounter: { identity: 'broken-tokenizer', exact: true, count: () => { throw new Error('offline'); } },
   });
-  assert.equal(degraded.tokenizer.identity, 'conservative_utf8_v1');
+  assert.equal(degraded.tokenizer.identity, 'conservative_utf8_v2');
   assert.equal(degraded.tokenizer.requested_identity, 'broken-tokenizer');
   assert.equal(degraded.tokenizer.exact, false);
   assert.equal(degraded.tokenizer.degraded, true);
