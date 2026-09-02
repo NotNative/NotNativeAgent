@@ -23,9 +23,9 @@
     }
   ],
   "rationale_marker_counts": {
-    "Why": 45,
+    "Why": 46,
     "Invariant": 10,
-    "Compatibility": 7,
+    "Compatibility": 6,
     "Security": 3
   }
 }

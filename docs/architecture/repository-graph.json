@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:321e0778cd59f3427b6cea3f1c4556362aa0c0ec3abd0da9b6231c63ede07d52",
+  "source_digest": "sha256:aab03f4f2ca83bfeb592908ca232c69f8bf3a44f803df07c40b45c0168134932",
   "counts": {
-    "modules": 341,
+    "modules": 342,
     "component_edges": 69
   },
   "components": [
@@ -72,7 +72,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 80
+      "module_count": 81
     }
   ],
   "entrypoints": [
@@ -113,7 +113,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 147,
+      "import_count": 148,
       "module_count": 70
     },
     {
@@ -1129,6 +1129,12 @@
       ]
     },
     {
+      "path": "src/error-code-registry.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/event-factory.js",
       "component": "foundation",
       "entrypoint": false,
@@ -1463,6 +1469,7 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": [
+        "src/error-code-registry.js",
         "src/ids.js"
       ]
     },
