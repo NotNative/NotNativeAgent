@@ -5,14 +5,9 @@ import { ToolRegistry } from '../src/tool-registry.js';
 
 const FOUNDATION = [
   'tool.search',
-  'system.time',
   'fs.list', 'fs.read', 'fs.search_text',
-  'shell.run', 'web.search', 'web.fetch', 'web.browse',
-  'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
+  'shell.run', 'work.plan', 'work.status', 'work.task_update', 'turn.finish',
   'git.inspect',
-  'session.search_history', 'session.read_history',
-  'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn',
-  'ref.inspect', 'skill.search', 'skill.load',
 ];
 
 function availableFoundation(registry) {
@@ -42,8 +37,8 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.ok(!baseline.includes('browser.navigate'));
   assert.ok(!baseline.includes('ref.store'));
   assert.ok(!baseline.includes('notification.telegram'));
-  assert.ok(baseline.includes('web.fetch'));
-  assert.ok(baseline.includes('web.browse'));
+  assert.ok(!baseline.includes('web.fetch'));
+  assert.ok(!baseline.includes('web.browse'));
   for (const query of [
     'hello',
     "i'd like you to examine the disks on this machine. what's physically installed?",
@@ -92,8 +87,6 @@ test('provider surface receipts make fixed foundations and workflow leases audit
   const lease = registry.grantWorkflowLease(['fs.write_text'], { source: 'test_recovery' });
   assert.deepEqual(lease.granted[0].sources, ['test_recovery']);
   const expanded = registry.providerSurface('any wording');
-  assert.equal(expanded.receipt.selectionReasons['web.fetch'], 'foundational');
-  assert.equal(expanded.receipt.selectionReasons['web.browse'], 'foundational');
   assert.equal(expanded.receipt.selectionReasons['fs.write_text'], 'workflow_lease');
 });
 
@@ -191,7 +184,7 @@ test('ranked discovery does not lease neighboring schemas without an exact tool 
 test('workflow lease admission rejects overflow visibly without evicting committed schemas', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  for (let index = 0; index < 24; index += 1) {
+  for (let index = 0; index < 40; index += 1) {
     registry.installExternal({
       name: `nno.capacity_${index}`, version: 1, purpose: `Capacity fixture ${index}`,
       sideEffect: 'read_only', scope: 'external', cancellation: true, timeoutMs: 1000,
@@ -201,7 +194,7 @@ test('workflow lease admission rejects overflow visibly without evicting committ
   }
   const granted = [];
   let rejection = null;
-  for (let index = 0; index < 24; index += 1) {
+  for (let index = 0; index < 40; index += 1) {
     const result = registry.grantWorkflowLease([`nno.capacity_${index}`], { uses: 2, source: 'capacity_test' });
     if (result.granted.length > 0) granted.push(result.granted[0].name);
     if (result.rejected.length > 0) { rejection = result.rejected[0]; break; }

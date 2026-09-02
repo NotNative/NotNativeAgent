@@ -53,7 +53,7 @@ test('provider request manifest is durable, content-free, and precedes provider 
   assert.equal(manifest.toolSurface.composition, 'foundation_with_leases');
   assert.equal(Object.hasOwn(manifest.toolSurface, 'phase'), false);
   assert.equal(manifest.toolSurface.selectedToolNames[0], 'tool.search');
-  for (const name of ['shell.run', 'work.plan', 'work.goal', 'work.task_add', 'work.task_update']) {
+  for (const name of ['shell.run', 'work.plan', 'work.status', 'work.task_update', 'turn.finish']) {
     assert.ok(manifest.toolSurface.selectedToolNames.includes(name), `${name} missing from provider manifest`);
   }
   assert.equal(manifest.envelope.shape.tool_schema_count, manifest.toolSurface.selectedToolNames.length);

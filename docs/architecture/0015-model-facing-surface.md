@@ -3,26 +3,22 @@
 Status: accepted and implemented.
 
 NNA keeps its complete governed capability registry while presenting a stable foundational
-surface to every ordinary provider step. The deterministic order is:
+surface to every ordinary provider step. The deliberately small deterministic order is:
 
 1. `tool.search`;
-2. `system.time`;
-3. `workspace.change`;
-4. `fs.list`, `fs.read`, and `fs.search_text`;
-5. `shell.run`, `web.search`, `web.fetch`, and `web.browse`;
-6. `work.plan`, `work.status`, `work.goal`, `work.task_add`, and `work.task_update`;
-7. `git.inspect`;
-8. `session.search_history` and `session.read_history`;
-9. `nna.search_guidance`, `nna.read_guidance`, and `nna.diagnose_turn`;
-10. `ref.inspect`;
-11. `skill.search` and `skill.load`.
+2. `fs.list`, `fs.read`, and `fs.search_text`;
+3. `shell.run`;
+4. `work.plan`, `work.status`, and `work.task_update`;
+5. `turn.finish`;
+6. `git.inspect`.
 
 A definition is omitted only when its subsystem is unavailable or an authenticated host
 manifest ceilings it. Root conversations do not have a text-only or zero-tool phase. The
 operator's wording is not classified with regular expressions, lexical relevance, or another
 front-loaded intent matcher to decide which schemas exist.
 
-Specialist schemas—mutation, browser automation, verification, exact-process execution,
+Specialist schemas—including time, workspace transitions, web access, work creation, session
+history, guidance, skills, mutation, browser automation, verification, exact-process execution,
 delegation, reference storage, notifications, and future MCP tools—remain discoverable through
 the name-only catalog. `tool.search` is first so the model can inspect and load the relevant
 schema. Ranked results are discovery suggestions only. An exact-name search returns the input
@@ -64,8 +60,9 @@ plan is not a state change.
 
 Legacy granular filesystem aliases remain installed for sealed requests, old manifests,
 resumed sessions, specialist workflows, and recovery, but they do not compete in the
-foundational catalog. The intended result is predictable affordance for small and local models,
-without brittle language gating or any reduction in governance.
+foundational catalog. The intended result is predictable affordance for small and local models
+without paying the reasoning and token cost of irrelevant schemas on every step, while avoiding
+brittle language gating or any reduction in governance.
 
 `workspace.change` is the only model-callable persistent working-directory transition. It
 validates one existing directory and always reaches mandatory semantic review. A successful

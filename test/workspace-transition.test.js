@@ -71,7 +71,7 @@ test('workspace.change uses semantic review, rebases the conversation, and reloa
   assert.match(system, /TARGET_GUIDANCE_ONLY/u);
   assert.doesNotMatch(system, /INITIAL_GUIDANCE_ONLY/u);
   assert.match(secondRequest.messages.find((item) => item.role === 'tool')?.content ?? '', /reload_before_next_model_step/u);
-  assert.equal(engine.tools.providerSurface().receipt.selectedToolNames.includes('workspace.change'), true);
+  assert.equal(engine.tools.providerSurface().receipt.selectedToolNames.includes('workspace.change'), false);
   const subagent = engine.tools.definition('agent.run');
   assert.equal((await subagent.validate({ type: 'general', task: 'inspect the project' })).resolved.path, canonicalTarget);
   await engine.shutdown({ type: 'shutdown', request_id: 'workspace-shutdown' });

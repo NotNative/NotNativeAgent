@@ -10,16 +10,22 @@ const MESSAGE_OVERHEAD_TOKENS = 8;
 const OUTPUT_RESERVE_RATIO = 0.125;
 const TARGET_MIN_OUTPUT_RESERVE_TOKENS = 1024;
 const MAX_OUTPUT_RESERVE_TOKENS = DEFAULT_MODEL_OUTPUT_TOKENS;
+const CONSERVATIVE_UNKNOWN_WINDOW_TOKENS = 65_536;
 
 export function contextBudget(config, routes, runtime, retryScale = 1, estimateScale = 1) {
   const knownBytes = routes.slice(0, routes[0]?.budget ?? routes.length)
     .map((route) => route.contextLimitBytes).filter(positive);
   if (positive(runtime?.contextLimitBytes)) knownBytes.push(runtime.contextLimitBytes);
   const hardLimitBytes = Math.min(config.limits.maxContextBytes, ...(knownBytes.length ? knownBytes : [config.limits.maxContextBytes]));
-  const windowTokens = positiveValue(runtime?.contextWindowTokens);
+  // Why: an unknown provider window cannot mean unbounded context pressure. A conservative
+  // planning window makes compaction activate before a local model rejects an oversized turn.
+  const declaredWindowTokens = positiveValue(runtime?.contextWindowTokens);
+  const windowTokens = declaredWindowTokens ?? CONSERVATIVE_UNKNOWN_WINDOW_TOKENS;
   const declaredOutputLimit = positiveValue(runtime?.outputLimitTokens)
     ?? positiveValue(routes[0]?.maxOutputTokens) ?? DEFAULT_MODEL_OUTPUT_TOKENS;
-  const outputReserveTokens = windowTokens ? adaptiveOutputReserve(windowTokens, declaredOutputLimit) : null;
+  const outputReserveTokens = declaredWindowTokens
+    ? adaptiveOutputReserve(windowTokens, declaredOutputLimit)
+    : Math.min(windowTokens - 1, declaredOutputLimit);
   const effectiveInputTokens = windowTokens ? Math.max(1, windowTokens - outputReserveTokens) : null;
   const compactionThreshold = config.limits.contextCompactionThreshold ?? 0.75;
   const compressionThreshold = config.limits.contextCompressionThreshold ?? 0.40;
@@ -43,7 +49,7 @@ export function contextBudget(config, routes, runtime, retryScale = 1, estimateS
       ? Math.max(1, Math.floor(effectiveInputTokens * compressionLevel2Threshold)) : null,
     compressionLevel3ThresholdTokens: effectiveInputTokens
       ? Math.max(1, Math.floor(effectiveInputTokens * compressionLevel3Threshold)) : null,
-    source: runtime?.source ?? 'configured_bytes', compactionThreshold, compressionThreshold,
+    source: declaredWindowTokens ? runtime?.source ?? 'declared' : 'conservative_unknown', compactionThreshold, compressionThreshold,
     compressionLevel2Threshold, compressionLevel3Threshold,
     parallelCapacity: positiveValue(runtime?.parallelCapacity), estimateScale: conservativeEstimateScale,
     estimated: true,

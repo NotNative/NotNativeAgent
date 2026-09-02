@@ -240,7 +240,7 @@ test('system.time observes the host clock and applies calendar weeks before elap
   });
 });
 
-test('system.time is foundational and normalizes singular aliases and integer strings', async () => {
+test('system.time is discoverable and normalizes singular aliases and integer strings', async () => {
   const registry = new ToolRegistry(process.cwd(), optionalControls());
   await registry.initialize();
   try {
@@ -248,6 +248,10 @@ test('system.time is foundational and normalizes singular aliases and integer st
     const normalized = await time.validate({ week: '2', minute: '-30' });
     assert.deepEqual(normalized.args, { weeks: 2, minutes: -30 });
     const names = registry.providerDefinitions('', { phase: 'orientation' }).map((entry) => entry.function.name);
-    assert.ok(names.includes('system.time'));
+    assert.ok(!names.includes('system.time'));
+    const search = registry.definition('tool.search');
+    const request = await search.validate({ query: 'system.time' });
+    await search.executor({ args: request.args }, new AbortController().signal);
+    assert.ok(registry.providerDefinitions('').some((entry) => entry.function.name === 'system.time'));
   } finally { await registry.close(); }
 });

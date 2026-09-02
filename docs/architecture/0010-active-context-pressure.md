@@ -17,8 +17,10 @@ request, so pressure management is active during a turn and deliberately conserv
 The denominator is the discovered model window after the bounded output reserve. Operators
 configure the compression and full-compaction boundaries through `/context` or the Context
 entry in `/config`; the two intermediate tiers are derived between them. Compression must
-remain below full compaction. When discovery is unavailable, NNA uses its validated byte
-ceiling as a conservative fallback.
+remain below full compaction. When discovery is unavailable, NNA plans against a conservative
+65,536-token window with the configured output allowance reserved, as well as its validated byte
+ceiling. Unknown capacity therefore activates
+pressure controls instead of behaving like an unbounded token window.
 
 ## Long-horizon compression
 

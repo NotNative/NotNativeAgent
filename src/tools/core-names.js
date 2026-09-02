@@ -2,16 +2,11 @@
 
 export const FOUNDATIONAL_TOOL_NAMES = Object.freeze([
   'tool.search',
-  'system.time',
-  'workspace.change',
   'fs.list', 'fs.read', 'fs.search_text',
-  'shell.run', 'web.search', 'web.fetch', 'web.browse',
-  'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
+  'shell.run',
+  'work.plan', 'work.status', 'work.task_update',
   'turn.finish',
   'git.inspect',
-  'session.search_history', 'session.read_history',
-  'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn',
-  'ref.inspect', 'skill.search', 'skill.load',
 ]);
 
 export const TOOL_SURFACE_ELIGIBLE_NAMES = Object.freeze([

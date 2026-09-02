@@ -80,6 +80,15 @@ test('context planning applies a bounded conservative provider usage calibration
   assert.equal(contextBudget(config, [route], { contextWindowTokens: 10_000 }, 1, 100).estimateScale, 8);
 });
 
+test('unknown provider windows use a conservative planning window instead of disabling pressure', () => {
+  const config = { limits: { maxContextBytes: 2_097_152, contextCompactionThreshold: 0.75 } };
+  const budget = contextBudget(config, [route], { contextWindowTokens: null, source: 'declared' });
+  assert.equal(budget.windowTokens, 65_536);
+  assert.equal(budget.effectiveInputTokens, 57_344);
+  assert.equal(budget.thresholdTokens, 43_008);
+  assert.equal(budget.source, 'conservative_unknown');
+});
+
 test('small local-model windows retain useful proportional input budgets', () => {
   const config = { limits: { maxContextBytes: 2_097_152, contextCompactionThreshold: 0.85 } };
   const small = contextBudget(config, [route], { contextWindowTokens: 8192, source: 'declared' });
