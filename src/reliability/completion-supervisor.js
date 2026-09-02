@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
+import { reachedOutputCeiling } from './output-headroom.js';
 
-const TRUNCATED = new Set(['length', 'max_tokens', 'max_output_tokens']);
 const TOOL_SIGNAL = new Set(['tool_calls', 'function_call']);
 const SEQUENCING_WORDS = new Set(['also', 'first', 'just', 'next', 'now', 'then']);
 
 export function evaluateCompletion(active, text, work = null) {
   const finishReason = String(active.finishReason ?? '').toLowerCase();
-  if (TRUNCATED.has(finishReason) || reachedReportedOutputCeiling(active)) {
+  if (reachedOutputCeiling({
+    finishReason, outputLimitTokens: active.attemptOutputLimitTokens, usage: active.attemptUsage,
+  })) {
     return Object.freeze({ disposition: 'continue', category: 'truncated_output', progressEvidence: text });
   }
   if (TOOL_SIGNAL.has(finishReason) && (active.toolAssembler?.size ?? 0) === 0) {
@@ -53,16 +55,6 @@ function claimsVisualPass(text) {
     || /\b(?:visually|render(?:ed|s|ing)?)\s+(?:is\s+|was\s+)?(?:clean|correct|flawless|verified|perfect)\b/iu.test(tail)
     || /\bvisual (?:inspection|verification)\s+(?:confirms?|confirmed|shows?|showed)\b[^.!?]{0,120}\b(?:no|clean|correct|pass)/iu.test(tail)
     || /\b(?:all|every)\s+(?:tested\s+)?(?:view|state|viewport|screenshot)s?\s+(?:now\s+)?pass(?:es|ed)?\b/iu.test(tail);
-}
-
-function reachedReportedOutputCeiling(active) {
-  const limit = active.attemptOutputLimitTokens;
-  if (!Number.isSafeInteger(limit) || limit < 1) return false;
-  const usage = active.attemptUsage;
-  if (!usage || typeof usage !== 'object') return false;
-  const output = ['completion_tokens', 'output_tokens', 'outputTokens']
-    .map((key) => usage[key]).find((value) => Number.isSafeInteger(value) && value >= 0);
-  return Number.isSafeInteger(output) && output >= limit;
 }
 
 function promisesFutureAction(text) {

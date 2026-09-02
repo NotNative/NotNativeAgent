@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:f3d636d7fa5340d94178fe7b3f16deda49072c28d2b1c9cd965b17ac4d4d8e3d",
+  "source_digest": "sha256:a9d366f27a2a21659b474a2675b0138c51b7ca780d4161a6ac14d811e890a468",
   "counts": {
     "modules": 342,
     "component_edges": 69
@@ -137,8 +137,8 @@
     {
       "from": "reliability-engine",
       "to": "reliability-engine",
-      "import_count": 50,
-      "module_count": 24
+      "import_count": 51,
+      "module_count": 25
     },
     {
       "from": "agentic-engine",
@@ -2270,7 +2270,9 @@
       "path": "src/reliability/completion-supervisor.js",
       "component": "reliability-engine",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/reliability/output-headroom.js"
+      ]
     },
     {
       "path": "src/reliability/context-budget.js",
@@ -2399,8 +2401,7 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
-        "src/ids.js",
-        "src/reliability/output-headroom.js"
+        "src/ids.js"
       ]
     },
     {
@@ -2453,7 +2454,8 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/reliability/output-headroom.js"
       ]
     },
     {

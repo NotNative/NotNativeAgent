@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
+import { reachedOutputCeiling } from './output-headroom.js';
 
 const MAX_TOOL_CALLS = 64;
 const MAX_ARGUMENT_BYTES = 262_144;
@@ -25,7 +26,7 @@ export class ToolCallAssembler {
       try {
         args = JSON.parse(call.arguments);
       } catch {
-        const truncated = outputWasTruncated(finishReason, outputEvidence);
+        const truncated = reachedOutputCeiling({ ...outputEvidence, finishReason });
         return invalidCall(call, providerCallId, name,
           truncated ? 'tool_arguments_truncated' : 'tool_arguments_malformed',
           truncated ? 'tool arguments were cut off by the provider output limit; retry one smaller bounded call, using the smallest anchored region for edits'
@@ -98,17 +99,6 @@ function argumentFragment(current, value) {
     throw new ContractError('tool_arguments_transport_drift', 'provider changed the tool argument representation during one call', true);
   }
   throw new ContractError('tool_arguments_transport_invalid', 'provider tool arguments must be JSON text or one JSON object');
-}
-
-function outputWasTruncated(finishReason, evidence) {
-  if (['length', 'max_tokens', 'max_output_tokens'].includes(String(finishReason ?? '').toLowerCase())) return true;
-  const limit = evidence?.outputLimitTokens;
-  if (!Number.isSafeInteger(limit) || limit < 1) return false;
-  const usage = evidence?.usage;
-  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return false;
-  const output = ['completion_tokens', 'output_tokens', 'outputTokens']
-    .map((key) => usage[key]).find((value) => Number.isSafeInteger(value) && value >= 0);
-  return Number.isSafeInteger(output) && output >= limit;
 }
 
 function invalidCall(call, providerCallId, name, code, message) {

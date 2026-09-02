@@ -17,6 +17,17 @@ export function isOutputTruncation(finishReason) {
   return ['length', 'max_tokens', 'max_output_tokens'].includes(String(finishReason ?? '').toLowerCase());
 }
 
+export function reachedOutputCeiling(evidence = {}) {
+  if (isOutputTruncation(evidence.finishReason)) return true;
+  const limit = evidence.outputLimitTokens;
+  if (!Number.isSafeInteger(limit) || limit < 1) return false;
+  const usage = evidence.usage;
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) return false;
+  const output = ['completion_tokens', 'output_tokens', 'outputTokens']
+    .map((key) => usage[key]).find((value) => Number.isSafeInteger(value) && value >= 0);
+  return Number.isSafeInteger(output) && output >= limit;
+}
+
 function positive(value) {
   return Number.isSafeInteger(value) && value > 0 ? value : null;
 }

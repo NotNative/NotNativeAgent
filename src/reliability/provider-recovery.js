@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { isOutputTruncation } from './output-headroom.js';
 
 export function providerContextLimitDecision(active) {
   const partial = active.stepText.length > 0 || active.toolAssembler.size > 0;
@@ -16,23 +15,10 @@ export function providerContextLimitDecision(active) {
 
 export function reasoningOnlyDecision(active) {
   if (active.stepText.length > 0 || active.stepReasoningBytes === 0 || active.reasoningHeadroomRetryUsed) return null;
-  if (isOutputTruncation(active.finishReason) || reachedReportedOutputCeiling(active)) {
-    return Object.freeze({ action: active.recovery.reasoningTruncated(), reasoningMode: 'preserve' });
-  }
   // Some OpenAI-compatible providers omit a terminal finish reason for a
   // reasoning-only completion. Preserve native reasoning on the bounded retry;
   // the recovery hint, not a thinking-mode mutation, should steer it to action.
   return Object.freeze({ action: active.recovery.reasoningTruncated(), reasoningMode: 'preserve' });
-}
-
-function reachedReportedOutputCeiling(active) {
-  const limit = active.attemptOutputLimitTokens;
-  if (!Number.isSafeInteger(limit) || limit < 1) return false;
-  const usage = active.attemptUsage;
-  if (!usage || typeof usage !== 'object') return false;
-  const output = ['completion_tokens', 'output_tokens', 'outputTokens']
-    .map((key) => usage[key]).find((value) => Number.isSafeInteger(value) && value >= 0);
-  return Number.isSafeInteger(output) && output >= limit;
 }
 
 export function contextPressureScale(runtime) {
