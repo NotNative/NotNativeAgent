@@ -72,7 +72,8 @@ function promisesFutureAction(text) {
     if (cursor === null) continue;
     let action = cursor;
     while (SEQUENCING_WORDS.has(words[action])) action += 1;
-    if (words[action] === 'not' || words[action] === 'never' || isTerminalAvailability(words, action)) continue;
+    if (words[action] === 'not' || words[action] === 'never'
+      || isTerminalAvailability(words, action) || isOperatorDirectedClosing(words, index, action)) continue;
     if (words[action]) return true;
   }
   return false;
@@ -99,6 +100,13 @@ function isTerminalAvailability(words, index) {
   if (['remain', 'stay'].includes(current) && ['available', 'ready', 'here'].includes(next)) return true;
   if (current === 'be' && ['available', 'ready', 'here'].includes(next)) return true;
   return ['help', 'assist'].includes(current) && ['if', 'with', 'you'].includes(next);
+}
+
+function isOperatorDirectedClosing(words, commitmentIndex, actionIndex) {
+  // Why: "let me know" asks the operator to communicate; it is not a promise that the
+  // model will perform unfinished task work after the turn ends.
+  return words[commitmentIndex] === 'let' && words[commitmentIndex + 1] === 'me'
+    && words[actionIndex] === 'know';
 }
 
 function exactRequestWasBounded(active) {

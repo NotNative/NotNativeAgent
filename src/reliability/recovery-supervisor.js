@@ -20,7 +20,7 @@ const EMPTY_COMPLETION_BASE_DELAY_MS = 250;
 const EMPTY_COMPLETION_MAX_DELAY_MS = 30_000;
 const BOUNDED_COMPLETION_CATEGORIES = new Set([
   'missing_tool_call', 'task_context_lost', 'unresolved_tool_failure',
-  'visual_evidence_conflict', 'future_action_pledge',
+  'visual_evidence_conflict',
 ]);
 
 export class RecoverySupervisor {

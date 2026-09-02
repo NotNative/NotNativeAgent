@@ -81,6 +81,11 @@ test('future-action language is advisory and cannot choose the terminal outcome'
     .includes('future_action_language'));
 });
 
+test('operator-directed closing idioms are not reported as future task work', () => {
+  const text = 'The requested change is complete. Let me know if you need anything else.';
+  assert.equal(completionAdvisories(text).includes('future_action_language'), false);
+});
+
 test('completion advisories recognize Markdown-wrapped future action language', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
