@@ -154,6 +154,11 @@ aliases to Reliability Engine-owned components. They do not represent independen
     terminal blocker. A blocked durable goal ends the turn without consuming continuation recovery.
     Prose that reports a blocker cannot silently override active durable work; the model must first
     record each unfinished task and the goal as blocked with bounded reasons.
+24. `turn.finish` records a structured model declaration of `completed`, `blocked`, or
+    `needs_input`. Reliability validates the declaration against durable work, unresolved
+    failures, completion obligations, and current evidence. The declaration grants no authority
+    and cannot override contradictory engine state. Language heuristics remain compatibility
+    signals while providers migrate to the structured boundary.
 
 ## Consequences
 

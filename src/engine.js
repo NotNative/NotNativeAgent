@@ -38,6 +38,7 @@ import { projectConversationIntent, resolveApprovedAssistantProposal } from './e
 import { awaitEngineAttention } from './engine/attention.js';
 import { changeEngineWorkspace, restoreEngineWorkspace } from './engine/workspace-transition.js';
 import { continueAfterExactToolBoundary } from './engine/tool-recovery.js';
+import { updateToolFailures } from './engine/tool-failures.js';
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -328,7 +329,7 @@ export class SessionEngine {
     ]); observeToolContracts(this, active, items);
     active.toolConstraints = mergeToolConstraints(active.toolConstraints, items);
     this.tools.grantWorkflowLease(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean));
-    active.unresolvedToolFailures = items.filter((item) => item.result.status !== 'succeeded').map((item) => item.result.reason_code ?? item.result.status).slice(0, 64);
+    updateToolFailures(active, items);
     const steeringApplied = await this.#consumeSteering(active);
     const behavior = observeToolState(active, items, (name) => this.tools.definition(name));
     const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints, stateRevision: active.observableStateRevision });

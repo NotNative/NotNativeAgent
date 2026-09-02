@@ -23,6 +23,7 @@ import { ReliabilityEngine } from '../reliability-engine.js';
 import { SkillRegistry } from '../skill-registry.js';
 import { GovernanceEngine } from '../governance-engine.js';
 import { GroundingPolicy } from '../governance/grounding-policy.js';
+import { ContractError } from '../ids.js';
 import { join } from 'node:path';
 import { ConversationWork } from '../conversation-work.js';
 import { TelegramNotificationQueue } from '../notifications/telegram.js';
@@ -143,7 +144,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       run: (input, signal) => engine.runSubagent(input, signal),
     } : null,
     workspaceControl: engine.config.executionManifest === null ? { change: (path) => engine.changeWorkspace(path) } : null,
-    conversationWork: engine.work,
+    conversationWork: engine.work, terminalControl: { declare: (value) => declareTerminalOutcome(engine, value) },
     telegramNotifications: engine.telegramNotifications,
     activeTurnId: () => engine.active?.turnId ?? null, sessionHistory: historyToolOptions(engine),
   });
@@ -166,6 +167,12 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     transportFactory: options.mcpTransportFactory,
     credentialResolver: engine.credentialResolver, sessionId: engine.sessionId,
   });
+}
+
+function declareTerminalOutcome(engine, value) {
+  if (!engine.active) throw new ContractError('turn_inactive', 'turn.finish requires an active turn');
+  engine.active.terminalDeclaration = Object.freeze({ ...value, declaredAtStepId: engine.active.stepId });
+  return engine.active.terminalDeclaration;
 }
 
 function createImageObserver(engine) {

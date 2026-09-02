@@ -16,6 +16,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'process.run', 'shell.run', 'system.elevate', 'project.verify', 'git.inspect', 'code.diagnostics',
   'skill.search', 'skill.load', 'agent.run',
   'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
+  'turn.finish',
   'notification.telegram', 'session.search_history', 'session.read_history', 'system.time',
   'workspace.change',
 ]);
@@ -35,6 +36,7 @@ function optionalControls() {
       async completeGoal() { return snapshot; }, async reopenGoal() { return snapshot; },
       async addTask() { return snapshot; }, async updateTask() { return snapshot; },
     },
+    terminalControl: { declare(value) { return value; } },
     telegramNotifications: { schedule() {} }, activeTurnId: () => 'turn-fixture',
     elevationBroker: { async execute() { return {}; } },
     sessionHistory: { transcript() { return []; } },

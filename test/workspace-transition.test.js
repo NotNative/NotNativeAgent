@@ -106,7 +106,7 @@ test('a working directory transition invalidates sibling requests sealed under t
     request_id: 'workspace-sibling-turn',
     content: `Move this conversation into ${target}, then inspect the project there.`,
   }, 'authenticated-interactive-operator');
-  assert.equal(result.outcome, 'completed');
+  assert.equal(result.outcome, 'blocked');
   assert.equal(engine.config.workspaceRoot, await realpath(target));
   const stale = engine.transcript.find((item) => item.type === 'tool_result'
     && item.providerCallId === 'stale-read');

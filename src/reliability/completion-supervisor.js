@@ -15,15 +15,21 @@ export function evaluateCompletion(active, text, work = null) {
   if (lostActiveTask(active, text)) {
     return Object.freeze({ disposition: 'continue', category: 'task_context_lost', progressEvidence: null });
   }
+  const declaration = active.terminalDeclaration ?? null;
   const terminalBlocker = reportsTerminalBlocker(text);
-  const workGate = unfinishedWorkGate(work, text, terminalBlocker);
+  const workGate = unfinishedWorkGate(work, text, terminalBlocker, declaration);
   if (workGate) return workGate;
   if ((active.unresolvedToolFailures?.length ?? 0) > 0) {
-    if (requestsInput(text)) return Object.freeze({ disposition: 'needs_input', category: 'blocked_after_tool_failure' });
-    if (terminalBlocker) return Object.freeze({ disposition: 'blocked', category: 'terminal_tool_blocker' });
-    if (claimsCompletion(text)) {
+    if (declaration?.outcome === 'needs_input') return Object.freeze({ disposition: 'needs_input', category: 'blocked_after_tool_failure' });
+    if (declaration?.outcome === 'blocked') return Object.freeze({ disposition: 'blocked', category: 'terminal_tool_blocker' });
+    if (declaration?.outcome === 'completed' || claimsCompletion(text)) {
       return Object.freeze({ disposition: 'continue', category: 'unresolved_tool_failure', progressEvidence: null });
     }
+    return Object.freeze({ disposition: 'blocked', category: 'unresolved_tool_blocker' });
+  }
+  if ((active.correctableToolFailures?.length ?? 0) > 0 && claimsCompletion(text)
+    && declaration?.outcome !== 'completed' && !exactRequestWasBounded(active)) {
+    return Object.freeze({ disposition: 'continue', category: 'uncorrected_tool_request', progressEvidence: null });
   }
   const visualGate = visualEvidenceGate(active.visualEvidence, text);
   if (visualGate) return visualGate;
@@ -35,6 +41,9 @@ export function evaluateCompletion(active, text, work = null) {
       hint: 'A prior response committed to continuing the work, but no successful tool evidence followed that commitment. Continue with an appropriate tool now, or ask one concrete question if operator input is genuinely required.',
     });
   }
+  if (declaration?.outcome === 'needs_input') return Object.freeze({ disposition: 'needs_input', category: 'declared_input_required' });
+  if (declaration?.outcome === 'blocked') return Object.freeze({ disposition: 'blocked', category: 'declared_terminal_blocker' });
+  if (declaration?.outcome === 'completed') return Object.freeze({ disposition: 'completed', category: 'declared_completion' });
   if (promisesFutureAction(text)) {
     return Object.freeze({
       disposition: 'continue', category: 'future_action_pledge', progressEvidence: text,
@@ -122,7 +131,17 @@ function hasUnfulfilledCompletionObligation(active) {
   return (active.toolEvidenceRevision ?? 0) <= obligation.evidenceRevision;
 }
 
-function unfinishedWorkGate(work, text, terminalBlocker) {
+function exactRequestWasBounded(active) {
+  return active.recovery?.actions?.some((item) => item.action === 'block_exact_request') === true;
+}
+
+function claimsCompletion(text) {
+  // Compatibility: legacy providers can omit turn.finish during migration.
+  return /\b(?:task|work|request|operation|change)\s+(?:is\s+)?(?:now\s+)?(?:complete|completed|done|finished|successful)\b/iu.test(text)
+    || /^\s*(?:done|completed|finished|success)\b[.!]?\s*$/iu.test(text);
+}
+
+function unfinishedWorkGate(work, text, terminalBlocker, declaration) {
   const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
   if (work?.pendingCompletion) {
     return Object.freeze({ disposition: 'completed', category: 'pending_work_completion' });
@@ -131,7 +150,7 @@ function unfinishedWorkGate(work, text, terminalBlocker) {
   const goalActive = work?.goal?.status === 'active';
   const goalBlocked = work?.goal?.status === 'blocked';
   if (goalBlocked) {
-    if (requestsInput(text)) {
+    if (declaration?.outcome === 'needs_input' || requestsInput(text)) {
       return Object.freeze({ disposition: 'needs_input', category: 'blocked_work_requested_input' });
     }
     return Object.freeze({ disposition: 'blocked', category: 'recorded_work_blocker' });
@@ -144,7 +163,7 @@ function unfinishedWorkGate(work, text, terminalBlocker) {
   if (blocked.length > 0 && requestsInput(text)) {
     return Object.freeze({ disposition: 'needs_input', category: 'blocked_work_requested_input' });
   }
-  if (requestsInput(text)) {
+  if (declaration?.outcome === 'needs_input' || requestsInput(text)) {
     return Object.freeze({ disposition: 'needs_input', category: 'active_work_requested_input' });
   }
   if (terminalBlocker) {
@@ -179,18 +198,12 @@ export function partialOutputProgress(text) {
   });
 }
 
-function claimsCompletion(text) {
-  // Require an explicit task noun or a terse terminal-only acknowledgement; ordinary optimism is not completion.
-  return /\b(?:task|work|request|operation|change)\s+(?:is\s+)?(?:now\s+)?(?:complete|completed|done|finished|successful)\b/iu.test(text)
-    || /^\s*(?:done|completed|finished|success)\b[.!]?\s*$/iu.test(text);
-}
-
 export function requestsInput(text) {
   const normalized = String(text ?? '').trim().toLowerCase();
   if (!normalized) return false;
   // Only the bounded output tail can represent the model's current terminal request; this also bounds regex work.
   const tail = normalized.slice(-512);
-  if (/\b(?:need|requires?|missing|blocked|cannot continue|can't continue|please provide|please supply|please clarify)\b[^.!?]{0,160}[.!?]?$/u.test(tail)) {
+  if (/\b(?:please provide|please supply|please clarify)\b[^.!?]{0,160}[.!?]?$/u.test(tail)) {
     return true;
   }
   const last = tail.split(/(?<=[.!?])\s+/u).at(-1) ?? tail;

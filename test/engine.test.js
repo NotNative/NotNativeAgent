@@ -10,7 +10,7 @@ import { EventHub } from '../src/events.js';
 import { JournalStore } from '../src/store.js';
 import { CanonicalIngress } from '../src/ingress.js';
 import { declaredSubscription } from './event-fixture.js';
-import { evaluateCompletion } from '../src/completion-supervisor.js';
+import { evaluateCompletion, requestsInput } from '../src/completion-supervisor.js';
 
 const EMPTY_HOOK_ROOT = join(process.cwd(), '.nna-test-hooks-none');
 
@@ -33,6 +33,36 @@ test('completion supervision continues when provider usage reaches a mislabeled 
   const result = evaluateCompletion(active, 'I will verify the exact API details next.');
   assert.equal(result.disposition, 'continue');
   assert.equal(result.category, 'truncated_output');
+});
+
+test('structured terminal declarations drive disposition without treating state prose as input requests', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    recovery: { actions: [] }, terminalDeclaration: { outcome: 'needs_input' },
+  };
+  assert.equal(requestsInput('The fix is in place. Shipping requires a version bump.'), false);
+  assert.equal(requestsInput('The audit covered 335 modules. Two release gates are missing.'), false);
+  assert.deepEqual(evaluateCompletion(active, 'The dependency is not selected.'), {
+    disposition: 'needs_input', category: 'declared_input_required',
+  });
+  active.terminalDeclaration = { outcome: 'completed' };
+  assert.deepEqual(evaluateCompletion(active, 'The result is ready.'), {
+    disposition: 'completed', category: 'declared_completion',
+  });
+});
+
+test('an unresolved tool failure cannot disappear behind calm prose or a completion declaration', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: ['edit_failed'],
+    recovery: { actions: [] }, terminalDeclaration: { outcome: 'completed' },
+  };
+  assert.deepEqual(evaluateCompletion(active, 'The remaining report is calm.'), {
+    disposition: 'continue', category: 'unresolved_tool_failure', progressEvidence: null,
+  });
+  active.terminalDeclaration = null;
+  assert.deepEqual(evaluateCompletion(active, 'No authorized route remains.'), {
+    disposition: 'blocked', category: 'unresolved_tool_blocker',
+  });
 });
 
 test('completion supervision continues an unfulfilled future-action pledge', () => {

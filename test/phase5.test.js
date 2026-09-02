@@ -124,7 +124,7 @@ test('AC-HEAD-10 host business policy remains usable but cannot bypass mandatory
   const engine = new SessionEngine({ config: hostConfig, surface: 'headless', providerFactory: () => provider, semanticReviewer });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'host-policy-turn', content: 'Answer the customer in the configured business format.' }, 'operator');
-  assert.equal(result.outcome, 'completed');
+  assert.equal(result.outcome, 'blocked');
   assert.equal(requests[0].messages.some((item) => item.content?.includes('ACME response format')), true);
   const denied = engine.transcript.find((item) => item.type === 'tool_result');
   assert.equal(denied.toolLifecycleStatus, 'denied');

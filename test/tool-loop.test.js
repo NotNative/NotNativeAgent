@@ -603,7 +603,7 @@ test('Unattended posture converts semantic escalation to guidance without openin
   await engine.initialize();
   await seedReadReceipt(engine, 'target.txt');
   const result = await engine.submit({ request_id: 'unattended-posture-turn', content: 'Write after to target.txt' }, 'operator');
-  assert.equal(result.outcome, 'completed');
+  assert.equal(result.outcome, 'blocked');
   assert.equal(outputs.some((item) => item.type === 'permission_prompt'), false);
   assert.equal(outputs.find((item) => item.type === 'review_status').outcome, 'deny_with_guidance');
   assert.deepEqual(outputs.filter((item) => item.type === 'tool_status').map((item) => item.status), [
@@ -803,7 +803,7 @@ test('AC-REV-05/AC-TOOL-04 semantic timeout denies write and leaves file unchang
   await engine.initialize();
   await seedReadReceipt(engine, 'target.txt');
   const result = await engine.submit({ request_id: 'deny-turn', content: 'Change target.txt' }, 'operator');
-  assert.equal(result.outcome, 'completed');
+  assert.equal(result.outcome, 'blocked');
   assert.equal(await readFile(path, 'utf8'), 'before');
   assert.equal(engine.reviewerAudit()[0].decision, 'deny_with_guidance');
   assert.equal(engine.reviewerAudit()[0].result, null);
@@ -857,7 +857,7 @@ test('AC-TOOL-03 execution-boundary drift blocks an approved write', async () =>
   await engine.initialize();
   await seedReadReceipt(engine, 'target.txt');
   const result = await engine.submit({ request_id: 'drift-turn', content: 'Change target.txt' }, 'operator');
-  assert.equal(result.outcome, 'completed');
+  assert.equal(result.outcome, 'blocked');
   assert.equal(await readFile(path, 'utf8'), 'external-change');
   const toolResult = engine.transcript.find((item) => item.type === 'tool_result');
   assert.equal(toolResult.toolLifecycleStatus, 'failed');
@@ -908,7 +908,7 @@ test('AC-SEC-03 hostile tool output remains untrusted and cannot authorize a lat
   const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider, semanticReviewer });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'injection-turn', content: 'Read note.txt and summarize it' }, 'operator');
-  assert.equal(result.outcome, 'completed');
+  assert.equal(result.outcome, 'blocked');
   assert.equal(step, 3);
   const denied = engine.transcript.find((item) => item.type === 'tool_result' && item.toolName === 'fs.write_text');
   assert.equal(denied.toolLifecycleStatus, 'denied');
