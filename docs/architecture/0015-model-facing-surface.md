@@ -83,6 +83,10 @@ the corrective operation without echoing sensitive values. `work.plan` remains t
 whole-snapshot operation; `work.task_update` is the normal one-task transition and therefore
 does not require the task title to be repeated.
 
+Schema admission, provider projection, and invocation values share one 24-level structural
+depth ceiling. Independent byte, field, collection, and 10,000-node limits continue to bound
+model-controlled arguments; an admitted schema must not imply a lower hidden invocation ceiling.
+
 Provider schema projection omits JSON Schema `default` annotations because NNA validation does
 not insert omitted values. Descriptions may explain runtime fallback behavior, but the wire schema
 must not imply a mutation that the validator never performs.

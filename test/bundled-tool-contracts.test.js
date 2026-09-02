@@ -196,6 +196,17 @@ test('schema validation normalizes safe integer and canonical boolean strings at
   });
 });
 
+test('schema admission and invocation values share the same 24-level nesting ceiling', async () => {
+  const validate = schemaShapeValidator({
+    type: 'object', additionalProperties: false, required: ['payload'], properties: { payload: {} },
+  });
+  const accepted = { payload: nestedValue(24) };
+  assert.deepEqual(await validate(accepted), accepted);
+  await assert.rejects(validate({ payload: nestedValue(25) }), {
+    code: 'tool_schema_invalid', message: 'tool argument structure exceeds its nesting or node bound',
+  });
+});
+
 test('provider documentation exposes locally enforced bounds while UTF-8 byte limits remain transport-safe', async () => {
   const schema = {
     type: 'object', additionalProperties: false, required: ['value', 'count'], properties: {
@@ -227,6 +238,12 @@ test('provider schemas omit defaults that runtime validation does not apply', ()
   assert.equal(Object.hasOwn(projected.properties.limit, 'default'), false);
   assert.equal(projected.properties.limit.description, 'Optional limit.');
 });
+
+function nestedValue(depth) {
+  let value = 'leaf';
+  for (let level = 0; level < depth; level += 1) value = { child: value };
+  return value;
+}
 
 test('system.time observes the host clock and applies calendar weeks before elapsed offsets', async () => {
   const instant = new Date('2026-08-27T22:15:42.381Z');

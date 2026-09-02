@@ -13,6 +13,8 @@ const PROVIDER_DOCUMENTATION_FIELDS = new Set([
   'deprecated', 'readOnly', 'writeOnly',
 ]);
 const PROVIDER_UNAPPLIED_FIELDS = new Set(['default']);
+const MAX_STRUCTURE_DEPTH = 24;
+const MAX_STRUCTURE_NODES = 10_000;
 
 export function providerSchema(value, options = {}) {
   const mode = options.mode ?? 'compact';
@@ -25,7 +27,7 @@ export function providerSchema(value, options = {}) {
 function projectProviderSchema(value, ancestors, depth, state, mode) {
   if (!value || typeof value !== 'object') return value;
   state.nodes += 1;
-  if (depth > 24 || state.nodes > 10_000 || ancestors.has(value)) {
+  if (depth > MAX_STRUCTURE_DEPTH || state.nodes > MAX_STRUCTURE_NODES || ancestors.has(value)) {
     throw new ContractError('invalid_external_schema', 'external tool schema structure exceeds bound');
   }
   ancestors.add(value);
@@ -170,7 +172,9 @@ function validateArguments(args, schema, prepared) {
 }
 
 function validateValue(value, rule, depth, path) {
-  if (depth > 12) throw new ContractError('tool_schema_invalid', `${path} nesting exceeds 12 levels`);
+  if (depth > MAX_STRUCTURE_DEPTH) {
+    throw new ContractError('tool_schema_invalid', `${path} nesting exceeds ${MAX_STRUCTURE_DEPTH} levels`);
+  }
   if (!rule?.type) return;
   const types = Array.isArray(rule.type) ? rule.type : [rule.type];
   const actual = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
@@ -302,9 +306,9 @@ function validateInputStructure(input) {
     const { value, depth } = stack.pop();
     if (!value || typeof value !== 'object' || visited.has(value)) continue;
     visited.add(value); nodes += 1;
-    // Why: runtime values need a tighter adversarial bound than schema documents, whose nested
-    // properties/items grammar legitimately consumes multiple structural levels per value level.
-    if (depth > 12 || nodes > 10_000) {
+    // Invariant: schema admission and invocation values share one visible depth ceiling. Byte,
+    // field, and node limits independently bound model-controlled argument complexity.
+    if (depth > MAX_STRUCTURE_DEPTH || nodes > MAX_STRUCTURE_NODES) {
       throw new ContractError('tool_schema_invalid', 'tool argument structure exceeds its nesting or node bound');
     }
     for (const child of Object.values(value)) stack.push({ value: child, depth: depth + 1 });
@@ -327,7 +331,9 @@ function validateSchema(schema) {
     if (value && typeof value === 'object' && visited.has(value)) continue;
     if (value && typeof value === 'object') visited.add(value);
     nodes += 1;
-    if (nodes > 10_000 || depth > 24) throw new ContractError('invalid_external_schema', 'external schema structure exceeds bound');
+    if (nodes > MAX_STRUCTURE_NODES || depth > MAX_STRUCTURE_DEPTH) {
+      throw new ContractError('invalid_external_schema', 'external schema structure exceeds bound');
+    }
     if (value && typeof value === 'object') {
       if (typeof value.pattern === 'string') {
         try { new RegExp(value.pattern, 'u'); } catch {
