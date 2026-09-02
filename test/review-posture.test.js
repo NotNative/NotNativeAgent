@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventHub } from '../src/events.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
-import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
+import { requestDigest, ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { nextReviewPosture } from '../src/review-posture.js';
 import { TerminalInputDecoder } from '../src/tui/terminal-adapter.js';
 import {
@@ -36,6 +36,25 @@ test('mandatory review event ceiling exceeds the slowest configurable semantic r
 
 test('mandatory review event deadline follows the configured semantic reviewer with settlement grace', () => {
   assert.equal(mandatoryReviewEventTimeout(125_000), 130_000);
+});
+
+test('execution revalidation rejects an approval without a finite expiry', async () => {
+  const request = safeRequest('missing-expiry');
+  const governor = new ToolGovernor({
+    events: new EventHub(),
+    reviewer: { ledger: { async executionStarted() { assert.fail('invalid approval reached execution'); } } },
+    registry: {},
+  });
+  const decision = {
+    id: 'decision-missing-expiry', outcome: 'approve', requestId: request.id,
+    requestDigest: requestDigest(request), authorityId: request.authorityId,
+    authorityVersion: request.authorityVersion, authorityRestrictionVersion: 0,
+    policyVersion: request.policyVersion,
+  };
+  await assert.rejects(governor.beginExecution(request, decision, {
+    authority: { id: request.authorityId, version: request.authorityVersion, restrictionVersion: 0 },
+    policyVersion: request.policyVersion, workspaceRoot: request.workspaceRoot,
+  }), { code: 'tool_revalidation_drift', message: 'approval expired after review but before execution' });
 });
 
 test('Prompt posture escalates a deterministically safe reviewed request', async () => {

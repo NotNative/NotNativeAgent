@@ -146,7 +146,7 @@ export class ToolGovernor {
       && decision.policyVersion === current.policyVersion
       && request.workspaceRoot === current.workspaceRoot;
     if (!exact) throw new ContractError('tool_revalidation_drift', 'approval no longer matches the exact request, authority, policy, or workspace');
-    if (decision.expiresAt < Date.now()) {
+    if (!Number.isSafeInteger(decision.expiresAt) || decision.expiresAt < Date.now()) {
       throw new ContractError('tool_revalidation_drift', 'approval expired after review but before execution');
     }
   }

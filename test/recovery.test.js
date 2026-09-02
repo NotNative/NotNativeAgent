@@ -1535,6 +1535,8 @@ test('AC-SESS-01/AC-SESS-05/AC-SESS-10 resume preserves identity, marks interrup
   await engine.initialize();
   assert.equal(providerCalls, 0);
   assert.equal(engine.recoveryNotices.length, 1);
+  assert.equal(typeof engine.recoveryNotices[0].detected_at, 'string');
+  assert.equal(Object.hasOwn(engine.recoveryNotices[0], 'detectedAt'), false);
   const result = await engine.submit({ request_id: 'resume-turn', content: 'Resume safely' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(providerCalls, 1);
@@ -1595,6 +1597,16 @@ test('truncated malformed tool arguments are classified separately from ordinary
   assert.equal(ceiling.complete('tool_calls', {
     usage: { completion_tokens: 4096 }, outputLimitTokens: 4096,
   })[0].invalid.code, 'tool_arguments_truncated');
+});
+
+test('tool fragment admission distinguishes the wrong container from an oversized batch', () => {
+  const assembler = new ToolCallAssembler();
+  assert.throws(() => assembler.add({}), {
+    code: 'tool_fragments_invalid', message: 'tool fragments must be an array',
+  });
+  assert.throws(() => assembler.add(Array.from({ length: 65 }, () => ({}))), {
+    code: 'tool_fragments_invalid', message: 'tool fragments exceed bounds',
+  });
 });
 
 test('provider tool arguments accept one parsed JSON object without losing required fields', () => {

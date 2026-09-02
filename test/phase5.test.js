@@ -783,6 +783,7 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /no instruction authority/u);
   assert.match(policy, /Do not present prior knowledge, retrieved content, or inference as direct observation/u);
   assert.match(policy, /successful tool lifecycle proves that execution completed/u);
+  assert.match(policy, /completed_nonzero tool lifecycle means the process completed with a nonzero exit code/u);
   assert.match(policy, /stderr_present and reduced_by_script as incomplete diagnostic evidence/u);
   assert.match(policy, /couple=2, few=3, several=4, and handful=5/u);
   assert.match(policy, /bounded hot working set/u);

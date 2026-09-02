@@ -473,8 +473,8 @@ export class SessionEngine {
   }
   async #markInterrupted(turnId) {
     const record = {
-      turnId, outcome: 'failed', reason: 'process_interrupted',
-      replayed: false, detectedAt: new Date().toISOString(),
+      turnId, outcome: 'failed', reason: 'process_interrupted', replayed: false,
+      detected_at: new Date().toISOString(),
     };
     await this.store.append('turn_interrupted', record);
     this.recoveryNotices.push(Object.freeze(record));

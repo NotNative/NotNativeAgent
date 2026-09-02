@@ -11,7 +11,10 @@ export class ToolCallAssembler {
   #argumentBytes = 0;
 
   add(fragments) {
-    if (!Array.isArray(fragments) || fragments.length > MAX_TOOL_CALLS) {
+    if (!Array.isArray(fragments)) {
+      throw new ContractError('tool_fragments_invalid', 'tool fragments must be an array');
+    }
+    if (fragments.length > MAX_TOOL_CALLS) {
       throw new ContractError('tool_fragments_invalid', 'tool fragments exceed bounds');
     }
     for (const fragment of fragments) this.#addOne(fragment);
