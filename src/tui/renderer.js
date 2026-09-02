@@ -70,7 +70,7 @@ export class TuiRenderer {
     ];
     const visible = frame.slice(0, height);
     projection.visibleFrame = Object.freeze(visible.map(plainTerminalLine));
-    return `${decorateSelection(visible, projection.terminalSelection).join('\n')}\n`;
+    return `${decorateSelection(visible, projection.terminalSelection, projection.selectionRowMap).join('\n')}\n`;
   }
 }
 export function headerTargetAt(projection, column) {

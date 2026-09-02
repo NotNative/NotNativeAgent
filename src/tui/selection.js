@@ -25,7 +25,7 @@ export function clearSelection(projection) {
 
 export function selectedText(projection) {
   const document = documentSelection(projection);
-  if (document) return document;
+  if (document !== null) return document;
   const range = selectionRange(projection.terminalSelection);
   if (!range || samePoint(range.start, range.end)) return '';
   const lines = projection.visibleFrame.slice(range.start.row - 1, range.end.row);
@@ -43,7 +43,19 @@ export function extendDocumentSelection(projection, delta) {
   selection.documentFocus.column = delta < 0 ? 1 : displayWidth(lines[selection.documentFocus.line] ?? '') + 1;
 }
 
-export function decorateSelection(lines, selection) {
+export function decorateSelection(lines, selection, rowMap) {
+  const document = documentRange(selection);
+  if (document) {
+    // Invariant: copied text and visual highlighting share document coordinates, not fixed screen rows.
+    const { start, end } = document;
+    if (compareDocument(start, end) === 0) return lines;
+    return lines.map((line, index) => {
+      const documentLine = rowMap?.get(index + 1);
+      if (!Number.isInteger(documentLine) || documentLine < start.line || documentLine > end.line) return line;
+      return invertVisibleRange(line, documentLine === start.line ? start.column - 1 : 0,
+        documentLine === end.line ? end.column - 1 : Number.POSITIVE_INFINITY);
+    });
+  }
   const range = selectionRange(selection);
   if (!range || samePoint(range.start, range.end)) return lines;
   return lines.map((line, index) => {
@@ -105,15 +117,21 @@ function documentPoint(projection, action) {
 }
 
 function documentSelection(projection) {
-  const selection = projection.terminalSelection, lines = projection.selectionDocumentLines;
-  if (!selection?.documentAnchor || !selection.documentFocus || !Array.isArray(lines)) return null;
-  const [start, end] = compareDocument(selection.documentAnchor, selection.documentFocus) <= 0
-    ? [selection.documentAnchor, selection.documentFocus] : [selection.documentFocus, selection.documentAnchor];
+  const range = documentRange(projection.terminalSelection), lines = projection.selectionDocumentLines;
+  if (!range || !Array.isArray(lines)) return null;
+  const { start, end } = range;
   if (start.line === end.line && start.column === end.column) return '';
   return lines.slice(start.line, end.line + 1).map((line, index) => visibleSlice(
     line, index === 0 ? start.column - 1 : 0,
     index === end.line - start.line ? end.column - 1 : displayWidth(line),
   )).join('\n');
+}
+
+function documentRange(selection) {
+  if (!selection?.documentAnchor || !selection.documentFocus) return null;
+  const [start, end] = compareDocument(selection.documentAnchor, selection.documentFocus) <= 0
+    ? [selection.documentAnchor, selection.documentFocus] : [selection.documentFocus, selection.documentAnchor];
+  return { start, end };
 }
 
 function compareDocument(left, right) {
