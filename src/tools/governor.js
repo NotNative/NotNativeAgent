@@ -8,6 +8,7 @@ import { normalizeToolReasonCode } from './reason-code.js';
 // This outer event boundary must remain above the largest configured semantic-review
 // deadline. The reviewer owns the operative timeout; this is only a stuck-handler backstop.
 const REVIEW_SETTLEMENT_GRACE_MS = 5_000;
+const SUBAGENT_CANCELLATION_SETTLEMENT_MS = 5_000;
 const CORRECTABLE_WORK_REJECTIONS = new Set([
   'goal_already_blocked', 'goal_already_completed', 'goal_missing', 'goal_not_terminal',
   'goal_tasks_actionable', 'goal_tasks_unfinished', 'task_active_conflict', 'task_capacity',
@@ -34,6 +35,10 @@ export class ToolGovernor {
     this.registry = options.registry;
     this.governance = options.governance ?? null;
     this.permissionBroker = options.permissionBroker ?? null;
+    this.subagentCancellationSettlementMs = boundedPositiveMilliseconds(
+      options.subagentCancellationSettlementMs ?? SUBAGENT_CANCELLATION_SETTLEMENT_MS,
+      'subagentCancellationSettlementMs',
+    );
     this.events.register({
       id: 'kernel.mandatory-reviewer', category: 'permission', phase: 'pre',
       blocking: true, mandatory: true, priority: -10_000,
@@ -99,7 +104,8 @@ export class ToolGovernor {
     const definition = this.registry.definition(request.toolName, request.definitionVersion);
     const started = performance.now();
     try {
-      const raw = await executeBounded(definition, request, signal, { reviewerDecisionId: decision.id });
+      const raw = await executeBounded(definition, request, signal, { reviewerDecisionId: decision.id },
+        this.subagentCancellationSettlementMs);
       const status = ['failed', 'completed_nonzero'].includes(raw.status) ? raw.status : 'succeeded';
       return normalizeResult(request, definition, status, raw.content, raw.metadata, started, definition.maxOutputBytes,
         raw.effectCertainty,
@@ -220,7 +226,8 @@ export function blockedResult(request, error) {
   });
 }
 
-async function executeBounded(definition, request, parentSignal, executionContext) {
+async function executeBounded(definition, request, parentSignal, executionContext,
+  subagentCancellationSettlementMs) {
   if (parentSignal.aborted) throw new ContractError('tool_cancelled', 'tool execution was cancelled');
   const controller = new AbortController();
   let timeoutId;
@@ -241,8 +248,20 @@ async function executeBounded(definition, request, parentSignal, executionContex
     const settled = await Promise.race([operation, cancelled, ...(timeout ? [timeout] : [])]);
     if (settled.boundary === 'timeout') throw new ContractError('tool_timeout', 'tool execution timed out');
     if (settled.boundary === 'cancelled') {
-      // Sub-agent abort must close its child engine before parent settlement.
-      if (definition.scope === 'subagent') await operation;
+      // Why: child engines get an orderly-close window so their ledgers can settle, but
+      // parent cancellation must remain bounded even when a provider ignores abort.
+      if (definition.scope === 'subagent') {
+        const childSettled = await settlesWithin(operation, subagentCancellationSettlementMs);
+        if (!childSettled) {
+          const error = new ContractError('tool_cancelled',
+            'sub-agent cancellation did not settle within its bounded close window');
+          error.toolMetadata = Object.freeze({
+            cancellation_settlement: 'expired',
+            cancellation_settlement_ms: subagentCancellationSettlementMs,
+          });
+          throw error;
+        }
+      }
       throw new ContractError('tool_cancelled', 'tool execution was cancelled');
     }
     if (settled.error) throw settled.error;
@@ -251,6 +270,25 @@ async function executeBounded(definition, request, parentSignal, executionContex
     clearTimeout(timeoutId);
     parentSignal.removeEventListener('abort', parentAbort);
   }
+}
+
+async function settlesWithin(operation, milliseconds) {
+  let settlementId;
+  const expired = new Promise((resolve) => {
+    settlementId = setTimeout(() => resolve(false), milliseconds);
+  });
+  try {
+    return await Promise.race([operation.then(() => true), expired]);
+  } finally {
+    clearTimeout(settlementId);
+  }
+}
+
+function boundedPositiveMilliseconds(value, name) {
+  if (!Number.isInteger(value) || value < 1 || value > MAX_SUBSCRIPTION_TIMEOUT_MS) {
+    throw new TypeError(`${name} must be an integer from 1 to ${MAX_SUBSCRIPTION_TIMEOUT_MS}`);
+  }
+  return value;
 }
 
 function normalizeResult(request, definition, status, content, metadata, started, maxOutputBytes,

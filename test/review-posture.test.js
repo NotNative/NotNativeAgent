@@ -94,6 +94,43 @@ test('governor preserves a returned failure without claiming its side effects co
   assert.deepEqual(result.metadata, { passed: false });
 });
 
+test('sub-agent cancellation stops waiting after its bounded settlement window', async () => {
+  let releaseStarted;
+  const started = new Promise((resolve) => { releaseStarted = resolve; });
+  const definition = {
+    name: 'agent.run', version: 1, scope: 'subagent', timeoutMs: null,
+    maxOutputBytes: 4096, sideEffect: 'unknown',
+    async executor(_request, signal) {
+      releaseStarted();
+      await new Promise((_resolve) => {
+        // Deliberately ignore abort to model an uncooperative provider stream.
+        signal.addEventListener('abort', () => {}, { once: true });
+      });
+    },
+  };
+  const governor = new ToolGovernor({
+    events: new EventHub(),
+    reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
+    registry: { definition: () => definition },
+    subagentCancellationSettlementMs: 20,
+  });
+  const controller = new AbortController();
+  const request = {
+    id: 'agent-cancel', providerCallId: 'provider-agent-cancel',
+    toolName: 'agent.run', definitionVersion: 1,
+  };
+  const resultPromise = governor.executePrepared(request, { id: 'decision-agent-cancel' }, controller.signal);
+  await started;
+  controller.abort();
+  const result = await resultPromise;
+  assert.equal(result.status, 'cancelled');
+  assert.equal(result.reason_code, 'tool_cancelled');
+  assert.equal(result.effect_certainty, 'unknown');
+  assert.deepEqual(result.metadata, {
+    cancellation_settlement: 'expired', cancellation_settlement_ms: 20,
+  });
+});
+
 test('governor redacts discovered credentials at the shared tool-result boundary', async () => {
   const definition = {
     name: 'system.inspect', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'read_only',
