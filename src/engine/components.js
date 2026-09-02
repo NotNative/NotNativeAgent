@@ -109,7 +109,7 @@ function installExtensions(engine, options) {
 
 function installCapabilities(engine, options, storeRoot, hooks) {
   installNotifications(engine, options); const imageObserver = createImageObserver(engine); engine.work = options.conversationWork ?? new ConversationWork({
-    persist: hooks.persist, output: engine.output, telemetry: engine.telemetry, sessionId: engine.sessionId,
+    persist: hooks.persist, output: engine.output, telemetry: engine.telemetry, sessionId: engine.sessionId, deferCompletion: () => engine.active !== null,
   });
   engine.skills = options.skillRegistry ?? new SkillRegistry({
     hosted: engine.config.executionManifest !== null,

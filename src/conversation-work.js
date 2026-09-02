@@ -14,6 +14,7 @@ export class ConversationWork {
     this.output = options.output ?? (async () => undefined);
     this.telemetry = options.telemetry ?? null;
     this.sessionId = options.sessionId ?? null;
+    this.deferCompletion = options.deferCompletion ?? (() => false);
     this.state = emptyState();
   }
 
@@ -35,9 +36,11 @@ export class ConversationWork {
     const next = {
       ...this.state,
       revision: this.state.revision + 1,
+      pendingCompletion: null,
       goal: Object.freeze({
         id: prior?.id ?? newId('goal'), objective: text, status: 'active',
-        createdAt: prior?.createdAt ?? now, updatedAt: now, evidence: null, blockedReason: null,
+        createdAt: prior?.createdAt ?? now, updatedAt: now,
+        evidence: null, evidenceRef: null, blockedReason: null,
       }),
     };
     return this.#commit(next, 'goal_set');
@@ -51,10 +54,20 @@ export class ConversationWork {
     const unfinished = this.state.tasks.filter((task) => task.status !== 'completed');
     if (unfinished.length > 0) throw new ContractError('goal_tasks_unfinished', `${unfinished.length} task(s) are not complete`);
     const proof = boundedText(evidence, 'goal completion evidence', MAX_DETAIL);
+    if (this.deferCompletion()) {
+      return this.#stageCompletion({
+        goal: Object.freeze({
+          ...this.state.goal, status: 'completed', evidence: proof, evidenceRef: null, blockedReason: null,
+          updatedAt: new Date().toISOString(),
+        }),
+        tasks: this.state.tasks,
+      });
+    }
     const next = {
       ...this.state, revision: this.state.revision + 1,
+      pendingCompletion: null,
       goal: Object.freeze({
-        ...this.state.goal, status: 'completed', evidence: proof, blockedReason: null,
+        ...this.state.goal, status: 'completed', evidence: proof, evidenceRef: null, blockedReason: null,
         updatedAt: new Date().toISOString(),
       }),
     };
@@ -68,8 +81,9 @@ export class ConversationWork {
     }
     const next = {
       ...this.state, revision: this.state.revision + 1,
+      pendingCompletion: null,
       goal: Object.freeze({
-        ...this.state.goal, status: 'active', evidence: null, blockedReason: null,
+        ...this.state.goal, status: 'active', evidence: null, evidenceRef: null, blockedReason: null,
         updatedAt: new Date().toISOString(),
       }),
     };
@@ -91,8 +105,9 @@ export class ConversationWork {
     const blockedReason = boundedText(reason, 'goal blocking reason', MAX_DETAIL);
     const next = {
       ...this.state, revision: this.state.revision + 1,
+      pendingCompletion: null,
       goal: Object.freeze({
-        ...this.state.goal, status: 'blocked', evidence: null, blockedReason,
+        ...this.state.goal, status: 'blocked', evidence: null, evidenceRef: null, blockedReason,
         updatedAt: new Date().toISOString(),
       }),
     };
@@ -131,14 +146,50 @@ export class ConversationWork {
     const goal = Object.freeze({
       id: priorGoal?.id ?? newId('goal'), objective: plan.objective, status: plan.goalStatus,
       evidence: plan.goalStatus === 'completed' ? plan.goalEvidence : null,
+      evidenceRef: null,
       blockedReason: plan.goalStatus === 'blocked' ? plan.goalBlockedReason : null,
       createdAt: priorGoal?.createdAt ?? now, updatedAt: now,
     });
+    if (plan.goalStatus === 'completed' && this.deferCompletion()) {
+      return this.#stageCompletion({ goal, tasks: Object.freeze(tasks), nextTaskNumber });
+    }
     const next = {
-      ...this.state, revision: this.state.revision + 1, nextTaskNumber,
+      ...this.state, revision: this.state.revision + 1, nextTaskNumber, pendingCompletion: null,
       goal, tasks: Object.freeze(tasks),
     };
     return this.#commit(next, 'plan_replaced');
+  }
+
+  async commitPendingCompletion(deliverableRef) {
+    const pending = this.state.pendingCompletion;
+    if (!pending) return this.snapshot();
+    const reference = boundedText(deliverableRef, 'completion deliverable reference', MAX_DETAIL);
+    const next = {
+      ...this.state, revision: this.state.revision + 1,
+      nextTaskNumber: pending.nextTaskNumber ?? this.state.nextTaskNumber,
+      goal: Object.freeze({ ...pending.goal, evidenceRef: reference }),
+      tasks: pending.tasks,
+      pendingCompletion: null,
+    };
+    return this.#commit(next, 'goal_completion_committed');
+  }
+
+  async #stageCompletion(target) {
+    const pendingCompletion = Object.freeze({
+      goal: target.goal, tasks: target.tasks,
+      nextTaskNumber: target.nextTaskNumber ?? this.state.nextTaskNumber,
+      requestedAt: new Date().toISOString(),
+    });
+    const next = {
+      ...this.state, revision: this.state.revision + 1,
+      nextTaskNumber: pendingCompletion.nextTaskNumber,
+      goal: Object.freeze({
+        ...pendingCompletion.goal, status: 'active', evidence: null, evidenceRef: null,
+      }),
+      tasks: pendingCompletion.tasks,
+      pendingCompletion,
+    };
+    return this.#commit(next, 'goal_completion_staged');
   }
 
   async addTask(title) {
@@ -151,7 +202,7 @@ export class ConversationWork {
       createdAt: now, updatedAt: now,
     });
     const next = {
-      ...this.state, revision: this.state.revision + 1, nextTaskNumber: number + 1,
+      ...this.state, revision: this.state.revision + 1, nextTaskNumber: number + 1, pendingCompletion: null,
       tasks: Object.freeze([...this.state.tasks, task]),
     };
     return this.#commit(next, 'task_added', task.id);
@@ -171,7 +222,7 @@ export class ConversationWork {
     tasks[index] = Object.freeze({
       ...tasks[index], status, evidence, blockedReason, updatedAt: new Date().toISOString(),
     });
-    const next = { ...this.state, revision: this.state.revision + 1, tasks: Object.freeze(tasks) };
+    const next = { ...this.state, revision: this.state.revision + 1, tasks: Object.freeze(tasks), pendingCompletion: null };
     return this.#commit(next, `task_${status}`, taskId);
   }
 
@@ -192,7 +243,7 @@ export class ConversationWork {
 }
 
 function emptyState() {
-  return Object.freeze({ schema: 'nna.conversation_work.v1', revision: 0, nextTaskNumber: 1, goal: null, tasks: Object.freeze([]) });
+  return Object.freeze({ schema: 'nna.conversation_work.v1', revision: 0, nextTaskNumber: 1, goal: null, tasks: Object.freeze([]), pendingCompletion: null });
 }
 
 function validateSnapshot(value) {
@@ -225,9 +276,31 @@ function validateSnapshot(value) {
       ? boundedText(value.goal.evidence, 'goal completion evidence', MAX_DETAIL) : optionalText(value.goal.evidence),
     blockedReason: value.goal.status === 'blocked'
       ? boundedText(value.goal.blockedReason, 'goal blocking reason', MAX_DETAIL) : optionalText(value.goal.blockedReason),
+    evidenceRef: optionalText(value.goal.evidenceRef),
     createdAt: String(value.goal.createdAt), updatedAt: String(value.goal.updatedAt),
   });
-  return Object.freeze({ ...emptyState(), revision: value.revision, nextTaskNumber: value.nextTaskNumber, goal, tasks: Object.freeze(tasks) });
+  const pendingCompletion = validatePendingCompletion(value.pendingCompletion, value.nextTaskNumber);
+  return Object.freeze({ ...emptyState(), revision: value.revision, nextTaskNumber: value.nextTaskNumber, goal, tasks: Object.freeze(tasks), pendingCompletion });
+}
+
+function validatePendingCompletion(value, nextTaskNumber) {
+  if (value === null || value === undefined) return null;
+  if (!value || typeof value !== 'object' || value.goal?.status !== 'completed' || !Array.isArray(value.tasks)) {
+    throw new ContractError('work_state_invalid', 'pending goal completion is invalid');
+  }
+  const validated = validateSnapshot({
+    schema: 'nna.conversation_work.v1', revision: 0,
+    nextTaskNumber: value.nextTaskNumber ?? nextTaskNumber,
+    goal: value.goal, tasks: value.tasks, pendingCompletion: null,
+  });
+  if (validated.tasks.some((task) => task.status !== 'completed')) {
+    throw new ContractError('work_state_invalid', 'pending goal completion contains unfinished tasks');
+  }
+  return deepFreeze(structuredClone({
+    goal: validated.goal, tasks: validated.tasks,
+    nextTaskNumber: validated.nextTaskNumber,
+    requestedAt: String(value.requestedAt),
+  }));
 }
 
 function boundedText(value, label, maximum) {

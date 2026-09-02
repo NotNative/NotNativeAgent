@@ -9,6 +9,10 @@ at most one task may be in progress. Completion requires bounded evidence; block
 requires a bounded reason. A goal cannot complete while any task remains unfinished.
 A goal can become blocked only after each unfinished task is blocked. A blocked goal
 ends the active turn without reporting successful completion and can later be reopened.
+During an active turn, a terminal goal-completion request is staged rather than committed.
+NNA persists the final assistant message first, then commits the completed goal with a
+deliverable reference. If message persistence fails or the turn is interrupted, the durable
+goal remains active and recovery cannot invent the missing deliverable.
 
 Every mutation appends a complete versioned `work_state` snapshot to the conversation's
 hash-chained session journal and emits content-bounded forensic telemetry. Active work is

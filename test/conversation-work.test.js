@@ -28,6 +28,45 @@ test('conversation work enforces one active task and evidence-based completion',
   assert.equal(records.at(-1).payload.revision, 7);
 });
 
+test('active-turn goal completion remains staged until its deliverable is durable', async () => {
+  const records = [];
+  const work = new ConversationWork({
+    persist: async (type, payload) => records.push({ type, payload }),
+    deferCompletion: () => true,
+  });
+  await work.setGoal('Deliver the final report');
+  await work.addTask('Write the report');
+  await work.updateTask('T1', 'completed', 'Report content is ready for delivery.');
+  await work.completeGoal('The final response contains the report.');
+  assert.equal(work.snapshot().goal.status, 'active');
+  assert.equal(work.snapshot().pendingCompletion.goal.status, 'completed');
+
+  await work.commitPendingCompletion('assistant_message:turn-1:step-2');
+  assert.equal(work.snapshot().goal.status, 'completed');
+  assert.equal(work.snapshot().goal.evidenceRef, 'assistant_message:turn-1:step-2');
+  assert.equal(work.snapshot().pendingCompletion, null);
+  assert.deepEqual(records.slice(-2).map((item) => item.payload.goal.status), ['active', 'completed']);
+});
+
+test('failed completion persistence preserves the staged active goal', async () => {
+  let rejectCompletion = false;
+  const work = new ConversationWork({
+    deferCompletion: () => true,
+    persist: async (_type, payload) => {
+      if (rejectCompletion && payload.goal?.status === 'completed') throw new Error('journal unavailable');
+    },
+  });
+  await work.setGoal('Deliver a durable response');
+  await work.completeGoal('Response delivery is pending.');
+  rejectCompletion = true;
+  await assert.rejects(
+    work.commitPendingCompletion('assistant_message:turn-1:step-1'),
+    /journal unavailable/u,
+  );
+  assert.equal(work.snapshot().goal.status, 'active');
+  assert.equal(work.snapshot().pendingCompletion.goal.status, 'completed');
+});
+
 test('conversation work restores the latest durable snapshot exactly', async () => {
   const records = [];
   const first = new ConversationWork({ persist: async (type, payload) => records.push({ type, payload }) });
@@ -179,7 +218,7 @@ test('failed work persistence leaves authoritative in-memory state unchanged', a
   const work = new ConversationWork({ persist: async () => { throw new Error('disk unavailable'); } });
   await assert.rejects(work.addTask('Must remain uncommitted'), /disk unavailable/u);
   assert.deepEqual(work.snapshot(), {
-    schema: 'nna.conversation_work.v1', revision: 0, nextTaskNumber: 1, goal: null, tasks: [],
+    schema: 'nna.conversation_work.v1', revision: 0, nextTaskNumber: 1, goal: null, tasks: [], pendingCompletion: null,
   });
 });
 

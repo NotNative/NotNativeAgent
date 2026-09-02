@@ -281,9 +281,12 @@ function conversationWorkMessage(work, cadence = null) {
   const orientation = cadence && current
     ? ` Work-state orientation: current task ${current.id} ${JSON.stringify(current.title)}; model steps since the durable work revision changed: ${cadence.stepsSinceUpdate}. This counter is descriptive, not a demand to update the plan. Update work state only when status, evidence, or a blocker materially changes.`
     : '';
+  const pending = work.pendingCompletion
+    ? ' Goal completion is staged. Deliver the final response now; NNA will commit completion only after that response is durable.'
+    : '';
   return {
     role: 'system',
-    content: `An optional durable conversation plan exists (engine-maintained, revision ${plan.revision}). Keep it current with work.plan as meaningful progress occurs; preserve existing task ids and omit id only for a new task. The JSON below is the canonical work.plan shape and can be passed back unchanged. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: continue the work or update the plan truthfully. If no useful route remains, block each unfinished task with its exact reason, then set goal_status to blocked with goal_blocked_reason. If operator input can resolve the blocker, ask one concrete question instead. Optional follow-up offers are not input requests. This state survives context compaction and session resume.${orientation}\n${JSON.stringify(plan)}`,
+    content: `An optional durable conversation plan exists (engine-maintained, revision ${plan.revision}). Keep it current with work.plan as meaningful progress occurs; preserve existing task ids and omit id only for a new task. The JSON below is the canonical work.plan shape and can be passed back unchanged. Do not mark a task or goal complete without concrete evidence. A normal final response cannot end the turn while this goal is active or any task is unfinished: continue the work or update the plan truthfully. If no useful route remains, block each unfinished task with its exact reason, then set goal_status to blocked with goal_blocked_reason. If operator input can resolve the blocker, ask one concrete question instead. Optional follow-up offers are not input requests. This state survives context compaction and session resume.${orientation}${pending}\n${JSON.stringify(plan)}`,
     provenance: 'conversation_work', trust: 'kernel',
   };
 }

@@ -91,7 +91,10 @@ function definition(name, purpose, sideEffect, properties, requiredKeys, executo
 
 function planResult(snapshot) {
   const plan = projectConversationWork(snapshot);
-  return { content: JSON.stringify(plan, null, 2), metadata: { revision: snapshot.revision, tasks: snapshot.tasks.length } };
+  return { content: JSON.stringify(plan, null, 2), metadata: {
+    revision: snapshot.revision, tasks: snapshot.tasks.length,
+    completion_pending: Boolean(snapshot.pendingCompletion),
+  } };
 }
 function mutationResult(snapshot, options = {}) {
   requireConversationWorkSnapshot(snapshot);
@@ -101,6 +104,7 @@ function mutationResult(snapshot, options = {}) {
     : snapshot.tasks.find((item) => item.id === String(options.taskId ?? '').toUpperCase());
   const summary = {
     revision: snapshot.revision, goal_status: snapshot.goal?.status ?? null,
+    completion_pending: Boolean(snapshot.pendingCompletion),
     task: task ? { id: task.id, status: task.status, title: task.title } : undefined,
     task_counts: counts,
   };

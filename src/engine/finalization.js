@@ -19,8 +19,16 @@ export async function finalizeEngineTurn(engine, outcome, text, failureDetail, o
   await faults.capture('lifecycle', () => settleEngineChildren(
     engine, active, faults.outcome, operations.publish,
   ));
-  if (text.length > 0 && text !== active.committedStepText) await faults.capture('persistence',
-    () => operations.persist('message', assistantMessage(active.turnId, text, { ...faults.primary, stepId: active.stepId })));
+  let finalMessagePersisted = text.length === 0 || text === active.committedStepText;
+  if (text.length > 0 && text !== active.committedStepText) await faults.capture('persistence', async () => {
+    await operations.persist('message', assistantMessage(active.turnId, text, { ...faults.primary, stepId: active.stepId }));
+    finalMessagePersisted = true;
+  });
+  if (faults.outcome === 'completed' && finalMessagePersisted && engine.work?.snapshot().pendingCompletion) {
+    await faults.capture('persistence', () => engine.work.commitPendingCompletion(
+      `assistant_message:${active.turnId}:${active.stepId ?? 'terminal'}`,
+    ));
+  }
   if (text.length > 0 && options.emitText === true) {
     await faults.capture('output', () => emitEngineText(engine, text, active, 'recovery_explanation'));
   }

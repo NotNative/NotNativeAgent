@@ -124,6 +124,9 @@ function hasUnfulfilledCompletionObligation(active) {
 
 function unfinishedWorkGate(work, text, terminalBlocker) {
   const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
+  if (work?.pendingCompletion) {
+    return Object.freeze({ disposition: 'completed', category: 'pending_work_completion' });
+  }
   const unfinished = tasks.filter((task) => task.status !== 'completed');
   const goalActive = work?.goal?.status === 'active';
   const goalBlocked = work?.goal?.status === 'blocked';
