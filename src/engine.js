@@ -264,12 +264,12 @@ export class SessionEngine {
         const result = await this.#runModelStep(context, active);
         if (result.countModelStep !== false) modelStepIndex += 1;
         if (result.exhausted) {
-          const hint = await awaitEngineAttention(this, active, result, {
-            persist: (...args) => this.#persist(...args), consumeSteering: (turn) => this.#consumeSteering(turn),
-          });
+          const attention = await awaitEngineAttention(this, active, result,
+            { persist: (...args) => this.#persist(...args), consumeSteering: (turn) => this.#consumeSteering(turn) });
+          if (attention.terminal) return this.#finalize('incomplete', attention.explanation, attention.detail, { emitText: true });
           applyPendingConfiguration(this, active);
           context = await this.#prepareContext(this.transcript, '', active);
-          context = appendRecoveryHint(context, hint);
+          context = appendRecoveryHint(context, attention.hint);
           continue;
         }
         if (!result.continue) return this.#completeFromStep(result, active);

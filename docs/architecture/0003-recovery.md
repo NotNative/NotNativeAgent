@@ -76,6 +76,9 @@ and the actual durable checkpoint (`tool_results_committed`,
 or model content. Effect certainty is derived from both live and durable correlated
 tool-result shapes, including partial and unknown effects, instead of a generic
 placeholder.
+When the authenticated host does not expose steering, recovery cannot enter
+`awaiting_attention`. NNA instead returns `incomplete` with the same bounded recovery detail and
+resume condition. Cancellation remains available on both paths.
 
 Raw SSE chunk receipt is transport activity even when a compatible server has not yet exposed
 visible text or a complete semantic delta. Typed reasoning and partial tool-call fragments are

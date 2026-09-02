@@ -14,6 +14,45 @@ import { RecoverySupervisor, recoveryHint } from '../src/recovery.js';
 import { ToolCallAssembler } from '../src/tools/calls.js';
 import { contextPressureScale } from '../src/engine/provider-recovery.js';
 import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
+import { awaitEngineAttention } from '../src/engine/attention.js';
+import { updateToolFailures } from '../src/engine/tool-failures.js';
+
+test('a host without steering receives resumable incomplete recovery instead of an attention wait', async () => {
+  const records = [];
+  const result = await awaitEngineAttention({
+    config: { executionManifest: { allowedCapabilities: ['tools'] } }, transcript: [],
+    reliability: {
+      exhaustionDetail: () => ({ resume_condition: 'new authenticated request' }),
+      exhaustionText: () => 'Recovery stopped without a steering channel.',
+    },
+  }, {
+    recovery: {}, unresolvedToolFailures: [], turnId: 'turn-1', stepId: 'step-1',
+    controller: new AbortController(),
+  }, { category: 'tool_no_progress' }, {
+    persist: async (type, payload) => records.push({ type, payload }),
+    consumeSteering: async () => [],
+  });
+  assert.equal(result.terminal, true);
+  assert.equal(result.explanation, 'Recovery stopped without a steering channel.');
+  assert.equal(records[0].type, 'attention_unavailable');
+});
+
+test('turn-scoped failures clear only after a successful superseding operation', () => {
+  const active = { toolFailureLedger: new Map() };
+  const item = (path, status, effect = 'none') => ({
+    call: { name: 'fs.write_text', args: { path } },
+    result: { status, reason_code: status === 'failed' ? 'write_failed' : null, effect_certainty: effect },
+  });
+  updateToolFailures(active, [item('a.txt', 'failed')]);
+  updateToolFailures(active, [item('b.txt', 'succeeded')]);
+  assert.deepEqual(active.unresolvedToolFailures, ['write_failed']);
+  updateToolFailures(active, [item('a.txt', 'succeeded')]);
+  assert.deepEqual(active.unresolvedToolFailures, []);
+
+  updateToolFailures(active, [item('a.txt', 'failed', 'unknown')]);
+  updateToolFailures(active, [item('a.txt', 'succeeded')]);
+  assert.deepEqual(active.unresolvedToolFailures, ['write_failed']);
+});
 
 function config(root, persistence = 'ephemeral', extra = {}) {
   return resolveManifest({

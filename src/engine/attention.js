@@ -10,6 +10,13 @@ export async function awaitEngineAttention(engine, active, result, operations) {
   const explanation = engine.reliability.exhaustionText(detail, {
     transcript: engine.transcript, turnId: active.turnId,
   });
+  if (engine.config.executionManifest?.allowedCapabilities.includes('steering') === false) {
+    await operations.persist('attention_unavailable', {
+      turnId: active.turnId, stepId: active.stepId,
+      category: result.category ?? 'no_progress', detail, createdAt: new Date().toISOString(),
+    });
+    return Object.freeze({ terminal: true, explanation, detail });
+  }
   engine.state.transition('awaiting_attention', {
     trigger: result.category ?? 'recovery_exhausted', turnId: active.turnId,
   });
@@ -45,7 +52,10 @@ export async function awaitEngineAttention(engine, active, result, operations) {
     trigger: 'operator_attention_received', turnId: active.turnId,
   });
   await emitEngineStatus(engine, 'preparing', active);
-  return 'Automatic recovery was parked after repeated no-progress behavior. Authenticated operator direction is now available in the conversation. Reassess from the last verified checkpoint, follow that direction, and do not repeat the unchanged action.';
+  return Object.freeze({
+    terminal: false,
+    hint: 'Automatic recovery was parked after repeated no-progress behavior. Authenticated operator direction is now available in the conversation. Reassess from the last verified checkpoint, follow that direction, and do not repeat the unchanged action.',
+  });
 }
 
 function attentionWaiter(signal) {
