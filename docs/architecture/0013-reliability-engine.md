@@ -158,6 +158,10 @@ aliases to Reliability Engine-owned components. They do not represent independen
     override contradictory engine state. Authenticated steering invalidates an earlier declaration.
     The engine alone owns `denied`, `cancelled`, and `limit_reached`. The bookkeeping-only
     declaration step remains auditable but does not consume the productive model-step budget.
+25. After `turn.finish`, the final-response checkpoint receives a bounded machine-derived evidence
+    ledger with actual tool request/result counts, successful unique file reads, verification calls,
+    and tool names. The same ledger is stored in the terminal record. It constrains mechanical scope
+    claims without attempting to infer or grade nuanced prose conclusions.
 
 ## Consequences
 

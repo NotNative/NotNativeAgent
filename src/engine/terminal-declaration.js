@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { toolContinuationHint } from '../tools/loop.js';
+import { completionEvidence, completionEvidenceHint } from './completion-evidence.js';
 
 export async function continueAfterTerminalDeclaration(engine, active, items, trustedHandoff, settleStep) {
   if (!isSuccessfulDeclarationBatch(items)) return null;
@@ -7,10 +8,12 @@ export async function continueAfterTerminalDeclaration(engine, active, items, tr
   // user work. Charging it against the bounded work-step budget would reduce the useful
   // budget merely because the model followed the terminal-outcome protocol.
   await settleStep('continued');
+  active.completionEvidence = completionEvidence(engine.transcript, active.turnId);
   engine.state.transition('preparing_continuation', { trigger: 'terminal_declaration_recorded', turnId: active.turnId });
+  const evidenceHint = completionEvidenceHint(active.completionEvidence);
   return Object.freeze({
     continue: true, countModelStep: false,
-    hint: trustedHandoff?.hint ?? toolContinuationHint(items),
+    hint: [trustedHandoff?.hint ?? toolContinuationHint(items), evidenceHint].filter(Boolean).join('\n\n'),
   });
 }
 

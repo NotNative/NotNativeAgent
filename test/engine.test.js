@@ -216,6 +216,10 @@ test('AC-ENGP-01/AC-STATE-05/M1 successful turn finalizes exactly once', async (
   assert.equal(output[0].type, 'accepted');
   assert.deepEqual(output.filter((item) => item.type === 'stream_delta').map((item) => item.text), ['Hello', ', operator.']);
   assert.equal(output.at(-1).type, 'turn_result');
+  assert.deepEqual(output.at(-1).completion_evidence, {
+    schema: 'nna.completion-evidence.v1', tool_requests: 0, tool_results: 0,
+    succeeded: 0, non_success: 0, unique_files_read: 0, project_verifications: 0, tool_names: [],
+  });
   const records = engine.lifecycles.snapshot();
   assert.ok(records.length > 3);
   assert.equal(records.filter((item) => item.kind === 'turn' && item.phase === 'terminal').length, 1);

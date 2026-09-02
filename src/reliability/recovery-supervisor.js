@@ -50,9 +50,11 @@ export class RecoverySupervisor {
     const category = 'provider_context_limit';
     const count = this.#episodes.get(category) ?? 0;
     const estimatedInputTokens = positiveInteger(evidence.estimatedInputTokens);
+    const minimumReduction = this.#lastContextLimitTokens === null ? 0
+      : Math.max(64, Math.floor(this.#lastContextLimitTokens * 0.01));
     const materiallySmaller = count === 0 || (
       estimatedInputTokens !== null && this.#lastContextLimitTokens !== null
-      && estimatedInputTokens < this.#lastContextLimitTokens
+      && this.#lastContextLimitTokens - estimatedInputTokens >= minimumReduction
     );
     if (partial || count >= 2 || !materiallySmaller) {
       return Object.freeze({ continue: false, exhausted: true });

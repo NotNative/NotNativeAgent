@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:70f99bb4047547e08fc13fdffb3393db0b360ded48d7851ed3515d2c5f2f8cf6",
+  "source_digest": "sha256:4ad714261f66cd7d8240f6ce234b0ef1a664f7db9d939e287505ed5a959715da",
   "counts": {
-    "modules": 339,
+    "modules": 340,
     "component_edges": 69
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "agentic-engine",
       "label": "Agentic Engine",
       "ownership": "Owns turns, steps, lifecycle, and orchestration.",
-      "module_count": 21
+      "module_count": 22
     },
     {
       "id": "governance-engine",
@@ -149,8 +149,8 @@
     {
       "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 32,
-      "module_count": 9
+      "import_count": 33,
+      "module_count": 10
     },
     {
       "from": "providers",
@@ -911,6 +911,12 @@
       ]
     },
     {
+      "path": "src/engine/completion-evidence.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/engine/components.js",
       "component": "agentic-engine",
       "entrypoint": false,
@@ -1084,6 +1090,7 @@
       "component": "agentic-engine",
       "entrypoint": false,
       "imports": [
+        "src/engine/completion-evidence.js",
         "src/tools/loop.js"
       ]
     },
