@@ -8,6 +8,10 @@ import { toolLifecycleStatus } from './tool-result-contract.js';
 // a useful window is cheaper than forcing another provider/tool round trip after compaction.
 const SUMMARY_BYTES = Object.freeze({ filesystem: 4096, search: 2048, shell: 1024, web: 1024, mcp: 1024, subagent: 1536, other: 768 });
 const RECEIPT_SCHEMA = 'nna.tool-receipt.v1';
+const ESSENTIAL_METADATA = Object.freeze([
+  'exitCode', 'signal', 'acceptedExitCodes', 'timedOut', 'diagnosticOutcome',
+  'observation_outcome', 'target_exists', 'matches', 'bytesObserved', 'outputLimitBytes',
+]);
 
 export function createToolContextReceipt(result, request) {
   if (!result || typeof result !== 'object' || Array.isArray(result)) {
@@ -16,13 +20,21 @@ export function createToolContextReceipt(result, request) {
   const category = toolCategory(result.toolName ?? request?.toolName);
   const target = toolTarget(request, category);
   const prior = existingReceipt(result);
+  const redactedContent = safeRedact(result.content);
+  const summary = prior?.summary ?? boundedHeadTail(redactedContent, SUMMARY_BYTES[category]);
+  const originalBytes = prior?.projection?.original_bytes ?? Buffer.byteLength(redactedContent, 'utf8');
+  const projectedBytes = Buffer.byteLength(summary, 'utf8');
   const receipt = Object.freeze({
     schema: RECEIPT_SCHEMA, tool: result.toolName ?? request?.toolName ?? prior?.tool ?? 'unknown',
     category: prior?.category ?? category, target: prior?.target ?? target,
     outcome: toolLifecycleStatus(result) ?? prior?.outcome ?? 'unknown',
     effect_certainty: result.effectCertainty ?? result.effect_certainty ?? prior?.effect_certainty ?? 'unknown',
     reason_code: result.reasonCode ?? result.reason_code ?? prior?.reason_code ?? null,
-    summary: prior?.summary ?? boundedHeadTail(safeRedact(result.content), SUMMARY_BYTES[category]),
+    summary,
+    projection: Object.freeze({
+      original_bytes: originalBytes, projected_bytes: projectedBytes,
+      omitted_bytes: Math.max(0, originalBytes - projectedBytes), reason: 'semantic_tool_receipt',
+    }),
     result_fingerprint: prior?.result_fingerprint ?? resultFingerprint(result),
     ledger_ref: prior?.ledger_ref ?? ledgerReference(result),
   });
@@ -32,6 +44,8 @@ export function createToolContextReceipt(result, request) {
       ...boundedMetadata(result.metadata), compacted: true, reason: 'semantic_tool_receipt',
       originalReason: result.metadata?.reason ?? null, ledgerRef: receipt.ledger_ref,
       resultFingerprint: receipt.result_fingerprint, receiptSchema: receipt.schema,
+      originalBytes, projectedBytes, omittedBytes: Math.max(0, originalBytes - projectedBytes),
+      projectionReason: 'semantic_tool_receipt',
     },
   };
 }
@@ -110,7 +124,12 @@ function ledgerReference(item) { return item.requestId ?? item.providerCallId ??
 
 function boundedMetadata(value) {
   if (value === null || value === undefined) return value ?? null;
-  try { return Buffer.byteLength(JSON.stringify(value), 'utf8') <= 2_048 ? value : { compacted: true }; }
+  try {
+    if (Buffer.byteLength(JSON.stringify(value), 'utf8') <= 2_048) return value;
+    const retained = Object.fromEntries(ESSENTIAL_METADATA.filter((key) => value[key] !== undefined)
+      .map((key) => [key, value[key]]));
+    return { ...retained, compacted: true, omittedMetadata: true };
+  }
   catch { return { compacted: true }; }
 }
 

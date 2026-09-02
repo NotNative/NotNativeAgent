@@ -6,6 +6,7 @@ import { buildContext } from '../src/context.js';
 import { ContinuationCompactor } from '../src/continuation-compactor.js';
 import { FairScheduler } from '../src/provider/fair-scheduler.js';
 import { toolResultRecord } from '../src/engine/records.js';
+import { createToolContextReceipt } from '../src/tools/context-receipt.js';
 
 const config = {
   workspaceRoot: 'D:\\workspace', applicationPolicy: null,
@@ -337,6 +338,23 @@ test('settled tool exchanges become typed causal receipts while tool-call argume
   assert.ok(Buffer.byteLength(receipt.summary, 'utf8') <= 4_096);
   assert.match(receipt.result_fingerprint, /^[a-f0-9]{64}$/u);
   assert.equal(result.metadata.reason, 'semantic_tool_receipt');
+  assert.ok(receipt.projection.original_bytes > receipt.projection.projected_bytes);
+  assert.equal(receipt.projection.omitted_bytes,
+    receipt.projection.original_bytes - receipt.projection.projected_bytes);
+});
+
+test('receipt compaction retains essential outcome metadata instead of replacing the whole object', () => {
+  const result = createToolContextReceipt({
+    toolName: 'process.run', status: 'completed_nonzero', content: 'diagnostic',
+    metadata: { exitCode: 7, signal: null, diagnosticOutcome: 'stderr_present', noise: 'x'.repeat(4_096) },
+  }, { toolName: 'process.run', args: { executable: 'fixture' } });
+  assert.deepEqual(result.metadata, {
+    exitCode: 7, signal: null, diagnosticOutcome: 'stderr_present', compacted: true,
+    omittedMetadata: true, reason: 'semantic_tool_receipt', originalReason: null,
+    ledgerRef: null, resultFingerprint: result.metadata.resultFingerprint,
+    receiptSchema: 'nna.tool-receipt.v1', originalBytes: 10, projectedBytes: 10,
+    omittedBytes: 0, projectionReason: 'semantic_tool_receipt',
+  });
 });
 
 test('semantic tool receipts remain flat and stable across repeated compaction', () => {

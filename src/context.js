@@ -361,15 +361,27 @@ function toolResultMessage(item) {
   return {
     role: 'tool', tool_call_id: item.providerCallId,
     content: JSON.stringify({
+      envelope_version: 'nna.tool-result.v2',
       tool_lifecycle_status: lifecycleStatus,
       // Compatibility: provider conversations historically consume status.
       // It now carries only tool lifecycle state and never a review decision.
       status: lifecycleStatus, content_projection: toolContentProjection(item), content: item.content,
       ...(reviewOutcome ? { review_outcome: reviewOutcome } : {}),
-      metadata: item.metadata ?? null, untrusted: true,
+      metadata: item.metadata ?? {}, projection_metadata: toolProjectionMetadata(item), untrusted: true,
       reason_code: item.reasonCode ?? null,
     }),
     provenance: 'tool_result', trust: 'untrusted_tool_output',
+  };
+}
+
+function toolProjectionMetadata(item) {
+  const mode = toolContentProjection(item);
+  const projectedBytes = Buffer.byteLength(String(item.content ?? ''), 'utf8');
+  const originalBytes = item.metadata?.originalBytes ?? item.metadata?.original_bytes ?? projectedBytes;
+  return {
+    mode, original_bytes: originalBytes, projected_bytes: projectedBytes,
+    omitted_bytes: Math.max(0, originalBytes - projectedBytes),
+    reason: item.metadata?.projectionReason ?? item.metadata?.projection_reason ?? item.metadata?.reason ?? null,
   };
 }
 

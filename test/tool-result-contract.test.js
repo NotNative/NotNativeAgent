@@ -72,9 +72,13 @@ test('provider projection names lifecycle and review fields explicitly', () => {
   }, transcript, 'Continue.');
   const projected = JSON.parse(context.find((item) => item.role === 'tool').content);
   assert.equal(projected.tool_lifecycle_status, 'denied');
+  assert.equal(projected.envelope_version, 'nna.tool-result.v2');
   assert.equal(projected.status, 'denied');
   assert.equal(projected.review_outcome, 'hard_deny');
   assert.equal(projected.content_projection, 'full');
+  assert.deepEqual(projected.projection_metadata, {
+    mode: 'full', original_bytes: 15, projected_bytes: 15, omitted_bytes: 0, reason: null,
+  });
   assert.equal(projected.untrusted, true);
 });
 

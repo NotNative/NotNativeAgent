@@ -66,3 +66,9 @@ transition replaces that conversation's automatic filesystem scope, reloads appl
 guidance, and persists across restoration. An explicit operator request can authorize one
 outside-CWD operation without changing the CWD. Neither route changes a tool classification,
 host capability ceiling, mission boundary, or governance policy.
+
+Provider tool results use the versioned `nna.tool-result.v2` envelope. The canonical lifecycle,
+review outcome, trust label, and content projection are distinct fields; `status` remains a
+temporary lifecycle-only compatibility alias. Projection metadata states the original,
+projected, and omitted byte counts plus the projection reason. Semantic receipts preserve a
+small allowlist of outcome-critical metadata when nonessential metadata exceeds its bound.
