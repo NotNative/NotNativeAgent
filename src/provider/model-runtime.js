@@ -87,7 +87,9 @@ function normalizeSnapshot(route, value = {}) {
     outputLimitTokens: positive(value.outputLimitTokens) ?? positive(route.maxOutputTokens),
     parallelCapacity: positive(value.parallelCapacity),
     source: typeof value.source === 'string' ? value.source : 'provider',
-    authoritative: ['lmstudio_v1', 'lmstudio_v0'].includes(value.source),
+    // Why: model-card limits are provider-owned runtime facts. Their spelling is
+    // non-standard, but a recognized positive value is not an NNA estimate.
+    authoritative: ['lmstudio_v1', 'lmstudio_v0', 'openai_models'].includes(value.source),
   });
 }
 

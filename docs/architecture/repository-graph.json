@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:4ad714261f66cd7d8240f6ce234b0ef1a664f7db9d939e287505ed5a959715da",
+  "source_digest": "sha256:0f4beda218f04f2a77d29aee95d70c1147a11210992966bd355451152f3b05f8",
   "counts": {
-    "modules": 340,
+    "modules": 341,
     "component_edges": 69
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "providers",
       "label": "Providers",
       "ownership": "Owns model routing and provider wire adaptation.",
-      "module_count": 18
+      "module_count": 19
     },
     {
       "id": "tools",
@@ -195,16 +195,16 @@
       "module_count": 5
     },
     {
+      "from": "providers",
+      "to": "providers",
+      "import_count": 11,
+      "module_count": 6
+    },
+    {
       "from": "foundation",
       "to": "providers",
       "import_count": 10,
       "module_count": 8
-    },
-    {
-      "from": "providers",
-      "to": "providers",
-      "import_count": 10,
-      "module_count": 6
     },
     {
       "from": "reliability-engine",
@@ -2023,6 +2023,7 @@
         "src/ids.js",
         "src/provider/event-shape.js",
         "src/provider/local-http-transport.js",
+        "src/provider/model-metadata.js",
         "src/provider/reasoning.js",
         "src/reliability/retry-after.js"
       ]
@@ -2094,6 +2095,12 @@
       "imports": [
         "src/reliability/model-dialects.js"
       ]
+    },
+    {
+      "path": "src/provider/model-metadata.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/provider/model-qualification.js",

@@ -28,6 +28,62 @@ test('LM Studio runtime discovery uses the loaded per-request window and paralle
   assert.deepEqual(seen, ['http://127.0.0.1:1234/api/v1/models']);
 });
 
+test('LM Studio runtime discovery accepts a model maximum without a loaded instance', async () => {
+  const provider = new OpenAICompatibleProvider({
+    id: 'local', endpoint: 'http://127.0.0.1:1234/v1', model: 'qwen', trustZone: 'loopback', capabilities: {},
+  }, {}, { fetch: async () => jsonResponse({
+    models: [{ key: 'qwen', max_context_length: 262144, loaded_instances: [] }],
+  }) });
+  const snapshot = await provider.runtimeSnapshot(new AbortController().signal);
+  assert.equal(snapshot.contextWindowTokens, 262144);
+  assert.equal(snapshot.source, 'lmstudio_v1');
+});
+
+test('OpenAI-compatible model cards normalize common context and output limit fields', async () => {
+  const cases = [
+    [{ max_model_len: 262144 }, 262144, null],
+    [{ context_window: 131072, max_completion_tokens: 16384 }, 131072, 16384],
+    [{ max_context_length: 65536, output_token_limit: 8192 }, 65536, 8192],
+    [{ max_total_tokens: 32768, max_new_tokens: 4096 }, 32768, 4096],
+    [{ meta: { n_ctx_train: 16384 } }, 16384, null],
+    [{ top_provider: { context_length: 1000000, max_completion_tokens: 32768 }, context_length: 2000000 },
+      1000000, 32768],
+  ];
+  for (const [fields, expectedContext, expectedOutput] of cases) {
+    const provider = new OpenAICompatibleProvider({
+      id: 'remote', endpoint: 'https://provider.example/v1', model: 'qwen',
+      trustZone: 'public_network', capabilities: {},
+    }, {}, { fetch: async () => jsonResponse({ data: [{ id: 'qwen', ...fields }] }) });
+    const snapshot = await provider.runtimeSnapshot(new AbortController().signal);
+    assert.equal(snapshot.contextWindowTokens, expectedContext);
+    assert.equal(snapshot.outputLimitTokens, expectedOutput);
+    assert.equal(snapshot.source, 'openai_models');
+  }
+});
+
+test('model-card input-only limits and malformed aliases do not become total context', async () => {
+  const provider = new OpenAICompatibleProvider({
+    id: 'remote', endpoint: 'https://provider.example/v1', model: 'qwen',
+    trustZone: 'public_network', capabilities: {},
+  }, {}, { fetch: async () => jsonResponse({ data: [{
+    id: 'qwen', max_input_tokens: 120000, max_model_len: '262144', max_output_tokens: -1,
+  }] }) });
+  const snapshot = await provider.runtimeSnapshot(new AbortController().signal);
+  assert.equal(snapshot.contextWindowTokens, null);
+  assert.equal(snapshot.outputLimitTokens, null);
+});
+
+test('generic model discovery matches provider-qualified model identifiers', async () => {
+  const provider = new OpenAICompatibleProvider({
+    id: 'remote', endpoint: 'https://provider.example/v1', model: 'qwen',
+    trustZone: 'public_network', capabilities: {},
+  }, {}, { fetch: async () => jsonResponse({ data: [{
+    id: 'publisher/qwen', max_model_len: 262144,
+  }] }) });
+  const snapshot = await provider.runtimeSnapshot(new AbortController().signal);
+  assert.equal(snapshot.contextWindowTokens, 262144);
+});
+
 test('model runtime registry caches normalized discovery and degrades safely', async () => {
   let calls = 0;
   const registry = new ModelRuntimeRegistry({ ttlMs: 60_000, timeoutMs: 50 });
@@ -47,6 +103,16 @@ test('model runtime registry caches normalized discovery and degrades safely', a
   }, route, new AbortController().signal);
   assert.equal(fallback.contextWindowTokens, null);
   assert.equal(fallback.source, 'declared');
+});
+
+test('recognized OpenAI-compatible model-card limits are authoritative provider facts', async () => {
+  const registry = new ModelRuntimeRegistry();
+  const found = await registry.resolve({
+    provider: () => ({ runtimeSnapshot: async () => ({
+      contextWindowTokens: 262144, outputLimitTokens: 32768, source: 'openai_models',
+    }) }),
+  }, route, new AbortController().signal);
+  assert.equal(found.authoritative, true);
 });
 
 test('context planning honors configured thresholds and never divides by parallelism', () => {

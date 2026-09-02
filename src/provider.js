@@ -5,6 +5,7 @@ import { providerRetryAfterMs } from './reliability/retry-after.js';
 import { localProviderFetch } from './provider/local-http-transport.js';
 import { CredentialResolver, normalizeCredentialBinding } from './credential-bindings.js';
 import { sanitizeProviderUsage, unrecognizedDeltaEvent } from './provider/event-shape.js';
+import { providerModelLimits } from './provider/model-metadata.js';
 const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
 const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
 const MAX_PROVIDER_STREAM_BYTES = 268_435_456;
@@ -27,14 +28,15 @@ export class OpenAICompatibleProvider {
     const boundedEntries = entries.slice(0, 4096);
     const models = boundedEntries.map((item) => item?.id)
       .filter((id) => typeof id === 'string' && id.length > 0 && id.length <= 256);
-    const selected = boundedEntries.find((item) => item?.id === this.profile.model);
+    const selected = boundedEntries.find((item) => modelIdentityMatches(this.profile.model, item?.id));
+    const reported = providerModelLimits(selected);
     return Object.freeze({
       ...this.profile.capabilities,
       model: this.profile.model,
       models: Object.freeze(models.slice(0, 4096)),
       contextLimitBytes: knownPositiveInteger(selected?.context_limit_bytes) ?? this.profile.contextLimitBytes ?? 'unknown',
-      contextLimitTokens: knownPositiveInteger(selected?.context_length) ?? 'unknown',
-      outputLimitTokens: knownPositiveInteger(selected?.max_output_tokens) ?? this.profile.outputLimitTokens ?? 'unknown',
+      contextLimitTokens: reported.contextWindowTokens ?? 'unknown',
+      outputLimitTokens: reported.outputLimitTokens ?? this.profile.outputLimitTokens ?? 'unknown',
     });
   }
 
@@ -203,7 +205,9 @@ function parseLmStudioV1(body, model, declared) {
     const selected = instances.find((item) => modelIdentityMatches(model, item?.id))
       ?? (modelIdentityMatches(model, entry?.key) || modelIdentityMatches(model, entry?.selected_variant)
         ? instances[0] : null);
-    if (!selected) continue;
+    const entryMatches = modelIdentityMatches(model, entry?.key)
+      || modelIdentityMatches(model, entry?.selected_variant);
+    if (!selected && !entryMatches) continue;
     return Object.freeze({
       ...declared,
       contextWindowTokens: knownPositiveInteger(selected?.config?.context_length)

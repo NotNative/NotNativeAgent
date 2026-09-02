@@ -314,6 +314,18 @@ The global `context_limit_bytes` remains an independent safety ceiling. Before p
 work, NNA queries a short-lived provider-neutral runtime snapshot. LM Studio endpoints use
 `/api/v1/models`, then `/api/v0/models`, then generic `/v1/models`; the loaded
 `context_length` is treated as a per-request window and is never divided by `parallel`.
+LM Studio's model-level `max_context_length` remains authoritative when no loaded-instance
+record is present. Generic OpenAI-compatible model cards have no standard limit fields, so NNA
+accepts a bounded explicit compatibility vocabulary. Total-context forms include
+`context_length`, `context_window`, `max_context_length`, `max_context_window`,
+`max_model_len`, `max_total_tokens`, `max_sequence_length`, `context_size`, and llama.cpp's
+`meta.n_ctx` or `meta.n_ctx_train`, together with their established camel-case variants.
+Output-limit forms include `max_output_tokens`, `max_completion_tokens`,
+`output_token_limit`, `output_limit_tokens`, `max_new_tokens`, and `max_tokens`.
+OpenRouter-style `top_provider` limits take precedence over aggregate model limits.
+NNA deliberately does not interpret `max_input_tokens`, `max_prompt_tokens`, or
+`input_token_limit` as a total context window because reserving output from an input-only limit
+would double-count that reserve. Missing or malformed values retain the conservative fallback.
   The reported parallel value establishes the shared scheduler capacity for the exact loaded
   provider/model resource when NNA launches concurrent sub-agents. This permits independent
   exploration agents to use the model host's real parallel slots without a separate hard-coded
