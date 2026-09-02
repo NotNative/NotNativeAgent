@@ -4,6 +4,7 @@ import test from 'node:test';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { providerSchema, schemaShapeValidator } from '../src/tools/schema.js';
 import { systemTimeDefinition } from '../src/tools/system-time.js';
+import { invalidResult } from '../src/tools/governor.js';
 
 const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'ref.store', 'ref.inspect',
@@ -133,6 +134,20 @@ test('bundled tool shape failures identify the argument the model must repair', 
     await assert.rejects(taskUpdate.validate({ id: 'T0', status: 'pending' }), {
       code: 'tool_schema_invalid',
       message: /argument "id" must match this format .*; received "T0"/u,
+    });
+  } finally { await registry.close(); }
+});
+
+test('schema failures expose a bounded machine-readable single-field repair', async () => {
+  const registry = new ToolRegistry(process.cwd(), optionalControls());
+  await registry.initialize();
+  try {
+    const definition = registry.definition('work.plan');
+    const error = await definition.validate({ objective: 'Repair the plan.', tasks: [{ status: 'pending' }] })
+      .then(() => null, (caught) => caught);
+    const result = invalidResult({ providerCallId: 'call-1', name: 'work.plan' }, error);
+    assert.deepEqual(result.metadata, {
+      field: 'argument "tasks"[0].title', issue: 'required_field_missing', correction: 'add_required_field',
     });
   } finally { await registry.close(); }
 });

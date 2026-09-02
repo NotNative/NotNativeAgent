@@ -205,6 +205,7 @@ export function invalidResult(call, error) {
     content: redactText(error instanceof ContractError ? error.message : 'invalid tool request'),
     truncated: false, elapsed_ms: 0, effect_certainty: 'none',
     untrusted: true, reason_code: normalizeToolReasonCode(error?.code, 'tool_invalid'),
+    metadata: failureMetadata(error),
   });
 }
 

@@ -11,7 +11,7 @@ export function conversationWorkDefinitions(work) {
 }
 
 function planDefinition(work) {
-  return definition('work.plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Output from work.plan or work.status can be passed back unchanged. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
+  return definition('work.plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Use work.task_update for a routine status or detail change to one existing task; it does not require resending the title. Output from work.plan or work.status can be passed back unchanged. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
     revision: { type: 'integer', minimum: 0, description: 'Optional revision returned by work.plan or work.status. A stale revision is rejected without changing work.' },
     objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required current goal objective.' },
     goal_status: { type: 'string', enum: GOAL_STATUSES, description: 'Goal status. Defaults to active.' },

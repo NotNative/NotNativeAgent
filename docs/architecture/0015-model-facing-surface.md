@@ -72,3 +72,9 @@ review outcome, trust label, and content projection are distinct fields; `status
 temporary lifecycle-only compatibility alias. Projection metadata states the original,
 projected, and omitted byte counts plus the projection reason. Semantic receipts preserve a
 small allowlist of outcome-critical metadata when nonessential metadata exceeds its bound.
+
+Schema rejections include a bounded machine-readable repair for the affected field alongside
+the human-readable error. Missing, unknown, mistyped, and out-of-enumeration fields identify
+the corrective operation without echoing sensitive values. `work.plan` remains the atomic
+whole-snapshot operation; `work.task_update` is the normal one-task transition and therefore
+does not require the task title to be repeated.

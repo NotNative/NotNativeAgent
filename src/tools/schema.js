@@ -152,7 +152,9 @@ function validateArguments(args, schema, prepared) {
   }
   validateInputStructure(args);
   const missing = prepared.required.find((key) => !Object.hasOwn(args, key));
-  if (missing) throw new ContractError('tool_schema_invalid', `required argument "${missing}" is missing`);
+  if (missing) throw schemaFailure(`required argument "${missing}" is missing`, {
+    field: missing, issue: 'required_field_missing', correction: 'add_required_field',
+  });
   if (schema.additionalProperties === false) {
     const unknown = Object.keys(args).find((key) => !Object.hasOwn(prepared.properties, key));
     if (unknown) throw unknownArgument(unknown, prepared.properties);
@@ -166,10 +168,14 @@ function validateValue(value, rule, depth, path) {
   const types = Array.isArray(rule.type) ? rule.type : [rule.type];
   const actual = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
   if (!types.includes(actual) && !(actual === 'number' && types.includes('integer') && Number.isInteger(value))) {
-    throw new ContractError('tool_schema_invalid', `${path} must be ${describeTypes(types)}; received ${actual}`);
+    throw schemaFailure(`${path} must be ${describeTypes(types)}; received ${actual}`, {
+      field: path, issue: 'type_mismatch', expected: types.join('|'), correction: 'replace_field_value',
+    });
   }
   if (Array.isArray(rule.enum) && !rule.enum.some((item) => Object.is(item, value))) {
-    throw new ContractError('tool_schema_invalid', `${path} must be one of ${rule.enum.map((item) => JSON.stringify(item)).join(', ')}; received ${receivedValue(value, path)}`);
+    throw schemaFailure(`${path} must be one of ${rule.enum.map((item) => JSON.stringify(item)).join(', ')}; received ${receivedValue(value, path)}`, {
+      field: path, issue: 'value_not_allowed', allowed_values: rule.enum.join('|'), correction: 'replace_field_value',
+    });
   }
   if (typeof value === 'string') validateString(value, rule, path);
   if (typeof value === 'number') validateNumber(value, rule, path);
@@ -219,14 +225,16 @@ function validateArray(value, rule, depth, path) {
 function validateObject(value, rule, depth, path) {
   const required = Array.isArray(rule.required) ? rule.required : [];
   const missing = required.find((key) => !Object.hasOwn(value, key));
-  if (missing) throw new ContractError('tool_schema_invalid', `${path} is missing required property "${missing}"`);
+  if (missing) throw schemaFailure(`${path} is missing required property "${missing}"`, {
+    field: `${path}.${missing}`, issue: 'required_field_missing', correction: 'add_required_field',
+  });
   const unknown = rule.additionalProperties === false
     ? Object.keys(value).find((key) => !Object.hasOwn(rule.properties ?? {}, key)) : null;
   if (unknown) {
     const allowed = Object.keys(rule.properties ?? {});
-    throw new ContractError(
-      'tool_schema_invalid',
+    throw schemaFailure(
       `${path} contains unknown property "${unknown}"; allowed properties: ${allowed.length > 0 ? allowed.join(', ') : 'none'}`,
+      { field: `${path}.${unknown}`, issue: 'unknown_field', allowed_fields: allowed.join('|'), correction: 'remove_unknown_field' },
     );
   }
   for (const [key, item] of Object.entries(value)) validateValue(item, rule.properties?.[key], depth + 1, `${path}.${key}`);
@@ -256,10 +264,16 @@ function receivedValue(value, path) {
 
 function unknownArgument(name, properties = {}) {
   const allowed = Object.keys(properties ?? {});
-  return new ContractError(
-    'tool_schema_invalid',
+  return schemaFailure(
     `unknown argument "${name}"; allowed arguments: ${allowed.length > 0 ? allowed.join(', ') : 'none'}`,
+    { field: name, issue: 'unknown_field', allowed_fields: allowed.join('|'), correction: 'remove_unknown_field' },
   );
+}
+
+function schemaFailure(message, repair) {
+  const error = new ContractError('tool_schema_invalid', message);
+  error.toolMetadata = Object.freeze(repair);
+  return error;
 }
 
 function bounded(value, maximum) {
