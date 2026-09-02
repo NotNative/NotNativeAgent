@@ -26,11 +26,10 @@ export function hostEnvironment(platform = process.platform) {
 }
 
 export function hostEnvironmentInstruction(platform = process.platform) {
-  const host = hostEnvironment(platform);
   const dialectWarning = platform === 'win32'
     ? 'Do not use POSIX constructs such as for...do, $(...), wc, head, grep, or POSIX absolute paths such as /tmp unless a POSIX interpreter has been positively discovered.'
     : 'Do not use PowerShell cmdlets, variables, pipelines, or escaping unless PowerShell has been positively discovered.';
-  return `Authoritative host environment: operating system ${host.os} (${host.platform}); shell.run with shell auto uses ${host.shellName} (${host.executable}) and requires ${host.syntax} syntax. Shell syntax is not portable and NNA does not translate scripts between interpreters. ${dialectWarning}`;
+  return `Authoritative host environment: ${shellToolGuidance(platform)} ${dialectWarning}`;
 }
 
 export function shellToolGuidance(platform = process.platform) {

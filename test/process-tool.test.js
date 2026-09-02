@@ -272,7 +272,7 @@ test('shell.run owns platform interpreter argv and executes a readable reviewed 
   const definition = registry.definition('shell.run');
   assert.match(definition.purpose, new RegExp(`This host is .* \\(${process.platform}\\)`, 'u'));
   assert.match(definition.inputSchema.properties.shell.description, /Prefer auto/u);
-  assert.match(definition.inputSchema.properties.script.description, /does not translate syntax/u);
+  assert.match(definition.purpose, /does not translate shell syntax/u);
   assert.match(definition.purpose, /zero exit confirms process completion/u);
   const script = process.platform === 'win32' ? "[Console]::Write('shell-ok')" : "printf 'shell-ok'";
   assert.equal((await definition.validate({ content: script })).args.script, script);

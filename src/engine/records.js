@@ -22,7 +22,7 @@ export function userMessage(turnId, content, extra = {}) {
 export function assistantMessage(turnId, content, detail) {
   return {
     type: 'message', role: 'assistant', content, trust: 'model', turnId,
-    stepId: detail?.stepId ?? null, partial: detail?.partial ?? false,
+    stepId: detail?.stepId ?? null, partial: detail?.partial_data ?? false,
   };
 }
 
@@ -58,7 +58,7 @@ export function terminalRecord(engine, active, outcome, text, detail, secondaryF
   return {
     version: '1.0', type: 'turn_result', session_id: engine.sessionId,
     turn_id: active.turnId, request_id: active.requestId, outcome,
-    text, usage: active.usage, reasoning_bytes: active.reasoningBytes, partial: detail?.partial ?? false,
+    text, usage: active.usage, reasoning_bytes: active.reasoningBytes, partial: detail?.partial_data ?? false,
     token_accounting: engine.reliability?.combineTokenAccounting?.([
       active.tokenAccounting, active.delegatedTokenAccounting,
     ]) ?? active.tokenAccounting,

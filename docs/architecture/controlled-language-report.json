@@ -5,11 +5,11 @@
   "stats": {
     "tools": 46,
     "proseFields": 175,
-    "proseSentences": 286,
+    "proseSentences": 281,
     "longProseCandidates": 0,
     "unqualifiedBoundaryCandidates": 2,
     "maximumSentenceWords": 24,
-    "rationaleMarkers": 82
+    "rationaleMarkers": 83
   },
   "long_prose_candidates": [],
   "unqualified_boundary_candidates": [
@@ -23,9 +23,9 @@
     }
   ],
   "rationale_marker_counts": {
-    "Why": 57,
+    "Why": 59,
     "Invariant": 16,
-    "Compatibility": 6,
+    "Compatibility": 5,
     "Security": 3
   }
 }

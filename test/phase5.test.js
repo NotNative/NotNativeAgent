@@ -761,8 +761,8 @@ test('kernel context treats the workspace as context instead of an implicit task
   const context = buildContext(config(process.cwd()), [], 'hello');
   const policy = context[0].content;
   assert.match(policy, /respond conversationally when no action is requested/u);
-  assert.match(policy, new RegExp(`Authoritative host environment: operating system .* \\(${process.platform}\\)`, 'u'));
-  assert.match(policy, /Shell syntax is not portable and NNA does not translate/u);
+  assert.match(policy, new RegExp(`Authoritative host environment: This host is .* \\(${process.platform}\\)`, 'u'));
+  assert.match(policy, /NNA does not translate shell syntax/u);
   for (const heading of ['Role and scope', 'Communication and authority', 'Context and project state',
     'Actions and verification', 'Grounding and retrieval', 'NNA self-knowledge', 'Failure and completion']) {
     assert.match(policy, new RegExp(`## ${heading}`, 'u'));

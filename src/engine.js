@@ -376,7 +376,7 @@ export class SessionEngine {
     if (supervised.obligation) active.completionObligation = supervised.obligation;
     await this.#settleAttempt(active, 'completed');
     await this.#persist('message', assistantMessage(active.turnId, active.stepText, {
-      partial: true, stepId: active.stepId,
+      partial_data: true, stepId: active.stepId,
     }));
     active.committedStepText = active.stepText;
     this.state.transition('recovering', { trigger: supervised.category, turnId: active.turnId });

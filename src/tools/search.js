@@ -42,8 +42,8 @@ export function toolSearchDefinition(registry) {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool search was cancelled');
       const matches = registry.searchCatalog(request.args.query, DEFAULT_SEARCH_RESULTS);
       const named = exactRequestedName(request.args.query, matches);
-      const visibleMatches = matches.filter((item) => item.scope !== 'external'
-        || explicitlyRequestsExternal(request.args.query, item));
+      // Why: ranking discovers capabilities; exact-name leases and review own exposure and authority.
+      const visibleMatches = matches;
       // Why: ranked neighbors are discovery suggestions, not an unambiguous request to alter
       // the next provider schema. Only an exact catalog name creates a predictable lease.
       const lease = named
@@ -71,13 +71,6 @@ export function toolSearchDefinition(registry) {
       };
     },
   };
-}
-
-function explicitlyRequestsExternal(query, item) {
-  const queryTerms = new Set(tokens(query));
-  if (queryTerms.has('mcp') || queryTerms.has('external')) return true;
-  const identityTerms = tokens(item.name.replace(/^mcp[._-]/u, ''));
-  return identityTerms.some((term) => term.length >= 4 && queryTerms.has(term));
 }
 
 function compactMatch(item) {

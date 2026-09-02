@@ -16,10 +16,8 @@ export function failureEnvelope(error, options = {}) {
     code, category: failureCategory(code), boundary: options.boundary ?? boundaryFor(code, operation),
     message: known ? error.message : 'internal operation failed', retryable: known ? error.retryable : false,
     cause_id: options.causeId ?? `${operation}:${code}`,
-    // Both names are retained for the provider failure contract and the transcript compatibility contract.
-    partial_data: Boolean(options.partial), partial: Boolean(options.partial),
+    partial_data: Boolean(options.partial),
     effect_certainty: options.effectCertainty ?? 'none',
-    side_effect_certainty: options.sideEffectCertainty ?? options.effectCertainty ?? 'none',
     ...mission,
   });
 }

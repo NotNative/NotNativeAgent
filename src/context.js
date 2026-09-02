@@ -369,11 +369,9 @@ function toolResultMessage(item) {
   return {
     role: 'tool', tool_call_id: item.providerCallId,
     content: JSON.stringify({
-      envelope_version: 'nna.tool-result.v2',
+      envelope_version: 'nna.tool-result.v3',
       tool_lifecycle_status: lifecycleStatus,
-      // Compatibility: provider conversations historically consume status.
-      // It now carries only tool lifecycle state and never a review decision.
-      status: lifecycleStatus, content_projection: toolContentProjection(item), content: item.content,
+      content_projection: toolContentProjection(item), content: item.content,
       ...(reviewOutcome ? { review_outcome: reviewOutcome } : {}),
       // Why: even deterministic filesystem bytes can contain prompt injection. The observation
       // may be accurate data, but it can never become authenticated instruction authority.
@@ -415,6 +413,8 @@ function toolContentProjection(item) {
 }
 
 function enforceBudget(messages, maxBytes) {
+  // Why: engine/context-preparation.js catches this signal and fits a compacted projection.
+  // This final guard must not silently remove authority, schemas, or paired tool evidence.
   const bytes = measureContext(messages);
   if (bytes > maxBytes) throw new ContractError('context_too_large', 'context exceeds conservative bound');
 }

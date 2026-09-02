@@ -1316,7 +1316,7 @@ test('same-batch writes to one file execute in request order across runtime-auth
     }
     const results = request.messages.filter((item) => item.role === 'tool');
     assert.deepEqual(results.map((item) => item.tool_call_id), ['draft-write', 'final-write']);
-    assert.equal(results.every((item) => JSON.parse(item.content).status === 'succeeded'), true);
+    assert.equal(results.every((item) => JSON.parse(item.content).tool_lifecycle_status === 'succeeded'), true);
     yield { type: 'text', text: 'The final file is complete.' };
     yield { type: 'terminal' };
   } };

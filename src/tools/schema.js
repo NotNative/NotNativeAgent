@@ -157,7 +157,9 @@ function prepareObjectSchema(schema) {
 
 function validateArguments(args, schema, prepared) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) {
-    throw new ContractError('tool_schema_invalid', `tool arguments must be an object; received ${valueType(args)}`);
+    throw schemaFailure(`tool arguments must be an object; received ${valueType(args)}`, {
+      field: '$', issue: 'type_mismatch', expected: 'object', correction: 'replace_field_value',
+    });
   }
   validateInputStructure(args);
   const missing = prepared.required.find((key) => !Object.hasOwn(args, key));
@@ -173,7 +175,7 @@ function validateArguments(args, schema, prepared) {
 
 function validateValue(value, rule, depth, path) {
   if (depth > MAX_STRUCTURE_DEPTH) {
-    throw new ContractError('tool_schema_invalid', `${path} nesting exceeds ${MAX_STRUCTURE_DEPTH} levels`);
+    throw boundFailure(path, 'nesting_depth', MAX_STRUCTURE_DEPTH, depth, 'maximum');
   }
   if (!rule?.type) return;
   const types = Array.isArray(rule.type) ? rule.type : [rule.type];
@@ -197,38 +199,38 @@ function validateValue(value, rule, depth, path) {
 function validateString(value, rule, path) {
   const length = characterLength(value);
   if (Number.isSafeInteger(rule.minLength) && length < rule.minLength) {
-    throw new ContractError('tool_schema_invalid', `${path} must contain at least ${rule.minLength} characters; received ${length}`);
+    throw boundFailure(path, 'characters', rule.minLength, length, 'minimum');
   }
   const maximum = rule.maxLength ?? 131_072;
   if (length > maximum) {
-    throw new ContractError('tool_schema_invalid', `${path} must contain at most ${maximum} characters; received ${length}`);
+    throw boundFailure(path, 'characters', maximum, length, 'maximum');
   }
   if (Number.isSafeInteger(rule.maxUtf8Bytes)) {
     const bytes = Buffer.byteLength(value, 'utf8');
     if (bytes > rule.maxUtf8Bytes) {
-      throw new ContractError('tool_schema_invalid', `${path} UTF-8 encoding must be at most ${rule.maxUtf8Bytes} bytes; received ${bytes}`);
+      throw boundFailure(path, 'utf8_bytes', rule.maxUtf8Bytes, bytes, 'maximum');
     }
   }
   if (typeof rule.pattern === 'string' && !(new RegExp(rule.pattern, 'u')).test(value)) {
-    throw new ContractError(
-      'tool_schema_invalid',
+    throw schemaFailure(
       `${path} must match ${acceptedFormat(rule)}; received ${receivedValue(value, path)}`,
+      { field: path, issue: 'pattern_mismatch', expected: acceptedFormat(rule), correction: 'replace_field_value' },
     );
   }
 }
 
 function validateNumber(value, rule, path) {
-  if (Number.isFinite(rule.minimum) && value < rule.minimum) throw new ContractError('tool_schema_invalid', `${path} must be at least ${rule.minimum}; received ${value}`);
-  if (Number.isFinite(rule.maximum) && value > rule.maximum) throw new ContractError('tool_schema_invalid', `${path} must be at most ${rule.maximum}; received ${value}`);
+  if (Number.isFinite(rule.minimum) && value < rule.minimum) throw boundFailure(path, 'numeric_value', rule.minimum, value, 'minimum');
+  if (Number.isFinite(rule.maximum) && value > rule.maximum) throw boundFailure(path, 'numeric_value', rule.maximum, value, 'maximum');
 }
 
 function validateArray(value, rule, depth, path) {
   if (Number.isSafeInteger(rule.minItems) && value.length < rule.minItems) {
-    throw new ContractError('tool_schema_invalid', `${path} must contain at least ${rule.minItems} items; received ${value.length}`);
+    throw boundFailure(path, 'items', rule.minItems, value.length, 'minimum');
   }
   const maximum = rule.maxItems ?? 4096;
   if (value.length > maximum) {
-    throw new ContractError('tool_schema_invalid', `${path} must contain at most ${maximum} items; received ${value.length}`);
+    throw boundFailure(path, 'items', maximum, value.length, 'maximum');
   }
   value.forEach((item, index) => validateValue(item, rule.items, depth + 1, `${path}[${index}]`));
 }
@@ -287,6 +289,17 @@ function schemaFailure(message, repair) {
   return error;
 }
 
+function boundFailure(field, unit, bound, received, direction) {
+  const comparison = direction === 'minimum' ? 'at least' : 'at most';
+  const clause = unit === 'numeric_value' ? `must be ${comparison} ${bound}`
+    : unit === 'utf8_bytes' ? `UTF-8 encoding must be ${comparison} ${bound} bytes`
+      : `must contain ${comparison} ${bound} ${unit}`;
+  return schemaFailure(`${field} ${clause}; received ${received}`, {
+    field, issue: 'bound_violation', unit, [direction]: bound, received,
+    correction: direction === 'minimum' ? 'increase_field_value_or_size' : 'reduce_field_value_or_size',
+  });
+}
+
 function bounded(value, maximum) {
   const characters = [...value];
   return characters.length <= maximum ? value : `${characters.slice(0, maximum - 1).join('')}…`;
@@ -309,7 +322,11 @@ function validateInputStructure(input) {
     // Invariant: schema admission and invocation values share one visible depth ceiling. Byte,
     // field, and node limits independently bound model-controlled argument complexity.
     if (depth > MAX_STRUCTURE_DEPTH || nodes > MAX_STRUCTURE_NODES) {
-      throw new ContractError('tool_schema_invalid', 'tool argument structure exceeds its nesting or node bound');
+      throw schemaFailure('tool argument structure exceeds its nesting or node bound', {
+        field: '$', issue: 'bound_violation', unit: depth > MAX_STRUCTURE_DEPTH ? 'nesting_depth' : 'nodes',
+        maximum: depth > MAX_STRUCTURE_DEPTH ? MAX_STRUCTURE_DEPTH : MAX_STRUCTURE_NODES,
+        received: depth > MAX_STRUCTURE_DEPTH ? depth : nodes, correction: 'reduce_field_value_or_size',
+      });
     }
     for (const child of Object.values(value)) stack.push({ value: child, depth: depth + 1 });
   }

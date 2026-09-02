@@ -54,8 +54,8 @@ export function shellRunDefinition(paths, references = null, platform = process.
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
-        script: { type: 'string', minLength: 1, maxLength: 32768, description: `Required complete foreground script using the selected interpreter's exact syntax. NNA does not translate syntax. Detaching a process requires explicit authenticated user intent for that persistent or background process. ${guidance}` },
-        shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'], description: `Interpreter; defaults to auto. ${guidance}` },
+        script: { type: 'string', minLength: 1, maxLength: 32768, description: 'Required complete foreground script using the selected interpreter syntax. Detaching a process requires authenticated user intent for that background process.' },
+        shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'], description: 'Interpreter; defaults to auto. Prefer auto. Follow the authoritative host environment guidance.' },
         cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the script. Defaults to the agent working directory.' },
         stdin_ref: { type: 'string', maxLength: 180, description: 'Optional nna_ref_draft identifier whose exact stored text is sent to standard input.' },
         accepted_exit_codes: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 255 }, maxItems: 16, description: 'Exit codes that count as successful completion. Must include 0 and defaults to [0]. For example, [0, 1] may be appropriate for a documented comparison result; do not use it to mask unrelated failures in a compound script.' },
