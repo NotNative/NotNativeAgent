@@ -12,7 +12,7 @@ export function turnFinishDefinition(control) {
   if (!control || typeof control.declare !== 'function') return null;
   return {
     name: 'turn.finish', version: 1,
-    purpose: 'Declare the intended terminal turn outcome before the final response. NNA validates this declaration against durable work, tool failures, and evidence. Use completed after successful work, blocked when no authorized route remains, incomplete when bounded work remains unfinished, failed when the attempted objective failed, or needs_input with one concrete operator question.',
+    purpose: 'Declare the intended terminal turn outcome before the final response. NNA validates this declaration against durable work, tool failures, and evidence. Use completed after successful work. Use blocked, incomplete, or failed with reason_code. Use needs_input with question. Omit reason_code and question for every outcome that does not require them.',
     // Why: this records model intent inside the active turn but performs no external action.
     // Semantic review would circularly ask another model to approve the model's own disposition;
     // deterministic completion supervision is the authority that accepts or rejects it.
@@ -20,8 +20,8 @@ export function turnFinishDefinition(control) {
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['outcome'], properties: {
         outcome: { type: 'string', enum: OUTCOMES, description: 'Required intended terminal outcome.' },
-        reason_code: { type: 'string', minLength: 1, maxLength: MAX_REASON, description: 'Required for blocked, incomplete, or failed. Stable snake_case reason for the disposition.' },
-        question: { type: 'string', minLength: 1, maxLength: MAX_QUESTION, description: 'Required for needs_input. One concrete question for the operator.' },
+        reason_code: { type: 'string', minLength: 1, maxLength: MAX_REASON, description: 'Required only for blocked, incomplete, or failed. Forbidden for completed and needs_input. Stable snake_case reason for the disposition.' },
+        question: { type: 'string', minLength: 1, maxLength: MAX_QUESTION, description: 'Required only for needs_input. Forbidden for every other outcome. One concrete question for the operator.' },
       },
     },
     validate: async (args) => ({ args: validateDeclaration(args), resolved: { scope: 'active_turn' } }),
@@ -42,10 +42,14 @@ function validateDeclaration(value) {
     || Object.keys(value).some((key) => !keys.has(key)) || !OUTCOMES.includes(value.outcome)) {
     throw new ContractError('tool_schema_invalid', 'turn.finish requires a supported outcome');
   }
-  if (['blocked', 'incomplete', 'failed'].includes(value.outcome)) requireText(value.reason_code, 'reason_code', MAX_REASON);
-  if (value.outcome === 'needs_input') requireText(value.question, 'question', MAX_QUESTION);
-  if (!['blocked', 'incomplete', 'failed'].includes(value.outcome) && value.reason_code !== undefined) invalid('reason_code');
-  if (value.outcome !== 'needs_input' && value.question !== undefined) invalid('question');
+  if (['blocked', 'incomplete', 'failed'].includes(value.outcome)) requireText(value.reason_code, 'reason_code', MAX_REASON, value.outcome);
+  if (value.outcome === 'needs_input') requireText(value.question, 'question', MAX_QUESTION, value.outcome);
+  if (!['blocked', 'incomplete', 'failed'].includes(value.outcome) && value.reason_code !== undefined) {
+    throw new ContractError('tool_schema_invalid', 'reason_code is accepted only when outcome is blocked, incomplete, or failed; omit reason_code for completed and needs_input');
+  }
+  if (value.outcome !== 'needs_input' && value.question !== undefined) {
+    throw new ContractError('tool_schema_invalid', 'question is accepted only when outcome is needs_input; omit question for every other outcome');
+  }
   return Object.freeze({
     outcome: value.outcome,
     reason_code: value.reason_code?.trim() ?? null,
@@ -53,10 +57,8 @@ function validateDeclaration(value) {
   });
 }
 
-function requireText(value, field, maximum) {
-  if (typeof value !== 'string' || value.trim().length < 1 || value.length > maximum) invalid(field);
-}
-
-function invalid(field) {
-  throw new ContractError('tool_schema_invalid', `turn.finish received an invalid ${field}`);
+function requireText(value, field, maximum, outcome) {
+  if (typeof value !== 'string' || value.trim().length < 1 || value.length > maximum) {
+    throw new ContractError('tool_schema_invalid', `turn.finish requires a valid ${field} when outcome is ${outcome}`);
+  }
 }
