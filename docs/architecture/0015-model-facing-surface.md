@@ -78,3 +78,9 @@ the human-readable error. Missing, unknown, mistyped, and out-of-enumeration fie
 the corrective operation without echoing sensitive values. `work.plan` remains the atomic
 whole-snapshot operation; `work.task_update` is the normal one-task transition and therefore
 does not require the task title to be repeated.
+
+The unloaded-name catalog labels foundational, specialist, internal, and legacy compatibility
+tiers while stating that classification grants no authority. Cold-evidence and work-cadence
+counters state their scope. Repeated identical hook context is admitted once per turn, and
+hook projections expose their grounding freshness and observation time instead of implying
+that newly injected text is current evidence.

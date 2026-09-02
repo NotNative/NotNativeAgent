@@ -61,13 +61,23 @@ export async function addHookContexts(engine, active, dispatch) {
   if (!Array.isArray(active.enrichment?.hooks)) {
     throw new ContractError('hook_context_unavailable', 'active turn hook context is unavailable');
   }
+  const seen = new Set(active.enrichment.hooks.map(hookContextKey));
+  const novel = additions.filter((item) => {
+    const key = hookContextKey(item);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (novel.length === 0) return;
   const governed = engine.grounding?.admitHook
-    ? await engine.grounding.admitHook(additions, {
+    ? await engine.grounding.admitHook(novel, {
       turnId: active.turnId, authorityRef: active.authority?.id,
       scope: `session:${engine.sessionId}`,
     }) : { admitted: additions };
   active.enrichment.hooks.push(...governed.admitted);
 }
+
+function hookContextKey(item) { return `${item?.source ?? ''}\u0000${item?.content ?? ''}`; }
 
 function assertHookTurn(active) {
   if (!active || typeof active !== 'object' || !active.authority?.id || !active.controller?.signal) {

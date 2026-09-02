@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { hookIdentityScope, hookPayload } from '../src/engine/hooks.js';
+import { addHookContexts, hookIdentityScope, hookPayload } from '../src/engine/hooks.js';
 
 test('hook payload exposes a redacted local identity scope', () => {
   const engine = {
@@ -37,4 +37,24 @@ test('host identity is projected without permissions or authority secrets', () =
   assert.deepEqual(scope.workspace_ids, ['workspace-2']);
   assert.equal('permissions' in scope, false);
   assert.equal('token' in scope, false);
+});
+
+test('repeated identical hook context is admitted only once per turn', async () => {
+  let admitted = 0;
+  const engine = {
+    sessionId: 'session-hooks',
+    grounding: { async admitHook(items) { admitted += items.length; return { admitted: items }; } },
+  };
+  const active = {
+    turnId: 'turn-1', authority: { id: 'authority-1' }, controller: new AbortController(),
+    enrichment: { hooks: [] },
+  };
+  const dispatch = { results: [
+    { hook: 'fixture', additionalContext: 'same context' },
+    { hook: 'fixture', additionalContext: 'same context' },
+  ] };
+  await addHookContexts(engine, active, dispatch);
+  await addHookContexts(engine, active, dispatch);
+  assert.equal(admitted, 1);
+  assert.equal(active.enrichment.hooks.length, 1);
 });

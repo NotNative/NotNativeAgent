@@ -41,6 +41,8 @@ test('workspace guidance and hook context retain distinct trust and supersession
 
   assert.equal(first.admitted[0].grounding.assertionMode, 'behavioral_guidance');
   assert.equal(hook.admitted[0].grounding.assertionMode, 'qualified');
+  assert.equal(hook.admitted[0].grounding.observedAt, 0);
+  assert.equal(hook.admitted[0].grounding.freshness, 'unknown');
   assert.equal(governance.evidence(first.admitted[0].grounding.evidenceId).state, 'superseded');
   assert.equal(governance.evidence(second.admitted[0].grounding.evidenceId).state, 'active');
   assert.equal(governance.evidence(hook.admitted[0].grounding.evidenceId).trust, 'untrusted');

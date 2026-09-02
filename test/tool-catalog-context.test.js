@@ -11,6 +11,8 @@ test('compact tool catalog lists only unloaded authorized names in deterministic
   assert.match(content, /\["mcp\.memory\.search","mcp\.memory\.store"\]/u);
   assert.doesNotMatch(content, /\[.*fs\.read_text/u);
   assert.match(content, /schemas are not loaded/u);
+  assert.match(content, /"specialist":\["mcp\.memory\.search","mcp\.memory\.store"\]/u);
+  assert.match(content, /no tier grants authority/u);
 });
 
 test('compact tool catalog is absent when every authorized schema is loaded', () => {

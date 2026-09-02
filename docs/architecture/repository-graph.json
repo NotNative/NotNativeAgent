@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:46e71b494e81050558f09a267187cb7a37f535afdc4da9dc47a154e1a1a2d20d",
+  "source_digest": "sha256:1c893b117e8bc590bcd6cd546f7f1cb6dfefe57d89e233850c437f846eeed559",
   "counts": {
     "modules": 337,
     "component_edges": 69
@@ -131,8 +131,8 @@
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 53,
-      "module_count": 19
+      "import_count": 54,
+      "module_count": 20
     },
     {
       "from": "reliability-engine",
@@ -2779,7 +2779,9 @@
       "path": "src/tools/catalog-context.js",
       "component": "tools",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/tools/core-names.js"
+      ]
     },
     {
       "path": "src/tools/context-receipt.js",

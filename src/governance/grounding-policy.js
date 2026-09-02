@@ -91,6 +91,7 @@ export class GroundingPolicy {
         grounding: Object.freeze({
           assertionMode: policy.assertionMode, evidenceId: evidence?.id ?? null,
           reasonCode: policy.reasonCode, policyVersion: GROUNDING_POLICY_VERSION,
+          observedAt: observedAt(item), freshness: policy.origin === 'hook' ? 'unknown' : 'not_applicable',
         }),
       }));
     }
