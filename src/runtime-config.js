@@ -69,7 +69,6 @@ function applyConfiguration(engine, config, active) {
   engine.memory.config = config.memory;
   engine.reviewer.semanticTimeoutMs = config.limits.semanticReviewMs;
   if (engine.permissionBroker) engine.permissionBroker.timeoutMs = config.limits.approvalMs;
-  engine.toolLoop.concurrency = config.limits.toolConcurrency;
   engine.scheduler.configure(config.limits.providerConcurrency, config.limits.providerQueueLimit);
   engine.reviewer.semantic.setRouter?.(engine.router);
   if (active) active.authority = engine.authority.snapshot(config);

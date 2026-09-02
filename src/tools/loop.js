@@ -33,9 +33,9 @@ export class ToolLoop {
     this.toolContext = options.toolContext;
     this.executionContext = options.executionContext;
     this.surface = options.surface;
-    this.parallelLimit = options.parallelLimit;
-    this.concurrency = boundedConcurrency(options.concurrency ?? 1);
-    this.parallelLimit ??= async () => 1;
+    // Why: every parallel group crosses one resolver boundary. Keeping a separate
+    // read-only knob here made two independently defaulted concurrency mechanisms.
+    this.parallelLimit = options.parallelLimit ?? (async () => 1);
     this.results = new ToolResultCache();
     this.pendingSettlements = new Map();
   }
@@ -303,8 +303,9 @@ export class ToolLoop {
       if (parallelGroup === null) {
         await this.#execute(approved[0], active); index = end; continue;
       }
-      const limit = parallelGroup === 'read_only' ? this.concurrency
-        : await this.parallelLimit(parallelGroup, active.controller.signal);
+      const limit = boundedParallelLimit(
+        await this.parallelLimit(parallelGroup, active.controller.signal),
+      );
       await boundedParallel(approved, limit, (item) => this.#execute(item, active));
       index = end;
     }
@@ -386,9 +387,9 @@ async function boundedParallel(items, limit, operation) {
   await Promise.all(workers);
 }
 
-function boundedConcurrency(value) {
+function boundedParallelLimit(value) {
   if (!Number.isSafeInteger(value) || value < 1 || value > 16) {
-    throw new ContractError('tool_concurrency_invalid', 'tool concurrency must be between one and sixteen');
+    throw new ContractError('tool_concurrency_invalid', 'parallel tool limit must be between one and sixteen');
   }
   return value;
 }

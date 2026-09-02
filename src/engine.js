@@ -228,7 +228,7 @@ export class SessionEngine {
   }
   async runSubagent(input, signal) { return runEngineSubagent(this, input, signal, (options) => new SessionEngine(options)); }
   async changeWorkspace(target) { return changeEngineWorkspace(this, target, { persist: (type, payload) => this.#persist(type, payload) }); }
-  parallelToolLimit(group, signal) { return subagentParallelLimit(this, group, signal); }
+  subagentParallelLimit(group, signal) { return subagentParallelLimit(this, group, signal); }
   async #runTurn(content, attachmentInputs, retryAttachmentId) {
     const active = this.active;
     try {

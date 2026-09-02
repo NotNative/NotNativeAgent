@@ -291,8 +291,9 @@ function toolLoop(engine, hooks) {
     telemetry: engine.telemetry,
     persist: hooks.persist, publish: hooks.publish,
     toolContext: hooks.toolContext, executionContext: hooks.executionContext,
-    surface: engine.surface, concurrency: engine.config.limits.toolConcurrency,
-    parallelLimit: (group, signal) => engine.parallelToolLimit(group, signal),
+    surface: engine.surface,
+    parallelLimit: (group, signal) => group === 'read_only'
+      ? engine.config.limits.toolConcurrency : engine.subagentParallelLimit(group, signal),
   });
 }
 

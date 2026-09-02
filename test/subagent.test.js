@@ -169,7 +169,7 @@ test('parallel sub-agent cancellation drains children and commits terminal tool 
     semanticReviewer: { async review() { return { outcome: 'approve', confidence: 0.99, reason_code: 'delegation_matches_intent' }; } },
   });
   await engine.initialize();
-  engine.parallelToolLimit = async () => 2;
+  engine.subagentParallelLimit = async () => 2;
   let started = 0; let settled = 0; let releaseStarted;
   const bothStarted = new Promise((resolve) => { releaseStarted = resolve; });
   engine.runSubagent = async (input, signal) => new Promise((resolve) => {
