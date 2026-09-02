@@ -419,6 +419,9 @@ async function boundedNext(iterator, milliseconds, code, renewedAt = null) {
     (value) => ({ value }),
     (error) => ({ error }),
   );
+  // Why: trusted local inference may remain silent for a long prefill. Its default lease is
+  // intentionally renewable only by successful kernel-owned health probes; operator
+  // cancellation and any explicit route deadline still bound the surrounding attempt.
   while (true) {
     const renewal = typeof renewedAt === 'function' ? renewedAt() : null;
     const leaseStartedAt = Number.isFinite(renewal) ? Math.max(startedAt, renewal) : startedAt;

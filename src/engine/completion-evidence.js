@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+// Compatibility: fs.read is the compact canonical surface, while fs.read_lines and
+// fs.read_text remain supported granular tools. Evidence must count all three names.
 const READ_TOOLS = new Set(['fs.read', 'fs.read_lines', 'fs.read_text']);
 
 export function completionEvidence(transcript, turnId) {
@@ -8,6 +10,8 @@ export function completionEvidence(transcript, turnId) {
   const results = new Map(records.filter((item) => item.type === 'tool_result' && item.toolName !== 'turn.finish')
     .map((item) => [item.providerCallId, item]));
   const successful = requests.filter((request) => lifecycle(results.get(request.providerCallId)) === 'succeeded');
+  // Compatibility: new sealed requests store canonical path, while durable journals written
+  // before shared argument normalization may still contain file_path.
   const filesRead = new Set(successful.filter((request) => READ_TOOLS.has(request.toolName))
     .map((request) => request.args?.path ?? request.args?.file_path).filter((path) => typeof path === 'string'));
   const toolNames = [...new Set(requests.map((item) => item.toolName))].sort();
