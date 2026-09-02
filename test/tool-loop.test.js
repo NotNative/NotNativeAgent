@@ -699,6 +699,28 @@ test('AC-TOOL-01 unknown tool never reaches review or execution', async () => {
   assert.match(terminal.failure_reason, /unavailable/u);
 });
 
+test('rejected conversation-work transitions are invalid requests with no effect', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-work-rejection-'));
+  const output = [];
+  const provider = new TwoStepProvider({
+    name: 'work.plan', args: { revision: 1, objective: 'Track the audit', tasks: [] },
+  });
+  const engine = new SessionEngine({
+    config: manifest(root), providerFactory: () => provider,
+    output: async (record) => output.push(record),
+  });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'work-rejection-turn', content: 'Track the audit' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  const durable = engine.transcript.find((item) => item.type === 'tool_result');
+  assert.equal(durable.toolLifecycleStatus, 'invalid_request');
+  assert.equal(durable.effectCertainty, 'none');
+  assert.equal(durable.reasonCode, 'work_revision_conflict');
+  const terminal = output.find((item) => item.type === 'tool_status' && item.status === 'invalid_request');
+  assert.equal(terminal.effect_certainty, 'none');
+  assert.equal(terminal.reason_code, 'work_revision_conflict');
+});
+
 test('schema repair constraints are injected into the next model continuation', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-tool-constraint-context-'));
   const provider = new TwoStepProvider(

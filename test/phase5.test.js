@@ -37,6 +37,7 @@ import { handleEditorAction } from '../src/tui/editor-actions.js';
 import { toolStatus } from '../src/engine/records.js';
 import { handleCommandPickerAction } from '../src/tui/command-picker.js';
 import { contextOverlay } from '../src/tui/context.js';
+import { collapsedFailureRows, summaryActivityRows } from '../src/tui/activity-renderer.js';
 
 function config(root, persistence = 'ephemeral') {
   return resolveManifest({
@@ -624,6 +625,30 @@ test('completed nonzero shell calls render as amber completion instead of red fa
   const colored = new TuiRenderer().frame(projection, { width: 96, height: 24, color: true });
   assert.match(colored, /\u001b\[38;5;214m {4}! shell\.run/u);
   assert.doesNotMatch(colored, /\u001b\[38;5;203m {4}! shell\.run/u);
+});
+
+test('invalid tool requests render as amber corrections instead of red failures', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', {
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'work.plan',
+    status: 'invalid_request', reason_code: 'tool_schema_invalid',
+    failure_reason: 'argument "tasks"[0] is missing required property "title"',
+    effect_certainty: 'none',
+  });
+  const plain = new TuiRenderer().frame(projection, { width: 110, height: 24, color: false });
+  assert.match(plain, /^    ! work\.plan \| invalid_request/mu);
+  assert.doesNotMatch(plain, /^    X work\.plan/mu);
+  const colored = new TuiRenderer().frame(projection, { width: 110, height: 24, color: true });
+  assert.match(colored, /\u001b\[38;5;214m {4}! work\.plan/u);
+  assert.doesNotMatch(colored, /\u001b\[38;5;203m {4}! work\.plan/u);
+
+  const retained = [{
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'work.plan',
+    status: 'invalid_request', reason_code: 'tool_schema_invalid', effect_certainty: 'none',
+  }];
+  assert.match(collapsedFailureRows(retained)[0], /^ {4}! work\.plan/u);
+  assert.match(summaryActivityRows(retained)[1], /^ {6}! work\.plan x1 \| 0 succeeded \| 1 needs correction/u);
 });
 
 test('successful shell calls with diagnostics render as amber qualified success', () => {

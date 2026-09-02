@@ -46,6 +46,11 @@ included diagnostic projection before archive construction. A final privacy scan
 the redacted projection. Finding credential material in source diagnostics therefore causes
 redaction, not bundle rejection; only a residual redactor invariant failure blocks publication.
 
+The Console uses amber for correctable tool requests that produced no external effect. This
+includes invalid request shapes, rejected conversation-work transitions, and completed nonzero
+process observations. Red remains reserved for execution failures, unknown effects, and exhausted
+turn failures. Machine lifecycle and reason codes remain visible and authoritative.
+
 Authenticated stdio hosts receive one immutable execution snapshot per session. Host
 capability declarations are ceilings: disabling tools leaves the registry empty, while
 memory, attachment, MCP, and steering restrictions are enforced at their canonical

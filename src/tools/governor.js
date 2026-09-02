@@ -8,6 +8,12 @@ import { normalizeToolReasonCode } from './reason-code.js';
 // This outer event boundary must remain above the largest configured semantic-review
 // deadline. The reviewer owns the operative timeout; this is only a stuck-handler backstop.
 const REVIEW_SETTLEMENT_GRACE_MS = 5_000;
+const CORRECTABLE_WORK_REJECTIONS = new Set([
+  'goal_already_blocked', 'goal_already_completed', 'goal_missing', 'goal_not_terminal',
+  'goal_tasks_actionable', 'goal_tasks_unfinished', 'task_active_conflict', 'task_capacity',
+  'task_id_invalid', 'task_missing', 'task_status_invalid', 'work_plan_invalid',
+  'work_revision_conflict', 'work_text_invalid',
+]);
 export const MANDATORY_REVIEW_EVENT_TIMEOUT_MS = MAX_SUBSCRIPTION_TIMEOUT_MS;
 
 export function mandatoryReviewEventTimeout(semanticReviewMs) {
@@ -279,12 +285,15 @@ function truncateUtf8(value, maximum) {
 function normalizeFailure(request, definition, error, started) {
   const cancelled = error.code === 'tool_cancelled';
   const timeout = error.code === 'tool_timeout';
+  const invalidRequest = definition.scope === 'conversation_work'
+    && error instanceof ContractError && CORRECTABLE_WORK_REJECTIONS.has(error.code);
   return Object.freeze({
     request_id: request.id, provider_call_id: request.providerCallId,
-    tool_name: request.toolName, status: timeout ? 'timed_out' : cancelled ? 'cancelled' : 'failed',
+    tool_name: request.toolName,
+    status: timeout ? 'timed_out' : cancelled ? 'cancelled' : invalidRequest ? 'invalid_request' : 'failed',
     content: redactText(error instanceof ContractError ? error.message : 'tool execution failed'),
     truncated: false, elapsed_ms: Math.max(0, performance.now() - started),
-    effect_certainty: effectCertainty(definition, request, error),
+    effect_certainty: invalidRequest ? 'none' : effectCertainty(definition, request, error),
     untrusted: true, metadata: failureMetadata(error),
     reason_code: normalizeToolReasonCode(error?.code, 'executor_failure'), ledger_started: true,
   });

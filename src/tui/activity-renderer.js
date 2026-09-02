@@ -6,6 +6,7 @@ import { isIntermediateToolStatus } from '../experience/tool-lifecycle.js';
 const TOOL_STATUS = Object.freeze({
   REVIEW_PENDING: 'review_pending', APPROVED: 'approved', RUNNING: 'running',
   SUCCEEDED: 'succeeded', DUPLICATE: 'duplicate_ignored', COMPLETED_NONZERO: 'completed_nonzero',
+  INVALID_REQUEST: 'invalid_request',
 });
 const COMPLETED_TASK_VERBS = Object.freeze({
   reviewing: 'reviewed', updating: 'updated', testing: 'tested', planning: 'planned', 'working on': 'finished',
@@ -27,7 +28,9 @@ export function decorateToolActivityLine(line, lineKind, paint) {
       const match = line.match(/^(\s*)(●|\+)(.*)$/u);
       return match ? `${match[1]}${paint(style, match[2])}${paint(TUI_THEME.muted, match[3])}` : paint(TUI_THEME.muted, line);
     }
-    if (status === TOOL_STATUS.COMPLETED_NONZERO) return paint(TUI_THEME.warning, line);
+    if ([TOOL_STATUS.COMPLETED_NONZERO, TOOL_STATUS.INVALID_REQUEST].includes(status)) {
+      return paint(TUI_THEME.warning, line);
+    }
     return paint(status === TOOL_STATUS.RUNNING ? TUI_THEME.muted : TUI_THEME.danger, line);
   }
   if (/^\s+(?:Review|Result):/u.test(line)) return paint(TUI_THEME.muted, line);
@@ -35,6 +38,7 @@ export function decorateToolActivityLine(line, lineKind, paint) {
   if (match) return `${match[1]}${paint(TUI_THEME.success, match[2])}${paint(TUI_THEME.muted, match[3])}`;
   if (/^\s+\+/u.test(line)) return paint(TUI_THEME.muted, line);
   if (/^\s+>|^\s+</u.test(line)) return paint(TUI_THEME.activity, line);
+  if (/^\s+!/u.test(line)) return paint(TUI_THEME.warning, line);
   if (/^\s+X|^!/u.test(line)) return paint(TUI_THEME.danger, line);
   return null;
 }
@@ -65,18 +69,24 @@ export function collapsedFailureRows(records) {
   const failed = toolCalls(records).filter((item) => !successfulToolStatus(item.result?.status));
   const rows = failed.slice(0, 2).map((item) => {
     const timing = formatElapsed(item.result?.elapsed_ms);
-    return `    X ${item.tool}${toolTargetSuffix(item)}${timing}${toolFailureSuffix(item.result)}`;
+    return `    ${toolSymbol(item.result?.status)} ${item.tool}${toolTargetSuffix(item)}${timing}${toolFailureSuffix(item.result)}`;
   });
-  if (failed.length > rows.length) rows.push(`    X ${failed.length - rows.length} more failed call${failed.length - rows.length === 1 ? '' : 's'}`);
+  const omitted = failed.slice(rows.length);
+  if (omitted.length > 0) {
+    const warningOnly = omitted.every((item) => [TOOL_STATUS.COMPLETED_NONZERO, TOOL_STATUS.INVALID_REQUEST]
+      .includes(item.result?.status));
+    rows.push(`    ${warningOnly ? '!' : 'X'} ${omitted.length} more call${omitted.length === 1 ? '' : 's'} need attention`);
+  }
   return rows;
 }
 
 export function summaryActivityRows(records) {
   const groups = new Map();
   for (const item of toolCalls(records)) {
-    const group = groups.get(item.tool) ?? { tool: item.tool, count: 0, failed: 0, nonzero: 0, observed: 0, diagnostic: 0, elapsed: 0, targets: [] };
+    const group = groups.get(item.tool) ?? { tool: item.tool, count: 0, failed: 0, invalid: 0, nonzero: 0, observed: 0, diagnostic: 0, elapsed: 0, targets: [] };
     group.count += 1;
     if (item.result?.status === TOOL_STATUS.COMPLETED_NONZERO) group.nonzero += 1;
+    else if (item.result?.status === TOOL_STATUS.INVALID_REQUEST) group.invalid += 1;
     else if (!successfulToolStatus(item.result?.status)) group.failed += 1;
     if (item.result?.observation_outcome) group.observed += 1;
     if (toolHasDiagnostics(item.result)) group.diagnostic += 1;
@@ -105,17 +115,18 @@ export function activityDetailRows(records, width, wrap) {
 }
 
 function summaryGroupRow(group) {
-  const succeeded = group.count - group.failed - group.nonzero - group.observed;
+  const succeeded = group.count - group.failed - group.invalid - group.nonzero - group.observed;
   const parts = [`${succeeded} succeeded`];
   if (group.observed) parts.push(`${group.observed} neutral observation${group.observed === 1 ? '' : 's'}`);
   if (group.diagnostic) parts.push(`${group.diagnostic} with diagnostics`);
   if (group.nonzero) parts.push(`${group.nonzero} completed nonzero`);
+  if (group.invalid) parts.push(`${group.invalid} needs correction`);
   if (group.failed) parts.push(`${group.failed} failed`);
-  const status = group.failed || group.nonzero || group.observed || group.diagnostic ? parts.join(' | ') : 'all succeeded';
+  const status = group.failed || group.invalid || group.nonzero || group.observed || group.diagnostic ? parts.join(' | ') : 'all succeeded';
   const elapsed = group.elapsed ? ` | ${Math.round(group.elapsed)} ms` : '';
   const targets = group.targets.slice(0, 2).map((value) => compactTarget(value));
   const target = targets.length ? ` | ${targets.join('; ')}${group.targets.length > 2 ? '; ...' : ''}` : '';
-  return `      ${group.failed ? 'X' : group.nonzero || group.diagnostic ? '!' : group.observed ? '–' : '\u2713'} ${group.tool} x${group.count} | ${status}${elapsed}${target}`;
+  return `      ${group.failed ? 'X' : group.invalid || group.nonzero || group.diagnostic ? '!' : group.observed ? '–' : '\u2713'} ${group.tool} x${group.count} | ${status}${elapsed}${target}`;
 }
 
 function compactTarget(value) {
@@ -170,7 +181,7 @@ export function toolSymbol(status, observationOutcome = null, diagnostics = fals
   if (status === TOOL_STATUS.REVIEW_PENDING || status === TOOL_STATUS.APPROVED) return '\u25cf';
   if (status === TOOL_STATUS.RUNNING) return '+';
   if (status === TOOL_STATUS.SUCCEEDED) return observationOutcome ? '–' : diagnostics ? '!' : '\u2713';
-  if (status === TOOL_STATUS.COMPLETED_NONZERO) return '!';
+  if ([TOOL_STATUS.COMPLETED_NONZERO, TOOL_STATUS.INVALID_REQUEST].includes(status)) return '!';
   return 'X';
 }
 

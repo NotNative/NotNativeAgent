@@ -19,6 +19,10 @@ successful tool work uses green, and secondary controls remain dim. Plain mode r
 breathing room and a human duration label; engine-only transitions stay out of the
 transcript.
 
+Amber tool rows identify correctable requests that caused no external effect, including
+invalid argument shapes and rejected conversation-work transitions. Red tool rows identify
+execution failures or unknown effects. Exhausted turn failures also remain red.
+
 The persistent header shows the canonical NNA version and attached conversations. The
 bottom status line shows the review posture, semantic state, provider/model route, latest
 token usage, and transcript follow state. The transcript distinguishes operator text,
