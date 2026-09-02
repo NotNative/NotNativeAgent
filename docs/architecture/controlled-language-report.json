@@ -3,9 +3,9 @@
   "standard": "NNA-CTL/1",
   "scope": "maximal bundled tool registry; purpose, provider facade description, and input-schema description fields",
   "stats": {
-    "tools": 47,
-    "proseFields": 181,
-    "proseSentences": 296,
+    "tools": 46,
+    "proseFields": 174,
+    "proseSentences": 282,
     "longProseCandidates": 0,
     "unqualifiedBoundaryCandidates": 2,
     "maximumSentenceWords": 24,

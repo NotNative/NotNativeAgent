@@ -172,34 +172,15 @@ authenticated user intent. Ordinary intermediate commands and targets derived fr
 results need not be named verbatim. A concrete contradiction, scope divergence, or
 disproportionate irreversible effect remains a denial.
 
-`system.elevate` is the local root Console's one-shot operating-system elevation boundary.
-It runs one exact resolved executable and argv after mandatory semantic review. Reviewer
-approval proceeds directly to native Windows UAC or Unix-like `sudo` authentication; NNA does
-not show a second confirmation. NNA temporarily returns control of the terminal while the
-operating system authenticates and then restores the Console. The native request blocks the
-tool and agent workflow. Its acquisition wait has no NNA deadline, but the operator can cancel
-the turn and the operating system can reject or expire authentication. A rejection, cancellation,
-or operating-system timeout is a not-authorized result and does not execute or retry the command.
-NNA never requests, reads, stores, or forwards the administrator password.
+`system.elevate` is temporarily disabled and is not installed in any NNA tool registry. NNA
+does not start UAC, `sudo`, or another native elevation flow. If an operation requires greater
+authority, the agent asks the user to run the required command in their own terminal and
+continues only from the result the user provides.
 
-The agent should first try the operation with the current user's authority and use
-`system.elevate` only when the operating system reports that greater authority is required.
 `process.run` and `shell.run` reject `sudo`, `doas`, `pkexec`, `runas`, and PowerShell
 `Start-Process -Verb RunAs` launchers. This prevents an ordinary process tool from bypassing
-the sanctioned elevation boundary. Passwords, API tokens, and other literal secrets are
-forbidden in the elevated request.
-
-The tool is intentionally absent from hosted NNO sessions, headless manifests, Telegram,
-and sub-agents. A Console reached through SSH can use it only when that connection owns a
-real pseudo-terminal, such as a normal interactive SSH login or `ssh -t`; without a TTY,
-`sudo` cannot authenticate and the operation fails closed with guidance. NNA does not add
-the user to `sudoers`, create a persistent privileged daemon, or grant a reusable elevated
-shell.
-
-The requested command deadline starts after native authentication starts the elevated helper.
-It returns a typed timeout immediately after requesting tree termination. External effects are
-therefore reported with unknown certainty and are never automatically retried. POSIX termination escalates from `SIGTERM`
-to `SIGKILL`; Windows has both tree and direct-process termination paths. Remaining
+the disabled boundary. NNA does not add the user to `sudoers`, create a persistent privileged
+daemon, request a password, or grant a reusable elevated shell. Remaining
 process requests are review-required because
 repository programs and package scripts may still have effects. The deterministic packet
 labels simple argv separately from opaque package scripts, large argv sets, dynamic flags,

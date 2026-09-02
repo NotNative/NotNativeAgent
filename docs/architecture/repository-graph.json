@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:367ee6ab41c68d80173b519f00f28a3872bc3ac7328ecbc5de0e91b9877b0c04",
+  "source_digest": "sha256:3a0be1174becaec8071e283a52859a360094bcad7717f340c7f0a741cc974758",
   "counts": {
     "modules": 339,
     "component_edges": 69
@@ -131,7 +131,7 @@
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 55,
+      "import_count": 54,
       "module_count": 20
     },
     {
@@ -143,7 +143,7 @@
     {
       "from": "agentic-engine",
       "to": "foundation",
-      "import_count": 41,
+      "import_count": 40,
       "module_count": 16
     },
     {
@@ -918,7 +918,6 @@
         "src/attachments.js",
         "src/conversation-work.js",
         "src/credential-bindings.js",
-        "src/elevation-broker.js",
         "src/extensions.js",
         "src/governance-engine.js",
         "src/governance/grounding-policy.js",
@@ -2709,7 +2708,6 @@
       "entrypoint": false,
       "imports": [
         "src/conversation-work-tools.js",
-        "src/elevation-tool.js",
         "src/guidance/catalog.js",
         "src/guidance/tools.js",
         "src/ids.js",

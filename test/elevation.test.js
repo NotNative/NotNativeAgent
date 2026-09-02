@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
@@ -16,26 +16,12 @@ import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { ToolRegistry } from '../src/tool-registry.js';
 
-test('system.elevate is an interactive root capability with exact resolved argv', async () => {
+test('system.elevate remains unavailable while native elevation is disabled', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-elevation-tool-'));
   const broker = { execute: async () => ({ content: 'done' }) };
   const registry = new ToolRegistry(root, { elevationBroker: broker });
   await registry.initialize();
-  const definition = registry.definition('system.elevate');
-  assert.ok(definition);
-  assert.equal(definition.operatorConfirmation, undefined);
-  assert.equal(definition.timeoutMs, null);
-  assert.equal(definition.cancellation, true);
-  const normalized = await definition.validate({
-    executable: process.execPath, args: ['--version'], reason: 'Verify the privileged runtime',
-    expected_effect: 'Read and print the installed Node.js version', timeout_ms: 5_000,
-  });
-  assert.equal(normalized.args.executable, process.execPath);
-  assert.equal(normalized.args.cwd, await realpath(root));
-  assert.deepEqual(normalized.resolved.argv, ['--version']);
-  await assert.rejects(definition.validate({
-    executable: process.execPath, args: ['--token=literal'], reason: 'Run it', expected_effect: 'Print output',
-  }), { code: 'elevation_secret_argument_forbidden' });
+  assert.equal(registry.definition('system.elevate'), undefined);
 
   const hosted = new ToolRegistry(root, {
     hosted: true, boundedToWorkspace: true, elevationBroker: broker, allowedTools: ['system.elevate'],
@@ -50,13 +36,13 @@ test('ordinary process tools reject native elevation launchers', async () => {
   await registry.initialize();
   await assert.rejects(registry.definition('process.run').validate({
     executable: 'sudo', args: ['-n', 'docker', 'inspect', 'container'],
-  }), { code: 'native_elevation_requires_system_tool' });
+  }), { code: 'native_elevation_unavailable' });
   await assert.rejects(registry.definition('shell.run').validate({
     script: 'echo ready; sudo -n docker inspect container', shell: 'sh',
-  }), { code: 'native_elevation_requires_system_tool' });
+  }), { code: 'native_elevation_unavailable' });
   await assert.rejects(registry.definition('shell.run').validate({
     script: 'Start-Process powershell.exe -Verb RunAs -ArgumentList whoami', shell: 'powershell',
-  }), { code: 'native_elevation_requires_system_tool' });
+  }), { code: 'native_elevation_unavailable' });
 });
 
 test('system.elevate rejects shell launchers that would open an interactive prompt', () => {

@@ -1,7 +1,7 @@
 # Model-visible tool contract audit
 
 Audit date: 2026-08-28
-Scope: all 47 bundled tools installed by `ToolRegistry` with the maximal regression fixture: MCP status/test control, skill registry, root subagent control, conversation-work store, Telegram notifications, elevation broker, and session history. The exact expected names are asserted in `test/bundled-tool-contracts.test.js`; adding, removing, or conditionally omitting a bundled tool now changes the audit mechanically. Dynamically loaded MCP and extension tools are governed by the same generic schema validator but require a separate provider-specific semantic audit.
+Scope: all 46 bundled tools installed by `ToolRegistry` with the maximal regression fixture: MCP status/test control, skill registry, root subagent control, conversation-work store, Telegram notifications, and session history. `system.elevate` is temporarily disabled and is not part of the callable registry. The exact expected names are asserted in `test/bundled-tool-contracts.test.js`; adding, removing, or conditionally omitting a bundled tool now changes the audit mechanically. Dynamically loaded MCP and extension tools are governed by the same generic schema validator but require a separate provider-specific semantic audit.
 
 ## Method
 
@@ -26,7 +26,7 @@ The audit compared each tool's JSON schema, normalization aliases, runtime valid
 | Filesystem mutation | `fs.write_text`, `fs.edit_text`, `fs.edit_lines`, `fs.delete_file`, `fs.create_directory`, `fs.copy_file`, `fs.move_file`, `fs.directory` | Fixed. `fs.write_text@2`, `fs.edit_text@4`, and `fs.edit_lines@3` are disjoint and bound model-authored payloads to the practical provider envelope. Stateful receipt and target failures remain runtime evidence, not hidden argument grammar. |
 | NNA guidance/diagnostics | `nna.search_guidance`, `nna.read_guidance`, `nna.diagnose_turn`, `nna.list_sessions`, `nna.mcp_status`, `nna.mcp_test` | Pass. Selector conflicts and exact-id behavior are now visible through retained field descriptions. |
 | Web and images | `web.search`, `web.fetch`, `web.browse`, `image.inspect` | Hardened. `web.browse` remains one session-oriented action tool to avoid eight competing browser schemas; its provider-visible action field gives the exact argument mapping for every action. `image.inspect@2` emits a normalized verdict whose visual authority can be superseded only by newer visual evidence. |
-| Discovery and execution | `tool.search`, `process.run`, `shell.run`, `system.elevate`, `project.verify` | Pass. Interpreter, stdin-reference, accepted-exit-code, verification-scope, and elevation requirements are provider-visible; host/runtime availability is correctly validated after shape validation. |
+| Discovery and execution | `tool.search`, `process.run`, `shell.run`, `project.verify` | Pass. Interpreter, stdin-reference, accepted-exit-code, and verification-scope requirements are provider-visible. Native elevation launchers fail with guidance to ask the user to run the command independently. |
 | Repository/code | `git.inspect`, `code.diagnostics` | Pass. Selectors and path bounds match runtime validation. |
 | Skills and delegation | `skill.search`, `skill.load`, `agent.run` | Pass. Role/id/task contracts are closed and bounded. |
 | Durable work | `work.plan`, `work.status`, `work.goal`, `work.task_add`, `work.task_update` | Pass with documented relational rules. Atomic plan replacement is intentionally retained; completion evidence and blocking detail requirements are visible. |

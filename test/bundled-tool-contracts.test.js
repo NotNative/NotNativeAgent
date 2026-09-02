@@ -14,7 +14,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn', 'nna.list_sessions',
   'nna.mcp_status', 'nna.mcp_test',
   'web.search', 'web.fetch', 'web.browse', 'image.inspect', 'tool.search',
-  'process.run', 'shell.run', 'system.elevate', 'project.verify', 'git.inspect', 'code.diagnostics',
+  'process.run', 'shell.run', 'project.verify', 'git.inspect', 'code.diagnostics',
   'skill.search', 'skill.load', 'agent.run',
   'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
   'turn.finish',
@@ -39,7 +39,6 @@ function optionalControls() {
     },
     terminalControl: { declare(value) { return value; } },
     telegramNotifications: { schedule() {} }, activeTurnId: () => 'turn-fixture',
-    elevationBroker: { async execute() { return {}; } },
     sessionHistory: { transcript() { return []; } },
   };
 }

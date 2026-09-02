@@ -44,11 +44,7 @@ export async function runTui(input, output, diagnostics, options) {
   const destructiveKeys = new DestructiveKeyGuard({ windowMs: options.destructiveKeyWindowMs });
   let tail = Promise.resolve(), finish; const finished = new Promise((resolve) => { finish = resolve; });
   const render = () => renderLoop?.schedule(), workspaceFactory = options.workspaceFactory ?? createTuiWorkspace;
-  const elevationControl = createElevationControl({
-    input, output, terminal, state: () => ({ onData, stopping, renderLoop }),
-    disarmEscape: () => { clearTimeout(escapeTimer); escapeTimer = null; },
-  });
-  const { logger, workspace } = await workspaceFactory({ ...options, elevationControl }, output, render); const unregisterFatalCleanup = registerFatalTuiCleanup(options.fatalBoundary, terminal, workspace, logger);
+  const { logger, workspace } = await workspaceFactory(options, output, render); const unregisterFatalCleanup = registerFatalTuiCleanup(options.fatalBoundary, terminal, workspace, logger);
   workspace.projection.bindings = bindings;
   const stop = async () => {
     if (stopping) return;
@@ -207,20 +203,6 @@ export async function handleActions(actions, workspace, stop, decoder, destructi
     else if (action.action === 'input_rejected') throw new ContractError(action.reason, 'terminal input was rejected');
   }
   decoder.setBindings(workspace.projection.bindings); workspace.onChange();
-}
-function createElevationControl(options) {
-  return { run: async (operation, notice) => {
-    const { onData, stopping, renderLoop } = options.state();
-    if (!onData || stopping) throw new Error('elevation_terminal_unavailable');
-    options.disarmEscape(); renderLoop?.cancel();
-    options.input.removeListener('data', onData); options.terminal.restore();
-    options.output.write(`\nNNA elevation requested\n${notice}\n\n`);
-    try { return await operation(); } finally {
-      if (!options.state().stopping) {
-        options.input.on('data', onData); options.terminal.enter(); renderLoop.invalidate(); renderLoop.now();
-      }
-    }
-  } };
 }
 function selectedPermission(action, session) {
   return permissionChoice(action.text, session.pendingPermission.choices);

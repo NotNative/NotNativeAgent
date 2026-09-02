@@ -11,7 +11,6 @@ import { MandatoryReviewer } from '../reviewer.js';
 import { mandatoryReviewEventTimeout, ToolGovernor } from '../tools/governor.js';
 import { ToolLoop } from '../tools/loop.js';
 import { ToolRegistry } from '../tool-registry.js';
-import { ElevationBroker } from '../elevation-broker.js';
 import { FairScheduler } from '../provider/fair-scheduler.js';
 import { userDataPaths } from '../product.js';
 import { HookRuntime } from '../hook-runtime.js';
@@ -138,7 +137,6 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       state: engine.state.state,
     }),
     mcpControl: options.mcpControl,
-    elevationBroker: elevationBrokerFor(engine, options),
     subagentControl: engine.config.executionManifest === null && engine.subagentDepth === 0 ? {
       workspaceRoot: engine.config.workspaceRoot,
       run: (input, signal) => engine.runSubagent(input, signal),
@@ -179,13 +177,6 @@ function createImageObserver(engine) {
   return new AttachmentObservationRouter(engine.router, undefined, {
     recordTokenReceipt: engine.recordProviderAttempt,
   });
-}
-
-function elevationBrokerFor(engine, options) {
-  if (engine.surface !== 'interactive_tui' || engine.config.executionManifest !== null) return null;
-  return options.elevationBroker ?? (options.elevationControl
-    ? new ElevationBroker({ interactive: options.elevationControl, root: engine.dataPaths.elevation })
-    : null);
 }
 
 function historyToolOptions(engine) {

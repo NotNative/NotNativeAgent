@@ -411,8 +411,8 @@ function rejectNativeElevationScript(script) {
 
 function rejectNativeElevation() {
   throw new ContractError(
-    'native_elevation_requires_system_tool',
-    'native privilege launchers are unavailable through process.run and shell.run; use system.elevate with the exact executable and argv',
+    'native_elevation_unavailable',
+    'NNA cannot run elevated commands. Ask the user to run the required elevated command in their terminal, then continue from the result.',
   );
 }
 
