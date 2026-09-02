@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:f47fbea8f2e500f75dfe545500617ab4d673f5d3e0995fd49996315767bdb748",
+  "source_digest": "sha256:367ee6ab41c68d80173b519f00f28a3872bc3ac7328ecbc5de0e91b9877b0c04",
   "counts": {
-    "modules": 338,
+    "modules": 339,
     "component_edges": 69
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 44
+      "module_count": 45
     },
     {
       "id": "guidance",
@@ -131,7 +131,7 @@
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 54,
+      "import_count": 55,
       "module_count": 20
     },
     {
@@ -2743,6 +2743,7 @@
         "src/tools/system-time.js",
         "src/tools/text-edit-helpers.js",
         "src/tools/turn-completion.js",
+        "src/tools/workflow-leases.js",
         "src/tools/workspace.js",
         "src/tools/write-target.js",
         "src/web-browse-tool.js",
@@ -3043,6 +3044,12 @@
       "imports": [
         "src/ids.js"
       ]
+    },
+    {
+      "path": "src/tools/workflow-leases.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/tools/workspace.js",

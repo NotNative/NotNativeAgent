@@ -42,26 +42,32 @@ export function toolSearchDefinition(registry) {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool search was cancelled');
       const matches = registry.searchCatalog(request.args.query, DEFAULT_SEARCH_RESULTS);
       const named = exactRequestedName(request.args.query, matches);
-      const visibleMatches = named
-        ? matches.filter((item) => item.name === named)
-        : matches.filter((item) => item.scope !== 'external'
-          || explicitlyRequestsExternal(request.args.query, item)).slice(0, 4);
-      // A discovery is useful for a workflow, not just one invocation. Visual
-      // verification commonly needs repeated screenshot inspections, and
-      // forcing an identical catalog search between each call wastes context.
-      registry.grantWorkflowLease(visibleMatches.map((item) => item.name), { uses: WORKFLOW_LEASE_USES });
+      const visibleMatches = matches.filter((item) => item.scope !== 'external'
+        || explicitlyRequestsExternal(request.args.query, item));
+      // Why: ranked neighbors are discovery suggestions, not an unambiguous request to alter
+      // the next provider schema. Only an exact catalog name creates a predictable lease.
+      const lease = named
+        ? registry.grantWorkflowLease([named], { uses: WORKFLOW_LEASE_USES, source: 'tool.search' })
+        : { granted: [], rejected: [] };
       const schema = named ? registry.definition(named)?.inputSchema : null;
-      const found = visibleMatches.length > 0;
+      const loaded = lease.granted.length > 0;
+      const rejected = lease.rejected.length > 0;
       return {
         content: JSON.stringify({
-          status: found ? 'schemas_loaded_for_next_model_step' : 'no_relevant_capability_found',
-          instruction: found
-            ? 'Call the matching tool directly. It remains available for this bounded workflow lease, so reuse it without searching again.'
-            : 'No relevant catalog capability matched. Continue with already visible tools or refine once using an exact tool or service name; do not repeat this search unchanged.',
+          status: loaded ? 'schema_loaded_for_next_model_step'
+            : rejected ? 'schema_load_rejected'
+              : visibleMatches.length > 0 ? 'catalog_matches_found' : 'no_relevant_capability_found',
+          instruction: loaded
+            ? 'Call the exact matching tool directly. Its schema is guaranteed for this bounded workflow lease.'
+            : rejected ? 'The exact schema could not fit the bounded provider surface. Use an already visible capability or end with an honest typed blocker.'
+              : visibleMatches.length > 0 ? 'These are discovery suggestions only. Search once using the exact tool name to load one schema.'
+                : 'No relevant catalog capability matched. Continue with already visible tools or refine once using an exact tool or service name; do not repeat this search unchanged.',
           matches: visibleMatches.map(compactMatch),
+          lease,
           ...(named && schema ? { exact_match: { name: named, input_schema: schema } } : {}),
         }, null, 2),
-        metadata: { matches: visibleMatches.length, exposed: visibleMatches.map((item) => item.name), exactMatch: named },
+        metadata: { matches: visibleMatches.length, exposed: lease.granted.map((item) => item.name), exactMatch: named,
+          leaseRejected: lease.rejected.map((item) => item.reason) },
       };
     },
   };

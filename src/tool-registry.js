@@ -43,6 +43,7 @@ import { workspaceChangeDefinition } from './tools/workspace.js';
 import { turnFinishDefinition } from './tools/turn-completion.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
 import { planProviderToolNames } from './tools/provider-surface-planner.js';
+import { consumeWorkflowLease, grantWorkflowLeases } from './tools/workflow-leases.js';
 const MAX_TEXT_BYTES = 1_048_576;
 const MAX_MODEL_AUTHORED_TEXT_BYTES = 32_768;
 export class ToolRegistry {
@@ -176,14 +177,9 @@ export class ToolRegistry {
     if (this.subagentControl) this.subagentControl.workspaceRoot = prepared.root;
   }
   grantWorkflowLease(names, options = {}) {
-    const uses = Number.isSafeInteger(options.uses) ? Math.max(1, Math.min(32, options.uses)) : 1;
-    for (const name of names) {
-      if (!this.#definitions.has(name)) continue;
-      const prior = this.#workflowLeases.get(name);
-      this.#workflowLeases.delete(name);
-      this.#workflowLeases.set(name, { remainingUses: Math.max(prior?.remainingUses ?? 0, uses) });
-      while (this.#workflowLeases.size > 32) this.#workflowLeases.delete(this.#workflowLeases.keys().next().value);
-    }
+    return grantWorkflowLeases(this.#workflowLeases, names, {
+      ...options, hasDefinition: (name) => this.#definitions.has(name),
+    }, (leaseNames) => this.#workflowLeaseCapacity(leaseNames));
   }
   async seal(call, context) {
     if (this.#providerIds.has(call.providerCallId)) {
@@ -199,11 +195,7 @@ export class ToolRegistry {
     };
     this.#assertReadBeforeMutation(call.name, normalized);
     this.#providerIds.add(call.providerCallId);
-    const lease = this.#workflowLeases.get(call.name);
-    if (lease) {
-      if (lease.remainingUses <= 1) this.#workflowLeases.delete(call.name);
-      else this.#workflowLeases.set(call.name, { remainingUses: lease.remainingUses - 1 });
-    }
+    consumeWorkflowLease(this.#workflowLeases, call.name);
     return deepFreeze({
       id: newId('tool'), providerCallId: call.providerCallId, toolName: call.name,
       args: normalized.args, publicArgs: normalized.publicArgs ?? normalized.args, resolved: normalized.resolved,
@@ -213,6 +205,18 @@ export class ToolRegistry {
       stateRevision: context.stateRevision ?? 0,
       stepId: context.stepId, caller: context.caller, surface: context.surface,
       workspaceRoot: this.paths.root, createdAt: Date.now(), expiresAt: Date.now() + 60_000,
+    });
+  }
+  #workflowLeaseCapacity(leaseNames) {
+    const snapshot = this.snapshot();
+    const callable = snapshot.filter((item) => isToolSurfaceEligible(item.name, leaseNames.has(item.name)));
+    const projected = new Map(callable.map((item) => [item.name, {
+      type: 'function', function: { name: item.name, description: compactPurpose(item),
+        parameters: providerSchema(item.inputSchema, { mode: 'documented' }) },
+    }]));
+    return planProviderToolNames({
+      availableNames: callable.map((item) => item.name), workflowLeaseNames: leaseNames,
+      encodedDefinition: (name) => Buffer.byteLength(JSON.stringify(projected.get(name)), 'utf8'),
     });
   }
   #assertReadBeforeMutation(name, normalized) {
@@ -247,7 +251,12 @@ export class ToolRegistry {
   }
   revokeSource(source) {
     for (const [name, definition] of this.#definitions) {
-      if (definition.source === source) this.#definitions.delete(name);
+      if (definition.source === source) {
+        // Why: a lease cannot outlive the exact dynamic definition whose projected size was
+        // admitted. A refreshed source must earn a new lease for its new schema version.
+        this.#definitions.delete(name);
+        this.#workflowLeases.delete(name);
+      }
     }
   }
   #install(definition) {

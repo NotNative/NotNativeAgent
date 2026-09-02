@@ -25,14 +25,21 @@ front-loaded intent matcher to decide which schemas exist.
 Specialist schemas—mutation, browser automation, verification, exact-process execution,
 delegation, reference storage, notifications, and future MCP tools—remain discoverable through
 the name-only catalog. `tool.search` is first so the model can inspect and load the relevant
-schema. A successful search creates a bounded workflow lease; an exact-name search also returns
-the input schema and direct next-step guidance. Typed recovery and skills may create the same
-explicit lease. Provider-definition assembly does not age lease state because qualification,
-retry, and review can assemble definitions more than once before the model receives another
-actionable step.
+schema. Ranked results are discovery suggestions only. An exact-name search returns the input
+schema and requests one bounded workflow lease; typed recovery and trusted handoffs may request
+the same explicit lease with an attributed source. Lease admission checks the complete projected
+count and byte budget before commitment. A committed lease is therefore guaranteed to remain on
+the provider surface until its use allowance expires. If it cannot fit, the tool response reports
+`schema_load_rejected` and the exact count-or-byte reason instead of silently evicting another
+schema. Provider-definition assembly does not age lease state because qualification, retry, and
+review can assemble definitions more than once before the model receives another actionable step.
+Only a successfully sealed invocation consumes a use; reinsertion records actual-use order rather
+than grant order.
 
 Provider-surface planning has one bounded composition, not lifecycle-specific phases. Its
-receipt identifies either `foundation_with_leases` or an authenticated `host_manifest`. Internal
+receipt identifies either `foundation_with_leases` or an authenticated `host_manifest`, attributes
+each selected schema to the foundation or a committed workflow lease, and retains explicit
+capacity reasons for any planner omission. Internal
 turn states may still govern recovery or monitoring behavior, but they do not claim to select a
 different tool catalog or schema budget.
 

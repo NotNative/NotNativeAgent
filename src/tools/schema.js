@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
 
+// Why: several OpenAI-compatible local hosts reject these otherwise valid JSON Schema keywords.
+// Runtime validation remains authoritative, and documented projection restates each bound in the
+// provider-visible field description so smaller models do not have to guess the hidden contract.
 const PROVIDER_GRAMMAR_CONSTRAINTS = new Set([
   'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'multipleOf',
   'minLength', 'maxLength', 'maxUtf8Bytes', 'pattern', 'minItems', 'maxItems',

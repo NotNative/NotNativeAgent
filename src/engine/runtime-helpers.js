@@ -138,7 +138,7 @@ export function executionContext(engine, active) {
 
 export function prepareTrustedToolHandoff(engine, items) {
   const handoff = engine.reliability.trustedToolHandoff(items);
-  if (handoff) engine.tools.grantWorkflowLease(handoff.workflowLeaseTools);
+  if (handoff) engine.tools.grantWorkflowLease(handoff.workflowLeaseTools, { source: 'trusted_tool_handoff' });
   return handoff;
 }
 

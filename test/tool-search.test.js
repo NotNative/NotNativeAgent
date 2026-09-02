@@ -89,7 +89,8 @@ test('provider surface receipts make fixed foundations and workflow leases audit
   const legacyOption = registry.providerSurface('build and test the application', { phase: 'action' });
   assert.deepEqual(legacyOption, baseline);
 
-  registry.grantWorkflowLease(['fs.write_text']);
+  const lease = registry.grantWorkflowLease(['fs.write_text'], { source: 'test_recovery' });
+  assert.deepEqual(lease.granted[0].sources, ['test_recovery']);
   const expanded = registry.providerSurface('any wording');
   assert.equal(expanded.receipt.selectionReasons['web.fetch'], 'foundational');
   assert.equal(expanded.receipt.selectionReasons['web.browse'], 'foundational');
@@ -140,6 +141,7 @@ test('tool.search keeps bounded specialist catalog matches visible for a workflo
   const normalized = await search.validate({ query: 'project.verify project verification' });
   const result = await search.executor({ args: normalized.args }, new AbortController().signal);
   assert.match(result.content, /project\.verify/u);
+  assert.deepEqual(JSON.parse(result.content).lease.granted[0].sources, ['tool.search']);
   for (let index = 0; index < 8; index += 1) {
     assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'project.verify'));
   }
@@ -167,11 +169,48 @@ test('exact tool search returns the callable schema and direct next-step guidanc
   const normalized = await search.validate({ query: 'show the agent.run schema' });
   const result = await search.executor({ args: normalized.args }, new AbortController().signal);
   const content = JSON.parse(result.content);
-  assert.equal(content.status, 'schemas_loaded_for_next_model_step');
-  assert.match(content.instruction, /Call the matching tool directly/u);
+  assert.equal(content.status, 'schema_loaded_for_next_model_step');
+  assert.match(content.instruction, /Call the exact matching tool directly/u);
   assert.equal(content.exact_match.name, 'agent.run');
   assert.deepEqual(content.exact_match.input_schema.required, ['type', 'task']);
   assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'agent.run'));
+});
+
+test('ranked discovery does not lease neighboring schemas without an exact tool name', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  const search = registry.definition('tool.search');
+  const result = await search.executor({ args: { query: 'project verification' } }, new AbortController().signal);
+  const content = JSON.parse(result.content);
+  assert.equal(content.status, 'catalog_matches_found');
+  assert.equal(content.lease.granted.length, 0);
+  assert.ok(content.matches.some((item) => item.name === 'project.verify'));
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project.verify'), false);
+});
+
+test('workflow lease admission rejects overflow visibly without evicting committed schemas', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  for (let index = 0; index < 24; index += 1) {
+    registry.installExternal({
+      name: `nno.capacity_${index}`, version: 1, purpose: `Capacity fixture ${index}`,
+      sideEffect: 'read_only', scope: 'external', cancellation: true, timeoutMs: 1000,
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      executor: async () => ({ content: 'unused' }),
+    });
+  }
+  const granted = [];
+  let rejection = null;
+  for (let index = 0; index < 24; index += 1) {
+    const result = registry.grantWorkflowLease([`nno.capacity_${index}`], { uses: 2, source: 'capacity_test' });
+    if (result.granted.length > 0) granted.push(result.granted[0].name);
+    if (result.rejected.length > 0) { rejection = result.rejected[0]; break; }
+  }
+  assert.ok(granted.length > 0);
+  assert.deepEqual(rejection, { name: `nno.capacity_${granted.length}`, reason: 'schema_count_limit' });
+  const visible = registry.providerDefinitions().map((item) => item.function.name);
+  assert.ok(granted.every((name) => visible.includes(name)));
+  assert.ok(!visible.includes(rejection.name));
 });
 
 test('authenticated host tool grant filters built-in and external tools by exact name', async () => {

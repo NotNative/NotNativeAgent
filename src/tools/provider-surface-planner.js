@@ -2,7 +2,7 @@
 import { FOUNDATIONAL_TOOL_NAMES } from './core-names.js';
 
 const FOUNDATIONAL_BASELINE = Object.freeze([...FOUNDATIONAL_TOOL_NAMES]);
-const LIMITS = Object.freeze({ count: 32, bytes: 64 * 1024 });
+export const PROVIDER_TOOL_LIMITS = Object.freeze({ count: 32, bytes: 64 * 1024 });
 
 export function planProviderToolNames({
   availableNames = [], workflowLeaseNames = [], allowedNames = null,
@@ -22,8 +22,10 @@ export function planProviderToolNames({
     if (protect) protectedNames.add(name);
   };
   for (const name of FOUNDATIONAL_BASELINE) add(name, 'foundational', true);
-  for (const name of workflowLeaseNames) add(name, 'workflow_lease');
-  const limits = LIMITS;
+  // Why: a committed workflow lease is a provider-surface guarantee. Capacity is checked
+  // before the lease is committed, so silently dropping it here would violate that contract.
+  for (const name of workflowLeaseNames) add(name, 'workflow_lease', true);
+  const limits = PROVIDER_TOOL_LIMITS;
   const selected = [];
   const omitted = [];
   let bytes = 0;
@@ -31,7 +33,9 @@ export function planProviderToolNames({
     const definitionBytes = encodedDefinition(name);
     const protectedEntry = protectedNames.has(name);
     if (!protectedEntry && (selected.length >= limits.count || bytes + definitionBytes > limits.bytes)) {
-      omitted.push(name); continue;
+      omitted.push(name);
+      reasons.set(name, selected.length >= limits.count ? 'schema_count_limit' : 'schema_byte_limit');
+      continue;
     }
     selected.push(name); bytes += definitionBytes;
   }
@@ -44,6 +48,6 @@ function finalize(names, omitted, composition, reasons, encodedDefinition, limit
   return Object.freeze({
     composition, names: Object.freeze(names), omitted: Object.freeze(omitted),
     schemaBytes: bytes, limits,
-    reasons: Object.freeze(Object.fromEntries(names.map((name) => [name, reasonMap.get(name)]))),
+    reasons: Object.freeze(Object.fromEntries(reasonMap)),
   });
 }

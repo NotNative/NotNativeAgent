@@ -320,6 +320,9 @@ function attachmentMessage(item) {
 
 export function toProviderMessages(context, route = null) {
   return context.map((item) => {
+    // Why: trust and provenance govern NNA's local context assembly, but they are not fields in
+    // the OpenAI-compatible message contract. Authority distinctions are rendered into the
+    // message content before this wire projection; sending private extensions breaks strict hosts.
     const {
       provenance: _provenance, trust: _trust,
       _nnaReasoningProvider: provider, _nnaReasoningModel: model,
@@ -370,7 +373,10 @@ function toolResultMessage(item) {
       // It now carries only tool lifecycle state and never a review decision.
       status: lifecycleStatus, content_projection: toolContentProjection(item), content: item.content,
       ...(reviewOutcome ? { review_outcome: reviewOutcome } : {}),
+      // Why: even deterministic filesystem bytes can contain prompt injection. The observation
+      // may be accurate data, but it can never become authenticated instruction authority.
       metadata: item.metadata ?? {}, projection_metadata: toolProjectionMetadata(item), untrusted: true,
+      // Why: reason_code explains a lifecycle outcome; it is not a second lifecycle state.
       reason_code: item.reasonCode ?? null,
     }),
     provenance: 'tool_result', trust: 'untrusted_tool_output',

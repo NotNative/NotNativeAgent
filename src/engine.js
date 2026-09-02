@@ -328,7 +328,7 @@ export class SessionEngine {
       active.delegatedTokenAccounting, ...delegatedAccounting,
     ]); observeToolContracts(this, active, items);
     active.toolConstraints = mergeToolConstraints(active.toolConstraints, items);
-    this.tools.grantWorkflowLease(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean));
+    this.tools.grantWorkflowLease(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean), { source: 'tool_constraint' });
     updateToolFailures(active, items);
     const steeringApplied = await this.#consumeSteering(active);
     const declaration = await continueAfterTerminalDeclaration(this, active, items, trustedHandoff, (outcome) => this.#settleStep(active, outcome));
