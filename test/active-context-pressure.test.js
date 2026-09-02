@@ -37,6 +37,17 @@ test('receipt pressure keeps recent steps and replaces settled payloads without 
   assert.ok(projected.evidenceRetention.sourceToolResultBytes > projected.evidenceRetention.projectedToolResultBytes);
 });
 
+test('receipt pressure preserves schema-valid native tool request arguments exactly', () => {
+  const records = fixture();
+  const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'receipts' });
+  const request = projected.records.find((item) => item.providerCallId === 'call-1' && item.type === 'tool_request');
+  assert.strictEqual(request, records[1]);
+  assert.deepEqual(request.args, { path: 'old.txt' });
+  assert.equal(Object.hasOwn(request.args, 'compacted'), false);
+  assert.equal(Object.hasOwn(request.args, 'target'), false);
+  assert.equal(Object.hasOwn(request.args, 'ledgerRef'), false);
+});
+
 test('checkpoint pressure journals settled work and retains only hot active steps in prompt projection', () => {
   const records = fixture();
   const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'checkpoint' });

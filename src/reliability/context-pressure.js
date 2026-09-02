@@ -73,7 +73,10 @@ function receiptProjection(records, cold) {
     if (item.type === 'tool_result') {
       return item.metadata?.reason === 'duplicate_result' ? item : toolResultReceipt(item);
     }
-    if (item.type === 'tool_request') return toolRequestReceipt(item);
+    // Invariant: a retained native tool exchange must replay the exact arguments that were
+    // originally accepted. Receipt metadata belongs on the result; rewriting request args
+    // teaches the provider a shape that the tool schema will correctly reject on reuse.
+    if (item.type === 'tool_request') return item;
     if (item.type === 'message' && item.role === 'assistant') {
       return { ...item, content: boundedHeadTail(item.content ?? '', 4_096), pressureCompacted: true };
     }
@@ -180,14 +183,6 @@ function repeatedReadRequests(records, turnId) {
     else seen.add(identity);
   }
   return repeated;
-}
-
-function toolRequestReceipt(item) {
-  return {
-    ...item,
-    args: { compacted: true, target: requestTarget(item), ledgerRef: ledgerRef(item) },
-    pressureCompacted: true,
-  };
 }
 
 function isCold(item, hotSteps) {
