@@ -35,6 +35,9 @@ incomplete: deterministic reads remain available, but consequential work is deni
 the operator clears or replaces the conversation and restates authority. An active mission
 cannot resume from a truncated tail unless at least one cumulative mission-budget fact is
 present; otherwise initialization fails closed rather than minting resource budget.
+Mission failure envelopes carry the declared disposition as `terminate_turn` or
+`suspend_mission`, in addition to the triggering condition and cause. Consumers therefore do not
+have to infer control flow from a generic failure code.
 
 Shell-free process requests retain an independent comprehensibility floor. Malformed or
 mechanically prohibited plans fail before semantic review. Opaque package scripts, large

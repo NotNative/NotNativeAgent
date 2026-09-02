@@ -180,6 +180,7 @@ export function missionConditionFailure(active, condition, cause = null) {
   );
   error.missionId = mission.id;
   error.missionCondition = condition;
+  error.missionPolicy = terminal ? 'terminate_turn' : 'suspend_mission';
   error.causeCode = cause?.code ?? null;
   return error;
 }

@@ -365,6 +365,35 @@ test('idle NNM hygiene uses a read-only hook receipt and creates attention, neve
   assert.equal(pending, null);
 });
 
+test('deterministic oversized NNM receipts settle each optional stage instead of retrying forever', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-dream-receipt-bound-'));
+  const engine = {
+    state: { state: 'idle' }, telemetry: null, transcript: [],
+    hooks: { health: () => ({ bundles: [{ bundle: 'notnative-memory', version: '1.6.0', status: 'loaded' }] }) },
+    eventFactory: { create: () => ({ event_name: 'maintenance.idle' }) },
+    events: { dispatch: async () => ({ decision: 'continue', results: [] }) },
+  };
+  const tooLarge = async () => { throw Object.assign(new Error('oversized'), { code: 'nnm_receipts_too_large' }); };
+  const coordinator = new DreamCoordinator({
+    workspace: { sessions: new Map([['session', { engine }]]) },
+    config: resolveManifest(manifest({ workspace_root: root })), path: join(root, 'dream.db'),
+    nnmReceipts: { matching: tooLarge }, nnmHygieneReceipts: { latest: tooLarge },
+  });
+  await coordinator.initialize();
+  const packet = coordinator.store.savePacket({
+    id: 'oversized-receipt-packet', runtimeKey: coordinator.runtimeKey,
+    evidenceStart: 1, evidenceEnd: 1, evidenceId: 'evidence:window',
+    payload: { records: 1, turn_refs: [], session_refs: [] },
+  });
+  coordinator.store.advancePacket(packet.id, 2, 'diagnosed');
+  coordinator.store.advancePacket(packet.id, 3, 'project_memory_skipped');
+  assert.equal((await coordinator.runNow()).result.code, 'nnm_receipts_too_large');
+  assert.equal(coordinator.store.pendingPacket(coordinator.runtimeKey).stage, 4);
+  assert.equal((await coordinator.runNow()).result.code, 'nnm_receipts_too_large');
+  assert.equal(coordinator.store.pendingPacket(coordinator.runtimeKey), null);
+  coordinator.close();
+});
+
 test('learning candidates persist bounded evidence and require governed authority to promote', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-learning-candidate-'));
   const path = join(root, 'dream.db');

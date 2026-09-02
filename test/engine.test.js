@@ -380,6 +380,7 @@ test('active mission expiration cancels a slow provider and terminates with the 
   assert.equal(result.outcome, 'failed');
   assert.equal(result.failure.code, 'mission_terminated');
   assert.equal(result.failure.cause_code, 'mission_expired');
+  assert.equal(result.failure.mission_policy, 'terminate_turn');
 });
 
 test('AC-STATE-05 provider failure preserves partial output and finalizes exactly once', async () => {

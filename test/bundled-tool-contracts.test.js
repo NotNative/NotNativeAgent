@@ -219,6 +219,15 @@ test('provider documentation exposes locally enforced bounds while UTF-8 byte li
   });
 });
 
+test('provider schemas omit defaults that runtime validation does not apply', () => {
+  const schema = {
+    type: 'object', properties: { limit: { type: 'integer', default: 10, description: 'Optional limit.' } },
+  };
+  const projected = providerSchema(schema, { mode: 'documented' });
+  assert.equal(Object.hasOwn(projected.properties.limit, 'default'), false);
+  assert.equal(projected.properties.limit.description, 'Optional limit.');
+});
+
 test('system.time observes the host clock and applies calendar weeks before elapsed offsets', async () => {
   const instant = new Date('2026-08-27T22:15:42.381Z');
   const definition = systemTimeDefinition({ now: () => new Date(instant) });

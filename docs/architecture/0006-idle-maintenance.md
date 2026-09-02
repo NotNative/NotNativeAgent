@@ -29,6 +29,10 @@ operator activity cancels the shared signal before the next stage can begin. Pro
 and hygiene findings remain quarantined proposals until a separately authorized action
 applies them.
 
+Deterministic optional-receipt defects, such as an oversized NNM receipt journal, settle the
+affected stage once and advance or close the packet. The coordinator does not retry unchanged
+input at every idle interval; new evidence can create a new independently fingerprinted packet.
+
 Stage start and terminal state are also projected into local forensic telemetry as
 content-free `maintenance.stage` events. They contain run identity, stage number, stable
 result code, duration, and input/output fingerprints. The SQLite checkpoint remains the

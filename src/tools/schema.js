@@ -9,9 +9,10 @@ const PROVIDER_GRAMMAR_CONSTRAINTS = new Set([
   'minLength', 'maxLength', 'maxUtf8Bytes', 'pattern', 'minItems', 'maxItems',
 ]);
 const PROVIDER_DOCUMENTATION_FIELDS = new Set([
-  'description', 'title', 'examples', 'example', 'default', '$comment',
+  'description', 'title', 'examples', 'example', '$comment',
   'deprecated', 'readOnly', 'writeOnly',
 ]);
+const PROVIDER_UNAPPLIED_FIELDS = new Set(['default']);
 
 export function providerSchema(value, options = {}) {
   const mode = options.mode ?? 'compact';
@@ -36,6 +37,9 @@ function projectProviderSchema(value, ancestors, depth, state, mode) {
   const result = {};
   for (const [key, child] of Object.entries(value)) {
     if (PROVIDER_GRAMMAR_CONSTRAINTS.has(key)) continue;
+    // Why: JSON Schema defaults are annotations, but provider models commonly read them as
+    // values the runtime will insert. NNA validates supplied values and never applies defaults.
+    if (PROVIDER_UNAPPLIED_FIELDS.has(key)) continue;
     if (mode === 'compact' && PROVIDER_DOCUMENTATION_FIELDS.has(key)) continue;
     if (key === 'properties' && child && typeof child === 'object' && !Array.isArray(child)) {
       result[key] = Object.fromEntries(Object.entries(child)

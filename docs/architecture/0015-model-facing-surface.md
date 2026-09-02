@@ -83,6 +83,10 @@ the corrective operation without echoing sensitive values. `work.plan` remains t
 whole-snapshot operation; `work.task_update` is the normal one-task transition and therefore
 does not require the task title to be repeated.
 
+Provider schema projection omits JSON Schema `default` annotations because NNA validation does
+not insert omitted values. Descriptions may explain runtime fallback behavior, but the wire schema
+must not imply a mutation that the validator never performs.
+
 The unloaded-name catalog labels foundational, specialist, internal, and legacy compatibility
 tiers while stating that classification grants no authority. Cold-evidence and work-cadence
 counters state their scope. Repeated identical hook context is admitted once per turn, and

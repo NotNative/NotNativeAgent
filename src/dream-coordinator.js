@@ -14,6 +14,7 @@ import { observeSkillRequests } from './skill-opportunity.js';
 import {
   explicitProjectKnowledge, ProjectMemoryReconciler, projectMemoryCandidate,
 } from './project-memory-reconciler.js';
+const TERMINAL_OPTIONAL_RECEIPT_ERRORS = new Set(['nnm_receipts_too_large']);
 export class DreamCoordinator {
   constructor(options) {
     this.workspace = options.workspace;
@@ -286,6 +287,8 @@ export class DreamCoordinator {
       this.state.lastResult = result;
       return result;
     } catch (error) {
+      // Why: unchanged deterministic optional-journal defects are settled once, not retried each idle interval.
+      if (TERMINAL_OPTIONAL_RECEIPT_ERRORS.has(error?.code)) return this.#finishNnmSkipped(run, packet, started, error.code);
       const settled = this.#settleUnavailableEvidence(run, packet, started, error);
       if (settled) return settled;
       this.store.finish(run.id, signal.aborted ? 'cancelled' : 'failed', {
@@ -334,6 +337,7 @@ export class DreamCoordinator {
         receipt, candidate, state: 'completed', fingerprint: receipt.receipt_id,
       });
     } catch (error) {
+      if (TERMINAL_OPTIONAL_RECEIPT_ERRORS.has(error?.code)) return this.#finishHygiene(run, packet, started, error.code);
       const settled = this.#settleUnavailableEvidence(run, packet, started, error);
       if (settled) return settled;
       this.store.finish(run.id, signal.aborted ? 'cancelled' : 'failed', {
@@ -409,15 +413,12 @@ export class DreamCoordinator {
     return [...this.workspace.sessions.values()].flatMap((session) => session.engine?.transcript ?? []);
   }
 }
-
 function terminalEvidence(row) {
   return ['succeeded', 'failed', 'cancelled', 'timed_out', 'denied', 'skipped', 'unknown_effect'].includes(row.status);
 }
-
 function telemetryStatus(state) {
   return state === 'completed' ? 'succeeded' : state;
 }
-
 function evidencePacket(rows) {
   const counts = {}, reasons = {}, turns = new Set(), sessions = new Set();
   for (const row of rows) {
@@ -432,7 +433,6 @@ function evidencePacket(rows) {
     diagnosis: diagnoseDreamEvidence(rows),
   };
 }
-
 function workspaceKey(root) { return createHash('sha256').update(root).digest('hex').slice(0, 32); }
 function fingerprint(value) { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
 function cancelled() { return Object.assign(new Error('dream stage cancelled by foreground activity'), { code: 'dream_cancelled' }); }

@@ -185,9 +185,12 @@ test('declared mission suspension and termination conditions produce typed bound
     },
   }) }, { missionPrincipal: 'authenticated-stdio-host' });
   const active = { authority: new AuthorityRecord().authorizeTurn(config) };
-  assert.equal(missionConditionFailure(active, 'review_denial').code, 'mission_suspended');
+  const suspended = missionConditionFailure(active, 'review_denial');
+  assert.equal(suspended.code, 'mission_suspended');
+  assert.equal(suspended.missionPolicy, 'suspend_mission');
   const terminal = missionConditionFailure(active, 'provider_failure', { code: 'provider_timeout' });
   assert.equal(terminal.code, 'mission_terminated');
+  assert.equal(terminal.missionPolicy, 'terminate_turn');
   assert.equal(terminal.causeCode, 'provider_timeout');
   assert.equal(missionConditionFailure(active, 'tool_failure'), null);
 });

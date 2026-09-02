@@ -65,6 +65,7 @@ export function failureEnvelope(error, options = {}) {
   const mission = known && typeof error.missionId === 'string' ? {
     mission_id: error.missionId,
     mission_condition: error.missionCondition,
+    mission_policy: error.missionPolicy,
     cause_code: error.causeCode,
   } : {};
   return Object.freeze({
