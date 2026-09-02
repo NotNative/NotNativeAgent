@@ -302,6 +302,8 @@ function validateInputStructure(input) {
     const { value, depth } = stack.pop();
     if (!value || typeof value !== 'object' || visited.has(value)) continue;
     visited.add(value); nodes += 1;
+    // Why: runtime values need a tighter adversarial bound than schema documents, whose nested
+    // properties/items grammar legitimately consumes multiple structural levels per value level.
     if (depth > 12 || nodes > 10_000) {
       throw new ContractError('tool_schema_invalid', 'tool argument structure exceeds its nesting or node bound');
     }

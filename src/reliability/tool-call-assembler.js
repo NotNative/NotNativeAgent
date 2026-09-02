@@ -44,6 +44,8 @@ export class ToolCallAssembler {
     for (const call of this.#calls.values()) {
       if (!call.providerCallId || !call.name) continue;
       let args;
+      // Why: only executable calls participate in duplicate-stop detection. A malformed sibling
+      // must not cause streaming to stop before the provider can finish one valid repair call.
       try { args = JSON.parse(call.arguments); } catch { continue; }
       if (!args || typeof args !== 'object' || Array.isArray(args)) continue;
       const identity = `${call.name}\0${canonicalJson(args)}`;

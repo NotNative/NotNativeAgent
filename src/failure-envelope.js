@@ -93,6 +93,8 @@ function boundaryFor(code, fallback) {
 function failureDomain(code) {
   const exact = FAILURE_CODE_OVERRIDES[code];
   if (exact) return exact;
+  // Invariant: the first underscore-delimited token is the reason-code ownership namespace,
+  // not a substring heuristic. New cross-domain exceptions require an explicit override.
   const separator = code.indexOf('_');
   const namespace = separator < 0 ? code : code.slice(0, separator);
   return FAILURE_DOMAINS[namespace] ?? null;

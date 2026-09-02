@@ -54,6 +54,7 @@ test('one model step replays text, reasoning, and parallel tool calls as one ass
     providerCallId: 'call-a', providerProfile: 'local', model: 'qwen', reasoningContent: 'private plan',
   }] });
   const provider = toProviderMessages(context, { profile: { id: 'local' }, model: 'qwen' });
+  assert.equal(provider.some((item) => Object.hasOwn(item, 'trust') || Object.hasOwn(item, 'provenance')), false);
   const assistant = provider.filter((item) => item.role === 'assistant');
   assert.equal(assistant.length, 1);
   assert.equal(assistant[0].content, 'Checking both files.');
