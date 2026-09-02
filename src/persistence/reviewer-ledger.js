@@ -93,6 +93,7 @@ export class ReviewerLedger {
     return [...this.#entries.values()].filter((entry) => entry.signature === signature)
       .slice(-limit).map((entry) => ({
         classification: entry.classification.risk, decision: entry.decision?.outcome ?? null,
+        reasonCode: entry.decision?.reasonCode ?? null,
         result: entry.execution?.terminal?.status ?? null, repetition: entry.repetition,
       }));
   }

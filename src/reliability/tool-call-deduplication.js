@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
+import { toolCallIdentity } from './tool-call-identity.js';
 
 // Providers occasionally ignore parallel_tool_calls=false and emit a batch of
 // identical calls. Collapse only byte-independent exact identities here,
@@ -9,13 +10,11 @@ export function deduplicateToolCallBatch(input = []) {
   const suppressed = [];
   const seen = new Map();
   for (const call of input) {
-    if (call?.invalid || typeof call?.name !== 'string' || !call.args
-      || typeof call.args !== 'object' || Array.isArray(call.args)) {
+    const identity = toolCallIdentity(call);
+    if (identity === null) {
       calls.push(call);
       continue;
     }
-    const canonicalArguments = canonicalJson(call.args);
-    const identity = `${call.name}\0${canonicalArguments}`;
     const retained = seen.get(identity);
     if (!retained) {
       seen.set(identity, call);
@@ -30,10 +29,4 @@ export function deduplicateToolCallBatch(input = []) {
     }));
   }
   return Object.freeze({ calls: Object.freeze(calls), suppressed: Object.freeze(suppressed) });
-}
-
-function canonicalJson(value) {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
 }

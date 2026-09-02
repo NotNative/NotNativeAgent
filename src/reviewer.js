@@ -79,7 +79,9 @@ export class MandatoryReviewer {
   }
   async #semanticDecision(request, context, entry, intentRelation) {
     const prior = this.ledger.summary(request).slice(0, -1);
-    if (entry.repetition >= 1 && prior.some((item) => item.decision === 'deny_with_guidance')) {
+    // Why: availability failures fail closed for that request but do not establish a policy denial.
+    if (entry.repetition >= 1 && prior.some((item) => item.decision === 'deny_with_guidance'
+      && !['semantic_review_unavailable', 'mandatory_review_failed'].includes(item.reasonCode))) {
       return deny(
         'repeated_denied_operation',
         'An equivalent operation was already denied. Choose a materially different or safer approach.',

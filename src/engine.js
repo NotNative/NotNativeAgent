@@ -336,7 +336,7 @@ export class SessionEngine {
     const behavior = observeToolState(active, items, (name) => this.tools.definition(name));
     const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints, stateRevision: active.observableStateRevision });
     const progress = this.reliability.noProgress(active, 'tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact',
-      failureFingerprint: this.reliability.toolFailureFingerprint(items), monitoring: active.capabilityPhase === 'monitoring',
+      failureFingerprint: this.reliability.toolFailureFingerprint(items),
     });
     const behavioralAction = discoveryCheckpoint(this.reliability, active, behavior)
       ?? workConvergenceCheckpoint(this.reliability, active, this.work?.snapshot());

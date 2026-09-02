@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { reachedOutputCeiling } from './output-headroom.js';
+import { toolCallIdentity } from './tool-call-identity.js';
 
 const MAX_TOOL_CALLS = 64;
 const MAX_ARGUMENT_BYTES = 262_144;
@@ -52,7 +53,8 @@ export class ToolCallAssembler {
       // must not cause streaming to stop before the provider can finish one valid repair call.
       try { args = JSON.parse(call.arguments); } catch { continue; }
       if (!args || typeof args !== 'object' || Array.isArray(args)) continue;
-      const identity = `${call.name}\0${canonicalJson(args)}`;
+      const identity = toolCallIdentity({ name: call.name, args });
+      if (identity === null) continue;
       if (seen.has(identity)) return true;
       seen.add(identity);
     }
@@ -126,17 +128,14 @@ function appendStable(current, fragment) {
   throw new ContractError('tool_identity_drift', 'tool identity changed across fragments', true);
 }
 
-function deepFreeze(value, visited = new WeakSet()) {
-  if (value && typeof value === 'object' && !visited.has(value)) {
-    visited.add(value);
-    Object.freeze(value);
-    for (const child of Object.values(value)) deepFreeze(child, visited);
+function deepFreeze(value) {
+  // Why: JSON input is byte-bounded, but may be deeply nested before schema validation.
+  const stack = [value];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current || typeof current !== 'object' || Object.isFrozen(current)) continue;
+    Object.freeze(current);
+    for (const child of Object.values(current)) stack.push(child);
   }
   return value;
-}
-
-function canonicalJson(value) {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
 }

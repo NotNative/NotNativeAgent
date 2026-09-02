@@ -14,7 +14,6 @@ const MAX_CHECKPOINT_CHARACTERS = 2_400;
 const CHECKPOINT_HEAD_RATIO = 0.7;
 const CHECKPOINT_SEPARATOR_RESERVE = 32;
 const MIN_EXACT_NO_EFFECT_LIMIT = 3;
-const MIN_MONITORING_NO_EFFECT_LIMIT = 12;
 const MIN_DURABLE_WORK_CONTINUATION_LIMIT = 6;
 const EMPTY_COMPLETION_BASE_DELAY_MS = 250;
 const EMPTY_COMPLETION_MAX_DELAY_MS = 30_000;
@@ -122,7 +121,7 @@ export class RecoverySupervisor {
       this.#episodes.delete(this.#episodes.keys().next().value);
     }
     this.#episodes.set(episode, count);
-    const limit = terminalNoProgressLimit(category, this.localLimit, this.exactNoEffectLimit, options.monitoring);
+    const limit = terminalNoProgressLimit(category, this.localLimit, this.exactNoEffectLimit);
     if (limit !== null && count >= limit) {
       return Object.freeze({ continue: false, exhausted: true, count });
     }
@@ -323,9 +322,8 @@ export function recoveryHint(action) {
   return guidance[action.action] ?? null;
 }
 
-function terminalNoProgressLimit(category, localLimit, exactNoEffectLimit, monitoring = false) {
-  if (category === 'tool_no_progress') return monitoring
-    ? Math.max(MIN_MONITORING_NO_EFFECT_LIMIT, exactNoEffectLimit * 4) : exactNoEffectLimit;
+function terminalNoProgressLimit(category, localLimit, exactNoEffectLimit) {
+  if (category === 'tool_no_progress') return exactNoEffectLimit;
   if (category === 'unfinished_conversation_work') {
     return Math.max(MIN_DURABLE_WORK_CONTINUATION_LIMIT, localLimit * 2);
   }

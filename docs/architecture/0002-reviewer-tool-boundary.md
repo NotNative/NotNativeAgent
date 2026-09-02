@@ -125,6 +125,10 @@ authenticated operator instruction creates a new snapshot and may reopen review.
 directs the agent to try a materially different safer, narrower, or more reversible route and
 to ask the operator only after useful alternatives are exhausted. Immutable policy denials
 and reviewer unavailability remain distinct and cannot be presented as withheld permission.
+Reviewer availability failures do not latch a substantive denial for later requests.
+They still fail closed and retain the normal per-turn no-progress and request replay bounds.
+Streaming duplicate-stop and execution deduplication share one bounded exact-identity function.
+Free-form monitoring words do not enlarge the retry budget. Repeated work retains configured retry and mission limits.
 
 Interactive operation preauthorization fingerprints the complete canonical target set. File
 transfers bind source and destination together; process requests bind working directory,

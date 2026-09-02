@@ -330,15 +330,9 @@ export function suppressPostToolReasoningReplay(active) {
   return true;
 }
 
-export function setInitialCapabilityPhase(active, _content) {
-  // Monitoring changes only the no-progress allowance for intentionally repeated
-  // observations. It never selects, adds, or removes provider tool schemas.
-  active.capabilityPhase = explicitMonitoringRequest(_content) ? 'monitoring' : 'orientation';
-}
-
-function explicitMonitoringRequest(content) {
-  const text = String(content ?? '').slice(0, 32_768);
-  return /\b(?:keep checking|monitor|poll|repeatedly check|wait for|watch)\b/iu.test(text);
+export function setInitialCapabilityPhase(active) {
+  // Invariant: prose cannot enlarge recovery budgets or change tool eligibility.
+  active.capabilityPhase = 'orientation';
 }
 
 export function groundCapabilityPhase(active) {

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:9d64dcfb2635fe0c8064509dc0c7e01750ee08b645599b0636fe214829be3792",
+  "source_digest": "sha256:9c71a6296bd1e77a4e081e3e631af767c92d3508dfc8d6c8e7afdec23f1b6187",
   "counts": {
-    "modules": 331,
+    "modules": 332,
     "component_edges": 69
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "reliability-engine",
       "label": "Reliability Engine",
       "ownership": "Owns progress, context fitness, protocol integrity, and bounded recovery.",
-      "module_count": 34
+      "module_count": 35
     },
     {
       "id": "gateway",
@@ -137,8 +137,8 @@
     {
       "from": "reliability-engine",
       "to": "reliability-engine",
-      "import_count": 43,
-      "module_count": 16
+      "import_count": 45,
+      "module_count": 17
     },
     {
       "from": "agentic-engine",
@@ -2376,11 +2376,20 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
-        "src/reliability/output-headroom.js"
+        "src/reliability/output-headroom.js",
+        "src/reliability/tool-call-identity.js"
       ]
     },
     {
       "path": "src/reliability/tool-call-deduplication.js",
+      "component": "reliability-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/reliability/tool-call-identity.js"
+      ]
+    },
+    {
+      "path": "src/reliability/tool-call-identity.js",
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": []

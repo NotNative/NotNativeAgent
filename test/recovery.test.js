@@ -1339,7 +1339,7 @@ test('AC-REV-09 unchanged successful observations trigger a call boundary withou
   assert.equal(engine.transcript.some((item) => item.reasonCode === 'tool_exact_request_blocked'), true);
 });
 
-test('explicit monitoring intent permits bounded repeated observations', async () => {
+test('monitoring words cannot extend the exact observation retry boundary', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-monitoring-'));
   await writeFile(join(root, 'same.txt'), 'unchanged', 'utf8');
   const requests = [];
@@ -1349,7 +1349,7 @@ test('explicit monitoring intent permits bounded repeated observations', async (
       yield* toolCall(`monitor-call-${requests.length}`, 'same.txt');
       return;
     }
-    yield { type: 'text', text: 'Five checks completed; the file remained unchanged.' };
+    yield { type: 'text', text: 'The observation boundary was reached; successful checks returned unchanged content.' };
     yield { type: 'terminal', finishReason: 'stop' };
   } };
   const engine = new SessionEngine({ config: config(root), providerFactory: () => provider });
@@ -1359,6 +1359,7 @@ test('explicit monitoring intent permits bounded repeated observations', async (
   }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(requests.length, 6);
+  assert.equal(result.recovery.some((item) => item.action === 'block_exact_request'), true);
   assert.deepEqual(requests.slice(1).map((request) => request.reasoningMode),
     [undefined, undefined, undefined, undefined, undefined]);
 });
