@@ -15,8 +15,9 @@ import { StructuredLog } from '../src/structured-log.js';
 import { TerminalInputDecoder, TerminalMode, sanitizeTerminal } from '../src/tui/terminal-adapter.js';
 import { RetainedTerminalScreen } from '../src/tui/terminal-screen.js';
 import { EditorBuffer, TuiProjection, validateKeyBindings } from '../src/experience/projection.js';
+import { restoreTranscript } from '../src/experience/transcript.js';
 import { headerTargetAt, TuiRenderer } from '../src/tui/renderer.js';
-import { displayWidth, renderMarkdown, wrapIndentedTerminalLine } from '../src/tui/terminal-markdown.js';
+import { displayWidth, renderMarkdown, renderMarkdownRows, wrapIndentedTerminalLine } from '../src/tui/terminal-markdown.js';
 import { runPlainText } from '../src/plain-text.js';
 import { adaptiveRenderDelay, createRenderLoop, finalizeTui, handleActions, runTui, shouldExitOnCancel, submitEditor } from '../src/tui.js';
 import { commandDefinition, commandSuggestions, TUI_COMMANDS } from '../src/tui/commands.js';
@@ -534,6 +535,41 @@ test('wrapped transcript lines retain semantic hanging indentation', () => {
   const list = renderMarkdown('- A deliberately long list item that must wrap beneath its text rather than beneath the bullet marker.', 42, '* ', '  ');
   assert.equal(list[0].startsWith('* - '), true);
   assert.equal(list.slice(1).every((line) => line.startsWith('    ')), true);
+});
+
+test('wrapped markdown rows retain their logical type across every terminal width', () => {
+  const rows = renderMarkdownRows(
+    '- A deliberately long list item whose continuation must retain list styling after wrapping.',
+    34, '* ', '  ',
+  );
+  assert.equal(rows.length > 2, true);
+  assert.equal(rows.every((row) => row.kind === 'list'), true);
+
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  projection.apply('s1', {
+    type: 'stream_delta', turn_id: 'turn-1',
+    text: '- A deliberately long list item whose continuation must retain list styling after wrapping.',
+  });
+  const colored = new TuiRenderer().frame(projection, { width: 34, height: 30, color: true });
+  assert.match(colored, /\u001b\[1;38;5;213m\*/u);
+  const listLines = colored.split('\n').filter((line) => /deliberately|long list|continuation|styling|wrapping/u.test(line));
+  assert.equal(listLines.length > 2, true);
+  assert.equal(listLines.every((line) => line.includes('\u001b[38;5;103m')), true);
+});
+
+test('reopened transcripts retain each assistant response boundary and marker', () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
+  restoreTranscript(projection, 's1', [
+    { type: 'message', role: 'user', content: 'Inspect it.', turnId: 'turn-1' },
+    { type: 'message', role: 'assistant', content: 'First observation.', turnId: 'turn-1' },
+    { type: 'message', role: 'assistant', content: 'Second observation.', turnId: 'turn-1' },
+    { type: 'turn_outcome', turn_id: 'turn-1', outcome: 'completed' },
+  ]);
+  assert.equal(projection.active().records.filter((record) => record.type === 'stream_delta').length, 2);
+  const plain = new TuiRenderer().frame(projection, { width: 80, height: 30, color: false });
+  assert.match(plain, /\* First observation\.\n\n\* Second observation\./u);
 });
 
 test('long live agent.run activity hangs beneath its task instead of transcript text', () => {

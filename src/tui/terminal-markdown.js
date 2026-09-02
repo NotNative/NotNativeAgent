@@ -2,24 +2,41 @@
 import { sanitizeTerminal } from './terminal-adapter.js';
 
 export function renderMarkdown(value, width, firstPrefix = '', continuationPrefix = '') {
+  return renderMarkdownRows(value, width, firstPrefix, continuationPrefix).map((row) => row.text);
+}
+
+export function renderMarkdownRows(value, width, firstPrefix = '', continuationPrefix = '') {
   const source = asciiPresentation(sanitizeTerminal(value)).replaceAll('\r\n', '\n').replaceAll('\r', '\n').replace(/^\n+|\n+$/gu, '');
-  const lines = [];
+  const rows = [];
   let fenced = false;
   for (const raw of source.split('\n')) {
     const fence = /^\s*```\s*([^`]*)$/u.exec(raw);
     if (fence) {
       fenced = !fenced;
       if (fenced && fence[1].trim()) {
-        const prefix = lines.length === 0 ? firstPrefix : continuationPrefix;
-        lines.push(...wrapTerminalLine(`[${fence[1].trim()}]`, width, prefix));
+        const prefix = rows.length === 0 ? firstPrefix : continuationPrefix;
+        rows.push(...typedRows(wrapTerminalLine(`[${fence[1].trim()}]`, width, prefix), 'code'));
       }
       continue;
     }
     const normalized = fenced ? `  ${raw.replaceAll('\t', '  ')}` : markdownLine(raw);
-    const prefix = lines.length === 0 ? firstPrefix : continuationPrefix;
-    lines.push(...wrapTerminalLine(normalized, width, prefix, hangingPrefix(continuationPrefix, normalized)));
+    const prefix = rows.length === 0 ? firstPrefix : continuationPrefix;
+    const kind = fenced ? 'code' : markdownKind(raw);
+    rows.push(...typedRows(wrapTerminalLine(normalized, width, prefix, hangingPrefix(continuationPrefix, normalized)), kind));
   }
-  return lines.length > 0 ? lines : [firstPrefix];
+  return rows.length > 0 ? rows : [{ text: firstPrefix, kind: 'paragraph' }];
+}
+
+function typedRows(lines, kind) {
+  return lines.map((text) => Object.freeze({ text, kind }));
+}
+
+function markdownKind(raw) {
+  if (raw.length === 0) return 'blank';
+  if (/^\s{0,3}#{1,6}\s+/u.test(raw)) return 'heading';
+  if (/^\s*>\s?/u.test(raw)) return 'quote';
+  if (/^\s*(?:[-*+]\s+|\d+[.)]\s+|\[(?: |x|X)\]\s+)/u.test(raw)) return 'list';
+  return 'paragraph';
 }
 
 function asciiPresentation(value) {

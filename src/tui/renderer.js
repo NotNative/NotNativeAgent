@@ -5,7 +5,7 @@ import { commandPickerLines } from './command-picker.js';
 import { PRODUCT_NAME, VERSION } from '../product.js';
 import { activityDetailRows, collapsedFailureRows, subagentProgressLines, summaryActivityRows, toolFailureSuffix, toolSymbol, toolTargetSuffix } from './activity-renderer.js';
 import { liveActivityLine } from './live-activity.js';
-import { displayWidth, renderMarkdown, truncateTerminal, wrapIndentedTerminalLine, wrapTerminalLine } from './terminal-markdown.js';
+import { displayWidth, renderMarkdownRows, truncateTerminal, wrapIndentedTerminalLine, wrapTerminalLine } from './terminal-markdown.js';
 import { sessionStatusLine } from './status-line.js';
 import { decorateSelection, plainTerminalLine } from './selection.js';
 import { contextCompactionText } from './context-renderer.js';
@@ -129,14 +129,15 @@ function contentLines(projection, session, width, targets = new Map(), lineKinds
       lastVisibleKind = 'turn_result';
       continue;
     }
-    const rendered = recordLines(record, width); if (rendered.length === 0) continue;
+    const rendered = recordRows(record, width); if (rendered.length === 0) continue;
     applyConversationSpacing(lines, record.type, lastMessageKind, lastVisibleKind);
     const start = lines.length;
-    lines.push(...rendered);
+    lines.push(...rendered.map((row) => row.text));
     const lineKind = record.type === 'tool_status'
       ? `${record.type}:${record.observation_outcome ? 'observed' : toolHasDiagnostics(record) ? 'diagnostic' : record.status ?? 'unknown'}`
       : record.type;
-    for (let index = start; index < lines.length; index += 1) lineKinds.set(index, lineKind);
+    rendered.forEach((row, index) => lineKinds.set(start + index,
+      row.kind ? `${lineKind}:${row.kind}` : lineKind));
     lastVisibleKind = isActivity(record) ? 'activity' : record.type;
     if (['user_input', 'stream_delta'].includes(record.type)) lastMessageKind = record.type;
   }
@@ -302,11 +303,14 @@ function bindingHelpLines(bindings) {
     `VIEW  ${labels(['toggle_activity', 'scroll_page_up', 'scroll_page_down', 'scroll_bottom', 'cycle_review'])}`,
   ];
 }
+function recordRows(record, width) {
+  if (record.type === 'user_input') return renderMarkdownRows(record.text, width, '> ', '  ');
+  if (record.type === 'stream_delta') return renderMarkdownRows(record.text, width, '* ', '  ');
+  return recordLines(record, width).map((text) => ({ text, kind: null }));
+}
 
 function recordLines(record, width) {
   if (record.type === 'attachment_status') return wrap(`  ATTACHMENT | ${record.attachment_id ?? ''} | ${record.state} | ${record.guidance ?? ''}`, width);
-  if (record.type === 'user_input') return renderMarkdown(record.text, width, '> ', '  ');
-  if (record.type === 'stream_delta') return renderMarkdown(record.text, width, '* ', '  ');
   if (record.type === 'tool_status') {
     if (record.tool === 'agent.run' && ['running', 'succeeded'].includes(record.status)) return [];
     const outcome = toolOutcome(record);

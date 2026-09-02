@@ -21,6 +21,7 @@ test('AC-SESS-02 semantic transcript preserves partial text, tool pairs, compact
   assert.equal(restored.interrupted.length, 0);
   const projection = transcriptEvents(restored.transcript);
   assert.deepEqual(projection.map((item) => item.type), ['user_input', 'stream_delta', 'turn_result']);
+  assert.equal(projection[1].historical_message, true);
   assert.equal(projection.filter((item) => item.type === 'turn_result').length, 1);
   assert.equal(projection.at(-1).outcome, 'cancelled');
   assert.equal(projection.at(-1).failure.code, 'turn_cancelled');

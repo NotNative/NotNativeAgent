@@ -10,6 +10,11 @@ layout are separate adapters. Hidden conversations consume bounded engine events
 not receive input or repaint. The terminal owner restores bracketed paste, cursor, raw
 mode, and alternate-screen state idempotently on exit and signals.
 
+Rehydrated assistant messages retain their durable response boundaries, so reopening a tab keeps
+the same per-message marker and conversational rhythm as the live run. Markdown rows carry a
+semantic presentation type through wrapping; list, quote, heading, and code styling therefore
+remain consistent regardless of terminal width.
+
 Reviewer escalation uses an engine-owned interactive permission broker. Only the TUI
 ingress accepts permission decisions. Every prompt identifies one immutable request and
 expires; allow-once/deny/cancel are distinct actions. The private ledger records the

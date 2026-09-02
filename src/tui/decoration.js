@@ -42,10 +42,10 @@ export function decorateContent(line, width, color, index, overlayKind, lineKind
   if (overlayKind) return decorateOverlay(line, width, overlayKind, lineKind);
   // Semantic record identity keeps wrapped rows in the same visual treatment
   // without adding renderer-only markers to copied transcript text.
-  if (lineKind === 'user_input') return paint(TUI_THEME.inputTranscript, padCells(line, width));
+  if (lineKind?.startsWith('user_input:')) return paint(TUI_THEME.inputTranscript, padCells(line, width));
   const toolActivity = decorateToolActivityLine(line, lineKind, paint);
   if (toolActivity) return toolActivity;
-  if (lineKind === 'stream_delta' && line.startsWith('* ')) return `${paint(TUI_THEME.accent, '*')} ${line.slice(2)}`;
+  if (lineKind?.startsWith('stream_delta:')) return decorateAssistantLine(line, lineKind);
   if (TRANSCRIPT_STATUS.test(line)) {
     return paint(TUI_THEME.muted, line);
   }
@@ -53,6 +53,17 @@ export function decorateContent(line, width, color, index, overlayKind, lineKind
   if (ACTIVITY_DETAIL.test(line)) return paint(TUI_THEME.accentSoft, line);
   if (BULLET_LINE.test(line)) return paint(TUI_THEME.mutedDark, line);
   return line;
+}
+
+function decorateAssistantLine(line, lineKind) {
+  const semantic = lineKind.slice('stream_delta:'.length);
+  const style = {
+    heading: TUI_THEME.accentSoft, list: TUI_THEME.mutedDark,
+    quote: TUI_THEME.muted, code: TUI_THEME.accentSoft,
+  }[semantic];
+  const marker = line.startsWith('* ') ? `${paint(TUI_THEME.accent, '*')} ` : '';
+  const body = marker ? line.slice(2) : line;
+  return `${marker}${style ? paint(style, body) : body}`;
 }
 
 export function decorateFooter(line, index, length, color, animationFrame = 0, lineKind = '') {

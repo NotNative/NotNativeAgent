@@ -186,8 +186,7 @@ export class TuiProjection {
   }
 
   dispose() {
-    clearInterval(this.selectionScrollTimer);
-    this.selectionScrollTimer = null;
+    clearInterval(this.selectionScrollTimer); this.selectionScrollTimer = null;
     this.terminalSelection = null;
   }
 
@@ -248,7 +247,9 @@ export class TuiProjection {
     const observed = observedEvent(session, event);
     applyEvent(session, observed);
     const prior = session.records.at(-1);
-    if (observed.type === 'stream_delta' && prior?.type === 'stream_delta') {
+    if (observed.type === 'stream_delta' && prior?.type === 'stream_delta'
+      && observed.historical_message !== true && prior.historical_message !== true
+      && observed.turn_id === prior.turn_id) {
       session.records[session.records.length - 1] = Object.freeze({
         ...prior, ...observed, text: `${prior.text ?? ''}${observed.text ?? ''}`,
       });
@@ -258,7 +259,6 @@ export class TuiProjection {
     if (session.records.length > this.limit) session.records.splice(0, session.records.length - this.limit);
     if (id !== this.activeId && visibleEvent(observed)) session.unread = true;
   }
-
   active() {
     return this.sessions.get(this.activeId) ?? null;
   }

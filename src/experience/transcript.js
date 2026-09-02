@@ -33,7 +33,9 @@ export function transcriptEvents(transcript) {
     if (item.type !== RECORD.message) continue;
     if (item.role === ROLE.user) events.push({ type: EVENT.input, text: item.content });
     else if (item.role === ROLE.assistant) {
-      events.push({ type: EVENT.delta, turn_id: turnId, text: item.content });
+      // Why: every durable assistant message is a completed response segment. Marking the
+      // boundary prevents rehydration from merging tool-separated messages into one lifeless block.
+      events.push({ type: EVENT.delta, turn_id: turnId, text: item.content, historical_message: true });
       if (turnId && lastAssistant.get(turnId) === index && !terminalTurns.has(turnId)) {
         events.push({
           type: EVENT.result, turn_id: turnId,
