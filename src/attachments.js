@@ -234,7 +234,8 @@ async function observeWith(router, resolution, role, item, prompt, signal, recor
   const bytes = await readFile(item.managedPath);
   if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
   const request = {
-    model: resolution.model, temperature: 0, maxOutputTokens: OBSERVATION_OUTPUT_TOKENS,
+    model: resolution.model, temperature: 0,
+    maxOutputTokens: Math.min(OBSERVATION_OUTPUT_TOKENS, resolution.maxOutputTokens ?? OBSERVATION_OUTPUT_TOKENS),
     ...routeReasoningFields(resolution),
     messages: [{ role: 'user', content: [
       { type: 'text', text: `Observe this image for the primary agent. User context: ${prompt.slice(0, 4096)}` },
@@ -264,7 +265,7 @@ async function observeWith(router, resolution, role, item, prompt, signal, recor
 }
 
 async function collectObservation(provider, request, signal, resolution, accounting) {
-  const collected = { text: '', events: 0 };
+  const collected = { text: '', events: 0, outputLimitTokens: request.maxOutputTokens };
   const parentSignal = signal ?? new AbortController().signal;
   const deadline = resolution.deadlineMs == null ? null : AbortSignal.timeout(resolution.deadlineMs);
   const controller = new AbortController();
@@ -313,7 +314,7 @@ function appendObservation(event, collected, accounting) {
     throw new ContractError('attachment_observation_too_large', 'vision output exceeded its byte or event limit');
   }
   if (event.type === 'terminal' && reachedOutputCeiling({
-    finishReason: event.finishReason, usage: event.usage ?? accounting.usage, outputLimitTokens: OBSERVATION_OUTPUT_TOKENS,
+    finishReason: event.finishReason, usage: event.usage ?? accounting.usage, outputLimitTokens: collected.outputLimitTokens,
   })) {
     throw new ContractError('attachment_observation_truncated', 'vision output stopped before the observation completed');
   }

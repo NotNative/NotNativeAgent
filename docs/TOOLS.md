@@ -193,6 +193,9 @@ executable name.
 verification workflows. It reads a bounded regular
 `package.json`, deterministically chooses the declared npm or Bun adapter, resolves the exact
 package scripts and argv, and exposes that complete plan to review before starting a process.
+Its `passed` field requires every requested check to be available and successful, with complete process evidence.
+The receipt labels its evidence scope as `requested_project_checks`, not proof of the entire user objective.
+Supply task-specific acceptance tests through focused test paths when those tests exist.
 The manifest digest is revalidated immediately before execution so a reviewed script cannot be
 silently replaced. Supported scopes are `focused`, `affected`, and `full`; focused Node built-in
 or Bun tests can receive explicit test paths, while unsupported affected selection falls back to

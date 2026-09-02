@@ -17,8 +17,7 @@ test('returned lifecycle states never silently become success', async () => {
   for (const status of ['cancelled', 'timed_out', 'unknown_effect', 'invalid_request', 'denied', 'failed', 'completed_nonzero']) {
     assert.equal((await execute({ status, content: 'evidence', effectCertainty: 'unknown' })).status, status);
   }
-  for (const raw of [null, {}, { status: 'unexpected' }, { status: null }, { effectCertainty: 'maybe' }]) {
-    if (raw && Object.keys(raw).length === 0) continue;
+  for (const raw of [null, [], { status: 'unexpected' }, { status: null }, { effectCertainty: 'maybe' }]) {
     const result = await execute(raw);
     assert.equal(result.status, 'failed');
     assert.equal(result.reason_code, 'tool_result_invalid');
@@ -33,6 +32,14 @@ test('settlement fingerprints distinguish equal-length content and ignore elapse
   assert.notEqual(toolSettlementTerminal(a).result_fingerprint, toolSettlementTerminal(b).result_fingerprint);
   assert.equal(toolSettlementTerminal(a).result_fingerprint,
     toolSettlementTerminal({ ...a, elapsed_ms: 999 }).result_fingerprint);
+});
+
+test('executor output bounding preserves the original byte count and projection reason', async () => {
+  const result = await execute({ content: 'x'.repeat(5000) });
+  assert.equal(result.truncated, true);
+  assert.equal(result.content.length, 4096);
+  assert.equal(result.metadata.originalBytes, 5000);
+  assert.equal(result.metadata.projectionReason, 'tool_output_bound');
 });
 
 test('pending plan completion passes through every terminal evidence gate', () => {

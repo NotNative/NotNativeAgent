@@ -52,9 +52,37 @@ test('project verification produces a passing durable receipt payload', async ()
   const result = await definition.executor({ args: normalized.args, resolved: normalized.resolved }, new AbortController().signal);
   const receipt = JSON.parse(result.content);
   assert.equal(receipt.passed, true);
+  assert.equal(receipt.evidence_scope, 'requested_project_checks');
+  assert.deepEqual(receipt.requested_checks, ['test']);
   assert.match(receipt.receipt_id, /^verify:[0-9a-f]{64}$/u);
   assert.equal(receipt.results[0].exit_code, 0);
   assert.equal(result.status, 'succeeded');
+});
+
+test('passing available checks cannot hide a requested missing check', async () => {
+  const root = await fixture({ test: 'node --test' });
+  const paths = new PathPolicy(root); await paths.initialize();
+  const definition = projectVerifyDefinition(paths);
+  const normalized = await definition.validate({ checks: ['test', 'lint'] });
+  const result = await definition.executor(normalized, new AbortController().signal);
+  const receipt = JSON.parse(result.content);
+  assert.equal(result.status, 'failed');
+  assert.equal(receipt.passed, false);
+  assert.deepEqual(receipt.unavailable, [{ check: 'lint', reason: 'script_not_found' }]);
+  assert.equal(receipt.results[0].exit_code, 0);
+});
+
+test('verification preserves a process output-limit failure as non-passing evidence', async () => {
+  const root = await fixture({ test: 'node -e "process.stdout.write(\'x\'.repeat(2000000))"' });
+  const paths = new PathPolicy(root); await paths.initialize();
+  const definition = projectVerifyDefinition(paths);
+  const normalized = await definition.validate({ checks: ['test'] });
+  const result = await definition.executor(normalized, new AbortController().signal);
+  const receipt = JSON.parse(result.content);
+  assert.equal(result.status, 'failed');
+  assert.equal(receipt.passed, false);
+  assert.equal(receipt.results[0].tool_lifecycle_status, 'failed');
+  assert.equal(receipt.results[0].reason_code, 'process_output_too_large');
 });
 
 test('project verification reports a completed failing check as a failed tool result', async () => {

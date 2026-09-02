@@ -84,6 +84,7 @@ async function validateVerification(paths, input = {}) {
       path: cwd.path, insideWorkspace: cwd.insideWorkspace, recovery: cwd.recovery,
       reviewComplexity: 'opaque_package_script', reviewPurpose: 'project_verification',
       adapter: plan.adapter, runtime: plan.runtime, scope: plan.scope, commands: plan.commands,
+      requested_checks: plan.requested_checks,
       unavailable: plan.unavailable, manifest: plan.manifest, fallback: plan.fallback,
     },
   };
@@ -102,12 +103,18 @@ async function executeVerification(request, signal) {
       timeout_ms: request.args.timeout_ms,
     }, signal);
     const parsed = parseProcessResult(result.content);
-    results.push({ check: command.check, script: command.script, command: command.display, ...parsed });
-    if (parsed.exit_code !== 0) break;
+    const lifecycle = result.status ?? 'succeeded';
+    results.push({ check: command.check, script: command.script, command: command.display, ...parsed,
+      tool_lifecycle_status: lifecycle, reason_code: result.reasonCode ?? null });
+    if (lifecycle !== 'succeeded' || parsed.exit_code !== 0) break;
   }
-  const passed = results.length === request.resolved.commands.length && results.every((item) => item.exit_code === 0);
+  // Invariant: successful subprocess exits cannot erase missing checks or incomplete process evidence.
+  const passed = request.resolved.unavailable.length === 0 && results.length === request.resolved.commands.length
+    && results.every((item) => item.exit_code === 0 && item.tool_lifecycle_status === 'succeeded'
+      && item.output_limit_exceeded !== true);
   const receipt = {
     version: 1, receipt_id: receiptId(request, results), passed,
+    evidence_scope: 'requested_project_checks', requested_checks: request.resolved.requested_checks,
     adapter: request.resolved.adapter, runtime: request.resolved.runtime, scope: request.resolved.scope,
     manifest_sha256: request.resolved.manifest.sha256,
     commands: request.resolved.commands.map((item) => item.display),
@@ -226,7 +233,10 @@ function stringScripts(value) {
 function parseProcessResult(content) {
   try {
     const value = JSON.parse(content);
-    if (!value || typeof value !== 'object' || !Number.isInteger(value.exit_code)) throw new Error('invalid result');
+    if (!value || typeof value !== 'object' || (!Number.isInteger(value.exit_code)
+      && !(value.exit_code === null && (typeof value.signal === 'string' || value.output_limit_exceeded === true)))) {
+      throw new Error('invalid result');
+    }
     return value;
   } catch {
     throw new ContractError('verification_result_invalid', 'verification process returned an invalid result envelope');
@@ -252,7 +262,9 @@ function displayCommand(executable, argv) {
 function receiptId(request, results) {
   return `verify:${createHash('sha256').update(JSON.stringify({
     manifest: request.resolved.manifest.sha256, commands: request.resolved.commands,
-    results: results.map((item) => ({ check: item.check, exit_code: item.exit_code })),
+    results: results.map((item) => ({ check: item.check, exit_code: item.exit_code,
+      tool_lifecycle_status: item.tool_lifecycle_status, reason_code: item.reason_code })),
+    requested_checks: request.resolved.requested_checks, unavailable: request.resolved.unavailable,
   })).digest('hex')}`;
 }
 

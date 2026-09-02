@@ -69,7 +69,7 @@ test('vision streaming bounds bytes before collection and cancels oversized outp
   const root = await mkdtemp(join(tmpdir(), 'nna-observation-bound-'));
   const managedPath = join(root, 'image.png');
   await writeFile(managedPath, Buffer.from('89504e470d0a1a0a', 'hex'));
-  const route = { profile: { id: 'fixture' }, model: 'fixture', deadlineMs: 1000 };
+  const route = { profile: { id: 'fixture' }, model: 'fixture', deadlineMs: 1000, maxOutputTokens: 1024 };
   for (const [text, terminal, code] of [
     ['💜'.repeat(40_000), 'stop', 'attachment_observation_too_large'],
     ['partial', 'length', 'attachment_observation_truncated'],
@@ -77,7 +77,7 @@ test('vision streaming bounds bytes before collection and cancels oversized outp
     let signal; let closed = false;
     const provider = { async *stream(request, receivedSignal) {
       signal = receivedSignal;
-      assert.equal(request.maxOutputTokens, 8192);
+      assert.equal(request.maxOutputTokens, 1024);
       try { yield { type: 'text', text }; yield { type: 'terminal', finishReason: terminal }; }
       finally { closed = true; }
     } };

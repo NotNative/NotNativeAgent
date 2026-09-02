@@ -28,7 +28,7 @@ export function completionEvidence(transcript, turnId) {
 export function completionEvidenceHint(evidence) {
   // Why: this bounded ledger gives the final response exact mechanical counts without trying
   // to infer nuanced prose. The model remains responsible for conclusions, not event totals.
-  return `Machine-derived completion evidence (authoritative event counts; do not inflate or contradict them):\n${JSON.stringify(evidence)}\nWrite the final response now, consistent with the declared outcome and these counts.`;
+  return `Machine-derived completion evidence (authoritative event counts; do not inflate or contradict them):\n${JSON.stringify(evidence)}\nCounts prove recorded activity, not task correctness. Explain which checks support the conclusion and identify unverified requirements. Write the final response now, consistent with the declared outcome and these counts.`;
 }
 
 function turnIdentity(item) { return item?.turnId ?? item?.turn_id ?? null; }

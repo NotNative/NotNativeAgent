@@ -18,6 +18,8 @@ export async function finalizeEngineTurn(engine, outcome, text, failureDetail, o
 
 async function finalizeOnce(engine, active, text, options, operations, faults) {
   const outcome = faults.outcome;
+  // Why: child settlement clears stepId. The deliverable reference must retain its message identity.
+  const deliverableStepId = active.stepId;
   clearTimeout(active.missionTimer);
   if (engine.state.state !== 'finalizing_turn') {
     await faults.capture('state', () => engine.state.transition(
@@ -29,12 +31,12 @@ async function finalizeOnce(engine, active, text, options, operations, faults) {
   ));
   let finalMessagePersisted = text.length > 0 && text === active.committedStepText;
   if (text.length > 0 && text !== active.committedStepText) await faults.capture('persistence', async () => {
-    await operations.persist('message', assistantMessage(active.turnId, text, { ...faults.primary, stepId: active.stepId }));
+    await operations.persist('message', assistantMessage(active.turnId, text, { ...faults.primary, stepId: deliverableStepId }));
     finalMessagePersisted = true;
   });
   if (faults.outcome === 'completed' && finalMessagePersisted && engine.work?.snapshot().pendingCompletion) {
     await faults.capture('persistence', () => engine.work.commitPendingCompletion(
-      `assistant_message:${active.turnId}:${active.stepId ?? 'terminal'}`,
+      `assistant_message:${active.turnId}:${deliverableStepId ?? 'terminal'}`,
     ));
   }
   if (text.length > 0 && options.emitText === true) {

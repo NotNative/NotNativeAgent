@@ -526,6 +526,9 @@ test('active durable work forces model continuation until tasks and goal are com
   assert.equal(result.outcome, 'completed');
   assert.equal(engine.workStatus().goal.status, 'completed');
   assert.equal(engine.workStatus().goal.evidenceRef.startsWith('assistant_message:'), true);
+  assert.equal(engine.transcript.some((record) => record.role === 'assistant'
+    && `assistant_message:${record.turnId}:${record.stepId ?? 'terminal'}` === engine.workStatus().goal.evidenceRef
+    && record.content === result.text), true);
   assert.equal(engine.workStatus().pendingCompletion, null);
   assert.equal(engine.workStatus().tasks[0].status, 'completed');
   assert.equal(result.recovery.some((item) => item.category === 'unfinished_conversation_work'), true);

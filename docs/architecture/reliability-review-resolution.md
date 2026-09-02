@@ -2,7 +2,7 @@
 
 Date: 2026-08-29. Updated: 2026-09-02.
 
-This record reconciles the three NNA self-autopsies against the implemented runtime. A finding is
+This record reconciles NNA self-autopsies against the implemented runtime. A finding is
 resolved only when code, tests, or an explicit compatibility decision addresses it. The reviews
 remain useful evidence, not authority; NNA preserves stronger governance and evidence invariants
 when a suggested repair conflicts with them.
@@ -65,6 +65,42 @@ when a suggested repair conflicts with them.
 Verification names platform skips in test output. The forwarding-only compatibility modules
 were removed after all repository callers moved to their owning modules. Ignored local audit
 artifacts remain outside release and publication allowlists.
+
+## September 2 remaining-findings pass
+
+| Finding | Disposition |
+|---|---|
+| Returned tool cancellation or unknown state recorded as success (F1) | Fixed in version 33. The executor boundary preserves lifecycle states, rejects unknown states, and prevents succeeded plus unknown effect. |
+| Pending work completion bypasses supervision (S2) | Fixed in version 33. Pending completion does not bypass declaration, failed-tool, repair, or visual-evidence gates. |
+| Duplicate finalization (S3) | Version 33 joins concurrent finalization into one promise. A later invalid duplicate still fails explicitly; it cannot write another terminal record. |
+| Reviewer outage becomes a lasting denial (S1) | Fixed in version 34. Ledger summaries preserve reason codes, and unavailable review does not latch substantive denial. Existing request and recovery bounds remain. |
+| Prose-driven monitoring allowance (F3) | Removed in version 34. Monitoring words cannot change runtime retry policy. Completion prose classifiers remain advisory only. |
+| Parallelism wording and complex shell calls (F2) | The quoted instruction was not in the repository. Version 34 explicitly prefers individual calls and one logical shell operation. Parallel provider calls remain disabled. |
+| Divergent duplicate identities (F7) | Fixed in version 34. Streaming and batch deduplication share one bounded canonical identity and cross-layer tests. |
+| Receipt duplication, misleading summary, and inaccessible references (F4/F5/S4) | Fixed in version 35. New receipts carry literal excerpts, provider projection accounting has one block, and history reads accept exact ledger references. Duplicate receipts report omitted bytes. |
+| Unbounded attachment observation (F9) | Fixed in version 35. Streaming enforces byte/event bounds and rejects truncated observations. Existing context preflight already uses bounded compaction; it was not an unconditional hard failure. |
+| Error taxonomy (F6) | Invalid governor limits now use a registered ContractError. Successful empty observations remain successful data; request-contract rejection and observation outcomes deliberately use different channels. |
+| Collision-prone result fingerprint (F8) | Fixed in version 33. Settlement hashes result content and outcome with SHA-256, excluding elapsed time. |
+| Forwarding-only modules (F10) | Removed in version 32 with all repository callers updated and architecture regression checks. |
+| Outcome evidence scope (S5) | Version 36 fails verification if any requested check is missing or process evidence is incomplete. Receipts state their scope. Final-message references retain the actual step identity. General semantic objective verification remains a product-design limitation, not a proven capability. |
+| Raw tool output was bounded but labeled full | Fixed in version 36. The executor boundary retains original byte counts and the provider envelope labels truncated evidence bounded. |
+
+### Why outcome verification remains qualified
+
+File existence, nonzero length, timestamps, successful commands, and model-written plan evidence
+cannot prove an arbitrary user objective. Empty files and deletions can be correct deliverables;
+a recently modified nonempty file can be wrong. NNA therefore does not add a generic existence/mtime
+gate and call it task correctness. Task-specific tests can be run through focused project verification;
+non-code outcomes need their relevant evidence and acceptance criteria. Completion bookkeeping and
+event counts are not substitutes for those criteria. A future mandatory acceptance contract needs
+an explicit, authenticated source of criteria and a verifier for each supported outcome type.
+
+### Why the error channels differ
+
+A ContractError identifies a violated request, configuration, or runtime contract. A successful
+search with zero matches is an observation, not a violated contract. Its typed observation outcome
+belongs in the successful result. Converting every negative observation into an exception would
+create false failures and unnecessary recovery. Neither channel can infer operator authority.
 
 ## Recommendations not adopted literally
 

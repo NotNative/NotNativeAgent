@@ -312,18 +312,20 @@ function normalizeResult(request, definition, status, content, metadata, started
   // Redact before bounding so a credential cannot be split into an unrecognizable partial value.
   const source = redactText(String(content));
   const bounded = truncateUtf8(source, maxOutputBytes);
+  const contentBounded = bounded !== source;
   const contentRedacted = source !== String(content);
   const safeMetadata = redactExtensionData(metadata);
   return Object.freeze({
     request_id: request.id, provider_call_id: request.providerCallId,
     tool_name: request.toolName, status, content: bounded,
-    truncated: rawBytes > maxOutputBytes || Buffer.byteLength(bounded) !== Buffer.byteLength(source),
+    truncated: contentBounded,
     elapsed_ms: Math.max(0, performance.now() - started),
     effect_certainty: returnedEffectCertainty(definition, request, status, reportedEffectCertainty),
     untrusted: true,
-    metadata: contentRedacted ? {
+    metadata: contentRedacted || contentBounded ? {
       ...(safeMetadata && typeof safeMetadata === 'object' && !Array.isArray(safeMetadata) ? safeMetadata : {}),
-      contentRedacted: true, originalBytes: rawBytes, projectionReason: 'secret_redaction',
+      ...(contentRedacted ? { contentRedacted: true } : {}), originalBytes: rawBytes,
+      projectionReason: contentBounded ? 'tool_output_bound' : 'secret_redaction',
     } : safeMetadata,
     ledger_started: true,
     ...(reasonCode ? { reason_code: reasonCode } : {}),
