@@ -5,8 +5,12 @@ import { basename, join } from 'node:path';
 import { ContractError, newId } from './ids.js';
 import { routeReasoningFields } from './provider/reasoning.js';
 import { CapabilityCache } from './capability-cache.js';
+import { reachedOutputCeiling } from './reliability/output-headroom.js';
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+const MAX_OBSERVATION_BYTES = 131_072;
+const MAX_OBSERVATION_EVENTS = 65_536;
+const OBSERVATION_OUTPUT_TOKENS = 8192;
 
 export class AttachmentManager {
   #items = new Map();
@@ -230,7 +234,7 @@ async function observeWith(router, resolution, role, item, prompt, signal, recor
   const bytes = await readFile(item.managedPath);
   if (signal?.aborted) throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
   const request = {
-    model: resolution.model, temperature: 0,
+    model: resolution.model, temperature: 0, maxOutputTokens: OBSERVATION_OUTPUT_TOKENS,
     ...routeReasoningFields(resolution),
     messages: [{ role: 'user', content: [
       { type: 'text', text: `Observe this image for the primary agent. User context: ${prompt.slice(0, 4096)}` },
@@ -244,7 +248,7 @@ async function observeWith(router, resolution, role, item, prompt, signal, recor
   try {
     const text = await collectObservation(router.provider(resolution), request, signal, resolution, accounting);
     accounting.outcome = 'completed';
-    return { text: text.slice(0, 131_072), route: role };
+    return { text, route: role };
   } catch (error) {
     accounting.outcome = signal?.aborted ? 'cancelled' : 'failed';
     accounting.reasonCode = error?.code ?? 'attachment_observation_failed';
@@ -260,10 +264,11 @@ async function observeWith(router, resolution, role, item, prompt, signal, recor
 }
 
 async function collectObservation(provider, request, signal, resolution, accounting) {
-  let text = '';
+  const collected = { text: '', events: 0 };
   const parentSignal = signal ?? new AbortController().signal;
   const deadline = resolution.deadlineMs == null ? null : AbortSignal.timeout(resolution.deadlineMs);
-  const boundedSignal = deadline == null ? parentSignal : AbortSignal.any([parentSignal, deadline]);
+  const controller = new AbortController();
+  const boundedSignal = AbortSignal.any([parentSignal, controller.signal, ...(deadline ? [deadline] : [])]);
   const iterator = provider.stream(request, boundedSignal)[Symbol.asyncIterator]();
   let abortHandler;
   const aborted = new Promise((_, reject) => {
@@ -275,11 +280,7 @@ async function collectObservation(provider, request, signal, resolution, account
     while (true) {
       const next = await Promise.race([iterator.next(), aborted]);
       if (next.done) break;
-      const event = next.value;
-      if (event.type === 'text') {
-        text += event.text;
-        accounting.outputBytes += Buffer.byteLength(event.text, 'utf8');
-      } else if (event.type === 'usage') accounting.usage = event.usage;
+      appendObservation(next.value, collected, accounting);
     }
   } catch (error) {
     if (deadline?.aborted && !parentSignal.aborted) {
@@ -288,17 +289,36 @@ async function collectObservation(provider, request, signal, resolution, account
     throw error;
   } finally {
     boundedSignal.removeEventListener('abort', abortHandler);
+    controller.abort();
     // Iterator cleanup cannot replace the admission outcome.
     void Promise.resolve(iterator.return?.()).catch(() => undefined);
   }
-  if (boundedSignal.aborted) {
+  if (parentSignal.aborted || deadline?.aborted) {
     if (deadline?.aborted && !parentSignal.aborted) {
       throw new ContractError('attachment_route_timeout', 'attachment route exceeded its deadline', true);
     }
     throw new ContractError('attachment_cancelled', 'attachment admission was cancelled', true);
   }
-  if (text.trim().length === 0) throw new ContractError('attachment_empty_observation', 'vision route returned no observation', true);
-  return text;
+  if (collected.text.trim().length === 0) throw new ContractError('attachment_empty_observation', 'vision route returned no observation', true);
+  return collected.text;
+}
+
+function appendObservation(event, collected, accounting) {
+  collected.events += 1;
+  if (event.type === 'text' || event.type === 'reasoning') {
+    accounting.outputBytes += Buffer.byteLength(event.text ?? '', 'utf8');
+  }
+  // Invariant: bound output before appending; a partial description is not admitted as complete evidence.
+  if (accounting.outputBytes > MAX_OBSERVATION_BYTES || collected.events > MAX_OBSERVATION_EVENTS) {
+    throw new ContractError('attachment_observation_too_large', 'vision output exceeded its byte or event limit');
+  }
+  if (event.type === 'terminal' && reachedOutputCeiling({
+    finishReason: event.finishReason, usage: event.usage ?? accounting.usage, outputLimitTokens: OBSERVATION_OUTPUT_TOKENS,
+  })) {
+    throw new ContractError('attachment_observation_truncated', 'vision output stopped before the observation completed');
+  }
+  if (event.type === 'text') collected.text += event.text;
+  else if (event.type === 'usage') accounting.usage = event.usage;
 }
 
 function attemptFact(resolution, outcome) {

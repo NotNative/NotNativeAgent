@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:9c71a6296bd1e77a4e081e3e631af767c92d3508dfc8d6c8e7afdec23f1b6187",
+  "source_digest": "sha256:68e693fac6c1aeda44a06a96093a29522e32b5d698d557b1cffd40425c21319e",
   "counts": {
     "modules": 332,
     "component_edges": 69
@@ -333,6 +333,12 @@
       "module_count": 1
     },
     {
+      "from": "foundation",
+      "to": "reliability-engine",
+      "import_count": 3,
+      "module_count": 3
+    },
+    {
       "from": "gateway",
       "to": "gateway",
       "import_count": 3,
@@ -383,12 +389,6 @@
     {
       "from": "foundation",
       "to": "agentic-engine",
-      "import_count": 2,
-      "module_count": 2
-    },
-    {
-      "from": "foundation",
-      "to": "reliability-engine",
       "import_count": 2,
       "module_count": 2
     },
@@ -527,7 +527,8 @@
       "imports": [
         "src/capability-cache.js",
         "src/ids.js",
-        "src/provider/reasoning.js"
+        "src/provider/reasoning.js",
+        "src/reliability/output-headroom.js"
       ]
     },
     {

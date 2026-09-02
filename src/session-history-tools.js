@@ -44,21 +44,23 @@ function searchDefinition(control) {
 
 function readDefinition(control) {
   return definition('session.read_history',
-    'Read one exact record from this conversation by the record_index returned from session.search_history. Optionally include up to three neighboring records on each side.', {
-      record_index: { type: 'integer', minimum: 0, description: 'Required exact record_index returned by session.search_history.' },
+    'Read one record by record_index or a receipt ledger_ref. Ledger lookup selects the exact tool result. Optionally include neighboring records.', {
+      record_index: { type: 'integer', minimum: 0, description: 'Exact index from session.search_history. Supply either record_index or ledger_ref, not both.' },
+      ledger_ref: { type: 'string', minLength: 1, maxLength: 256, description: 'Exact receipt ledger_ref (request or provider-call ID). Searches the newest 50000 retained records.' },
       surrounding: { type: 'integer', minimum: 0, maximum: 3, description: 'Neighboring records to include on each side. Defaults to 0.' },
-    }, ['record_index'], async (args) => {
+    }, [], async (args) => {
       const records = transcript(control);
-      if (args.record_index >= records.length) {
-        throw new ContractError('session_history_record_missing', 'record_index is outside the current conversation history');
+      const recordIndex = args.ledger_ref === undefined ? args.record_index : ledgerRecordIndex(records, args.ledger_ref);
+      if (recordIndex < 0 || recordIndex >= records.length) {
+        throw new ContractError('session_history_record_missing', 'record is unavailable in retained history; ledger_ref lookup searches the newest 50000 records');
       }
       const surrounding = args.surrounding ?? 0;
-      const start = Math.max(0, args.record_index - surrounding);
-      const end = Math.min(records.length, args.record_index + surrounding + 1);
+      const start = Math.max(0, recordIndex - surrounding);
+      const end = Math.min(records.length, recordIndex + surrounding + 1);
       const selected = records.slice(start, end).map((record, offset) => projectRecord(record, start + offset, false));
       const projected = output({ records: selected, total_records: records.length }, { records: selected.length });
       control.telemetry?.record('session.history_read', 'succeeded', {
-        record_index: args.record_index, records_returned: selected.length,
+        record_index: recordIndex, records_returned: selected.length,
         ...rediscoveryDetail(control, projected.content),
       });
       return projected;
@@ -121,6 +123,12 @@ function definition(name, purpose, properties, required, execute) {
 }
 
 function validateArguments(name, args) {
+  if (name === 'session.read_history') {
+    if (Object.hasOwn(args, 'record_index') === Object.hasOwn(args, 'ledger_ref')) invalid(name);
+    if (args.ledger_ref !== undefined && (typeof args.ledger_ref !== 'string'
+      || args.ledger_ref.length < 1 || args.ledger_ref.length > 256)) invalid(name);
+    if (args.record_index < 0 || args.surrounding < 0 || args.surrounding > 3) invalid(name);
+  }
   if (Object.hasOwn(args, 'query') && (typeof args.query !== 'string' || args.query.trim().length < 1 || args.query.length > MAX_QUERY)) invalid(name);
   for (const key of ['limit', 'record_index', 'surrounding']) {
     if (Object.hasOwn(args, key) && !Number.isSafeInteger(args[key])) invalid(name);
@@ -128,6 +136,16 @@ function validateArguments(name, args) {
   if (Object.hasOwn(args, 'types') && (!Array.isArray(args.types) || args.types.length > MAX_TYPES
     || args.types.some((type) => typeof type !== 'string'
       || type.length < 1 || type.length > MAX_TYPE_LENGTH))) invalid(name);
+}
+
+function ledgerRecordIndex(records, reference) {
+  const start = Math.max(0, records.length - MAX_SCAN_RECORDS);
+  for (let index = records.length - 1; index >= start; index -= 1) {
+    const record = records[index];
+    if (record?.type === 'tool_result'
+      && [record.requestId, record.providerCallId, record.request_id, record.provider_call_id].includes(reference)) return index;
+  }
+  return -1;
 }
 
 function transcript(control) {
@@ -146,7 +164,8 @@ function normalizeTypes(value) {
 
 function searchableText(record) {
   if (!record || typeof record !== 'object') return { text: String(record ?? ''), truncated: false };
-  const values = [record.type, record.role, record.content, record.tool, record.toolName,
+  const values = [record.type, record.role, record.requestId, record.providerCallId,
+    record.request_id, record.provider_call_id, record.content, record.tool, record.toolName,
     record.target, record.status, record.outcome, record.reason, record.reason_code,
     record.turn_id, record.turnId, record.metadata, record.args, record.arguments];
   const combined = values.map((value) => typeof value === 'string' ? value : safeJson(value)).join('\n');

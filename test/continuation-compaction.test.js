@@ -329,18 +329,17 @@ test('settled tool exchanges become typed causal receipts while tool-call argume
   const receipt = JSON.parse(result.content);
   assert.equal(request.providerCallId, result.providerCallId);
   assert.equal(request.args.path, transcript[1].args.path);
-  assert.equal(receipt.schema, 'nna.tool-receipt.v1');
+  assert.equal(receipt.schema, 'nna.tool-receipt.v2');
   assert.equal(receipt.category, 'filesystem');
   assert.equal(receipt.outcome, 'succeeded');
   assert.equal(receipt.effect_certainty, 'completed');
   assert.equal(receipt.ledger_ref, 'request-old');
-  assert.ok(Buffer.byteLength(receipt.summary, 'utf8') > 3_500);
-  assert.ok(Buffer.byteLength(receipt.summary, 'utf8') <= 4_096);
+  assert.ok(Buffer.byteLength(receipt.excerpt, 'utf8') > 3_500);
+  assert.ok(Buffer.byteLength(receipt.excerpt, 'utf8') <= 4_096);
   assert.match(receipt.result_fingerprint, /^[a-f0-9]{64}$/u);
-  assert.equal(result.metadata.reason, 'semantic_tool_receipt');
-  assert.ok(receipt.projection.original_bytes > receipt.projection.projected_bytes);
-  assert.equal(receipt.projection.omitted_bytes,
-    receipt.projection.original_bytes - receipt.projection.projected_bytes);
+  assert.equal(result.metadata.reason, 'bounded_tool_receipt');
+  assert.equal(receipt.projection, undefined);
+  assert.equal(result.metadata.omittedBytes, result.metadata.originalBytes - result.metadata.retainedSourceBytes);
 });
 
 test('receipt compaction retains essential outcome metadata instead of replacing the whole object', () => {
@@ -350,14 +349,14 @@ test('receipt compaction retains essential outcome metadata instead of replacing
   }, { toolName: 'process.run', args: { executable: 'fixture' } });
   assert.deepEqual(result.metadata, {
     exitCode: 7, signal: null, diagnosticOutcome: 'stderr_present', compacted: true,
-    omittedMetadata: true, reason: 'semantic_tool_receipt', originalReason: null,
+    omittedMetadata: true, reason: 'bounded_tool_receipt', originalReason: null,
     ledgerRef: null, resultFingerprint: result.metadata.resultFingerprint,
-    receiptSchema: 'nna.tool-receipt.v1', originalBytes: 10, projectedBytes: 10,
-    omittedBytes: 0, projectionReason: 'semantic_tool_receipt',
+    receiptSchema: 'nna.tool-receipt.v2', originalBytes: 10, projectedBytes: Buffer.byteLength(result.content),
+    retainedSourceBytes: 10, omittedBytes: 0, projectionReason: 'bounded_tool_receipt',
   });
 });
 
-test('semantic tool receipts remain flat and stable across repeated compaction', () => {
+test('bounded tool receipts remain flat and stable across repeated compaction', () => {
   const transcript = [
     message('user', 'Inspect the host.', 'turn-old'),
     { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'shell-old', toolName: 'shell.run', args: { script: 'hostname', shell: 'auto' } },
@@ -382,7 +381,7 @@ test('semantic tool receipts remain flat and stable across repeated compaction',
     && item.type === 'tool_result');
   assert.equal(retainedResult(second).metadata.resultFingerprint,
     retainedResult(first).metadata.resultFingerprint);
-  assert.throws(() => JSON.parse(secondReceipt.summary));
+  assert.throws(() => JSON.parse(secondReceipt.excerpt));
 });
 
 test('hierarchical continuation resolves request and result pairs across chunk boundaries', () => {
@@ -414,7 +413,7 @@ test('failed and denied tool results remain exact instead of becoming semantic r
   const compacted = compactTranscript(transcript, 80_000);
   const retained = compacted.records.find((item) => item.providerCallId === 'failed-call' && item.type === 'tool_result');
   assert.equal(retained.content, failure.content);
-  assert.notEqual(retained.metadata?.reason, 'semantic_tool_receipt');
+  assert.notEqual(retained.metadata?.reason, 'bounded_tool_receipt');
 });
 
 test('compaction either replays exact native tool-call arguments or omits the complete exchange', () => {

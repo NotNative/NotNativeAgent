@@ -64,6 +64,8 @@ function duplicateReceipt(record, duplicateOf, digest) {
       reason: 'duplicate_result', compressionClass: 'recoverable',
       reducer: 'content_identity_dedup_v1', ledgerRef,
       resultFingerprint: digest, receiptSchema: RECEIPT_SCHEMA,
+      originalBytes: Buffer.byteLength(record.content, 'utf8'),
+      omittedBytes: Buffer.byteLength(record.content, 'utf8'), retainedSourceBytes: 0,
       duplicateOfLedgerRef: duplicateOfRef,
     },
   };

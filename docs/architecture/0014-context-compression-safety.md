@@ -92,6 +92,13 @@ NNA does not treat `cl100k_base` or any other unrelated tokenizer as exact for e
 
 ## Invariants
 
+Tool receipts use `nna.tool-receipt.v2` and name their literal head/tail payload `excerpt`, not `summary`.
+The provider envelope has one `projection_metadata` block. Internal compression bookkeeping is not repeated in observation metadata.
+`projected_bytes` measures the serialized content; `retained_source_bytes` measures source bytes kept in the excerpt.
+`omitted_bytes` measures source bytes absent from that excerpt, not savings after receipt overhead.
+Exact receipt `ledger_ref` values can be supplied to `session.read_history` within its documented retained-history bound.
+Unavailable evidence remains unavailable; a receipt cannot reconstruct omitted source bytes by itself.
+
 1. The journal is the evidence source; compression changes only the provider projection.
 2. Authenticated user instructions are never rewritten by prompt-reframing heuristics.
 3. Tool descriptions and schemas are never automatically shortened for token savings.

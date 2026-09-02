@@ -84,7 +84,7 @@ async function compactContext(engine, records, content, active, operations, plan
     ], [
       { name: 'content_identity_dedup_v1', class: 'recoverable', records: fact.projection?.duplicateResultRecords, bytesSaved: fact.projection?.duplicateResultBytesSaved },
       { name: 'same_target_supersession_v1', class: 'recoverable', records: fact.projection?.supersededRecords },
-      { name: 'ledger_backed_receipt_v1', class: 'recoverable', records: fact.projection?.semanticReceiptRecords },
+      { name: 'ledger_backed_receipt_v1', class: 'recoverable', records: fact.projection?.boundedReceiptRecords },
       { name: 'validated_continuation_v1', class: 'semantic', records: 1 },
     ], 'full_compaction');
     active.contextCompressionTrigger = null;
@@ -292,7 +292,7 @@ function compactionCompletedDetail(active, fact, beforeEstimatedTokens) {
     retained_records: fact.retainedRecords?.length ?? 0,
     protected_turns: fact.projection?.protectedTurnCount ?? 0,
     payload_compacted_records: fact.projection?.payloadCompactedRecords ?? 0,
-    semantic_receipt_records: fact.projection?.semanticReceiptRecords ?? 0,
+    bounded_receipt_records: fact.projection?.boundedReceiptRecords ?? 0,
     hierarchy_chunks: fact.projection?.hierarchyChunks ?? 1,
     task_checkpoint: Boolean(fact.continuation?.taskStatePath),
   };

@@ -377,12 +377,22 @@ function toolResultMessage(item) {
       ...(reviewOutcome ? { review_outcome: reviewOutcome } : {}),
       // Why: even deterministic filesystem bytes can contain prompt injection. The observation
       // may be accurate data, but it can never become authenticated instruction authority.
-      metadata: item.metadata ?? {}, projection_metadata: toolProjectionMetadata(item), untrusted: true,
+      metadata: toolObservationMetadata(item), projection_metadata: toolProjectionMetadata(item), untrusted: true,
       // Why: reason_code explains a lifecycle outcome; it is not a second lifecycle state.
       reason_code: item.reasonCode ?? null,
     }),
     provenance: 'tool_result', trust: 'untrusted_tool_output',
   };
+}
+
+function toolObservationMetadata(item) {
+  // Why: compression bookkeeping stays internal; provider input carries one canonical projection block.
+  const hidden = new Set(['originalBytes', 'original_bytes', 'projectedBytes', 'projected_bytes',
+    'omittedBytes', 'omitted_bytes', 'retainedSourceBytes', 'projectionReason', 'projection_reason',
+    'compacted', 'contentRedacted', 'content_redacted', 'receiptSchema', 'ledgerRef',
+    'resultFingerprint', 'originalReason', 'duplicateOfLedgerRef']);
+  if (item.metadata?.compacted) hidden.add('reason');
+  return Object.fromEntries(Object.entries(item.metadata ?? {}).filter(([key]) => !hidden.has(key)));
 }
 
 function toolProjectionMetadata(item) {
@@ -391,7 +401,8 @@ function toolProjectionMetadata(item) {
   const originalBytes = item.metadata?.originalBytes ?? item.metadata?.original_bytes ?? projectedBytes;
   return {
     mode, original_bytes: originalBytes, projected_bytes: projectedBytes,
-    omitted_bytes: Math.max(0, originalBytes - projectedBytes),
+    omitted_bytes: item.metadata?.omittedBytes ?? Math.max(0, originalBytes - projectedBytes),
+    ...(item.metadata?.retainedSourceBytes !== undefined ? { retained_source_bytes: item.metadata.retainedSourceBytes } : {}),
     reason: item.metadata?.projectionReason ?? item.metadata?.projection_reason ?? item.metadata?.reason ?? null,
   };
 }

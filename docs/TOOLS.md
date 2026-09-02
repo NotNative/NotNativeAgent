@@ -350,8 +350,9 @@ Compacted history remains queryable without returning it wholesale to the provid
 
 - `session.search_history`: searches up to the newest 50,000 records in the active
   conversation and returns ranked, redacted snippets with stable record indexes.
-- `session.read_history`: reads one exact indexed record plus at most three neighboring
-  records on either side. The result is redacted and capped before reinjection.
+- `session.read_history`: reads by `record_index` or an exact receipt `ledger_ref`, not both.
+  Ledger references select tool results within the newest 50,000 retained records.
+  Up to three neighbors on each side are optional. Results are redacted and capped before reinjection.
 
 These tools are read-only, conversation-local, and foundational when session history is
 available.

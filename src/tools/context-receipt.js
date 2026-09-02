@@ -6,8 +6,9 @@ import { toolLifecycleStatus } from './tool-result-contract.js';
 
 // Why: filesystem evidence is frequently consumed across several reasoning steps; retaining
 // a useful window is cheaper than forcing another provider/tool round trip after compaction.
-const SUMMARY_BYTES = Object.freeze({ filesystem: 4096, search: 2048, shell: 1024, web: 1024, mcp: 1024, subagent: 1536, other: 768 });
-const RECEIPT_SCHEMA = 'nna.tool-receipt.v1';
+const EXCERPT_BYTES = Object.freeze({ filesystem: 4096, search: 2048, shell: 1024, web: 1024, mcp: 1024, subagent: 1536, other: 768 });
+const RECEIPT_SCHEMA = 'nna.tool-receipt.v2';
+const OMISSION_MARKER = '\n...[middle omitted]...\n';
 const ESSENTIAL_METADATA = Object.freeze([
   'exitCode', 'signal', 'acceptedExitCodes', 'timedOut', 'diagnosticOutcome',
   'observation_outcome', 'target_exists', 'matches', 'bytesObserved', 'outputLimitBytes',
@@ -21,31 +22,31 @@ export function createToolContextReceipt(result, request) {
   const target = toolTarget(request, category);
   const prior = existingReceipt(result);
   const redactedContent = safeRedact(result.content);
-  const summary = prior?.summary ?? boundedHeadTail(redactedContent, SUMMARY_BYTES[category]);
-  const originalBytes = prior?.projection?.original_bytes ?? Buffer.byteLength(redactedContent, 'utf8');
-  const projectedBytes = Buffer.byteLength(summary, 'utf8');
+  const excerpt = prior?.excerpt ?? boundedHeadTail(redactedContent, EXCERPT_BYTES[category]);
+  const originalBytes = prior?.projection?.original_bytes ?? result.metadata?.originalBytes ?? Buffer.byteLength(redactedContent, 'utf8');
+  const excerptBytes = Buffer.byteLength(excerpt, 'utf8');
+  const retainedBytes = prior ? result.metadata?.retainedSourceBytes ?? excerptBytes
+    : excerpt === redactedContent ? excerptBytes : Math.max(0, excerptBytes - Buffer.byteLength(OMISSION_MARKER));
   const receipt = Object.freeze({
     schema: RECEIPT_SCHEMA, tool: result.toolName ?? request?.toolName ?? prior?.tool ?? 'unknown',
     category: prior?.category ?? category, target: prior?.target ?? target,
     outcome: toolLifecycleStatus(result) ?? prior?.outcome ?? 'unknown',
     effect_certainty: result.effectCertainty ?? result.effect_certainty ?? prior?.effect_certainty ?? 'unknown',
     reason_code: result.reasonCode ?? result.reason_code ?? prior?.reason_code ?? null,
-    summary,
-    projection: Object.freeze({
-      original_bytes: originalBytes, projected_bytes: projectedBytes,
-      omitted_bytes: Math.max(0, originalBytes - projectedBytes), reason: 'semantic_tool_receipt',
-    }),
+    excerpt,
     result_fingerprint: prior?.result_fingerprint ?? resultFingerprint(result),
     ledger_ref: prior?.ledger_ref ?? ledgerReference(result),
   });
+  const content = JSON.stringify(receipt);
   return {
-    ...result, content: JSON.stringify(receipt),
+    ...result, content,
     metadata: {
-      ...boundedMetadata(result.metadata), compacted: true, reason: 'semantic_tool_receipt',
+      ...boundedMetadata(result.metadata), compacted: true, reason: 'bounded_tool_receipt',
       originalReason: result.metadata?.reason ?? null, ledgerRef: receipt.ledger_ref,
       resultFingerprint: receipt.result_fingerprint, receiptSchema: receipt.schema,
-      originalBytes, projectedBytes, omittedBytes: Math.max(0, originalBytes - projectedBytes),
-      projectionReason: 'semantic_tool_receipt',
+      originalBytes, projectedBytes: Buffer.byteLength(content, 'utf8'),
+      retainedSourceBytes: retainedBytes, omittedBytes: Math.max(0, originalBytes - retainedBytes),
+      projectionReason: 'bounded_tool_receipt',
     },
   };
 }
@@ -94,16 +95,15 @@ function resultFingerprint(result) {
 }
 
 function existingReceipt(result) {
-  if (result.metadata?.receiptSchema !== RECEIPT_SCHEMA
-    && result.metadata?.reason !== 'semantic_tool_receipt') return null;
+  if (![RECEIPT_SCHEMA, 'nna.tool-receipt.v1'].includes(result.metadata?.receiptSchema)) return null;
   let receipt = parseReceipt(result.content);
   if (!receipt) return null;
   for (let depth = 0; depth < 256; depth += 1) {
-    const nested = parseReceipt(receipt.summary);
+    const nested = parseReceipt(receipt.excerpt);
     if (!nested) break;
     receipt = {
       ...receipt,
-      summary: nested.summary,
+      excerpt: nested.excerpt,
       result_fingerprint: nested.result_fingerprint ?? receipt.result_fingerprint,
       ledger_ref: nested.ledger_ref ?? receipt.ledger_ref,
     };
@@ -115,8 +115,11 @@ function parseReceipt(value) {
   if (typeof value !== 'string' || value.length === 0) return null;
   try {
     const parsed = JSON.parse(value);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      && parsed.schema === RECEIPT_SCHEMA && typeof parsed.summary === 'string' ? parsed : null;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    if (parsed.schema === RECEIPT_SCHEMA && typeof parsed.excerpt === 'string') return parsed;
+    // Why: old durable receipts remain evidence, but new provider output never calls an excerpt a summary.
+    if (parsed.schema === 'nna.tool-receipt.v1' && typeof parsed.summary === 'string') return { ...parsed, excerpt: parsed.summary };
+    return null;
   } catch { return null; }
 }
 
@@ -138,7 +141,7 @@ function bounded(value, maxBytes) { return boundedHeadTail(safeRedact(value), ma
 function boundedHeadTail(value, maxBytes) {
   const buffer = Buffer.from(value, 'utf8');
   if (buffer.byteLength <= maxBytes) return value;
-  const marker = '\n...[middle omitted]...\n';
+  const marker = OMISSION_MARKER;
   const markerBytes = Buffer.byteLength(marker, 'utf8');
   if (markerBytes >= maxBytes) return takePrefixBytes(marker, maxBytes);
   const available = maxBytes - markerBytes;

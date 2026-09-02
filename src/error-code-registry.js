@@ -83,6 +83,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'active_child', 'active_turn_required', 'already_initialized',
     'attachment_busy', 'attachment_cancelled', 'attachment_cleanup_failed',
     'attachment_command_invalid', 'attachment_empty_observation', 'attachment_integrity_invalid',
+    'attachment_observation_too_large', 'attachment_observation_truncated',
     'attachment_invalid', 'attachment_limit', 'attachment_path_missing',
     'attachment_retry_invalid', 'attachment_route_timeout', 'attachment_selection_invalid',
     'attachment_size_invalid', 'attachment_source_changed', 'attachment_type_unsupported',
