@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
-import { SessionEngine } from '../src/engine.js';
+import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { discoverHookBundles } from '../src/hook-manifest.js';
 import { parseCommand } from '../src/hook-runner.js';
 import { redactExtensionData } from '../src/redaction.js';

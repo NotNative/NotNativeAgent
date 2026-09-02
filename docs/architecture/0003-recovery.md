@@ -77,7 +77,7 @@ or model content. Effect certainty is derived from both live and durable correla
 tool-result shapes, including partial and unknown effects, instead of a generic
 placeholder.
 When the authenticated host does not expose steering, recovery cannot enter
-`awaiting_attention`. NNA instead returns `incomplete` with the same bounded recovery detail and
+`awaiting_attention`. NNA instead returns `limit_reached` with the same bounded recovery detail and
 resume condition. Cancellation remains available on both paths.
 
 Raw SSE chunk receipt is transport activity even when a compatible server has not yet exposed
@@ -104,8 +104,10 @@ schema-constrained decision and sends both generic and Qwen-compatible reasoning
 controls. This keeps mandatory governance latency predictable without changing reasoning policy
 for primary or delegated model work.
 
-The configured model-step ceiling remains a final bounded guard (1,024 by default), so a
+The configured model-step ceiling remains a final bounded guard (1,024 productive steps by default), so a
 long build can exceed dozens of useful tool steps without being mistaken for a loop.
+The protocol-only `turn.finish` declaration has a lifecycle receipt but does not consume that
+productive budget. Reaching the guard yields the engine-owned `limit_reached` outcome.
 Explicit mission deadlines and budgets, cancellation, security/authority denials, the model-step
 ceiling, and irrecoverable runtime failures remain terminal boundaries. Attention parking does not
 weaken or defer those boundaries; abort signals wake a parked turn immediately.

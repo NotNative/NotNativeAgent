@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { ContractError } from '../src/ids.js';
-import { SessionEngine } from '../src/engine.js';
+import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { ExtensionRegistry } from '../src/extensions.js';
 import { HttpMcpTransport, MCP_CURRENT_VERSION } from '../src/mcp-transport.js';
 import { createServer } from 'node:http';
@@ -129,6 +129,7 @@ test('AC-ATT-02 no eligible vision route rejects managed copy and retains text f
     config: base(root), providerFactory: () => provider, attachmentRoot: join(root, '.managed'),
     output: async (event) => { if (event.type === 'attachment_status') statuses.push(event); },
   });
+  await engine.initialize();
   const result = await engine.submit({
     request_id: 'rejected-image', content: 'Keep this instruction',
     attachments: [{ path: image, mime_type: 'image/png' }],
@@ -163,6 +164,7 @@ test('AC-ATT-03 temporary failure retries same identity only on explicit control
     config: base(root), providerFactory: () => provider, attachmentRoot: join(root, '.managed'),
     output: async (event) => { if (event.type === 'attachment_status') statuses.push(event.state); },
   });
+  await engine.initialize();
   const first = await engine.submit({
     request_id: 'temporary-image', content: 'Inspect',
     attachments: [{ path: image, mime_type: 'image/png' }],
@@ -191,6 +193,7 @@ test('AC-ATT-02/SESS-015 failed managed cleanup is persisted and never presented
     attachmentRemoveFile: async () => { throw cleanupError; },
     output: async (event) => { if (event.type === 'attachment_status') statuses.push(event); },
   });
+  await engine.initialize();
   const result = await engine.submit({
     request_id: 'cleanup-image', content: 'Keep text', attachments: [{ path: image, mime_type: 'image/png' }],
   }, 'operator');
@@ -219,6 +222,7 @@ test('analyzed attachment cleanup failure preserves its observation and authorit
     attachmentRemoveFile: async () => { throw Object.assign(new Error('locked'), { code: 'EBUSY' }); },
     output: async (event) => { if (event.type === 'attachment_status') statuses.push(event); },
   });
+  await engine.initialize();
   const result = await engine.submit({
     request_id: 'admitted-cleanup-image', content: 'Inspect this image',
     attachments: [{ path: image, mime_type: 'image/png' }],
@@ -307,6 +311,7 @@ test('AC-MEM-04 optional timeout degrades visibly and does not block the turn', 
     config: base(root, { memory: { enabled: true, timeout_ms: 50 } }), memoryAdapter,
     providerFactory: () => provider, output: async (item) => outputs.push(item),
   });
+  await engine.initialize();
   const result = await engine.submit({ request_id: 'memory-timeout', content: 'Continue' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(outputs.find((item) => item.type === 'memory_status').status, 'degraded');

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
-import { SessionEngine } from '../src/engine.js';
+import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { JournalStore } from '../src/store.js';
 
 test('provider request manifest is durable, content-free, and precedes provider dispatch', async () => {

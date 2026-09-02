@@ -4,7 +4,7 @@ import { appendRecoveryHint } from './context.js';
 import { EventFactory } from './event-factory.js';
 import { EventHub, phaseIsCancelable } from './events.js';
 import { ContractError, newId } from './ids.js';
-import { acceptedRecord, assistantMessage, classifyCompletion, failure, normalizeFailure, userMessage } from './engine/records.js';
+import { acceptedRecord, assistantMessage, failure, normalizeFailure, userMessage } from './engine/records.js';
 import { admissionFromRetry, createActiveTurn } from './engine/active.js';
 import { LifecycleRegistry, StateAuthority } from './lifecycle.js';
 import { HealthInspector } from './health.js';
@@ -39,6 +39,7 @@ import { awaitEngineAttention } from './engine/attention.js';
 import { changeEngineWorkspace, restoreEngineWorkspace } from './engine/workspace-transition.js';
 import { continueAfterExactToolBoundary } from './engine/tool-recovery.js';
 import { updateToolFailures } from './engine/tool-failures.js';
+import { continueAfterTerminalDeclaration } from './engine/terminal-declaration.js';
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -107,7 +108,6 @@ export class SessionEngine {
       markInterrupted: (turnId) => this.#markInterrupted(turnId),
     }, options);
   }
-
   async submit(command, principal) {
     if (this.state.state !== 'idle') return this.#rejectBusy(command);
     const turn = this.lifecycles.start('turn');
@@ -266,7 +266,7 @@ export class SessionEngine {
         if (result.exhausted) {
           const attention = await awaitEngineAttention(this, active, result,
             { persist: (...args) => this.#persist(...args), consumeSteering: (turn) => this.#consumeSteering(turn) });
-          if (attention.terminal) return this.#finalize('incomplete', attention.explanation, attention.detail, { emitText: true });
+          if (attention.terminal) return this.#finalize('limit_reached', attention.explanation, attention.detail, { emitText: true });
           applyPendingConfiguration(this, active);
           context = await this.#prepareContext(this.transcript, '', active);
           context = appendRecoveryHint(context, attention.hint);
@@ -280,7 +280,7 @@ export class SessionEngine {
       const detail = this.reliability.exhaustionDetail(active.recovery, this.transcript, active.unresolvedToolFailures, {
         category: 'model_step_limit', count: maxModelSteps,
       });
-      return this.#finalize('incomplete', this.reliability.exhaustionText(detail, {
+      return this.#finalize('limit_reached', this.reliability.exhaustionText(detail, {
         transcript: this.transcript, turnId: active.turnId,
       }), detail, { emitText: true });
     } catch (error) {
@@ -331,6 +331,8 @@ export class SessionEngine {
     this.tools.grantWorkflowLease(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean));
     updateToolFailures(active, items);
     const steeringApplied = await this.#consumeSteering(active);
+    const declaration = await continueAfterTerminalDeclaration(this, active, items, trustedHandoff, (outcome) => this.#settleStep(active, outcome));
+    if (declaration) return declaration;
     const behavior = observeToolState(active, items, (name) => this.tools.definition(name));
     const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints, stateRevision: active.observableStateRevision });
     const progress = this.reliability.noProgress(active, 'tool_no_progress', evidence, {}, { allowCompaction: active.contextPressureTier === 'compact',
@@ -365,6 +367,10 @@ export class SessionEngine {
       this.state.transition('preparing_continuation', { trigger: 'steering_applied', turnId: active.turnId });
       return { continue: true };
     }
+    const advisories = this.reliability.completionAdvisories(active.stepText);
+    if (advisories.length > 0) this.telemetry?.record('completion.language_advisory', 'observed', {
+      signals: advisories, declaration_present: Boolean(active.terminalDeclaration),
+    }, { turnId: active.turnId, stepId: active.stepId });
     const supervised = this.reliability.evaluateCompletion(active, active.stepText, this.work?.snapshot());
     if (supervised.disposition !== 'continue') return { continue: false, text: active.stepText, outcome: supervised.disposition };
     if (supervised.obligation) active.completionObligation = supervised.obligation;
@@ -402,6 +408,9 @@ export class SessionEngine {
       await this.#publish('steering.started', 'steering', 'active', active);
       await persistAuthenticatedIntent(this.authority, steering.content, steering.principal, (intent) => this.#persist('authority_intent', intent));
       active.authority = this.authority.snapshot(this.config);
+      // Why: a terminal declaration was made against the pre-steering intent. Authenticated
+      // steering changes that intent, so the model must explicitly declare the new outcome.
+      active.terminalDeclaration = null;
       active.conversationIntent = projectConversationIntent(active.authority, { anchor: active.prompt });
       active.approvedProposal = resolveApprovedAssistantProposal(this.transcript, steering.content)
         || active.approvedProposal;
@@ -417,18 +426,16 @@ export class SessionEngine {
     }
     return Object.freeze(consumed);
   }
-
   async #prepareContext(records, content, active, force = false) {
     return prepareEngineContext(this, records, content, active, force, {
       persist: (type, payload) => this.#persist(type, payload),
       publish: (...args) => this.#publish(...args),
     });
   }
-
   async #completeFromStep(result, active) {
     assertMissionBudget(active); this.state.transition('evaluating_completion', { trigger: 'stream_sealed', turnId: active.turnId });
     active.finalText = result.text;
-    return this.#finalize(result.outcome ?? classifyCompletion(result.text), result.text, null);
+    return this.#finalize(result.outcome ?? 'incomplete', result.text, null);
   }
   async #finalize(outcome, text, failureDetail, options = {}) {
     return finalizeEngineTurn(this, outcome, text, failureDetail, options, {
@@ -437,14 +444,12 @@ export class SessionEngine {
       rejectDuplicate: () => { throw new ContractError('duplicate_finalization', 'turn already finalized'); },
     });
   }
-
   #settleAttempt(active, outcome) {
     return settleEngineAttempt(this, active, outcome, (...args) => this.#publish(...args));
   }
   #settleStep(active, outcome) {
     return settleEngineStep(this, active, outcome, (...args) => this.#publish(...args));
   }
-
   async #publish(name, category, phase, active, outcome = null, payload = {}) {
     const event = this.eventFactory.create(name, category, phase, active, payload, outcome);
     const signal = phaseIsCancelable(category, phase) ? active?.controller?.signal : undefined;

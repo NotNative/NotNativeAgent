@@ -9,7 +9,7 @@ import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { parseProtocolLine } from '../src/contracts.js';
 import { DiagnosticBundle } from '../src/diagnostic-bundle.js';
-import { SessionEngine } from '../src/engine.js';
+import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { FairScheduler } from '../src/provider/fair-scheduler.js';
 import { StructuredLog } from '../src/structured-log.js';
 import { TerminalInputDecoder, TerminalMode, sanitizeTerminal } from '../src/tui/terminal-adapter.js';
@@ -2249,7 +2249,18 @@ function zipEntries(archive) {
 
 test('AC-HEAD-08/AC-PROD-04/AC-OBS-02 plain text uses canonical semantics and local metadata logging', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-plain-'));
-  const provider = { async *stream() { yield { type: 'text', text: 'final only' }; yield { type: 'terminal' }; } };
+  let providerStep = 0;
+  const provider = { async *stream() {
+    providerStep += 1;
+    if (providerStep === 1) {
+      yield { type: 'tool_fragment', fragments: [{
+        index: 0, id: 'plain-finish', function: { name: 'turn.finish', arguments: '{"outcome":"completed"}' },
+      }] };
+      yield { type: 'terminal', finishReason: 'tool_calls' };
+      return;
+    }
+    yield { type: 'text', text: 'final only' }; yield { type: 'terminal' };
+  } };
   let stdout = '';
   let stderr = '';
   const output = new Writable({ write(chunk, _encoding, next) { stdout += chunk; next(); } });

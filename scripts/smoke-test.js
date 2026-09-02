@@ -41,7 +41,14 @@ const engine = new SessionEngine({
     async *stream(request) {
       requests += 1;
       assert.equal(request.model, FIXTURE_MODEL);
-      assert.equal(request.messages.at(-1)?.content, REQUEST_TEXT);
+      if (requests === 1) {
+        assert.equal(request.messages.at(-1)?.content, REQUEST_TEXT);
+        yield { type: 'tool_fragment', fragments: [{
+          index: 0, id: 'offline-smoke-finish', function: { name: 'turn.finish', arguments: '{"outcome":"completed"}' },
+        }] };
+        yield { type: 'terminal', finishReason: 'tool_calls' };
+        return;
+      }
       yield { type: 'text', text: RESPONSE_TEXT };
       yield { type: 'terminal', finishReason: 'stop', usage: { input_tokens: 3, output_tokens: 3, total_tokens: 6 } };
     },
@@ -55,7 +62,7 @@ try {
   const result = await engine.submit({ request_id: 'offline-smoke', content: REQUEST_TEXT }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(result.text, RESPONSE_TEXT);
-  assert.equal(requests, 1);
+  assert.equal(requests, 2);
 } finally {
   if (initialized) await engine.shutdown({ request_id: 'offline-smoke-shutdown' });
 }

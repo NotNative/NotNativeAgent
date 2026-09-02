@@ -122,17 +122,15 @@ aliases to Reliability Engine-owned components. They do not represent independen
     tool continuations. Only a typed reasoning-only recovery may temporarily retry without
     reasoning; specialist and sub-agent routes remain independently configured.
 16. Completion supervision treats provider-reported output usage at the exact requested ceiling
-    as truncation even when a compatible provider labels the finish `stop`. Concrete future-action
-    pledges such as `let me verify` or `I will implement` are partial progress, not terminal task
-    completion; the engine preserves the text and issues a bounded continuation hint. Once
-    intercepted, that promise remains an engine-owned completion obligation until a later
-    successful tool result supplies fresh evidence or the model asks one concrete operator
-    question. A later prose-only completion claim cannot silently discard the obligation.
+    as truncation even when a compatible provider labels the finish `stop`. Completion claims,
+    future-action phrases, questions, and blocker language are content-free telemetry advisories;
+    none can select a terminal state. The model must declare its disposition through `turn.finish`,
+    and deterministic engine evidence may reject that declaration and continue recovery.
 17. Browser evidence records its verification route. Rendering a workspace path through NNA's
     managed HTTP origin does not prove that the artifact works through a direct `file://` or
     double-click launch route.
-18. Language-derived completion judgments and unchanged durable-work state have category-specific
-    continuation limits below the global model-step ceiling. When the evidence does not change,
+18. Contradictions between typed terminal declarations and unchanged durable-work state have
+    category-specific continuation limits below the global model-step ceiling. When the evidence does not change,
     NNA parks the active turn for operator attention instead of manufacturing progress or ending
     the durable goal. New tool evidence or authenticated steering resets stale recovery episodes.
 19. Provider context-limit recovery permits at most two compaction episodes. The second is admitted
@@ -150,15 +148,16 @@ aliases to Reliability Engine-owned components. They do not represent independen
     does not prove every diagnostic assertion made inside the script. Stderr output and script-level
     diagnostic suppression remain structured evidence qualifiers without being relabeled as process
     failure.
-23. Completion supervision distinguishes successful completion, required operator input, and a
-    terminal blocker. A blocked durable goal ends the turn without consuming continuation recovery.
-    Prose that reports a blocker cannot silently override active durable work; the model must first
-    record each unfinished task and the goal as blocked with bounded reasons.
-24. `turn.finish` records a structured model declaration of `completed`, `blocked`, or
-    `needs_input`. Reliability validates the declaration against durable work, unresolved
-    failures, completion obligations, and current evidence. The declaration grants no authority
-    and cannot override contradictory engine state. Language heuristics remain compatibility
-    signals while providers migrate to the structured boundary.
+23. Completion supervision distinguishes successful completion, required operator input, a
+    terminal blocker, bounded incompletion, and model-reported failure. A typed blocked,
+    incomplete, or failed declaration may honestly end a turn without falsifying durable work;
+    unfinished tasks remain unfinished and retain their bounded reasons.
+24. `turn.finish` records a structured model declaration of `completed`, `blocked`, `incomplete`,
+    `failed`, or `needs_input`. Reliability validates the declaration against durable work,
+    unresolved failures, and current evidence. The declaration grants no authority and cannot
+    override contradictory engine state. Authenticated steering invalidates an earlier declaration.
+    The engine alone owns `denied`, `cancelled`, and `limit_reached`. The bookkeeping-only
+    declaration step remains auditable but does not consume the productive model-step budget.
 
 ## Consequences
 

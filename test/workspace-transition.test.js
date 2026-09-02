@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
-import { SessionEngine } from '../src/engine.js';
+import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { ExperienceEngine } from '../src/experience-engine.js';
 import { tabPoolRecords } from '../src/experience/presentation.js';
 import { FileChangeLedger } from '../src/persistence/file-change-ledger.js';

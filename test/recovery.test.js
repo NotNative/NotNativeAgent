@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
-import { SessionEngine } from '../src/engine.js';
+import { SessionEngine as RuntimeSessionEngine } from '../src/engine.js';
 import { ContractError } from '../src/ids.js';
 import { JournalStore } from '../src/store.js';
 import { LifecycleRegistry, StateAuthority } from '../src/lifecycle.js';
@@ -17,7 +17,41 @@ import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
 import { awaitEngineAttention } from '../src/engine/attention.js';
 import { updateToolFailures } from '../src/engine/tool-failures.js';
 
-test('a host without steering receives resumable incomplete recovery instead of an attention wait', async () => {
+class SessionEngine extends RuntimeSessionEngine {
+  constructor(options) {
+    const factory = options.providerFactory;
+    super({ ...options, providerFactory: factory ? (...args) => typedProvider(factory(...args)) : factory });
+  }
+}
+
+let finishSequence = 0;
+function typedProvider(provider) {
+  const wrapper = Object.create(provider);
+  wrapper.stream = async function* stream(request, ...args) {
+    const supportsFinish = request.tools?.some((tool) => tool.function?.name === 'turn.finish') === true;
+    if (supportsFinish && !request.responseFormat && !currentTurnDeclared(request.messages)) {
+      finishSequence += 1;
+      yield { type: 'tool_fragment', fragments: [{
+        index: 0, id: `typed-finish-${finishSequence}`, function: { name: 'turn.finish', arguments: '{"outcome":"completed"}' },
+      }] };
+      yield { type: 'terminal', finishReason: 'tool_calls' };
+      return;
+    }
+    yield* provider.stream(request, ...args);
+  };
+  return wrapper;
+}
+
+function currentTurnDeclared(messages = []) {
+  let latestUser = -1;
+  for (let index = 0; index < messages.length; index += 1) {
+    if (messages[index].role === 'user') latestUser = index;
+  }
+  return messages.slice(latestUser + 1).some((message) => message.tool_calls
+    ?.some((call) => call.function?.name === 'turn.finish'));
+}
+
+test('a host without steering returns terminal bounded recovery instead of an attention wait', async () => {
   const records = [];
   const result = await awaitEngineAttention({
     config: { executionManifest: { allowedCapabilities: ['tools'] } }, transcript: [],
@@ -350,11 +384,11 @@ test('interactive context usage refreshes after every settled model step', async
   const result = await engine.submit({ request_id: 'context-usage', content: 'Read target.txt.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   const usage = output.filter((record) => record.type === 'context_usage');
-  assert.equal(usage.length, 2);
+  assert.equal(usage.length, 3);
   assert.equal(usage.every((record) => Number.isFinite(record.current_bytes)), true);
   assert.equal(usage.every((record) => Number.isFinite(record.current_estimated_tokens)), true);
   assert.equal(usage.every((record) => record.limit_tokens > 0), true);
-  assert.ok(usage[1].current_estimated_tokens >= usage[0].current_estimated_tokens);
+  assert.ok(usage[2].current_estimated_tokens >= usage[0].current_estimated_tokens);
 });
 
 test('AC-FAIL-04/AC-TOOL-05 accepted cancellation wins over late provider success', async () => {
@@ -400,7 +434,7 @@ test('AC-PROV-05 transient failures retry same step with distinct attempts', asy
   assert.equal(result.outcome, 'completed');
   assert.equal(count, 3);
   const attempts = engine.lifecycles.snapshot().filter((item) => item.kind === 'provider_attempt');
-  assert.deepEqual(attempts.map((item) => item.outcome), ['failed', 'failed', 'completed']);
+  assert.deepEqual(attempts.map((item) => item.outcome), ['completed', 'failed', 'failed', 'completed']);
   assert.equal(result.recovery.length, 2);
 });
 
@@ -1072,7 +1106,8 @@ test('AC-PROD-03 malformed small-model tool arguments become an in-band repair o
   const result = await engine.submit({ request_id: 'malformed-repair', content: 'Inspect the requested file.' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(count, 3);
-  const invalid = engine.transcript.find((item) => item.type === 'tool_result');
+  const invalid = engine.transcript.find((item) => item.type === 'tool_result'
+    && item.reasonCode === 'tool_arguments_malformed');
   assert.equal(invalid.toolLifecycleStatus, 'invalid_request');
   assert.equal(invalid.reasonCode, 'tool_arguments_malformed');
 });
@@ -1256,7 +1291,7 @@ test('AC-FAIL-13 distinct progressing tool steps continue beyond the legacy ceil
   const result = await engine.submit({ request_id: 'horizon-turn', content: 'Read all item files' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(count, 21);
-  assert.equal(engine.lifecycles.snapshot().filter((item) => item.kind === 'model_step').length, 21);
+  assert.equal(engine.lifecycles.snapshot().filter((item) => item.kind === 'model_step').length, 22);
 });
 
 test('configured model-step ceiling terminates a still-progressing turn at the declared boundary', async () => {
@@ -1274,7 +1309,7 @@ test('configured model-step ceiling terminates a still-progressing turn at the d
   });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'bounded-turn', content: 'Read all bounded files' }, 'operator');
-  assert.equal(result.outcome, 'incomplete');
+  assert.equal(result.outcome, 'limit_reached');
   assert.equal(count, 16);
   assert.equal(result.failure.exhaustion_category, 'model_step_limit');
   assert.equal(result.failure.exhaustion_count, 16);
@@ -1502,7 +1537,7 @@ test('AC-SESS-01/AC-SESS-05/AC-SESS-10 resume preserves identity, marks interrup
   assert.equal(engine.recoveryNotices.length, 1);
   const result = await engine.submit({ request_id: 'resume-turn', content: 'Resume safely' }, 'operator');
   assert.equal(result.outcome, 'completed');
-  assert.equal(providerCalls, 2);
+  assert.equal(providerCalls, 1);
   assert.equal(engine.transcript.filter((item) => item.steeringId === 'saved-steering').length, 1);
   await engine.shutdown({ request_id: 'shutdown-resume' });
 });

@@ -10,18 +10,20 @@ import { EventHub } from '../src/events.js';
 import { JournalStore } from '../src/store.js';
 import { CanonicalIngress } from '../src/ingress.js';
 import { declaredSubscription } from './event-fixture.js';
-import { evaluateCompletion, requestsInput } from '../src/completion-supervisor.js';
+import { completionAdvisories, evaluateCompletion, requestsInput } from '../src/completion-supervisor.js';
 
 const EMPTY_HOOK_ROOT = join(process.cwd(), '.nna-test-hooks-none');
 
-test('recovery rejects a context-reset greeting instead of ending the active task', () => {
+test('context-reset language is advisory and cannot choose the terminal outcome', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
     recovery: { actions: [{ action: 'compact' }] },
   };
   const result = evaluateCompletion(active, "I'm ready to help! What would you like me to assist you with?");
-  assert.equal(result.disposition, 'continue');
-  assert.equal(result.category, 'task_context_lost');
+  assert.equal(result.disposition, 'incomplete');
+  assert.equal(result.category, 'terminal_declaration_missing');
+  assert.ok(completionAdvisories("I'm ready to help! What would you like me to assist you with?")
+    .includes('task_context_reset_language'));
 });
 
 test('completion supervision continues when provider usage reaches a mislabeled output ceiling', () => {
@@ -61,11 +63,11 @@ test('an unresolved tool failure cannot disappear behind calm prose or a complet
   });
   active.terminalDeclaration = null;
   assert.deepEqual(evaluateCompletion(active, 'No authorized route remains.'), {
-    disposition: 'blocked', category: 'unresolved_tool_blocker',
+    disposition: 'incomplete', category: 'terminal_declaration_missing',
   });
 });
 
-test('completion supervision continues an unfulfilled future-action pledge', () => {
+test('future-action language is advisory and cannot choose the terminal outcome', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
     recovery: { actions: [] }, attemptOutputLimitTokens: 32_000,
@@ -73,77 +75,73 @@ test('completion supervision continues an unfulfilled future-action pledge', () 
   };
   const result = evaluateCompletion(active,
     'I will build the scene. Before writing it, let me verify the exact API details.');
-  assert.equal(result.disposition, 'continue');
-  assert.equal(result.category, 'future_action_pledge');
-  assert.match(result.hint, /taking that action/iu);
+  assert.equal(result.disposition, 'incomplete');
+  assert.equal(result.category, 'terminal_declaration_missing');
+  assert.ok(completionAdvisories('I will build the scene. Before writing it, let me verify the exact API details next.')
+    .includes('future_action_language'));
 });
 
-test('completion supervision recognizes a Markdown-wrapped future action without a verb allowlist', () => {
+test('completion advisories recognize Markdown-wrapped future action language', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
     recovery: { actions: [] }, toolEvidenceRevision: 4,
   };
-  const result = evaluateCompletion(active,
-    'Node and npx are available. I\'ll **bundle everything into one self-contained `index.html`**. Setting up the build structure now.');
-  assert.equal(result.disposition, 'continue');
-  assert.equal(result.category, 'future_action_pledge');
-  assert.deepEqual(result.obligation, { kind: 'future_action', evidenceRevision: 4 });
+  const text = 'Node and npx are available. I\'ll **bundle everything into one self-contained `index.html`**. Setting up the build structure now.';
+  assert.ok(completionAdvisories(text).includes('future_action_language'));
+  assert.equal(evaluateCompletion(active, text).disposition, 'incomplete');
 });
 
-test('completion obligations persist until fresh successful tool evidence is observed', () => {
+test('legacy prose obligations cannot override a typed terminal declaration', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
     recovery: { actions: [] }, toolEvidenceRevision: 4,
-    completionObligation: { kind: 'future_action', evidenceRevision: 4 },
+    completionObligation: { kind: 'future_action', evidenceRevision: 4 }, terminalDeclaration: { outcome: 'completed' },
   };
-  const unsupported = evaluateCompletion(active, 'The requested work is complete.');
-  assert.equal(unsupported.disposition, 'continue');
-  assert.equal(unsupported.category, 'unfulfilled_completion_obligation');
-
-  active.toolEvidenceRevision = 5;
-  const supported = evaluateCompletion(active, 'The requested work is complete.');
-  assert.equal(supported.disposition, 'completed');
+  assert.deepEqual(evaluateCompletion(active, 'The requested work is complete.'), {
+    disposition: 'completed', category: 'declared_completion',
+  });
 });
 
 test('completion supervision accepts a settled result with optional future availability', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
-    recovery: { actions: [] }, attemptOutputLimitTokens: 32_000,
+    recovery: { actions: [] }, attemptOutputLimitTokens: 32_000, terminalDeclaration: { outcome: 'completed' },
     attemptUsage: { completion_tokens: 200 },
   };
   const result = evaluateCompletion(active, 'The requested change is complete. I will remain available for follow-up.');
   assert.equal(result.disposition, 'completed');
-  assert.equal(result.category, 'settled_output');
+  assert.equal(result.category, 'declared_completion');
 });
 
 test('completion supervision settles an explicit terminal blocker without reporting completion', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
-    recovery: { actions: [] }, attemptOutputLimitTokens: 32_000,
+    recovery: { actions: [] }, attemptOutputLimitTokens: 32_000, terminalDeclaration: { outcome: 'blocked' },
     attemptUsage: { completion_tokens: 200 },
   };
   const result = evaluateCompletion(active, "I can't complete this because the required host capability is unavailable.");
   assert.equal(result.disposition, 'blocked');
-  assert.equal(result.category, 'terminal_blocker');
+  assert.equal(result.category, 'declared_terminal_blocker');
 
+  active.terminalDeclaration = null;
   const alternative = evaluateCompletion(active, "I can't continue with that route. I will try a different bounded operation now.");
-  assert.equal(alternative.disposition, 'continue');
-  assert.equal(alternative.category, 'future_action_pledge');
+  assert.equal(alternative.disposition, 'incomplete');
+  assert.ok(completionAdvisories("I can't continue with that route. I will try a different bounded operation now.")
+    .includes('future_action_language'));
 });
 
 test('completion supervision requires a terminal blocker to settle active durable work', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
-    recovery: { actions: [] },
+    recovery: { actions: [] }, terminalDeclaration: { outcome: 'blocked' },
   };
   const work = {
     revision: 2, goal: { status: 'active' },
     tasks: [{ id: 'T1', status: 'blocked' }],
   };
   const unrecorded = evaluateCompletion(active, "I can't complete this because the dependency is unavailable.", work);
-  assert.equal(unrecorded.disposition, 'continue');
-  assert.equal(unrecorded.category, 'unrecorded_work_blocker');
-  assert.match(unrecorded.hint, /goal_status to blocked/iu);
+  assert.equal(unrecorded.disposition, 'blocked');
+  assert.equal(unrecorded.category, 'active_work_declared_blocked');
 
   work.goal.status = 'blocked';
   const recorded = evaluateCompletion(active, 'The dependency remains unavailable.', work);
@@ -151,10 +149,11 @@ test('completion supervision requires a terminal blocker to settle active durabl
   assert.equal(recorded.category, 'recorded_work_blocker');
 });
 
-test('text and DOM claims cannot erase a newer non-pass visual verdict', () => {
+test('typed completion cannot erase a newer material non-pass visual verdict', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
-    recovery: { actions: [] }, visualEvidence: { verdict: 'minor_caveat', path: 'latest.png' },
+    recovery: { actions: [] }, visualEvidence: { verdict: 'fail', path: 'latest.png' },
+    terminalDeclaration: { outcome: 'completed' },
   };
   const contradicted = evaluateCompletion(active,
     'The detailed DOM inspection confirms there are no real visible artifacts. The task is complete.');
@@ -162,17 +161,8 @@ test('text and DOM claims cannot erase a newer non-pass visual verdict', () => {
   assert.equal(contradicted.category, 'visual_evidence_conflict');
   assert.match(contradicted.hint, /newer screenshot and image\.inspect|qualified description/iu);
 
-  const qualified = evaluateCompletion(active,
-    'The scene is complete. A few faint near-field seams remain as a minor visual caveat.');
-  assert.equal(qualified.disposition, 'completed');
-
-  const allViews = evaluateCompletion(active, 'The task is complete. All tested views pass.');
-  assert.equal(allViews.disposition, 'continue');
-  assert.equal(allViews.category, 'visual_evidence_conflict');
-
-  const qualifiedViews = evaluateCompletion(active,
-    'The task is complete. All tested views pass, but one faint seam remains as a minor caveat.');
-  assert.equal(qualifiedViews.disposition, 'completed');
+  active.visualEvidence.verdict = 'minor_caveat';
+  assert.equal(evaluateCompletion(active, 'A minor seam remains.').disposition, 'completed');
 });
 
 function config(persistence = 'ephemeral') {
@@ -185,8 +175,25 @@ function config(persistence = 'ephemeral') {
   });
 }
 
+function finishCall(outcome, detail = {}) {
+  return [
+    { type: 'tool_fragment', fragments: [{
+      index: 0, id: `finish-${outcome}`, function: {
+        name: 'turn.finish', arguments: JSON.stringify({ outcome, ...detail }),
+      },
+    }] },
+    { type: 'terminal', finishReason: 'tool_calls' },
+  ];
+}
+
+function hasFinishCall(request) {
+  return request.messages?.some((message) => message.tool_calls
+    ?.some((call) => call.function?.name === 'turn.finish')) === true;
+}
+
 class ScriptedProvider {
-  async *stream() {
+  async *stream(request) {
+    if (!hasFinishCall(request)) { yield* finishCall('completed'); return; }
     yield { type: 'text', text: 'Hello' };
     yield { type: 'text', text: ', operator.' };
     yield { type: 'usage', usage: { total_tokens: 7 } };
@@ -206,13 +213,14 @@ test('AC-ENGP-01/AC-STATE-05/M1 successful turn finalizes exactly once', async (
   assert.equal(result.outcome, 'completed');
   assert.equal(result.text, 'Hello, operator.');
   assert.equal(engine.state.state, 'idle');
-  assert.deepEqual(output.map((item) => item.type), [
-    'accepted', 'stream_delta', 'stream_delta', 'turn_result',
-  ]);
+  assert.equal(output[0].type, 'accepted');
+  assert.deepEqual(output.filter((item) => item.type === 'stream_delta').map((item) => item.text), ['Hello', ', operator.']);
+  assert.equal(output.at(-1).type, 'turn_result');
   const records = engine.lifecycles.snapshot();
-  assert.equal(records.length, 3);
-  assert.ok(records.every((item) => item.outcome === 'completed'));
-  assert.equal(engine.transcript.length, 2);
+  assert.ok(records.length > 3);
+  assert.equal(records.filter((item) => item.kind === 'turn' && item.phase === 'terminal').length, 1);
+  assert.equal(records.find((item) => item.kind === 'turn')?.outcome, 'completed');
+  assert.equal(engine.transcript.length, 4);
 });
 
 test('AC-TURN-01/AC-STATE-05 accepted identity precedes I/O and a pre-turn veto finalizes once', async () => {
@@ -453,12 +461,14 @@ test('AC-FAIL-05 primary failure survives secondary finalization failures', asyn
 
 test('AC-TURN-04/AC-FAIL-01 a genuine model question yields needs_input without stall recovery', async () => {
   class QuestionProvider {
-    async *stream() {
+    async *stream(request) {
+      if (!hasFinishCall(request)) { yield* finishCall('needs_input', { question: 'Which target should I use?' }); return; }
       yield { type: 'text', text: 'Which target should I use?' };
       yield { type: 'terminal', finishReason: 'stop', usage: null };
     }
   }
   const engine = new SessionEngine({ config: config(), providerFactory: () => new QuestionProvider() });
+  await engine.initialize();
   const result = await engine.submit({ request_id: 'request-3', content: 'Proceed' }, 'operator');
   assert.equal(result.outcome, 'needs_input');
   assert.deepEqual(result.recovery, []);
@@ -466,12 +476,14 @@ test('AC-TURN-04/AC-FAIL-01 a genuine model question yields needs_input without 
 
 test('a conversational offer ending in a question completes without claiming a blocker', async () => {
   class GreetingProvider {
-    async *stream() {
+    async *stream(request) {
+      if (!hasFinishCall(request)) { yield* finishCall('completed'); return; }
       yield { type: 'text', text: 'Good morning! How can I help you today?' };
       yield { type: 'terminal', finishReason: 'stop', usage: null };
     }
   }
   const engine = new SessionEngine({ config: config(), providerFactory: () => new GreetingProvider() });
+  await engine.initialize();
   const result = await engine.submit({ request_id: 'request-greeting', content: 'Good morning' }, 'operator');
   assert.equal(result.outcome, 'completed');
 });
@@ -482,6 +494,9 @@ test('active durable work forces model continuation until tasks and goal are com
   const provider = { async *stream() {
     calls += 1;
     if (calls === 1) {
+      yield* finishCall('completed');
+      return;
+    } else if (calls === 2) {
       yield { type: 'text', text: 'The report is ready, but the durable work ledger is still open.' };
     } else {
       await engine.updateTask('T1', 'completed', 'verified report delivered');
@@ -491,12 +506,13 @@ test('active durable work forces model continuation until tasks and goal are com
     yield { type: 'terminal', finishReason: 'stop', usage: null };
   } };
   engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  await engine.initialize();
   await engine.setGoal('Deliver the verified report');
   await engine.addTask('Compile the final report');
 
   const result = await engine.submit({ request_id: 'work-gated-turn', content: 'Finish the report' }, 'operator');
 
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
   assert.equal(result.outcome, 'completed');
   assert.equal(engine.workStatus().goal.status, 'completed');
   assert.equal(engine.workStatus().goal.evidenceRef.startsWith('assistant_message:'), true);
@@ -509,18 +525,18 @@ test('active durable work cannot turn an assistant authorization question into a
   let calls = 0;
   const provider = { async *stream() {
     calls += 1;
-    yield { type: 'text', text: calls === 1
-      ? 'The requested audit is complete. Want me to start implementing Slice A?'
-      : 'Yes — Slice A first is the right call.' };
+    if (calls === 1) { yield* finishCall('needs_input', { question: 'Want me to start implementing Slice A?' }); return; }
+    yield { type: 'text', text: 'The requested audit is complete. Want me to start implementing Slice A?' };
     yield { type: 'terminal', finishReason: 'stop', usage: null };
   } };
   const engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  await engine.initialize();
   await engine.setGoal('Audit the codebase without making changes');
   await engine.addTask('Deliver the audit findings');
 
   const result = await engine.submit({ request_id: 'work-authorization-turn', content: 'Audit the codebase' }, 'operator');
 
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
   assert.equal(result.outcome, 'needs_input');
   assert.match(result.text, /Want me to start implementing Slice A\?/u);
   assert.equal(result.recovery.some((item) => item.category === 'unfinished_conversation_work'), false);
@@ -530,16 +546,18 @@ test('active durable work yields when the model genuinely requires operator inpu
   let calls = 0;
   const provider = { async *stream() {
     calls += 1;
+    if (calls === 1) { yield* finishCall('needs_input', { question: 'Which deployment target should I use?' }); return; }
     yield { type: 'text', text: 'Which deployment target should I use?' };
     yield { type: 'terminal', finishReason: 'stop', usage: null };
   } };
   const engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  await engine.initialize();
   await engine.setGoal('Deploy the application');
   await engine.addTask('Choose and use the deployment target');
 
   const result = await engine.submit({ request_id: 'work-input-turn', content: 'Deploy it' }, 'operator');
 
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
   assert.equal(result.outcome, 'needs_input');
   assert.equal(engine.workStatus().tasks[0].status, 'pending');
 });
@@ -663,9 +681,12 @@ test('review bypass keys are rejected from authenticated manifests', () => {
 
 test('AC-ARCH-01/AC-PROD-02 provider adapters and input surfaces preserve canonical semantics', async () => {
   const run = async (surface, providerLabel) => {
+    let calls = 0;
     const engine = new SessionEngine({
       config: config(), surface,
       providerFactory: () => ({ async *stream() {
+        calls += 1;
+        if (calls === 1) { yield* finishCall('completed'); return; }
         yield { type: 'metadata', finishReason: providerLabel };
         yield { type: 'text', text: 'Equivalent response.' };
         yield { type: 'terminal', finishReason: 'stop' };
@@ -678,7 +699,12 @@ test('AC-ARCH-01/AC-PROD-02 provider adapters and input surfaces preserve canoni
     }, 'authenticated-operator');
     return {
       outcome: result.outcome,
-      transcript: engine.transcript.map(({ turnId: _turnId, ...item }) => item),
+      transcript: engine.transcript.map((item) => ({
+        type: item.type, role: item.role, content: item.type === 'message' ? item.content : undefined,
+        toolName: item.toolName, providerCallId: item.providerCallId,
+        args: item.args, toolLifecycleStatus: item.toolLifecycleStatus,
+        declaredOutcome: item.metadata?.declared_outcome,
+      })),
       transitions: engine.state.transitions.map(({ from, to, trigger, guard }) => ({ from, to, trigger, guard })),
       lifecycles: engine.lifecycles.snapshot().map(({ kind, phase, outcome }) => ({ kind, phase, outcome })),
     };

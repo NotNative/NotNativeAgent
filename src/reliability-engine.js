@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { RecoverySupervisor, recoveryExhaustionDetail, recoveryExhaustionText, recoveryHint } from './reliability/recovery-supervisor.js';
-import { evaluateCompletion, partialOutputProgress } from './reliability/completion-supervisor.js';
+import { completionAdvisories, evaluateCompletion, partialOutputProgress } from './reliability/completion-supervisor.js';
 import { contextPressurePolicy, pressureTier, projectActiveTurn } from './reliability/context-pressure.js';
 import { ContinuationCompactor } from './reliability/continuation-compactor.js';
 import { ModelDialectRegistry } from './reliability/model-dialects.js';
@@ -75,6 +75,7 @@ export class ReliabilityEngine {
   externalEvidence(active, value) { return active.recovery.externalEvidence(value); }
   createToolCallAssembler() { return new ToolCallAssembler(); }
   evaluateCompletion(active, text, work = null) { return evaluateCompletion(active, text, work); }
+  completionAdvisories(text) { return completionAdvisories(text); }
   partialOutputProgress(text) { return partialOutputProgress(text); }
   exhaustionDetail(supervisor, transcript, reasonCodes, result) {
     return recoveryExhaustionDetail(supervisor, transcript, reasonCodes, result);

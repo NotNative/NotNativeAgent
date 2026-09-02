@@ -8,7 +8,7 @@ import { subagentDefinition } from '../src/subagent-tool.js';
 import { subagentConfig, subagentOutputStatus, subagentParallelLimit } from '../src/subagent-runtime.js';
 import { createSubagentProgressRelay } from '../src/subagent-progress.js';
 import { resolveManifest } from '../src/config.js';
-import { SessionEngine } from '../src/engine.js';
+import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { recoverJournal } from '../src/store.js';
 import { subagentStatus } from '../src/tui/runtime-inspection.js';
 

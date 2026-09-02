@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { resolveManifest } from '../src/config.js';
 import { ModelRouter } from '../src/provider/router.js';
 import { manifestFromConfig } from '../src/provider/route-configuration.js';
-import { SessionEngine } from '../src/engine.js';
+import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { EventHub } from '../src/events.js';
 import { CapabilityCache } from '../src/capability-cache.js';
 import { declaredSubscription } from './event-fixture.js';
@@ -301,7 +301,7 @@ test('AC-ROUTE-05 classified failure falls back without partial output and prese
   assert.equal(result.text, 'fallback complete');
   assert.deepEqual(calls, ['lan', 'lan', 'lan', 'local-vision']);
   const attempts = events.filter((event) => event.event_name === 'provider_attempt.started');
-  assert.equal(new Set(attempts.map((event) => event.logical_request_id)).size, 1);
-  assert.equal(attempts.length, 4);
+  assert.equal(new Set(attempts.map((event) => event.logical_request_id)).size, 2);
+  assert.equal(attempts.length, 5);
   await engine.shutdown({ request_id: 'shutdown' });
 });

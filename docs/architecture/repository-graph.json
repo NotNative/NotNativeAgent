@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:1c893b117e8bc590bcd6cd546f7f1cb6dfefe57d89e233850c437f846eeed559",
+  "source_digest": "sha256:f47fbea8f2e500f75dfe545500617ab4d673f5d3e0995fd49996315767bdb748",
   "counts": {
-    "modules": 337,
+    "modules": 338,
     "component_edges": 69
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "agentic-engine",
       "label": "Agentic Engine",
       "ownership": "Owns turns, steps, lifecycle, and orchestration.",
-      "module_count": 20
+      "module_count": 21
     },
     {
       "id": "governance-engine",
@@ -149,7 +149,7 @@
     {
       "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 31,
+      "import_count": 32,
       "module_count": 9
     },
     {
@@ -165,16 +165,22 @@
       "module_count": 10
     },
     {
-      "from": "agentic-engine",
-      "to": "reliability-engine",
-      "import_count": 13,
-      "module_count": 8
-    },
-    {
       "from": "experience-engine",
       "to": "providers",
       "import_count": 13,
       "module_count": 8
+    },
+    {
+      "from": "agentic-engine",
+      "to": "reliability-engine",
+      "import_count": 12,
+      "module_count": 7
+    },
+    {
+      "from": "agentic-engine",
+      "to": "tools",
+      "import_count": 12,
+      "module_count": 7
     },
     {
       "from": "governance-engine",
@@ -187,12 +193,6 @@
       "to": "reliability-engine",
       "import_count": 12,
       "module_count": 5
-    },
-    {
-      "from": "agentic-engine",
-      "to": "tools",
-      "import_count": 11,
-      "module_count": 6
     },
     {
       "from": "foundation",
@@ -869,6 +869,7 @@
         "src/engine/provider-recovery.js",
         "src/engine/records.js",
         "src/engine/runtime-helpers.js",
+        "src/engine/terminal-declaration.js",
         "src/engine/tool-failures.js",
         "src/engine/tool-recovery.js",
         "src/engine/workspace-transition.js",
@@ -1060,7 +1061,6 @@
         "src/failure-envelope.js",
         "src/ids.js",
         "src/redaction.js",
-        "src/reliability/completion-supervisor.js",
         "src/tools/presentation.js",
         "src/tools/tool-result-contract.js"
       ]
@@ -1078,6 +1078,14 @@
         "src/reliability/tool-call-deduplication.js",
         "src/tools/capability-continuity.js",
         "src/tools/catalog-context.js"
+      ]
+    },
+    {
+      "path": "src/engine/terminal-declaration.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tools/loop.js"
       ]
     },
     {

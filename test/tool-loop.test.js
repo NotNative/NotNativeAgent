@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
-import { SessionEngine } from '../src/engine.js';
+import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
 import { EventHub } from '../src/events.js';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { JournalStore } from '../src/store.js';
@@ -549,15 +549,15 @@ test('AC-TURN-03 safe read is reviewed, executed, reinjected, and completed', as
   assert.equal(result.outcome, 'completed');
   assert.equal(provider.count, 2);
   assert.equal(outputs.find((item) => item.type === 'review_status').outcome, 'approve');
-  assert.deepEqual(outputs.filter((item) => item.type === 'tool_status').map((item) => item.status), [
+  assert.deepEqual(outputs.filter((item) => item.type === 'tool_status' && item.tool !== 'turn.finish').map((item) => item.status), [
     'review_pending', 'approved', 'running', 'succeeded',
   ]);
   const running = outputs.find((item) => item.type === 'tool_status' && item.status === 'running');
   assert.deepEqual(running.arguments, { path: 'note.txt' });
   assert.equal(running.effect, 'read_only');
   assert.equal(running.scope, 'workspace');
-  assert.equal(engine.reviewerAudit()[0].result, 'succeeded');
-  assert.equal(engine.transcript.filter((item) => item.type === 'tool_result').length, 1);
+  assert.equal(engine.reviewerAudit().find((item) => item.tool === 'fs.read_text')?.result, 'succeeded');
+  assert.equal(engine.transcript.filter((item) => item.type === 'tool_result' && item.toolName !== 'turn.finish').length, 1);
 });
 
 test('Prompt posture reaches mandatory review and requires an operator decision for a safe tool', async () => {
@@ -606,7 +606,7 @@ test('Unattended posture converts semantic escalation to guidance without openin
   assert.equal(result.outcome, 'blocked');
   assert.equal(outputs.some((item) => item.type === 'permission_prompt'), false);
   assert.equal(outputs.find((item) => item.type === 'review_status').outcome, 'deny_with_guidance');
-  assert.deepEqual(outputs.filter((item) => item.type === 'tool_status').map((item) => item.status), [
+  assert.deepEqual(outputs.filter((item) => item.type === 'tool_status' && item.tool !== 'turn.finish').map((item) => item.status), [
     'review_pending', 'denied',
   ]);
   assert.equal(await readFile(path, 'utf8'), 'before');
@@ -671,9 +671,9 @@ test('AC-EVENT-06/AC-TOOL-05 duplicate tool identity reuses the terminal result 
   const result = await engine.submit({ request_id: 'duplicate-turn', content: 'Read once' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.equal(provider.count, 3);
-  assert.equal(engine.reviewerAudit().length, 1);
-  assert.equal(engine.transcript.filter((item) => item.type === 'tool_result').length, 1);
-  assert.equal(output.filter((item) => item.status === 'running').length, 1);
+  assert.equal(engine.reviewerAudit().filter((item) => item.tool !== 'turn.finish').length, 1);
+  assert.equal(engine.transcript.filter((item) => item.type === 'tool_result' && item.toolName !== 'turn.finish').length, 1);
+  assert.equal(output.filter((item) => item.status === 'running' && item.tool !== 'turn.finish').length, 1);
   assert.equal(output.filter((item) => item.status === 'duplicate_ignored').length, 1);
 });
 
@@ -691,7 +691,7 @@ test('AC-TOOL-01 unknown tool never reaches review or execution', async () => {
   await engine.initialize();
   const result = await engine.submit({ request_id: 'invalid-turn', content: 'Inspect safely' }, 'operator');
   assert.equal(result.outcome, 'completed');
-  assert.equal(engine.reviewerAudit().length, 0);
+  assert.equal(engine.reviewerAudit().filter((item) => item.tool !== 'turn.finish').length, 0);
   assert.equal(engine.transcript.find((item) => item.type === 'tool_result').toolLifecycleStatus, 'invalid_request');
   const terminal = output.find((item) => item.type === 'tool_status');
   assert.equal(terminal.target, 'anything');
@@ -1258,7 +1258,7 @@ test('AC-ARCH-02/AC-TURN-05 multiple tool calls retain nested lifecycle and dete
   const result = await engine.submit({ request_id: 'multiple-read-turn', content: 'Read first.txt and second.txt' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.deepEqual(
-    engine.transcript.filter((item) => item.type === 'tool_result').map((item) => item.providerCallId),
+    engine.transcript.filter((item) => item.type === 'tool_result' && item.toolName !== 'turn.finish').map((item) => item.providerCallId),
     ['first-call', 'second-call'],
   );
   const lifecycles = engine.lifecycles.snapshot();
@@ -1292,7 +1292,7 @@ test('exact duplicate calls in one provider batch execute and replay only once',
   const result = await engine.submit({ request_id: 'duplicate-batch-turn', content: 'Read result.txt' }, 'operator');
   assert.equal(result.outcome, 'completed');
   assert.deepEqual(
-    engine.transcript.filter((item) => item.type === 'tool_result').map((item) => item.providerCallId),
+    engine.transcript.filter((item) => item.type === 'tool_result' && item.toolName !== 'turn.finish').map((item) => item.providerCallId),
     ['retained-call'],
   );
 });

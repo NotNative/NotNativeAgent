@@ -60,7 +60,7 @@ export class MandatoryReviewer {
         );
       }
       if (context.reviewPosture === 'prompt' && decision.outcome === 'approve'
-        && context.definition.name !== 'system.elevate') {
+        && !['system.elevate', 'turn.finish'].includes(context.definition.name)) {
         decision = escalate('prompt_posture_operator_decision', request, 'Prompt posture requires operator approval before execution.');
       }
       if (decision.outcome === 'approve') decision = refreshApprovalWindow(decision, this.decisionTtlMs);
@@ -151,9 +151,8 @@ function classify(request, definition) {
     return Object.freeze({ risk: 'safe', reason: privateOrigin ? 'trusted_private_web_fetch' : 'validated_public_web_fetch', effect: 'read_only', scope: privateOrigin ? 'private_network' : 'public_network', complexity: 'simple' });
   }
   if (definition.name === 'web.browse') return browserClassification(request);
-  if (definition.sideEffect === 'read_only' && definition.scope === 'tool_catalog' && definition.name === 'tool.search') {
-    return Object.freeze({ risk: 'safe', reason: 'bounded_tool_catalog', effect: 'read_only', scope: 'tool_catalog', complexity: 'simple' });
-  }
+  const localControl = localControlClassification(definition);
+  if (localControl) return localControl;
   if (definition.scope === 'ephemeral_reference' && definition.name.startsWith('ref.')) return ephemeralReferenceClassification(definition);
   if (definition.scope === 'conversation_work' && definition.name.startsWith('work.')) {
     return Object.freeze({ risk: 'safe', reason: 'bounded_conversation_work', effect: definition.sideEffect, scope: 'conversation_work', complexity: 'simple' });
@@ -173,6 +172,18 @@ function classify(request, definition) {
   if (definition.name === 'system.elevate') return elevationClassification();
   if (['process.run', 'shell.run'].includes(definition.name)) return processClassification(request);
   return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
+}
+
+function localControlClassification(definition) {
+  if (definition.sideEffect === 'read_only' && definition.scope === 'tool_catalog' && definition.name === 'tool.search') {
+    return Object.freeze({ risk: 'safe', reason: 'bounded_tool_catalog', effect: 'read_only', scope: 'tool_catalog', complexity: 'simple' });
+  }
+  // Why: turn.finish records an assertion for deterministic supervision; it does not grant
+  // authority or cause an external effect. Sending that assertion to semantic review would
+  // make terminal reliability depend circularly on another model response.
+  if (definition.sideEffect !== 'read_only' || definition.scope !== 'conversation_control'
+    || definition.name !== 'turn.finish') return null;
+  return Object.freeze({ risk: 'safe', reason: 'typed_terminal_declaration', effect: 'read_only', scope: 'conversation_control', complexity: 'simple' });
 }
 
 function processClassification(request) {

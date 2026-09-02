@@ -2,7 +2,6 @@
 import { ContractError } from '../ids.js';
 import { failureEnvelope } from '../failure-envelope.js';
 import { safeToolArguments } from '../tools/presentation.js';
-import { requestsInput } from '../reliability/completion-supervisor.js';
 import { redactText } from '../redaction.js';
 import { durableToolResultState, toolChildState } from '../tools/tool-result-contract.js';
 
@@ -198,13 +197,6 @@ export function toolDecisionState(outcome) {
 
 export function toolResultState(result) {
   return toolChildState(result);
-}
-
-export function classifyCompletion(text) {
-  if (typeof text !== 'string' || text.trim().length === 0) {
-    throw new ContractError('empty_model_output', 'model produced no text', true);
-  }
-  return requestsInput(text) ? 'needs_input' : 'completed';
 }
 
 export function normalizeFailure(error, partial, causeId = null) {

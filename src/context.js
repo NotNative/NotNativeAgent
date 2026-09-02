@@ -171,6 +171,7 @@ function enginePolicyMessage(config) {
       policySection('Failure and completion', [
         'Correct malformed requests from their in-band error and never repeat unchanged invalid or denied arguments. A denial constrains the route; continue through a safer, narrower, or more reversible alternative when one exists.',
         'Do not claim completion while required work is unfinished or a required operation remains denied, invalid, failed, timed out, or cancelled. Preserve uncertainty when evidence is unavailable.',
+        'Before emitting the final response, call turn.finish with the intended typed disposition. Prose cannot declare completion, a blocker, failure, or a request for operator input.',
       ]),
     ].join('\n\n'),
     provenance: 'engine_policy', trust: 'kernel',
