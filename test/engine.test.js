@@ -10,7 +10,7 @@ import { EventHub } from '../src/events.js';
 import { JournalStore } from '../src/store.js';
 import { CanonicalIngress } from '../src/ingress.js';
 import { declaredSubscription } from './event-fixture.js';
-import { completionAdvisories, evaluateCompletion, requestsInput } from '../src/completion-supervisor.js';
+import { completionAdvisories, evaluateCompletion, requestsInput } from '../src/reliability/completion-supervisor.js';
 
 const EMPTY_HOOK_ROOT = join(process.cwd(), '.nna-test-hooks-none');
 

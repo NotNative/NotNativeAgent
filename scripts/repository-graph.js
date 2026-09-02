@@ -19,9 +19,7 @@ const COMPONENTS = Object.freeze([
     'experience-engine.js', 'experience/', 'tui.js', 'tui/', 'plain-text.js',
   )),
   component('reliability-engine', 'Reliability Engine', 'Owns progress, context fitness, protocol integrity, and bounded recovery.', matches(
-    'reliability-engine.js', 'reliability/', 'active-context-pressure.js', 'cold-context.js', 'compaction.js',
-    'completion-supervisor.js', 'context-budget.js', 'context.js', 'continuation-artifact.js',
-    'continuation-compactor.js', 'long-horizon-context.js', 'recovery.js',
+    'reliability-engine.js', 'reliability/', 'context.js',
   )),
   component('gateway', 'Gateway', 'Adapts authenticated remote operator traffic.', matches('gateway-cli.js', 'gateway/')),
   component('persistence', 'Persistence', 'Owns durable journals, locks, state, and atomic storage.', matches(

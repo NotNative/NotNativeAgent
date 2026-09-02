@@ -2,7 +2,6 @@
 import { ContractError } from '../ids.js';
 import { isIntermediateToolStatus } from './tool-lifecycle.js';
 import { accumulateTokenAccounting } from './token-accounting.js';
-export { validateKeyBindings } from './key-bindings.js';
 import { validateKeyBindings } from './key-bindings.js';
 
 const TUI_RECORD_LIMIT = 9_999;

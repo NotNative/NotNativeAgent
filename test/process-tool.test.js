@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { operationalEnvironment, shellInvocation, shellRunDefinition } from '../src/tools/process.js';
-import { toolProgressEvidence } from '../src/tools/loop.js';
+import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
 import { detachedProcessInvocation } from '../src/reliability/process-lifecycle.js';
 
 test('process.run executes bounded shell-free argv inside the workspace', async () => {

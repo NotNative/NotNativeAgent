@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compactTranscript, createHandoffFact } from '../src/compaction.js';
+import { compactTranscript, createHandoffFact } from '../src/reliability/compaction.js';
 import { buildContext } from '../src/context.js';
-import { ContinuationCompactor } from '../src/continuation-compactor.js';
+import { ContinuationCompactor } from '../src/reliability/continuation-compactor.js';
 import { FairScheduler } from '../src/provider/fair-scheduler.js';
 import { toolResultRecord } from '../src/engine/records.js';
 import { createToolContextReceipt } from '../src/tools/context-receipt.js';

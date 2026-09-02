@@ -73,12 +73,12 @@ bypass review.
 
 ## Compatibility and migration
 
-The former module paths remain forwarding facades during migration. Existing extensions,
-tests, and callers may continue importing those paths without behavioral change. Runtime
-code uses the Reliability Engine facade so there is one authoritative composition root.
+The forwarding-module migration is complete. Callers import helpers from their owning
+modules under `src/reliability/`. Former helper paths and transitional Session Engine
+component aliases are removed. These old JavaScript import paths are not supported.
 
-The `engine.dialects` and `engine.continuationCompactor` properties remain transitional
-aliases to Reliability Engine-owned components. They do not represent independent state.
+Runtime orchestration uses the Reliability Engine interface. `src/index.js` remains the
+public package entry point and exports the current names without historical aliases.
 
 ## Invariants
 
@@ -167,5 +167,6 @@ aliases to Reliability Engine-owned components. They do not represent independen
 
 New reliability mechanisms enter through `ReliabilityEngine` and receive explicit facts.
 Session orchestration stays smaller and model/provider compatibility can improve without
-weakening governance. Compatibility facades can be removed only in a separately versioned
-breaking change.
+weakening governance. Module moves update all repository callers in the same versioned
+slice instead of retaining forwarding-only files. Durable records and provider protocols
+are separate contracts; this import cleanup does not change their semantics.

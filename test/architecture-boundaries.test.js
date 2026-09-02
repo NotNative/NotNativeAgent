@@ -1,10 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { readdir, readFile } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import test from 'node:test';
 
 const sourceRoot = resolve('src');
+
+test('production modules use real relative targets without forwarding-only files', async () => {
+  const files = await sourceFiles(sourceRoot);
+  const forwarding = [];
+  for (const file of files) {
+    const source = (await readFile(file, 'utf8')).replace(/^\s*\/\/[^\n]*$/gmu, '').trim();
+    // Why: a single forwarding export only preserves a moved path; callers should use its owner.
+    if (/^export\s+(?:\*|\{[^}]*\})\s+from\s+['"][^'"]+['"];?$/u.test(source)) {
+      forwarding.push(relative(sourceRoot, file).replaceAll('\\', '/'));
+    }
+    for (const target of await relativeTargets(file)) {
+      await assert.doesNotReject(access(target), `${relative(sourceRoot, file)} imports missing ${target}`);
+    }
+  }
+  assert.deepEqual(forwarding, []);
+});
 
 test('engine and surface dependency directions remain explicit', async () => {
   const files = await sourceFiles(sourceRoot);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { contextBudget, estimateContextTokens } from '../src/context-budget.js';
+import { contextBudget, estimateContextTokens } from '../src/reliability/context-budget.js';
 import { ModelRuntimeRegistry } from '../src/provider/model-runtime.js';
 import { OpenAICompatibleProvider } from '../src/provider.js';
 import { FairScheduler } from '../src/provider/fair-scheduler.js';

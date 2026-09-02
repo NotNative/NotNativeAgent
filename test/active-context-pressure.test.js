@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   CONTEXT_PRESSURE, contextPressurePolicy, pressureTier, projectActiveTurn,
-} from '../src/active-context-pressure.js';
+} from '../src/reliability/context-pressure.js';
 import { buildContext } from '../src/context.js';
 
 test('active pressure tiers use conservative local-model boundaries', () => {

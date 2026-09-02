@@ -10,8 +10,6 @@ import { projectDuplicateToolResults } from './duplicate-results.js';
 import { createToolContextReceipt } from '../tools/context-receipt.js';
 import { contextCompressionPolicy } from './context-compression.js';
 
-export { attachTaskCheckpoint, enrichCompactionFact, enrichHandoffFact } from './continuation-artifact.js';
-
 const DEFAULT_PROTECTED_COMPLETED_TURNS = 5;
 const RECORD_BUDGET_RATIO = 0.55;
 const EMERGENCY_THRESHOLD_RATIO = 0.65;

@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { resolveManifest } from '../src/config.js';
 import { OpenAICompatibleProvider } from '../src/provider.js';
-import { ToolCallAssembler } from '../src/tools/calls.js';
+import { ToolCallAssembler } from '../src/reliability/tool-call-assembler.js';
 import { VERSION } from '../src/product.js';
 
 const TOOL = Object.freeze({

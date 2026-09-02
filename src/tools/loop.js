@@ -421,10 +421,6 @@ function missionToolDisposition(active, items) {
   return null;
 }
 
-export {
-  toolFailureFingerprint, toolProgressEvidence, toolRequestFingerprint, toolRequestFingerprints,
-} from '../reliability/tool-progress.js';
-
 export function toolContinuationHint(items, fallback = null) {
   const truncatedArguments = items.find((item) => item.result?.reason_code === 'tool_arguments_truncated');
   if (truncatedArguments) {

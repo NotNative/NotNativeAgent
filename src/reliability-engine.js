@@ -10,7 +10,8 @@ import {
 } from './reliability/tool-progress.js';
 import { contextBudget, estimateContextTokens } from './reliability/context-budget.js';
 import { longHorizonCompressionTrigger } from './reliability/long-horizon-context.js';
-import { attachTaskCheckpoint, compactTranscript, createHandoffFact } from './reliability/compaction.js';
+import { compactTranscript, createHandoffFact } from './reliability/compaction.js';
+import { attachTaskCheckpoint } from './reliability/continuation-artifact.js';
 import { ToolCallAssembler } from './reliability/tool-call-assembler.js';
 import { buildColdEvidence } from './reliability/cold-context.js';
 import {

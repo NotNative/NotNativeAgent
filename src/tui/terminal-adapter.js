@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
 import { runtimeEnvironment } from '../environment-settings.js';
-import { bindingBytes, DEFAULT_KEY_BINDINGS } from './key-bindings.js';
+import { bindingBytes } from './key-bindings.js';
+import { DEFAULT_KEY_BINDINGS } from '../experience/key-bindings.js';
 
 const ESC = '\u001b';
 const MAX_INPUT_BYTES = 262_144;

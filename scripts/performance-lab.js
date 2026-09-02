@@ -8,7 +8,7 @@ import { performance } from 'node:perf_hooks';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
 import { EventHub } from '../src/events.js';
-import { RecoverySupervisor } from '../src/recovery.js';
+import { RecoverySupervisor } from '../src/reliability/recovery-supervisor.js';
 import { ToolRegistry } from '../src/tool-registry.js';
 import { TuiProjection } from '../src/experience/projection.js';
 import { TuiRenderer } from '../src/tui/renderer.js';

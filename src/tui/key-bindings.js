@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: Apache-2.0
-export { DEFAULT_KEY_BINDINGS, validateKeyBindings } from '../experience/key-bindings.js';
 
 const KEY_BYTES = Object.freeze({
   // Standard xterm/VT function-key, back-tab, navigation, and modified-navigation sequences.

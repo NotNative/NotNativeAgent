@@ -14,11 +14,10 @@ import { ContractError } from '../src/ids.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { denialResult, ToolGovernor, toolSettlementTerminal } from '../src/tools/governor.js';
-import { RecoverySupervisor, recoveryHint } from '../src/recovery.js';
+import { RecoverySupervisor, recoveryHint } from '../src/reliability/recovery-supervisor.js';
 import { declaredSubscription } from './event-fixture.js';
-import {
-  ToolLoop, toolContinuationHint, toolFailureFingerprint, toolProgressEvidence, toolRequestFingerprint,
-} from '../src/tools/loop.js';
+import { ToolLoop, toolContinuationHint } from '../src/tools/loop.js';
+import { toolFailureFingerprint, toolProgressEvidence, toolRequestFingerprint } from '../src/reliability/tool-progress.js';
 import { selfDiagnosticsDefinitions } from '../src/tools/self-diagnostics.js';
 import { openRuntimeInspection } from '../src/tui/runtime-inspection.js';
 import {

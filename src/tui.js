@@ -2,10 +2,9 @@
 import { ContractError } from './ids.js';
 import { TerminalInputDecoder, TerminalMode, sanitizeTerminal, terminalCapabilities } from './tui/terminal-adapter.js';
 import { headerTargetAt, TuiRenderer } from './tui/renderer.js';
-import { validateKeyBindings } from './experience/projection.js';
+import { validateKeyBindings } from './experience/key-bindings.js';
 import { RetainedTerminalScreen } from './tui/terminal-screen.js';
 import { createRenderLoop } from './tui/render-loop.js';
-export { adaptiveRenderDelay, createRenderLoop } from './tui/render-loop.js';
 import { commandDefinition } from './tui/commands.js';
 import { auditOverlay, configOverlay, gatewayOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui/overlays.js';
 import { runContextCommand } from './tui/context.js';

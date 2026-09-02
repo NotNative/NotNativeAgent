@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildColdEvidence } from '../src/cold-context.js';
+import { buildColdEvidence } from '../src/reliability/cold-context.js';
 import { buildContext } from '../src/context.js';
 import { buildReportedContext } from '../src/engine/context-status.js';
 

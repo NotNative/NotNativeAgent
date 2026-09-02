@@ -1,6 +1,6 @@
 # Reliability review resolution
 
-Date: 2026-08-29. Updated: 2026-09-01.
+Date: 2026-08-29. Updated: 2026-09-02.
 
 This record reconciles the three NNA self-autopsies against the implemented runtime. A finding is
 resolved only when code, tests, or an explicit compatibility decision addresses it. The reviews
@@ -62,9 +62,9 @@ when a suggested repair conflicts with them.
 | Working-directory and authorization scope were ambiguous across tabs | Resolved by `dcaadbb`. `workspace.change` is reviewed, durable, tab-local, reloads applicable `AGENTS.md` guidance, and invalidates sibling requests sealed under the prior directory. The CWD supplies automatic scope; explicit authenticated intent can authorize one outside-CWD operation without moving it. |
 | A deferred MCP startup test used a load-sensitive elapsed-time threshold | Resolved by `3d91e67`. The test now proves lifecycle ordering and cancellation state rather than treating machine speed as product behavior. |
 
-Current verification names both platform skips in TAP output. Compatibility facades remain small
-delegation points, and ignored local audit artifacts remain outside release and publication
-allowlists; neither condition is treated as an unidentified production module or an unnamed skip.
+Verification names platform skips in test output. The forwarding-only compatibility modules
+were removed after all repository callers moved to their owning modules. Ignored local audit
+artifacts remain outside release and publication allowlists.
 
 ## Recommendations not adopted literally
 

@@ -6,8 +6,9 @@ export { AttachmentManager, AttachmentObservationRouter } from './attachments.js
 export { MemoryBoundary } from './memory.js';
 export { McpManager } from './mcp-manager.js';
 export { EXTENSION_HOST_CONTRACT, ExtensionRegistry } from './extensions.js';
-export { ExperienceEngine, ExperienceEngine as InteractiveWorkspace } from './experience-engine.js';
-export { TuiProjection, EditorBuffer, validateKeyBindings } from './experience/projection.js';
+export { ExperienceEngine } from './experience-engine.js';
+export { TuiProjection, EditorBuffer } from './experience/projection.js';
+export { validateKeyBindings } from './experience/key-bindings.js';
 export { StructuredLog } from './structured-log.js';
 export { DiagnosticBundle } from './diagnostic-bundle.js';
 export { FairScheduler } from './provider/fair-scheduler.js';

@@ -66,5 +66,3 @@ export async function recoverContentFreeCompletion(engine, active, operations) {
   });
   return { continue: true, hint: engine.reliability.hint(plan.action), countModelStep: false };
 }
-
-export { contextPressureScale } from '../reliability/provider-recovery.js';

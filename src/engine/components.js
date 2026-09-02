@@ -73,9 +73,6 @@ function installReliability(engine, options, hooks) {
   });
   engine.reliability.continuationCompactor?.setTokenReceiptRecorder?.(recorder);
   engine.recordProviderAttempt = recorder;
-  // Transitional aliases preserve extension and test contracts while canonical ownership moves.
-  engine.dialects = engine.reliability.modelDialects;
-  engine.continuationCompactor = engine.reliability.continuationCompactor;
 }
 
 function installOutput(engine, options) {

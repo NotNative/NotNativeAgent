@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   LONG_HORIZON_POLICY, longHorizonCompressionTrigger, retainedRecordsFingerprint,
-} from '../src/long-horizon-context.js';
+} from '../src/reliability/long-horizon-context.js';
 
 test('completed-turn interval initiates long-horizon compression at its bounded threshold', () => {
   const records = Array.from({ length: LONG_HORIZON_POLICY.completedTurns }, (_, index) => ({

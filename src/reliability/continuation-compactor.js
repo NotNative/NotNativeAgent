@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { enrichCompactionFact, enrichHandoffFact } from './compaction.js';
+import { enrichCompactionFact, enrichHandoffFact } from './continuation-artifact.js';
 import { routeReasoningFields } from '../provider/reasoning.js';
 import { createHash } from 'node:crypto';
 import { newId } from '../ids.js';

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ModelDialectRegistry } from '../src/provider/model-dialects.js';
+import { ModelDialectRegistry } from '../src/reliability/model-dialects.js';
 import { qualifyModel } from '../src/provider/model-qualification.js';
 
 test('model dialect profiles persist provider observations while tool-contract lessons stay quarantined', async () => {
