@@ -397,6 +397,7 @@ function toolProjectionMetadata(item) {
 function toolContentProjection(item) {
   if (typeof item.metadata?.receiptSchema === 'string') return 'receipt';
   if (item.metadata?.compacted === true || item.pressureCompacted === true) return 'bounded';
+  if (item.metadata?.contentRedacted === true || item.metadata?.content_redacted === true) return 'redacted';
   return 'full';
 }
 

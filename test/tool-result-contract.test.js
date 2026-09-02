@@ -82,7 +82,7 @@ test('provider projection names lifecycle and review fields explicitly', () => {
   assert.equal(projected.untrusted, true);
 });
 
-test('provider projection distinguishes full, bounded, and receipt content', () => {
+test('provider projection distinguishes full, redacted, bounded, and receipt content', () => {
   const project = (metadata) => {
     const transcript = [
       { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs.read', args: { path: 'a.txt' } },
@@ -98,6 +98,11 @@ test('provider projection distinguishes full, bounded, and receipt content', () 
   };
 
   assert.equal(project(null).content_projection, 'full');
+  const redacted = project({ contentRedacted: true, originalBytes: 42, projectionReason: 'secret_redaction' });
+  assert.equal(redacted.content_projection, 'redacted');
+  assert.deepEqual(redacted.projection_metadata, {
+    mode: 'redacted', original_bytes: 42, projected_bytes: 8, omitted_bytes: 34, reason: 'secret_redaction',
+  });
   assert.equal(project({ compacted: true, reason: 'active_pressure_receipt' }).content_projection, 'bounded');
   assert.equal(project({
     compacted: true, reason: 'semantic_tool_receipt', receiptSchema: 'nna.tool-receipt.v1',

@@ -57,6 +57,12 @@ test('central redaction recognizes common discovered credential representations'
   assert.doesNotMatch(redacted, /discovered-token-value|command-token-value|flag-token-value|embedded-password/u);
 });
 
+test('central redaction preserves recognizable source-code expressions after sensitive labels', () => {
+  const source = 'const policy = { secret: Object.freeze({ category: "credential" }), token: process.env.RUNTIME_TOKEN };';
+  assert.equal(redactText(source), source);
+  assert.equal(redactText('secret: "literal-value"'), 'secret: [redacted]');
+});
+
 test('realm separation prevents supported cross-realm enumeration and use', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-secret-realms-'));
   const paths = { vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json'), auditPath: join(root, 'audit.ndjson') };

@@ -6,7 +6,7 @@ const SECRET_LABEL = String.raw`(?:api[_-]?key|access[_-]?token|refresh[_-]?toke
 const SECRET_VALUE = String.raw`(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)`;
 const TEXT_PATTERNS = Object.freeze([
   /\bbearer\s+[A-Za-z0-9._~+/-]{16,}={0,2}/giu,
-  new RegExp(String.raw`\b(${SECRET_LABEL})\b\s*([=:])\s*${SECRET_VALUE}`, 'giu'),
+  new RegExp(String.raw`\b(${SECRET_LABEL})\b(\s*[=:]\s*)(${SECRET_VALUE})`, 'giu'),
   new RegExp(String.raw`(\b(?:add[-_]?authtoken|--?${SECRET_LABEL})\b(?:\s+|=))${SECRET_VALUE}`, 'giu'),
   /([a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:)[^\s/@]+(@)/giu,
   /-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+PRIVATE KEY-----/gu,
@@ -68,9 +68,20 @@ export function redactText(value) {
   // Why: these patterns identify technical credential representations, not user intent.
   // Discovered unmanaged credentials need protection before they can become durable evidence.
   result = result.replaceAll(TEXT_PATTERNS[0], 'Bearer [redacted]');
-  result = result.replaceAll(TEXT_PATTERNS[1], '$1$2[redacted]');
+  result = result.replaceAll(TEXT_PATTERNS[1], (match, label, separator, candidate) => (
+    sourceCodeReference(candidate) ? match : `${label}${separator}[redacted]`
+  ));
   result = result.replaceAll(TEXT_PATTERNS[2], '$1[redacted]');
   result = result.replaceAll(TEXT_PATTERNS[3], '$1[redacted]$2');
   result = result.replaceAll(TEXT_PATTERNS[4], '[redacted private key]');
   return result;
+}
+
+function sourceCodeReference(value) {
+  if (/^["']/u.test(value)) return false;
+  // Why: source listings commonly contain fields such as `secret: Object.freeze({ ... })`.
+  // Redacting that expression corrupts evidence; registered values and credential literals
+  // still redact, while recognizable executable references remain byte-for-byte observable.
+  return /[()[\]{}]/u.test(value)
+    || /^(?:Object|process\.env|import\.meta\.env|Deno\.env)\b/u.test(value);
 }

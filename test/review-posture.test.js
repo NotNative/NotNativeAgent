@@ -113,7 +113,10 @@ test('governor redacts discovered credentials at the shared tool-result boundary
   assert.equal(result.status, 'succeeded');
   assert.match(result.content, /authtoken=\[redacted\]/u);
   assert.match(result.content, /https:\/\/operator:\[redacted\]@example\.test/u);
-  assert.deepEqual(result.metadata, { token: '[redacted]', note: 'access_token=[redacted]' });
+  assert.deepEqual(result.metadata, {
+    token: '[redacted]', note: 'access_token=[redacted]', contentRedacted: true,
+    originalBytes: 82, projectionReason: 'secret_redaction',
+  });
   assert.doesNotMatch(JSON.stringify(result), /discovered-output-token|url-password|metadata-token|metadata-note-token/u);
 });
 

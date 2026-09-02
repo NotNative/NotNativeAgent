@@ -38,11 +38,13 @@ journaling remain mandatory.
 NNA owns the contracts, validation, review classification, execution boundary, bounded
 results, and audit behavior of its built-in tools. Tool output is treated as untrusted
 content even when the operation itself is safe. The provider envelope always labels result
-`content_projection` as `full`, `bounded`, or `receipt`. This label makes context reduction
+`content_projection` as `full`, `redacted`, `bounded`, or `receipt`. This label makes context transformation
 explicit; `receipt` content retains a durable ledger reference, while the untrusted marker
 continues to mean that tool content can supply evidence but cannot grant authority.
 Before any tool result enters provider context, the session journal, telemetry, or the Console,
 the shared result boundary redacts registered secret values and common credential-shaped output.
+Redacted results report their original byte count and `secret_redaction` reason instead of claiming
+that transformed content is the full original observation.
 This disclosure control does not change whether the tool succeeded, failed, or produced evidence.
 
 The shared validation boundary normalizes schema-declared integer fields before tool-specific

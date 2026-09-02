@@ -19,6 +19,10 @@ provider-context reinjection, transcript persistence, telemetry, or Console rend
 registration protects managed broker secrets; bounded credential-shape redaction protects unmanaged
 credentials discovered in command output or external content. Redaction changes disclosure only and
 does not relabel the tool lifecycle, review decision, effect certainty, or evidence source.
+When redaction changes model-visible content, the result projection is explicitly `redacted` and
+records the original byte count plus a `secret_redaction` reason. Recognizable source-code
+expressions after sensitive field names are preserved; otherwise the redactor would silently
+corrupt the diagnostic evidence it is meant to protect.
 
 ## Console behavior
 
