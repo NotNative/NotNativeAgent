@@ -235,7 +235,8 @@ async function executeBounded(definition, request, parentSignal, executionContex
   let parentAbort;
   // Invariant: a null outer deadline is valid only when the executor owns a bounded
   // operation phase and a user-cancellable native acquisition phase.
-  const timeout = definition.timeoutMs === null ? null : new Promise((resolve) => {
+  const nativeWait = request.toolName === 'shell.run' && request.args.privilege === 'administrator';
+  const timeout = definition.timeoutMs === null || nativeWait ? null : new Promise((resolve) => {
     timeoutId = setTimeout(() => { controller.abort(); resolve({ boundary: 'timeout' }); }, definition.timeoutMs);
   });
   const cancelled = new Promise((resolve) => {
@@ -251,11 +252,11 @@ async function executeBounded(definition, request, parentSignal, executionContex
     if (settled.boundary === 'cancelled') {
       // Why: child engines get an orderly-close window so their ledgers can settle, but
       // parent cancellation must remain bounded even when a provider ignores abort.
-      if (definition.scope === 'subagent') {
+      if (definition.scope === 'subagent' || nativeWait) {
         const childSettled = await settlesWithin(operation, subagentCancellationSettlementMs);
         if (!childSettled) {
           const error = new ContractError('tool_cancelled',
-            'sub-agent cancellation did not settle within its bounded close window');
+            'tool cancellation did not settle within its bounded close window');
           error.toolMetadata = Object.freeze({
             cancellation_settlement: 'expired',
             cancellation_settlement_ms: subagentCancellationSettlementMs,

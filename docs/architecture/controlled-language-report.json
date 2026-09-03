@@ -4,12 +4,12 @@
   "scope": "maximal bundled tool registry; purpose, provider facade description, and input-schema description fields",
   "stats": {
     "tools": 46,
-    "proseFields": 175,
-    "proseSentences": 281,
+    "proseFields": 177,
+    "proseSentences": 290,
     "longProseCandidates": 0,
     "unqualifiedBoundaryCandidates": 2,
-    "maximumSentenceWords": 24,
-    "rationaleMarkers": 83
+    "maximumSentenceWords": 22,
+    "rationaleMarkers": 87
   },
   "long_prose_candidates": [],
   "unqualified_boundary_candidates": [
@@ -23,9 +23,9 @@
     }
   ],
   "rationale_marker_counts": {
-    "Why": 59,
+    "Why": 60,
     "Invariant": 16,
     "Compatibility": 5,
-    "Security": 3
+    "Security": 6
   }
 }

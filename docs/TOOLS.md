@@ -174,14 +174,23 @@ authenticated user intent. Ordinary intermediate commands and targets derived fr
 results need not be named verbatim. A concrete contradiction, scope divergence, or
 disproportionate irreversible effect remains a denial.
 
-`system.elevate` is temporarily disabled and is not installed in any NNA tool registry. NNA
-does not start UAC, `sudo`, or another native elevation flow. If an operation requires greater
-authority, the agent asks the user to run the required command in their own terminal and
-continues only from the result the user provides.
+`system.elevate` remains disabled. Local interactive Windows Console sessions can use
+`shell.run` with `privilege: "administrator"`, a `reason`, and a complete PowerShell script
+(at most 8192 characters; no `stdin_ref`). The default remains ordinary user privilege.
+Semantic review must approve before native UAC appears. There is no second NNA confirmation.
+The Console remains visible and the workflow waits for UAC; `timeout_ms` starts after
+authentication, not while waiting for the user. UAC cancellation or OS refusal is non-approval.
+Process cancellation or missing results after launch retain uncertainty: inspect the target
+before retrying. This is one operation, not a reusable administrator shell or service.
+`accepted_exit_codes` may include documented Windows codes such as MSI 3010; that code reports
+`reboot_required`, and NNA does not initiate a reboot. Verify the requested configuration or
+installation afterward; a successful exit is not evidence that the user's objective was achieved.
+Linux/macOS, headless, hosted, and unattended sessions must ask the user to run privileged
+commands manually and continue from the supplied result. NNA never collects a sudo password.
 
 `process.run` and `shell.run` reject `sudo`, `doas`, `pkexec`, `runas`, and PowerShell
-`Start-Process -Verb RunAs` launchers. This prevents an ordinary process tool from bypassing
-the disabled boundary. NNA does not add the user to `sudoers`, create a persistent privileged
+`Start-Process -Verb RunAs` launchers. This keeps native elevation behind the reviewed
+administrator contract. NNA does not add the user to `sudoers`, create a persistent privileged
 daemon, request a password, or grant a reusable elevated shell. Remaining
 process requests are review-required because
 repository programs and package scripts may still have effects. The deterministic packet

@@ -114,10 +114,18 @@ effects reach mandatory semantic review instead of being prohibited by the tool 
 `process.run` retains minimal-environment inheritance, bounded output, deadlines, and
 process-tree cancellation. `docs/TOOLS.md` is the canonical current catalog.
 
-Native elevation is temporarily disabled. No active runtime installs `system.elevate`.
-Ordinary process tools reject native privilege launchers and direct the agent to ask the
-operator to run the required command independently. The dormant adapter and its tests retain
-the intended boundary for future focused repair, but they grant no callable authority.
+No active runtime installs `system.elevate`. Local interactive Windows Console sessions may
+request `shell.run` with `privilege: administrator` and a reason. Every such request requires
+semantic approval and counts as host-level unknown effects, including read commands. Approval
+leads directly to native UAC, without a second NNA confirmation. Unattended or hosted sessions
+cannot use this path. Ordinary process tools still reject direct privilege launchers.
+The Console stays visible while authentication blocks the tool workflow. The command deadline
+starts only after authentication. A one-operation worker checks a digest-bound request and a
+cancellation marker; trusted worker code travels inline, not through a mutable helper file.
+Cancellation or OS refusal before launch is not approval. Missing results after possible launch
+retain unknown effects and require target inspection before retry. No reusable privileged daemon,
+shell session, or password capture is created. Linux/macOS elevation remains unavailable; ask the
+operator to run the command independently. Successful execution still requires outcome verification.
 
 A guidance denial constrains the attempted route rather than completing the objective.
 Equivalent denied requests are latched within the same authority snapshot; a newer

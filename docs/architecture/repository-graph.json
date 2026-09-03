@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:2860017dd5f25be5e88857bb69d5a2c8901836e13092e359fd872fd8ddb9e4fa",
+  "source_digest": "sha256:8262d04928f3e6bf066772106068b7394c59fcfc8df47f342da131ac63cd786e",
   "counts": {
-    "modules": 332,
-    "component_edges": 69
+    "modules": 334,
+    "component_edges": 70
   },
   "components": [
     {
@@ -72,7 +72,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 81
+      "module_count": 83
     }
   ],
   "entrypoints": [
@@ -113,8 +113,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 148,
-      "module_count": 70
+      "import_count": 150,
+      "module_count": 71
     },
     {
       "from": "experience-engine",
@@ -143,7 +143,7 @@
     {
       "from": "agentic-engine",
       "to": "foundation",
-      "import_count": 40,
+      "import_count": 41,
       "module_count": 16
     },
     {
@@ -315,6 +315,12 @@
       "module_count": 4
     },
     {
+      "from": "foundation",
+      "to": "reliability-engine",
+      "import_count": 4,
+      "module_count": 4
+    },
+    {
       "from": "gateway",
       "to": "persistence",
       "import_count": 4,
@@ -331,12 +337,6 @@
       "to": "integrations",
       "import_count": 3,
       "module_count": 1
-    },
-    {
-      "from": "foundation",
-      "to": "reliability-engine",
-      "import_count": 3,
-      "module_count": 3
     },
     {
       "from": "gateway",
@@ -461,6 +461,12 @@
     {
       "from": "foundation",
       "to": "gateway",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "foundation",
+      "to": "tools",
       "import_count": 1,
       "module_count": 1
     },
@@ -892,7 +898,8 @@
         "src/skill-registry.js",
         "src/tool-registry.js",
         "src/tools/governor.js",
-        "src/tools/loop.js"
+        "src/tools/loop.js",
+        "src/windows-admin.js"
       ]
     },
     {
@@ -3697,6 +3704,23 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/windows-admin-worker.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/windows-admin.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/reliability/host-environment.js",
+        "src/tools/process.js",
+        "src/windows-admin-worker.js"
+      ]
     },
     {
       "path": "src/zip-archive.js",

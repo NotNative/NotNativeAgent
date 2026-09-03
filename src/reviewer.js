@@ -38,6 +38,8 @@ export class MandatoryReviewer {
       const missionViolation = missionBoundaryViolation(request, context.definition, context.authority?.mission);
       const intentRelation = authenticatedIntentRelation(request, context.authority, context.definition);
       if (missionViolation) decision = hardDeny(missionViolation, request);
+      else if (request.toolName === 'shell.run' && request.args?.privilege === 'administrator'
+        && context.reviewPosture === 'unattended') decision = deny('unattended_escalation_denied', 'Administrator execution requires a present user for native authentication.', request);
       else if (context.authority?.complete === false && !context.authority?.mission && classification.risk !== 'safe') {
         decision = deny(
           'authority_history_incomplete',
@@ -52,7 +54,8 @@ export class MandatoryReviewer {
       }
       else if (classification.risk === 'prohibited') decision = hardDeny(classification.reason, request);
       else decision = await this.#semanticDecision(request, context, entry, intentRelation);
-      if (context.definition.name === 'system.elevate' && decision.outcome === 'escalate_to_operator') {
+      const administrator = request.toolName === 'shell.run' && request.args.privilege === 'administrator';
+      if ((context.definition.name === 'system.elevate' || administrator) && decision.outcome === 'escalate_to_operator') {
         decision = deny(
           'elevation_review_uncertain',
           'The reviewer did not approve this elevated operation. Revise the operation or ask the operator for clearer intent.',
@@ -60,7 +63,7 @@ export class MandatoryReviewer {
         );
       }
       if (context.reviewPosture === 'prompt' && decision.outcome === 'approve'
-        && !['system.elevate', 'turn.finish'].includes(context.definition.name)) {
+        && !administrator && !['system.elevate', 'turn.finish'].includes(context.definition.name)) {
         decision = escalate('prompt_posture_operator_decision', request, 'Prompt posture requires operator approval before execution.');
       }
       if (decision.outcome === 'approve') decision = refreshApprovalWindow(decision, this.decisionTtlMs);
@@ -189,6 +192,7 @@ function localControlClassification(definition) {
 }
 
 function processClassification(request) {
+  if (request.toolName === 'shell.run' && request.args.privilege === 'administrator') return elevationClassification();
   const complexity = request.resolved.reviewComplexity ?? 'unknown';
   if (request.resolved?.readOnly === true) return Object.freeze({ risk: 'safe',
     reason: request.resolved.reviewPurpose ?? 'process_observation', effect: 'read_only',
@@ -349,7 +353,7 @@ function authenticatedIntentRelation(request, authority, definition) {
 
 function missionBoundaryViolation(request, definition, mission) {
   if (!mission) return null;
-  if (!(mission.resources ?? []).includes(definition.scope)) return 'mission_resource_denied';
+  if (!(mission.resources ?? []).includes(effectiveScope(request, definition))) return 'mission_resource_denied';
   if (!(mission.sideEffects ?? []).includes(effectiveSideEffect(request, definition))) return 'mission_side_effect_denied';
   if (!resolvedTargets(request).every((resolved) => (mission.targets ?? [])
     .some((target) => missionTargetMatches(target, request, definition, resolved)))) {
@@ -364,8 +368,12 @@ function effectiveSideEffect(request, definition) {
   if (definition.name === 'fs.directory' && request.args?.action === 'list') return 'read_only';
   return definition.name === 'fs.directory' && request.args?.action === 'remove' ? 'irreversible' : definition.sideEffect;
 }
+function effectiveScope(request, definition) {
+  // Security: a workspace working directory does not constrain an administrator process.
+  return request.toolName === 'shell.run' && request.args?.privilege === 'administrator' ? 'host' : definition.scope;
+}
 function missionTargetMatches(rule, request, definition, resolved = null) {
-  if (rule === '*' || rule === `tool:${request.toolName}` || rule === `scope:${definition.scope}`) return true;
+  if (rule === '*' || rule === `tool:${request.toolName}` || rule === `scope:${effectiveScope(request, definition)}`) return true;
   const target = (resolved ?? String(request.resolved?.path ?? request.resolved?.source ?? '')).replaceAll('\\', '/').toLowerCase();
   const normalized = rule.replaceAll('\\', '/').toLowerCase();
   if (normalized.endsWith('/**')) {

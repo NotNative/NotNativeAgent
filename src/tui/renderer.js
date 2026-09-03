@@ -334,7 +334,7 @@ function recordLines(record, width) {
 function toolOutcome(record) {
   if (record.status === 'review_pending') return 'awaiting review';
   if (record.status === 'approved') return 'approved';
-  if (record.status === 'running') return 'running';
+  if (record.status === 'running') return record.execution_phase === 'awaiting_authorization' ? 'awaiting Windows authorization' : 'running';
   if (record.status === 'completed_nonzero') return `completed · exit ${record.exit_code ?? 'nonzero'}`;
   if (record.status === 'succeeded' && record.observation_outcome) return observationLabel(record.observation_outcome);
   if (record.status === 'succeeded' && toolHasDiagnostics(record)) {

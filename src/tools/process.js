@@ -46,33 +46,36 @@ export function processRunDefinition(paths, references = null) {
   };
 }
 
-export function shellRunDefinition(paths, references = null, platform = process.platform) {
+export function shellRunDefinition(paths, references = null, platform = process.platform, administrator = null) {
   const guidance = shellToolGuidance(platform);
   return {
-    name: 'shell.run', version: 1,
+    name: 'shell.run', version: 2,
     purpose: `Run one bounded terminal workflow in the host platform shell and capture its output. ${guidance} A zero exit confirms process completion, not that every internal diagnostic succeeded. The result identifies standard-error output and scripts that reduce diagnostic visibility. The complete script, including background or detached behavior, is reviewed before execution.`,
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
       type: 'object', properties: {
-        script: { type: 'string', minLength: 1, maxLength: 32768, description: 'Required complete foreground script using the selected interpreter syntax. Detaching a process requires authenticated user intent for that background process.' },
+        script: { type: 'string', minLength: 1, maxLength: 32768, description: 'Required complete foreground script using the selected interpreter syntax. Administrator scripts are limited to 8192 characters. Detaching a process requires authenticated user intent for that background process.' },
         shell: { type: 'string', enum: ['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'], description: 'Interpreter; defaults to auto. Prefer auto. Follow the authoritative host environment guidance.' },
         cwd: { type: 'string', minLength: 1, maxLength: 4096, description: 'Working directory for the script. Defaults to the agent working directory.' },
+        privilege: { type: 'string', enum: ['user', 'administrator'], description: 'Defaults to user. Administrator requires Windows Console, semantic approval, then native UAC for this operation only.' },
+        reason: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required for administrator privilege. Explain why this operation needs administrator access. Verify the target afterward. Do not reboot automatically; report required reboots to the user.' },
         stdin_ref: { type: 'string', maxLength: 180, description: 'Optional nna_ref_draft identifier whose exact stored text is sent to standard input.' },
-        accepted_exit_codes: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 255 }, maxItems: 16, description: 'Exit codes that count as successful completion. Must include 0 and defaults to [0]. For example, [0, 1] may be appropriate for a documented comparison result; do not use it to mask unrelated failures in a compound script.' },
-        timeout_ms: { type: 'integer', minimum: 100, maximum: 3600000, description: 'Script deadline in milliseconds. Defaults to 600000.' },
+        accepted_exit_codes: { type: 'array', items: { type: 'integer', minimum: 0, maximum: 4294967295 }, maxItems: 16, description: 'Documented successful exit codes; include 0. Defaults to [0]. User privilege permits 0–255; administrator permits Windows codes such as MSI 3010. Never mask unrelated failures.' },
+        timeout_ms: { type: 'integer', minimum: 100, maximum: 3600000, description: 'Script deadline in milliseconds. Defaults to 600000. Administrator execution starts this deadline after native authentication.' },
       }, required: ['script'], additionalProperties: false,
     },
     normalizeArgs: (args) => normalizeArgumentAliases(args, {
       script: ['command', 'content', 'code', 'command_text'], cwd: ['working_directory', 'workingDirectory'],
       stdin_ref: ['stdinRef'], accepted_exit_codes: ['acceptedExitCodes'], timeout_ms: ['timeout', 'timeoutMs'],
     }),
-    validate: async (args) => validateShellRequest(paths, args, references),
-    executor: (request, signal) => runShell(request.args, signal, references),
+    validate: async (args) => validateShellRequest(paths, args, references, platform, administrator),
+    executor: (request, signal) => request.args.privilege === 'administrator'
+      ? administrator.execute(request, signal) : runShell(request.args, signal, references),
   };
 }
 
-async function validateShellRequest(paths, input, references) {
-  const allowed = new Set(['script', 'shell', 'cwd', 'timeout_ms', 'stdin_ref', 'accepted_exit_codes']);
+async function validateShellRequest(paths, input, references, platform, administrator) {
+  const allowed = new Set(['script', 'shell', 'cwd', 'timeout_ms', 'stdin_ref', 'accepted_exit_codes', 'privilege', 'reason']);
   if (!input || typeof input.script !== 'string' || input.script.trim().length < 1
     || input.script.length > MAX_SCRIPT_LENGTH || input.script.includes('\0')
     || Object.keys(input).some((key) => !allowed.has(key))) {
@@ -82,6 +85,7 @@ async function validateShellRequest(paths, input, references) {
     throw new ContractError('shell_secret_argument_forbidden', 'secret-like literal values cannot be placed in shell scripts');
   }
   rejectNativeElevationScript(input.script);
+  const privileged = validateAdministratorRequest(input, platform, administrator);
   const shell = input.shell ?? 'auto';
   if (!['auto', 'powershell', 'pwsh', 'cmd', 'sh', 'bash'].includes(shell)) {
     throw new ContractError('shell_interpreter_invalid', 'requested shell is not supported');
@@ -91,21 +95,39 @@ async function validateShellRequest(paths, input, references) {
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 100 || timeoutMs > MAX_SHELL_TIMEOUT_MS) {
     throw new ContractError('shell_timeout_invalid', 'shell timeout must be 100 to 3600000 milliseconds');
   }
-  const invocation = shellInvocation(shell, input.script, process.platform);
+  const invocation = shellInvocation(shell, input.script, platform);
   const stdinRef = validateStdinReference(input.stdin_ref, references);
-  const acceptedExitCodes = validateAcceptedExitCodes(input.accepted_exit_codes, 'shell_exit_codes_invalid');
+  const acceptedExitCodes = validateAcceptedExitCodes(input.accepted_exit_codes, 'shell_exit_codes_invalid', privileged ? 4294967295 : MAX_EXIT_CODE);
   const reliabilitySignals = shellReliabilitySignals(input.script, invocation.shell);
   const reviewPurpose = shellReviewPurpose(input.script, invocation.shell);
   return {
     args: { script: input.script, shell: invocation.shell, cwd: cwd.path, timeout_ms: timeoutMs,
-      accepted_exit_codes: acceptedExitCodes, ...(stdinRef ? { stdin_ref: stdinRef } : {}) },
+      accepted_exit_codes: acceptedExitCodes, ...(stdinRef ? { stdin_ref: stdinRef } : {}),
+      ...(privileged ? { privilege: 'administrator', reason: input.reason.trim() } : {}) },
     resolved: {
       path: cwd.path, executable: invocation.executable, shell: invocation.shell, script: input.script,
       reviewComplexity: shellComplexity(input.script, reliabilitySignals), reliabilitySignals,
-      reviewPurpose, readOnly: isObservationPurpose(reviewPurpose),
+      reviewPurpose, readOnly: !privileged && isObservationPurpose(reviewPurpose),
       insideWorkspace: cwd.insideWorkspace, recovery: cwd.recovery,
     },
   };
+}
+
+function validateAdministratorRequest(input, platform, administrator) {
+  if ((input.privilege ?? 'user') === 'user') return false;
+  const reject = (message, field, correction) => {
+    const error = new ContractError('native_elevation_unavailable', message);
+    error.toolMetadata = { field, correction };
+    throw error;
+  };
+  if (input.privilege !== 'administrator') reject('Use user or administrator privilege.', 'privilege', 'replace_field_value');
+  if (platform !== 'win32' || !administrator) reject('Administrator execution requires a local Windows Console. Ask the user to run the command manually.', 'privilege', 'use_user_privilege_or_manual_execution');
+  if (!['auto', 'powershell'].includes(input.shell ?? 'auto')) reject('Administrator execution supports Windows PowerShell only.', 'shell', 'use_auto');
+  if (input.stdin_ref) reject('Administrator execution requires the complete script inline, not a draft reference.', 'stdin_ref', 'remove_field_and_supply_script');
+  if (typeof input.reason !== 'string' || !input.reason.trim()) reject('Explain why administrator access is required.', 'reason', 'add_required_field');
+  if (input.reason.length > 1024 || SECRET_LITERAL.test(input.reason)) reject('Use a bounded explanation without secret-like literals.', 'reason', 'replace_field_value');
+  if (input.script.length > 8192) reject('Administrator scripts must contain at most 8192 characters.', 'script', 'reduce_field_value_or_size');
+  return true;
 }
 
 async function runShell(input, signal, references) {
@@ -412,7 +434,7 @@ function rejectNativeElevationScript(script) {
 function rejectNativeElevation() {
   throw new ContractError(
     'native_elevation_unavailable',
-    'NNA cannot run elevated commands. Ask the user to run the required elevated command in their terminal, then continue from the result.',
+    'Direct privilege launchers are unavailable. For local Windows Console use shell.run with privilege administrator and reason. On other surfaces ask the user to run the command manually, then continue from their result.',
   );
 }
 
@@ -424,12 +446,12 @@ function validateStdinReference(value, references) {
   return value;
 }
 
-function validateAcceptedExitCodes(value, code) {
+function validateAcceptedExitCodes(value, code, maximum = MAX_EXIT_CODE) {
   const exitCodes = value ?? [0];
   if (!Array.isArray(exitCodes) || exitCodes.length < 1 || exitCodes.length > MAX_ACCEPTED_EXIT_CODES
     || !exitCodes.includes(0) || new Set(exitCodes).size !== exitCodes.length
-    || exitCodes.some((item) => !Number.isSafeInteger(item) || item < 0 || item > MAX_EXIT_CODE)) {
-    throw new ContractError(code, 'accepted exit codes must be 1 to 16 unique integers from 0 through 255 and include 0');
+    || exitCodes.some((item) => !Number.isSafeInteger(item) || item < 0 || item > maximum)) {
+    throw new ContractError(code, `accepted exit codes must be 1 to 16 unique integers from 0 through ${maximum} and include 0`);
   }
   return Object.freeze([...exitCodes]);
 }

@@ -49,6 +49,7 @@ function runningToolLabel(session) {
   const running = [...latest.values()].filter((record) => record.status === 'running');
   if (running.length === 0) return 'Running tool…';
   const first = running[0];
+  if (running.some((record) => record.execution_phase === 'awaiting_authorization')) return 'Waiting for Windows authorization…';
   const detail = [first.tool, first.target ? `(${singleLine(first.target)})` : ''].filter(Boolean).join(' ');
   if (running.every((record) => record.tool === 'agent.run')) {
     const roles = agentRoleCounts(running);

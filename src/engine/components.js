@@ -27,6 +27,7 @@ import { join } from 'node:path';
 import { ConversationWork } from '../conversation-work.js';
 import { TelegramNotificationQueue } from '../notifications/telegram.js';
 import { CredentialResolver } from '../credential-bindings.js';
+import { WindowsAdministrator } from '../windows-admin.js';
 
 export function installEngineComponents(engine, options, storeRoot, hooks) {
   installRouting(engine, options);
@@ -117,6 +118,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
   engine.tools = new ToolRegistry(engine.config.workspaceRoot, {
     hosted: engine.config.executionManifest !== null,
     boundedToWorkspace: engine.config.executionManifest !== null,
+    administrator: administratorAdapter(engine, options),
     enabled: toolsAllowed(engine.config.executionManifest),
     allowedTools: engine.config.executionManifest?.allowedTools,
     webSearchConfigPath: options.webSearchConfigPath ?? userDataPaths().webSearchConfig,
@@ -161,6 +163,17 @@ function installCapabilities(engine, options, storeRoot, hooks) {
     registry: engine.tools, configs: engine.config.mcpServers ?? [],
     transportFactory: options.mcpTransportFactory,
     credentialResolver: engine.credentialResolver, sessionId: engine.sessionId,
+  });
+}
+
+function administratorAdapter(engine, options) {
+  if (process.platform !== 'win32' || engine.surface !== 'interactive_tui' || engine.config.executionManifest !== null) return null;
+  return options.administrator ?? new WindowsAdministrator({
+    output: ({ request, phase }) => engine.output({
+      type: 'tool_status', version: '1.0', session_id: engine.sessionId, turn_id: engine.active?.turnId,
+      tool_request_id: request.id, provider_call_id: request.providerCallId,
+      tool: 'shell.run', status: 'running', execution_phase: phase,
+    }),
   });
 }
 

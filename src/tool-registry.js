@@ -77,6 +77,7 @@ export class ToolRegistry {
     this.conversationWork = options.conversationWork;
     this.telegramNotifications = options.telegramNotifications; this.activeTurnId = options.activeTurnId; this.sessionHistory = options.sessionHistory;
     this.terminalControl = options.terminalControl;
+    this.administrator = options.administrator ?? null;
   }
   async initialize() {
     await this.paths.initialize();
@@ -105,7 +106,7 @@ export class ToolRegistry {
       managedPlaywrightRoot: this.managedPlaywrightRoot, configPath: this.webFetchConfigPath,
       secretBroker: this.secretBroker, sessionId: this.sessionId }));
     this.#install(imageInspectDefinition(this.paths, this.observeImage, { maxBytes: this.imageMaxBytes })); this.#install(toolSearchDefinition(this));
-    this.#install(processRunDefinition(this.paths, this.#references)); if (!this.hosted) this.#install(shellRunDefinition(this.paths, this.#references));
+    this.#install(processRunDefinition(this.paths, this.#references)); if (!this.hosted) this.#install(shellRunDefinition(this.paths, this.#references, process.platform, this.administrator));
     this.#install(projectVerifyDefinition(this.paths));
     this.#install(gitInspectionDefinition(this.paths));
     this.#install(lspDiagnosticsDefinition(this.paths, { configPath: this.lspConfigPath, spawnProcess: this.lspSpawnProcess }));
