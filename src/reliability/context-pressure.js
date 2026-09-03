@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 import { projectDuplicateToolResults } from './duplicate-results.js';
+import { createToolContextReceipt } from '../tools/context-receipt.js';
 
 export const CONTEXT_PRESSURE = Object.freeze({
   receipts: 0.40,
@@ -9,9 +10,6 @@ export const CONTEXT_PRESSURE = Object.freeze({
   aggressive: 0.70,
   compact: 0.75,
 });
-// Why: active filesystem evidence needs enough local context to prevent avoidable repeat reads;
-// byte-only telemetry below measures whether this budget improves the intended outcome.
-const ACTIVE_RECEIPT_BYTES = Object.freeze({ filesystem: 4096, search: 2048, other: 1024 });
 const READ_TOOLS = new Set(['fs.read', 'fs.read_lines', 'fs.read_text']);
 
 export function contextPressurePolicy(
@@ -68,10 +66,14 @@ export function projectActiveTurn(records, options) {
 }
 
 function receiptProjection(records, cold) {
+  const requests = new Map(records.filter((item) => item.type === 'tool_request')
+    .map((item) => [item.providerCallId, item]));
   return records.map((item, index) => {
     if (!cold.has(index)) return item;
     if (item.type === 'tool_result') {
-      return item.metadata?.reason === 'duplicate_result' ? item : toolResultReceipt(item);
+      // Invariant: failures and their repair evidence are not replaceable success receipts.
+      return item.metadata?.reason === 'duplicate_result' || toolLifecycleStatus(item) !== 'succeeded'
+        ? item : createToolContextReceipt(item, requests.get(item.providerCallId));
     }
     // Invariant: a retained native tool exchange must replay the exact arguments that were
     // originally accepted. Receipt metadata belongs on the result; rewriting request args
@@ -139,30 +141,6 @@ function renderCheckpoint(checkpointData) {
   return boundedHeadTail(lines.join('\n\n'), checkpointData.tier === 'aggressive' ? 16_384 : 24_576);
 }
 
-function toolResultReceipt(item) {
-  const budget = ACTIVE_RECEIPT_BYTES[receiptCategory(item.toolName)];
-  const excerpt = boundedHeadTail(item.content ?? '', budget);
-  const originalBytes = item.metadata?.originalBytes ?? item.metadata?.original_bytes
-    ?? Buffer.byteLength(String(item.content ?? ''), 'utf8');
-  return {
-    ...item,
-    content: `${excerpt}${excerpt ? '\n' : ''}[Settled tool output compressed for active context; full output remains in the durable session journal.]`,
-    // Invariant: provider projection must disclose the complete pre-projection size. Using the
-    // shortened receipt size here would falsely claim that visibly omitted evidence was complete.
-    metadata: {
-      ...boundedMetadata(item.metadata), originalBytes,
-      compacted: true, reason: 'active_pressure_receipt', ledgerRef: ledgerRef(item),
-    },
-  };
-}
-
-function receiptCategory(name = '') {
-  if (/^(?:fs\.|code\.)/u.test(name)) {
-    return /(?:search|glob|list|diagnostic)/u.test(name) ? 'search' : 'filesystem';
-  }
-  return 'other';
-}
-
 function measureEvidenceRetention(source, projected, turnId) {
   const sourceResults = source.filter((item) => isTurnRecord(item, turnId) && item.type === 'tool_result');
   const projectedResults = projected.filter((item) => isTurnRecord(item, turnId) && item.type === 'tool_result');
@@ -216,19 +194,9 @@ function requestTarget(item) {
   return key ? boundedHeadTail(`${key}=${args[key]}`, 512) : null;
 }
 
-function ledgerRef(item) {
-  return item.requestId ?? item.providerCallId ?? item.turnId ?? null;
-}
-
 function recordTurnId(item) { return item.turnId ?? item.turn_id ?? null; }
 function recordStepId(item) { return item.stepId ?? item.step_id ?? null; }
 function positive(value) { return Number.isFinite(value) && value > 0; }
-
-function boundedMetadata(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  try { return Buffer.byteLength(JSON.stringify(value), 'utf8') <= 2_048 ? value : {}; }
-  catch { return {}; }
-}
 
 function boundedHeadTail(value, limit) {
   const text = String(value ?? '');

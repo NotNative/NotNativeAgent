@@ -22,11 +22,14 @@ export function createToolContextReceipt(result, request) {
   const target = toolTarget(request, category);
   const prior = existingReceipt(result);
   const redactedContent = safeRedact(result.content);
-  const excerpt = prior?.excerpt ?? boundedHeadTail(redactedContent, EXCERPT_BYTES[category]);
+  const projection = headTailProjection(redactedContent, EXCERPT_BYTES[category]);
+  const excerpt = prior?.excerpt ?? projection.excerpt;
   const originalBytes = prior?.projection?.original_bytes ?? result.metadata?.originalBytes ?? Buffer.byteLength(redactedContent, 'utf8');
   const excerptBytes = Buffer.byteLength(excerpt, 'utf8');
   const retainedBytes = prior ? result.metadata?.retainedSourceBytes ?? excerptBytes
     : excerpt === redactedContent ? excerptBytes : Math.max(0, excerptBytes - Buffer.byteLength(OMISSION_MARKER));
+  const ranges = prior ? result.metadata?.omittedRanges : !result.truncated && !result.metadata?.contentRedacted
+    && redactedContent === result.content && originalBytes === Buffer.byteLength(redactedContent) ? projection.omittedRanges : undefined;
   const receipt = Object.freeze({
     schema: RECEIPT_SCHEMA, tool: result.toolName ?? request?.toolName ?? prior?.tool ?? 'unknown',
     category: prior?.category ?? category, target: prior?.target ?? target,
@@ -47,6 +50,7 @@ export function createToolContextReceipt(result, request) {
       originalBytes, projectedBytes: Buffer.byteLength(content, 'utf8'),
       retainedSourceBytes: retainedBytes, omittedBytes: Math.max(0, originalBytes - retainedBytes),
       projectionReason: 'bounded_tool_receipt',
+      ...(ranges?.length ? { omittedRanges: ranges, rangeBasis: 'tool_content_utf8' } : {}),
     },
   };
 }
@@ -72,6 +76,7 @@ function toolTarget(request, category) {
 
 function commandText(args) {
   args = objectOrEmpty(args);
+  if (typeof args.script === 'string') return args.script;
   if (typeof args.command === 'string') return args.command;
   return [args.executable, ...(Array.isArray(args.args) ? args.args : [])].filter(Boolean).join(' ');
 }
@@ -139,16 +144,23 @@ function boundedMetadata(value) {
 function bounded(value, maxBytes) { return boundedHeadTail(safeRedact(value), maxBytes); }
 
 function boundedHeadTail(value, maxBytes) {
+  return headTailProjection(value, maxBytes).excerpt;
+}
+
+function headTailProjection(value, maxBytes) {
   const buffer = Buffer.from(value, 'utf8');
-  if (buffer.byteLength <= maxBytes) return value;
+  if (buffer.byteLength <= maxBytes) return { excerpt: value, omittedRanges: [] };
   const marker = OMISSION_MARKER;
   const markerBytes = Buffer.byteLength(marker, 'utf8');
-  if (markerBytes >= maxBytes) return takePrefixBytes(marker, maxBytes);
+  if (markerBytes >= maxBytes) return { excerpt: takePrefixBytes(marker, maxBytes), omittedRanges: [] };
   const available = maxBytes - markerBytes;
   const headBudget = Math.ceil(available * 0.7);
   const head = takePrefixBytes(value, headBudget);
   const tail = takeSuffixBytes(value, available - Buffer.byteLength(head, 'utf8'));
-  return `${head}${marker}${tail}`;
+  // Why: offsets describe the exact UTF-8 tool content, never file lines or bytes removed by redaction.
+  return { excerpt: `${head}${marker}${tail}`, omittedRanges: [{
+    start_byte: Buffer.byteLength(head), end_byte_exclusive: buffer.byteLength - Buffer.byteLength(tail),
+  }] };
 }
 
 function takePrefixBytes(value, maximum) {

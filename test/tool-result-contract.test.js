@@ -102,6 +102,8 @@ test('provider projection distinguishes full, redacted, bounded, and receipt con
   assert.equal(redacted.content_projection, 'redacted');
   assert.deepEqual(redacted.projection_metadata, {
     mode: 'redacted', original_bytes: 42, projected_bytes: 8, omitted_bytes: 34, reason: 'secret_redaction',
+    evidence_complete: false,
+    recovery: { instruction: 'Secrets were removed intentionally. Do not reconstruct or request them.' },
   });
   assert.equal(project({ compacted: true, reason: 'active_pressure_receipt' }).content_projection, 'bounded');
   assert.equal(project({

@@ -9,6 +9,7 @@ import { createToolContextReceipt } from '../src/tools/context-receipt.js';
 import { projectDuplicateToolResults } from '../src/reliability/duplicate-results.js';
 import { buildContext } from '../src/context.js';
 import { sessionHistoryDefinitions } from '../src/session-history-tools.js';
+import { projectActiveTurn } from '../src/reliability/context-pressure.js';
 
 function project(record) {
   return JSON.parse(buildContext({ workspaceRoot: process.cwd(), limits: { maxContextBytes: 1_048_576 } }, [
@@ -33,6 +34,43 @@ test('receipt projection has one byte-accounting block and a literal excerpt', (
   assert.equal(envelope.projection_metadata.omitted_bytes,
     Buffer.byteLength(record.content) - envelope.projection_metadata.retained_source_bytes);
   assert.equal(createToolContextReceipt(receipt).content, receipt.content);
+});
+
+test('receipt omission ranges describe exact UTF-8 content and expose a usable history request', () => {
+  const source = 'begin💜'.repeat(1000) + 'end界'.repeat(1000);
+  const record = { type: 'tool_result', toolName: 'fs.read', requestId: 'request', providerCallId: 'call',
+    toolLifecycleStatus: 'succeeded', content: source };
+  const receipt = createToolContextReceipt(record);
+  const metadata = project(receipt).projection_metadata;
+  const [range] = metadata.omitted_ranges;
+  const bytes = Buffer.from(source);
+  assert.equal(metadata.range_basis, 'tool_content_utf8');
+  assert.equal(metadata.evidence_complete, false);
+  assert.equal(range.end_byte_exclusive - range.start_byte, metadata.omitted_bytes);
+  assert.equal(JSON.parse(receipt.content).excerpt, bytes.subarray(0, range.start_byte).toString('utf8')
+    + '\n...[middle omitted]...\n' + bytes.subarray(range.end_byte_exclusive).toString('utf8'));
+  assert.deepEqual(metadata.recovery.args, { ledger_ref: 'request' });
+  assert.equal(metadata.recovery.tool, 'session.read_history');
+  assert.deepEqual(project(createToolContextReceipt(receipt)).projection_metadata.omitted_ranges, metadata.omitted_ranges);
+  assert.equal(project(receipt).metadata.omittedRanges, undefined);
+});
+
+test('already-bounded and redacted evidence never invents original byte ranges', () => {
+  for (const extra of [{ truncated: true }, { metadata: { contentRedacted: true } }, { metadata: { originalBytes: 99999 } }]) {
+    const receipt = createToolContextReceipt({ type: 'tool_result', toolName: 'fs.read', providerCallId: 'call',
+      toolLifecycleStatus: 'succeeded', content: 'retained '.repeat(1000), ...extra });
+    const metadata = project(receipt).projection_metadata;
+    assert.equal(metadata.omitted_ranges, undefined);
+    assert.match(metadata.recovery.instruction, /cannot be restored from history/u);
+  }
+});
+
+test('active receipt pressure preserves failed tool evidence without truncating repair instructions', () => {
+  const failure = { type: 'tool_result', turnId: 'turn', stepId: 'old', toolName: 'fs.read',
+    providerCallId: 'failed', toolLifecycleStatus: 'failed', content: 'repair evidence '.repeat(1000) };
+  const records = [failure, ...[1, 2, 3].map((step) => ({ type: 'message', role: 'assistant',
+    turnId: 'turn', stepId: `recent-${step}`, content: 'continue' }))];
+  assert.strictEqual(projectActiveTurn(records, { turnId: 'turn', tier: 'receipts' }).records[0], failure);
 });
 
 test('duplicate receipts expose the removed source byte count', () => {

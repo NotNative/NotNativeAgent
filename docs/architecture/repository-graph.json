@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:8262d04928f3e6bf066772106068b7394c59fcfc8df47f342da131ac63cd786e",
+  "source_digest": "sha256:5573f75e09c127e77e7c3ceb54bbf9249f3c55104d11b7235931e9dc4f067fee",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -249,6 +249,12 @@
       "module_count": 4
     },
     {
+      "from": "reliability-engine",
+      "to": "tools",
+      "import_count": 8,
+      "module_count": 6
+    },
+    {
       "from": "agentic-engine",
       "to": "providers",
       "import_count": 7,
@@ -259,12 +265,6 @@
       "to": "foundation",
       "import_count": 7,
       "module_count": 4
-    },
-    {
-      "from": "reliability-engine",
-      "to": "tools",
-      "import_count": 7,
-      "module_count": 6
     },
     {
       "from": "agentic-engine",
@@ -2227,6 +2227,7 @@
       "entrypoint": false,
       "imports": [
         "src/reliability/duplicate-results.js",
+        "src/tools/context-receipt.js",
         "src/tools/tool-result-contract.js"
       ]
     },

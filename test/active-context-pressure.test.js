@@ -31,7 +31,7 @@ test('receipt pressure keeps recent steps and replaces settled payloads without 
   const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'receipts' });
   assert.equal(projected.tier, 'receipts');
   assert.equal(projected.records.length, records.length);
-  assert.match(projected.records[2].content, /durable session journal/u);
+  assert.equal(JSON.parse(projected.records[2].content).schema, 'nna.tool-receipt.v2');
   assert.ok(Buffer.byteLength(projected.records[2].content, 'utf8') > 4_000);
   assert.equal(records[2].content, 'old result '.repeat(1_000));
   assert.equal(projected.records.find((item) => item.providerCallId === 'call-4' && item.type === 'tool_result').content, 'latest result');
@@ -50,7 +50,7 @@ test('receipt pressure reports true original and omitted tool-result bytes to th
   const envelope = JSON.parse(context.find((item) => item.role === 'tool').content);
   assert.equal(envelope.projection_metadata.original_bytes, originalBytes);
   assert.equal(envelope.projection_metadata.omitted_bytes,
-    originalBytes - envelope.projection_metadata.projected_bytes);
+    originalBytes - envelope.projection_metadata.retained_source_bytes);
   assert.ok(envelope.projection_metadata.omitted_bytes > 0);
 });
 
@@ -83,7 +83,7 @@ test('active pressure truncation preserves complete UTF-8 characters', () => {
   records[2] = { ...records[2], content: '界'.repeat(2_000) };
   const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'receipts' });
   assert.equal(projected.records[2].content.includes('\uFFFD'), false);
-  assert.match(projected.records[2].content, /checkpoint excerpt/u);
+  assert.match(JSON.parse(projected.records[2].content).excerpt, /middle omitted/u);
 });
 
 test('receipt pressure identifies duplicate cold results across different tool requests', () => {

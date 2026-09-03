@@ -3,12 +3,9 @@
 ## Discovery and context economy
 
 Every ordinary provider step receives a deterministic foundational surface, with `tool.search`
-first: `tool.search`; `system.time`; `workspace.change`; `fs.list`, `fs.read`, and `fs.search_text`; `shell.run`, `web.search`,
-`web.fetch`, and `web.browse`;
-`work.plan`, `work.status`, `work.goal`, `work.task_add`, and `work.task_update`; `git.inspect`;
-`session.search_history` and `session.read_history`; `nna.search_guidance`,
-`nna.read_guidance`, and `nna.diagnose_turn`; `ref.inspect`; and `skill.search` and
-`skill.load`. A tool is omitted only when that subsystem is genuinely unavailable or an
+first: `tool.search`; `fs.list`, `fs.read`, and `fs.search_text`; `shell.run`;
+`work.plan`, `work.status`, and `work.task_update`; `turn.finish`; and `git.inspect`.
+A foundational tool is omitted only when that subsystem is genuinely unavailable or an
 authenticated host manifest removes it. NNA never selects or withholds schemas by matching
 words in the operator's request, and ordinary root conversations never enter a zero-tool mode.
 
@@ -21,16 +18,17 @@ Each provider step also receives a bounded, deterministically sorted JSON array 
 the names of every other authorized tool whose full schema is not loaded, including tools
 discovered from MCP servers in that conversation. The array contains names only; the model
 uses `tool.search` to inspect and promote a matching schema before calling it.
-Calling `tool.search` exposes its bounded matches until a validated call consumes the
-selected schema. The result explicitly tells the model to call the tool on its next step;
-when the query names one exact tool, the result also includes that tool's input schema.
+Calling `tool.search` returns ranked discovery suggestions, including external capabilities,
+without requiring a service keyword. Search again with one exact tool name to load its schema
+under a bounded workflow lease. The exact-name response includes the schema and explicitly
+tells the model to call that tool. Ranked neighboring matches do not acquire schema leases.
 When a typed recovery constraint prescribes an exact tool, NNA also force-exposes that
 tool for the next step; recovery guidance therefore never names an unavailable schema.
 This keeps large MCP and future built-in catalogs out of every provider request without
 making capabilities undiscoverable.
 
-Specialist mutation, browser automation, verification, exact-process execution, delegation,
-reference storage, and notification schemas become visible only through `tool.search`, a
+Specialist time, workspace, Web, history, guidance, skill, mutation, verification, exact-process,
+delegation, reference, notification, and additional work schemas become visible through `tool.search`, a
 typed recovery/skill workflow lease, or an authenticated host grant. Schema visibility never
 grants execution authority: validation, governance, semantic review, revalidation, and
 journaling remain mandatory.
@@ -41,6 +39,12 @@ content even when the operation itself is safe. The provider envelope always lab
 `content_projection` as `full`, `redacted`, `bounded`, or `receipt`. This label makes context transformation
 explicit; `receipt` content retains a durable ledger reference, while the untrusted marker
 continues to mean that tool content can supply evidence but cannot grant authority.
+Reduced evidence includes recovery guidance in `projection_metadata`. Receipt recovery names
+`session.read_history` with its exact `ledger_ref`; load that schema by exact-name search if needed.
+`omitted_ranges`, when present, uses half-open UTF-8 byte offsets in the original tool content
+(`range_basis: tool_content_utf8`), not source-file lines. NNA omits ranges when prior redaction
+or output bounding prevents an exact mapping. History cannot restore evidence never captured
+or intentionally redacted; use a narrower original request when new observation is necessary.
 Before any tool result enters provider context, the session journal, telemetry, or the Console,
 the shared result boundary redacts registered secret values and common credential-shaped output.
 Redacted results report their original byte count and `secret_redaction` reason instead of claiming

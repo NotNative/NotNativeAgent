@@ -102,7 +102,19 @@ search with zero matches is an observation, not a violated contract. Its typed o
 belongs in the successful result. Converting every negative observation into an exception would
 create false failures and unnecessary recovery. Neither channel can infer operator authority.
 
-## Recommendations not adopted literally
+## September 2 model-surface and administrator follow-up
+
+| Review concern | Resolution |
+|---|---|
+| Duplicate provider lifecycle and failure aliases (M1) | Version 37 uses `nna.tool-result.v3` with one lifecycle field and canonical `partial_data`/`effect_certainty` failure fields. |
+| Final context-bound failure (M2) | Version 39 tests actual engine preflight recovery, three-candidate bounds, preserved user instructions, and irreducible attachment/schema failures. The final safety guard remains intentional. |
+| Uneven schema repair details (M3) | Version 37 adds field, correction, and bound details to string, numeric, array, nesting, and pattern rejection paths. |
+| Incomplete evidence receipts (M4) | Version 39 shares the active/full-compaction receipt, adds history recovery requests and exact UTF-8 omission ranges when available, and preserves failed active results. Missing capture or redacted bytes cannot be recovered from history. |
+| Repeated shell instructions (M5) | Version 37 uses the shared host-shell guidance and removes duplicated full guidance from individual parameter descriptions. |
+| External discovery keyword filter (M6) | Version 37 removes the visibility filter. Ranking remains discovery; exact-name leases and governance still control schema exposure and execution. |
+| Administrator capability | Version 38 adds one-operation Windows Console `shell.run` administrator execution after semantic approval and native UAC. Linux/headless/manual fallback remains. Unit and non-elevated Windows launcher tests pass; the actual UAC dialog requires an interactive deployment smoke test. |
+
+## Recommendations not adopted literally (rationale)
 
 1. NNA does not replace historical write arguments with hashes inside assistant tool calls. Exact
    replay or whole-pair omission preserves the invariant that past model output remains valid model

@@ -98,6 +98,16 @@ The provider envelope has one `projection_metadata` block. Internal compression 
 `omitted_bytes` measures source bytes absent from that excerpt, not savings after receipt overhead.
 Exact receipt `ledger_ref` values can be supplied to `session.read_history` within its documented retained-history bound.
 Unavailable evidence remains unavailable; a receipt cannot reconstruct omitted source bytes by itself.
+Active receipt pressure and full compaction share this receipt formatter. Failed active tool
+results retain their exact repair evidence. Reduced provider results include an executable history
+recovery request when an exact ledger reference exists. Exact `omitted_ranges` use half-open UTF-8
+offsets into tool content, not file-line offsets; prior redaction or truncation prevents that claim.
+
+The final `context_too_large` guard is a recovery signal, not an unconditional turn failure.
+Engine preflight catches it and fits up to three compaction candidates before provider submission.
+Only a candidate that fits both context and the complete message-plus-tool envelope is committed.
+If attachments or schemas remain irreducible, preflight still fails closed. It must not silently
+drop authority, active evidence, or tool contracts to create the appearance of recovery.
 
 1. The journal is the evidence source; compression changes only the provider projection.
 2. Authenticated user instructions are never rewritten by prompt-reframing heuristics.

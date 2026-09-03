@@ -388,7 +388,7 @@ function toolObservationMetadata(item) {
   const hidden = new Set(['originalBytes', 'original_bytes', 'projectedBytes', 'projected_bytes',
     'omittedBytes', 'omitted_bytes', 'retainedSourceBytes', 'projectionReason', 'projection_reason',
     'compacted', 'contentRedacted', 'content_redacted', 'receiptSchema', 'ledgerRef',
-    'resultFingerprint', 'originalReason', 'duplicateOfLedgerRef']);
+    'resultFingerprint', 'originalReason', 'duplicateOfLedgerRef', 'omittedRanges', 'rangeBasis']);
   if (item.metadata?.compacted) hidden.add('reason');
   return Object.fromEntries(Object.entries(item.metadata ?? {}).filter(([key]) => !hidden.has(key)));
 }
@@ -401,7 +401,18 @@ function toolProjectionMetadata(item) {
     mode, original_bytes: originalBytes, projected_bytes: projectedBytes,
     omitted_bytes: item.metadata?.omittedBytes ?? Math.max(0, originalBytes - projectedBytes),
     ...(item.metadata?.retainedSourceBytes !== undefined ? { retained_source_bytes: item.metadata.retainedSourceBytes } : {}),
+    ...(item.metadata?.omittedRanges?.length ? { omitted_ranges: item.metadata.omittedRanges, range_basis: item.metadata.rangeBasis } : {}),
+    ...(mode !== 'full' ? { evidence_complete: false, recovery: projectionRecovery(item, mode) } : {}),
     reason: item.metadata?.projectionReason ?? item.metadata?.projection_reason ?? item.metadata?.reason ?? null,
+  };
+}
+
+function projectionRecovery(item, mode) {
+  const reference = item.metadata?.ledgerRef ?? item.requestId ?? item.providerCallId;
+  if (mode === 'redacted') return { instruction: 'Secrets were removed intentionally. Do not reconstruct or request them.' };
+  return {
+    ...(reference ? { tool: 'session.read_history', args: { ledger_ref: reference } } : {}),
+    instruction: 'Read retained session evidence when needed. Bytes omitted during capture or redaction cannot be restored from history. For missing evidence, repeat the original tool with a narrower range or filter; verify current state before relying on a new observation.',
   };
 }
 
