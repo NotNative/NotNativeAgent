@@ -556,6 +556,23 @@ function Invoke-WebSearchInstallerAction([string[]]$Arguments) {
     }
 }
 
+function Invoke-GatewayInstallerAction {
+    param(
+        [string[]]$Arguments,
+        [AllowNull()][string]$StandardInput
+    )
+    $CliPath = Join-Path $Target 'src\cli.js'
+    if ($PSBoundParameters.ContainsKey('StandardInput')) {
+        $Output = $StandardInput | & $NodePath --disable-warning=ExperimentalWarning $CliPath gateway @Arguments
+    } else {
+        $Output = & $NodePath --disable-warning=ExperimentalWarning $CliPath gateway @Arguments
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw "Telegram gateway action '$($Arguments[0])' failed."
+    }
+    return $Output
+}
+
 Write-InstallerSection 'WebSearch integration'
 $PriorNnaHome = $env:NNA_HOME
 $env:NNA_HOME = $DataRoot
@@ -605,7 +622,7 @@ Remove-LegacyGatewayTask
 $PriorNnaHome = $env:NNA_HOME
 $env:NNA_HOME = $DataRoot
 try {
-    $GatewayStatus = & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json
+    $GatewayStatus = Invoke-GatewayInstallerAction @('status') | ConvertFrom-Json
     $GatewayWasRunning = $GatewayStoppedForUpgrade -or [bool]$GatewayStatus.runtime.running
     $ConfigureGateway = $false
     if ($GatewayStatus.configured -and $GatewayStatus.authorized_user_ids.Count -gt 0) {
@@ -626,32 +643,32 @@ try {
     }
     if ($ConfigureGateway) {
         Write-InstallerStep 'Saving the bot token in restricted local configuration'
-        $TelegramBotToken | & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway token-stdin | Out-Null
-        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway authorize $TelegramUserId | Out-Null
+        Invoke-GatewayInstallerAction -Arguments @('token-stdin') -StandardInput $TelegramBotToken | Out-Null
+        Invoke-GatewayInstallerAction @('authorize', $TelegramUserId) | Out-Null
         $GatewayWorkspace = Join-Path $DataRoot 'gateway\workspace'
         New-Item -ItemType Directory -Force -Path $GatewayWorkspace | Out-Null
-        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway workspace $GatewayWorkspace | Out-Null
-        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway enable | Out-Null
-        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway test | Out-Null
+        Invoke-GatewayInstallerAction @('workspace', $GatewayWorkspace) | Out-Null
+        Invoke-GatewayInstallerAction @('enable') | Out-Null
+        Invoke-GatewayInstallerAction @('test') | Out-Null
         Write-InstallerOk 'Telegram bot validated and operator authorized'
         $StartGateway = $true
     }
     if ($GatewayWasRunning) {
         Write-InstallerStep 'Restarting the running Telegram gateway on the updated runtime'
         if ($GatewayStatus.runtime.running) {
-            & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway stop | Out-Null
+            Invoke-GatewayInstallerAction @('stop') | Out-Null
             $GatewayStopped = $false
             for ($Attempt = 0; $Attempt -lt 300; $Attempt++) {
                 Start-Sleep -Milliseconds 100
-                $Runtime = (& $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway status | ConvertFrom-Json).runtime
+                $Runtime = (Invoke-GatewayInstallerAction @('status') | ConvertFrom-Json).runtime
                 if (-not $Runtime.running) { $GatewayStopped = $true; break }
             }
             if (-not $GatewayStopped) { throw 'Telegram gateway did not stop within 30 seconds; refusing to start a duplicate runtime.' }
         }
-        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway start | Out-Null
+        Invoke-GatewayInstallerAction @('start') | Out-Null
         Write-InstallerOk 'Telegram gateway restarted on the updated runtime'
     } elseif ($StartGateway) {
-        & $NodePath --disable-warning=ExperimentalWarning (Join-Path $Target 'src\cli.js') gateway start | Out-Null
+        Invoke-GatewayInstallerAction @('start') | Out-Null
         Write-InstallerOk 'Telegram gateway started'
     }
     if ($StartGateway) {

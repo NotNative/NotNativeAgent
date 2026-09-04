@@ -229,6 +229,11 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /-Verb RunAs/u);
   assert.match(windowsInstall, /does not target the legacy NNA gateway/u);
   assert.match(windowsInstall, /GatewayWasRunning/u);
+  assert.match(windowsInstall, /function Invoke-GatewayInstallerAction/u);
+  assert.match(windowsInstall, /Telegram gateway action[^\r\n]+failed/u);
+  for (const action of ['token-stdin', 'authorize', 'workspace', 'enable', 'test', 'stop', 'start']) {
+    assert.match(windowsInstall, new RegExp(`Invoke-GatewayInstallerAction[^\\r\\n]+['"]${action}['"]`, 'u'));
+  }
   assert.ok(windowsInstall.lastIndexOf('Stop-GatewayBeforePayloadReplacement')
     < windowsInstall.indexOf('Remove-Item -LiteralPath $Target -Recurse -Force'));
   assert.match(windowsInstall, /existing runtime files were preserved/u);
