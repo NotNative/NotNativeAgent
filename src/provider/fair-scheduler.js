@@ -49,12 +49,12 @@ export class FairScheduler {
 
   setDiscoveredLimit(resource, limit) {
     if (typeof resource !== 'string' || resource.length < 1
-      || !Number.isSafeInteger(limit) || limit < 1) {
+      || (limit !== null && (!Number.isSafeInteger(limit) || limit < 1 || limit > 16))) {
       throw new ContractError('scheduler_resource_limit_invalid', 'discovered provider capacity is invalid');
     }
     const state = this.#state(resource);
     state.discoveredLimit = limit;
-    state.limit = limit;
+    state.limit = effectiveLimit(this.limit, limit, null);
     this.#pump(state);
   }
 

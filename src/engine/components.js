@@ -323,8 +323,8 @@ function providerRunner(engine, hooks) {
       await hooks.persist('provider_request_manifest', manifest);
       return manifest;
     },
-    verifyRequest: (request, manifest, route, active) => (
-      engine.reliability.assertProviderRequestManifest(request, manifest, route, active)
+    verifyRequest: (request, manifest, route, active, context) => (
+      engine.reliability.assertProviderRequestManifest(request, manifest, route, active, context)
     ),
     recordTokenReceipt: (manifest, active, detail) => recordProviderReceipt(engine, hooks, manifest, active, detail),
   });

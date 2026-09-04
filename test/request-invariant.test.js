@@ -17,7 +17,27 @@ test('provider request manifest is canonical and records attributed source ident
   assert.equal(first.requestFingerprint, second.requestFingerprint);
   assert.equal(first.sources[0].provenance, 'authenticated_submission');
   assert.equal(first.sources[0].trust, 'operator');
-  assert.equal(assertProviderRequestManifest(left, first, route, active), true);
+  assert.equal(assertProviderRequestManifest(left, first, route, active, context), true);
+});
+
+test('dispatch invariant binds tool surface, sources, and an immutable envelope', () => {
+  const value = request({ a: 1 });
+  const context = [{ role: 'user', content: 'hello', provenance: 'submission', trust: 'operator' }];
+  const surface = { names: ['fs.read_text'] };
+  const envelope = { estimated_input_tokens: 12 };
+  const scoped = { ...active, providerToolSurface: surface };
+  const manifest = providerRequestManifest(value, context, route, scoped, envelope);
+  envelope.estimated_input_tokens = 999;
+  surface.names.push('shell.exec');
+  assert.equal(manifest.envelope.estimated_input_tokens, 12);
+  assert.deepEqual(manifest.toolSurface.names, ['fs.read_text']);
+  assert.throws(() => assertProviderRequestManifest(value, manifest, route, scoped, context), {
+    code: 'provider_request_reconstruction_desync',
+  });
+  assert.throws(() => assertProviderRequestManifest(value, manifest, route,
+    { ...active, providerToolSurface: { names: ['fs.read_text'] } }, []), {
+    code: 'provider_request_reconstruction_desync',
+  });
 });
 
 test('dispatch invariant rejects nested request mutation and route drift', () => {

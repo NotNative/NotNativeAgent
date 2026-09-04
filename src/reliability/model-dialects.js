@@ -88,10 +88,11 @@ export class ModelDialectRegistry {
     const profile = this.#profile(route);
     const state = currentToolLearning(profile.tool_contract_learning);
     profile.tool_contract_learning = state;
+    const tool = boundedKey(observation.tool, 256);
     const reason = boundedKey(observation.reason_code ?? 'tool_schema_invalid', 128);
-    const key = boundedKey(`${observation.tool}@${observation.version}/${reason}`, 512);
-    const existing = state.candidates[key] ?? {
-      tool: observation.tool, version: observation.version, reason_code: reason,
+    const key = `${tool}@${observation.version}/${reason}`;
+    const existing = Object.hasOwn(state.candidates, key) ? state.candidates[key] : {
+      tool, version: observation.version, reason_code: reason,
       failures: 0, validated_repairs: 0, last_seen_at: new Date().toISOString(),
     };
     if (observation.status === 'failed') existing.failures = Math.min(MAX_FAILURE_COUNT, existing.failures + 1);
@@ -191,13 +192,17 @@ function normalizeProfile(profile) {
 }
 
 function newToolLearning() {
-  return { mode: TOOL_CONTRACT_LEARNING_MODE, epoch: TOOL_CONTRACT_LEARNING_EPOCH, candidates: {} };
+  return { mode: TOOL_CONTRACT_LEARNING_MODE, epoch: TOOL_CONTRACT_LEARNING_EPOCH, candidates: Object.create(null) };
 }
 
 function currentToolLearning(value) {
   if (!value || value.mode !== TOOL_CONTRACT_LEARNING_MODE || value.epoch !== TOOL_CONTRACT_LEARNING_EPOCH
     || !value.candidates || typeof value.candidates !== 'object' || Array.isArray(value.candidates)) return newToolLearning();
-  return value;
+  const candidates = Object.create(null);
+  for (const [key, candidate] of Object.entries(value.candidates).slice(-MAX_TOOL_CONTRACT_CANDIDATES)) {
+    Object.defineProperty(candidates, key, { value: candidate, enumerable: true, configurable: true, writable: true });
+  }
+  return { mode: value.mode, epoch: value.epoch, candidates };
 }
 
 function learnedGuidanceActive(failures) {

@@ -213,6 +213,14 @@ test('authoritative discovered capacity can expand one shared provider resource'
   first(); second();
 });
 
+test('discovered provider capacity is bounded and can be cleared', () => {
+  const scheduler = new FairScheduler({ limit: 3 });
+  assert.throws(() => scheduler.setDiscoveredLimit('worker', 17), { code: 'scheduler_resource_limit_invalid' });
+  scheduler.setDiscoveredLimit('worker', 2);
+  scheduler.setDiscoveredLimit('worker', null);
+  assert.deepEqual(scheduler.snapshot().map((item) => [item.limit, item.discoveredLimit]), [[3, null]]);
+});
+
 function jsonResponse(value, status = 200) {
   return new Response(JSON.stringify(value), {
     status, headers: { 'content-type': 'application/json' },

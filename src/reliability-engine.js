@@ -117,8 +117,8 @@ export class ReliabilityEngine {
     });
     return providerRequestManifest(request, context, route, active, envelope);
   }
-  assertProviderRequestManifest(request, manifest, route, active) {
-    return assertProviderRequestManifest(request, manifest, route, active);
+  assertProviderRequestManifest(request, manifest, route, active, context) {
+    return assertProviderRequestManifest(request, manifest, route, active, context);
   }
   providerTokenReceipt(manifest, active, detail = {}) {
     return createProviderTokenReceipt(manifest, active, detail);

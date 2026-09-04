@@ -2435,7 +2435,7 @@ test('AC-SESS-09 export previews categories, redacts content, and deletion is re
   ]));
   const id = 'session-export-test';
   await writeFile(join(sessions, `${id}.journal.ndjson`), `${JSON.stringify({
-    payload: { content: 'private prompt api_key=top-secret-value' },
+    payload: { content: 'private prompt api_key=top-secret-value', config: { clientSecret: 'nested-secret-value' } },
   })}\n`);
   await writeFile(join(reviewer, `${id}.review.journal.ndjson`), `${JSON.stringify({
     payload: { content: 'reviewer secret token=private-review-token-value' },
@@ -2451,7 +2451,7 @@ test('AC-SESS-09 export previews categories, redacts content, and deletion is re
   const exported = join(root, 'export.json');
   await manager.exportRedacted(id, exported);
   const text = await readFile(exported, 'utf8');
-  assert.doesNotMatch(text, /private prompt|top-secret-value|reviewer secret|private-review-token-value/u);
+  assert.doesNotMatch(text, /private prompt|top-secret-value|nested-secret-value|reviewer secret|private-review-token-value/u);
   assert.equal(JSON.parse(text).reviewer_records.length, 1);
   await assert.rejects(manager.deleteToTrash(id, 'yes'), { code: 'deletion_confirmation_required' });
   const deleted = await manager.deleteToTrash(id, `delete:${id}`);

@@ -44,6 +44,21 @@ test('agent.run validates a bounded specialist request and returns its terminal 
   await assert.rejects(() => definition.validate({ type: 'manager', task: 'Work' }), { code: 'subagent_request_invalid' });
 });
 
+test('agent.run rejects unknown outcomes and strips unrecognized terminal metadata', async () => {
+  const invalid = subagentDefinition({ workspaceRoot: 'D:\\workspace', run: async () => ({
+    session_id: 'agent_test_12345678', outcome: 'SUCCEEDED', text: 'done',
+  }) });
+  const request = await invalid.validate({ type: 'general', task: 'Test.' });
+  await assert.rejects(invalid.executor(request, new AbortController().signal), { code: 'subagent_result_invalid' });
+  const safe = subagentDefinition({ workspaceRoot: 'D:\\workspace', run: async () => ({
+    session_id: 'agent_test_12345678', outcome: 'failed', text: '',
+    usage: { input_tokens: 2, prompt: 'private' }, failure: { code: 'provider_timeout', prompt: 'private' },
+  }) });
+  const result = await safe.executor(await safe.validate({ type: 'general', task: 'Test.' }), new AbortController().signal);
+  assert.doesNotMatch(result.content, /private|prompt/u);
+  assert.match(result.content, /provider_timeout/u);
+});
+
 test('subagent configuration promotes only the configured subagent route to primary', () => {
   const primary = { role: 'primary', providerId: 'slow', model: 'large' };
   const subagent = { role: 'subagent', providerId: 'fast', model: 'small' };

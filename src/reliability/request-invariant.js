@@ -12,12 +12,9 @@ export function providerRequestManifest(request, context, route, active, envelop
     throw new ContractError('provider_request_invalid', 'provider request manifest requires messages and tools');
   }
   const configuration = requestConfiguration(request);
-  const sources = (Array.isArray(context) ? context : []).slice(-MAX_CONTEXT_SOURCES).map((item, index) => Object.freeze({
-    index,
-    provenance: boundedLabel(item?.provenance, 'unattributed'),
-    trust: boundedLabel(item?.trust, 'unclassified'),
-    fingerprint: digest(providerMessage(item)),
-  }));
+  const sources = sourceRecords(context);
+  const toolSurface = immutableSnapshot(active?.providerToolSurface ?? null);
+  const immutableEnvelope = immutableSnapshot(envelope);
   return Object.freeze({
     version: MANIFEST_VERSION, type: 'provider_request_manifest',
     turnId: active?.turnId ?? null, stepId: active?.stepId ?? null,
@@ -25,15 +22,15 @@ export function providerRequestManifest(request, context, route, active, envelop
     providerProfile: route?.profile?.id ?? null, model: request.model,
     requestFingerprint: digest(request), messagesFingerprint: digest(messages),
     toolsFingerprint: digest(tools), configFingerprint: digest(configuration),
-    toolSurface: active?.providerToolSurface ?? null,
-    envelope,
+    toolSurface, toolSurfaceFingerprint: digest(toolSurface),
+    envelope: immutableEnvelope, envelopeFingerprint: digest(immutableEnvelope),
     sourceFingerprint: digest(sources),
     messageCount: messages.length, toolCount: tools.length,
     sources: Object.freeze(sources),
   });
 }
 
-export function assertProviderRequestManifest(request, manifest, route, active) {
+export function assertProviderRequestManifest(request, manifest, route, active, context = []) {
   if (!manifest || manifest.version !== MANIFEST_VERSION || manifest.type !== 'provider_request_manifest') {
     throw desync('provider request has no valid durable manifest');
   }
@@ -47,6 +44,12 @@ export function assertProviderRequestManifest(request, manifest, route, active) 
   if (manifest.messagesFingerprint !== digest(request?.messages)) mismatches.push('messages');
   if (manifest.toolsFingerprint !== digest(request?.tools ?? [])) mismatches.push('tools');
   if (manifest.configFingerprint !== digest(requestConfiguration(request))) mismatches.push('config');
+  if (manifest.toolSurfaceFingerprint !== digest(manifest.toolSurface)
+    || manifest.toolSurfaceFingerprint !== digest(active?.providerToolSurface ?? null)) mismatches.push('tool_surface');
+  if (manifest.envelopeFingerprint !== digest(manifest.envelope)) mismatches.push('envelope');
+  const sources = sourceRecords(context);
+  if (manifest.sourceFingerprint !== digest(manifest.sources)
+    || manifest.sourceFingerprint !== digest(sources)) mismatches.push('sources');
   if (manifest.messageCount !== request?.messages?.length) mismatches.push('message_count');
   if (manifest.toolCount !== (request?.tools?.length ?? 0)) mismatches.push('tool_count');
   if (mismatches.length > 0) throw desync(`provider request diverged from its durable manifest: ${mismatches.join(', ')}`);
@@ -63,6 +66,26 @@ function providerMessage(item) {
   if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
   const { provenance: _provenance, trust: _trust, ...message } = item;
   return message;
+}
+
+function sourceRecords(context) {
+  return Object.freeze((Array.isArray(context) ? context : []).slice(-MAX_CONTEXT_SOURCES).map((item, index) => Object.freeze({
+    index,
+    provenance: boundedLabel(item?.provenance, 'unattributed'),
+    trust: boundedLabel(item?.trust, 'unclassified'),
+    fingerprint: digest(providerMessage(item)),
+  })));
+}
+
+function immutableSnapshot(value) {
+  if (value === null || value === undefined) return null;
+  return deepFreeze(JSON.parse(canonicalJson(value)));
+}
+
+function deepFreeze(value) {
+  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
+  for (const child of Object.values(value)) deepFreeze(child);
+  return Object.freeze(value);
 }
 
 function digest(value) {

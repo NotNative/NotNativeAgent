@@ -72,9 +72,9 @@ Counts represent static local imports. Same-component imports are included becau
 | Providers | Providers | 11 | 6 |
 | Tools | Reliability Engine | 11 | 4 |
 | Product foundation | Providers | 10 | 8 |
+| Persistence | Product foundation | 10 | 9 |
 | Reliability Engine | Product foundation | 10 | 9 |
 | Guidance and extensions | Product foundation | 9 | 8 |
-| Persistence | Product foundation | 9 | 9 |
 | Experience Engine | Persistence | 8 | 7 |
 | Product foundation | Experience Engine | 8 | 5 |
 | Product foundation | Persistence | 8 | 6 |
@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:368f55e26119fbc1ab5cfdeab2c370f48b2466602c104920ebee5b8b715bb06a`.
+Source fingerprint: `sha256:b26fa21ae056be589b9c5a272e89bdaa680506635bf316a2e086819fa298bcec`.

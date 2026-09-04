@@ -6,6 +6,7 @@ import { ContractError, requireExternalId } from '../ids.js';
 import { inspectSessionLock, preserveStaleSessionLock } from './session-lock.js';
 import { inspectJournalRepairPrefix, recoverJournal, restoreJournalFromVerifiedPrefix, rewriteJournal } from '../store.js';
 import { StructuredLog } from '../structured-log.js';
+import { redactExtensionData } from '../redaction.js';
 
 const MAX_LISTED_SESSIONS = 10_000;
 
@@ -322,7 +323,7 @@ async function redactedRecords(path) {
 function redactLine(line) {
   let record;
   try { record = JSON.parse(line); } catch { return { omitted: true, reason: 'malformed_record' }; }
-  return redactSecrets(redactContent(record));
+  return redactExtensionData(redactContent(record));
 }
 
 function redactContent(value, key = '') {
@@ -332,14 +333,6 @@ function redactContent(value, key = '') {
     return Object.fromEntries(Object.entries(value).map(([name, item]) => [name, redactContent(item, name)]));
   }
   return value;
-}
-
-function redactSecrets(value) {
-  const encoded = JSON.stringify(value);
-  return JSON.parse(encoded.replaceAll(
-    /(?:bearer\s+[A-Za-z0-9._-]{16,}|api[_-]?key\s*[=:]\s*[^"\s]+)/giu,
-    '[redacted secret]',
-  ));
 }
 
 async function writeExclusive(path, content) {

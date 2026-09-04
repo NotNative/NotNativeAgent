@@ -51,6 +51,16 @@ test('detached dialect flush records an unexpected rejection', async () => {
     && detail.code === 'dialect_store_flush_failed'));
 });
 
+test('tool-contract candidates use an own-property-only bounded map', () => {
+  const route = { profile: { id: 'local' }, model: 'fixture' };
+  const registry = new ModelDialectRegistry();
+  registry.observeToolContract(route, { status: 'failed', tool: '__proto__', version: 1, reason_code: 'x' });
+  const candidates = registry.snapshot(route).tool_contract_learning.candidates;
+  assert.equal(Object.hasOwn(candidates, '__proto__@1/x'), true);
+  assert.equal(candidates['__proto__@1/x'].failures, 1);
+  assert.equal(Object.prototype.failures, undefined);
+});
+
 test('successful provider observations exponentially decay stale dialect failures', async () => {
   const route = { profile: { id: 'local' }, model: 'qwen3.8-27b' };
   const registry = new ModelDialectRegistry();

@@ -67,6 +67,25 @@ test('malformed external skills are quarantined without preventing startup', asy
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('external skill frontmatter rejects unknown and duplicate fields', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-skills-fields-'));
+  try {
+    for (const [folder, field] of [['unknown', 'requres_tools: fs.read_text'], ['duplicate', 'id: second-id']]) {
+      const path = join(root, folder);
+      await mkdir(path);
+      await writeFile(join(path, 'SKILL.md'), [
+        '---', 'id: first-id', field, 'description: Invalid external skill', '---', 'Body.',
+      ].join('\n'));
+    }
+    const registry = new SkillRegistry({ roots: [{ scope: 'user', path: root }] });
+    await registry.initialize();
+    assert.equal(registry.catalog().length, 0);
+    assert.deepEqual(registry.diagnostics().map((item) => item.code), [
+      'skill_frontmatter_invalid', 'skill_frontmatter_invalid',
+    ]);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('host skills require authenticated policy and exact skill tools', async () => {
   const skill = {
     id: 'module.customer', version: '1', description: 'Handle an allowed customer workflow',

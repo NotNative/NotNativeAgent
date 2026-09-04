@@ -37,7 +37,7 @@ export class ProviderRunner {
     this.queueStatus ??= () => undefined;
   }
 
-  async run(provider, request, deadlines, active, manifest = null, route = null) {
+  async run(provider, request, deadlines, active, manifest = null, route = null, context = []) {
     // The owning engine sets active.cancelled when its turn controller accepts cancellation.
     const localLimit = this.reliability?.localRetryLimit(active) ?? active.recovery.localLimit;
     for (let attempt = 0; attempt < localLimit; attempt += 1) {
@@ -58,7 +58,7 @@ export class ProviderRunner {
       const requestStarted = process.hrtime.bigint();
       initializeAttempt(active, request.maxOutputTokens);
       try {
-        await this.verifyRequest?.(request, manifest, route, active);
+        await this.verifyRequest?.(request, manifest, route, active, context);
         this.telemetry?.record('provider.request', 'started', {
           model: active.modelName, provider_profile: active.providerResource,
           message_count: request.messages?.length ?? 0, tool_count: request.tools?.length ?? 0,
@@ -161,7 +161,7 @@ export class ProviderRunner {
         const manifest = await this.prepareRequest?.(request, route, active, context) ?? null;
         active.attemptRequestManifest = manifest;
         await this.run(router.provider(route), request,
-          effectiveProviderDeadlines(deadlines, route), active, manifest, route);
+          effectiveProviderDeadlines(deadlines, route), active, manifest, route, context);
         if (await fallbackAfterContentFreeCompletion({
           active, candidates: bounded, index, route, state: this.state,
           settleAttempt: this.settleAttempt, recordRecovery: this.recordRecovery,

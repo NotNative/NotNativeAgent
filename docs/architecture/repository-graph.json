@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:368f55e26119fbc1ab5cfdeab2c370f48b2466602c104920ebee5b8b715bb06a",
+  "source_digest": "sha256:b26fa21ae056be589b9c5a272e89bdaa680506635bf316a2e086819fa298bcec",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -207,6 +207,12 @@
       "module_count": 8
     },
     {
+      "from": "persistence",
+      "to": "foundation",
+      "import_count": 10,
+      "module_count": 9
+    },
+    {
       "from": "reliability-engine",
       "to": "foundation",
       "import_count": 10,
@@ -217,12 +223,6 @@
       "to": "foundation",
       "import_count": 9,
       "module_count": 8
-    },
-    {
-      "from": "persistence",
-      "to": "foundation",
-      "import_count": 9,
-      "module_count": 9
     },
     {
       "from": "experience-engine",
@@ -1876,6 +1876,7 @@
       "imports": [
         "src/ids.js",
         "src/persistence/session-lock.js",
+        "src/redaction.js",
         "src/store.js",
         "src/structured-log.js"
       ]

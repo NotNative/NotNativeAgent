@@ -254,10 +254,14 @@ function parseSkillFile(text, path, scope) {
   const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/u);
   if (!match) throw new ContractError('skill_frontmatter_missing', `skill ${path} requires bounded YAML-style frontmatter`);
   const metadata = {};
+  const allowed = new Set(['id', 'name', 'version', 'description', 'invocation', 'requires_tools']);
   for (const line of match[1].split(/\r?\n/u)) {
     if (!line.trim() || line.trimStart().startsWith('#')) continue;
     const pair = line.match(/^([a-z_]+):\s*(.*)$/u);
     if (!pair) throw new ContractError('skill_frontmatter_invalid', `skill ${path} has unsupported frontmatter`);
+    if (!allowed.has(pair[1]) || Object.hasOwn(metadata, pair[1])) {
+      throw new ContractError('skill_frontmatter_invalid', `skill ${path} has an unknown or duplicate frontmatter field`);
+    }
     metadata[pair[1]] = scalar(pair[2]);
   }
   const fallback = basename(path, extname(path)).replace(/\.skill$/u, '').toLowerCase();
