@@ -15,10 +15,15 @@ const ALLOWED_KEYS = new Set([
 ]);
 
 export function authenticateIntegrationRequest(request, token) {
-  const value = request.headers.authorization;
+  let validatedToken;
+  try { validatedToken = requireToken(token); }
+  catch { return false; }
+  const value = request?.headers?.authorization;
   if (typeof value !== 'string' || !value.startsWith('Bearer ')) return false;
-  const presented = Buffer.from(value.slice(7).trim(), 'utf8');
-  const expected = Buffer.from(token, 'utf8');
+  const presentedToken = value.slice(7).trim();
+  if (!presentedToken) return false;
+  const presented = Buffer.from(presentedToken, 'utf8');
+  const expected = Buffer.from(validatedToken, 'utf8');
   return presented.length === expected.length && timingSafeEqual(presented, expected);
 }
 
