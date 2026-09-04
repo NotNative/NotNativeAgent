@@ -164,6 +164,12 @@ test('extension payload redaction removes structured and free-form credentials',
   assert.equal(redacted.api_key, '[redacted]');
   assert.equal(redacted.nested.password, '[redacted]');
   assert.doesNotMatch(redacted.output, /abcdefghijklmnopqrstuvwxyz/u);
+  const hostile = redactExtensionData(JSON.parse('{"__proto__":{"polluted":true},"constructor":{"name":"hostile"}}'));
+  assert.equal(Object.getPrototypeOf(hostile), Object.prototype);
+  assert.equal(Object.hasOwn(hostile, '__proto__'), true);
+  assert.deepEqual(hostile.__proto__, { polluted: true });
+  assert.deepEqual(hostile.constructor, { name: 'hostile' });
+  assert.equal({}.polluted, undefined);
 });
 
 test('blocking turn hook injects attributed untrusted context into provider request', async () => {

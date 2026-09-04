@@ -61,6 +61,12 @@ test('central redaction preserves recognizable source-code expressions after sen
   const source = 'const policy = { secret: Object.freeze({ category: "credential" }), token: process.env.RUNTIME_TOKEN };';
   assert.equal(redactText(source), source);
   assert.equal(redactText('secret: "literal-value"'), 'secret: [redacted]');
+  for (const exposed of [
+    'password: {value:"hunter2"}', 'api_key: atob("c2stYWJj")',
+    'token: cfg["prod"]', 'secret: req.headers["x"]',
+  ]) {
+    assert.doesNotMatch(redactText(exposed), /hunter2|c2stYWJj|cfg\[|req\.headers/u);
+  }
 });
 
 test('realm separation prevents supported cross-realm enumeration and use', async () => {

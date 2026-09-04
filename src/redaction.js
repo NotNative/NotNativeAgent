@@ -51,7 +51,10 @@ export function redactExtensionData(value, depth = 0) {
   const result = {};
   const entries = Object.entries(value);
   for (const [key, child] of entries.slice(0, MAX_COLLECTION_ITEMS)) {
-    result[key] = SENSITIVE_KEY.test(key) ? '[redacted]' : redactExtensionData(child, depth + 1);
+    Object.defineProperty(result, key, {
+      value: SENSITIVE_KEY.test(key) ? '[redacted]' : redactExtensionData(child, depth + 1),
+      enumerable: true, configurable: true, writable: true,
+    });
   }
   if (entries.length > MAX_COLLECTION_ITEMS) result._nna_omitted_keys = entries.length - MAX_COLLECTION_ITEMS;
   return result;
@@ -82,6 +85,7 @@ function sourceCodeReference(value) {
   // Why: source listings commonly contain fields such as `secret: Object.freeze({ ... })`.
   // Redacting that expression corrupts evidence; registered values and credential literals
   // still redact, while recognizable executable references remain byte-for-byte observable.
-  return /[()[\]{}]/u.test(value)
-    || /^(?:Object|process\.env|import\.meta\.env|Deno\.env)\b/u.test(value);
+  return /^Object\.(?:freeze|seal)\(\{$/u.test(value)
+    || /^(?:process\.env|import\.meta\.env)(?:\.[A-Za-z_][A-Za-z0-9_]*)?$/u.test(value)
+    || /^Deno\.env\.get\(["'][A-Za-z_][A-Za-z0-9_]*["']\)$/u.test(value);
 }
