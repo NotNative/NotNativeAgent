@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 import { ContractError } from './ids.js';
 import { windowsAdminSource } from './windows-admin-worker.js';
 import { operationalEnvironment } from './tools/process.js';
@@ -14,17 +14,18 @@ export class WindowsAdministrator {
     this.spawn = options.spawn ?? spawn;
     this.root = options.root ?? tmpdir();
     this.node = options.node ?? process.execPath;
-    this.systemRoot = options.systemRoot ?? process.env.SystemRoot;
+    this.systemRoot = options.systemRoot ?? 'C:\\Windows';
     this.output = options.output ?? (async () => {});
   }
 
   async execute(request, signal) {
     if (signal.aborted) return notApproved();
+    const systemRoot = trustedWindowsSystemRoot(this.systemRoot);
     const directory = await mkdtemp(join(this.root, 'nna-admin-'));
     const bytes = JSON.stringify(request.args);
     const digest = createHash('sha256').update(bytes).digest('hex');
-    const powershell = join(this.systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-    const envelope = { directory, digest, powershell, taskkill: join(this.systemRoot, 'System32', 'taskkill.exe') };
+    const powershell = win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const envelope = { directory, digest, powershell, taskkill: win32.join(systemRoot, 'System32', 'taskkill.exe') };
     try {
       await writeFile(join(directory, 'request.json'), bytes, { flag: 'wx' });
       await this.output({ request, phase: 'awaiting_authorization' });
@@ -100,6 +101,17 @@ export class WindowsAdministrator {
         ...(shellDiagnosticVisibility(args.script) ? { diagnosticVisibility: shellDiagnosticVisibility(args.script) } : {}),
         verification_required: true } };
   }
+}
+
+function trustedWindowsSystemRoot(value) {
+  if (typeof value !== 'string' || value.split(/[\\/]/u).includes('..')) {
+    throw new ContractError('elevation_launcher_unavailable', 'Windows system root is not trusted');
+  }
+  const normalized = win32.normalize(value);
+  if (!/^C:\\Windows$/iu.test(normalized)) {
+    throw new ContractError('elevation_launcher_unavailable', 'Windows system root is not trusted');
+  }
+  return normalized;
 }
 
 function notApproved() {

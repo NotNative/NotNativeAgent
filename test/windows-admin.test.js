@@ -134,6 +134,17 @@ test('prelaunch cancellation skips UAC and broker cleans up its exact operation 
   assert.deepEqual(await readdir(root), []);
 });
 
+test('administrator execution refuses environment-controlled system binary roots', async (t) => {
+  const root = await temporary(t);
+  for (const systemRoot of ['relative', '\\\\server\\share', 'C:\\Temp\\..\\Windows', 'D:\\Windows']) {
+    const broker = new WindowsAdministrator({ root, systemRoot, spawn: () => assert.fail('untrusted launcher spawned') });
+    await assert.rejects(broker.execute({ args: operation }, new AbortController().signal), {
+      code: 'elevation_launcher_unavailable',
+    });
+  }
+  assert.deepEqual(await readdir(root), []);
+});
+
 async function worker(t, args, preparation = async () => {}) {
   const directory = await temporary(t);
   const bytes = JSON.stringify({ ...operation, cwd: directory, ...args });
