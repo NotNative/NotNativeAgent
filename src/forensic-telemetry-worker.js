@@ -40,6 +40,9 @@ CREATE INDEX IF NOT EXISTS idx_events_span ON events(span_id, status);
 CREATE INDEX IF NOT EXISTS idx_events_tool ON events(tool_request_id, sequence);
 CREATE INDEX IF NOT EXISTS idx_events_agent ON events(agent_run_id, sequence);
 `;
+const DEFAULT_MAX_BYTES = 1_073_741_824;
+const TRIM_BATCH_ROWS = 5_000;
+const MAX_TRIM_PASSES = 8;
 
 let db = null;
 let insert = null;
@@ -131,14 +134,18 @@ function cleanup() {
   const volatileCutoff = new Date(now - (workerData.volatileMaxAgeMs ?? 3 * 86_400_000)).toISOString();
   db.prepare("DELETE FROM events WHERE event_name LIKE 'tui.%' AND timestamp < ?").run(volatileCutoff);
   db.prepare('DELETE FROM events WHERE timestamp < ? AND session_id <> ?').run(cutoff, workerData.activeSessionId);
+  const maxBytes = Number.isSafeInteger(workerData.maxBytes) && workerData.maxBytes > 0
+    ? workerData.maxBytes : DEFAULT_MAX_BYTES;
   let size = databaseBytes();
-  while (size > workerData.maxBytes) {
+  for (let pass = 0; size > maxBytes && pass < MAX_TRIM_PASSES; pass += 1) {
     const result = db.prepare(`DELETE FROM events WHERE id IN (
-      SELECT id FROM events WHERE session_id <> ? ORDER BY id ASC LIMIT 5000
-    )`).run(workerData.activeSessionId);
+      SELECT id FROM events WHERE session_id IS NULL OR session_id <> ? ORDER BY id ASC LIMIT ?
+    )`).run(workerData.activeSessionId, TRIM_BATCH_ROWS);
     if (Number(result.changes) === 0) break;
-    db.exec('PRAGMA wal_checkpoint(PASSIVE)');
-    size = databaseBytes();
+    db.exec('PRAGMA wal_checkpoint(TRUNCATE); VACUUM; PRAGMA wal_checkpoint(TRUNCATE);');
+    const compactedSize = databaseBytes();
+    if (compactedSize >= size) break;
+    size = compactedSize;
   }
 }
 

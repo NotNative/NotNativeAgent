@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ForensicTelemetry } from '../src/forensic-telemetry.js';
@@ -137,6 +137,37 @@ test('volatile TUI telemetry expires independently after its short retention win
   assert.equal(rows.some((row) => row.event_name === 'engine.phase'), true);
   assert.equal(health.volatileRetentionDays, 1000 / 86_400_000);
   await reopened.close();
+});
+
+test('telemetry size cleanup compacts storage without erasing every inactive record', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-forensic-size-'));
+  const dbPath = join(root, 'events.db');
+  const seeded = telemetryAt(root, { maxBytes: 32 * 1024 * 1024 });
+  await seeded.initialize();
+  for (let index = 0; index < 5_500; index += 1) {
+    seeded.record('retention.fixture', 'observed', { detail: `${index}-${'x'.repeat(256)}` });
+  }
+  await seeded.close();
+  const before = (await stat(dbPath)).size;
+
+  const reopened = new ForensicTelemetry({
+    workspaceRoot: root, runtimeId: 'runtime-test', sessionId: 'active-session',
+    dbPath, maxAgeMs: 86_400_000, maxBytes: 512 * 1024,
+  });
+  await reopened.initialize();
+  const retained = await reopened.query({ sessionId: 'session-test', limit: 10_000 });
+  await reopened.close();
+  const after = (await stat(dbPath)).size;
+
+  assert.ok(retained.length > 0);
+  assert.ok(retained.length < 5_500);
+  assert.ok(after < before);
+});
+
+test('telemetry rejects invalid storage-size limits before starting its worker', () => {
+  for (const maxBytes of [0, -1, 1.5, Number.NaN]) {
+    assert.throws(() => telemetryAt(process.cwd(), { maxBytes }), { code: 'telemetry_options_invalid' });
+  }
 });
 
 test('telemetry degradation is observable but never process-fatal', async () => {

@@ -337,4 +337,8 @@ function assertTelemetryOptions(options) {
       throw new ContractError('telemetry_identity_invalid', `telemetry ${field} must be a non-empty string`);
     }
   }
+  if (options.maxBytes !== undefined
+    && (!Number.isSafeInteger(options.maxBytes) || options.maxBytes <= 0)) {
+    throw new ContractError('telemetry_options_invalid', 'telemetry maxBytes must be a positive safe integer');
+  }
 }
