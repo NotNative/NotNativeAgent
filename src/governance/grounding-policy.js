@@ -61,11 +61,16 @@ export class GroundingPolicy {
   }
 
   async #admitContext(items, context, policy) {
+    if (!this.governance
+      || typeof this.governance.registerEvidence !== 'function'
+      || typeof this.governance.decide !== 'function') {
+      throw new ContractError('governance_evidence_invalid', 'context grounding governance is unavailable');
+    }
     const admitted = [];
     for (const item of items) {
       const sourceRef = policy.source(item);
       const contentFingerprint = governanceFingerprint(policy.content(item));
-      const evidence = this.governance ? await this.governance.registerEvidence({
+      const evidence = await this.governance.registerEvidence({
         id: policy.origin === 'hook' ? newId('evidence')
           : `evidence:${policy.kind}:${governanceFingerprint(`${sourceRef}:${contentFingerprint}`)}`,
         kind: policy.kind, origin: policy.origin, trust: policy.trust,
@@ -73,23 +78,21 @@ export class GroundingPolicy {
         sourceRef, sourceFingerprint: sourceRef, contentFingerprint,
         scope: scopeRecord(policy.scope()), observedAt: observedAt(item),
         attributes: { assertion_mode: policy.assertionMode, turn_id: context.turnId ?? null },
-      }) : null;
-      if (evidence) {
-        validateEvidence(evidence);
-        await this.#supersedePrior(sourceRef, evidence);
-        const decision = await this.governance.decide({
-          domain: 'evidence_admission', subjectRef: sourceRef,
-          subjectFingerprint: contentFingerprint, outcome: 'admit', reasonCode: policy.reasonCode,
-          policyVersion: GROUNDING_POLICY_VERSION, evidenceRefs: [evidence.id],
-          authorityRefs: context.authorityRef ? [context.authorityRef] : [],
-          attributes: { assertion_mode: policy.assertionMode, turn_id: context.turnId ?? null },
-        });
-        validateDecision(decision);
-      }
+      });
+      validateEvidence(evidence);
+      await this.#supersedePrior(sourceRef, evidence);
+      const decision = await this.governance.decide({
+        domain: 'evidence_admission', subjectRef: sourceRef,
+        subjectFingerprint: contentFingerprint, outcome: 'admit', reasonCode: policy.reasonCode,
+        policyVersion: GROUNDING_POLICY_VERSION, evidenceRefs: [evidence.id],
+        authorityRefs: context.authorityRef ? [context.authorityRef] : [],
+        attributes: { assertion_mode: policy.assertionMode, turn_id: context.turnId ?? null },
+      });
+      validateDecision(decision);
       admitted.push(Object.freeze({
         ...item,
         grounding: Object.freeze({
-          assertionMode: policy.assertionMode, evidenceId: evidence?.id ?? null,
+          assertionMode: policy.assertionMode, evidenceId: evidence.id,
           reasonCode: policy.reasonCode, policyVersion: GROUNDING_POLICY_VERSION,
           observedAt: observedAt(item), freshness: policy.origin === 'hook' ? 'unknown' : 'not_applicable',
         }),

@@ -48,6 +48,23 @@ test('workspace guidance and hook context retain distinct trust and supersession
   assert.equal(governance.evidence(hook.admitted[0].grounding.evidenceId).trust, 'untrusted');
 });
 
+test('context grounding fails closed when governance cannot record evidence or a decision', async () => {
+  const unavailable = new GroundingPolicy();
+  await assert.rejects(unavailable.admitHook([
+    { source: 'unrecorded-hook', content: 'must not be admitted' },
+  ]), { code: 'governance_evidence_invalid' });
+
+  const invalidEvidence = new GroundingPolicy({
+    governance: {
+      async registerEvidence() { return null; },
+      async decide() { return { id: 'must-not-run' }; },
+    },
+  });
+  await assert.rejects(invalidEvidence.admitProjectGuidance([
+    { path: 'NNA.md', content: 'must not be admitted' },
+  ]), { code: 'governance_evidence_invalid' });
+});
+
 test('repeated memory recall does not manufacture governance drift from request metadata', async () => {
   const governance = new GovernanceEngine({ durable: false, sessionId: 'stable-memory-grounding' });
   const policy = new GroundingPolicy({ governance });
