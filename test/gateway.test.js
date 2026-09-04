@@ -71,6 +71,19 @@ test('Telegram transport uses bounded POST requests and chunks replies', async (
   await api.getUpdates(0, 5);
   assert.deepEqual(JSON.parse(calls.at(-1).init.body).allowed_updates, ['message', 'callback_query']);
   assert.equal(splitTelegramText('a'.repeat(8_300)).length, 3);
+  assert.equal(Object.keys(api).includes('baseUrl'), false);
+});
+
+test('Telegram transport bounds streamed bodies and never exposes its token through errors', async () => {
+  const token = '123:private-telegram-token-value';
+  const oversized = new TelegramApi(token, { fetch: async () => new Response(new Uint8Array(1_048_577)) });
+  await assert.rejects(oversized.getMe(), { code: 'telegram_response_too_large' });
+  const failed = new TelegramApi(token, { fetch: async (url) => { throw new Error(`request failed for ${url}`); } });
+  await assert.rejects(failed.getMe(), (error) => {
+    assert.equal(error.code, 'telegram_unavailable');
+    assert.doesNotMatch(`${error.message}\n${error.stack}\n${JSON.stringify(error)}`, /private-telegram-token-value/u);
+    return true;
+  });
 });
 
 test('gateway session identifiers do not disclose Telegram chat identifiers', () => {

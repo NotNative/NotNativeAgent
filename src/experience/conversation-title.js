@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
+import { redactText } from '../redaction.js';
 
 const MAX_SOURCE_MESSAGES = 2;
 const MAX_TITLE_WORDS = 3;
 const MAX_TITLE_CHARACTERS = 48;
 const TOKEN_PATTERN = /[\p{L}\p{N}][\p{L}\p{N}._+#'-]*/gu;
+const PRIVATE_TITLE_SOURCE = /(?:\bAKIA[A-Z0-9]{12,}\b|\bsk-[A-Za-z0-9_-]{8,}\b|\b[^\s@]+@[^\s@]+\.[^\s@]+\b|\+?\d[\d ()-]{7,}\d|(?:~[/\\]|[A-Za-z]:[\\/]|\/(?:home|Users|etc|var)\/))/u;
 
 const FILLER = new Set([
   'a', 'about', 'after', 'again', 'all', 'also', 'am', 'an', 'and', 'any', 'are', 'as', 'at', 'be', 'because',
@@ -70,10 +72,12 @@ export function renameWorkspaceConversation(workspace, name) {
 }
 
 function cleanSource(value) {
-  return String(value)
+  const source = String(value)
     .replace(/```[\s\S]*?```/gu, ' ')
     .replace(/https?:\/\/\S+/giu, ' ')
     .replace(/[\u0000-\u001f\u007f]/gu, ' ');
+  if (PRIVATE_TITLE_SOURCE.test(source) || redactText(source) !== source) return '';
+  return source;
 }
 
 function cleanToken(value) {

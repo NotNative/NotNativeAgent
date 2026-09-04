@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:5e99e5f6a952932d25b32aa99b0812a84add9bf2ed26bb7e8be78bd7a43e3275",
+  "source_digest": "sha256:e40d8f8dee72b15eef00ac2e4a577ca841d45432e582ffacca591b8373281d2f",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -119,7 +119,7 @@
     {
       "from": "experience-engine",
       "to": "foundation",
-      "import_count": 77,
+      "import_count": 78,
       "module_count": 54
     },
     {
@@ -1198,7 +1198,8 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/redaction.js"
       ]
     },
     {

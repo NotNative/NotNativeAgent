@@ -25,3 +25,13 @@ test('conversation titles discard URLs, code blocks, repeats, and generated shel
   assert.equal(isGeneratedConversationName('Conversation 4'), true);
   assert.equal(isGeneratedConversationName('Provider Routing'), false);
 });
+
+test('conversation titles refuse credential and private-identifier source messages', () => {
+  for (const content of [
+    'Please inspect token=private-value for Telegram',
+    'Debug sk-proj-4f9a2b8c1d and routing',
+    'Email user@example.test about deployment',
+    'Inspect ~/.ssh/id_rsa permissions',
+    'Call +1-555-123-4567 about gateway',
+  ]) assert.equal(deriveConversationTitle([user(content)]), null);
+});
