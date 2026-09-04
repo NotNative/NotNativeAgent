@@ -169,17 +169,6 @@ function Assert-SafeRoot([string]$Path, [string[]]$Forbidden) {
     }
 }
 
-function Protect-UserDataRoot([string]$Path) {
-    $Icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
-    $CurrentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-    $Entries = @((Get-Item -LiteralPath $Path)) + @(Get-ChildItem -LiteralPath $Path -Force -Recurse)
-    foreach ($Entry in $Entries) {
-        $Permission = if ($Entry.PSIsContainer) { '(OI)(CI)F' } else { 'F' }
-        $Output = & $Icacls $Entry.FullName '/inheritance:r' '/grant:r' "*${CurrentSid}:$Permission" '/grant:r' "*S-1-5-18:$Permission" '/Q' 2>&1
-        if ($LASTEXITCODE -ne 0) { throw "Unable to restrict ACLs on $($Entry.FullName)`: $($Output -join ' ')" }
-    }
-}
-
 function Add-UserPathEntry([string]$Entry) {
     $CurrentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $Mutex = New-Object Threading.Mutex($false, "Local\NotNativeAgent-UserPath-$CurrentSid")
@@ -470,10 +459,9 @@ if (Test-Path -LiteralPath $DataMarkerPath) {
 foreach ($Directory in @($DataRoot, (Join-Path $DataRoot 'sessions'), (Join-Path $DataRoot 'reviewer-ledger'), (Join-Path $DataRoot 'config'), (Join-Path $DataRoot 'logs'), (Join-Path $DataRoot 'support'))) {
     New-Item -ItemType Directory -Force -Path $Directory | Out-Null
 }
-Protect-UserDataRoot $DataRoot
 $DataMarker = @{ product = $Product; data_root = $DataRoot; created_by = 'windows-installer'; deletable = $DeleteAllowed } | ConvertTo-Json
 [IO.File]::WriteAllText($DataMarkerPath, $DataMarker, [Text.UTF8Encoding]::new($false))
-Write-InstallerOk 'User data directories prepared with restricted ACLs'
+Write-InstallerOk 'User data directories prepared with inherited parent ACLs'
 Write-InstallerLine "      $DataRoot" DarkGray
 
 Write-InstallerSection 'Interactive WebBrowse'

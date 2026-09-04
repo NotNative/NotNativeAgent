@@ -162,11 +162,12 @@ directory. `NNA_HOME` may override it, but it must be an absolute path. The Wind
 launcher sets this variable when a custom data root was selected. Manifest
 `workspace_root` remains separate: it controls the tool sandbox, not application state.
 
-Installers apply restrictive per-user data permissions idempotently. Linux and macOS use
-`0700` directories and `0600` marker/config files. Windows removes inherited access from
-the NNA data root and grants recursive full control only to the installing user and the
-SYSTEM principal. `/health` reports the runtime permission posture; Windows ACL
-verification remains part of the native release audit.
+Installers apply per-user data permissions idempotently. Linux and macOS use `0700`
+directories and `0600` marker/config files. Windows creates the data root beneath the
+current user's profile by default and leaves parent ACL inheritance intact; a custom data
+root inherits the permissions of the parent selected by the operator. `/health` reports
+the runtime permission posture, and Windows ACL verification remains part of the native
+release audit.
 
 Validate an installation with:
 
