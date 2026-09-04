@@ -7,25 +7,30 @@ const MAX_ISSUES = 16;
 
 export function diagnoseDreamEvidence(rows) {
   const turns = new Map(), reasons = new Map(), statuses = new Map();
-  if (!Array.isArray(rows)) return diagnosis(turns, statuses, reasons);
+  let invalidRows = 0;
+  if (!Array.isArray(rows)) return diagnosis(turns, statuses, reasons, 1);
   for (const row of rows) {
     if (!row || typeof row !== 'object' || typeof row.turn_id !== 'string' || !row.turn_id
-      || typeof row.status !== 'string' || !row.status) continue;
+      || typeof row.status !== 'string' || !row.status) { invalidRows += 1; continue; }
     if (!turns.has(row.turn_id)) turns.set(row.turn_id, new Set());
     turns.get(row.turn_id).add(row.status);
     statuses.set(row.status, (statuses.get(row.status) ?? 0) + 1);
-    if (typeof row.reason_code === 'string' && row.reason_code) reasons.set(row.reason_code, (reasons.get(row.reason_code) ?? 0) + 1);
+    if (QUARANTINE.has(row.status) && typeof row.reason_code === 'string' && row.reason_code) {
+      if (!reasons.has(row.reason_code)) reasons.set(row.reason_code, new Set());
+      reasons.get(row.reason_code).add(row.turn_id);
+    }
   }
-  return diagnosis(turns, statuses, reasons);
+  return diagnosis(turns, statuses, reasons, invalidRows);
 }
 
-function diagnosis(turns, statuses, reasons) {
+function diagnosis(turns, statuses, reasons, invalidRows) {
   const quarantined = [...turns.values()].filter((values) => [...values].some((value) => QUARANTINE.has(value))).length;
   const issues = issueSummary(statuses, reasons);
+  if (invalidRows > 0) issues.unshift(Object.freeze({ code: 'invalid_evidence_rows', count: invalidRows, action: 'inspect malformed evidence before learning' }));
   return Object.freeze({
     status: issues.length === 0 ? 'clean' : 'attention',
     turns: turns.size, eligible_turns: Math.max(0, turns.size - quarantined),
-    quarantined_turns: quarantined, issues: Object.freeze(issues),
+    quarantined_turns: quarantined, issues: Object.freeze(issues.slice(0, MAX_ISSUES)),
   });
 }
 
@@ -35,7 +40,8 @@ function issueSummary(statuses, reasons) {
     const count = statuses.get(status) ?? 0;
     if (count > 0) issues.push(Object.freeze({ code: `terminal_${status}`, count, action: action(status) }));
   }
-  for (const [reason, count] of [...reasons].sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))) {
+  for (const [reason, count] of [...reasons].map(([key, turns]) => [key, turns.size])
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))) {
     if (count < MINIMUM_REPEATED_REASON_COUNT) continue;
     issues.push(Object.freeze({ code: 'repeated_reason', reason, count, action: 'inspect the affected turn before learning from it' }));
     if (issues.length >= MAX_ISSUES) break;

@@ -21,29 +21,20 @@ export class GuidanceCatalog {
   async initialize() {
     this.root = await realpath(this.inputRoot);
     const paths = await markdownFiles(this.root);
-    const inspected = await Promise.all(paths.slice(0, MAX_CATALOG_FILES).map(async (path) => {
-      try { return { path, info: await stat(path) }; } catch { return null; }
-    }));
-    const selected = [];
-    for (const item of inspected.filter(Boolean)) {
-      const { path, info } = item;
-      if (!info.isFile() || info.size > MAX_DOCUMENT_BYTES) continue;
-      selected.push(path);
-    }
     let total = 0;
     const documents = [];
-    for (const path of selected) {
+    for (const path of paths) {
+      if (documents.length >= MAX_CATALOG_FILES) break;
       const id = relative(this.root, path).split(sep).join('/').replace(/\.md$/u, '');
       try {
+        const info = await stat(path);
+        if (!info.isFile() || info.size > MAX_DOCUMENT_BYTES) continue;
         const bytes = await readFile(path);
-        if (bytes.length > MAX_DOCUMENT_BYTES) continue;
+        if (bytes.length > MAX_DOCUMENT_BYTES || total + bytes.length > MAX_CATALOG_BYTES) continue;
         total += bytes.length;
-        if (total > MAX_CATALOG_BYTES) throw new ContractError('guidance_catalog_too_large', 'packaged guidance exceeds bound');
         const content = bytes.toString('utf8');
         documents.push(Object.freeze({ id, path: `docs/${id}.md`, content, tokens: tokenize(`${id} ${content}`) }));
-      } catch (error) {
-        if (error?.code === 'guidance_catalog_too_large') throw error;
-      }
+      } catch { /* Compatibility: unavailable documents do not consume accepted catalog capacity. */ }
     }
     for (const document of documents) {
       this.documents.set(document.id, document);
@@ -101,8 +92,7 @@ function scoreDocument(document, terms) {
   let score = 0;
   for (const term of terms) {
     if (id.includes(term)) score += 12;
-    const occurrences = document.tokens.filter((token) => token === term).length;
-    score += Math.min(occurrences, 8);
+    score += Number(document.tokens.includes(term));
   }
   return score;
 }

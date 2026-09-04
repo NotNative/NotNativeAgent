@@ -15,7 +15,7 @@ test('idle diagnosis quarantines uncertain turns and classifies repeated stable 
   assert.equal(diagnosis.eligible_turns, 1);
   assert.equal(diagnosis.quarantined_turns, 2);
   assert.ok(diagnosis.issues.some((issue) => issue.code === 'terminal_timed_out'));
-  assert.ok(diagnosis.issues.some((issue) => issue.code === 'repeated_reason' && issue.count === 3));
+  assert.equal(diagnosis.issues.some((issue) => issue.code === 'repeated_reason'), false);
 });
 
 test('idle diagnosis reports clean evidence without inventing issues', () => {

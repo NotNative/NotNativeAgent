@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { lstat, readFile, realpath } from 'node:fs/promises';
+import { lstat, open, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 const MAX_DIRECTORIES = 32;
@@ -60,9 +60,10 @@ async function firstDocument(root, directory, names, kind, telemetry) {
       if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size > MAX_DOCUMENT_BYTES) continue;
       const canonical = await realpath(path);
       if (!inside(root, canonical)) continue;
-      const content = await readFile(canonical, 'utf8');
+      const content = await readDocument(canonical);
+      if (content === null) continue;
       const bytes = Buffer.byteLength(content, 'utf8');
-      if (bytes === 0) continue;
+      if (bytes === 0 || bytes > MAX_DOCUMENT_BYTES) continue;
       return Object.freeze({
         path: relative(root, path) || name, content, bytes, kind,
         depth: pathDepth(root, directory), updatedAt: Math.trunc(metadata.mtimeMs),
@@ -74,6 +75,20 @@ async function firstDocument(root, directory, names, kind, telemetry) {
     }
   }
   return null;
+}
+
+async function readDocument(path) {
+  const handle = await open(path, 'r');
+  try {
+    const buffer = Buffer.alloc(MAX_DOCUMENT_BYTES + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, length, buffer.length - length, null);
+      if (bytesRead === 0) break;
+      length += bytesRead;
+    }
+    return length > MAX_DOCUMENT_BYTES ? null : buffer.subarray(0, length).toString('utf8');
+  } finally { await handle.close(); }
 }
 
 function guidanceTargets(records) {

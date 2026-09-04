@@ -18,6 +18,7 @@ export function resolveConfiguration(sources, options = {}) {
     if (!source || typeof source.name !== 'string' || !isRecord(source.manifest)) {
       throw new ContractError('configuration_source_invalid', 'configuration source is invalid');
     }
+    leafPaths(source.manifest);
     merged = merge(merged, source.manifest, '', source.name, winners);
   }
   let resolved;
@@ -56,6 +57,7 @@ function merge(base, incoming, prefix, source, winners, ancestors = new Set()) {
       throw new ContractError('configuration_source_invalid', 'configuration source contains a reserved key');
     }
     const path = prefix ? `${prefix}.${key}` : key;
+    if (!isRecord(value) || !isRecord(result[key])) clearWinners(winners, path);
     if (isRecord(value)) {
       result[key] = merge(isRecord(result[key]) ? result[key] : Object.create(null), value, path, source, winners, ancestors);
     }
@@ -68,17 +70,32 @@ function merge(base, incoming, prefix, source, winners, ancestors = new Set()) {
   return result;
 }
 
+function clearWinners(winners, path) {
+  for (const key of Object.keys(winners)) {
+    if (key === path || key.startsWith(`${path}.`)) delete winners[key];
+  }
+}
+
 function effectiveProvenance(manifest, winners) {
-  const result = Object.assign(Object.create(null), winners);
-  for (const path of leafPaths(manifest)) result[path] ??= winningSource(path, winners) ?? 'compiled_default';
+  const result = Object.create(null);
+  for (const path of leafPaths(manifest)) {
+    result[path] = winningSource(path, winners) ?? 'compiled_default';
+    if (path.startsWith('providers.0.') && !Object.hasOwn(winners, 'providers')) {
+      const alias = `provider.${path.slice('providers.0.'.length)}`;
+      if (Object.hasOwn(winners, alias)) result[alias] = winners[alias];
+    }
+  }
   return Object.freeze({ ...result });
 }
 
 function leafPaths(value) {
   const paths = [];
+  let nodes = 0;
   const pending = [{ value, path: '', depth: 0, ancestors: new Set() }];
   while (pending.length > 0 && paths.length < MAX_PROVENANCE_PATHS) {
     const item = pending.pop();
+    nodes += 1;
+    if (nodes > MAX_PROVENANCE_PATHS) throw new ContractError('configuration_size', 'configuration structure exceeds provenance bound');
     if (item.depth > MAX_PROVENANCE_DEPTH) throw new ContractError('configuration_depth', 'effective configuration exceeds provenance depth');
     if (item.value && typeof item.value === 'object' && item.ancestors.has(item.value)) {
       throw new ContractError('configuration_cycle', 'effective configuration must not contain cycles');
