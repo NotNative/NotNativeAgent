@@ -2,8 +2,9 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('..', import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/u, (value) => value.slice(1));
+const root = fileURLToPath(new URL('..', import.meta.url));
 const productionRoot = join(root, 'src');
 const MAX_SOURCE_FILES = 2_000;
 const MAX_FILE_LINES = 500;
@@ -20,8 +21,11 @@ const files = await collect(productionRoot, MAX_SOURCE_FILES);
 const errors = [];
 for (const path of files) {
   if (extname(path) !== '.js') continue;
-  const source = await readFile(path, 'utf8');
+  let source;
+  try { source = await readFile(path, 'utf8'); }
+  catch (error) { errors.push(`${relative(root, path)} could not be read: ${error.code ?? error.message}`); continue; }
   const lines = source.split(/\r?\n/u);
+  if (lines.at(-1) === '') lines.pop();
   if (lines.length > MAX_FILE_LINES) errors.push(`${relative(root, path)} has ${lines.length} lines (max ${MAX_FILE_LINES})`);
   for (const span of functionSpans(lines)) {
     if (span.length > MAX_FUNCTION_LINES) errors.push(`${relative(root, path)}:${span.start} function has ${span.length} lines (max ${MAX_FUNCTION_LINES})`);
@@ -29,7 +33,7 @@ for (const path of files) {
   if (lines.some((line) => /[ \t]+$/u.test(line))) errors.push(`${relative(root, path)} has trailing whitespace`);
   if (!source.includes('SPDX-License-Identifier: Apache-2.0')) errors.push(`${relative(root, path)} lacks SPDX identifier`);
   const checked = spawnSync(process.execPath, ['--check', path], { encoding: 'utf8' });
-  if (checked.status !== 0) errors.push(`${relative(root, path)} fails node --check: ${checked.stderr.trim()}`);
+  if (checked.status !== 0) errors.push(`${relative(root, path)} fails node --check: ${processFailure(checked)}`);
 }
 
 const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
@@ -38,10 +42,10 @@ if (Object.keys(packageJson.dependencies ?? {}).length > 0) {
 }
 
 const graphCheck = spawnSync(process.execPath, [join(root, 'scripts', 'repository-graph.js'), '--check'], { encoding: 'utf8' });
-if (graphCheck.status !== 0) errors.push(graphCheck.stderr.trim() || 'repository graph check failed');
+if (graphCheck.status !== 0) errors.push(`repository graph check failed: ${processFailure(graphCheck)}`);
 
 const languageCheck = spawnSync(process.execPath, [join(root, 'scripts', 'controlled-language-gates.js')], { encoding: 'utf8' });
-if (languageCheck.status !== 0) errors.push(languageCheck.stderr.trim() || 'controlled-language check failed');
+if (languageCheck.status !== 0) errors.push(`controlled-language check failed: ${processFailure(languageCheck)}`);
 else if (languageCheck.stdout) process.stdout.write(languageCheck.stdout);
 
 if (errors.length > 0) {
@@ -70,10 +74,17 @@ async function collect(directory, maxFiles) {
   return result;
 }
 
+function processFailure(result) {
+  if (result.error) return `${result.error.code ?? 'spawn_failed'}: ${result.error.message}`;
+  if (result.signal) return `terminated by ${result.signal}`;
+  return result.stderr?.trim() || `exit ${result.status}`;
+}
+
 function functionSpans(lines) {
   const spans = [];
   const starts = /^\s*(?:(?:export\s+)?(?:async\s+)?function\b|(?:async\s+)?\*?#?[A-Za-z_$][\w$]*\s*\([^;]*\)\s*\{|(?:const|let)\s+\w+\s*=.*=>\s*\{)/u;
   for (let index = 0; index < lines.length; index += 1) {
+    if (/^\s*(?:if|for|while|switch|catch|with)\s*\(/u.test(lines[index])) continue;
     if (!starts.test(lines[index])) continue;
     const length = blockLength(lines, index);
     if (length > 0) spans.push({ start: index + 1, length });

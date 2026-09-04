@@ -169,7 +169,9 @@ async function collect(directory) {
   const result = [];
   let entries;
   try { entries = await readdir(directory, { withFileTypes: true }); }
-  catch (error) { errors.push(`release file scan failed at ${relative(root, directory) || '.'}: ${error.code ?? error.message}`); return result; }
+  catch (error) {
+    throw new Error(`release file scan failed at ${relative(root, directory) || '.'}: ${error.code ?? error.message}`, { cause: error });
+  }
   for (const entry of entries) {
     const path = join(directory, entry.name);
     if (entry.isDirectory()) result.push(...await collect(path));

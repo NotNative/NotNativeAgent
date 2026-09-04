@@ -2,6 +2,7 @@
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import { performance } from 'node:perf_hooks';
+import { fileURLToPath } from 'node:url';
 import { TuiProjection } from '../src/experience/projection.js';
 
 const HELP_SAMPLES = 30;
@@ -17,7 +18,9 @@ function run() {
   const startup = [];
   for (let index = 0; index < HELP_SAMPLES; index += 1) {
     const startTime = performance.now();
-    const result = spawnSync(process.execPath, ['src/cli.js', '--help'], { encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [fileURLToPath(new URL('../src/cli.js', import.meta.url)), '--help'], { encoding: 'utf8' });
+    if (result.error) throw new Error(`help invocation failed: ${result.error.code ?? ''} ${result.error.message}`, { cause: result.error });
+    if (result.signal) throw new Error(`help invocation terminated by ${result.signal}`);
     if (result.status !== 0) throw new Error(`help invocation exited with ${result.status}: ${result.stderr?.trim() || 'no diagnostics'}`);
     startup.push(performance.now() - startTime);
   }
@@ -26,9 +29,10 @@ function run() {
   projection.addSession('benchmark', 'Benchmark', { model: 'fixture', provider: 'fixture' });
   const projectionStartTime = performance.now();
   for (let eventIndex = 0; eventIndex < PROJECTION_EVENTS; eventIndex += 1) {
-    projection.apply('benchmark', { type: 'stream_delta', sequence: eventIndex, text: 'x' });
+    projection.apply('benchmark', { type: 'stream_delta', turn_id: `turn-${eventIndex}`, sequence: eventIndex, text: 'x' });
   }
   const projectionMs = performance.now() - projectionStartTime;
+  if (projection.active().records.length !== PROJECTION_CAPACITY) throw new Error('projection retention benchmark did not exercise capacity');
 
   process.stdout.write(`${JSON.stringify({
     measured_at: new Date().toISOString(), node: process.version,
