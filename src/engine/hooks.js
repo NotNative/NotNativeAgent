@@ -9,6 +9,7 @@ const PRE_PHASE = 'pre';
 const IDENTITY_SCOPE_SCHEMA = 'notnative.identity-scope/1.0';
 const LOCAL_OPERATOR_ROLE = 'local-operator';
 const WORKSPACE_SCOPE = 'workspace';
+const HOST_IDENTITY_UNAVAILABLE = 'host-identity-unavailable';
 
 export async function dispatchSessionHook(engine, name, phase) {
   const event = engine.eventFactory.create(name, 'session', phase, {}, hookPayload(engine));
@@ -29,23 +30,35 @@ export async function dispatchTurnPreHook(engine, active, prompt) {
 }
 
 export function hookPayload(engine, active = null, extra = {}) {
+  const loaded = typeof engine.skills?.loadedIds === 'function' ? engine.skills.loadedIds() : [];
   return Object.freeze({
+    ...extra,
     cwd: engine.config.workspaceRoot, prompt: active?.prompt ?? '',
     model_name: active?.modelName ?? '', transcript_path: engine.store?.path ?? '',
-    loaded_skills: typeof engine.skills?.loadedIds === 'function'
-      ? engine.skills.loadedIds() : Object.freeze([]),
-    identity_scope: hookIdentityScope(engine), ...extra,
+    loaded_skills: Object.freeze(Array.isArray(loaded) ? [...loaded] : []),
+    identity_scope: hookIdentityScope(engine),
   });
 }
 
 export function hookIdentityScope(engine) {
-  const hosted = engine.config?.executionManifest?.hostIdentity;
-  const list = (value) => Object.freeze(Array.isArray(value) ? [...value] : []);
+  const manifest = engine.config?.executionManifest;
+  const hosted = manifest?.hostIdentity;
+  const list = (value) => {
+    if (value === undefined && !hosted) return Object.freeze([]);
+    if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+      throw new ContractError('execution_manifest_mismatch', 'hosted hook identity contains an invalid scope list');
+    }
+    return Object.freeze([...value]);
+  };
+  if (hosted && [hosted.subjectId, hosted.platformRole, hosted.scope]
+    .some((value) => typeof value !== 'string' || value.length === 0)) {
+    throw new ContractError('execution_manifest_mismatch', 'hosted hook identity is incomplete');
+  }
   return Object.freeze({
     schema: IDENTITY_SCOPE_SCHEMA,
-    subject_id: hosted?.subjectId ?? LOCAL_OPERATOR_ROLE,
-    platform_role: hosted?.platformRole ?? LOCAL_OPERATOR_ROLE,
-    scope: hosted?.scope ?? WORKSPACE_SCOPE,
+    subject_id: hosted?.subjectId ?? (manifest == null ? LOCAL_OPERATOR_ROLE : HOST_IDENTITY_UNAVAILABLE),
+    platform_role: hosted?.platformRole ?? (manifest == null ? LOCAL_OPERATOR_ROLE : HOST_IDENTITY_UNAVAILABLE),
+    scope: hosted?.scope ?? (manifest == null ? WORKSPACE_SCOPE : HOST_IDENTITY_UNAVAILABLE),
     workspace_ids: list(hosted?.workspaceIds),
     group_ids: list(hosted?.groupIds),
     module_ids: list(hosted?.moduleIds),
@@ -69,11 +82,16 @@ export async function addHookContexts(engine, active, dispatch) {
     return true;
   });
   if (novel.length === 0) return;
-  const governed = engine.grounding?.admitHook
-    ? await engine.grounding.admitHook(novel, {
-      turnId: active.turnId, authorityRef: active.authority?.id,
-      scope: `session:${engine.sessionId}`,
-    }) : { admitted: additions };
+  if (typeof engine.grounding?.admitHook !== 'function') {
+    throw new ContractError('hook_context_unavailable', 'hook context grounding is unavailable');
+  }
+  const governed = await engine.grounding.admitHook(novel, {
+    turnId: active.turnId, authorityRef: active.authority?.id,
+    scope: `session:${engine.sessionId}`,
+  });
+  if (!Array.isArray(governed?.admitted)) {
+    throw new ContractError('hook_context_unavailable', 'hook context grounding returned an invalid result');
+  }
   active.enrichment.hooks.push(...governed.admitted);
 }
 

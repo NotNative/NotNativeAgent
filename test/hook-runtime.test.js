@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -77,6 +77,25 @@ test('hook discovery rejects advertised phase combinations the runtime cannot re
   const result = await discoverHookBundles(root);
   assert.equal(result.bundles.length, 0);
   assert.equal(result.diagnostics[0].code, 'invalid_hook_subscription');
+});
+
+test('hook discovery rejects linked, oversized, and shell-composed manifests at admission', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-hook-manifest-boundary-'));
+  const outside = join(root, 'outside.json');
+  await writeFile(outside, JSON.stringify({ name: 'linked', version: '1', subscriptions: [] }));
+  await mkdir(join(root, 'linked'));
+  let linked = true;
+  try { await symlink(outside, join(root, 'linked', 'manifest.json')); }
+  catch (error) { if (error.code === 'EPERM') linked = false; else throw error; }
+  await mkdir(join(root, 'oversized'));
+  await writeFile(join(root, 'oversized', 'manifest.json'), Buffer.alloc(131_073, 0x20));
+  await createBundle(root, [{ event: 'turn', phase: 'pre', command: 'node hook.mjs && echo unsafe' }], '', 'composed');
+  const result = await discoverHookBundles(root);
+  const diagnostics = Object.fromEntries(result.diagnostics.map((item) => [item.bundle, item.code]));
+  if (linked) assert.equal(diagnostics.linked, 'invalid_hook_bundle_path');
+  else t.diagnostic('file symlink assertion skipped because Windows developer mode is unavailable');
+  assert.equal(diagnostics.oversized, 'hook_manifest_too_large');
+  assert.equal(diagnostics.composed, 'unsafe_hook_command');
 });
 
 test('hook discovery accepts bounded subscription concurrency', async () => {

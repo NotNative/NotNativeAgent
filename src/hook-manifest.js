@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readdir, readFile, realpath } from 'node:fs/promises';
+import { lstat, open, readdir, realpath } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { ContractError } from './ids.js';
+import { parseCommand } from './hook-runner.js';
 
 const SUBSCRIPTIONS = new Set([
   'session.start:post', 'session.end:pre', 'turn:pre', 'turn:post',
@@ -51,6 +52,8 @@ async function loadBundle(root, directoryName) {
     throw new ContractError('invalid_hook_bundle_path', 'hook bundle resolves outside its configured root');
   }
   const path = join(directory, 'manifest.json');
+  const entry = await lstat(path);
+  if (!entry.isFile()) throw new ContractError('invalid_hook_bundle_path', 'hook manifest must be a regular file');
   const text = await readBounded(path);
   let value;
   try { value = JSON.parse(text); } catch { throw new ContractError('invalid_hook_manifest', 'hook manifest must be JSON'); }
@@ -58,11 +61,25 @@ async function loadBundle(root, directoryName) {
 }
 
 async function readBounded(path) {
-  const text = await readFile(path, 'utf8');
-  if (Buffer.byteLength(text, 'utf8') > MAX_MANIFEST_BYTES) {
+  const file = await open(path, 'r');
+  const chunks = [];
+  let total = 0;
+  try {
+    const entry = await file.stat();
+    if (!entry.isFile()) throw new ContractError('invalid_hook_bundle_path', 'hook manifest must be a regular file');
+    if (entry.size > MAX_MANIFEST_BYTES) throw new ContractError('hook_manifest_too_large', 'hook manifest exceeds the size limit');
+    while (total <= MAX_MANIFEST_BYTES) {
+      const buffer = Buffer.allocUnsafe(Math.min(65_536, MAX_MANIFEST_BYTES + 1 - total));
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, null);
+      if (bytesRead === 0) break;
+      chunks.push(buffer.subarray(0, bytesRead));
+      total += bytesRead;
+    }
+  } finally { await file.close(); }
+  if (total > MAX_MANIFEST_BYTES) {
     throw new ContractError('hook_manifest_too_large', 'hook manifest exceeds the size limit');
   }
-  return text;
+  return Buffer.concat(chunks, total).toString('utf8');
 }
 
 function validateBundle(value, directory, directoryName) {
@@ -86,6 +103,7 @@ function validateSubscription(value, index) {
   if (typeof value.command !== 'string' || value.command.length === 0 || value.command.length > 1024) {
     throw new ContractError('invalid_hook_command', `hook subscription ${index} requires a bounded command`);
   }
+  parseCommand(value.command);
   return Object.freeze({
     event: value.event, phase: value.phase, command: value.command,
     blocking: value.blocking !== false,

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:e69b667726613f1631be7cf59db148838dff9f53d4847122bf68fce180aba317",
+  "source_digest": "sha256:f34ae648f5054f1a1f6eacb515afa768089aaea72f13cc91f3442d44c2c9716b",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -351,6 +351,12 @@
       "module_count": 3
     },
     {
+      "from": "guidance",
+      "to": "guidance",
+      "import_count": 3,
+      "module_count": 2
+    },
+    {
       "from": "reliability-engine",
       "to": "providers",
       "import_count": 3,
@@ -403,12 +409,6 @@
       "to": "tools",
       "import_count": 2,
       "module_count": 2
-    },
-    {
-      "from": "guidance",
-      "to": "guidance",
-      "import_count": 2,
-      "module_count": 1
     },
     {
       "from": "persistence",
@@ -1585,6 +1585,7 @@
       "component": "guidance",
       "entrypoint": false,
       "imports": [
+        "src/hook-runner.js",
         "src/ids.js"
       ]
     },
