@@ -17,21 +17,23 @@ export async function fallbackAfterContentFreeCompletion(options) {
 }
 
 export async function waitForProviderRecovery(provider, active, options = {}) {
+  const delayMs = recoveryTiming(options.delayMs, 1000);
+  const probeTimeoutMs = recoveryTiming(options.healthProbeTimeoutMs, 5000);
   const waiter = providerRecoveryWaiter(active.controller.signal);
   active.providerRecoveryWaiter = waiter;
   try {
-    const initial = await recoveryDelay(options.delayMs, active.controller.signal, waiter.promise);
+    const initial = await recoveryDelay(delayMs, active.controller.signal, waiter.promise);
     if (initial !== 'completed') return initial;
     if (provider?.profile?.trustZone === 'public_network' || typeof provider?.health !== 'function') return 'retry';
     let sequence = 0;
     while (true) {
       sequence += 1;
       const health = await raceRecoveryWait(probeProviderHealth(
-        provider, active, options.telemetry, options.healthProbeTimeoutMs, sequence, waiter.promise,
+        provider, active, options.telemetry, probeTimeoutMs, sequence, waiter.promise,
       ), waiter.promise);
       if (health === 'steering' || health === 'cancelled') return health;
       if (health === true) return 'retry';
-      const interval = Math.max(options.delayMs, PROVIDER_RECOVERY_HEALTH_INTERVAL_MS);
+      const interval = Math.max(delayMs, PROVIDER_RECOVERY_HEALTH_INTERVAL_MS);
       const waited = await recoveryDelay(interval, active.controller.signal, waiter.promise);
       if (waited !== 'completed') return waited;
     }
@@ -49,7 +51,7 @@ export function startProviderHealthMonitor({ provider, active, signal, telemetry
   let stopped = false; let timer = null; let pending = null; let probeController = null; let sequence = 0;
   const schedule = (delayMs = intervalMs) => {
     if (stopped) return;
-    timer = setTimeout(() => { pending = run(); }, delayMs);
+    timer = setTimeout(() => { pending = run().catch(() => undefined); }, delayMs);
     timer.unref?.();
   };
   const run = async () => {
@@ -64,17 +66,18 @@ export function startProviderHealthMonitor({ provider, active, signal, telemetry
     const deadline = setTimeout(() => controller.abort(), timeoutMs);
     deadline.unref?.();
     const correlation = providerCorrelation(active, `provider-health:${active.attemptId}:${sequence}`);
-    telemetry?.record('provider.health', 'started', {
+    try {
+    observeHealth(telemetry, 'provider.health', 'started', {
       model: active.modelName, provider_profile: active.providerResource, silence_ms: silenceMs,
     }, correlation);
-    try {
       await provider.health(controller.signal);
+      if (controller.signal.aborted || stopped) return;
       active.lastProviderHealthAt = Date.now();
-      telemetry?.record('provider.health', 'succeeded', {
+      observeHealth(telemetry, 'provider.health', 'succeeded', {
         model: active.modelName, provider_profile: active.providerResource, silence_ms: silenceMs,
       }, { ...correlation, outcome: 'completed' });
     } catch (error) {
-      if (!signal.aborted && !stopped) telemetry?.record('provider.health', 'failed', {
+      if (!signal.aborted && !stopped) observeHealth(telemetry, 'provider.health', 'failed', {
         model: active.modelName, provider_profile: active.providerResource, silence_ms: silenceMs,
         failure: { code: error?.code ?? 'provider_health_unavailable', retryable: true },
       }, { ...correlation, outcome: 'failed', reasonCode: error?.code });
@@ -137,21 +140,31 @@ async function probeProviderHealth(provider, active, telemetry, timeoutMs, seque
   waiter.then(cancel);
   const deadline = setTimeout(() => controller.abort(), timeoutMs);
   const correlation = providerCorrelation(active, `provider-recovery-health:${active.attemptId}:${sequence}`);
-  telemetry?.record('provider.health', 'started', providerHealthDetail(active), correlation);
   try {
+    observeHealth(telemetry, 'provider.health', 'started', providerHealthDetail(active), correlation);
     const healthy = await provider.health(controller.signal) === true;
-    telemetry?.record('provider.health', healthy ? 'succeeded' : 'failed', providerHealthDetail(active, healthy), {
+    if (controller.signal.aborted) return false;
+    observeHealth(telemetry, 'provider.health', healthy ? 'succeeded' : 'failed', providerHealthDetail(active, healthy), {
       ...correlation, outcome: healthy ? 'completed' : 'failed',
     });
     return healthy;
   } catch (error) {
-    if (!active.controller.signal.aborted) telemetry?.record('provider.health', 'failed', providerHealthDetail(active, false, error), {
+    if (!controller.signal.aborted) observeHealth(telemetry, 'provider.health', 'failed', providerHealthDetail(active, false, error), {
       ...correlation, outcome: 'failed', reasonCode: error?.code,
     });
     return false;
   } finally {
     clearTimeout(deadline); active.controller.signal.removeEventListener('abort', cancel);
   }
+}
+
+function recoveryTiming(value, fallback) {
+  return Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647 ? value : fallback;
+}
+
+function observeHealth(telemetry, ...args) {
+  try { telemetry?.record(...args); }
+  catch { /* Invariant: observational telemetry cannot stop recovery or retain probe resources. */ }
 }
 
 function providerHealthDetail(active, healthy = true, error = null) {

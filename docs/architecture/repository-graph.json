@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:0497835371a3a4f78fd1b26b585dcce0011272856a2d5217de49ae433be2dd72",
+  "source_digest": "sha256:2f0826169b323bb8d576e5b58c0ee93f27637343862c5969ca2581ebfadb1231",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -98,6 +98,7 @@
     "node:readline/promises",
     "node:sqlite",
     "node:stream",
+    "node:timers/promises",
     "node:url",
     "node:util",
     "node:worker_threads",
