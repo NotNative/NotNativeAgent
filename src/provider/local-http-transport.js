@@ -22,12 +22,17 @@ export function localProviderFetch(input, init = {}, options = {}) {
     const outgoing = request(url, {
       method: init.method ?? 'GET', headers, signal: init.signal,
     }, (incoming) => {
-      settled = true;
-      const status = incoming.statusCode ?? 502;
-      const responseBody = responseMayHaveBody(init.method, status) ? Readable.toWeb(incoming) : null;
-      resolve(new Response(responseBody, {
-        status, statusText: incoming.statusMessage ?? '', headers: responseHeaders(incoming.headers),
-      }));
+      try {
+        const status = incoming.statusCode ?? 502;
+        const responseBody = responseMayHaveBody(init.method, status) ? Readable.toWeb(incoming) : null;
+        const response = new Response(responseBody, {
+          status, statusText: incoming.statusMessage ?? '', headers: responseHeaders(incoming.headers),
+        });
+        settled = true; resolve(response);
+      } catch {
+        settled = true; incoming.destroy();
+        reject(new ContractError('provider_response_invalid', 'local provider returned an invalid HTTP response'));
+      }
     });
     outgoing.once('error', (error) => { if (!settled) reject(error); });
     outgoing.end(body);

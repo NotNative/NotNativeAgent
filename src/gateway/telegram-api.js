@@ -69,6 +69,7 @@ export class TelegramApi {
     }
     let envelope;
     try { envelope = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch {
+      if (!response.ok) throw new ContractError('telegram_api_error', `Telegram ${method}: HTTP ${response.status}`);
       throw new ContractError('telegram_response_invalid', 'Telegram returned invalid JSON');
     }
     if (!response.ok || envelope.ok !== true) {

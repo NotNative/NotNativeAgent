@@ -26,23 +26,7 @@ export class SearxngClient {
 
   async search(endpoint, input, signal) {
     const url = searchUrl(endpoint, input);
-    let response;
-    try {
-      response = await this.fetch(url, {
-        method: 'GET', headers: { accept: 'application/json', 'user-agent': `NotNativeAgent/${VERSION}` },
-        signal: combinedSignal(signal, this.timeoutMs), redirect: 'error',
-      });
-    } catch (error) {
-      if (error instanceof ContractError) throw error;
-      const code = signal?.aborted ? 'web_search_cancelled' : 'web_search_request_failed';
-      const failure = new ContractError(code, signal?.aborted ? 'WebSearch was cancelled' : 'SearXNG request failed');
-      failure.cause = error;
-      throw failure;
-    }
-    if (!response.ok) {
-      throw new ContractError('web_search_http_error', `SearXNG returned HTTP ${response.status}`);
-    }
-    const value = await boundedJson(response, MAX_RESPONSE_BYTES);
+    const value = await requestJson(this.fetch, url, signal, this.timeoutMs);
     if (!Array.isArray(value?.results)) {
       throw new ContractError('web_search_response_invalid', 'SearXNG did not return a JSON search result list');
     }
@@ -52,6 +36,27 @@ export class SearxngClient {
       results: Object.freeze(value.results.slice(0, limit).map(normalizeResult).filter(Boolean)),
       suggestions: Object.freeze(Array.isArray(value.suggestions) ? value.suggestions.filter(shortString).slice(0, MAX_SUGGESTIONS) : []),
     });
+  }
+}
+
+async function requestJson(fetch, url, outerSignal, timeoutMs) {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  const signal = outerSignal ? AbortSignal.any([outerSignal, timeout]) : timeout;
+  try {
+    const response = await fetch(url, {
+      method: 'GET', headers: { accept: 'application/json', 'user-agent': `NotNativeAgent/${VERSION}` },
+      signal, redirect: 'error',
+    });
+    if (!response.ok) {
+      void response.body?.cancel?.().catch(() => undefined);
+      throw new ContractError('web_search_http_error', `SearXNG returned HTTP ${response.status}`);
+    }
+    return await boundedJson(response, MAX_RESPONSE_BYTES, signal);
+  } catch (error) {
+    if (outerSignal?.aborted) throw new ContractError('web_search_cancelled', 'WebSearch was cancelled');
+    if (timeout.aborted) throw new ContractError('web_search_timeout', 'SearXNG request timed out', true);
+    if (error instanceof ContractError) throw error;
+    throw new ContractError('web_search_request_failed', 'SearXNG request failed', { cause: error });
   }
 }
 
@@ -81,33 +86,39 @@ function normalizeResult(value) {
   });
 }
 
-async function boundedJson(response, maximum) {
+async function boundedJson(response, maximum, signal) {
   if (!response.body?.getReader) {
-    const text = await response.text();
+    const text = await readWithSignal(() => response.text(), signal, () => response.body?.cancel?.());
     if (Buffer.byteLength(text, 'utf8') > maximum) throw new ContractError('web_search_response_too_large', 'SearXNG response exceeded the size bound');
     return parseJson(text);
   }
   const reader = response.body.getReader();
   const bytes = new Uint8Array(maximum);
   let length = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    length += value.length;
-    if (length > maximum) {
-      await reader.cancel();
-      throw new ContractError('web_search_response_too_large', 'SearXNG response exceeded the size bound');
+  try {
+    while (true) {
+      const { done, value } = await readWithSignal(() => reader.read(), signal, () => reader.cancel());
+      if (done) break;
+      length += value.length;
+      if (length > maximum) throw new ContractError('web_search_response_too_large', 'SearXNG response exceeded the size bound');
+      bytes.set(value, length - value.length);
     }
-    bytes.set(value, length - value.length);
-  }
+  } catch (error) { void reader.cancel().catch(() => undefined); throw error; }
+  finally { reader.releaseLock(); }
   try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, length))); } catch {
     throw new ContractError('web_search_response_invalid', 'SearXNG response was not valid UTF-8 JSON');
   }
 }
 
-function combinedSignal(signal, timeoutMs) {
-  const timeout = AbortSignal.timeout(timeoutMs);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+async function readWithSignal(operation, signal, cancel) {
+  if (signal.aborted) throw signal.reason;
+  let abort;
+  const cancelled = new Promise((_, reject) => {
+    abort = () => { void Promise.resolve().then(cancel).catch(() => undefined); reject(signal.reason); };
+    signal.addEventListener('abort', abort, { once: true });
+  });
+  try { return await Promise.race([operation(), cancelled]); }
+  finally { signal.removeEventListener('abort', abort); }
 }
 
 function shortString(value) {

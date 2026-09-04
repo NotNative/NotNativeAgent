@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:8bf80321578bf3d5a2fd90dea89ff6d122ca0dba08562823f542c676142dc579",
+  "source_digest": "sha256:54e925db8807832d086987531114cd243c8c261f0e3706a0767c8005810a12b3",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -155,8 +155,8 @@
     {
       "from": "providers",
       "to": "foundation",
-      "import_count": 22,
-      "module_count": 15
+      "import_count": 23,
+      "module_count": 16
     },
     {
       "from": "integrations",
@@ -2100,7 +2100,9 @@
       "path": "src/provider/request-metadata.js",
       "component": "providers",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/ids.js"
+      ]
     },
     {
       "path": "src/provider/route-configuration.js",

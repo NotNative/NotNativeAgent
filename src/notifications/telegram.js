@@ -73,10 +73,12 @@ export async function readTelegramOutbox(root) {
       const metadata = await stat(path);
       if (!metadata.isFile() || metadata.size > MAX_OUTBOX_FILE_BYTES) { await unlink(path); return null; }
       const bytes = await readFile(path);
-      const value = JSON.parse(bytes.toString('utf8'));
-      if (typeof value.message === 'string' && typeof value.session_id === 'string') return { ...value, path };
+      let value;
+      try { value = JSON.parse(bytes.toString('utf8')); }
+      catch { await unlink(path); return null; }
+      if (bytes.length <= MAX_OUTBOX_FILE_BYTES && typeof value?.message === 'string' && typeof value?.session_id === 'string') return { ...value, path };
       await unlink(path); return null;
-    } catch { await unlink(path).catch(() => undefined); return null; }
+    } catch (error) { if (error?.code === 'ENOENT') return null; throw error; }
   }));
   return settled.filter(Boolean);
 }
