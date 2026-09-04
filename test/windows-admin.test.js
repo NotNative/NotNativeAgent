@@ -107,6 +107,9 @@ test('cancelled or missing UAC results never claim successful execution', async 
   const envelope = { directory, digest: 'request' };
   assert.equal((await broker.result(envelope, 1223, operation)).status, 'denied');
   assert.equal((await broker.result(envelope, 1, operation)).status, 'unknown_effect');
+  await writeFile(join(directory, 'result.json'), JSON.stringify({ requestDigest: 'request',
+    status: 'succeeded', effectCertainty: 'completed', exitCode: 0 }));
+  assert.equal((await broker.result(envelope, 1, operation)).status, 'unknown_effect');
   await writeFile(join(directory, 'started'), 'started');
   assert.equal((await broker.result(envelope, 1223, operation)).effectCertainty, 'unknown');
   for (const change of [{ requestDigest: 'other' }, { exitCode: 3010 }, { effectCertainty: 'unknown' }, { outputTruncated: true }]) {

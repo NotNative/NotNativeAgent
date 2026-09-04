@@ -83,6 +83,7 @@ export class WindowsAdministrator {
   async result(envelope, code, args) {
     let result;
     try {
+      if (code !== 0) throw new Error('launcher_failed');
       const path = join(envelope.directory, 'result.json');
       if ((await stat(path)).size > 2097152) throw new Error('result_bound');
       result = JSON.parse(await readFile(path, 'utf8'));
