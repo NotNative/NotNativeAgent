@@ -6,7 +6,8 @@ import { ContractError, newId } from './ids.js';
 import { userDataPaths, VERSION } from './product.js';
 import { sanitizeTelemetry, supportTelemetryProjection } from './forensic-telemetry-sanitize.js';
 
-const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'timed_out', 'denied', 'skipped', 'superseded', 'unknown_effect']);
+const TERMINAL = new Set(['succeeded', 'failed', 'cancelled', 'timed_out', 'denied', 'skipped', 'superseded', 'unknown_effect',
+  'blocked', 'incomplete', 'needs_input', 'limit_reached', 'completed_nonzero', 'invalid_request', 'invalid', 'escalation_pending']);
 const DEFAULT_MAX_AGE_MS = 30 * 86_400_000;
 const DEFAULT_VOLATILE_MAX_AGE_MS = 3 * 86_400_000;
 const DEFAULT_MAX_BYTES = 1_073_741_824;
@@ -37,6 +38,7 @@ export class ForensicTelemetry {
   }
 
   async initialize() {
+    if (this.#closed || this.#closing) return this.health();
     if (this.#ready) return this.#ready;
     this.#ready = new Promise((resolve) => {
       const worker = new Worker(new URL('./forensic-telemetry-worker.js', import.meta.url), {
@@ -47,12 +49,22 @@ export class ForensicTelemetry {
         },
       });
       this.#worker = worker;
-      worker.on('message', (message) => this.#message(message, resolve));
-      worker.on('error', () => this.#degrade('telemetry_worker_failed', resolve));
-      worker.on('exit', (code) => { if (!this.#closed && code !== 0) this.#degrade('telemetry_worker_exited', resolve); });
+      const timer = setTimeout(() => {
+        this.#degrade('telemetry_startup_timeout', settle);
+        void worker.terminate().catch(() => undefined);
+      }, REQUEST_TIMEOUT_MS);
+      const settle = (value) => { clearTimeout(timer); resolve(value); };
+      worker.on('message', (message) => this.#message(message, settle));
+      worker.on('error', (error) => this.#degrade('telemetry_worker_failed', settle, error?.code ?? error?.name));
+      worker.on('exit', (code) => {
+        if (!this.#closed && !this.#closing && this.#health.status !== 'degraded') {
+          this.#degrade('telemetry_worker_exited', settle, `exit_${code}`);
+        } else settle(this.#health);
+        if (this.#worker === worker) this.#worker = null;
+      });
     });
     await this.#ready;
-    if (this.#health.status === 'ready') {
+    if (!this.#closed && !this.#closing && this.#health.status === 'ready') {
       this.record('telemetry.session', 'started', {
         product_version: VERSION, workspace: this.workspaceRoot, retention_days: this.maxAgeMs / 86_400_000,
         max_bytes: this.maxBytes, local_only: true, rich_capture: true,
@@ -164,7 +176,7 @@ export class ForensicTelemetry {
 
   async #closeOnce() {
     if (this.#closed) return;
-    if (!this.#worker) { this.#closed = true; return; }
+    if (!this.#worker) { this.#closed = true; this.#health = { ...this.#health, status: 'closed' }; return; }
     if (this.#health.status !== 'degraded') {
       this.record('telemetry.session', 'succeeded', { product_version: VERSION }, { spanId: `telemetry:${this.sessionId}` });
       await this.flush();
@@ -197,6 +209,9 @@ export class ForensicTelemetry {
   }
 
   #message(message, readyResolve) {
+    if (message.type === 'ready' && (this.#closed || this.#closing || this.#health.status === 'degraded')) {
+      readyResolve(this.#health); return;
+    }
     if (message.type === 'ready') { this.#health = { ...this.#health, status: 'ready', dbPath: message.dbPath }; readyResolve(this.#health); return; }
     if (message.type === 'fatal' || message.type === 'degraded') { this.#degrade(message.code, readyResolve, message.message); return; }
     if (message.type !== 'response') return;
@@ -226,7 +241,7 @@ function subscriberStatus(result) {
   if (result?.code === 'hook_cancelled') return 'cancelled';
   if (typeof result?.code === 'string' && result.code.startsWith('hook_')
     && !['hook_completed', 'hook_context', 'hook_event_filtered', 'hook_denied'].includes(result.code)) return 'failed';
-  return terminalStatus(result?.decision);
+  return result?.decision === undefined ? 'succeeded' : terminalStatus(result.decision);
 }
 
 function subscriberReason(result) {
@@ -308,7 +323,8 @@ function lifecycleCorrelation(record) {
 
 function terminalStatus(decision) {
   if (TERMINAL.has(decision)) return decision;
-  return decision === 'deny' ? 'denied' : 'succeeded';
+  if (['deny', 'hard_denied', 'denied_with_guidance'].includes(decision)) return 'denied';
+  return ['continue', 'completed', 'applied', 'consumed', 'duplicate_ignored'].includes(decision) ? 'succeeded' : 'unknown';
 }
 
 function failureShape(error) {

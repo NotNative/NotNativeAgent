@@ -64,6 +64,8 @@ try {
   cleanup();
   parentPort.postMessage({ type: 'ready', dbPath: workerData.dbPath });
 } catch (error) {
+  try { db?.close(); } catch { /* Invariant: startup failure remains the primary diagnostic. */ }
+  db = null; insert = null;
   parentPort.postMessage({ type: 'fatal', code: 'telemetry_open_failed', message: safeMessage(error) });
 }
 
@@ -114,7 +116,8 @@ function openSpans(limitValue) {
       AND NOT EXISTS (
         SELECT 1 FROM events AS terminal
         WHERE terminal.span_id = started.span_id
-          AND terminal.status IN ('succeeded','failed','cancelled','timed_out','denied','skipped','superseded','unknown_effect')
+          AND terminal.status IN ('succeeded','failed','cancelled','timed_out','denied','skipped','superseded','unknown_effect',
+            'blocked','incomplete','needs_input','limit_reached','completed_nonzero','invalid_request','invalid','escalation_pending')
       )
     ORDER BY started.id DESC LIMIT ?
   `).all(limit);
@@ -184,5 +187,7 @@ function bounded(value, fallback, minimum, maximum) {
 }
 
 function safeMessage(error) {
-  return typeof error?.code === 'string' ? error.code : 'telemetry_operation_failed';
+  if (typeof error?.code === 'string') return error.code.slice(0, 160);
+  if (Number.isInteger(error?.errcode)) return `sqlite_error_${error.errcode}`;
+  return ['RangeError', 'TypeError', 'SyntaxError'].includes(error?.name) ? error.name : 'telemetry_operation_failed';
 }

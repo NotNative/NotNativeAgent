@@ -12,7 +12,10 @@ const PAYLOAD_SUMMARY_FIELDS = Object.freeze([
 ]);
 
 export function sanitizeTelemetry(value, options = {}) {
-  const limits = { ...DEFAULTS, ...options };
+  const limits = Object.fromEntries(Object.entries(DEFAULTS).map(([key, ceiling]) => [key,
+    Number.isSafeInteger(options?.[key]) && options[key] >= (key === 'maxDepth' ? 0 : 1)
+      ? Math.min(options[key], ceiling) : ceiling,
+  ]));
   const state = { nodes: 0, active: new WeakSet() };
   return visit(value, 0, limits, state);
 }
@@ -46,7 +49,8 @@ function visit(value, depth, limits, state) {
     const result = {};
     const entries = Object.entries(value);
     for (const [key, child] of entries.slice(0, limits.maxKeys)) {
-      result[key] = SECRET_KEY.test(key) ? '[redacted]' : visit(child, depth + 1, limits, state);
+      Object.defineProperty(result, key, { enumerable: true, configurable: true, writable: true,
+        value: SECRET_KEY.test(key) ? '[redacted]' : visit(child, depth + 1, limits, state) });
     }
     if (entries.length > limits.maxKeys) result._nna_omitted_keys = entries.length - limits.maxKeys;
     return result;
