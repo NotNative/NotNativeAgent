@@ -19,15 +19,22 @@ function validateSettlement(engine, active, publish) {
 }
 
 export async function settleEngineAttempt(engine, active, outcome, publish) {
-  engine.lifecycles.finish(active.attemptId, outcome);
-  await publish('provider_attempt.terminal', 'provider_attempt', 'terminal', active, outcome);
+  const attemptId = active.attemptId;
+  if (attemptId === null || attemptId === undefined) return;
   active.attemptId = null;
+  engine.lifecycles.finish(attemptId, outcome);
+  await publish('provider_attempt.terminal', 'provider_attempt', 'terminal', {
+    ...active, attemptId,
+  }, outcome);
 }
 
 export async function settleEngineStep(engine, active, outcome, publish) {
   const stepId = active.stepId;
-  engine.lifecycles.finish(stepId, outcome);
-  await publish('model_step.terminal', 'model_step', 'terminal', active, outcome);
+  if (stepId === null || stepId === undefined) return;
   active.stepId = null;
+  engine.lifecycles.finish(stepId, outcome);
+  await publish('model_step.terminal', 'model_step', 'terminal', {
+    ...active, stepId,
+  }, outcome);
   await emitCurrentContextUsage(engine, active, stepId);
 }
