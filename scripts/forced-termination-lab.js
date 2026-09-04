@@ -13,10 +13,12 @@ import { JournalStore, recoverJournal } from '../src/store.js';
 const script = fileURLToPath(import.meta.url);
 const beforeHash = digest('before');
 const afterHash = digest('after');
+const FAILED_SPAWNS = new WeakSet();
 
 export async function runForcedTerminationLab(options = {}) {
   const root = options.root ?? await mkdtemp(join(tmpdir(), 'nna-force-kill-'));
   const owned = options.root === undefined;
+  let preserveRoot = false;
   try {
     const discoveryRoot = join(root, 'discovery');
     await prepare(discoveryRoot);
@@ -33,34 +35,40 @@ export async function runForcedTerminationLab(options = {}) {
       complete_matrix: cases.length === discovery.records.length,
       passed: cases.length > 0 && cases.every((item) => item.passed), cases,
     });
-  } finally { if (owned) await rm(root, { recursive: true, force: true }); }
+  } catch (error) { preserveRoot = error?.preserveRoot === true; throw error; }
+  finally { if (owned && !preserveRoot) await rm(root, { recursive: true, force: true }); }
 }
 
-async function forceAt(root, boundary) {
+export async function forceAt(root, boundary, options = {}) {
   const caseRoot = join(root, `boundary-${boundary.sequence}`);
   await prepare(caseRoot);
-  const child = spawn(process.execPath, [script, '--child', '--root', caseRoot,
+  const child = (options.spawn ?? spawn)(process.execPath, [script, '--child', '--root', caseRoot,
     '--target-sequence', String(boundary.sequence)], { stdio: ['ignore', 'pipe', 'pipe'] });
   let marker;
   try {
-    marker = await waitForRecord(child, (item) => item.kind === 'boundary', 20_000);
-    child.kill('SIGKILL');
-    await waitForExit(child, 10_000);
-  } finally { if (child.exitCode === null) child.kill('SIGKILL'); }
-  const prefix = await recoverJournal(journalPath(caseRoot));
-  const resume = await runChild(['--resume', '--root', caseRoot], 'resume');
-  const durableResult = hasDurableWriteResult(prefix.records);
-  const passed = marker.sequence === boundary.sequence && marker.type === boundary.type
-    && !prefix.corruptTail && prefix.lastSequence === boundary.sequence
-    && resume.provider_calls === 0 && resume.recovery_notice_count <= 1
-    && (!durableResult || resume.target_state === 'after');
-  return Object.freeze({
-    sequence: boundary.sequence, type: boundary.type, passed,
-    recovered_last_sequence: prefix.lastSequence, corrupt_tail: prefix.corruptTail,
-    provider_calls_on_resume: resume.provider_calls,
-    recovery_notice_count: resume.recovery_notice_count,
-    target_state: resume.target_state, durable_tool_result: durableResult,
-  });
+    marker = await waitForRecord(child, (item) => item.kind === 'boundary', options.recordTimeoutMs ?? 20_000);
+    await terminateChild(child, options.cleanupTimeoutMs ?? 10_000);
+    const prefix = await (options.recoverJournal ?? recoverJournal)(journalPath(caseRoot));
+    const resume = await (options.resume ?? runChild)(['--resume', '--root', caseRoot], 'resume');
+    const durableResult = hasDurableWriteResult(prefix.records);
+    const passed = marker.sequence === boundary.sequence && marker.type === boundary.type
+      && !prefix.corruptTail && prefix.lastSequence === boundary.sequence
+      && resume.provider_calls === 0 && resume.recovery_notice_count <= 1
+      && ['before', 'after'].includes(resume.target_state) && (!durableResult || resume.target_state === 'after');
+    return Object.freeze({
+      sequence: boundary.sequence, type: boundary.type, passed,
+      recovered_last_sequence: prefix.lastSequence, corrupt_tail: prefix.corruptTail,
+      provider_calls_on_resume: resume.provider_calls,
+      recovery_notice_count: resume.recovery_notice_count,
+      target_state: resume.target_state, durable_tool_result: durableResult,
+    });
+  } catch (error) {
+    try { await terminateChild(child, options.cleanupTimeoutMs ?? 10_000); }
+    catch (cleanupError) { throw cleanupFailure(error, cleanupError); }
+    if (error?.preserveRoot) throw error;
+    return Object.freeze({ sequence: boundary.sequence, type: boundary.type, passed: false,
+      failure_code: error?.code ?? 'forced_termination_case_failed' });
+  }
 }
 
 export function hasDurableWriteResult(records) {
@@ -161,44 +169,69 @@ export async function runChild(args, expectedKind, options = {}) {
   } catch (error) {
     try { await terminateChild(child, options.cleanupTimeoutMs ?? 10_000); }
     catch (cleanupError) {
-      throw new AggregateError([error, cleanupError], 'forced-termination child cleanup failed', { cause: error });
+      throw cleanupFailure(error, cleanupError);
     }
     throw error;
   }
 }
 
 async function terminateChild(child, timeoutMs) {
-  if (child.exitCode !== null) return;
+  if (childExited(child)) return;
   const exited = waitForExit(child, timeoutMs);
-  child.kill('SIGKILL');
+  try { child.kill('SIGKILL'); }
+  catch (error) { await exited.catch(() => undefined); throw error; }
   await exited;
 }
 
 function waitForRecord(child, predicate, timeoutMs) {
   return new Promise((resolveRecord, reject) => {
-    let buffer = ''; let stderr = '';
-    const timer = setTimeout(() => reject(coded('forced_termination_child_timeout')), timeoutMs);
-    child.stderr.on('data', (chunk) => { stderr += String(chunk).slice(0, 1024); });
+    let buffer = ''; let stderr = ''; let settled = false;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true; clearTimeout(timer);
+      if (error) reject(error); else resolveRecord(value);
+    };
+    const consume = (line) => {
+      try { const item = JSON.parse(line); if (predicate(item)) finish(null, item); }
+      catch { /* Non-protocol diagnostic lines are not readiness evidence. */ }
+    };
+    const timer = setTimeout(() => finish(coded('forced_termination_child_timeout')), timeoutMs);
+    child.stderr.on('data', (chunk) => { stderr = (stderr + String(chunk)).slice(0, 1024); });
     child.stdout.on('data', (chunk) => {
+      if (settled) return;
       buffer += String(chunk);
+      if (buffer.length > 1_048_576) { finish(coded('forced_termination_child_failed')); return; }
       const lines = buffer.split('\n'); buffer = lines.pop() ?? '';
-      for (const line of lines) {
-        try { const item = JSON.parse(line); if (predicate(item)) { clearTimeout(timer); resolveRecord(item); } }
-        catch { /* ignore non-protocol child output */ }
-      }
+      for (const line of lines) consume(line);
     });
-    child.once('exit', (code) => {
-      if (code !== null && code !== 0) { clearTimeout(timer); reject(coded(stderr ? 'forced_termination_child_failed' : 'forced_termination_child_exit')); }
+    child.on('error', () => {
+      if (!child.pid) FAILED_SPAWNS.add(child);
+      finish(coded('forced_termination_child_failed'));
     });
+    for (const stream of [child.stdout, child.stderr]) stream.on('error', () => finish(coded('forced_termination_child_failed')));
+    child.once('close', () => { consume(buffer); finish(coded(stderr ? 'forced_termination_child_failed' : 'forced_termination_child_exit')); });
   });
 }
 
 function waitForExit(child, timeoutMs) {
-  if (child.exitCode !== null) return Promise.resolve();
+  if (childExited(child)) return Promise.resolve();
   return new Promise((resolveExit, reject) => {
-    const timer = setTimeout(() => reject(coded('forced_termination_exit_timeout')), timeoutMs);
-    child.once('exit', () => { clearTimeout(timer); resolveExit(); });
+    const finish = (error) => {
+      clearTimeout(timer); child.removeListener('exit', exited); child.removeListener('error', failed);
+      if (error) reject(error); else resolveExit();
+    };
+    const exited = () => finish();
+    const failed = () => finish(coded('forced_termination_child_failed'));
+    const timer = setTimeout(() => finish(coded('forced_termination_exit_timeout')), timeoutMs);
+    child.once('exit', exited); child.once('error', failed);
   });
+}
+
+function childExited(child) { return child.exitCode !== null || child.signalCode != null || FAILED_SPAWNS.has(child); }
+function cleanupFailure(error, cleanupError) {
+  const failure = new AggregateError([error, cleanupError], 'forced-termination child cleanup failed; evidence directory retained', { cause: error });
+  failure.preserveRoot = true;
+  return failure;
 }
 
 function coded(code) { return Object.assign(new Error(code), { code }); }

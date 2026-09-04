@@ -18,9 +18,11 @@ export function typedTerminalProvider(provider, pending = new Map()) {
   const wrapper = Object.create(provider);
   wrapper.stream = async function* stream(request, ...args) {
     const replayKey = pendingDeclarationId(request.messages);
+    if (supportsFinish(request)) for (const id of pending.keys()) if (id !== replayKey) pending.delete(id);
     if (replayKey && pending.has(replayKey)) {
-      const events = pending.get(replayKey); pending.delete(replayKey);
-      for (const event of events) yield event;
+      const events = pending.get(replayKey);
+      while (events.length > 0) yield events.shift();
+      pending.delete(replayKey);
       return;
     }
     const events = [];
@@ -36,18 +38,23 @@ export function typedTerminalProvider(provider, pending = new Map()) {
     const declarationId = `fixture-finish-${declarationSequence}`;
     pending.set(declarationId, events);
     const declaration = declarationFor(events, request);
-    yield { type: 'tool_fragment', fragments: [{
-      index: 0, id: declarationId,
-      function: { name: 'turn.finish', arguments: JSON.stringify(declaration) },
-    }] };
-    yield { type: 'terminal', finishReason: 'tool_calls' };
+    let declared = false;
+    try {
+      yield { type: 'tool_fragment', fragments: [{
+        index: 0, id: declarationId,
+        function: { name: 'turn.finish', arguments: JSON.stringify(declaration) },
+      }] };
+      declared = true;
+      yield { type: 'terminal', finishReason: 'tool_calls' };
+    } finally { if (!declared) pending.delete(declarationId); }
   };
   return wrapper;
 }
 
 function pendingDeclarationId(messages = []) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const call = messages[index].tool_calls?.find((item) => item.function?.name === 'turn.finish');
+    if (messages[index]?.role === 'user') break;
+    const call = messages[index]?.tool_calls?.find((item) => item?.function?.name === 'turn.finish');
     if (call) return call.id;
   }
   return null;
@@ -59,8 +66,8 @@ function supportsFinish(request) {
 
 function currentTurnDeclared(messages = []) {
   let latestUser = -1;
-  for (let index = 0; index < messages.length; index += 1) if (messages[index].role === 'user') latestUser = index;
-  return messages.slice(latestUser + 1).some((message) => message.tool_calls
+  for (let index = 0; index < messages.length; index += 1) if (messages[index]?.role === 'user') latestUser = index;
+  return messages.slice(latestUser + 1).some((message) => message?.tool_calls
     ?.some((call) => call.function?.name === 'turn.finish'));
 }
 
@@ -72,7 +79,7 @@ function isTerminalTextStep(events) {
 
 function declarationFor(events, request) {
   const text = events.filter((event) => event.type === 'text').map((event) => event.text).join(' ');
-  const toolEvidence = request.messages?.filter((message) => message.role === 'tool')
+  const toolEvidence = request.messages?.filter((message) => message?.role === 'tool')
     .map((message) => message.content).join(' ') ?? '';
   if (/"(?:status|tool_lifecycle_status)":"(?:denied|failed)"/u.test(toolEvidence)) {
     return { outcome: 'blocked', reason_code: 'fixture_terminal_tool_failure' };
