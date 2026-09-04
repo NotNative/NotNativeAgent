@@ -32,3 +32,13 @@ test('dream commands inspect and explicitly reject candidates', async () => {
   assert.deepEqual(calls[0], { id: 'candidate-1', reason: 'noisy signal' });
   await assert.rejects(() => runWorkspaceDreamCommand(workspace, 'inspect'), { code: 'dream_candidate_id_required' });
 });
+
+test('empty dream commands default to status', async () => {
+  let statusCalls = 0;
+  const workspace = { dream: {
+    status: () => { statusCalls += 1; return { state: 'waiting' }; },
+  } };
+  assert.deepEqual(await runWorkspaceDreamCommand(workspace, ''), { state: 'waiting' });
+  assert.deepEqual(await runWorkspaceDreamCommand(workspace, '   '), { state: 'waiting' });
+  assert.equal(statusCalls, 2);
+});

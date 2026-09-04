@@ -19,7 +19,8 @@ export async function initializeWorkspaceDream(workspace) {
 
 export async function runWorkspaceDreamCommand(workspace, action) {
   if (!workspace.dream) throw new ContractError('dream_unavailable', 'idle maintenance is not initialized');
-  const [command = DREAM_ACTION.status, id, ...reasonParts] = String(action ?? '').trim().split(/\s+/u);
+  const [actionName, id, ...reasonParts] = String(action ?? '').trim().split(/\s+/u);
+  const command = actionName || DREAM_ACTION.status;
   if (command === DREAM_ACTION.status) return workspace.dream.status();
   if (command === DREAM_ACTION.candidates) return workspace.dream.candidates();
   if (command === DREAM_ACTION.inspect) return workspace.dream.candidate(requiredId(id));
