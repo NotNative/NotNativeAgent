@@ -203,6 +203,21 @@ test('work plan rejects a stale returned revision without mutation', async () =>
   assert.deepEqual(work.snapshot(), before);
 });
 
+test('work plan task identities remain valid after more than 64 lifetime additions', async () => {
+  const records = [];
+  const work = new ConversationWork({ persist: async (type, payload) => records.push({ type, payload }) });
+  for (let index = 1; index <= 65; index += 1) {
+    await work.replacePlan({ objective: 'Keep task identities durable', tasks: [{ title: `Task ${index}` }] });
+  }
+  assert.equal(work.snapshot().tasks[0].id, 'T65');
+  await work.updateTask('T65', 'completed', 'The sixty-fifth task remains addressable.');
+
+  const resumed = new ConversationWork();
+  assert.doesNotThrow(() => resumed.restore(records));
+  assert.equal(resumed.snapshot().tasks[0].id, 'T65');
+  assert.equal(resumed.snapshot().tasks[0].status, 'completed');
+});
+
 test('clearing conversation work records a durable empty revision', async () => {
   const records = [];
   const work = new ConversationWork({ persist: async (type, payload) => records.push({ type, payload }) });

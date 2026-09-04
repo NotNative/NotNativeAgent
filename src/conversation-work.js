@@ -4,6 +4,7 @@ import { ContractError, newId } from './ids.js';
 const TASK_STATES = new Set(['pending', 'in_progress', 'completed', 'blocked']);
 const GOAL_STATES = new Set(['active', 'completed', 'blocked']);
 const MAX_TASKS = 64;
+const MAX_TASK_NUMBER = 999_999;
 const MAX_GOAL_TEXT = 2048;
 const MAX_TASK_TITLE = 512;
 const MAX_DETAIL = 1024;
@@ -131,6 +132,10 @@ export class ConversationWork {
     const now = new Date().toISOString();
     let nextTaskNumber = this.state.nextTaskNumber;
     const priorTasks = new Map(this.state.tasks.map((task) => [task.id, task]));
+    const newTaskCount = plan.tasks.filter((item) => item.id === null).length;
+    if (newTaskCount > (MAX_TASK_NUMBER + 1) - nextTaskNumber) {
+      throw new ContractError('task_capacity', 'the conversation task identity sequence is exhausted');
+    }
     const tasks = plan.tasks.map((item) => {
       const prior = item.id ? priorTasks.get(item.id) : null;
       if (item.id && !prior) throw new ContractError('task_missing', `task ${item.id} does not exist; omit id when adding a new task`);
@@ -197,6 +202,7 @@ export class ConversationWork {
     const text = boundedText(title, 'task title', MAX_TASK_TITLE);
     const now = new Date().toISOString();
     const number = this.state.nextTaskNumber;
+    if (number > MAX_TASK_NUMBER) throw new ContractError('task_capacity', 'the conversation task identity sequence is exhausted');
     const task = Object.freeze({
       id: `T${number}`, title: text, status: 'pending', evidence: null, blockedReason: null,
       createdAt: now, updatedAt: now,
@@ -251,6 +257,7 @@ function validateSnapshot(value) {
   // rather than coercing it so corrupt state cannot silently acquire authority.
   if (!value || value.schema !== 'nna.conversation_work.v1' || !Number.isInteger(value.revision)
     || value.revision < 0 || !Number.isInteger(value.nextTaskNumber) || value.nextTaskNumber < 1
+    || value.nextTaskNumber > MAX_TASK_NUMBER + 1
     || !Array.isArray(value.tasks) || value.tasks.length > MAX_TASKS) {
     throw new ContractError('work_state_invalid', 'durable conversation work state is invalid');
   }
@@ -314,7 +321,9 @@ function optionalText(value) { return value === null || value === undefined ? nu
 function normalizeTaskId(value) {
   const id = String(value ?? '').toUpperCase();
   const match = /^T([1-9][0-9]{0,5})$/u.exec(id);
-  if (!match || Number(match[1]) > MAX_TASKS) throw new ContractError('task_id_invalid', `task id must be between T1 and T${MAX_TASKS}`);
+  if (!match || Number(match[1]) > MAX_TASK_NUMBER) {
+    throw new ContractError('task_id_invalid', `task id must be between T1 and T${MAX_TASK_NUMBER}`);
+  }
   return id;
 }
 function taskCounts(tasks) {
