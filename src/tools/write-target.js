@@ -6,6 +6,7 @@ import { ContractError } from '../ids.js';
 export async function withPreparedWriteTarget(paths, request, signal, operation) {
   const parent = dirname(request.resolved.path);
   let createdRoot;
+  let completed = false;
   try {
     if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
     createdRoot = await mkdir(parent, { recursive: true });
@@ -14,12 +15,16 @@ export async function withPreparedWriteTarget(paths, request, signal, operation)
       throw new ContractError('tool_revalidation_drift', 'write target changed after review');
     }
     const result = await operation();
+    completed = true;
+    if (!result || typeof result !== 'object' || Array.isArray(result)) {
+      throw new ContractError('tool_result_invalid', 'write operation returned an invalid receipt');
+    }
     return {
       ...result,
       metadata: { ...result.metadata, parent_directories_created: createdRoot !== undefined },
     };
   } catch (error) {
-    const rollbackCode = await rollbackCreatedParents(createdRoot, parent);
+    const rollbackCode = completed ? null : await rollbackCreatedParents(createdRoot, parent);
     if (rollbackCode && error && typeof error === 'object') error.rollbackCode = rollbackCode;
     throw error;
   }

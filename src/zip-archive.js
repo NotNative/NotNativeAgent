@@ -10,9 +10,16 @@ export function createZip(entries, date = new Date()) {
   if (!Array.isArray(entries) || entries.length === 0 || entries.length > 128) {
     throw new ContractError('zip_entries_invalid', 'support archive requires one to one hundred twenty-eight files');
   }
-  const prepared = entries.map((entry) => prepareEntry(entry, date));
-  const total = prepared.reduce((sum, entry) => sum + entry.content.length, 0);
-  if (total > MAX_ARCHIVE_INPUT) throw new ContractError('zip_input_too_large', 'support archive input exceeds bound');
+  let total = 0;
+  const inputs = entries.map((entry) => {
+    if (!entry || (typeof entry.content !== 'string' && !Buffer.isBuffer(entry.content))) {
+      throw new ContractError('zip_entry_invalid', 'support archive content must be text or a buffer');
+    }
+    total += Buffer.byteLength(entry.content);
+    if (total > MAX_ARCHIVE_INPUT) throw new ContractError('zip_input_too_large', 'support archive input exceeds bound');
+    return entry;
+  });
+  const prepared = inputs.map((entry) => prepareEntry(entry, date));
   const local = [];
   const central = [];
   let offset = 0;
@@ -31,7 +38,7 @@ function prepareEntry(entry, date) {
     throw new ContractError('zip_entry_invalid', 'support archive file name is invalid');
   }
   const name = Buffer.from(entry.name, 'utf8');
-  const content = Buffer.isBuffer(entry.content) ? entry.content : Buffer.from(String(entry.content), 'utf8');
+  const content = Buffer.isBuffer(entry.content) ? entry.content : Buffer.from(entry.content, 'utf8');
   const compressed = deflateRawSync(content, { level: 9 });
   const { time, day } = dosDate(date);
   return { name, content, compressed, crc: crc32(content), time, day };

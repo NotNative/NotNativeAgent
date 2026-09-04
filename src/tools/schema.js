@@ -175,12 +175,12 @@ function validateArguments(args, schema, prepared) {
   }
   validateInputStructure(args);
   const missing = prepared.required.find((key) => !Object.hasOwn(args, key));
-  if (missing) throw schemaFailure(`required argument "${missing}" is missing`, {
+  if (missing !== undefined) throw schemaFailure(`required argument "${missing}" is missing`, {
     field: missing, issue: 'required_field_missing', correction: 'add_required_field',
   });
   if (schema.additionalProperties === false) {
     const unknown = Object.keys(args).find((key) => !Object.hasOwn(prepared.properties, key));
-    if (unknown) throw unknownArgument(unknown, prepared.properties);
+    if (unknown !== undefined) throw unknownArgument(unknown, prepared.properties);
   }
   for (const [key, value] of Object.entries(args)) validateValue(value, prepared.properties[key], 0, `argument "${key}"`);
 }
@@ -233,6 +233,9 @@ function validateString(value, rule, path) {
 }
 
 function validateNumber(value, rule, path) {
+  if (!Number.isFinite(value)) throw schemaFailure(`${path} must be a finite number`, {
+    field: path, issue: 'type_mismatch', expected: 'finite_number', correction: 'replace_field_value',
+  });
   if (Number.isFinite(rule.minimum) && value < rule.minimum) throw boundFailure(path, 'numeric_value', rule.minimum, value, 'minimum');
   if (Number.isFinite(rule.maximum) && value > rule.maximum) throw boundFailure(path, 'numeric_value', rule.maximum, value, 'maximum');
 }
@@ -251,12 +254,12 @@ function validateArray(value, rule, depth, path) {
 function validateObject(value, rule, depth, path) {
   const required = Array.isArray(rule.required) ? rule.required : [];
   const missing = required.find((key) => !Object.hasOwn(value, key));
-  if (missing) throw schemaFailure(`${path} is missing required property "${missing}"`, {
+  if (missing !== undefined) throw schemaFailure(`${path} is missing required property "${missing}"`, {
     field: `${path}.${missing}`, issue: 'required_field_missing', correction: 'add_required_field',
   });
   const unknown = rule.additionalProperties === false
-    ? Object.keys(value).find((key) => !Object.hasOwn(rule.properties ?? {}, key)) : null;
-  if (unknown) {
+    ? Object.keys(value).find((key) => !Object.hasOwn(rule.properties ?? {}, key)) : undefined;
+  if (unknown !== undefined) {
     const allowed = Object.keys(rule.properties ?? {});
     throw schemaFailure(
       `${path} contains unknown property "${unknown}"; allowed properties: ${allowed.length > 0 ? allowed.join(', ') : 'none'}`,

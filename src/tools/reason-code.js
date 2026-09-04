@@ -23,8 +23,14 @@ const PLATFORM_REASON_CODES = Object.freeze({
 });
 
 export function normalizeToolReasonCode(value, fallback) {
-  if (value && typeof value === 'object' && 'code' in value) {
-    return normalizeToolReasonCode(value.code, fallback);
+  const seen = new WeakSet();
+  for (let depth = 0; value && typeof value === 'object'; depth += 1) {
+    if (depth >= 16 || seen.has(value)) return fallback;
+    seen.add(value);
+    let descriptor;
+    try { descriptor = Object.getOwnPropertyDescriptor(value, 'code'); } catch { return fallback; }
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) return fallback;
+    value = descriptor.value;
   }
   if (typeof value === 'string') {
     const platform = PLATFORM_REASON_CODES[value.trim().toUpperCase()];

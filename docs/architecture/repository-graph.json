@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:02dd9c74f50a766b9a0373daa431b0911b5262b3d0bb0b5db5fadb4a7a55fe63",
+  "source_digest": "sha256:3e753cefa56d7a812c6ac818d0f28a5db861fe725374f18f0a3104028b7384be",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -125,8 +125,8 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 55,
-      "module_count": 35
+      "import_count": 56,
+      "module_count": 36
     },
     {
       "from": "tools",
@@ -2989,7 +2989,9 @@
       "path": "src/tools/text-edit-helpers.js",
       "component": "tools",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/ids.js"
+      ]
     },
     {
       "path": "src/tools/tool-result-contract.js",

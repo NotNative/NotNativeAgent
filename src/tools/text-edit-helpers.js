@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { ContractError } from '../ids.js';
 
 export function replaceLineRange(content, startLine, endLine, replacement) {
   const newline = content.includes('\r\n') ? '\r\n' : '\n';
@@ -12,6 +13,7 @@ export function replaceLineRange(content, startLine, endLine, replacement) {
 }
 
 export function countOccurrences(content, search) {
+  requireNeedle(search);
   let count = 0;
   let offset = 0;
   while ((offset = content.indexOf(search, offset)) !== -1) {
@@ -22,7 +24,14 @@ export function countOccurrences(content, search) {
 }
 
 export function replaceText(content, oldText, newText, replaceAll) {
-  return replaceAll ? content.split(oldText).join(newText) : content.replace(oldText, newText);
+  requireNeedle(oldText);
+  return replaceAll ? content.split(oldText).join(newText) : content.replace(oldText, () => newText);
+}
+
+function requireNeedle(value) {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new ContractError('tool_schema_invalid', 'text edit search must be non-empty text');
+  }
 }
 
 export function logicalLines(content) {
