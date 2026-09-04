@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { stat } from 'node:fs/promises';
+import { lstat } from 'node:fs/promises';
 
 // Any permission bit for group or other users degrades the private data-root posture.
 const GROUP_OR_OTHER_PERMISSION_BITS = 0o077;
@@ -13,7 +13,13 @@ export async function inspectDataPermissions(root, options = {}) {
     });
   }
   try {
-    const info = await (options.stat ?? stat)(root);
+    const info = await (options.lstat ?? options.stat ?? lstat)(root);
+    if (!info.isDirectory?.() || info.isSymbolicLink?.()) {
+      return Object.freeze({
+        status: 'degraded', root, code: 'data_root_not_private_directory',
+        warning: 'data root is not a private physical directory',
+      });
+    }
     const exposed = info.mode & GROUP_OR_OTHER_PERMISSION_BITS;
     return Object.freeze({
       status: exposed === 0 ? 'ready' : 'degraded', root,

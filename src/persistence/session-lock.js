@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash, randomUUID } from 'node:crypto';
 import { link, mkdir, open, readFile, readdir, rename, unlink } from 'node:fs/promises';
-import { join } from 'node:path';
-import { ContractError } from '../ids.js';
+import { dirname, join, resolve } from 'node:path';
+import { ContractError, requireExternalId } from '../ids.js';
 import { ProcessIdentity, validIdentity } from '../reliability/process-identity.js';
 
 const MAX_STALE_LOCK_ARTIFACTS = 1024;
@@ -12,8 +12,12 @@ export class SessionLock {
   #owned = false;
 
   constructor(root, sessionId, options = {}) {
-    this.root = root;
-    this.path = join(root, `${sessionId}.lock`);
+    const safeSessionId = requireExternalId(sessionId, 'session_id');
+    this.root = resolve(root);
+    this.path = resolve(this.root, `${safeSessionId}.lock`);
+    if (dirname(this.path) !== this.root) {
+      throw new ContractError('invalid_id', 'session_id resolves outside the lock root');
+    }
     this.identity = options.processIdentity ?? new ProcessIdentity();
   }
 

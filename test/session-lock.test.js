@@ -6,6 +6,15 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { inspectSessionLock, preserveStaleSessionLock, SessionLock } from '../src/persistence/session-lock.js';
 
+test('session lock rejects identifiers that can escape its root', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-lock-id-'));
+  try {
+    for (const sessionId of ['../outside', '..\\outside', '/outside', '']) {
+      assert.throws(() => new SessionLock(root, sessionId), { code: 'invalid_id' });
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('session lock preserves malformed stale evidence before atomic acquisition', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-lock-shape-'));
   try {
