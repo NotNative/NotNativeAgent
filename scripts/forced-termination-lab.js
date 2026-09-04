@@ -49,9 +49,7 @@ async function forceAt(root, boundary) {
   } finally { if (child.exitCode === null) child.kill('SIGKILL'); }
   const prefix = await recoverJournal(journalPath(caseRoot));
   const resume = await runChild(['--resume', '--root', caseRoot], 'resume');
-  const durableResult = prefix.records.some((item) => item.type === 'tool_result'
-    && item.payload?.toolName === 'fs.write_text' && item.payload?.status === 'succeeded'
-    && item.payload?.effectCertainty === 'completed');
+  const durableResult = hasDurableWriteResult(prefix.records);
   const passed = marker.sequence === boundary.sequence && marker.type === boundary.type
     && !prefix.corruptTail && prefix.lastSequence === boundary.sequence
     && resume.provider_calls === 0 && resume.recovery_notice_count <= 1
@@ -63,6 +61,13 @@ async function forceAt(root, boundary) {
     recovery_notice_count: resume.recovery_notice_count,
     target_state: resume.target_state, durable_tool_result: durableResult,
   });
+}
+
+export function hasDurableWriteResult(records) {
+  return records.some((item) => item.type === 'tool_result'
+    && item.payload?.toolName === 'fs.write_text'
+    && item.payload?.toolLifecycleStatus === 'succeeded'
+    && item.payload?.effectCertainty === 'completed');
 }
 
 async function childRun(root, targetSequence) {

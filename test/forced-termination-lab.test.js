@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
-import { runChild, runForcedTerminationLab } from '../scripts/forced-termination-lab.js';
+import { hasDurableWriteResult, runChild, runForcedTerminationLab } from '../scripts/forced-termination-lab.js';
 
 test('FAIL-009 forced-termination harness validates real-engine durable prefixes without replay', async () => {
   const report = await runForcedTerminationLab({ maxBoundaries: 12 });
@@ -30,4 +30,18 @@ test('forced-termination child timeout kills and observes the child', async () =
   }), { code: 'forced_termination_child_timeout' });
   assert.equal(child.killed, true);
   assert.equal(child.exitCode, 137);
+});
+
+test('forced-termination durability detection uses the persisted lifecycle field', () => {
+  const durable = [{
+    type: 'tool_result',
+    payload: {
+      toolName: 'fs.write_text', toolLifecycleStatus: 'succeeded',
+      effectCertainty: 'completed',
+    },
+  }];
+  assert.equal(hasDurableWriteResult(durable), true);
+  assert.equal(hasDurableWriteResult([{ ...durable[0], payload: {
+    ...durable[0].payload, toolLifecycleStatus: undefined, status: 'succeeded',
+  } }]), false);
 });
