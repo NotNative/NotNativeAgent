@@ -87,6 +87,10 @@ function normalize(value, seen) {
   let normalized;
   if (Array.isArray(value)) normalized = value.map((item) => normalize(item, seen));
   else {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new ContractError('provider_request_invalid', 'provider request contains a non-plain object');
+    }
     normalized = {};
     for (const key of Object.keys(value).sort()) {
       if (value[key] !== undefined) normalized[key] = normalize(value[key], seen);

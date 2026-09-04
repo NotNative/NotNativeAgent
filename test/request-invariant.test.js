@@ -41,6 +41,11 @@ test('manifest creation rejects cyclic or non-JSON request values', () => {
   assert.throws(() => providerRequestManifest(cyclic, [], route, active), { code: 'provider_request_invalid' });
   const invalid = request({ temperature: Number.NaN });
   assert.throws(() => providerRequestManifest(invalid, [], route, active), { code: 'provider_request_invalid' });
+  for (const value of [new Date(), new Map([['key', 'value']]), /pattern/u]) {
+    assert.throws(() => providerRequestManifest(request({ metadata: value }), [], route, active), {
+      code: 'provider_request_invalid',
+    });
+  }
 });
 
 function request(extra) {

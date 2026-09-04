@@ -278,7 +278,7 @@ function boundedToolName(value) {
 
 function validateRequest(request) {
   if (!request || typeof request !== 'object' || !Array.isArray(request.messages)
-    || !Array.isArray(request.tools ?? [])) {
+    || !Array.isArray(request.tools)) {
     throw new ContractError('provider_envelope_invalid', 'provider envelope requires messages and tools');
   }
 }

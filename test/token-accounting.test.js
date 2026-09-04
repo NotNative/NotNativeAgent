@@ -46,6 +46,12 @@ test('complete provider envelope inventories prompt sections, schemas, configura
   assert.equal(assertProviderEnvelopeFits(envelope, { scaledTokens: 100_000, windowTokens: 100_000 }), true);
 });
 
+test('provider envelope rejects an omitted tools collection at the contract boundary', () => {
+  assert.throws(() => measureProviderEnvelope({ model: 'qwen', messages: [] }), {
+    code: 'provider_envelope_invalid',
+  });
+});
+
 test('generated system guidance follows identity while retaining injected envelope attribution', () => {
   const context = [
     { role: 'system', content: 'identity', provenance: 'engine_policy' },
