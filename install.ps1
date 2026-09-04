@@ -172,12 +172,12 @@ function Assert-SafeRoot([string]$Path, [string[]]$Forbidden) {
 function Protect-UserDataRoot([string]$Path) {
     $Icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
     $CurrentSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-    & $Icacls $Path '/inheritance:r' | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Unable to disable inherited ACLs on $Path" }
-    & $Icacls $Path '/grant:r' "*${CurrentSid}:(OI)(CI)F" | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Unable to grant the current user access to $Path" }
-    & $Icacls $Path '/grant:r' '*S-1-5-18:(OI)(CI)F' | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Unable to grant SYSTEM access to $Path" }
+    $Entries = @((Get-Item -LiteralPath $Path)) + @(Get-ChildItem -LiteralPath $Path -Force -Recurse)
+    foreach ($Entry in $Entries) {
+        $Permission = if ($Entry.PSIsContainer) { '(OI)(CI)F' } else { 'F' }
+        $Output = & $Icacls $Entry.FullName '/inheritance:r' '/grant:r' "*${CurrentSid}:$Permission" '/grant:r' "*S-1-5-18:$Permission" '/Q' 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "Unable to restrict ACLs on $($Entry.FullName)`: $($Output -join ' ')" }
+    }
 }
 
 function Add-UserPathEntry([string]$Entry) {
@@ -337,7 +337,19 @@ function Get-NodeMajorVersion([string]$NodeExecutable) {
     return [int]((& $NodeExecutable -p "process.versions.node.split('.')[0]").Trim())
 }
 
+function Get-OfficialNodeDownloadBase([string]$Value) {
+    try { $Uri = [Uri]::new($Value, [UriKind]::Absolute) }
+    catch { throw 'NodeDownloadBase must be an official absolute Node.js HTTPS release URL.' }
+    $AllowedPath = $Uri.AbsolutePath -match '^/dist/(?:latest-v24\.x|v24\.[0-9]+\.[0-9]+)/?$'
+    $InvalidOrigin = $Uri.Scheme -ne 'https' -or $Uri.Host -ne 'nodejs.org' -or -not $Uri.IsDefaultPort -or $Uri.UserInfo -or $Uri.Query -or $Uri.Fragment -or -not $AllowedPath
+    if ($InvalidOrigin) {
+        throw 'NodeDownloadBase must use the official https://nodejs.org/dist Node.js 24 release location.'
+    }
+    return $Uri.AbsoluteUri.TrimEnd('/')
+}
+
 function Install-UserNode([string]$Root, [string]$DownloadBase) {
+    $DownloadBase = Get-OfficialNodeDownloadBase $DownloadBase
     $Architecture = switch ($env:PROCESSOR_ARCHITECTURE) {
         'AMD64' { 'x64' }
         'ARM64' { 'arm64' }
@@ -345,10 +357,12 @@ function Install-UserNode([string]$Root, [string]$DownloadBase) {
     }
     $RuntimeRoot = Join-Path $Root 'runtime'
     $DownloadRoot = Join-Path $RuntimeRoot ('.download-{0}' -f $PID)
-    New-Item -ItemType Directory -Force -Path $DownloadRoot | Out-Null
     Assert-ChildPath $DownloadRoot $RuntimeRoot
+    New-Item -ItemType Directory -Force -Path $DownloadRoot | Out-Null
+    $PriorSecurityProtocol = [Net.ServicePointManager]::SecurityProtocol
+    $Client = $null
     try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        [Net.ServicePointManager]::SecurityProtocol = $PriorSecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
         $SumsPath = Join-Path $DownloadRoot 'SHASUMS256.txt'
         $Client = New-Object Net.WebClient
         $Client.DownloadFile("$($DownloadBase.TrimEnd('/'))/SHASUMS256.txt", $SumsPath)
@@ -375,6 +389,8 @@ function Install-UserNode([string]$Root, [string]$DownloadBase) {
         Move-Item -LiteralPath $Extracted -Destination $RuntimeTarget
         return Join-Path $RuntimeTarget 'node.exe'
     } finally {
+        if ($Client) { $Client.Dispose() }
+        [Net.ServicePointManager]::SecurityProtocol = $PriorSecurityProtocol
         if (Test-Path -LiteralPath $DownloadRoot) { Remove-Item -LiteralPath $DownloadRoot -Recurse -Force }
     }
 }

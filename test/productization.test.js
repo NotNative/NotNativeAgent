@@ -219,6 +219,12 @@ test('installer sources declare per-user locations and preserve data by default'
   assert.match(windowsInstall, /UserProfile/u);
   assert.match(windowsInstall, /\.nna/u);
   assert.match(windowsInstall, /SHASUMS256\.txt/u);
+  assert.match(windowsInstall, /Get-OfficialNodeDownloadBase/u);
+  assert.match(windowsInstall, /Uri\.Host -ne 'nodejs\.org'/u);
+  assert.match(windowsInstall, /\$Client\.Dispose\(\)/u);
+  assert.match(windowsInstall, /SecurityProtocol = \$PriorSecurityProtocol/u);
+  assert.match(windowsInstall, /Get-ChildItem[^\r\n]+-Force -Recurse/u);
+  assert.match(windowsInstall, /if \(\$Entry\.PSIsContainer\) \{ '\(OI\)\(CI\)F' \} else \{ 'F' \}/u);
   assert.match(windowsInstall, /ForceBundledNode/u);
   assert.match(windowsInstall, /Join-Path \$InstallRoot 'installed'/u);
   assert.match(windowsInstall, /Join-Path \$BinRoot 'nna\.ps1'/u);
