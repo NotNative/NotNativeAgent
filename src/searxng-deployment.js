@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { access, chmod, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, parse, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ContractError } from './ids.js';
 import { SearxngClient } from './searxng-client.js';
@@ -18,7 +18,7 @@ const HEALTH_POLL_INTERVAL_MS = 1_000;
 
 export class SearxngDeployment {
   constructor(options = {}) {
-    this.root = options.root;
+    this.root = managedRoot(options.root);
     this.resources = options.resources ?? DEFAULT_RESOURCES;
     this.run = options.run ?? runProcess;
     this.client = options.client ?? new SearxngClient({ timeoutMs: 3_000 });
@@ -66,16 +66,18 @@ export class SearxngDeployment {
 
   async remove() {
     const composePath = join(this.root, 'compose.yaml');
-    let staged = true;
-    try { await access(composePath); } catch (error) {
-      if (error.code !== 'ENOENT') throw error;
-      staged = false;
+    try { await access(this.root); } catch (error) {
+      if (error.code === 'ENOENT') {
+        return Object.freeze({ removed: false, managed: true, endpoint: MANAGED_SEARXNG_ENDPOINT });
+      }
+      throw error;
     }
-    if (staged) {
-      await this.#compose(['down', '--remove-orphans']);
+    if (!await fileExists(composePath) || !await hasManagedSecret(join(this.root, '.env'))) {
+      throw new ContractError('managed_root_unexpected', `Refusing to remove ${this.root}: no staged deployment found`);
     }
+    await this.#compose(['down', '--remove-orphans']);
     await rm(this.root, { recursive: true, force: true });
-    return Object.freeze({ removed: staged, managed: true, endpoint: MANAGED_SEARXNG_ENDPOINT });
+    return Object.freeze({ removed: true, managed: true, endpoint: MANAGED_SEARXNG_ENDPOINT });
   }
 
   async status() {
@@ -146,6 +148,17 @@ export class SearxngDeployment {
   }
 }
 
+function managedRoot(value) {
+  if (typeof value !== 'string' || !isAbsolute(value)) {
+    throw new ContractError('managed_root_unsafe', 'Managed SearXNG root must be an absolute non-root path');
+  }
+  const normalized = resolve(value);
+  if (normalized === parse(normalized).root) {
+    throw new ContractError('managed_root_unsafe', 'Managed SearXNG root must be an absolute non-root path');
+  }
+  return normalized;
+}
+
 function runProcess(file, args) {
   return new Promise((resolve, reject) => execFile(file, args, { windowsHide: true, timeout: 120_000, maxBuffer: 1_048_576 }, (error, stdout, stderr) => {
     if (error) {
@@ -168,6 +181,13 @@ function isPortAvailable(port, host) {
 async function writeIfMissing(path, content) {
   try { await writeFile(path, content, { flag: 'wx', mode: 0o600 }); } catch (error) {
     if (error.code !== 'EEXIST') throw error;
+  }
+}
+
+async function fileExists(path) {
+  try { await access(path); return true; } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
   }
 }
 

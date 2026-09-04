@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, parse } from 'node:path';
 import test from 'node:test';
 import { SearxngClient } from '../src/searxng-client.js';
 import { SearxngDeployment, MANAGED_SEARXNG_ENDPOINT } from '../src/searxng-deployment.js';
@@ -163,10 +163,19 @@ test('managed deployment removal is explicit and idempotent', async () => {
     });
     await mkdir(join(root, 'deployment'), { recursive: true });
     await writeFile(join(root, 'deployment', 'compose.yaml'), 'services: {}\n');
+    await writeFile(join(root, 'deployment', '.env'), `SEARXNG_SECRET=${'a'.repeat(64)}\n`);
     const deployment = new SearxngDeployment({ root: join(root, 'deployment'), run });
     assert.equal((await deployment.remove()).removed, true);
     assert.ok(calls.some((call) => call.includes('down') && call.includes('--remove-orphans')));
     assert.equal((await deployment.remove()).removed, false);
+
+    const unmanaged = join(root, 'unmanaged');
+    await mkdir(unmanaged);
+    await writeFile(join(unmanaged, 'keep.txt'), 'preserve');
+    await assert.rejects(new SearxngDeployment({ root: unmanaged, run }).remove(), { code: 'managed_root_unexpected' });
+    assert.equal(await readFile(join(unmanaged, 'keep.txt'), 'utf8'), 'preserve');
+    assert.throws(() => new SearxngDeployment({ root: 'relative', run }), { code: 'managed_root_unsafe' });
+    assert.throws(() => new SearxngDeployment({ root: parse(root).root, run }), { code: 'managed_root_unsafe' });
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
