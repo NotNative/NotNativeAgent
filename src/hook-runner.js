@@ -8,6 +8,7 @@ const MAX_OUTPUT_BYTES = 262_144;
 const FORBIDDEN_SHELL = /[|&;<>()`\r\n]|\$\(/u;
 
 export async function runHook(subscription, bundle, payload, signal) {
+  if (signal?.aborted) return result('continue', 'hook_cancelled');
   const input = JSON.stringify(payload);
   if (Buffer.byteLength(input, 'utf8') > MAX_INPUT_BYTES) {
     return result('continue', 'hook_input_too_large');
@@ -36,6 +37,10 @@ function execute(invocation, subscription, bundle, input, parentSignal) {
     const abort = () => { child.kill(); finish(result('continue', 'hook_cancelled')); };
     const timeoutId = setTimeout(() => { child.kill(); finish(result('continue', 'hook_timeout')); }, subscription.timeoutMs);
     parentSignal?.addEventListener('abort', abort, { once: true });
+    for (const stream of [child.stdout, child.stderr]) stream.on('error', (error) => {
+      if (settled) return;
+      child.kill(); finish(result('continue', 'hook_failed', null, stableErrorCode(error)));
+    });
     child.stdout.on('data', (chunk) => {
       const appended = appendBounded(stdout, chunk); stdout = appended.value;
       if (appended.truncated) { child.kill(); finish(result('continue', 'hook_output_too_large')); }

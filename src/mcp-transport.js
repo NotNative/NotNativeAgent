@@ -38,15 +38,22 @@ export class StdioMcpTransport {
         stdio: ['pipe', 'pipe', 'pipe'], env: environment,
       });
     });
+    this.child.on('error', (error) => this.#failAll(error, true));
+    this.child.on('exit', () => this.#failAll(new ContractError('mcp_closed', 'MCP subprocess closed'), true));
+    for (const stream of [this.child.stdin, this.child.stdout, this.child.stderr]) {
+      stream?.on?.('error', (error) => this.#protocolFailure(error));
+    }
+    if (!this.child.stdin || !this.child.stdout || !this.child.stderr) {
+      const error = new ContractError('mcp_closed', 'MCP subprocess did not provide the required pipes');
+      this.#protocolFailure(error);
+      throw error;
+    }
     this.child.stdout.setEncoding('utf8');
     this.child.stdout.on('data', (chunk) => this.#consume(chunk));
     this.child.stderr.setEncoding?.('utf8');
     this.child.stderr.on('data', (chunk) => this.onDiagnostic?.({
       type: 'stderr', text: String(chunk).slice(0, MAX_MCP_DIAGNOSTIC_CHARS),
     }));
-    this.child.stdin.on?.('error', (error) => this.#failAll(error, true));
-    this.child.on('error', (error) => this.#failAll(error, true));
-    this.child.on('exit', () => this.#failAll(new ContractError('mcp_closed', 'MCP subprocess closed'), true));
   }
 
   #credentialContext(purpose) {
@@ -153,6 +160,7 @@ export class StdioMcpTransport {
   }
 
   #protocolFailure(error) {
+    if (this.#closed) return;
     this.#buffer = '';
     this.#failAll(error, true);
     this.child?.stdin?.end();
@@ -192,6 +200,7 @@ export class HttpMcpTransport {
   async request(method, params = {}, signal) {
     const message = withMetadata({ jsonrpc: '2.0', id: crypto.randomUUID(), method, params }, this.protocolVersion);
     const response = await this.#fetch({ method: 'POST', signal, body: JSON.stringify(message) }, method, params);
+    try {
     if (!response.ok) throw new ContractError('mcp_http_error', `MCP HTTP request failed (${response.status})`, response.status >= 500);
     // The current protocol is deliberately stateless; legacy negotiated versions
     // may still establish a server-owned session that must be echoed and closed.
@@ -200,14 +209,20 @@ export class HttpMcpTransport {
     }
     const value = response.headers.get('content-type')?.includes('text/event-stream')
       ? await readSseResult(response) : parseJson(await readBounded(response));
+    if (!value || typeof value !== 'object') throw new ContractError('mcp_malformed', 'MCP response was malformed');
     if (value.error) throw new ContractError('mcp_remote_error', 'MCP server returned an error');
     return value.result;
+    } catch (error) {
+      if (signal?.aborted) throw new ContractError('mcp_cancelled', 'MCP request was cancelled');
+      throw error;
+    } finally { await cancelBody(response); }
   }
 
   async close(signal) {
     if (!this.sessionId) return;
     try {
       const response = await this.#fetch({ method: 'DELETE', signal }, 'session/close', {});
+      await cancelBody(response);
       if (!response.ok) {
         throw new ContractError('mcp_http_close_error', `MCP HTTP session close failed (${response.status})`, response.status >= 500);
       }
@@ -219,12 +234,19 @@ export class HttpMcpTransport {
   async notify(method, params = {}, signal) {
     const message = withMetadata({ jsonrpc: '2.0', method, params }, this.protocolVersion);
     const response = await this.#fetch({ method: 'POST', signal, body: JSON.stringify(message) }, method, params);
+    try {
     if (!response.ok) throw new ContractError('mcp_http_error', `MCP HTTP notification failed (${response.status})`);
     if (response.body) await readBounded(response);
+    } catch (error) {
+      if (signal?.aborted) throw new ContractError('mcp_cancelled', 'MCP notification was cancelled');
+      throw error;
+    } finally { await cancelBody(response); }
   }
 
-  #fetch(init, method, params) {
-    return this.credentialResolver.withCredential(this.credential, {
+  async #fetch(init, method, params) {
+    if (init.signal?.aborted) throw new ContractError('mcp_cancelled', 'MCP request was cancelled');
+    try {
+    return await this.credentialResolver.withCredential(this.credential, {
       consumer: `mcp:${this.config.id}`, destination: this.config.endpoint,
       purpose: `Authenticate MCP ${method}`, authorityRef: `mcp-configuration:${this.config.id}`,
       sessionId: this.consoleSessionId,
@@ -232,6 +254,10 @@ export class HttpMcpTransport {
       (credentialHeaders) => fetch(this.config.endpoint, {
         ...init, headers: this.#headers(method, params, secret, credentialHeaders),
       })));
+    } catch (error) {
+      if (init.signal?.aborted) throw new ContractError('mcp_cancelled', 'MCP request was cancelled');
+      throw error;
+    }
   }
 
   #withHeaderCredentials(entries, index, values, method, consumer) {
@@ -264,6 +290,10 @@ export class HttpMcpTransport {
     }
     return headers;
   }
+}
+
+async function cancelBody(response) {
+  try { await response.body?.cancel(); } catch { /* Invariant: cleanup must not replace the transport failure. */ }
 }
 
 function withMetadata(message, protocolVersion) {

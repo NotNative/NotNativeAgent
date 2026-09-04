@@ -18,7 +18,8 @@ export class ConsoleSessionBroker {
     this.root = options.root;
     this.id = options.id ?? randomUUID().replaceAll('-', '').slice(0, 16);
     this.token = options.token ?? randomBytes(32).toString('base64url');
-    this.server = options.server ?? createServer((request, response) => this.#handle(request, response));
+    this.server = options.server ?? createServer((request, response) => this.#handle(request, response)
+      .catch(() => { response.destroy(); }));
     this.recordPath = join(this.root, `${this.id}.json`);
   }
   async start() {
@@ -70,7 +71,7 @@ export class ConsoleSessionBroker {
       return reply(response, 200, { result });
     } catch (error) {
       return reply(response, error.code === 'session_missing' ? 404 : 400, {
-        code: error.code ?? 'broker_request_failed', message: error.message,
+        code: error?.code ?? 'broker_request_failed', message: error?.message,
       });
     }
   }
@@ -136,12 +137,17 @@ export class ConsoleSessionDirectory {
       ...init, headers: { authorization: `Bearer ${record.token}`, 'content-type': 'application/json' },
       signal: AbortSignal.timeout(BROKER_TIMEOUT_MS),
     });
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.length > MAX_RESPONSE_BYTES) {
-      throw new ContractError('broker_response_too_large', 'session broker response is too large');
-    }
-    const value = JSON.parse(new TextDecoder().decode(bytes));
-    if (!response.ok) throw new ContractError(value.code ?? 'broker_unavailable', value.message ?? 'session broker rejected the request');
+    const chunks = []; let size = 0; let value;
+    try {
+      if (response.body) for await (const chunk of response.body) {
+        size += chunk.byteLength;
+        if (size > MAX_RESPONSE_BYTES) throw new ContractError('broker_response_too_large', 'session broker response is too large');
+        chunks.push(Buffer.from(chunk));
+      }
+      try { value = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+      catch { throw new ContractError(response.ok ? 'broker_json_invalid' : 'broker_unavailable', 'session broker returned an invalid response'); }
+    } finally { try { await response.body?.cancel(); } catch { /* Invariant: preserve the original response error. */ } }
+    if (!response.ok) throw new ContractError(value?.code ?? 'broker_unavailable', value?.message ?? 'session broker rejected the request');
     return value;
   }
 }
@@ -173,8 +179,9 @@ async function readJsonBody(request) {
 }
 function reply(response, status, body) {
   if (response.writableEnded) return;
+  const encoded = JSON.stringify(body);
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
-  response.end(JSON.stringify(body));
+  response.end(encoded);
 }
 async function atomicJson(path, value) {
   const temporary = `${path}.tmp-${process.pid}`;
