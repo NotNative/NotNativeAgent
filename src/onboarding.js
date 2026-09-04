@@ -61,15 +61,16 @@ async function readManifestDocumentIfPresent(path) {
 async function loadManifestDocument(path) {
   const bytes = await readFile(path);
   if (bytes.length > 1_048_576) throw new ContractError('manifest_too_large', 'default manifest exceeds bound');
+  let parsed;
   try {
-    const document = migrateManifestDocument(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)));
-    if (document.migrated) await persistManifest(path, document.manifest);
-    resolveManifest(document.manifest);
-    return document.manifest;
-  } catch (error) {
-    if (error instanceof ContractError) throw error;
-    await quarantineMalformedJson(path, 'default manifest', 'manifest_invalid');
+    parsed = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+  } catch {
+    return quarantineMalformedJson(path, 'default manifest', 'manifest_invalid');
   }
+  const document = migrateManifestDocument(parsed);
+  resolveManifest(document.manifest);
+  if (document.migrated) await persistManifest(path, document.manifest);
+  return document.manifest;
 }
 
 function manifestFromEnvironment(environment) {

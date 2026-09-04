@@ -202,6 +202,7 @@ export class PathPolicy {
   }
 
   #candidate(input) {
+    if (this.root === null) throw new ContractError('workspace_path_invalid', 'path policy is not initialized');
     if (typeof input !== 'string' || input.length === 0 || input.length > 4096 || input.includes('\0')) {
       throw new ContractError('tool_path_invalid', 'path is invalid or exceeds bounds');
     }

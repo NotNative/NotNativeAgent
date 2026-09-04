@@ -98,7 +98,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'clipboard_protocol_invalid', 'clipboard_target_unavailable', 'clipboard_timeout',
     'clipboard_unavailable', 'collection_too_large', 'compaction_busy',
     'compaction_confirmation_required', 'content_too_large', 'context_command_invalid',
-    'context_compaction_stalled', 'context_compression_invalid', 'context_configuration_invalid', 'context_recovery_invalid',
+    'context_compaction_stalled', 'context_compression_invalid', 'context_configuration_invalid', 'context_recovery_invalid', 'qualification_unavailable',
     'context_threshold_invalid', 'context_thresholds_invalid', 'context_too_large',
     'copy_index_invalid', 'copy_response_missing', 'copy_transcript_unavailable',
     'deletion_confirmation_required', 'diagnostics_session_not_found', 'diagnostics_turn_not_found',

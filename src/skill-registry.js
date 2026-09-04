@@ -55,7 +55,7 @@ export class SkillRegistry {
 
   async initialize() {
     this.#diagnostics.length = 0;
-    const values = this.hosted ? this.hostSkills : await discoverSkills(
+    const values = this.hosted ? normalizeRegistryHostSkills(this.hostSkills) : await discoverSkills(
       this.roots,
       (diagnostic) => this.#diagnostics.push(Object.freeze(diagnostic)),
     );
@@ -133,6 +133,16 @@ export class SkillRegistry {
   active() { return Object.freeze([...this.#active.values()]); }
   loadedIds() { return Object.freeze([...this.#active.keys()]); }
   diagnostics() { return Object.freeze([...this.#diagnostics]); }
+}
+
+function normalizeRegistryHostSkills(values) {
+  if (!Array.isArray(values)) return validateHostedSkills(values);
+  return validateHostedSkills(values.map((value) => {
+    if (!value || typeof value !== 'object' || !Object.hasOwn(value, 'requiresTools')) return value;
+    if (Object.hasOwn(value, 'requires_tools')) throw new ContractError('skill_invalid', 'skill tool requirements are ambiguous');
+    const { requiresTools, ...descriptor } = value;
+    return { ...descriptor, requires_tools: requiresTools };
+  }));
 }
 
 export function skillToolDefinitions(registry) {

@@ -28,11 +28,19 @@ export async function qualifyWorkspaceModel(workspace) {
   const provider = router.provider(route);
   if (!provider) throw new ContractError('provider_unavailable', 'the active model provider is unavailable');
   const capabilityDeadline = workspace.options?.providerCapabilityDeadlineMs;
-  const result = await qualifyModel(provider, route, {
+  let result;
+  try { result = await qualifyModel(provider, route, {
     timeoutMs: capabilityDeadline
       ? Math.max(MIN_QUALIFICATION_TIMEOUT_MS, capabilityDeadline * QUALIFICATION_DEADLINE_MULTIPLIER)
       : DEFAULT_QUALIFICATION_TIMEOUT_MS,
-  });
+  }); } catch (error) {
+    const code = ['qualification_timeout', 'qualification_output_too_large'].includes(error?.code)
+      ? error.code : 'qualification_unavailable';
+    // Why: a failed transport is not evidence of a model dialect defect.
+    try { engine.telemetry?.record('model.qualification', 'failed', { code, model: route.model, provider_profile: route.profile.id }); }
+    catch { /* Invariant: diagnostic failure cannot replace the qualification outcome. */ }
+    throw new ContractError(code, 'Model qualification could not complete.');
+  }
   engine.reliability.observe(route, result.overall === 'passed'
     ? { status: 'succeeded', qualification: true }
     : { status: 'failed', code: result.tools.passed ? 'other_failure' : 'tool_arguments_invalid', qualification: true });

@@ -193,7 +193,8 @@ function normalizeItems(value) {
   const items = [];
   for (const item of value) {
     if (typeof item !== 'string' || item.trim().length === 0
-      || Buffer.byteLength(item, 'utf8') > MAX_PROJECT_MEMORY_ITEM_BYTES || /[\r\n]/u.test(item)) {
+      || Buffer.byteLength(item, 'utf8') > MAX_PROJECT_MEMORY_ITEM_BYTES || /[\r\n]/u.test(item)
+      || item.includes(MANAGED_START) || item.includes(MANAGED_END)) {
       throw new ContractError('project_memory_item_invalid', 'project-memory items must be bounded single-line text');
     }
     if (secretLike(item)) throw new ContractError('project_memory_secret_forbidden', 'project memory may not contain secret material');
