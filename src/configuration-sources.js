@@ -6,13 +6,14 @@ import { manifestFromConfig } from './provider/route-configuration.js';
 // These bounds comfortably exceed the supported manifest while containing hostile programmatic input.
 const MAX_PROVENANCE_PATHS = 4_096;
 const MAX_PROVENANCE_DEPTH = 16;
+const RESERVED_CONFIGURATION_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
 
 export function resolveConfiguration(sources, options = {}) {
   if (!Array.isArray(sources) || sources.length === 0 || sources.length > 8) {
     throw new ContractError('configuration_sources_invalid', 'configuration requires one to eight ordered sources');
   }
-  let merged = {};
-  const winners = {};
+  let merged = Object.create(null);
+  const winners = Object.create(null);
   for (const source of sources) {
     if (!source || typeof source.name !== 'string' || !isRecord(source.manifest)) {
       throw new ContractError('configuration_source_invalid', 'configuration source is invalid');
@@ -49,10 +50,15 @@ function attributeSecurityRejection(error, winners, audit) {
 function merge(base, incoming, prefix, source, winners, ancestors = new Set()) {
   if (ancestors.has(incoming)) throw new ContractError('configuration_cycle', 'configuration sources must not contain cycles');
   ancestors.add(incoming);
-  const result = isRecord(base) ? { ...base } : {};
+  const result = Object.assign(Object.create(null), isRecord(base) ? base : null);
   for (const [key, value] of Object.entries(incoming)) {
+    if (RESERVED_CONFIGURATION_KEYS.has(key)) {
+      throw new ContractError('configuration_source_invalid', 'configuration source contains a reserved key');
+    }
     const path = prefix ? `${prefix}.${key}` : key;
-    if (isRecord(value)) result[key] = merge(isRecord(result[key]) ? result[key] : {}, value, path, source, winners, ancestors);
+    if (isRecord(value)) {
+      result[key] = merge(isRecord(result[key]) ? result[key] : Object.create(null), value, path, source, winners, ancestors);
+    }
     else {
       result[key] = structuredClone(value);
       winners[path] = source;
@@ -63,9 +69,9 @@ function merge(base, incoming, prefix, source, winners, ancestors = new Set()) {
 }
 
 function effectiveProvenance(manifest, winners) {
-  const result = { ...winners };
+  const result = Object.assign(Object.create(null), winners);
   for (const path of leafPaths(manifest)) result[path] ??= winningSource(path, winners) ?? 'compiled_default';
-  return Object.freeze(result);
+  return Object.freeze({ ...result });
 }
 
 function leafPaths(value) {

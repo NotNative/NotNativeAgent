@@ -2366,6 +2366,20 @@ test('AC-CONF-06/AC-REV-06 review-floor rejection attributes its source and emit
   assert.equal(stricter.config.reviewerLedger.retentionEntries, 5);
 });
 
+test('configuration source merging rejects reserved keys without prototype inheritance', () => {
+  const provider = { id: 'p', endpoint: 'http://127.0.0.1:9/v1', model: 'base', trust_zone: 'loopback' };
+  const malicious = JSON.parse('{"__proto__":{"disable_review":true}}');
+  assert.throws(() => resolveConfiguration([
+    { name: 'user', manifest: { provider } },
+    { name: 'project', manifest: malicious },
+  ]), { code: 'configuration_source_invalid' });
+  assert.equal(Object.hasOwn(Object.prototype, 'disable_review'), false);
+
+  assert.throws(() => resolveConfiguration([{
+    name: 'project', manifest: { provider, routes: JSON.parse('{"constructor":{"primary":{"model":"hostile"}}}') },
+  }]), { code: 'configuration_source_invalid' });
+});
+
 test('AC-CONF-02 mid-step configuration update applies at the next model boundary', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-config-boundary-'));
   await writeFile(join(root, 'note.txt'), 'fact');
