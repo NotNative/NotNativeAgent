@@ -44,7 +44,17 @@ export async function checkForUpdate(options) {
 export async function readUpdateState(path) {
   try {
     const value = JSON.parse(await readFile(path, 'utf8'));
-    if (value?.format !== 1 || typeof value.checked_at !== 'string') return null;
+    if (value?.format !== 1 || typeof value.checked_at !== 'string'
+      || !Number.isFinite(Date.parse(value.checked_at)) || Date.parse(value.checked_at) <= 0
+      || !['ready', 'unavailable'].includes(value.status)) return null;
+    const hasVersion = typeof value.latest_version === 'string' && VERSION_PATTERN.test(value.latest_version)
+      && Number.isSafeInteger(parseVersion(value.latest_version).sequence);
+    const hasSha = typeof value.latest_sha === 'string' && /^[a-f0-9]{40}$/u.test(value.latest_sha);
+    if (value.status === 'ready' ? !hasVersion || !hasSha
+      : (value.latest_version != null || value.latest_sha != null) && (!hasVersion || !hasSha)) return null;
+    for (const key of ['latest_ref', 'latest_tag', 'error_code']) {
+      if (value[key] != null && (typeof value[key] !== 'string' || value[key].length > 256)) return null;
+    }
     return Object.freeze(value);
   } catch { return null; }
 }
@@ -153,7 +163,7 @@ async function fetchRepositoryVersion(fetchImpl, timeoutMs) {
 }
 
 function updateAvailability(state, currentVersion, cached) {
-  const available = state.latest_version ? compareVersions(state.latest_version, currentVersion) > 0 : false;
+  const available = state.status === 'ready' && state.latest_version ? compareVersions(state.latest_version, currentVersion) > 0 : false;
   return Object.freeze({
     status: state.status, checked_at: state.checked_at, cached, current_version: currentVersion,
     latest_version: state.latest_version, latest_ref: state.latest_ref ?? null,

@@ -35,6 +35,24 @@ brand() {
   printf '%b Local-first agent runtime%b\n' "$c_dim" "$c_reset"
 }
 
+read_answer() {
+  IFS= read -r "$1" || { printf '%s\n' 'Setup input closed; run NNA to finish optional configuration.' >&2; return 1; }
+}
+
+read_secret() {
+  secret_terminal_state=$(stty -g) || return 1
+  trap 'stty "$secret_terminal_state" 2>/dev/null || true' EXIT
+  trap 'exit 129' HUP
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  stty -echo
+  if IFS= read -r "$1"; then secret_read_status=0; else secret_read_status=1; fi
+  stty "$secret_terminal_state"
+  trap - EXIT HUP INT TERM
+  printf '\n'
+  return "$secret_read_status"
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --source) source_root=$2; shift 2 ;;
@@ -144,8 +162,8 @@ install_managed_playwright() {
   verified=$(PLAYWRIGHT_BROWSERS_PATH="$browser_root" nna_runtime webbrowse verify) || {
     warn 'Playwright installed but Chromium launch validation failed'; return 1;
   }
-  version=$(printf '%s' "$verified" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s).version||'unknown')}catch{process.stdout.write('unknown')}})")
-  ok "Playwright Chromium ready (v$version)"
+  playwright_chromium_version=$(printf '%s' "$verified" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s).version||'unknown')}catch{process.stdout.write('unknown')}})")
+  ok "Playwright Chromium ready (v$playwright_chromium_version)"
 }
 
 archive_checksum() {
@@ -302,7 +320,7 @@ elif [ "$playwright_mode" = skip ] || [ "${NNA_SKIP_DEPENDENCY_INSTALL:-0}" = 1 
   skip 'Optional Playwright installation skipped by request'
 elif [ -t 0 ] && [ -t 1 ]; then
   printf '%s' 'Install Playwright Chromium for interactive WebBrowse? [y/N] '
-  read -r configure_browse
+  IFS= read -r configure_browse || configure_browse=n
   case "$configure_browse" in y|Y|yes|YES) install_managed_playwright || true ;; *) skip 'Optional Playwright installation declined' ;; esac
 else
   skip 'Non-interactive install detected; optional Playwright setup skipped'
@@ -335,13 +353,10 @@ elif [ "$provider_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
   provider_endpoint=''
   while [ -z "$provider_endpoint" ]; do
     printf '%s' 'OpenAI-compatible provider URL (example: http://127.0.0.1:1234/v1): '
-    read -r provider_endpoint
+    read_answer provider_endpoint
   done
   printf '%s' 'Provider API key (leave blank if authentication is not required): '
-  stty -echo
-  read -r provider_key
-  stty echo
-  printf '\n'
+  read_secret provider_key
   step 'Discovering available models from the provider'
   discovery_json=$(printf '%s\n' "$provider_key" | nna_runtime provider discover "$provider_endpoint")
   model_count=$(printf '%s' "$discovery_json" | "$node_path" -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(String(JSON.parse(s).models.length)))")
@@ -354,7 +369,7 @@ elif [ "$provider_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
   selected_model=''
   while [ -z "$selected_model" ]; do
     printf '%s' 'Choose a model by number or exact model name: '
-    read -r selection
+    read_answer selection
     selected_model=$(printf '%s' "$discovery_json" | "$node_path" -e "let s='';const v=process.argv[1];process.stdin.on('data',d=>s+=d).on('end',()=>{const m=JSON.parse(s).models;const n=Number(v);const x=Number.isInteger(n)&&n>=1&&n<=m.length?m[n-1]:m.find(i=>i===v);process.stdout.write(x||'')})" "$selection")
     [ -n "$selected_model" ] || printf '%s\n' 'Enter a listed number or an exact model name.' >&2
   done
@@ -397,11 +412,11 @@ elif [ "$web_search_mode" = local ]; then
   ok 'Loopback-only SearXNG deployed and configured'
 elif [ "$web_search_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
   printf '%s' 'Configure WebSearch now? [y/N] '
-  read -r configure_search
+  IFS= read -r configure_search || configure_search=n
   case "$configure_search" in
     y|Y|yes|YES)
       printf '%s' 'Enter the base URL of your existing SearXNG server (example: http://192.168.1.50:8080), or leave blank to deploy a new local instance with Docker: '
-      read -r endpoint
+      read_answer endpoint
       if [ -n "$endpoint" ]; then
         nna_runtime websearch configure "$endpoint" >/dev/null
       else
@@ -423,13 +438,13 @@ if [ "$gateway_configured" = true ] && [ "$gateway_users" -gt 0 ]; then
   skip "Telegram gateway is already configured for $gateway_users authorized operator(s)."
 elif [ "$gateway_mode" = prompt ] && [ -t 0 ] && [ -t 1 ]; then
   printf '%s' 'Configure the Telegram gateway now? [y/N] '
-  read -r configure_gateway
+  IFS= read -r configure_gateway || configure_gateway=n
   case "$configure_gateway" in
     y|Y|yes|YES)
       printf '%s' 'Telegram bot token from BotFather: '
-      stty -echo; read -r telegram_token; stty echo; printf '\n'
+      read_secret telegram_token
       printf '%s' 'Numeric Telegram user ID to authorize: '
-      read -r telegram_user_id
+      read_answer telegram_user_id
       gateway_mode=configure ;;
   esac
 fi

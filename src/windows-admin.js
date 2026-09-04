@@ -16,19 +16,23 @@ export class WindowsAdministrator {
     this.node = options.node ?? process.execPath;
     this.systemRoot = options.systemRoot ?? 'C:\\Windows';
     this.output = options.output ?? (async () => {});
+    this.progressFailures = 0;
   }
 
   async execute(request, signal) {
     if (signal.aborted) return notApproved();
     const systemRoot = trustedWindowsSystemRoot(this.systemRoot);
-    const directory = await mkdtemp(join(this.root, 'nna-admin-'));
-    const bytes = JSON.stringify(request.args);
+    validateAdminTimeout(request?.args);
+    let bytes;
+    try { bytes = JSON.stringify(request.args); }
+    catch { throw new ContractError('elevation_request_invalid', 'Administrator arguments must be JSON data'); }
     const digest = createHash('sha256').update(bytes).digest('hex');
     const powershell = win32.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const directory = await mkdtemp(join(this.root, 'nna-admin-'));
     const envelope = { directory, digest, powershell, taskkill: win32.join(systemRoot, 'System32', 'taskkill.exe') };
     try {
       await writeFile(join(directory, 'request.json'), bytes, { flag: 'wx' });
-      await this.output({ request, phase: 'awaiting_authorization' });
+      await this.#reportProgress({ request, phase: 'awaiting_authorization' });
       const code = await this.launch(envelope, signal, request);
       return await this.result(envelope, code, request.args);
     } finally {
@@ -37,6 +41,7 @@ export class WindowsAdministrator {
   }
 
   launch(envelope, signal, request) {
+    validateAdminTimeout(request?.args);
     const script = administratorLauncher(this.node, envelope);
     const encoded = Buffer.from(script, 'utf16le').toString('base64');
     if (encoded.length > 30000) throw new ContractError('elevation_launcher_unavailable', 'Administrator launcher exceeds the Windows command-line bound');
@@ -53,7 +58,7 @@ export class WindowsAdministrator {
           if (finished) return;
           announced = true;
           commandTimer = setTimeout(abort, request.args.timeout_ms + 5000);
-          await this.output({ request, phase: 'executing_administrator' });
+          await this.#reportProgress({ request, phase: 'executing_administrator' });
         } catch (error) {
           if (error.code !== 'ENOENT' && !finished) abort();
         } finally { checking = false; }
@@ -80,6 +85,11 @@ export class WindowsAdministrator {
     });
   }
 
+  async #reportProgress(event) {
+    try { await this.output(event); }
+    catch { this.progressFailures += 1; }
+  }
+
   async result(envelope, code, args) {
     let result;
     try {
@@ -101,6 +111,13 @@ export class WindowsAdministrator {
         ...(result.stderr ? { diagnosticOutcome: 'stderr_present', stderrBytes: Buffer.byteLength(result.stderr) } : {}),
         ...(shellDiagnosticVisibility(args.script) ? { diagnosticVisibility: shellDiagnosticVisibility(args.script) } : {}),
         verification_required: true } };
+  }
+}
+
+function validateAdminTimeout(args) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)
+    || !Number.isSafeInteger(args.timeout_ms) || args.timeout_ms < 100 || args.timeout_ms > 3_600_000) {
+    throw new ContractError('elevation_request_invalid', 'Administrator execution requires a timeout between 100 and 3600000 milliseconds');
   }
 }
 

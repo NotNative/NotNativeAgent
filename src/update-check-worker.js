@@ -4,7 +4,9 @@ import { ensureUserDataPaths, VERSION } from './product.js';
 
 try {
   const paths = await ensureUserDataPaths();
-  await checkForUpdate({ statePath: paths.updateState, currentVersion: VERSION });
+  const result = await checkForUpdate({ statePath: paths.updateState, currentVersion: VERSION });
+  if (result.status === 'unavailable') process.exitCode = 1;
 } catch {
-  // This detached, stdio-free best-effort worker has no safe diagnostic channel. Interactive checks report failures.
+  // Invariant: the parent observes failure through exit status without exposing payloads.
+  process.exitCode = 1;
 }

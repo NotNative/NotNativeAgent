@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { checkForUpdate, installAvailableUpdate } from './update-service.js';
-import { VERSION } from './product.js';
+import { PRODUCT_NAME, VERSION } from './product.js';
 
 export async function runUpdateCommand(args, paths, io = {}) {
   const output = io.output ?? process.stdout;
@@ -19,9 +19,9 @@ export async function runUpdateCommand(args, paths, io = {}) {
   const result = await install({ paths, currentVersion: VERSION });
   requireUpdateResult(result, 'install');
   output.write(result.installed
-    ? `Updated NotNativeAgent ${result.current_version} -> ${result.latest_version}. Restart any open NNA Consoles.\n`
+    ? `Updated ${PRODUCT_NAME} ${result.current_version} -> ${result.latest_version}. Restart any open NNA Consoles.\n`
     : `${formatCheck(result)}\n`);
-  return 0;
+  return result.status === 'unavailable' ? 1 : 0;
 }
 
 function formatCheck(result) {
