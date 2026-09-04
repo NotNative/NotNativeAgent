@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { manifestFromConfig } from '../provider/route-configuration.js';
 import { ContractError } from '../ids.js';
+import { isReviewPosture } from '../review-posture.js';
 
 export function tabPoolRecords(sessions, projection) {
   return [...sessions.values()].map((session) => {
@@ -37,7 +38,7 @@ export function restorePresentation(session, engine, value) {
   if (typeof value.draft !== 'string' || !Array.isArray(value.expanded_turn_ids)
     || (value.detailed_turn_ids !== undefined && !Array.isArray(value.detailed_turn_ids))
     || !Array.isArray(value.pending_attachments)
-    || typeof value.review_posture !== 'string') throw invalidPresentation('saved state');
+    || !isReviewPosture(value.review_posture)) throw invalidPresentation('saved state');
   session.editor.set(value.draft);
   session.viewportEnd = value.viewport_end;
   session.expandedTurns = new Set(value.expanded_turn_ids ?? []);

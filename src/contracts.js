@@ -23,7 +23,7 @@ const INPUT_TYPES = new Set([
 ]);
 
 export function parseProtocolLine(line, limits = {}) {
-  const maxBytes = limits.maxLineBytes ?? PROTOCOL_LIMITS.lineBytes;
+  const maxBytes = boundedProtocolLimit(limits.maxLineBytes, PROTOCOL_LIMITS.lineBytes);
   if (Buffer.byteLength(line, 'utf8') > maxBytes) {
     throw new ContractError('line_too_large', `input exceeds ${maxBytes} bytes`);
   }
@@ -153,8 +153,8 @@ function validateContent(value) {
 }
 
 function validateTree(root, limits = {}) {
-  const maxDepth = limits.maxDepth ?? PROTOCOL_LIMITS.depth;
-  const maxNodes = limits.maxNodes ?? PROTOCOL_LIMITS.nodes;
+  const maxDepth = boundedProtocolLimit(limits.maxDepth, PROTOCOL_LIMITS.depth);
+  const maxNodes = boundedProtocolLimit(limits.maxNodes, PROTOCOL_LIMITS.nodes);
   const stack = [{ value: root, depth: 0 }];
   const visited = new WeakSet();
   let count = 0;
@@ -174,6 +174,11 @@ function validateTree(root, limits = {}) {
     if (Array.isArray(item.value)) pushChildren(stack, item.value, item.depth);
     else if (isRecord(item.value)) pushChildren(stack, Object.values(item.value), item.depth);
   }
+}
+
+function boundedProtocolLimit(value, ceiling) {
+  if (!Number.isSafeInteger(value) || value < 1) return ceiling;
+  return Math.min(value, ceiling);
 }
 
 function pushChildren(stack, values, depth) {

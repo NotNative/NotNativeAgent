@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { resolveManifest } from '../src/config.js';
 import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
 import { loadTabPool } from '../src/experience/tab-pool.js';
+import { restorePresentation } from '../src/experience/presentation.js';
 
 function configuration(root) {
   return resolveManifest({
@@ -14,6 +15,18 @@ function configuration(root) {
     provider: { id: 'local', endpoint: 'http://127.0.0.1:9/v1', model: 'model', trust_zone: 'loopback' },
   });
 }
+
+test('presentation restore rejects unknown review postures before mutating policy', () => {
+  const session = {
+    editor: { text: '', set(value) { this.text = value; } }, reviewPosture: 'auto-review',
+  };
+  const engine = { reviewPosture: 'auto-review' };
+  assert.throws(() => restorePresentation(session, engine, {
+    draft: '', expanded_turn_ids: [], pending_attachments: [], review_posture: 'anything',
+  }), { code: 'presentation_state_invalid' });
+  assert.equal(session.reviewPosture, 'auto-review');
+  assert.equal(engine.reviewPosture, 'auto-review');
+});
 
 test('legacy tab-pool migrations reject missing tab arrays with a stable contract error', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-tab-migration-'));

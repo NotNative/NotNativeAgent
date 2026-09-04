@@ -99,6 +99,13 @@ test('headless protocol cannot express an interactive permission decision', () =
   })), { code: 'unknown_control' });
 });
 
+test('headless protocol limits cannot be disabled or raised by callers', () => {
+  const command = JSON.stringify({ version: '1.0', type: 'shutdown', request_id: 'bounded-limits' });
+  assert.equal(parseProtocolLine(command, { maxDepth: NaN, maxNodes: Infinity }).type, 'shutdown');
+  assert.throws(() => parseProtocolLine(command, { maxLineBytes: 8 }), { code: 'line_too_large' });
+  assert.equal(parseProtocolLine(command, { maxLineBytes: Number.MAX_SAFE_INTEGER }).type, 'shutdown');
+});
+
 test('AC-HEAD-10 host business policy remains usable but cannot bypass mandatory tool authority', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-host-policy-'));
   const requests = [];
@@ -146,6 +153,7 @@ test('AC-TUI-04/AC-TUI-05 editor, paste, keys, and narrow rendering preserve sta
   assert.equal(editor.text, 'first\nsecond');
   assert.equal(editor.take(), 'first\nsecond');
   assert.throws(() => validateKeyBindings({ submit: 'ctrl+c' }), { code: 'key_conflict' });
+  assert.throws(() => validateKeyBindings({ toString: 'ctrl+x' }), { code: 'key_unsupported' });
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', { type: 'stream_delta', text: '\u001b]52;c;attack\u0007' });

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:57f35a128e9e452372a0b34eaf1aa218751c450c9a5117f9521f8e6709eb150a",
+  "source_digest": "sha256:5d1b2178c05fd75dd3629baea215b014eb22623ec485f517ba9d8c262c822957",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -382,6 +382,12 @@
     },
     {
       "from": "experience-engine",
+      "to": "governance-engine",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
+      "from": "experience-engine",
       "to": "integrations",
       "import_count": 2,
       "module_count": 2
@@ -437,12 +443,6 @@
     {
       "from": "experience-engine",
       "to": "gateway",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "experience-engine",
-      "to": "governance-engine",
       "import_count": 1,
       "module_count": 1
     },
@@ -1274,7 +1274,8 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
-        "src/provider/route-configuration.js"
+        "src/provider/route-configuration.js",
+        "src/review-posture.js"
       ]
     },
     {

@@ -15,7 +15,7 @@ const NAMED_BINDINGS = new Set([
 
 export function validateKeyBindings(overrides = {}) {
   if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)) throw invalid('key_bindings must be an object');
-  const unknown = Object.keys(overrides).find((action) => !(action in DEFAULT_KEY_BINDINGS));
+  const unknown = Object.keys(overrides).find((action) => !Object.hasOwn(DEFAULT_KEY_BINDINGS, action));
   if (unknown) throw invalid(`keyboard action ${unknown} is not supported`);
   const invalidOverride = Object.entries(overrides).find(([, value]) => typeof value !== 'string' || !value.trim());
   if (invalidOverride) throw invalid(`keyboard action ${invalidOverride[0]} requires a binding`);

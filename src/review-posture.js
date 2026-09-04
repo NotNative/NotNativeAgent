@@ -18,6 +18,8 @@ export function reviewPostureNotice(posture) {
   return POSTURE_NOTICES[posture];
 }
 
+export function isReviewPosture(posture) { return POSTURES.includes(posture); }
+
 function requirePosture(posture) {
   const index = POSTURES.indexOf(posture);
   if (index < 0) throw new ContractError('review_posture_invalid', 'review posture is invalid');
