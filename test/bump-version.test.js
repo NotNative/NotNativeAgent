@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { argumentsFrom, bumpVersion } from '../scripts/bump-version.js';
+import { argumentsFrom, bumpVersion, writeSynchronized } from '../scripts/bump-version.js';
 
 async function fixture(sbom = {
   name: 'old', packages: [{ name: 'NotNativeAgent', SPDXID: 'SPDXRef-Package-NotNativeAgent', versionInfo: '20260101-1' }],
@@ -52,4 +52,33 @@ test('version bump CLI parser rejects options without values', () => {
   assert.throws(() => argumentsFrom(['--iteration', '--date', '20261231']), /missing value for --iteration/u);
   assert.throws(() => argumentsFrom(['--iteration', 'abc']), /safe integer/u);
   assert.throws(() => argumentsFrom(['--date', '20261231', '--date', '20270101']), /duplicate option/u);
+});
+
+test('version bump rejects malformed metadata with its filename before any write', async () => {
+  const root = await fixture();
+  try {
+    for (const name of ['package.json', 'SBOM.spdx.json']) {
+      const path = join(root, name); const original = await readFile(path, 'utf8');
+      for (const contents of ['null', '[]', '42', '{broken']) {
+        await writeFile(path, contents); let writes = 0;
+        await assert.rejects(bumpVersion(root, { date: '20261231' }, {
+          writeFile: async () => { writes += 1; },
+        }), (error) => error.message.includes(name));
+        assert.equal(writes, 0);
+      }
+      await writeFile(path, original);
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('version rollback report names only artifacts whose restoration failed', async () => {
+  const entries = ['one', 'two', 'three'].map((path) => ({ path, before: 'old', after: 'new' }));
+  await assert.rejects(writeSynchronized(entries, async (path, content) => {
+    if (path === 'three' || (path === 'one' && content === 'old')) throw new Error(path);
+  }), (error) => {
+    assert.ok(error instanceof AggregateError);
+    assert.match(error.message, /one/u);
+    assert.doesNotMatch(error.message, /two/u);
+    return true;
+  });
 });

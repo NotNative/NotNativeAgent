@@ -25,10 +25,10 @@ export async function bumpVersion(root, options = {}, io = {}) {
   if (!Number.isSafeInteger(iteration) || iteration < 1) throw new Error('--iteration must be a positive integer');
   const version = `${date}-${iteration}`;
   const packageVersion = `${date}.0.${iteration}`;
-  const packageJson = JSON.parse(originals[1]);
+  const packageJson = parseMetadata(originals[1], packagePath);
   const nextProduct = originals[2].replace(/export const VERSION = ['"][^'"]*['"];/u, `export const VERSION = '${version}';`);
   if (nextProduct === originals[2]) throw new Error('runtime VERSION declaration was not found');
-  const sbom = JSON.parse(originals[3]);
+  const sbom = parseMetadata(originals[3], sbomPath);
   if (!Array.isArray(sbom.packages) || !sbom.packages[0]
     || typeof sbom.packages[0] !== 'object' || Array.isArray(sbom.packages[0])
     || typeof sbom.packages[0].name !== 'string' || typeof sbom.packages[0].SPDXID !== 'string'
@@ -57,17 +57,26 @@ export async function writeSynchronized(entries, write = writeFile) {
       completed.push(entry);
     }
   } catch (error) {
-    const rollbackFailures = [];
-    for (const entry of completed.reverse()) {
+    const rollbackFailures = []; const affected = [];
+    for (const entry of [...completed].reverse()) {
       try { await write(entry.path, entry.before, 'utf8'); }
-      catch (rollbackError) { rollbackFailures.push(rollbackError); }
+      catch (rollbackError) { rollbackFailures.push(rollbackError); affected.push(entry.path); }
     }
     if (rollbackFailures.length > 0) {
-      const affected = completed.map((entry) => entry.path).join(', ');
-      throw new AggregateError([error, ...rollbackFailures], `version update and rollback failed for: ${affected}`, { cause: error });
+      throw new AggregateError([error, ...rollbackFailures], `version update and rollback failed for: ${affected.join(', ')}`, { cause: error });
     }
     throw error;
   }
+}
+
+function parseMetadata(source, path) {
+  let value;
+  try { value = JSON.parse(source); }
+  catch (error) { throw new Error(`${path} is not valid JSON`, { cause: error }); }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${path} must contain a JSON object`);
+  }
+  return value;
 }
 
 export function argumentsFrom(values) {

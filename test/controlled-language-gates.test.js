@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   auditDeprecatedIdentifiers, auditModelFacingDefinitions, countRationaleMarkers,
-  scanJavaScriptIdentifiers, validateTerminologyContract,
+  scanJavaScriptIdentifiers, validateTerminologyContract, runControlledLanguageGates,
 } from '../scripts/controlled-language-gates.js';
 
 function contract(overrides = {}) {
@@ -24,6 +27,21 @@ function contract(overrides = {}) {
     ...overrides,
   };
 }
+
+test('invalid terminology stops before source discovery and identifies the contract', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ctl-invalid-'));
+  const contractPath = join(root, 'contract.json');
+  try {
+    for (const content of ['null', '[]', '{}', '{broken', JSON.stringify(contract({ deprecated_identifiers: [null] }))]) {
+      await writeFile(contractPath, content);
+      await assert.rejects(runControlledLanguageGates({ root, contractPath }), (error) => {
+        assert.ok(error.message.includes(contractPath));
+        assert.doesNotMatch(error.message, /scandir/u);
+        return true;
+      });
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 test('a precise terminology contract is valid', () => {
   assert.deepEqual(validateTerminologyContract(contract()), []);

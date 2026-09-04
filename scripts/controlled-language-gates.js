@@ -158,8 +158,11 @@ function addProse(target, tool, field, value) {
 export async function runControlledLanguageGates(options = {}) {
   const root = options.root ?? scriptRoot;
   const contractFile = options.contractPath ?? join(root, 'docs', 'architecture', 'nna-terminology.json');
-  const contract = JSON.parse(await readFile(contractFile, 'utf8'));
+  let contract;
+  try { contract = JSON.parse(await readFile(contractFile, 'utf8')); }
+  catch (error) { throw new Error(`cannot read terminology contract ${contractFile}: ${error.message}`, { cause: error }); }
   const errors = [...validateTerminologyContract(contract)];
+  if (errors.length > 0) throw new Error(`invalid terminology contract ${contractFile}: ${errors.join('; ')}`);
   const paths = await collectJavaScript(options.sourceRoot ?? join(root, 'src'));
   const files = await Promise.all(paths.map(async (path) => ({ path, source: await readFile(path, 'utf8') })));
   const audit = auditDeprecatedIdentifiers(contract, files);
