@@ -14,9 +14,13 @@ export class WorkspaceTabPersistence {
     this.options = options;
   }
 
-  save() {
+  async save() {
     if (!this.options.enabled()) return Promise.resolve();
-    const { tabs, activeId } = this.options.snapshot();
+    const snapshot = this.options.snapshot();
+    if (!snapshot || !Array.isArray(snapshot.tabs)) {
+      throw new ContractError('tab_persistence_invalid', 'tab persistence snapshot requires a tab array');
+    }
+    const { tabs, activeId } = snapshot;
     const write = this.#tail.then(() => (this.options.writer ?? saveTabPool)(
       this.options.path, tabs, activeId, { consoleId: this.options.consoleId },
     ));
@@ -35,8 +39,7 @@ export class WorkspaceTabPersistence {
   }
 
   async recover(operation) {
-    const pending = operation ?? this.save();
-    try { await pending; return true; }
+    try { await (operation ?? this.save()); return true; }
     catch (error) { this.options.onFailure(error); return false; }
   }
 

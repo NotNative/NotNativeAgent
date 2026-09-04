@@ -39,8 +39,10 @@ export async function deployWebSearch(state) {
   try { return { ...await configureWebSearch(state, deployment.endpoint, true), deployment }; }
   catch (error) {
     // The deployment may have existed before this command, so destructive rollback is unsafe.
-    error.partialDeployment = deployment;
-    throw error;
+    const failure = new ContractError(error?.code ?? 'web_search_configuration_failed',
+      error?.message ?? 'WebSearch deployment configuration failed', error?.retryable === true, { cause: error });
+    failure.partialDeployment = deployment;
+    throw failure;
   }
 }
 

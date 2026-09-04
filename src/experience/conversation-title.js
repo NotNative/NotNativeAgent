@@ -53,17 +53,28 @@ export async function maybeAutoNameConversation(workspace, session) {
   if (!session || session.nameLocked || session.autoNamed) return false;
   const name = deriveConversationTitle(session.engine?.transcript);
   if (!name) return false;
+  const priorName = session.name;
   session.name = name; session.autoNamed = true;
   const projected = workspace.projection.sessions.get(session.id);
   if (projected) projected.name = name;
-  await workspace._savePoolRecoverable();
+  const saved = await workspace._savePoolRecoverable();
+  if (saved === false && session.name === name && !session.nameLocked) {
+    session.name = priorName; session.autoNamed = false;
+    if (projected?.name === name) projected.name = priorName;
+  }
   workspace.onChange();
-  return true;
+  return saved !== false;
 }
 
 export function renameWorkspaceConversation(workspace, name) {
-  if (!name || name.length > 128) throw new ContractError('session_name_invalid', 'conversation name is invalid');
+  if (typeof name !== 'string' || !name.trim() || name.length > 128 || /[\u0000-\u001f\u007f-\u009f]/u.test(name)) {
+    throw new ContractError('session_name_invalid', 'conversation name must be bounded printable text');
+  }
+  name = name.trim();
   const session = workspace._active();
+  if ([...workspace.sessions.values()].some((item) => item !== session && item.name === name)) {
+    throw new ContractError('session_name_invalid', 'another conversation already has that name');
+  }
   session.name = name; session.nameLocked = true; session.autoNamed = false;
   workspace.projection.active().name = name;
   workspace.tabPersistence.observe(workspace._savePoolForBroker(), workspace._tasksForBroker());

@@ -15,14 +15,14 @@ export function transcriptEvents(transcript) {
   }
   const lastAssistant = new Map();
   const terminalTurns = new Set();
-  transcript.forEach((item, index) => {
+  for (const [index, item] of transcript.entries()) {
     validateTranscriptItem(item);
     const turnId = turnIdentity(item);
     if (item.type === RECORD.message && item.role === ROLE.assistant && turnId) {
       lastAssistant.set(turnId, index);
     }
     if (item.type === RECORD.outcome && turnId) terminalTurns.add(turnId);
-  });
+  }
   const events = [];
   for (const [index, item] of transcript.entries()) {
     const turnId = turnIdentity(item);

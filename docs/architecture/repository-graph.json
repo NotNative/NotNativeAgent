@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:a66b3842be6586ed03680f5feb6b0cd0fc3e3d05ff37d7b02e534b58267b886c",
+  "source_digest": "sha256:02dd9c74f50a766b9a0373daa431b0911b5262b3d0bb0b5db5fadb4a7a55fe63",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -119,8 +119,8 @@
     {
       "from": "experience-engine",
       "to": "foundation",
-      "import_count": 80,
-      "module_count": 56
+      "import_count": 81,
+      "module_count": 57
     },
     {
       "from": "tools",
@@ -1381,7 +1381,9 @@
       "path": "src/experience/tool-lifecycle.js",
       "component": "experience-engine",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/ids.js"
+      ]
     },
     {
       "path": "src/experience/transcript.js",

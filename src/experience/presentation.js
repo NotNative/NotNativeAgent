@@ -28,7 +28,7 @@ export function presentationState(session) {
     expanded_turn_ids: [...session.expandedTurns], review_posture: session.reviewPosture,
     detailed_turn_ids: [...session.detailedTurns],
     work_collapsed: session.workCollapsed === true,
-    pending_attachments: session.pendingAttachments,
+    pending_attachments: session.pendingAttachments.map((item) => ({ ...item })),
   };
 }
 
@@ -36,11 +36,12 @@ export function restorePresentation(session, engine, value) {
   if (!value) return;
   if (typeof session?.editor?.set !== 'function' || !engine) throw invalidPresentation('restore target');
   if (typeof value.draft !== 'string' || !Array.isArray(value.expanded_turn_ids)
+    || (value.viewport_end != null && (!Number.isSafeInteger(value.viewport_end) || value.viewport_end < 0))
     || (value.detailed_turn_ids !== undefined && !Array.isArray(value.detailed_turn_ids))
     || !Array.isArray(value.pending_attachments)
     || !isReviewPosture(value.review_posture)) throw invalidPresentation('saved state');
   session.editor.set(value.draft);
-  session.viewportEnd = value.viewport_end;
+  session.viewportEnd = value.viewport_end ?? null;
   session.expandedTurns = new Set(value.expanded_turn_ids ?? []);
   session.detailedTurns = new Set(value.detailed_turn_ids ?? []);
   session.workCollapsed = value.work_collapsed === true;

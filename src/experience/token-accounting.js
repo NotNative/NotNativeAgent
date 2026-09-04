@@ -9,7 +9,7 @@ const NUMERIC_ACCOUNTING_FIELDS = Object.freeze([
 export function accumulateTokenAccounting(current, update) {
   if (!update || update.schema !== 'nna.token-accounting.v1') return current;
   const result = { schema: 'nna.token-accounting.v1' };
-  for (const key of NUMERIC_ACCOUNTING_FIELDS) result[key] = (current?.[key] ?? 0) + (update[key] ?? 0);
+  for (const key of NUMERIC_ACCOUNTING_FIELDS) result[key] = addCounts(current?.[key], update[key]);
   result.measurement = result.estimated_unreported_tokens > 0
     ? (result.measured_total_tokens > 0 ? 'mixed' : 'estimated')
     : result.measured_total_tokens > 0 ? 'provider' : 'unavailable';
@@ -18,17 +18,27 @@ export function accumulateTokenAccounting(current, update) {
 }
 
 function mergeRoles(left = {}, right = {}) {
+  left = roleRecord(left); right = roleRecord(right);
   const roles = {};
   for (const role of new Set([...Object.keys(left), ...Object.keys(right)])) {
-    const measured = (left[role]?.measured_total_tokens ?? 0) + (right[role]?.measured_total_tokens ?? 0);
-    const estimated = (left[role]?.estimated_unreported_tokens ?? 0) + (right[role]?.estimated_unreported_tokens ?? 0);
-    roles[role] = Object.freeze({
-      attempts: (left[role]?.attempts ?? 0) + (right[role]?.attempts ?? 0),
+    const measured = addCounts(left[role]?.measured_total_tokens, right[role]?.measured_total_tokens);
+    const estimated = addCounts(left[role]?.estimated_unreported_tokens, right[role]?.estimated_unreported_tokens);
+    Object.defineProperty(roles, role, { enumerable: true, value: Object.freeze({
+      attempts: addCounts(left[role]?.attempts, right[role]?.attempts),
       measured_total_tokens: measured, estimated_unreported_tokens: estimated,
-      accounted_total_tokens: measured + estimated,
-    });
+      accounted_total_tokens: addCounts(measured, estimated),
+    }) });
   }
   return Object.freeze(roles);
+}
+
+function roleRecord(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function addCounts(left, right) {
+  const count = (value) => Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  return Math.min(Number.MAX_SAFE_INTEGER, count(left) + count(right));
 }
 
 export function statusTokenText(usage, accounting) {
