@@ -51,6 +51,7 @@ export function normalizeShellExecutionError(error, shell, platform = process.pl
 }
 
 export function shellReliabilitySignals(script, shell = 'auto') {
+  if (typeof script !== 'string') return Object.freeze([]);
   const signals = [];
   const separators = script.match(/(?:&&|\|\||[;|\n])/gu)?.length ?? 0;
   if (separators >= 3) signals.push('many_operations');

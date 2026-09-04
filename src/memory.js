@@ -10,7 +10,10 @@ export class MemoryBoundary {
   #generation = 0;
 
   constructor(config, adapter = null, options = {}) {
-    this.config = config;
+    this.config = {
+      ...config, enabled: config?.enabled === true,
+      timeoutMs: config?.timeoutMs ?? 750, maxItems: config?.maxItems ?? 8, maxBytes: config?.maxBytes ?? 16_384,
+    };
     this.adapter = adapter;
     this.grounding = options.grounding ?? null;
   }
@@ -35,6 +38,7 @@ export class MemoryBoundary {
       const governed = this.grounding
         ? await this.grounding.admitMemory(normalized, { requestId, authorityRef: 'authenticated_submission' })
         : { admitted: normalized, rejected: [] };
+      if (generation !== this.#generation || signal?.aborted) return { status: 'late_discarded', items: [], requestId };
       return { status: 'ready', items: governed.admitted, rejected: governed.rejected, requestId };
     } catch (error) {
       if (this.config.required) throw error;

@@ -3,6 +3,7 @@
 const MAX_REASONING_BLOCK_BYTES = 262_144;
 
 export function appendReasoningChunk(current, chunk) {
+  if (current === null) return null;
   if (typeof chunk !== 'string' || chunk.length === 0) return current ?? '';
   const combined = `${current ?? ''}${chunk}`;
   return Buffer.byteLength(combined, 'utf8') <= MAX_REASONING_BLOCK_BYTES ? combined : null;

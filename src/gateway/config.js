@@ -47,6 +47,9 @@ export function normalizeGatewayConfig(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ContractError('gateway_config_invalid', 'gateway configuration must be an object');
   }
+  if (value.authorized_user_ids != null && !Array.isArray(value.authorized_user_ids)) {
+    throw new ContractError('gateway_config_invalid', 'authorized user IDs must be an array');
+  }
   const ids = [...new Set((value.authorized_user_ids ?? []).map(normalizeUserId))].sort();
   const workspace = value.workspace_root == null ? null : resolveWorkspace(value.workspace_root);
   const timeout = value.polling_timeout_seconds ?? DEFAULT_POLLING_TIMEOUT_SECONDS;

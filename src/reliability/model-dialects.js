@@ -55,6 +55,7 @@ export class ModelDialectRegistry {
   }
 
   observe(route, outcome) {
+    if (!outcome || !['succeeded', 'failed'].includes(outcome.status)) return false;
     const profile = this.#profile(route);
     profile.observations += 1;
     profile.last_seen_at = new Date().toISOString();
@@ -200,9 +201,21 @@ function currentToolLearning(value) {
     || !value.candidates || typeof value.candidates !== 'object' || Array.isArray(value.candidates)) return newToolLearning();
   const candidates = Object.create(null);
   for (const [key, candidate] of Object.entries(value.candidates).slice(-MAX_TOOL_CONTRACT_CANDIDATES)) {
-    Object.defineProperty(candidates, key, { value: candidate, enumerable: true, configurable: true, writable: true });
+    if (!validToolCandidate(key, candidate)) continue;
+    Object.defineProperty(candidates, key, { value: { ...candidate }, enumerable: true, configurable: true, writable: true });
   }
   return { mode: value.mode, epoch: value.epoch, candidates };
+}
+
+function validToolCandidate(key, candidate) {
+  return candidate && typeof candidate === 'object' && !Array.isArray(candidate)
+    && typeof candidate.tool === 'string' && candidate.tool.length <= 256
+    && Number.isSafeInteger(candidate.version) && candidate.version >= 0
+    && typeof candidate.reason_code === 'string' && candidate.reason_code.length <= 128
+    && key === `${candidate.tool}@${candidate.version}/${candidate.reason_code}`
+    && nonNegativeInteger(candidate.failures) && candidate.failures <= MAX_FAILURE_COUNT
+    && nonNegativeInteger(candidate.validated_repairs) && candidate.validated_repairs <= MAX_FAILURE_COUNT
+    && validTimestamp(candidate.last_seen_at);
 }
 
 function learnedGuidanceActive(failures) {
