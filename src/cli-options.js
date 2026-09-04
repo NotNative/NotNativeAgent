@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from 'node:fs/promises';
+import { open, stat } from 'node:fs/promises';
 import { resolveManifest } from './config.js';
 import { ContractError } from './ids.js';
 
@@ -53,8 +53,10 @@ const MODES = new Set([
 
 export async function loadManifest(path) {
   if (!path) throw new ContractError('manifest_required', '--manifest PATH is required');
-  const bytes = await readFile(path);
-  if (bytes.length > MAX_MANIFEST_BYTES) throw new ContractError('manifest_too_large', 'manifest file exceeds bound');
+  const entry = await stat(path);
+  if (!entry.isFile()) throw new ContractError('manifest_invalid', 'manifest path must identify a regular file');
+  if (entry.size > MAX_MANIFEST_BYTES) throw new ContractError('manifest_too_large', 'manifest file exceeds bound');
+  const bytes = await readBoundedFile(path, MAX_MANIFEST_BYTES);
   let value;
   try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); } catch {
     throw new ContractError('manifest_invalid', 'manifest file must contain valid UTF-8 encoded JSON');
@@ -63,7 +65,14 @@ export async function loadManifest(path) {
 }
 
 export async function readPrompt(input, arguments_) {
-  if (arguments_.length > 0) return arguments_.join(' ');
+  if (arguments_.length > 0) {
+    let totalBytes = Math.max(0, arguments_.length - 1);
+    for (const argument of arguments_) {
+      totalBytes += Buffer.byteLength(argument, 'utf8');
+      if (totalBytes > MAX_PROMPT_BYTES) throw new ContractError('content_too_large', 'prompt exceeds bound');
+    }
+    return arguments_.join(' ');
+  }
   let result = '';
   let totalBytes = 0;
   for await (const chunk of input) {
@@ -73,6 +82,26 @@ export async function readPrompt(input, arguments_) {
   }
   if (!result.trim()) throw new ContractError('invalid_content', 'prompt is required');
   return result;
+}
+
+async function readBoundedFile(path, limit) {
+  const file = await open(path, 'r');
+  const chunks = [];
+  let total = 0;
+  try {
+    const entry = await file.stat();
+    if (!entry.isFile()) throw new ContractError('manifest_invalid', 'manifest path must identify a regular file');
+    if (entry.size > limit) throw new ContractError('manifest_too_large', 'manifest file exceeds bound');
+    while (total <= limit) {
+      const buffer = Buffer.allocUnsafe(Math.min(65_536, limit + 1 - total));
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, null);
+      if (bytesRead === 0) break;
+      chunks.push(buffer.subarray(0, bytesRead));
+      total += bytesRead;
+    }
+  } finally { await file.close(); }
+  if (total > limit) throw new ContractError('manifest_too_large', 'manifest file exceeds bound');
+  return Buffer.concat(chunks, total);
 }
 
 function requiredValue(value, flag) {

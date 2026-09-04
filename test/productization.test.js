@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { ensureUserDataPaths, userDataPaths, VERSION } from '../src/product.js';
-import { parseCli } from '../src/cli-options.js';
+import { loadManifest, parseCli, readPrompt } from '../src/cli-options.js';
 import { discoverLocalProvider, loadStartupManifest } from '../src/onboarding.js';
 import { runUninstallCommand } from '../src/uninstall-cli.js';
 import { loadWebSearchConfig } from '../src/web-search-config.js';
@@ -68,6 +68,18 @@ test('launch options support prompt, host, and config aliases without breaking l
   assert.equal(parseCli(['host', '-provider', 'Remote Lab']).providerProfile, 'Remote Lab');
   assert.throws(() => parseCli(['--provider-credential-env', 'literal-secret!']), { code: 'credential_reference_invalid' });
   assert.throws(() => parseCli(['host', '--model', 'unsafe-override']), { code: 'host_override_requires_manifest' });
+});
+
+test('CLI bounds manifest reads and direct prompt arguments before parsing or concatenation', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-cli-bounds-'));
+  try {
+    const oversized = join(root, 'oversized.json');
+    await writeFile(oversized, Buffer.alloc(1_048_577, 0x20));
+    await assert.rejects(loadManifest(oversized), { code: 'manifest_too_large' });
+    await assert.rejects(loadManifest(root), { code: 'manifest_invalid' });
+    await assert.rejects(readPrompt(null, ['x'.repeat(131_073)]), { code: 'content_too_large' });
+    await assert.rejects(readPrompt(null, ['€'.repeat(43_691)]), { code: 'content_too_large' });
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 test('uninstall command rejects conflicting or unknown deletion choices before launch', async () => {
