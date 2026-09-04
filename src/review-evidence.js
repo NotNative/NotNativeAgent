@@ -85,7 +85,7 @@ export function recentReviewEvidence(transcript, currentRequestId) {
 }
 
 function evidenceItem(record, currentRequestId, recordIndex) {
-  if (!record || record.requestId === currentRequestId) return null;
+  if (!record || (currentRequestId != null && record.requestId === currentRequestId)) return null;
   if (record.type === 'message' && record.role === 'assistant' && !record.partial) {
     if (record.content === null || record.content === undefined) return null;
     return {

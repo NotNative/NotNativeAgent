@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
+import { ContractError } from '../ids.js';
 import { estimateContextTokens } from './context-budget.js';
 import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 
@@ -33,11 +34,20 @@ export function contextCompressionPolicy(record, options = {}) {
 }
 
 export function measureContextCompression(before, after, options = {}) {
+  if (![before, after].every((records) => Array.isArray(records) && records.every((item) => item !== null && item !== undefined))) {
+    throw new ContractError('context_compression_invalid', 'compression measurement requires non-null record arrays');
+  }
   const beforeBytes = serializedBytes(before);
   const afterBytes = serializedBytes(after);
   const counter = resolveTokenCounter(options);
-  const beforeTokens = countTokens(counter, before);
-  const afterTokens = countTokens(counter, after);
+  let beforeTokens = countTokens(counter, before);
+  let afterTokens = countTokens(counter, after);
+  const failureCode = beforeTokens.failureCode ?? afterTokens.failureCode;
+  if (beforeTokens.degraded || afterTokens.degraded) {
+    // Invariant: both sides use the same estimator after either custom measurement fails.
+    beforeTokens = { value: fallbackTokens(before), degraded: true };
+    afterTokens = { value: fallbackTokens(after), degraded: true };
+  }
   const bytesSaved = Math.max(0, beforeBytes - afterBytes);
   const tokensSaved = Math.max(0, beforeTokens.value - afterTokens.value);
   const degraded = beforeTokens.degraded || afterTokens.degraded;
@@ -59,6 +69,7 @@ export function measureContextCompression(before, after, options = {}) {
       requested_identity: counter.identity,
       exact: degraded ? false : counter.exact,
       degraded,
+      ...(failureCode ? { failure_code: failureCode } : {}),
     }),
     reducers: Object.freeze(normalizeReducers(options.reducers)),
     rediscovery,
@@ -130,9 +141,16 @@ function countTokens(counter, records) {
     const value = counter.count(records);
     if (!Number.isSafeInteger(value) || value < 0) throw new TypeError('invalid token count');
     return { value, degraded: false };
-  } catch {
-    return { value: estimateContextTokens(records), degraded: counter.identity !== 'conservative_utf8_v2' };
+  } catch (error) {
+    const failureCode = typeof error?.code === 'string' && /^[A-Za-z0-9_.-]{1,64}$/u.test(error.code)
+      ? error.code : 'token_counter_failed';
+    return { value: null, degraded: true, failureCode };
   }
+}
+
+function fallbackTokens(records) {
+  try { return estimateContextTokens(records); }
+  catch (error) { throw new ContractError('context_compression_invalid', 'compression records cannot be measured', { cause: error }); }
 }
 
 function normalizeReducers(reducers) {

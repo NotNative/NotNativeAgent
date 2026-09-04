@@ -53,7 +53,7 @@ export class StructuredLog {
       product_version: VERSION,
       severity: severity(event), category: category(event),
       code: event.code ?? event.reason_code ?? event.type ?? 'runtime_event',
-      session_id: context.sessionId ?? event.session_id ?? null, ...safe,
+      ...safe, session_id: context.sessionId ?? event.session_id ?? null,
     });
     if (this.#records.length >= this.limit) {
       this.#records.shift(); this.#dropped += 1;

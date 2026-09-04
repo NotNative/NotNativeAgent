@@ -13,16 +13,21 @@ export function measureProviderEnvelope(request, context = [], options = {}) {
   const messages = request.messages ?? [];
   const sections = new Map();
   const metadata = providerRequestMetadata(request);
+  let provenanceStatus = 'available';
   if (Array.isArray(metadata?.accountingSections) && metadata.accountingSections.length > 0) {
     for (const item of metadata.accountingSections) addSection(sections, item.id, item.message);
   } else {
     const injectedCount = Math.max(0, messages.length - context.length);
     const declaredInjected = metadata?.injectedMessageIndexes;
-    const injectedIndexes = new Set(declaredInjected ?? Array.from({ length: injectedCount }, (_, index) => index));
+    const injectedIndexes = new Set(declaredInjected ?? []);
+    const aligned = messages.length >= context.length && injectedIndexes.size === injectedCount
+      && (declaredInjected === undefined || declaredInjected.length === injectedIndexes.size)
+      && [...injectedIndexes].every((index) => Number.isSafeInteger(index) && index >= 0 && index < messages.length);
+    if (!aligned) provenanceStatus = 'unavailable';
     let contextIndex = 0;
     for (let index = 0; index < messages.length; index += 1) {
       const injected = injectedIndexes.has(index);
-      const provenance = injected ? 'request.injected_system'
+      const provenance = !aligned ? 'request.unattributed' : injected ? 'request.injected_system'
         : `context.${sectionLabel(context[contextIndex]?.provenance)}`;
       addSection(sections, provenance, messages[index]);
       if (!injected) contextIndex += 1;
@@ -36,6 +41,7 @@ export function measureProviderEnvelope(request, context = [], options = {}) {
   const outputReserve = positiveInteger(options.outputReserveTokens) ?? 0;
   return Object.freeze({
     schema: 'nna.provider-envelope.v1', measurement: 'estimated',
+    provenance_status: provenanceStatus,
     estimator: 'serialized_utf8_script_aware_v2',
     estimated_input_tokens: inputTokens,
     reserved_output_tokens: outputReserve,
@@ -136,7 +142,7 @@ export function combineTokenAccounting(summaries = []) {
   ];
   const result = { schema: 'nna.token-accounting.v1' };
   for (const key of fields) result[key] = valid.reduce((total, item) => total + (item[key] ?? 0), 0);
-  result.measurement = result.estimated_unreported_tokens > 0
+  result.measurement = result.mixed_attempts > 0 ? 'mixed' : result.estimated_unreported_tokens > 0
     ? (result.measured_total_tokens > 0 ? 'mixed' : 'estimated')
     : result.measured_total_tokens > 0 ? 'provider' : 'unavailable';
   result.by_role = mergeRoleAccounting(valid.map((item) => item.by_role));
@@ -174,6 +180,13 @@ function reconcile(reported, estimatedInput, estimatedOutput) {
   const measuredInput = reported?.input_tokens ?? null;
   const measuredOutput = reported?.output_tokens ?? null;
   const providerTotal = reported?.total_tokens ?? sumKnown(measuredInput, measuredOutput);
+  if (providerTotal !== null && measuredInput === null && measuredOutput === null) {
+    const estimatedTotal = (estimatedInput ?? 0) + estimatedOutput;
+    const input = estimatedTotal > 0 ? Math.round(providerTotal * ((estimatedInput ?? 0) / estimatedTotal)) : providerTotal;
+    return Object.freeze({ measurement: 'mixed', component_measurement: 'estimated',
+      accounted_input_tokens: input, accounted_output_tokens: providerTotal - input,
+      accounted_total_tokens: providerTotal, measured_total_tokens: providerTotal, estimated_unreported_tokens: 0 });
+  }
   const input = measuredInput ?? estimatedInput ?? 0;
   const output = measuredOutput ?? estimatedOutput;
   const measuredPortion = providerTotal ?? (measuredInput ?? 0) + (measuredOutput ?? 0);

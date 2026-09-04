@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:21c8a08de9de7ab7e5d6c5cb7bdafa172d04882e7921d940fd9d595c4d3e3392",
+  "source_digest": "sha256:00624e767aad3cf06a324c774c6bc47ccaf95d3174b1c082252c00f48e954bd0",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -201,6 +201,12 @@
       "module_count": 6
     },
     {
+      "from": "reliability-engine",
+      "to": "foundation",
+      "import_count": 11,
+      "module_count": 10
+    },
+    {
       "from": "tools",
       "to": "reliability-engine",
       "import_count": 11,
@@ -211,12 +217,6 @@
       "to": "providers",
       "import_count": 10,
       "module_count": 8
-    },
-    {
-      "from": "reliability-engine",
-      "to": "foundation",
-      "import_count": 10,
-      "module_count": 9
     },
     {
       "from": "guidance",
@@ -2227,6 +2227,7 @@
       "component": "reliability-engine",
       "entrypoint": false,
       "imports": [
+        "src/ids.js",
         "src/reliability/context-budget.js",
         "src/tools/tool-result-contract.js"
       ]

@@ -23,6 +23,7 @@ export class ProcessIdentity {
       if (key) SELF_IDENTITIES.set(key, pending);
     }
     const startId = await pending;
+    if (key && !startId && SELF_IDENTITIES.get(key) === pending) SELF_IDENTITIES.delete(key);
     return Object.freeze({ version: 1, pid, platform: this.platform, start_id: startId });
   }
 

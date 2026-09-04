@@ -13,6 +13,7 @@ import {
 import { JournalStore } from '../src/store.js';
 import { detailedTokenText, receiptTokenText, statusTokenText } from '../src/experience/token-accounting.js';
 import { providerRequest } from '../src/engine/runtime-helpers.js';
+import { attachProviderRequestMetadata } from '../src/provider/request-metadata.js';
 
 test('complete provider envelope inventories prompt sections, schemas, configuration, and output reserve', () => {
   const context = [{ role: 'user', content: 'inspect', provenance: 'transcript' }];
@@ -21,6 +22,7 @@ test('complete provider envelope inventories prompt sections, schemas, configura
     tools: [{ type: 'function', function: { name: 'read', parameters: { type: 'object' } } }],
     temperature: 0, maxOutputTokens: 2048, reasoningEffort: 'medium', enableThinking: true,
   };
+  attachProviderRequestMetadata(request, { injectedMessageIndexes: [0] });
   const envelope = measureProviderEnvelope(request, context, { outputReserveTokens: 1024 });
   assert.equal(envelope.reserved_total_tokens, envelope.estimated_input_tokens + 1024);
   assert.deepEqual(envelope.sections.map((item) => item.id), [
