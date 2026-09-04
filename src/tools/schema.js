@@ -13,8 +13,20 @@ const PROVIDER_DOCUMENTATION_FIELDS = new Set([
   'deprecated', 'readOnly', 'writeOnly',
 ]);
 const PROVIDER_UNAPPLIED_FIELDS = new Set(['default']);
+const SCHEMA_ANNOTATION_FIELDS = new Set([
+  ...PROVIDER_DOCUMENTATION_FIELDS, ...PROVIDER_UNAPPLIED_FIELDS,
+]);
+const SCHEMA_VALIDATION_FIELDS = new Set([
+  'type', 'properties', 'required', 'additionalProperties', 'items', 'enum',
+  'minimum', 'maximum', 'minLength', 'maxLength', 'maxUtf8Bytes', 'pattern',
+  'minItems', 'maxItems',
+]);
+const SCHEMA_FIELDS = new Set([...SCHEMA_ANNOTATION_FIELDS, ...SCHEMA_VALIDATION_FIELDS]);
+const TYPE_DEPENDENT_FIELDS = new Set([...SCHEMA_VALIDATION_FIELDS].filter((field) => field !== 'type'));
+const PREPARED_PATTERNS = new WeakMap();
 const MAX_STRUCTURE_DEPTH = 24;
 const MAX_STRUCTURE_NODES = 10_000;
+const MAX_PATTERN_LENGTH = 512;
 
 export function providerSchema(value, options = {}) {
   const mode = options.mode ?? 'compact';
@@ -211,7 +223,8 @@ function validateString(value, rule, path) {
       throw boundFailure(path, 'utf8_bytes', rule.maxUtf8Bytes, bytes, 'maximum');
     }
   }
-  if (typeof rule.pattern === 'string' && !(new RegExp(rule.pattern, 'u')).test(value)) {
+  const pattern = PREPARED_PATTERNS.get(rule);
+  if (pattern && !pattern.test(value)) {
     throw schemaFailure(
       `${path} must match ${acceptedFormat(rule)}; received ${receivedValue(value, path)}`,
       { field: path, issue: 'pattern_mismatch', expected: acceptedFormat(rule), correction: 'replace_field_value' },
@@ -271,6 +284,10 @@ function receivedValue(value, path) {
     }
     return `${JSON.stringify(bounded(value, 160))}${length > 160 ? ` (${length} characters)` : ''}`;
   }
+  // Why: rendering a container here can disclose arbitrarily nested credentials even when
+  // the outer field name is innocuous. Its shape is sufficient to repair the invalid call.
+  if (Array.isArray(value)) return `an array (${value.length} items)`;
+  if (value && typeof value === 'object') return 'an object';
   const encoded = JSON.stringify(value);
   return typeof encoded === 'string' ? bounded(encoded, 160) : valueType(value);
 }
@@ -341,11 +358,14 @@ function validateSchema(schema) {
   if (Buffer.byteLength(encoded) > 131_072) {
     throw new ContractError('invalid_external_schema', 'external tool schema exceeds bound');
   }
-  const stack = [{ value: schema, depth: 0 }];
+  const stack = [{ value: schema, depth: 0, schemaRule: true }];
   const visited = new WeakSet();
   let nodes = 0;
   while (stack.length > 0) {
-    const { value, depth } = stack.pop();
+    const { value, depth, schemaRule } = stack.pop();
+    if (schemaRule && (!value || typeof value !== 'object' || Array.isArray(value))) {
+      throw new ContractError('invalid_external_schema', 'external tool schema rules must be objects');
+    }
     if (value && typeof value === 'object' && visited.has(value)) continue;
     if (value && typeof value === 'object') visited.add(value);
     nodes += 1;
@@ -353,14 +373,63 @@ function validateSchema(schema) {
       throw new ContractError('invalid_external_schema', 'external schema structure exceeds bound');
     }
     if (value && typeof value === 'object') {
-      if (typeof value.pattern === 'string') {
-        try { new RegExp(value.pattern, 'u'); } catch {
-          throw new ContractError('invalid_external_schema', 'external tool schema contains an invalid pattern');
-        }
+      if (schemaRule && !Array.isArray(value)) validateSchemaRule(value);
+      if (schemaRule && value.properties && typeof value.properties === 'object' && !Array.isArray(value.properties)) {
+        for (const child of Object.values(value.properties)) stack.push({ value: child, depth: depth + 1, schemaRule: true });
       }
-      for (const child of Object.values(value)) stack.push({ value: child, depth: depth + 1 });
+      if (schemaRule && value.items && typeof value.items === 'object') {
+        stack.push({ value: value.items, depth: depth + 1, schemaRule: true });
+      }
     }
   }
+}
+
+function validateSchemaRule(rule) {
+  const unsupported = Object.keys(rule).find((field) => !SCHEMA_FIELDS.has(field));
+  if (unsupported) {
+    throw new ContractError('invalid_external_schema', `external tool schema contains unsupported keyword "${unsupported}"`);
+  }
+  const dependent = Object.keys(rule).find((field) => TYPE_DEPENDENT_FIELDS.has(field));
+  if (!Object.hasOwn(rule, 'type') && dependent) {
+    throw new ContractError('invalid_external_schema', `external tool schema keyword "${dependent}" requires a type`);
+  }
+  if (Object.hasOwn(rule, 'type')) {
+    const types = Array.isArray(rule.type) ? rule.type : [rule.type];
+    const supported = new Set(['array', 'boolean', 'integer', 'null', 'number', 'object', 'string']);
+    if (types.length === 0 || types.some((type) => !supported.has(type))) {
+      throw new ContractError('invalid_external_schema', 'external tool schema contains an invalid type');
+    }
+  }
+  if (Object.hasOwn(rule, 'properties')
+    && (!rule.properties || typeof rule.properties !== 'object' || Array.isArray(rule.properties))) {
+    throw new ContractError('invalid_external_schema', 'external tool schema properties must be an object');
+  }
+  if (Object.hasOwn(rule, 'items')
+    && (!rule.items || typeof rule.items !== 'object' || Array.isArray(rule.items))) {
+    throw new ContractError('invalid_external_schema', 'external tool schema items must be an object');
+  }
+  if (Object.hasOwn(rule, 'pattern')) preparePattern(rule);
+}
+
+function preparePattern(rule) {
+  if (typeof rule.pattern !== 'string' || rule.pattern.length > MAX_PATTERN_LENGTH || unsafePattern(rule.pattern)) {
+    throw new ContractError('invalid_external_schema', 'external tool schema contains an unsafe pattern');
+  }
+  try { PREPARED_PATTERNS.set(rule, new RegExp(rule.pattern, 'u')); } catch {
+    throw new ContractError('invalid_external_schema', 'external tool schema contains an invalid pattern');
+  }
+}
+
+function unsafePattern(pattern) {
+  // Backreferences and a quantified group containing another quantifier or alternation are the
+  // common externally supplied constructions that trigger super-linear backtracking in V8.
+  if (/\\[1-9]/u.test(pattern)) return true;
+  const quantifiedGroup = /\((?:\\.|[^()])*\)(?:[+*]|\{\d+(?:,\d*)?\})/gu;
+  for (const match of pattern.matchAll(quantifiedGroup)) {
+    const body = match[0].slice(1, match[0].lastIndexOf(')'));
+    if (/(?:^|[^\\])(?:[+*]|\{\d+(?:,\d*)?\}|\|)/u.test(body)) return true;
+  }
+  return false;
 }
 
 function rejectSchemaCycles(schema) {

@@ -220,6 +220,52 @@ test('schema admission rejects cycles but accepts a repeated acyclic alias', () 
   }));
 });
 
+test('schema admission rejects unsupported, untyped, and unsafe executable rules', () => {
+  assert.throws(() => schemaShapeValidator({
+    type: 'object', properties: { mode: { type: 'string', const: 'safe' } },
+  }), {
+    code: 'invalid_external_schema', message: 'external tool schema contains unsupported keyword "const"',
+  });
+  assert.throws(() => schemaShapeValidator({
+    type: 'object', properties: { mode: { enum: ['safe'] } },
+  }), {
+    code: 'invalid_external_schema', message: 'external tool schema keyword "enum" requires a type',
+  });
+  assert.throws(() => schemaShapeValidator({
+    type: 'object', properties: { value: { type: 'string', pattern: '(a+)+$' } },
+  }), {
+    code: 'invalid_external_schema', message: 'external tool schema contains an unsafe pattern',
+  });
+  assert.throws(() => schemaShapeValidator({
+    type: 'object', properties: { value: true },
+  }), {
+    code: 'invalid_external_schema', message: 'external tool schema rules must be objects',
+  });
+  assert.doesNotThrow(() => schemaShapeValidator({
+    type: 'object', properties: { payload: {}, note: { description: 'Unconstrained value.' } },
+  }));
+});
+
+test('schema failures do not serialize nested argument values', async () => {
+  const validate = schemaShapeValidator({
+    type: 'object', properties: {
+      options: { type: 'object', enum: [{ mode: 'safe' }] },
+      values: { type: 'array', enum: [[]] },
+    },
+  });
+  for (const args of [
+    { options: { mode: 'unsafe', api_key: 'nested-secret' } },
+    { values: [{ password: 'nested-secret' }] },
+  ]) {
+    await assert.rejects(validate(args), (error) => {
+      assert.equal(error.code, 'tool_schema_invalid');
+      assert.doesNotMatch(error.message, /nested-secret/u);
+      assert.doesNotMatch(JSON.stringify(error.toolMetadata), /nested-secret/u);
+      return true;
+    });
+  }
+});
+
 test('provider documentation exposes locally enforced bounds while UTF-8 byte limits remain transport-safe', async () => {
   const schema = {
     type: 'object', additionalProperties: false, required: ['value', 'count'], properties: {
