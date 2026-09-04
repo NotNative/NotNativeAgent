@@ -26,12 +26,8 @@ export async function clipboardPasteAction(workspace) {
   try { text = await read(); }
   catch (error) { textReadError = error; }
   if (!text) {
-    if (typeof workspace.options.clipboardImageRead !== 'function') {
-      if (textReadError) throw textReadError;
-      throw new ContractError('clipboard_empty', 'The clipboard does not contain text or a supported image.');
-    }
-    const attachment = await queueClipboardImage(workspace);
-    return normalizeClipboardAction({ action: ACTION.attachment, attachment });
+    if (textReadError) throw textReadError;
+    throw new ContractError('clipboard_empty', 'The clipboard does not contain text or a supported image.');
   }
   return normalizeClipboardAction({ action: ACTION.paste, text });
 }

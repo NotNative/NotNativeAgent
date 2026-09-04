@@ -62,6 +62,6 @@ function renderEditor(editor, secret) {
 }
 
 function singleLineAction(action) {
-  if (!['insert', 'paste'].includes(action.action)) return action;
-  return { ...action, text: String(action.text).split(/\r?\n/u, 1)[0] };
+  if (!['insert', 'paste'].includes(action.action) || typeof action.text !== 'string') return action;
+  return { ...action, text: action.text.split(/\r?\n/u, 1)[0] };
 }

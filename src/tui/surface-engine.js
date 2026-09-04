@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { ContractError } from '../ids.js';
 
 const NAVIGATION_LABELS = Object.freeze({
   menu: 'Up/Down choose · Enter select',
@@ -10,6 +11,8 @@ const NAVIGATION_LABELS = Object.freeze({
 });
 
 export function createMenuOverlay(kind, title, lines, items, options = {}) {
+  validateMenu(lines, items, options);
+  items = items.slice(0, 256);
   const activeId = options.activeId ?? options.selectedId;
   const selected = Math.max(0, items.findIndex((item) => item.id === activeId));
   const { activeId: _activeId, selectedId: _selectedId, navigation = 'menu', ...extra } = options;
@@ -26,11 +29,22 @@ export function createDetailOverlay(kind, title, lines, items, options = {}) {
 }
 
 export function createConfirmationOverlay(kind, title, lines, items, options = {}) {
-  const safeId = options.safeId ?? items[0]?.id;
+  validateMenu(lines, items, options);
+  const safeId = options.safeId;
+  if (typeof safeId !== 'string' || !items.slice(0, 256).some((item) => item.id === safeId)) {
+    throw new ContractError('tui_surface_invalid', 'confirmation requires a retained safe choice');
+  }
   const { safeId: _safeId, ...extra } = options;
   return createMenuOverlay(kind, title, lines, items, {
-    navigation: 'confirm', activeId: safeId, ...extra,
+    ...extra, navigation: 'confirm', activeId: safeId,
   });
+}
+
+function validateMenu(lines, items, options) {
+  if (!Array.isArray(lines) || !Array.isArray(items) || !options || typeof options !== 'object'
+    || Array.isArray(options) || items.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) {
+    throw new ContractError('tui_surface_invalid', 'menu requires line and item arrays with an options object');
+  }
 }
 
 export function overlayControlLabel(overlay) {

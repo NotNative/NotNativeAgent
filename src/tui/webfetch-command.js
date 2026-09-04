@@ -13,6 +13,6 @@ export async function handleWebFetchCommand(argument, workspace) {
     throw new ContractError('web_fetch_configuration_invalid', 'WebFetch configuration returned an invalid result');
   }
   workspace.projection.openOverlay(webFetchOverlay(result.config, {
-    message: args[0] === 'status' ? null : `Trusted WebFetch origins updated (${result.config.trusted_origins.length}).`,
+    message: args[0] === 'status' ? null : `${args[0] === 'trust' ? 'Trusted' : 'Not trusted'}: ${args[1]}`,
   }));
 }

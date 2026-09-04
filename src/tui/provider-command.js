@@ -34,8 +34,9 @@ export async function handleProviderCommand(argument, workspace, helpers) {
     return;
   }
   const projected = workspace.projection.active();
+  if (!projected) throw new ContractError('provider_session_missing', 'no active conversation is available');
   workspace.projection.openOverlay(providerOverlay({ config: workspace.activeConfig() }, {
-    role: PRIMARY_ROLE, inheritRoute: projected.role === PRIMARY_ROLE ? null : workspace.config.routes.primary,
+    role: PRIMARY_ROLE, inheritRoute: projected.role === PRIMARY_ROLE ? null : workspace.config?.routes?.primary ?? null,
     canManage: projected.role === PRIMARY_ROLE, isMain: projected.role === PRIMARY_ROLE, canAssign: true,
   }));
 }
@@ -57,8 +58,9 @@ export async function handleModelCommand(argument, workspace, helpers) {
     discoveryError = error.code ?? error.message ?? 'provider unavailable';
   }
   const projected = workspace.projection.active();
+  if (!projected) throw new ContractError('provider_session_missing', 'no active conversation is available');
   workspace.projection.openOverlay(modelOverlay({ config: workspace.activeConfig() }, models, {
-    discoveryError, inheritRoute: projected.role === PRIMARY_ROLE ? null : workspace.config.routes.primary,
+    discoveryError, inheritRoute: projected.role === PRIMARY_ROLE ? null : workspace.config?.routes?.primary ?? null,
   }));
 }
 

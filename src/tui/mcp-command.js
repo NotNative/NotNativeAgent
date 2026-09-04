@@ -32,7 +32,8 @@ export async function handleMcpCommand(argument, workspace) {
     return;
   }
   if (values[0] === 'prompt' && values.length >= 3) {
-    const result = await activeMcp(workspace).getPrompt(values[1], values[2], parseArguments(values.slice(3).join(' ')));
+    const argumentJson = argument.replace(/^\s*\S+\s+\S+\s+\S+\s*/u, '');
+    const result = await activeMcp(workspace).getPrompt(values[1], values[2], parseArguments(argumentJson));
     workspace.projection.openOverlay(valueOverlay('mcp-prompt', `MCP prompt · ${values[1]}/${values[2]}`, result));
     return;
   }

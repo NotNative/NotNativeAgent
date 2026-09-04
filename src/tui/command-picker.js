@@ -6,6 +6,7 @@ const ALL_SUGGESTIONS_LIMIT = Number.MAX_SAFE_INTEGER;
 
 export function handleCommandPickerAction(action, session) {
   if (!action || typeof action.action !== 'string' || !session?.editor || typeof session.editor.set !== 'function') return false;
+  if (/\s/u.test(session.editor.text.trimStart())) return false;
   const suggestions = pickerSuggestions(session);
   if (suggestions.length === 0) return false;
   if ([PICKER_ACTIONS.previous, PICKER_ACTIONS.next].includes(action.action)) {
@@ -14,6 +15,7 @@ export function handleCommandPickerAction(action, session) {
     const currentIndex = Number.isSafeInteger(session.commandSuggestionIndex) ? session.commandSuggestionIndex : 0;
     session.commandSuggestionIndex = (currentIndex + delta + suggestions.length) % suggestions.length;
     session.editor.set(suggestions[session.commandSuggestionIndex].name);
+    session.commandSuggestionSource = session.editor.text;
     return true;
   }
   if (action.action !== PICKER_ACTIONS.complete) return false;
@@ -28,6 +30,7 @@ export function resetCommandPicker(session) {
   if (!session || typeof session !== 'object') return;
   session.commandSuggestionIndex = 0;
   session.commandSuggestionItems = null;
+  session.commandSuggestionSource = null;
 }
 
 export function commandPickerLines(session, projection, capacity) {
@@ -45,6 +48,9 @@ export function commandPickerLines(session, projection, capacity) {
 }
 
 function pickerSuggestions(session) {
-  if (Array.isArray(session.commandSuggestionItems)) return session.commandSuggestionItems;
+  if (Array.isArray(session.commandSuggestionItems) && session.commandSuggestionSource === session.editor.text) {
+    return session.commandSuggestionItems;
+  }
+  resetCommandPicker(session);
   return commandSuggestions(session.editor.text, ALL_SUGGESTIONS_LIMIT);
 }

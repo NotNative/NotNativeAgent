@@ -9,7 +9,7 @@ const DEFAULT_PERMISSION_CHOICES = Object.freeze([
   ALLOW_ONCE, 'allow_session', 'allow_workspace', DENY, CANCEL,
 ]);
 
-export function permissionControlLine(permission, bindings) {
+export function permissionControlLine(permission, bindings = {}) {
   if (isOneShot(permission)) return 'Awaiting your decision';
   const labels = {
     allow_once: `${keyLabel(bindings.allow_once)} allow once`,
@@ -17,14 +17,17 @@ export function permissionControlLine(permission, bindings) {
     allow_workspace: 'allow this tool in workspace',
     deny: `${keyLabel(bindings.deny)} deny`, cancel: `${keyLabel(bindings.cancel)} cancel`,
   };
-  return choicesFor(permission).map((choice, index) => `${index + 1} ${labels[choice]}`).join(' · ');
+  const choices = choicesFor(permission);
+  if (choices.length === 0) return 'Permission choices unavailable';
+  return choices.map((choice, index) => `${index + 1} ${Object.hasOwn(labels, choice) ? labels[choice] : 'unsupported choice'}`).join(' · ');
 }
 
-export function permissionLines(record, width, bindings) {
+export function permissionLines(record, width, bindings = {}) {
+  record ??= {};
   const values = [
-    ['APPROVAL REQUIRED', `${record.tool}`], ['Action', record.action],
+    ['APPROVAL REQUIRED', record.tool], ['Action', record.action],
     ['Scope', record.scope], ['Effect', record.effect], ['Reversible', record.reversibility],
-    ['Blast radius', record.blast_radius], ['Risk', `${record.risk}: ${record.reason_code}`],
+    ['Blast radius', record.blast_radius], ['Risk', `${record.risk ?? 'not provided'}: ${record.reason_code ?? 'not provided'}`],
     ['Reviewer', record.guidance], ['Arguments', safeJson(record.arguments ?? {})],
     ['Expires', formatExpiration(record.expires_at)],
   ];
@@ -46,7 +49,7 @@ function decisionLines(bindings) {
 }
 
 function choicesFor(permission) {
-  return Array.isArray(permission.choices)
+  return Array.isArray(permission?.choices)
     ? permission.choices : DEFAULT_PERMISSION_CHOICES;
 }
 
@@ -63,6 +66,7 @@ function keyLabel(value) {
 }
 
 function formatExpiration(value) {
+  if ((typeof value !== 'string' && typeof value !== 'number') || value === '' || value <= 0) return 'not provided';
   const timestamp = new Date(value);
   return Number.isFinite(timestamp.valueOf()) ? timestamp.toISOString() : 'not provided';
 }

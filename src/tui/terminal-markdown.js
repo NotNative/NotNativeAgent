@@ -51,12 +51,14 @@ function asciiPresentation(value) {
 export function wrapTerminalLine(value, width, prefix = '', continuationPrefix = null) {
   const safeWidth = Math.max(1, width);
   const clean = sanitizeTerminal(value).replaceAll('\t', '  ');
-  if (clean.length === 0) return [prefix.slice(0, safeWidth)];
+  if (clean.length === 0) return [truncateTerminal(prefix, safeWidth)];
   const result = [];
   let remaining = clean;
   let currentPrefix = prefix;
   const nextPrefix = continuationPrefix ?? ' '.repeat(displayWidth(prefix));
   while (remaining.length > 0) {
+    const firstWidth = Math.min(safeWidth, Math.max(1, displayWidth(String.fromCodePoint(remaining.codePointAt(0)))));
+    currentPrefix = truncateTerminal(currentPrefix, safeWidth - firstWidth);
     const room = Math.max(1, safeWidth - displayWidth(currentPrefix));
     const split = splitAtWidth(remaining, room);
     result.push(`${currentPrefix}${split.head}`);
@@ -135,6 +137,7 @@ function splitAtWidth(value, maximum) {
     if (/\s/u.test(point)) breakAt = index;
   }
   if (index >= value.length) return { head: value, tail: '' };
+  if (index === 0) return { head: '?', tail: value.slice(String.fromCodePoint(value.codePointAt(0)).length) };
   const split = breakAt > 0 ? breakAt : index > 0 ? index : [...value][0].length;
   return { head: value.slice(0, split).trimEnd(), tail: value.slice(split) };
 }

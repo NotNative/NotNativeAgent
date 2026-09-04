@@ -19,8 +19,10 @@ export async function createTuiWorkspace(options, output, onChange) {
     try { return await systemClipboard.write(value); } catch { return await osc52(value); }
   });
   const workspace = new ExperienceEngine({
-    ...options, logger, onChange, clipboard, clipboardRead: options.clipboardRead ?? (() => systemClipboard.read()),
-    clipboardImageRead: options.clipboardImageRead ?? ((path, maxBytes) => systemClipboard.readImage(path, maxBytes)),
+    ...options, logger, onChange, clipboard,
+    clipboardRead: options.clipboardRead ?? (typeof systemClipboard.read === 'function' ? (() => systemClipboard.read()) : undefined),
+    clipboardImageRead: options.clipboardImageRead ?? (typeof systemClipboard.readImage === 'function'
+      ? ((path, maxBytes) => systemClipboard.readImage(path, maxBytes)) : undefined),
     clipboardContentRead: options.clipboardContentRead ?? (systemClipboard.readContent
       ? ((path, maxBytes) => systemClipboard.readContent(path, maxBytes)) : undefined),
     clipboardClose: options.clipboardClose ?? (() => systemClipboard.close?.()),

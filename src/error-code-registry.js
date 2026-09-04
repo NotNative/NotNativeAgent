@@ -190,7 +190,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'transcript_invalid', 'transcript_record_invalid', 'tty_required',
     'tui_command_invalid', 'tui_editor_unavailable', 'tui_options_invalid',
     'tui_primary_duplicate', 'tui_projection_state', 'tui_session_limit',
-    'tui_session_missing', 'tui_session_role', 'turn_active',
+    'tui_session_missing', 'tui_session_role', 'tui_surface_invalid', 'turn_active',
     'turn_cancelled', 'turn_inactive', 'turn_state_invalid',
     'uninstall_option_conflict', 'uninstall_option_invalid', 'uninstaller_inspection_failed',
     'uninstaller_launch_failed', 'uninstaller_missing', 'unknown_control',

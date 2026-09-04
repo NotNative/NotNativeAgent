@@ -3,6 +3,8 @@ import { displayWidth } from './terminal-markdown.js';
 
 const INVERSE = '\u001b[7m';
 const RESET = '\u001b[0m';
+const CONTROL_SEQUENCE = /\u001b\[[0-?]*[ -\/]*[@-~]|\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)/gu;
+const TERMINAL_TOKEN = /\u001b\[[0-?]*[ -\/]*[@-~]|\u001b\][^\u0007\u001b]*(?:\u0007|\u001b\\)|./gu;
 
 export function beginSelection(projection, action) {
   const screen = point(action); const document = documentPoint(projection, action);
@@ -68,7 +70,7 @@ export function decorateSelection(lines, selection, rowMap) {
 }
 
 export function plainTerminalLine(value) {
-  return value.replaceAll(/\u001b\[[0-?]*[ -\/]*[@-~]/gu, '');
+  return value.replaceAll(CONTROL_SEQUENCE, '');
 }
 
 function selectionRange(selection) {
@@ -82,7 +84,7 @@ function invertVisibleRange(value, start, end) {
   let column = 0;
   let selected = false;
   let result = '';
-  for (const token of value.match(/\u001b\[[0-?]*[ -\/]*[@-~]|./gu) ?? []) {
+  for (const token of value.match(TERMINAL_TOKEN) ?? []) {
     if (token.startsWith('\u001b')) {
       result += token;
       if (selected) result += INVERSE;
@@ -99,7 +101,7 @@ function invertVisibleRange(value, start, end) {
 function visibleSlice(value, start, end) {
   let column = 0;
   let result = '';
-  for (const character of [...value]) {
+  for (const character of plainTerminalLine(value)) {
     const next = column + Math.max(1, displayWidth(character));
     if (next > start && column < end) result += character;
     column = next;

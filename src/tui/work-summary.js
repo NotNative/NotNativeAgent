@@ -33,7 +33,7 @@ function collapsedSummary(goal, tasks) {
   const active = tasks.find((task) => task.status === TASK_STATUS.inProgress)
     ?? tasks.find((task) => task.status === TASK_STATUS.blocked)
     ?? tasks.find((task) => task.status === TASK_STATUS.pending);
-  const label = goal ? `GOAL ${goal.status.toUpperCase()}` : 'TASKS';
+  const label = goal ? `GOAL ${goalStatusLabel(goal)}` : 'TASKS';
   if (active) {
     const position = tasks.indexOf(active) + 1;
     const state = activeTaskLabel(active.status);
@@ -45,7 +45,11 @@ function collapsedSummary(goal, tasks) {
 
 function goalSummary(goal, progress) {
   if (!goal) return `WORK · ${progress} tasks complete`;
-  return `GOAL ${goal.status.toUpperCase()} · ${goal.objective} · ${progress} tasks complete`;
+  return `GOAL ${goalStatusLabel(goal)} · ${goal.objective} · ${progress} tasks complete`;
+}
+
+function goalStatusLabel(goal) {
+  return ['active', 'completed', 'blocked'].includes(goal?.status) ? goal.status.toUpperCase() : 'UNKNOWN';
 }
 
 function goalKind(goal) {

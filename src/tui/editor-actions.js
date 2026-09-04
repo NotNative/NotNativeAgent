@@ -12,6 +12,7 @@ const EDITOR_ACTIONS = new Set([
  */
 export function handleEditorAction(action, editor) {
   if (!action || typeof action.action !== 'string' || !EDITOR_ACTIONS.has(action.action)) return false;
+  if (['insert', 'paste'].includes(action.action) && typeof action.text !== 'string') return false;
   requireEditor(editor);
   if (action.action === 'newline') editor.insert('\n');
   else if (['insert', 'paste'].includes(action.action)) editor.insert(action.text);

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
+import { recordClipboard } from './telemetry.js';
 
 const MAX_COPY_INDEX = 100;
 const TRANSCRIPT_RESPONSE_WINDOW = 100;
@@ -22,8 +23,16 @@ export async function handleCopyCommand(argument, workspace) {
   if (typeof workspace.options.clipboard !== 'function') {
     throw new ContractError('clipboard_unavailable', 'terminal clipboard integration is unavailable');
   }
-  const result = await workspace.options.clipboard(response.content);
-  workspace.projection.showNotice('clipboard', `Copied assistant response ${index} (${result.bytes} bytes).`);
+  let result;
+  recordClipboard(workspace, 'started', { type: 'copy', source: 'command' });
+  try { result = await workspace.options.clipboard(response.content); }
+  catch (error) {
+    recordClipboard(workspace, 'failed', { type: 'copy', source: 'command', code: error?.code ?? 'clipboard_operation_failed' });
+    throw error;
+  }
+  const bytes = result?.bytes ?? Buffer.byteLength(response.content, 'utf8');
+  recordClipboard(workspace, 'succeeded', { type: 'copy', source: 'command', bytes });
+  workspace.projection.showNotice('clipboard', `Copied assistant response ${index} (${bytes} bytes).`);
   workspace.onChange();
   return result;
 }

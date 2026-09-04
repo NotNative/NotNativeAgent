@@ -28,6 +28,7 @@ export class RetainedTerminalScreen {
     }
     if (changed.length === 0) return false;
     const output = [SYNC_START];
+    if (this.lines === null) output.push(`${ESC}[H${ESC}[J`);
     for (const index of changed) {
       output.push(`${ESC}[${index + 1};1H${ESC}[2K${next[index] ?? ''}`);
     }

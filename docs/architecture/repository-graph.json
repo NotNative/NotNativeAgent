@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:6a49c714e64e850cc63a1c5974553d0fbf6f44520d1d8eb2199191e4a88205e5",
+  "source_digest": "sha256:a66b3842be6586ed03680f5feb6b0cd0fc3e3d05ff37d7b02e534b58267b886c",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -107,8 +107,8 @@
     {
       "from": "experience-engine",
       "to": "experience-engine",
-      "import_count": 158,
-      "module_count": 51
+      "import_count": 159,
+      "module_count": 52
     },
     {
       "from": "foundation",
@@ -119,8 +119,8 @@
     {
       "from": "experience-engine",
       "to": "foundation",
-      "import_count": 79,
-      "module_count": 55
+      "import_count": 80,
+      "module_count": 56
     },
     {
       "from": "tools",
@@ -3156,7 +3156,8 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/tui/telemetry.js"
       ]
     },
     {
@@ -3469,7 +3470,9 @@
       "path": "src/tui/surface-engine.js",
       "component": "experience-engine",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/ids.js"
+      ]
     },
     {
       "path": "src/tui/telemetry.js",
