@@ -12,6 +12,7 @@ import {
 } from '../src/provider/route-configuration.js';
 import { ExperienceEngine as InteractiveWorkspace } from '../src/experience-engine.js';
 import { prepareEngineConfiguration } from '../src/runtime-config.js';
+import { handleProviderCommand } from '../src/tui/provider-command.js';
 
 function configuration(root) {
   return resolveManifest({
@@ -53,6 +54,20 @@ test('provider credential edits switch cleanly between Secret Broker and environ
   const switched = withUpdatedProvider(current, 'one', { credentialEnv: 'NNA_KEY' }).config.providerProfiles.one;
   assert.equal(switched.credential.source, 'environment');
   assert.equal(switched.credentialEnv, 'NNA_KEY');
+});
+
+test('provider command preserves credentials when an edit omits the optional binding', async () => {
+  const edits = [];
+  const workspace = {
+    editProvider: async (id, input) => edits.push({ id, input }),
+    projection: { showNotice() {} },
+  };
+  await handleProviderCommand('edit one http://127.0.0.1:2/v1 new-model', workspace, {});
+  await handleProviderCommand('edit one http://127.0.0.1:3/v1 next-model -', workspace, {});
+  assert.deepEqual(edits, [
+    { id: 'one', input: { endpoint: 'http://127.0.0.1:2/v1', model: 'new-model' } },
+    { id: 'one', input: { endpoint: 'http://127.0.0.1:3/v1', model: 'next-model', credentialEnv: null } },
+  ]);
 });
 
 test('provider deletion refuses assigned and final profiles', () => {

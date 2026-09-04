@@ -69,9 +69,9 @@ async function mutateProvider(values, workspace, helpers) {
     workspace.projection.showNotice('provider', `Added provider ${values[1]}.`);
   } else if (values[0] === 'edit') {
     if (values.length < 4 || values.length > 5) throw invalid('use /provider edit ID ENDPOINT MODEL [CREDENTIAL_ENV|-]');
-    await workspace.editProvider(values[1], {
-      endpoint: values[2], model: values[3], credentialEnv: values[4] === '-' ? null : values[4],
-    });
+    const input = { endpoint: values[2], model: values[3] };
+    if (values.length === 5) input.credentialEnv = values[4] === '-' ? null : values[4];
+    await workspace.editProvider(values[1], input);
     workspace.projection.showNotice('provider', `Updated provider ${values[1]}. A backup was retained.`);
   } else {
     requireLength(values, 4, 'use /provider limits ID CONTEXT_BYTES OUTPUT_TOKENS');
