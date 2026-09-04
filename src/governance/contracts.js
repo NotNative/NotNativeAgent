@@ -142,7 +142,8 @@ function scalarAttributes(value = {}) {
   const result = {};
   for (const [key, item] of entries) {
     identifier(key, 'attribute name');
-    if (!['string', 'number', 'boolean'].includes(typeof item) && item !== null) {
+    if ((!['string', 'number', 'boolean'].includes(typeof item) && item !== null)
+      || (typeof item === 'number' && !Number.isFinite(item))) {
       throw new ContractError('governance_attributes_invalid', 'governance attributes must be scalar');
     }
     result[key] = typeof item === 'string' ? bounded(item, MAX_REFERENCE_BYTES, 'attribute value') : item;
@@ -211,6 +212,9 @@ function exactKeys(value, allowed, label) {
 }
 
 function stableJson(value, depth, seen) {
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new ContractError('governance_fingerprint_invalid', 'governance fingerprints require finite numbers');
+  }
   if (depth > MAX_STABLE_JSON_DEPTH) throw new ContractError('governance_fingerprint_invalid', 'governance fingerprint input is too deeply nested');
   if (value && typeof value === 'object') {
     if (seen.has(value)) throw new ContractError('governance_fingerprint_invalid', 'governance fingerprint input contains a cycle');

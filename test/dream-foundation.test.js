@@ -132,7 +132,7 @@ test('idle activity aborts maintenance and foreground eligibility is rechecked',
   const states = [];
   const arbiter = new IdleArbiter({
     idleMs: 5, interStageMs: 5, eligible: async () => eligible,
-    onState: (state) => states.push(state.state),
+    onState: (state) => states.push(state.stageOutcome ?? state.state),
     runStage: async ({ signal }) => {
       started();
       await new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(Object.assign(new Error('cancelled'), { code: 'cancelled' })), { once: true }));

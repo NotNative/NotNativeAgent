@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 import { JournalStore } from '../store.js';
-import { retentionCompactionTarget } from './retention.js';
+import { retentionCompactionTarget, validateRetentionLimit } from './retention.js';
 
 const DEFAULT_RETENTION_ENTRIES = 10_000;
 const MAX_REPLAY_RECORDS = 1_000_000;
@@ -13,7 +13,7 @@ export class ReviewerLedger {
   #store = null;
 
   constructor(options) {
-    this.retentionEntries = options.retentionEntries ?? DEFAULT_RETENTION_ENTRIES;
+    this.retentionEntries = validateRetentionLimit(options.retentionEntries ?? DEFAULT_RETENTION_ENTRIES);
     if (options.durable) this.#store = new JournalStore(options.root, `${options.sessionId}.review`, {
       persistenceDeadlineMs: options.persistenceDeadlineMs,
     });

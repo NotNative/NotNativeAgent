@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from './ids.js';
 import { JournalStore } from './store.js';
-import { retentionCompactionTarget } from './persistence/retention.js';
+import { retentionCompactionTarget, validateRetentionLimit } from './persistence/retention.js';
 import {
   assertEvidenceTransition, governanceFingerprint, normalizeGovernanceDecision,
   normalizeGovernanceEvidence, normalizeGovernanceTerminal,
@@ -29,7 +29,7 @@ export class GovernanceEngine {
   constructor(options) {
     this.telemetry = options.telemetry ?? null;
     this.sessionId = options.sessionId;
-    this.retentionEntries = options.retentionEntries ?? DEFAULT_RETENTION_ENTRIES;
+    this.retentionEntries = validateRetentionLimit(options.retentionEntries ?? DEFAULT_RETENTION_ENTRIES, 25_000);
     if (options.durable) this.#store = new JournalStore(options.root, `${this.sessionId}.governance`, {
       persistenceDeadlineMs: options.persistenceDeadlineMs,
       resumeRecordLimit: Math.max(this.retentionEntries * 4, MINIMUM_RESUME_RECORDS),

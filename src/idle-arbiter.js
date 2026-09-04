@@ -61,7 +61,9 @@ export class IdleArbiter {
     }
     const controller = new AbortController(); this.controller = controller;
     try {
-      if (!await this.eligible()) {
+      const eligible = await this.eligible();
+      if (controller.signal.aborted || this.controller !== controller || this.closed || this.paused) return { state: 'skipped', reason: 'stale' };
+      if (!eligible) {
         this.onState({ state: 'waiting', reason: 'ineligible' });
         if (!this.closed && !this.paused) this.#schedule(this.idleMs);
         return { state: 'skipped', reason: 'ineligible' };
@@ -76,9 +78,12 @@ export class IdleArbiter {
       if (!this.closed && !this.paused) this.#schedule(this.interStageMs);
       return { state: 'completed', result };
     } catch (error) {
-      const cancelled = controller.signal.aborted;
-      this.onState({ state: cancelled ? 'cancelled' : 'failed', trigger, code: error?.code ?? null });
-      if (!this.closed && !this.paused) this.#schedule(this.idleMs);
+      const cancelled = controller.signal.aborted && (error === controller.signal.reason || error?.name === 'AbortError'
+        || ['cancelled', 'idle_stage_cancelled', 'dream_cancelled'].includes(error?.code));
+      const stale = controller.signal.aborted || this.controller !== controller || this.closed || this.paused;
+      if (!this.closed && !this.paused) this.onState({ state: stale ? 'waiting' : cancelled ? 'cancelled' : 'failed',
+        stageOutcome: cancelled ? 'cancelled' : 'failed', trigger, code: error?.code ?? null });
+      if (!stale) this.#schedule(this.idleMs);
       return { state: cancelled ? 'cancelled' : 'failed', error };
     } finally { if (this.controller === controller) this.controller = null; }
   }
