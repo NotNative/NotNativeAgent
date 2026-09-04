@@ -151,6 +151,44 @@ test('idle activity aborts maintenance and foreground eligibility is rechecked',
   assert.ok(states.includes('waiting'));
 });
 
+test('idle activity prevents an obsolete stage from replacing the fresh idle delay', async () => {
+  const timers = [];
+  const states = [];
+  let entered;
+  let finish;
+  const stageEntered = new Promise((resolve) => { entered = resolve; });
+  const arbiter = new IdleArbiter({
+    idleMs: 50, interStageMs: 5, eligible: async () => true,
+    setTimer: (callback, delay) => {
+      const timer = { callback, delay, cleared: false };
+      timers.push(timer);
+      return timer;
+    },
+    clearTimer: (timer) => { timer.cleared = true; },
+    onState: (state) => states.push(state.state),
+    runStage: async () => {
+      entered();
+      return new Promise((resolve) => { finish = resolve; });
+    },
+  });
+
+  const running = arbiter.runNow();
+  await stageEntered;
+  arbiter.start();
+  arbiter.activity('keyboard');
+  const freshTimer = timers.at(-1);
+  freshTimer.cleared = true;
+  freshTimer.callback();
+  await Promise.resolve();
+  finish({ code: 'obsolete-result' });
+  assert.deepEqual(await running, { state: 'skipped', reason: 'stale' });
+
+  const liveTimers = timers.filter((timer) => !timer.cleared);
+  assert.deepEqual(liveTimers.map((timer) => timer.delay), [50]);
+  assert.equal(states.includes('completed'), false);
+  arbiter.close();
+});
+
 test('manual deterministic harvest checkpoints only terminal redacted telemetry evidence', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-dream-harvest-'));
   const telemetry = new ForensicTelemetry({

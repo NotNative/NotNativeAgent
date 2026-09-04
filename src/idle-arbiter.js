@@ -54,7 +54,11 @@ export class IdleArbiter {
   #schedule(delay) { this.#clear(); this.timer = this.setTimer(() => { this.timer = null; void this.#run('idle'); }, delay); }
   #clear() { if (this.timer !== null) this.clearTimer(this.timer); this.timer = null; }
   async #run(trigger) {
-    if (this.closed || this.paused || this.controller) return { state: 'skipped', reason: 'unavailable' };
+    if (this.closed || this.paused) return { state: 'skipped', reason: 'unavailable' };
+    if (this.controller) {
+      if (trigger === 'idle') this.#schedule(this.idleMs);
+      return { state: 'skipped', reason: 'unavailable' };
+    }
     const controller = new AbortController(); this.controller = controller;
     try {
       if (!await this.eligible()) {
@@ -65,6 +69,9 @@ export class IdleArbiter {
       if (controller.signal.aborted) throw new ContractError('idle_stage_cancelled', 'idle stage was cancelled before execution');
       this.onState({ state: 'running', trigger });
       const result = await this.runStage({ trigger, signal: controller.signal });
+      if (controller.signal.aborted || this.controller !== controller || this.closed || this.paused) {
+        return { state: 'skipped', reason: 'stale' };
+      }
       this.onState({ state: 'completed', trigger, result });
       if (!this.closed && !this.paused) this.#schedule(this.interStageMs);
       return { state: 'completed', result };
