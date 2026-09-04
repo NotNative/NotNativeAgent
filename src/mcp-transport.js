@@ -132,6 +132,11 @@ export class StdioMcpTransport {
       this.#protocolFailure(new ContractError('mcp_malformed', 'MCP emitted malformed JSON'));
       return;
     }
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+      || (!Object.hasOwn(value, 'id') && typeof value.method !== 'string')) {
+      this.#protocolFailure(new ContractError('mcp_malformed', 'MCP emitted an invalid message'));
+      return;
+    }
     const pending = this.#pending.get(value.id);
     if (!pending && typeof value.method === 'string') {
       // The notification owner records capability-refresh failure; transport stays isolated.

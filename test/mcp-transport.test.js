@@ -99,6 +99,22 @@ test('AC-MCP-02 stdio bounds an oversized line before its newline arrives', asyn
   assert.equal(child.ended, true);
 });
 
+test('AC-MCP-02 stdio rejects JSON values that are not protocol messages', async (context) => {
+  for (const value of ['null', 'true', '123', '"text"', '[]', '{}']) {
+    await context.test(value, async () => {
+      const child = fakeChild();
+      const transport = new StdioMcpTransport(stdioConfig(), () => child);
+      await transport.open();
+      const request = transport.request('tools/list');
+
+      assert.doesNotThrow(() => child.stdout.write(`${value}\n`));
+      await assert.rejects(request, { code: 'mcp_malformed' });
+      await assert.rejects(transport.request('tools/list'), { code: 'mcp_closed' });
+      assert.equal(child.ended, true);
+    });
+  }
+});
+
 test('AC-MCP-04 remote error text is not surfaced across the MCP boundary', async () => {
   const child = fakeChild();
   const transport = new StdioMcpTransport(stdioConfig(), () => child);
