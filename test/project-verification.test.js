@@ -23,6 +23,7 @@ test('verification discovery prefers the canonical check script and records its 
   assert.deepEqual(plan.requested_checks, ['quality']);
   assert.equal(plan.commands.length, 1);
   assert.equal(plan.commands[0].script, 'check');
+  assert.equal(plan.commands[0].source, 'node --test');
   assert.match(plan.commands[0].display, /npm(?:-cli\.js)?(?:"?\s+)run check/u);
   assert.match(plan.manifest.sha256, /^[0-9a-f]{64}$/u);
 });
@@ -56,6 +57,7 @@ test('project verification produces a passing durable receipt payload', async ()
   assert.deepEqual(receipt.requested_checks, ['test']);
   assert.match(receipt.receipt_id, /^verify:[0-9a-f]{64}$/u);
   assert.equal(receipt.results[0].exit_code, 0);
+  assert.deepEqual(receipt.commands, [{ display: normalized.resolved.commands[0].display, source: 'node --test' }]);
   assert.equal(result.status, 'succeeded');
 });
 

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:b26fa21ae056be589b9c5a272e89bdaa680506635bf316a2e086819fa298bcec",
+  "source_digest": "sha256:fac6b4fe4ac42efcae0ca5c667bcd0e6eb7b35f67f76c444440a4f68333a7eb1",
   "counts": {
     "modules": 334,
     "component_edges": 70
@@ -119,8 +119,8 @@
     {
       "from": "experience-engine",
       "to": "foundation",
-      "import_count": 78,
-      "module_count": 54
+      "import_count": 79,
+      "module_count": 55
     },
     {
       "from": "tools",
@@ -3224,6 +3224,7 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
+        "src/ids.js",
         "src/tui/overlays.js"
       ]
     },

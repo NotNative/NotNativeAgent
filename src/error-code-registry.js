@@ -122,7 +122,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'execution_tool_forbidden', 'execution_tools_invalid', 'export_too_large',
     'gateway_config_invalid', 'gateway_config_too_large', 'gateway_polling_timeout_invalid',
     'gateway_token_env_invalid', 'gateway_workspace_invalid', 'goal_already_blocked',
-    'goal_already_completed', 'goal_evidence_required', 'goal_missing',
+    'gateway_tui_command_invalid', 'goal_already_completed', 'goal_evidence_required', 'goal_missing',
     'goal_not_terminal', 'goal_reason_required', 'goal_tasks_actionable',
     'goal_tasks_unfinished', 'guidance_catalog_too_large', 'guidance_document_missing',
     'guidance_missing', 'guidance_query_invalid', 'handoff_busy',

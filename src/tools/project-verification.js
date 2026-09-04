@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { lstat, readFile, realpath } from 'node:fs/promises';
+import { lstat, open, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from '../ids.js';
 import { runProcess } from './process.js';
@@ -104,7 +104,7 @@ async function executeVerification(request, signal) {
     }, signal);
     const parsed = parseProcessResult(result.content);
     const lifecycle = result.status ?? 'succeeded';
-    results.push({ check: command.check, script: command.script, command: command.display, ...parsed,
+    results.push({ ...parsed, check: command.check, script: command.script, command: command.display,
       tool_lifecycle_status: lifecycle, reason_code: result.reasonCode ?? null });
     if (lifecycle !== 'succeeded' || parsed.exit_code !== 0) break;
   }
@@ -117,7 +117,7 @@ async function executeVerification(request, signal) {
     evidence_scope: 'requested_project_checks', requested_checks: request.resolved.requested_checks,
     adapter: request.resolved.adapter, runtime: request.resolved.runtime, scope: request.resolved.scope,
     manifest_sha256: request.resolved.manifest.sha256,
-    commands: request.resolved.commands.map((item) => item.display),
+    commands: request.resolved.commands.map((item) => ({ display: item.display, source: item.source })),
     unavailable: request.resolved.unavailable, results,
   };
   return { status: passed ? 'succeeded' : 'failed', reasonCode: passed ? null : 'verification_failed',
@@ -129,13 +129,13 @@ async function executeVerification(request, signal) {
 async function commandFor(runtime, check, script, source, scope, paths) {
   const focused = scope === 'focused' && paths.length > 0;
   if (focused && check === 'test' && runtime.adapter === 'bun') {
-    return frozenCommand(check, script, runtime.executable, ['test', ...paths]);
+    return frozenCommand(check, script, source, runtime.executable, ['test', ...paths]);
   }
   if (focused && check === 'test' && /^node\s+--test(?:\s|$)/u.test(source.trim())) {
-    return frozenCommand(check, script, process.execPath, ['--test', ...paths]);
+    return frozenCommand(check, script, source, process.execPath, ['--test', ...paths]);
   }
-  if (runtime.adapter === 'bun') return frozenCommand(check, script, runtime.executable, ['run', script]);
-  return frozenCommand(check, script, runtime.executable, [...runtime.prefix, 'run', script]);
+  if (runtime.adapter === 'bun') return frozenCommand(check, script, source, runtime.executable, ['run', script]);
+  return frozenCommand(check, script, source, runtime.executable, [...runtime.prefix, 'run', script]);
 }
 
 async function verificationRuntime(adapter) {
@@ -174,8 +174,8 @@ async function executableOnPath(names) {
   return null;
 }
 
-function frozenCommand(check, script, executable, argv) {
-  return Object.freeze({ check, script, executable, argv: Object.freeze(argv), display: displayCommand(executable, argv) });
+function frozenCommand(check, script, source, executable, argv) {
+  return Object.freeze({ check, script, source, executable, argv: Object.freeze(argv), display: displayCommand(executable, argv) });
 }
 
 async function packageManager(root, declared) {
@@ -237,7 +237,12 @@ function parseProcessResult(content) {
       && !(value.exit_code === null && (typeof value.signal === 'string' || value.output_limit_exceeded === true)))) {
       throw new Error('invalid result');
     }
-    return value;
+    return Object.freeze({
+      exit_code: value.exit_code, signal: typeof value.signal === 'string' ? value.signal : null,
+      stdout: boundedOutput(value.stdout), stderr: boundedOutput(value.stderr),
+      stdout_bytes: boundedCount(value.stdout_bytes), stderr_bytes: boundedCount(value.stderr_bytes),
+      output_limit_exceeded: value.output_limit_exceeded === true,
+    });
   } catch {
     throw new ContractError('verification_result_invalid', 'verification process returned an invalid result envelope');
   }
@@ -247,7 +252,15 @@ async function regularBoundedFile(path, code) {
   try {
     const info = await lstat(path);
     if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_MANIFEST_BYTES) throw new Error('not bounded');
-    return { content: await readFile(path, 'utf8'), bytes: info.size };
+    const handle = await open(path, 'r');
+    try {
+      const opened = await handle.stat();
+      if (!opened.isFile() || opened.size > MAX_MANIFEST_BYTES
+        || opened.dev !== info.dev || opened.ino !== info.ino) throw new Error('not bounded');
+      const bytes = await handle.readFile();
+      if (bytes.length > MAX_MANIFEST_BYTES) throw new Error('not bounded');
+      return { content: bytes.toString('utf8'), bytes: bytes.length };
+    } finally { await handle.close(); }
   } catch { throw new ContractError(code, 'a bounded regular package.json is required for project verification'); }
 }
 
@@ -269,3 +282,8 @@ function receiptId(request, results) {
 }
 
 function sha256(value) { return createHash('sha256').update(value).digest('hex'); }
+function boundedOutput(value) {
+  if (typeof value !== 'string') return '';
+  return value.length > 16_384 ? `${value.slice(0, 16_384)}\n[output truncated in verification receipt]` : value;
+}
+function boundedCount(value) { return Number.isSafeInteger(value) && value >= 0 ? value : 0; }

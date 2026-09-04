@@ -15,6 +15,7 @@ import { readTelegramOutbox, TelegramNotificationQueue } from '../src/notificati
 import { commandDefinition } from '../src/tui/commands.js';
 import { configOverlay, gatewayOverlay, overlayCommandDraft } from '../src/tui/overlays.js';
 import { gatewayShutdownDiagnostic, runGatewayCommand, runtimeStatus } from '../src/gateway-cli.js';
+import { handleGatewayCommand } from '../src/tui/gateway-command.js';
 import { SecretBroker } from '../src/secret-broker.js';
 
 async function waitUntil(predicate, timeoutMs = 2_000) {
@@ -106,6 +107,19 @@ test('gateway appears in configuration and exposes actionable menu drafts', () =
     providerProfiles: { local: {} }, mcpServers: [],
   });
   assert.equal(hub.items.some((item) => item.id === 'gateway'), true);
+});
+
+test('TUI gateway commands exclude secret and foreground actions and enforce arity', async () => {
+  const calls = [];
+  const workspace = {
+    gatewayCommand: async (args) => { calls.push(args); return { running: false }; },
+    projection: { openOverlay: () => undefined },
+  };
+  for (const command of ['run', 'token private', 'status extra', 'authorize', 'authorize not-a-user']) {
+    await assert.rejects(handleGatewayCommand(command, workspace), { code: 'gateway_tui_command_invalid' });
+  }
+  await handleGatewayCommand('authorize 42', workspace);
+  assert.deepEqual(calls[0], ['authorize', '42']);
 });
 
 test('gateway start failure is reported without publishing a false pid', async () => {

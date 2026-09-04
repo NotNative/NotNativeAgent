@@ -9,6 +9,7 @@ const DEFAULT_SKIPS = new Set(['.git', 'node_modules']);
 const MAX_FILES = 10_000;
 const MAX_SEARCH_BYTES = 64 * 1024 * 1024;
 const MAX_FILE_BYTES = 1024 * 1024;
+const MAX_MATCH_LINE_CHARACTERS = 4096;
 const EXPRESSION_CHARACTERS = new Set(['|', '(', ')', '[', ']', '{', '}', '*', '+', '?', '^', '$', '\\']);
 
 export function filesystemDiscoveryDefinitions(paths) {
@@ -135,8 +136,8 @@ function ripgrepArguments(request) {
   const exactFile = request.resolved.kind === 'file';
   return [
     '--json', '--no-config', '--no-ignore', '--color', 'never', '--max-filesize', '1M',
-    ...(!exactFile ? ['--max-depth', String(request.args.max_depth), '--glob', request.args.file_glob,
-      '--glob', '!.git/**', '--glob', '!node_modules/**'] : []),
+    ...(!exactFile ? ['--max-depth', String(request.args.max_depth), `--glob=${request.args.file_glob}`,
+      '--glob=!.git/**', '--glob=!node_modules/**'] : []),
     request.args.case_sensitive ? '--case-sensitive' : '--ignore-case',
     ...(request.args.match_mode === 'literal' ? ['--fixed-strings'] : []),
     '--', request.args.query, exactFile ? basename(request.resolved.path) : '.',
@@ -151,7 +152,7 @@ function readRipgrepEvents(chunk, matches, request, child, stop, updatePending, 
     const data = event.data; const first = data.submatches?.[0];
     const path = String(data.path?.text ?? '').replaceAll('\\', '/').replace(/^\.\//u, '');
     const text = String(data.lines?.text ?? '').replace(/\r?\n$/u, '');
-    matches.push(`${path}:${data.line_number}:${Number(first?.start ?? 0) + 1}: ${boundedLine(text)}`);
+    matches.push(`${path}:${data.line_number}:${utf16Column(text, first?.start)}: ${boundedLine(text)}`);
     if (matches.length >= request.args.max_results) { stop(); child.kill(); break; }
   }
 }
@@ -194,7 +195,7 @@ async function searchFiles(request, signal) {
     const content = buffer.toString('utf8');
     const lines = content.split(/\r?\n/u);
     for (let index = 0; index < lines.length; index += 1) {
-      const column = matcher(lines[index]);
+      const column = matcher(lines[index].slice(0, MAX_MATCH_LINE_CHARACTERS));
       if (column === -1) continue;
       matches.push(`${displayPath(request.resolved.path, path)}:${index + 1}:${column + 1}: ${boundedLine(lines[index])}`);
       if (matches.length >= request.args.max_results) break;
@@ -227,7 +228,7 @@ function textMatcher(args) {
 }
 
 function assertSafeFallbackRegex(pattern) {
-  if (/\\[1-9]|\(\?(?:[=!]|<[=!])/u.test(pattern)) {
+  if (/\\[1-9]|\(\?(?:[=!]|<[=!])|(?:\.\*|\.\+){3}/u.test(pattern)) {
     throw new ContractError('tool_pattern_unsafe', 'fallback regex does not allow backreferences or lookarounds');
   }
   for (const match of pattern.matchAll(/\{(\d+)(?:,(\d*))?\}/gu)) {
@@ -360,6 +361,11 @@ function displayPath(root, path) {
 function boundedLine(value) {
   const clean = value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/gu, '�');
   return clean.length > 500 ? `${clean.slice(0, 500)}…` : clean;
+}
+
+function utf16Column(text, byteOffset) {
+  const offset = Number.isSafeInteger(byteOffset) && byteOffset >= 0 ? byteOffset : 0;
+  return Buffer.from(text, 'utf8').subarray(0, offset).toString('utf8').length + 1;
 }
 
 function shape(args, required, optional) {

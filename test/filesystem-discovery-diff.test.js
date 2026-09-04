@@ -12,6 +12,7 @@ test('fs.glob and fs.search_text discover bounded files without a platform shell
   await mkdir(join(root, 'node_modules'));
   await writeFile(join(root, 'src', 'alpha.js'), 'first\nNeedle here\n');
   await writeFile(join(root, 'src', 'beta.txt'), 'needle elsewhere\n');
+  await writeFile(join(root, 'src', 'unicode.txt'), 'éneedle unicode\n');
   await writeFile(join(root, 'node_modules', 'hidden.js'), 'needle ignored\n');
   const registry = new ToolRegistry(root);
   await registry.initialize();
@@ -32,8 +33,12 @@ test('fs.glob and fs.search_text discover bounded files without a platform shell
   const searchResult = await search.executor(searchRequest, new AbortController().signal);
   assert.match(searchResult.content, /src\/alpha\.js:2:1: Needle here/u);
   assert.match(searchResult.content, /src\/beta\.txt:1:1: needle elsewhere/u);
+  assert.match(searchResult.content, /src\/unicode\.txt:1:2: éneedle unicode/u);
   assert.doesNotMatch(searchResult.content, /hidden/u);
   assert.equal((await search.validate({ path: '', query: 'needle' })).args.path, '.');
+
+  const optionLikeGlob = await search.validate({ query: 'needle', file_glob: '--pre=malicious' });
+  assert.equal((await search.executor(optionLikeGlob, new AbortController().signal)).content, 'no text matches');
 
   const regexRequest = await search.validate({ query: 'Needle|elsewhere', match_mode: 'regex', file_glob: '**/*' });
   const regexResult = await search.executor(regexRequest, new AbortController().signal);
