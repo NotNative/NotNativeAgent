@@ -14,6 +14,12 @@ test('pinned HTTP primitive rejects callers without an explicit deadline signal'
   });
 });
 
+test('pinned HTTP primitive requires a numeric connection address', () => {
+  assert.throws(() => pinnedHttpRequest(new URL('https://example.test/'), 'example.test', {
+    signal: new AbortController().signal,
+  }), { code: 'pinned_http_address_invalid' });
+});
+
 test('web.fetch follows bounded redirects and returns attributed UTF-8 text', async () => {
   const requested = [];
   const client = new WebFetchClient({

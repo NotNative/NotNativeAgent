@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from 'node:crypto';
-import { lstat, readFile } from 'node:fs/promises';
+import { lstat, open } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
 
@@ -19,8 +19,8 @@ export class ProjectMemoryReconciler {
   constructor(workspaceRoot, options = {}) {
     this.path = join(workspaceRoot, 'NNA.md');
     this.maximumBytes = options.maximumBytes ?? 32_768;
-    this.read = options.read ?? readFile;
     this.stat = options.stat ?? lstat;
+    this.open = options.open ?? open;
   }
 
   async propose(input) {
@@ -57,8 +57,17 @@ export class ProjectMemoryReconciler {
       if (info.isSymbolicLink()) throw new ContractError('project_memory_symlink_forbidden', 'managed project memory cannot target a symbolic link');
       if (!info.isFile()) throw new ContractError('project_memory_target_invalid', 'NNA.md is not a regular file');
       if (info.size > this.maximumBytes) throw new ContractError('project_memory_too_large', 'existing NNA.md exceeds the managed project-memory limit');
-      const content = await this.read(this.path, 'utf8');
-      return { exists: true, content, hash: digest(content), region: extractManaged(content) };
+      const handle = await this.open(this.path, 'r');
+      try {
+        const opened = await handle.stat();
+        if (!opened.isFile() || opened.size > this.maximumBytes || !sameFile(info, opened)) {
+          throw new ContractError('project_memory_target_invalid', 'NNA.md changed while its snapshot was opened');
+        }
+        const bytes = await handle.readFile();
+        if (bytes.length > this.maximumBytes) throw new ContractError('project_memory_too_large', 'existing NNA.md exceeds the managed project-memory limit');
+        const content = bytes.toString('utf8');
+        return { exists: true, content, hash: digest(content), region: extractManaged(content) };
+      } finally { await handle.close(); }
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
       return { exists: false, content: '', hash: null, region: null };
@@ -219,3 +228,4 @@ function semanticIdentity(value) {
   return value.toLocaleLowerCase('en-US').replace(/\s+/gu, ' ').trim();
 }
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }
+function sameFile(left, right) { return left.dev === right.dev && left.ino === right.ino; }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ProjectGuidance } from '../src/guidance/project.js';
@@ -47,4 +47,17 @@ test('project guidance is attributed workspace policy and cannot masquerade as k
   assert.equal(memory.trust, 'workspace_guidance');
   assert.match(memory.content, /cannot override applicable AGENTS\.md instructions/u);
   assert.match(instructions.content, /does not prove factual claims, grant tool authority/u);
+});
+
+test('project guidance rejects documents reached through an escaping ancestor symlink', async (context) => {
+  if (process.platform === 'win32') return context.skip('directory symlink fixtures require elevated Windows privileges');
+  const root = await mkdtemp(join(tmpdir(), 'nna-project-guidance-'));
+  const outside = await mkdtemp(join(tmpdir(), 'nna-project-guidance-outside-'));
+  await writeFile(join(root, 'AGENTS.md'), 'root instructions');
+  await writeFile(join(outside, 'AGENTS.md'), 'outside instructions');
+  await symlink(outside, join(root, 'linked'), 'dir');
+  const items = await new ProjectGuidance(root).resolve([
+    { type: 'tool_request', args: { path: 'linked/file.js' } },
+  ]);
+  assert.deepEqual(items.map((item) => item.content), ['root instructions']);
 });

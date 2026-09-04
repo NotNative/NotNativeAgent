@@ -151,7 +151,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nno_integration_activation_required', 'notification_duplicate', 'notification_invalid',
     'notification_turn_missing', 'onboarding_env_incomplete', 'operator_decision_unexpected',
     'option_value_missing', 'permissions_command_invalid', 'permissions_unavailable',
-    'pinned_http_signal_required', 'plain_text_boundary_invalid', 'playwright_root_invalid',
+    'pinned_http_address_invalid', 'pinned_http_signal_required', 'plain_text_boundary_invalid', 'playwright_root_invalid',
     'playwright_version_mismatch', 'presentation_state_invalid', 'primary_route_required',
     'qualification_output_too_large', 'qualification_timeout', 'recovery_config_invalid',
     'reference_kind_invalid', 'reference_kind_mismatch', 'reference_missing',

@@ -24,23 +24,28 @@ export class GuidanceCatalog {
     const inspected = await Promise.all(paths.slice(0, MAX_CATALOG_FILES).map(async (path) => {
       try { return { path, info: await stat(path) }; } catch { return null; }
     }));
-    let total = 0;
     const selected = [];
     for (const item of inspected.filter(Boolean)) {
       const { path, info } = item;
       if (!info.isFile() || info.size > MAX_DOCUMENT_BYTES) continue;
-      total += info.size;
-      if (total > MAX_CATALOG_BYTES) throw new ContractError('guidance_catalog_too_large', 'packaged guidance exceeds bound');
       selected.push(path);
     }
-    const documents = await Promise.all(selected.map(async (path) => {
+    let total = 0;
+    const documents = [];
+    for (const path of selected) {
       const id = relative(this.root, path).split(sep).join('/').replace(/\.md$/u, '');
       try {
-        const content = await readFile(path, 'utf8');
-        return Object.freeze({ id, path: `docs/${id}.md`, content, tokens: tokenize(`${id} ${content}`) });
-      } catch { return null; }
-    }));
-    for (const document of documents.filter(Boolean)) {
+        const bytes = await readFile(path);
+        if (bytes.length > MAX_DOCUMENT_BYTES) continue;
+        total += bytes.length;
+        if (total > MAX_CATALOG_BYTES) throw new ContractError('guidance_catalog_too_large', 'packaged guidance exceeds bound');
+        const content = bytes.toString('utf8');
+        documents.push(Object.freeze({ id, path: `docs/${id}.md`, content, tokens: tokenize(`${id} ${content}`) }));
+      } catch (error) {
+        if (error?.code === 'guidance_catalog_too_large') throw error;
+      }
+    }
+    for (const document of documents) {
       this.documents.set(document.id, document);
     }
     if (this.documents.size === 0) throw new ContractError('guidance_missing', 'packaged NNA guidance is unavailable');

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { lstat, readFile } from 'node:fs/promises';
+import { lstat, readFile, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 const MAX_DIRECTORIES = 32;
@@ -15,28 +15,29 @@ export class ProjectGuidance {
   }
 
   async resolve(records = []) {
-    const directories = new Set([this.root]);
+    const root = await realpath(this.root);
+    const directories = new Set([root]);
     for (const target of guidanceTargets(records).slice(-64)) {
-      const absolute = isAbsolute(target) ? resolve(target) : resolve(this.root, target);
-      if (!inside(this.root, absolute)) continue;
-      addAncestors(directories, this.root, absolute);
-      addAncestors(directories, this.root, dirname(absolute));
+      const absolute = isAbsolute(target) ? resolve(target) : resolve(root, target);
+      if (!inside(root, absolute)) continue;
+      addAncestors(directories, root, absolute);
+      addAncestors(directories, root, dirname(absolute));
     }
     const directoriesInScope = [...directories]
-      .sort((left, right) => pathDepth(this.root, left) - pathDepth(this.root, right)
+      .sort((left, right) => pathDepth(root, left) - pathDepth(root, right)
         || left.localeCompare(right)).slice(0, MAX_DIRECTORIES);
     const instructions = [];
     const memories = [];
     let total = 0;
     for (const directory of directoriesInScope) {
-      const item = await firstDocument(this.root, directory, AGENT_INSTRUCTION_NAMES,
+      const item = await firstDocument(root, directory, AGENT_INSTRUCTION_NAMES,
         'agent_instructions', this.telemetry);
       if (!item || total + item.bytes > MAX_TOTAL_BYTES) continue;
       instructions.push(item); total += item.bytes;
     }
     for (const directory of directoriesInScope) {
       if (instructions.length + memories.length >= MAX_DOCUMENTS) break;
-      const item = await firstDocument(this.root, directory, ['NNA.md'], 'project_memory', this.telemetry);
+      const item = await firstDocument(root, directory, ['NNA.md'], 'project_memory', this.telemetry);
       if (!item || total + item.bytes > MAX_TOTAL_BYTES) continue;
       memories.push(item); total += item.bytes;
     }
@@ -57,7 +58,9 @@ async function firstDocument(root, directory, names, kind, telemetry) {
     try {
       const metadata = await lstat(path);
       if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size > MAX_DOCUMENT_BYTES) continue;
-      const content = await readFile(path, 'utf8');
+      const canonical = await realpath(path);
+      if (!inside(root, canonical)) continue;
+      const content = await readFile(canonical, 'utf8');
       const bytes = Buffer.byteLength(content, 'utf8');
       if (bytes === 0) continue;
       return Object.freeze({

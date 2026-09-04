@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
+import { isIP } from 'node:net';
 import { ContractError } from './ids.js';
 
 export function pinnedHttpRequest(url, address, options = {}) {
   if (!options.signal || typeof options.signal.addEventListener !== 'function') {
     throw new ContractError('pinned_http_signal_required', 'pinned HTTP requests require an abort signal');
+  }
+  if (typeof address !== 'string' || isIP(address) === 0) {
+    throw new ContractError('pinned_http_address_invalid', 'pinned HTTP requests require a numeric IP address');
   }
   return new Promise((resolve, reject) => {
     const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)({
