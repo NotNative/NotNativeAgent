@@ -14,14 +14,14 @@ import { completionAdvisories, evaluateCompletion, requestsInput } from '../src/
 
 const EMPTY_HOOK_ROOT = join(process.cwd(), '.nna-test-hooks-none');
 
-test('context-reset language is advisory and cannot choose the terminal outcome', () => {
+test('context-reset language is advisory while a clean stop completes normally', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
     recovery: { actions: [{ action: 'compact' }] },
   };
   const result = evaluateCompletion(active, "I'm ready to help! What would you like me to assist you with?");
-  assert.equal(result.disposition, 'incomplete');
-  assert.equal(result.category, 'terminal_declaration_missing');
+  assert.equal(result.disposition, 'completed');
+  assert.equal(result.category, 'settled_output');
   assert.ok(completionAdvisories("I'm ready to help! What would you like me to assist you with?")
     .includes('task_context_reset_language'));
 });
@@ -67,7 +67,7 @@ test('an unresolved tool failure cannot disappear behind calm prose or a complet
   });
 });
 
-test('future-action language is advisory and cannot choose the terminal outcome', () => {
+test('future-action language is advisory and does not override a clean stop', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
     recovery: { actions: [] }, attemptOutputLimitTokens: 32_000,
@@ -75,8 +75,8 @@ test('future-action language is advisory and cannot choose the terminal outcome'
   };
   const result = evaluateCompletion(active,
     'I will build the scene. Before writing it, let me verify the exact API details.');
-  assert.equal(result.disposition, 'incomplete');
-  assert.equal(result.category, 'terminal_declaration_missing');
+  assert.equal(result.disposition, 'completed');
+  assert.equal(result.category, 'settled_output');
   assert.ok(completionAdvisories('I will build the scene. Before writing it, let me verify the exact API details next.')
     .includes('future_action_language'));
 });
@@ -93,7 +93,7 @@ test('completion advisories recognize Markdown-wrapped future action language', 
   };
   const text = 'Node and npx are available. I\'ll **bundle everything into one self-contained `index.html`**. Setting up the build structure now.';
   assert.ok(completionAdvisories(text).includes('future_action_language'));
-  assert.equal(evaluateCompletion(active, text).disposition, 'incomplete');
+  assert.equal(evaluateCompletion(active, text).disposition, 'completed');
 });
 
 test('legacy prose obligations cannot override a typed terminal declaration', () => {
@@ -130,7 +130,7 @@ test('completion supervision settles an explicit terminal blocker without report
 
   active.terminalDeclaration = null;
   const alternative = evaluateCompletion(active, "I can't continue with that route. I will try a different bounded operation now.");
-  assert.equal(alternative.disposition, 'incomplete');
+  assert.equal(alternative.disposition, 'completed');
   assert.ok(completionAdvisories("I can't continue with that route. I will try a different bounded operation now.")
     .includes('future_action_language'));
 });
@@ -485,9 +485,10 @@ test('AC-TURN-04/AC-FAIL-01 a genuine model question yields needs_input without 
 });
 
 test('a conversational offer ending in a question completes without claiming a blocker', async () => {
+  let calls = 0;
   class GreetingProvider {
-    async *stream(request) {
-      if (!hasFinishCall(request)) { yield* finishCall('completed'); return; }
+    async *stream() {
+      calls += 1;
       yield { type: 'text', text: 'Good morning! How can I help you today?' };
       yield { type: 'terminal', finishReason: 'stop', usage: null };
     }
@@ -496,6 +497,7 @@ test('a conversational offer ending in a question completes without claiming a b
   await engine.initialize();
   const result = await engine.submit({ request_id: 'request-greeting', content: 'Good morning' }, 'operator');
   assert.equal(result.outcome, 'completed');
+  assert.equal(calls, 1);
 });
 
 test('active durable work forces model continuation until tasks and goal are complete', async () => {

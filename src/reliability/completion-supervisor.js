@@ -37,7 +37,10 @@ export function evaluateCompletion(active, text, work = null) {
   if (declaration?.outcome === 'incomplete') return Object.freeze({ disposition: 'incomplete', category: 'declared_incomplete' });
   if (declaration?.outcome === 'failed') return Object.freeze({ disposition: 'failed', category: 'declared_failure' });
   if (declaration?.outcome === 'completed') return Object.freeze({ disposition: 'completed', category: 'declared_completion' });
-  return Object.freeze({ disposition: 'incomplete', category: 'terminal_declaration_missing' });
+  // A clean provider stop is sufficient to complete an ordinary conversational turn.
+  // Typed declarations remain required where another gate needs an explicit disposition
+  // (for example unfinished durable work or unresolved tool failures).
+  return Object.freeze({ disposition: 'completed', category: 'settled_output' });
 }
 
 function visualEvidenceGate(evidence, declaration) {
@@ -116,7 +119,8 @@ function unfinishedWorkGate(work, declaration) {
   const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
   if (work?.pendingCompletion) {
     // Why: staging a plan is bookkeeping, not evidence that terminal checks passed.
-    return null;
+    return declaration ? null
+      : Object.freeze({ disposition: 'incomplete', category: 'terminal_declaration_missing' });
   }
   const unfinished = tasks.filter((task) => task.status !== 'completed');
   const goalActive = work?.goal?.status === 'active';

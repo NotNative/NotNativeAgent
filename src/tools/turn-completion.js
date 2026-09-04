@@ -12,7 +12,7 @@ export function turnFinishDefinition(control) {
   if (!control || typeof control.declare !== 'function') return null;
   return {
     name: 'turn.finish', version: 1,
-    purpose: 'Declare the intended terminal turn outcome before the final response. NNA validates this declaration against durable work, tool failures, and evidence. Use completed after successful work. Use blocked, incomplete, or failed with reason_code. Use needs_input with question. Omit reason_code and question for every outcome that does not require them.',
+    purpose: 'Declare a typed terminal turn outcome before the final response when the outcome is not an ordinary clean completion or when an active completion gate requires an explicit disposition. NNA validates this declaration against durable work, tool failures, and evidence. Use completed after successful gated work. Use blocked, incomplete, or failed with reason_code. Use needs_input with question. Omit reason_code and question for every outcome that does not require them.',
     // Why: this records model intent inside the active turn but performs no external action.
     // Semantic review would circularly ask another model to approve the model's own disposition;
     // deterministic completion supervision is the authority that accepts or rejects it.

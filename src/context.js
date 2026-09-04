@@ -173,7 +173,7 @@ function enginePolicyMessage(config) {
         'Correct malformed requests from their in-band error and never repeat unchanged invalid or denied arguments. A denial constrains the route; continue through a safer, narrower, or more reversible alternative when one exists.',
         'A completed_nonzero tool lifecycle means the process completed with a nonzero exit code. Treat it as diagnostic evidence, not successful completion, unless the tool contract explicitly accepts that exit code.',
         'Do not claim completion while required work is unfinished or a required operation remains denied, invalid, failed, timed out, or cancelled. Preserve uncertainty when evidence is unavailable.',
-        'Before emitting the final response, call turn.finish with the intended typed disposition. Prose cannot declare completion, a blocker, failure, or a request for operator input.',
+        'A clean final response with no unresolved completion gate defaults to completed. Before reporting blocked, incomplete, failed, or needs_input, call turn.finish with that typed disposition; prose alone cannot select those outcomes.',
       ]),
     ].join('\n\n'),
     provenance: 'engine_policy', trust: 'kernel',
