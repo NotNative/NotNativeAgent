@@ -16,9 +16,14 @@ test('AC-AUTH-05 conversation preauthorization is scoped, drift-sensitive, inspe
   assert.equal(registry.match({ ...request('four', 'a.txt'), policyVersion: 2 }, context), null);
   assert.equal(registry.match({ ...request('restricted', 'a.txt'), authorityRestrictionVersion: 1 }, context), null);
   assert.deepEqual(Object.keys(registry.snapshot()[0]).sort(), [
-    'effect', 'expires_at', 'id', 'operation_family_fingerprint', 'restriction_version', 'scope', 'target_fingerprint', 'tool',
+    'effect', 'expires_at', 'id', 'operation_family_fingerprint', 'principal', 'restriction_version', 'scope', 'target_fingerprint', 'tool',
   ]);
+  assert.equal(registry.snapshot()[0].principal, 'operator');
+  assert.throws(() => registry.revoke(exact.id, 'other-operator'), { code: 'preauthorization_forbidden' });
+  assert.equal(registry.match(request('still-active', 'a.txt'), context)?.id, exact.id);
+  assert.equal(registry.decision(exact, request('approved', 'a.txt')).authorityRestrictionVersion, 0);
   assert.equal(registry.revoke(exact.id, 'operator').revoked, true);
+  assert.throws(() => registry.decision(exact, request('revoked', 'a.txt')), { code: 'preauthorization_decision_invalid' });
   assert.equal(registry.match(request('five', 'a.txt'), context), null);
 
   const workspace = registry.grant('allow_workspace', request('six', 'a.txt'), context, 'operator');
@@ -50,6 +55,30 @@ test('workspace execution grants bind to an operation family rather than every c
   assert.equal(registry.match(compoundRequest('shell-drift', 'shell.run', {
     path: 'D:/work', shell: 'powershell', script: 'Get-ChildItem; Remove-Item file.txt', reviewComplexity: 'compound_shell',
   }), review), null);
+  assert.equal(registry.match(compoundRequest('shell-bare-ampersand', 'shell.run', {
+    path: 'D:/work', shell: 'powershell', script: 'Get-ChildItem & Remove-Item file.txt', reviewComplexity: 'compound_shell',
+  }), review), null);
+  registry.grant('allow_workspace', compoundRequest('process-shell-one', 'process.run', {
+    path: 'D:/work', executable: 'powershell.exe',
+    argv: ['-Command', 'Get-ChildItem'], reviewComplexity: 'compound_shell',
+  }), review, 'operator');
+  assert.equal(registry.match(compoundRequest('process-bare-ampersand', 'process.run', {
+    path: 'D:/work', executable: 'powershell.exe',
+    argv: ['-Command', 'Get-ChildItem & Remove-Item file.txt'], reviewComplexity: 'compound_shell',
+  }), review), null);
+});
+
+test('preauthorization decisions reject request drift even when a caller retains the grant object', () => {
+  const registry = new PreauthorizationRegistry();
+  const original = request('original', 'a.txt');
+  const grant = registry.grant('allow_session', original, context, 'operator');
+  for (const drifted of [
+    { ...request('authority', 'a.txt'), authorityId: 'authority-2' },
+    { ...request('restriction', 'a.txt'), authorityRestrictionVersion: 1 },
+    request('target', 'b.txt'),
+  ]) {
+    assert.throws(() => registry.decision(grant, drifted), { code: 'preauthorization_decision_invalid' });
+  }
 });
 
 test('preauthorization choices exist only on the authenticated interactive contract', () => {

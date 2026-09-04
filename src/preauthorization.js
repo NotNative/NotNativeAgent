@@ -56,6 +56,7 @@ export class PreauthorizationRegistry {
     this.#purge(Date.now());
     return Object.freeze(this.#grants.map((grant) => Object.freeze({
       id: grant.id, scope: grant.scope, tool: grant.toolName, effect: grant.sideEffect,
+      principal: grant.principal,
       target_fingerprint: grant.targetFingerprint, restriction_version: grant.authorityRestrictionVersion,
       operation_family_fingerprint: grant.operationFamilyFingerprint,
       expires_at: grant.expiresAt,
@@ -65,8 +66,11 @@ export class PreauthorizationRegistry {
   revoke(id, principal) {
     const index = this.#grants.findIndex((grant) => grant.id === id);
     if (index < 0) throw new ContractError('preauthorization_missing', 'conversation preauthorization was not found');
+    if (typeof principal !== 'string' || principal !== this.#grants[index].principal) {
+      throw new ContractError('preauthorization_forbidden', 'conversation preauthorization belongs to another principal');
+    }
     const [grant] = this.#grants.splice(index, 1);
-    return Object.freeze({ revoked: true, id: grant.id, principal });
+    return Object.freeze({ revoked: true, id: grant.id, principal: grant.principal });
   }
 
   decision(grant, request) {
@@ -74,11 +78,24 @@ export class PreauthorizationRegistry {
       throw new ContractError('preauthorization_decision_invalid', 'preauthorization grant and request are required');
     }
     const now = Date.now();
+    this.#purge(now);
+    const active = this.#grants.find((item) => item.id === grant.id);
+    const fingerprintMatches = grant.scope === 'workspace'
+      ? grant.operationFamilyFingerprint === operationFamilyFingerprint(request)
+      : grant.targetFingerprint === operationTargetFingerprint(request);
+    if (active !== grant || grant.expiresAt <= now || request.expiresAt <= now
+      || grant.authorityId !== request.authorityId
+      || grant.authorityRestrictionVersion !== request.authorityRestrictionVersion
+      || grant.policyVersion !== request.policyVersion || grant.workspaceRoot !== request.workspaceRoot
+      || grant.toolName !== request.toolName || grant.definitionVersion !== request.definitionVersion
+      || typeof grant.principal !== 'string' || !fingerprintMatches) {
+      throw new ContractError('preauthorization_decision_invalid', 'preauthorization grant is stale or does not match the request');
+    }
     return Object.freeze({
       id: newId('decision'), outcome: 'approve', reasonCode: `operator_preauthorized_${grant.scope}`,
       guidance: null, requestId: request.id, requestDigest: requestDigest(request),
       authorityId: request.authorityId, authorityVersion: request.authorityVersion,
-      authorityRestrictionVersion: grant.authorityRestrictionVersion, policyVersion: request.policyVersion,
+      authorityRestrictionVersion: request.authorityRestrictionVersion, policyVersion: request.policyVersion,
       provenance: 'authenticated_interactive_operator', principal: grant.principal,
       grantId: grant.id, committedAt: now, expiresAt: now + this.decisionTtlMs,
     });
@@ -137,7 +154,7 @@ function processOperation(executable, argv) {
 
 function shellCommandFamily(script) {
   if (typeof script !== 'string') return [];
-  return script.split(/(?:\r?\n|&&|\|\||[|;])/u).map((segment) => {
+  return script.split(/(?:\r?\n|&&|\|\||[|;&])/u).map((segment) => {
     const match = segment.trim().match(/^(?:&\s*)?(?:["']?)([^\s"']+)/u);
     return commandName(match?.[1]);
   }).filter(Boolean);

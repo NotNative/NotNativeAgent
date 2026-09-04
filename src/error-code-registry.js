@@ -26,7 +26,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'governance_record_unknown', 'governance_references_invalid', 'governance_timestamp_invalid',
     'governance_value_invalid', 'permission_choice_invalid', 'permission_mismatch',
     'permission_missing', 'permission_queue_full', 'permission_stale',
-    'preauthorization_choice_invalid', 'preauthorization_decision_invalid', 'preauthorization_full',
+    'preauthorization_choice_invalid', 'preauthorization_decision_invalid', 'preauthorization_forbidden', 'preauthorization_full',
     'preauthorization_input_invalid', 'preauthorization_missing', 'preauthorization_principal_invalid',
     'preauthorization_request_expired', 'principal_invalid', 'principal_required',
     'principal_stale', 'review_posture_invalid', 'reviewer_cancelled',
