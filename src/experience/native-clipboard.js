@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
+import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdir, open, rm, stat } from 'node:fs/promises';
+import { link, mkdir, open, rm, stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from '../ids.js';
-import { WindowsClipboardBroker } from './clipboard-broker.js';
+import { assertImageTarget, WindowsClipboardBroker } from './clipboard-broker.js';
 
 const MAX_CLIPBOARD_BYTES = 100_000;
 const TIMEOUT_MS = 10_000;
@@ -33,21 +34,29 @@ export function nativeClipboard(options = {}) {
       return { copied: true, bytes: Buffer.byteLength(text, 'utf8') };
     },
     async readImage(path, maxBytes) {
-      await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+      assertImageTarget(path, maxBytes);
+      const temporary = `${path}.nna-clipboard-${randomUUID()}.tmp`;
       try {
-        await readClipboardImage(platform, path, maxBytes, options.imageRunner, options.imageProcessRunner);
-        const details = await stat(path);
+        await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+        await readClipboardImage(platform, temporary, maxBytes, options.imageRunner, options.imageProcessRunner);
+        const details = await stat(temporary);
         if (!details.isFile() || details.size === 0 || details.size > maxBytes) {
           throw new ContractError('clipboard_image_size_invalid', 'clipboard image is empty or exceeds the attachment limit');
         }
-        const signature = await readFilePrefix(path, PNG_SIGNATURE.length);
+        const signature = await readFilePrefix(temporary, PNG_SIGNATURE.length);
         if (!isPng(signature)) throw new ContractError('clipboard_image_invalid', 'clipboard image could not be encoded as PNG');
+        try { await link(temporary, path); }
+        catch (error) {
+          if (error?.code === 'EEXIST') {
+            throw new ContractError('clipboard_image_path_invalid', 'clipboard image destination already exists', { cause: error });
+          }
+          throw error;
+        }
         return { path, mime_type: 'image/png', size: details.size };
       } catch (error) {
-        await rm(path, { force: true }).catch(() => undefined);
         if (error instanceof ContractError) throw error;
         throw new ContractError('clipboard_image_unavailable', 'the clipboard does not contain a readable image', { cause: error });
-      }
+      } finally { await rm(temporary, { force: true }).catch(() => undefined); }
     },
   });
 }

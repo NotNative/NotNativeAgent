@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import test from 'node:test';
 import { PassThrough, Writable } from 'node:stream';
 import { osc52Clipboard } from '../src/tui/terminal-clipboard.js';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { nativeClipboard } from '../src/experience/native-clipboard.js';
@@ -77,6 +77,19 @@ test('Windows clipboard broker keeps one helper alive and serializes clipboard o
   await broker.close();
 });
 
+test('Windows clipboard broker never cleans up a caller-owned destination', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-clipboard-broker-owned-'));
+  const target = join(root, 'existing.png');
+  await writeFile(target, 'caller-owned');
+  const broker = new WindowsClipboardBroker({ spawnProcess: () => fakeClipboardChild(async (request) => ({
+    id: request.id, ok: true, kind: 'image', size: 12,
+  })) });
+  await broker.initialize();
+  await assert.rejects(broker.readImage(target, 1024), { code: 'clipboard_image_invalid' });
+  assert.equal(await readFile(target, 'utf8'), 'caller-owned');
+  await broker.close();
+});
+
 test('native clipboard image ingestion validates a bounded PNG', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-clipboard-image-'));
   const target = join(root, 'image.png');
@@ -84,6 +97,17 @@ test('native clipboard image ingestion validates a bounded PNG', async () => {
     await writeFile(path, Buffer.from('89504e470d0a1a0a00000000', 'hex'));
   } });
   assert.deepEqual(await clipboard.readImage(target, 1024), { path: target, mime_type: 'image/png', size: 12 });
+});
+
+test('clipboard image failures preserve caller-owned destination files', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-clipboard-owned-'));
+  const target = join(root, 'existing.png');
+  await writeFile(target, 'caller-owned');
+  const clipboard = nativeClipboard({ platform: 'linux', imageRunner: async () => { throw new Error('no image'); } });
+  await assert.rejects(clipboard.readImage(target, 1024), { code: 'clipboard_image_unavailable' });
+  assert.equal(await readFile(target, 'utf8'), 'caller-owned');
+  await assert.rejects(clipboard.readImage('', 1024), { code: 'clipboard_image_path_invalid' });
+  await assert.rejects(clipboard.readImage(target, Number.NaN), { code: 'clipboard_image_size_invalid' });
 });
 
 test('Windows image extraction passes the destination outside PowerShell source text', async () => {
@@ -99,8 +123,9 @@ test('Windows image extraction passes the destination outside PowerShell source 
   assert.equal(observed.args.includes(target), false);
   assert.equal(observed.args.at(-2), '-Command');
   assert.match(observed.args.at(-1), /NNA_CLIPBOARD_IMAGE_PATH/u);
-  assert.equal(observed.env.NNA_CLIPBOARD_IMAGE_PATH, target);
-  assert.equal(observed.path, target);
+  assert.notEqual(observed.env.NNA_CLIPBOARD_IMAGE_PATH, target);
+  assert.equal(observed.env.NNA_CLIPBOARD_IMAGE_PATH, observed.path);
+  assert.match(observed.path, /\.nna-clipboard-[a-f0-9-]+\.tmp$/u);
   assert.equal(observed.maxBytes, 2048);
   assert.equal(observed.capture, false);
 });

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
+import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { open, rm } from 'node:fs/promises';
+import { link, open, rm } from 'node:fs/promises';
 import { ContractError } from '../ids.js';
 
 const MAX_CLIPBOARD_BYTES = 100_000;
@@ -41,19 +42,27 @@ export class WindowsClipboardBroker {
 
   async readContent(path, maxBytes) {
     assertImageTarget(path, maxBytes, true);
-    const response = await this.#enqueue('read_content', { path: path ?? null, max_bytes: maxBytes });
-    if (response.kind !== 'image') {
-      const text = decodeText(response.content); assertTextBound(text);
-      return { kind: 'text', text };
+    const temporary = path ? ownedImagePath(path) : null;
+    try {
+      const response = await this.#enqueue('read_content', { path: temporary, max_bytes: maxBytes });
+      if (response.kind !== 'image') {
+        const text = decodeText(response.content); assertTextBound(text);
+        return { kind: 'text', text };
+      }
+      return { kind: 'image', ...await publishImage(temporary, path, maxBytes) };
+    } finally {
+      if (temporary) await rm(temporary, { force: true }).catch(() => undefined);
     }
-    return { kind: 'image', ...await validateImage(path, maxBytes) };
   }
 
   async readImage(path, maxBytes) {
     assertImageTarget(path, maxBytes);
-    const response = await this.#enqueue('read_image', { path, max_bytes: maxBytes });
-    if (response.kind !== 'image') throw new ContractError('clipboard_image_unavailable', 'the clipboard does not contain an image');
-    return validateImage(path, maxBytes);
+    const temporary = ownedImagePath(path);
+    try {
+      const response = await this.#enqueue('read_image', { path: temporary, max_bytes: maxBytes });
+      if (response.kind !== 'image') throw new ContractError('clipboard_image_unavailable', 'the clipboard does not contain an image');
+      return await publishImage(temporary, path, maxBytes);
+    } finally { await rm(temporary, { force: true }).catch(() => undefined); }
   }
 
   async close() {
@@ -191,16 +200,27 @@ async function validateImage(path, maxBytes) {
     if (bytesRead !== PNG_SIGNATURE.length || !signature.equals(PNG_SIGNATURE)) throw new Error('invalid PNG signature');
     return { path, mime_type: 'image/png', size: details.size };
   } catch (error) {
-    await handle?.close().catch(() => undefined);
-    handle = null;
-    if (path) await rm(path, { force: true }).catch(() => undefined);
     throw new ContractError('clipboard_image_invalid', 'clipboard image could not be encoded as a bounded PNG', { cause: error });
   } finally {
     await handle?.close().catch(() => undefined);
   }
 }
 
-function assertImageTarget(path, maxBytes, optional = false) {
+async function publishImage(temporary, path, maxBytes) {
+  const image = await validateImage(temporary, maxBytes);
+  try { await link(temporary, path); }
+  catch (error) {
+    if (error?.code === 'EEXIST') {
+      throw new ContractError('clipboard_image_path_invalid', 'clipboard image destination already exists', { cause: error });
+    }
+    throw error;
+  }
+  return { path, mime_type: image.mime_type, size: image.size };
+}
+
+function ownedImagePath(path) { return `${path}.nna-clipboard-${randomUUID()}.tmp`; }
+
+export function assertImageTarget(path, maxBytes, optional = false) {
   if ((!optional || path !== null && path !== undefined) && (typeof path !== 'string' || path.length === 0 || path.includes('\0'))) {
     throw new ContractError('clipboard_image_path_invalid', 'clipboard image destination must be a non-empty path');
   }
