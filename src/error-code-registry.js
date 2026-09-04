@@ -138,7 +138,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'learning_evidence_ineligible', 'learning_evidence_missing', 'learning_evidence_required',
     'learning_governance_required', 'learning_promotion_required', 'learning_store_required',
     'learning_timestamp_invalid', 'lifecycle_already_terminal', 'lifecycle_id_invalid',
-    'lifecycle_outcome_invalid', 'line_too_large', 'long_horizon_options_invalid',
+    'lifecycle_outcome_invalid', 'lifecycle_context_invalid', 'line_too_large', 'long_horizon_options_invalid',
     'long_horizon_records_invalid', 'maintenance_evidence_context_invalid', 'maintenance_evidence_settlement_failed',
     'malformed_json', 'missing_credential', 'missing_parent',
     'mission_authority_forbidden', 'mission_budget_history_incomplete', 'mission_credential_denied',

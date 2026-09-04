@@ -21,9 +21,9 @@ export async function persistEngineRecord(engine, type, payload) {
       ...correlation, durationMs: Number(process.hrtime.bigint() - started) / 1_000_000,
     });
   } catch (error) {
-    safeTelemetry(engine, 'failed', { record_type: type, code: error.code ?? 'persistence_failed' }, {
+    safeTelemetry(engine, 'failed', { record_type: type, code: error?.code ?? 'persistence_failed' }, {
       ...correlation, durationMs: Number(process.hrtime.bigint() - started) / 1_000_000,
-      reasonCode: error.code ?? 'persistence_failed',
+      reasonCode: error?.code ?? 'persistence_failed',
     });
     throw error;
   }

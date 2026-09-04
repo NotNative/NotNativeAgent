@@ -23,6 +23,8 @@ const INPUT_TYPES = new Set([
 ]);
 
 export function parseProtocolLine(line, limits = {}) {
+  if (typeof line !== 'string') throw new ContractError('malformed_json', 'input must be a text line');
+  limits = isRecord(limits) ? limits : {};
   const maxBytes = boundedProtocolLimit(limits.maxLineBytes, PROTOCOL_LIMITS.lineBytes);
   if (Buffer.byteLength(line, 'utf8') > maxBytes) {
     throw new ContractError('line_too_large', `input exceeds ${maxBytes} bytes`);

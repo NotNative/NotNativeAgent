@@ -35,6 +35,11 @@ export class StateAuthority {
   }
 
   transition(to, context) {
+    if (!context || typeof context !== 'object' || Array.isArray(context)
+      || typeof context.trigger !== 'string' || !context.trigger
+      || (context.turnId != null && typeof context.turnId !== 'string')) {
+      throw new ContractError('lifecycle_context_invalid', 'transition requires a trigger and optional text turn identity');
+    }
     const from = this.#state;
     const allowed = TRANSITIONS[from]?.includes(to) === true;
     const fact = Object.freeze({

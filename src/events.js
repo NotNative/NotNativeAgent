@@ -253,9 +253,8 @@ async function invokeBounded(item, event, parentSignal, observer) {
   });
   try {
     const settled = await Promise.race([operation, timeout, cancellation]);
-    if (settled.timeout || settled.cancelled || settled.error) {
-      throw settled.error ?? new Error(settled.cancelled ? 'subscriber cancelled' : 'subscriber timeout');
-    }
+    if (Object.hasOwn(settled, 'error')) throw settled.error;
+    if (settled.timeout || settled.cancelled) throw new Error(settled.cancelled ? 'subscriber cancelled' : 'subscriber timeout');
     assertOutputBound(settled.value, item.record.resourceBounds.maxOutputBytes);
     observe(observer, 'subscriberFinished', event, item.record, spanId, settled.value, elapsedMs(started));
     return settled.value;

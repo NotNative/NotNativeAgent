@@ -28,7 +28,11 @@ export function projectConversationWork(snapshot) {
 
 export function requireConversationWorkSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object' || !Array.isArray(snapshot.tasks)
-    || !Number.isSafeInteger(snapshot.revision)) {
+    || !Number.isSafeInteger(snapshot.revision) || snapshot.revision < 0
+    || (snapshot.goal !== null && (!snapshot.goal || typeof snapshot.goal.objective !== 'string'
+      || !['active', 'completed', 'blocked'].includes(snapshot.goal.status)))
+    || snapshot.tasks.some((task) => !task || typeof task.id !== 'string' || typeof task.title !== 'string'
+      || !['pending', 'in_progress', 'completed', 'blocked'].includes(task.status))) {
     throw new ContractError('work_snapshot_invalid', 'conversation work returned an invalid snapshot');
   }
 }
