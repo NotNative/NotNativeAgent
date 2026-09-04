@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { rename, unlink, writeFile } from 'node:fs/promises';
+import { open, rename, unlink } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { redactExtensionData, redactText } from './redaction.js';
 
 const MAX_ITEM = 1_024;
@@ -13,12 +14,15 @@ export async function writeTaskCheckpoint(engine, fact) {
   const path = taskCheckpointPath(engine);
   if (!path) return null;
   const content = renderTaskCheckpoint(engine, fact);
-  const temporary = `${path}.tmp-${process.pid}-${Date.now()}`;
+  const temporary = `${path}.tmp-${process.pid}-${randomUUID()}`;
+  let owned = false;
   try {
-    await writeFile(temporary, content, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+    const handle = await open(temporary, 'wx', 0o600);
+    owned = true;
+    try { await handle.writeFile(content, 'utf8'); } finally { await handle.close(); }
     await rename(temporary, path);
   } catch (error) {
-    try { await unlink(temporary); } catch (cleanupError) {
+    try { if (owned) await unlink(temporary); } catch (cleanupError) {
       if (cleanupError.code !== 'ENOENT' && Object.isExtensible(error)) {
         error.secondaryFailures = [...(error.secondaryFailures ?? []), cleanupError];
       }
@@ -46,7 +50,8 @@ export function renderTaskCheckpoint(engine, fact) {
     '',
     safe(work?.goal?.objective ?? continuation.objective ?? '(not recorded)'),
   ];
-  addList(lines, 'Current tasks', work?.tasks?.map(taskLine) ?? []);
+  addList(lines, 'Current tasks', Array.isArray(work?.tasks) ? work.tasks.map(taskLine)
+    : work?.tasks == null ? [] : ['(task state unavailable)']);
   addList(lines, 'Recent directives', continuation.recentDirectives);
   addList(lines, 'Completed work', continuation.completedWork);
   addList(lines, 'Changed files', continuation.changedFiles?.map(fileLine));
@@ -65,6 +70,9 @@ function addList(lines, title, values = []) {
 }
 
 function taskLine(task) {
+  if (!task || typeof task.status !== 'string' || typeof task.id !== 'string' || typeof task.title !== 'string') {
+    return '[unknown] (invalid task record)';
+  }
   const detail = task.evidence ?? task.blockedReason;
   return `[${task.status}] ${task.id}: ${task.title}${detail ? ` - ${detail}` : ''}`;
 }

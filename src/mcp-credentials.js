@@ -17,6 +17,7 @@ const ERROR = Object.freeze({
 });
 
 export function managedMcpCredentialReference(serverId) {
+  if (typeof serverId !== 'string' || !serverId.trim() || serverId.length > 128 || /[\u0000-\u001f\u007f]/u.test(serverId)) throw invalidStore();
   const stem = String(serverId).toUpperCase().replaceAll(/[^A-Z0-9]+/gu, '_').replaceAll(/^_+|_+$/gu, '').slice(0, 40) || 'SERVER';
   const digest = createHash('sha256').update(String(serverId)).digest('hex').slice(0, 12).toUpperCase();
   return `${PREFIX}${stem}_${digest}_TOKEN`;
@@ -67,10 +68,6 @@ export async function deleteManagedMcpCredential(paths, reference, environment =
 export async function loadManagedMcpCredentials(paths, environment = process.env) {
   const document = await readStore(paths.mcpCredentials);
   const entries = Object.entries(document.credentials);
-  for (const [reference, token] of entries) {
-    if (!isManagedMcpCredentialReference(reference)) throw invalidStore();
-    validateToken(token, ERROR.invalidStore);
-  }
   const applied = [];
   try {
     for (const [reference, token] of entries) {
@@ -97,14 +94,20 @@ async function readStore(path) {
   catch (error) { throw invalidStore(error); }
   if (document?.format_version !== 1 || !document.credentials || typeof document.credentials !== 'object' || Array.isArray(document.credentials)) throw invalidStore();
   if (Object.keys(document.credentials).length > MAX_CREDENTIALS) throw invalidStore();
+  for (const [reference, token] of Object.entries(document.credentials)) {
+    if (!isManagedMcpCredentialReference(reference)) throw invalidStore();
+    validateToken(token, ERROR.invalidStore);
+  }
   return document;
 }
 
 async function persistStore(path, credentials) {
+  const content = `${JSON.stringify({ format_version: 1, credentials }, null, 2)}\n`;
+  if (Buffer.byteLength(content, 'utf8') > MAX_FILE_BYTES) throw new ContractError(ERROR.full, 'MCP credential store reached its byte limit');
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   const temporary = `${path}.tmp-${process.pid}-${randomUUID()}`;
   try {
-    await writeFile(temporary, `${JSON.stringify({ format_version: 1, credentials }, null, 2)}\n`, {
+    await writeFile(temporary, content, {
       flag: 'wx', mode: 0o600,
     });
     await rename(temporary, path);
@@ -125,13 +128,14 @@ function invalidStore(cause) {
 }
 
 async function mutateStore(path, operation) {
+  if (typeof path !== 'string' || !path) throw invalidStore();
+  const lock = new SessionLock(dirname(path), 'mcp-credentials');
   const prior = PATH_TAILS.get(path) ?? Promise.resolve();
   let releaseTurn;
   const turn = new Promise((resolveTurn) => { releaseTurn = resolveTurn; });
   PATH_TAILS.set(path, turn);
-  await prior;
-  const lock = new SessionLock(dirname(path), 'mcp-credentials');
   try {
+    await prior;
     await acquireStoreLock(lock);
     return await operation(await readStore(path));
   } finally {

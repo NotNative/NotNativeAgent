@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomUUID } from 'node:crypto';
-import { copyFile, link, mkdir, open, rename, rm } from 'node:fs/promises';
+import { copyFile, link, mkdir, open, rename, rm, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { ContractError } from '../ids.js';
 
@@ -28,8 +28,16 @@ export async function persistAtomicJsonIfAbsent(path, value, options = {}) {
 }
 
 export async function quarantineMalformedJson(path, label, code, options = {}) {
-  const quarantine = `${path}.corrupt-${options.timestamp ?? Date.now()}`;
-  try { await rename(path, quarantine); }
+  let quarantine = `${path}.corrupt-${options.timestamp ?? Date.now()}`;
+  try {
+    try { await link(path, quarantine); }
+    catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      quarantine = `${quarantine}-${randomUUID()}`;
+      await link(path, quarantine);
+    }
+    await unlink(path);
+  }
   catch (error) {
     if (error.code === 'ENOENT') throw new ContractError(code, `${label} is malformed and disappeared before it could be quarantined`, { cause: error });
     throw new ContractError(code, `${label} is malformed and could not be quarantined safely`, { cause: error });

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from 'node:fs/promises';
+import { open } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
@@ -17,13 +17,18 @@ const KEYS = new Set([
 export class NnmGovernanceReceipts {
   constructor(options = {}) {
     this.path = options.path ?? userDataPaths().nnmGovernanceReceipts;
-    this.read = options.read ?? readFile;
+    this.read = options.read ?? readReceiptFile;
     this.lastMalformedLines = 0;
   }
 
   async matching(input) {
     if (!input || typeof input !== 'object' || typeof input.workspaceRoot !== 'string' || !input.workspaceRoot) {
       throw new ContractError('nnm_receipt_query_invalid', 'NNM receipt matching requires a workspace root');
+    }
+    for (const values of [input.turnIds ?? [], input.sessionIds ?? []]) {
+      if (!Array.isArray(values) || values.some((value) => typeof value !== 'string' || !value)) {
+        throw new ContractError('nnm_receipt_query_invalid', 'NNM receipt identifiers must be arrays of non-empty strings');
+      }
     }
     const turns = new Set(input.turnIds ?? []);
     const sessions = new Set(input.sessionIds ?? []);
@@ -48,6 +53,22 @@ export class NnmGovernanceReceipts {
     this.lastMalformedLines = malformedLines;
     return Object.freeze([...found.values()]);
   }
+}
+
+async function readReceiptFile(path) {
+  const handle = await open(path, 'r');
+  try {
+    if ((await handle.stat()).size > MAX_BYTES) throw new ContractError('nnm_receipts_too_large', 'NNM governance receipt journal exceeds 4 MiB');
+    const buffer = Buffer.alloc(MAX_BYTES + 1);
+    let length = 0;
+    while (length < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, length, buffer.length - length, null);
+      if (bytesRead === 0) break;
+      length += bytesRead;
+    }
+    if (length > MAX_BYTES) throw new ContractError('nnm_receipts_too_large', 'NNM governance receipt journal exceeds 4 MiB');
+    return buffer.subarray(0, length).toString('utf8');
+  } finally { await handle.close(); }
 }
 
 function normalize(value) {
