@@ -17,9 +17,12 @@ export function captureReasoningContinuation(active, calls = []) {
     providerProfile: active.providerResource, model: active.modelName,
     reasoningContent: text,
   });
-  active.reasoningContinuations ??= [];
+  if (!Array.isArray(active.reasoningContinuations)) active.reasoningContinuations = [];
   active.reasoningContinuations.push(entry);
   if (active.reasoningContinuations.length > 64) active.reasoningContinuations.splice(0, active.reasoningContinuations.length - 64);
+  if (!active.enrichment || typeof active.enrichment !== 'object' || Array.isArray(active.enrichment)) {
+    active.enrichment = {};
+  }
   active.enrichment.reasoningContinuations = active.reasoningContinuations;
   return true;
 }

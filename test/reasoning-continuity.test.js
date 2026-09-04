@@ -42,6 +42,22 @@ test('same-route private reasoning continues across a tool boundary without ente
   assert.doesNotMatch(JSON.stringify(transcript), /private implementation plan/u);
 });
 
+test('reasoning capture repairs absent continuation enrichment containers', () => {
+  for (const active of [
+    { enrichment: undefined, reasoningContinuations: undefined },
+    { enrichment: null, reasoningContinuations: null },
+    { enrichment: [], reasoningContinuations: {} },
+  ]) {
+    Object.assign(active, {
+      stepId: 'step-1', providerResource: 'local', modelName: 'model',
+      stepReasoningText: 'private plan', stepReasoningReplayable: true,
+    });
+    assert.equal(captureReasoningContinuation(active, [{ providerCallId: 'call-1' }]), true);
+    assert.equal(Array.isArray(active.reasoningContinuations), true);
+    assert.equal(active.enrichment.reasoningContinuations, active.reasoningContinuations);
+  }
+});
+
 test('one model step replays text, reasoning, and parallel tool calls as one assistant message', () => {
   const transcript = [
     { type: 'message', role: 'assistant', content: 'Checking both files.', trust: 'model', turnId: 'turn-1', stepId: 'step-1' },
