@@ -41,7 +41,7 @@ export function satisfiesFilesystemPrerequisite(item, prerequisite) {
   const candidate = item.request?.args?.path ?? item.call?.args?.path;
   if (typeof candidate !== 'string') return false;
   const required = comparablePath(prerequisite.required_path);
-  if (['fs_directory', 'fs_create_directory', 'fs_list', 'fs.list_directory'].includes(tool)) return comparablePath(candidate) === required;
+  if (['fs_directory', 'fs_create_directory', 'fs_list', 'fs_list_directory'].includes(tool)) return comparablePath(candidate) === required;
   return DIRECT_CHILD_PROOF_TOOLS.has(tool) && comparablePath(dirname(resolve(candidate))) === required;
 }
 

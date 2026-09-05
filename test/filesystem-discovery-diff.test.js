@@ -24,9 +24,9 @@ test('fs_glob and fs_search_text discover bounded files without a platform shell
   assert.equal(globResult.metadata.matches, 1);
   assert.equal((await glob.validate({ path: '  ', pattern: '**/*.js' })).args.path, '.');
 
-  const listRequest = await registry.definition('fs.list_directory').validate({ path: '', depth: 1 });
+  const listRequest = await registry.definition('fs_list_directory').validate({ path: '', depth: 1 });
   assert.equal(listRequest.args.path, '.');
-  assert.match((await registry.definition('fs.list_directory').executor(listRequest, new AbortController().signal)).content, /directory\tsrc/u);
+  assert.match((await registry.definition('fs_list_directory').executor(listRequest, new AbortController().signal)).content, /directory\tsrc/u);
 
   const search = registry.definition('fs_search_text');
   const searchRequest = await search.validate({ query: 'needle', file_glob: '**/*', max_results: 10 });
@@ -83,8 +83,8 @@ test('filesystem discovery schemas explain path and treat missing roots as negat
   assert.match(search.inputSchema.properties.path.description, /Exact file or root directory/u);
   assert.match(search.inputSchema.properties.query.description, /Required literal text/u);
   assert.match(search.inputSchema.properties.file_glob.description, /exact file/u);
-  assert.match(registry.definition('fs.list_directory').purpose, /not an existence probe/u);
-  await assert.rejects(registry.definition('fs.list_directory').validate({ path: 'missing-directory' }), {
+  assert.match(registry.definition('fs_list_directory').purpose, /not an existence probe/u);
+  await assert.rejects(registry.definition('fs_list_directory').validate({ path: 'missing-directory' }), {
     code: 'tool_directory_not_found',
     message: /list its parent to discover available names/u,
   });

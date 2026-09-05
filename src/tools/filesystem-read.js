@@ -184,7 +184,7 @@ function observedFileReferences(references, path, receipt, coverage) {
 
 function listDefinition(paths) {
   return {
-    name: 'fs.list_directory', version: 1,
+    name: 'fs_list_directory', version: 1,
     purpose: 'Enumerate the children of an existing directory as a bounded tree. This is not an existence probe: list the parent to discover whether a child exists. Relative paths start at the working directory; root NNA may use absolute host paths.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
@@ -201,7 +201,7 @@ function listDefinition(paths) {
         if (error?.code !== 'ENOENT') throw error;
         throw new ContractError(
           'tool_directory_not_found',
-          `directory does not exist: ${path}. fs.list_directory enumerates an existing directory and is not an existence probe; list its parent to discover available names, or use fs_create_directory when the task requires creating it`,
+          `directory does not exist: ${path}. fs_list_directory enumerates an existing directory and is not an existence probe; list its parent to discover available names, or use fs_create_directory when the task requires creating it`,
         );
       }
       return { args: { path, depth: args.depth ?? 2 }, resolved };

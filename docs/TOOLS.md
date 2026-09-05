@@ -92,7 +92,7 @@ The canonical model-facing filesystem tools are:
   content-free in the review packet and cannot authorize another operation. Existing files
   outside the workspace still require an explicit `fs_read` receipt.
 
-The granular `fs.list_directory`, `fs_glob`, `fs.metadata`, `fs.read_text`, `fs.read_lines`,
+The granular `fs_list_directory`, `fs_glob`, `fs.metadata`, `fs.read_text`, `fs.read_lines`,
 `fs_create_directory`, `fs_edit_lines`, `fs_copy_file`, `fs.move_file`, and `fs_delete_file`
 definitions remain installed for compatibility and specialist/internal workflows. They are
 not competing choices in a fresh model-facing catalog.

@@ -29,7 +29,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   const expected = availableFoundation(registry);
   assert.deepEqual(baseline, expected);
   assert.equal(baseline[0], 'tool_search');
-  assert.ok(!baseline.includes('fs.list_directory'));
+  assert.ok(!baseline.includes('fs_list_directory'));
   assert.ok(!baseline.includes('fs.read_text'));
   assert.ok(!baseline.includes('fs_edit_text'));
   assert.ok(!baseline.includes('fs.write_text'));
@@ -140,6 +140,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['filesystem edit lines', 'fs.edit_lines', 'fs_edit_lines'],
     ['filesystem edit text', 'fs.edit_text', 'fs_edit_text'],
     ['filesystem glob', 'fs.glob', 'fs_glob'],
+    ['filesystem list directory', 'fs.list_directory', 'fs_list_directory'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
