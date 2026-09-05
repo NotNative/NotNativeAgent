@@ -122,7 +122,7 @@ export class UnavailableSemanticReviewer {
 function classify(request, definition) {
   if (!definition || request.toolName !== definition.name) return definitionMismatchClassification();
   if (definition.name === 'workspace.change') return workspaceTransitionClassification(resolvedOutsideWorkspace(request));
-  if (definition.name === 'fs.directory' && request.args?.action === 'list') {
+  if (definition.name === 'fs_directory' && request.args?.action === 'list') {
     return Object.freeze({
       risk: 'safe', reason: resolvedOutsideWorkspace(request) ? 'host_read' : 'workspace_read',
       effect: 'read_only', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
@@ -215,7 +215,7 @@ function definitionMismatchClassification() {
 }
 
 function directoryRemovalClassification(request, definition) {
-  if (definition.name !== 'fs.directory' || request.args?.action !== 'remove') return null;
+  if (definition.name !== 'fs_directory' || request.args?.action !== 'remove') return null;
   return Object.freeze({
     risk: 'review_required', reason: request.args?.recursive ? 'recursive_directory_removal' : 'directory_removal',
     effect: 'irreversible', scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
@@ -344,7 +344,7 @@ function decision(outcome, reasonCode, request, guidance) {
 function authenticatedIntentRelation(request, authority, definition) {
   // Security: only semantic review interprets authenticated authority for a scope transition.
   if (request.toolName === 'workspace.change') return 'uncertain';
-  if (request.toolName === 'fs.directory' && request.args?.action === 'list') return 'covered';
+  if (request.toolName === 'fs_directory' && request.args?.action === 'list') return 'covered';
   if (definition.sideEffect === 'read_only') return 'covered';
   // Why: free-form authenticated language is authoritative evidence, but its
   // meaning is not a mechanical fact. Structured mission ceilings are checked
@@ -366,8 +366,8 @@ function missionBoundaryViolation(request, definition, mission) {
 }
 
 function effectiveSideEffect(request, definition) {
-  if (definition.name === 'fs.directory' && request.args?.action === 'list') return 'read_only';
-  return definition.name === 'fs.directory' && request.args?.action === 'remove' ? 'irreversible' : definition.sideEffect;
+  if (definition.name === 'fs_directory' && request.args?.action === 'list') return 'read_only';
+  return definition.name === 'fs_directory' && request.args?.action === 'remove' ? 'irreversible' : definition.sideEffect;
 }
 function effectiveScope(request, definition) {
   // Security: a workspace working directory does not constrain an administrator process.

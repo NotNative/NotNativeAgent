@@ -109,7 +109,7 @@ function listDefinition(paths) {
 
 function directoryDefinition(paths, list) {
   return {
-    name: 'fs.directory', version: 1,
+    name: 'fs_directory', version: 1,
     purpose: 'List the immediate children of, create, or remove one accessible directory. Create is recursive and idempotent. Removal is bounded and revalidated.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 30_000,
     inputSchema: objectSchema({
@@ -127,7 +127,7 @@ async function validateDirectoryArgs(args, paths, list) {
   shape(args, ['action', 'path'], ['recursive']);
   if (!['list', 'create', 'remove'].includes(args.action) || (args.recursive !== undefined && typeof args.recursive !== 'boolean')
     || (args.action === 'list' && args.recursive !== undefined)) {
-    throw invalid('fs.directory action or recursive value is invalid');
+    throw invalid('fs_directory action or recursive value is invalid');
   }
   if (args.action === 'list') {
     const listed = await list.validate({ path: args.path, depth: 1, max_results: 200 });

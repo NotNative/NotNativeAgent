@@ -359,20 +359,20 @@ test('conversational wording cannot revoke deterministic safe-tool eligibility',
   assert.equal(result.reasonCode, 'deterministic_safe');
 });
 
-test('fs.directory list is governed as a deterministic read despite sharing a mutation tool', async () => {
+test('fs_directory list is governed as a deterministic read despite sharing a mutation tool', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'directory-list-read' });
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1; throw new Error('semantic review should not run');
   } } });
   const request = {
-    ...readRequest('directory-list'), toolName: 'fs.directory', args: { action: 'list', path: 'src' },
+    ...readRequest('directory-list'), toolName: 'fs_directory', args: { action: 'list', path: 'src' },
     resolved: { path: 'D:/workspace/src', insideWorkspace: true },
   };
   const result = await reviewer.review(request, {
     ...context,
     authority: { ...context.authority, intent: [{ content: 'Inspect the src directory.', sequence: 1 }] },
-    definition: { name: 'fs.directory', sideEffect: 'reversible', scope: 'workspace' },
+    definition: { name: 'fs_directory', sideEffect: 'reversible', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'deterministic_safe');

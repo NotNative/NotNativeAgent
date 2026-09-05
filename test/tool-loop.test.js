@@ -226,7 +226,7 @@ test('read-only behavior is supervised from tool metadata and work updates count
   const active = { observableStateRevision: 0, readOnlyBatchStreak: 0 };
   const definitions = new Map([
     ['fs_read', { sideEffect: 'read_only' }], ['work_plan', { sideEffect: 'reversible' }],
-    ['fs.directory', { sideEffect: 'reversible' }], ['shell_run', { sideEffect: 'unknown' }],
+    ['fs_directory', { sideEffect: 'reversible' }], ['shell_run', { sideEffect: 'unknown' }],
   ]);
   const definitionFor = (name) => definitions.get(name);
   for (let count = 1; count <= 12; count += 1) {
@@ -238,7 +238,7 @@ test('read-only behavior is supervised from tool metadata and work updates count
   }
   observeToolState(active, [{
     request: { args: { action: 'list', path: '.' } },
-    result: { status: 'succeeded', tool_name: 'fs.directory' },
+    result: { status: 'succeeded', tool_name: 'fs_directory' },
   }], definitionFor);
   assert.equal(active.readOnlyBatchStreak, 13);
   assert.equal(active.observableStateRevision, 0);
@@ -261,13 +261,13 @@ test('filesystem failures share a missing-ancestor fingerprint and require that 
     call: { name: tool, args: { path } },
     result: {
       status: 'invalid_request', tool_name: tool, reason_code: 'tool_parent_missing',
-      content: 'parent directory is missing; create exactly this directory first with fs.directory: "src/shaders"\nCall fs.directory with action create; it creates the complete path and missing ancestors recursively.',
+      content: 'parent directory is missing; create exactly this directory first with fs_directory: "src/shaders"\nCall fs_directory with action create; it creates the complete path and missing ancestors recursively.',
     },
   });
   const writeFailure = failed('fs.write_text', 'src/shaders/ocean.js');
-  const directoryFailure = failed('fs.directory', 'src/shaders');
+  const directoryFailure = failed('fs_directory', 'src/shaders');
   assert.equal(toolFailureFingerprint([writeFailure]), toolFailureFingerprint([directoryFailure]));
-  assert.match(toolContinuationHint([writeFailure]), /next filesystem mutation[^]*fs\.directory[^]*\{"action":"create","path":"src\/shaders"\}[^]*complete path recursively[^]*do not retry the blocked file operation/iu);
+  assert.match(toolContinuationHint([writeFailure]), /next filesystem mutation[^]*fs_directory[^]*\{"action":"create","path":"src\/shaders"\}[^]*complete path recursively[^]*do not retry the blocked file operation/iu);
 });
 
 test('unrelated successful inspection is not progress while a filesystem prerequisite is active', () => {
@@ -275,11 +275,11 @@ test('unrelated successful inspection is not progress while a filesystem prerequ
     request: { args: { path: '.' } },
     result: { status: 'succeeded', tool_name: 'fs_list', content: 'package.json' },
   };
-  const constraint = { kind: 'prerequisite_repair', required_tool: 'fs.directory', required_path: 'src' };
+  const constraint = { kind: 'prerequisite_repair', required_tool: 'fs_directory', required_path: 'src' };
   assert.equal(toolProgressEvidence([listing], [], { constraints: [constraint] }), null);
   const repair = {
     request: { args: { action: 'create', path: 'src' } },
-    result: { status: 'succeeded', tool_name: 'fs.directory', content: 'directory created' },
+    result: { status: 'succeeded', tool_name: 'fs_directory', content: 'directory created' },
   };
   assert.equal(toolProgressEvidence([repair], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
   const verified = {
@@ -747,11 +747,11 @@ test('typed prerequisite recovery exposes its exact tool on the next provider st
     { name: 'fs_copy_file', args: { source: 'source.txt', destination: 'missing/file.txt' } },
     (request) => {
       const visible = request.tools.map((item) => item.function.name);
-      assert.ok(visible.includes('fs.directory'));
+      assert.ok(visible.includes('fs_directory'));
       assert.ok(!visible.includes('fs_copy_file'));
       const constraint = request.messages.find((item) => item.role === 'system'
         && item.content.includes('Active tool constraints'));
-      assert.match(constraint.content, /"required_tool":"fs\.directory"/u);
+      assert.match(constraint.content, /"required_tool":"fs_directory"/u);
       assert.match(constraint.content, /"required_path":"missing"/u);
     },
   );
@@ -950,8 +950,8 @@ test('registry exposes workspace operations and packaged self-guidance', async (
     .find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
-    'code_diagnostics', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
-    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
+    'code_diagnostics', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
+    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);

@@ -74,7 +74,7 @@ The canonical model-facing filesystem tools are:
   exactly what was observed. Its public arguments are only `path`, `start_line`, and
   `line_count`; complete-file versus numbered-window selection is internal metadata, not a
   model-facing `mode` argument.
-- `fs.directory`: create or remove a directory. Creation is recursive and idempotent by
+- `fs_directory`: create or remove a directory. Creation is recursive and idempotent by
   default. Removal is non-recursive unless requested and remains review-required and bounded.
   Filesystem roots, the home directory, the active workspace root and its ancestors, and the
   NNA data root cannot be mutation targets. The canonical arguments are `action` and `path`;

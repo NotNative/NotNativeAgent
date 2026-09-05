@@ -183,7 +183,7 @@ export function advanceWorkCadence(active) {
 }
 
 const OBSERVABLE_MUTATIONS = new Set([
-  'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.directory', 'fs_create_directory',
+  'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs_directory', 'fs_create_directory',
   'fs_copy_file', 'fs.move_file', 'fs_delete_file', 'process_run', 'shell_run',
   'work_plan', 'work_goal', 'work_task_add', 'work_task_update',
 ]);
@@ -201,7 +201,7 @@ export function observeToolState(active, items, definitionFor = () => null) {
   const mutated = succeeded.some((item) => {
     const name = item.result?.tool_name ?? item.request?.toolName ?? item.call?.name;
     if (item.request?.resolved?.readOnly === true) return false;
-    if (name === 'fs.directory' && (item.request?.args?.action ?? item.call?.args?.action) === 'list') return false;
+    if (name === 'fs_directory' && (item.request?.args?.action ?? item.call?.args?.action) === 'list') return false;
     return OBSERVABLE_MUTATIONS.has(name) || definitionFor(name)?.sideEffect !== 'read_only';
   });
   if (mutated) {
@@ -210,7 +210,7 @@ export function observeToolState(active, items, definitionFor = () => null) {
   } else if (succeeded.length > 0 && succeeded.every((item) => {
     const name = item.result?.tool_name ?? item.request?.toolName ?? item.call?.name;
     return item.request?.resolved?.readOnly === true
-      || (name === 'fs.directory' && (item.request?.args?.action ?? item.call?.args?.action) === 'list')
+      || (name === 'fs_directory' && (item.request?.args?.action ?? item.call?.args?.action) === 'list')
       || definitionFor(name)?.sideEffect === 'read_only';
   })) {
     active.readOnlyBatchStreak = (active.readOnlyBatchStreak ?? 0) + 1;

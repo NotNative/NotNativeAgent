@@ -18,9 +18,9 @@ async function fixture(options = {}) {
 test('canonical filesystem tools list names, read snapshots, and preserve content-search separation', async () => {
   const item = await fixture();
   try {
-    const directory = item.registry.definition('fs.directory');
+    const directory = item.registry.definition('fs_directory');
     const create = await directory.validate({ action: 'create', path: 'src/components/widgets' });
-    await directory.executor({ ...create, toolName: 'fs.directory' }, new AbortController().signal);
+    await directory.executor({ ...create, toolName: 'fs_directory' }, new AbortController().signal);
     await writeFile(join(item.root, 'src', 'components', 'widgets', 'button.js'), 'export const marker = true;\n');
 
     const list = item.registry.definition('fs_list');
@@ -45,10 +45,10 @@ test('canonical filesystem tools list names, read snapshots, and preserve conten
   } finally { await item.close(); }
 });
 
-test('fs.directory removes only reviewed bounded trees and refuses protected workspace roots', async () => {
+test('fs_directory removes only reviewed bounded trees and refuses protected workspace roots', async () => {
   const item = await fixture();
   try {
-    const directory = item.registry.definition('fs.directory');
+    const directory = item.registry.definition('fs_directory');
     await assert.rejects(directory.validate({ action: 'remove', path: '.', recursive: true }), { code: 'tool_protected_path' });
     const create = await directory.validate({ action: 'create', path: 'empty/nested' });
     await directory.executor(create, new AbortController().signal);
@@ -67,7 +67,7 @@ test('directory listing is intuitive, one level deep, and default tree skips are
     await writeFile(join(item.root, 'src', 'top.js'), 'top');
     await writeFile(join(item.root, 'src', 'nested', 'deep.js'), 'deep');
 
-    const directory = item.registry.definition('fs.directory');
+    const directory = item.registry.definition('fs_directory');
     const requested = await directory.validate({ operation: 'list', directory_path: '.' });
     assert.deepEqual(requested.publicArgs, { action: 'list', path: '.' });
     const immediate = await directory.executor(requested, new AbortController().signal);
@@ -94,7 +94,7 @@ test('directory listing is intuitive, one level deep, and default tree skips are
 test('filesystem mutations accept unambiguous common argument spellings and retain canonical sealed requests', async () => {
   const item = await fixture();
   try {
-    const directory = item.registry.definition('fs.directory');
+    const directory = item.registry.definition('fs_directory');
     const created = await directory.validate({ operation: 'create', directoryPath: 'src/generated' });
     assert.deepEqual(created.args, { action: 'create', path: 'src/generated', recursive: true });
     await directory.executor(created, new AbortController().signal);
