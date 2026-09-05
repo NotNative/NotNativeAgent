@@ -137,6 +137,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['filesystem create directory', 'fs.create_directory', 'fs_create_directory'],
     ['filesystem delete file', 'fs.delete_file', 'fs_delete_file'],
     ['filesystem directory', 'fs.directory', 'fs_directory'],
+    ['filesystem edit lines', 'fs.edit_lines', 'fs_edit_lines'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

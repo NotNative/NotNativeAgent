@@ -239,7 +239,7 @@ export class ToolRegistry {
       }
       return;
     }
-    if (name === 'fs.edit_lines' || (name === 'fs.edit_text' && normalized.args.edit_mode === 'lines')) {
+    if (name === 'fs_edit_lines' || (name === 'fs.edit_text' && normalized.args.edit_mode === 'lines')) {
       this.#readReceipts.require(target, normalized.args.expected_sha256, {
         start: normalized.args.start_line, end: normalized.args.end_line,
       });
@@ -345,7 +345,7 @@ async function executeFullWrite(paths, receipts, request, signal, changes) {
 }
 function editLinesDefinition(paths, changes, receipts) {
   return {
-    name: 'fs.edit_lines', version: 3,
+    name: 'fs_edit_lines', version: 3,
     purpose: 'Replace one inclusive line range in an existing UTF-8 file after snapshot revalidation.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({

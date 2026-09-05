@@ -134,13 +134,13 @@ test('filesystem mutations accept unambiguous common argument spellings and reta
 test('exact-text and line-range edits expose separate unambiguous contracts', async () => {
   const item = await fixture();
   try {
-    item.registry.grantWorkflowLease(['fs.edit_text', 'fs.edit_lines']);
+    item.registry.grantWorkflowLease(['fs.edit_text', 'fs_edit_lines']);
     const exposed = item.registry.providerDefinitions('edit a project file', { phase: 'action' })
       .find((entry) => entry.function.name === 'fs.edit_text').function.parameters;
     assert.deepEqual(exposed.required, ['path', 'find', 'content']);
     assert.deepEqual(Object.keys(exposed.properties), ['path', 'content', 'find', 'all']);
     const lineExposed = item.registry.providerDefinitions('edit a project file', { phase: 'action' })
-      .find((entry) => entry.function.name === 'fs.edit_lines').function.parameters;
+      .find((entry) => entry.function.name === 'fs_edit_lines').function.parameters;
     assert.deepEqual(lineExposed.required, ['path', 'start_line', 'end_line', 'replacement']);
     assert.deepEqual(Object.keys(lineExposed.properties), ['path', 'start_line', 'end_line', 'replacement']);
 
@@ -153,7 +153,7 @@ test('exact-text and line-range edits expose separate unambiguous contracts', as
     await edit.executor(exact, new AbortController().signal);
     assert.equal(await readFile(path, 'utf8'), 'ONE\nTWO\r\nthree\r\n');
 
-    const lineEdit = item.registry.definition('fs.edit_lines');
+    const lineEdit = item.registry.definition('fs_edit_lines');
     const lines = await lineEdit.validate({ path: 'editable.txt', start_line: 2, end_line: 2, replacement: 'SECOND' });
     assert.deepEqual([lines.args.start_line, lines.args.end_line], [2, 2]);
     await lineEdit.executor(lines, new AbortController().signal);
@@ -161,7 +161,7 @@ test('exact-text and line-range edits expose separate unambiguous contracts', as
   } finally { await item.close(); }
 });
 
-test('fs.edit_text rejects line selectors and fs.edit_lines revalidates content after review', async () => {
+test('fs.edit_text rejects line selectors and fs_edit_lines revalidates content after review', async () => {
   const item = await fixture();
   try {
     const path = join(item.root, 'editable.txt');
@@ -174,7 +174,7 @@ test('fs.edit_text rejects line selectors and fs.edit_lines revalidates content 
     const read = item.registry.definition('fs_read');
     const observed = await read.validate({ path: 'editable.txt', start_line: 1, line_count: 3 });
     await read.executor(observed, new AbortController().signal);
-    const lineEdit = item.registry.definition('fs.edit_lines');
+    const lineEdit = item.registry.definition('fs_edit_lines');
     const prepared = await lineEdit.validate({ path: 'editable.txt', start_line: 2, end_line: 2, replacement: 'TWO' });
     await writeFile(path, 'one\nexternally changed\nthree\n', 'utf8');
     await assert.rejects(lineEdit.executor(prepared, new AbortController().signal), { code: 'tool_revalidation_drift' });

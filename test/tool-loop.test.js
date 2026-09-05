@@ -950,8 +950,8 @@ test('registry exposes workspace operations and packaged self-guidance', async (
     .find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
-    'code_diagnostics', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
-    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
+    'code_diagnostics', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
+    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
@@ -1052,15 +1052,15 @@ test('numbered reads authorize anchored edits only inside the displayed snapshot
     stepId: 'step', caller: 'primary', surface: 'test',
   };
   const edit = await registry.seal({
-    providerCallId: 'anchored-visible', name: 'fs.edit_lines',
+    providerCallId: 'anchored-visible', name: 'fs_edit_lines',
     args: { path: 'target.txt', start_line: 2, end_line: 3, replacement: 'TWO\nTHREE' },
   }, context);
-  await registry.definition('fs.edit_lines').executor(edit, new AbortController().signal);
+  await registry.definition('fs_edit_lines').executor(edit, new AbortController().signal);
   assert.equal(await readFile(join(root, 'target.txt'), 'utf8'), 'one\nTWO\nTHREE\nfour\n');
 
   await writeFile(join(root, 'target.txt'), before, 'utf8');
   await assert.rejects(registry.seal({
-    providerCallId: 'anchored-unseen', name: 'fs.edit_lines',
+    providerCallId: 'anchored-unseen', name: 'fs_edit_lines',
     args: { path: 'target.txt', start_line: 4, end_line: 4, replacement: 'FOUR' },
   }, context), { code: 'read_receipt_required' });
 });
@@ -1076,12 +1076,12 @@ test('anchored line edits recover across an unrelated unambiguous line shift', a
   await writeFile(path, `new preface\n${before}`, 'utf8');
   const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
   const sealed = await registry.seal({
-    providerCallId: 'shifted-lines', name: 'fs.edit_lines',
+    providerCallId: 'shifted-lines', name: 'fs_edit_lines',
     args: { path: 'target.txt', start_line: 2, end_line: 3, replacement: 'changed one\nchanged two' },
   }, context);
   assert.deepEqual([sealed.args.start_line, sealed.args.end_line], [3, 4]);
   assert.notEqual(sealed.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
-  await registry.definition('fs.edit_lines').executor(sealed, new AbortController().signal);
+  await registry.definition('fs_edit_lines').executor(sealed, new AbortController().signal);
   assert.equal(await readFile(path, 'utf8'), 'new preface\nheader\nchanged one\nchanged two\nfooter\n');
 });
 
@@ -1096,7 +1096,7 @@ test('stale line recovery rejects an ambiguous live mapping', async () => {
   await writeFile(path, `${before}${before}`, 'utf8');
   const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
   await assert.rejects(registry.seal({
-    providerCallId: 'ambiguous-lines', name: 'fs.edit_lines',
+    providerCallId: 'ambiguous-lines', name: 'fs_edit_lines',
     args: { path: 'target.txt', start_line: 2, end_line: 2, replacement: 'changed' },
   }, context), { code: 'tool_revalidation_drift' });
 });
