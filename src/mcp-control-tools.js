@@ -16,7 +16,7 @@ export function mcpControlDefinitions(control) {
 
 function statusDefinition(control) {
   return {
-    name: 'nna.mcp_status', version: 1,
+    name: 'nna_mcp_status', version: 1,
     purpose: 'Inspect configured MCP servers and whether each is active in this conversation.',
     sideEffect: 'read_only', scope: 'mcp_control', cancellation: true, timeoutMs: STATUS_TIMEOUT_MS,
     inputSchema: objectSchema({}, []),
@@ -49,7 +49,7 @@ function testDefinition(control) {
     purpose: 'Test one configured MCP server and list its discovered tools without invoking any of those tools.',
     sideEffect: 'read_only', scope: 'mcp_control', cancellation: false, timeoutMs: TEST_TIMEOUT_MS,
     inputSchema: objectSchema({
-      id: { type: 'string', minLength: 1, maxLength: MAX_SERVER_ID_CHARACTERS, description: 'Required configured MCP server id returned by nna.mcp_status.' },
+      id: { type: 'string', minLength: 1, maxLength: MAX_SERVER_ID_CHARACTERS, description: 'Required configured MCP server id returned by nna_mcp_status.' },
     }, ['id']),
     validate: async (args) => {
       requireExactObject(args, ['id']);

@@ -16,7 +16,7 @@ syntax from another agent product.
 
 Private NNA runtime configuration is not stored in the active project workspace. The model
 must not search project files or source code to discover configured providers or MCP
-servers. In the root Console, `nna.mcp_status` reports configured servers and whether each
+servers. In the root Console, `nna_mcp_status` reports configured servers and whether each
 belongs to the current conversation snapshot. `nna.mcp_test` independently negotiates a
 configured server and returns its discovered MCP tool names without invoking them. Tools
 added after a conversation began become invocable in a newly created conversation; an

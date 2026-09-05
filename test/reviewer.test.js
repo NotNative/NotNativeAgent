@@ -537,7 +537,7 @@ test('system_time clock observations and bounded arithmetic are deterministic sa
 });
 
 test('configured MCP status and connection tests are deterministic read-only inspection', async () => {
-  for (const toolName of ['nna.mcp_status', 'nna.mcp_test']) {
+  for (const toolName of ['nna_mcp_status', 'nna.mcp_test']) {
     const ledger = new ReviewerLedger({ durable: false, sessionId: toolName });
     let semanticCalls = 0;
     const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });

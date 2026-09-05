@@ -44,7 +44,7 @@ native tool. Server failures and reconnects revoke that server's next-step capab
 an unknown-effect call is never replayed. A `tools/list_changed` notification refreshes
 the registry under a bounded call: an already-built model-step snapshot remains immutable,
 while the next step sees a new generation and prior approved definitions remain versioned.
-The root Console exposes `nna.mcp_status` for inspecting the global MCP registry and
+The root Console exposes `nna_mcp_status` for inspecting the global MCP registry and
 `nna.mcp_test` for negotiating one configured server and listing the tool names it
 discovers. These controls replace filesystem searches for private NNA configuration.
 An MCP server saved after a conversation began is usable from a newly created conversation;

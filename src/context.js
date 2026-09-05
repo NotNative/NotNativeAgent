@@ -167,7 +167,7 @@ function enginePolicyMessage(config) {
       ]),
       policySection('NNA self-knowledge', [
         'For NNA configuration, commands, tools, skills and skill authoring, architecture, installation, providers, MCP, memory, permissions, or troubleshooting, use the activated packaged-guidance workflow instead of guessing.',
-        'For a surprising or failed turn, use nna_diagnose_turn with selector list, latest, latest_failed, current, an exact session_id, or turn_offset 1 for the previous turn. Use nna.mcp_status or nna.mcp_test for private MCP configuration; do not search the project for private runtime settings.',
+        'For a surprising or failed turn, use nna_diagnose_turn with selector list, latest, latest_failed, current, an exact session_id, or turn_offset 1 for the previous turn. Use nna_mcp_status or nna.mcp_test for private MCP configuration; do not search the project for private runtime settings.',
       ]),
       policySection('Failure and completion', [
         'Correct malformed requests from their in-band error and never repeat unchanged invalid or denied arguments. A denial constrains the route; continue through a safer, narrower, or more reversible alternative when one exists.',
