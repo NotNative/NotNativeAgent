@@ -125,7 +125,7 @@ function boundedTarget(tool, args, resolved = null, agentRoute = null) {
   if (!args || typeof args !== 'object') return null;
   if (tool === 'agent.run') return agentInvocation(args, agentRoute);
   if (tool === 'process.run') return processInvocation(args);
-  if (tool === 'shell.run') return shellInvocation(args);
+  if (tool === 'shell_run') return shellInvocation(args);
   if (tool === 'project.verify') {
     const commands = Array.isArray(resolved?.commands) ? resolved.commands.map((item) => item.display).filter(Boolean) : [];
     const invocation = sanitizedText(commands.join(' && '), MAX_TARGET_LENGTH);

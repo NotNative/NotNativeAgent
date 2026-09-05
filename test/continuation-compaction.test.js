@@ -359,9 +359,9 @@ test('receipt compaction retains essential outcome metadata instead of replacing
 test('bounded tool receipts remain flat and stable across repeated compaction', () => {
   const transcript = [
     message('user', 'Inspect the host.', 'turn-old'),
-    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'shell-old', toolName: 'shell.run', args: { script: 'hostname', shell: 'auto' } },
+    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'shell-old', toolName: 'shell_run', args: { script: 'hostname', shell: 'auto' } },
     toolResultRecord({ lifecycle: { id: 'request-old' }, result: {
-      request_id: 'request-old', provider_call_id: 'shell-old', tool_name: 'shell.run',
+      request_id: 'request-old', provider_call_id: 'shell-old', tool_name: 'shell_run',
       status: 'succeeded', effect_certainty: 'completed', content: `host-a\n${'output '.repeat(2_000)}`,
     } }, 'turn-old'),
     ...Array.from({ length: 6 }, (_, index) => [
@@ -422,7 +422,7 @@ test('compaction either replays exact native tool-call arguments or omits the co
     { providerCallId: 'search', toolName: 'fs_search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js', max_results: 17 } },
     { providerCallId: 'web', toolName: 'web.search', args: { query: 'current provider documentation', max_results: 4 } },
     { providerCallId: 'plan', toolName: 'work.plan', args: { objective: 'Keep history truthful', tasks: ['test', 'ship'] } },
-    { providerCallId: 'shell', toolName: 'shell.run', args: { script: 'node --test', timeout_ms: 90_000 } },
+    { providerCallId: 'shell', toolName: 'shell_run', args: { script: 'node --test', timeout_ms: 90_000 } },
   ];
   const transcript = [message('user', 'Exercise several tool shapes.', 'turn-old')];
   for (const request of requests) {

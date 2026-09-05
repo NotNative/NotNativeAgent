@@ -172,7 +172,7 @@ function administratorAdapter(engine, options) {
     output: ({ request, phase }) => engine.output({
       type: 'tool_status', version: '1.0', session_id: engine.sessionId, turn_id: engine.active?.turnId,
       tool_request_id: request.id, provider_call_id: request.providerCallId,
-      tool: 'shell.run', status: 'running', execution_phase: phase,
+      tool: 'shell_run', status: 'running', execution_phase: phase,
     }),
   });
 }

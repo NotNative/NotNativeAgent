@@ -38,7 +38,7 @@ export class MandatoryReviewer {
       const missionViolation = missionBoundaryViolation(request, context.definition, context.authority?.mission);
       const intentRelation = authenticatedIntentRelation(request, context.authority, context.definition);
       if (missionViolation) decision = hardDeny(missionViolation, request);
-      else if (request.toolName === 'shell.run' && request.args?.privilege === 'administrator'
+      else if (request.toolName === 'shell_run' && request.args?.privilege === 'administrator'
         && context.reviewPosture === 'unattended') decision = deny('unattended_escalation_denied', 'Administrator execution requires a present user for native authentication.', request);
       else if (context.authority?.complete === false && !context.authority?.mission && classification.risk !== 'safe') {
         decision = deny(
@@ -54,7 +54,7 @@ export class MandatoryReviewer {
       }
       else if (classification.risk === 'prohibited') decision = hardDeny(classification.reason, request);
       else decision = await this.#semanticDecision(request, context, entry, intentRelation);
-      const administrator = request.toolName === 'shell.run' && request.args.privilege === 'administrator';
+      const administrator = request.toolName === 'shell_run' && request.args.privilege === 'administrator';
       if ((context.definition.name === 'system.elevate' || administrator) && decision.outcome === 'escalate_to_operator') {
         decision = deny(
           'elevation_review_uncertain',
@@ -175,7 +175,7 @@ function classify(request, definition) {
     });
   }
   if (definition.name === 'system.elevate') return elevationClassification();
-  if (['process.run', 'shell.run'].includes(definition.name)) return processClassification(request);
+  if (['process.run', 'shell_run'].includes(definition.name)) return processClassification(request);
   return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
 }
 
@@ -192,7 +192,7 @@ function localControlClassification(definition) {
 }
 
 function processClassification(request) {
-  if (request.toolName === 'shell.run' && request.args.privilege === 'administrator') return elevationClassification();
+  if (request.toolName === 'shell_run' && request.args.privilege === 'administrator') return elevationClassification();
   const complexity = request.resolved.reviewComplexity ?? 'unknown';
   if (request.resolved?.readOnly === true) return Object.freeze({ risk: 'safe',
     reason: request.resolved.reviewPurpose ?? 'process_observation', effect: 'read_only',
@@ -370,7 +370,7 @@ function effectiveSideEffect(request, definition) {
 }
 function effectiveScope(request, definition) {
   // Security: a workspace working directory does not constrain an administrator process.
-  return request.toolName === 'shell.run' && request.args?.privilege === 'administrator' ? 'host' : definition.scope;
+  return request.toolName === 'shell_run' && request.args?.privilege === 'administrator' ? 'host' : definition.scope;
 }
 function missionTargetMatches(rule, request, definition, resolved = null) {
   if (rule === '*' || rule === `tool:${request.toolName}` || rule === `scope:${effectiveScope(request, definition)}`) return true;

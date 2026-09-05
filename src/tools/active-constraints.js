@@ -10,7 +10,7 @@ const CONSTRAINT_KIND = Object.freeze({
   prerequisite: 'prerequisite_repair', schema: 'schema_repair', action: 'action_repair',
   execution: 'execution_failure', governance: 'governance_boundary',
 });
-const PROCESS_TOOLS = new Set(['process.run', 'shell.run']);
+const PROCESS_TOOLS = new Set(['process.run', 'shell_run']);
 
 export function mergeToolConstraints(current = [], items = []) {
   const succeeded = new Set(items.filter((item) => item.result?.status === 'succeeded')

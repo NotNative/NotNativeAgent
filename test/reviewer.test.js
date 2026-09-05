@@ -401,7 +401,7 @@ test('proven Get-ChildItem shell observations are deterministic safe', async () 
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
   const result = await reviewer.review({
-    ...readRequest('shell-filesystem-observation'), toolName: 'shell.run',
+    ...readRequest('shell-filesystem-observation'), toolName: 'shell_run',
     args: { shell: 'powershell', script: 'Get-ChildItem -Path . | Out-Null' },
     resolved: {
       path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'compound_shell',
@@ -410,7 +410,7 @@ test('proven Get-ChildItem shell observations are deterministic safe', async () 
   }, {
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'Audit this repository.', kind: 'statement' }], mission: null },
-    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+    definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'deterministic_safe');
@@ -422,7 +422,7 @@ test('a local assignment of Get-ChildItem output remains deterministic safe', as
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
   const result = await reviewer.review({
-    ...readRequest('assigned-shell-filesystem-observation'), toolName: 'shell.run',
+    ...readRequest('assigned-shell-filesystem-observation'), toolName: 'shell_run',
     args: { shell: 'powershell', script: '$src = Get-ChildItem -Path src -Recurse -Include *.js -ErrorAction SilentlyContinue' },
     resolved: {
       path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'simple_shell',
@@ -431,7 +431,7 @@ test('a local assignment of Get-ChildItem output remains deterministic safe', as
   }, {
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'Audit this repository.', kind: 'statement' }], mission: null },
-    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+    definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'deterministic_safe');
@@ -445,7 +445,7 @@ test('proven PowerShell host observations are deterministic safe', async () => {
     semanticCalls += 1; throw new Error('semantic review should not run');
   } } });
   const result = await reviewer.review({
-    ...readRequest('shell-host-observation'), toolName: 'shell.run',
+    ...readRequest('shell-host-observation'), toolName: 'shell_run',
     args: { shell: 'powershell', script: 'Get-Process | Select-Object -First 45 Name, Id | Format-Table -AutoSize' },
     resolved: {
       path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'compound_shell',
@@ -454,7 +454,7 @@ test('proven PowerShell host observations are deterministic safe', async () => {
   }, {
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'Perform a health check on this computer.', kind: 'statement' }], mission: null },
-    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+    definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'deterministic_safe');
@@ -469,7 +469,7 @@ test('uncertain process effects reach semantic review even when the request soun
     return { outcome: 'approve', confidence: 1, reason_code: 'health_check_matches_intent' };
   } } });
   const result = await reviewer.review({
-    ...readRequest('uncertain-health-process'), toolName: 'shell.run',
+    ...readRequest('uncertain-health-process'), toolName: 'shell_run',
     args: { shell: 'powershell', script: 'Get-Process | Where-Object { $_.CPU -gt 1 } | Format-Table' },
     resolved: {
       path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'compound_shell',
@@ -478,7 +478,7 @@ test('uncertain process effects reach semantic review even when the request soun
   }, {
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'Perform a health check on this computer.', kind: 'statement' }], mission: null },
-    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+    definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'semantic_intent_match');
@@ -499,7 +499,7 @@ test('consequential process requests leave exact action authorization to semanti
         : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'disk_format_not_authorized', guidance: 'Do not format the disk.' };
     } } });
     const result = await reviewer.review({
-      ...readRequest(`format-disk-${label}`), toolName: 'shell.run',
+      ...readRequest(`format-disk-${label}`), toolName: 'shell_run',
       args: { shell: 'powershell', script: 'format.com X: /FS:NTFS' },
       resolved: {
         path: 'D:/workspace', insideWorkspace: true, reviewComplexity: 'destructive_shell',
@@ -508,7 +508,7 @@ test('consequential process requests leave exact action authorization to semanti
     }, {
       ...context,
       authority: { id: 'authority-1', intent: [{ content: operatorIntent, kind: 'statement' }], mission: null },
-      definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+      definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
     });
     assert.equal(result.outcome, expectedOutcome);
     assert.equal(captured.intentRelation, 'uncertain');
@@ -837,14 +837,14 @@ test('detached-process lifecycle intent is interpreted only by semantic review',
       : { outcome: 'approve', confidence: 1, reason_code: 'persistent_server_authorized' };
   } } });
   const request = {
-    ...readRequest('detached-process'), toolName: 'shell.run',
+    ...readRequest('detached-process'), toolName: 'shell_run',
     args: { shell: 'powershell', script: 'Start-Process powershell.exe -ArgumentList "-File server.ps1"' },
     resolved: {
       path: 'D:/workspace', shell: 'powershell', reviewComplexity: 'detached_shell',
       reliabilitySignals: ['detached_process'],
     },
   };
-  const definition = { name: 'shell.run', purpose: 'Run a bounded foreground shell workflow.', sideEffect: 'unknown', scope: 'workspace' };
+  const definition = { name: 'shell_run', purpose: 'Run a bounded foreground shell workflow.', sideEffect: 'unknown', scope: 'workspace' };
   const denied = await reviewer.review(request, {
     ...context,
     authority: { ...context.authority, intent: [{ content: 'Build and verify the ocean scene', sequence: 1 }] },
@@ -878,14 +878,14 @@ test('external browser processes are denied before semantic review in favor of m
     return { outcome: 'approve', confidence: 1, reason_code: 'browser_allowed' };
   } } });
   const request = {
-    ...readRequest('external-browser'), toolName: 'shell.run',
+    ...readRequest('external-browser'), toolName: 'shell_run',
     args: { shell: 'powershell', script: '& chrome.exe --headless page.html' },
     resolved: { path: 'D:/workspace', reviewComplexity: 'simple_shell', reliabilitySignals: ['external_browser'] },
   };
   const result = await reviewer.review(request, {
     ...context,
     authority: { ...context.authority, intent: [{ content: 'Build and verify the ocean scene in a browser.', sequence: 1 }] },
-    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+    definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'deny_with_guidance');
   assert.equal(result.reasonCode, 'external_browser_tool_required');
@@ -901,7 +901,7 @@ test('a current restriction overrides earlier detached-process authorization', a
     return { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'newer_detached_process_restriction' };
   } } });
   const request = {
-    ...readRequest('detached-process-restricted'), toolName: 'shell.run',
+    ...readRequest('detached-process-restricted'), toolName: 'shell_run',
     args: { shell: 'powershell', script: 'Start-Job { npm run dev }' },
     resolved: { path: 'D:/workspace', reviewComplexity: 'detached_shell', reliabilitySignals: ['detached_process'] },
   };
@@ -914,7 +914,7 @@ test('a current restriction overrides earlier detached-process authorization', a
         { content: 'Do not leave any server or job running in the background.', sequence: 2, kind: 'restriction' },
       ],
     },
-    definition: { name: 'shell.run', sideEffect: 'unknown', scope: 'workspace' },
+    definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'deny_with_guidance');
   assert.equal(result.reasonCode, 'newer_detached_process_restriction');

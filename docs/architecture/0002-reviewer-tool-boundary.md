@@ -115,7 +115,7 @@ effects reach mandatory semantic review instead of being prohibited by the tool 
 process-tree cancellation. `docs/TOOLS.md` is the canonical current catalog.
 
 No active runtime installs `system.elevate`. Local interactive Windows Console sessions may
-request `shell.run` with `privilege: administrator` and a reason. Every such request requires
+request `shell_run` with `privilege: administrator` and a reason. Every such request requires
 semantic approval and counts as host-level unknown effects, including read commands. Approval
 leads directly to native UAC, without a second NNA confirmation. Unattended or hosted sessions
 cannot use this path. Ordinary process tools still reject direct privilege launchers.

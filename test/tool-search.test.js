@@ -6,7 +6,7 @@ import { ToolRegistry } from '../src/tool-registry.js';
 const FOUNDATION = [
   'tool_search',
   'fs_list', 'fs_read', 'fs_search_text',
-  'shell.run', 'work.plan', 'work.status', 'work.task_update', 'turn.finish',
+  'shell_run', 'work.plan', 'work.status', 'work.task_update', 'turn.finish',
   'git.inspect',
 ];
 
@@ -75,7 +75,7 @@ test('provider surface receipts make fixed foundations and workflow leases audit
   assert.deepEqual(baseline.receipt.selectedToolNames, expected);
   assert.ok(baseline.definitions.length <= 32);
   assert.ok(baseline.receipt.schemaBytes <= 64 * 1024);
-  assert.equal(baseline.receipt.selectionReasons['shell.run'], 'foundational');
+  assert.equal(baseline.receipt.selectionReasons.shell_run, 'foundational');
   assert.ok(baseline.receipt.selectionContextBytes > 0);
   assert.match(baseline.receipt.selectionContextFingerprint, /^[a-f0-9]{64}$/u);
   assert.ok(!baseline.receipt.selectedToolNames.includes('fs.write_text'));
@@ -116,6 +116,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['list', 'fs.list', 'fs_list'],
     ['read', 'fs.read', 'fs_read'],
     ['search-text', 'fs.search_text', 'fs_search_text'],
+    ['shell', 'shell.run', 'shell_run'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
@@ -134,7 +135,7 @@ test('hosted execution obeys an authenticated manifest rather than inferred word
   const visible = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
   assert.ok(visible.includes('process.run'));
   assert.ok(!visible.includes('project.verify'));
-  assert.ok(!visible.includes('shell.run'));
+  assert.ok(!visible.includes('shell_run'));
 });
 
 test('explicit exposure makes an exact recovery tool visible without broadening its bundle', async () => {

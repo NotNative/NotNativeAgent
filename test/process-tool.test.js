@@ -255,7 +255,7 @@ test('Windows OpenSSH initializes under the operational child environment', asyn
   assert.match(result.stderr, /OpenSSH_for_Windows/u);
 });
 
-test('shell.run owns platform interpreter argv and executes a readable reviewed script', async () => {
+test('shell_run owns platform interpreter argv and executes a readable reviewed script', async () => {
   assert.match(shellRunDefinition(null, null, 'win32').purpose, /Windows \(win32\).*Windows PowerShell 5\.1/u);
   assert.match(shellRunDefinition(null, null, 'linux').purpose, /Linux \(linux\).*POSIX sh/u);
   assert.match(shellRunDefinition(null, null, 'darwin').purpose, /macOS \(darwin\).*POSIX sh/u);
@@ -269,7 +269,7 @@ test('shell.run owns platform interpreter argv and executes a readable reviewed 
   const root = await mkdtemp(join(tmpdir(), 'nna-shell-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const definition = registry.definition('shell.run');
+  const definition = registry.definition('shell_run');
   assert.match(definition.purpose, new RegExp(`This host is .* \\(${process.platform}\\)`, 'u'));
   assert.match(definition.inputSchema.properties.shell.description, /Prefer auto/u);
   assert.match(definition.purpose, /does not translate shell syntax/u);
@@ -287,10 +287,10 @@ test('shell.run owns platform interpreter argv and executes a readable reviewed 
   assert.equal(result.metadata.shell, normalized.resolved.shell);
 });
 
-test('shell.run identifies scripts that reduce diagnostic visibility', async () => {
+test('shell_run identifies scripts that reduce diagnostic visibility', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-shell-diagnostic-visibility-'));
   const registry = new ToolRegistry(root); await registry.initialize();
-  const definition = registry.definition('shell.run');
+  const definition = registry.definition('shell_run');
   const script = process.platform === 'win32'
     ? "$ErrorActionPreference='SilentlyContinue'; Write-Error hidden; Write-Output done"
     : "false 2>/dev/null; printf done";
@@ -304,10 +304,10 @@ test('shell.run identifies scripts that reduce diagnostic visibility', async () 
   assert.equal(result.metadata.diagnosticVisibility, 'reduced_by_script');
 });
 
-test('shell.run reports completed nonzero when earlier compound-script effects occurred', async () => {
+test('shell_run reports completed nonzero when earlier compound-script effects occurred', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-shell-partial-effect-'));
   const registry = new ToolRegistry(root); await registry.initialize();
-  const definition = registry.definition('shell.run');
+  const definition = registry.definition('shell_run');
   const script = process.platform === 'win32'
     ? "[IO.File]::WriteAllText('partial.txt','done'); exit 9"
     : "printf done > partial.txt; exit 9";
@@ -327,7 +327,7 @@ test('Unix predicate commands can explicitly accept documented negative results'
   await writeFile(join(root, 'first.txt'), 'first\n');
   await writeFile(join(root, 'second.txt'), 'second\n');
   const registry = new ToolRegistry(root); await registry.initialize();
-  const definition = registry.definition('shell.run');
+  const definition = registry.definition('shell_run');
   for (const script of ["diff -q first.txt second.txt", "grep -q absent first.txt"]) {
     const normalized = await definition.validate({ script, accepted_exit_codes: [0, 1] });
     const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
@@ -339,7 +339,7 @@ test('Unix predicate commands can explicitly accept documented negative results'
 test('bash pipefail exposes and can explicitly classify an expected upstream SIGPIPE', { skip: process.platform === 'win32' }, async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-shell-pipefail-'));
   const registry = new ToolRegistry(root); await registry.initialize();
-  const definition = registry.definition('shell.run');
+  const definition = registry.definition('shell_run');
   const normalized = await definition.validate({
     script: 'set -o pipefail; yes value | head -n 1', shell: 'bash', accepted_exit_codes: [0, 141],
   });
@@ -348,11 +348,11 @@ test('bash pipefail exposes and can explicitly classify an expected upstream SIG
   assert.equal(JSON.parse(result.content).exit_code, 141);
 });
 
-test('shell.run classifies compound and destructive scripts for semantic review and stays out of hosted sessions', async () => {
+test('shell_run classifies compound and destructive scripts for semantic review and stays out of hosted sessions', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-shell-policy-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const definition = registry.definition('shell.run');
+  const definition = registry.definition('shell_run');
   assert.match(definition.purpose, /including background or detached behavior, is reviewed/u);
   assert.doesNotMatch(definition.purpose, /python -m http\.server|install browser automation/u);
   const aliased = await definition.validate({ command: 'Write-Output ok', workingDirectory: '.', timeout: '1000' });
@@ -403,16 +403,16 @@ test('shell.run classifies compound and destructive scripts for semantic review 
     'Get-Process | Where-Object { $_.CPU -gt 1 }',
   ]) assert.equal((await definition.validate({ shell: 'powershell', script })).resolved.readOnly, false);
   await assert.rejects(definition.validate({ script: 'curl -H "Authorization: Bearer literal" example.test' }), { code: 'shell_secret_argument_forbidden' });
-  const hosted = new ToolRegistry(root, { hosted: true, boundedToWorkspace: true, allowedTools: ['shell.run'] });
+  const hosted = new ToolRegistry(root, { hosted: true, boundedToWorkspace: true, allowedTools: ['shell_run'] });
   await hosted.initialize();
-  assert.equal(hosted.definition('shell.run'), undefined);
+  assert.equal(hosted.definition('shell_run'), undefined);
 });
 
 test('execution contracts identify detachment while preserving bounded wait forms', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-lifecycle-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const shell = registry.definition('shell.run');
+  const shell = registry.definition('shell_run');
   const detachedProcess = await shell.validate({
     shell: 'powershell', script: 'Start-Process powershell.exe -ArgumentList "-File server.ps1"',
   });
@@ -445,7 +445,7 @@ test('execution contracts identify external browser launches without flagging br
   const root = await mkdtemp(join(tmpdir(), 'nna-external-browser-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const shell = registry.definition('shell.run');
+  const shell = registry.definition('shell_run');
   const variableLaunch = await shell.validate({
     shell: 'powershell',
     script: "$chrome = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'; & $chrome --headless page.html",

@@ -37,10 +37,10 @@ test('ordinary process tools reject native elevation launchers', async () => {
   await assert.rejects(registry.definition('process.run').validate({
     executable: 'sudo', args: ['-n', 'docker', 'inspect', 'container'],
   }), { code: 'native_elevation_unavailable' });
-  await assert.rejects(registry.definition('shell.run').validate({
+  await assert.rejects(registry.definition('shell_run').validate({
     script: 'echo ready; sudo -n docker inspect container', shell: 'sh',
   }), { code: 'native_elevation_unavailable' });
-  await assert.rejects(registry.definition('shell.run').validate({
+  await assert.rejects(registry.definition('shell_run').validate({
     script: 'Start-Process powershell.exe -Verb RunAs -ArgumentList whoami', shell: 'powershell',
   }), { code: 'native_elevation_unavailable' });
 });

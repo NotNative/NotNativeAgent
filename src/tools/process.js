@@ -49,7 +49,7 @@ export function processRunDefinition(paths, references = null) {
 export function shellRunDefinition(paths, references = null, platform = process.platform, administrator = null) {
   const guidance = shellToolGuidance(platform);
   return {
-    name: 'shell.run', version: 2,
+    name: 'shell_run', version: 2,
     purpose: `Run one bounded terminal workflow in the host platform shell and capture its output. ${guidance} A zero exit confirms process completion, not that every internal diagnostic succeeded. The result identifies standard-error output and scripts that reduce diagnostic visibility. The complete script, including background or detached behavior, is reviewed before execution.`,
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {
@@ -434,7 +434,7 @@ function rejectNativeElevationScript(script) {
 function rejectNativeElevation() {
   throw new ContractError(
     'native_elevation_unavailable',
-    'Direct privilege launchers are unavailable. For local Windows Console use shell.run with privilege administrator and reason. On other surfaces ask the user to run the command manually, then continue from their result.',
+    'Direct privilege launchers are unavailable. For local Windows Console use shell_run with privilege administrator and reason. On other surfaces ask the user to run the command manually, then continue from their result.',
   );
 }
 

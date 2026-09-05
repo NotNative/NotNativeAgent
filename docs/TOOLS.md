@@ -3,7 +3,7 @@
 ## Discovery and context economy
 
 Every ordinary provider step receives a deterministic foundational surface, with `tool_search`
-first: `tool_search`; `fs_list`, `fs_read`, and `fs_search_text`; `shell.run`;
+first: `tool_search`; `fs_list`, `fs_read`, and `fs_search_text`; `shell_run`;
 `work.plan`, `work.status`, and `work.task_update`; `turn.finish`; and `git.inspect`.
 A foundational tool is omitted only when that subsystem is genuinely unavailable or an
 authenticated host manifest removes it. NNA never selects or withholds schemas by matching
@@ -97,11 +97,11 @@ The granular `fs.list_directory`, `fs.glob`, `fs.metadata`, `fs.read_text`, `fs.
 definitions remain installed for compatibility and specialist/internal workflows. They are
 not competing choices in a fresh model-facing catalog.
 
-`shell.run` is the normal model-facing execution tool for authenticated build, test, install,
+`shell_run` is the normal model-facing execution tool for authenticated build, test, install,
 and other terminal intent. `process.run` is not loaded into that ordinary task surface. It
 remains installed, governed, and discoverable for cases that specifically require one exact
 executable and argv without shell interpretation. Hosted or host-ceilinged sessions that have
-`process.run` but no `shell.run` receive it as the execution fallback.
+`process.run` but no `shell_run` receive it as the execution fallback.
 
 `process.run` executes one explicit executable with an argv array and `shell: false` at the
 Node process boundary. Its cwd may be any accessible host directory for ordinary root NNA;
@@ -114,7 +114,7 @@ locations used by user-scoped command-line tools. Arbitrary parent variables, cr
 helpers, provider keys, cloud secrets, and other secrets are not forwarded. Shell interpreters, destructive
 file-management programs, destructive Git cleanup/reset, inline interpreter payloads,
 package scripts, and complex argv are classified for semantic review rather than hard-blocked.
-`shell.run` accepts one readable terminal workflow, including ordinary command-line programs,
+`shell_run` accepts one readable terminal workflow, including ordinary command-line programs,
 pipelines, redirection, expansion, or multiple commands. It selects Windows PowerShell 5.1 on Windows
 and `sh` on Unix-like hosts unless the caller explicitly chooses another supported interpreter.
 The kernel publishes the detected operating system and native shell as authoritative model
@@ -162,7 +162,7 @@ mutations separate from verification, and `pipefail` pipelines should avoid earl
 such as `head` when an upstream `SIGPIPE` would be mistaken for a failed check.
 
 Installed programs such as SSH, Git, Docker, and native system utilities may be invoked through
-`process.run` for exact argv or `shell.run` for terminal workflows. The agent should not wrap a
+`process.run` for exact argv or `shell_run` for terminal workflows. The agent should not wrap a
 shell inside `process.run`. On Windows, `powershell.exe` is the normal Windows PowerShell 5.1 entry point. `pwsh` identifies the
 separately installed, cross-platform PowerShell 7 product and is used only after discovery or
 an explicit operator request. Unix-like hosts likewise may provide `sh`, `bash`, or another
@@ -179,7 +179,7 @@ results need not be named verbatim. A concrete contradiction, scope divergence, 
 disproportionate irreversible effect remains a denial.
 
 `system.elevate` remains disabled. Local interactive Windows Console sessions can use
-`shell.run` with `privilege: "administrator"`, a `reason`, and a complete PowerShell script
+`shell_run` with `privilege: "administrator"`, a `reason`, and a complete PowerShell script
 (at most 8192 characters; no `stdin_ref`). The default remains ordinary user privilege.
 Semantic review must approve before native UAC appears. There is no second NNA confirmation.
 The Console remains visible and the workflow waits for UAC; `timeout_ms` starts after
@@ -192,7 +192,7 @@ installation afterward; a successful exit is not evidence that the user's object
 Linux/macOS, headless, hosted, and unattended sessions must ask the user to run privileged
 commands manually and continue from the supplied result. NNA never collects a sudo password.
 
-`process.run` and `shell.run` reject `sudo`, `doas`, `pkexec`, `runas`, and PowerShell
+`process.run` and `shell_run` reject `sudo`, `doas`, `pkexec`, `runas`, and PowerShell
 `Start-Process -Verb RunAs` launchers. This keeps native elevation behind the reviewed
 administrator contract. NNA does not add the user to `sudoers`, create a persistent privileged
 daemon, request a password, or grant a reusable elevated shell. Remaining
@@ -326,7 +326,7 @@ have been exhausted.
 
 For visual verification of a workspace development server, use `web.browse navigate` on the
 exact HTTP(S) loopback URL and then inspect or screenshot the page. Do not discover or launch an
-installed browser through `shell.run`; NNA's managed browser keeps the observation ephemeral,
+installed browser through `shell_run`; NNA's managed browser keeps the observation ephemeral,
 bounded, and reviewable. This is network navigation, not permission to read a `file://` URL.
 
 `web.browse fill_secret` accepts only a Secret Broker record ID and field name. The plaintext
@@ -390,7 +390,7 @@ Windows, `brew install ripgrep` on macOS, and the distribution package manager's
 
 The provider receives an immutable prompt-visible working set: the available foundational
 tools remain loaded in deterministic order, while specialist schemas are added only by an
-explicit workflow lease or authenticated host manifest. Root NNA includes `shell.run` in the
+explicit workflow lease or authenticated host manifest. Root NNA includes `shell_run` in the
 foundation; a hosted manifest may instead grant `process.run`. A host execution manifest may
 ceiling the complete capability set, including to an empty list. Regardless of visibility,
 every tool call remains unknown to governance until it passes the normal validation and review

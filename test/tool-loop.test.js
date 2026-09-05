@@ -108,7 +108,7 @@ test('completed nonzero commands provide diagnostic progress once per distinct i
   const diagnostic = (script, content) => ({
     request: { args: { script, shell: 'auto' } },
     result: {
-      status: 'completed_nonzero', tool_name: 'shell.run', reason_code: 'process_exit_nonzero', content,
+      status: 'completed_nonzero', tool_name: 'shell_run', reason_code: 'process_exit_nonzero', content,
       metadata: { exitCode: 1, signal: null },
     },
   });
@@ -122,7 +122,7 @@ test('completed nonzero commands provide diagnostic progress once per distinct i
   assert.notEqual(first.value, changedApproach.value);
   assert.equal(toolProgressEvidence([{
     request: { args: { script: 'check alpha' } },
-    result: { status: 'failed', tool_name: 'shell.run', content: 'transport failed' },
+    result: { status: 'failed', tool_name: 'shell_run', content: 'transport failed' },
   }]), null);
 });
 
@@ -226,7 +226,7 @@ test('read-only behavior is supervised from tool metadata and work updates count
   const active = { observableStateRevision: 0, readOnlyBatchStreak: 0 };
   const definitions = new Map([
     ['fs_read', { sideEffect: 'read_only' }], ['work.plan', { sideEffect: 'reversible' }],
-    ['fs.directory', { sideEffect: 'reversible' }], ['shell.run', { sideEffect: 'unknown' }],
+    ['fs.directory', { sideEffect: 'reversible' }], ['shell_run', { sideEffect: 'unknown' }],
   ]);
   const definitionFor = (name) => definitions.get(name);
   for (let count = 1; count <= 12; count += 1) {
@@ -244,7 +244,7 @@ test('read-only behavior is supervised from tool metadata and work updates count
   assert.equal(active.observableStateRevision, 0);
   observeToolState(active, [{
     request: { resolved: { readOnly: true }, args: { script: 'Get-ChildItem -Path .' } },
-    result: { status: 'succeeded', tool_name: 'shell.run' },
+    result: { status: 'succeeded', tool_name: 'shell_run' },
   }], definitionFor);
   assert.equal(active.readOnlyBatchStreak, 14);
   assert.equal(active.observableStateRevision, 0);
@@ -343,11 +343,11 @@ test('failed web fetch continuation requires browser fallback before abandoning 
 test('completed nonzero continuation distinguishes diagnostic progress from successful verification', () => {
   const hint = toolContinuationHint([{
     result: {
-      status: 'completed_nonzero', tool_name: 'shell.run', reason_code: 'process_exit_nonzero',
+      status: 'completed_nonzero', tool_name: 'shell_run', reason_code: 'process_exit_nonzero',
       metadata: { exitCode: 1, signal: null },
     },
   }], 'generic recovery');
-  assert.match(hint, /shell\.run: exit 1[^]*diagnostic progress, not successful verification evidence[^]*do not repeat/iu);
+  assert.match(hint, /shell_run: exit 1[^]*diagnostic progress, not successful verification evidence[^]*do not repeat/iu);
 });
 
 test('denial results distinguish recoverable review constraints from policy and availability failures', () => {
@@ -952,7 +952,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
     'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_list', 'fs_read', 'fs_search_text', 'git.inspect',
-    'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'project.verify', 'ref.inspect', 'ref.store', 'shell.run', 'system.time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
+    'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'project.verify', 'ref.inspect', 'ref.store', 'shell_run', 'system.time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
 });

@@ -1614,7 +1614,7 @@ test('provider tool arguments accept one parsed JSON object without losing requi
   const assembler = new ToolCallAssembler();
   assembler.add([{
     index: 0, id: 'parsed-shell',
-    function: { name: 'shell.run', arguments: { script: 'node --version' } },
+    function: { name: 'shell_run', arguments: { script: 'node --version' } },
   }]);
   assert.deepEqual(assembler.complete('tool_calls')[0].args, { script: 'node --version' });
 });
@@ -1622,12 +1622,12 @@ test('provider tool arguments accept one parsed JSON object without losing requi
 test('provider tool arguments reject unsupported or drifting transport shapes', () => {
   const unsupported = new ToolCallAssembler();
   assert.throws(() => unsupported.add([{
-    index: 0, id: 'array-shell', function: { name: 'shell.run', arguments: ['node --version'] },
+    index: 0, id: 'array-shell', function: { name: 'shell_run', arguments: ['node --version'] },
   }]), { code: 'tool_arguments_transport_invalid' });
 
   const drift = new ToolCallAssembler();
   drift.add([{
-    index: 0, id: 'drift-shell', function: { name: 'shell.run', arguments: '{"script":' },
+    index: 0, id: 'drift-shell', function: { name: 'shell_run', arguments: '{"script":' },
   }]);
   assert.throws(() => drift.add([{
     index: 0, id: 'drift-shell', function: { arguments: { script: 'node --version' } },

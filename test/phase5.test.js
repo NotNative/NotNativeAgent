@@ -531,10 +531,10 @@ test('assistant markdown preserves structure without exposing formatting markers
 });
 
 test('wrapped transcript lines retain semantic hanging indentation', () => {
-  const activity = wrapIndentedTerminalLine(`    \u2713 shell.run (${`command-${'x'.repeat(80)}`}) | succeeded`, 48);
-  const activityIndent = ' '.repeat('    \u2713 shell.run ('.length);
+  const activity = wrapIndentedTerminalLine(`    \u2713 shell_run (${`command-${'x'.repeat(80)}`}) | succeeded`, 48);
+  const activityIndent = ' '.repeat('    \u2713 shell_run ('.length);
   assert.equal(activity.length > 1, true);
-  assert.equal(activity[0].startsWith('    \u2713 shell.run'), true);
+  assert.equal(activity[0].startsWith('    \u2713 shell_run'), true);
   assert.equal(activity.slice(1).every((line) => line.startsWith(activityIndent) && line[activityIndent.length] !== ' '), true);
   assert.equal(activity.some((line) => line.startsWith('command-')), false);
 
@@ -620,19 +620,19 @@ test('renderer reserves the terminal auto-wrap cell and retains tool indentation
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', {
     type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1',
-    tool: 'shell.run', target: `powershell: ${'ssh command '.repeat(12)}`, status: 'denied_with_guidance',
+    tool: 'shell_run', target: `powershell: ${'ssh command '.repeat(12)}`, status: 'denied_with_guidance',
     reason_code: 'semantic_review_unavailable', failure_reason: 'Reviewer guidance that must also wrap safely.',
   });
   const frame = new TuiRenderer().frame(projection, { width: 48, height: 24, color: false });
   const lines = frame.trimEnd().split('\n');
   assert.equal(lines.every((line) => displayWidth(line) <= 47), true);
-  const toolLines = lines.filter((line) => /shell\.run|ssh command|semantic_review|Reviewer guidance/u.test(line));
-  const continuation = ' '.repeat('    X shell.run ('.length);
+  const toolLines = lines.filter((line) => /shell_run|ssh command|semantic_review|Reviewer guidance/u.test(line));
+  const continuation = ' '.repeat('    X shell_run ('.length);
   assert.equal(toolLines.length > 1, true);
-  assert.equal(toolLines[0].startsWith('    X shell.run'), true);
+  assert.equal(toolLines[0].startsWith('    X shell_run'), true);
   assert.equal(toolLines.slice(1).every((line) => line.startsWith(continuation) && line[continuation.length] !== ' '), true);
   const colored = new TuiRenderer().frame(projection, { width: 48, height: 24, color: true });
-  const coloredToolLines = colored.split('\n').filter((line) => /shell\.run|ssh command|semantic_review|Reviewer guidance/u.test(line));
+  const coloredToolLines = colored.split('\n').filter((line) => /shell_run|ssh command|semantic_review|Reviewer guidance/u.test(line));
   assert.equal(coloredToolLines.length, toolLines.length);
   assert.equal(coloredToolLines.every((line) => line.includes('\u001b[38;5;203m')), true);
 });
@@ -641,18 +641,18 @@ test('long shell tool targets wrap with a stable hanging indent', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', {
-    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell.run', status: 'succeeded',
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell_run', status: 'succeeded',
     target: 'powershell: ssh operator@fixture-host "systemctl status example-agent.service; echo Service inspection complete" 2>&1',
   });
   const frame = new TuiRenderer().frame(projection, { width: 96, height: 30, color: false });
-  const toolLines = frame.split('\n').filter((line) => /shell\.run|systemctl|example-agent|Service inspection|succeeded/u.test(line));
-  const continuation = ' '.repeat('    \u2713 shell.run ('.length);
+  const toolLines = frame.split('\n').filter((line) => /shell_run|systemctl|example-agent|Service inspection|succeeded/u.test(line));
+  const continuation = ' '.repeat('    \u2713 shell_run ('.length);
   assert.equal(toolLines.length > 1, true);
-  assert.equal(toolLines[0].startsWith('    \u2713 shell.run'), true);
+  assert.equal(toolLines[0].startsWith('    \u2713 shell_run'), true);
   assert.equal(toolLines.slice(1).every((line) => line.startsWith(continuation) && line[continuation.length] !== ' '), true);
   assert.equal(toolLines.every((line) => displayWidth(line) <= 95), true);
   const colored = new TuiRenderer().frame(projection, { width: 96, height: 30, color: true });
-  const coloredToolLines = colored.split('\n').filter((line) => /shell\.run|systemctl|example-agent|Service inspection|succeeded/u.test(line));
+  const coloredToolLines = colored.split('\n').filter((line) => /shell_run|systemctl|example-agent|Service inspection|succeeded/u.test(line));
   assert.equal(coloredToolLines.length, toolLines.length);
   assert.match(coloredToolLines[0], /\u001b\[38;5;77m\u2713\u001b\[0m\u001b\[38;5;245m/u);
   assert.equal(coloredToolLines.slice(1).every((line) => line.startsWith('\u001b[38;5;245m')), true);
@@ -662,15 +662,15 @@ test('completed nonzero shell calls render as amber completion instead of red fa
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', {
-    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell.run',
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell_run',
     status: 'completed_nonzero', reason_code: 'process_exit_nonzero', exit_code: 1,
   });
   const plain = new TuiRenderer().frame(projection, { width: 96, height: 24, color: false });
-  assert.match(plain, /^    ! shell\.run \| completed · exit 1$/mu);
-  assert.doesNotMatch(plain, /^    X shell\.run/mu);
+  assert.match(plain, /^    ! shell_run \| completed · exit 1$/mu);
+  assert.doesNotMatch(plain, /^    X shell_run/mu);
   const colored = new TuiRenderer().frame(projection, { width: 96, height: 24, color: true });
-  assert.match(colored, /\u001b\[38;5;214m {4}! shell\.run/u);
-  assert.doesNotMatch(colored, /\u001b\[38;5;203m {4}! shell\.run/u);
+  assert.match(colored, /\u001b\[38;5;214m {4}! shell_run/u);
+  assert.doesNotMatch(colored, /\u001b\[38;5;203m {4}! shell_run/u);
 });
 
 test('invalid tool requests render as amber corrections instead of red failures', () => {
@@ -701,28 +701,28 @@ test('successful shell calls with diagnostics render as amber qualified success'
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', {
-    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell.run',
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell_run',
     status: 'succeeded', diagnostic_outcome: 'stderr_present', diagnostic_visibility: 'reduced_by_script',
   });
   const plain = new TuiRenderer().frame(projection, { width: 96, height: 24, color: false });
-  assert.match(plain, /^    ! shell\.run \| succeeded · stderr present · visibility reduced$/mu);
-  assert.doesNotMatch(plain, /^    X shell\.run/mu);
+  assert.match(plain, /^    ! shell_run \| succeeded · stderr present · visibility reduced$/mu);
+  assert.doesNotMatch(plain, /^    X shell_run/mu);
   const colored = new TuiRenderer().frame(projection, { width: 96, height: 24, color: true });
-  assert.match(colored, /\u001b\[38;5;214m {4}! shell\.run/u);
+  assert.match(colored, /\u001b\[38;5;214m {4}! shell_run/u);
 });
 
 test('tool rows retain a two-cell terminal safety margin before hanging wraps', () => {
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', {
-    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell.run', status: 'succeeded',
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'shell_run', status: 'succeeded',
     target: `powershell: ssh operator@fixture-host "podman run --rm fixture-image sh -c '${'find / -name artifact; '.repeat(12)}'" 2>&1`,
   });
   const frame = new TuiRenderer().frame(projection, { width: 120, height: 40, color: false });
-  const toolLines = frame.split('\n').filter((line) => /shell\.run|podman|find \/|succeeded/u.test(line));
-  const continuation = ' '.repeat('    \u2713 shell.run ('.length);
+  const toolLines = frame.split('\n').filter((line) => /shell_run|podman|find \/|succeeded/u.test(line));
+  const continuation = ' '.repeat('    \u2713 shell_run ('.length);
   assert.equal(toolLines.length > 2, true);
-  assert.equal(toolLines[0].startsWith('    \u2713 shell.run'), true);
+  assert.equal(toolLines[0].startsWith('    \u2713 shell_run'), true);
   assert.equal(toolLines.slice(1).every((line) => line.startsWith(continuation) && line[continuation.length] !== ' '), true);
   assert.equal(frame.trimEnd().split('\n').every((line) => displayWidth(line) <= 118), true);
 });
@@ -1658,20 +1658,20 @@ test('active tool status identifies the currently running tool and its presentat
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
   projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
   projection.apply('s1', {
-    type: 'tool_status', status: 'running', tool: 'shell.run',
+    type: 'tool_status', status: 'running', tool: 'shell_run',
     target: 'powershell: Get-ChildItem README.md', tool_request_id: 'tool-1', turn_id: 'turn-1',
   });
   const frame = new TuiRenderer().frame(projection, {
     width: 100, height: 24, color: false, unicode: false, reducedMotion: true,
   });
-  assert.match(frame, /\* Running shell\.run \(powershell: Get-ChildItem README\.md\)/u);
+  assert.match(frame, /\* Running shell_run \(powershell: Get-ChildItem README\.md\)/u);
   projection.apply('s1', {
-    type: 'tool_status', status: 'succeeded', tool: 'shell.run',
+    type: 'tool_status', status: 'succeeded', tool: 'shell_run',
     target: 'powershell: Get-ChildItem README.md', tool_request_id: 'tool-1', turn_id: 'turn-1',
   });
   assert.doesNotMatch(new TuiRenderer().frame(projection, {
     width: 100, height: 24, color: false, unicode: false, reducedMotion: true,
-  }), /Running shell\.run/u);
+  }), /Running shell_run/u);
 });
 
 test('active agent runs use a compact footer and omit duplicate tool rows', () => {
@@ -1876,18 +1876,18 @@ test('process tool status shows the executable and argv in its compact target', 
     sessionId: 'session-1', tools: { definition: () => ({ sideEffect: 'unknown', scope: 'workspace' }) },
   }, { turnId: 'turn-1' }, {
     request: {
-      id: 'shell-1', toolName: 'shell.run', definitionVersion: 1,
+      id: 'shell-1', toolName: 'shell_run', definitionVersion: 1,
       args: { shell: 'powershell', script: 'Get-ChildItem -Path .' }, resolved: { readOnly: true },
     },
-    call: { providerCallId: 'provider-2', name: 'shell.run' },
+    call: { providerCallId: 'provider-2', name: 'shell_run' },
   }, 'running');
   assert.equal(observation.effect, 'read_only');
 
   const diagnostic = toolStatus({
     sessionId: 'session-1', tools: { definition: () => ({ sideEffect: 'unknown', scope: 'workspace' }) },
   }, { turnId: 'turn-1' }, {
-    request: { id: 'shell-2', toolName: 'shell.run', definitionVersion: 1, args: { script: 'probe' } },
-    call: { providerCallId: 'provider-3', name: 'shell.run' },
+    request: { id: 'shell-2', toolName: 'shell_run', definitionVersion: 1, args: { script: 'probe' } },
+    call: { providerCallId: 'provider-3', name: 'shell_run' },
     result: { metadata: { diagnosticOutcome: 'stderr_present', diagnosticVisibility: 'reduced_by_script' } },
   }, 'succeeded');
   assert.equal(diagnostic.diagnostic_outcome, 'stderr_present');

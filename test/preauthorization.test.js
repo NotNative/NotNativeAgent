@@ -45,17 +45,17 @@ test('workspace execution grants bind to an operation family rather than every c
     path: 'D:/work', executable: 'git', argv: ['push'], reviewComplexity: 'simple_argv',
   }), review), null);
 
-  const shell = compoundRequest('shell-one', 'shell.run', {
+  const shell = compoundRequest('shell-one', 'shell_run', {
     path: 'D:/work', shell: 'powershell', script: 'Get-ChildItem | Select-Object Name', reviewComplexity: 'compound_shell',
   });
   registry.grant('allow_workspace', shell, review, 'operator');
-  assert.ok(registry.match(compoundRequest('shell-two', 'shell.run', {
+  assert.ok(registry.match(compoundRequest('shell-two', 'shell_run', {
     path: 'D:/work', shell: 'powershell', script: 'Get-ChildItem C:/Temp | Select-Object Name', reviewComplexity: 'compound_shell',
   }), review));
-  assert.equal(registry.match(compoundRequest('shell-drift', 'shell.run', {
+  assert.equal(registry.match(compoundRequest('shell-drift', 'shell_run', {
     path: 'D:/work', shell: 'powershell', script: 'Get-ChildItem; Remove-Item file.txt', reviewComplexity: 'compound_shell',
   }), review), null);
-  assert.equal(registry.match(compoundRequest('shell-bare-ampersand', 'shell.run', {
+  assert.equal(registry.match(compoundRequest('shell-bare-ampersand', 'shell_run', {
     path: 'D:/work', shell: 'powershell', script: 'Get-ChildItem & Remove-Item file.txt', reviewComplexity: 'compound_shell',
   }), review), null);
   registry.grant('allow_workspace', compoundRequest('process-shell-one', 'process.run', {

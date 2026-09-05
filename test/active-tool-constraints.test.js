@@ -55,7 +55,7 @@ test('governance constraints survive unrelated success and clear on new authorit
 });
 
 test('machine-readable tool constraints remain in context beside a compacted transcript', () => {
-  const constraints = mergeToolConstraints([], [item('shell.run', 'failed', {
+  const constraints = mergeToolConstraints([], [item('shell_run', 'failed', {
     reason: 'process_exit_nonzero', metadata: { exitCode: 1, signal: null },
   })]);
   const context = buildContext({
@@ -69,7 +69,7 @@ test('machine-readable tool constraints remain in context beside a compacted tra
 });
 
 test('unavailable shell constraints retain the interpreter-specific repair across continuations', () => {
-  const constraints = mergeToolConstraints([], [item('shell.run', 'failed', {
+  const constraints = mergeToolConstraints([], [item('shell_run', 'failed', {
     reason: 'shell_interpreter_unavailable',
     args: { shell: 'sh', script: 'printf ok' },
     content: 'The requested shell interpreter sh is unavailable on this Windows (win32) host. Use shell auto with PowerShell syntax. Do not repeat shell sh.',

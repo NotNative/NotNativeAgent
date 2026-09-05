@@ -92,7 +92,7 @@ function addGovernedTools(result, enabled) {
     trust_zone: 'operator_reviewed', purpose: 'reviewed_process_execution', state: 'review_required',
     credential_reference: null,
   }, {
-    kind: 'governed_tool', id: 'shell.run', destination: 'shell_script',
+    kind: 'governed_tool', id: 'shell_run', destination: 'shell_script',
     trust_zone: 'operator_reviewed', purpose: 'reviewed_shell_execution', state: 'review_required',
     credential_reference: null,
   });

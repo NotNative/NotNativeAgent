@@ -235,7 +235,7 @@ async function executeBounded(definition, request, parentSignal, executionContex
   let parentAbort;
   // Invariant: a null outer deadline is valid only when the executor owns a bounded
   // operation phase and a user-cancellable native acquisition phase.
-  const nativeWait = request.toolName === 'shell.run' && request.args.privilege === 'administrator';
+  const nativeWait = request.toolName === 'shell_run' && request.args.privilege === 'administrator';
   const timeout = definition.timeoutMs === null || nativeWait ? null : new Promise((resolve) => {
     timeoutId = setTimeout(() => { controller.abort(); resolve({ boundary: 'timeout' }); }, definition.timeoutMs);
   });

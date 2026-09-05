@@ -24,7 +24,7 @@ test('terse continuation preserves active unfinished work context without changi
   const registry = new ToolRegistry(process.cwd(), { conversationWork: {} });
   await registry.initialize();
   const visible = registry.providerDefinitions(query).map((item) => item.function.name);
-  assert.ok(visible.includes('shell.run'));
+  assert.ok(visible.includes('shell_run'));
   assert.ok(visible.includes('tool_search'));
   assert.ok(visible.includes('work.plan'));
   for (const name of ['fs.write_text', 'fs.edit_text']) assert.ok(!visible.includes(name));

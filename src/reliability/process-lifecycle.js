@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-export const LONG_RUNNING_FOREGROUND_GUIDANCE = 'The command starts a long-running foreground development server, so shell.run cannot return while it is serving. For workspace browser verification, call web.browse with action navigate and path set to the HTML entry file; NNA owns the temporary loopback server and cleans it up automatically. Do not install Playwright in the project or retry the server with Start-Process, Start-Job, or another detached form. If the operator actually wants a persistent server, ask for explicit background-process authorization.';
+export const LONG_RUNNING_FOREGROUND_GUIDANCE = 'The command starts a long-running foreground development server, so shell_run cannot return while it is serving. For workspace browser verification, call web.browse with action navigate and path set to the HTML entry file; NNA owns the temporary loopback server and cleans it up automatically. Do not install Playwright in the project or retry the server with Start-Process, Start-Job, or another detached form. If the operator actually wants a persistent server, ask for explicit background-process authorization.';
 
 export function longRunningForegroundInvocation(source) {
   const text = String(source ?? '');

@@ -52,7 +52,7 @@ async function reviewed(outcome, mission = null, reviewPosture = 'prompt') {
       assert.equal(input.classification.scope, 'host');
       return { outcome, confidence: 1, reason_code: 'intent_match' };
     } } });
-  const request = { id: 'admin-1', providerCallId: 'admin-call', toolName: 'shell.run', args: operation,
+  const request = { id: 'admin-1', providerCallId: 'admin-call', toolName: 'shell_run', args: operation,
     resolved: { path: tmpdir(), readOnly: true }, authorityId: 'authority', authorityVersion: 1,
     policyVersion: 1, definitionVersion: 2, caller: 'primary', expiresAt: Date.now() + 60000 };
   const definition = shellRunDefinition(paths, null, 'win32', {});
@@ -98,7 +98,7 @@ test('UAC wait is not timed out by the command execution deadline', async (t) =>
   const definition = { scope: 'workspace', timeoutMs: 10, maxOutputBytes: 10000,
     async executor() { await delay(50); return { content: 'ready', effectCertainty: 'completed' }; } };
   const governor = new ToolGovernor({ events: new EventHub(), reviewer: {}, registry: { definition: () => definition } });
-  const result = await governor.executePrepared({ id: 'admin', toolName: 'shell.run', args: operation }, { id: 'approved' }, new AbortController().signal);
+  const result = await governor.executePrepared({ id: 'admin', toolName: 'shell_run', args: operation }, { id: 'approved' }, new AbortController().signal);
   assert.equal(result.status, 'succeeded');
 });
 
@@ -204,9 +204,9 @@ test('complete Windows launcher preserves inline worker quoting without requesti
 });
 
 test('Console retains live activity while waiting for Windows authorization', () => {
-  const record = { type: 'tool_status', turn_id: 'turn', tool_request_id: 'tool', tool: 'shell.run', status: 'running', execution_phase: 'awaiting_authorization' };
+  const record = { type: 'tool_status', turn_id: 'turn', tool_request_id: 'tool', tool: 'shell_run', status: 'running', execution_phase: 'awaiting_authorization' };
   const session = { state: 'running_tool', activeTurnId: 'turn', records: [record] };
   assert.match(liveActivityLine(session, {}), /Waiting for Windows authorization/u);
   session.records.push({ ...record, execution_phase: 'executing_administrator' });
-  assert.match(liveActivityLine(session, {}), /Running shell.run/u);
+  assert.match(liveActivityLine(session, {}), /Running shell_run/u);
 });

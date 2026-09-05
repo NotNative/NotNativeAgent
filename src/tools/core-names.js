@@ -3,7 +3,7 @@
 export const FOUNDATIONAL_TOOL_NAMES = Object.freeze([
   'tool_search',
   'fs_list', 'fs_read', 'fs_search_text',
-  'shell.run',
+  'shell_run',
   'work.plan', 'work.status', 'work.task_update',
   'turn.finish',
   'git.inspect',
