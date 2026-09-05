@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { ToolRegistry } from '../src/tool-registry.js';
 
-test('fs.glob and fs.search_text discover bounded files without a platform shell', async () => {
+test('fs.glob and fs_search_text discover bounded files without a platform shell', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-discovery-'));
   await mkdir(join(root, 'src'));
   await mkdir(join(root, 'node_modules'));
@@ -28,7 +28,7 @@ test('fs.glob and fs.search_text discover bounded files without a platform shell
   assert.equal(listRequest.args.path, '.');
   assert.match((await registry.definition('fs.list_directory').executor(listRequest, new AbortController().signal)).content, /directory\tsrc/u);
 
-  const search = registry.definition('fs.search_text');
+  const search = registry.definition('fs_search_text');
   const searchRequest = await search.validate({ query: 'needle', file_glob: '**/*', max_results: 10 });
   const searchResult = await search.executor(searchRequest, new AbortController().signal);
   assert.match(searchResult.content, /src\/alpha\.js:2:1: Needle here/u);
@@ -77,7 +77,7 @@ test('filesystem discovery schemas explain path and treat missing roots as negat
   const registry = new ToolRegistry(root);
   await registry.initialize();
   const glob = registry.definition('fs.glob');
-  const search = registry.definition('fs.search_text');
+  const search = registry.definition('fs_search_text');
   assert.match(glob.inputSchema.properties.path.description, /Do not put glob syntax here/u);
   assert.match(glob.inputSchema.properties.pattern.description, /Required glob/u);
   assert.match(search.inputSchema.properties.path.description, /Exact file or root directory/u);

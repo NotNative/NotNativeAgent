@@ -39,7 +39,7 @@ test('canonical filesystem tools list names, read snapshots, and preserve conten
     assert.equal(window.resolved.readMode, 'lines');
     assert.match((await read.executor(window, new AbortController().signal)).content, /1: export const marker = true;/u);
 
-    const search = item.registry.definition('fs.search_text');
+    const search = item.registry.definition('fs_search_text');
     const searched = await search.validate({ path: '.', query: 'marker' });
     assert.match((await search.executor(searched, new AbortController().signal)).content, /button\.js:1/u);
   } finally { await item.close(); }

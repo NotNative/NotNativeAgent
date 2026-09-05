@@ -937,7 +937,7 @@ test('tool lifecycle appears before review and updates one truthful correlated r
   projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
   const base = {
     type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1',
-    tool: 'fs.search_text', target: '. :: "SIGINT|SIGTERM|sigint|sigterm"',
+    tool: 'fs_search_text', target: '. :: "SIGINT|SIGTERM|sigint|sigterm"',
   };
   const renderer = new TuiRenderer();
 
@@ -945,7 +945,7 @@ test('tool lifecycle appears before review and updates one truthful correlated r
   assert.equal(projection.active().state, 'awaiting_approval');
   let plain = renderer.frame(projection, { width: 100, height: 24, color: false });
   let colored = renderer.frame(projection, { width: 100, height: 24, color: true });
-  assert.match(plain, /^    ● fs\.search_text \(\. :: "SIGINT\|SIGTERM\|sigint\|sigterm"\) \| awaiting review$/mu);
+  assert.match(plain, /^    ● fs_search_text \(\. :: "SIGINT\|SIGTERM\|sigint\|sigterm"\) \| awaiting review$/mu);
   assert.match(colored, /\u001b\[38;5;214m●\u001b\[0m/u);
 
   projection.apply('s1', { type: 'review_status', turn_id: 'turn-1', tool_request_id: 'tool-1', outcome: 'approve', reason_code: 'deterministic_safe' });
@@ -954,19 +954,19 @@ test('tool lifecycle appears before review and updates one truthful correlated r
   plain = renderer.frame(projection, { width: 100, height: 24, color: false });
   colored = renderer.frame(projection, { width: 100, height: 24, color: true });
   assert.doesNotMatch(plain, /awaiting review/u);
-  assert.match(plain, /^    ● fs\.search_text .* \| approved$/mu);
+  assert.match(plain, /^    ● fs_search_text .* \| approved$/mu);
   assert.match(colored, /\u001b\[38;5;77m●\u001b\[0m/u);
 
   projection.apply('s1', { ...base, status: 'running' });
   assert.equal(projection.active().state, 'running_tool');
   plain = renderer.frame(projection, { width: 100, height: 24, color: false });
   assert.doesNotMatch(plain, /awaiting review| \| approved$/mu);
-  assert.match(plain, /^    \+ fs\.search_text .* \| running$/mu);
+  assert.match(plain, /^    \+ fs_search_text .* \| running$/mu);
 
   projection.apply('s1', { ...base, status: 'succeeded', elapsed_ms: 4, effect_certainty: 'completed' });
   plain = renderer.frame(projection, { width: 100, height: 24, color: false });
   assert.doesNotMatch(plain, /awaiting review| \| approved$| \| running$/mu);
-  assert.match(plain, /^    ✓ fs\.search_text .* \| succeeded$/mu);
+  assert.match(plain, /^    ✓ fs_search_text .* \| succeeded$/mu);
 });
 
 test('negative discovery observations are visible without appearing as failures', () => {
@@ -974,12 +974,12 @@ test('negative discovery observations are visible without appearing as failures'
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
   projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
   projection.apply('s1', {
-    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'fs.search_text',
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'fs_search_text',
     target: 'missing :: "needle"', status: 'succeeded', observation_outcome: 'target_not_found', elapsed_ms: 2,
   });
   const renderer = new TuiRenderer();
   const plain = renderer.frame(projection, { width: 100, height: 24, color: false });
-  assert.match(plain, /^    – fs\.search_text .* \| target not found$/mu);
+  assert.match(plain, /^    – fs_search_text .* \| target not found$/mu);
   assert.doesNotMatch(plain, /invalid_request|failed/u);
   const colored = renderer.frame(projection, { width: 100, height: 24, color: true });
   assert.doesNotMatch(colored, /38;5;203/u);

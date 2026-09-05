@@ -15,7 +15,7 @@ function item(tool, status, detail = {}) {
 }
 
 test('active constraints retain structured repairs and clear them after verified success', () => {
-  const invalid = item('fs.search_text', 'invalid_request', {
+  const invalid = item('fs_search_text', 'invalid_request', {
     reason: 'tool_schema_invalid', content: 'argument "path" must be a directory; received a file',
   });
   const constraints = mergeToolConstraints([], [invalid]);
@@ -23,7 +23,7 @@ test('active constraints retain structured repairs and clear them after verified
   assert.equal(constraints[0].request_fingerprint, undefined);
   assert.match(constraints[0].instruction, /same invalid request shape/u);
   assert.match(constraints[0].instruction, /do not repeat/u);
-  assert.deepEqual(mergeToolConstraints(constraints, [item('fs.search_text', 'succeeded')]), []);
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs_search_text', 'succeeded')]), []);
 });
 
 test('truncated argument lesson persists while the immediate repair mode stays one-step', () => {

@@ -5,7 +5,7 @@ import { ToolRegistry } from '../src/tool-registry.js';
 
 const FOUNDATION = [
   'tool_search',
-  'fs_list', 'fs_read', 'fs.search_text',
+  'fs_list', 'fs_read', 'fs_search_text',
   'shell.run', 'work.plan', 'work.status', 'work.task_update', 'turn.finish',
   'git.inspect',
 ];
@@ -115,6 +115,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['search', 'tool.search', 'tool_search'],
     ['list', 'fs.list', 'fs_list'],
     ['read', 'fs.read', 'fs_read'],
+    ['search-text', 'fs.search_text', 'fs_search_text'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

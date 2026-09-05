@@ -130,22 +130,22 @@ test('compaction projection replaces only older large successful results for the
 test('search compaction distinguishes canonical file_glob filters', () => {
   const transcript = [
     message('user', 'Search JavaScript files.', 'turn-js-old'),
-    { type: 'tool_request', turnId: 'turn-js-old', providerCallId: 'js-old', toolName: 'fs.search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js' } },
-    { type: 'tool_result', turnId: 'turn-js-old', providerCallId: 'js-old', toolName: 'fs.search_text', status: 'succeeded', content: `old-js-${'j'.repeat(4_000)}` },
+    { type: 'tool_request', turnId: 'turn-js-old', providerCallId: 'js-old', toolName: 'fs_search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js' } },
+    { type: 'tool_result', turnId: 'turn-js-old', providerCallId: 'js-old', toolName: 'fs_search_text', status: 'succeeded', content: `old-js-${'j'.repeat(4_000)}` },
     ...Array.from({ length: 5 }, (_, index) => [
       message('user', `Intervening JavaScript request ${index}`, `turn-js-gap-${index}`),
       message('assistant', `Intervening JavaScript answer ${index}`, `turn-js-gap-${index}`),
     ]).flat(),
     message('user', 'Search text files.', 'turn-txt'),
-    { type: 'tool_request', turnId: 'turn-txt', providerCallId: 'txt', toolName: 'fs.search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.txt' } },
-    { type: 'tool_result', turnId: 'turn-txt', providerCallId: 'txt', toolName: 'fs.search_text', status: 'succeeded', content: `txt-marker-${'t'.repeat(4_000)}` },
+    { type: 'tool_request', turnId: 'turn-txt', providerCallId: 'txt', toolName: 'fs_search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.txt' } },
+    { type: 'tool_result', turnId: 'turn-txt', providerCallId: 'txt', toolName: 'fs_search_text', status: 'succeeded', content: `txt-marker-${'t'.repeat(4_000)}` },
     ...Array.from({ length: 5 }, (_, index) => [
       message('user', `Intervening text request ${index}`, `turn-txt-gap-${index}`),
       message('assistant', `Intervening text answer ${index}`, `turn-txt-gap-${index}`),
     ]).flat(),
     message('user', 'Search JavaScript files again.', 'turn-js-new'),
-    { type: 'tool_request', turnId: 'turn-js-new', providerCallId: 'js-new', toolName: 'fs.search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js' } },
-    { type: 'tool_result', turnId: 'turn-js-new', providerCallId: 'js-new', toolName: 'fs.search_text', status: 'succeeded', content: `new-js-${'n'.repeat(4_000)}` },
+    { type: 'tool_request', turnId: 'turn-js-new', providerCallId: 'js-new', toolName: 'fs_search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js' } },
+    { type: 'tool_result', turnId: 'turn-js-new', providerCallId: 'js-new', toolName: 'fs_search_text', status: 'succeeded', content: `new-js-${'n'.repeat(4_000)}` },
   ];
   const compacted = compactTranscript(transcript, 80_000);
   const result = (id) => compacted.records.find((item) => item.type === 'tool_result' && item.providerCallId === id);
@@ -419,7 +419,7 @@ test('failed and denied tool results remain exact instead of becoming semantic r
 test('compaction either replays exact native tool-call arguments or omits the complete exchange', () => {
   const requests = [
     { providerCallId: 'read', toolName: 'fs_read', args: { path: 'README.md', start_line: 3, line_count: 120 } },
-    { providerCallId: 'search', toolName: 'fs.search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js', max_results: 17 } },
+    { providerCallId: 'search', toolName: 'fs_search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js', max_results: 17 } },
     { providerCallId: 'web', toolName: 'web.search', args: { query: 'current provider documentation', max_results: 4 } },
     { providerCallId: 'plan', toolName: 'work.plan', args: { objective: 'Keep history truthful', tasks: ['test', 'ship'] } },
     { providerCallId: 'shell', toolName: 'shell.run', args: { script: 'node --test', timeout_ms: 90_000 } },

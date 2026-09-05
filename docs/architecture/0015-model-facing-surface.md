@@ -6,7 +6,7 @@ NNA keeps its complete governed capability registry while presenting a stable fo
 surface to every ordinary provider step. The deliberately small deterministic order is:
 
 1. `tool_search`;
-2. `fs_list`, `fs_read`, and `fs.search_text`;
+2. `fs_list`, `fs_read`, and `fs_search_text`;
 3. `shell.run`;
 4. `work.plan`, `work.status`, and `work.task_update`;
 5. `turn.finish`;

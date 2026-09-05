@@ -57,7 +57,7 @@ function globDefinition(paths) {
 
 function searchDefinition(paths) {
   return {
-    name: 'fs.search_text', version: 1,
+    name: 'fs_search_text', version: 1,
     purpose: 'Search inside bounded UTF-8 files and return line-numbered matches. Path may name one file or a root directory; omit it to search from the working directory. Matching is literal unless match_mode is regex.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
     inputSchema: objectSchema({

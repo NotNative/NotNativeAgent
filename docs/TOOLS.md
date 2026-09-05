@@ -3,7 +3,7 @@
 ## Discovery and context economy
 
 Every ordinary provider step receives a deterministic foundational surface, with `tool_search`
-first: `tool_search`; `fs_list`, `fs_read`, and `fs.search_text`; `shell.run`;
+first: `tool_search`; `fs_list`, `fs_read`, and `fs_search_text`; `shell.run`;
 `work.plan`, `work.status`, and `work.task_update`; `turn.finish`; and `git.inspect`.
 A foundational tool is omitted only when that subsystem is genuinely unavailable or an
 authenticated host manifest removes it. NNA never selects or withholds schemas by matching
@@ -63,7 +63,7 @@ The canonical model-facing filesystem tools are:
 - `fs_list`: enumerate a bounded tree under an existing directory, with an optional
   cross-platform name pattern that matches both files and directories. It lists children;
   list the parent to discover whether a prospective child exists.
-- `fs.search_text`: search bounded UTF-8 files with line-numbered snippets. Literal matching
+- `fs_search_text`: search bounded UTF-8 files with line-numbered snippets. Literal matching
   is the default; `match_mode: "regex"` enables explicit expressions such as `foo|bar`.
   A successful literal search with no matches remains a negative observation, not a failure.
   When its query contains expression syntax, the result suggests `match_mode: "regex"` without

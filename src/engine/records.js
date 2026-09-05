@@ -134,7 +134,7 @@ function boundedTarget(tool, args, resolved = null, agentRoute = null) {
   const candidate = ['path', 'file_path', 'file', 'filename', 'target']
     .find((key) => typeof args[key] === 'string' && args[key].length > 0);
   const path = candidate ? args[candidate] : '';
-  const selector = tool === 'fs.search_text' ? args.query : ['fs_list', 'fs.glob'].includes(tool) ? args.pattern : null;
+  const selector = tool === 'fs_search_text' ? args.query : ['fs_list', 'fs.glob'].includes(tool) ? args.pattern : null;
   if (typeof selector === 'string') return `${path || '.'} :: ${JSON.stringify(selector)}`.slice(0, MAX_TARGET_LENGTH);
   return path ? `${candidate === 'path' ? '' : `${candidate}=`}${path}`.slice(0, MAX_TARGET_LENGTH) : null;
 }

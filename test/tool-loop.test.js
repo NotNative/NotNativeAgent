@@ -99,7 +99,7 @@ test('work convergence cadence is advisory and resets only on a durable revision
 test('different search arguments count as progress even when their results are identical', () => {
   const item = (query) => ({
     request: { args: { path: '.', query } },
-    result: { status: 'succeeded', tool_name: 'fs.search_text', content: 'no text matches' },
+    result: { status: 'succeeded', tool_name: 'fs_search_text', content: 'no text matches' },
   });
   assert.notEqual(toolProgressEvidence([item('alpha')], 0).value, toolProgressEvidence([item('beta')], 0).value);
 });
@@ -151,13 +151,13 @@ test('failure fingerprints group only identical schema-contract repair attempts'
     request: { toolName: tool, args },
     result: { status: 'invalid_request', tool_name: tool, reason_code: 'tool_schema_invalid', content },
   });
-  const firstFailure = failed('fs.search_text', { path: '.', file_glob: 3 }, 'file_glob is invalid');
+  const firstFailure = failed('fs_search_text', { path: '.', file_glob: 3 }, 'file_glob is invalid');
   const first = toolFailureFingerprint([firstFailure]);
   assert.equal(first, toolFailureFingerprint([
     firstFailure, firstFailure,
   ]));
   assert.notEqual(first, toolFailureFingerprint([
-    failed('fs.search_text', { path: '.', file_glob: '*.js' }, 'file_glob is invalid'),
+    failed('fs_search_text', { path: '.', file_glob: '*.js' }, 'file_glob is invalid'),
   ]));
   assert.notEqual(first, toolFailureFingerprint([
     failed('work.task_update', { id: 'T1', status: 'completed' }, 'detail is required'),
@@ -951,7 +951,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
-    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.search_text', 'fs.write_text', 'fs_list', 'fs_read', 'git.inspect',
+    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_list', 'fs_read', 'fs_search_text', 'git.inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'project.verify', 'ref.inspect', 'ref.store', 'shell.run', 'system.time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
