@@ -11,5 +11,5 @@ test('inline interpreter shaping recognizes fragile source argv without blocking
   assert.equal(inlineInterpreterInvocation('node', ['-', 'argument']), false);
   assert.equal(inlineInterpreterInvocation('python', ['-', 'argument']), false);
   assert.equal(inlineInterpreterInvocation('rg', ['-e', 'pattern']), false);
-  assert.match(inlineInterpreterGuidance(), /ref\.store.*stdin_ref.*node with args \["-"\]/u);
+  assert.match(inlineInterpreterGuidance(), /ref_store.*stdin_ref.*node with args \["-"\]/u);
 });

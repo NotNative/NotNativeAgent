@@ -168,7 +168,7 @@ separately installed, cross-platform PowerShell 7 product and is used only after
 an explicit operator request. Unix-like hosts likewise may provide `sh`, `bash`, or another
 shell, and a shell wrapper is used only when its syntax is necessary.
 Generated multi-statement interpreter programs should not be nested inside `node -e`,
-`python -c`, or similar argv. The agent stores the source as a bounded draft with `ref.store`
+`python -c`, or similar argv. The agent stores the source as a bounded draft with `ref_store`
 and supplies `stdin_ref` to `process_run`, using the interpreter's stdin form such as
 `node -` or `python -`. Short, simple inline expressions remain allowed; inline interpreter
 requests are classified for review, and a failed inline request leaves durable guidance to use

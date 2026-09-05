@@ -160,7 +160,7 @@ test('process_run consumes exact draft stdin without filesystem staging', async 
   const root = await mkdtemp(join(tmpdir(), 'nna-process-stdin-ref-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const store = registry.definition('ref.store');
+  const store = registry.definition('ref_store');
   const stored = await store.executor(
     await store.validate({ kind: 'draft', value: "process.stdout.write('stdin-ref-ok')\n" }),
     new AbortController().signal,

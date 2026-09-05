@@ -43,7 +43,7 @@ test('ephemeral drafts retain exact values while inspection exposes metadata onl
   const root = await mkdtemp(join(tmpdir(), 'nna-reference-draft-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const store = registry.definition('ref.store');
+  const store = registry.definition('ref_store');
   const stored = await store.executor(
     await store.validate({ kind: 'draft', value: 'exact multiline\ndraft' }),
     new AbortController().signal,
@@ -60,7 +60,7 @@ test('typed bindings fail clearly when a reference kind is used in the wrong fie
   const root = await mkdtemp(join(tmpdir(), 'nna-reference-kind-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const store = registry.definition('ref.store');
+  const store = registry.definition('ref_store');
   const stored = await store.executor(
     await store.validate({ kind: 'url', value: 'https://example.com/docs' }),
     new AbortController().signal,

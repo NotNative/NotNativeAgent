@@ -7,7 +7,7 @@ import { systemTimeDefinition } from '../src/tools/system-time.js';
 import { invalidResult } from '../src/tools/governor.js';
 
 const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
-  'ref.store', 'ref.inspect',
+  'ref_store', 'ref.inspect',
   'fs.list_directory', 'fs.read_text', 'fs.read_lines', 'fs.glob', 'fs_search_text',
   'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file', 'fs.metadata',
   'fs.create_directory', 'fs.copy_file', 'fs.move_file', 'fs_read', 'fs_list', 'fs.directory',
@@ -94,7 +94,7 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
     assert.equal(exact.inputSchema.properties.content.maxLength, 32_768);
     assert.equal(lines.inputSchema.properties.replacement.maxLength, 32_768);
     assert.equal(registry.definition('fs.write_text').inputSchema.properties.content.maxLength, 32_768);
-    assert.equal(registry.definition('ref.store').inputSchema.properties.value.maxLength, 32_768);
+    assert.equal(registry.definition('ref_store').inputSchema.properties.value.maxLength, 32_768);
 
     registry.grantWorkflowLease(['fs.edit_text', 'fs.edit_lines']);
     const surface = registry.providerDefinitions('build and edit a project file', { phase: 'action' });

@@ -85,7 +85,7 @@ test('failed inline interpreter constraints recommend draft stdin instead of rep
     args: { executable: 'node', args: ['-e', 'const child = "nested"; process.exit(1)'] },
   })]);
   assert.match(constraints[0].instruction, /Avoid embedding generated multi-statement programs/u);
-  assert.match(constraints[0].instruction, /ref\.store.*stdin_ref/u);
+  assert.match(constraints[0].instruction, /ref_store.*stdin_ref/u);
 });
 
 test('missing directory ancestors become durable prerequisites cleared by structured existence proof', () => {

@@ -104,7 +104,7 @@ export function referenceDefinitions(store, paths) {
 
 function storeDefinition(store, paths) {
   return {
-    name: 'ref.store', version: 2,
+    name: 'ref_store', version: 2,
     purpose: 'Store one bounded path, URL, or draft as an ephemeral typed reference. Reuse the returned reference wherever a later tool accepts that exact path or URL string instead of reproducing values from model memory.',
     sideEffect: 'reversible', scope: 'ephemeral_reference', cancellation: true, timeoutMs: 10_000,
     inputSchema: {

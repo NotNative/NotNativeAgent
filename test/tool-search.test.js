@@ -36,7 +36,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.ok(!baseline.includes('fs.delete_file'));
   assert.ok(!baseline.includes('process_run'));
   assert.ok(!baseline.includes('browser.navigate'));
-  assert.ok(!baseline.includes('ref.store'));
+  assert.ok(!baseline.includes('ref_store'));
   assert.ok(!baseline.includes('notification.telegram'));
   assert.ok(!baseline.includes('web.fetch'));
   assert.ok(!baseline.includes('web.browse'));
@@ -130,6 +130,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['process run', 'process.run', 'process_run'],
     ['project verify', 'project.verify', 'project_verify'],
     ['code diagnostics', 'code.diagnostics', 'code_diagnostics'],
+    ['reference store', 'ref.store', 'ref_store'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
