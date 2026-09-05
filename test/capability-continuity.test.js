@@ -31,7 +31,7 @@ test('terse continuation preserves active unfinished work context without changi
   const grounded = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
   assert.deepEqual(grounded, visible);
   assert.ok(!visible.includes('project.verify'));
-  assert.ok(!visible.includes('process.run'));
+  assert.ok(!visible.includes('process_run'));
 });
 
 test('terse continuation falls back to the nearest substantive authenticated request', () => {
@@ -56,7 +56,7 @@ test('substantive new operator input replaces projected context but retains foun
   await registry.initialize();
   const visible = registry.providerDefinitions(capabilitySelectionQuery(context)).map((item) => item.function.name);
   assert.ok(!visible.includes('fs.write_text'));
-  assert.ok(!visible.includes('process.run'));
+  assert.ok(!visible.includes('process_run'));
   assert.ok(visible.includes('work_plan'));
 });
 

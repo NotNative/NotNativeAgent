@@ -193,8 +193,8 @@ test('duplicate projection never collapses failures, small payloads, or protecte
     { type: 'tool_result', turnId: 'turn-active', providerCallId: 'active-a', toolName: 'fs.read_text', status: 'succeeded', content: large },
     { type: 'tool_request', turnId: 'turn-active', providerCallId: 'active-b', toolName: 'fs.read_text', args: { path: 'b' } },
     { type: 'tool_result', turnId: 'turn-active', providerCallId: 'active-b', toolName: 'fs.read_text', status: 'succeeded', content: large },
-    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-a', toolName: 'process.run', status: 'failed', content: large },
-    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-b', toolName: 'process.run', status: 'failed', content: large },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-a', toolName: 'process_run', status: 'failed', content: large },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-b', toolName: 'process_run', status: 'failed', content: large },
     { type: 'tool_result', turnId: 'turn-old', providerCallId: 'small-a', toolName: 'fs.read_text', status: 'succeeded', content: 'same small result' },
     { type: 'tool_result', turnId: 'turn-old', providerCallId: 'small-b', toolName: 'fs.read_text', status: 'succeeded', content: 'same small result' },
   ];
@@ -256,8 +256,8 @@ test('requested compaction adaptively reduces oversized recent history instead o
 test('oversized protected tool payload becomes a ledger-backed receipt without orphaning its request', () => {
   const transcript = [
     message('user', 'Inspect the large output.', 'turn-active'),
-    { type: 'tool_request', turnId: 'turn-active', requestId: 'request-1', providerCallId: 'call-1', toolName: 'process.run', args: { executable: 'fixture' } },
-    { type: 'tool_result', turnId: 'turn-active', requestId: 'request-1', providerCallId: 'call-1', toolName: 'process.run', status: 'succeeded', content: `head-${'x'.repeat(200_000)}-tail` },
+    { type: 'tool_request', turnId: 'turn-active', requestId: 'request-1', providerCallId: 'call-1', toolName: 'process_run', args: { executable: 'fixture' } },
+    { type: 'tool_result', turnId: 'turn-active', requestId: 'request-1', providerCallId: 'call-1', toolName: 'process_run', status: 'succeeded', content: `head-${'x'.repeat(200_000)}-tail` },
   ];
   const compacted = compactTranscript(transcript, 65_536, { activeTurnId: 'turn-active' });
   const request = compacted.records.find((item) => item.type === 'tool_request');
@@ -274,8 +274,8 @@ test('recent tool output below the context-scaled protected cap remains unchange
   const content = `head-${'x'.repeat(60_000)}-tail`;
   const transcript = [
     message('user', 'Inspect the substantial output.', 'turn-active'),
-    { type: 'tool_request', turnId: 'turn-active', providerCallId: 'call-1', toolName: 'process.run', args: { executable: 'fixture' } },
-    { type: 'tool_result', turnId: 'turn-active', providerCallId: 'call-1', toolName: 'process.run', status: 'succeeded', content },
+    { type: 'tool_request', turnId: 'turn-active', providerCallId: 'call-1', toolName: 'process_run', args: { executable: 'fixture' } },
+    { type: 'tool_result', turnId: 'turn-active', providerCallId: 'call-1', toolName: 'process_run', status: 'succeeded', content },
   ];
   const compacted = compactTranscript(transcript, 524_288, { activeTurnId: 'turn-active' });
   const result = compacted.records.find((item) => item.type === 'tool_result');
@@ -288,11 +288,11 @@ test('oversized protected history falls back to a bounded hierarchical continuat
   for (let index = 0; index < 6; index += 1) {
     transcript.push({
       type: 'tool_request', turnId: 'turn-active', providerCallId: `call-${index}`,
-      toolName: 'process.run', args: { executable: 'fixture', args: [String(index)] },
+      toolName: 'process_run', args: { executable: 'fixture', args: [String(index)] },
     });
     transcript.push({
       type: 'tool_result', turnId: 'turn-active', providerCallId: `call-${index}`,
-      toolName: 'process.run', status: 'succeeded', content: `Result ${index} ${'a'.repeat(20_000)}`,
+      toolName: 'process_run', status: 'succeeded', content: `Result ${index} ${'a'.repeat(20_000)}`,
     });
   }
   transcript.push(message('assistant', `Current work ${'z'.repeat(80_000)}`, 'turn-active'));
@@ -344,9 +344,9 @@ test('settled tool exchanges become typed causal receipts while tool-call argume
 
 test('receipt compaction retains essential outcome metadata instead of replacing the whole object', () => {
   const result = createToolContextReceipt({
-    toolName: 'process.run', status: 'completed_nonzero', content: 'diagnostic',
+    toolName: 'process_run', status: 'completed_nonzero', content: 'diagnostic',
     metadata: { exitCode: 7, signal: null, diagnosticOutcome: 'stderr_present', noise: 'x'.repeat(4_096) },
-  }, { toolName: 'process.run', args: { executable: 'fixture' } });
+  }, { toolName: 'process_run', args: { executable: 'fixture' } });
   assert.deepEqual(result.metadata, {
     exitCode: 7, signal: null, diagnosticOutcome: 'stderr_present', compacted: true,
     omittedMetadata: true, reason: 'bounded_tool_receipt', originalReason: null,

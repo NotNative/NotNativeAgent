@@ -111,7 +111,7 @@ structured mission that passes its resource, effect, target, credential, schedul
 ceilings may deterministically cover a reversible request.
 Untracked, external, destructive, shell, and complex process
 effects reach mandatory semantic review instead of being prohibited by the tool layer.
-`process.run` retains minimal-environment inheritance, bounded output, deadlines, and
+`process_run` retains minimal-environment inheritance, bounded output, deadlines, and
 process-tree cancellation. `docs/TOOLS.md` is the canonical current catalog.
 
 No active runtime installs `system.elevate`. Local interactive Windows Console sessions may

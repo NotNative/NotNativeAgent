@@ -133,7 +133,7 @@ test('long productive workflows may use many distinct negative diagnostics witho
     lastEvidence = toolProgressEvidence([{
       request: { args: { executable: 'probe', args: [`candidate-${index}`] } },
       result: {
-        status: 'completed_nonzero', tool_name: 'process.run', reason_code: 'process_exit_nonzero',
+        status: 'completed_nonzero', tool_name: 'process_run', reason_code: 'process_exit_nonzero',
         content: `candidate ${index} was not present`, metadata: { exitCode: 1, signal: null },
       },
     }]);
@@ -326,7 +326,7 @@ test('invalid plan guidance keeps bookkeeping subordinate to substantive work', 
 
 test('review denial continuation favors safer progress before operator interruption', () => {
   const hint = toolContinuationHint([{
-    result: { status: 'deny_with_guidance', tool_name: 'process.run' },
+    result: { status: 'deny_with_guidance', tool_name: 'process_run' },
   }], 'generic recovery');
   assert.match(hint, /constraint, not the end[^]*safer[^]*Ask the operator only after/iu);
 });
@@ -351,7 +351,7 @@ test('completed nonzero continuation distinguishes diagnostic progress from succ
 });
 
 test('denial results distinguish recoverable review constraints from policy and availability failures', () => {
-  const request = { id: 'tool-1', providerCallId: 'call-1', toolName: 'process.run' };
+  const request = { id: 'tool-1', providerCallId: 'call-1', toolName: 'process_run' };
   const ordinary = denialResult(request, {
     outcome: 'deny_with_guidance', reasonCode: 'intent_mismatch', guidance: 'Target was not authorized.',
   });
@@ -952,7 +952,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
     'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
-    'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'project.verify', 'ref.inspect', 'ref.store', 'shell_run', 'system.time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
+    'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project.verify', 'ref.inspect', 'ref.store', 'shell_run', 'system.time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
 });

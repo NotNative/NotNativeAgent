@@ -9,12 +9,12 @@ import { operationalEnvironment, shellInvocation, shellRunDefinition } from '../
 import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
 import { detachedProcessInvocation } from '../src/reliability/process-lifecycle.js';
 
-test('process.run executes bounded shell-free argv inside the workspace', async () => {
+test('process_run executes bounded shell-free argv inside the workspace', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-'));
   await writeFile(join(root, 'print.js'), "process.stdout.write('process-ok')\n");
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const definition = registry.definition('process.run');
+  const definition = registry.definition('process_run');
   assert.equal(definition.purpose, 'Run one bounded installed host program with an explicit argument vector and captured output.');
   assert.match(definition.inputSchema.properties.args.description, /Avoid embedding generated multi-statement programs/u);
   assert.match(definition.inputSchema.properties.stdin_ref.description, /node args \["-"\]/u);
@@ -38,7 +38,7 @@ test('AC-FAIL-07 process timeout returns promptly after requesting tree terminat
   await writeFile(join(root, 'wait.js'), "process.on('SIGTERM',()=>{});setInterval(()=>{},1000);", 'utf8');
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const definition = registry.definition('process.run');
+  const definition = registry.definition('process_run');
   const normalized = await definition.validate({ executable: 'node', args: ['wait.js'], timeout_ms: 100 });
   const started = performance.now();
   await assert.rejects(
@@ -58,7 +58,7 @@ test('AC-FAIL-07 Windows process timeout terminates descendants', { skip: proces
     'setInterval(()=>{},1000);',
   ].join('\n'));
   const registry = new ToolRegistry(root); await registry.initialize();
-  const definition = registry.definition('process.run');
+  const definition = registry.definition('process_run');
   const normalized = await definition.validate({ executable: 'node', args: ['parent.js'], timeout_ms: 500 });
   let pid = null;
   try {
@@ -76,7 +76,7 @@ test('unexpected nonzero process exits preserve diagnostics without becoming suc
   await writeFile(join(root, 'fail.js'), "process.stdout.write('partial output');process.stderr.write('diagnostic');process.exitCode=7;\n");
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const definition = registry.definition('process.run');
+  const definition = registry.definition('process_run');
   const normalized = await definition.validate({ executable: 'node', args: ['fail.js'] });
   const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
   const output = JSON.parse(result.content);
@@ -100,7 +100,7 @@ test('accepted process exits identify stderr without converting execution into f
   const root = await mkdtemp(join(tmpdir(), 'nna-process-diagnostics-'));
   await writeFile(join(root, 'diagnostic.js'), "process.stdout.write('ok');process.stderr.write('warning');\n");
   const registry = new ToolRegistry(root); await registry.initialize();
-  const definition = registry.definition('process.run');
+  const definition = registry.definition('process_run');
   const normalized = await definition.validate({ executable: 'node', args: ['diagnostic.js'] });
   const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
   const output = JSON.parse(result.content);
@@ -121,7 +121,7 @@ test('process output overflow remains failed while preserving bounded observed e
   ].join('\n'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const definition = registry.definition('process.run');
+  const definition = registry.definition('process_run');
   const normalized = await definition.validate({ executable: 'node', args: ['overflow.js'], timeout_ms: 5_000 });
   const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
   const output = JSON.parse(result.content);
@@ -145,7 +145,7 @@ test('process tools accept only explicit bounded exit-code protocols containing 
   const root = await mkdtemp(join(tmpdir(), 'nna-process-exit-codes-'));
   await writeFile(join(root, 'predicate.js'), 'process.exitCode=1;\n');
   const registry = new ToolRegistry(root); await registry.initialize();
-  const definition = registry.definition('process.run');
+  const definition = registry.definition('process_run');
   await assert.rejects(definition.validate({ executable: 'node', accepted_exit_codes: [1] }), { code: 'process_exit_codes_invalid' });
   await assert.rejects(definition.validate({ executable: 'node', accepted_exit_codes: [0, 0] }), { code: 'process_exit_codes_invalid' });
   await assert.rejects(definition.validate({ executable: 'node', accepted_exit_codes: [0, 256] }), { code: 'tool_schema_invalid' });
@@ -156,7 +156,7 @@ test('process tools accept only explicit bounded exit-code protocols containing 
   assert.equal(JSON.parse(result.content).exit_code, 1);
 });
 
-test('process.run consumes exact draft stdin without filesystem staging', async () => {
+test('process_run consumes exact draft stdin without filesystem staging', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-stdin-ref-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
@@ -166,7 +166,7 @@ test('process.run consumes exact draft stdin without filesystem staging', async 
     new AbortController().signal,
   );
   const stdinRef = JSON.parse(stored.content).reference;
-  const processTool = registry.definition('process.run');
+  const processTool = registry.definition('process_run');
   const normalized = await processTool.validate({ executable: 'node', args: ['-'], stdin_ref: stdinRef });
   assert.equal(Object.hasOwn(normalized.args, 'stdin'), false);
   assert.equal(normalized.args.stdin_ref, stdinRef);
@@ -177,11 +177,11 @@ test('process.run consumes exact draft stdin without filesystem staging', async 
   });
 });
 
-test('AC-AUTH-04 process.run seals shells and destructive commands for semantic review instead of hard-blocking them', async () => {
+test('AC-AUTH-04 process_run seals shells and destructive commands for semantic review instead of hard-blocking them', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-process-policy-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const definition = registry.definition('process.run');
+  const definition = registry.definition('process_run');
   assert.equal((await definition.validate({ executable: 'rm', args: ['-rf', '.'] })).resolved.reviewComplexity, 'destructive_command');
   assert.equal((await definition.validate({ executable: 'powershell', args: ['-Command', 'dir'] })).resolved.reviewComplexity, 'shell_command');
   const observation = await definition.validate({
@@ -197,7 +197,7 @@ test('AC-AUTH-04 process.run seals shells and destructive commands for semantic 
   assert.equal((await definition.validate({ executable: 'node', args: ['file.js'], cwd: '..' })).resolved.insideWorkspace, false);
   const hosted = new ToolRegistry(root, { boundedToWorkspace: true });
   await hosted.initialize();
-  await assert.rejects(hosted.definition('process.run').validate({ executable: 'node', args: ['file.js'], cwd: '..' }), { code: 'tool_scope_denied' });
+  await assert.rejects(hosted.definition('process_run').validate({ executable: 'node', args: ['file.js'], cwd: '..' }), { code: 'tool_scope_denied' });
   assert.equal((await definition.validate({ executable: 'npm', args: ['run', 'build'] })).resolved.reviewComplexity, 'opaque_package_script');
   assert.equal((await definition.validate({ executable: 'rg', args: ['TODO.*unsafe'] })).resolved.reviewComplexity, 'interpreted_pattern');
   assert.equal((await definition.validate({ executable: 'ping', args: ['-n', '3', '192.0.2.15'] })).resolved.reviewPurpose, 'network_diagnostic');
@@ -217,7 +217,7 @@ test('AC-SEC-05 process execution receives an operational environment without in
   try {
     const registry = new ToolRegistry(root);
     await registry.initialize();
-    const definition = registry.definition('process.run');
+    const definition = registry.definition('process_run');
     const normalized = await definition.validate({ executable: 'node', args: ['environment.js'] });
     const result = await definition.executor({ args: normalized.args }, new AbortController().signal);
     assert.deepEqual(JSON.parse(JSON.parse(result.content).stdout), { secret: null, path: true });
@@ -248,7 +248,7 @@ test('Windows OpenSSH initializes under the operational child environment', asyn
   const root = await mkdtemp(join(tmpdir(), 'nna-openssh-environment-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const definition = registry.definition('process.run');
+  const definition = registry.definition('process_run');
   const normalized = await definition.validate({ executable, args: ['-V'], timeout_ms: 5_000 });
   const result = JSON.parse((await definition.executor({ args: normalized.args }, new AbortController().signal)).content);
   assert.equal(result.exit_code, 0);
@@ -428,7 +428,7 @@ test('execution contracts identify detachment while preserving bounded wait form
   const foregroundServer = await shell.validate({ script: 'python -m http.server 8643', shell: 'powershell' });
   assert.equal(foregroundServer.resolved.reviewComplexity, 'long_running_foreground_shell');
   assert.deepEqual(foregroundServer.resolved.reliabilitySignals, ['long_running_foreground']);
-  const processTool = registry.definition('process.run');
+  const processTool = registry.definition('process_run');
   const indirect = await processTool.validate({
     executable: 'powershell.exe', args: ['-Command', 'Start-Process npm -ArgumentList run,dev'],
   });
@@ -456,7 +456,7 @@ test('execution contracts identify external browser launches without flagging br
   const textSearch = await shell.validate({ shell: 'powershell', script: 'rg "chrome.exe" src' });
   assert.equal(textSearch.resolved.reliabilitySignals.includes('external_browser'), false);
 
-  const processTool = registry.definition('process.run');
+  const processTool = registry.definition('process_run');
   assert.equal((await processTool.validate({ executable: 'msedge.exe', args: ['--headless'] }))
     .resolved.reliabilitySignals.includes('external_browser'), true);
   assert.equal((await processTool.validate({ executable: 'npx', args: ['playwright', 'screenshot', 'https://example.test'] }))

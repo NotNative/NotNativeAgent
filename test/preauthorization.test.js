@@ -34,14 +34,14 @@ test('AC-AUTH-05 conversation preauthorization is scoped, drift-sensitive, inspe
 test('workspace execution grants bind to an operation family rather than every command', () => {
   const registry = new PreauthorizationRegistry();
   const review = { definition: { sideEffect: 'unknown' } };
-  const status = compoundRequest('status-one', 'process.run', {
+  const status = compoundRequest('status-one', 'process_run', {
     path: 'D:/work', executable: 'git', argv: ['status'], reviewComplexity: 'simple_argv',
   });
   const grant = registry.grant('allow_workspace', status, review, 'operator');
-  assert.equal(registry.match(compoundRequest('status-two', 'process.run', {
+  assert.equal(registry.match(compoundRequest('status-two', 'process_run', {
     path: 'D:/work/subdir', executable: 'git', argv: ['status'], reviewComplexity: 'simple_argv',
   }), review)?.id, grant.id);
-  assert.equal(registry.match(compoundRequest('push', 'process.run', {
+  assert.equal(registry.match(compoundRequest('push', 'process_run', {
     path: 'D:/work', executable: 'git', argv: ['push'], reviewComplexity: 'simple_argv',
   }), review), null);
 
@@ -58,11 +58,11 @@ test('workspace execution grants bind to an operation family rather than every c
   assert.equal(registry.match(compoundRequest('shell-bare-ampersand', 'shell_run', {
     path: 'D:/work', shell: 'powershell', script: 'Get-ChildItem & Remove-Item file.txt', reviewComplexity: 'compound_shell',
   }), review), null);
-  registry.grant('allow_workspace', compoundRequest('process-shell-one', 'process.run', {
+  registry.grant('allow_workspace', compoundRequest('process-shell-one', 'process_run', {
     path: 'D:/work', executable: 'powershell.exe',
     argv: ['-Command', 'Get-ChildItem'], reviewComplexity: 'compound_shell',
   }), review, 'operator');
-  assert.equal(registry.match(compoundRequest('process-bare-ampersand', 'process.run', {
+  assert.equal(registry.match(compoundRequest('process-bare-ampersand', 'process_run', {
     path: 'D:/work', executable: 'powershell.exe',
     argv: ['-Command', 'Get-ChildItem & Remove-Item file.txt'], reviewComplexity: 'compound_shell',
   }), review), null);
@@ -103,14 +103,14 @@ test('operation preauthorization binds every transfer target and exact process a
     source: { path: 'D:/work/a.txt' }, destination: { path: 'D:/work/c.txt' },
   }), context), null);
 
-  const process = compoundRequest('process-one', 'process.run', {
+  const process = compoundRequest('process-one', 'process_run', {
     path: 'D:/work', executable: 'git', argv: ['status'],
   });
   const processGrant = registry.grant('allow_session', process, { definition: { sideEffect: 'unknown' } }, 'operator');
-  assert.equal(registry.match(compoundRequest('process-drift', 'process.run', {
+  assert.equal(registry.match(compoundRequest('process-drift', 'process_run', {
     path: 'D:/work', executable: 'git', argv: ['push'],
   }), { definition: { sideEffect: 'unknown' } }), null);
-  assert.equal(registry.match(compoundRequest('process-two', 'process.run', {
+  assert.equal(registry.match(compoundRequest('process-two', 'process_run', {
     path: 'D:/work', executable: 'git', argv: ['status'],
   }), { definition: { sideEffect: 'unknown' } })?.id, processGrant.id);
 });

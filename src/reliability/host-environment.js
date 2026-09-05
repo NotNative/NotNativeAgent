@@ -41,7 +41,7 @@ export function unavailableShellMessage(shell, platform = process.platform) {
   const host = hostEnvironment(platform);
   const fallback = shell === host.nativeShell
     ? `The native interpreter ${host.executable} is missing or unavailable on PATH; diagnose the host installation before retrying.`
-    : `Use shell auto with ${host.syntax} syntax, or use process.run or a structured NNA tool. Do not repeat shell ${shell} unless that interpreter is positively discovered.`;
+    : `Use shell auto with ${host.syntax} syntax, or use process_run or a structured NNA tool. Do not repeat shell ${shell} unless that interpreter is positively discovered.`;
   return `The requested shell interpreter ${shell} is unavailable on this ${host.os} (${host.platform}) host. ${fallback}`;
 }
 

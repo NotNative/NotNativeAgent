@@ -88,7 +88,7 @@ function addGovernedTools(result, enabled) {
     trust_zone: 'public_or_explicit_origin', purpose: 'reviewed_web_fetch', state: 'review_required',
     credential_reference: null,
   }, {
-    kind: 'governed_tool', id: 'process.run', destination: 'process_arguments',
+    kind: 'governed_tool', id: 'process_run', destination: 'process_arguments',
     trust_zone: 'operator_reviewed', purpose: 'reviewed_process_execution', state: 'review_required',
     credential_reference: null,
   }, {

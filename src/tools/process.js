@@ -26,7 +26,7 @@ const SECRET_LITERAL = /(?:bearer\s*[:=]?\s+|(?:api[_-]?key|token|password)\s*["
 export function processRunDefinition(paths, references = null) {
   const inlineGuidance = inlineInterpreterGuidance();
   return {
-    name: 'process.run', version: 1,
+    name: 'process_run', version: 1,
     purpose: 'Run one bounded installed host program with an explicit argument vector and captured output.',
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
     inputSchema: {

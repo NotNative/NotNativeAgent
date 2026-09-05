@@ -436,7 +436,7 @@ export function toolContinuationHint(items, fallback = null) {
   if (failedFetch) {
     return 'WebFetch could not retrieve that exact URL. Do not retry it with WebFetch and do not synthesize a replacement path. WebFetch and WebBrowse are independent retrieval paths: if WebBrowse is available, your next recovery call should use web.browse with action navigate on the same exact URL, then inspect the page if navigation succeeds. Only if browser navigation is unavailable or also fails should you choose another exact URL returned by WebSearch or supplied by the user. Do not end the research merely because WebFetch failed.';
   }
-  const failedProcess = items.filter((item) => ['process.run', 'shell_run'].includes(item.result?.tool_name)
+  const failedProcess = items.filter((item) => ['process_run', 'shell_run'].includes(item.result?.tool_name)
     && ['failed', 'completed_nonzero'].includes(item.result?.status));
   if (failedProcess.length > 0) {
     const exits = failedProcess.map((item) => {

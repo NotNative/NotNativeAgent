@@ -177,7 +177,7 @@ test('large governance retention compacts with bounded headroom', async () => {
 test('authorization governance binds decisions to fingerprinted request and intent evidence without raw intent', async () => {
   const governance = new GovernanceEngine({ durable: false, sessionId: 'authorization' });
   const request = {
-    id: 'tool-request-1', toolName: 'process.run', workspaceRoot: 'D:/workspace', createdAt: 100,
+    id: 'tool-request-1', toolName: 'process_run', workspaceRoot: 'D:/workspace', createdAt: 100,
   };
   const decision = {
     id: 'decision-1', outcome: 'approve', reasonCode: 'semantic_intent_match',

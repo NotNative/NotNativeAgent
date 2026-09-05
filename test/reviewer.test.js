@@ -589,16 +589,16 @@ test('semantic review receives causal evidence as explicitly untrusted context',
     return { outcome: 'approve', confidence: 1, reason_code: 'derived_target_matches' };
   } } });
   const request = {
-    ...readRequest('ping-derived'), toolName: 'process.run',
+    ...readRequest('ping-derived'), toolName: 'process_run',
     args: { executable: 'ping', args: ['-n', '3', '192.0.2.15'] },
     resolved: { reviewComplexity: 'simple_argv', reviewPurpose: 'network_diagnostic' },
   };
   await reviewer.review(request, {
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'Find fixture-host on the network' }], mission: null },
-    definition: { name: 'process.run', sideEffect: 'unknown', scope: 'host' },
+    definition: { name: 'process_run', sideEffect: 'unknown', scope: 'host' },
     causalEvidence: [{
-      type: 'tool_result', trust: 'untrusted_tool', tool: 'process.run',
+      type: 'tool_result', trust: 'untrusted_tool', tool: 'process_run',
       status: 'succeeded', content: 'fixture-host resolves to 192.0.2.15',
     }],
   });
@@ -803,11 +803,11 @@ test('AC-REV-08/AC-TOOL-02 opaque process requests require authenticated user in
       : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'intent_mismatch' };
   } } });
   const request = {
-    ...readRequest('opaque-process'), toolName: 'process.run', args: { executable: 'npm', args: ['run', 'build'] },
+    ...readRequest('opaque-process'), toolName: 'process_run', args: { executable: 'npm', args: ['run', 'build'] },
     resolved: { path: 'D:/workspace', reviewComplexity: 'opaque_package_script' },
   };
   const decision = await reviewer.review(request, {
-    ...context, definition: { name: 'process.run', sideEffect: 'unknown', scope: 'workspace' },
+    ...context, definition: { name: 'process_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(decision.outcome, 'deny_with_guidance');
   assert.equal(decision.reasonCode, 'intent_mismatch');
@@ -819,7 +819,7 @@ test('AC-REV-08/AC-TOOL-02 opaque process requests require authenticated user in
     ...context, authority: {
       ...context.authority, version: 2, intent: [{ content: 'Run the npm build', sequence: 2 }],
     },
-    definition: { name: 'process.run', sideEffect: 'unknown', scope: 'workspace' },
+    definition: { name: 'process_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(authorized.outcome, 'approve');
   assert.equal(semanticCalls, 2);
@@ -929,7 +929,7 @@ test('foreground Python static servers receive ordinary semantic review instead 
     return { outcome: 'approve', confidence: 1, reason_code: 'bounded_server_workflow' };
   } } });
   const request = {
-    ...readRequest('foreground-server'), toolName: 'process.run',
+    ...readRequest('foreground-server'), toolName: 'process_run',
     args: { executable: 'python', args: ['-m', 'http.server', '8643'] },
     resolved: {
       path: 'D:/workspace', reviewComplexity: 'simple_argv',
@@ -939,7 +939,7 @@ test('foreground Python static servers receive ordinary semantic review instead 
   const result = await reviewer.review(request, {
     ...context,
     authority: { ...context.authority, intent: [{ content: 'Build and verify the ocean scene', sequence: 1 }] },
-    definition: { name: 'process.run', sideEffect: 'unknown', scope: 'workspace' },
+    definition: { name: 'process_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'semantic_intent_match');
@@ -955,13 +955,13 @@ test('a successful state mutation reopens semantic review of an otherwise equiva
       ? { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'prerequisite_missing', guidance: 'Install the verified prerequisite.' }
       : { outcome: 'approve', confidence: 1, reason_code: 'prerequisite_now_present' };
   } } });
-  const definition = { name: 'process.run', sideEffect: 'unknown', scope: 'workspace' };
+  const definition = { name: 'process_run', sideEffect: 'unknown', scope: 'workspace' };
   const reviewContext = {
     ...context, definition,
     authority: { ...context.authority, intent: [{ content: 'Run verify.mjs after installing its prerequisite', sequence: 1 }] },
   };
   const base = {
-    ...readRequest('state-revision-0'), toolName: 'process.run',
+    ...readRequest('state-revision-0'), toolName: 'process_run',
     args: { executable: 'node', args: ['verify.mjs'] },
     resolved: { path: 'D:/workspace', reviewComplexity: 'simple_argv', reliabilitySignals: [] },
     stateRevision: 0,
@@ -983,7 +983,7 @@ test('explicit SSH intent and target reach semantic review with the tool definit
     return { outcome: 'approve', confidence: 1, reason_code: 'explicit_remote_access' };
   } } });
   const request = {
-    ...readRequest('ssh-fixture-host'), toolName: 'process.run',
+    ...readRequest('ssh-fixture-host'), toolName: 'process_run',
     args: { executable: 'ssh', args: ['fixture-host', 'echo', 'connected'] },
     resolved: { path: 'D:/workspace', executable: 'ssh', argv: ['fixture-host', 'echo', 'connected'], reviewComplexity: 'simple_argv' },
   };
@@ -991,7 +991,7 @@ test('explicit SSH intent and target reach semantic review with the tool definit
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'Please try to SSH into a machine named fixture-host', sequence: 1 }], mission: null },
     definition: {
-      name: 'process.run', purpose: 'Execute one bounded argv command without a shell.',
+      name: 'process_run', purpose: 'Execute one bounded argv command without a shell.',
       sideEffect: 'unknown', scope: 'workspace', source: 'built_in',
     },
   });
@@ -1000,7 +1000,7 @@ test('explicit SSH intent and target reach semantic review with the tool definit
   assert.deepEqual(captured.request.args, request.args);
   assert.deepEqual(captured.authenticatedIntent, [{ content: 'Please try to SSH into a machine named fixture-host', sequence: 1 }]);
   assert.deepEqual(captured.toolDefinition, {
-    name: 'process.run', purpose: 'Execute one bounded argv command without a shell.',
+    name: 'process_run', purpose: 'Execute one bounded argv command without a shell.',
     sideEffect: 'unknown', scope: 'workspace', source: 'built_in',
   });
 });
@@ -1013,7 +1013,7 @@ test('network discovery intent covers a diagnostic continuation from hostname to
     return { outcome: 'approve', confidence: 1, reason_code: 'network_diagnostic_matches_intent' };
   } } });
   const request = {
-    ...readRequest('ping-fixture-host'), toolName: 'process.run',
+    ...readRequest('ping-fixture-host'), toolName: 'process_run',
     args: { executable: 'ping', args: ['-n', '3', '192.0.2.15'] },
     resolved: {
       path: 'D:/workspace', executable: 'ping', argv: ['-n', '3', '192.0.2.15'],
@@ -1023,7 +1023,7 @@ test('network discovery intent covers a diagnostic continuation from hostname to
   const decision = await reviewer.review(request, {
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'See if you can find fixture-host.example on the network', sequence: 1 }], mission: null },
-    definition: { name: 'process.run', purpose: 'Execute one bounded host program.', sideEffect: 'unknown', scope: 'workspace' },
+    definition: { name: 'process_run', purpose: 'Execute one bounded host program.', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(decision.outcome, 'approve');
   assert.equal(decision.reasonCode, 'semantic_intent_match');

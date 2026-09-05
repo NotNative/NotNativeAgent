@@ -112,7 +112,7 @@ function operationTargetFingerprint(request) {
   const resolved = request.resolved ?? {};
   const targets = [resolved.path, resolved.source?.path ?? resolved.source, resolved.destination?.path ?? resolved.destination]
     .filter((value) => typeof value === 'string');
-  const identity = request.toolName === 'process.run'
+  const identity = request.toolName === 'process_run'
     ? { targets, executable: resolved.executable, argv: resolved.argv }
     : request.toolName === 'shell_run'
       ? { targets, shell: resolved.shell, script: resolved.script }
@@ -122,7 +122,7 @@ function operationTargetFingerprint(request) {
 
 function operationFamilyFingerprint(request) {
   const resolved = request.resolved ?? {};
-  if (request.toolName === 'process.run') {
+  if (request.toolName === 'process_run') {
     const executable = commandName(resolved.executable);
     const argv = Array.isArray(resolved.argv) ? resolved.argv : [];
     return fingerprint(JSON.stringify(canonical({

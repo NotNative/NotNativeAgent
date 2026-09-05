@@ -176,7 +176,7 @@ function classify(request, definition) {
     });
   }
   if (definition.name === 'system.elevate') return elevationClassification();
-  if (['process.run', 'shell_run'].includes(definition.name)) return processClassification(request);
+  if (['process_run', 'shell_run'].includes(definition.name)) return processClassification(request);
   return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
 }
 

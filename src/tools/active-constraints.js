@@ -10,7 +10,7 @@ const CONSTRAINT_KIND = Object.freeze({
   prerequisite: 'prerequisite_repair', schema: 'schema_repair', action: 'action_repair',
   execution: 'execution_failure', governance: 'governance_boundary',
 });
-const PROCESS_TOOLS = new Set(['process.run', 'shell_run']);
+const PROCESS_TOOLS = new Set(['process_run', 'shell_run']);
 
 export function mergeToolConstraints(current = [], items = []) {
   const succeeded = new Set(items.filter((item) => item.result?.status === 'succeeded')
@@ -99,9 +99,9 @@ function instruction(kind, result, item, prerequisite = null) {
     return 'The provider output limit was reached before the tool JSON closed. The immediate repair step uses a smaller output budget with optional thinking disabled. Make that one concise action call; for edits, select the smallest unique anchor and bounded replacement, then split larger changes across calls. Later steps may reason normally, but do not repeat the oversized request shape.';
   }
   if (kind === CONSTRAINT_KIND.governance) return 'Do not repeat an equivalent request unless new authenticated operator input changes its authority.';
-  if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, process.run, or a structured tool unless the requested interpreter is positively discovered.';
+  if (result?.reason_code === 'shell_interpreter_unavailable') return 'Do not repeat the unavailable shell. Use the host-native auto shell with its exact syntax, process_run, or a structured tool unless the requested interpreter is positively discovered.';
   const args = item?.call?.args ?? item?.request?.args;
-  if (kind === CONSTRAINT_KIND.execution && result?.tool_name === 'process.run'
+  if (kind === CONSTRAINT_KIND.execution && result?.tool_name === 'process_run'
     && inlineInterpreterInvocation(args?.executable, args?.args)) return inlineInterpreterGuidance();
   return 'Treat the result as failed evidence; diagnose the condition before a materially different retry.';
 }

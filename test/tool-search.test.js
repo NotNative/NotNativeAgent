@@ -34,7 +34,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.ok(!baseline.includes('fs.edit_text'));
   assert.ok(!baseline.includes('fs.write_text'));
   assert.ok(!baseline.includes('fs.delete_file'));
-  assert.ok(!baseline.includes('process.run'));
+  assert.ok(!baseline.includes('process_run'));
   assert.ok(!baseline.includes('browser.navigate'));
   assert.ok(!baseline.includes('ref.store'));
   assert.ok(!baseline.includes('notification.telegram'));
@@ -54,7 +54,7 @@ test('specialist tools require an explicit catalog search or authenticated expos
   const registry = new ToolRegistry(process.cwd(), { elevationBroker: { async execute() { return {}; } } });
   await registry.initialize();
   const initial = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
-  for (const name of ['fs.write_text', 'fs.edit_text', 'process.run', 'system.elevate', 'project.verify']) {
+  for (const name of ['fs.write_text', 'fs.edit_text', 'process_run', 'system.elevate', 'project.verify']) {
     assert.ok(!initial.includes(name));
   }
 
@@ -127,6 +127,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['git inspect', 'git.inspect', 'git_inspect'],
     ['work goal', 'work.goal', 'work_goal'],
     ['work task add', 'work.task_add', 'work_task_add'],
+    ['process run', 'process.run', 'process_run'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
@@ -140,10 +141,10 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
 });
 
 test('hosted execution obeys an authenticated manifest rather than inferred wording', async () => {
-  const registry = new ToolRegistry(process.cwd(), { hosted: true, allowedTools: ['process.run'] });
+  const registry = new ToolRegistry(process.cwd(), { hosted: true, allowedTools: ['process_run'] });
   await registry.initialize();
   const visible = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
-  assert.ok(visible.includes('process.run'));
+  assert.ok(visible.includes('process_run'));
   assert.ok(!visible.includes('project.verify'));
   assert.ok(!visible.includes('shell_run'));
 });

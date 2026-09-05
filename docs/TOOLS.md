@@ -98,12 +98,12 @@ definitions remain installed for compatibility and specialist/internal workflows
 not competing choices in a fresh model-facing catalog.
 
 `shell_run` is the normal model-facing execution tool for authenticated build, test, install,
-and other terminal intent. `process.run` is not loaded into that ordinary task surface. It
+and other terminal intent. `process_run` is not loaded into that ordinary task surface. It
 remains installed, governed, and discoverable for cases that specifically require one exact
 executable and argv without shell interpretation. Hosted or host-ceilinged sessions that have
-`process.run` but no `shell_run` receive it as the execution fallback.
+`process_run` but no `shell_run` receive it as the execution fallback.
 
-`process.run` executes one explicit executable with an argv array and `shell: false` at the
+`process_run` executes one explicit executable with an argv array and `shell: false` at the
 Node process boundary. Its cwd may be any accessible host directory for ordinary root NNA;
 environment, duration, and combined output are
 bounded, and cancellation terminates the process tree. Child environment inheritance is
@@ -162,14 +162,14 @@ mutations separate from verification, and `pipefail` pipelines should avoid earl
 such as `head` when an upstream `SIGPIPE` would be mistaken for a failed check.
 
 Installed programs such as SSH, Git, Docker, and native system utilities may be invoked through
-`process.run` for exact argv or `shell_run` for terminal workflows. The agent should not wrap a
-shell inside `process.run`. On Windows, `powershell.exe` is the normal Windows PowerShell 5.1 entry point. `pwsh` identifies the
+`process_run` for exact argv or `shell_run` for terminal workflows. The agent should not wrap a
+shell inside `process_run`. On Windows, `powershell.exe` is the normal Windows PowerShell 5.1 entry point. `pwsh` identifies the
 separately installed, cross-platform PowerShell 7 product and is used only after discovery or
 an explicit operator request. Unix-like hosts likewise may provide `sh`, `bash`, or another
 shell, and a shell wrapper is used only when its syntax is necessary.
 Generated multi-statement interpreter programs should not be nested inside `node -e`,
 `python -c`, or similar argv. The agent stores the source as a bounded draft with `ref.store`
-and supplies `stdin_ref` to `process.run`, using the interpreter's stdin form such as
+and supplies `stdin_ref` to `process_run`, using the interpreter's stdin form such as
 `node -` or `python -`. Short, simple inline expressions remain allowed; inline interpreter
 requests are classified for review, and a failed inline request leaves durable guidance to use
 the draft/stdin route instead of repeating the fragile escaping structure.
@@ -192,7 +192,7 @@ installation afterward; a successful exit is not evidence that the user's object
 Linux/macOS, headless, hosted, and unattended sessions must ask the user to run privileged
 commands manually and continue from the supplied result. NNA never collects a sudo password.
 
-`process.run` and `shell_run` reject `sudo`, `doas`, `pkexec`, `runas`, and PowerShell
+`process_run` and `shell_run` reject `sudo`, `doas`, `pkexec`, `runas`, and PowerShell
 `Start-Process -Verb RunAs` launchers. This keeps native elevation behind the reviewed
 administrator contract. NNA does not add the user to `sudoers`, create a persistent privileged
 daemon, request a password, or grant a reusable elevated shell. Remaining
@@ -275,7 +275,7 @@ change conversation state. Explicit authenticated intent may separately authoriz
 operation; that operation does not change the CWD. Hosted execution manifests cannot expose or use
 `workspace.change` because their canonical workspace ceiling is immutable.
 
-`process.run` remains review-required. Bounded direct network diagnostics such as DNS lookup,
+`process_run` remains review-required. Bounded direct network diagnostics such as DNS lookup,
 ping, traceroute, and exact PowerShell `Test-Connection` or `Resolve-DnsName` commands are
 identified as non-mutating discovery. An authenticated request to find, resolve, or test a host
 covers a diagnostic continuation from its hostname to an address returned by a prior tool. The
@@ -391,7 +391,7 @@ Windows, `brew install ripgrep` on macOS, and the distribution package manager's
 The provider receives an immutable prompt-visible working set: the available foundational
 tools remain loaded in deterministic order, while specialist schemas are added only by an
 explicit workflow lease or authenticated host manifest. Root NNA includes `shell_run` in the
-foundation; a hosted manifest may instead grant `process.run`. A host execution manifest may
+foundation; a hosted manifest may instead grant `process_run`. A host execution manifest may
 ceiling the complete capability set, including to an empty list. Regardless of visibility,
 every tool call remains unknown to governance until it passes the normal validation and review
 pipeline.

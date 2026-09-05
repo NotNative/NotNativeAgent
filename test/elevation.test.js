@@ -34,7 +34,7 @@ test('ordinary process tools reject native elevation launchers', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-elevation-bypass-'));
   const registry = new ToolRegistry(root, { elevationBroker: { async execute() { return {}; } } });
   await registry.initialize();
-  await assert.rejects(registry.definition('process.run').validate({
+  await assert.rejects(registry.definition('process_run').validate({
     executable: 'sudo', args: ['-n', 'docker', 'inspect', 'container'],
   }), { code: 'native_elevation_unavailable' });
   await assert.rejects(registry.definition('shell_run').validate({

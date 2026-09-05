@@ -98,7 +98,7 @@ count, and outcome. The activity group can be expanded to recover its ordered re
 bounded arguments, and result detail.
 
 Tool rows are collapsed by default after completion and show the tool name, concise target,
-status, and duration. A `process.run` target includes its redacted executable and argv so the
+status, and duration. A `process_run` target includes its redacted executable and argv so the
 operator can see what actually ran without expanding the activity group. Expansion reveals
 the full bounded attributed arguments, including working directory and timeout, plus result details. Untrusted
 model/tool content remains visibly distinct from operator and engine facts.

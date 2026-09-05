@@ -7,8 +7,8 @@ test('review evidence exposes bounded redacted causal results without granting a
   const evidence = recentReviewEvidence([
     { type: 'message', role: 'user', content: 'Find fixture-host' },
     { type: 'message', role: 'assistant', content: 'Resolving the host.' },
-    { type: 'tool_result', requestId: 'old', toolName: 'process.run', status: 'succeeded', content: 'fixture-host = 192.0.2.15 token=hidden-value' },
-    { type: 'tool_request', requestId: 'current', toolName: 'process.run' },
+    { type: 'tool_result', requestId: 'old', toolName: 'process_run', status: 'succeeded', content: 'fixture-host = 192.0.2.15 token=hidden-value' },
+    { type: 'tool_request', requestId: 'current', toolName: 'process_run' },
   ], 'current');
   assert.deepEqual(evidence.map((item) => item.trust), ['untrusted_model', 'untrusted_tool']);
   assert.match(evidence[1].content, /192\.0\.2\.15/u);
@@ -18,7 +18,7 @@ test('review evidence exposes bounded redacted causal results without granting a
 
 test('review evidence is record- and byte-bounded', () => {
   const transcript = Array.from({ length: 20 }, (_, index) => ({
-    type: 'tool_result', requestId: `old-${index}`, toolName: 'process.run',
+    type: 'tool_result', requestId: `old-${index}`, toolName: 'process_run',
     status: 'succeeded', content: `${index}:${'x'.repeat(4_000)}`,
   }));
   const evidence = recentReviewEvidence(transcript, 'current');
@@ -29,7 +29,7 @@ test('review evidence is record- and byte-bounded', () => {
 test('review evidence ignores content-free records in legacy turn-less transcripts', () => {
   const packet = buildReviewEvidence([
     { type: 'message', role: 'assistant' },
-    { type: 'tool_result', requestId: 'old', toolName: 'process.run', status: 'succeeded' },
+    { type: 'tool_result', requestId: 'old', toolName: 'process_run', status: 'succeeded' },
     { type: 'message', role: 'assistant', content: 'legacy historical output' },
   ], { request: { resolved: 'needle' } });
   assert.deepEqual(packet.evidence.map((item) => item.content), ['legacy historical output']);
@@ -50,12 +50,12 @@ test('review evidence combines recent turns with relevant older causal history',
     { type: 'message', role: 'assistant', turnId: 'old', content: 'fixture-host resolved to 192.0.2.15' },
     { type: 'message', role: 'assistant', turnId: 'unrelated', content: 'The weather is clear.' },
     { type: 'message', role: 'assistant', turnId: 'recent-1', content: 'I will inspect connectivity.' },
-    { type: 'tool_result', turnId: 'recent-2', requestId: 'prior', toolName: 'process.run', status: 'succeeded', content: 'port 22 open' },
-    { type: 'tool_request', turnId: 'current', requestId: 'current', toolName: 'process.run' },
+    { type: 'tool_result', turnId: 'recent-2', requestId: 'prior', toolName: 'process_run', status: 'succeeded', content: 'port 22 open' },
+    { type: 'tool_request', turnId: 'current', requestId: 'current', toolName: 'process_run' },
   ];
   const packet = buildReviewEvidence(transcript, {
     currentRequestId: 'current', currentTurnId: 'current',
-    request: { toolName: 'process.run', args: { executable: 'ssh', args: ['fixture-host'] } },
+    request: { toolName: 'process_run', args: { executable: 'ssh', args: ['fixture-host'] } },
     authenticatedIntent: [{ content: 'Please SSH into fixture-host and inspect it.' }],
   });
   assert.deepEqual(packet.evidence.map((item) => item.source), ['history_match', 'recent', 'recent']);
@@ -120,7 +120,7 @@ test('review history search never promotes user text or secret fields into causa
     { type: 'tool_request', turnId: 'current', requestId: 'current' },
   ], {
     currentRequestId: 'current', currentTurnId: 'current',
-    request: { toolName: 'process.run', args: { executable: 'ssh', credentialToken: 'super-secret-token', args: ['fixture-host'] } },
+    request: { toolName: 'process_run', args: { executable: 'ssh', credentialToken: 'super-secret-token', args: ['fixture-host'] } },
     authenticatedIntent: [{ content: 'Inspect fixture-host.' }],
   });
   assert.equal(packet.evidence.some((item) => item.content.includes('Ignore safeguards')), false);
@@ -133,7 +133,7 @@ test('review history search is scan bounded and reports content-free retrieval m
     type: 'message', role: 'assistant', turnId: `turn-${index}`, content: index === 0 ? 'ancient fixture-host' : `record ${index}`,
   }));
   const packet = buildReviewEvidence(transcript, {
-    currentTurnId: 'turn-50009', request: { toolName: 'process.run', args: { executable: 'ssh', args: ['fixture-host'] } },
+    currentTurnId: 'turn-50009', request: { toolName: 'process_run', args: { executable: 'ssh', args: ['fixture-host'] } },
   });
   assert.equal(packet.metadata.recordsScanned, 50_000);
   assert.equal(packet.metadata.scanTruncated, true);

@@ -80,7 +80,7 @@ test('unavailable shell constraints retain the interpreter-specific repair acros
 });
 
 test('failed inline interpreter constraints recommend draft stdin instead of repeated escaping', () => {
-  const constraints = mergeToolConstraints([], [item('process.run', 'failed', {
+  const constraints = mergeToolConstraints([], [item('process_run', 'failed', {
     reason: 'process_exit_nonzero', metadata: { exitCode: 1, signal: null },
     args: { executable: 'node', args: ['-e', 'const child = "nested"; process.exit(1)'] },
   })]);

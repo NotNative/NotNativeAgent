@@ -776,7 +776,7 @@ test('AC-HEAD-02/AC-HEAD-11/AC-TURN-06 headless auto-review stays correlated wit
     step += 1;
     if (step === 1) {
       const args = JSON.stringify({ executable: process.execPath, args: ['--version'] });
-      yield { type: 'tool_fragment', fragments: [{ index: 0, id: 'headless-process', function: { name: 'process.run', arguments: args } }] };
+      yield { type: 'tool_fragment', fragments: [{ index: 0, id: 'headless-process', function: { name: 'process_run', arguments: args } }] };
       yield { type: 'terminal', finishReason: 'tool_calls' };
       return;
     }

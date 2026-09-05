@@ -1853,13 +1853,13 @@ test('tool presentation arguments are bounded and redact keyed and free-form cre
 test('process tool status shows the executable and argv in its compact target', () => {
   const item = {
     request: {
-      id: 'process-1', toolName: 'process.run', definitionVersion: 1,
+      id: 'process-1', toolName: 'process_run', definitionVersion: 1,
       args: {
         executable: 'ssh', args: ['fixture-host', 'hostname && uname -a'],
         cwd: 'D:\\workspace', timeout_ms: 60_000,
       },
     },
-    call: { providerCallId: 'provider-1', name: 'process.run' },
+    call: { providerCallId: 'provider-1', name: 'process_run' },
     result: { elapsed_ms: 12, effect_certainty: 'completed' },
   };
   const record = toolStatus({
@@ -1870,7 +1870,7 @@ test('process tool status shows the executable and argv in its compact target', 
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', record);
   const frame = new TuiRenderer().frame(projection, { width: 120, height: 24, color: false });
-  assert.match(frame, /✓ process\.run \(ssh \["fixture-host","hostname && uname -a"\]\) \| succeeded/u);
+  assert.match(frame, /✓ process_run \(ssh \["fixture-host","hostname && uname -a"\]\) \| succeeded/u);
 
   const observation = toolStatus({
     sessionId: 'session-1', tools: { definition: () => ({ sideEffect: 'unknown', scope: 'workspace' }) },

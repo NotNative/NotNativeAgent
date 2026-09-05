@@ -14,7 +14,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn', 'nna.list_sessions',
   'nna.mcp_status', 'nna.mcp_test',
   'web.search', 'web.fetch', 'web.browse', 'image.inspect', 'tool_search',
-  'process.run', 'shell_run', 'project.verify', 'git_inspect', 'code.diagnostics',
+  'process_run', 'shell_run', 'project.verify', 'git_inspect', 'code.diagnostics',
   'skill.search', 'skill.load', 'agent.run',
   'work_plan', 'work_status', 'work_goal', 'work_task_add', 'work_task_update',
   'turn_finish',
@@ -115,7 +115,7 @@ test('bundled tool shape failures identify the argument the model must repair', 
   const registry = new ToolRegistry(process.cwd(), optionalControls());
   await registry.initialize();
   try {
-    await assert.rejects(registry.definition('process.run').validate({ args: [] }), {
+    await assert.rejects(registry.definition('process_run').validate({ args: [] }), {
       code: 'tool_schema_invalid', message: 'required argument "executable" is missing',
     });
     await assert.rejects(registry.definition('web.fetch').validate({ url: 'https://example.com', extra: true }), {
