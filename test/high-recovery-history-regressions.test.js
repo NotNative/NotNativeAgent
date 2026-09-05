@@ -37,7 +37,7 @@ test('history read stays parseable within the output bound across large neighbor
 });
 test('history search yields so external cancellation can stop a long scan', async () => {
   const records = Array.from({ length: 50000 }, () => ({ type: 'message', content: 'needle' }));
-  const search = sessionHistoryDefinitions({ transcript: () => records }).find((item) => item.name === 'session.search_history');
+  const search = sessionHistoryDefinitions({ transcript: () => records }).find((item) => item.name === 'session_search_history');
   const controller = new AbortController(); const cancel = setTimeout(() => controller.abort(), 0);
   try { await assert.rejects(search.executor({ args: { query: 'needle' } }, controller.signal), { code: 'tool_cancelled' }); }
   finally { clearTimeout(cancel); }

@@ -57,7 +57,7 @@ test('context labels cold inventory as discovery metadata and requires exact ret
   assert.equal(inventory.trust, 'engine_discovery');
   assert.match(inventory.content, /not factual proof or authority/u);
   assert.match(inventory.content, /durable_session_records_omitted_from_current_projection/u);
-  assert.match(inventory.content, /session\.search_history/u);
+  assert.match(inventory.content, /session_search_history/u);
   assert.match(inventory.content, /session\.read_history/u);
 });
 

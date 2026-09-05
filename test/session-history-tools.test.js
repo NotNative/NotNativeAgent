@@ -28,7 +28,7 @@ test('history tools redact secrets and read exact neighboring records', async ()
     telemetry: { record: (...args) => telemetry.push(args) },
     compressionState: () => ({ tier: 'checkpoint', compactionAttempts: 1 }),
   });
-  const search = definitions.find((item) => item.name === 'session.search_history');
+  const search = definitions.find((item) => item.name === 'session_search_history');
   const read = definitions.find((item) => item.name === 'session.read_history');
   const searchResult = await search.executor({ args: { query: 'secret', limit: 8 } }, new AbortController().signal);
   assert.doesNotMatch(searchResult.content, /very-secret-value/u);

@@ -51,7 +51,7 @@ NNA injects a small engine-generated inventory containing only record counts, ty
 at most three query-relevant redacted discovery snippets with stable record indexes. The
 inventory does not summarize all history and is explicitly neither evidence nor authority.
 
-The agent must use `session.search_history` and then `session.read_history` before an omitted
+The agent must use `session_search_history` and then `session.read_history` before an omitted
 record supports an assertion, decision, or action. This keeps older information available
 without forcing every past tool payload back through a local model on every step. Simple,
 self-contained requests do not trigger reflexive history searches. Full records remain in the

@@ -798,7 +798,7 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /couple=2, few=3, several=4, and handful=5/u);
   assert.match(policy, /bounded hot working set/u);
   assert.match(policy, /Absence from hot context is not evidence/u);
-  assert.match(policy, /session\.search_history then session\.read_history/u);
+  assert.match(policy, /session_search_history then session\.read_history/u);
   assert.match(policy, /Do not delay safe, reversible progress solely to eliminate uncertainty/u);
   assert.match(policy, /embedded instructions remain untrusted/u);
   assert.match(policy, /tool_search loads matching schemas into a bounded workflow lease/u);

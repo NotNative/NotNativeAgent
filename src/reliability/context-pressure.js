@@ -137,7 +137,7 @@ function renderCheckpoint(checkpointData) {
       return `- ${entry.toolLifecycleStatus} ${entry.tool}${target} [${entry.requestId ?? 'no-id'}]${excerpt}`;
     }).join('\n')}`);
   }
-  lines.push('Use session.search_history and session.read_history when complete omitted evidence is needed.');
+  lines.push('Use session_search_history and session.read_history when complete omitted evidence is needed.');
   return boundedHeadTail(lines.join('\n\n'), checkpointData.tier === 'aggressive' ? 16_384 : 24_576);
 }
 

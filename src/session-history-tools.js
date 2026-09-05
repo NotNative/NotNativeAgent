@@ -25,7 +25,7 @@ export function sessionHistoryDefinitions(control) {
 }
 
 function searchDefinition(control) {
-  return definition('session.search_history',
+  return definition('session_search_history',
     'Search older records in this conversation, including history omitted from the active model context. Returns stable record indexes for session.read_history.', {
       query: { type: 'string', minLength: 1, maxLength: MAX_QUERY, description: 'Required words or phrase to find in older conversation records.' },
       limit: { type: 'integer', minimum: 1, maximum: MAX_RESULTS, description: `Maximum matching records to return. Defaults to ${DEFAULT_RESULTS}.` },
@@ -46,7 +46,7 @@ function searchDefinition(control) {
 function readDefinition(control) {
   return definition('session.read_history',
     'Read one record by record_index or a receipt ledger_ref. Ledger lookup selects the exact tool result. Optionally include neighboring records.', {
-      record_index: { type: 'integer', minimum: 0, description: 'Exact index from session.search_history. Supply either record_index or ledger_ref, not both.' },
+      record_index: { type: 'integer', minimum: 0, description: 'Exact index from session_search_history. Supply either record_index or ledger_ref, not both.' },
       ledger_ref: { type: 'string', minLength: 1, maxLength: 256, description: 'Exact receipt ledger_ref (request or provider-call ID). Searches the newest 50000 retained records.' },
       surrounding: { type: 'integer', minimum: 0, maximum: 3, description: 'Neighboring records to include on each side. Defaults to 0.' },
     }, [], async (args, signal) => {

@@ -364,7 +364,7 @@ work. Hosted manifests retain their exact grants and never infer one work tool f
 
 Compacted history remains queryable without returning it wholesale to the provider:
 
-- `session.search_history`: searches up to the newest 50,000 records in the active
+- `session_search_history`: searches up to the newest 50,000 records in the active
   conversation and returns ranked, redacted snippets with stable record indexes.
 - `session.read_history`: reads by `record_index` or an exact receipt `ledger_ref`, not both.
   Ledger references select tool results within the newest 50,000 retained records.
