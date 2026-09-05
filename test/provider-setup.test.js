@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveManifest } from '../src/config.js';
-import { withProvider, withRouteSetting, withRuntimeLimits } from '../src/provider/route-configuration.js';
+import { withProvider, withRouteSetting, withRuntimeLimits, withUpdatedProvider } from '../src/provider/route-configuration.js';
 import { TuiProjection } from '../src/experience/projection.js';
 import { providerOverlay } from '../src/tui/overlays.js';
 import { handleActions } from '../src/tui.js';
@@ -86,6 +86,25 @@ test('provider model picker keeps save failures visible', async () => {
   await handleProviderSetupAction({ action: 'submit' }, workspace);
   assert.equal(projection.overlay.kind, 'provider-model-select');
   assert.match(projection.overlay.lines.at(-1), /configuration_scope_change/u);
+});
+
+test('provider tool-call mode picker persists batch compatibility', async () => {
+  let config = resolveManifest({
+    provider: { id: 'one', display_name: 'One', endpoint: 'http://127.0.0.1:1/v1', model: 'a', trust_zone: 'loopback' },
+  });
+  const projection = new TuiProjection();
+  projection.addSession('main', 'Main', { provider: 'one', model: 'a' }, 'primary');
+  const workspace = {
+    projection, config, onChange() {}, activeConfig: () => config,
+    async editProvider(id, input) { config = withUpdatedProvider(config, id, input).config; this.config = config; },
+  };
+  beginProviderManagement('tool-calls', workspace);
+  await handleProviderSetupAction({ action: 'submit' }, workspace);
+  assert.equal(projection.overlay.kind, 'provider-tool-call-mode');
+  projection.moveOverlaySelection(1);
+  await handleProviderSetupAction({ action: 'submit' }, workspace);
+  assert.equal(config.providerProfiles.one.toolCallMode, 'batch');
+  assert.match(projection.notice.text, /batch/u);
 });
 
 test('provider setup requests a credential reference only when environment authentication is selected', async () => {

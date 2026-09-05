@@ -2,8 +2,8 @@
 import { createHash } from 'node:crypto';
 import { toolCallIdentity } from './tool-call-identity.js';
 
-// Providers occasionally ignore parallel_tool_calls=false and emit a batch of
-// identical calls. Collapse only byte-independent exact identities here,
+// Providers can ignore or lack the single-call generation control and emit a
+// batch of identical calls. Collapse only byte-independent exact identities here,
 // before validation, review, permission reservation, or execution.
 export function deduplicateToolCallBatch(input = []) {
   const calls = [];

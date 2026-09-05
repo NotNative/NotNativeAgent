@@ -37,6 +37,7 @@ test('complete provider envelope inventories prompt sections, schemas, configura
     enable_thinking: { sent: true, value: true },
     reasoning_mode: { sent: false, value: null },
     tool_choice: 'auto',
+    tool_call_mode: 'single',
     parallel_tool_calls: { sent: false, value: null },
   });
   assert.deepEqual(envelope.shape.message_roles, { system: 1, user: 1 });
@@ -100,6 +101,17 @@ test('ordinary conversation retains its foundational tool surface and one system
   assert.deepEqual(request.tools, ['foundation']);
   assert.match(request.messages[0].content, /tool dialect/iu);
   assert.equal(request.maxOutputTokens, 32_000);
+  assert.equal(request.toolCallMode, 'single');
+  assert.equal(request.parallelToolCalls, false);
+  const batch = providerRequest({
+    reliability: { instructions: () => 'tool dialect' },
+    tools: {
+      providerSurface: () => ({ definitions: ['foundation'], receipt: null }),
+      catalogSnapshot: () => [{ name: 'tool.search' }],
+    },
+  }, { model: 'fixture', maxOutputTokens: 32_000, profile: { toolCallMode: 'batch' } }, context);
+  assert.equal(batch.toolCallMode, 'batch');
+  assert.equal(Object.hasOwn(batch, 'parallelToolCalls'), false);
 });
 
 test('provider envelope reports the controls actually sent for Qwen models', () => {

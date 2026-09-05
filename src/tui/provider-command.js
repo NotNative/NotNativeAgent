@@ -3,7 +3,7 @@ import { ContractError } from '../ids.js';
 import { modelOverlay, providerOverlay, valueOverlay } from './overlays.js';
 
 const PRIMARY_ROLE = 'primary';
-const PROVIDER_MUTATIONS = new Set(['add', 'edit', 'limits']);
+const PROVIDER_MUTATIONS = new Set(['add', 'edit', 'limits', 'tool-calls']);
 
 export async function handleProviderCommand(argument, workspace, helpers) {
   const values = argument.split(/\s+/u).filter(Boolean);
@@ -75,13 +75,18 @@ async function mutateProvider(values, workspace, helpers) {
     if (values.length === 5) input.credentialEnv = values[4] === '-' ? null : values[4];
     await workspace.editProvider(values[1], input);
     workspace.projection.showNotice('provider', `Updated provider ${values[1]}. A backup was retained.`);
-  } else {
+  } else if (values[0] === 'limits') {
     requireLength(values, 4, 'use /provider limits ID CONTEXT_BYTES OUTPUT_TOKENS');
     await workspace.editProvider(values[1], {
       contextLimitBytes: helpers.strictInteger(values[2], 'context byte limit'),
       outputLimitTokens: helpers.strictInteger(values[3], 'output token limit'),
     });
     workspace.projection.showNotice('provider', `Updated declared model limits for ${values[1]}.`);
+  } else {
+    requireLength(values, 3, 'use /provider tool-calls ID single|batch');
+    if (!['single', 'batch'].includes(values[2])) throw invalid('tool-call mode must be single or batch');
+    await workspace.editProvider(values[1], { toolCallMode: values[2] });
+    workspace.projection.showNotice('provider', `Updated tool-call mode for ${values[1]} to ${values[2]}.`);
   }
 }
 

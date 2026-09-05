@@ -11,7 +11,7 @@ function document() {
     },
     {
       id: 'beta', implementation: 'server-beta', implementation_version: '2.0',
-      endpoint: 'http://127.0.0.1:10002/v1', model: 'model-beta', trust_zone: 'loopback',
+      endpoint: 'http://127.0.0.1:10002/v1', model: 'model-beta', trust_zone: 'loopback', tool_call_mode: 'batch',
     },
   ] };
 }
@@ -21,7 +21,10 @@ test('PROV-012 harness runs identical content-free cases against two declared in
   const fetch = async (url, options = {}) => {
     const model = url.includes('10001') ? 'model-alpha' : 'model-beta';
     if (url.endsWith('/models')) return Response.json({ data: [{ id: model }] });
-    const body = JSON.parse(options.body); requests.push({ model, hasTools: body.tools?.length === 1 });
+    const body = JSON.parse(options.body); requests.push({
+      model, hasTools: body.tools?.length === 1,
+      parallelToolCalls: Object.hasOwn(body, 'parallel_tool_calls') ? body.parallel_tool_calls : null,
+    });
     const delta = body.tools ? {
       tool_calls: [{ index: 0, id: `call-${model}`, function: {
         name: 'nna_conformance_echo', arguments: '{"text":"provider-ok"}',
@@ -42,9 +45,12 @@ test('PROV-012 harness runs identical content-free cases against two declared in
     ['model_enumeration', 'streaming_text', 'streaming_tool_call'],
   ]);
   assert.deepEqual(requests, [
-    { model: 'model-alpha', hasTools: false }, { model: 'model-alpha', hasTools: true },
-    { model: 'model-beta', hasTools: false }, { model: 'model-beta', hasTools: true },
+    { model: 'model-alpha', hasTools: false, parallelToolCalls: null },
+    { model: 'model-alpha', hasTools: true, parallelToolCalls: false },
+    { model: 'model-beta', hasTools: false, parallelToolCalls: null },
+    { model: 'model-beta', hasTools: true, parallelToolCalls: null },
   ]);
+  assert.deepEqual(report.providers.map((item) => item.tool_call_mode), ['single', 'batch']);
   assert.equal(JSON.stringify(report).includes('provider-ok'), false);
   assert.equal(JSON.stringify(report).includes('conformance check'), false);
 });

@@ -91,7 +91,8 @@ export function providerOverlay(engine, options = {}) {
       providerAction('add', 'Add provider profile', 'Connect an inference endpoint and choose its default model'),
       providerAction('edit', 'Edit provider profile', 'Change its endpoint, default model, or credential reference'),
       providerAction('limits', 'Set model limits', 'Configure context and output-token limits'),
-      providerAction('test', 'Test provider profile', 'Verify discovery and inference connectivity'),
+      providerAction('tool-calls', 'Set tool-call mode', 'Require one generated call or allow a provider-compatible batch'),
+      providerAction('test', 'Test provider profile', 'Verify discovery and tool-call compatibility'),
       providerAction('delete', 'Delete unused profile', 'Remove a profile that is not assigned to a role'),
     );
   }

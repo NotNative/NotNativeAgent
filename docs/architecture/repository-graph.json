@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:4bb07e0b2b54692b859b0706afc4f34aed8dcd6156003fb46d3e6e6bceea40f1",
+  "source_digest": "sha256:9608f7e0914cdeca63000e847977e6f10e1314080ebcde1999d7003211a38d54",
   "counts": {
-    "modules": 334,
+    "modules": 338,
     "component_edges": 70
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "experience-engine",
       "label": "Experience Engine",
       "ownership": "Owns operator interaction and presentation.",
-      "module_count": 88
+      "module_count": 90
     },
     {
       "id": "reliability-engine",
@@ -48,7 +48,7 @@
       "id": "providers",
       "label": "Providers",
       "ownership": "Owns model routing and provider wire adaptation.",
-      "module_count": 18
+      "module_count": 20
     },
     {
       "id": "tools",
@@ -108,8 +108,8 @@
     {
       "from": "experience-engine",
       "to": "experience-engine",
-      "import_count": 159,
-      "module_count": 52
+      "import_count": 162,
+      "module_count": 53
     },
     {
       "from": "foundation",
@@ -156,8 +156,8 @@
     {
       "from": "providers",
       "to": "foundation",
-      "import_count": 23,
-      "module_count": 16
+      "import_count": 25,
+      "module_count": 18
     },
     {
       "from": "integrations",
@@ -169,7 +169,7 @@
       "from": "experience-engine",
       "to": "providers",
       "import_count": 13,
-      "module_count": 8
+      "module_count": 9
     },
     {
       "from": "agentic-engine",
@@ -190,16 +190,22 @@
       "module_count": 10
     },
     {
+      "from": "providers",
+      "to": "providers",
+      "import_count": 12,
+      "module_count": 6
+    },
+    {
+      "from": "foundation",
+      "to": "providers",
+      "import_count": 11,
+      "module_count": 8
+    },
+    {
       "from": "persistence",
       "to": "foundation",
       "import_count": 11,
       "module_count": 10
-    },
-    {
-      "from": "providers",
-      "to": "providers",
-      "import_count": 11,
-      "module_count": 6
     },
     {
       "from": "reliability-engine",
@@ -212,12 +218,6 @@
       "to": "reliability-engine",
       "import_count": 11,
       "module_count": 4
-    },
-    {
-      "from": "foundation",
-      "to": "providers",
-      "import_count": 10,
-      "module_count": 8
     },
     {
       "from": "guidance",
@@ -625,6 +625,7 @@
         "src/ids.js",
         "src/persistence/manifest-migration.js",
         "src/provider/reasoning.js",
+        "src/provider/tool-call-mode.js",
         "src/skill-registry.js"
       ]
     },
@@ -1129,6 +1130,7 @@
         "src/experience/provider-catalog.js",
         "src/experience/provider-discovery.js",
         "src/experience/provider-routing.js",
+        "src/experience/provider-test.js",
         "src/experience/restore.js",
         "src/experience/resume.js",
         "src/experience/session-broker.js",
@@ -1140,7 +1142,6 @@
         "src/ingress.js",
         "src/mcp-credentials.js",
         "src/product.js",
-        "src/provider/capabilities.js",
         "src/provider/fair-scheduler.js",
         "src/provider/route-configuration.js",
         "src/review-posture.js",
@@ -1320,6 +1321,14 @@
         "src/experience/provider-catalog.js",
         "src/ids.js",
         "src/provider/route-configuration.js"
+      ]
+    },
+    {
+      "path": "src/experience/provider-test.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/provider/capabilities.js"
       ]
     },
     {
@@ -1986,6 +1995,7 @@
         "src/provider/local-http-transport.js",
         "src/provider/model-metadata.js",
         "src/provider/reasoning.js",
+        "src/provider/tool-call-compatibility.js",
         "src/reliability/retry-after.js"
       ]
     },
@@ -2138,6 +2148,22 @@
         "src/provider/completion-recovery.js",
         "src/provider/event-shape.js",
         "src/provider/fair-scheduler.js"
+      ]
+    },
+    {
+      "path": "src/provider/tool-call-compatibility.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/provider/tool-call-mode.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {
@@ -3340,6 +3366,14 @@
       ]
     },
     {
+      "path": "src/tui/provider-management-overlays.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/surface-engine.js"
+      ]
+    },
+    {
       "path": "src/tui/provider-route-settings.js",
       "component": "experience-engine",
       "entrypoint": false,
@@ -3359,6 +3393,7 @@
         "src/reliability/output-headroom.js",
         "src/tui/form-engine.js",
         "src/tui/overlays.js",
+        "src/tui/provider-management-overlays.js",
         "src/tui/surface-engine.js"
       ]
     },

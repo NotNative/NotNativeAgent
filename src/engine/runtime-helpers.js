@@ -33,9 +33,11 @@ export function providerRequest(engine, route, context, options = {}) {
   const flattenedMessages = flattenLeadingSystemMessages(ordered.messages);
   const reasoning = routeReasoningFields(route);
   // The assembled request is a boundary value. Provider adapters must not mutate shared turn state through it.
+  const toolCallMode = route.profile?.toolCallMode ?? 'single';
   const request = Object.freeze({
     model: route.model, messages: flattenedMessages,
-    tools, temperature: route.temperature, parallelToolCalls: false,
+    tools, temperature: route.temperature, toolCallMode,
+    ...(toolCallMode === 'single' ? { parallelToolCalls: false } : {}),
     maxOutputTokens: boundedOutputTokens(route.maxOutputTokens, options.outputReserveTokens),
     ...(reasoning.reasoningEffort === undefined ? {} : { reasoningEffort: reasoning.reasoningEffort }),
     ...(reasoning.enableThinking === undefined ? {} : { enableThinking: reasoning.enableThinking }),

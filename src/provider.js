@@ -6,6 +6,7 @@ import { localProviderFetch } from './provider/local-http-transport.js';
 import { CredentialResolver, normalizeCredentialBinding } from './credential-bindings.js';
 import { sanitizeProviderUsage, unrecognizedDeltaEvent } from './provider/event-shape.js';
 import { providerModelLimits } from './provider/model-metadata.js';
+import { chatCompletionBody, toolCallProbeRequest } from './provider/tool-call-compatibility.js';
 const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
 const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
 const MAX_PROVIDER_STREAM_BYTES = 268_435_456;
@@ -70,6 +71,15 @@ export class OpenAICompatibleProvider {
     }
   }
 
+  async toolCallCompatibility(signal) {
+    const single = await this.#toolCallProbe(false, signal);
+    if (single.accepted) return Object.freeze({ supportedMode: 'single' });
+    if (single.status !== 400) throw single.error;
+    const batch = await this.#toolCallProbe(undefined, signal);
+    if (!batch.accepted) throw batch.error;
+    return Object.freeze({ supportedMode: 'batch' });
+  }
+
   async *stream(request, signal) {
     const transport = new AbortController();
     const cancel = () => transport.abort();
@@ -84,19 +94,7 @@ export class OpenAICompatibleProvider {
       response = await this.#fetch(`${this.profile.endpoint}/chat/completions`, {
         method: 'POST', signal: transport.signal,
         body: JSON.stringify({
-          model: request.model, messages: normalizeSystemMessages(request.messages ?? []),
-          stream: true,
-          ...(Number.isFinite(request.temperature) ? { temperature: request.temperature } : {}),
-          ...(this.profile.capabilities?.usage === false ? {} : { stream_options: { include_usage: true } }),
-          ...(Number.isInteger(request.maxOutputTokens) ? { max_tokens: request.maxOutputTokens } : {}),
-          ...(request.tools?.length ? {
-            tools: request.tools,
-            tool_choice: 'auto',
-            ...(typeof request.parallelToolCalls === 'boolean'
-              ? { parallel_tool_calls: request.parallelToolCalls } : {}),
-          } : {}),
-          ...(responseFormat ? { response_format: responseFormat } : {}),
-          ...reasoningControls,
+          ...chatCompletionBody(this.profile, request, responseFormat, reasoningControls),
         }),
       }, 'Authenticate provider inference');
     } catch (error) {
@@ -113,6 +111,25 @@ export class OpenAICompatibleProvider {
     } finally {
       signal.removeEventListener('abort', cancel);
       transport.abort();
+    }
+  }
+
+  async #toolCallProbe(parallelToolCalls, signal) {
+    let response;
+    try {
+      const request = toolCallProbeRequest(this.profile, parallelToolCalls);
+      response = await this.#fetch(`${this.profile.endpoint}/chat/completions`, {
+        method: 'POST', signal,
+        body: JSON.stringify(chatCompletionBody(this.profile, request, null, {})),
+      }, 'Test provider tool-call compatibility');
+      if (response.ok) {
+        await response.body?.cancel();
+        return Object.freeze({ accepted: true, status: response.status, error: null });
+      }
+      const error = await providerErrorResponse(response, this.profile.trustZone);
+      return Object.freeze({ accepted: false, status: response.status, error });
+    } catch (error) {
+      throw normalizeProviderTransportError(error, signal);
     }
   }
 
@@ -154,28 +171,6 @@ function nestedErrorCode(error) {
     current = current.cause;
   }
   return null;
-}
-
-function normalizeSystemMessages(messages) {
-  if (!Array.isArray(messages)) {
-    throw new ContractError('provider_messages_invalid', 'provider messages must be an array');
-  }
-  const system = [];
-  const conversation = [];
-  let firstSystem = null;
-  for (const message of messages) {
-    if (message?.role !== 'system') {
-      conversation.push(message);
-      continue;
-    }
-    if (typeof message.content !== 'string') {
-      throw new ContractError('provider_system_message_invalid', 'provider system message content must be text');
-    }
-    firstSystem ??= message;
-    system.push(message.content);
-  }
-  if (system.length === 0) return conversation;
-  return [{ ...firstSystem, content: system.join('\n\n') }, ...conversation];
 }
 
 function declaredRuntime(profile) {

@@ -1333,8 +1333,8 @@ test('provider and model overlays expose keyboard-selectable route choices', () 
   assert.match(coloredModelFrame, /\u001b\[1;38;5;213;48;5;236m›/u);
   assert.match(coloredModelFrame, /\u001b\[38;5;245mProvider/u);
   const managed = providerOverlay(engine, { canManage: true });
-  assert.deepEqual(managed.items.slice(-5).map((item) => item.id), [
-    'action:add', 'action:edit', 'action:limits', 'action:test', 'action:delete',
+  assert.deepEqual(managed.items.slice(-6).map((item) => item.id), [
+    'action:add', 'action:edit', 'action:limits', 'action:tool-calls', 'action:test', 'action:delete',
   ]);
   assert.equal(managed.items.at(-1).section, 'Manage profiles');
   projection.openOverlay(managed);

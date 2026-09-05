@@ -317,6 +317,41 @@ test('provider requests explicitly disable parallel tool calls when requested', 
   assert.equal(body.tool_choice, 'auto');
 });
 
+test('batch-compatible requests omit the single-call control', async () => {
+  let body;
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'fixture', capabilities: {},
+  }, {}, { fetch: async (_url, options) => {
+    body = JSON.parse(options.body);
+    return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  for await (const _item of provider.stream({
+    model: 'fixture', messages: [], toolCallMode: 'batch',
+    tools: [{ type: 'function', function: { name: 'fs.read', parameters: { type: 'object' } } }],
+  }, new AbortController().signal)) { /* consume */ }
+  assert.equal(Object.hasOwn(body, 'parallel_tool_calls'), false);
+  assert.equal(body.tool_choice, 'auto');
+});
+
+test('tool-call compatibility probe isolates providers that require batch mode', async () => {
+  const requests = [];
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'fixture', capabilities: {},
+  }, {}, { fetch: async (_url, options) => {
+    const body = JSON.parse(options.body); requests.push(body);
+    if (body.parallel_tool_calls === false) return new Response('', { status: 400 });
+    return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  assert.deepEqual(await provider.toolCallCompatibility(new AbortController().signal), { supportedMode: 'batch' });
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].parallel_tool_calls, false);
+  assert.equal(Object.hasOwn(requests[1], 'parallel_tool_calls'), false);
+});
+
 test('reasoning-disabled recovery sends compatible non-thinking controls', async () => {
   let body;
   const provider = new OpenAICompatibleProvider({

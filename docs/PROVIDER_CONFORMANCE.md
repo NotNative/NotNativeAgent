@@ -24,6 +24,7 @@ lineage.
       "implementation_version": "1.0",
       "endpoint": "http://127.0.0.1:1234/v1",
       "model": "model-one",
+      "tool_call_mode": "single",
       "trust_zone": "loopback"
     },
     {
@@ -32,11 +33,16 @@ lineage.
       "implementation_version": "2.0",
       "endpoint": "http://127.0.0.1:11434/v1",
       "model": "model-two",
+      "tool_call_mode": "batch",
       "trust_zone": "loopback"
     }
   ]
 }
 ```
+
+`tool_call_mode` defaults to `single`. Use `batch` only when the provider rejects
+`parallel_tool_calls: false`; the adapter then omits that wire field. NNA still validates,
+reviews, and settles every returned tool call.
 
 When a server requires authentication, use a Secret Broker `credential` binding in normal
 operation. The advanced `credential_env` compatibility field contains an environment-variable

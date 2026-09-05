@@ -298,6 +298,12 @@ declares a narrower ceiling, ordinary model work requests 32,000 output tokens. 
 completion headroom, not a requirement that the model consume it: reasoning-capable models
 may think at length and still retain room to emit a tool call or visible answer. Reviewer,
 qualification, and compaction requests retain their own smaller task-specific bounds.
+Provider profiles also accept `tool_call_mode`. The default `single` mode sends
+`parallel_tool_calls: false`. The `batch` compatibility mode omits that provider field for
+engines that reject it. Batch mode changes only provider generation: NNA still validates and
+reviews every returned call, and local execution policy remains authoritative. Use
+`/provider test ID` to detect this incompatibility and `/provider tool-calls ID batch` to
+apply the recommendation.
 Each role route accepts
 `provider_id`, `model`, an optional model-specific `context_limit_bytes`, `required_capabilities`, `temperature`,
 `max_output_tokens`, `deadline_ms`, `budget`, and an ordered `fallbacks` list of role

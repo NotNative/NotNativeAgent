@@ -38,6 +38,7 @@ async function probeProvider(candidate, options) {
   const config = resolveManifest({ persistence: 'ephemeral', provider: {
     id: candidate.id, endpoint: candidate.endpoint, model: candidate.model,
     trust_zone: candidate.trust_zone, credential_env: candidate.credential_env,
+    tool_call_mode: candidate.tool_call_mode,
     capabilities: { streaming: true, tools: true },
   } });
   const profile = config.providerProfiles[candidate.id];
@@ -56,7 +57,7 @@ async function probeProvider(candidate, options) {
     return result;
   }));
   cases.push(await measuredCase('streaming_tool_call', candidate.timeout_ms, async (signal) => {
-    const result = await consume(adapter, request(candidate.model, true), signal);
+    const result = await consume(adapter, request(candidate.model, true, profile.toolCallMode), signal);
     if (!result.valid_tool_call) throw coded('provider_tool_call_missing');
     return result;
   }));
@@ -64,11 +65,12 @@ async function probeProvider(candidate, options) {
     id: candidate.id, implementation: candidate.implementation,
     implementation_version: candidate.implementation_version,
     endpoint_origin: new URL(profile.endpoint).origin, model: candidate.model,
+    tool_call_mode: profile.toolCallMode,
     passed: cases.every((item) => item.passed), cases,
   });
 }
 
-function request(model, tools) {
+function request(model, tools, toolCallMode = 'single') {
   return Object.freeze({
     model, temperature: 0, maxOutputTokens: 256,
     messages: tools ? [
@@ -79,6 +81,8 @@ function request(model, tools) {
       { role: 'user', content: TEXT_USER_PROMPT },
     ],
     tools: tools ? [TOOL] : [],
+    toolCallMode,
+    ...(tools && toolCallMode === 'single' ? { parallelToolCalls: false } : {}),
   });
 }
 
@@ -129,6 +133,7 @@ function validateDocument(value) {
       || !/^[a-z0-9][a-z0-9_-]{0,63}$/u.test(item.id ?? '')
       || !isValidBoundedText(item.implementation, 128) || !isValidBoundedText(item.implementation_version, 128)
       || !isValidBoundedText(item.endpoint, 2048) || !isValidBoundedText(item.model, 256)
+      || (item.tool_call_mode !== undefined && !['single', 'batch'].includes(item.tool_call_mode))
       || !['loopback', 'private_network', 'public_network'].includes(item.trust_zone)
       || (item.credential_env !== undefined && !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/u.test(item.credential_env))) {
       throw coded('provider_conformance_config_invalid');
@@ -137,7 +142,7 @@ function validateDocument(value) {
       throw coded('provider_conformance_independence_invalid');
     }
     ids.add(item.id); implementations.add(item.implementation);
-    return { ...item, timeout_ms: boundedTimeout(item.timeout_ms) };
+    return { ...item, timeout_ms: boundedTimeout(item.timeout_ms), tool_call_mode: item.tool_call_mode ?? 'single' };
   });
   return Object.freeze({ providers });
 }

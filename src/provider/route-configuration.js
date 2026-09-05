@@ -140,6 +140,7 @@ export function withProvider(config, input) {
     credential_env: input.credential?.source === 'environment' ? input.credential.name : input.credentialEnv,
     context_limit_bytes: input.contextLimitBytes,
     output_limit_tokens: input.outputLimitTokens,
+    tool_call_mode: input.toolCallMode,
   }));
   return { manifest, config: resolveManifest(manifest) };
 }
@@ -169,6 +170,7 @@ export function withUpdatedProvider(config, id, input) {
         : current.credentialEnv,
     context_limit_bytes: input.contextLimitBytes ?? (preserveLimits ? current.contextLimitBytes ?? undefined : undefined),
     output_limit_tokens: input.outputLimitTokens ?? (preserveLimits ? current.outputLimitTokens ?? undefined : undefined),
+    tool_call_mode: input.toolCallMode ?? current.toolCallMode,
   });
   for (const route of Object.values(manifest.routes)) {
     if (route.provider_id === id && route.model === current.model) route.model = model;
@@ -385,6 +387,7 @@ function providerManifest(profile) {
     credential_env: profile.credential?.source === 'environment' ? profile.credential.name : profile.credentialEnv,
     context_limit_bytes: profile.contextLimitBytes ?? undefined,
     output_limit_tokens: profile.outputLimitTokens ?? undefined,
+    tool_call_mode: profile.toolCallMode === 'single' ? undefined : profile.toolCallMode,
     capabilities: Object.keys(capabilities).length > 0 ? capabilities : undefined,
   });
 }

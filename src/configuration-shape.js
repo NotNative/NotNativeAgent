@@ -2,7 +2,7 @@
 import { ContractError } from './ids.js';
 
 const SECURITY_KEY = /review|permission|ledger|revalid|auto.?approv|security|sandbox|secret|credential|token|auth|redact|sensitive|encrypt/iu;
-const PROVIDER = ['id', 'display_name', 'endpoint', 'model', 'trust_zone', 'credential', 'credential_env', 'context_limit_bytes', 'output_limit_tokens', 'capabilities'];
+const PROVIDER = ['id', 'display_name', 'endpoint', 'model', 'trust_zone', 'credential', 'credential_env', 'context_limit_bytes', 'output_limit_tokens', 'tool_call_mode', 'capabilities'];
 const CAPABILITIES = ['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation'];
 const ROUTE = [
   'provider_id', 'model', 'context_limit_bytes', 'required_capabilities', 'temperature',

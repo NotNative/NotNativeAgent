@@ -4,12 +4,12 @@ import { providerOverlay, valueOverlay } from './overlays.js';
 import { DEFAULT_MODEL_OUTPUT_TOKENS } from '../reliability/output-headroom.js';
 import { createFormOverlay, formEditor, formField, handleFormEditing } from './form-engine.js';
 import { createConfirmationOverlay, createMenuOverlay } from './surface-engine.js';
+import { applyProviderDeletion, applyProviderToolCallMode, profileSelectionOverlay, toolCallModeOverlay } from './provider-management-overlays.js';
 
-const SETUP_KINDS = new Set([
-  'provider-preset', 'provider-profile-select', 'provider-form',
-  'provider-auth-select', 'provider-secret-select', 'provider-model-select', 'provider-delete-confirm',
+const SETUP_KINDS = new Set(['provider-preset', 'provider-profile-select', 'provider-form',
+  'provider-auth-select', 'provider-secret-select', 'provider-model-select', 'provider-tool-call-mode', 'provider-delete-confirm',
 ]);
-const PROFILE_OPERATIONS = new Set(['edit', 'limits', 'test', 'delete']);
+const PROFILE_OPERATIONS = new Set(['edit', 'limits', 'tool-calls', 'test', 'delete']);
 const MIN_CONTEXT_LIMIT_BYTES = 65_536;
 const MAX_CONTEXT_LIMIT_BYTES = 16_777_216;
 const DEFAULT_CONTEXT_LIMIT_BYTES = 2_097_152;
@@ -118,13 +118,12 @@ export async function handleProviderSetupAction(action, workspace) {
         workspace.projection.openOverlay(modelSaveErrorOverlay(overlay, error));
       }
     }
+  } else if (overlay.kind === 'provider-tool-call-mode') {
+    await applyProviderToolCallMode(workspace, overlay, selected.id);
+    openProviderManager(workspace, overlay.returnParent, overlay.profileId);
   } else if (overlay.kind === 'provider-delete-confirm') {
-    if (selected.id === 'cancel') openProviderManager(workspace, overlay.returnParent, overlay.profileId);
-    else {
-      await workspace.deleteProvider(overlay.profileId);
-      openProviderManager(workspace, overlay.returnParent);
-      workspace.projection.showNotice('provider', `Deleted unused provider ${overlay.profileId}.`);
-    }
+    const selectedId = await applyProviderDeletion(workspace, overlay, selected.id);
+    openProviderManager(workspace, overlay.returnParent, selectedId);
   }
   return true;
 }
@@ -147,6 +146,8 @@ async function selectProfileAction(profileId, overlay, workspace) {
         outputLimitTokens: String(profile.outputLimitTokens ?? DEFAULT_OUTPUT_LIMIT_TOKENS),
       }, stepIndex: 0,
     }));
+  } else if (overlay.operation === 'tool-calls') {
+    workspace.projection.openOverlay(toolCallModeOverlay(profile, overlay.returnParent));
   } else if (overlay.operation === 'edit') {
     workspace.projection.openOverlay(profileFormOverlay({
       operation: 'edit', profileId, returnParent: overlay.returnParent,
@@ -293,16 +294,6 @@ function presetOverlay(returnParent) {
     { id: 'ollama', label: 'Ollama', detail: 'Local OpenAI-compatible endpoint · http://127.0.0.1:11434/v1' },
     { id: 'compatible', label: 'OpenAI-compatible', detail: 'Local, private-network, or public HTTP(S) endpoint' },
   ], { returnParent, actionLabel: 'Up/Down choose · Enter continue' });
-}
-
-function profileSelectionOverlay(operation, profiles, returnParent) {
-  const labels = { edit: 'Edit provider profile', limits: 'Set model limits', test: 'Test provider profile', delete: 'Delete provider profile' };
-  return menu('provider-profile-select', labels[operation], [
-    operation === 'edit' ? 'Choose a profile, then edit its fields in place.' : `Choose the profile to ${operation}.`,
-  ], profiles.map((profile) => ({
-    id: profile.id, label: profile.displayName, badge: profile.id,
-    detail: `${profile.model} · ${profile.endpoint}`,
-  })), { operation, returnParent, actionLabel: 'Up/Down choose · Enter continue' });
 }
 
 function profileFormOverlay(state) {

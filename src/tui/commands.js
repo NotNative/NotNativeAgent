@@ -84,7 +84,8 @@ export const TUI_COMMANDS = Object.freeze([
   command('/provider add ID ENDPOINT MODEL [CREDENTIAL_ENV]', 'Add a provider profile from Main', 'configuration'),
   command('/provider edit ID ENDPOINT MODEL [CREDENTIAL_ENV|-]', 'Edit a provider profile from Main', 'configuration'),
   command('/provider limits ID CONTEXT_BYTES OUTPUT_TOKENS', 'Set known provider model limits from Main', 'configuration'),
-  command('/provider test ID', 'Test provider connectivity and model discovery', 'configuration'),
+  command('/provider tool-calls ID single|batch', 'Set single-call control or batch-compatible generation', 'configuration'),
+  command('/provider test ID', 'Test provider discovery and tool-call compatibility', 'configuration'),
   command('/provider delete ID', 'Delete an unused provider profile from Main', 'configuration'),
   command('/permissions [revoke ID]', 'Inspect or revoke conversation preauthorizations', 'governance'),
   command('/rename NAME', 'Rename the active conversation', 'sessions'),
@@ -166,7 +167,7 @@ function bindingAction(name) {
 
 function unavailableReason(item, session) {
   if (!session || typeof session !== 'object') return 'no active conversation';
-  const mainOnly = /^(?:\/provider (?:add|edit|test|delete)|\/mcp (?:add-|test|enable|disable|delete))/u.test(item.usage);
+  const mainOnly = /^(?:\/provider (?:add|edit|limits|tool-calls|test|delete)|\/mcp (?:add-|test|enable|disable|delete))/u.test(item.usage);
   if (mainOnly && session.role !== 'primary') return 'manage this from Main';
   if (item.name === '/close' && session.role === 'primary') return 'Main remains attached until exit';
   if (item.name === '/steer' && !session.activeTurnId) return 'no active turn';

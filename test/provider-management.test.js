@@ -44,6 +44,18 @@ test('provider edit updates matching default routes but preserves explicit model
   assert.equal(limited.config.providerProfiles.one.outputLimitTokens, 8192);
 });
 
+test('provider tool-call mode is validated and retained by configuration round trips', () => {
+  const current = configuration(process.cwd());
+  assert.equal(current.providerProfiles.one.toolCallMode, 'single');
+  const updated = withUpdatedProvider(current, 'one', { toolCallMode: 'batch' });
+  assert.equal(updated.config.providerProfiles.one.toolCallMode, 'batch');
+  assert.equal(updated.manifest.providers.find((item) => item.id === 'one').tool_call_mode, 'batch');
+  assert.throws(() => resolveManifest({ provider: {
+    id: 'bad', endpoint: 'http://127.0.0.1:1/v1', model: 'model', trust_zone: 'loopback',
+    tool_call_mode: 'automatic',
+  } }), { code: 'provider_tool_call_mode_invalid' });
+});
+
 test('provider credential edits switch cleanly between Secret Broker and environment bindings', () => {
   const current = resolveManifest({ provider: {
     id: 'one', endpoint: 'http://127.0.0.1:1/v1', model: 'old', trust_zone: 'loopback',
@@ -204,6 +216,7 @@ test('Main provider manager edits, tests, and deletes unused profiles durably', 
   const configPath = join(root, 'settings.json');
   const providerFactory = (profile) => ({
     async capabilities() { return { models: [profile.model, 'catalog-model'], tools: true }; },
+    async toolCallCompatibility() { return { supportedMode: 'batch' }; },
     async *stream() { yield { type: 'terminal' }; },
   });
   const workspace = new InteractiveWorkspace({ config: configuration(root), configPath, providerFactory });
@@ -213,6 +226,8 @@ test('Main provider manager edits, tests, and deletes unused profiles durably', 
   const checked = await workspace.testProvider('two');
   assert.equal(checked.ready, true);
   assert.deepEqual(checked.models, ['edited', 'catalog-model']);
+  assert.equal(checked.tool_call_compatibility.supported_mode, 'batch');
+  assert.match(checked.tool_call_compatibility.recommendation, /provider tool-calls two batch/u);
   await workspace.clearProviderForRole('reviewer');
   assert.equal(workspace.config.routes.reviewer.assigned, false);
   await workspace.deleteProvider('two');

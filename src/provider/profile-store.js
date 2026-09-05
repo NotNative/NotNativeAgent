@@ -10,7 +10,7 @@ import { CredentialResolver, credentialManifest, normalizeCredentialBinding } fr
 const FILE_LIMIT = 1_048_576;
 const CREATE_FIELDS = new Set([
   'profile_id', 'display_name', 'endpoint', 'model', 'credential', 'credential_env',
-  'context_limit_bytes', 'output_limit_tokens',
+  'context_limit_bytes', 'output_limit_tokens', 'tool_call_mode',
 ]);
 const UPDATE_FIELDS = new Set([...CREATE_FIELDS].filter((field) => field !== 'profile_id'));
 
@@ -115,6 +115,7 @@ export function publicProfile(profile, active = false) {
     credential_env: profile.credential?.source === 'environment' ? profile.credential.name : null,
     context_limit_bytes: profile.contextLimitBytes ?? null,
     output_limit_tokens: profile.outputLimitTokens ?? null,
+    tool_call_mode: profile.toolCallMode,
     active,
   });
 }
@@ -135,6 +136,7 @@ function normalizeInput(input, creating) {
   assign(result, 'credentialEnv', input.credential_env);
   assign(result, 'contextLimitBytes', input.context_limit_bytes);
   assign(result, 'outputLimitTokens', input.output_limit_tokens);
+  assign(result, 'toolCallMode', input.tool_call_mode);
   if (creating && (!result.id || !result.endpoint || !result.model)) {
     throw new ContractError('provider_request_invalid', 'profile_id, endpoint, and model are required');
   }
@@ -156,6 +158,9 @@ function validateInputValues(input, creating) {
     if (input[key] !== undefined && input[key] !== null && (!Number.isSafeInteger(input[key]) || input[key] < 1)) {
       throw new ContractError('provider_request_invalid', `${key} must be a positive integer or null`);
     }
+  }
+  if (input.tool_call_mode !== undefined && !['single', 'batch'].includes(input.tool_call_mode)) {
+    throw new ContractError('provider_request_invalid', 'tool_call_mode must be single or batch');
   }
 }
 

@@ -13,6 +13,7 @@ import { skillGrantDigest, validateHostedSkills } from './skill-registry.js';
 import { migrateRoutingInheritance } from './persistence/manifest-migration.js';
 import { validateDream } from './dream-config.js';
 import { validateEnableThinking, validateReasoningEffort } from './provider/reasoning.js';
+import { providerToolCallMode } from './provider/tool-call-mode.js';
 import { credentialReference, credentialTarget, normalizeCredentialBinding, validateCredentialHeaders } from './credential-bindings.js';
 const TRUST_ZONES = new Set(['loopback', 'private_network', 'public_network']), ROUTE_CAPABILITIES = new Set(['streaming', 'tools', 'images', 'structured_output', 'usage', 'cancellation']);
 const PRINCIPAL_IDS = Object.freeze({ host: 'authenticated-stdio-host', localOperator: 'authenticated-local-operator' }), MAX_MISSION_OUTCOME_BYTES = 131_072;
@@ -205,6 +206,7 @@ function validateProvider(value) {
     credential, credentialEnv: credential?.source === 'environment' ? credential.name : undefined,
     contextLimitBytes: optionalBoundedInteger(value.context_limit_bytes, 65_536, 16_777_216),
     outputLimitTokens: optionalBoundedInteger(value.output_limit_tokens, 1, 1_048_576),
+    toolCallMode: providerToolCallMode(value.tool_call_mode),
     capabilities: Object.freeze({
       streaming: true,
       tools: capability(value.capabilities?.tools),
@@ -475,9 +477,7 @@ function endpointZone(url) {
   if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/u.test(host)) return 'private_network';
   return 'public_network';
 }
-function optionalString(value) {
-  return typeof value === 'string' && value.length > 0 ? value : null;
-}
+function optionalString(value) { return typeof value === 'string' && value.length > 0 ? value : null; }
 function optionalBoundedInteger(value, minimum, maximum) {
   if (value === undefined) return null;
   return boundedInteger(value, null, minimum, maximum);

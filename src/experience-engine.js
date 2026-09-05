@@ -26,7 +26,7 @@ import { validateKeyBindings } from './experience/key-bindings.js';
 import { WorkspaceTabPersistence } from './experience/tab-persistence.js';
 import { isGeneratedConversationName, maybeAutoNameConversation, renameWorkspaceConversation } from './experience/conversation-title.js';
 const INTERACTIVE_OPERATOR = 'authenticated-interactive-operator';
-import { boundedProviderCapabilities } from './provider/capabilities.js';
+import { testProviderProfile } from './experience/provider-test.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './experience/models.js';
 import { advanceWorkspaceConfig, publishWorkspaceConfiguration, writeWorkspaceManifest } from './experience/configuration-publication.js';
 import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './experience/provider-catalog.js';
@@ -330,17 +330,7 @@ export class ExperienceEngine {
     const profile = config.providerProfiles[id];
     if (!profile) throw new ContractError('provider_missing', `provider ${id} is not configured`);
     const provider = this.activeEngine().router.providerForProfile(profile);
-    if (typeof provider.capabilities !== 'function') {
-      return { id, ready: true, models: [profile.model], detail: 'Provider has no discovery endpoint; profile is structurally valid.' };
-    }
-    const capabilities = await boundedProviderCapabilities(provider, this.options.providerCapabilityDeadlineMs ?? 5_000);
-    return {
-      id, ready: true,
-      models: Array.isArray(capabilities?.models)
-        ? capabilities.models.filter((item) => typeof item === 'string' && item.length > 0 && item.length <= 256) : [profile.model],
-      tools: capabilities?.tools,
-      images: capabilities?.images,
-    };
+    return testProviderProfile(profile, provider, this.options);
   }
   async discoverProviderModels(input) { this._requireMainProviderManagement(); return discoverWorkspaceProviderModels(this, input); }
   async toggleConfigSetting(setting) {
