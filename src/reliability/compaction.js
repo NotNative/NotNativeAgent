@@ -247,7 +247,7 @@ function supersessionKey(request) {
     case 'fs.read_lines': return keyed(request.toolName, [args.path, args.start_line, args.end_line]);
     case 'fs_read': return keyed(request.toolName, [args.path, args.start_line, args.line_count]);
     case 'fs.list_directory': return keyed(request.toolName, [args.path, args.depth]);
-    case 'fs.glob': return keyed(request.toolName, [args.path, args.pattern]);
+    case 'fs_glob': return keyed(request.toolName, [args.path, args.pattern]);
     case 'fs_list': return keyed(request.toolName, [args.path, args.pattern, args.depth]);
     case 'fs_search_text': return keyed(request.toolName, [args.path, args.query, args.file_glob]);
     case 'code_diagnostics': return keyed(request.toolName, [args.path]);

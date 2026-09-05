@@ -18,7 +18,7 @@ export function filesystemDiscoveryDefinitions(paths) {
 
 function globDefinition(paths) {
   return {
-    name: 'fs.glob', version: 1,
+    name: 'fs_glob', version: 1,
     purpose: 'List file paths beneath an optional root directory whose relative paths match the required glob pattern. Example: {"path":"src","pattern":"**/*.js"}.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
     inputSchema: objectSchema({

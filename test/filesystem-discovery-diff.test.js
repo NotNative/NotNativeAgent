@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { ToolRegistry } from '../src/tool-registry.js';
 
-test('fs.glob and fs_search_text discover bounded files without a platform shell', async () => {
+test('fs_glob and fs_search_text discover bounded files without a platform shell', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-discovery-'));
   await mkdir(join(root, 'src'));
   await mkdir(join(root, 'node_modules'));
@@ -17,7 +17,7 @@ test('fs.glob and fs_search_text discover bounded files without a platform shell
   const registry = new ToolRegistry(root);
   await registry.initialize();
 
-  const glob = registry.definition('fs.glob');
+  const glob = registry.definition('fs_glob');
   const globRequest = await glob.validate({ pattern: '**/*.js' });
   const globResult = await glob.executor(globRequest, new AbortController().signal);
   assert.equal(globResult.content, 'src/alpha.js');
@@ -76,7 +76,7 @@ test('filesystem discovery schemas explain path and treat missing roots as negat
   const root = await mkdtemp(join(tmpdir(), 'nna-discovery-schema-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const glob = registry.definition('fs.glob');
+  const glob = registry.definition('fs_glob');
   const search = registry.definition('fs_search_text');
   assert.match(glob.inputSchema.properties.path.description, /Do not put glob syntax here/u);
   assert.match(glob.inputSchema.properties.pattern.description, /Required glob/u);
@@ -113,13 +113,13 @@ test('root tools can inspect host paths while hosted tools retain the manifest w
 
   const rootRegistry = new ToolRegistry(root);
   await rootRegistry.initialize();
-  const resolved = await rootRegistry.definition('fs.glob').validate({ path: sibling, pattern: '*.txt' });
+  const resolved = await rootRegistry.definition('fs_glob').validate({ path: sibling, pattern: '*.txt' });
   assert.equal(resolved.resolved.insideWorkspace, false);
-  assert.equal((await rootRegistry.definition('fs.glob').executor(resolved, new AbortController().signal)).content, 'outside.txt');
+  assert.equal((await rootRegistry.definition('fs_glob').executor(resolved, new AbortController().signal)).content, 'outside.txt');
 
   const hostedRegistry = new ToolRegistry(root, { boundedToWorkspace: true });
   await hostedRegistry.initialize();
-  await assert.rejects(hostedRegistry.definition('fs.glob').validate({ path: sibling, pattern: '*.txt' }), { code: 'tool_scope_denied' });
+  await assert.rejects(hostedRegistry.definition('fs_glob').validate({ path: sibling, pattern: '*.txt' }), { code: 'tool_scope_denied' });
 });
 
 test('file change ledger renders conversation-local changes for /diff', async () => {

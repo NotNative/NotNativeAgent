@@ -723,7 +723,7 @@ test('rejected conversation-work transitions are invalid requests with no effect
 test('schema repair constraints are injected into the next model continuation', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-tool-constraint-context-'));
   const provider = new TwoStepProvider(
-    { name: 'fs.glob', args: { path: '.' } },
+    { name: 'fs_glob', args: { path: '.' } },
     (request) => {
       const constraint = request.messages.find((item) => item.role === 'system'
         && item.content.includes('Active tool constraints'));
@@ -950,8 +950,8 @@ test('registry exposes workspace operations and packaged self-guidance', async (
     .find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
-    'code_diagnostics', 'fs.glob', 'fs.list_directory',
-    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
+    'code_diagnostics', 'fs.list_directory',
+    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
