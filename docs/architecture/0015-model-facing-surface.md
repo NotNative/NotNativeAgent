@@ -10,7 +10,7 @@ surface to every ordinary provider step. The deliberately small deterministic or
 3. `shell_run`;
 4. `work_plan`, `work_status`, and `work_task_update`;
 5. `turn_finish`;
-6. `git.inspect`.
+6. `git_inspect`.
 
 A definition is omitted only when its subsystem is unavailable or an authenticated host
 manifest ceilings it. Root conversations do not have a text-only or zero-tool phase. The

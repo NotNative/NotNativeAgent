@@ -6,7 +6,7 @@ export const FOUNDATIONAL_TOOL_NAMES = Object.freeze([
   'shell_run',
   'work_plan', 'work_status', 'work_task_update',
   'turn_finish',
-  'git.inspect',
+  'git_inspect',
 ]);
 
 export const TOOL_SURFACE_ELIGIBLE_NAMES = Object.freeze([

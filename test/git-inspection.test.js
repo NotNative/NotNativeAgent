@@ -5,7 +5,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { gitInspectionDefinition } from '../src/tools/git-inspection.js';
 
-test('git.inspect validates a host path and runs bounded shell-free status', async () => {
+test('git_inspect validates a host path and runs bounded shell-free status', async () => {
   let invocation;
   const definition = gitInspectionDefinition({
     resolveDirectory: async (path) => ({ path: `D:\\repos\\${path}`, insideWorkspace: false }),
@@ -24,7 +24,7 @@ test('git.inspect validates a host path and runs bounded shell-free status', asy
   assert.equal(result.metadata.operation, 'status');
 });
 
-test('git.inspect constructs only enumerated history and staged-diff operations', async () => {
+test('git_inspect constructs only enumerated history and staged-diff operations', async () => {
   const definition = gitInspectionDefinition({ resolveDirectory: async () => ({ path: 'repo', insideWorkspace: true }) });
   const history = await definition.validate({ operation: 'log', max_entries: 7 });
   const staged = await definition.validate({ operation: 'diff_staged' });

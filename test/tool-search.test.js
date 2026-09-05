@@ -8,7 +8,7 @@ const FOUNDATION = [
   'tool_search',
   'fs_list', 'fs_read', 'fs_search_text',
   'shell_run', 'work_plan', 'work_status', 'work_task_update', 'turn_finish',
-  'git.inspect',
+  'git_inspect',
 ];
 
 function availableFoundation(registry) {
@@ -124,6 +124,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['work status', 'work.status', 'work_status'],
     ['work task update', 'work.task_update', 'work_task_update'],
     ['turn finish', 'turn.finish', 'turn_finish'],
+    ['git inspect', 'git.inspect', 'git_inspect'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

@@ -8,7 +8,7 @@ const MAX_GIT_OUTPUT_BYTES = 256 * 1024;
 
 export function gitInspectionDefinition(paths, options = {}) {
   return {
-    name: 'git.inspect', version: 1,
+    name: 'git_inspect', version: 1,
     purpose: 'Inspect bounded Git status, working or staged changes, and recent history without constructing a shell command.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: GIT_INSPECTION_TIMEOUT_MS,
     inputSchema: {
