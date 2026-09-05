@@ -39,7 +39,7 @@ export class TelegramNotificationQueue {
 
 export function telegramNotificationDefinition(control, activeTurnId) {
   return {
-    name: 'notification.telegram', version: 1,
+    name: 'notification_telegram', version: 1,
     purpose: 'Ask the NNA gateway to notify the operator on Telegram after the current turn reaches a terminal outcome.',
     sideEffect: 'external_communication', scope: 'operator_notification', cancellation: true, timeoutMs: NOTIFICATION_TIMEOUT_MS,
     inputSchema: {

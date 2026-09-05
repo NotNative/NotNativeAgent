@@ -78,7 +78,7 @@ descriptors and terminal turn results.
 
 ## Completion notifications
 
-Root interactive NNA sessions expose `notification.telegram`. When the operator asks to
+Root interactive NNA sessions expose `notification_telegram`. When the operator asks to
 be notified after work finishes, the tool registers a harness-owned terminal-event
 notification. The message enters the local gateway outbox only when that turn reaches a
 terminal outcome. Delivery does not inject content into either conversation. If the

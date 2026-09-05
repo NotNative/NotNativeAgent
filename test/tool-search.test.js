@@ -37,7 +37,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.ok(!baseline.includes('process_run'));
   assert.ok(!baseline.includes('browser.navigate'));
   assert.ok(!baseline.includes('ref_store'));
-  assert.ok(!baseline.includes('notification.telegram'));
+  assert.ok(!baseline.includes('notification_telegram'));
   assert.ok(!baseline.includes('web_fetch'));
   assert.ok(!baseline.includes('web_browse'));
   for (const query of [
@@ -157,6 +157,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['agent run', 'agent.run', 'agent_run'],
     ['skill search', 'skill.search', 'skill_search'],
     ['skill load', 'skill.load', 'skill_load'],
+    ['Telegram notification', 'notification.telegram', 'notification_telegram'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

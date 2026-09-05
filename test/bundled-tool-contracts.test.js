@@ -18,7 +18,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'skill_search', 'skill_load', 'agent_run',
   'work_plan', 'work_status', 'work_goal', 'work_task_add', 'work_task_update',
   'turn_finish',
-  'notification.telegram', 'session.search_history', 'session.read_history', 'system_time',
+  'notification_telegram', 'session.search_history', 'session.read_history', 'system_time',
   'workspace.change',
 ]);
 
