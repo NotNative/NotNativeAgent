@@ -139,7 +139,7 @@ function classify(request, definition) {
     return Object.freeze({ risk: 'safe', reason: 'packaged_product_guidance', effect: 'read_only', scope: 'product_guidance', complexity: 'simple' });
   }
   if (definition.sideEffect === 'read_only' && definition.scope === 'runtime_diagnostics'
-    && ['nna.list_sessions', 'nna_diagnose_turn'].includes(definition.name)) {
+    && ['nna_list_sessions', 'nna_diagnose_turn'].includes(definition.name)) {
     return Object.freeze({ risk: 'safe', reason: 'redacted_runtime_diagnostics', effect: 'read_only', scope: 'runtime_diagnostics', complexity: 'simple' });
   }
   if (definition.sideEffect === 'read_only' && definition.scope === 'runtime_info' && definition.name === 'system_time') return Object.freeze({ risk: 'safe', reason: 'host_clock_observation', effect: 'read_only', scope: 'runtime_info', complexity: 'simple' });

@@ -103,7 +103,7 @@ async function executeTurnDiagnosis(contextProvider, request, signal) {
 
 function listSessionsDefinition(contextProvider) {
   return {
-    name: 'nna.list_sessions', version: 1,
+    name: 'nna_list_sessions', version: 1,
     purpose: 'List bounded recent durable NNA sessions so a different Console run can be selected for diagnosis.',
     sideEffect: 'read_only', scope: 'runtime_diagnostics', cancellation: true, timeoutMs: 10_000,
     inputSchema: {
