@@ -48,7 +48,7 @@ function visualEvidenceGate(evidence, declaration) {
   if (evidence.verdict === 'minor_caveat') return null;
   return Object.freeze({
     disposition: 'continue', category: 'visual_evidence_conflict', progressEvidence: null,
-    hint: 'The latest image.inspect verdict does not support an absolute visual-pass claim. DOM inspection, console output, and textual reasoning cannot supersede visible evidence. Either obtain a newer screenshot and image.inspect verdict after a material change, or finish with a qualified description of the remaining visible caveat. Do not claim that artifacts are absent without newer visual evidence.',
+    hint: 'The latest image_inspect verdict does not support an absolute visual-pass claim. DOM inspection, console output, and textual reasoning cannot supersede visible evidence. Either obtain a newer screenshot and image_inspect verdict after a material change, or finish with a qualified description of the remaining visible caveat. Do not claim that artifacts are absent without newer visual evidence.',
   });
 }
 

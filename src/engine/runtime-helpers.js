@@ -228,7 +228,7 @@ export function observeToolState(active, items, definitionFor = () => null) {
         });
       }
     }
-    if (item.result?.status !== 'succeeded' || item.result?.tool_name !== 'image.inspect') continue;
+    if (item.result?.status !== 'succeeded' || item.result?.tool_name !== 'image_inspect') continue;
     active.visualEvidence = Object.freeze({
       verdict: item.result.metadata?.visualVerdict ?? 'uncertain',
       path: item.result.metadata?.path ?? null,

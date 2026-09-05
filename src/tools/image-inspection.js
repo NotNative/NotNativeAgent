@@ -11,7 +11,7 @@ const VERDICT_RUBRIC = 'Judge only visible evidence against the requested criter
 
 export function imageInspectDefinition(paths, observeImage, options = {}) {
   return {
-    name: 'image.inspect', version: 2,
+    name: 'image_inspect', version: 2,
     purpose: 'Visually interpret one existing bounded PNG, JPEG, GIF, or WebP image in a separate managed provider step and return an attributed verdict.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 600_000,
     inputSchema: {
@@ -49,12 +49,12 @@ async function validate(args, paths, maxBytes) {
     || typeof args.path !== 'string' || args.path.length === 0 || args.path.length > 4096
     || (args.prompt !== undefined && (typeof args.prompt !== 'string' || args.prompt.length > 4096))
     || Object.keys(args).some((key) => !['path', 'prompt'].includes(key))) {
-    throw new ContractError('tool_schema_invalid', 'image.inspect requires a bounded image path and optional prompt');
+    throw new ContractError('tool_schema_invalid', 'image_inspect requires a bounded image path and optional prompt');
   }
   const resolved = await paths.resolveRead(args.path);
   if (resolved.size > maxBytes) throw new ContractError('attachment_size_invalid', 'image exceeds the configured attachment byte limit');
   const mimeType = MIME_TYPES[extname(resolved.path).toLowerCase()];
-  if (!mimeType) throw new ContractError('attachment_type_unsupported', 'image.inspect supports PNG, JPEG, GIF, and WebP files');
+  if (!mimeType) throw new ContractError('attachment_type_unsupported', 'image_inspect supports PNG, JPEG, GIF, and WebP files');
   return {
     args: { path: args.path, ...(args.prompt === undefined ? {} : { prompt: args.prompt }) },
     resolved: { ...resolved, mimeType },

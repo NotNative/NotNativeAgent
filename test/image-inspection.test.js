@@ -16,7 +16,7 @@ async function fixture(observer) {
   return { root, image, definition: imageInspectDefinition(paths, observer, { maxBytes: 1024 }) };
 }
 
-test('image.inspect gives visual inference its own tool lifecycle', async () => {
+test('image_inspect gives visual inference its own tool lifecycle', async () => {
   const observed = [];
   const { image, definition } = await fixture(async (path, mimeType, prompt) => {
     observed.push({ path, mimeType, prompt });
@@ -33,13 +33,13 @@ test('image.inspect gives visual inference its own tool lifecycle', async () => 
   assert.equal(result.metadata.visualVerdict, 'pass');
 });
 
-test('image.inspect normalizes a bounded verdict and defaults missing rubrics to uncertain', () => {
+test('image_inspect normalizes a bounded verdict and defaults missing rubrics to uncertain', () => {
   assert.equal(visualVerdict('Visible seam.\nVISUAL_VERDICT: material_issue'), 'material_issue');
   assert.equal(visualVerdict('No rubric returned.'), 'uncertain');
   assert.equal(visualVerdict('VISUAL_VERDICT: invented'), 'uncertain');
 });
 
-test('image.inspect reports inference failure without changing screenshot capture', async () => {
+test('image_inspect reports inference failure without changing screenshot capture', async () => {
   const { image, definition } = await fixture(async () => {
     throw Object.assign(new Error('vision unavailable'), { code: 'provider_idle_timeout' });
   });
@@ -47,7 +47,7 @@ test('image.inspect reports inference failure without changing screenshot captur
   await assert.rejects(definition.executor(validated, new AbortController().signal), { code: 'provider_idle_timeout' });
 });
 
-test('image.inspect validates type and configured byte bound before inference', async () => {
+test('image_inspect validates type and configured byte bound before inference', async () => {
   const { root, definition } = await fixture(async () => ({ route: 'primary', text: 'unused' }));
   const text = join(root, 'not-an-image.txt');
   await writeFile(text, 'plain text');

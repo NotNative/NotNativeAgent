@@ -83,7 +83,7 @@ test('browser screenshots return the managed image before any visual inference',
   const { state, manager } = await fixture();
   const captured = await manager.execute({ action: 'screenshot' }, new AbortController().signal);
   assert.equal(captured.metadata.path, state.screenshot);
-  assert.match(captured.content, /Screenshot saved:[^]*image\.inspect[^]*exact path/iu);
+  assert.match(captured.content, /Screenshot saved:[^]*image_inspect[^]*exact path/iu);
   await manager.close();
 });
 

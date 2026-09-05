@@ -17,10 +17,10 @@ function screenshot(overrides = {}) {
 
 test('successful managed screenshots create an exact image inspection handoff', () => {
   const handoff = trustedToolHandoff([screenshot()]);
-  assert.deepEqual(handoff.workflowLeaseTools, ['image.inspect']);
+  assert.deepEqual(handoff.workflowLeaseTools, ['image_inspect']);
   assert.deepEqual(handoff.args, { path: 'C:\\managed\\screenshot-1.png' });
   assert.match(handoff.hint, /already been captured successfully/iu);
-  assert.match(handoff.hint, /call image\.inspect next with exactly \{"path":"C:\\\\managed\\\\screenshot-1\.png"\}/iu);
+  assert.match(handoff.hint, /call image_inspect next with exactly \{"path":"C:\\\\managed\\\\screenshot-1\.png"\}/iu);
   assert.match(handoff.hint, /Do not wait, sleep, echo readiness, or recapture/iu);
 });
 
@@ -59,5 +59,5 @@ test('the model-step boundary exposes only the trusted handoff capability', () =
     tools: { grantWorkflowLease: (names) => exposed.push(...names) },
   };
   assert.equal(prepareTrustedToolHandoff(engine, [screenshot()]), expected);
-  assert.deepEqual(exposed, ['image.inspect']);
+  assert.deepEqual(exposed, ['image_inspect']);
 });

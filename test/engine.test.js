@@ -164,7 +164,7 @@ test('typed completion cannot erase a newer material non-pass visual verdict', (
     'The detailed DOM inspection confirms there are no real visible artifacts. The task is complete.');
   assert.equal(contradicted.disposition, 'continue');
   assert.equal(contradicted.category, 'visual_evidence_conflict');
-  assert.match(contradicted.hint, /newer screenshot and image\.inspect|qualified description/iu);
+  assert.match(contradicted.hint, /newer screenshot and image_inspect|qualified description/iu);
 
   active.visualEvidence.verdict = 'minor_caveat';
   assert.equal(evaluateCompletion(active, 'A minor seam remains.').disposition, 'completed');

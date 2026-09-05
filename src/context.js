@@ -154,7 +154,7 @@ function enginePolicyMessage(config) {
       policySection('Actions and verification', [
         'The runtime binds and revalidates filesystem mutation snapshots. Never invent or supply an internal hash or execution-only field.',
         'Do not claim a software change complete without applicable post-change deterministic evidence. Stale or pre-change checks are not completion evidence.',
-        'Do not claim a visual defect resolved from DOM text, console output, or reasoning alone. A newer image.inspect result supersedes an older visual observation; minor subjective polish is not automatically a material defect.',
+        'Do not claim a visual defect resolved from DOM text, console output, or reasoning alone. A newer image_inspect result supersedes an older visual observation; minor subjective polish is not automatically a material defect.',
         'Every operation remains governed regardless of which tool or workflow invokes it.',
         'The foundational tool surface is always available and tool_search is its first capability. tool_search loads matching schemas into a bounded workflow lease. Never claim a capability is unavailable without checking the current tool catalog.',
       ]),

@@ -455,7 +455,7 @@ export function toolContinuationHint(items, fallback = null) {
     return `The tool request was invalid (${failures.join(', ')}). Read the returned tool error for the exact field, expected value, and received value; correct that argument and retry the operation. Do not repeat unchanged arguments. Context reduction cannot repair a schema mismatch.`;
   }
   const visual = [...items].reverse().find((item) => item.result?.status === 'succeeded'
-    && item.result?.tool_name === 'image.inspect');
+    && item.result?.tool_name === 'image_inspect');
   if (visual) {
     const verdict = visual.result.metadata?.visualVerdict ?? 'uncertain';
     if (verdict === 'pass') return 'The newest visual inspection passed the requested criteria. Finish unless another explicit acceptance criterion remains unverified.';

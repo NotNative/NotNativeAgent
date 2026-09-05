@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const SCREENSHOT_TOOL = 'web.browse';
-const INSPECTION_TOOL = 'image.inspect';
+const INSPECTION_TOOL = 'image_inspect';
 
 export function trustedToolHandoff(items = []) {
   const screenshot = [...items].reverse().find(isSuccessfulScreenshot);

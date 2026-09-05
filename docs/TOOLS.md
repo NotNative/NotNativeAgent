@@ -305,7 +305,7 @@ The global WebSearch tool is:
   NNA session. It can navigate, return bounded page text and stable element references,
   interact with a selected element, save a managed screenshot, and close itself. Screenshot
   capture returns the durable PNG path as a completed browser result and deterministically exposes
-  `image.inspect` for the following model step; `image.inspect` performs
+  `image_inspect` for the following model step; `image_inspect` performs
   optional visual interpretation in a separate provider-backed tool step and returns a bounded
   pass, minor-caveat, material-issue, or uncertain verdict. Only a newer visual inspection can
   supersede that verdict; DOM text and console output cannot. Read-only

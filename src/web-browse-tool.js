@@ -136,7 +136,7 @@ export class BrowserSessionManager {
       await mkdir(this.root, { recursive: true, mode: 0o700 });
       const path = join(this.root, `screenshot-${Date.now()}.png`);
       await page.screenshot({ path, fullPage: true });
-      return result(`Screenshot saved: ${path}\n\nUse image.inspect with this exact path when visual interpretation is needed.`, metadata('screenshot', page, { path }));
+      return result(`Screenshot saved: ${path}\n\nUse image_inspect with this exact path when visual interpretation is needed.`, metadata('screenshot', page, { path }));
     }
     const locator = this.#locator(page, args.target);
     if (args.action === 'click') await locator.click({ timeout: 15_000 });
