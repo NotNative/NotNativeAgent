@@ -27,7 +27,7 @@ test('terse continuation preserves active unfinished work context without changi
   assert.ok(visible.includes('shell_run'));
   assert.ok(visible.includes('tool_search'));
   assert.ok(visible.includes('work_plan'));
-  for (const name of ['fs.write_text', 'fs.edit_text']) assert.ok(!visible.includes(name));
+  for (const name of ['fs.write_text', 'fs_edit_text']) assert.ok(!visible.includes(name));
   const grounded = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
   assert.deepEqual(grounded, visible);
   assert.ok(!visible.includes('project_verify'));
@@ -80,14 +80,14 @@ test('conversation intent survives a continuation while specialists still requir
   const registry = new ToolRegistry(process.cwd(), { conversationWork: {} });
   await registry.initialize();
   const visible = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
-  for (const name of ['fs.write_text', 'fs.edit_text', 'fs_directory']) {
+  for (const name of ['fs.write_text', 'fs_edit_text', 'fs_directory']) {
     assert.ok(!visible.includes(name), `${name} was inferred from user wording`);
   }
   for (const name of ['web.search', 'web.fetch', 'web.browse']) assert.ok(!visible.includes(name), `${name} bypassed discovery`);
-  registry.grantWorkflowLease(['fs.write_text', 'fs.edit_text', 'fs_directory']);
+  registry.grantWorkflowLease(['fs.write_text', 'fs_edit_text', 'fs_directory']);
   const expanded = registry.providerDefinitions('different wording', { phase: 'recovery' })
     .map((item) => item.function.name);
-  for (const name of ['fs.write_text', 'fs.edit_text', 'fs_directory']) {
+  for (const name of ['fs.write_text', 'fs_edit_text', 'fs_directory']) {
     assert.ok(expanded.includes(name), `${name} explicit workflow lease was lost`);
   }
 });

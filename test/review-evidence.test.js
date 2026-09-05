@@ -71,7 +71,7 @@ test('long current turns retain relevant earlier evidence beyond the newest caus
       status: 'succeeded', content: 'URL: http://localhost:8123/\nTitle: Oceanview',
     },
     ...Array.from({ length: 12 }, (_, index) => ({
-      type: 'tool_result', turnId: 'current', requestId: `edit-${index}`, toolName: 'fs.edit_text',
+      type: 'tool_result', turnId: 'current', requestId: `edit-${index}`, toolName: 'fs_edit_text',
       status: 'succeeded', content: `edit ${index} completed`,
     })),
     {
@@ -98,7 +98,7 @@ test('conversation intent keeps earlier task evidence relevant after later conti
       type: 'tool_result', turnId: 'current', requestId: `read-${index}`, toolName: 'fs_read',
       status: 'succeeded', content: `unrelated line ${index}`,
     })),
-    { type: 'tool_request', turnId: 'current', requestId: 'edit', toolName: 'fs.edit_text', args: { path: 'src/main.js' } },
+    { type: 'tool_request', turnId: 'current', requestId: 'edit', toolName: 'fs_edit_text', args: { path: 'src/main.js' } },
   ];
   const packet = buildReviewEvidence(transcript, {
     currentRequestId: 'edit', currentTurnId: 'current', request: transcript.at(-1),

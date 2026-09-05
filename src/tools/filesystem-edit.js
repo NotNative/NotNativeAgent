@@ -15,7 +15,7 @@ const MAX_EDIT_ARGUMENT_BYTES = 40_960;
 
 export function filesystemEditDefinition(paths, changes, receipts, atomicWrite, verifyExpectedState) {
   return {
-    name: 'fs.edit_text', version: 4,
+    name: 'fs_edit_text', version: 4,
     purpose: 'Replace one exact, normally unique text match in an existing UTF-8 file. An empty replacement deletes the matched text. NNA snapshots and revalidates each edit.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({

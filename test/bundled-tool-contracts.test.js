@@ -9,7 +9,7 @@ import { invalidResult } from '../src/tools/governor.js';
 const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'ref_store', 'ref_inspect',
   'fs.list_directory', 'fs.read_text', 'fs.read_lines', 'fs.glob', 'fs_search_text',
-  'fs.write_text', 'fs.edit_text', 'fs_edit_lines', 'fs_delete_file', 'fs.metadata',
+  'fs.write_text', 'fs_edit_text', 'fs_edit_lines', 'fs_delete_file', 'fs.metadata',
   'fs_create_directory', 'fs_copy_file', 'fs.move_file', 'fs_read', 'fs_list', 'fs_directory',
   'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn', 'nna.list_sessions',
   'nna.mcp_status', 'nna.mcp_test',
@@ -83,7 +83,7 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
   const registry = new ToolRegistry(process.cwd(), optionalControls());
   await registry.initialize();
   try {
-    const exact = registry.definition('fs.edit_text');
+    const exact = registry.definition('fs_edit_text');
     const lines = registry.definition('fs_edit_lines');
     assert.deepEqual(Object.keys(exact.inputSchema.properties), ['path', 'content', 'find', 'all']);
     assert.deepEqual(exact.inputSchema.required, ['path', 'find', 'content']);
@@ -96,9 +96,9 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
     assert.equal(registry.definition('fs.write_text').inputSchema.properties.content.maxLength, 32_768);
     assert.equal(registry.definition('ref_store').inputSchema.properties.value.maxLength, 32_768);
 
-    registry.grantWorkflowLease(['fs.edit_text', 'fs_edit_lines']);
+    registry.grantWorkflowLease(['fs_edit_text', 'fs_edit_lines']);
     const surface = registry.providerDefinitions('build and edit a project file', { phase: 'action' });
-    for (const name of ['fs.edit_text', 'fs_edit_lines']) {
+    for (const name of ['fs_edit_text', 'fs_edit_lines']) {
       const parameters = surface.find((entry) => entry.function.name === name)?.function.parameters;
       assert.ok(parameters, `${name} is missing from the activated mutation surface`);
       for (const [field, schema] of Object.entries(parameters.properties)) {

@@ -18,10 +18,10 @@ test('model dialect profiles persist provider observations while tool-contract l
   registry.observe(route, { status: 'failed', code: 'tool_arguments_invalid' });
   assert.doesNotMatch(registry.instructions(route), /recent local schema failures/iu);
   registry.observeToolContract(route, {
-    status: 'failed', tool: 'fs.edit_text', version: 3, reason_code: 'tool_schema_invalid',
+    status: 'failed', tool: 'fs_edit_text', version: 3, reason_code: 'tool_schema_invalid',
   });
   registry.observeToolContract(route, {
-    status: 'repaired', tool: 'fs.edit_text', version: 3, reason_code: 'tool_schema_invalid',
+    status: 'repaired', tool: 'fs_edit_text', version: 3, reason_code: 'tool_schema_invalid',
   });
   await registry.close();
 
@@ -33,8 +33,8 @@ test('model dialect profiles persist provider observations while tool-contract l
   assert.equal(profile.failures.provider_event_invalid, 1);
   assert.equal(profile.tool_contract_learning.mode, 'shadow');
   assert.equal(profile.tool_contract_learning.epoch, 3);
-  assert.equal(profile.tool_contract_learning.candidates['fs.edit_text@3/tool_schema_invalid'].failures, 1);
-  assert.equal(profile.tool_contract_learning.candidates['fs.edit_text@3/tool_schema_invalid'].validated_repairs, 1);
+  assert.equal(profile.tool_contract_learning.candidates['fs_edit_text@3/tool_schema_invalid'].failures, 1);
+  assert.equal(profile.tool_contract_learning.candidates['fs_edit_text@3/tool_schema_invalid'].validated_repairs, 1);
   assert.doesNotMatch(restored.instructions(route), /recent local schema failures/iu);
   await restored.close();
 });

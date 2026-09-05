@@ -1586,15 +1586,15 @@ test('resume durably balances interrupted tool calls without guessing side effec
 });
 test('truncated malformed tool arguments are classified separately from ordinary malformed JSON', () => {
   const truncated = new ToolCallAssembler();
-  truncated.add([{ index: 0, id: 'truncated-edit', function: { name: 'fs.edit_text', arguments: '{"path":"a.js"' } }]);
+  truncated.add([{ index: 0, id: 'truncated-edit', function: { name: 'fs_edit_text', arguments: '{"path":"a.js"' } }]);
   assert.equal(truncated.complete('length')[0].invalid.code, 'tool_arguments_truncated');
 
   const malformed = new ToolCallAssembler();
-  malformed.add([{ index: 0, id: 'malformed-edit', function: { name: 'fs.edit_text', arguments: '{nope}' } }]);
+  malformed.add([{ index: 0, id: 'malformed-edit', function: { name: 'fs_edit_text', arguments: '{nope}' } }]);
   assert.equal(malformed.complete('tool_calls')[0].invalid.code, 'tool_arguments_malformed');
 
   const ceiling = new ToolCallAssembler();
-  ceiling.add([{ index: 0, id: 'ceiling-edit', function: { name: 'fs.edit_text', arguments: '{"path":"a.js"' } }]);
+  ceiling.add([{ index: 0, id: 'ceiling-edit', function: { name: 'fs_edit_text', arguments: '{"path":"a.js"' } }]);
   assert.equal(ceiling.complete('tool_calls', {
     usage: { completion_tokens: 4096 }, outputLimitTokens: 4096,
   })[0].invalid.code, 'tool_arguments_truncated');

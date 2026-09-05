@@ -106,7 +106,7 @@ test('filesystem mutations accept unambiguous common argument spellings and reta
     assert.equal(Object.hasOwn(written.args, 'filePath'), false);
     await write.executor(written, new AbortController().signal);
 
-    const edit = item.registry.definition('fs.edit_text');
+    const edit = item.registry.definition('fs_edit_text');
     const edited = await edit.validate({
       file_path: 'src/generated/value.txt', oldString: 'before', newString: 'after', replaceAll: false,
     });
@@ -134,9 +134,9 @@ test('filesystem mutations accept unambiguous common argument spellings and reta
 test('exact-text and line-range edits expose separate unambiguous contracts', async () => {
   const item = await fixture();
   try {
-    item.registry.grantWorkflowLease(['fs.edit_text', 'fs_edit_lines']);
+    item.registry.grantWorkflowLease(['fs_edit_text', 'fs_edit_lines']);
     const exposed = item.registry.providerDefinitions('edit a project file', { phase: 'action' })
-      .find((entry) => entry.function.name === 'fs.edit_text').function.parameters;
+      .find((entry) => entry.function.name === 'fs_edit_text').function.parameters;
     assert.deepEqual(exposed.required, ['path', 'find', 'content']);
     assert.deepEqual(Object.keys(exposed.properties), ['path', 'content', 'find', 'all']);
     const lineExposed = item.registry.providerDefinitions('edit a project file', { phase: 'action' })
@@ -146,7 +146,7 @@ test('exact-text and line-range edits expose separate unambiguous contracts', as
 
     const path = join(item.root, 'editable.txt');
     await writeFile(path, 'one\r\ntwo\r\nthree\r\n', 'utf8');
-    const edit = item.registry.definition('fs.edit_text');
+    const edit = item.registry.definition('fs_edit_text');
     const exact = await edit.validate({ path: 'editable.txt', search: 'one\ntwo', text: 'ONE\nTWO' });
     assert.equal(exact.args.edit_mode, 'exact');
     assert.equal(exact.args.old_text, 'one\r\ntwo');
@@ -161,12 +161,12 @@ test('exact-text and line-range edits expose separate unambiguous contracts', as
   } finally { await item.close(); }
 });
 
-test('fs.edit_text rejects line selectors and fs_edit_lines revalidates content after review', async () => {
+test('fs_edit_text rejects line selectors and fs_edit_lines revalidates content after review', async () => {
   const item = await fixture();
   try {
     const path = join(item.root, 'editable.txt');
     await writeFile(path, 'one\ntwo\nthree\n', 'utf8');
-    const edit = item.registry.definition('fs.edit_text');
+    const edit = item.registry.definition('fs_edit_text');
     await assert.rejects(edit.validate({ path: 'editable.txt', content: 'x' }), { code: 'tool_schema_invalid' });
     await assert.rejects(edit.validate({
       path: 'editable.txt', content: 'x', find: 'one', start_line: 1,
@@ -200,21 +200,21 @@ test('approved same-batch file mutations advance across NNA-authored states with
     assert.equal(secondResult.metadata.advanced_from_authored_state, true);
 
     const editAlpha = await item.registry.seal({
-      providerCallId: 'edit-alpha', name: 'fs.edit_text',
+      providerCallId: 'edit-alpha', name: 'fs_edit_text',
       args: { path: 'result.txt', old_text: 'alpha', new_text: 'ALPHA' },
     }, context);
     const editBeta = await item.registry.seal({
-      providerCallId: 'edit-beta', name: 'fs.edit_text',
+      providerCallId: 'edit-beta', name: 'fs_edit_text',
       args: { path: 'result.txt', old_text: 'beta', new_text: 'BETA' },
     }, context);
-    const edit = item.registry.definition('fs.edit_text');
+    const edit = item.registry.definition('fs_edit_text');
     await edit.executor(editAlpha, new AbortController().signal);
     const betaResult = await edit.executor(editBeta, new AbortController().signal);
     assert.equal(betaResult.metadata.advanced_from_authored_state, true);
     assert.equal(await readFile(join(item.root, 'result.txt'), 'utf8'), 'ALPHA BETA gamma');
 
     const stale = await item.registry.seal({
-      providerCallId: 'external-drift', name: 'fs.edit_text',
+      providerCallId: 'external-drift', name: 'fs_edit_text',
       args: { path: 'result.txt', old_text: 'gamma', new_text: 'GAMMA' },
     }, context);
     await writeFile(join(item.root, 'result.txt'), 'external replacement', 'utf8');

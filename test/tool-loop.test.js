@@ -950,8 +950,8 @@ test('registry exposes workspace operations and packaged self-guidance', async (
     .find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
-    'code_diagnostics', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
-    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
+    'code_diagnostics', 'fs.glob', 'fs.list_directory',
+    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
@@ -1003,7 +1003,7 @@ test('new full writes create missing parents and authorize an immediate exact ed
   assert.equal(written.metadata.parent_directories_created, true);
   assert.equal(await readFile(join(root, 'generated', 'nested', 'app.js'), 'utf8'), 'export const state = "draft";\n');
 
-  const edit = registry.definition('fs.edit_text');
+  const edit = registry.definition('fs_edit_text');
   const editRequest = await edit.validate({
     path: 'generated/nested/app.js', old_text: '"draft"', new_text: '"ready"',
   });
@@ -1023,7 +1023,7 @@ test('runtime transaction snapshots do not authorize destructive or out-of-works
   const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
 
   await registry.seal({
-    providerCallId: 'transactional-edit', name: 'fs.edit_text',
+    providerCallId: 'transactional-edit', name: 'fs_edit_text',
     args: { path: 'inside.txt', old_text: 'inside', new_text: 'updated' },
   }, context);
   await assert.rejects(registry.seal({
@@ -1112,10 +1112,10 @@ test('exact text edits preserve unrelated external changes when the old target r
   await writeFile(path, `${before}external tail\n`, 'utf8');
   const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
   const sealed = await registry.seal({
-    providerCallId: 'shifted-text', name: 'fs.edit_text',
+    providerCallId: 'shifted-text', name: 'fs_edit_text',
     args: { path: 'target.txt', old_text: 'old target', new_text: 'new target' },
   }, context);
-  await registry.definition('fs.edit_text').executor(sealed, new AbortController().signal);
+  await registry.definition('fs_edit_text').executor(sealed, new AbortController().signal);
   assert.equal(await readFile(path, 'utf8'), 'header\nnew target\nfooter\nexternal tail\n');
 });
 
@@ -1170,7 +1170,7 @@ test('exact text edit changes only the uniquely matched text', async () => {
   const before = 'alpha\nold value\nomega\n';
   await writeFile(path, before, 'utf8');
   const provider = new TwoStepProvider({
-    name: 'fs.edit_text',
+    name: 'fs_edit_text',
     args: {
       path: 'target.txt', old_text: 'old value', new_text: 'new value',
     },
@@ -1192,7 +1192,7 @@ test('ambiguous exact edit is rejected before semantic review', async () => {
   await writeFile(join(root, 'target.txt'), before, 'utf8');
   let reviewerCalls = 0;
   const provider = new TwoStepProvider({
-    name: 'fs.edit_text',
+    name: 'fs_edit_text',
     args: {
       path: 'target.txt', old_text: 'repeat', new_text: 'changed',
     },

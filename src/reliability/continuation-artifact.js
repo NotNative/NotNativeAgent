@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 
+// Why: file-operation evidence is durable state; exact tool identifiers prevent a naming-style
+// refactor from silently dropping completed mutations from continuation checkpoints.
+const FILE_MUTATION_TOOL_NAMES = new Set([
+  'fs_edit_text', 'fs_edit_lines', 'fs_delete_file', 'fs_copy_file', 'fs_create_directory',
+  'fs.write_text', 'fs.move_file',
+]);
+
 export function hierarchicalContinuationArtifact(transcript, omitted) {
   const chunks = chunkRecords(transcript, 65_536);
   const results = toolResults(transcript);
@@ -37,7 +44,7 @@ function baseContinuationArtifact(transcript, omitted, results = toolResults(tra
   const toolRequests = currentRecords.filter((item) => item.type === 'tool_request');
   const changedFiles = [];
   for (const item of allToolRequests) {
-    if (!/^fs\.(?:edit|write|delete|move|copy|make_directory)/u.test(item.toolName ?? '')) continue;
+    if (!FILE_MUTATION_TOOL_NAMES.has(item.toolName)) continue;
     const result = results.get(item.providerCallId);
     for (const target of toolTargets(item.args)) changedFiles.push(Object.freeze({
       path: target, operation: item.toolName, toolLifecycleStatus: toolLifecycleStatus(result) ?? 'unresolved',

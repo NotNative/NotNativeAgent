@@ -216,7 +216,7 @@ the repository script and says so. Results include exact commands, exit codes, b
 the manifest digest, and a stable receipt id in the durable turn record. A completed non-zero
 check is a failed tool result, not a green execution success. The Console aliases this boundary
 as `/verify [focused|affected|full] [PATH ...]`.
-- `fs.edit_text`: make one bounded edit using an exact, normally unique `find` match and
+- `fs_edit_text`: make one bounded edit using an exact, normally unique `find` match and
   `content` as the replacement. An empty `content` deletes the selected text, and `all` must be
   explicit for multiple exact matches. Exact matching safely normalizes LF/CRLF differences.
   The runtime accepts the former `old_text`, `new_text`, and `replace_all` spellings plus common

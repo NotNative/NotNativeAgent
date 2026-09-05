@@ -259,13 +259,13 @@ test('additive steering remains available to semantic review with the active bui
   });
   const request = {
     ...mutationRequest('steered-build-edit'),
-    toolName: 'fs.edit_text',
+    toolName: 'fs_edit_text',
     args: { path: 'src/main.js', old_text: 'old', new_text: 'new' },
     resolved: { path: 'D:/workspace/src/main.js', exists: true, insideWorkspace: true, recovery: 'git_tracked' },
   };
   const approved = await reviewer.review(request, {
     ...context,
-    definition: { name: 'fs.edit_text', sideEffect: 'reversible', scope: 'workspace' },
+    definition: { name: 'fs_edit_text', sideEffect: 'reversible', scope: 'workspace' },
     conversationIntent: [
       'Build a realistic ocean scene with Three.js and verify it in the browser.',
       'You may browse localhost:8123 to check your work. Please proceed to finish.',
@@ -325,7 +325,7 @@ test('semantic review receives content-free transactional mutation evidence', as
   const secretOld = 'private old value';
   const secretNew = 'private new value';
   const request = {
-    ...mutationRequest('transaction-evidence'), toolName: 'fs.edit_text',
+    ...mutationRequest('transaction-evidence'), toolName: 'fs_edit_text',
     args: { path: 'untracked.txt', old_text: secretOld, new_text: secretNew, expected_sha256: 'a'.repeat(64) },
     resolved: {
       path: 'D:/workspace/untracked.txt', exists: true, insideWorkspace: true, recovery: 'none',
@@ -338,7 +338,7 @@ test('semantic review receives content-free transactional mutation evidence', as
   await reviewer.review(request, {
     ...context,
     authority: { ...context.authority, intent: [{ content: 'Edit untracked.txt', sequence: 2 }] },
-    definition: { name: 'fs.edit_text', sideEffect: 'reversible', scope: 'workspace' },
+    definition: { name: 'fs_edit_text', sideEffect: 'reversible', scope: 'workspace' },
   });
   assert.equal(captured.request.mutationEvidence.operation, 'exact_text_edit');
   assert.equal(captured.request.args.old_text, undefined);

@@ -231,7 +231,7 @@ export class ToolRegistry {
     if (normalized.resolved?.staleEditRecovered === true) return;
     const transaction = normalized.resolved?.transactionalReceipt;
     if (transaction) {
-      if (!['fs.write_text', 'fs.edit_text'].includes(name)
+      if (!['fs.write_text', 'fs_edit_text'].includes(name)
         || transaction.origin !== 'runtime_transaction'
         || transaction.path !== target
         || transaction.digest !== normalized.args.expected_sha256) {
@@ -239,7 +239,7 @@ export class ToolRegistry {
       }
       return;
     }
-    if (name === 'fs_edit_lines' || (name === 'fs.edit_text' && normalized.args.edit_mode === 'lines')) {
+    if (name === 'fs_edit_lines' || (name === 'fs_edit_text' && normalized.args.edit_mode === 'lines')) {
       this.#readReceipts.require(target, normalized.args.expected_sha256, {
         start: normalized.args.start_line, end: normalized.args.end_line,
       });

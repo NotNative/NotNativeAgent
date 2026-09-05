@@ -47,7 +47,7 @@ function fixtureFact() {
     continuation: {
       objective: 'Finish the regression suite', recentDirectives: ['Keep exact evidence in the ledger'],
       completedWork: ['Reduced raw-tool-payload into a receipt'],
-      changedFiles: [{ path: 'src/compaction.js', operation: 'fs.edit_text', status: 'succeeded' }],
+      changedFiles: [{ path: 'src/compaction.js', operation: 'fs_edit_text', status: 'succeeded' }],
       verifiedFacts: ['Authorization: Bearer secret-token-123'], unresolvedTools: [],
       openQuestions: [], nextActions: ['Run all tests'],
     },

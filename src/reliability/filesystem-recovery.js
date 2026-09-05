@@ -3,7 +3,7 @@ import { dirname, normalize, resolve } from 'node:path';
 
 const MISSING_PARENT_PREFIX = 'parent directory is missing; create exactly this directory first with fs_directory: ';
 const DIRECT_CHILD_PROOF_TOOLS = new Set([
-  'fs_read', 'fs.read_text', 'fs.read_lines', 'fs.write_text', 'fs.edit_text', 'fs_edit_lines',
+  'fs_read', 'fs.read_text', 'fs.read_lines', 'fs.write_text', 'fs_edit_text', 'fs_edit_lines',
 ]);
 
 export function missingFilesystemPrerequisite(item) {

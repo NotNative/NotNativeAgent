@@ -17,7 +17,7 @@ test('compaction creates a bounded fingerprinted continuation artifact with oper
   const transcript = [
     message('user', 'Build the feature safely.'),
     ...Array.from({ length: 40 }, (_, index) => message('assistant', `Old detail ${index} ${'x'.repeat(500)}`)),
-    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs.edit_text', args: { path: 'src/a.js', old_text: 'secret-shaped content', new_text: 'x' } },
+    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs_edit_text', args: { path: 'src/a.js', old_text: 'secret-shaped content', new_text: 'x' } },
     { type: 'tool_result', providerCallId: 'call-1', status: 'succeeded', content: 'done' },
     message('user', 'Keep the existing terminal UX.'),
   ];
@@ -27,7 +27,7 @@ test('compaction creates a bounded fingerprinted continuation artifact with oper
   assert.equal(compacted.fact.continuation.objective, 'Keep the existing terminal UX.');
   assert.deepEqual(compacted.fact.continuation.recentDirectives, ['Build the feature safely.']);
   assert.deepEqual(compacted.fact.continuation.changedFiles, [{
-    path: 'src/a.js', operation: 'fs.edit_text', toolLifecycleStatus: 'succeeded',
+    path: 'src/a.js', operation: 'fs_edit_text', toolLifecycleStatus: 'succeeded',
   }]);
   assert.deepEqual(compacted.fact.continuation.verifiedFacts, []);
   assert.ok(compacted.fact.omitted < transcript.length);
@@ -73,7 +73,7 @@ test('handoff replaces active model history with a terse zero-retention continua
   const transcript = [
     message('user', 'Build a reliable handoff command.'),
     message('assistant', `Exploration details ${'x'.repeat(20_000)}`),
-    { type: 'tool_request', providerCallId: 'edit-1', toolName: 'fs.edit_text', args: { path: 'src/tui.js' } },
+    { type: 'tool_request', providerCallId: 'edit-1', toolName: 'fs_edit_text', args: { path: 'src/tui.js' } },
     { type: 'tool_result', providerCallId: 'edit-1', status: 'succeeded', content: 'edited' },
     message('user', 'Keep it extremely concise.'),
     message('assistant', 'The command is implemented; run the test suite next.'),

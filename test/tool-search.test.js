@@ -31,7 +31,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.equal(baseline[0], 'tool_search');
   assert.ok(!baseline.includes('fs.list_directory'));
   assert.ok(!baseline.includes('fs.read_text'));
-  assert.ok(!baseline.includes('fs.edit_text'));
+  assert.ok(!baseline.includes('fs_edit_text'));
   assert.ok(!baseline.includes('fs.write_text'));
   assert.ok(!baseline.includes('fs_delete_file'));
   assert.ok(!baseline.includes('process_run'));
@@ -54,15 +54,15 @@ test('specialist tools require an explicit catalog search or authenticated expos
   const registry = new ToolRegistry(process.cwd(), { elevationBroker: { async execute() { return {}; } } });
   await registry.initialize();
   const initial = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
-  for (const name of ['fs.write_text', 'fs.edit_text', 'process_run', 'system.elevate', 'project_verify']) {
+  for (const name of ['fs.write_text', 'fs_edit_text', 'process_run', 'system.elevate', 'project_verify']) {
     assert.ok(!initial.includes(name));
   }
 
   const search = registry.definition('tool_search');
-  const normalized = await search.validate({ query: 'fs.edit_text' });
+  const normalized = await search.validate({ query: 'fs_edit_text' });
   await search.executor({ args: normalized.args }, new AbortController().signal);
   const searched = registry.providerDefinitions('unrelated wording').map((item) => item.function.name);
-  assert.ok(searched.includes('fs.edit_text'));
+  assert.ok(searched.includes('fs_edit_text'));
   assert.ok(!searched.includes('fs.write_text'));
   assert.ok(!searched.includes('system.elevate'));
 });
@@ -138,6 +138,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['filesystem delete file', 'fs.delete_file', 'fs_delete_file'],
     ['filesystem directory', 'fs.directory', 'fs_directory'],
     ['filesystem edit lines', 'fs.edit_lines', 'fs_edit_lines'],
+    ['filesystem edit text', 'fs.edit_text', 'fs_edit_text'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
