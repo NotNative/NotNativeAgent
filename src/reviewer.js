@@ -142,7 +142,7 @@ function classify(request, definition) {
     && ['nna.list_sessions', 'nna.diagnose_turn'].includes(definition.name)) {
     return Object.freeze({ risk: 'safe', reason: 'redacted_runtime_diagnostics', effect: 'read_only', scope: 'runtime_diagnostics', complexity: 'simple' });
   }
-  if (definition.sideEffect === 'read_only' && definition.scope === 'runtime_info' && definition.name === 'system.time') return Object.freeze({ risk: 'safe', reason: 'host_clock_observation', effect: 'read_only', scope: 'runtime_info', complexity: 'simple' });
+  if (definition.sideEffect === 'read_only' && definition.scope === 'runtime_info' && definition.name === 'system_time') return Object.freeze({ risk: 'safe', reason: 'host_clock_observation', effect: 'read_only', scope: 'runtime_info', complexity: 'simple' });
   if (definition.sideEffect === 'read_only' && definition.scope === 'mcp_control'
     && ['nna.mcp_status', 'nna.mcp_test'].includes(definition.name)) {
     return Object.freeze({ risk: 'safe', reason: 'configured_mcp_inspection', effect: 'read_only', scope: 'mcp_control', complexity: 'simple' });

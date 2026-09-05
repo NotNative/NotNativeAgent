@@ -515,7 +515,7 @@ test('consequential process requests leave exact action authorization to semanti
   }
 });
 
-test('system.time clock observations and bounded arithmetic are deterministic safe', async () => {
+test('system_time clock observations and bounded arithmetic are deterministic safe', async () => {
   for (const [label, args] of [['current', {}], ['offset', { weeks: 2, days: -1 }]]) {
     const ledger = new ReviewerLedger({ durable: false, sessionId: `system-time-${label}` });
     let semanticCalls = 0;
@@ -523,12 +523,12 @@ test('system.time clock observations and bounded arithmetic are deterministic sa
       semanticCalls += 1; throw new Error('semantic review should not run');
     } } });
     const result = await reviewer.review({
-      ...readRequest(`system-time-${label}`), toolName: 'system.time', args,
+      ...readRequest(`system-time-${label}`), toolName: 'system_time', args,
       resolved: { source: 'host_clock' },
     }, {
       ...context,
       authority: { id: 'authority-1', intent: [{ content: 'Anchor this week to actual calendar dates.' }], mission: null },
-      definition: { name: 'system.time', sideEffect: 'read_only', scope: 'runtime_info' },
+      definition: { name: 'system_time', sideEffect: 'read_only', scope: 'runtime_info' },
     });
     assert.equal(result.outcome, 'approve');
     assert.equal(result.reasonCode, 'deterministic_safe');

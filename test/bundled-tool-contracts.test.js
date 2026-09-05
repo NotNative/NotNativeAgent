@@ -18,7 +18,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'skill.search', 'skill.load', 'agent.run',
   'work_plan', 'work_status', 'work_goal', 'work_task_add', 'work_task_update',
   'turn_finish',
-  'notification.telegram', 'session.search_history', 'session.read_history', 'system.time',
+  'notification.telegram', 'session.search_history', 'session.read_history', 'system_time',
   'workspace.change',
 ]);
 
@@ -304,7 +304,7 @@ function nestedValue(depth) {
   return value;
 }
 
-test('system.time observes the host clock and applies calendar weeks before elapsed offsets', async () => {
+test('system_time observes the host clock and applies calendar weeks before elapsed offsets', async () => {
   const instant = new Date('2026-08-27T22:15:42.381Z');
   const definition = systemTimeDefinition({ now: () => new Date(instant) });
   const plain = await definition.executor(await definition.validate({}), new AbortController().signal);
@@ -325,18 +325,18 @@ test('system.time observes the host clock and applies calendar weeks before elap
   });
 });
 
-test('system.time is discoverable and normalizes singular aliases and integer strings', async () => {
+test('system_time is discoverable and normalizes singular aliases and integer strings', async () => {
   const registry = new ToolRegistry(process.cwd(), optionalControls());
   await registry.initialize();
   try {
-    const time = registry.definition('system.time');
+    const time = registry.definition('system_time');
     const normalized = await time.validate({ week: '2', minute: '-30' });
     assert.deepEqual(normalized.args, { weeks: 2, minutes: -30 });
     const names = registry.providerDefinitions('', { phase: 'orientation' }).map((entry) => entry.function.name);
-    assert.ok(!names.includes('system.time'));
+    assert.ok(!names.includes('system_time'));
     const search = registry.definition('tool_search');
-    const request = await search.validate({ query: 'system.time' });
+    const request = await search.validate({ query: 'system_time' });
     await search.executor({ args: request.args }, new AbortController().signal);
-    assert.ok(registry.providerDefinitions('').some((entry) => entry.function.name === 'system.time'));
+    assert.ok(registry.providerDefinitions('').some((entry) => entry.function.name === 'system_time'));
   } finally { await registry.close(); }
 });

@@ -13,7 +13,7 @@ const OFFSET_LIMITS = Object.freeze({
 export function systemTimeDefinition(options = {}) {
   const now = typeof options.now === 'function' ? options.now : () => new Date();
   return {
-    name: 'system.time', version: 1,
+    name: 'system_time', version: 1,
     purpose: 'Observe the current host date, time, timezone, and UTC offset, with optional bounded relative-time arithmetic.',
     sideEffect: 'read_only', scope: 'runtime_info', cancellation: true, timeoutMs: 1_000,
     inputSchema: {
@@ -49,7 +49,7 @@ export function systemTimeDefinition(options = {}) {
 }
 
 function validateOffsets(args) {
-  if (!args || typeof args !== 'object' || Array.isArray(args)) throw invalid('system.time arguments must be an object');
+  if (!args || typeof args !== 'object' || Array.isArray(args)) throw invalid('system_time arguments must be an object');
   const unknown = Object.keys(args).find((field) => !OFFSET_FIELDS.includes(field));
   if (unknown) throw invalid(`unknown argument "${unknown}"`);
   for (const [field, value] of Object.entries(args)) {
