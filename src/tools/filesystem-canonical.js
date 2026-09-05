@@ -28,7 +28,7 @@ export function canonicalFilesystemDefinitions(paths, legacy) {
 
 function readDefinition(legacy) {
   const whole = requiredLegacy(legacy, 'fs.read_text');
-  const lines = requiredLegacy(legacy, 'fs.read_lines');
+  const lines = requiredLegacy(legacy, 'fs_read_lines');
   return {
     name: 'fs_read', version: 1,
     purpose: 'Read bounded UTF-8 text from one accessible file. Omit line arguments for the complete file, or provide start_line and line_count for a numbered window. Every result records the snapshot receipt required by later edits.',

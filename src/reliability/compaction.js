@@ -244,7 +244,7 @@ function supersessionKey(request) {
   const args = request.args;
   switch (request.toolName) {
     case 'fs.read_text': return keyed(request.toolName, [args.path]);
-    case 'fs.read_lines': return keyed(request.toolName, [args.path, args.start_line, args.end_line]);
+    case 'fs_read_lines': return keyed(request.toolName, [args.path, args.start_line, args.end_line]);
     case 'fs_read': return keyed(request.toolName, [args.path, args.start_line, args.line_count]);
     case 'fs_list_directory': return keyed(request.toolName, [args.path, args.depth]);
     case 'fs_glob': return keyed(request.toolName, [args.path, args.pattern]);

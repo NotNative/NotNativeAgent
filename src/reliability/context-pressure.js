@@ -10,7 +10,7 @@ export const CONTEXT_PRESSURE = Object.freeze({
   aggressive: 0.70,
   compact: 0.75,
 });
-const READ_TOOLS = new Set(['fs_read', 'fs.read_lines', 'fs.read_text']);
+const READ_TOOLS = new Set(['fs_read', 'fs_read_lines', 'fs.read_text']);
 
 export function contextPressurePolicy(
   compression = CONTEXT_PRESSURE.receipts,

@@ -951,7 +951,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code_diagnostics',
-    'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_list_directory', 'fs_metadata', 'fs_move_file', 'fs_read', 'fs_search_text', 'git_inspect',
+    'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_list_directory', 'fs_metadata', 'fs_move_file', 'fs_read', 'fs_read_lines', 'fs_search_text', 'git_inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
@@ -1041,7 +1041,7 @@ test('numbered reads authorize anchored edits only inside the displayed snapshot
   await writeFile(join(root, 'target.txt'), before, 'utf8');
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const read = registry.definition('fs.read_lines');
+  const read = registry.definition('fs_read_lines');
   const view = await read.executor(
     await read.validate({ path: 'target.txt', start_line: 2, line_count: 2 }),
     new AbortController().signal,
@@ -1071,7 +1071,7 @@ test('anchored line edits recover across an unrelated unambiguous line shift', a
   const before = 'header\ntarget one\ntarget two\nfooter\n';
   await writeFile(path, before, 'utf8');
   const registry = new ToolRegistry(root); await registry.initialize();
-  const read = registry.definition('fs.read_lines');
+  const read = registry.definition('fs_read_lines');
   await read.executor(await read.validate({ path: 'target.txt', start_line: 2, line_count: 2 }), new AbortController().signal);
   await writeFile(path, `new preface\n${before}`, 'utf8');
   const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
@@ -1091,7 +1091,7 @@ test('stale line recovery rejects an ambiguous live mapping', async () => {
   const before = 'header\ntarget\nfooter\n';
   await writeFile(path, before, 'utf8');
   const registry = new ToolRegistry(root); await registry.initialize();
-  const read = registry.definition('fs.read_lines');
+  const read = registry.definition('fs_read_lines');
   await read.executor(await read.validate({ path: 'target.txt', start_line: 2, line_count: 1 }), new AbortController().signal);
   await writeFile(path, `${before}${before}`, 'utf8');
   const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };

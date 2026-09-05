@@ -128,7 +128,7 @@ function readDefinition(paths, receipts, references) {
 
 function readLinesDefinition(paths, receipts, references) {
   return {
-    name: 'fs.read_lines', version: 1,
+    name: 'fs_read_lines', version: 1,
     purpose: 'Read a bounded numbered line window with an exact snapshot tag for anchored edits.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
