@@ -12,7 +12,7 @@ export function guidanceDefinitions(catalog) {
 
 function searchDefinition(catalog) {
   return {
-    name: 'nna.search_guidance', version: 1,
+    name: 'nna_search_guidance', version: 1,
     purpose: 'Search canonical packaged NotNativeAgent documentation before answering questions about NNA itself.',
     ...TOOL_BASE,
     inputSchema: objectSchema({
@@ -37,10 +37,10 @@ function searchDefinition(catalog) {
 function readDefinition(catalog) {
   return {
     name: 'nna_read_guidance', version: 1,
-    purpose: 'Read one canonical packaged NotNativeAgent guidance document selected by nna.search_guidance.',
+    purpose: 'Read one canonical packaged NotNativeAgent guidance document selected by nna_search_guidance.',
     ...TOOL_BASE,
     inputSchema: objectSchema({
-      id: { type: 'string', minLength: 1, maxLength: MAX_DOCUMENT_ID_LENGTH, description: 'Required exact document id returned by nna.search_guidance.' },
+      id: { type: 'string', minLength: 1, maxLength: MAX_DOCUMENT_ID_LENGTH, description: 'Required exact document id returned by nna_search_guidance.' },
     }, ['id']),
     validate: async (args) => {
       requireExactStrings(args, ['id']);

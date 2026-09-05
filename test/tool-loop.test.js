@@ -952,7 +952,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code_diagnostics',
     'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_list_directory', 'fs_metadata', 'fs_move_file', 'fs_read', 'fs_read_lines', 'fs_read_text', 'fs_search_text', 'fs_write_text', 'git_inspect',
-    'image_inspect', 'nna.search_guidance', 'nna_diagnose_turn', 'nna_list_sessions', 'nna_read_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
+    'image_inspect', 'nna_diagnose_turn', 'nna_list_sessions', 'nna_read_guidance', 'nna_search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
 });
@@ -1152,7 +1152,7 @@ test('AC-TOOL-07 caller identity is auditable but cannot weaken sealing or revie
 test('NNA guidance search is deterministically safe and reinjected for self-questions', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-self-guidance-'));
   const provider = new TwoStepProvider(
-    { name: 'nna.search_guidance', args: { query: 'memory configuration' } },
+    { name: 'nna_search_guidance', args: { query: 'memory configuration' } },
     (request) => assert.match(request.messages.find((item) => item.role === 'tool').content, /CONFIGURATION/u),
   );
   const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider });

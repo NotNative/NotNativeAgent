@@ -880,7 +880,7 @@ test('packaged NNA guidance is available independently of the workspace', async 
   const root = await mkdtemp(join(tmpdir(), 'nna-guidance-'));
   const tools = new ToolRegistry(root);
   await tools.initialize();
-  const search = tools.definition('nna.search_guidance');
+  const search = tools.definition('nna_search_guidance');
   const normalized = await search.validate({ query: 'memory configuration' });
   const result = await search.executor(normalized, new AbortController().signal);
   assert.match(result.content, /CONFIGURATION/u);
