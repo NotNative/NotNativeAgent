@@ -35,7 +35,7 @@ function statusDefinition(control) {
       return {
         content: JSON.stringify({
           servers,
-          guidance: 'Use nna.mcp_test to validate a configured server and list its discovered tools. Newly discovered tools become invocable in a new conversation; restarting NNA is not required.',
+          guidance: 'Use nna_mcp_test to validate a configured server and list its discovered tools. Newly discovered tools become invocable in a new conversation; restarting NNA is not required.',
         }, null, 2),
         metadata: { configured: servers.length, active: servers.filter((item) => item.activation === 'current_conversation').length },
       };
@@ -45,7 +45,7 @@ function statusDefinition(control) {
 
 function testDefinition(control) {
   return {
-    name: 'nna.mcp_test', version: 1,
+    name: 'nna_mcp_test', version: 1,
     purpose: 'Test one configured MCP server and list its discovered tools without invoking any of those tools.',
     sideEffect: 'read_only', scope: 'mcp_control', cancellation: false, timeoutMs: TEST_TIMEOUT_MS,
     inputSchema: objectSchema({

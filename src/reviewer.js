@@ -144,7 +144,7 @@ function classify(request, definition) {
   }
   if (definition.sideEffect === 'read_only' && definition.scope === 'runtime_info' && definition.name === 'system_time') return Object.freeze({ risk: 'safe', reason: 'host_clock_observation', effect: 'read_only', scope: 'runtime_info', complexity: 'simple' });
   if (definition.sideEffect === 'read_only' && definition.scope === 'mcp_control'
-    && ['nna_mcp_status', 'nna.mcp_test'].includes(definition.name)) {
+    && ['nna_mcp_status', 'nna_mcp_test'].includes(definition.name)) {
     return Object.freeze({ risk: 'safe', reason: 'configured_mcp_inspection', effect: 'read_only', scope: 'mcp_control', complexity: 'simple' });
   }
   if (definition.sideEffect === 'read_only' && definition.scope === 'web_search' && definition.name === 'web_search') {

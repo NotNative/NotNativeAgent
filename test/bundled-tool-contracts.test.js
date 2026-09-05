@@ -12,7 +12,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'fs_write_text', 'fs_edit_text', 'fs_edit_lines', 'fs_delete_file', 'fs_metadata',
   'fs_create_directory', 'fs_copy_file', 'fs_move_file', 'fs_read', 'fs_list', 'fs_directory',
   'nna_search_guidance', 'nna_read_guidance', 'nna_diagnose_turn', 'nna_list_sessions',
-  'nna_mcp_status', 'nna.mcp_test',
+  'nna_mcp_status', 'nna_mcp_test',
   'web_search', 'web_fetch', 'web_browse', 'image_inspect', 'tool_search',
   'process_run', 'shell_run', 'project_verify', 'git_inspect', 'code_diagnostics',
   'skill_search', 'skill_load', 'agent_run',

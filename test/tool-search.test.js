@@ -162,6 +162,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['session read history', 'session.read_history', 'session_read_history'],
     ['workspace change', 'workspace.change', 'workspace_change'],
     ['NNA MCP status', 'nna.mcp_status', 'nna_mcp_status'],
+    ['NNA MCP test', 'nna.mcp_test', 'nna_mcp_test'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

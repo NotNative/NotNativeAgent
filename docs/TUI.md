@@ -320,7 +320,7 @@ encrypted in the Secret Broker, and only record/field references are written to 
 Because an MCP topology changes
 the callable tool catalog, saved changes apply to new conversations and after restart;
 the manager reports this explicitly instead of pretending to hot-load the active engine.
-The agent can call `nna_mcp_status` to inspect this global registry and `nna.mcp_test` to
+The agent can call `nna_mcp_status` to inspect this global registry and `nna_mcp_test` to
 validate a server and list discovered tool names. It must not search the active workspace
 for NNA's private configuration. Opening a new conversation is sufficient to make newly
 discovered tools invocable; the application does not need to be restarted.

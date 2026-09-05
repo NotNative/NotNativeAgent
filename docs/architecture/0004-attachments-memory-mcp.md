@@ -45,7 +45,7 @@ an unknown-effect call is never replayed. A `tools/list_changed` notification re
 the registry under a bounded call: an already-built model-step snapshot remains immutable,
 while the next step sees a new generation and prior approved definitions remain versioned.
 The root Console exposes `nna_mcp_status` for inspecting the global MCP registry and
-`nna.mcp_test` for negotiating one configured server and listing the tool names it
+`nna_mcp_test` for negotiating one configured server and listing the tool names it
 discovers. These controls replace filesystem searches for private NNA configuration.
 An MCP server saved after a conversation began is usable from a newly created conversation;
 restarting NNA is unnecessary. A connection test reports discovered tools but does not add

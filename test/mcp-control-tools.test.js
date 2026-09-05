@@ -23,7 +23,7 @@ test('root MCP controls expose configured activation and discovered tool names w
   const status = await registry.definition('nna_mcp_status').executor({ args: {} }, signal);
   assert.match(status.content, /new_conversation_required/u);
   assert.doesNotMatch(status.content, /DO_NOT_EXPOSE/u);
-  const tested = await registry.definition('nna.mcp_test').executor({ args: { id: 'memory' } }, signal);
+  const tested = await registry.definition('nna_mcp_test').executor({ args: { id: 'memory' } }, signal);
   assert.match(tested.content, /mcp\.memory\.memory_search/u);
   assert.equal(tested.metadata.tools, 2);
 });
