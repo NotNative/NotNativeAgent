@@ -54,7 +54,7 @@ test('specialist tools require an explicit catalog search or authenticated expos
   const registry = new ToolRegistry(process.cwd(), { elevationBroker: { async execute() { return {}; } } });
   await registry.initialize();
   const initial = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
-  for (const name of ['fs_write_text', 'fs_edit_text', 'process_run', 'system.elevate', 'project_verify']) {
+  for (const name of ['fs_write_text', 'fs_edit_text', 'process_run', 'system_elevate', 'project_verify']) {
     assert.ok(!initial.includes(name));
   }
 
@@ -64,7 +64,7 @@ test('specialist tools require an explicit catalog search or authenticated expos
   const searched = registry.providerDefinitions('unrelated wording').map((item) => item.function.name);
   assert.ok(searched.includes('fs_edit_text'));
   assert.ok(!searched.includes('fs_write_text'));
-  assert.ok(!searched.includes('system.elevate'));
+  assert.ok(!searched.includes('system_elevate'));
 });
 
 test('provider surface receipts make fixed foundations and workflow leases auditable', async () => {
@@ -163,6 +163,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['workspace change', 'workspace.change', 'workspace_change'],
     ['NNA MCP status', 'nna.mcp_status', 'nna_mcp_status'],
     ['NNA MCP test', 'nna.mcp_test', 'nna_mcp_test'],
+    ['system elevate', 'system.elevate', 'system_elevate'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

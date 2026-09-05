@@ -16,18 +16,18 @@ import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
 import { ToolRegistry } from '../src/tool-registry.js';
 
-test('system.elevate remains unavailable while native elevation is disabled', async () => {
+test('system_elevate remains unavailable while native elevation is disabled', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-elevation-tool-'));
   const broker = { execute: async () => ({ content: 'done' }) };
   const registry = new ToolRegistry(root, { elevationBroker: broker });
   await registry.initialize();
-  assert.equal(registry.definition('system.elevate'), undefined);
+  assert.equal(registry.definition('system_elevate'), undefined);
 
   const hosted = new ToolRegistry(root, {
-    hosted: true, boundedToWorkspace: true, elevationBroker: broker, allowedTools: ['system.elevate'],
+    hosted: true, boundedToWorkspace: true, elevationBroker: broker, allowedTools: ['system_elevate'],
   });
   await hosted.initialize();
-  assert.equal(hosted.definition('system.elevate'), undefined);
+  assert.equal(hosted.definition('system_elevate'), undefined);
 });
 
 test('ordinary process tools reject native elevation launchers', async () => {
@@ -45,7 +45,7 @@ test('ordinary process tools reject native elevation launchers', async () => {
   }), { code: 'native_elevation_unavailable' });
 });
 
-test('system.elevate rejects shell launchers that would open an interactive prompt', () => {
+test('system_elevate rejects shell launchers that would open an interactive prompt', () => {
   assert.throws(() => assertNonInteractiveElevation('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', []), {
     code: 'elevation_interactive_shell_forbidden',
   });
@@ -111,14 +111,14 @@ test('native authentication cancellation records no elevated effect', async () =
 
 test('reviewer approval proceeds directly to native elevation', async () => {
   const request = Object.freeze({
-    id: 'elevate-1', providerCallId: 'provider-elevate-1', toolName: 'system.elevate',
+    id: 'elevate-1', providerCallId: 'provider-elevate-1', toolName: 'system_elevate',
     args: { executable: '/usr/bin/mount', args: ['/dev/nvme1n1p2', '/mnt/windows'], cwd: '/tmp' },
     resolved: { path: '/usr/bin/mount', reviewComplexity: 'privileged_execution', reviewPurpose: 'host_elevation' },
     authorityId: 'authority-1', authorityVersion: 1, policyVersion: 1, definitionVersion: 1,
     caller: 'primary', expiresAt: Date.now() + 60_000,
   });
   const definition = {
-    name: 'system.elevate', purpose: 'Elevate one exact command.', sideEffect: 'unknown', scope: 'host',
+    name: 'system_elevate', purpose: 'Elevate one exact command.', sideEffect: 'unknown', scope: 'host',
   };
   const reviewer = new MandatoryReviewer({
     ledger: new ReviewerLedger({ durable: false, sessionId: 'elevation-review' }),

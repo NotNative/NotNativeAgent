@@ -10,7 +10,7 @@ const MAX_TIMEOUT_MS = 3_600_000;
 export function elevationDefinition(paths, broker, options = {}) {
   if (!broker || typeof broker.execute !== 'function') return null;
   return {
-    name: 'system.elevate', version: 1,
+    name: 'system_elevate', version: 1,
     purpose: 'Run one exact host executable with operating-system elevation after mandatory semantic review. Native UAC or sudo authentication blocks execution until the operating system accepts or rejects it. Interactive shells are rejected: shell executables require an explicit non-interactive command or script in argv. Never supplies, stores, or exposes an administrator password.',
     // Why: native authentication owns the acquisition wait. The broker starts the bounded
     // command deadline only after the operating system starts the elevated helper.

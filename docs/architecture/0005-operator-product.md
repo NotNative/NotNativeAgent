@@ -23,7 +23,7 @@ execution-boundary revalidation still controls execution. Headless and one-shot 
 cannot express this command.
 
 Operating-system elevation is temporarily disabled. No runtime surface installs
-`system.elevate`, and ordinary process tools reject native elevation launchers. When greater
+`system_elevate`, and ordinary process tools reject native elevation launchers. When greater
 authority is required, the agent asks the operator to run the exact command independently and
 continues only from operator-provided results. The dormant elevation adapter grants no authority.
 

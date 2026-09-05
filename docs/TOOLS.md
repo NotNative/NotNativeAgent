@@ -178,7 +178,7 @@ authenticated user intent. Ordinary intermediate commands and targets derived fr
 results need not be named verbatim. A concrete contradiction, scope divergence, or
 disproportionate irreversible effect remains a denial.
 
-`system.elevate` remains disabled. Local interactive Windows Console sessions can use
+`system_elevate` remains disabled. Local interactive Windows Console sessions can use
 `shell_run` with `privilege: "administrator"`, a `reason`, and a complete PowerShell script
 (at most 8192 characters; no `stdin_ref`). The default remains ordinary user privilege.
 Semantic review must approve before native UAC appears. There is no second NNA confirmation.

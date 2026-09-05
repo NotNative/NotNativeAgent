@@ -55,7 +55,7 @@ export class MandatoryReviewer {
       else if (classification.risk === 'prohibited') decision = hardDeny(classification.reason, request);
       else decision = await this.#semanticDecision(request, context, entry, intentRelation);
       const administrator = request.toolName === 'shell_run' && request.args.privilege === 'administrator';
-      if ((context.definition.name === 'system.elevate' || administrator) && decision.outcome === 'escalate_to_operator') {
+      if ((context.definition.name === 'system_elevate' || administrator) && decision.outcome === 'escalate_to_operator') {
         decision = deny(
           'elevation_review_uncertain',
           'The reviewer did not approve this elevated operation. Revise the operation or ask the operator for clearer intent.',
@@ -63,7 +63,7 @@ export class MandatoryReviewer {
         );
       }
       if (context.reviewPosture === 'prompt' && decision.outcome === 'approve'
-        && !administrator && !['system.elevate', 'turn_finish'].includes(context.definition.name)) {
+        && !administrator && !['system_elevate', 'turn_finish'].includes(context.definition.name)) {
         decision = escalate('prompt_posture_operator_decision', request, 'Prompt posture requires operator approval before execution.');
       }
       if (decision.outcome === 'approve') decision = refreshApprovalWindow(decision, this.decisionTtlMs);
@@ -175,7 +175,7 @@ function classify(request, definition) {
       effect: definition.sideEffect, scope: resolvedOutsideWorkspace(request) ? 'host' : 'workspace', complexity: 'simple',
     });
   }
-  if (definition.name === 'system.elevate') return elevationClassification();
+  if (definition.name === 'system_elevate') return elevationClassification();
   if (['process_run', 'shell_run'].includes(definition.name)) return processClassification(request);
   return Object.freeze({ risk: 'review_required', reason: 'uncertain_effect', effect: definition.sideEffect, scope: definition.scope, complexity: 'unknown' });
 }
