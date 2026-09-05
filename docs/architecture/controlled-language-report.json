@@ -18,7 +18,7 @@
       "field": "inputSchema.properties.tasks.items.properties.status"
     },
     {
-      "tool": "work.task_update",
+      "tool": "work_task_update",
       "field": "inputSchema.properties.status"
     }
   ],

@@ -7,7 +7,7 @@ import { ConversationWork } from '../src/conversation-work.js';
 const FOUNDATION = [
   'tool_search',
   'fs_list', 'fs_read', 'fs_search_text',
-  'shell_run', 'work_plan', 'work_status', 'work.task_update', 'turn.finish',
+  'shell_run', 'work_plan', 'work_status', 'work_task_update', 'turn.finish',
   'git.inspect',
 ];
 
@@ -120,6 +120,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['shell', 'shell.run', 'shell_run'],
     ['work plan', 'work.plan', 'work_plan'],
     ['work status', 'work.status', 'work_status'],
+    ['work task update', 'work.task_update', 'work_task_update'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

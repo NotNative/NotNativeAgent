@@ -160,10 +160,10 @@ test('failure fingerprints group only identical schema-contract repair attempts'
     failed('fs_search_text', { path: '.', file_glob: '*.js' }, 'file_glob is invalid'),
   ]));
   assert.notEqual(first, toolFailureFingerprint([
-    failed('work.task_update', { id: 'T1', status: 'completed' }, 'detail is required'),
+    failed('work_task_update', { id: 'T1', status: 'completed' }, 'detail is required'),
   ]));
   assert.notEqual(first, toolFailureFingerprint([{ result: {
-    status: 'failed', tool_name: 'work.task_update', reason_code: 'provider_rejected', content: 'offline',
+    status: 'failed', tool_name: 'work_task_update', reason_code: 'provider_rejected', content: 'offline',
   } }]));
 });
 
@@ -321,7 +321,7 @@ test('invalid plan guidance keeps bookkeeping subordinate to substantive work', 
       content: 'task detail is invalid',
     },
   }]);
-  assert.match(hint, /bookkeeping, not as completion of or a blocker[^]*work\.task_update[^]*independent task action[^]*Do not repeat unchanged/iu);
+  assert.match(hint, /bookkeeping, not as completion of or a blocker[^]*work_task_update[^]*independent task action[^]*Do not repeat unchanged/iu);
 });
 
 test('review denial continuation favors safer progress before operator interruption', () => {

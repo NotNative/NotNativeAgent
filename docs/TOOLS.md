@@ -4,7 +4,7 @@
 
 Every ordinary provider step receives a deterministic foundational surface, with `tool_search`
 first: `tool_search`; `fs_list`, `fs_read`, and `fs_search_text`; `shell_run`;
-`work_plan`, `work_status`, and `work.task_update`; `turn.finish`; and `git.inspect`.
+`work_plan`, `work_status`, and `work_task_update`; `turn.finish`; and `git.inspect`.
 A foundational tool is omitted only when that subsystem is genuinely unavailable or an
 authenticated host manifest removes it. NNA never selects or withholds schemas by matching
 words in the operator's request, and ordinary root conversations never enter a zero-tool mode.
@@ -354,7 +354,7 @@ Conversation work has one atomic tool and four granular tools in the foundationa
   can be passed unchanged to `work_plan`.
 - `work.goal`: create, update, complete, block, or reopen the durable goal.
 - `work.task_add`: append one task to the current goal.
-- `work.task_update`: update one existing task by its stable id.
+- `work_task_update`: update one existing task by its stable id.
 
 They mutate only bounded conversation work state in the existing session journal and grant
 no filesystem, process, network, secret, or host authority. Their presence does not require

@@ -16,7 +16,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'web.search', 'web.fetch', 'web.browse', 'image.inspect', 'tool_search',
   'process.run', 'shell_run', 'project.verify', 'git.inspect', 'code.diagnostics',
   'skill.search', 'skill.load', 'agent.run',
-  'work_plan', 'work_status', 'work.goal', 'work.task_add', 'work.task_update',
+  'work_plan', 'work_status', 'work.goal', 'work.task_add', 'work_task_update',
   'turn.finish',
   'notification.telegram', 'session.search_history', 'session.read_history', 'system.time',
   'workspace.change',
@@ -122,7 +122,7 @@ test('bundled tool shape failures identify the argument the model must repair', 
       code: 'tool_schema_invalid',
       message: 'unknown argument "extra"; allowed arguments: url',
     });
-    const taskUpdate = registry.definition('work.task_update');
+    const taskUpdate = registry.definition('work_task_update');
     assert.match(taskUpdate.inputSchema.properties.detail.description, /1,024 characters/u);
     await assert.rejects(taskUpdate.validate({ id: 'T4', status: 'completed', detail: 'x'.repeat(1778) }), {
       code: 'tool_schema_invalid', message: 'argument "detail" must contain at most 1024 characters; received 1778',

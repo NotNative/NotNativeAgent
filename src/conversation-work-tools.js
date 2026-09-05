@@ -11,7 +11,7 @@ export function conversationWorkDefinitions(work) {
 }
 
 function planDefinition(work) {
-  return definition('work_plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Use work.task_update for a routine status or detail change to one existing task; it does not require resending the title. Output from work_plan or work_status can be passed back unchanged. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
+  return definition('work_plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Use work_task_update for a routine status or detail change to one existing task; it does not require resending the title. Output from work_plan or work_status can be passed back unchanged. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
     revision: { type: 'integer', minimum: 0, description: 'Optional revision returned by work_plan or work_status. A stale revision is rejected without changing work.' },
     objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required current goal objective.' },
     goal_status: { type: 'string', enum: GOAL_STATUSES, description: 'Goal status. Defaults to active.' },
@@ -57,7 +57,7 @@ function taskAddDefinition(work) {
 }
 
 function taskUpdateDefinition(work) {
-  return definition('work.task_update', 'Move one durable conversation task to pending, in_progress, completed, or blocked. Completion requires evidence and blocking requires a reason.', 'reversible', {
+  return definition('work_task_update', 'Move one durable conversation task to pending, in_progress, completed, or blocked. Completion requires evidence and blocking requires a reason.', 'reversible', {
     id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Required task id such as T1, returned by work_status or work.task_add.' },
     status: { type: 'string', enum: TASK_STATUSES, description: 'Required next task status.' },
     detail: { type: 'string', minLength: 1, maxLength: 1024, description: 'Concise completion evidence for completed or blocking reason for blocked, limited to 1,024 characters; omit for pending or in_progress.' },
