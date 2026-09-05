@@ -14,7 +14,7 @@ test('URL provenance records exact user URLs and rejects credentialed URLs', () 
 
 test('URL provenance learns search and browser URLs while labeling guesses unverified', () => {
   const ledger = new WebUrlProvenance();
-  ledger.observe({ toolName: 'web.search' }, {
+  ledger.observe({ toolName: 'web_search' }, {
     status: 'succeeded', content: JSON.stringify({ results: [{ url: 'https://example.com/exact' }] }),
   });
   ledger.observe({ toolName: 'web_browse', args: { url: 'https://example.org/start' } }, {

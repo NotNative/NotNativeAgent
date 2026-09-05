@@ -292,7 +292,7 @@ and does not replace Git or another durable version-control system.
 
 The global WebSearch tool is:
 
-- `web.search`: query the configured SearXNG JSON API and return bounded source
+- `web_search`: query the configured SearXNG JSON API and return bounded source
   summaries. Its endpoint may intentionally be loopback, private-network, or public;
   that exception applies only to this tool and does not relax other network tools.
 - `web_fetch`: fetch up to 1 MiB of UTF-8 text from an explicit public HTTP(S) URL or an

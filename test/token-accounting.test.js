@@ -135,14 +135,14 @@ test('provider envelope reports canonical multi-call message shape without retai
     messages: [
       { role: 'assistant', content: secret, tool_calls: [
         { id: 'call-a', type: 'function', function: { name: 'fs_read', arguments: JSON.stringify({ path: secret }) } },
-        { id: 'call-b', type: 'function', function: { name: 'web.search', arguments: JSON.stringify({ query: secret }) } },
+        { id: 'call-b', type: 'function', function: { name: 'web_search', arguments: JSON.stringify({ query: secret }) } },
       ] },
       { role: 'tool', tool_call_id: 'call-a', content: secret },
       { role: 'tool', tool_call_id: 'call-b', content: secret },
     ],
     tools: [
       { type: 'function', function: { name: 'fs_read', description: secret, parameters: { type: 'object' } } },
-      { type: 'function', function: { name: 'web.search', description: secret, parameters: { type: 'object' } } },
+      { type: 'function', function: { name: 'web_search', description: secret, parameters: { type: 'object' } } },
     ],
   };
   const envelope = measureProviderEnvelope(request, request.messages);
@@ -150,7 +150,7 @@ test('provider envelope reports canonical multi-call message shape without retai
   assert.equal(envelope.shape.assistant_tool_call_messages, 1);
   assert.equal(envelope.shape.tool_call_count, 2);
   assert.equal(envelope.shape.max_tool_calls_per_message, 2);
-  assert.deepEqual(envelope.shape.tools.map((item) => item.name), ['fs_read', 'web.search']);
+  assert.deepEqual(envelope.shape.tools.map((item) => item.name), ['fs_read', 'web_search']);
   assert.equal(envelope.configuration.temperature.sent, false);
   assert.equal(JSON.stringify({ configuration: envelope.configuration, shape: envelope.shape }).includes(secret), false);
 });

@@ -153,6 +153,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['NNA search guidance', 'nna.search_guidance', 'nna_search_guidance'],
     ['web browse', 'web.browse', 'web_browse'],
     ['web fetch', 'web.fetch', 'web_fetch'],
+    ['web search', 'web.search', 'web_search'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

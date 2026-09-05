@@ -45,7 +45,7 @@ test('SearXNG client requests JSON and returns bounded normalized results', asyn
   assert.equal(result.results[0].title, 'One');
 });
 
-test('web.search is globally configured and unavailable when disabled', async () => {
+test('web_search is globally configured and unavailable when disabled', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-web-tool-'));
   const workspace = join(root, 'workspace');
   const configPath = join(root, 'config.json');
@@ -54,17 +54,17 @@ test('web.search is globally configured and unavailable when disabled', async ()
   try {
     await mkdir(workspace);
     await registry.initialize();
-    assert.equal(registry.definition('web.search').purpose,
+    assert.equal(registry.definition('web_search').purpose,
       'Search the web through the user-configured SearXNG service and return bounded source summaries.');
-    await assert.rejects(registry.seal({ providerCallId: 'disabled', name: 'web.search', args: { query: 'hello' } }, sealContext()), { code: 'web_search_disabled' });
+    await assert.rejects(registry.seal({ providerCallId: 'disabled', name: 'web_search', args: { query: 'hello' } }, sealContext()), { code: 'web_search_disabled' });
     await saveWebSearchConfig(configPath, { enabled: true, provider: 'searxng', endpoint: 'http://10.0.0.5:8080' });
     const request = await registry.seal({
-      providerCallId: 'enabled', name: 'web.search',
+      providerCallId: 'enabled', name: 'web_search',
       args: { q: 'hello', recency: 'week', maxResults: '6' },
     }, sealContext());
     assert.equal(request.resolved.endpoint, 'http://10.0.0.5:8080');
     assert.deepEqual(request.publicArgs, { query: 'hello', time_range: 'week', limit: 6 });
-    const result = await registry.definition('web.search').executor(request, new AbortController().signal);
+    const result = await registry.definition('web_search').executor(request, new AbortController().signal);
     assert.equal(JSON.parse(result.content).query, 'hello');
   } finally { await rm(root, { recursive: true, force: true }); }
 });

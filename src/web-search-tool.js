@@ -7,7 +7,7 @@ import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 export function webSearchDefinition(options) {
   const client = options.client ?? new SearxngClient();
   return {
-    name: 'web.search', version: 1,
+    name: 'web_search', version: 1,
     purpose: 'Search the web through the user-configured SearXNG service and return bounded source summaries.',
     sideEffect: 'read_only', scope: 'web_search', cancellation: true, timeoutMs: 20_000,
     inputSchema: {
@@ -87,5 +87,5 @@ function resultProjection(item, references) {
 }
 
 function invalid() {
-  return new ContractError('tool_schema_invalid', 'web.search arguments do not match the schema');
+  return new ContractError('tool_schema_invalid', 'web_search arguments do not match the schema');
 }

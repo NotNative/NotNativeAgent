@@ -3,7 +3,7 @@ id: research
 version: 1
 description: Conduct deep, source-diverse research through discovery, evidence extraction, contradiction testing, targeted follow-up, and independently reviewed synthesis
 invocation: both
-requires_tools: [web.search, web_fetch, web_browse, agent.run, fs_read, fs_write_text, fs_directory]
+requires_tools: [web_search, web_fetch, web_browse, agent.run, fs_read, fs_write_text, fs_directory]
 ---
 # Research
 
@@ -22,7 +22,7 @@ Ask the user only about ambiguity that would materially change the research. Nev
 
 ## 2. Map the evidence landscape
 
-Use `web.search` for source discovery. Create distinct searches for relevant source classes rather than repeating one broad query. Depending on the subject these may include:
+Use `web_search` for source discovery. Create distinct searches for relevant source classes rather than repeating one broad query. Depending on the subject these may include:
 
 - primary documentation, standards, datasets, filings, or original research;
 - official announcements and current product information;
