@@ -247,7 +247,7 @@ function browserClassification(request) {
 
 function resolvedRecovery(request) {
   if (request.toolName === 'fs_copy_file') return request.resolved?.destination?.recovery ?? 'none';
-  if (request.toolName === 'fs.move_file') {
+  if (request.toolName === 'fs_move_file') {
     return request.resolved?.source?.recovery === 'git_tracked' && request.resolved?.destination?.recovery === 'new_target'
       ? 'git_tracked' : 'none';
   }

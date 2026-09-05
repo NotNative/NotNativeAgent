@@ -78,7 +78,7 @@ test('copy and move require exact source state and a new destination', async () 
   await copy.executor(copyRequest, new AbortController().signal);
   assert.equal(await readFile(join(root, 'copy.txt'), 'utf8'), 'original');
   await assert.rejects(copy.validate({ source: 'source.txt', destination: 'copy.txt' }), { code: 'tool_target_exists' });
-  const move = definitions.get('fs.move_file');
+  const move = definitions.get('fs_move_file');
   const moveRequest = await move.validate({ source: 'source.txt', destination: 'moved.txt' });
   await writeFile(join(root, 'source.txt'), 'changed');
   await assert.rejects(move.executor(moveRequest, new AbortController().signal), { code: 'tool_revalidation_drift' });

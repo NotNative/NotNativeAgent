@@ -142,6 +142,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['filesystem glob', 'fs.glob', 'fs_glob'],
     ['filesystem list directory', 'fs.list_directory', 'fs_list_directory'],
     ['filesystem metadata', 'fs.metadata', 'fs_metadata'],
+    ['filesystem move file', 'fs.move_file', 'fs_move_file'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

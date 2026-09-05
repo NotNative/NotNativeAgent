@@ -46,7 +46,7 @@ function copyDefinition(paths, changes, receipts) {
 }
 
 function moveDefinition(paths, changes, receipts) {
-  return fileTransferDefinition(paths, 'fs.move_file', 'Move one exact accessible file to a new destination.', async (source, destination) => rename(source, destination), changes, receipts);
+  return fileTransferDefinition(paths, 'fs_move_file', 'Move one exact accessible file to a new destination.', async (source, destination) => rename(source, destination), changes, receipts);
 }
 
 function fileTransferDefinition(paths, name, purpose, operation, changes, receipts) {
@@ -78,12 +78,12 @@ function fileTransferDefinition(paths, name, purpose, operation, changes, receip
       completed = true;
       abort(signal);
       changes?.record(request.resolved.destination.path, null, before, name);
-      if (name === 'fs.move_file') changes?.record(request.resolved.source.path, before, null, name);
+      if (name === 'fs_move_file') changes?.record(request.resolved.source.path, before, null, name);
     } catch (error) {
       if (completed) await rollbackTransfer(name, request.resolved.source.path, request.resolved.destination.path, error);
       throw error;
     }
-    const transferLabel = name === 'fs.move_file' ? 'move' : 'copy';
+    const transferLabel = name === 'fs_move_file' ? 'move' : 'copy';
     return { content: `${transferLabel} completed`, metadata: { source: request.args.source, destination: request.args.destination } };
   }, {
     source: ['source_path', 'sourcePath', 'from'],
@@ -127,7 +127,7 @@ async function assertHash(path, expected, signal) {
 
 async function rollbackTransfer(name, source, destination, originalError) {
   try {
-    if (name === 'fs.move_file') await rename(destination, source);
+    if (name === 'fs_move_file') await rename(destination, source);
     else await rm(destination, { force: true });
   } catch (rollbackError) {
     originalError.rollbackCode = rollbackError.code ?? 'tool_transfer_rollback_failed';
