@@ -83,7 +83,7 @@ test('conversation intent survives a continuation while specialists still requir
   for (const name of ['fs_write_text', 'fs_edit_text', 'fs_directory']) {
     assert.ok(!visible.includes(name), `${name} was inferred from user wording`);
   }
-  for (const name of ['web.search', 'web.fetch', 'web.browse']) assert.ok(!visible.includes(name), `${name} bypassed discovery`);
+  for (const name of ['web.search', 'web.fetch', 'web_browse']) assert.ok(!visible.includes(name), `${name} bypassed discovery`);
   registry.grantWorkflowLease(['fs_write_text', 'fs_edit_text', 'fs_directory']);
   const expanded = registry.providerDefinitions('different wording', { phase: 'recovery' })
     .map((item) => item.function.name);

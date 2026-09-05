@@ -13,7 +13,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'fs_create_directory', 'fs_copy_file', 'fs_move_file', 'fs_read', 'fs_list', 'fs_directory',
   'nna_search_guidance', 'nna_read_guidance', 'nna_diagnose_turn', 'nna_list_sessions',
   'nna.mcp_status', 'nna.mcp_test',
-  'web.search', 'web.fetch', 'web.browse', 'image_inspect', 'tool_search',
+  'web.search', 'web.fetch', 'web_browse', 'image_inspect', 'tool_search',
   'process_run', 'shell_run', 'project_verify', 'git_inspect', 'code_diagnostics',
   'skill.search', 'skill.load', 'agent.run',
   'work_plan', 'work_status', 'work_goal', 'work_task_add', 'work_task_update',
@@ -105,7 +105,7 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
         assert.equal(typeof schema.description, 'string', `${name}.${field} lost provider-visible guidance`);
       }
     }
-    const browse = providerSchema(registry.definition('web.browse').inputSchema, { mode: 'documented' });
+    const browse = providerSchema(registry.definition('web_browse').inputSchema, { mode: 'documented' });
     assert.match(browse.properties.action.description, /Navigate: set exactly one of url or path/u);
     assert.match(browse.properties.action.description, /Fill_secret: set target, secret_id, and secret_field/u);
   } finally { await registry.close(); }

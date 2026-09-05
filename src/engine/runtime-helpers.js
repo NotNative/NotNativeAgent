@@ -216,7 +216,7 @@ export function observeToolState(active, items, definitionFor = () => null) {
     active.readOnlyBatchStreak = (active.readOnlyBatchStreak ?? 0) + 1;
   }
   for (const item of items) {
-    if (item.result?.status === 'succeeded' && item.result?.tool_name === 'web.browse') {
+    if (item.result?.status === 'succeeded' && item.result?.tool_name === 'web_browse') {
       if (item.result.metadata?.action === 'close') active.browserEvidence = null;
       else if (item.result.metadata?.action === 'navigate') {
         active.browserEvidence = Object.freeze({

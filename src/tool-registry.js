@@ -119,7 +119,7 @@ export class ToolRegistry {
     this.#install(systemTimeDefinition());
     if (!this.hosted && this.workspaceControl) this.#install(workspaceChangeDefinition(this.paths, this.workspaceControl));
   }
-  async close() { await this.definition('web.browse')?.manager?.close?.(); }
+  async close() { await this.definition('web_browse')?.manager?.close?.(); }
   snapshot() {
     return Object.freeze([...this.#definitions.values()].map(({ executor: _executor, validate: _validate, ...item }) => deepFreeze(structuredClone(item))));
   }

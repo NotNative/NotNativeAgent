@@ -67,7 +67,7 @@ test('review evidence combines recent turns with relevant older causal history',
 test('long current turns retain relevant earlier evidence beyond the newest causal tail', () => {
   const transcript = [
     {
-      type: 'tool_result', turnId: 'current', requestId: 'prior-browser', toolName: 'web.browse',
+      type: 'tool_result', turnId: 'current', requestId: 'prior-browser', toolName: 'web_browse',
       status: 'succeeded', content: 'URL: http://localhost:8123/\nTitle: Oceanview',
     },
     ...Array.from({ length: 12 }, (_, index) => ({
@@ -75,7 +75,7 @@ test('long current turns retain relevant earlier evidence beyond the newest caus
       status: 'succeeded', content: `edit ${index} completed`,
     })),
     {
-      type: 'tool_request', turnId: 'current', requestId: 'current-browser', toolName: 'web.browse',
+      type: 'tool_request', turnId: 'current', requestId: 'current-browser', toolName: 'web_browse',
       args: { action: 'navigate', url: 'http://localhost:8123/' },
     },
   ];
@@ -84,7 +84,7 @@ test('long current turns retain relevant earlier evidence beyond the newest caus
     request: transcript.at(-1), authenticatedIntent: [{ content: 'Build and visually verify the local Oceanview application.' }],
   });
   const prior = packet.evidence.find((item) => item.recordIndex === 0);
-  assert.equal(prior?.tool, 'web.browse');
+  assert.equal(prior?.tool, 'web_browse');
   assert.equal(prior?.tool_lifecycle_status, 'succeeded');
   assert.match(prior?.content ?? '', /localhost:8123/u);
   assert.equal(packet.metadata.recentRecords, 7);
@@ -93,7 +93,7 @@ test('long current turns retain relevant earlier evidence beyond the newest caus
 
 test('conversation intent keeps earlier task evidence relevant after later continuation turns', () => {
   const transcript = [
-    { type: 'tool_result', turnId: 'current', requestId: 'render', toolName: 'web.browse', status: 'succeeded', content: 'Oceanview render loaded successfully.' },
+    { type: 'tool_result', turnId: 'current', requestId: 'render', toolName: 'web_browse', status: 'succeeded', content: 'Oceanview render loaded successfully.' },
     ...Array.from({ length: 12 }, (_, index) => ({
       type: 'tool_result', turnId: 'current', requestId: `read-${index}`, toolName: 'fs_read',
       status: 'succeeded', content: `unrelated line ${index}`,

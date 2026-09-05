@@ -155,7 +155,7 @@ function classify(request, definition) {
     const privateOrigin = request.resolved.destination === 'trusted_private_origin';
     return Object.freeze({ risk: 'safe', reason: privateOrigin ? 'trusted_private_web_fetch' : 'validated_public_web_fetch', effect: 'read_only', scope: privateOrigin ? 'private_network' : 'public_network', complexity: 'simple' });
   }
-  if (definition.name === 'web.browse') return browserClassification(request);
+  if (definition.name === 'web_browse') return browserClassification(request);
   const localControl = localControlClassification(definition);
   if (localControl) return localControl;
   if (definition.scope === 'ephemeral_reference' && definition.name.startsWith('ref.')) return ephemeralReferenceClassification(definition);

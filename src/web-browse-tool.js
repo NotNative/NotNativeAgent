@@ -21,7 +21,7 @@ const STATIC_MIME_TYPES = Object.freeze({
 export function webBrowseDefinition(options = {}) {
   const manager = options.manager ?? new BrowserSessionManager(options);
   const definition = {
-    name: 'web.browse', version: 1,
+    name: 'web_browse', version: 1,
     purpose: 'Operate an ephemeral managed Chromium session: navigate, inspect, interact, capture a screenshot, or close it. A workspace HTML path is served by an owned temporary loopback server that is cleaned up with the browser.',
     sideEffect: 'unknown', scope: 'browser', cancellation: true, timeoutMs: 60_000,
     maxOutputBytes: PROVIDER_TEXT_BYTES,
@@ -229,7 +229,7 @@ export class BrowserSessionManager {
     const decisionId = execution.reviewerDecisionId;
     if (!decisionId) throw new ContractError('secret_review_missing', 'browser secret injection requires a committed reviewer decision');
     await this.secretBroker.withSecret(args.secret_id, {
-      consumer: 'web.browse', destination: new URL(page.url()).origin,
+      consumer: 'web_browse', destination: new URL(page.url()).origin,
       purpose: `Fill browser field ${args.secret_field}`, reviewerDecisionId: decisionId, sessionId: this.sessionId,
     }, async (fields) => {
       if (!(args.secret_field in fields)) throw new ContractError('secret_field_not_found', 'the requested field is not present in this secret');
@@ -313,7 +313,7 @@ function normalizeRoot(value) {
 }
 function result(content, metadata) { return { content, metadata }; }
 function metadata(action, page, extra = {}) { return { action, url: page.url(), ...extra }; }
-function invalid(message = 'web.browse arguments do not match the requested browser action') {
+function invalid(message = 'web_browse arguments do not match the requested browser action') {
   return new ContractError('tool_schema_invalid', message);
 }
 

@@ -169,8 +169,8 @@ test('failure fingerprints group only identical schema-contract repair attempts'
 
 test('ordinary executor failures group only the same canonical request and diagnostic', () => {
   const failed = (args, content = 'tool execution failed') => ({
-    request: { toolName: 'web.browse', args },
-    result: { status: 'failed', tool_name: 'web.browse', reason_code: 'executor_failure', content },
+    request: { toolName: 'web_browse', args },
+    result: { status: 'failed', tool_name: 'web_browse', reason_code: 'executor_failure', content },
   });
   const fill = failed({ action: 'fill', target: 'e2', value: '30' });
   const fingerprint = toolFailureFingerprint([fill]);
@@ -182,8 +182,8 @@ test('ordinary executor failures group only the same canonical request and diagn
 
 test('exact tool request fingerprints are canonical', () => {
   assert.equal(
-    toolRequestFingerprint('web.browse', { target: 'e2', action: 'click' }),
-    toolRequestFingerprint('web.browse', { action: 'click', target: 'e2' }),
+    toolRequestFingerprint('web_browse', { target: 'e2', action: 'click' }),
+    toolRequestFingerprint('web_browse', { action: 'click', target: 'e2' }),
   );
 });
 
@@ -335,7 +335,7 @@ test('failed web fetch continuation requires browser fallback before abandoning 
   const hint = toolContinuationHint([{
     result: { status: 'failed', tool_name: 'web.fetch' },
   }], 'generic recovery');
-  assert.match(hint, /Do not retry it with WebFetch[^]*next recovery call should use web\.browse[^]*same exact URL/iu);
+  assert.match(hint, /Do not retry it with WebFetch[^]*next recovery call should use web_browse[^]*same exact URL/iu);
   assert.match(hint, /Only if browser navigation is unavailable or also fails[^]*another exact URL/iu);
   assert.match(hint, /Do not end the research merely because WebFetch failed/iu);
 });
@@ -952,7 +952,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code_diagnostics',
     'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_list_directory', 'fs_metadata', 'fs_move_file', 'fs_read', 'fs_read_lines', 'fs_read_text', 'fs_search_text', 'fs_write_text', 'git_inspect',
-    'image_inspect', 'nna_diagnose_turn', 'nna_list_sessions', 'nna_read_guidance', 'nna_search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
+    'image_inspect', 'nna_diagnose_turn', 'nna_list_sessions', 'nna_read_guidance', 'nna_search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.fetch', 'web.search', 'web_browse',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
 });

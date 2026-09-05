@@ -8,7 +8,7 @@ import { BrowserSessionManager, webBrowseDefinition } from '../src/web-browse-to
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { PathPolicy } from '../src/path-policy.js';
 
-test('web.browse describes browser capabilities without prescribing a workflow', () => {
+test('web_browse describes browser capabilities without prescribing a workflow', () => {
   const definition = webBrowseDefinition({ manager: { close() {} } });
   assert.match(definition.purpose, /navigate, inspect, interact, capture a screenshot, or close/iu);
   assert.match(definition.purpose, /workspace HTML path[^]*temporary loopback server/iu);
@@ -54,7 +54,7 @@ async function fixture(extra = {}) {
   return { root, state, manager, definition: webBrowseDefinition({ manager }) };
 }
 
-test('web.browse validates destinations and exposes bounded element references', async () => {
+test('web_browse validates destinations and exposes bounded element references', async () => {
   const { state, manager, definition } = await fixture();
   const request = await definition.validate({ action: 'navigate', url: 'https://example.com/#fragment' });
   assert.equal(request.args.url, 'https://example.com/');
@@ -104,7 +104,7 @@ test('browser interaction failures preserve a bounded action-specific cause', as
   await manager.close();
 });
 
-test('web.browse identifies the action-specific argument that needs repair', async () => {
+test('web_browse identifies the action-specific argument that needs repair', async () => {
   const { manager, definition } = await fixture();
   await assert.rejects(definition.validate({ action: 'click' }), {
     code: 'tool_schema_invalid', message: 'browser action "click" requires argument "target"',
@@ -115,7 +115,7 @@ test('web.browse identifies the action-specific argument that needs repair', asy
   await manager.close();
 });
 
-test('web.browse serves a workspace entry with an owned temporary server and no project dependency', async () => {
+test('web_browse serves a workspace entry with an owned temporary server and no project dependency', async () => {
   const workspace = await mkdtemp(join(tmpdir(), 'nna-browser-workspace-'));
   await writeFile(join(workspace, 'index.html'), '<!doctype html><title>Ocean</title><script src="/main.js"></script>');
   await writeFile(join(workspace, 'main.js'), 'document.body.dataset.ready = "true";');
@@ -181,7 +181,7 @@ test('approved loopback navigation admits only its active exact origin inside th
   await manager.close();
 });
 
-test('web.browse injects a secret field only inside the trusted browser consumer', async () => {
+test('web_browse injects a secret field only inside the trusted browser consumer', async () => {
   const calls = [];
   const secretBroker = { async withSecret(id, request, consumer) {
     calls.push({ id, request }); return consumer({ username: 'operator', password: 'not-for-model' });
@@ -206,7 +206,7 @@ test('browser observation is deterministic-safe while interaction requires seman
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
   } } });
-  const base = { id: 'tool_1', toolName: 'web.browse', args: { action: 'inspect' }, authorityId: 'a', authorityVersion: 1, policyVersion: 1, expiresAt: Date.now() + 1000 };
+  const base = { id: 'tool_1', toolName: 'web_browse', args: { action: 'inspect' }, authorityId: 'a', authorityVersion: 1, policyVersion: 1, expiresAt: Date.now() + 1000 };
   const context = { definition, authority: { intent: [{ content: 'Browse example and click Continue' }] }, surface: 'interactive_tui', signal: new AbortController().signal };
   const observed = await reviewer.review({ ...base, resolved: { action: 'inspect', readOnly: true, destination: null } }, context);
   assert.equal(observed.reasonCode, 'deterministic_safe');
@@ -231,7 +231,7 @@ test('loopback browser navigation requires semantic review', async () => {
     semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
   } } });
   const request = {
-    id: 'tool_loopback', toolName: 'web.browse', args: { action: 'navigate', url: 'http://localhost:8123/' },
+    id: 'tool_loopback', toolName: 'web_browse', args: { action: 'navigate', url: 'http://localhost:8123/' },
     resolved: { action: 'navigate', readOnly: true, destination: 'reviewable_loopback_origin', origin: 'http://localhost:8123' },
     authorityId: 'a', authorityVersion: 1, policyVersion: 1, expiresAt: Date.now() + 1000,
   };
@@ -247,7 +247,7 @@ test('loopback browser navigation requires semantic review', async () => {
 test('hosted registries do not implicitly expose the standalone root browser', async () => {
   const { ToolRegistry } = await import('../src/tool-registry.js');
   const root = await mkdtemp(join(tmpdir(), 'nna-browser-hosted-'));
-  const registry = new ToolRegistry(root, { hosted: true, boundedToWorkspace: true, allowedTools: ['web.browse'] });
+  const registry = new ToolRegistry(root, { hosted: true, boundedToWorkspace: true, allowedTools: ['web_browse'] });
   await registry.initialize();
-  assert.equal(registry.snapshot().some((item) => item.name === 'web.browse'), false);
+  assert.equal(registry.snapshot().some((item) => item.name === 'web_browse'), false);
 });

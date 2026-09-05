@@ -16,7 +16,7 @@ export function imageInspectDefinition(paths, observeImage, options = {}) {
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 600_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['path'], properties: {
-        path: { type: 'string', maxLength: 4096, description: 'Existing image path, including the exact path returned by web.browse screenshot.' },
+        path: { type: 'string', maxLength: 4096, description: 'Existing image path, including the exact path returned by web_browse screenshot.' },
         prompt: { type: 'string', maxLength: 4096, description: 'Optional focused visual inspection request.' },
       },
     },

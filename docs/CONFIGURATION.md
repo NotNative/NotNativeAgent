@@ -448,7 +448,7 @@ checks its package and Chromium binary without network access; `nna webbrowse ve
 also performs a bounded local launch probe. Declining the component leaves WebSearch and
 WebFetch fully functional; the browser runtime remains unavailable until installed.
 
-When installed, the standalone tool `web.browse` creates Chromium lazily on first use. Its
+When installed, the standalone tool `web_browse` creates Chromium lazily on first use. Its
 context is headless and ephemeral: cookies, local storage, element references, and other browser
 state are kept only for the active NNA session and are destroyed during normal shutdown.
 Navigation and every browser subrequest use the WebFetch destination policy, including exact

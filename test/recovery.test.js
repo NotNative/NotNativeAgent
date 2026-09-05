@@ -216,8 +216,8 @@ test('distinct repeated successful requests do not consume one shared no-progres
 test('the same observation is fresh progress after an observable workspace revision', () => {
   const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
   const items = [{
-    request: { toolName: 'web.browse', args: { action: 'navigate', url: 'http://127.0.0.1:4173' } },
-    result: { tool_name: 'web.browse', status: 'succeeded', content: 'same rendered page' },
+    request: { toolName: 'web_browse', args: { action: 'navigate', url: 'http://127.0.0.1:4173' } },
+    result: { tool_name: 'web_browse', status: 'succeeded', content: 'same rendered page' },
   }];
   const before = toolProgressEvidence(items, [], { stateRevision: 0 });
   const after = toolProgressEvidence(items, [], { stateRevision: 1 });

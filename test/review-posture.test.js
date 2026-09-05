@@ -238,7 +238,7 @@ test('governor converts numeric executor error codes into governance-safe reason
 
 test('governor preserves bounded executor-owned failure metadata', async () => {
   const definition = {
-    name: 'web.browse', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
+    name: 'web_browse', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
     async executor() {
       const error = new ContractError('browser_action_timeout', 'browser action "fill" timed out');
       error.toolMetadata = { action: 'fill', failure_kind: 'timeout', error_name: 'TimeoutError' };
@@ -249,7 +249,7 @@ test('governor preserves bounded executor-owned failure metadata', async () => {
     events: new EventHub(), reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
     registry: { definition: () => definition },
   });
-  const request = { id: 'browse-1', providerCallId: 'provider-1', toolName: 'web.browse', definitionVersion: 1 };
+  const request = { id: 'browse-1', providerCallId: 'provider-1', toolName: 'web_browse', definitionVersion: 1 };
   const result = await governor.executePrepared(request, { id: 'decision-1' }, new AbortController().signal);
   assert.equal(result.reason_code, 'browser_action_timeout');
   assert.deepEqual(result.metadata, {

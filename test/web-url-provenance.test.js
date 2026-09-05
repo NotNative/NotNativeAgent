@@ -17,7 +17,7 @@ test('URL provenance learns search and browser URLs while labeling guesses unver
   ledger.observe({ toolName: 'web.search' }, {
     status: 'succeeded', content: JSON.stringify({ results: [{ url: 'https://example.com/exact' }] }),
   });
-  ledger.observe({ toolName: 'web.browse', args: { url: 'https://example.org/start' } }, {
+  ledger.observe({ toolName: 'web_browse', args: { url: 'https://example.org/start' } }, {
     status: 'succeeded', metadata: { url: 'https://example.org/final' },
   });
   assert.equal(ledger.classify('https://example.com/exact').source, 'search');

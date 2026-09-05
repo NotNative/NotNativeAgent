@@ -889,7 +889,7 @@ test('external browser processes are denied before semantic review in favor of m
   });
   assert.equal(result.outcome, 'deny_with_guidance');
   assert.equal(result.reasonCode, 'external_browser_tool_required');
-  assert.match(result.guidance, /web\.fetch[^]*web\.browse/u);
+  assert.match(result.guidance, /web\.fetch[^]*web_browse/u);
   assert.equal(semanticCalls, 0);
 });
 

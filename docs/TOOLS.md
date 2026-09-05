@@ -301,7 +301,7 @@ The global WebSearch tool is:
   while retaining the original Host/TLS server name. Untrusted loopback, private,
   link-local, reserved, credential-bearing, non-text, and over-sized destinations or
   responses are rejected. Origin trust never acts as a subnet wildcard.
-- `web.browse`: operate one headless, ephemeral Chromium context for the current standalone
+- `web_browse`: operate one headless, ephemeral Chromium context for the current standalone
   NNA session. It can navigate, return bounded page text and stable element references,
   interact with a selected element, save a managed screenshot, and close itself. Screenshot
   capture returns the durable PNG path as a completed browser result and deterministically exposes
@@ -324,12 +324,12 @@ URL through WebFetch. If browser navigation is unavailable or also fails, it pro
 exact discovered URL and reports an inability to verify only after reasonable retrieval paths
 have been exhausted.
 
-For visual verification of a workspace development server, use `web.browse navigate` on the
+For visual verification of a workspace development server, use `web_browse navigate` on the
 exact HTTP(S) loopback URL and then inspect or screenshot the page. Do not discover or launch an
 installed browser through `shell_run`; NNA's managed browser keeps the observation ephemeral,
 bounded, and reviewable. This is network navigation, not permission to read a `file://` URL.
 
-`web.browse fill_secret` accepts only a Secret Broker record ID and field name. The plaintext
+`web_browse fill_secret` accepts only a Secret Broker record ID and field name. The plaintext
 is decrypted inside the trusted browser consumer after review, filled directly into the page,
 and never returned in tool output or provider context. Injected values remain in an ephemeral
 trusted-process redaction set so reflected page text is scrubbed from later inspection. Browser cookies and storage survive only

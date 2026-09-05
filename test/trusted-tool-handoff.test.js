@@ -6,9 +6,9 @@ import { prepareTrustedToolHandoff } from '../src/engine/runtime-helpers.js';
 
 function screenshot(overrides = {}) {
   return {
-    request: { toolName: 'web.browse', args: { action: 'screenshot' } },
+    request: { toolName: 'web_browse', args: { action: 'screenshot' } },
     result: {
-      tool_name: 'web.browse', status: 'succeeded',
+      tool_name: 'web_browse', status: 'succeeded',
       metadata: { action: 'screenshot', path: 'C:\\managed\\screenshot-1.png' },
     },
     ...overrides,
@@ -34,12 +34,12 @@ test('ordinary or untrusted-looking tool results cannot activate image inspectio
   }]), null);
   assert.equal(trustedToolHandoff([screenshot({
     result: {
-      tool_name: 'web.browse', status: 'failed',
+      tool_name: 'web_browse', status: 'failed',
       metadata: { action: 'screenshot', path: 'C:\\managed\\failed.png' },
     },
   })]), null);
   assert.equal(trustedToolHandoff([screenshot({
-    request: { toolName: 'web.browse', args: { action: 'inspect' } },
+    request: { toolName: 'web_browse', args: { action: 'inspect' } },
   })]), null);
 });
 
