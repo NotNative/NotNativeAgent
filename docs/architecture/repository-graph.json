@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:9608f7e0914cdeca63000e847977e6f10e1314080ebcde1999d7003211a38d54",
+  "source_digest": "sha256:2733af9f5dbbc67d7e12dde47027118ea547bebf5b27328fee4bf784ecfdd125",
   "counts": {
-    "modules": 338,
+    "modules": 339,
     "component_edges": 70
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "providers",
       "label": "Providers",
       "ownership": "Owns model routing and provider wire adaptation.",
-      "module_count": 20
+      "module_count": 21
     },
     {
       "id": "tools",
@@ -108,8 +108,8 @@
     {
       "from": "experience-engine",
       "to": "experience-engine",
-      "import_count": 162,
-      "module_count": 53
+      "import_count": 163,
+      "module_count": 54
     },
     {
       "from": "foundation",
@@ -172,6 +172,12 @@
       "module_count": 9
     },
     {
+      "from": "providers",
+      "to": "providers",
+      "import_count": 13,
+      "module_count": 6
+    },
+    {
       "from": "agentic-engine",
       "to": "reliability-engine",
       "import_count": 12,
@@ -188,12 +194,6 @@
       "to": "foundation",
       "import_count": 12,
       "module_count": 10
-    },
-    {
-      "from": "providers",
-      "to": "providers",
-      "import_count": 12,
-      "module_count": 6
     },
     {
       "from": "foundation",
@@ -1307,6 +1307,7 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
+        "src/experience/provider-test.js",
         "src/ids.js",
         "src/provider/capabilities.js",
         "src/provider/route-configuration.js"
@@ -1994,6 +1995,7 @@
         "src/provider/event-shape.js",
         "src/provider/local-http-transport.js",
         "src/provider/model-metadata.js",
+        "src/provider/qualification.js",
         "src/provider/reasoning.js",
         "src/provider/tool-call-compatibility.js",
         "src/reliability/retry-after.js"
@@ -2100,6 +2102,12 @@
         "src/ids.js",
         "src/provider/route-configuration.js"
       ]
+    },
+    {
+      "path": "src/provider/qualification.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/provider/reasoning.js",

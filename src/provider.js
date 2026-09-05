@@ -6,7 +6,8 @@ import { localProviderFetch } from './provider/local-http-transport.js';
 import { CredentialResolver, normalizeCredentialBinding } from './credential-bindings.js';
 import { sanitizeProviderUsage, unrecognizedDeltaEvent } from './provider/event-shape.js';
 import { providerModelLimits } from './provider/model-metadata.js';
-import { chatCompletionBody, toolCallProbeRequest } from './provider/tool-call-compatibility.js';
+import { chatCompletionBody } from './provider/tool-call-compatibility.js';
+import { probeToolCallMode, qualifyProviderRequests } from './provider/qualification.js';
 const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
 const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
 const MAX_PROVIDER_STREAM_BYTES = 268_435_456;
@@ -72,12 +73,11 @@ export class OpenAICompatibleProvider {
   }
 
   async toolCallCompatibility(signal) {
-    const single = await this.#toolCallProbe(false, signal);
-    if (single.accepted) return Object.freeze({ supportedMode: 'single' });
-    if (single.status !== 400) throw single.error;
-    const batch = await this.#toolCallProbe(undefined, signal);
-    if (!batch.accepted) throw batch.error;
-    return Object.freeze({ supportedMode: 'batch' });
+    return probeToolCallMode(this.profile, (request, purpose) => this.#requestProbe(request, signal, purpose));
+  }
+
+  qualification(signal) {
+    return qualifyProviderRequests(this.profile, (request, purpose) => this.#requestProbe(request, signal, purpose));
   }
 
   async *stream(request, signal) {
@@ -114,17 +114,25 @@ export class OpenAICompatibleProvider {
     }
   }
 
-  async #toolCallProbe(parallelToolCalls, signal) {
+  async #requestProbe(request, signal, purpose) {
     let response;
     try {
-      const request = toolCallProbeRequest(this.profile, parallelToolCalls);
       response = await this.#fetch(`${this.profile.endpoint}/chat/completions`, {
         method: 'POST', signal,
         body: JSON.stringify(chatCompletionBody(this.profile, request, null, {})),
-      }, 'Test provider tool-call compatibility');
+      }, purpose);
       if (response.ok) {
-        await response.body?.cancel();
-        return Object.freeze({ accepted: true, status: response.status, error: null });
+        if (!response.body) {
+          return Object.freeze({ accepted: false, status: response.status,
+            error: new ContractError('provider_empty_body', 'provider returned no stream') });
+        }
+        try {
+          for await (const _item of parseSse(response.body, MIN_PROVIDER_STREAM_BYTES, signal)) { /* validate */ }
+          return Object.freeze({ accepted: true, status: response.status, error: null });
+        } catch (error) {
+          await response.body.cancel().catch(() => undefined);
+          return Object.freeze({ accepted: false, status: response.status, error });
+        }
       }
       const error = await providerErrorResponse(response, this.profile.trustZone);
       return Object.freeze({ accepted: false, status: response.status, error });

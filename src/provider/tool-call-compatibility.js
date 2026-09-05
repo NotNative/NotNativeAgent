@@ -1,25 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
 
-const COMPATIBILITY_TOOL = Object.freeze({
-  type: 'function', function: Object.freeze({
-    name: 'nna_provider_probe', description: 'Return a provider compatibility observation.',
-    parameters: Object.freeze({ type: 'object', properties: Object.freeze({}), required: Object.freeze([]) }),
-  }),
-});
-
-export function toolCallProbeRequest(profile, parallelToolCalls) {
-  return {
-    model: profile.model,
-    messages: [
-      { role: 'system', content: 'Test tool-call request compatibility.' },
-      { role: 'user', content: 'Return one brief response.' },
-    ],
-    tools: [COMPATIBILITY_TOOL], maxOutputTokens: 1,
-    ...(typeof parallelToolCalls === 'boolean' ? { parallelToolCalls } : {}),
-  };
-}
-
 export function chatCompletionBody(profile, request, responseFormat, reasoningControls) {
   return {
     model: request.model, messages: normalizeSystemMessages(request.messages ?? []), stream: true,

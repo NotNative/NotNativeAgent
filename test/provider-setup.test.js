@@ -27,6 +27,9 @@ test('provider add is a guided form with discovery and a model picker', async ()
       discoveryInput = input;
       return { ready: true, models: ['qwen-test', 'other-model'] };
     },
+    async qualifyProvider() {
+      return { configuration: { toolCallMode: 'batch', capabilities: { tools: true, images: false } } };
+    },
     async addProvider(input) {
       config = withProvider(config, input).config;
       this.config = config;
@@ -56,8 +59,11 @@ test('provider add is a guided form with discovery and a model picker', async ()
   await handleProviderSetupAction({ action: 'submit' }, workspace);
   assert.equal(config.providerProfiles['lm-studio'].model, 'qwen-test');
   assert.equal(config.providerProfiles['lm-studio'].displayName, 'LM Studio');
+  assert.equal(config.providerProfiles['lm-studio'].toolCallMode, 'batch');
+  assert.equal(config.providerProfiles['lm-studio'].capabilities.tools, true);
+  assert.equal(config.providerProfiles['lm-studio'].capabilities.images, false);
   assert.equal(projection.overlay.kind, 'provider');
-  assert.match(projection.notice.text, /Added provider lm-studio/u);
+  assert.match(projection.notice.text, /Qualified and added provider lm-studio/u);
 });
 
 test('provider model picker keeps save failures visible', async () => {
@@ -66,14 +72,16 @@ test('provider model picker keeps save failures visible', async () => {
   });
   const projection = new TuiProjection();
   projection.addSession('main', 'Main', { provider: 'one', model: 'a' }, 'primary');
+  let addCalled = false;
   const workspace = {
     projection, config, onChange() {}, activeConfig: () => config,
     async discoverProviderModels() { return { ready: true, models: ['qwen-test'] }; },
-    async addProvider() {
+    async qualifyProvider() {
       const error = new Error('another conversation has an incompatible scope');
-      error.code = 'configuration_scope_change';
+      error.code = 'provider_rejected';
       throw error;
     },
+    async addProvider() { addCalled = true; },
   };
 
   beginProviderManagement('add', workspace);
@@ -85,7 +93,8 @@ test('provider model picker keeps save failures visible', async () => {
 
   await handleProviderSetupAction({ action: 'submit' }, workspace);
   assert.equal(projection.overlay.kind, 'provider-model-select');
-  assert.match(projection.overlay.lines.at(-1), /configuration_scope_change/u);
+  assert.match(projection.overlay.lines.at(-1), /provider_rejected/u);
+  assert.equal(addCalled, false);
 });
 
 test('provider tool-call mode picker persists batch compatibility', async () => {

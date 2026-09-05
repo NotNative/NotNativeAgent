@@ -266,7 +266,8 @@ for an explicit removal retry after the filesystem condition is resolved.
 `/provider` opens the configured-provider menu and `/model` queries the selected provider's
 model catalog before opening its model menu. Use Up/Down to choose and Enter to apply.
 `/provider ID` and `/model NAME` are direct equivalents. Manage profiles from Main with
-`/provider add`, `/provider edit`, `/provider test`, and `/provider delete`; run `/help` for
+`/provider add`, `/provider edit`, `/provider test`, and `/provider delete`; provider setup
+qualifies chat, image, single-tool, and batch-tool request shapes before saving; run `/help` for
 their exact forms. Those operations are also selectable inside `/provider`; Enter closes
 the menu and places the corresponding command form in the editor for completion.
 The guided form can enter a masked API key, select an enabled saved secret, omit authentication,

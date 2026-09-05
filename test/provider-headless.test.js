@@ -352,6 +352,29 @@ test('tool-call compatibility probe isolates providers that require batch mode',
   assert.equal(Object.hasOwn(requests[1], 'parallel_tool_calls'), false);
 });
 
+test('provider qualification tests chat, vision, single-tool, and batch-tool request shapes', async () => {
+  const requests = [];
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'fixture', capabilities: {},
+  }, {}, { fetch: async (_url, options) => {
+    const body = JSON.parse(options.body); requests.push(body);
+    const hasImage = Array.isArray(body.messages[0]?.content);
+    if (hasImage || body.parallel_tool_calls === false) return new Response('', { status: 400 });
+    return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  assert.deepEqual(await provider.qualification(new AbortController().signal), {
+    chat: true, images: false, tools: true,
+    singleToolCalls: false, batchToolCalls: true, toolCallMode: 'batch',
+  });
+  assert.equal(requests.length, 4);
+  assert.equal(requests[0].tools, undefined);
+  assert.equal(Array.isArray(requests[1].messages[0].content), true);
+  assert.equal(requests[2].parallel_tool_calls, false);
+  assert.equal(Object.hasOwn(requests[3], 'parallel_tool_calls'), false);
+});
+
 test('reasoning-disabled recovery sends compatible non-thinking controls', async () => {
   let body;
   const provider = new OpenAICompatibleProvider({

@@ -85,7 +85,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/provider edit ID ENDPOINT MODEL [CREDENTIAL_ENV|-]', 'Edit a provider profile from Main', 'configuration'),
   command('/provider limits ID CONTEXT_BYTES OUTPUT_TOKENS', 'Set known provider model limits from Main', 'configuration'),
   command('/provider tool-calls ID single|batch', 'Set single-call control or batch-compatible generation', 'configuration'),
-  command('/provider test ID', 'Test provider discovery and tool-call compatibility', 'configuration'),
+  command('/provider test ID', 'Qualify requests and apply verified provider settings', 'configuration'),
   command('/provider delete ID', 'Delete an unused provider profile from Main', 'configuration'),
   command('/permissions [revoke ID]', 'Inspect or revoke conversation preauthorizations', 'governance'),
   command('/rename NAME', 'Rename the active conversation', 'sessions'),

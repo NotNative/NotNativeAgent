@@ -141,6 +141,7 @@ export function withProvider(config, input) {
     context_limit_bytes: input.contextLimitBytes,
     output_limit_tokens: input.outputLimitTokens,
     tool_call_mode: input.toolCallMode,
+    capabilities: providerCapabilitiesManifest(input.capabilities),
   }));
   return { manifest, config: resolveManifest(manifest) };
 }
@@ -171,6 +172,9 @@ export function withUpdatedProvider(config, id, input) {
     context_limit_bytes: input.contextLimitBytes ?? (preserveLimits ? current.contextLimitBytes ?? undefined : undefined),
     output_limit_tokens: input.outputLimitTokens ?? (preserveLimits ? current.outputLimitTokens ?? undefined : undefined),
     tool_call_mode: input.toolCallMode ?? current.toolCallMode,
+    ...(input.capabilities ? {
+      capabilities: providerCapabilitiesManifest({ ...current.capabilities, ...input.capabilities }),
+    } : {}),
   });
   for (const route of Object.values(manifest.routes)) {
     if (route.provider_id === id && route.model === current.model) route.model = model;
@@ -373,13 +377,7 @@ export async function persistInitialManifest(path, manifest) {
 }
 
 function providerManifest(profile) {
-  const capabilities = compact({
-    tools: typeof profile.capabilities.tools === 'boolean' ? profile.capabilities.tools : undefined,
-    images: typeof profile.capabilities.images === 'boolean' ? profile.capabilities.images : undefined,
-    structured_output: typeof profile.capabilities.structuredOutput === 'boolean' ? profile.capabilities.structuredOutput : undefined,
-    usage: typeof profile.capabilities.usage === 'boolean' ? profile.capabilities.usage : undefined,
-    cancellation: typeof profile.capabilities.cancellation === 'boolean' ? profile.capabilities.cancellation : undefined,
-  });
+  const capabilities = providerCapabilitiesManifest(profile.capabilities);
   return compact({
     id: profile.id, display_name: profile.displayName, endpoint: profile.endpoint, model: profile.model,
     trust_zone: profile.trustZone,
@@ -388,8 +386,19 @@ function providerManifest(profile) {
     context_limit_bytes: profile.contextLimitBytes ?? undefined,
     output_limit_tokens: profile.outputLimitTokens ?? undefined,
     tool_call_mode: profile.toolCallMode === 'single' ? undefined : profile.toolCallMode,
-    capabilities: Object.keys(capabilities).length > 0 ? capabilities : undefined,
+    capabilities,
   });
+}
+
+function providerCapabilitiesManifest(capabilities = {}) {
+  const value = compact({
+    tools: typeof capabilities.tools === 'boolean' ? capabilities.tools : undefined,
+    images: typeof capabilities.images === 'boolean' ? capabilities.images : undefined,
+    structured_output: typeof capabilities.structuredOutput === 'boolean' ? capabilities.structuredOutput : undefined,
+    usage: typeof capabilities.usage === 'boolean' ? capabilities.usage : undefined,
+    cancellation: typeof capabilities.cancellation === 'boolean' ? capabilities.cancellation : undefined,
+  });
+  return Object.keys(value).length > 0 ? value : undefined;
 }
 
 function mcpManifest(value) {

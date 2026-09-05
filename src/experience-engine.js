@@ -26,14 +26,14 @@ import { validateKeyBindings } from './experience/key-bindings.js';
 import { WorkspaceTabPersistence } from './experience/tab-persistence.js';
 import { isGeneratedConversationName, maybeAutoNameConversation, renameWorkspaceConversation } from './experience/conversation-title.js';
 const INTERACTIVE_OPERATOR = 'authenticated-interactive-operator';
-import { testProviderProfile } from './experience/provider-test.js';
+import { appliedProviderTestResult, testProviderProfile } from './experience/provider-test.js';
 import { availableWorkspaceModels, qualifyWorkspaceModel } from './experience/models.js';
 import { advanceWorkspaceConfig, publishWorkspaceConfiguration, writeWorkspaceManifest } from './experience/configuration-publication.js';
 import { providerAdditionPlan, providerCatalogEntries, routePresentation, specialistRouteEntries } from './experience/provider-catalog.js';
 import { clearWorkspaceProviderRole, configureWorkspaceProviderRoute, deleteWorkspaceProvider, selectWorkspaceProviderRole } from './experience/provider-routing.js';
 import { runGatewayCommand } from './gateway-cli.js';
 import { runWebFetchCommand } from './web-fetch-cli.js';
-import { discoverWorkspaceProviderModels } from './experience/provider-discovery.js';
+import { discoverWorkspaceProviderModels, qualifyWorkspaceProvider } from './experience/provider-discovery.js';
 import { deleteManagedMcpCredential, saveManagedMcpCredential } from './mcp-credentials.js';
 import { initializeWorkspaceDream, runWorkspaceDreamCommand } from './experience/dream.js';
 import { resumeWorkspaceConversation } from './experience/resume.js';
@@ -326,13 +326,17 @@ export class ExperienceEngine {
   }
   deleteProvider(id) { return deleteWorkspaceProvider(this, id); }
   async testProvider(id) {
+    this._requireMainProviderManagement();
     const config = this.activeConfig();
     const profile = config.providerProfiles[id];
     if (!profile) throw new ContractError('provider_missing', `provider ${id} is not configured`);
     const provider = this.activeEngine().router.providerForProfile(profile);
-    return testProviderProfile(profile, provider, this.options);
+    const result = await testProviderProfile(profile, provider, this.options);
+    if (result.configuration) await this.editProvider(id, result.configuration);
+    return appliedProviderTestResult(result);
   }
   async discoverProviderModels(input) { this._requireMainProviderManagement(); return discoverWorkspaceProviderModels(this, input); }
+  async qualifyProvider(input) { this._requireMainProviderManagement(); return qualifyWorkspaceProvider(this, input); }
   async toggleConfigSetting(setting) {
     const value = !booleanSettingValue(this.config, setting);
     const config = await this.#publishGlobalConfiguration((current) => withBooleanSetting(current, setting, value));

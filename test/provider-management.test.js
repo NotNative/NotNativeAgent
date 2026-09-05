@@ -50,6 +50,8 @@ test('provider tool-call mode is validated and retained by configuration round t
   const updated = withUpdatedProvider(current, 'one', { toolCallMode: 'batch' });
   assert.equal(updated.config.providerProfiles.one.toolCallMode, 'batch');
   assert.equal(updated.manifest.providers.find((item) => item.id === 'one').tool_call_mode, 'batch');
+  const qualified = withUpdatedProvider(updated.config, 'one', { capabilities: { tools: true, images: false } });
+  assert.deepEqual(qualified.manifest.providers.find((item) => item.id === 'one').capabilities, { tools: true, images: false });
   assert.throws(() => resolveManifest({ provider: {
     id: 'bad', endpoint: 'http://127.0.0.1:1/v1', model: 'model', trust_zone: 'loopback',
     tool_call_mode: 'automatic',
@@ -216,7 +218,9 @@ test('Main provider manager edits, tests, and deletes unused profiles durably', 
   const configPath = join(root, 'settings.json');
   const providerFactory = (profile) => ({
     async capabilities() { return { models: [profile.model, 'catalog-model'], tools: true }; },
-    async toolCallCompatibility() { return { supportedMode: 'batch' }; },
+    async qualification() {
+      return { chat: true, images: false, tools: true, singleToolCalls: false, batchToolCalls: true, toolCallMode: 'batch' };
+    },
     async *stream() { yield { type: 'terminal' }; },
   });
   const workspace = new InteractiveWorkspace({ config: configuration(root), configPath, providerFactory });
@@ -227,7 +231,16 @@ test('Main provider manager edits, tests, and deletes unused profiles durably', 
   assert.equal(checked.ready, true);
   assert.deepEqual(checked.models, ['edited', 'catalog-model']);
   assert.equal(checked.tool_call_compatibility.supported_mode, 'batch');
-  assert.match(checked.tool_call_compatibility.recommendation, /provider tool-calls two batch/u);
+  assert.equal(checked.chat, true);
+  assert.equal(checked.tools, true);
+  assert.equal(checked.images, false);
+  assert.equal(checked.request_compatibility.batch_tool, true);
+  assert.equal(checked.tool_call_compatibility.configured_mode, 'batch');
+  assert.equal(checked.tool_call_compatibility.recommendation, null);
+  assert.equal(checked.configuration.applied, true);
+  assert.equal(workspace.config.providerProfiles.two.toolCallMode, 'batch');
+  assert.equal(workspace.config.providerProfiles.two.capabilities.tools, true);
+  assert.equal(workspace.config.providerProfiles.two.capabilities.images, false);
   await workspace.clearProviderForRole('reviewer');
   assert.equal(workspace.config.routes.reviewer.assigned, false);
   await workspace.deleteProvider('two');

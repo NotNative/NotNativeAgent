@@ -302,8 +302,12 @@ Provider profiles also accept `tool_call_mode`. The default `single` mode sends
 `parallel_tool_calls: false`. The `batch` compatibility mode omits that provider field for
 engines that reject it. Batch mode changes only provider generation: NNA still validates and
 reviews every returned call, and local execution policy remains authoritative. Use
-`/provider test ID` to detect this incompatibility and `/provider tool-calls ID batch` to
-apply the recommendation.
+`/provider test ID` to run bounded chat, image, single-tool, and batch-tool request probes.
+The test applies verified tool and image capability facts plus the compatible tool-call mode
+to the profile. Guided provider setup runs the same qualification after model selection and
+before publishing the profile. `/provider tool-calls ID single|batch` remains available as an
+explicit override. Qualification makes up to four one-output-token inference requests; a
+remote provider may account for them as ordinary billed requests.
 Each role route accepts
 `provider_id`, `model`, an optional model-specific `context_limit_bytes`, `required_capabilities`, `temperature`,
 `max_output_tokens`, `deadline_ms`, `budget`, and an ordered `fallbacks` list of role

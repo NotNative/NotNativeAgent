@@ -242,13 +242,18 @@ async function saveProfile(form, workspace) {
     model: form.draft.model, credential: form.draft.credential ?? null,
     credentialEnv: form.draft.credential?.source === 'environment' ? form.draft.credential.name : null,
   };
+  const qualification = typeof workspace.qualifyProvider === 'function'
+    ? await workspace.qualifyProvider(input) : null;
+  if (qualification?.configuration) Object.assign(input, qualification.configuration);
   if (form.operation === 'add') await workspace.addProvider(input);
   else await workspace.editProvider(form.profileId, {
     displayName: input.displayName, endpoint: input.endpoint, model: input.model,
     credential: input.credential, credentialEnv: input.credentialEnv,
+    toolCallMode: input.toolCallMode, capabilities: input.capabilities,
   });
   openProviderManager(workspace, form.returnParent, form.operation === 'add' ? input.id : form.profileId);
-  workspace.projection.showNotice('provider', `${form.operation === 'add' ? 'Added' : 'Updated'} provider ${form.operation === 'add' ? input.id : form.profileId}.`);
+  const prefix = qualification?.configuration ? 'Qualified and ' : '';
+  workspace.projection.showNotice('provider', `${prefix}${form.operation === 'add' ? 'added' : 'updated'} provider ${form.operation === 'add' ? input.id : form.profileId}.`);
 }
 
 function validateField(key, value) {
@@ -388,6 +393,7 @@ function modelSelectionOverlay(formState, models) {
   items.push({ id: 'manual', label: 'Enter a model manually', detail: 'Use when the provider catalog omits the desired model.' });
   return menu('provider-model-select', `Choose model for ${formState.draft.displayName}`, [
     'Pick the default model for this provider profile. /model can temporarily select another model later.',
+    'Saving runs up to four one-token qualification requests; remote providers may bill them.',
   ], items, {
     formState, actionLabel: 'Up/Down choose · Enter save profile',
     activeId: formState.draft.model,
@@ -398,7 +404,7 @@ function modelSaveProgressOverlay(overlay, model) {
   return Object.freeze({
     ...overlay,
     title: `Saving provider profile · ${model}`,
-    lines: Object.freeze([...overlay.lines, '', 'Applying this provider catalog to open conversations...']),
+    lines: Object.freeze([...overlay.lines, '', 'Testing chat, image, single-tool, and batch-tool requests before saving...']),
     items: Object.freeze([]),
     actionLabel: 'Saving provider profile',
   });

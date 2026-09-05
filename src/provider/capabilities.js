@@ -22,6 +22,14 @@ export async function boundedProviderToolCallCompatibility(provider, timeoutMs) 
   );
 }
 
+export async function boundedProviderQualification(provider, timeoutMs) {
+  return boundedProviderOperation(
+    (signal) => provider.qualification(signal), timeoutMs,
+    'provider_qualification_timeout', 'provider qualification exceeded its deadline',
+    boundedProviderQualificationResult,
+  );
+}
+
 async function boundedProviderOperation(operationFactory, timeoutMs, code, message, validate) {
   const controller = new AbortController();
   let timer;
@@ -46,6 +54,22 @@ function boundedToolCallCompatibility(value) {
     throw new ContractError('provider_tool_call_test_invalid', 'provider tool-call compatibility result is invalid');
   }
   return Object.freeze({ supportedMode: value.supportedMode });
+}
+
+function boundedProviderQualificationResult(value) {
+  if (!value || typeof value !== 'object' || value.chat !== true
+    || !['single', 'batch'].includes(value.toolCallMode)) {
+    throw new ContractError('provider_qualification_invalid', 'provider qualification result is invalid');
+  }
+  const booleans = ['images', 'tools', 'singleToolCalls', 'batchToolCalls'];
+  if (booleans.some((key) => typeof value[key] !== 'boolean')) {
+    throw new ContractError('provider_qualification_invalid', 'provider qualification observations are invalid');
+  }
+  return Object.freeze({
+    chat: true, images: value.images, tools: value.tools,
+    singleToolCalls: value.singleToolCalls, batchToolCalls: value.batchToolCalls,
+    toolCallMode: value.toolCallMode,
+  });
 }
 
 function boundedCapabilityRecord(value) {
