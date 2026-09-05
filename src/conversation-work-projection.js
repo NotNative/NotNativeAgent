@@ -15,7 +15,7 @@ export function projectConversationWork(snapshot) {
       : {}),
   }));
   // Why: provider-visible work state must use the exact work_plan input shape so
-  // injected context and work.status cannot teach conflicting field names.
+  // injected context and work_status cannot teach conflicting field names.
   return Object.freeze({
     revision: snapshot.revision,
     objective: snapshot.goal.objective,

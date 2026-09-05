@@ -111,7 +111,7 @@ test('work plan and status expose one lossless round-trip contract', async () =>
   const work = new ConversationWork();
   const definitions = new Map(conversationWorkDefinitions(work).map((item) => [item.name, item]));
   const plan = definitions.get('work_plan');
-  const status = definitions.get('work.status');
+  const status = definitions.get('work_status');
   const signal = new AbortController().signal;
   const initial = await plan.validate({
     objective: 'Keep durable work lossless',
@@ -151,7 +151,7 @@ test('work plan round-trips a terminal blocked goal with its reason', async () =
   const work = new ConversationWork();
   const definitions = new Map(conversationWorkDefinitions(work).map((item) => [item.name, item]));
   const plan = definitions.get('work_plan');
-  const status = definitions.get('work.status');
+  const status = definitions.get('work_status');
   const signal = new AbortController().signal;
   const normalized = await plan.validate({
     objective: 'Finish a host-dependent operation', goal_status: 'blocked',

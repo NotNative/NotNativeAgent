@@ -22,11 +22,11 @@ therefore restores progress without a parallel state store, and context compacti
 erase it.
 
 The provider receives only the current snapshot as trusted engine state when work exists.
-Mutation history does not consume prompt context. `work_plan`, `work.status`, `work.goal`,
+Mutation history does not consume prompt context. `work_plan`, `work_status`, `work.goal`,
 `work.task_add`, and `work.task_update` are foundational schemas whenever conversation work is
 available. `work_plan` atomically replaces the bounded goal and ordered task snapshot; the
 granular tools support direct, intuitive updates to the same state machine. Their visibility
-does not itself create a plan. `work_plan` and `work.status` expose one round-trip-safe provider
+does not itself create a plan. `work_plan` and `work_status` expose one round-trip-safe provider
 shape while durable snapshots retain their separate engine fields and timestamps. A returned
 revision is an optimistic concurrency guard: stale replacement is rejected without mutation.
 Explicit operator requests to set, create, load, or track a goal

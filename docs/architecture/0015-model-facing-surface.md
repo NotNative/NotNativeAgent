@@ -8,7 +8,7 @@ surface to every ordinary provider step. The deliberately small deterministic or
 1. `tool_search`;
 2. `fs_list`, `fs_read`, and `fs_search_text`;
 3. `shell_run`;
-4. `work_plan`, `work.status`, and `work.task_update`;
+4. `work_plan`, `work_status`, and `work.task_update`;
 5. `turn.finish`;
 6. `git.inspect`.
 
