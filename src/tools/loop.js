@@ -129,7 +129,7 @@ export class ToolLoop {
             'This exact tool request already reached its no-effect retry boundary at the current observable state. Do not repeat it; change the action, target, arguments, tool, or verification method.',
           );
         }
-        if (request.toolName === 'web.fetch') {
+        if (request.toolName === 'web_fetch') {
           item.urlProvenance = active.webUrlProvenance.classify(request.args.url);
           if (active.webUrlProvenance.hasFailed(request.args.url)) {
             throw new ContractError(
@@ -431,7 +431,7 @@ export function toolContinuationHint(items, fallback = null) {
     return `A required ancestor directory is missing. The next filesystem mutation must be ${missingParent.tool} with exactly ${JSON.stringify({ action: 'create', path: missingParent.path })}. `
       + 'That tool creates the complete path recursively. Do not retry the blocked file operation or repeat directory listings until this exact prerequisite succeeds.';
   }
-  const failedFetch = items.find((item) => item.result?.tool_name === 'web.fetch'
+  const failedFetch = items.find((item) => item.result?.tool_name === 'web_fetch'
     && ['failed', 'invalid_request', 'timed_out'].includes(item.result?.status));
   if (failedFetch) {
     return 'WebFetch could not retrieve that exact URL. Do not retry it with WebFetch and do not synthesize a replacement path. WebFetch and WebBrowse are independent retrieval paths: if WebBrowse is available, your next recovery call should use web_browse with action navigate on the same exact URL, then inspect the page if navigation succeeds. Only if browser navigation is unavailable or also fails should you choose another exact URL returned by WebSearch or supplied by the user. Do not end the research merely because WebFetch failed.';

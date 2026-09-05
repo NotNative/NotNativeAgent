@@ -94,8 +94,8 @@ test('receipt pressure identifies duplicate cold results across different tool r
     { type: 'tool_result', toolName: 'fs_read_text', content: repeated, status: 'succeeded', providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
     { type: 'message', role: 'assistant', content: 'Compare another source.', turnId: 'turn-1', stepId: 'step-2' },
     { type: 'message', role: 'assistant', content: 'One more comparison.', turnId: 'turn-1', stepId: 'step-3' },
-    { type: 'tool_request', toolName: 'web.fetch', args: { url: 'https://example.invalid/a' }, providerCallId: 'call-2', requestId: 'req-2', turnId: 'turn-1', stepId: 'step-4' },
-    { type: 'tool_result', toolName: 'web.fetch', content: repeated, status: 'succeeded', providerCallId: 'call-2', requestId: 'req-2', turnId: 'turn-1', stepId: 'step-4' },
+    { type: 'tool_request', toolName: 'web_fetch', args: { url: 'https://example.invalid/a' }, providerCallId: 'call-2', requestId: 'req-2', turnId: 'turn-1', stepId: 'step-4' },
+    { type: 'tool_result', toolName: 'web_fetch', content: repeated, status: 'succeeded', providerCallId: 'call-2', requestId: 'req-2', turnId: 'turn-1', stepId: 'step-4' },
   ];
   const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'receipts' });
   const receipt = JSON.parse(projected.records[2].content);

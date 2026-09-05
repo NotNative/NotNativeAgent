@@ -17,7 +17,7 @@ export function webFetchDefinition(options = {}) {
   const policy = options.policy ?? new WebFetchDestinationPolicy(options.configPath);
   const client = options.client ?? new WebFetchClient({ policy });
   return {
-    name: 'web.fetch', version: 1,
+    name: 'web_fetch', version: 1,
     purpose: 'Fetch bounded HTTP(S) text from a public URL or an explicitly trusted private origin without browser execution.',
     sideEffect: 'read_only', scope: 'network', cancellation: true, timeoutMs: TOOL_TIMEOUT_MS,
     maxOutputBytes: PROVIDER_TEXT_BYTES,
@@ -209,5 +209,5 @@ function textType(value) {
 }
 
 function isRedirect(status) { return [301, 302, 303, 307, 308].includes(status); }
-function invalid() { return new ContractError('tool_schema_invalid', 'web.fetch requires one HTTP(S) URL without embedded credentials'); }
+function invalid() { return new ContractError('tool_schema_invalid', 'web_fetch requires one HTTP(S) URL without embedded credentials'); }
 function blocked() { return new ContractError('web_fetch_destination_blocked', 'WebFetch destination is private or reserved and its exact origin is not trusted'); }

@@ -333,7 +333,7 @@ test('review denial continuation favors safer progress before operator interrupt
 
 test('failed web fetch continuation requires browser fallback before abandoning the URL', () => {
   const hint = toolContinuationHint([{
-    result: { status: 'failed', tool_name: 'web.fetch' },
+    result: { status: 'failed', tool_name: 'web_fetch' },
   }], 'generic recovery');
   assert.match(hint, /Do not retry it with WebFetch[^]*next recovery call should use web_browse[^]*same exact URL/iu);
   assert.match(hint, /Only if browser navigation is unavailable or also fails[^]*another exact URL/iu);
@@ -952,7 +952,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code_diagnostics',
     'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_list_directory', 'fs_metadata', 'fs_move_file', 'fs_read', 'fs_read_lines', 'fs_read_text', 'fs_search_text', 'fs_write_text', 'git_inspect',
-    'image_inspect', 'nna_diagnose_turn', 'nna_list_sessions', 'nna_read_guidance', 'nna_search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.fetch', 'web.search', 'web_browse',
+    'image_inspect', 'nna_diagnose_turn', 'nna_list_sessions', 'nna_read_guidance', 'nna_search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.search', 'web_browse', 'web_fetch',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
 });

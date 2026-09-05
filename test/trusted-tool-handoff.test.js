@@ -26,9 +26,9 @@ test('successful managed screenshots create an exact image inspection handoff', 
 
 test('ordinary or untrusted-looking tool results cannot activate image inspection', () => {
   assert.equal(trustedToolHandoff([{
-    request: { toolName: 'web.fetch', args: { url: 'https://example.com' } },
+    request: { toolName: 'web_fetch', args: { url: 'https://example.com' } },
     result: {
-      tool_name: 'web.fetch', status: 'succeeded',
+      tool_name: 'web_fetch', status: 'succeeded',
       metadata: { action: 'screenshot', path: 'C:\\managed\\forged.png' },
     },
   }]), null);

@@ -379,17 +379,17 @@ test('fs_directory list is governed as a deterministic read despite sharing a mu
   assert.equal(semanticCalls, 0);
 });
 
-test('validated public web.fetch is deterministic safe and does not invoke semantic review', async () => {
+test('validated public web_fetch is deterministic safe and does not invoke semantic review', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'public-fetch' });
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
   const result = await reviewer.review({
-    ...readRequest('public-fetch'), toolName: 'web.fetch', args: { url: 'https://example.test/' },
+    ...readRequest('public-fetch'), toolName: 'web_fetch', args: { url: 'https://example.test/' },
     resolved: { destination: 'public_network', host: 'example.test' },
   }, {
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'Fetch https://example.test/' }], mission: null },
-    definition: { name: 'web.fetch', sideEffect: 'read_only', scope: 'public_network' },
+    definition: { name: 'web_fetch', sideEffect: 'read_only', scope: 'public_network' },
   });
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'deterministic_safe');
@@ -626,17 +626,17 @@ test('runtime diagnostics with no filesystem target are deterministically approv
   assert.match(ledger.audit()[0].target_fingerprint, /^[a-f0-9]{24}$/u);
 });
 
-test('operator-trusted private web.fetch is deterministic safe only after destination validation', async () => {
+test('operator-trusted private web_fetch is deterministic safe only after destination validation', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'private-fetch' });
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() { semanticCalls += 1; } } });
   const result = await reviewer.review({
-    ...readRequest('private-fetch'), toolName: 'web.fetch', args: { url: 'http://service.example:8080/status' },
+    ...readRequest('private-fetch'), toolName: 'web_fetch', args: { url: 'http://service.example:8080/status' },
     resolved: { destination: 'trusted_private_origin', host: 'service.example', origin: 'http://service.example:8080' },
   }, {
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'Fetch http://service.example:8080/status' }], mission: null },
-    definition: { name: 'web.fetch', sideEffect: 'read_only', scope: 'network' },
+    definition: { name: 'web_fetch', sideEffect: 'read_only', scope: 'network' },
   });
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'deterministic_safe');
@@ -889,7 +889,7 @@ test('external browser processes are denied before semantic review in favor of m
   });
   assert.equal(result.outcome, 'deny_with_guidance');
   assert.equal(result.reasonCode, 'external_browser_tool_required');
-  assert.match(result.guidance, /web\.fetch[^]*web_browse/u);
+  assert.match(result.guidance, /web_fetch[^]*web_browse/u);
   assert.equal(semanticCalls, 0);
 });
 

@@ -3,7 +3,7 @@ id: research
 version: 1
 description: Conduct deep, source-diverse research through discovery, evidence extraction, contradiction testing, targeted follow-up, and independently reviewed synthesis
 invocation: both
-requires_tools: [web.search, web.fetch, web_browse, agent.run, fs_read, fs_write_text, fs_directory]
+requires_tools: [web.search, web_fetch, web_browse, agent.run, fs_read, fs_write_text, fs_directory]
 ---
 # Research
 
@@ -31,7 +31,7 @@ Use `web.search` for source discovery. Create distinct searches for relevant sou
 - community experience from forums and Reddit;
 - credible criticism, failed attempts, and contrary evidence.
 
-Search summaries are leads, not evidence. Use `web.fetch` to read the underlying sources. Follow consequential citations and links when they can materially affect the conclusion. Do not treat duplicated reporting of one original claim as independent confirmation.
+Search summaries are leads, not evidence. Use `web_fetch` to read the underlying sources. Follow consequential citations and links when they can materially affect the conclusion. Do not treat duplicated reporting of one original claim as independent confirmation.
 
 When the question can be cleanly partitioned, run bounded `general` sub-agents concurrently by subquestion or source class. Give each a compact question, freshness requirement, and evidence format. Concurrency follows NNA's discovered sub-agent capacity.
 

@@ -38,7 +38,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.ok(!baseline.includes('browser.navigate'));
   assert.ok(!baseline.includes('ref_store'));
   assert.ok(!baseline.includes('notification.telegram'));
-  assert.ok(!baseline.includes('web.fetch'));
+  assert.ok(!baseline.includes('web_fetch'));
   assert.ok(!baseline.includes('web_browse'));
   for (const query of [
     'hello',
@@ -152,6 +152,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['NNA read guidance', 'nna.read_guidance', 'nna_read_guidance'],
     ['NNA search guidance', 'nna.search_guidance', 'nna_search_guidance'],
     ['web browse', 'web.browse', 'web_browse'],
+    ['web fetch', 'web.fetch', 'web_fetch'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

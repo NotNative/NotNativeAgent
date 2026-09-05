@@ -20,7 +20,7 @@ test('pinned HTTP primitive requires a numeric connection address', () => {
   }), { code: 'pinned_http_address_invalid' });
 });
 
-test('web.fetch follows bounded redirects and returns attributed UTF-8 text', async () => {
+test('web_fetch follows bounded redirects and returns attributed UTF-8 text', async () => {
   const requested = [];
   const client = new WebFetchClient({
     resolve: async () => ['93.184.216.34'],
@@ -42,7 +42,7 @@ test('web.fetch follows bounded redirects and returns attributed UTF-8 text', as
   assert.deepEqual(requested, ['https://example.test/start', 'https://example.test/final']);
 });
 
-test('web.fetch rejects private destinations before network I/O', async () => {
+test('web_fetch rejects private destinations before network I/O', async () => {
   let fetched = false;
   const client = new WebFetchClient({
     resolve: async () => ['192.168.1.20'],
@@ -54,7 +54,7 @@ test('web.fetch rejects private destinations before network I/O', async () => {
   assert.equal(fetched, false);
 });
 
-test('web.fetch rejects embedded credentials, binary content, and oversized bodies', async () => {
+test('web_fetch rejects embedded credentials, binary content, and oversized bodies', async () => {
   const definition = webFetchDefinition();
   await assert.rejects(definition.validate({ url: 'https://user:password@example.test/' }), { code: 'tool_schema_invalid' });
   const binary = new WebFetchClient({

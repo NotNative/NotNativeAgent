@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-const TOOL = Object.freeze({ SEARCH: 'web.search', BROWSE: 'web_browse', FETCH: 'web.fetch' });
+const TOOL = Object.freeze({ SEARCH: 'web.search', BROWSE: 'web_browse', FETCH: 'web_fetch' });
 const SOURCE = Object.freeze({
   INVALID: 'invalid', MODEL: 'model_unverified', FETCH: 'fetch', BROWSER: 'browser', SEARCH: 'search', USER: 'user',
 });

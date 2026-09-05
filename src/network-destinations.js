@@ -84,7 +84,7 @@ function addTrustedWebFetch(result, config) {
 function addGovernedTools(result, enabled) {
   if (!enabled) return;
   result.push({
-    kind: 'governed_tool', id: 'web.fetch', destination: 'per_request',
+    kind: 'governed_tool', id: 'web_fetch', destination: 'per_request',
     trust_zone: 'public_or_explicit_origin', purpose: 'reviewed_web_fetch', state: 'review_required',
     credential_reference: null,
   }, {

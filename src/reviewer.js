@@ -150,7 +150,7 @@ function classify(request, definition) {
   if (definition.sideEffect === 'read_only' && definition.scope === 'web_search' && definition.name === 'web.search') {
     return Object.freeze({ risk: 'safe', reason: 'configured_web_search', effect: 'read_only', scope: 'web_search', complexity: 'simple' });
   }
-  if (definition.sideEffect === 'read_only' && definition.name === 'web.fetch'
+  if (definition.sideEffect === 'read_only' && definition.name === 'web_fetch'
     && ['public_network', 'trusted_private_origin'].includes(request.resolved?.destination)) {
     const privateOrigin = request.resolved.destination === 'trusted_private_origin';
     return Object.freeze({ risk: 'safe', reason: privateOrigin ? 'trusted_private_web_fetch' : 'validated_public_web_fetch', effect: 'read_only', scope: privateOrigin ? 'private_network' : 'public_network', complexity: 'simple' });

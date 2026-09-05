@@ -72,7 +72,7 @@ test('typed bindings fail clearly when a reference kind is used in the wrong fie
     code: 'reference_kind_mismatch', message: 'reference must identify path; received url',
   });
   const fetched = await registry.seal({
-    providerCallId: 'url-kind', name: 'web.fetch', args: { url: reference },
+    providerCallId: 'url-kind', name: 'web_fetch', args: { url: reference },
   }, context);
   assert.equal(fetched.args.url, 'https://example.com/docs');
   assert.equal(fetched.resolved.referenceBindings[0].reference, reference);

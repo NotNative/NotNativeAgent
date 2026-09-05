@@ -426,7 +426,7 @@ managed container data.
 
 ## WebFetch destinations
 
-`web.fetch` permits bounded public HTTP(S) text by default. Loopback, private-network,
+`web_fetch` permits bounded public HTTP(S) text by default. Loopback, private-network,
 link-local, and reserved destinations are blocked to prevent model-controlled server-side
 request forgery. An operator can deliberately trust an exact origin such as
 `http://service.example:8080` with `/webfetch trust http://service.example:8080`; use `/webfetch revoke ORIGIN`

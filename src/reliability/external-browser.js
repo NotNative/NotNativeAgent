@@ -7,7 +7,7 @@ const BROWSER_EXECUTABLES = new Set([
 ]);
 const SHELL_EXECUTABLES = new Set(['bash', 'cmd', 'powershell', 'pwsh', 'sh']);
 
-export const EXTERNAL_BROWSER_GUIDANCE = 'Direct browser processes are not permitted through shell_run or process_run. Use web.fetch for bounded text retrieval, or web_browse for managed rendering, interaction, local-page serving, and screenshots.';
+export const EXTERNAL_BROWSER_GUIDANCE = 'Direct browser processes are not permitted through shell_run or process_run. Use web_fetch for bounded text retrieval, or web_browse for managed rendering, interaction, local-page serving, and screenshots.';
 
 export function processLaunchesExternalBrowser(executable, args = []) {
   const name = portableExecutableName(executable);

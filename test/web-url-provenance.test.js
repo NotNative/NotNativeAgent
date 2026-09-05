@@ -29,7 +29,7 @@ test('URL provenance learns search and browser URLs while labeling guesses unver
 
 test('URL provenance remembers a failed fetch for the remainder of the turn', () => {
   const ledger = new WebUrlProvenance('Try https://example.com/missing');
-  const request = { toolName: 'web.fetch', args: { url: 'https://example.com/missing' } };
+  const request = { toolName: 'web_fetch', args: { url: 'https://example.com/missing' } };
   ledger.observe(request, { status: 'failed', reason_code: 'web_fetch_http_error' });
   assert.equal(ledger.hasFailed('https://example.com/missing#again'), true);
 });

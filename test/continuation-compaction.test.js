@@ -42,7 +42,7 @@ test('compaction preserves the active turn and paired calls while bounding overs
     message('user', 'Earlier design discussion'), message('assistant', 'Earlier answer'),
     message('user', 'Verify the current Node release and continue this conversation.'),
     message('assistant', 'I will verify it.'),
-    { type: 'tool_request', providerCallId: 'fetch-1', toolName: 'web.fetch', args: { url: 'https://example.test' } },
+    { type: 'tool_request', providerCallId: 'fetch-1', toolName: 'web_fetch', args: { url: 'https://example.test' } },
     { type: 'tool_result', providerCallId: 'fetch-1', status: 'succeeded', content: 'x'.repeat(550_000) },
   ];
   const compacted = compactTranscript(transcript, 65_536);
@@ -166,8 +166,8 @@ test('compaction replaces cold byte-identical successful results with recoverabl
       message('assistant', `Intervening answer ${index}`, `turn-${index}`),
     ]).flat(),
     message('user', 'Read the independently addressed evidence.', 'turn-new'),
-    { type: 'tool_request', turnId: 'turn-new', requestId: 'request-new', providerCallId: 'call-new', toolName: 'web.fetch', args: { url: 'https://example.invalid/evidence' } },
-    { type: 'tool_result', turnId: 'turn-new', requestId: 'request-new', providerCallId: 'call-new', toolName: 'web.fetch', status: 'succeeded', content: repeated },
+    { type: 'tool_request', turnId: 'turn-new', requestId: 'request-new', providerCallId: 'call-new', toolName: 'web_fetch', args: { url: 'https://example.invalid/evidence' } },
+    { type: 'tool_result', turnId: 'turn-new', requestId: 'request-new', providerCallId: 'call-new', toolName: 'web_fetch', status: 'succeeded', content: repeated },
   ];
   const compacted = compactTranscript(transcript, 80_000);
   const oldResult = compacted.records.find((item) => item.providerCallId === 'call-old' && item.type === 'tool_result');
