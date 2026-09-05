@@ -582,8 +582,8 @@ test('reopened transcripts retain each assistant response boundary and marker', 
   assert.match(plain, /\* First observation\.\n\n\* Second observation\./u);
 });
 
-test('long live agent.run activity hangs beneath its task instead of transcript text', () => {
-  const lead = '    + agent.run (';
+test('long live agent_run activity hangs beneath its task instead of transcript text', () => {
+  const lead = '    + agent_run (';
   const activity = wrapIndentedTerminalLine(
     `${lead}general · worker-model: Inspect SSH host operator@fixture-host and report its service and model-runtime state.) | running`,
     86,
@@ -1679,34 +1679,34 @@ test('active agent runs use a compact footer and omit duplicate tool rows', () =
   projection.addSession('s1', 'Main', { model: 'primary-model', provider: 'p' });
   projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
   projection.apply('s1', {
-    type: 'tool_status', status: 'running', tool: 'agent.run',
+    type: 'tool_status', status: 'running', tool: 'agent_run',
     target: 'coder · worker-model · inherits Primary: configure yellow host',
     tool_request_id: 'agent-1', turn_id: 'turn-1',
   });
   let frame = new TuiRenderer().frame(projection, {
     width: 120, height: 24, color: false, unicode: false, reducedMotion: true,
   });
-  assert.doesNotMatch(frame, /agent\.run .* \| running/u);
+  assert.doesNotMatch(frame, /agent_run .* \| running/u);
   assert.match(frame, /Sub-agent active · coder/u);
   projection.apply('s1', {
-    type: 'tool_status', status: 'succeeded', tool: 'agent.run',
+    type: 'tool_status', status: 'succeeded', tool: 'agent_run',
     target: 'coder · worker-model · inherits Primary: configure yellow host',
     tool_request_id: 'agent-1', turn_id: 'turn-1', elapsed_ms: 10,
   });
   frame = new TuiRenderer().frame(projection, {
     width: 120, height: 24, color: false, unicode: false, reducedMotion: true,
   });
-  assert.doesNotMatch(frame, /agent\.run .* \| running/u);
-  assert.doesNotMatch(frame, /agent\.run .* \| succeeded/u);
+  assert.doesNotMatch(frame, /agent_run .* \| running/u);
+  assert.doesNotMatch(frame, /agent_run .* \| succeeded/u);
   assert.doesNotMatch(frame, /Sub-agent active/u);
   projection.apply('s1', {
-    type: 'tool_status', status: 'denied', tool: 'agent.run', target: 'reviewer · blocked task',
+    type: 'tool_status', status: 'denied', tool: 'agent_run', target: 'reviewer · blocked task',
     tool_request_id: 'agent-2', turn_id: 'turn-1', reason_code: 'review_denied',
   });
   frame = new TuiRenderer().frame(projection, {
     width: 120, height: 24, color: false, unicode: false, reducedMotion: true,
   });
-  assert.match(frame, /agent\.run \(reviewer · blocked task\) \| denied \| review_denied/u);
+  assert.match(frame, /agent_run \(reviewer · blocked task\) \| denied \| review_denied/u);
 });
 
 test('sub-agent transcript progress shows compact start and completion milestones only', () => {
@@ -1740,10 +1740,10 @@ test('sub-agent transcript progress shows compact start and completion milestone
 test('agent tool status records the effective sub-agent route and task', () => {
   const item = {
     request: {
-      id: 'agent-1', toolName: 'agent.run', definitionVersion: 1,
+      id: 'agent-1', toolName: 'agent_run', definitionVersion: 1,
       args: { type: 'coder', task: 'Configure the yellow host.' },
     },
-    call: { providerCallId: 'provider-1', name: 'agent.run' },
+    call: { providerCallId: 'provider-1', name: 'agent_run' },
   };
   const record = toolStatus({
     sessionId: 'session-1',

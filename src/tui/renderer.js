@@ -312,7 +312,7 @@ function recordRows(record, width) {
 function recordLines(record, width) {
   if (record.type === 'attachment_status') return wrap(`  ATTACHMENT | ${record.attachment_id ?? ''} | ${record.state} | ${record.guidance ?? ''}`, width);
   if (record.type === 'tool_status') {
-    if (record.tool === 'agent.run' && ['running', 'succeeded'].includes(record.status)) return [];
+    if (record.tool === 'agent_run' && ['running', 'succeeded'].includes(record.status)) return [];
     const outcome = toolOutcome(record);
     return wrapIndentedTerminalLine(`    ${toolSymbol(record.status, record.observation_outcome, toolHasDiagnostics(record))} ${record.tool}${toolTargetSuffix(record)} | ${outcome}`, width);
   }

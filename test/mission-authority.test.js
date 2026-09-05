@@ -240,7 +240,7 @@ test('host execution policy validates and canonicalizes exact tool grants', () =
   assert.throws(() => resolveManifest({ ...manifest, allowed_tools: ['bad tool'] }, options), {
     code: 'execution_tools_invalid',
   });
-  assert.throws(() => resolveManifest({ ...manifest, allowed_tools: ['agent.run'] }, options), {
+  assert.throws(() => resolveManifest({ ...manifest, allowed_tools: ['agent_run'] }, options), {
     code: 'execution_tool_forbidden',
   });
 });

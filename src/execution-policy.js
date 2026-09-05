@@ -3,7 +3,7 @@ import { ContractError } from './ids.js';
 
 const MAX_CLAIMS = 512;
 const SAFE_CLAIM_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
-const FORBIDDEN_HOST_TOOLS = new Set(['agent.run']);
+const FORBIDDEN_HOST_TOOLS = new Set(['agent_run']);
 
 export function validateAllowedTools(value) {
   if (value === undefined) return null;
@@ -11,7 +11,7 @@ export function validateAllowedTools(value) {
     throw new ContractError('execution_tools_invalid', 'allowed_tools contains an invalid or duplicate tool name');
   }
   if (value.some((tool) => FORBIDDEN_HOST_TOOLS.has(tool))) {
-    throw new ContractError('execution_tool_forbidden', 'hosted execution cannot grant the root-only agent.run tool');
+    throw new ContractError('execution_tool_forbidden', 'hosted execution cannot grant the root-only agent_run tool');
   }
   return [...value].sort();
 }

@@ -141,7 +141,7 @@ immutable, state transitions are checked, and regression/rollback states remain 
 Activation never expands tools, scope, permissions, or hosted capability grants.
 
 Sub-agents are children of an active parent tool call. Capacity may permit concurrent
-children, but cancellation propagates and every child is shut down before `agent.run`
+children, but cancellation propagates and every child is shut down before `agent_run`
 settles. Tabs and Telegram attachments may retain resumable session state; they do not
 retain execution authority or continue work after the active turn ends. Hosted NNO
 sessions retain the same rule and additionally omit root sub-agent authority unless a

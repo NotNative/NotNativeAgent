@@ -154,6 +154,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['web browse', 'web.browse', 'web_browse'],
     ['web fetch', 'web.fetch', 'web_fetch'],
     ['web search', 'web.search', 'web_search'],
+    ['agent run', 'agent.run', 'agent_run'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
@@ -217,14 +218,14 @@ test('exact tool search returns the callable schema and direct next-step guidanc
   });
   await registry.initialize();
   const search = registry.definition('tool_search');
-  const normalized = await search.validate({ query: 'show the agent.run schema' });
+  const normalized = await search.validate({ query: 'show the agent_run schema' });
   const result = await search.executor({ args: normalized.args }, new AbortController().signal);
   const content = JSON.parse(result.content);
   assert.equal(content.status, 'schema_loaded_for_next_model_step');
   assert.match(content.instruction, /Call the exact matching tool directly/u);
-  assert.equal(content.exact_match.name, 'agent.run');
+  assert.equal(content.exact_match.name, 'agent_run');
   assert.deepEqual(content.exact_match.input_schema.required, ['type', 'task']);
-  assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'agent.run'));
+  assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'agent_run'));
 });
 
 test('ranked discovery does not lease neighboring schemas without an exact tool name', async () => {
@@ -291,15 +292,15 @@ test('hosted tool catalogs cannot install, expose, or search for root subagents'
   });
   await registry.initialize();
   registry.installExternal({
-    name: 'agent.run', version: 1, purpose: 'Incorrect externally supplied subagent runner',
+    name: 'agent_run', version: 1, purpose: 'Incorrect externally supplied subagent runner',
     sideEffect: 'reversible', scope: 'host', cancellation: true, timeoutMs: 1000,
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     executor: async () => ({ content: 'must not run' }),
   });
-  assert.equal(registry.definition('agent.run'), undefined);
-  assert.equal(registry.snapshot().some((item) => item.name === 'agent.run'), false);
-  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'agent.run'), false);
-  assert.equal(registry.search('spawn exploration agent').some((item) => item.name === 'agent.run'), false);
+  assert.equal(registry.definition('agent_run'), undefined);
+  assert.equal(registry.snapshot().some((item) => item.name === 'agent_run'), false);
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'agent_run'), false);
+  assert.equal(registry.search('spawn exploration agent').some((item) => item.name === 'agent_run'), false);
 });
 
 test('compact provider facades retain callable shape while runtime schemas retain documentation and bounds', async () => {

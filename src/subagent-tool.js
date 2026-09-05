@@ -14,7 +14,7 @@ const ACCOUNTING_FIELDS = new Set(['schema', 'attempts', 'measured_attempts', 'e
 
 export function subagentDefinition(control) {
   return {
-    name: 'agent.run', version: 1,
+    name: 'agent_run', version: 1,
     purpose: 'Run one bounded foreground sub-agent with the configured Sub-agents provider route and return its terminal result.',
     sideEffect: 'reversible', scope: 'subagent', parallelGroup: 'subagent', cancellation: true, timeoutMs: 3_600_000,
     maxOutputBytes: 2_097_152,
@@ -31,7 +31,7 @@ export function subagentDefinition(control) {
         || !AGENT_TYPES.has(args.type) || typeof args.task !== 'string'
         || args.task.trim().length < 1 || args.task.length > MAX_TASK_CHARACTERS
         || Buffer.byteLength(args.task, 'utf8') > MAX_TASK_BYTES) {
-        throw new ContractError('subagent_request_invalid', 'agent.run requires a supported type and bounded non-empty task');
+        throw new ContractError('subagent_request_invalid', 'agent_run requires a supported type and bounded non-empty task');
       }
       return {
         args: { type: args.type, task: args.task.trim() },

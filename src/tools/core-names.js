@@ -12,7 +12,7 @@ export const FOUNDATIONAL_TOOL_NAMES = Object.freeze([
 export const TOOL_SURFACE_ELIGIBLE_NAMES = Object.freeze([
   ...FOUNDATIONAL_TOOL_NAMES,
   'fs_directory', 'fs_write_text', 'fs_edit_text', 'fs_edit_lines',
-  'agent.run', 'image_inspect', 'notification.telegram',
+  'agent_run', 'image_inspect', 'notification.telegram',
 ]);
 
 export const LEGACY_PROVIDER_TOOL_NAMES = Object.freeze([

@@ -117,7 +117,7 @@ test('sub-agent cancellation stops waiting after its bounded settlement window',
   let releaseStarted;
   const started = new Promise((resolve) => { releaseStarted = resolve; });
   const definition = {
-    name: 'agent.run', version: 1, scope: 'subagent', timeoutMs: null,
+    name: 'agent_run', version: 1, scope: 'subagent', timeoutMs: null,
     maxOutputBytes: 4096, sideEffect: 'unknown',
     async executor(_request, signal) {
       releaseStarted();
@@ -136,7 +136,7 @@ test('sub-agent cancellation stops waiting after its bounded settlement window',
   const controller = new AbortController();
   const request = {
     id: 'agent-cancel', providerCallId: 'provider-agent-cancel',
-    toolName: 'agent.run', definitionVersion: 1,
+    toolName: 'agent_run', definitionVersion: 1,
   };
   const resultPromise = governor.executePrepared(request, { id: 'decision-agent-cancel' }, controller.signal);
   await started;

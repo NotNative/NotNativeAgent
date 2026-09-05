@@ -63,7 +63,7 @@ export function subagentStatus(engine) {
   const scheduler = engine.scheduler.snapshot().find((item) => item.resource === route.profile.id);
   const standalone = engine.config.executionManifest === null;
   return Object.freeze({
-    available: standalone && Boolean(engine.tools.definition('agent.run')),
+    available: standalone && Boolean(engine.tools.definition('agent_run')),
     reason: standalone ? null : 'hosted sessions cannot inherit root sub-agent authority',
     endpoint: route.profile.endpoint,
     model: route.model,

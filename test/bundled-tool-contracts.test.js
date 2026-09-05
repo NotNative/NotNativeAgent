@@ -15,7 +15,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'nna.mcp_status', 'nna.mcp_test',
   'web_search', 'web_fetch', 'web_browse', 'image_inspect', 'tool_search',
   'process_run', 'shell_run', 'project_verify', 'git_inspect', 'code_diagnostics',
-  'skill.search', 'skill.load', 'agent.run',
+  'skill.search', 'skill.load', 'agent_run',
   'work_plan', 'work_status', 'work_goal', 'work_task_add', 'work_task_update',
   'turn_finish',
   'notification.telegram', 'session.search_history', 'session.read_history', 'system_time',

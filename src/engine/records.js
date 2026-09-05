@@ -87,7 +87,7 @@ export function toolStatus(engine, active, item, status) {
   const completedNonzero = status === 'completed_nonzero';
   const processSignalExit = item.result?.reason_code === 'process_signal_exit';
   const toolName = item.call?.name ?? item.request?.toolName ?? null;
-  const agentRoute = toolName === 'agent.run' ? presentedAgentRoute(engine, presentedArgs) : null;
+  const agentRoute = toolName === 'agent_run' ? presentedAgentRoute(engine, presentedArgs) : null;
   return {
     version: '1.0', type: 'tool_status', session_id: engine.sessionId,
     turn_id: active.turnId, tool_request_id: item.request?.id ?? null,
@@ -123,7 +123,7 @@ function diagnosticVisibility(value) {
 
 function boundedTarget(tool, args, resolved = null, agentRoute = null) {
   if (!args || typeof args !== 'object') return null;
-  if (tool === 'agent.run') return agentInvocation(args, agentRoute);
+  if (tool === 'agent_run') return agentInvocation(args, agentRoute);
   if (tool === 'process_run') return processInvocation(args);
   if (tool === 'shell_run') return shellInvocation(args);
   if (tool === 'project_verify') {

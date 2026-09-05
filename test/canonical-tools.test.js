@@ -243,18 +243,18 @@ test('work_plan atomically replaces the durable goal and ordered tasks', async (
   } finally { await item.close(); }
 });
 
-test('agent.run is searchable only when a usable root subagent route exists', async () => {
+test('agent_run is searchable only when a usable root subagent route exists', async () => {
   const item = await fixture({
     subagentControl: { workspaceRoot: process.cwd(), run: async () => ({ session_id: 'child', outcome: 'completed', text: 'done' }) },
   });
   try {
-    assert.equal(item.registry.providerDefinitions().some((entry) => entry.function.name === 'agent.run'), false);
+    assert.equal(item.registry.providerDefinitions().some((entry) => entry.function.name === 'agent_run'), false);
     assert.equal(item.registry.providerDefinitions('delegate this bounded task to a specialist')
-      .some((entry) => entry.function.name === 'agent.run'), false);
+      .some((entry) => entry.function.name === 'agent_run'), false);
     const search = item.registry.definition('tool_search');
-    const normalized = await search.validate({ query: 'agent.run' });
+    const normalized = await search.validate({ query: 'agent_run' });
     await search.executor({ args: normalized.args }, new AbortController().signal);
     assert.equal(item.registry.providerDefinitions()
-      .some((entry) => entry.function.name === 'agent.run'), true);
+      .some((entry) => entry.function.name === 'agent_run'), true);
   } finally { await item.close(); }
 });

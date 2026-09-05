@@ -49,7 +49,7 @@ returns the effective `tools` inventory in `initialized`. Omitting `allowed_tool
 the standalone tool catalog; an empty list grants no tools. A prompt cannot add to this
 grant, and a resumed session must present the same grant.
 
-`agent.run` is reserved for standalone root NNA. Hosted manifests cannot grant it, and
+`agent_run` is reserved for standalone root NNA. Hosted manifests cannot grant it, and
 hosted tool catalogs never install or advertise it. A host that needs parallel work must
 create separate, independently scoped NNA executions with authenticated manifests.
 

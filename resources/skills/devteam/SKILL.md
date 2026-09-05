@@ -3,7 +3,7 @@ id: devteam
 version: 2
 description: Bring a full software-delivery team to turn an agreed change into a planned, implemented, tested, independently challenged, and evidence-verified delivery
 invocation: both
-requires_tools: [agent.run, project_verify, fs_read, fs_write_text, fs_directory, shell_run]
+requires_tools: [agent_run, project_verify, fs_read, fs_write_text, fs_directory, shell_run]
 ---
 # Devteam
 
@@ -13,7 +13,7 @@ Resolve material product ambiguity with the user before implementation. Create `
 
 ## 1. Establish the delivery contract
 
-Delegate through `agent.run` with type `planner` to inspect the repository and write `.devteam/spec.md`. It must define:
+Delegate through `agent_run` with type `planner` to inspect the repository and write `.devteam/spec.md`. It must define:
 
 - requested outcome, constraints, and explicit non-goals;
 - observable acceptance criteria, including applicable UX qualities;
@@ -56,17 +56,17 @@ Where applicable, the delivery contract must also include security and authoriza
 
 ## 2. Build in dependency waves
 
-Delegate through `agent.run` with type `coder` according to the dependency graph. Give each coder only its work package, relevant interfaces, acceptance criteria, and required handoff. Each writes a package handoff under `.devteam/packages/<id>/changes.md` with files changed, decisions, checks run, and remaining concerns.
+Delegate through `agent_run` with type `coder` according to the dependency graph. Give each coder only its work package, relevant interfaces, acceptance criteria, and required handoff. Each writes a package handoff under `.devteam/packages/<id>/changes.md` with files changed, decisions, checks run, and remaining concerns.
 
 Run independent packages concurrently only when their file ownership and interfaces do not overlap. Concurrency must follow NNA's discovered sub-agent capacity. Serialize overlapping edits and integration-sensitive work. A coder must read an existing file before modifying it and must not broaden scope.
 
 ## 3. Verify with evidence
 
-Delegate through `agent.run` with type `tester` to add focused tests where authorized and run `project_verify` with the narrowest useful scope during repair. Write `.devteam/packages/<id>/test-results.md` with the verification receipt id, exact commands, outcomes, manifest fingerprint, and criterion coverage. Deterministic evidence comes before semantic judgment. Do not substitute an ad-hoc package-manager or shell command when `project_verify` supports the project.
+Delegate through `agent_run` with type `tester` to add focused tests where authorized and run `project_verify` with the narrowest useful scope during repair. Write `.devteam/packages/<id>/test-results.md` with the verification receipt id, exact commands, outcomes, manifest fingerprint, and criterion coverage. Deterministic evidence comes before semantic judgment. Do not substitute an ad-hoc package-manager or shell command when `project_verify` supports the project.
 
 The tester must exercise applicable Power of Ten boundaries and UI invariants, including malformed input, cancellation, partial failure, and recovery paths—not only the happy path.
 
-After package checks pass, delegate through `agent.run` with type `reviewer` against distinct relevant dimensions such as correctness, specification compliance, Power of Ten, UI Power of Ten, security, reliability, observability, maintainability, accessibility, or visual quality. Run independent read-only reviews concurrently when capacity permits. Give reviewers the specification, artifact, diff, and test evidence, but not the builder's private reasoning.
+After package checks pass, delegate through `agent_run` with type `reviewer` against distinct relevant dimensions such as correctness, specification compliance, Power of Ten, UI Power of Ten, security, reliability, observability, maintainability, accessibility, or visual quality. Run independent read-only reviews concurrently when capacity permits. Give reviewers the specification, artifact, diff, and test evidence, but not the builder's private reasoning.
 
 Each reviewer writes a bounded findings artifact containing, for every material finding:
 

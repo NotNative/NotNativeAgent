@@ -28,7 +28,7 @@ test('sub-agent progress emits compact lifecycle milestones without child tool c
   ]);
 });
 
-test('agent.run validates a bounded specialist request and returns its terminal result', async () => {
+test('agent_run validates a bounded specialist request and returns its terminal result', async () => {
   let received;
   const definition = subagentDefinition({
     workspaceRoot: 'D:\\workspace',
@@ -44,7 +44,7 @@ test('agent.run validates a bounded specialist request and returns its terminal 
   await assert.rejects(() => definition.validate({ type: 'manager', task: 'Work' }), { code: 'subagent_request_invalid' });
 });
 
-test('agent.run rejects unknown outcomes and strips unrecognized terminal metadata', async () => {
+test('agent_run rejects unknown outcomes and strips unrecognized terminal metadata', async () => {
   const invalid = subagentDefinition({ workspaceRoot: 'D:\\workspace', run: async () => ({
     session_id: 'agent_test_12345678', outcome: 'SUCCEEDED', text: 'done',
   }) });
@@ -244,7 +244,7 @@ test('sub-agent status exposes routing and capacity without leaking profile labe
   const engine = {
     config: { executionManifest: null, limits: { providerConcurrency: 3 } },
     router: { resolve: () => ({ profile: { id: 'private-profile-label', endpoint: 'http://worker:1234/v1' }, model: 'worker-model' }) },
-    tools: { definition: (name) => name === 'agent.run' ? {} : undefined },
+    tools: { definition: (name) => name === 'agent_run' ? {} : undefined },
     scheduler: { snapshot: () => [{ resource: 'private-profile-label', running: 1, limit: 2, discoveredLimit: 2, queued: [{}] }] },
   };
   const status = subagentStatus(engine);
@@ -271,5 +271,5 @@ test('sub-agent status reports hosted authority as unavailable', () => {
 });
 
 function toolFragment(index, id, args) {
-  return { index, id, function: { name: 'agent.run', arguments: JSON.stringify(args) } };
+  return { index, id, function: { name: 'agent_run', arguments: JSON.stringify(args) } };
 }

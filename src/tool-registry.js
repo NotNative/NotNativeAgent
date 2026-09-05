@@ -186,10 +186,10 @@ export class ToolRegistry {
     const definition = this.#definitions.get(call.name);
     if (!definition) {
       const migratedName = typeof call.name === 'string' ? call.name.replaceAll('.', '_') : '';
-      const migrationHint = migratedName !== call.name && this.#definitions.has(migratedName)
-        ? `; use ${migratedName}` : '';
+      const migrationHint = migratedName !== call.name ? `; use ${migratedName}` : '';
       // Why: dotted names are not executable aliases. This bounded hint lets an older
-      // retained model context recover without restoring the retired provider contract.
+      // retained model context recover even when its canonical tool is conditionally
+      // unavailable; a later canonical request will report that availability honestly.
       throw new ContractError('unknown_tool', `tool ${call.name} is unavailable${migrationHint}`);
     }
     const binding = call.name.startsWith('ref.')
@@ -265,7 +265,7 @@ export class ToolRegistry {
     }
   }
   #install(definition) {
-    if (this.hosted && definition.name === 'agent.run') return false;
+    if (this.hosted && definition.name === 'agent_run') return false;
     if (!allowedByManifest(this.allowedTools, definition.name)) return false;
     if (this.#definitions.has(definition.name)) throw new Error(`duplicate tool ${definition.name}`);
     const maxOutputBytes = definition.maxOutputBytes ?? 1_048_576;
