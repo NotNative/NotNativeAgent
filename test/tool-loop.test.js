@@ -950,8 +950,8 @@ test('registry exposes workspace operations and packaged self-guidance', async (
     .find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
-    'code_diagnostics', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
-    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
+    'code_diagnostics', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
+    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);

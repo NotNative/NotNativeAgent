@@ -24,7 +24,7 @@ test('root metadata and directory tools may target host paths while hosted tools
   const inspected = await metadata.validate({ path: 'source.txt' });
   const result = await metadata.executor(inspected, new AbortController().signal);
   assert.match(result.content, /"kind":"file"/u);
-  const directory = definitions.get('fs.create_directory');
+  const directory = definitions.get('fs_create_directory');
   const request = await directory.validate({ path: 'generated' });
   await directory.executor(request, new AbortController().signal);
   assert.equal((await stat(join(root, 'generated'))).isDirectory(), true);
@@ -33,7 +33,7 @@ test('root metadata and directory tools may target host paths while hosted tools
   assert.equal(outsideRequest.resolved.insideWorkspace, false);
   await directory.executor(outsideRequest, new AbortController().signal);
   const hosted = await fixture({ boundedToWorkspace: true });
-  await assert.rejects(hosted.definitions.get('fs.create_directory').validate({ path: join(outside, 'hosted-denied') }), { code: 'tool_scope_denied' });
+  await assert.rejects(hosted.definitions.get('fs_create_directory').validate({ path: join(outside, 'hosted-denied') }), { code: 'tool_scope_denied' });
 });
 
 test('missing filesystem targets expose the supplied path without guessing its intent', async () => {
@@ -56,7 +56,7 @@ test('missing filesystem targets expose the supplied path without guessing its i
 
 test('directory creation is recursive and idempotent while retaining resolved path governance', async () => {
   const { root, definitions } = await fixture();
-  const directory = definitions.get('fs.create_directory');
+  const directory = definitions.get('fs_create_directory');
   assert.match(directory.purpose, /missing parent directories[^]*recursive and idempotent/iu);
   assert.match(directory.inputSchema.properties.path.description, /Missing parent directories are created automatically/iu);
 

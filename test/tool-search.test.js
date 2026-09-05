@@ -134,6 +134,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['reference inspect', 'ref.inspect', 'ref_inspect'],
     ['system time', 'system.time', 'system_time'],
     ['filesystem copy file', 'fs.copy_file', 'fs_copy_file'],
+    ['filesystem create directory', 'fs.create_directory', 'fs_create_directory'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
@@ -158,9 +159,9 @@ test('hosted execution obeys an authenticated manifest rather than inferred word
 test('explicit exposure makes an exact recovery tool visible without broadening its bundle', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  registry.grantWorkflowLease(['fs.create_directory']);
+  registry.grantWorkflowLease(['fs_create_directory']);
   const visible = registry.providerDefinitions('inspect the missing path').map((item) => item.function.name);
-  assert.ok(visible.includes('fs.create_directory'));
+  assert.ok(visible.includes('fs_create_directory'));
   assert.ok(!visible.includes('fs.write_text'));
   assert.ok(!visible.includes('fs.delete_file'));
 });

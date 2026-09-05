@@ -93,7 +93,7 @@ The canonical model-facing filesystem tools are:
   outside the workspace still require an explicit `fs_read` receipt.
 
 The granular `fs.list_directory`, `fs.glob`, `fs.metadata`, `fs.read_text`, `fs.read_lines`,
-`fs.create_directory`, `fs.edit_lines`, `fs_copy_file`, `fs.move_file`, and `fs.delete_file`
+`fs_create_directory`, `fs.edit_lines`, `fs_copy_file`, `fs.move_file`, and `fs.delete_file`
 definitions remain installed for compatibility and specialist/internal workflows. They are
 not competing choices in a fresh model-facing catalog.
 
@@ -232,7 +232,7 @@ Installed compatibility definitions retain the narrower historical operations:
 - `fs.delete_file`: permanently delete one regular file after semantic review and
   exact-content revalidation.
 - `fs.metadata`: inspect bounded file or directory metadata without reading content.
-- `fs.create_directory`: recursively create an accessible directory and any missing parent
+- `fs_create_directory`: recursively create an accessible directory and any missing parent
   directories. It is idempotent: targeting an existing directory succeeds without changing it.
 - `fs_copy_file` and `fs.move_file`: copy or move an exact-hash regular file to a new
   destination. They refuse overwrites and revalidate immediately before commit.

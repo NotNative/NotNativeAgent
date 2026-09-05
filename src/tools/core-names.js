@@ -17,7 +17,7 @@ export const TOOL_SURFACE_ELIGIBLE_NAMES = Object.freeze([
 
 export const LEGACY_PROVIDER_TOOL_NAMES = Object.freeze([
   'fs.glob', 'fs.list_directory', 'fs.metadata', 'fs.read_lines', 'fs.read_text',
-  'fs.create_directory', 'fs_copy_file', 'fs.move_file', 'fs.delete_file',
+  'fs_create_directory', 'fs_copy_file', 'fs.move_file', 'fs.delete_file',
   'nna.list_sessions',
 ]);
 

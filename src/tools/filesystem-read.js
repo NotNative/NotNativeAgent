@@ -201,7 +201,7 @@ function listDefinition(paths) {
         if (error?.code !== 'ENOENT') throw error;
         throw new ContractError(
           'tool_directory_not_found',
-          `directory does not exist: ${path}. fs.list_directory enumerates an existing directory and is not an existence probe; list its parent to discover available names, or use fs.create_directory when the task requires creating it`,
+          `directory does not exist: ${path}. fs.list_directory enumerates an existing directory and is not an existence probe; list its parent to discover available names, or use fs_create_directory when the task requires creating it`,
         );
       }
       return { args: { path, depth: args.depth ?? 2 }, resolved };

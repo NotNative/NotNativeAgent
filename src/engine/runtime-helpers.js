@@ -183,7 +183,7 @@ export function advanceWorkCadence(active) {
 }
 
 const OBSERVABLE_MUTATIONS = new Set([
-  'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.directory', 'fs.create_directory',
+  'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.directory', 'fs_create_directory',
   'fs_copy_file', 'fs.move_file', 'fs.delete_file', 'process_run', 'shell_run',
   'work_plan', 'work_goal', 'work_task_add', 'work_task_update',
 ]);

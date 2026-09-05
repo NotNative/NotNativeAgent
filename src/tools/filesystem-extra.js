@@ -24,7 +24,7 @@ function metadataDefinition(paths) {
 }
 
 function directoryDefinition(paths) {
-  return definition('fs.create_directory', 'Create an accessible directory and any missing parent directories. The operation is recursive and idempotent: an existing directory is already successful.', 'reversible', {
+  return definition('fs_create_directory', 'Create an accessible directory and any missing parent directories. The operation is recursive and idempotent: an existing directory is already successful.', 'reversible', {
     path: { type: 'string', maxLength: 4096, description: 'Required directory path. Missing parent directories are created automatically; an existing directory succeeds without changing it.' },
   }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveDirectoryWrite(args.path) }),
   async (request, signal) => {
