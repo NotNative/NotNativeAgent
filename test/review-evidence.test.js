@@ -95,7 +95,7 @@ test('conversation intent keeps earlier task evidence relevant after later conti
   const transcript = [
     { type: 'tool_result', turnId: 'current', requestId: 'render', toolName: 'web.browse', status: 'succeeded', content: 'Oceanview render loaded successfully.' },
     ...Array.from({ length: 12 }, (_, index) => ({
-      type: 'tool_result', turnId: 'current', requestId: `read-${index}`, toolName: 'fs.read',
+      type: 'tool_result', turnId: 'current', requestId: `read-${index}`, toolName: 'fs_read',
       status: 'succeeded', content: `unrelated line ${index}`,
     })),
     { type: 'tool_request', turnId: 'current', requestId: 'edit', toolName: 'fs.edit_text', args: { path: 'src/main.js' } },

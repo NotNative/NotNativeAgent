@@ -18,7 +18,7 @@ function project(record) {
 }
 
 test('receipt projection has one byte-accounting block and a literal excerpt', () => {
-  const record = { type: 'tool_result', toolName: 'fs.read', providerCallId: 'call', requestId: 'request',
+  const record = { type: 'tool_result', toolName: 'fs_read', providerCallId: 'call', requestId: 'request',
     toolLifecycleStatus: 'succeeded', content: 'source line\n'.repeat(2000) };
   const receipt = createToolContextReceipt(record);
   const envelope = project(receipt);
@@ -38,7 +38,7 @@ test('receipt projection has one byte-accounting block and a literal excerpt', (
 
 test('receipt omission ranges describe exact UTF-8 content and expose a usable history request', () => {
   const source = 'begin💜'.repeat(1000) + 'end界'.repeat(1000);
-  const record = { type: 'tool_result', toolName: 'fs.read', requestId: 'request', providerCallId: 'call',
+  const record = { type: 'tool_result', toolName: 'fs_read', requestId: 'request', providerCallId: 'call',
     toolLifecycleStatus: 'succeeded', content: source };
   const receipt = createToolContextReceipt(record);
   const metadata = project(receipt).projection_metadata;
@@ -57,7 +57,7 @@ test('receipt omission ranges describe exact UTF-8 content and expose a usable h
 
 test('already-bounded and redacted evidence never invents original byte ranges', () => {
   for (const extra of [{ truncated: true }, { metadata: { contentRedacted: true } }, { metadata: { originalBytes: 99999 } }]) {
-    const receipt = createToolContextReceipt({ type: 'tool_result', toolName: 'fs.read', providerCallId: 'call',
+    const receipt = createToolContextReceipt({ type: 'tool_result', toolName: 'fs_read', providerCallId: 'call',
       toolLifecycleStatus: 'succeeded', content: 'retained '.repeat(1000), ...extra });
     const metadata = project(receipt).projection_metadata;
     assert.equal(metadata.omitted_ranges, undefined);
@@ -66,7 +66,7 @@ test('already-bounded and redacted evidence never invents original byte ranges',
 });
 
 test('active receipt pressure preserves failed tool evidence without truncating repair instructions', () => {
-  const failure = { type: 'tool_result', turnId: 'turn', stepId: 'old', toolName: 'fs.read',
+  const failure = { type: 'tool_result', turnId: 'turn', stepId: 'old', toolName: 'fs_read',
     providerCallId: 'failed', toolLifecycleStatus: 'failed', content: 'repair evidence '.repeat(1000) };
   const records = [failure, ...[1, 2, 3].map((step) => ({ type: 'message', role: 'assistant',
     turnId: 'turn', stepId: `recent-${step}`, content: 'continue' }))];
@@ -75,7 +75,7 @@ test('active receipt pressure preserves failed tool evidence without truncating 
 
 test('duplicate receipts expose the removed source byte count', () => {
   const content = 'identical evidence '.repeat(1000);
-  const records = ['old', 'new'].map((id) => ({ type: 'tool_result', toolName: 'fs.read',
+  const records = ['old', 'new'].map((id) => ({ type: 'tool_result', toolName: 'fs_read',
     requestId: id, providerCallId: id, toolLifecycleStatus: 'succeeded', content }));
   const duplicate = projectDuplicateToolResults(records).records[0];
   const envelope = project(duplicate);

@@ -311,7 +311,7 @@ test('provider requests explicitly disable parallel tool calls when requested', 
   } });
   for await (const _item of provider.stream({
     model: 'fixture', messages: [], parallelToolCalls: false,
-    tools: [{ type: 'function', function: { name: 'fs.read', parameters: { type: 'object' } } }],
+    tools: [{ type: 'function', function: { name: 'fs_read', parameters: { type: 'object' } } }],
   }, new AbortController().signal)) { /* consume */ }
   assert.equal(body.parallel_tool_calls, false);
   assert.equal(body.tool_choice, 'auto');
@@ -329,7 +329,7 @@ test('batch-compatible requests omit the single-call control', async () => {
   } });
   for await (const _item of provider.stream({
     model: 'fixture', messages: [], toolCallMode: 'batch',
-    tools: [{ type: 'function', function: { name: 'fs.read', parameters: { type: 'object' } } }],
+    tools: [{ type: 'function', function: { name: 'fs_read', parameters: { type: 'object' } } }],
   }, new AbortController().signal)) { /* consume */ }
   assert.equal(Object.hasOwn(body, 'parallel_tool_calls'), false);
   assert.equal(body.tool_choice, 'auto');

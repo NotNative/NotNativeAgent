@@ -32,7 +32,7 @@ test('new denial results separate tool lifecycle status from review outcome', ()
 
 test('ordinary tool results have one lifecycle field and no review outcome', () => {
   const record = toolResultRecord({ result: {
-    request_id: 'request-1', provider_call_id: 'call-1', tool_name: 'fs.read',
+    request_id: 'request-1', provider_call_id: 'call-1', tool_name: 'fs_read',
     status: 'succeeded', content: 'ok', effect_certainty: 'completed',
   } }, 'turn-1');
   assert.equal(record.toolLifecycleStatus, 'succeeded');
@@ -85,9 +85,9 @@ test('provider projection names lifecycle and review fields explicitly', () => {
 test('provider projection distinguishes full, redacted, bounded, and receipt content', () => {
   const project = (metadata) => {
     const transcript = [
-      { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs.read', args: { path: 'a.txt' } },
+      { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs_read', args: { path: 'a.txt' } },
       {
-        type: 'tool_result', providerCallId: 'call-1', toolName: 'fs.read',
+        type: 'tool_result', providerCallId: 'call-1', toolName: 'fs_read',
         toolLifecycleStatus: 'succeeded', content: 'evidence', metadata,
       },
     ];
@@ -128,7 +128,7 @@ test('result cache restores legacy journal status through the compatibility read
 
 test('raw executor truncation cannot be labeled full provider evidence', () => {
   const messages = buildContext({ workspaceRoot: process.cwd(), limits: { maxContextBytes: 1_048_576 } }, [{
-    type: 'tool_result', providerCallId: 'bounded', toolName: 'fs.read', toolLifecycleStatus: 'succeeded',
+    type: 'tool_result', providerCallId: 'bounded', toolName: 'fs_read', toolLifecycleStatus: 'succeeded',
     content: 'partial', truncated: true, metadata: { originalBytes: 50, projectionReason: 'tool_output_bound' },
   }], '');
   const envelope = JSON.parse(messages.find((item) => item.role === 'tool').content);

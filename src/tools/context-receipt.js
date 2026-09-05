@@ -56,7 +56,7 @@ export function createToolContextReceipt(result, request) {
 }
 
 function toolCategory(name = '') {
-  if (/^(?:fs\.|code\.)/u.test(name)) return /(?:search|glob|list|diagnostic)/u.test(name) ? 'search' : 'filesystem';
+  if (/^(?:fs[._]|code\.)/u.test(name)) return /(?:search|glob|list|diagnostic)/u.test(name) ? 'search' : 'filesystem';
   if (/^(?:process\.|shell\.)/u.test(name)) return 'shell';
   if (/^web\./u.test(name)) return 'web';
   if (/^mcp\./u.test(name)) return 'mcp';

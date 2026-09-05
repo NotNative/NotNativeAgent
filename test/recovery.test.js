@@ -764,7 +764,7 @@ test('provider retries tool identity drift before any assembled call can execute
     attempts += 1;
     if (attempts === 1) {
       yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: 'drift-a', function: { name: 'fs.read', arguments: '{"path":' },
+        index: 0, id: 'drift-a', function: { name: 'fs_read', arguments: '{"path":' },
       }] };
       yield { type: 'tool_fragment', fragments: [{
         index: 0, id: 'drift-b', function: { name: '', arguments: '"README.md"}' },
@@ -772,7 +772,7 @@ test('provider retries tool identity drift before any assembled call can execute
       return;
     }
     yield { type: 'tool_fragment', fragments: [{
-      index: 0, id: 'stable-call', function: { name: 'fs.read', arguments: '{"path":"README.md"}' },
+      index: 0, id: 'stable-call', function: { name: 'fs_read', arguments: '{"path":"README.md"}' },
     }] };
     yield { type: 'terminal', finishReason: 'tool_calls' };
   } };

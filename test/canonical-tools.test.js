@@ -29,7 +29,7 @@ test('canonical filesystem tools list names, read snapshots, and preserve conten
     const listResult = await list.executor(listed, new AbortController().signal);
     assert.match(listResult.content, /file\tsrc\/components\/widgets\/button\.js/u);
 
-    const read = item.registry.definition('fs.read');
+    const read = item.registry.definition('fs_read');
     const complete = await read.validate({ path: 'src/components/widgets/button.js' });
     assert.deepEqual(complete.args, { path: 'src/components/widgets/button.js' });
     assert.equal(complete.resolved.readMode, 'full');
@@ -121,7 +121,7 @@ test('filesystem mutations accept unambiguous common argument spellings and reta
     await edit.executor(edited, new AbortController().signal);
     assert.equal(await readFile(join(item.root, 'src', 'generated', 'value.txt'), 'utf8'), 'after');
 
-    const read = item.registry.definition('fs.read');
+    const read = item.registry.definition('fs_read');
     const readAlias = await read.validate({ filePath: 'src/generated/value.txt', startLine: '1', limit: '1' });
     assert.deepEqual(readAlias.args, { path: 'src/generated/value.txt', start_line: 1, line_count: 1 });
 
@@ -171,7 +171,7 @@ test('fs.edit_text rejects line selectors and fs.edit_lines revalidates content 
     await assert.rejects(edit.validate({
       path: 'editable.txt', content: 'x', find: 'one', start_line: 1,
     }), { code: 'tool_schema_invalid' });
-    const read = item.registry.definition('fs.read');
+    const read = item.registry.definition('fs_read');
     const observed = await read.validate({ path: 'editable.txt', start_line: 1, line_count: 3 });
     await read.executor(observed, new AbortController().signal);
     const lineEdit = item.registry.definition('fs.edit_lines');

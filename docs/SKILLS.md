@@ -19,7 +19,7 @@ id: code-review
 version: 1
 description: Review changed code for correctness
 invocation: both
-requires_tools: [fs.read]
+requires_tools: [fs_read]
 ---
 Read relevant files before reporting prioritized findings.
 ```

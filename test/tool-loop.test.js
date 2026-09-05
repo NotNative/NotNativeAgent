@@ -225,14 +225,14 @@ test('materially corrected plan repairs do not consume one exact-loop budget', (
 test('read-only behavior is supervised from tool metadata and work updates count as state progress', () => {
   const active = { observableStateRevision: 0, readOnlyBatchStreak: 0 };
   const definitions = new Map([
-    ['fs.read', { sideEffect: 'read_only' }], ['work.plan', { sideEffect: 'reversible' }],
+    ['fs_read', { sideEffect: 'read_only' }], ['work.plan', { sideEffect: 'reversible' }],
     ['fs.directory', { sideEffect: 'reversible' }], ['shell.run', { sideEffect: 'unknown' }],
   ]);
   const definitionFor = (name) => definitions.get(name);
   for (let count = 1; count <= 12; count += 1) {
     const observed = observeToolState(active, [{
       request: { args: { path: `file-${count}` } },
-      result: { status: 'succeeded', tool_name: 'fs.read' },
+      result: { status: 'succeeded', tool_name: 'fs_read' },
     }], definitionFor);
     assert.equal(observed.readOnlyBatchStreak, count);
   }
@@ -951,7 +951,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
-    'fs.metadata', 'fs.move_file', 'fs.read', 'fs.read_lines', 'fs.read_text', 'fs.search_text', 'fs.write_text', 'fs_list', 'git.inspect',
+    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.search_text', 'fs.write_text', 'fs_list', 'fs_read', 'git.inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'project.verify', 'ref.inspect', 'ref.store', 'shell.run', 'system.time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
@@ -1275,8 +1275,8 @@ test('exact duplicate calls in one provider batch execute and replay only once',
     if (count === 1) {
       assert.equal(request.parallelToolCalls, false);
       yield { type: 'tool_fragment', fragments: [
-        { index: 0, id: 'retained-call', function: { name: 'fs.read', arguments: '{"path":"result.txt"}' } },
-        { index: 1, id: 'suppressed-call', function: { name: 'fs.read', arguments: '{"path":"result.txt"}' } },
+        { index: 0, id: 'retained-call', function: { name: 'fs_read', arguments: '{"path":"result.txt"}' } },
+        { index: 1, id: 'suppressed-call', function: { name: 'fs_read', arguments: '{"path":"result.txt"}' } },
       ] };
       yield { type: 'terminal', finishReason: 'tool_calls' };
       return;

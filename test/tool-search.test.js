@@ -5,7 +5,7 @@ import { ToolRegistry } from '../src/tool-registry.js';
 
 const FOUNDATION = [
   'tool_search',
-  'fs_list', 'fs.read', 'fs.search_text',
+  'fs_list', 'fs_read', 'fs.search_text',
   'shell.run', 'work.plan', 'work.status', 'work.task_update', 'turn.finish',
   'git.inspect',
 ];
@@ -114,6 +114,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
   for (const [index, retired, canonical] of [
     ['search', 'tool.search', 'tool_search'],
     ['list', 'fs.list', 'fs_list'],
+    ['read', 'fs.read', 'fs_read'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
@@ -265,9 +266,9 @@ test('hosted tool catalogs cannot install, expose, or search for root subagents'
 test('compact provider facades retain callable shape while runtime schemas retain documentation and bounds', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  const runtime = registry.snapshot().find((item) => item.name === 'fs.read');
+  const runtime = registry.snapshot().find((item) => item.name === 'fs_read');
   const wire = registry.providerDefinitions('read numbered lines')
-    .find((item) => item.function.name === 'fs.read');
+    .find((item) => item.function.name === 'fs_read');
 
   assert.equal(runtime.inputSchema.properties.start_line.maximum, 10_000_000);
   assert.equal(runtime.inputSchema.properties.path.maxLength, 4096);
@@ -287,7 +288,7 @@ test('compact provider facades retain callable shape while runtime schemas retai
 test('every bundled filesystem argument has provider-visible semantic guidance', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  const filesystemTools = registry.snapshot().filter((item) => item.name.startsWith('fs.'));
+  const filesystemTools = registry.snapshot().filter((item) => item.name.startsWith('fs.') || item.name.startsWith('fs_'));
   assert.ok(filesystemTools.length >= 13);
   for (const tool of filesystemTools) {
     for (const [name, property] of Object.entries(tool.inputSchema.properties ?? {})) {

@@ -30,7 +30,7 @@ function readDefinition(legacy) {
   const whole = requiredLegacy(legacy, 'fs.read_text');
   const lines = requiredLegacy(legacy, 'fs.read_lines');
   return {
-    name: 'fs.read', version: 1,
+    name: 'fs_read', version: 1,
     purpose: 'Read bounded UTF-8 text from one accessible file. Omit line arguments for the complete file, or provide start_line and line_count for a numbered window. Every result records the snapshot receipt required by later edits.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({

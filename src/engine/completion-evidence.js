@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Compatibility: fs.read is the compact canonical surface, while fs.read_lines and
+// Compatibility: fs_read is the compact canonical surface, while fs.read_lines and
 // fs.read_text remain supported granular tools. Evidence must count all three names.
-const READ_TOOLS = new Set(['fs.read', 'fs.read_lines', 'fs.read_text']);
+const READ_TOOLS = new Set(['fs_read', 'fs.read_lines', 'fs.read_text']);
 
 export function completionEvidence(transcript, turnId) {
   const records = Array.isArray(transcript) ? transcript.filter((item) => turnIdentity(item) === turnId) : [];

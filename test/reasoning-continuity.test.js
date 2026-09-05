@@ -61,10 +61,10 @@ test('reasoning capture repairs absent continuation enrichment containers', () =
 test('one model step replays text, reasoning, and parallel tool calls as one assistant message', () => {
   const transcript = [
     { type: 'message', role: 'assistant', content: 'Checking both files.', trust: 'model', turnId: 'turn-1', stepId: 'step-1' },
-    { type: 'tool_request', providerCallId: 'call-a', toolName: 'fs.read', args: { path: 'a.js' }, turnId: 'turn-1', stepId: 'step-1' },
-    { type: 'tool_result', providerCallId: 'call-a', toolName: 'fs.read', status: 'succeeded', content: 'a', turnId: 'turn-1', stepId: 'step-1' },
-    { type: 'tool_request', providerCallId: 'call-b', toolName: 'fs.read', args: { path: 'b.js' }, turnId: 'turn-1', stepId: 'step-1' },
-    { type: 'tool_result', providerCallId: 'call-b', toolName: 'fs.read', status: 'succeeded', content: 'b', turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_request', providerCallId: 'call-a', toolName: 'fs_read', args: { path: 'a.js' }, turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_result', providerCallId: 'call-a', toolName: 'fs_read', status: 'succeeded', content: 'a', turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_request', providerCallId: 'call-b', toolName: 'fs_read', args: { path: 'b.js' }, turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_result', providerCallId: 'call-b', toolName: 'fs_read', status: 'succeeded', content: 'b', turnId: 'turn-1', stepId: 'step-1' },
   ];
   const context = buildContext(config, transcript, '', { reasoningContinuations: [{
     providerCallId: 'call-a', providerProfile: 'local', model: 'qwen', reasoningContent: 'private plan',
@@ -109,8 +109,8 @@ test('context uses actual envelope headroom instead of a fixed reasoning fractio
   const transcript = [
     { type: 'tool_request', providerCallId: 'call-old', toolName: 'fs_list', args: { path: '.' } },
     { type: 'tool_result', providerCallId: 'call-old', toolName: 'fs_list', status: 'succeeded', content: 'first' },
-    { type: 'tool_request', providerCallId: 'call-new', toolName: 'fs.read', args: { path: 'main.js' } },
-    { type: 'tool_result', providerCallId: 'call-new', toolName: 'fs.read', status: 'succeeded', content: 'second' },
+    { type: 'tool_request', providerCallId: 'call-new', toolName: 'fs_read', args: { path: 'main.js' } },
+    { type: 'tool_result', providerCallId: 'call-new', toolName: 'fs_read', status: 'succeeded', content: 'second' },
   ];
   const enrichment = { reasoningContinuations: [
     { providerCallId: 'call-old', providerProfile: 'local', model: 'qwen', reasoningContent: 'a'.repeat(40_000) },

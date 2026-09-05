@@ -16,7 +16,7 @@ export function openFilesView(workspace) {
 
 export function filesView(session, changes = []) {
   const records = [...(session?.historyRecords ?? []), ...(session?.records ?? [])]
-    .filter((record) => record.type === 'tool_status' && record.tool?.startsWith('fs.')
+    .filter((record) => record.type === 'tool_status' && (record.tool?.startsWith('fs.') || record.tool?.startsWith('fs_'))
       && isTerminalToolStatus(record.status));
   const failed = records.filter((record) => record.status !== 'succeeded' && record.status !== 'duplicate_ignored');
   const read = unique(records.filter((record) => !MUTATIONS.has(record.tool) && record.status === 'succeeded'));

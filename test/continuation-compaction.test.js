@@ -310,13 +310,13 @@ test('settled tool exchanges become typed causal receipts while tool-call argume
   const productionResult = toolResultRecord({
     lifecycle: { id: 'request-old' },
     result: {
-      request_id: 'request-old', provider_call_id: 'read-old', tool_name: 'fs.read',
+      request_id: 'request-old', provider_call_id: 'read-old', tool_name: 'fs_read',
       status: 'succeeded', effect_certainty: 'completed', content: `host-a\n${'output '.repeat(2_000)}`,
     },
   }, 'turn-old');
   const transcript = [
     message('user', 'Inspect the host.', 'turn-old'),
-    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'read-old', toolName: 'fs.read', args: { path: `host-${'x'.repeat(3_000)}.txt` } },
+    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'read-old', toolName: 'fs_read', args: { path: `host-${'x'.repeat(3_000)}.txt` } },
     productionResult,
     ...Array.from({ length: 5 }, (_, index) => [
       message('user', `Recent request ${index}`, `turn-${index}`),
@@ -387,23 +387,23 @@ test('bounded tool receipts remain flat and stable across repeated compaction', 
 test('hierarchical continuation resolves request and result pairs across chunk boundaries', () => {
   const transcript = [
     message('user', 'Inspect the large result.', 'turn-old'),
-    { type: 'tool_request', turnId: 'turn-old', providerCallId: 'cross-chunk', toolName: 'fs.read', args: { path: `fixture-${'x'.repeat(70_000)}` } },
-    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'cross-chunk', toolName: 'fs.read', toolLifecycleStatus: 'succeeded', content: 'verified result' },
+    { type: 'tool_request', turnId: 'turn-old', providerCallId: 'cross-chunk', toolName: 'fs_read', args: { path: `fixture-${'x'.repeat(70_000)}` } },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'cross-chunk', toolName: 'fs_read', toolLifecycleStatus: 'succeeded', content: 'verified result' },
   ];
   const compacted = compactTranscript(transcript, 200_000);
   assert.ok(compacted.fact.continuation.hierarchyChunks > 1);
   assert.deepEqual(compacted.fact.continuation.unresolvedTools, []);
-  assert.ok(compacted.fact.continuation.verifiedFacts.includes('fs.read completed successfully'));
+  assert.ok(compacted.fact.continuation.verifiedFacts.includes('fs_read completed successfully'));
 });
 
 test('failed and denied tool results remain exact instead of becoming semantic receipts', () => {
   const failure = {
-    type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-call', toolName: 'fs.read',
+    type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-call', toolName: 'fs_read',
     toolLifecycleStatus: 'invalid_request', reasonCode: 'tool_schema_invalid', content: 'required argument "path" is missing',
   };
   const transcript = [
     message('user', 'Read the file.', 'turn-old'),
-    { type: 'tool_request', turnId: 'turn-old', providerCallId: 'failed-call', toolName: 'fs.read', args: {} },
+    { type: 'tool_request', turnId: 'turn-old', providerCallId: 'failed-call', toolName: 'fs_read', args: {} },
     failure,
     ...Array.from({ length: 6 }, (_, index) => [
       message('user', `Recent request ${index}`, `turn-${index}`),
@@ -418,7 +418,7 @@ test('failed and denied tool results remain exact instead of becoming semantic r
 
 test('compaction either replays exact native tool-call arguments or omits the complete exchange', () => {
   const requests = [
-    { providerCallId: 'read', toolName: 'fs.read', args: { path: 'README.md', start_line: 3, line_count: 120 } },
+    { providerCallId: 'read', toolName: 'fs_read', args: { path: 'README.md', start_line: 3, line_count: 120 } },
     { providerCallId: 'search', toolName: 'fs.search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js', max_results: 17 } },
     { providerCallId: 'web', toolName: 'web.search', args: { query: 'current provider documentation', max_results: 4 } },
     { providerCallId: 'plan', toolName: 'work.plan', args: { objective: 'Keep history truthful', tasks: ['test', 'ship'] } },

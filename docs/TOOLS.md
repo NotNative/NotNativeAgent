@@ -3,7 +3,7 @@
 ## Discovery and context economy
 
 Every ordinary provider step receives a deterministic foundational surface, with `tool_search`
-first: `tool_search`; `fs_list`, `fs.read`, and `fs.search_text`; `shell.run`;
+first: `tool_search`; `fs_list`, `fs_read`, and `fs.search_text`; `shell.run`;
 `work.plan`, `work.status`, and `work.task_update`; `turn.finish`; and `git.inspect`.
 A foundational tool is omitted only when that subsystem is genuinely unavailable or an
 authenticated host manifest removes it. NNA never selects or withholds schemas by matching
@@ -69,7 +69,7 @@ The canonical model-facing filesystem tools are:
   When its query contains expression syntax, the result suggests `match_mode: "regex"` without
   assuming that expression matching was the operator's intent.
   NNA transparently uses `rg` when available and falls back to its bounded native search.
-- `fs.read`: read up to 1 MiB of UTF-8 text or, when `start_line`/`line_count` are supplied,
+- `fs_read`: read up to 1 MiB of UTF-8 text or, when `start_line`/`line_count` are supplied,
   at most 400 numbered lines. It returns a SHA-256 snapshot tag and an internal receipt for
   exactly what was observed. Its public arguments are only `path`, `start_line`, and
   `line_count`; complete-file versus numbered-window selection is internal metadata, not a
@@ -90,7 +90,7 @@ The canonical model-facing filesystem tools are:
   remain the canonical arguments, while common unambiguous `filePath`/`file_path` and `text`
   spellings are normalized before the request is sealed. The snapshot is
   content-free in the review packet and cannot authorize another operation. Existing files
-  outside the workspace still require an explicit `fs.read` receipt.
+  outside the workspace still require an explicit `fs_read` receipt.
 
 The granular `fs.list_directory`, `fs.glob`, `fs.metadata`, `fs.read_text`, `fs.read_lines`,
 `fs.create_directory`, `fs.edit_lines`, `fs.copy_file`, `fs.move_file`, and `fs.delete_file`

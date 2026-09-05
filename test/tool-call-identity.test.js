@@ -15,7 +15,7 @@ test('streaming and execution layers agree on exact call equivalence', () => {
   ]) {
     const assembler = new ToolCallAssembler();
     assembler.add([a, b].map((args, index) => ({ index, id: `call-${index}`,
-      function: { name: 'fs.read', arguments: JSON.stringify(args) } })));
+      function: { name: 'fs_read', arguments: JSON.stringify(args) } })));
     assert.equal(assembler.hasEquivalentCompleteCalls, equivalent);
     assert.equal(deduplicateToolCallBatch(assembler.complete()).suppressed.length, equivalent ? 1 : 0);
   }

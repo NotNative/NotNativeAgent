@@ -5,18 +5,18 @@ import { completionEvidence, completionEvidenceHint } from '../src/engine/comple
 
 test('completion evidence reports exact successful reads and verification calls', () => {
   const transcript = [
-    request('read-1', 'fs.read', { path: 'src/a.js' }), result('read-1', 'fs.read', 'succeeded'),
-    request('read-2', 'fs.read', { path: 'src/a.js' }), result('read-2', 'fs.read', 'succeeded'),
-    request('read-3', 'fs.read', { path: 'src/b.js' }), result('read-3', 'fs.read', 'failed'),
+    request('read-1', 'fs_read', { path: 'src/a.js' }), result('read-1', 'fs_read', 'succeeded'),
+    request('read-2', 'fs_read', { path: 'src/a.js' }), result('read-2', 'fs_read', 'succeeded'),
+    request('read-3', 'fs_read', { path: 'src/b.js' }), result('read-3', 'fs_read', 'failed'),
     request('verify-1', 'project.verify', {}), result('verify-1', 'project.verify', 'succeeded'),
     request('finish-1', 'turn.finish', { outcome: 'completed' }), result('finish-1', 'turn.finish', 'succeeded'),
-    { type: 'tool_request', turnId: 'other', providerCallId: 'other', toolName: 'fs.read', args: { path: 'ignored' } },
+    { type: 'tool_request', turnId: 'other', providerCallId: 'other', toolName: 'fs_read', args: { path: 'ignored' } },
   ];
   const evidence = completionEvidence(transcript, 'turn-1');
   assert.deepEqual(evidence, {
     schema: 'nna.completion-evidence.v1', tool_requests: 4, tool_results: 4,
     succeeded: 3, non_success: 1, unique_files_read: 1, project_verifications: 1,
-    tool_names: ['fs.read', 'project.verify'],
+    tool_names: ['fs_read', 'project.verify'],
   });
   assert.match(completionEvidenceHint(evidence), /authoritative event counts/u);
   assert.match(completionEvidenceHint(evidence), /"unique_files_read":1/u);

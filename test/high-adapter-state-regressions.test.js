@@ -60,8 +60,8 @@ test('corrupted tool-learning candidates are discarded before updating counts', 
     const registry = new ModelDialectRegistry(); const route = { providerId: 'p', model: 'm' };
     registry.observe(route, { status: 'succeeded' });
     const profile = registry.profiles.get('p/m');
-    profile.tool_contract_learning.candidates['fs.read@1/tool_schema_invalid'] = malformed;
-    assert.equal(registry.observeToolContract(route, { status: 'failed', tool: 'fs.read', version: 1 }), true);
-    assert.equal(registry.snapshot(route).tool_contract_learning.candidates['fs.read@1/tool_schema_invalid'].failures, 1);
+    profile.tool_contract_learning.candidates['fs_read@1/tool_schema_invalid'] = malformed;
+    assert.equal(registry.observeToolContract(route, { status: 'failed', tool: 'fs_read', version: 1 }), true);
+    assert.equal(registry.snapshot(route).tool_contract_learning.candidates['fs_read@1/tool_schema_invalid'].failures, 1);
   }
 });

@@ -89,7 +89,7 @@ test('a working directory transition invalidates sibling requests sealed under t
       if (calls === 1) {
         yield* toolBatchFragments([
           { id: 'workspace-change', name: 'workspace.change', args: { path: target } },
-          { id: 'stale-read', name: 'fs.read', args: { path: 'prior.txt' } },
+          { id: 'stale-read', name: 'fs_read', args: { path: 'prior.txt' } },
         ]);
         return;
       }

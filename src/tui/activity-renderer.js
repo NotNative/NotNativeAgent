@@ -150,7 +150,7 @@ function toolCalls(records) {
 export function toolTargetSuffix(item) {
   if (item.target) return ` (${item.target})`;
   return !isIntermediateToolStatus(item.result?.status)
-    && item.result?.status !== 'succeeded' && item.tool.startsWith('fs.') ? ' (path unavailable)' : '';
+    && item.result?.status !== 'succeeded' && (item.tool.startsWith('fs.') || item.tool.startsWith('fs_')) ? ' (path unavailable)' : '';
 }
 
 export function toolFailureSuffix(record) {
