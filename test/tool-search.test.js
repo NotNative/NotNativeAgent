@@ -33,7 +33,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.ok(!baseline.includes('fs.read_text'));
   assert.ok(!baseline.includes('fs.edit_text'));
   assert.ok(!baseline.includes('fs.write_text'));
-  assert.ok(!baseline.includes('fs.delete_file'));
+  assert.ok(!baseline.includes('fs_delete_file'));
   assert.ok(!baseline.includes('process_run'));
   assert.ok(!baseline.includes('browser.navigate'));
   assert.ok(!baseline.includes('ref_store'));
@@ -135,6 +135,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['system time', 'system.time', 'system_time'],
     ['filesystem copy file', 'fs.copy_file', 'fs_copy_file'],
     ['filesystem create directory', 'fs.create_directory', 'fs_create_directory'],
+    ['filesystem delete file', 'fs.delete_file', 'fs_delete_file'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
@@ -163,7 +164,7 @@ test('explicit exposure makes an exact recovery tool visible without broadening 
   const visible = registry.providerDefinitions('inspect the missing path').map((item) => item.function.name);
   assert.ok(visible.includes('fs_create_directory'));
   assert.ok(!visible.includes('fs.write_text'));
-  assert.ok(!visible.includes('fs.delete_file'));
+  assert.ok(!visible.includes('fs_delete_file'));
 });
 
 test('tool_search keeps bounded specialist catalog matches visible for a workflow lease', async () => {

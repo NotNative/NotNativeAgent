@@ -1128,11 +1128,11 @@ test('AC-AUTH-05 semantic review receives authenticated intent before denying an
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     semanticCalls += 1;
     assert.equal(input.authenticatedIntent[0].content, 'Read target.txt');
-    assert.equal(input.request.toolName, 'fs.delete_file');
+    assert.equal(input.request.toolName, 'fs_delete_file');
     return { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'delete_not_authorized' };
   } } });
   const request = {
-    ...readRequest('unauthorized-delete'), toolName: 'fs.delete_file',
+    ...readRequest('unauthorized-delete'), toolName: 'fs_delete_file',
     args: { path: 'target.txt', expected_sha256: '0'.repeat(64) },
     resolved: { path: 'D:/workspace/target.txt' },
   };
@@ -1140,7 +1140,7 @@ test('AC-AUTH-05 semantic review receives authenticated intent before denying an
     ...context, authority: { id: 'authority-1', mission: null, intent: [
       { content: 'Read target.txt', sequence: 1, kind: 'instruction' },
     ] },
-    definition: { name: 'fs.delete_file', sideEffect: 'irreversible', scope: 'workspace' },
+    definition: { name: 'fs_delete_file', sideEffect: 'irreversible', scope: 'workspace' },
   });
   assert.equal(decision.reasonCode, 'delete_not_authorized');
   assert.equal(semanticCalls, 1);

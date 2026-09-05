@@ -671,7 +671,7 @@ test('AC-FAIL-08 conflicting provider terminal data cannot execute tools', async
     async *stream() {
       yield { type: 'terminal', finishReason: 'stop' };
       yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: 'late-call', function: { name: 'fs.delete_file', arguments: '{}' },
+        index: 0, id: 'late-call', function: { name: 'fs_delete_file', arguments: '{}' },
       }] };
     }
   }

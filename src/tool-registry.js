@@ -397,7 +397,7 @@ function editLinesDefinition(paths, changes, receipts) {
 }
 function deleteDefinition(paths, changes, receipts) {
   return {
-    name: 'fs.delete_file', version: 1,
+    name: 'fs_delete_file', version: 1,
     purpose: 'Permanently delete one accessible regular file after exact-content revalidation and mandatory review.',
     sideEffect: 'irreversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
@@ -422,7 +422,7 @@ async function executeDelete(request, signal, changes) {
   const before = await readFile(request.resolved.path);
   if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled before commit');
   await unlink(request.resolved.path);
-  changes.record(request.resolved.path, before, null, 'fs.delete_file');
+  changes.record(request.resolved.path, before, null, 'fs_delete_file');
   return { content: 'file deleted', metadata: { path: request.args.path } };
 }
 async function atomicWrite(request, signal, detail = {}, changes = null) {
