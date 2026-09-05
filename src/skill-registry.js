@@ -60,8 +60,8 @@ export class SkillRegistry {
       (diagnostic) => this.#diagnostics.push(Object.freeze(diagnostic)),
     );
     if (this.hosted && values.some((item) => item.invocation === 'agent' || item.invocation === 'both')
-      && (!this.allowedTools?.has('skill.search') || !this.allowedTools?.has('skill.load'))) {
-      throw new ContractError('skill_tools_not_granted', 'agent-invocable hosted skills require exact grants for skill.search and skill.load');
+      && (!this.allowedTools?.has('skill_search') || !this.allowedTools?.has('skill.load'))) {
+      throw new ContractError('skill_tools_not_granted', 'agent-invocable hosted skills require exact grants for skill_search and skill.load');
     }
     for (const skill of values) {
       if (this.#skills.has(skill.id)) {
@@ -151,7 +151,7 @@ export function skillToolDefinitions(registry) {
 
 function searchSkillDefinition(registry) {
   return {
-    name: 'skill.search', version: 1,
+    name: 'skill_search', version: 1,
     purpose: 'Search the bounded skill catalog for an agent-invocable workflow relevant to the task.',
     sideEffect: 'read_only', scope: 'skill_catalog', cancellation: true, timeoutMs: 2_000,
     inputSchema: objectSchema({
@@ -172,7 +172,7 @@ function loadSkillDefinition(registry) {
     purpose: 'Load one exact agent-invocable skill body after selecting it from the bounded skill catalog.',
     sideEffect: 'read_only', scope: 'skill_catalog', cancellation: true, timeoutMs: 2_000,
     inputSchema: objectSchema({
-      id: { type: 'string', minLength: 1, maxLength: 128, description: 'Required exact skill id returned by skill.search.' },
+      id: { type: 'string', minLength: 1, maxLength: 128, description: 'Required exact skill id returned by skill_search.' },
     }, ['id']),
     validate: async (args) => exactStringArgument(args, 'id', 1, 128, 'skill_load_invalid'),
     executor: async (request, signal) => {

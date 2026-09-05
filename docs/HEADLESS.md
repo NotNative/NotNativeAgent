@@ -57,7 +57,7 @@ An authenticated host may also provide bounded inline `manifest.skills`. NNA val
 their identifiers, invocation direction, bodies, source attribution, and required exact
 tool names. It binds a digest and descriptor grant to durable-session provenance and
 returns the effective skill catalog in `initialized`. Agent-invocable hosted skills are
-unavailable unless `skill.search` and `skill.load` are explicitly granted. Skill content
+unavailable unless `skill_search` and `skill.load` are explicitly granted. Skill content
 is workflow guidance only and cannot expand the execution manifest.
 
 NNO and other authenticated hosts may also send `host_identity` with bounded, secret-free
