@@ -68,7 +68,7 @@ test('generated system guidance follows identity while retaining injected envelo
         definitions: [{ type: 'function', function: { name: 'fs.read', parameters: { type: 'object' } } }],
         receipt: null,
       }),
-      catalogSnapshot: () => [{ name: 'fs.read' }, { name: 'tool.search' }],
+      catalogSnapshot: () => [{ name: 'fs.read' }, { name: 'tool_search' }],
     },
   }, { model: 'fixture', maxOutputTokens: 1024 }, context);
   assert.equal(request.messages.length, 2);
@@ -94,7 +94,7 @@ test('ordinary conversation retains its foundational tool surface and one system
     reliability: { instructions: () => 'tool dialect' },
     tools: {
       providerSurface: () => ({ definitions: ['foundation'], receipt: null }),
-      catalogSnapshot: () => [{ name: 'tool.search' }],
+      catalogSnapshot: () => [{ name: 'tool_search' }],
     },
   }, { model: 'fixture', maxOutputTokens: 32_000 }, context);
   assert.equal(request.messages.filter((item) => item.role === 'system').length, 1);
@@ -107,7 +107,7 @@ test('ordinary conversation retains its foundational tool surface and one system
     reliability: { instructions: () => 'tool dialect' },
     tools: {
       providerSurface: () => ({ definitions: ['foundation'], receipt: null }),
-      catalogSnapshot: () => [{ name: 'tool.search' }],
+      catalogSnapshot: () => [{ name: 'tool_search' }],
     },
   }, { model: 'fixture', maxOutputTokens: 32_000, profile: { toolCallMode: 'batch' } }, context);
   assert.equal(batch.toolCallMode, 'batch');

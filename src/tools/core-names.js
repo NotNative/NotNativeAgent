@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export const FOUNDATIONAL_TOOL_NAMES = Object.freeze([
-  'tool.search',
+  'tool_search',
   'fs.list', 'fs.read', 'fs.search_text',
   'shell.run',
   'work.plan', 'work.status', 'work.task_update',

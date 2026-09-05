@@ -5,7 +5,7 @@ Status: accepted and implemented.
 NNA keeps its complete governed capability registry while presenting a stable foundational
 surface to every ordinary provider step. The deliberately small deterministic order is:
 
-1. `tool.search`;
+1. `tool_search`;
 2. `fs.list`, `fs.read`, and `fs.search_text`;
 3. `shell.run`;
 4. `work.plan`, `work.status`, and `work.task_update`;
@@ -20,7 +20,7 @@ front-loaded intent matcher to decide which schemas exist.
 Specialist schemas—including time, workspace transitions, web access, work creation, session
 history, guidance, skills, mutation, browser automation, verification, exact-process execution,
 delegation, reference storage, notifications, and future MCP tools—remain discoverable through
-the name-only catalog. `tool.search` is first so the model can inspect and load the relevant
+the name-only catalog. `tool_search` is first so the model can inspect and load the relevant
 schema. Ranked results are discovery suggestions only. An exact-name search returns the input
 schema and requests one bounded workflow lease; typed recovery and trusted handoffs may request
 the same explicit lease with an attributed source. Lease admission checks the complete projected
@@ -53,7 +53,7 @@ retain the task's meaning without silently granting or removing a schema.
 
 The kernel prompt asks the model to respond first with a terse statement of intent, viewpoint,
 and high-level action, then invoke the smallest useful visible tool in the same response. If the
-foundation is insufficient, it calls `tool.search` before claiming a capability is unavailable.
+foundation is insufficient, it calls `tool_search` before claiming a capability is unavailable.
 If the operator explicitly asks to create, load, set, or track a goal or task list, the model
 must persist that state with a work tool before beginning dependent work. Merely narrating a
 plan is not a state change.

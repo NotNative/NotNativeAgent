@@ -47,7 +47,7 @@ test('external capability discovery needs neither vendor names nor external keyw
     sideEffect: 'read_only', scope: 'external', cancellation: true, timeoutMs: 1000,
     inputSchema: { type: 'object', properties: {} }, executor: async () => ({ content: 'unused' }),
   });
-  const result = await registry.definition('tool.search').executor({ args: { query: 'inventory widgets' } }, new AbortController().signal);
+  const result = await registry.definition('tool_search').executor({ args: { query: 'inventory widgets' } }, new AbortController().signal);
   const content = JSON.parse(result.content);
   assert.ok(content.matches.some((item) => item.name === 'mcp.vendor.lookup'));
   assert.equal(content.lease.granted.length, 0);

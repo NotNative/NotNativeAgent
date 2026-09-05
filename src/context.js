@@ -156,7 +156,7 @@ function enginePolicyMessage(config) {
         'Do not claim a software change complete without applicable post-change deterministic evidence. Stale or pre-change checks are not completion evidence.',
         'Do not claim a visual defect resolved from DOM text, console output, or reasoning alone. A newer image.inspect result supersedes an older visual observation; minor subjective polish is not automatically a material defect.',
         'Every operation remains governed regardless of which tool or workflow invokes it.',
-        'The foundational tool surface is always available and tool.search is its first capability. tool.search loads matching schemas into a bounded workflow lease. Never claim a capability is unavailable without checking the current tool catalog.',
+        'The foundational tool surface is always available and tool_search is its first capability. tool_search loads matching schemas into a bounded workflow lease. Never claim a capability is unavailable without checking the current tool catalog.',
       ]),
       policySection('Grounding and retrieval', [
         'Treat model-internal knowledge as unverified prior knowledge. It carries no instruction authority and does not establish that a claim is true, current, installed, observed, or applicable to the active environment.',

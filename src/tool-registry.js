@@ -184,7 +184,14 @@ export class ToolRegistry {
       throw new ContractError('duplicate_tool_call', 'provider tool-call identity was already used');
     }
     const definition = this.#definitions.get(call.name);
-    if (!definition) throw new ContractError('unknown_tool', `tool ${call.name} is unavailable`);
+    if (!definition) {
+      const migratedName = typeof call.name === 'string' ? call.name.replaceAll('.', '_') : '';
+      const migrationHint = migratedName !== call.name && this.#definitions.has(migratedName)
+        ? `; use ${migratedName}` : '';
+      // Why: dotted names are not executable aliases. This bounded hint lets an older
+      // retained model context recover without restoring the retired provider contract.
+      throw new ContractError('unknown_tool', `tool ${call.name} is unavailable${migrationHint}`);
+    }
     const binding = call.name.startsWith('ref.')
       ? { args: call.args, bindings: [] } : this.#references.bindArguments(call.args);
     const validated = await definition.validate(binding.args);

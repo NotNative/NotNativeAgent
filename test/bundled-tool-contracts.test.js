@@ -13,7 +13,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'fs.create_directory', 'fs.copy_file', 'fs.move_file', 'fs.read', 'fs.list', 'fs.directory',
   'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn', 'nna.list_sessions',
   'nna.mcp_status', 'nna.mcp_test',
-  'web.search', 'web.fetch', 'web.browse', 'image.inspect', 'tool.search',
+  'web.search', 'web.fetch', 'web.browse', 'image.inspect', 'tool_search',
   'process.run', 'shell.run', 'project.verify', 'git.inspect', 'code.diagnostics',
   'skill.search', 'skill.load', 'agent.run',
   'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
@@ -334,7 +334,7 @@ test('system.time is discoverable and normalizes singular aliases and integer st
     assert.deepEqual(normalized.args, { weeks: 2, minutes: -30 });
     const names = registry.providerDefinitions('', { phase: 'orientation' }).map((entry) => entry.function.name);
     assert.ok(!names.includes('system.time'));
-    const search = registry.definition('tool.search');
+    const search = registry.definition('tool_search');
     const request = await search.validate({ query: 'system.time' });
     await search.executor({ args: request.args }, new AbortController().signal);
     assert.ok(registry.providerDefinitions('').some((entry) => entry.function.name === 'system.time'));

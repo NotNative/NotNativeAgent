@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { ToolRegistry } from '../src/tool-registry.js';
 
 const FOUNDATION = [
-  'tool.search',
+  'tool_search',
   'fs.list', 'fs.read', 'fs.search_text',
   'shell.run', 'work.plan', 'work.status', 'work.task_update', 'turn.finish',
   'git.inspect',
@@ -27,7 +27,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   const baseline = registry.providerDefinitions().map((item) => item.function.name);
   const expected = availableFoundation(registry);
   assert.deepEqual(baseline, expected);
-  assert.equal(baseline[0], 'tool.search');
+  assert.equal(baseline[0], 'tool_search');
   assert.ok(!baseline.includes('fs.list_directory'));
   assert.ok(!baseline.includes('fs.read_text'));
   assert.ok(!baseline.includes('fs.edit_text'));
@@ -57,7 +57,7 @@ test('specialist tools require an explicit catalog search or authenticated expos
     assert.ok(!initial.includes(name));
   }
 
-  const search = registry.definition('tool.search');
+  const search = registry.definition('tool_search');
   const normalized = await search.validate({ query: 'fs.edit_text' });
   await search.executor({ args: normalized.args }, new AbortController().signal);
   const searched = registry.providerDefinitions('unrelated wording').map((item) => item.function.name);
@@ -90,10 +90,10 @@ test('provider surface receipts make fixed foundations and workflow leases audit
   assert.equal(expanded.receipt.selectionReasons['fs.write_text'], 'workflow_lease');
 });
 
-test('tool.search reports repair-complete query diagnostics without conflating surface context', async () => {
+test('tool_search reports repair-complete query diagnostics without conflating surface context', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  const search = registry.definition('tool.search');
+  const search = registry.definition('tool_search');
   await assert.rejects(search.validate({ query: '   ' }), {
     code: 'tool_search_invalid',
     message: 'tool search query must contain at least 2 non-whitespace characters; received 0',
@@ -106,6 +106,19 @@ test('tool.search reports repair-complete query diagnostics without conflating s
   const surface = registry.providerSurface(context);
   assert.equal(surface.receipt.selectionContextBytes, Buffer.byteLength(context, 'utf8'));
   assert.deepEqual(surface.receipt.selectedToolNames, registry.providerSurface('different context').receipt.selectedToolNames);
+});
+
+test('retired dotted tool names fail with a canonical migration hint but remain non-executable', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  await assert.rejects(registry.seal({ name: 'tool.search', providerCallId: 'retired-name', args: { query: 'files' } }, {
+    policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
+    stepId: 'step', caller: 'primary', surface: 'test',
+  }), {
+    code: 'unknown_tool',
+    message: 'tool tool.search is unavailable; use tool_search',
+  });
+  assert.equal(registry.definition('tool.search'), undefined);
 });
 
 test('hosted execution obeys an authenticated manifest rather than inferred wording', async () => {
@@ -127,14 +140,14 @@ test('explicit exposure makes an exact recovery tool visible without broadening 
   assert.ok(!visible.includes('fs.delete_file'));
 });
 
-test('tool.search keeps bounded specialist catalog matches visible for a workflow lease', async () => {
+test('tool_search keeps bounded specialist catalog matches visible for a workflow lease', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  const search = registry.definition('tool.search');
+  const search = registry.definition('tool_search');
   const normalized = await search.validate({ query: 'project.verify project verification' });
   const result = await search.executor({ args: normalized.args }, new AbortController().signal);
   assert.match(result.content, /project\.verify/u);
-  assert.deepEqual(JSON.parse(result.content).lease.granted[0].sources, ['tool.search']);
+  assert.deepEqual(JSON.parse(result.content).lease.granted[0].sources, ['tool_search']);
   for (let index = 0; index < 8; index += 1) {
     assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'project.verify'));
   }
@@ -158,7 +171,7 @@ test('exact tool search returns the callable schema and direct next-step guidanc
     subagentControl: { workspaceRoot: process.cwd(), run: async () => ({ outcome: 'completed' }) },
   });
   await registry.initialize();
-  const search = registry.definition('tool.search');
+  const search = registry.definition('tool_search');
   const normalized = await search.validate({ query: 'show the agent.run schema' });
   const result = await search.executor({ args: normalized.args }, new AbortController().signal);
   const content = JSON.parse(result.content);
@@ -172,7 +185,7 @@ test('exact tool search returns the callable schema and direct next-step guidanc
 test('ranked discovery does not lease neighboring schemas without an exact tool name', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  const search = registry.definition('tool.search');
+  const search = registry.definition('tool_search');
   const result = await search.executor({ args: { query: 'project verification' } }, new AbortController().signal);
   const content = JSON.parse(result.content);
   assert.equal(content.status, 'catalog_matches_found');

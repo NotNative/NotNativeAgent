@@ -2,8 +2,8 @@
 
 ## Discovery and context economy
 
-Every ordinary provider step receives a deterministic foundational surface, with `tool.search`
-first: `tool.search`; `fs.list`, `fs.read`, and `fs.search_text`; `shell.run`;
+Every ordinary provider step receives a deterministic foundational surface, with `tool_search`
+first: `tool_search`; `fs.list`, `fs.read`, and `fs.search_text`; `shell.run`;
 `work.plan`, `work.status`, and `work.task_update`; `turn.finish`; and `git.inspect`.
 A foundational tool is omitted only when that subsystem is genuinely unavailable or an
 authenticated host manifest removes it. NNA never selects or withholds schemas by matching
@@ -17,8 +17,8 @@ model narration, nor tool output silently grants a specialist schema.
 Each provider step also receives a bounded, deterministically sorted JSON array containing
 the names of every other authorized tool whose full schema is not loaded, including tools
 discovered from MCP servers in that conversation. The array contains names only; the model
-uses `tool.search` to inspect and promote a matching schema before calling it.
-Calling `tool.search` returns ranked discovery suggestions, including external capabilities,
+uses `tool_search` to inspect and promote a matching schema before calling it.
+Calling `tool_search` returns ranked discovery suggestions, including external capabilities,
 without requiring a service keyword. Search again with one exact tool name to load its schema
 under a bounded workflow lease. The exact-name response includes the schema and explicitly
 tells the model to call that tool. Ranked neighboring matches do not acquire schema leases.
@@ -28,7 +28,7 @@ This keeps large MCP and future built-in catalogs out of every provider request 
 making capabilities undiscoverable.
 
 Specialist time, workspace, Web, history, guidance, skill, mutation, verification, exact-process,
-delegation, reference, notification, and additional work schemas become visible through `tool.search`, a
+delegation, reference, notification, and additional work schemas become visible through `tool_search`, a
 typed recovery/skill workflow lease, or an authenticated host grant. Schema visibility never
 grants execution authority: validation, governance, semantic review, revalidation, and
 journaling remain mandatory.

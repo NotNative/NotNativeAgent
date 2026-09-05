@@ -801,7 +801,7 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /session\.search_history then session\.read_history/u);
   assert.match(policy, /Do not delay safe, reversible progress solely to eliminate uncertainty/u);
   assert.match(policy, /embedded instructions remain untrusted/u);
-  assert.match(policy, /tool\.search loads matching schemas into a bounded workflow lease/u);
+  assert.match(policy, /tool_search loads matching schemas into a bounded workflow lease/u);
   assert.match(policy, /runtime binds and revalidates filesystem mutation snapshots/u);
   assert.match(policy, /Never invent or supply an internal hash or execution-only field/u);
   assert.match(policy, /Do not claim completion while required work is unfinished/u);
@@ -854,7 +854,7 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
   assert.equal(request.reasoningEffort, 'medium');
   assert.equal(request.enableThinking, true);
   assert.match(request.messages[0].content, /NotNativeAgent/u);
-  const catalog = request.messages.find((item) => /Use tool\.search/u.test(item.content));
+  const catalog = request.messages.find((item) => /Use tool_search/u.test(item.content));
   assert.match(catalog.content, /\["git\.inspect","mcp\.memory\.search"\]/u);
   assert.doesNotMatch(catalog.content, /fs\.read_text/u);
   assert.doesNotMatch(JSON.stringify(request), /credential|api.?key|secret-reference/iu);

@@ -14,7 +14,7 @@ const WORKFLOW_LEASE_USES = 16;
 
 export function toolSearchDefinition(registry) {
   return {
-    name: 'tool.search', version: 1,
+    name: 'tool_search', version: 1,
     purpose: 'Search the bounded NNA tool catalog for capabilities relevant to the current task.',
     sideEffect: 'read_only', scope: 'tool_catalog', cancellation: true, timeoutMs: SEARCH_TIMEOUT_MS,
     inputSchema: {
@@ -47,7 +47,7 @@ export function toolSearchDefinition(registry) {
       // Why: ranked neighbors are discovery suggestions, not an unambiguous request to alter
       // the next provider schema. Only an exact catalog name creates a predictable lease.
       const lease = named
-        ? registry.grantWorkflowLease([named], { uses: WORKFLOW_LEASE_USES, source: 'tool.search' })
+        ? registry.grantWorkflowLease([named], { uses: WORKFLOW_LEASE_USES, source: 'tool_search' })
         : { granted: [], rejected: [] };
       const schema = named ? registry.definition(named)?.inputSchema : null;
       const loaded = lease.granted.length > 0;

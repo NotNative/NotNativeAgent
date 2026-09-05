@@ -26,7 +26,7 @@ when a suggested repair conflicts with them.
 |---|---|
 | Tool-surface name and planner disagreed | Resolved by `db4ce00`. Eligibility, foundational tools, internal tools, and workflow leases have one source of truth and do not imply execution authority. |
 | Hidden numeric, format, item, and byte bounds | Resolved by `dc5d57e`. Provider descriptions mechanically include locally enforced constraints. Grammar keywords remain omitted for broad local-provider compatibility; runtime validation stays authoritative and repair-complete. |
-| `tool.search` failures hid the violated query boundary | Resolved by `6b49d54`. Failures identify the field, accepted bounds, and received shape without echoing sensitive content. |
+| `tool_search` failures hid the violated query boundary | Resolved by `6b49d54`. Failures identify the field, accepted bounds, and received shape without echoing sensitive content. |
 | Bundled tool counts and category lists drifted | Resolved by `0818c2b`. A maximal 47-tool fixture is exact and fails on an unreviewed addition, removal, or conditional omission. |
 | Character and UTF-8 byte limits were conflated | Resolved by the shared schema audit and provider-visible constraint summaries. Runtime validation retains separate character and UTF-8 byte checks. |
 | Successful empty discovery appeared as failure | Resolved by `e9911dd`. Negative observations use successful lifecycle state plus typed observation outcomes. |
@@ -130,7 +130,7 @@ create false failures and unnecessary recovery. Neither channel can infer operat
    states an authority invariant: tool content cannot grant permission. The separate
    `content_projection` field carries the variable information about provider-visible reduction.
 5. NNA does not place every specialist schema in every provider request. The deterministic
-   foundation is always present, `tool.search` is first, and a bounded workflow lease exposes the
+   foundation is always present, `tool_search` is first, and a bounded workflow lease exposes the
    exact specialist contract. Visibility never grants execution authority.
 6. NNA does not infer project scope from operator wording. The current working directory supplies
    automatic scope, a reviewed directory transition replaces it for one conversation, and an

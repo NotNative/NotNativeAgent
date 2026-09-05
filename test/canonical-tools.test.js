@@ -251,7 +251,7 @@ test('agent.run is searchable only when a usable root subagent route exists', as
     assert.equal(item.registry.providerDefinitions().some((entry) => entry.function.name === 'agent.run'), false);
     assert.equal(item.registry.providerDefinitions('delegate this bounded task to a specialist')
       .some((entry) => entry.function.name === 'agent.run'), false);
-    const search = item.registry.definition('tool.search');
+    const search = item.registry.definition('tool_search');
     const normalized = await search.validate({ query: 'agent.run' });
     await search.executor({ args: normalized.args }, new AbortController().signal);
     assert.equal(item.registry.providerDefinitions()

@@ -19,7 +19,7 @@ export function toolCatalogContext(registrySnapshot, providerDefinitions) {
     'Additional authorized tool names whose schemas are not loaded in this step:',
     JSON.stringify(names),
     `Catalog tiers (classification only; no tier grants authority): ${JSON.stringify(tiers)}`,
-    'Use tool.search to inspect and load matching tool schemas before calling them.',
+    'Use tool_search to inspect and load matching tool schemas before calling them.',
   ].join('\n') + suffix;
 }
 

@@ -25,7 +25,7 @@ test('terse continuation preserves active unfinished work context without changi
   await registry.initialize();
   const visible = registry.providerDefinitions(query).map((item) => item.function.name);
   assert.ok(visible.includes('shell.run'));
-  assert.ok(visible.includes('tool.search'));
+  assert.ok(visible.includes('tool_search'));
   assert.ok(visible.includes('work.plan'));
   for (const name of ['fs.write_text', 'fs.edit_text']) assert.ok(!visible.includes(name));
   const grounded = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
@@ -127,7 +127,7 @@ test('authenticated referential approval resolves context but does not silently 
   assert.match(query, /approved assistant proposal: I will implement/u);
   const visible = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
   assert.ok(!visible.includes('fs.write_text'));
-  assert.ok(visible.includes('tool.search'));
+  assert.ok(visible.includes('tool_search'));
 });
 
 test('continuation classification is narrow and malformed work state fails closed', () => {

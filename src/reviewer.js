@@ -180,7 +180,7 @@ function classify(request, definition) {
 }
 
 function localControlClassification(definition) {
-  if (definition.sideEffect === 'read_only' && definition.scope === 'tool_catalog' && definition.name === 'tool.search') {
+  if (definition.sideEffect === 'read_only' && definition.scope === 'tool_catalog' && definition.name === 'tool_search') {
     return Object.freeze({ risk: 'safe', reason: 'bounded_tool_catalog', effect: 'read_only', scope: 'tool_catalog', complexity: 'simple' });
   }
   // Why: turn.finish records an assertion for deterministic supervision; it does not grant
