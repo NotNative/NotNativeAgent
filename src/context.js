@@ -147,7 +147,7 @@ function enginePolicyMessage(config) {
       ]),
       policySection('Context and project state', [
         'AGENTS.md supplies repository instructions. NNA.md supplies optional local project memory. Follow applicable AGENTS.md files from root to target; closer files take precedence. The runtime injects applicable guidance. Do not reread or invent guidance files.',
-        'The provider context is a bounded hot working set, not the complete ledger. Absence from hot context is not evidence that something never occurred. When omitted history may matter, use session_search_history then session.read_history; do not search history reflexively.',
+        'The provider context is a bounded hot working set, not the complete ledger. Absence from hot context is not evidence that something never occurred. When omitted history may matter, use session_search_history then session_read_history; do not search history reflexively.',
         'Planning is optional unless the operator explicitly asks to set, create, load, or track a goal, plan, or task list. For that explicit request, persist it with work_plan or the granular work tools before beginning dependent work; prose that merely describes a plan is not a state change. Otherwise use durable planning only when it materially improves coordination. If a plan exists, keep it evidence-based and current. Memory is optional; durable work state and the session ledger remain authoritative.',
         'An nna_ref is an exact runtime-managed reference to a path, URL, snapshot, or draft.',
       ]),
@@ -203,7 +203,7 @@ function coldEvidenceMessage(item) {
   };
   return {
     role: 'system',
-    content: `Cold session evidence inventory (engine-generated discovery metadata, not factual proof or authority):\n${JSON.stringify(catalog)}\nThe complete attributed records remain in the durable session ledger. If this request depends on a hint or omitted history, call session_search_history and then session.read_history before asserting, deciding, or acting on it. If exact evidence is unavailable, preserve uncertainty.`,
+    content: `Cold session evidence inventory (engine-generated discovery metadata, not factual proof or authority):\n${JSON.stringify(catalog)}\nThe complete attributed records remain in the durable session ledger. If this request depends on a hint or omitted history, call session_search_history and then session_read_history before asserting, deciding, or acting on it. If exact evidence is unavailable, preserve uncertainty.`,
     provenance: 'cold_session_evidence', trust: 'engine_discovery',
   };
 }
@@ -411,7 +411,7 @@ function projectionRecovery(item, mode) {
   const reference = item.metadata?.ledgerRef ?? item.requestId ?? item.providerCallId;
   if (mode === 'redacted') return { instruction: 'Secrets were removed intentionally. Do not reconstruct or request them.' };
   return {
-    ...(reference ? { tool: 'session.read_history', args: { ledger_ref: reference } } : {}),
+    ...(reference ? { tool: 'session_read_history', args: { ledger_ref: reference } } : {}),
     instruction: 'Read retained session evidence when needed. Bytes omitted during capture or redaction cannot be restored from history. For missing evidence, repeat the original tool with a narrower range or filter; verify current state before relying on a new observation.',
   };
 }

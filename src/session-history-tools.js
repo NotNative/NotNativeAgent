@@ -26,7 +26,7 @@ export function sessionHistoryDefinitions(control) {
 
 function searchDefinition(control) {
   return definition('session_search_history',
-    'Search older records in this conversation, including history omitted from the active model context. Returns stable record indexes for session.read_history.', {
+    'Search older records in this conversation, including history omitted from the active model context. Returns stable record indexes for session_read_history.', {
       query: { type: 'string', minLength: 1, maxLength: MAX_QUERY, description: 'Required words or phrase to find in older conversation records.' },
       limit: { type: 'integer', minimum: 1, maximum: MAX_RESULTS, description: `Maximum matching records to return. Defaults to ${DEFAULT_RESULTS}.` },
       types: { type: 'array', items: { type: 'string' }, maxItems: MAX_TYPES, description: 'Optional exact record-type filters, such as message or tool_result.' },
@@ -44,7 +44,7 @@ function searchDefinition(control) {
 }
 
 function readDefinition(control) {
-  return definition('session.read_history',
+  return definition('session_read_history',
     'Read one record by record_index or a receipt ledger_ref. Ledger lookup selects the exact tool result. Optionally include neighboring records.', {
       record_index: { type: 'integer', minimum: 0, description: 'Exact index from session_search_history. Supply either record_index or ledger_ref, not both.' },
       ledger_ref: { type: 'string', minLength: 1, maxLength: 256, description: 'Exact receipt ledger_ref (request or provider-call ID). Searches the newest 50000 retained records.' },
@@ -142,7 +142,7 @@ function definition(name, purpose, properties, required, execute) {
 }
 
 function validateArguments(name, args) {
-  if (name === 'session.read_history') {
+  if (name === 'session_read_history') {
     if (Object.hasOwn(args, 'record_index') === Object.hasOwn(args, 'ledger_ref')) invalid(name);
     if (args.ledger_ref !== undefined && (typeof args.ledger_ref !== 'string'
       || args.ledger_ref.length < 1 || args.ledger_ref.length > 256)) invalid(name);

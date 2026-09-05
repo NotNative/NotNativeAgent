@@ -96,7 +96,7 @@ Tool receipts use `nna.tool-receipt.v2` and name their literal head/tail payload
 The provider envelope has one `projection_metadata` block. Internal compression bookkeeping is not repeated in observation metadata.
 `projected_bytes` measures the serialized content; `retained_source_bytes` measures source bytes kept in the excerpt.
 `omitted_bytes` measures source bytes absent from that excerpt, not savings after receipt overhead.
-Exact receipt `ledger_ref` values can be supplied to `session.read_history` within its documented retained-history bound.
+Exact receipt `ledger_ref` values can be supplied to `session_read_history` within its documented retained-history bound.
 Unavailable evidence remains unavailable; a receipt cannot reconstruct omitted source bytes by itself.
 Active receipt pressure and full compaction share this receipt formatter. Failed active tool
 results retain their exact repair evidence. Reduced provider results include an executable history

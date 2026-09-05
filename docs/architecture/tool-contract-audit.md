@@ -30,7 +30,7 @@ The audit compared each tool's JSON schema, normalization aliases, runtime valid
 | Repository/code | `git_inspect`, `code_diagnostics` | Pass. Selectors and path bounds match runtime validation. |
 | Skills and delegation | `skill_search`, `skill_load`, `agent_run` | Pass. Role/id/task contracts are closed and bounded. |
 | Durable work | `work_plan`, `work_status`, `work_goal`, `work_task_add`, `work_task_update` | Pass with documented relational rules. Atomic plan replacement is intentionally retained; completion evidence and blocking detail requirements are visible. |
-| Notifications/history | `notification_telegram`, `session_search_history`, `session.read_history` | Pass. Message, filters, indexes, and surrounding-record bounds match runtime checks. |
+| Notifications/history | `notification_telegram`, `session_search_history`, `session_read_history` | Pass. Message, filters, indexes, and surrounding-record bounds match runtime checks. |
 | Host time | `system_time` | Pass. Calendar and elapsed offsets share bounded integer normalization, including weeks, without embedding a volatile timestamp in the system prompt. |
 
 ## Defects corrected

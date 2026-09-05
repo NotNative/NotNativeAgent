@@ -380,7 +380,7 @@ Before each provider call, NNA also compares the hot projection with the complet
 session ledger. Omitted attributable records produce a bounded cold-evidence inventory with
 counts and at most three query-relevant redacted hints. This inventory is discovery metadata,
 not a replacement summary or proof. The agent retrieves exact records with
-`session_search_history` and `session.read_history` when the current task depends on them.
+`session_search_history` and `session_read_history` when the current task depends on them.
 This core session-local path works without a memory service; optional NNM enrichment remains
 separate cross-session context with its own grounding admission.
 A temporary `/model` override clears a stale profile-derived limit unless the selected

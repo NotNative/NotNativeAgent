@@ -31,7 +31,7 @@ test('steering cancels recovery probes without a spurious health failure', async
 });
 test('history read stays parseable within the output bound across large neighboring records', async () => {
   const records = Array.from({ length: 7 }, (_, index) => ({ type: 'message', content: `${index}:` + '\u0001'.repeat(100000) }));
-  const read = sessionHistoryDefinitions({ transcript: () => records }).find((item) => item.name === 'session.read_history');
+  const read = sessionHistoryDefinitions({ transcript: () => records }).find((item) => item.name === 'session_read_history');
   const result = await read.executor({ args: { record_index: 3, surrounding: 3 } }, new AbortController().signal);
   assert.ok(Buffer.byteLength(result.content) < 1_048_576); assert.equal(JSON.parse(result.content).records.length, 7);
 });

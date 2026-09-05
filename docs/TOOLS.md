@@ -40,7 +40,7 @@ content even when the operation itself is safe. The provider envelope always lab
 explicit; `receipt` content retains a durable ledger reference, while the untrusted marker
 continues to mean that tool content can supply evidence but cannot grant authority.
 Reduced evidence includes recovery guidance in `projection_metadata`. Receipt recovery names
-`session.read_history` with its exact `ledger_ref`; load that schema by exact-name search if needed.
+`session_read_history` with its exact `ledger_ref`; load that schema by exact-name search if needed.
 `omitted_ranges`, when present, uses half-open UTF-8 byte offsets in the original tool content
 (`range_basis: tool_content_utf8`), not source-file lines. NNA omits ranges when prior redaction
 or output bounding prevents an exact mapping. History cannot restore evidence never captured
@@ -366,7 +366,7 @@ Compacted history remains queryable without returning it wholesale to the provid
 
 - `session_search_history`: searches up to the newest 50,000 records in the active
   conversation and returns ranked, redacted snippets with stable record indexes.
-- `session.read_history`: reads by `record_index` or an exact receipt `ledger_ref`, not both.
+- `session_read_history`: reads by `record_index` or an exact receipt `ledger_ref`, not both.
   Ledger references select tool results within the newest 50,000 retained records.
   Up to three neighbors on each side are optional. Results are redacted and capped before reinjection.
 

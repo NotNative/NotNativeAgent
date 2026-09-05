@@ -50,7 +50,7 @@ test('receipt omission ranges describe exact UTF-8 content and expose a usable h
   assert.equal(JSON.parse(receipt.content).excerpt, bytes.subarray(0, range.start_byte).toString('utf8')
     + '\n...[middle omitted]...\n' + bytes.subarray(range.end_byte_exclusive).toString('utf8'));
   assert.deepEqual(metadata.recovery.args, { ledger_ref: 'request' });
-  assert.equal(metadata.recovery.tool, 'session.read_history');
+  assert.equal(metadata.recovery.tool, 'session_read_history');
   assert.deepEqual(project(createToolContextReceipt(receipt)).projection_metadata.omitted_ranges, metadata.omitted_ranges);
   assert.equal(project(receipt).metadata.omittedRanges, undefined);
 });
@@ -89,7 +89,7 @@ test('receipt references recover exact tool results without confusing request re
     { type: 'tool_request', requestId: 'tool-1', providerCallId: 'call-1', args: {} },
     { type: 'tool_result', requestId: 'tool-1', providerCallId: 'call-1', content: 'exact evidence' },
   ];
-  const read = sessionHistoryDefinitions({ transcript: () => records }).find((tool) => tool.name === 'session.read_history');
+  const read = sessionHistoryDefinitions({ transcript: () => records }).find((tool) => tool.name === 'session_read_history');
   for (const ledger_ref of ['tool-1', 'call-1']) {
     const request = await read.validate({ ledger_ref });
     const output = JSON.parse((await read.executor(request, new AbortController().signal)).content);
