@@ -22,11 +22,11 @@ therefore restores progress without a parallel state store, and context compacti
 erase it.
 
 The provider receives only the current snapshot as trusted engine state when work exists.
-Mutation history does not consume prompt context. `work.plan`, `work.status`, `work.goal`,
+Mutation history does not consume prompt context. `work_plan`, `work.status`, `work.goal`,
 `work.task_add`, and `work.task_update` are foundational schemas whenever conversation work is
-available. `work.plan` atomically replaces the bounded goal and ordered task snapshot; the
+available. `work_plan` atomically replaces the bounded goal and ordered task snapshot; the
 granular tools support direct, intuitive updates to the same state machine. Their visibility
-does not itself create a plan. `work.plan` and `work.status` expose one round-trip-safe provider
+does not itself create a plan. `work_plan` and `work.status` expose one round-trip-safe provider
 shape while durable snapshots retain their separate engine fields and timestamps. A returned
 revision is an optimistic concurrency guard: stale replacement is rejected without mutation.
 Explicit operator requests to set, create, load, or track a goal
@@ -39,7 +39,7 @@ The Console's `/plan` hub is the primary view. `/tasks` is an alias for the same
 completed/total count. Ordinary and multi-step conversations remain plan-free unless the
 operator explicitly requests tracking or the agent deliberately decides durable coordination
 would materially help. Once a plan exists, completion supervision continues unfinished work,
-keeps `work.plan` available, and yields instead of nudging when the model genuinely requires
+keeps `work_plan` available, and yields instead of nudging when the model genuinely requires
 operator input. A recorded blocked goal ends the turn as `blocked`; prose alone cannot override
 active durable work.
 

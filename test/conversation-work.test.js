@@ -110,7 +110,7 @@ test('agent work tools share the same durable state machine', async () => {
 test('work plan and status expose one lossless round-trip contract', async () => {
   const work = new ConversationWork();
   const definitions = new Map(conversationWorkDefinitions(work).map((item) => [item.name, item]));
-  const plan = definitions.get('work.plan');
+  const plan = definitions.get('work_plan');
   const status = definitions.get('work.status');
   const signal = new AbortController().signal;
   const initial = await plan.validate({
@@ -150,7 +150,7 @@ test('work plan and status expose one lossless round-trip contract', async () =>
 test('work plan round-trips a terminal blocked goal with its reason', async () => {
   const work = new ConversationWork();
   const definitions = new Map(conversationWorkDefinitions(work).map((item) => [item.name, item]));
-  const plan = definitions.get('work.plan');
+  const plan = definitions.get('work_plan');
   const status = definitions.get('work.status');
   const signal = new AbortController().signal;
   const normalized = await plan.validate({
@@ -168,7 +168,7 @@ test('work plan round-trips a terminal blocked goal with its reason', async () =
 
 test('work plan normalizes unambiguous durable-state detail aliases', async () => {
   const work = new ConversationWork();
-  const plan = conversationWorkDefinitions(work).find((item) => item.name === 'work.plan');
+  const plan = conversationWorkDefinitions(work).find((item) => item.name === 'work_plan');
   const normalized = await plan.validate({
     objective: 'Repair a provider-visible plan without ceremony',
     tasks: [
@@ -191,7 +191,7 @@ test('work plan normalizes unambiguous durable-state detail aliases', async () =
 
 test('work plan rejects a stale returned revision without mutation', async () => {
   const work = new ConversationWork();
-  const plan = conversationWorkDefinitions(work).find((item) => item.name === 'work.plan');
+  const plan = conversationWorkDefinitions(work).find((item) => item.name === 'work_plan');
   const signal = new AbortController().signal;
   const initial = await plan.validate({ objective: 'Protect current work', tasks: [{ title: 'Do not overwrite this task' }] });
   const stale = JSON.parse((await plan.executor(initial, signal)).content);
@@ -251,7 +251,7 @@ test('durable work state is kernel-grounded independently of compacted transcrip
   assert.match(state.content, /current task T1 "Run tests"/u);
   assert.match(state.content, /model steps since the durable work revision changed: 7/u);
   assert.match(state.content, /descriptive, not a demand to update/u);
-  assert.match(state.content, /canonical work\.plan shape and can be passed back unchanged/u);
+  assert.match(state.content, /canonical work_plan shape and can be passed back unchanged/u);
   const exposed = JSON.parse(state.content.slice(state.content.lastIndexOf('\n') + 1));
   assert.deepEqual(exposed, {
     revision: 4, objective: 'Finish the slice', goal_status: 'active',

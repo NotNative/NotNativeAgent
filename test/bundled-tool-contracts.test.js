@@ -16,7 +16,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'web.search', 'web.fetch', 'web.browse', 'image.inspect', 'tool_search',
   'process.run', 'shell_run', 'project.verify', 'git.inspect', 'code.diagnostics',
   'skill.search', 'skill.load', 'agent.run',
-  'work.plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
+  'work_plan', 'work.status', 'work.goal', 'work.task_add', 'work.task_update',
   'turn.finish',
   'notification.telegram', 'session.search_history', 'session.read_history', 'system.time',
   'workspace.change',
@@ -141,10 +141,10 @@ test('schema failures expose a bounded machine-readable single-field repair', as
   const registry = new ToolRegistry(process.cwd(), optionalControls());
   await registry.initialize();
   try {
-    const definition = registry.definition('work.plan');
+    const definition = registry.definition('work_plan');
     const error = await definition.validate({ objective: 'Repair the plan.', tasks: [{ status: 'pending' }] })
       .then(() => null, (caught) => caught);
-    const result = invalidResult({ providerCallId: 'call-1', name: 'work.plan' }, error);
+    const result = invalidResult({ providerCallId: 'call-1', name: 'work_plan' }, error);
     assert.deepEqual(result.metadata, {
       field: 'argument "tasks"[0].title', issue: 'required_field_missing', correction: 'add_required_field',
     });

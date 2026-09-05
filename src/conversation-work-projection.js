@@ -14,7 +14,7 @@ export function projectConversationWork(snapshot) {
       ? { detail: task.status === 'completed' ? task.evidence : task.blockedReason }
       : {}),
   }));
-  // Why: provider-visible work state must use the exact work.plan input shape so
+  // Why: provider-visible work state must use the exact work_plan input shape so
   // injected context and work.status cannot teach conflicting field names.
   return Object.freeze({
     revision: snapshot.revision,

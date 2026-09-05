@@ -222,10 +222,10 @@ test('approved same-batch file mutations advance across NNA-authored states with
   } finally { await item.close(); }
 });
 
-test('work.plan atomically replaces the durable goal and ordered tasks', async () => {
+test('work_plan atomically replaces the durable goal and ordered tasks', async () => {
   const item = await fixture();
   try {
-    const plan = item.registry.definition('work.plan');
+    const plan = item.registry.definition('work_plan');
     const initial = await plan.validate({
       objective: 'Ship the canonical tool surface',
       tasks: [{ title: 'Implement tools', status: 'in_progress' }, { title: 'Verify behavior' }],

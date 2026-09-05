@@ -8,7 +8,7 @@ surface to every ordinary provider step. The deliberately small deterministic or
 1. `tool_search`;
 2. `fs_list`, `fs_read`, and `fs_search_text`;
 3. `shell_run`;
-4. `work.plan`, `work.status`, and `work.task_update`;
+4. `work_plan`, `work.status`, and `work.task_update`;
 5. `turn.finish`;
 6. `git.inspect`.
 
@@ -79,7 +79,7 @@ small allowlist of outcome-critical metadata when nonessential metadata exceeds 
 
 Schema rejections include a bounded machine-readable repair for the affected field alongside
 the human-readable error. Missing, unknown, mistyped, and out-of-enumeration fields identify
-the corrective operation without echoing sensitive values. `work.plan` remains the atomic
+the corrective operation without echoing sensitive values. `work_plan` remains the atomic
 whole-snapshot operation; `work.task_update` is the normal one-task transition and therefore
 does not require the task title to be repeated.
 

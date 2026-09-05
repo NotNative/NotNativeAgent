@@ -421,7 +421,7 @@ test('compaction either replays exact native tool-call arguments or omits the co
     { providerCallId: 'read', toolName: 'fs_read', args: { path: 'README.md', start_line: 3, line_count: 120 } },
     { providerCallId: 'search', toolName: 'fs_search_text', args: { path: 'src', query: 'needle', file_glob: '**/*.js', max_results: 17 } },
     { providerCallId: 'web', toolName: 'web.search', args: { query: 'current provider documentation', max_results: 4 } },
-    { providerCallId: 'plan', toolName: 'work.plan', args: { objective: 'Keep history truthful', tasks: ['test', 'ship'] } },
+    { providerCallId: 'plan', toolName: 'work_plan', args: { objective: 'Keep history truthful', tasks: ['test', 'ship'] } },
     { providerCallId: 'shell', toolName: 'shell_run', args: { script: 'node --test', timeout_ms: 90_000 } },
   ];
   const transcript = [message('user', 'Exercise several tool shapes.', 'turn-old')];

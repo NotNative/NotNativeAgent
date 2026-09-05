@@ -9,12 +9,12 @@
     "longProseCandidates": 0,
     "unqualifiedBoundaryCandidates": 2,
     "maximumSentenceWords": 22,
-    "rationaleMarkers": 94
+    "rationaleMarkers": 95
   },
   "long_prose_candidates": [],
   "unqualified_boundary_candidates": [
     {
-      "tool": "work.plan",
+      "tool": "work_plan",
       "field": "inputSchema.properties.tasks.items.properties.status"
     },
     {
@@ -23,7 +23,7 @@
     }
   ],
   "rationale_marker_counts": {
-    "Why": 63,
+    "Why": 64,
     "Invariant": 19,
     "Compatibility": 6,
     "Security": 6

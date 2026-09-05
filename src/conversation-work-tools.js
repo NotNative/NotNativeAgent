@@ -11,8 +11,8 @@ export function conversationWorkDefinitions(work) {
 }
 
 function planDefinition(work) {
-  return definition('work.plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Use work.task_update for a routine status or detail change to one existing task; it does not require resending the title. Output from work.plan or work.status can be passed back unchanged. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
-    revision: { type: 'integer', minimum: 0, description: 'Optional revision returned by work.plan or work.status. A stale revision is rejected without changing work.' },
+  return definition('work_plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Use work.task_update for a routine status or detail change to one existing task; it does not require resending the title. Output from work_plan or work.status can be passed back unchanged. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
+    revision: { type: 'integer', minimum: 0, description: 'Optional revision returned by work_plan or work.status. A stale revision is rejected without changing work.' },
     objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required current goal objective.' },
     goal_status: { type: 'string', enum: GOAL_STATUSES, description: 'Goal status. Defaults to active.' },
     goal_evidence: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required only when goal_status is completed.' },
@@ -21,7 +21,7 @@ function planDefinition(work) {
       type: 'array', maxItems: 64, description: 'Required complete ordered task list; omitted prior tasks are removed.',
       items: {
         type: 'object', additionalProperties: false, required: ['title'], properties: {
-          id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Existing task id returned by work.plan; omit for a new task.' },
+          id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Existing task id returned by work_plan; omit for a new task.' },
           title: { type: 'string', minLength: 1, maxLength: 512, description: 'Concise task title.' },
           status: { type: 'string', enum: TASK_STATUSES, description: 'Defaults to pending.' },
           detail: { type: 'string', minLength: 1, maxLength: 1024, description: 'Completion evidence or blocking reason.' },
@@ -32,7 +32,7 @@ function planDefinition(work) {
 }
 
 function statusDefinition(work) {
-  return definition('work.status', 'Read the current conversation goal and ordered task progress. When a plan exists, the output can be passed unchanged to work.plan.', 'read_only', {}, [],
+  return definition('work.status', 'Read the current conversation goal and ordered task progress. When a plan exists, the output can be passed unchanged to work_plan.', 'read_only', {}, [],
     async () => planResult(work.snapshot()));
 }
 

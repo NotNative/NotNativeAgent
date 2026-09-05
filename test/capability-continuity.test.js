@@ -26,7 +26,7 @@ test('terse continuation preserves active unfinished work context without changi
   const visible = registry.providerDefinitions(query).map((item) => item.function.name);
   assert.ok(visible.includes('shell_run'));
   assert.ok(visible.includes('tool_search'));
-  assert.ok(visible.includes('work.plan'));
+  assert.ok(visible.includes('work_plan'));
   for (const name of ['fs.write_text', 'fs.edit_text']) assert.ok(!visible.includes(name));
   const grounded = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
   assert.deepEqual(grounded, visible);
@@ -57,7 +57,7 @@ test('substantive new operator input replaces projected context but retains foun
   const visible = registry.providerDefinitions(capabilitySelectionQuery(context)).map((item) => item.function.name);
   assert.ok(!visible.includes('fs.write_text'));
   assert.ok(!visible.includes('process.run'));
-  assert.ok(visible.includes('work.plan'));
+  assert.ok(visible.includes('work_plan'));
 });
 
 test('conversation intent survives a continuation while specialists still require explicit exposure', async () => {

@@ -143,7 +143,7 @@ function unfinishedWorkGate(work, declaration) {
   return Object.freeze({
     disposition: 'continue', category: 'unfinished_conversation_work', required: true,
     progressEvidence: summary,
-    hint: 'An optional durable plan is active and still unfinished. Continue the work or use work.plan to update the complete task snapshot with concrete evidence; do not stop merely because a milestone changed. If operator input is genuinely required, ask one concrete question and mark the relevant task blocked when possible. Do not offer optional follow-up work or ask whether to continue.',
+    hint: 'An optional durable plan is active and still unfinished. Continue the work or use work_plan to update the complete task snapshot with concrete evidence; do not stop merely because a milestone changed. If operator input is genuinely required, ask one concrete question and mark the relevant task blocked when possible. Do not offer optional follow-up work or ask whether to continue.',
   });
 }
 

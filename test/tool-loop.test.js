@@ -190,8 +190,8 @@ test('exact tool request fingerprints are canonical', () => {
 test('materially corrected plan repairs do not consume one exact-loop budget', () => {
   const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
   const failedPlan = (args, content) => ({
-    request: { toolName: 'work.plan', args },
-    result: { status: 'invalid_request', tool_name: 'work.plan', reason_code: 'tool_schema_invalid', content },
+    request: { toolName: 'work_plan', args },
+    result: { status: 'invalid_request', tool_name: 'work_plan', reason_code: 'tool_schema_invalid', content },
   });
   const missingTitle = failedPlan(
     { objective: 'Audit NNA', tasks: [{ id: 'T1', status: 'completed', evidence: 'Mapped source.' }] },
@@ -225,7 +225,7 @@ test('materially corrected plan repairs do not consume one exact-loop budget', (
 test('read-only behavior is supervised from tool metadata and work updates count as state progress', () => {
   const active = { observableStateRevision: 0, readOnlyBatchStreak: 0 };
   const definitions = new Map([
-    ['fs_read', { sideEffect: 'read_only' }], ['work.plan', { sideEffect: 'reversible' }],
+    ['fs_read', { sideEffect: 'read_only' }], ['work_plan', { sideEffect: 'reversible' }],
     ['fs.directory', { sideEffect: 'reversible' }], ['shell_run', { sideEffect: 'unknown' }],
   ]);
   const definitionFor = (name) => definitions.get(name);
@@ -250,7 +250,7 @@ test('read-only behavior is supervised from tool metadata and work updates count
   assert.equal(active.observableStateRevision, 0);
   observeToolState(active, [{
     request: { args: { objective: 'Finish', tasks: [] } },
-    result: { status: 'succeeded', tool_name: 'work.plan' },
+    result: { status: 'succeeded', tool_name: 'work_plan' },
   }], definitionFor);
   assert.equal(active.readOnlyBatchStreak, 0);
   assert.equal(active.observableStateRevision, 1);
@@ -317,7 +317,7 @@ test('successful tool continuation resumes without re-acknowledging the active r
 test('invalid plan guidance keeps bookkeeping subordinate to substantive work', () => {
   const hint = toolContinuationHint([{
     result: {
-      status: 'invalid_request', tool_name: 'work.plan', reason_code: 'tool_schema_invalid',
+      status: 'invalid_request', tool_name: 'work_plan', reason_code: 'tool_schema_invalid',
       content: 'task detail is invalid',
     },
   }]);
@@ -702,7 +702,7 @@ test('rejected conversation-work transitions are invalid requests with no effect
   const root = await mkdtemp(join(tmpdir(), 'nna-work-rejection-'));
   const output = [];
   const provider = new TwoStepProvider({
-    name: 'work.plan', args: { revision: 1, objective: 'Track the audit', tasks: [] },
+    name: 'work_plan', args: { revision: 1, objective: 'Track the audit', tasks: [] },
   });
   const engine = new SessionEngine({
     config: manifest(root), providerFactory: () => provider,

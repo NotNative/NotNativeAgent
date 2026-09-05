@@ -4,7 +4,7 @@
 
 Every ordinary provider step receives a deterministic foundational surface, with `tool_search`
 first: `tool_search`; `fs_list`, `fs_read`, and `fs_search_text`; `shell_run`;
-`work.plan`, `work.status`, and `work.task_update`; `turn.finish`; and `git.inspect`.
+`work_plan`, `work.status`, and `work.task_update`; `turn.finish`; and `git.inspect`.
 A foundational tool is omitted only when that subsystem is genuinely unavailable or an
 authenticated host manifest removes it. NNA never selects or withholds schemas by matching
 words in the operator's request, and ordinary root conversations never enter a zero-tool mode.
@@ -346,12 +346,12 @@ NNA installs bounded self-inspection tools independently of the workspace:
 
 Conversation work has one atomic tool and four granular tools in the foundational surface:
 
-- `work.plan`: atomically replace the bounded goal and ordered tasks; terminal states require
+- `work_plan`: atomically replace the bounded goal and ordered tasks; terminal states require
   evidence or a reason and at most one task may be in progress. Its result uses the same
   model-facing shape as its input. A blocked goal requires `goal_blocked_reason`, and every
   unfinished task must also be blocked. The optional returned `revision` prevents stale replacement.
 - `work.status`: inspect the current durable goal and ordered tasks. When work exists, its result
-  can be passed unchanged to `work.plan`.
+  can be passed unchanged to `work_plan`.
 - `work.goal`: create, update, complete, block, or reopen the durable goal.
 - `work.task_add`: append one task to the current goal.
 - `work.task_update`: update one existing task by its stable id.

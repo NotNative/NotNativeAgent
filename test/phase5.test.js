@@ -677,24 +677,24 @@ test('invalid tool requests render as amber corrections instead of red failures'
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', {
-    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'work.plan',
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'work_plan',
     status: 'invalid_request', reason_code: 'tool_schema_invalid',
     failure_reason: 'argument "tasks"[0] is missing required property "title"',
     effect_certainty: 'none',
   });
   const plain = new TuiRenderer().frame(projection, { width: 110, height: 24, color: false });
-  assert.match(plain, /^    ! work\.plan \| invalid_request/mu);
-  assert.doesNotMatch(plain, /^    X work\.plan/mu);
+  assert.match(plain, /^    ! work_plan \| invalid_request/mu);
+  assert.doesNotMatch(plain, /^    X work_plan/mu);
   const colored = new TuiRenderer().frame(projection, { width: 110, height: 24, color: true });
-  assert.match(colored, /\u001b\[38;5;214m {4}! work\.plan/u);
-  assert.doesNotMatch(colored, /\u001b\[38;5;203m {4}! work\.plan/u);
+  assert.match(colored, /\u001b\[38;5;214m {4}! work_plan/u);
+  assert.doesNotMatch(colored, /\u001b\[38;5;203m {4}! work_plan/u);
 
   const retained = [{
-    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'work.plan',
+    type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'work_plan',
     status: 'invalid_request', reason_code: 'tool_schema_invalid', effect_certainty: 'none',
   }];
-  assert.match(collapsedFailureRows(retained)[0], /^ {4}! work\.plan/u);
-  assert.match(summaryActivityRows(retained)[1], /^ {6}! work\.plan x1 \| 0 succeeded \| 1 needs correction/u);
+  assert.match(collapsedFailureRows(retained)[0], /^ {4}! work_plan/u);
+  assert.match(summaryActivityRows(retained)[1], /^ {6}! work_plan x1 \| 0 succeeded \| 1 needs correction/u);
 });
 
 test('successful shell calls with diagnostics render as amber qualified success', () => {
@@ -806,7 +806,7 @@ test('kernel context treats the workspace as context instead of an implicit task
   assert.match(policy, /Never invent or supply an internal hash or execution-only field/u);
   assert.match(policy, /Do not claim completion while required work is unfinished/u);
   assert.match(policy, /Planning is optional/u);
-  assert.match(policy, /explicit request[^]*persist it with work\.plan or the granular work tools/u);
+  assert.match(policy, /explicit request[^]*persist it with work_plan or the granular work tools/u);
 });
 
 test('provider context keeps its complete system prefix byte-stable without a mutable clock message', () => {

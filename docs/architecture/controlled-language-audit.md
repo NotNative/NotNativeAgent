@@ -75,7 +75,7 @@ The committed [controlled-language-report.json](controlled-language-report.json)
 fields and 284 sentences. No sentence exceeds 25 words; the maximum is 24 words. The audit uses
 `Intl.Segmenter` for lexical sentence and word boundaries. It does not infer intent from prose.
 
-Two `status` candidates remain in `work.plan` task objects and `work.task_update`. Both name the
+Two `status` candidates remain in `work_plan` task objects and `work.task_update`. Both name the
 same closed task-lifecycle enum, and their containing tool and task object qualify the concept.
 Renaming this compatible public field would add another model-facing spelling without separating
 two meanings, so the audit accepts both uses.

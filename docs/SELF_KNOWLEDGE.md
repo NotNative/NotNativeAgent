@@ -71,7 +71,7 @@ Support bundles and structured logs carry that version so maintainers can compar
 answer or failure with the behavior and guidance that produced it.
 
 Optional long-horizon progress is maintained through `/plan` (with `/tasks` as an alias),
-`/goal`, and `/task`. The agent uses `work.plan` to atomically keep the same durable goal and
+`/goal`, and `/task`. The agent uses `work_plan` to atomically keep the same durable goal and
 ordered task state accurate. A current work snapshot is
 kernel-grounded independently of transcript compaction and restores with the session. The
 agent must record concrete evidence before completing a task or goal, and must not create
