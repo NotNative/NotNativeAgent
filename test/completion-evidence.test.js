@@ -8,7 +8,7 @@ test('completion evidence reports exact successful reads and verification calls'
     request('read-1', 'fs_read', { path: 'src/a.js' }), result('read-1', 'fs_read', 'succeeded'),
     request('read-2', 'fs_read', { path: 'src/a.js' }), result('read-2', 'fs_read', 'succeeded'),
     request('read-3', 'fs_read', { path: 'src/b.js' }), result('read-3', 'fs_read', 'failed'),
-    request('verify-1', 'project.verify', {}), result('verify-1', 'project.verify', 'succeeded'),
+    request('verify-1', 'project_verify', {}), result('verify-1', 'project_verify', 'succeeded'),
     request('finish-1', 'turn_finish', { outcome: 'completed' }), result('finish-1', 'turn_finish', 'succeeded'),
     { type: 'tool_request', turnId: 'other', providerCallId: 'other', toolName: 'fs_read', args: { path: 'ignored' } },
   ];
@@ -16,7 +16,7 @@ test('completion evidence reports exact successful reads and verification calls'
   assert.deepEqual(evidence, {
     schema: 'nna.completion-evidence.v1', tool_requests: 4, tool_results: 4,
     succeeded: 3, non_success: 1, unique_files_read: 1, project_verifications: 1,
-    tool_names: ['fs_read', 'project.verify'],
+    tool_names: ['fs_read', 'project_verify'],
   });
   assert.match(completionEvidenceHint(evidence), /authoritative event counts/u);
   assert.match(completionEvidenceHint(evidence), /"unique_files_read":1/u);

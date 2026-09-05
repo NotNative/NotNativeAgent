@@ -14,7 +14,7 @@ const SCRIPT_NAMES = Object.freeze({
 
 export function projectVerifyDefinition(paths) {
   return {
-    name: 'project.verify', version: 1,
+    name: 'project_verify', version: 1,
     purpose: 'Discover and run the project\'s bounded Node/npm or Bun verification commands. The exact resolved commands and manifest fingerprints are reviewed before execution; results are durable turn evidence.',
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 3_600_000,
     inputSchema: {

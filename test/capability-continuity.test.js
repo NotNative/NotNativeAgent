@@ -30,7 +30,7 @@ test('terse continuation preserves active unfinished work context without changi
   for (const name of ['fs.write_text', 'fs.edit_text']) assert.ok(!visible.includes(name));
   const grounded = registry.providerDefinitions(query, { phase: 'action' }).map((item) => item.function.name);
   assert.deepEqual(grounded, visible);
-  assert.ok(!visible.includes('project.verify'));
+  assert.ok(!visible.includes('project_verify'));
   assert.ok(!visible.includes('process_run'));
 });
 

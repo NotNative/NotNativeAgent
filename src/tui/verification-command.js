@@ -9,7 +9,7 @@ export function invokeProjectVerification(argument, workspace) {
   const parts = normalizedArgument ? normalizedArgument.split(/\s+/u) : [];
   const scope = ['focused', 'affected', 'full'].includes(parts[0]) ? parts.shift() : 'full';
   const request = parts.length > 0
-    ? `Run project.verify once with scope ${scope} and paths ${JSON.stringify(parts)}. Report its exact checks, pass/fail result, and receipt id. Do not substitute ad-hoc shell commands.`
-    : `Run project.verify once with scope ${scope}. Report its exact checks, pass/fail result, and receipt id. Do not substitute ad-hoc shell commands.`;
+    ? `Run project_verify once with scope ${scope} and paths ${JSON.stringify(parts)}. Report its exact checks, pass/fail result, and receipt id. Do not substitute ad-hoc shell commands.`
+    : `Run project_verify once with scope ${scope}. Report its exact checks, pass/fail result, and receipt id. Do not substitute ad-hoc shell commands.`;
   workspace.submitActive(request);
 }

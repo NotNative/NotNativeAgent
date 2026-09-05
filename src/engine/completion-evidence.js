@@ -20,7 +20,7 @@ export function completionEvidence(transcript, turnId) {
     tool_results: requests.filter((request) => results.has(request.providerCallId)).length,
     succeeded: successful.length, non_success: requests.length - successful.length,
     unique_files_read: filesRead.size,
-    project_verifications: successful.filter((request) => request.toolName === 'project.verify').length,
+    project_verifications: successful.filter((request) => request.toolName === 'project_verify').length,
     tool_names: Object.freeze(toolNames),
   });
 }

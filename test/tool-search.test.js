@@ -54,7 +54,7 @@ test('specialist tools require an explicit catalog search or authenticated expos
   const registry = new ToolRegistry(process.cwd(), { elevationBroker: { async execute() { return {}; } } });
   await registry.initialize();
   const initial = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
-  for (const name of ['fs.write_text', 'fs.edit_text', 'process_run', 'system.elevate', 'project.verify']) {
+  for (const name of ['fs.write_text', 'fs.edit_text', 'process_run', 'system.elevate', 'project_verify']) {
     assert.ok(!initial.includes(name));
   }
 
@@ -128,6 +128,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['work goal', 'work.goal', 'work_goal'],
     ['work task add', 'work.task_add', 'work_task_add'],
     ['process run', 'process.run', 'process_run'],
+    ['project verify', 'project.verify', 'project_verify'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
@@ -145,7 +146,7 @@ test('hosted execution obeys an authenticated manifest rather than inferred word
   await registry.initialize();
   const visible = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
   assert.ok(visible.includes('process_run'));
-  assert.ok(!visible.includes('project.verify'));
+  assert.ok(!visible.includes('project_verify'));
   assert.ok(!visible.includes('shell_run'));
 });
 
@@ -163,25 +164,25 @@ test('tool_search keeps bounded specialist catalog matches visible for a workflo
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   const search = registry.definition('tool_search');
-  const normalized = await search.validate({ query: 'project.verify project verification' });
+  const normalized = await search.validate({ query: 'project_verify project verification' });
   const result = await search.executor({ args: normalized.args }, new AbortController().signal);
-  assert.match(result.content, /project\.verify/u);
+  assert.match(result.content, /project_verify/u);
   assert.deepEqual(JSON.parse(result.content).lease.granted[0].sources, ['tool_search']);
   for (let index = 0; index < 8; index += 1) {
-    assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'project.verify'));
+    assert.ok(registry.providerDefinitions().some((item) => item.function.name === 'project_verify'));
   }
-  await registry.seal({ name: 'project.verify', providerCallId: 'verify-call', args: {} }, {
+  await registry.seal({ name: 'project_verify', providerCallId: 'verify-call', args: {} }, {
     policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
     stepId: 'step', caller: 'primary', surface: 'test',
   });
-  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project.verify'), true);
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project_verify'), true);
   for (let index = 1; index < 16; index += 1) {
-    await registry.seal({ name: 'project.verify', providerCallId: `verify-call-${index}`, args: {} }, {
+    await registry.seal({ name: 'project_verify', providerCallId: `verify-call-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
       stepId: 'step', caller: 'primary', surface: 'test',
     });
   }
-  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project.verify'), false);
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project_verify'), false);
   assert.ok(JSON.parse(result.content).matches.length <= 12);
 });
 
@@ -209,8 +210,8 @@ test('ranked discovery does not lease neighboring schemas without an exact tool 
   const content = JSON.parse(result.content);
   assert.equal(content.status, 'catalog_matches_found');
   assert.equal(content.lease.granted.length, 0);
-  assert.ok(content.matches.some((item) => item.name === 'project.verify'));
-  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project.verify'), false);
+  assert.ok(content.matches.some((item) => item.name === 'project_verify'));
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'project_verify'), false);
 });
 
 test('workflow lease admission rejects overflow visibly without evicting committed schemas', async () => {

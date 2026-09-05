@@ -95,7 +95,7 @@ test('Unattended posture converts unresolved escalation into actionable denial',
 test('governor preserves a returned failure without claiming its side effects completed', async () => {
   const events = new EventHub();
   const definition = {
-    name: 'project.verify', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
+    name: 'project_verify', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
     async executor() {
       return { status: 'failed', reasonCode: 'verification_failed', content: '{"passed":false}', metadata: { passed: false } };
     },
@@ -105,7 +105,7 @@ test('governor preserves a returned failure without claiming its side effects co
     reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
     registry: { definition: () => definition },
   });
-  const request = { id: 'verify-1', providerCallId: 'provider-1', toolName: 'project.verify', definitionVersion: 1 };
+  const request = { id: 'verify-1', providerCallId: 'provider-1', toolName: 'project_verify', definitionVersion: 1 };
   const result = await governor.executePrepared(request, { id: 'decision-1' }, new AbortController().signal);
   assert.equal(result.status, 'failed');
   assert.equal(result.reason_code, 'verification_failed');
@@ -199,7 +199,7 @@ test('governor redacts credentials from executor failure evidence', async () => 
 
 test('governor accepts an executor-owned effect certainty for a returned failure', async () => {
   const definition = {
-    name: 'project.verify', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
+    name: 'project_verify', version: 1, timeoutMs: 1000, maxOutputBytes: 4096, sideEffect: 'unknown',
     async executor() {
       return {
         status: 'failed', reasonCode: 'verification_failed', effectCertainty: 'none',
@@ -212,7 +212,7 @@ test('governor accepts an executor-owned effect certainty for a returned failure
     reviewer: { ledger: { async executionStarted() {}, async settle() {} } },
     registry: { definition: () => definition },
   });
-  const request = { id: 'verify-none', providerCallId: 'provider-none', toolName: 'project.verify', definitionVersion: 1 };
+  const request = { id: 'verify-none', providerCallId: 'provider-none', toolName: 'project_verify', definitionVersion: 1 };
   const result = await governor.executePrepared(request, { id: 'decision-none' }, new AbortController().signal);
   assert.equal(result.effect_certainty, 'none');
 });

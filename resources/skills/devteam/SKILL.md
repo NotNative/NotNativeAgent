@@ -3,7 +3,7 @@ id: devteam
 version: 2
 description: Bring a full software-delivery team to turn an agreed change into a planned, implemented, tested, independently challenged, and evidence-verified delivery
 invocation: both
-requires_tools: [agent.run, project.verify, fs_read, fs.write_text, fs.directory, shell_run]
+requires_tools: [agent.run, project_verify, fs_read, fs.write_text, fs.directory, shell_run]
 ---
 # Devteam
 
@@ -62,7 +62,7 @@ Run independent packages concurrently only when their file ownership and interfa
 
 ## 3. Verify with evidence
 
-Delegate through `agent.run` with type `tester` to add focused tests where authorized and run `project.verify` with the narrowest useful scope during repair. Write `.devteam/packages/<id>/test-results.md` with the verification receipt id, exact commands, outcomes, manifest fingerprint, and criterion coverage. Deterministic evidence comes before semantic judgment. Do not substitute an ad-hoc package-manager or shell command when `project.verify` supports the project.
+Delegate through `agent.run` with type `tester` to add focused tests where authorized and run `project_verify` with the narrowest useful scope during repair. Write `.devteam/packages/<id>/test-results.md` with the verification receipt id, exact commands, outcomes, manifest fingerprint, and criterion coverage. Deterministic evidence comes before semantic judgment. Do not substitute an ad-hoc package-manager or shell command when `project_verify` supports the project.
 
 The tester must exercise applicable Power of Ten boundaries and UI invariants, including malformed input, cancellation, partial failure, and recovery paths—not only the happy path.
 
@@ -92,7 +92,7 @@ Send only failed criteria and relevant evidence back to the responsible `coder`;
 
 ## 5. Whole-product integration gate
 
-After package criteria pass, delegate a final `tester` to run `project.verify` with `scope: full` for repository-level regression checks and a fresh `reviewer` for cross-component assumptions, unintended scope, and requirements traceability. Update the acceptance ledger from the final receipt; a package-level pass cannot override an integration failure.
+After package criteria pass, delegate a final `tester` to run `project_verify` with `scope: full` for repository-level regression checks and a fresh `reviewer` for cross-component assumptions, unintended scope, and requirements traceability. Update the acceptance ledger from the final receipt; a package-level pass cannot override an integration failure.
 
 Write `.devteam/final-summary.md` with the delivered outcome, changed-file summary, verification evidence, review disposition, repaired findings, and remaining user action. Report it concisely.
 

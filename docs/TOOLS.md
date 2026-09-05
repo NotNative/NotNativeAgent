@@ -202,7 +202,7 @@ labels simple argv separately from opaque package scripts, large argv sets, dyna
 and wildcard/regex-like patterns so complexity cannot disappear behind an apparently safe
 executable name.
 
-`project.verify` remains the governed software-verification boundary selected for explicit
+`project_verify` remains the governed software-verification boundary selected for explicit
 verification workflows. It reads a bounded regular
 `package.json`, deterministically chooses the declared npm or Bun adapter, resolves the exact
 package scripts and argv, and exposes that complete plan to review before starting a process.

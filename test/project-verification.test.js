@@ -117,10 +117,10 @@ test('verification status presents the exact reviewed command compactly', () => 
     sessionId: 'session-1', tools: { definition: () => ({ sideEffect: 'unknown', scope: 'workspace' }) },
   }, { turnId: 'turn-1' }, {
     request: {
-      id: 'request-1', toolName: 'project.verify', definitionVersion: 1, args: { scope: 'full' },
+      id: 'request-1', toolName: 'project_verify', definitionVersion: 1, args: { scope: 'full' },
       resolved: { commands: [{ display: 'C:/node.exe C:/npm-cli.js run check' }] },
     },
-    call: { name: 'project.verify', providerCallId: 'provider-1', args: { scope: 'full' } },
+    call: { name: 'project_verify', providerCallId: 'provider-1', args: { scope: 'full' } },
     result: { elapsed_ms: 10, effect_certainty: 'completed' },
   }, 'succeeded');
   assert.equal(record.target, 'C:/node.exe C:/npm-cli.js run check');
