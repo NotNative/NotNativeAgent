@@ -744,11 +744,11 @@ test('typed prerequisite recovery exposes its exact tool on the next provider st
   const root = await mkdtemp(join(tmpdir(), 'nna-tool-prerequisite-exposure-'));
   await writeFile(join(root, 'source.txt'), 'source', 'utf8');
   const provider = new TwoStepProvider(
-    { name: 'fs.copy_file', args: { source: 'source.txt', destination: 'missing/file.txt' } },
+    { name: 'fs_copy_file', args: { source: 'source.txt', destination: 'missing/file.txt' } },
     (request) => {
       const visible = request.tools.map((item) => item.function.name);
       assert.ok(visible.includes('fs.directory'));
-      assert.ok(!visible.includes('fs.copy_file'));
+      assert.ok(!visible.includes('fs_copy_file'));
       const constraint = request.messages.find((item) => item.role === 'system'
         && item.content.includes('Active tool constraints'));
       assert.match(constraint.content, /"required_tool":"fs\.directory"/u);
@@ -950,8 +950,8 @@ test('registry exposes workspace operations and packaged self-guidance', async (
     .find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
-    'code_diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
-    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
+    'code_diagnostics', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
+    'fs.metadata', 'fs.move_file', 'fs.read_lines', 'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_list', 'fs_read', 'fs_search_text', 'git_inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);

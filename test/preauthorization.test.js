@@ -92,14 +92,14 @@ test('preauthorization choices exist only on the authenticated interactive contr
 
 test('operation preauthorization binds every transfer target and exact process argv', () => {
   const registry = new PreauthorizationRegistry();
-  const transfer = compoundRequest('copy-one', 'fs.copy_file', {
+  const transfer = compoundRequest('copy-one', 'fs_copy_file', {
     source: { path: 'D:/work/a.txt' }, destination: { path: 'D:/work/b.txt' },
   });
   const copyGrant = registry.grant('allow_session', transfer, context, 'operator');
-  assert.equal(registry.match(compoundRequest('copy-two', 'fs.copy_file', {
+  assert.equal(registry.match(compoundRequest('copy-two', 'fs_copy_file', {
     source: { path: 'D:/work/a.txt' }, destination: { path: 'D:/work/b.txt' },
   }), context)?.id, copyGrant.id);
-  assert.equal(registry.match(compoundRequest('copy-drift', 'fs.copy_file', {
+  assert.equal(registry.match(compoundRequest('copy-drift', 'fs_copy_file', {
     source: { path: 'D:/work/a.txt' }, destination: { path: 'D:/work/c.txt' },
   }), context), null);
 

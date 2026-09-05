@@ -41,7 +41,7 @@ function directoryDefinition(paths) {
 }
 
 function copyDefinition(paths, changes, receipts) {
-  return fileTransferDefinition(paths, 'fs.copy_file', 'Copy one exact accessible file to a new destination.',
+  return fileTransferDefinition(paths, 'fs_copy_file', 'Copy one exact accessible file to a new destination.',
     async (source, destination) => copyFile(source, destination, constants.COPYFILE_EXCL), changes, receipts);
 }
 

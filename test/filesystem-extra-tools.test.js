@@ -73,7 +73,7 @@ test('directory creation is recursive and idempotent while retaining resolved pa
 
 test('copy and move require exact source state and a new destination', async () => {
   const { root, definitions } = await fixture();
-  const copy = definitions.get('fs.copy_file');
+  const copy = definitions.get('fs_copy_file');
   const copyRequest = await copy.validate({ source: 'source.txt', destination: 'copy.txt' });
   await copy.executor(copyRequest, new AbortController().signal);
   assert.equal(await readFile(join(root, 'copy.txt'), 'utf8'), 'original');
