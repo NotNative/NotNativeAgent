@@ -9,7 +9,7 @@ test('permission rendering tolerates malformed optional diagnostic fields', () =
   const argumentsValue = {};
   argumentsValue.circular = argumentsValue;
   const lines = permissionLines({
-    tool: 'fs.write_text', choices: ['allow_once', 'deny', 'cancel'],
+    tool: 'fs_write_text', choices: ['allow_once', 'deny', 'cancel'],
     arguments: argumentsValue, expires_at: 'invalid',
   }, 100, bindings);
   assert.match(lines.join('\n'), /Arguments: \[unavailable\]/u);

@@ -133,11 +133,11 @@ test('file change ledger renders conversation-local changes for /diff', async ()
   const read = registry.definition('fs_read_text');
   const readRequest = await read.validate({ path: 'note.txt' });
   await read.executor(readRequest, new AbortController().signal);
-  const write = registry.definition('fs.write_text');
+  const write = registry.definition('fs_write_text');
   const writeRequest = await write.validate({
     path: 'note.txt', content: 'one\nthree\n',
   });
-  await write.executor({ ...writeRequest, toolName: 'fs.write_text' }, new AbortController().signal);
+  await write.executor({ ...writeRequest, toolName: 'fs_write_text' }, new AbortController().signal);
 
   const diff = registry.diff();
   assert.match(diff, /--- a\/note\.txt/u);

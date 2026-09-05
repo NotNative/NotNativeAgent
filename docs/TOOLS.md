@@ -80,7 +80,7 @@ The canonical model-facing filesystem tools are:
   NNA data root cannot be mutation targets. The canonical arguments are `action` and `path`;
   the runtime also normalizes common unambiguous spellings such as `operation` and
   `directoryPath` before review.
-- `fs.write_text`: atomically create or replace a provider-safe text payload of at most
+- `fs_write_text`: atomically create or replace a provider-safe text payload of at most
   32 KiB. Larger implementations are split across files or completed with focused edits. Missing parent
   directories for a new target are created as part of the same governed operation. A
   successful full write records the resulting content as authored state, allowing an

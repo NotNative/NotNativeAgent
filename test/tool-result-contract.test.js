@@ -19,7 +19,7 @@ test('legacy denial status remains readable as separated lifecycle and review st
 });
 
 test('new denial results separate tool lifecycle status from review outcome', () => {
-  const result = denialResult({ id: 'request-1', providerCallId: 'call-1', toolName: 'fs.write_text' }, {
+  const result = denialResult({ id: 'request-1', providerCallId: 'call-1', toolName: 'fs_write_text' }, {
     outcome: 'deny_with_guidance', reasonCode: 'intent_mismatch', guidance: 'Use a permitted target.',
   });
   assert.equal(result.status, 'denied');
@@ -61,9 +61,9 @@ test('all lifecycle statuses use one exhaustive child and telemetry projection t
 
 test('provider projection names lifecycle and review fields explicitly', () => {
   const transcript = [
-    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs.write_text', args: { path: 'a.txt' } },
+    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs_write_text', args: { path: 'a.txt' } },
     {
-      type: 'tool_result', providerCallId: 'call-1', toolName: 'fs.write_text',
+      type: 'tool_result', providerCallId: 'call-1', toolName: 'fs_write_text',
       toolLifecycleStatus: 'denied', reviewOutcome: 'hard_deny', content: 'policy boundary',
     },
   ];
@@ -113,12 +113,12 @@ test('provider projection distinguishes full, redacted, bounded, and receipt con
 
 test('result cache restores legacy journal status through the compatibility reader', () => {
   const cache = new ToolResultCache();
-  const call = { providerCallId: 'call-1', name: 'fs.write_text', args: { path: 'a.txt' } };
+  const call = { providerCallId: 'call-1', name: 'fs_write_text', args: { path: 'a.txt' } };
   cache.restore([
-    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs.write_text', args: { path: 'a.txt' } },
+    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs_write_text', args: { path: 'a.txt' } },
     {
       type: 'tool_result', requestId: 'request-1', providerCallId: 'call-1',
-      toolName: 'fs.write_text', status: 'deny_with_guidance', content: 'legacy denial',
+      toolName: 'fs_write_text', status: 'deny_with_guidance', content: 'legacy denial',
     },
   ]);
   const restored = cache.lookup(call);

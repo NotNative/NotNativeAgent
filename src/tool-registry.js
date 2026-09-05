@@ -231,7 +231,7 @@ export class ToolRegistry {
     if (normalized.resolved?.staleEditRecovered === true) return;
     const transaction = normalized.resolved?.transactionalReceipt;
     if (transaction) {
-      if (!['fs.write_text', 'fs_edit_text'].includes(name)
+      if (!['fs_write_text', 'fs_edit_text'].includes(name)
         || transaction.origin !== 'runtime_transaction'
         || transaction.path !== target
         || transaction.digest !== normalized.args.expected_sha256) {
@@ -301,7 +301,7 @@ function compactPurpose(definition) {
 }
 function writeDefinition(paths, changes, receipts) {
   return {
-    name: 'fs.write_text', version: 2, purpose: 'Atomically write one bounded UTF-8 file payload, creating missing parent directories for a new target and recording the resulting authored state.',
+    name: 'fs_write_text', version: 2, purpose: 'Atomically write one bounded UTF-8 file payload, creating missing parent directories for a new target and recording the resulting authored state.',
     sideEffect: 'reversible', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required destination file path.' },
@@ -442,7 +442,7 @@ async function atomicWrite(request, signal, detail = {}, changes = null) {
     await unlink(temporary).catch(() => undefined);
     throw error;
   }
-  changes?.record(request.resolved.path, before, Buffer.from(request.args.content, 'utf8'), request.toolName ?? 'fs.write_text');
+  changes?.record(request.resolved.path, before, Buffer.from(request.args.content, 'utf8'), request.toolName ?? 'fs_write_text');
   return {
     content: detail.message ?? 'write completed',
     metadata: {

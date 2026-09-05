@@ -10,7 +10,7 @@ import { declaredSubscription } from './event-fixture.js';
 
 function mutationRequest(id) {
   return Object.freeze({
-    id, providerCallId: `provider-${id}`, toolName: 'fs.write_text',
+    id, providerCallId: `provider-${id}`, toolName: 'fs_write_text',
     args: { path: 'target.txt', content: 'after', expected_sha256: null },
     resolved: { path: 'D:/workspace/target.txt', exists: false },
     authorityId: 'authority-1', authorityVersion: 1, policyVersion: 1,
@@ -30,7 +30,7 @@ const context = {
   authority: {
     id: 'authority-1', intent: [{ content: 'Change target.txt', sequence: 1 }], mission: null,
   },
-  definition: { name: 'fs.write_text', sideEffect: 'reversible', scope: 'workspace' },
+  definition: { name: 'fs_write_text', sideEffect: 'reversible', scope: 'workspace' },
   surface: 'headless', justification: 'I should be allowed',
 };
 

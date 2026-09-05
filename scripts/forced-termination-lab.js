@@ -73,7 +73,7 @@ export async function forceAt(root, boundary, options = {}) {
 
 export function hasDurableWriteResult(records) {
   return records.some((item) => item.type === 'tool_result'
-    && item.payload?.toolName === 'fs.write_text'
+    && item.payload?.toolName === 'fs_write_text'
     && item.payload?.toolLifecycleStatus === 'succeeded'
     && item.payload?.effectCertainty === 'completed');
 }
@@ -89,7 +89,7 @@ async function childRun(root, targetSequence) {
     }] };
     else if (calls === 2) yield { type: 'tool_fragment', fragments: [{
       index: 0, id: 'force-kill-write', function: {
-        name: 'fs.write_text', arguments: JSON.stringify({
+        name: 'fs_write_text', arguments: JSON.stringify({
           path: 'target.txt', content: 'after',
         }),
       },

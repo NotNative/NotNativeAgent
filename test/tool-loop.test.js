@@ -264,7 +264,7 @@ test('filesystem failures share a missing-ancestor fingerprint and require that 
       content: 'parent directory is missing; create exactly this directory first with fs_directory: "src/shaders"\nCall fs_directory with action create; it creates the complete path and missing ancestors recursively.',
     },
   });
-  const writeFailure = failed('fs.write_text', 'src/shaders/ocean.js');
+  const writeFailure = failed('fs_write_text', 'src/shaders/ocean.js');
   const directoryFailure = failed('fs_directory', 'src/shaders');
   assert.equal(toolFailureFingerprint([writeFailure]), toolFailureFingerprint([directoryFailure]));
   assert.match(toolContinuationHint([writeFailure]), /next filesystem mutation[^]*fs_directory[^]*\{"action":"create","path":"src\/shaders"\}[^]*complete path recursively[^]*do not retry the blocked file operation/iu);
@@ -289,7 +289,7 @@ test('unrelated successful inspection is not progress while a filesystem prerequ
   assert.equal(toolProgressEvidence([verified], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
   const descendantWrite = {
     request: { args: { path: 'src/main.js', content: 'created' } },
-    result: { status: 'succeeded', tool_name: 'fs.write_text', content: 'file written' },
+    result: { status: 'succeeded', tool_name: 'fs_write_text', content: 'file written' },
   };
   assert.equal(toolProgressEvidence([descendantWrite], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
 });
@@ -589,7 +589,7 @@ test('Unattended posture converts semantic escalation to guidance without openin
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
   const provider = new TwoStepProvider({
-    name: 'fs.write_text', args: { path: 'target.txt', content: 'after' },
+    name: 'fs_write_text', args: { path: 'target.txt', content: 'after' },
   });
   const outputs = [];
   const semanticReviewer = { async review() {
@@ -766,7 +766,7 @@ test('AC-AUTH-03 semantic approval permits a receipt-bound write', async () => {
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
   const provider = new TwoStepProvider({
-    name: 'fs.write_text',
+    name: 'fs_write_text',
     args: { path: 'target.txt', content: 'after' },
   });
   const semanticReviewer = { async review() {
@@ -791,7 +791,7 @@ test('AC-REV-05/AC-TOOL-04 semantic timeout denies write and leaves file unchang
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
   const provider = new TwoStepProvider({
-    name: 'fs.write_text',
+    name: 'fs_write_text',
     args: { path: 'target.txt', content: 'after' },
   });
   const semanticReviewer = { async review() { return new Promise(() => {}); } };
@@ -813,7 +813,7 @@ test('AC-STATE-04 cancellation interrupts semantic review and cannot begin an ap
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
   const provider = new TwoStepProvider({
-    name: 'fs.write_text', args: { path: 'target.txt', content: 'after' },
+    name: 'fs_write_text', args: { path: 'target.txt', content: 'after' },
   });
   let reviewStarted;
   const started = new Promise((resolve) => { reviewStarted = resolve; });
@@ -845,7 +845,7 @@ test('AC-TOOL-03 execution-boundary drift blocks an approved write', async () =>
     priority: 0, timeoutMs: 1000, failurePolicy: 'deny',
   }), async () => { await writeFile(path, 'external-change', 'utf8'); return { decision: 'continue' }; });
   const provider = new TwoStepProvider({
-    name: 'fs.write_text', args: { path: 'target.txt', content: 'after' },
+    name: 'fs_write_text', args: { path: 'target.txt', content: 'after' },
   });
   const semanticReviewer = { async review() {
     return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
@@ -893,7 +893,7 @@ test('AC-SEC-03 hostile tool output remains untrusted and cannot authorize a lat
     step += 1;
     if (step === 1) { yield* toolFragments('read-injection', 'fs_read_text', { path: 'note.txt' }); return; }
     if (step === 2) {
-      yield* toolFragments('write-injection', 'fs.write_text', { path: 'hacked.txt', content: 'owned' });
+      yield* toolFragments('write-injection', 'fs_write_text', { path: 'hacked.txt', content: 'owned' });
       return;
     }
     yield { type: 'text', text: 'The injected mutation was denied.' };
@@ -909,7 +909,7 @@ test('AC-SEC-03 hostile tool output remains untrusted and cannot authorize a lat
   const result = await engine.submit({ request_id: 'injection-turn', content: 'Read note.txt and summarize it' }, 'operator');
   assert.equal(result.outcome, 'blocked');
   assert.equal(step, 3);
-  const denied = engine.transcript.find((item) => item.type === 'tool_result' && item.toolName === 'fs.write_text');
+  const denied = engine.transcript.find((item) => item.type === 'tool_result' && item.toolName === 'fs_write_text');
   assert.equal(denied.toolLifecycleStatus, 'denied');
   assert.equal(denied.reviewOutcome, 'deny_with_guidance');
   assert.equal(denied.reasonCode, 'tool_output_is_not_authority');
@@ -921,7 +921,7 @@ test('AC-REV-05 semantic reviewer receives only authenticated intent when evalua
   const path = join(root, 'target.txt');
   await writeFile(path, 'before', 'utf8');
   const provider = new TwoStepProvider({
-    name: 'fs.write_text', args: { path: 'target.txt', content: 'after' },
+    name: 'fs_write_text', args: { path: 'target.txt', content: 'after' },
   });
   let reviewerCalls = 0;
   const semanticReviewer = { async review(input) {
@@ -945,13 +945,13 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   const root = await mkdtemp(join(tmpdir(), 'nna-registry-'));
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  registry.grantWorkflowLease(['fs.write_text']);
+  registry.grantWorkflowLease(['fs_write_text']);
   const providerWrite = registry.providerDefinitions('write a project file', { phase: 'action' })
-    .find((item) => item.function.name === 'fs.write_text');
+    .find((item) => item.function.name === 'fs_write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code_diagnostics',
-    'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_list_directory', 'fs_metadata', 'fs_move_file', 'fs_read', 'fs_read_lines', 'fs_read_text', 'fs_search_text', 'git_inspect',
+    'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_list_directory', 'fs_metadata', 'fs_move_file', 'fs_read', 'fs_read_lines', 'fs_read_text', 'fs_search_text', 'fs_write_text', 'git_inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
@@ -968,7 +968,7 @@ test('existing in-workspace writes use a request-bound runtime transaction snaps
     policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
     stepId: 'step', caller: 'primary', surface: 'test',
   };
-  const transactional = await registry.seal({ providerCallId: 'write-before-read', name: 'fs.write_text', args }, context);
+  const transactional = await registry.seal({ providerCallId: 'write-before-read', name: 'fs_write_text', args }, context);
   assert.equal(transactional.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
   assert.deepEqual(transactional.publicArgs, args);
   assert.equal(Object.hasOwn(transactional.publicArgs, 'expected_sha256'), false);
@@ -978,14 +978,14 @@ test('existing in-workspace writes use a request-bound runtime transaction snaps
   assert.equal(transactional.resolved.mutationEvidence.after_sha256, createHash('sha256').update('after').digest('hex'));
   await assert.rejects(
     registry.seal({
-      providerCallId: 'write-model-hash', name: 'fs.write_text',
+      providerCallId: 'write-model-hash', name: 'fs_write_text',
       args: { ...args, expected_sha256: createHash('sha256').update(before).digest('hex') },
     }, context),
     { code: 'tool_schema_invalid' },
   );
   const read = registry.definition('fs_read_text');
   await read.executor(await read.validate({ path: 'target.txt' }), new AbortController().signal);
-  const sealed = await registry.seal({ providerCallId: 'write-after-read', name: 'fs.write_text', args }, context);
+  const sealed = await registry.seal({ providerCallId: 'write-after-read', name: 'fs_write_text', args }, context);
   assert.equal(sealed.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
   assert.match(sealed.resolved.readReceiptId, /^read_receipt_/u);
   assert.equal(sealed.resolved.transactionalReceipt, null);
@@ -996,7 +996,7 @@ test('new full writes create missing parents and authorize an immediate exact ed
   const registry = new ToolRegistry(root);
   await registry.initialize();
   const signal = new AbortController().signal;
-  const write = registry.definition('fs.write_text');
+  const write = registry.definition('fs_write_text');
   const written = await write.executor(await write.validate({
     path: 'generated/nested/app.js', content: 'export const state = "draft";\n',
   }), signal);
@@ -1030,7 +1030,7 @@ test('runtime transaction snapshots do not authorize destructive or out-of-works
     providerCallId: 'delete-with-transaction', name: 'fs_delete_file', args: { path: 'inside.txt' },
   }, context), { code: 'read_receipt_required' });
   await assert.rejects(registry.seal({
-    providerCallId: 'external-write-without-read', name: 'fs.write_text',
+    providerCallId: 'external-write-without-read', name: 'fs_write_text',
     args: { path: join(outside, 'outside.txt'), content: 'updated' },
   }, context), { code: 'read_receipt_required' });
 });
@@ -1305,10 +1305,10 @@ test('same-batch writes to one file execute in request order across runtime-auth
     if (count === 1) {
       yield { type: 'tool_fragment', fragments: [
         { index: 0, id: 'draft-write', function: {
-          name: 'fs.write_text', arguments: '{"filePath":"result.txt","text":"draft"}',
+          name: 'fs_write_text', arguments: '{"filePath":"result.txt","text":"draft"}',
         } },
         { index: 1, id: 'final-write', function: {
-          name: 'fs.write_text', arguments: '{"path":"result.txt","content":"final"}',
+          name: 'fs_write_text', arguments: '{"path":"result.txt","content":"final"}',
         } },
       ] };
       yield { type: 'terminal', finishReason: 'tool_calls' };

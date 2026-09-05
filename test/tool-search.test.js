@@ -32,7 +32,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.ok(!baseline.includes('fs_list_directory'));
   assert.ok(!baseline.includes('fs_read_text'));
   assert.ok(!baseline.includes('fs_edit_text'));
-  assert.ok(!baseline.includes('fs.write_text'));
+  assert.ok(!baseline.includes('fs_write_text'));
   assert.ok(!baseline.includes('fs_delete_file'));
   assert.ok(!baseline.includes('process_run'));
   assert.ok(!baseline.includes('browser.navigate'));
@@ -54,7 +54,7 @@ test('specialist tools require an explicit catalog search or authenticated expos
   const registry = new ToolRegistry(process.cwd(), { elevationBroker: { async execute() { return {}; } } });
   await registry.initialize();
   const initial = registry.providerDefinitions('build and test the application').map((item) => item.function.name);
-  for (const name of ['fs.write_text', 'fs_edit_text', 'process_run', 'system.elevate', 'project_verify']) {
+  for (const name of ['fs_write_text', 'fs_edit_text', 'process_run', 'system.elevate', 'project_verify']) {
     assert.ok(!initial.includes(name));
   }
 
@@ -63,7 +63,7 @@ test('specialist tools require an explicit catalog search or authenticated expos
   await search.executor({ args: normalized.args }, new AbortController().signal);
   const searched = registry.providerDefinitions('unrelated wording').map((item) => item.function.name);
   assert.ok(searched.includes('fs_edit_text'));
-  assert.ok(!searched.includes('fs.write_text'));
+  assert.ok(!searched.includes('fs_write_text'));
   assert.ok(!searched.includes('system.elevate'));
 });
 
@@ -79,16 +79,16 @@ test('provider surface receipts make fixed foundations and workflow leases audit
   assert.equal(baseline.receipt.selectionReasons.shell_run, 'foundational');
   assert.ok(baseline.receipt.selectionContextBytes > 0);
   assert.match(baseline.receipt.selectionContextFingerprint, /^[a-f0-9]{64}$/u);
-  assert.ok(!baseline.receipt.selectedToolNames.includes('fs.write_text'));
+  assert.ok(!baseline.receipt.selectedToolNames.includes('fs_write_text'));
   assert.match(baseline.receipt.fingerprint, /^[a-f0-9]{64}$/u);
 
   const legacyOption = registry.providerSurface('build and test the application', { phase: 'action' });
   assert.deepEqual(legacyOption, baseline);
 
-  const lease = registry.grantWorkflowLease(['fs.write_text'], { source: 'test_recovery' });
+  const lease = registry.grantWorkflowLease(['fs_write_text'], { source: 'test_recovery' });
   assert.deepEqual(lease.granted[0].sources, ['test_recovery']);
   const expanded = registry.providerSurface('any wording');
-  assert.equal(expanded.receipt.selectionReasons['fs.write_text'], 'workflow_lease');
+  assert.equal(expanded.receipt.selectionReasons.fs_write_text, 'workflow_lease');
 });
 
 test('tool_search reports repair-complete query diagnostics without conflating surface context', async () => {
@@ -145,6 +145,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['filesystem move file', 'fs.move_file', 'fs_move_file'],
     ['filesystem read lines', 'fs.read_lines', 'fs_read_lines'],
     ['filesystem read text', 'fs.read_text', 'fs_read_text'],
+    ['filesystem write text', 'fs.write_text', 'fs_write_text'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
@@ -172,7 +173,7 @@ test('explicit exposure makes an exact recovery tool visible without broadening 
   registry.grantWorkflowLease(['fs_create_directory']);
   const visible = registry.providerDefinitions('inspect the missing path').map((item) => item.function.name);
   assert.ok(visible.includes('fs_create_directory'));
-  assert.ok(!visible.includes('fs.write_text'));
+  assert.ok(!visible.includes('fs_write_text'));
   assert.ok(!visible.includes('fs_delete_file'));
 });
 

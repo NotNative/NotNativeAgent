@@ -99,7 +99,7 @@ test('filesystem mutations accept unambiguous common argument spellings and reta
     assert.deepEqual(created.args, { action: 'create', path: 'src/generated', recursive: true });
     await directory.executor(created, new AbortController().signal);
 
-    const write = item.registry.definition('fs.write_text');
+    const write = item.registry.definition('fs_write_text');
     const written = await write.validate({ filePath: 'src/generated/value.txt', text: 'before' });
     assert.equal(written.args.path, 'src/generated/value.txt');
     assert.equal(written.args.content, 'before');
@@ -189,12 +189,12 @@ test('approved same-batch file mutations advance across NNA-authored states with
       stepId: 'step', caller: 'primary', surface: 'test',
     };
     const first = await item.registry.seal({
-      providerCallId: 'write-first', name: 'fs.write_text', args: { path: 'result.txt', content: 'alpha beta' },
+      providerCallId: 'write-first', name: 'fs_write_text', args: { path: 'result.txt', content: 'alpha beta' },
     }, context);
     const second = await item.registry.seal({
-      providerCallId: 'write-second', name: 'fs.write_text', args: { path: 'result.txt', content: 'alpha beta gamma' },
+      providerCallId: 'write-second', name: 'fs_write_text', args: { path: 'result.txt', content: 'alpha beta gamma' },
     }, context);
-    const write = item.registry.definition('fs.write_text');
+    const write = item.registry.definition('fs_write_text');
     await write.executor(first, new AbortController().signal);
     const secondResult = await write.executor(second, new AbortController().signal);
     assert.equal(secondResult.metadata.advanced_from_authored_state, true);

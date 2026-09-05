@@ -9,7 +9,7 @@ import { invalidResult } from '../src/tools/governor.js';
 const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'ref_store', 'ref_inspect',
   'fs_list_directory', 'fs_read_text', 'fs_read_lines', 'fs_glob', 'fs_search_text',
-  'fs.write_text', 'fs_edit_text', 'fs_edit_lines', 'fs_delete_file', 'fs_metadata',
+  'fs_write_text', 'fs_edit_text', 'fs_edit_lines', 'fs_delete_file', 'fs_metadata',
   'fs_create_directory', 'fs_copy_file', 'fs_move_file', 'fs_read', 'fs_list', 'fs_directory',
   'nna.search_guidance', 'nna.read_guidance', 'nna.diagnose_turn', 'nna.list_sessions',
   'nna.mcp_status', 'nna.mcp_test',
@@ -93,7 +93,7 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
     assert.equal(exact.inputSchema.properties.find.maxLength, 16_384);
     assert.equal(exact.inputSchema.properties.content.maxLength, 32_768);
     assert.equal(lines.inputSchema.properties.replacement.maxLength, 32_768);
-    assert.equal(registry.definition('fs.write_text').inputSchema.properties.content.maxLength, 32_768);
+    assert.equal(registry.definition('fs_write_text').inputSchema.properties.content.maxLength, 32_768);
     assert.equal(registry.definition('ref_store').inputSchema.properties.value.maxLength, 32_768);
 
     registry.grantWorkflowLease(['fs_edit_text', 'fs_edit_lines']);

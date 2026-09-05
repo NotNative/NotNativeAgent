@@ -11,7 +11,7 @@ export const FOUNDATIONAL_TOOL_NAMES = Object.freeze([
 
 export const TOOL_SURFACE_ELIGIBLE_NAMES = Object.freeze([
   ...FOUNDATIONAL_TOOL_NAMES,
-  'fs_directory', 'fs.write_text', 'fs_edit_text', 'fs_edit_lines',
+  'fs_directory', 'fs_write_text', 'fs_edit_text', 'fs_edit_lines',
   'agent.run', 'image.inspect', 'notification.telegram',
 ]);
 

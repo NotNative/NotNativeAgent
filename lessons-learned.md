@@ -61,7 +61,7 @@ This means tool-schema size is an incomplete metric. Semantic density, prescript
 
 ### 2. Direct write visibility changed the model's planning mode
 
-The compact combination of `fs.list`, `fs.read`, and `shell.run` produced an initial tool call in approximately 3.6 seconds. Replacing `fs.read` with compact `fs.write_text`, while holding the model, prompt, hardware, and other controls constant, produced more than 6,000 reasoning characters in 30 seconds without a tool fragment.
+The compact combination of `fs_list`, `fs_read`, and `shell_run` produced an initial tool call in approximately 3.6 seconds. Replacing `fs_read` with compact `fs_write_text`, while holding the model, prompt, hardware, and other controls constant, produced more than 6,000 reasoning characters in 30 seconds without a tool fragment.
 
 When write capability was hidden during the orientation request and revealed after the first grounded observation, the same model called a tool in roughly 2.4–3.2 seconds and then created artifacts normally.
 

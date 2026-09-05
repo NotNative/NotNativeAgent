@@ -2,8 +2,10 @@
 import { valueOverlay } from './overlays.js';
 import { isTerminalToolStatus } from '../experience/tool-lifecycle.js';
 
+// Why: successful mutations belong in the change ledger, never in the read/discovery summary.
 const MUTATIONS = new Set([
-  'fs_directory', 'fs.write_text', 'fs_edit_text', 'fs_edit_lines', 'fs_delete_file', 'fs.copy', 'fs.move',
+  'fs_directory', 'fs_write_text', 'fs_edit_text', 'fs_edit_lines', 'fs_delete_file',
+  'fs_copy_file', 'fs_move_file', 'fs_create_directory',
 ]);
 const MAX_FILE_ENTRIES = 128;
 const RUNTIME_INSTRUCTION = 'Current Console runtime only; /diff shows the content changes retained by NNA.';

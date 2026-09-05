@@ -36,7 +36,7 @@ test('forced-termination durability detection uses the persisted lifecycle field
   const durable = [{
     type: 'tool_result',
     payload: {
-      toolName: 'fs.write_text', toolLifecycleStatus: 'succeeded',
+      toolName: 'fs_write_text', toolLifecycleStatus: 'succeeded',
       effectCertainty: 'completed',
     },
   }];

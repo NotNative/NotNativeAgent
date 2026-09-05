@@ -26,8 +26,8 @@ test('same-route private reasoning continues across a tool boundary without ente
   assert.equal(captureReasoningContinuation(active, [{ providerCallId: 'call-1' }]), true);
   const transcript = [
     { type: 'message', role: 'assistant', content: 'Writing the main file now.', trust: 'model' },
-    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs.write_text', args: { path: 'main.js', content: 'ok' } },
-    { type: 'tool_result', providerCallId: 'call-1', toolName: 'fs.write_text', status: 'succeeded', content: 'written' },
+    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs_write_text', args: { path: 'main.js', content: 'ok' } },
+    { type: 'tool_result', providerCallId: 'call-1', toolName: 'fs_write_text', status: 'succeeded', content: 'written' },
   ];
   const context = buildContext(config, transcript, '', active.enrichment);
   assert.doesNotMatch(context.find((item) => item.role === 'assistant' && typeof item.content === 'string').content, /private implementation plan/u);

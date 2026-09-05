@@ -8,7 +8,7 @@ import { ReviewerLedger, requestDigest } from '../src/persistence/reviewer-ledge
 
 function request(id = 'tool-request-1') {
   return Object.freeze({
-    id, providerCallId: 'provider-1', toolName: 'fs.write_text',
+    id, providerCallId: 'provider-1', toolName: 'fs_write_text',
     args: { path: 'private-name.txt', content: 'seeded-secret-content', expected_sha256: null },
     resolved: { path: 'D:/workspace/private-name.txt', exists: false },
     authorityId: 'authority-1', authorityVersion: 1,

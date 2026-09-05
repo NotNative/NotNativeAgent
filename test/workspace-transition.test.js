@@ -179,9 +179,9 @@ test('change history remains attributable when the working directory changes', a
   await mkdir(initial); await mkdir(target);
   const priorPath = join(initial, 'prior.txt'); const targetPath = join(target, 'current.txt');
   const ledger = new FileChangeLedger(initial);
-  ledger.record(priorPath, 'before', 'after', 'fs.write_text');
+  ledger.record(priorPath, 'before', 'after', 'fs_write_text');
   ledger.rebase(target);
-  ledger.record(targetPath, null, 'created', 'fs.write_text');
+  ledger.record(targetPath, null, 'created', 'fs_write_text');
   const snapshot = ledger.snapshot();
   assert.equal(snapshot[0].path, priorPath.replaceAll('\\', '/'));
   assert.equal(snapshot[1].path, 'current.txt');

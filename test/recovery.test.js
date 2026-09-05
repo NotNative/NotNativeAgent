@@ -74,7 +74,7 @@ test('a host without steering returns terminal bounded recovery instead of an at
 test('turn-scoped failures clear only after a successful superseding operation', () => {
   const active = { toolFailureLedger: new Map() };
   const item = (path, status, effect = 'none') => ({
-    call: { name: 'fs.write_text', args: { path } },
+    call: { name: 'fs_write_text', args: { path } },
     result: { status, reason_code: status === 'failed' ? 'write_failed' : null, effect_certainty: effect },
   });
   updateToolFailures(active, [item('a.txt', 'failed')]);
@@ -723,10 +723,10 @@ test('provider streaming stops after a second complete equivalent tool call', as
   });
   const provider = { async *stream() {
     yield { type: 'tool_fragment', fragments: [{
-      index: 0, id: 'duplicate-0', function: { name: 'fs.write_text', arguments: '{"path":"capture.mjs","content":"same"}' },
+      index: 0, id: 'duplicate-0', function: { name: 'fs_write_text', arguments: '{"path":"capture.mjs","content":"same"}' },
     }] };
     yield { type: 'tool_fragment', fragments: [{
-      index: 1, id: 'duplicate-1', function: { name: 'fs.write_text', arguments: '{"content":"same","path":"capture.mjs"}' },
+      index: 1, id: 'duplicate-1', function: { name: 'fs_write_text', arguments: '{"content":"same","path":"capture.mjs"}' },
     }] };
     yield { type: 'text', text: 'must not be consumed' };
     yield { type: 'terminal', finishReason: 'stop' };
@@ -1555,12 +1555,12 @@ test('resume durably balances interrupted tool calls without guessing side effec
   await seed.append('tool_request', {
     type: 'tool_request', turnId: 'interrupted-turn', stepId: 'step-1',
     requestId: 'not-started', providerCallId: 'call-not-started',
-    toolName: 'fs.write_text', args: { path: 'safe.txt', content: 'safe' },
+    toolName: 'fs_write_text', args: { path: 'safe.txt', content: 'safe' },
   });
   await seed.append('tool_request', {
     type: 'tool_request', turnId: 'interrupted-turn', stepId: 'step-1',
     requestId: 'started', providerCallId: 'call-started',
-    toolName: 'fs.write_text', args: { path: 'unknown.txt', content: 'unknown' },
+    toolName: 'fs_write_text', args: { path: 'unknown.txt', content: 'unknown' },
   });
   await seed.append('lifecycle_event', {
     event_name: 'tool_execution.started', turn_id: 'interrupted-turn',

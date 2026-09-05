@@ -45,7 +45,7 @@ test('truncated argument lesson persists while the immediate repair mode stays o
 });
 
 test('governance constraints survive unrelated success and clear on new authority', () => {
-  const denied = mergeToolConstraints([], [item('fs.write_text', 'deny_with_guidance', {
+  const denied = mergeToolConstraints([], [item('fs_write_text', 'deny_with_guidance', {
     reason: 'authenticated_intent_mismatch', content: 'The requested write is outside authenticated intent.',
   })]);
   assert.equal(denied[0].status, 'denied');
@@ -89,7 +89,7 @@ test('failed inline interpreter constraints recommend draft stdin instead of rep
 });
 
 test('missing directory ancestors become durable prerequisites cleared by structured existence proof', () => {
-  const missing = item('fs.write_text', 'invalid_request', {
+  const missing = item('fs_write_text', 'invalid_request', {
     reason: 'tool_parent_missing', args: { path: 'src/shaders/ocean.js', content: 'shader' },
     content: 'parent directory is missing; create exactly this directory first with fs_directory: "src"\nCall fs_directory with action create; it creates the complete path and missing ancestors recursively.',
   });
@@ -102,10 +102,10 @@ test('missing directory ancestors become durable prerequisites cleared by struct
   assert.equal(mergeToolConstraints(constraints, [item('fs_list', 'succeeded', { args: { path: '.' } })]).length, 1);
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs_directory', 'succeeded', { args: { action: 'create', path: 'src' } })]), []);
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs_list', 'succeeded', { args: { path: 'src' } })]), []);
-  assert.deepEqual(mergeToolConstraints(constraints, [item('fs.write_text', 'succeeded', {
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs_write_text', 'succeeded', {
     args: { path: 'src/main.js', content: 'created' },
   })]), []);
-  assert.equal(mergeToolConstraints(constraints, [item('fs.write_text', 'succeeded', {
+  assert.equal(mergeToolConstraints(constraints, [item('fs_write_text', 'succeeded', {
     args: { path: 'other/main.js', content: 'created' },
   })]).length, 1);
 

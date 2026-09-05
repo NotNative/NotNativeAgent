@@ -117,7 +117,7 @@ test('operation preauthorization binds every transfer target and exact process a
 
 function request(id, path) {
   return Object.freeze({
-    id: `tool-${id}`, toolName: 'fs.write_text', args: { path }, resolved: { path: `D:/work/${path}` },
+    id: `tool-${id}`, toolName: 'fs_write_text', args: { path }, resolved: { path: `D:/work/${path}` },
     authorityId: 'authority-1', authorityVersion: 1, policyVersion: 1, definitionVersion: 1,
     authorityRestrictionVersion: 0,
     workspaceRoot: 'D:/work', expiresAt: Date.now() + 60_000,

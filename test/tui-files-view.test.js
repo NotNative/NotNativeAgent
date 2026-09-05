@@ -9,12 +9,14 @@ test('conversation files deduplicate reads and retain actionable failure details
     { type: 'tool_status', tool: 'fs_read_text', target: 'README.md', status: 'succeeded' },
     { type: 'tool_status', tool: 'fs_read_text', target: 'missing.md', status: 'failed', reason_code: 'file_missing' },
     { type: 'tool_status', tool: 'fs_read_text', target: 'pending.md', status: 'review_pending' },
-    { type: 'tool_status', tool: 'fs.write_text', target: 'approved.md', status: 'approved' },
+    { type: 'tool_status', tool: 'fs_write_text', target: 'approved.md', status: 'approved' },
+    { type: 'tool_status', tool: 'fs_copy_file', target: 'copied.md', status: 'succeeded' },
+    { type: 'tool_status', tool: 'fs_move_file', target: 'moved.md', status: 'succeeded' },
     { type: 'tool_status', tool: 'web.fetch', target: 'https://example.test', status: 'succeeded' },
   ] }, [{ path: 'src/a.js', operations: ['edit_text'] }]);
   assert.match(value, /Read or discovered: 1 \| Changed: 1 \| Failed: 1/u);
   assert.equal(value.match(/fs_read_text README\.md/gu)?.length, 1);
   assert.match(value, /fs_read_text missing\.md - file_missing/u);
   assert.doesNotMatch(value, /example\.test/u);
-  assert.doesNotMatch(value, /pending\.md|approved\.md/u);
+  assert.doesNotMatch(value, /pending\.md|approved\.md|copied\.md|moved\.md/u);
 });

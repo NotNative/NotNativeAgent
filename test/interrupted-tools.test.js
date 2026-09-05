@@ -54,7 +54,7 @@ test('settled and non-interrupted tool calls are left unchanged', () => {
 function request(requestId, providerCallId) {
   return {
     type: 'tool_request', turnId: 'turn-1', stepId: 'step-1', requestId,
-    providerCallId, toolName: 'fs.write_text', args: { path: 'result.txt', content: 'x' },
+    providerCallId, toolName: 'fs_write_text', args: { path: 'result.txt', content: 'x' },
   };
 }
 

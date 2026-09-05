@@ -55,7 +55,7 @@ test('optional tokenizer identity is explicit and invalid counters degrade conse
 test('outcome equivalence compares completion, tool decisions, and final outcome', () => {
   const baseline = { status: 'succeeded', toolDecisions: [{ tool: 'fs_read_text', target: 'a' }], finalOutcome: { files: ['a'] } };
   assert.equal(compareCompressionOutcomes(baseline, structuredClone(baseline)).equivalent, true);
-  const changed = compareCompressionOutcomes(baseline, { ...baseline, toolDecisions: [{ tool: 'fs.write_text', target: 'a' }] });
+  const changed = compareCompressionOutcomes(baseline, { ...baseline, toolDecisions: [{ tool: 'fs_write_text', target: 'a' }] });
   assert.equal(changed.equivalent, false);
   assert.equal(changed.dimensions.tool_decisions, false);
 });

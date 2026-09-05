@@ -5,7 +5,7 @@ import { toolLifecycleStatus } from '../tools/tool-result-contract.js';
 // refactor from silently dropping completed mutations from continuation checkpoints.
 const FILE_MUTATION_TOOL_NAMES = new Set([
   'fs_edit_text', 'fs_edit_lines', 'fs_delete_file', 'fs_copy_file', 'fs_create_directory',
-  'fs.write_text', 'fs_move_file',
+  'fs_write_text', 'fs_move_file',
 ]);
 
 export function hierarchicalContinuationArtifact(transcript, omitted) {

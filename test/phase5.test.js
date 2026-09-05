@@ -63,7 +63,7 @@ test('AC-TUI-03/AC-REV-04/AC-TOOL-04 authenticated allow-once settles escalation
   let step = 0;
   const provider = { async *stream() {
     step += 1;
-    if (step === 1) { yield* toolFragments('fs.write_text', { path: 'target.txt', content: 'after' }); return; }
+    if (step === 1) { yield* toolFragments('fs_write_text', { path: 'target.txt', content: 'after' }); return; }
     yield { type: 'text', text: 'changed' }; yield { type: 'terminal' };
   } };
   const semanticReviewer = { async review() {
@@ -113,7 +113,7 @@ test('AC-HEAD-10 host business policy remains usable but cannot bypass mandatory
   const provider = { async *stream(request) {
     requests.push(request); step += 1;
     if (step === 1) {
-      yield* toolFragments('fs.write_text', { path: 'unauthorized.txt', content: 'changed' });
+      yield* toolFragments('fs_write_text', { path: 'unauthorized.txt', content: 'changed' });
       return;
     }
     yield { type: 'text', text: 'Business response completed without the denied mutation.' };
@@ -1823,7 +1823,7 @@ test('permission view shows mandatory decision evidence and hides the editor', (
   const projection = new TuiProjection();
   projection.addSession('s1', 'Main', { model: 'm', provider: 'p' });
   projection.apply('s1', {
-    type: 'permission_prompt', tool: 'fs.write_text', action: 'Replace a file',
+    type: 'permission_prompt', tool: 'fs_write_text', action: 'Replace a file',
     scope: 'workspace/note.txt', effect: 'reversible', reversibility: 'reversible',
     blast_radius: 'one file', risk: 'review_required', reason_code: 'consequential_change',
     guidance: 'Confirm this exact write.', arguments: { path: 'note.txt', content: { bytes: 5 } },
@@ -1945,7 +1945,7 @@ test('pending permission preserves draft and command catalog uses canonical vers
   const editor = new EditorBuffer();
   editor.insert('do not lose this');
   const notices = [];
-  const session = { editor, activeTurnId: 'turn-1', pendingPermission: { tool: 'fs.write_text' } };
+  const session = { editor, activeTurnId: 'turn-1', pendingPermission: { tool: 'fs_write_text' } };
   const workspace = { projection: { active: () => session, showNotice: (...value) => notices.push(value) } };
   await submitEditor(workspace, () => undefined);
   assert.equal(editor.text, 'do not lose this');
