@@ -3,7 +3,7 @@ import { ContractError } from '../ids.js';
 
 export function workspaceChangeDefinition(paths, control) {
   return {
-    name: 'workspace.change', version: 1,
+    name: 'workspace_change', version: 1,
     purpose: 'Change the current working directory for this conversation to one existing directory. Use it when authenticated operator intent requests or requires a different working directory.',
     sideEffect: 'reversible', scope: 'conversation_workspace', cancellation: true, timeoutMs: 5_000,
     inputSchema: {
@@ -16,7 +16,7 @@ export function workspaceChangeDefinition(paths, control) {
       if (!args || typeof args !== 'object' || Array.isArray(args)
         || Object.keys(args).some((key) => key !== 'path')
         || typeof args.path !== 'string' || args.path.trim().length === 0) {
-        throw new ContractError('tool_schema_invalid', 'workspace.change requires one non-empty path');
+        throw new ContractError('tool_schema_invalid', 'workspace_change requires one non-empty path');
       }
       let resolved;
       try { resolved = await paths.resolveDirectory(args.path.trim()); }

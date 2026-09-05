@@ -64,7 +64,7 @@ foundational catalog. The intended result is predictable affordance for small an
 without paying the reasoning and token cost of irrelevant schemas on every step, while avoiding
 brittle language gating or any reduction in governance.
 
-`workspace.change` is the only model-callable persistent working-directory transition. It
+`workspace_change` is the only model-callable persistent working-directory transition. It
 validates one existing directory and always reaches mandatory semantic review. A successful
 transition replaces that conversation's automatic filesystem scope, reloads applicable project
 guidance, and persists across restoration. An explicit operator request can authorize one

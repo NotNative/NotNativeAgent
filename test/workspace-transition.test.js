@@ -21,7 +21,7 @@ class WorkspaceProvider {
   async *stream(request) {
     this.calls += 1;
     if (this.calls === 1) {
-      yield* toolFragments('workspace-call', 'workspace.change', { path: this.target });
+      yield* toolFragments('workspace-call', 'workspace_change', { path: this.target });
       return;
     }
     this.inspect(request);
@@ -38,7 +38,7 @@ class ApprovingReviewer {
   }
 }
 
-test('workspace.change uses semantic review, rebases the conversation, and reloads AGENTS guidance', async () => {
+test('workspace_change uses semantic review, rebases the conversation, and reloads AGENTS guidance', async () => {
   const parent = await mkdtemp(join(tmpdir(), 'nna-workspace-transition-'));
   const initial = join(parent, 'initial'); const target = join(parent, 'target');
   await mkdir(initial); await mkdir(target);
@@ -50,7 +50,7 @@ test('workspace.change uses semantic review, rebases the conversation, and reloa
   let secondRequest = null;
   const provider = new WorkspaceProvider(target, (request) => { secondRequest = request; });
   const semanticReviewer = new ApprovingReviewer((input) => {
-    assert.equal(input.request.toolName, 'workspace.change');
+    assert.equal(input.request.toolName, 'workspace_change');
     assert.equal(input.intentRelation, 'uncertain');
     assert.match(JSON.stringify(input.authenticatedIntent), /Move this conversation/u);
   });
@@ -71,7 +71,7 @@ test('workspace.change uses semantic review, rebases the conversation, and reloa
   assert.match(system, /TARGET_GUIDANCE_ONLY/u);
   assert.doesNotMatch(system, /INITIAL_GUIDANCE_ONLY/u);
   assert.match(secondRequest.messages.find((item) => item.role === 'tool')?.content ?? '', /reload_before_next_model_step/u);
-  assert.equal(engine.tools.providerSurface().receipt.selectedToolNames.includes('workspace.change'), false);
+  assert.equal(engine.tools.providerSurface().receipt.selectedToolNames.includes('workspace_change'), false);
   const subagent = engine.tools.definition('agent_run');
   assert.equal((await subagent.validate({ type: 'general', task: 'inspect the project' })).resolved.path, canonicalTarget);
   await engine.shutdown({ type: 'shutdown', request_id: 'workspace-shutdown' });
@@ -88,7 +88,7 @@ test('a working directory transition invalidates sibling requests sealed under t
       calls += 1;
       if (calls === 1) {
         yield* toolBatchFragments([
-          { id: 'workspace-change', name: 'workspace.change', args: { path: target } },
+          { id: 'workspace-change', name: 'workspace_change', args: { path: target } },
           { id: 'stale-read', name: 'fs_read', args: { path: 'prior.txt' } },
         ]);
         return;
@@ -130,7 +130,7 @@ test('a queued runtime configuration remains ordered after a working directory t
       profiles.push(profile.model); calls += 1;
       if (calls === 1) {
         signalFirst(); await firstRelease;
-        yield* toolFragments('workspace-config-change', 'workspace.change', { path: target });
+        yield* toolFragments('workspace-config-change', 'workspace_change', { path: target });
         return;
       }
       yield { type: 'text', text: 'Both queued transitions were applied in order.' };
@@ -160,13 +160,13 @@ test('a queued runtime configuration remains ordered after a working directory t
   await engine.shutdown({ type: 'shutdown', request_id: 'workspace-config-shutdown' });
 });
 
-test('workspace.change rejects missing directories without changing registry state', async () => {
+test('workspace_change rejects missing directories without changing registry state', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-workspace-invalid-'));
   const registry = new ToolRegistry(root, { workspaceControl: { change: async () => assert.fail('must not execute') } });
   await registry.initialize();
   const original = registry.paths.root;
   await assert.rejects(
-    registry.definition('workspace.change').validate({ path: join(root, 'missing') }),
+    registry.definition('workspace_change').validate({ path: join(root, 'missing') }),
     { code: 'workspace_path_invalid' },
   );
   assert.equal(registry.paths.root, original);
@@ -187,14 +187,14 @@ test('change history remains attributable when the working directory changes', a
   assert.equal(snapshot[1].path, 'current.txt');
 });
 
-test('workspace.change is unavailable under an authenticated host capability ceiling', async () => {
+test('workspace_change is unavailable under an authenticated host capability ceiling', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-workspace-hosted-'));
   const registry = new ToolRegistry(root, {
-    hosted: true, boundedToWorkspace: true, allowedTools: ['workspace.change'],
+    hosted: true, boundedToWorkspace: true, allowedTools: ['workspace_change'],
     workspaceControl: { change: async () => assert.fail('must not execute') },
   });
   await registry.initialize();
-  assert.equal(registry.definition('workspace.change'), undefined);
+  assert.equal(registry.definition('workspace_change'), undefined);
   await registry.close();
 });
 
@@ -236,7 +236,7 @@ test('a reviewed working directory transition changes only the active Console ta
   const provider = {
     async *stream(request) {
       const hasResult = request.messages.some((item) => item.role === 'tool');
-      if (!hasResult) { yield* toolFragments('tab-workspace-call', 'workspace.change', { path: target }); return; }
+      if (!hasResult) { yield* toolFragments('tab-workspace-call', 'workspace_change', { path: target }); return; }
       yield { type: 'text', text: 'Tab working directory changed.' };
       yield { type: 'terminal', finishReason: 'stop' };
     },

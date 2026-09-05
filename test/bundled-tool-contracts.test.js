@@ -19,7 +19,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'work_plan', 'work_status', 'work_goal', 'work_task_add', 'work_task_update',
   'turn_finish',
   'notification_telegram', 'session_search_history', 'session_read_history', 'system_time',
-  'workspace.change',
+  'workspace_change',
 ]);
 
 function optionalControls() {

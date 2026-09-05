@@ -31,7 +31,7 @@ Multiple attached conversations share a bounded fair provider scheduler while re
 independent engines, transcripts, authority, drafts, cancellation, and projections.
 Configuration changes publish immutable versions only at idle or a model-step boundary.
 Persistence and MCP topology changes require a new session. Generic configuration publication
-cannot change workspace scope. A reviewed `workspace.change` tool can replace one conversation's
+cannot change workspace scope. A reviewed `workspace_change` tool can replace one conversation's
 working directory without changing provider, host, mission, or governance configuration.
 
 Observability consists of content-free bounded structured logs, read-only health,

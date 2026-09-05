@@ -265,7 +265,7 @@ authorize a destructive result when the proposed operation and scope match it. H
 Device namespaces, Windows reserved device stems, control characters, and non-portable
 trailing-dot/space segments remain rejected consistently on every platform.
 
-`workspace.change` replaces the current working directory for one standalone conversation. It
+`workspace_change` replaces the current working directory for one standalone conversation. It
 accepts one existing directory, reaches semantic review, and commits only after its journal record
 succeeds. The next provider step receives the new workspace root and newly applicable `AGENTS.md`
 guidance. Relative paths, project intake, sub-agent scope, and the Console tab projection use the
@@ -273,7 +273,7 @@ new directory. Sibling tabs remain unchanged, and durable restoration returns to
 directory. A shell `cd` or `Set-Location` affects only that foreground process and cannot silently
 change conversation state. Explicit authenticated intent may separately authorize one outside-CWD
 operation; that operation does not change the CWD. Hosted execution manifests cannot expose or use
-`workspace.change` because their canonical workspace ceiling is immutable.
+`workspace_change` because their canonical workspace ceiling is immutable.
 
 `process_run` remains review-required. Bounded direct network diagnostics such as DNS lookup,
 ping, traceroute, and exact PowerShell `Test-Connection` or `Resolve-DnsName` commands are

@@ -487,7 +487,7 @@ In the Console, `/workspace PATH` applies this rule by opening a new conversatio
 at the canonical directory. NNA recomputes exact-workspace trust, project settings,
 project guidance and hooks, tool roots, and project MCP eligibility before starting the
 new engine. The existing conversation is not mutated and remains independently usable.
-During an active standalone conversation, the reviewed `workspace.change` tool instead replaces
+During an active standalone conversation, the reviewed `workspace_change` tool instead replaces
 that tab's current working directory. It does not reload project settings, hooks, skills, provider
 routes, or MCP topology. It does rebase tool paths, project intake, and applicable `AGENTS.md`
 guidance before the next model step. The committed directory is stored in the session journal and

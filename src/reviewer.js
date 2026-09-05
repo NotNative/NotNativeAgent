@@ -121,7 +121,7 @@ export class UnavailableSemanticReviewer {
 }
 function classify(request, definition) {
   if (!definition || request.toolName !== definition.name) return definitionMismatchClassification();
-  if (definition.name === 'workspace.change') return workspaceTransitionClassification(resolvedOutsideWorkspace(request));
+  if (definition.name === 'workspace_change') return workspaceTransitionClassification(resolvedOutsideWorkspace(request));
   if (definition.name === 'fs_directory' && request.args?.action === 'list') {
     return Object.freeze({
       risk: 'safe', reason: resolvedOutsideWorkspace(request) ? 'host_read' : 'workspace_read',
@@ -343,7 +343,7 @@ function decision(outcome, reasonCode, request, guidance) {
 
 function authenticatedIntentRelation(request, authority, definition) {
   // Security: only semantic review interprets authenticated authority for a scope transition.
-  if (request.toolName === 'workspace.change') return 'uncertain';
+  if (request.toolName === 'workspace_change') return 'uncertain';
   if (request.toolName === 'fs_directory' && request.args?.action === 'list') return 'covered';
   if (definition.sideEffect === 'read_only') return 'covered';
   // Why: free-form authenticated language is authoritative evidence, but its

@@ -160,6 +160,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['Telegram notification', 'notification.telegram', 'notification_telegram'],
     ['session search history', 'session.search_history', 'session_search_history'],
     ['session read history', 'session.read_history', 'session_read_history'],
+    ['workspace change', 'workspace.change', 'workspace_change'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
