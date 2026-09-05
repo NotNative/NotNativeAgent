@@ -23,7 +23,7 @@ test('canonical filesystem tools list names, read snapshots, and preserve conten
     await directory.executor({ ...create, toolName: 'fs.directory' }, new AbortController().signal);
     await writeFile(join(item.root, 'src', 'components', 'widgets', 'button.js'), 'export const marker = true;\n');
 
-    const list = item.registry.definition('fs.list');
+    const list = item.registry.definition('fs_list');
     const listed = await list.validate({ path: '.', pattern: '**/*button*', depth: '8', max_results: '200' });
     assert.deepEqual([listed.args.depth, listed.args.max_results], [8, 200]);
     const listResult = await list.executor(listed, new AbortController().signal);
@@ -76,7 +76,7 @@ test('directory listing is intuitive, one level deep, and default tree skips are
     assert.deepEqual(immediate.metadata.skipped, ['.git', 'node_modules']);
     assert.equal(immediate.metadata.action, 'list');
 
-    const list = item.registry.definition('fs.list');
+    const list = item.registry.definition('fs_list');
     const recursive = await list.validate({ directoryPath: 'src', max_depth: '2', limit: '20' });
     assert.deepEqual(recursive.args, { path: 'src', depth: 2, max_results: 20 });
     assert.match((await list.executor(recursive, new AbortController().signal)).content, /nested\/deep\.js/u);

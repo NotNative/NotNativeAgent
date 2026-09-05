@@ -99,9 +99,9 @@ test('missing directory ancestors become durable prerequisites cleared by struct
   assert.equal(constraints[0].required_path, 'src');
   assert.match(constraints[0].instruction, /Repair the missing ancestor[^]*"src"[^]*do not retry descendant[^]*verify the exact path/iu);
 
-  assert.equal(mergeToolConstraints(constraints, [item('fs.list', 'succeeded', { args: { path: '.' } })]).length, 1);
+  assert.equal(mergeToolConstraints(constraints, [item('fs_list', 'succeeded', { args: { path: '.' } })]).length, 1);
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs.directory', 'succeeded', { args: { action: 'create', path: 'src' } })]), []);
-  assert.deepEqual(mergeToolConstraints(constraints, [item('fs.list', 'succeeded', { args: { path: 'src' } })]), []);
+  assert.deepEqual(mergeToolConstraints(constraints, [item('fs_list', 'succeeded', { args: { path: 'src' } })]), []);
   assert.deepEqual(mergeToolConstraints(constraints, [item('fs.write_text', 'succeeded', {
     args: { path: 'src/main.js', content: 'created' },
   })]), []);

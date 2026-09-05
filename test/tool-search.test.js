@@ -5,7 +5,7 @@ import { ToolRegistry } from '../src/tool-registry.js';
 
 const FOUNDATION = [
   'tool_search',
-  'fs.list', 'fs.read', 'fs.search_text',
+  'fs_list', 'fs.read', 'fs.search_text',
   'shell.run', 'work.plan', 'work.status', 'work.task_update', 'turn.finish',
   'git.inspect',
 ];
@@ -111,14 +111,19 @@ test('tool_search reports repair-complete query diagnostics without conflating s
 test('retired dotted tool names fail with a canonical migration hint but remain non-executable', async () => {
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
-  await assert.rejects(registry.seal({ name: 'tool.search', providerCallId: 'retired-name', args: { query: 'files' } }, {
-    policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
-    stepId: 'step', caller: 'primary', surface: 'test',
-  }), {
-    code: 'unknown_tool',
-    message: 'tool tool.search is unavailable; use tool_search',
-  });
-  assert.equal(registry.definition('tool.search'), undefined);
+  for (const [index, retired, canonical] of [
+    ['search', 'tool.search', 'tool_search'],
+    ['list', 'fs.list', 'fs_list'],
+  ]) {
+    await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
+      policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
+      stepId: 'step', caller: 'primary', surface: 'test',
+    }), {
+      code: 'unknown_tool',
+      message: `tool ${retired} is unavailable; use ${canonical}`,
+    });
+    assert.equal(registry.definition(retired), undefined);
+  }
 });
 
 test('hosted execution obeys an authenticated manifest rather than inferred wording', async () => {
@@ -273,7 +278,7 @@ test('compact provider facades retain callable shape while runtime schemas retai
   assert.match(runtime.inputSchema.properties.path.description, /UTF-8 text file/u);
   assert.ok(wire.function.description.length <= 320);
   assert.match(wire.function.description, /snapshot receipt required by later edits/u);
-  const listWire = registry.providerDefinitions().find((item) => item.function.name === 'fs.list');
+  const listWire = registry.providerDefinitions().find((item) => item.function.name === 'fs_list');
   assert.equal(listWire.function.parameters.required.includes('pattern'), false);
   assert.equal(listWire.function.parameters.properties.pattern.type, 'string');
   assert.match(listWire.function.parameters.properties.pattern.description, /glob/u);

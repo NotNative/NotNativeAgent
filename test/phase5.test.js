@@ -867,8 +867,8 @@ test('workspace tools can discover a bounded directory tree before file names ar
   await writeFile(join(root, 'src', 'index.js'), 'export {};\n');
   const tools = new ToolRegistry(root);
   await tools.initialize();
-  assert.ok(tools.providerDefinitions().some((item) => item.function.name === 'fs.list'));
-  const definition = tools.definition('fs.list');
+  assert.ok(tools.providerDefinitions().some((item) => item.function.name === 'fs_list'));
+  const definition = tools.definition('fs_list');
   const normalized = await definition.validate({ path: '.', depth: 2 });
   const result = await definition.executor(normalized, new AbortController().signal);
   assert.match(result.content, /file\tREADME\.md/u);

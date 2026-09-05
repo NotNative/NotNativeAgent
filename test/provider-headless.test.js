@@ -137,7 +137,7 @@ test('OpenAI-compatible requests replay same-model reasoning_content without exp
   for await (const _item of provider.stream({
     model: 'local-model',
     messages: [{ role: 'assistant', content: null, reasoning_content: 'private plan', tool_calls: [{
-      id: 'call-1', type: 'function', function: { name: 'fs.list', arguments: '{}' },
+      id: 'call-1', type: 'function', function: { name: 'fs_list', arguments: '{}' },
     }] }],
   }, new AbortController().signal)) { /* consume */ }
   assert.equal(body.messages[0].reasoning_content, 'private plan');

@@ -72,6 +72,6 @@ test('incomplete tool observations do not crash or manufacture progress', () => 
   for (const item of [null, {}, { result: { status: 'succeeded' } }, { result: { status: 'succeeded', content: {} } }]) {
     assert.equal(toolProgressEvidence([item]), null);
   }
-  assert.equal(toolProgressEvidence([{ result: { status: 'succeeded', content: '', tool_name: 'fs.list' } }])
+  assert.equal(toolProgressEvidence([{ result: { status: 'succeeded', content: '', tool_name: 'fs_list' } }])
     .detail.summary.successful_tool_calls, 1);
 });

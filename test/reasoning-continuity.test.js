@@ -107,8 +107,8 @@ test('reasoning continuity evicts oldest whole blocks without slicing retained r
 
 test('context uses actual envelope headroom instead of a fixed reasoning fraction', () => {
   const transcript = [
-    { type: 'tool_request', providerCallId: 'call-old', toolName: 'fs.list', args: { path: '.' } },
-    { type: 'tool_result', providerCallId: 'call-old', toolName: 'fs.list', status: 'succeeded', content: 'first' },
+    { type: 'tool_request', providerCallId: 'call-old', toolName: 'fs_list', args: { path: '.' } },
+    { type: 'tool_result', providerCallId: 'call-old', toolName: 'fs_list', status: 'succeeded', content: 'first' },
     { type: 'tool_request', providerCallId: 'call-new', toolName: 'fs.read', args: { path: 'main.js' } },
     { type: 'tool_result', providerCallId: 'call-new', toolName: 'fs.read', status: 'succeeded', content: 'second' },
   ];
@@ -124,8 +124,8 @@ test('context uses actual envelope headroom instead of a fixed reasoning fractio
 
 test('context pressure evicts whole oldest reasoning blocks', () => {
   const transcript = ['old', 'middle', 'new'].flatMap((id) => [
-    { type: 'tool_request', providerCallId: `call-${id}`, toolName: 'fs.list', args: { path: id } },
-    { type: 'tool_result', providerCallId: `call-${id}`, toolName: 'fs.list', status: 'succeeded', content: id },
+    { type: 'tool_request', providerCallId: `call-${id}`, toolName: 'fs_list', args: { path: id } },
+    { type: 'tool_result', providerCallId: `call-${id}`, toolName: 'fs_list', status: 'succeeded', content: id },
   ]);
   const enrichment = { reasoningContinuations: ['old', 'middle', 'new'].map((id, index) => ({
     providerCallId: `call-${id}`, providerProfile: 'local', model: 'qwen',
@@ -147,7 +147,7 @@ test('engine keeps reasoning enabled but does not replay completed reasoning aft
       yield { type: 'reasoning', text: 'retain this implementation decision', field: 'reasoning_content' };
       yield { type: 'text', text: 'Checking the workspace.' };
       yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: 'call-list', function: { name: 'fs.list', arguments: '{"path":"."}' },
+        index: 0, id: 'call-list', function: { name: 'fs_list', arguments: '{"path":"."}' },
       }] };
       yield { type: 'terminal', finishReason: 'tool_calls' };
       return;
@@ -186,7 +186,7 @@ test('reasoning-only truncation checkpoints the private chain for one enabled ac
     if (requests.length === 2) {
       yield { type: 'text', text: 'The first useful action is listing the workspace.' };
       yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: 'call-list', function: { name: 'fs.list', arguments: '{"path":"."}' },
+        index: 0, id: 'call-list', function: { name: 'fs_list', arguments: '{"path":"."}' },
       }] };
       yield { type: 'terminal', finishReason: 'tool_calls' };
       return;
@@ -243,7 +243,7 @@ test('engine omits an oversized reasoning block instead of replaying a partial t
     if (requests.length === 1) {
       yield { type: 'reasoning', text: 'x'.repeat(300_000), field: 'reasoning_content' };
       yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: 'call-list', function: { name: 'fs.list', arguments: '{"path":"."}' },
+        index: 0, id: 'call-list', function: { name: 'fs_list', arguments: '{"path":"."}' },
       }] };
       yield { type: 'terminal', finishReason: 'tool_calls' };
       return;

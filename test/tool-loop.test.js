@@ -273,7 +273,7 @@ test('filesystem failures share a missing-ancestor fingerprint and require that 
 test('unrelated successful inspection is not progress while a filesystem prerequisite is active', () => {
   const listing = {
     request: { args: { path: '.' } },
-    result: { status: 'succeeded', tool_name: 'fs.list', content: 'package.json' },
+    result: { status: 'succeeded', tool_name: 'fs_list', content: 'package.json' },
   };
   const constraint = { kind: 'prerequisite_repair', required_tool: 'fs.directory', required_path: 'src' };
   assert.equal(toolProgressEvidence([listing], [], { constraints: [constraint] }), null);
@@ -284,7 +284,7 @@ test('unrelated successful inspection is not progress while a filesystem prerequ
   assert.equal(toolProgressEvidence([repair], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
   const verified = {
     request: { args: { path: 'src' } },
-    result: { status: 'succeeded', tool_name: 'fs.list', content: 'empty directory' },
+    result: { status: 'succeeded', tool_name: 'fs_list', content: 'empty directory' },
   };
   assert.equal(toolProgressEvidence([verified], [], { constraints: [constraint] }).detail.summary.successful_tool_calls, 1);
   const descendantWrite = {
@@ -950,8 +950,8 @@ test('registry exposes workspace operations and packaged self-guidance', async (
     .find((item) => item.function.name === 'fs.write_text');
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
-    'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list', 'fs.list_directory',
-    'fs.metadata', 'fs.move_file', 'fs.read', 'fs.read_lines', 'fs.read_text', 'fs.search_text', 'fs.write_text', 'git.inspect',
+    'code.diagnostics', 'fs.copy_file', 'fs.create_directory', 'fs.delete_file', 'fs.directory', 'fs.edit_lines', 'fs.edit_text', 'fs.glob', 'fs.list_directory',
+    'fs.metadata', 'fs.move_file', 'fs.read', 'fs.read_lines', 'fs.read_text', 'fs.search_text', 'fs.write_text', 'fs_list', 'git.inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process.run', 'project.verify', 'ref.inspect', 'ref.store', 'shell.run', 'system.time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);

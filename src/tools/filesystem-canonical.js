@@ -68,7 +68,7 @@ function readDefinition(legacy) {
 
 function listDefinition(paths) {
   return {
-    name: 'fs.list', version: 1,
+    name: 'fs_list', version: 1,
     purpose: 'List a bounded accessible directory tree or matching path names with file metadata.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 120_000,
     inputSchema: objectSchema({
@@ -82,7 +82,7 @@ function listDefinition(paths) {
       shape(args, [], ['path', 'pattern', 'depth', 'max_results']);
       const path = typeof args.path === 'string' && args.path.trim() ? args.path : '.';
       const resolved = await paths.resolveOptionalMetadata(path);
-      if (resolved.exists && !['file', 'directory'].includes(resolved.kind)) throw new ContractError('tool_target_invalid', 'fs.list path must identify a regular file or directory');
+      if (resolved.exists && !['file', 'directory'].includes(resolved.kind)) throw new ContractError('tool_target_invalid', 'fs_list path must identify a regular file or directory');
       const pattern = args.pattern;
       if (pattern !== undefined) validateGlob(pattern);
       return {

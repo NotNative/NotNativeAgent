@@ -31,7 +31,7 @@ export function missingTargetMessage(path) {
   const diagnostic = characters <= 2
     ? ` The supplied path contains ${characters} character${characters === 1 ? '' : 's'} and may be incomplete; verify that the provider sent the complete path.`
     : '';
-  return `target does not exist: ${JSON.stringify(supplied)}.${diagnostic} Use fs.list to locate the target before retrying.`;
+  return `target does not exist: ${JSON.stringify(supplied)}.${diagnostic} Use fs_list to locate the target before retrying.`;
 }
 
 export function satisfiesFilesystemPrerequisite(item, prerequisite) {
@@ -41,7 +41,7 @@ export function satisfiesFilesystemPrerequisite(item, prerequisite) {
   const candidate = item.request?.args?.path ?? item.call?.args?.path;
   if (typeof candidate !== 'string') return false;
   const required = comparablePath(prerequisite.required_path);
-  if (['fs.directory', 'fs.create_directory', 'fs.list', 'fs.list_directory'].includes(tool)) return comparablePath(candidate) === required;
+  if (['fs.directory', 'fs.create_directory', 'fs_list', 'fs.list_directory'].includes(tool)) return comparablePath(candidate) === required;
   return DIRECT_CHILD_PROOF_TOOLS.has(tool) && comparablePath(dirname(resolve(candidate))) === required;
 }
 

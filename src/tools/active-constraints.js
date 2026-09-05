@@ -88,7 +88,7 @@ function constraintDetail(kind, result) {
 function instruction(kind, result, item, prerequisite = null) {
   if (kind === CONSTRAINT_KIND.prerequisite) {
     return `Repair the missing ancestor by calling ${prerequisite.tool} with path ${JSON.stringify(prerequisite.path)}. `
-      + 'Use action create and do not retry descendant writes until this exact ancestor exists. If another action already created it, verify the exact path with fs.list.';
+      + 'Use action create and do not retry descendant writes until this exact ancestor exists. If another action already created it, verify the exact path with fs_list.';
   }
   if (kind === CONSTRAINT_KIND.schema) {
     const detail = constraintDetail(kind, result);

@@ -42,7 +42,7 @@ test('missing filesystem targets expose the supplied path without guessing its i
     assert.equal(error.code, 'tool_target_not_found');
     assert.match(error.message, /target does not exist: "D"/u);
     assert.match(error.message, /contains 1 character and may be incomplete/u);
-    assert.match(error.message, /Use fs\.list to locate the target/u);
+    assert.match(error.message, /Use fs_list to locate the target/u);
     assert.doesNotMatch(error.message, /intended|should have been/iu);
     return true;
   });
