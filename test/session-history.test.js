@@ -8,7 +8,7 @@ test('AC-SESS-02 semantic transcript preserves partial text, tool pairs, compact
   const records = [
     record('turn_accepted', { turnId: 'turn-1', requestId: 'request-1' }),
     record('message', { type: 'message', role: 'user', content: 'Do work', turnId: 'turn-1' }),
-    record('tool_request', { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs.read_text', args: { path: 'a' } }),
+    record('tool_request', { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs_read_text', args: { path: 'a' } }),
     record('tool_result', { type: 'tool_result', providerCallId: 'call-1', status: 'succeeded', content: 'result' }),
     record('compaction', { type: 'compaction', omitted: 2, summary: 'older records omitted' }),
     record('message', { type: 'message', role: 'assistant', content: 'partial answer', turnId: 'turn-1', partial: true }),

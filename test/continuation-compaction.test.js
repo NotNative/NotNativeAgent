@@ -108,15 +108,15 @@ test('legacy summary-only checkpoints recover durable history for one-time migra
 test('compaction projection replaces only older large successful results for the same target', () => {
   const transcript = [
     message('user', 'Inspect the file.', 'turn-old'),
-    { type: 'tool_request', turnId: 'turn-old', providerCallId: 'read-old', toolName: 'fs.read_text', args: { path: 'src/a.js' } },
-    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'read-old', toolName: 'fs.read_text', status: 'succeeded', content: `old-marker-${'x'.repeat(4_000)}` },
+    { type: 'tool_request', turnId: 'turn-old', providerCallId: 'read-old', toolName: 'fs_read_text', args: { path: 'src/a.js' } },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'read-old', toolName: 'fs_read_text', status: 'succeeded', content: `old-marker-${'x'.repeat(4_000)}` },
     ...Array.from({ length: 5 }, (_, index) => [
       message('user', `Intervening request ${index}`, `turn-${index}`),
       message('assistant', `Intervening answer ${index}`, `turn-${index}`),
     ]).flat(),
     message('user', 'Inspect the file again.', 'turn-new'),
-    { type: 'tool_request', turnId: 'turn-new', providerCallId: 'read-new', toolName: 'fs.read_text', args: { path: 'src/a.js' } },
-    { type: 'tool_result', turnId: 'turn-new', providerCallId: 'read-new', toolName: 'fs.read_text', status: 'succeeded', content: `new-marker-${'y'.repeat(4_000)}` },
+    { type: 'tool_request', turnId: 'turn-new', providerCallId: 'read-new', toolName: 'fs_read_text', args: { path: 'src/a.js' } },
+    { type: 'tool_result', turnId: 'turn-new', providerCallId: 'read-new', toolName: 'fs_read_text', status: 'succeeded', content: `new-marker-${'y'.repeat(4_000)}` },
   ];
   const compacted = compactTranscript(transcript, 40_000);
   const oldResult = compacted.records.find((item) => item.type === 'tool_result' && item.providerCallId === 'read-old');
@@ -159,8 +159,8 @@ test('compaction replaces cold byte-identical successful results with recoverabl
   const repeated = `identical-evidence-${'x'.repeat(5_000)}`;
   const transcript = [
     message('user', 'Compare independent evidence.', 'turn-old'),
-    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'call-old', toolName: 'fs.read_text', args: { path: 'src/a.js' } },
-    { type: 'tool_result', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'call-old', toolName: 'fs.read_text', status: 'succeeded', content: repeated },
+    { type: 'tool_request', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'call-old', toolName: 'fs_read_text', args: { path: 'src/a.js' } },
+    { type: 'tool_result', turnId: 'turn-old', requestId: 'request-old', providerCallId: 'call-old', toolName: 'fs_read_text', status: 'succeeded', content: repeated },
     ...Array.from({ length: 5 }, (_, index) => [
       message('user', `Intervening request ${index}`, `turn-${index}`),
       message('assistant', `Intervening answer ${index}`, `turn-${index}`),
@@ -189,14 +189,14 @@ test('duplicate projection never collapses failures, small payloads, or protecte
   const large = `same-${'z'.repeat(4_000)}`;
   const transcript = [
     message('user', 'Keep active evidence.', 'turn-active'),
-    { type: 'tool_request', turnId: 'turn-active', providerCallId: 'active-a', toolName: 'fs.read_text', args: { path: 'a' } },
-    { type: 'tool_result', turnId: 'turn-active', providerCallId: 'active-a', toolName: 'fs.read_text', status: 'succeeded', content: large },
-    { type: 'tool_request', turnId: 'turn-active', providerCallId: 'active-b', toolName: 'fs.read_text', args: { path: 'b' } },
-    { type: 'tool_result', turnId: 'turn-active', providerCallId: 'active-b', toolName: 'fs.read_text', status: 'succeeded', content: large },
+    { type: 'tool_request', turnId: 'turn-active', providerCallId: 'active-a', toolName: 'fs_read_text', args: { path: 'a' } },
+    { type: 'tool_result', turnId: 'turn-active', providerCallId: 'active-a', toolName: 'fs_read_text', status: 'succeeded', content: large },
+    { type: 'tool_request', turnId: 'turn-active', providerCallId: 'active-b', toolName: 'fs_read_text', args: { path: 'b' } },
+    { type: 'tool_result', turnId: 'turn-active', providerCallId: 'active-b', toolName: 'fs_read_text', status: 'succeeded', content: large },
     { type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-a', toolName: 'process_run', status: 'failed', content: large },
     { type: 'tool_result', turnId: 'turn-old', providerCallId: 'failed-b', toolName: 'process_run', status: 'failed', content: large },
-    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'small-a', toolName: 'fs.read_text', status: 'succeeded', content: 'same small result' },
-    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'small-b', toolName: 'fs.read_text', status: 'succeeded', content: 'same small result' },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'small-a', toolName: 'fs_read_text', status: 'succeeded', content: 'same small result' },
+    { type: 'tool_result', turnId: 'turn-old', providerCallId: 'small-b', toolName: 'fs_read_text', status: 'succeeded', content: 'same small result' },
   ];
   const compacted = compactTranscript(transcript, 80_000, { activeTurnId: 'turn-active' });
   assert.equal(compacted.fact.projection.duplicateResultRecords, 0);

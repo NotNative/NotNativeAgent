@@ -5,9 +5,9 @@ import { toolCatalogContext } from '../src/tools/catalog-context.js';
 
 test('compact tool catalog lists only unloaded authorized names in deterministic order', () => {
   const content = toolCatalogContext([
-    { name: 'mcp.memory.store' }, { name: 'fs.read_text' },
+    { name: 'mcp.memory.store' }, { name: 'fs_read_text' },
     { name: 'mcp.memory.search' }, { name: 'mcp.memory.store' },
-  ], [{ type: 'function', function: { name: 'fs.read_text' } }]);
+  ], [{ type: 'function', function: { name: 'fs_read_text' } }]);
   assert.match(content, /\["mcp\.memory\.search","mcp\.memory\.store"\]/u);
   assert.doesNotMatch(content, /\[.*fs\.read_text/u);
   assert.match(content, /schemas are not loaded/u);
@@ -17,8 +17,8 @@ test('compact tool catalog lists only unloaded authorized names in deterministic
 
 test('compact tool catalog is absent when every authorized schema is loaded', () => {
   const content = toolCatalogContext(
-    [{ name: 'fs.read_text' }],
-    [{ type: 'function', function: { name: 'fs.read_text' } }],
+    [{ name: 'fs_read_text' }],
+    [{ type: 'function', function: { name: 'fs_read_text' } }],
   );
   assert.equal(content, null);
 });

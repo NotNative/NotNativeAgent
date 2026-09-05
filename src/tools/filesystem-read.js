@@ -97,7 +97,7 @@ function snapshotBytes(value) { return typeof value === 'string' ? Buffer.byteLe
 
 function readDefinition(paths, receipts, references) {
   return {
-    name: 'fs.read_text', version: 1, purpose: 'Read bounded UTF-8 text from one accessible file. Relative paths start at the working directory; root NNA may use absolute host paths.',
+    name: 'fs_read_text', version: 1, purpose: 'Read bounded UTF-8 text from one accessible file. Relative paths start at the working directory; root NNA may use absolute host paths.',
     sideEffect: 'read_only', scope: 'workspace', cancellation: true, timeoutMs: 10_000,
     inputSchema: objectSchema({
       path: { type: 'string', maxLength: 4096, description: 'Required path to one UTF-8 text file.' },

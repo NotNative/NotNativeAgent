@@ -229,12 +229,12 @@ test('host execution policy is authenticated, bounded, and cancel-on-disconnect'
 test('host execution policy validates and canonicalizes exact tool grants', () => {
   const manifest = {
     provider, allowed_capabilities: ['tools'],
-    allowed_tools: ['process_run', 'fs.read_text'], disconnect_policy: 'cancel',
+    allowed_tools: ['process_run', 'fs_read_text'], disconnect_policy: 'cancel',
   };
   const options = { principal: 'authenticated-stdio-host', executionManifestId: 'run-tools', hostOrigin: 'nno' };
   const config = resolveManifest(manifest, options);
-  assert.deepEqual(config.executionManifest.allowedTools, ['fs.read_text', 'process_run']);
-  assert.throws(() => resolveManifest({ ...manifest, allowed_tools: ['fs.read_text', 'fs.read_text'] }, options), {
+  assert.deepEqual(config.executionManifest.allowedTools, ['fs_read_text', 'process_run']);
+  assert.throws(() => resolveManifest({ ...manifest, allowed_tools: ['fs_read_text', 'fs_read_text'] }, options), {
     code: 'execution_tools_invalid',
   });
   assert.throws(() => resolveManifest({ ...manifest, allowed_tools: ['bad tool'] }, options), {

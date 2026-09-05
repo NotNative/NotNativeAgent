@@ -30,7 +30,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.deepEqual(baseline, expected);
   assert.equal(baseline[0], 'tool_search');
   assert.ok(!baseline.includes('fs_list_directory'));
-  assert.ok(!baseline.includes('fs.read_text'));
+  assert.ok(!baseline.includes('fs_read_text'));
   assert.ok(!baseline.includes('fs_edit_text'));
   assert.ok(!baseline.includes('fs.write_text'));
   assert.ok(!baseline.includes('fs_delete_file'));
@@ -144,6 +144,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['filesystem metadata', 'fs.metadata', 'fs_metadata'],
     ['filesystem move file', 'fs.move_file', 'fs_move_file'],
     ['filesystem read lines', 'fs.read_lines', 'fs_read_lines'],
+    ['filesystem read text', 'fs.read_text', 'fs_read_text'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
@@ -255,7 +256,7 @@ test('workflow lease admission rejects overflow visibly without evicting committ
 });
 
 test('authenticated host tool grant filters built-in and external tools by exact name', async () => {
-  const registry = new ToolRegistry(process.cwd(), { allowedTools: ['fs.read_text', 'nno.customer.lookup'] });
+  const registry = new ToolRegistry(process.cwd(), { allowedTools: ['fs_read_text', 'nno.customer.lookup'] });
   await registry.initialize();
   registry.installExternal({
     name: 'nno.customer.lookup', version: 1, purpose: 'Look up a permitted customer',
@@ -269,8 +270,8 @@ test('authenticated host tool grant filters built-in and external tools by exact
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     executor: async () => ({ content: 'forbidden' }),
   });
-  assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), ['fs.read_text', 'nno.customer.lookup']);
-  assert.deepEqual(registry.providerDefinitions().map((item) => item.function.name).sort(), ['fs.read_text', 'nno.customer.lookup']);
+  assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), ['fs_read_text', 'nno.customer.lookup']);
+  assert.deepEqual(registry.providerDefinitions().map((item) => item.function.name).sort(), ['fs_read_text', 'nno.customer.lookup']);
   assert.equal(registry.definition('nno.host.processes'), undefined);
 });
 

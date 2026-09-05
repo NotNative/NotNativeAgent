@@ -81,7 +81,7 @@ test('AC-TUI-03/AC-REV-04/AC-TOOL-04 authenticated allow-once settles escalation
     semanticReviewer, output,
   });
   await engine.initialize();
-  const read = engine.tools.definition('fs.read_text');
+  const read = engine.tools.definition('fs_read_text');
   await read.executor(await read.validate({ path: 'target.txt' }), new AbortController().signal);
   const result = await engine.submit({ request_id: 'interactive-turn', content: 'Change target.txt to after' }, 'operator');
   assert.equal(result.outcome, 'completed');
@@ -731,7 +731,7 @@ test('separate assistant response segments use one blank line without changing i
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', { type: 'stream_delta', turn_id: 'turn-1', text: 'First paragraph.\n\nSecond paragraph.\n\n' });
-  projection.apply('s1', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', status: 'succeeded' });
+  projection.apply('s1', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'fs_read_text', target: 'README.md', status: 'succeeded' });
   projection.apply('s1', { type: 'stream_delta', turn_id: 'turn-1', text: '\n\nNext response.' });
   projection.apply('s1', { type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
   const frame = new TuiRenderer().frame(projection, { width: 100, height: 30, color: false });
@@ -824,8 +824,8 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
   const configured = { ...config(process.cwd()), applicationPolicy: 'Host policy.' };
   const transcript = [
     { type: 'message', role: 'user', content: 'Original task', trust: 'operator' },
-    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs.read_text', args: { path: 'README.md' } },
-    { type: 'tool_result', providerCallId: 'call-1', toolName: 'fs.read_text', status: 'succeeded', content: 'untrusted result' },
+    { type: 'tool_request', providerCallId: 'call-1', toolName: 'fs_read_text', args: { path: 'README.md' } },
+    { type: 'tool_result', providerCallId: 'call-1', toolName: 'fs_read_text', status: 'succeeded', content: 'untrusted result' },
   ];
   const context = buildContext(configured, transcript, 'Current request', {
     memory: [{ id: 'memory-1', scope: 'project', source: 'fixture', content: 'memory fact' }],
@@ -842,8 +842,8 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
   let selectedQuery;
   const request = providerRequest({
     tools: {
-      providerDefinitions(query) { selectedQuery = query; return [{ type: 'function', function: { name: 'fs.read_text' } }]; },
-      snapshot() { return [{ name: 'fs.read_text' }, { name: 'mcp.memory.search' }, { name: 'git_inspect' }]; },
+      providerDefinitions(query) { selectedQuery = query; return [{ type: 'function', function: { name: 'fs_read_text' } }]; },
+      snapshot() { return [{ name: 'fs_read_text' }, { name: 'mcp.memory.search' }, { name: 'git_inspect' }]; },
     },
   }, {
     model: 'fixture', temperature: 0, maxOutputTokens: 128, reasoningEffort: 'medium', enableThinking: true,
@@ -856,7 +856,7 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
   assert.match(request.messages[0].content, /NotNativeAgent/u);
   const catalog = request.messages.find((item) => /Use tool_search/u.test(item.content));
   assert.match(catalog.content, /\["git_inspect","mcp\.memory\.search"\]/u);
-  assert.doesNotMatch(catalog.content, /fs\.read_text/u);
+  assert.doesNotMatch(catalog.content, /fs_read_text/u);
   assert.doesNotMatch(JSON.stringify(request), /credential|api.?key|secret-reference/iu);
 });
 
@@ -896,20 +896,20 @@ test('AC-TUI-01 completed activity remains visible without color, compacts, expa
   projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
   projection.apply('s1', { type: 'state_status', semantic_state: 'running_tool', turn_id: 'turn-1' });
   projection.apply('s1', { type: 'review_status', tool_request_id: 'tool-1', outcome: 'approve', reason_code: 'deterministic_safe', turn_id: 'turn-1' });
-  projection.apply('s1', { type: 'tool_status', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', arguments: { path: 'README.md' }, effect: 'read_only', scope: 'workspace', status: 'running', turn_id: 'turn-1' });
+  projection.apply('s1', { type: 'tool_status', tool_request_id: 'tool-1', tool: 'fs_read_text', target: 'README.md', arguments: { path: 'README.md' }, effect: 'read_only', scope: 'workspace', status: 'running', turn_id: 'turn-1' });
   const renderer = new TuiRenderer();
   let frame = renderer.frame(projection, { width: 100, height: 24, color: false });
-  assert.match(frame, /Running fs\.read_text \(README\.md\)/u);
+  assert.match(frame, /Running fs_read_text \(README\.md\)/u);
   assert.doesNotMatch(frame, /REVIEW \| approve/u);
-  projection.apply('s1', { type: 'tool_status', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', arguments: { path: 'README.md' }, effect: 'read_only', scope: 'workspace', status: 'succeeded', elapsed_ms: 4, effect_certainty: 'completed', turn_id: 'turn-1' });
+  projection.apply('s1', { type: 'tool_status', tool_request_id: 'tool-1', tool: 'fs_read_text', target: 'README.md', arguments: { path: 'README.md' }, effect: 'read_only', scope: 'workspace', status: 'succeeded', elapsed_ms: 4, effect_certainty: 'completed', turn_id: 'turn-1' });
   frame = renderer.frame(projection, { width: 100, height: 24, color: false });
-  assert.match(frame, /^    ✓ fs\.read_text \(README\.md\) \| succeeded/mu);
+  assert.match(frame, /^    ✓ fs_read_text \(README\.md\) \| succeeded/mu);
   projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1' });
   frame = renderer.frame(projection, { width: 100, height: 24, color: false });
   assert.equal(frame.includes('\u001b'), false);
   assert.match(frame, /^  \* \d+ms \| 1 tool \| 1 review \| Ctrl\+O details$/mu);
   assert.doesNotMatch(frame, /3 events/u);
-  assert.doesNotMatch(frame, /fs\.read_text/u);
+  assert.doesNotMatch(frame, /fs_read_text/u);
   assert.doesNotMatch(frame, /Arguments:/u);
   assert.equal(projection.toggleLatestActivity(), true);
   frame = renderer.frame(projection, { width: 100, height: 24 });
@@ -919,7 +919,7 @@ test('AC-TUI-01 completed activity remains visible without color, compacts, expa
   assert.match(frame, /Review: approve \| deterministic_safe/u);
   assert.equal(projection.toggleLatestActivity(), true);
   frame = renderer.frame(projection, { width: 100, height: 24 });
-  assert.doesNotMatch(frame, /fs\.read_text/u);
+  assert.doesNotMatch(frame, /fs_read_text/u);
   assert.doesNotMatch(frame, /STATE \|/u);
   projection.scrollActive(-2);
   assert.notEqual(projection.active().viewportEnd, null);
@@ -989,15 +989,15 @@ test('failed tool rows show the attempted target and actionable failure reason',
   const projection = new TuiProjection();
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', {
-    type: 'tool_status', tool_request_id: 'tool-1', turn_id: 'turn-1', tool: 'fs.read_text',
+    type: 'tool_status', tool_request_id: 'tool-1', turn_id: 'turn-1', tool: 'fs_read_text',
     target: 'missing.txt', status: 'failed', elapsed_ms: 1,
     reason_code: 'file_missing', failure_reason: 'requested file does not exist',
   });
   projection.apply('s1', { type: 'turn_result', outcome: 'completed', turn_id: 'turn-1' });
   const frame = new TuiRenderer().frame(projection, { width: 120, height: 24, color: false });
-  assert.match(frame, /X fs\.read_text \(missing\.txt\) \| 1 ms \| file_missing: requested file does not exist/u);
+  assert.match(frame, /X fs_read_text \(missing\.txt\) \| 1 ms \| file_missing: requested file does not exist/u);
   const colored = new TuiRenderer().frame(projection, { width: 120, height: 24, color: true });
-  assert.match(colored, /\u001b\[38;5;203m    X fs\.read_text/u);
+  assert.match(colored, /\u001b\[38;5;203m    X fs_read_text/u);
 });
 
 test('completed turn receipt is limited to timing and token usage', () => {
@@ -1057,7 +1057,7 @@ test('diagnostics use a bounded overlay and restore the transcript on close', ()
   projection.addSession('s1', 'One', { model: 'm', provider: 'p' });
   projection.apply('s1', { type: 'stream_delta', text: 'conversation remains here' });
   const audit = auditOverlay([{
-    tool: 'fs.read_text', result: 'succeeded', decision: 'approve', reason: 'deterministic_safe',
+    tool: 'fs_read_text', result: 'succeeded', decision: 'approve', reason: 'deterministic_safe',
     risk: 'safe', scope: 'workspace', effect: 'read_only', effect_certainty: 'completed', elapsed_ms: 2,
   }]);
   projection.openOverlay(audit);
@@ -1184,7 +1184,7 @@ test('mouse wheel navigates the retained transcript and returns to follow mode',
 test('clicking a completed receipt toggles summary while Ctrl+O owns selectable full detail', async () => {
   const projection = new TuiProjection();
   projection.addSession('main', 'Main', { model: 'm1', provider: 'p1' });
-  projection.apply('main', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'fs.read_text', target: 'README.md', status: 'succeeded', elapsed_ms: 5 });
+  projection.apply('main', { type: 'tool_status', turn_id: 'turn-1', tool_request_id: 'tool-1', tool: 'fs_read_text', target: 'README.md', status: 'succeeded', elapsed_ms: 5 });
   projection.apply('main', { type: 'turn_result', turn_id: 'turn-1', outcome: 'completed' });
   new TuiRenderer().frame(projection, { width: 100, height: 40 });
   const target = projection.mouseTargets.find((item) => item.type === 'activity');
@@ -1600,15 +1600,15 @@ test('engine state recedes, routine approvals stay hidden, and terminal tool sta
     type: 'review_status', outcome: 'approve', reason_code: 'deterministic_safe', tool_request_id: 't1',
   });
   projection.apply('s1', {
-    type: 'tool_status', status: 'succeeded', tool: 'fs.read_text', target: 'README.md', tool_request_id: 't1',
+    type: 'tool_status', status: 'succeeded', tool: 'fs_read_text', target: 'README.md', tool_request_id: 't1',
   });
   projection.apply('s1', { type: 'stream_delta', text: 'Tool-backed answer.' });
   const colored = new TuiRenderer().frame(projection, { width: 100, height: 30, color: true });
   assert.doesNotMatch(colored, /STATE/u);
   assert.doesNotMatch(colored, /REVIEW/u);
-  assert.match(colored, /\u001b\[38;5;77m✓\u001b\[0m\u001b\[38;5;245m fs\.read_text/u);
+  assert.match(colored, /\u001b\[38;5;77m✓\u001b\[0m\u001b\[38;5;245m fs_read_text/u);
   const plain = new TuiRenderer().frame(projection, { width: 100, height: 30, color: false });
-  assert.match(plain, /    ✓ fs\.read_text \(README\.md\) \| succeeded\n\n\* Tool-backed answer\./u);
+  assert.match(plain, /    ✓ fs_read_text \(README\.md\) \| succeeded\n\n\* Tool-backed answer\./u);
   projection.apply('s1', {
     type: 'review_status', outcome: 'deny_with_guidance', reason_code: 'intent_mismatch', tool_request_id: 't2',
   });
@@ -1715,7 +1715,7 @@ test('sub-agent transcript progress shows compact start and completion milestone
   projection.apply('s1', { type: 'accepted', accepted: true, turn_id: 'turn-1' });
   projection.apply('s1', {
     type: 'subagent_progress', turn_id: 'turn-1', agent_id: 'agent-1', agent_type: 'general',
-    phase: 'working', text: 'fs.read_text (src/engine.js) · succeeded',
+    phase: 'working', text: 'fs_read_text (src/engine.js) · succeeded',
   });
   projection.apply('s1', {
     type: 'subagent_progress', turn_id: 'turn-1', agent_id: 'agent-1', agent_type: 'reviewer',
@@ -1734,7 +1734,7 @@ test('sub-agent transcript progress shows compact start and completion milestone
   const prefix = '    > reviewer started · ';
   assert.equal(rows[first].startsWith(prefix), true);
   assert.match(frame, /reviewer completed · reviewed src\/engine\.js and 3 more files/u);
-  assert.doesNotMatch(frame, /fs\.read_text/u);
+  assert.doesNotMatch(frame, /fs_read_text/u);
 });
 
 test('agent tool status records the effective sub-agent route and task', () => {
@@ -2401,7 +2401,7 @@ test('AC-CONF-02 mid-step configuration update applies at the next model boundar
     profiles.push(profile.model); step += 1;
     if (step === 1) {
       started(); await firstRelease;
-      yield* toolFragments('fs.read_text', { path: 'note.txt' }); return;
+      yield* toolFragments('fs_read_text', { path: 'note.txt' }); return;
     }
     yield { type: 'text', text: 'continued' }; yield { type: 'terminal' };
   } });

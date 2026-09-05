@@ -27,7 +27,7 @@ export function canonicalFilesystemDefinitions(paths, legacy) {
 }
 
 function readDefinition(legacy) {
-  const whole = requiredLegacy(legacy, 'fs.read_text');
+  const whole = requiredLegacy(legacy, 'fs_read_text');
   const lines = requiredLegacy(legacy, 'fs_read_lines');
   return {
     name: 'fs_read', version: 1,

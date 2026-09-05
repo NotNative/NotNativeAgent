@@ -20,7 +20,7 @@ function mutationRequest(id) {
 
 function readRequest(id) {
   return Object.freeze({
-    id, providerCallId: `provider-${id}`, toolName: 'fs.read_text', args: { path: 'README.md' },
+    id, providerCallId: `provider-${id}`, toolName: 'fs_read_text', args: { path: 'README.md' },
     resolved: { path: 'D:/workspace/README.md' }, authorityId: 'authority-1', authorityVersion: 1,
     policyVersion: 1, definitionVersion: 1, caller: 'primary', expiresAt: Date.now() + 60_000,
   });
@@ -352,7 +352,7 @@ test('conversational wording cannot revoke deterministic safe-tool eligibility',
   const reviewer = new MandatoryReviewer({ ledger });
   const result = await reviewer.review(readRequest('tool-greeting'), {
     authority: { id: 'authority-1', intent: [{ content: 'hello', sequence: 1 }], mission: null },
-    definition: { name: 'fs.read_text', sideEffect: 'read_only', scope: 'workspace' },
+    definition: { name: 'fs_read_text', sideEffect: 'read_only', scope: 'workspace' },
     surface: 'interactive_tui', justification: '',
   });
   assert.equal(result.outcome, 'approve');
@@ -654,7 +654,7 @@ test('incomplete recovered authority permits reads but cannot authorize conseque
   assert.equal(denied.reasonCode, 'authority_history_incomplete');
   assert.equal(semanticCalls, 0);
   const read = await reviewer.review(readRequest('incomplete-read'), {
-    ...context, authority, definition: { name: 'fs.read_text', sideEffect: 'read_only', scope: 'workspace' },
+    ...context, authority, definition: { name: 'fs_read_text', sideEffect: 'read_only', scope: 'workspace' },
   });
   assert.equal(read.outcome, 'approve');
 });
@@ -1039,11 +1039,11 @@ test('AC-REV-01 mandatory review applies deterministic safe, prohibited, and sem
   } } });
   const safe = await reviewer.review(readRequest('safe'), {
     ...context, authority: { id: 'authority-1', intent: [{ content: 'Read README.md' }], mission: null },
-    definition: { name: 'fs.read_text', sideEffect: 'read_only', scope: 'workspace' },
+    definition: { name: 'fs_read_text', sideEffect: 'read_only', scope: 'workspace' },
   });
   const reversible = await reviewer.review(mutationRequest('reversible'), context);
   const prohibited = await reviewer.review({ ...readRequest('mismatch'), toolName: 'unknown.tool' }, {
-    ...context, definition: { name: 'fs.read_text', sideEffect: 'read_only', scope: 'workspace' },
+    ...context, definition: { name: 'fs_read_text', sideEffect: 'read_only', scope: 'workspace' },
   });
   assert.deepEqual([safe.outcome, reversible.outcome, prohibited.outcome], ['approve', 'approve', 'hard_deny']);
   assert.equal(semanticCalls, 1);
@@ -1063,7 +1063,7 @@ test('AC-AUTH-02 mission resource, target, effect, and credential ceilings prece
   });
   const outside = await reviewer.review(readRequest('mission-target'), {
     ...context, authority: missionAuthority(),
-    definition: { name: 'fs.read_text', sideEffect: 'read_only', scope: 'workspace' },
+    definition: { name: 'fs_read_text', sideEffect: 'read_only', scope: 'workspace' },
   });
   const effect = await reviewer.review(mutationRequest('mission-effect'), {
     ...context, authority: missionAuthority({ sideEffects: ['read_only'] }),

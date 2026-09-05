@@ -50,7 +50,7 @@ test('governance constraints survive unrelated success and clear on new authorit
   })]);
   assert.equal(denied[0].status, 'denied');
   assert.equal(denied[0].review_outcome, 'deny_with_guidance');
-  assert.equal(mergeToolConstraints(denied, [item('fs.read_text', 'succeeded')]).length, 1);
+  assert.equal(mergeToolConstraints(denied, [item('fs_read_text', 'succeeded')]).length, 1);
   assert.deepEqual(clearAuthorityConstraints(denied), []);
 });
 

@@ -36,7 +36,7 @@ test('open span query reports operations without a terminal disposition', async 
   const root = await mkdtemp(join(tmpdir(), 'nna-forensic-open-'));
   const telemetry = telemetryAt(root);
   await telemetry.initialize();
-  telemetry.record('tool.execute', 'started', { tool_name: 'fs.read_text' }, { spanId: 'open-tool', toolRequestId: 'tool-1' });
+  telemetry.record('tool.execute', 'started', { tool_name: 'fs_read_text' }, { spanId: 'open-tool', toolRequestId: 'tool-1' });
   telemetry.record('provider.attempt', 'started', {}, { spanId: 'closed-provider' });
   telemetry.record('provider.attempt', 'failed', { code: 'provider_timeout' }, { spanId: 'closed-provider' });
   await telemetry.flush();

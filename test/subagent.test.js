@@ -17,8 +17,8 @@ test('sub-agent progress emits compact lifecycle milestones without child tool c
   const relay = createSubagentProgressRelay({
     sessionId: 'parent', output: async (record) => output.push(record),
   }, { turnId: 'turn-1', stepId: 'step-1', agentId: 'agent-1', agentType: 'general' });
-  await relay.accept({ type: 'tool_status', status: 'running', tool: 'fs.read_text', target: 'README.md' });
-  await relay.accept({ type: 'tool_status', status: 'succeeded', tool: 'fs.read_text', target: 'README.md' });
+  await relay.accept({ type: 'tool_status', status: 'running', tool: 'fs_read_text', target: 'README.md' });
+  await relay.accept({ type: 'tool_status', status: 'succeeded', tool: 'fs_read_text', target: 'README.md' });
   assert.equal(output.length, 0);
   await relay.started('Review src/subagent-progress.js and src/tui/activity-renderer.js.');
   await relay.returned({ text: 'A deliberately verbose report remains available to the parent model.' });

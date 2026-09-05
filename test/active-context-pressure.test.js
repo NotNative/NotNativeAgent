@@ -90,8 +90,8 @@ test('receipt pressure identifies duplicate cold results across different tool r
   const repeated = `shared evidence ${'x'.repeat(5_000)}`;
   const records = [
     { type: 'message', role: 'user', content: 'compare evidence', turnId: 'turn-1' },
-    { type: 'tool_request', toolName: 'fs.read_text', args: { path: 'a.txt' }, providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
-    { type: 'tool_result', toolName: 'fs.read_text', content: repeated, status: 'succeeded', providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_request', toolName: 'fs_read_text', args: { path: 'a.txt' }, providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_result', toolName: 'fs_read_text', content: repeated, status: 'succeeded', providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
     { type: 'message', role: 'assistant', content: 'Compare another source.', turnId: 'turn-1', stepId: 'step-2' },
     { type: 'message', role: 'assistant', content: 'One more comparison.', turnId: 'turn-1', stepId: 'step-3' },
     { type: 'tool_request', toolName: 'web.fetch', args: { url: 'https://example.invalid/a' }, providerCallId: 'call-2', requestId: 'req-2', turnId: 'turn-1', stepId: 'step-4' },
@@ -110,8 +110,8 @@ test('receipt pressure identifies duplicate cold results across different tool r
 test('active pressure measures repeated exact reads without retaining request content in telemetry', () => {
   const records = fixture();
   records.splice(4, 0,
-    { type: 'tool_request', toolName: 'fs.read_text', args: { path: 'old.txt' }, providerCallId: 'call-repeat', requestId: 'req-repeat', turnId: 'turn-1', stepId: 'step-2' },
-    { type: 'tool_result', toolName: 'fs.read_text', content: 'recovered evidence', status: 'succeeded', providerCallId: 'call-repeat', requestId: 'req-repeat', turnId: 'turn-1', stepId: 'step-2' });
+    { type: 'tool_request', toolName: 'fs_read_text', args: { path: 'old.txt' }, providerCallId: 'call-repeat', requestId: 'req-repeat', turnId: 'turn-1', stepId: 'step-2' },
+    { type: 'tool_result', toolName: 'fs_read_text', content: 'recovered evidence', status: 'succeeded', providerCallId: 'call-repeat', requestId: 'req-repeat', turnId: 'turn-1', stepId: 'step-2' });
   const projected = projectActiveTurn(records, { turnId: 'turn-1', stepId: 'step-4', tier: 'checkpoint' });
   assert.equal(projected.evidenceRetention.repeatedReadRequests, 1);
   assert.ok(projected.evidenceRetention.sourceToolResultBytes > 0);
@@ -122,13 +122,13 @@ test('active pressure measures repeated exact reads without retaining request co
 function fixture() {
   return [
     { type: 'message', role: 'user', content: 'inspect the project', turnId: 'turn-1' },
-    { type: 'tool_request', toolName: 'fs.read_text', args: { path: 'old.txt' }, providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
-    { type: 'tool_result', toolName: 'fs.read_text', content: 'old result '.repeat(1_000), status: 'succeeded', providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_request', toolName: 'fs_read_text', args: { path: 'old.txt' }, providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
+    { type: 'tool_result', toolName: 'fs_read_text', content: 'old result '.repeat(1_000), status: 'succeeded', providerCallId: 'call-1', requestId: 'req-1', turnId: 'turn-1', stepId: 'step-1' },
     { type: 'message', role: 'assistant', content: 'Old finding', turnId: 'turn-1', stepId: 'step-1' },
     { type: 'message', role: 'assistant', content: 'Second finding', turnId: 'turn-1', stepId: 'step-2' },
     { type: 'message', role: 'assistant', content: 'Third finding', turnId: 'turn-1', stepId: 'step-3' },
-    { type: 'tool_request', toolName: 'fs.read_text', args: { path: 'latest.txt' }, providerCallId: 'call-4', requestId: 'req-4', turnId: 'turn-1', stepId: 'step-4' },
-    { type: 'tool_result', toolName: 'fs.read_text', content: 'latest result', status: 'succeeded', providerCallId: 'call-4', requestId: 'req-4', turnId: 'turn-1', stepId: 'step-4' },
+    { type: 'tool_request', toolName: 'fs_read_text', args: { path: 'latest.txt' }, providerCallId: 'call-4', requestId: 'req-4', turnId: 'turn-1', stepId: 'step-4' },
+    { type: 'tool_result', toolName: 'fs_read_text', content: 'latest result', status: 'succeeded', providerCallId: 'call-4', requestId: 'req-4', turnId: 'turn-1', stepId: 'step-4' },
     { type: 'message', role: 'assistant', content: 'Unrelated prior turn', turnId: 'turn-0', stepId: 'prior-step' },
   ];
 }

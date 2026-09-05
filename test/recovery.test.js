@@ -353,7 +353,7 @@ test('unchanged unfinished work receives escalating guidance instead of prematur
 function toolCall(id, path) {
   return [
     { type: 'tool_fragment', fragments: [{
-      index: 0, id, function: { name: 'fs.read_text', arguments: JSON.stringify({ path }) },
+      index: 0, id, function: { name: 'fs_read_text', arguments: JSON.stringify({ path }) },
     }] },
     { type: 'terminal', finishReason: 'tool_calls' },
   ];
@@ -1087,7 +1087,7 @@ test('AC-PROD-03 malformed small-model tool arguments become an in-band repair o
     count += 1;
     if (count === 1) {
       yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: 'malformed-call', function: { name: 'fs.read_text', arguments: '{"path":' },
+        index: 0, id: 'malformed-call', function: { name: 'fs_read_text', arguments: '{"path":' },
       }] };
       yield { type: 'terminal' };
       return;
@@ -1120,7 +1120,7 @@ test('output-truncated tool arguments enable one bounded reasoning-off action re
     requests.push(request);
     if (requests.length === 1) {
       yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: 'truncated-call', function: { name: 'fs.read_text', arguments: '{"path":' },
+        index: 0, id: 'truncated-call', function: { name: 'fs_read_text', arguments: '{"path":' },
       }] };
       yield { type: 'usage', usage: { completion_tokens: 32_000, total_tokens: 32_100 } };
       yield { type: 'terminal', finishReason: 'tool_calls' };
@@ -1204,7 +1204,7 @@ test('AC-PROD-03/AC-TURN-10 a completion claim cannot erase unresolved tool fail
     count += 1;
     if (count === 1) {
       yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: 'bad-path', function: { name: 'fs.read_text', arguments: '{"path":"missing.txt"}' },
+        index: 0, id: 'bad-path', function: { name: 'fs_read_text', arguments: '{"path":"missing.txt"}' },
       }] };
       yield { type: 'terminal', finishReason: 'tool_calls' };
       return;
@@ -1236,7 +1236,7 @@ test('AC-PROD-03 unchanged malformed calls trigger a call boundary without parki
     count += 1;
     if (count > 3) yield { type: 'text', text: 'Stopped the malformed call and completed safely.' };
     else yield { type: 'tool_fragment', fragments: [{
-      index: 0, id: 'same-malformed-call', function: { name: 'fs.read_text', arguments: '{' },
+      index: 0, id: 'same-malformed-call', function: { name: 'fs_read_text', arguments: '{' },
     }] };
     yield { type: 'terminal' };
   } };

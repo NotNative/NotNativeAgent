@@ -20,7 +20,7 @@ function fixtureSession() {
   return {
     id: 'session-1', name: 'Main', historyRecords: [], records: [
       { type: 'turn_result', turn_id: 'turn-good', outcome: 'completed', elapsed_ms: 1200, usage: { total_tokens: 420 } },
-      { type: 'tool_status', tool: 'fs.read_text', target: 'missing.txt', status: 'failed', reason_code: 'not_found' },
+      { type: 'tool_status', tool: 'fs_read_text', target: 'missing.txt', status: 'failed', reason_code: 'not_found' },
       { type: 'turn_result', turn_id: 'turn-bad', outcome: 'failed', failure: { code: 'provider_timeout' } },
     ],
   };
@@ -46,7 +46,7 @@ test('health dashboard sections expand into bounded operator detail', () => {
 
   const errors = healthDetailOverlay('errors', health, session);
   assert.match(errors.lines.join('\n'), /provider_timeout/u);
-  assert.match(errors.lines.join('\n'), /fs\.read_text.*not_found/u);
+  assert.match(errors.lines.join('\n'), /fs_read_text.*not_found/u);
 
   const runtime = healthDetailOverlay('runtime', health, session);
   assert.match(runtime.lines.join('\n'), /20260807-2/u);

@@ -297,7 +297,7 @@ test('unrelated successful inspection is not progress while a filesystem prerequ
 test('successful tool evidence is retained and combined with unique steering identity', () => {
   const item = (path) => ({
     request: { args: { path } },
-    result: { status: 'succeeded', tool_name: 'fs.read_text', content: 'same content' },
+    result: { status: 'succeeded', tool_name: 'fs_read_text', content: 'same content' },
   });
   const first = toolProgressEvidence([item('alpha.txt')], ['steering-alpha']);
   const second = toolProgressEvidence([item('beta.txt')], ['steering-beta']);
@@ -309,7 +309,7 @@ test('successful tool evidence is retained and combined with unique steering ide
 
 test('successful tool continuation resumes without re-acknowledging the active request', () => {
   const hint = toolContinuationHint([{
-    result: { status: 'succeeded', tool_name: 'fs.read_text' },
+    result: { status: 'succeeded', tool_name: 'fs_read_text' },
   }]);
   assert.equal(hint, null);
 });
@@ -427,7 +427,7 @@ test('turn diagnostics can enumerate and inspect another durable session', async
   });
   await hosted.close();
   await other.open();
-  await other.append('tool_result', { turnId: 'turn-other', toolName: 'fs.read_text', status: 'failed', reasonCode: 'file_missing' });
+  await other.append('tool_result', { turnId: 'turn-other', toolName: 'fs_read_text', status: 'failed', reasonCode: 'file_missing' });
   await other.append('turn_outcome', { turn_id: 'turn-other', outcome: 'incomplete', failure: { code: 'recovery_exhausted' } });
   await other.close();
   const definitions = selfDiagnosticsDefinitions(() => ({
@@ -509,7 +509,7 @@ class DuplicateCallProvider {
   async *stream() {
     this.count += 1;
     if (this.count < 3) {
-      yield* toolFragments('same-provider-call', 'fs.read_text', { path: 'note.txt' });
+      yield* toolFragments('same-provider-call', 'fs_read_text', { path: 'note.txt' });
       return;
     }
     yield { type: 'text', text: 'Duplicate handled.' };
@@ -518,7 +518,7 @@ class DuplicateCallProvider {
 }
 
 async function seedReadReceipt(engine, path) {
-  const definition = engine.tools.definition('fs.read_text');
+  const definition = engine.tools.definition('fs_read_text');
   const request = await definition.validate({ path });
   await definition.executor(request, new AbortController().signal);
 }
@@ -528,7 +528,7 @@ test('AC-TURN-03 safe read is reviewed, executed, reinjected, and completed', as
   await writeFile(join(root, 'note.txt'), 'trusted fixture text', 'utf8');
   const outputs = [];
   const provider = new TwoStepProvider(
-    { name: 'fs.read_text', args: { path: 'note.txt' } },
+    { name: 'fs_read_text', args: { path: 'note.txt' } },
     (request) => {
       const result = request.messages.find((item) => item.role === 'tool');
       assert.match(result.content, /trusted fixture text/u);
@@ -555,14 +555,14 @@ test('AC-TURN-03 safe read is reviewed, executed, reinjected, and completed', as
   assert.deepEqual(running.arguments, { path: 'note.txt' });
   assert.equal(running.effect, 'read_only');
   assert.equal(running.scope, 'workspace');
-  assert.equal(engine.reviewerAudit().find((item) => item.tool === 'fs.read_text')?.result, 'succeeded');
+  assert.equal(engine.reviewerAudit().find((item) => item.tool === 'fs_read_text')?.result, 'succeeded');
   assert.equal(engine.transcript.filter((item) => item.type === 'tool_result' && item.toolName !== 'turn_finish').length, 1);
 });
 
 test('Prompt posture reaches mandatory review and requires an operator decision for a safe tool', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-prompt-posture-'));
   await writeFile(join(root, 'note.txt'), 'prompt posture', 'utf8');
-  const provider = new TwoStepProvider({ name: 'fs.read_text', args: { path: 'note.txt' } });
+  const provider = new TwoStepProvider({ name: 'fs_read_text', args: { path: 'note.txt' } });
   const outputs = [];
   let engine;
   const output = async (event) => {
@@ -618,7 +618,7 @@ test('AC-SESS-03 failed durable tool-result commit prevents continuation and lea
   let providerCalls = 0;
   const provider = { async *stream() {
     providerCalls += 1;
-    yield* toolFragments('durable-read', 'fs.read_text', { path: 'target.txt' });
+    yield* toolFragments('durable-read', 'fs_read_text', { path: 'target.txt' });
   } };
   const config = resolveManifest({
     persistence: 'durable', workspace_root: root,
@@ -868,7 +868,7 @@ test('root NNA can read an explicitly requested host path outside its working di
   const root = await mkdtemp(join(tmpdir(), 'nna-scope-'));
   const outside = join(root, '..', `${root.split(/[\\/]/u).at(-1)}-outside.txt`);
   await writeFile(outside, 'outside content');
-  const provider = new TwoStepProvider({ name: 'fs.read_text', args: { path: outside } });
+  const provider = new TwoStepProvider({ name: 'fs_read_text', args: { path: outside } });
   let reviewerCalls = 0;
   const semanticReviewer = { async review() {
     reviewerCalls += 1;
@@ -891,7 +891,7 @@ test('AC-SEC-03 hostile tool output remains untrusted and cannot authorize a lat
   let step = 0;
   const provider = { async *stream() {
     step += 1;
-    if (step === 1) { yield* toolFragments('read-injection', 'fs.read_text', { path: 'note.txt' }); return; }
+    if (step === 1) { yield* toolFragments('read-injection', 'fs_read_text', { path: 'note.txt' }); return; }
     if (step === 2) {
       yield* toolFragments('write-injection', 'fs.write_text', { path: 'hacked.txt', content: 'owned' });
       return;
@@ -951,7 +951,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.equal(Object.hasOwn(providerWrite.function.parameters.properties, 'expected_sha256'), false);
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code_diagnostics',
-    'fs.read_text', 'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_list_directory', 'fs_metadata', 'fs_move_file', 'fs_read', 'fs_read_lines', 'fs_search_text', 'git_inspect',
+    'fs.write_text', 'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_list_directory', 'fs_metadata', 'fs_move_file', 'fs_read', 'fs_read_lines', 'fs_read_text', 'fs_search_text', 'git_inspect',
     'image.inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
@@ -983,7 +983,7 @@ test('existing in-workspace writes use a request-bound runtime transaction snaps
     }, context),
     { code: 'tool_schema_invalid' },
   );
-  const read = registry.definition('fs.read_text');
+  const read = registry.definition('fs_read_text');
   await read.executor(await read.validate({ path: 'target.txt' }), new AbortController().signal);
   const sealed = await registry.seal({ providerCallId: 'write-after-read', name: 'fs.write_text', args }, context);
   assert.equal(sealed.args.expected_sha256, createHash('sha256').update(before).digest('hex'));
@@ -1107,7 +1107,7 @@ test('exact text edits preserve unrelated external changes when the old target r
   const before = 'header\nold target\nfooter\n';
   await writeFile(path, before, 'utf8');
   const registry = new ToolRegistry(root); await registry.initialize();
-  const read = registry.definition('fs.read_text');
+  const read = registry.definition('fs_read_text');
   await read.executor(await read.validate({ path: 'target.txt' }), new AbortController().signal);
   await writeFile(path, `${before}external tail\n`, 'utf8');
   const context = { policyVersion: 1, authority: { id: 'a', version: 1, restrictionVersion: 0 }, stepId: 's', caller: 'primary', surface: 'test' };
@@ -1134,12 +1134,12 @@ test('AC-TOOL-07 caller identity is auditable but cannot weaken sealing or revie
       intent: [{ content: 'Read note.txt' }],
     };
     const request = await registry.seal({
-      providerCallId: `provider-${index}`, name: 'fs.read_text', args: { path: 'note.txt' },
+      providerCallId: `provider-${index}`, name: 'fs_read_text', args: { path: 'note.txt' },
     }, {
       policyVersion: 1, authority, stepId: 'step-1', caller, surface: 'test',
     });
     const decision = await reviewer.review(request, {
-      authority, definition: registry.definition('fs.read_text'), surface: 'test',
+      authority, definition: registry.definition('fs_read_text'), surface: 'test',
       reviewPosture: 'auto_review', signal: new AbortController().signal,
     });
     outcomes.push({ caller: request.caller, outcome: decision.outcome, reason: decision.reasonCode });
@@ -1239,8 +1239,8 @@ test('AC-ARCH-02/AC-TURN-05 multiple tool calls retain nested lifecycle and dete
     count += 1;
     if (count === 1) {
       yield { type: 'tool_fragment', fragments: [
-        { index: 0, id: 'first-call', function: { name: 'fs.read_text', arguments: '{"path":"first.txt"}' } },
-        { index: 1, id: 'second-call', function: { name: 'fs.read_text', arguments: '{"path":"second.txt"}' } },
+        { index: 0, id: 'first-call', function: { name: 'fs_read_text', arguments: '{"path":"first.txt"}' } },
+        { index: 1, id: 'second-call', function: { name: 'fs_read_text', arguments: '{"path":"second.txt"}' } },
       ] };
       yield { type: 'terminal', finishReason: 'tool_calls' };
       return;

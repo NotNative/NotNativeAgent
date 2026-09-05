@@ -26,12 +26,12 @@ test('filesystem observations expose typed path and snapshot references for exac
   await writeFile(join(root, 'observed.txt'), 'observed value', 'utf8');
   const registry = new ToolRegistry(root);
   await registry.initialize();
-  const read = registry.definition('fs.read_text');
+  const read = registry.definition('fs_read_text');
   const first = await read.executor(await read.validate({ path: 'observed.txt' }), new AbortController().signal);
   assert.match(first.metadata.path_ref, /^nna_ref_path_/u);
   assert.match(first.metadata.snapshot_ref, /^nna_ref_snapshot_/u);
   const rebound = await registry.seal({
-    providerCallId: 'read-by-ref', name: 'fs.read_text', args: { path: first.metadata.path_ref },
+    providerCallId: 'read-by-ref', name: 'fs_read_text', args: { path: first.metadata.path_ref },
   }, context);
   assert.equal(rebound.args.path, join(root, 'observed.txt'));
   assert.deepEqual(rebound.resolved.referenceBindings, [{
@@ -67,7 +67,7 @@ test('typed bindings fail clearly when a reference kind is used in the wrong fie
   );
   const reference = JSON.parse(stored.content).reference;
   await assert.rejects(registry.seal({
-    providerCallId: 'wrong-kind', name: 'fs.read_text', args: { path: reference },
+    providerCallId: 'wrong-kind', name: 'fs_read_text', args: { path: reference },
   }, context), {
     code: 'reference_kind_mismatch', message: 'reference must identify path; received url',
   });

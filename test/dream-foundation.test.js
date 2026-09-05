@@ -195,7 +195,7 @@ test('manual deterministic harvest checkpoints only terminal redacted telemetry 
     workspaceRoot: root, runtimeId: 'runtime', sessionId: 'session', dbPath: join(root, 'events.db'),
   });
   await telemetry.initialize();
-  telemetry.record('tool.execute', 'succeeded', { tool_name: 'fs.read_text' }, { turnId: 'turn-1' });
+  telemetry.record('tool.execute', 'succeeded', { tool_name: 'fs_read_text' }, { turnId: 'turn-1' });
   telemetry.record('provider.attempt', 'failed', { code: 'provider_timeout' }, { turnId: 'turn-1', reasonCode: 'provider_timeout' });
   await telemetry.flush();
   const governance = new GovernanceEngine({ sessionId: 'session' });
@@ -213,11 +213,11 @@ test('manual deterministic harvest checkpoints only terminal redacted telemetry 
   assert.equal(result.result.packet.diagnosis.quarantined_turns, 1);
   assert.equal(result.result.packet.diagnosis.eligible_turns, 0);
   assert.ok(status.watermark.turn_sequence > 0);
-  assert.equal(JSON.stringify(status).includes('fs.read_text'), false);
+  assert.equal(JSON.stringify(status).includes('fs_read_text'), false);
   await telemetry.flush();
   const lifecycle = await telemetry.query({ eventName: 'maintenance.stage', limit: 20 });
   assert.deepEqual(lifecycle.map((row) => row.status), ['running', 'succeeded']);
-  assert.equal(JSON.stringify(lifecycle).includes('fs.read_text'), false);
+  assert.equal(JSON.stringify(lifecycle).includes('fs_read_text'), false);
   coordinator.close();
   await telemetry.close();
 });

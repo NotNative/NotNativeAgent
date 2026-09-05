@@ -84,7 +84,7 @@ async function childRun(root, targetSequence) {
     calls += 1;
     if (calls === 1) yield { type: 'tool_fragment', fragments: [{
       index: 0, id: 'force-kill-read', function: {
-        name: 'fs.read_text', arguments: JSON.stringify({ path: 'target.txt' }),
+        name: 'fs_read_text', arguments: JSON.stringify({ path: 'target.txt' }),
       },
     }] };
     else if (calls === 2) yield { type: 'tool_fragment', fragments: [{

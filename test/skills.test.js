@@ -35,7 +35,7 @@ test('discovers bounded local skills and enforces invocation direction', async (
     await mkdir(folder);
     await writeFile(join(folder, 'SKILL.md'), [
       '---', 'id: code-review', 'version: 1', 'description: Review changed code',
-      'invocation: both', 'requires_tools: [fs.read_text]', '---', 'Read the relevant files and report defects.',
+      'invocation: both', 'requires_tools: [fs_read_text]', '---', 'Read the relevant files and report defects.',
     ].join('\n'));
     const registry = new SkillRegistry({ roots: [{ scope: 'user', path: root }] });
     await registry.initialize();
@@ -70,7 +70,7 @@ test('malformed external skills are quarantined without preventing startup', asy
 test('external skill frontmatter rejects unknown and duplicate fields', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-skills-fields-'));
   try {
-    for (const [folder, field] of [['unknown', 'requres_tools: fs.read_text'], ['duplicate', 'id: second-id']]) {
+    for (const [folder, field] of [['unknown', 'requres_tools: fs_read_text'], ['duplicate', 'id: second-id']]) {
       const path = join(root, folder);
       await mkdir(path);
       await writeFile(join(path, 'SKILL.md'), [

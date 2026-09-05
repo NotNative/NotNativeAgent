@@ -2,7 +2,7 @@
 
 // Why: fs_read and the granular read tools all produce authoritative file observations.
 // Completion evidence must count each distinct callable surface.
-const READ_TOOLS = new Set(['fs_read', 'fs_read_lines', 'fs.read_text']);
+const READ_TOOLS = new Set(['fs_read', 'fs_read_lines', 'fs_read_text']);
 
 export function completionEvidence(transcript, turnId) {
   const records = Array.isArray(transcript) ? transcript.filter((item) => turnIdentity(item) === turnId) : [];

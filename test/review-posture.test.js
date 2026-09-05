@@ -14,7 +14,7 @@ import { ContractError } from '../src/ids.js';
 
 function safeRequest(id = 'safe-1') {
   return Object.freeze({
-    id, providerCallId: `provider-${id}`, toolName: 'fs.read_text', args: { path: 'README.md' },
+    id, providerCallId: `provider-${id}`, toolName: 'fs_read_text', args: { path: 'README.md' },
     resolved: { path: 'D:/workspace/README.md' }, authorityId: 'authority-1', authorityVersion: 1,
     policyVersion: 1, definitionVersion: 1, caller: 'primary', expiresAt: Date.now() + 60_000,
   });
@@ -62,7 +62,7 @@ test('Prompt posture escalates a deterministically safe reviewed request', async
   const reviewer = new MandatoryReviewer({ ledger });
   const result = await reviewer.review(safeRequest(), {
     authority: { id: 'authority-1', intent: [{ content: 'Read README.md', sequence: 1 }], mission: null },
-    definition: { name: 'fs.read_text', sideEffect: 'read_only', scope: 'workspace' },
+    definition: { name: 'fs_read_text', sideEffect: 'read_only', scope: 'workspace' },
     surface: 'interactive_tui', reviewPosture: 'prompt', justification: '',
   });
   assert.equal(result.outcome, 'escalate_to_operator');
