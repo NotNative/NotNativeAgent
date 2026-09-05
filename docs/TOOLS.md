@@ -338,7 +338,7 @@ for the active NNA session in this release and are discarded on shutdown.
 NNA installs bounded self-inspection tools independently of the workspace:
 
 - `nna.search_guidance`: search the packaged canonical NNA documentation.
-- `nna.read_guidance`: read one document returned by the search.
+- `nna_read_guidance`: read one document returned by the search.
 - `nna_diagnose_turn`: inspect bounded, content-redacted lifecycle evidence using selector
   `current`, `latest`, `latest_failed`, or `list`, or an exact durable `session_id`/`turn_id`.
 - `agent.run`: run one bounded foreground specialist through the configured Sub-agents provider route; available only to standalone root NNA and absent from hosted catalogs and search.

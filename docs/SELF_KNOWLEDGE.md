@@ -7,7 +7,7 @@ installation, troubleshooting, hooks, MCP integration, memory, provider routing,
 permission system. It must not substitute general knowledge about other agent products.
 
 The engine prompt instructs the model to use packaged guidance rather than guess.
-`nna.search_guidance` and `nna.read_guidance` are foundational tools; the model grounds its
+`nna.search_guidance` and `nna_read_guidance` are foundational tools; the model grounds its
 answer in those results. If installed guidance does not cover the question, NNA must state that
 limitation rather than invent behavior.
 Before creating or modifying an NNA skill, it must read `SKILLS.md` and follow the NNA

@@ -135,7 +135,7 @@ function classify(request, definition) {
     });
   }
   if (definition.sideEffect === 'read_only' && definition.scope === 'product_guidance'
-    && ['nna.search_guidance', 'nna.read_guidance'].includes(definition.name)) {
+    && ['nna.search_guidance', 'nna_read_guidance'].includes(definition.name)) {
     return Object.freeze({ risk: 'safe', reason: 'packaged_product_guidance', effect: 'read_only', scope: 'product_guidance', complexity: 'simple' });
   }
   if (definition.sideEffect === 'read_only' && definition.scope === 'runtime_diagnostics'

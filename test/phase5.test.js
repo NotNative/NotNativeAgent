@@ -884,7 +884,7 @@ test('packaged NNA guidance is available independently of the workspace', async 
   const normalized = await search.validate({ query: 'memory configuration' });
   const result = await search.executor(normalized, new AbortController().signal);
   assert.match(result.content, /CONFIGURATION/u);
-  const read = tools.definition('nna.read_guidance');
+  const read = tools.definition('nna_read_guidance');
   const document = await read.validate({ id: 'CONFIGURATION' });
   const content = await read.executor(document, new AbortController().signal);
   assert.match(content.content, /Interactive configuration/u);

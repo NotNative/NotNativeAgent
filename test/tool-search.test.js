@@ -149,6 +149,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['image inspect', 'image.inspect', 'image_inspect'],
     ['NNA diagnose turn', 'nna.diagnose_turn', 'nna_diagnose_turn'],
     ['NNA list sessions', 'nna.list_sessions', 'nna_list_sessions'],
+    ['NNA read guidance', 'nna.read_guidance', 'nna_read_guidance'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

@@ -36,7 +36,7 @@ function searchDefinition(catalog) {
 
 function readDefinition(catalog) {
   return {
-    name: 'nna.read_guidance', version: 1,
+    name: 'nna_read_guidance', version: 1,
     purpose: 'Read one canonical packaged NotNativeAgent guidance document selected by nna.search_guidance.',
     ...TOOL_BASE,
     inputSchema: objectSchema({

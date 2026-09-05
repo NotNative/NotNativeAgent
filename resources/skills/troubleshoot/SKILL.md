@@ -3,7 +3,7 @@ id: troubleshoot
 version: 1
 description: Diagnose a failed, stalled, surprising, or degraded NNA turn using bounded runtime evidence before proposing corrective action
 invocation: both
-requires_tools: [nna_diagnose_turn, nna.search_guidance, nna.read_guidance]
+requires_tools: [nna_diagnose_turn, nna.search_guidance, nna_read_guidance]
 ---
 # Troubleshoot NNA
 
