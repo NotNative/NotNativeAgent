@@ -51,14 +51,14 @@ function goalDefinition(work) {
 }
 
 function taskAddDefinition(work) {
-  return definition('work.task_add', 'Add one ordered pending task to the durable conversation work list.', 'reversible', {
+  return definition('work_task_add', 'Add one ordered pending task to the durable conversation work list.', 'reversible', {
     title: { type: 'string', minLength: 1, maxLength: 512, description: 'Required concise description of the new pending task.' },
   }, ['title'], async (args) => mutationResult(await work.addTask(args.title), { task: 'last' }));
 }
 
 function taskUpdateDefinition(work) {
   return definition('work_task_update', 'Move one durable conversation task to pending, in_progress, completed, or blocked. Completion requires evidence and blocking requires a reason.', 'reversible', {
-    id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Required task id such as T1, returned by work_status or work.task_add.' },
+    id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Required task id such as T1, returned by work_status or work_task_add.' },
     status: { type: 'string', enum: TASK_STATUSES, description: 'Required next task status.' },
     detail: { type: 'string', minLength: 1, maxLength: 1024, description: 'Concise completion evidence for completed or blocking reason for blocked, limited to 1,024 characters; omit for pending or in_progress.' },
   }, ['id', 'status'], async (args) => mutationResult(await work.updateTask(args.id, args.status, args.detail), { taskId: args.id }));

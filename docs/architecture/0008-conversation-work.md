@@ -23,7 +23,7 @@ erase it.
 
 The provider receives only the current snapshot as trusted engine state when work exists.
 Mutation history does not consume prompt context. `work_plan`, `work_status`, `work_goal`,
-`work.task_add`, and `work_task_update` are foundational schemas whenever conversation work is
+`work_task_add`, and `work_task_update` are foundational schemas whenever conversation work is
 available. `work_plan` atomically replaces the bounded goal and ordered task snapshot; the
 granular tools support direct, intuitive updates to the same state machine. Their visibility
 does not itself create a plan. `work_plan` and `work_status` expose one round-trip-safe provider
