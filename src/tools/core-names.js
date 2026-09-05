@@ -22,5 +22,5 @@ export const LEGACY_PROVIDER_TOOL_NAMES = Object.freeze([
 ]);
 
 export const INTERNAL_TOOL_NAMES = Object.freeze([
-  'project_verify', 'code.diagnostics', 'ref.store', 'process_run',
+  'project_verify', 'code_diagnostics', 'ref.store', 'process_run',
 ]);

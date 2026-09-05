@@ -17,7 +17,7 @@ export function lspDiagnosticsDefinition(paths, options = {}) {
   const spawnProcess = options.spawnProcess ?? spawn;
   const ledger = new DiagnosticLedger();
   return {
-    name: 'code.diagnostics', version: 1,
+    name: 'code_diagnostics', version: 1,
     purpose: 'Ask an explicitly configured local language server for bounded diagnostics on one accessible file.',
     sideEffect: 'unknown', scope: 'workspace', cancellation: true, timeoutMs: 15_000, maxOutputBytes: 262_144,
     inputSchema: {

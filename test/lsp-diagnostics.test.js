@@ -11,7 +11,7 @@ test('optional LSP diagnostics fail clearly when no server is configured', async
   await writeFile(join(root, 'file.js'), 'const value = 1;');
   const registry = new ToolRegistry(root, { lspConfigPath: join(root, 'missing-lsp.json') });
   await registry.initialize();
-  await assert.rejects(registry.definition('code.diagnostics').validate({ path: 'file.js' }), { code: 'lsp_not_configured' });
+  await assert.rejects(registry.definition('code_diagnostics').validate({ path: 'file.js' }), { code: 'lsp_not_configured' });
 });
 
 test('LSP diagnostics use bounded stdio protocol and return attributed findings', async () => {
@@ -25,7 +25,7 @@ test('LSP diagnostics use bounded stdio protocol and return attributed findings'
   }] }));
   const registry = new ToolRegistry(root, { lspConfigPath: configPath });
   await registry.initialize();
-  const definition = registry.definition('code.diagnostics');
+  const definition = registry.definition('code_diagnostics');
   const request = await definition.validate({ path: 'file.js' });
   const result = await definition.executor(request, new AbortController().signal);
   assert.equal(result.metadata.server, 'fixture');

@@ -249,7 +249,7 @@ advance the trusted snapshot for the following mutation when its exact requested
 valid. Changes not matching the latest runtime-authored digest continue to fail closed as
 `tool_revalidation_drift`.
 
-`code.diagnostics` is an optional LSP client. It speaks bounded JSON-RPC over stdio to a
+`code_diagnostics` is an optional LSP client. It speaks bounded JSON-RPC over stdio to a
 local language-server executable explicitly configured in `~/.nna/config/lsp.json`; NNA
 does not install or download a language server. Launching the configured server remains
 review-required because that process is outside NNA's deterministic read boundary.
