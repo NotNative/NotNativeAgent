@@ -16,7 +16,9 @@ model narration, nor tool output silently grants a specialist schema.
 
 Each provider step also receives a bounded, deterministically sorted JSON array containing
 the names of every other authorized tool whose full schema is not loaded, including tools
-discovered from MCP servers in that conversation. The array contains names only; the model
+discovered from MCP servers in that conversation. MCP names use the bounded canonical form
+`mcp_<server>_<remote_tool>`; normalized collisions and truncation receive a stable hash suffix.
+The array contains names only; the model
 uses `tool_search` to inspect and promote a matching schema before calling it.
 Calling `tool_search` returns ranked discovery suggestions, including external capabilities,
 without requiring a service keyword. Search again with one exact tool name to load its schema

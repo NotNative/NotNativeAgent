@@ -43,7 +43,7 @@ test('Main manages durable MCP topology and marks it for new-session activation'
   assert.equal(JSON.parse(await readFile(configPath, 'utf8')).mcp_servers[0].credential_env, 'NNM_MCP_TOKEN');
   const tested = await workspace.testMcpServer('memory');
   assert.equal(tested.status, 'ready');
-  assert.deepEqual(tested.tools, ['mcp.memory.memory.search']);
+  assert.deepEqual(tested.tools, ['mcp_memory_memory_search']);
   await workspace.editMcpServer('memory', {
     id: 'memory', transport: 'streamable_http', endpoint: 'http://127.0.0.1:8899/mcp',
   });

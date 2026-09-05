@@ -563,13 +563,13 @@ test('an MCP memory lookup carries user intent and remote tool purpose into sema
     return { outcome: 'approve', confidence: 1, reason_code: 'memory_lookup_matches_intent' };
   } } });
   const result = await reviewer.review({
-    ...readRequest('memory-fact-query'), toolName: 'mcp.memory.memory_fact_query',
+    ...readRequest('memory-fact-query'), toolName: 'mcp_memory_memory_fact_query',
     args: { subject: 'fixture-host' }, resolved: { source: 'external' },
   }, {
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'Try to SSH into the machine named fixture-host', sequence: 1 }], mission: null },
     definition: {
-      name: 'mcp.memory.memory_fact_query',
+      name: 'mcp_memory_memory_fact_query',
       purpose: 'Look up current or historical facts about an entity before acting.',
       sideEffect: 'unknown', scope: 'external', source: 'mcp:memory',
     },
@@ -1068,9 +1068,9 @@ test('AC-AUTH-02 mission resource, target, effect, and credential ceilings prece
   const effect = await reviewer.review(mutationRequest('mission-effect'), {
     ...context, authority: missionAuthority({ sideEffects: ['read_only'] }),
   });
-  const credential = await reviewer.review({ ...readRequest('mission-credential'), resolved: { source: 'external' }, toolName: 'mcp.mail.send' }, {
-    ...context, authority: missionAuthority({ resources: ['external'], targets: ['tool:mcp.mail.send'] }),
-    definition: { name: 'mcp.mail.send', sideEffect: 'reversible', scope: 'external', credentialRefs: ['MAIL_TOKEN'] },
+  const credential = await reviewer.review({ ...readRequest('mission-credential'), resolved: { source: 'external' }, toolName: 'mcp_mail_send' }, {
+    ...context, authority: missionAuthority({ resources: ['external'], targets: ['tool:mcp_mail_send'] }),
+    definition: { name: 'mcp_mail_send', sideEffect: 'reversible', scope: 'external', credentialRefs: ['MAIL_TOKEN'] },
   });
   const allowed = await reviewer.review(mutationRequest('mission-allowed'), {
     ...context, authority: missionAuthority(),

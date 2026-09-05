@@ -90,12 +90,12 @@ test('host skills require authenticated policy and exact skill tools', async () 
   const skill = {
     id: 'module.customer', version: '1', description: 'Handle an allowed customer workflow',
     invocation: 'both', body: 'Use only the customer tools granted to this session.',
-    source: 'nno:crm', requires_tools: ['mcp.nno.customer.read'],
+    source: 'nno:crm', requires_tools: ['mcp_nno_customer_read'],
   };
   assert.throws(() => resolveManifest({ provider, skills: [skill] }), { code: 'hosted_skills_forbidden' });
   const config = resolveManifest({
     provider, skills: [skill], allowed_capabilities: ['tools', 'skills'],
-    allowed_tools: ['mcp.nno.customer.read', 'skill_load', 'skill_search'],
+    allowed_tools: ['mcp_nno_customer_read', 'skill_load', 'skill_search'],
   }, { principal: 'authenticated-stdio-host', executionManifestId: 'exec_12345678' });
   assert.equal(config.executionManifest.skillGrant.count, 1);
   const registry = new SkillRegistry({
@@ -111,10 +111,10 @@ test('host skills require authenticated policy and exact skill tools', async () 
 test('host skills fail closed when required tools or loading tools are absent', async () => {
   const base = {
     id: 'module.audit', version: '1', description: 'Audit module state', invocation: 'agent',
-    body: 'Inspect allowed module state.', source: 'nno:audit', requires_tools: ['mcp.nno.audit.read'],
+    body: 'Inspect allowed module state.', source: 'nno:audit', requires_tools: ['mcp_nno_audit_read'],
   };
   const config = resolveManifest({
-    provider, skills: [base], allowed_capabilities: ['tools', 'skills'], allowed_tools: ['mcp.nno.audit.read'],
+    provider, skills: [base], allowed_capabilities: ['tools', 'skills'], allowed_tools: ['mcp_nno_audit_read'],
   }, { principal: 'authenticated-stdio-host', executionManifestId: 'exec_abcdefgh' });
   const registry = new SkillRegistry({ hosted: true, hostSkills: config.skills, allowedTools: config.executionManifest.allowedTools });
   await assert.rejects(() => registry.initialize(), { code: 'skill_tools_not_granted' });

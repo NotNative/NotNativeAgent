@@ -56,6 +56,23 @@ test('ephemeral drafts retain exact values while inspection exposes metadata onl
   assert.doesNotMatch(inspected.content, /exact multiline/u);
 });
 
+test('reference tools receive reference identifiers without resolving their own arguments', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-reference-seal-'));
+  const registry = new ToolRegistry(root);
+  await registry.initialize();
+  const store = registry.definition('ref_store');
+  const stored = await store.executor(
+    await store.validate({ kind: 'draft', value: 'exact draft' }),
+    new AbortController().signal,
+  );
+  const reference = JSON.parse(stored.content).reference;
+  const sealed = await registry.seal({
+    providerCallId: 'inspect-ref', name: 'ref_inspect', args: { reference },
+  }, context);
+  assert.equal(sealed.args.reference, reference);
+  assert.equal(sealed.resolved.referenceBindings, undefined);
+});
+
 test('typed bindings fail clearly when a reference kind is used in the wrong field', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-reference-kind-'));
   const registry = new ToolRegistry(root);

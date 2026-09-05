@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { createHash } from 'node:crypto';
 import { ContractError } from './ids.js';
 import { HttpMcpTransport, MCP_CURRENT_VERSION, StdioMcpTransport } from './mcp-transport.js';
 import { VERSION } from './product.js';
@@ -10,7 +11,6 @@ const RECONNECT_BASE_DELAY_MS = 50;
 const MAX_MCP_PAGES = 64;
 const MAX_MCP_TOOLS = 4_096;
 const MAX_MCP_OUTPUT_BYTES = 1_048_576;
-const MAX_TOOL_NAME_BYTES = 128;
 const MAX_TOOL_DESCRIPTION_BYTES = 4_096;
 
 export class McpManager {
@@ -161,9 +161,9 @@ export class McpManager {
 
   #installTools(connection, tools) {
     const version = (connection.toolGeneration ?? 0) + 1;
-    for (const tool of tools) {
-      const prefix = `mcp.${connection.config.id}.`;
-      const localName = `${prefix}${safeName(tool.name, MAX_TOOL_NAME_BYTES - prefix.length)}`;
+    const localNames = canonicalMcpToolNames(connection.config.id, tools);
+    for (const [index, tool] of tools.entries()) {
+      const localName = localNames[index];
       try { this.registry.installExternal({
         name: localName, version, purpose: boundedText(tool.description ?? tool.name, MAX_TOOL_DESCRIPTION_BYTES),
         sideEffect: effectFor(connection.config, tool.name), scope: 'external',
@@ -274,7 +274,11 @@ async function executeTool(connection, name, args, signal) {
 function listTools(result) {
   const tools = result?.tools;
   if (!Array.isArray(tools) || tools.length > MAX_MCP_TOOLS) throw new ContractError('mcp_malformed', 'MCP tools/list result is malformed');
-  return tools.filter((tool) => tool && typeof tool.name === 'string' && tool.inputSchema?.type === 'object');
+  const valid = tools.filter((tool) => tool && typeof tool.name === 'string' && tool.inputSchema?.type === 'object');
+  if (new Set(valid.map((tool) => tool.name)).size !== valid.length) {
+    throw new ContractError('mcp_malformed', 'MCP tools/list contains duplicate tool names');
+  }
+  return valid;
 }
 
 function effectFor(config, name) {
@@ -282,8 +286,27 @@ function effectFor(config, name) {
   return ['read_only', 'reversible', 'irreversible', 'unknown'].includes(effect) ? effect : 'unknown';
 }
 
-function safeName(name, limit) {
-  const safe = name.replaceAll(/[^A-Za-z0-9_.-]/gu, '_').slice(0, Math.max(1, limit));
+export function canonicalMcpToolNames(serverId, tools) {
+  const identities = tools.map((tool) => ({
+    remote: tool.name,
+    readable: `mcp_${canonicalComponent(serverId)}_${canonicalComponent(tool.name)}`,
+  }));
+  const counts = new Map();
+  for (const item of identities) counts.set(item.readable, (counts.get(item.readable) ?? 0) + 1);
+  const names = identities.map((item) => {
+    const needsHash = item.readable.length > 64 || counts.get(item.readable) > 1;
+    if (!needsHash) return item.readable;
+    const suffix = `_${createHash('sha256').update(`${serverId}\0${item.remote}`).digest('hex').slice(0, 10)}`;
+    return `${item.readable.slice(0, 64 - suffix.length)}${suffix}`;
+  });
+  if (new Set(names).size !== names.length) {
+    throw new ContractError('mcp_invalid_tool_name', 'MCP tool names cannot be mapped without collision');
+  }
+  return names;
+}
+
+function canonicalComponent(value) {
+  const safe = String(value).replaceAll(/[^A-Za-z0-9]+/gu, '_').replace(/^_+|_+$/gu, '');
   if (!safe) throw new ContractError('mcp_invalid_tool_name', 'MCP tool name is invalid');
   return safe;
 }

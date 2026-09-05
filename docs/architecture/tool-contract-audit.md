@@ -1,7 +1,7 @@
 # Model-visible tool contract audit
 
 Audit date: 2026-08-28
-Scope: all 46 bundled tools installed by `ToolRegistry` with the maximal regression fixture: MCP status/test control, skill registry, root subagent control, conversation-work store, Telegram notifications, and session history. `system_elevate` is temporarily disabled and is not part of the callable registry. The exact expected names are asserted in `test/bundled-tool-contracts.test.js`; adding, removing, or conditionally omitting a bundled tool now changes the audit mechanically. Dynamically loaded MCP and extension tools are governed by the same generic schema validator but require a separate provider-specific semantic audit.
+Scope: all 46 bundled tools installed by `ToolRegistry` with the maximal regression fixture: MCP status/test control, skill registry, root subagent control, conversation-work store, Telegram notifications, and session history. `system_elevate` is temporarily disabled and is not part of the callable registry. The exact expected names are asserted in `test/bundled-tool-contracts.test.js`; adding, removing, or conditionally omitting a bundled tool now changes the audit mechanically. Dynamically loaded MCP tools are deterministically mapped into the same canonical name grammar, while extension tools with noncanonical names are rejected at registration; both remain governed by the shared generic schema validator and require provider-specific semantic audit.
 
 ## Method
 

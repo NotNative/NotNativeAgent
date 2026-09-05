@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:2f8ba1dc5a5019f038c86b209f148c276678ff1023b991b52fa3388af1344f34",
+  "source_digest": "sha256:a3a3526f91208a1db166c87f8e249e16407cf441646c4f24ba6da06840c00f1f",
   "counts": {
-    "modules": 339,
+    "modules": 340,
     "component_edges": 70
   },
   "components": [
@@ -72,7 +72,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 83
+      "module_count": 84
     }
   ],
   "entrypoints": [
@@ -114,8 +114,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 150,
-      "module_count": 71
+      "import_count": 151,
+      "module_count": 72
     },
     {
       "from": "experience-engine",
@@ -126,7 +126,7 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 56,
+      "import_count": 57,
       "module_count": 36
     },
     {
@@ -2713,6 +2713,14 @@
       ]
     },
     {
+      "path": "src/tool-name.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
       "path": "src/tool-registry.js",
       "component": "tools",
       "entrypoint": false,
@@ -2730,6 +2738,7 @@
         "src/skill-registry.js",
         "src/stale-edit-recovery.js",
         "src/subagent-tool.js",
+        "src/tool-name.js",
         "src/tools/argument-normalization.js",
         "src/tools/filesystem-canonical.js",
         "src/tools/filesystem-discovery.js",

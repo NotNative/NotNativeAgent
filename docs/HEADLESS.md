@@ -43,7 +43,8 @@ NNO provider/secret management uses the separately authenticated ephemeral integ
 service documented in [NNO_INTEGRATION.md](NNO_INTEGRATION.md).
 
 An authenticated host may provide `manifest.allowed_tools` as an exact list of native or
-MCP tool names. NNA filters every registration through that list, including capabilities
+canonical MCP tool names (`mcp_<server>_<remote_tool>`). NNA filters every registration through
+that list, including capabilities
 discovered after startup, binds the canonical list into durable-session provenance, and
 returns the effective `tools` inventory in `initialized`. Omitting `allowed_tools` retains
 the standalone tool catalog; an empty list grants no tools. A prompt cannot add to this

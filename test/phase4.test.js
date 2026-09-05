@@ -401,7 +401,7 @@ test('AC-MCP-01/03 discovered MCP tool uses namespace, reviewer, and ledger', as
     step += 1;
     if (step === 1) {
       yield { type: 'tool_fragment', fragments: [{ index: 0, id: 'mcp-call', function: {
-        name: 'mcp.catalog.lookup', arguments: '{"key":"alpha"}',
+        name: 'mcp_catalog_lookup', arguments: '{"key":"alpha"}',
       } }] };
       yield { type: 'terminal' };
       return;

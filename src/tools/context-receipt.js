@@ -56,11 +56,11 @@ export function createToolContextReceipt(result, request) {
 }
 
 function toolCategory(name = '') {
-  if (/^(?:fs[._]|code\.)/u.test(name)) return /(?:search|glob|list|diagnostic)/u.test(name) ? 'search' : 'filesystem';
-  if (/^(?:process\.|shell\.)/u.test(name)) return 'shell';
-  if (/^web\./u.test(name)) return 'web';
-  if (/^mcp\./u.test(name)) return 'mcp';
-  if (/^(?:agent\.|subagent\.)/u.test(name)) return 'subagent';
+  if (/^(?:fs_|code_)/u.test(name)) return /(?:search|glob|list|diagnostic)/u.test(name) ? 'search' : 'filesystem';
+  if (/^(?:process_|shell_)/u.test(name)) return 'shell';
+  if (/^web_/u.test(name)) return 'web';
+  if (/^mcp_/u.test(name)) return 'mcp';
+  if (/^(?:agent_|subagent_)/u.test(name)) return 'subagent';
   return 'other';
 }
 

@@ -1350,8 +1350,8 @@ test('AC-PERF-03/AC-TURN-05 configured independent reads execute concurrently bu
     count += 1;
     if (count === 1) {
       yield { type: 'tool_fragment', fragments: [
-        { index: 0, id: 'read-a', function: { name: 'test.read_a', arguments: '{}' } },
-        { index: 1, id: 'read-b', function: { name: 'test.read_b', arguments: '{}' } },
+        { index: 0, id: 'read-a', function: { name: 'test_read_a', arguments: '{}' } },
+        { index: 1, id: 'read-b', function: { name: 'test_read_b', arguments: '{}' } },
       ] };
       yield { type: 'terminal', finishReason: 'tool_calls' };
       return;
@@ -1363,7 +1363,7 @@ test('AC-PERF-03/AC-TURN-05 configured independent reads execute concurrently bu
   let running = 0; let maximum = 0;
   const engine = new SessionEngine({ config: configured, providerFactory: () => provider });
   await engine.initialize();
-  for (const name of ['test.read_a', 'test.read_b']) engine.tools.installExternal(readFixture(name, async () => {
+  for (const name of ['test_read_a', 'test_read_b']) engine.tools.installExternal(readFixture(name, async () => {
     running += 1; maximum = Math.max(maximum, running);
     await new Promise((resolve) => setTimeout(resolve, 20));
     running -= 1; return { content: name };

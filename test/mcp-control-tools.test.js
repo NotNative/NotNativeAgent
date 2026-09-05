@@ -14,7 +14,7 @@ test('root MCP controls expose configured activation and discovered tool names w
     }),
     test: async (id) => ({
       id, status: 'ready', protocolVersion: '2026-07-28', capabilities: { tools: true },
-      tools: ['mcp.memory.memory_search', 'mcp.memory.memory_save'],
+      tools: ['mcp_memory_memory_search', 'mcp_memory_memory_save'],
     }),
   };
   const registry = new ToolRegistry(process.cwd(), { mcpControl: control });
@@ -24,6 +24,6 @@ test('root MCP controls expose configured activation and discovered tool names w
   assert.match(status.content, /new_conversation_required/u);
   assert.doesNotMatch(status.content, /DO_NOT_EXPOSE/u);
   const tested = await registry.definition('nna_mcp_test').executor({ args: { id: 'memory' } }, signal);
-  assert.match(tested.content, /mcp\.memory\.memory_search/u);
+  assert.match(tested.content, /mcp_memory_memory_search/u);
   assert.equal(tested.metadata.tools, 2);
 });

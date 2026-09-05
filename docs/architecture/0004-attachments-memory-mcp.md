@@ -38,7 +38,9 @@ local stdio and Streamable HTTP transports. It targets MCP `2026-07-28` stateles
 metadata and routing headers, with explicit negotiated compatibility for earlier
 configured protocol revisions. Discovered tools are collision-safe, schema checked,
 attributed, locally effect-classified, and installed into the ordinary immutable tool
-snapshot. Consequently every MCP call crosses the same mandatory reviewer, execution
+snapshot. Provider-callable names are projected into `^[A-Za-z][A-Za-z0-9_]{0,63}$` as
+readable `mcp_<server>_<remote_tool>` names; collisions and truncation receive a stable
+identity hash. Consequently every MCP call crosses the same mandatory reviewer, execution
 revalidation, private ledger, cancellation, and result normalization boundary as a
 native tool. Server failures and reconnects revoke that server's next-step capabilities;
 an unknown-effect call is never replayed. A `tools/list_changed` notification refreshes

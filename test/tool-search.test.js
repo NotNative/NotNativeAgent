@@ -20,7 +20,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   registry.installExternal({
-    name: 'browser.navigate', version: 1, purpose: 'Navigate an interactive browser to a web page',
+    name: 'browser_navigate', version: 1, purpose: 'Navigate an interactive browser to a web page',
     sideEffect: 'external_effect', scope: 'network', cancellation: true, timeoutMs: 1000,
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     executor: async () => ({ content: 'unused' }),
@@ -35,7 +35,7 @@ test('provider surface always presents a deterministic foundational catalog', as
   assert.ok(!baseline.includes('fs_write_text'));
   assert.ok(!baseline.includes('fs_delete_file'));
   assert.ok(!baseline.includes('process_run'));
-  assert.ok(!baseline.includes('browser.navigate'));
+  assert.ok(!baseline.includes('browser_navigate'));
   assert.ok(!baseline.includes('ref_store'));
   assert.ok(!baseline.includes('notification_telegram'));
   assert.ok(!baseline.includes('web_fetch'));
@@ -48,6 +48,20 @@ test('provider surface always presents a deterministic foundational catalog', as
   ]) {
     assert.deepEqual(registry.providerDefinitions(query).map((item) => item.function.name), expected);
   }
+});
+
+test('external tools must use the canonical provider name grammar', async () => {
+  const registry = new ToolRegistry(process.cwd());
+  await registry.initialize();
+  assert.throws(() => registry.installExternal({
+    name: 'vendor.lookup', version: 1, purpose: 'Invalid dotted external tool',
+    sideEffect: 'read_only', scope: 'external', cancellation: true, timeoutMs: 1000,
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    executor: async () => ({ content: 'unused' }),
+  }), {
+    code: 'invalid_external_tool',
+    message: 'tool name must match ^[A-Za-z][A-Za-z0-9_]{0,63}$',
+  });
 });
 
 test('specialist tools require an explicit catalog search or authenticated exposure', async () => {
@@ -254,7 +268,7 @@ test('workflow lease admission rejects overflow visibly without evicting committ
   await registry.initialize();
   for (let index = 0; index < 40; index += 1) {
     registry.installExternal({
-      name: `nno.capacity_${index}`, version: 1, purpose: `Capacity fixture ${index}`,
+      name: `nno_capacity_${index}`, version: 1, purpose: `Capacity fixture ${index}`,
       sideEffect: 'read_only', scope: 'external', cancellation: true, timeoutMs: 1000,
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       executor: async () => ({ content: 'unused' }),
@@ -263,35 +277,35 @@ test('workflow lease admission rejects overflow visibly without evicting committ
   const granted = [];
   let rejection = null;
   for (let index = 0; index < 40; index += 1) {
-    const result = registry.grantWorkflowLease([`nno.capacity_${index}`], { uses: 2, source: 'capacity_test' });
+    const result = registry.grantWorkflowLease([`nno_capacity_${index}`], { uses: 2, source: 'capacity_test' });
     if (result.granted.length > 0) granted.push(result.granted[0].name);
     if (result.rejected.length > 0) { rejection = result.rejected[0]; break; }
   }
   assert.ok(granted.length > 0);
-  assert.deepEqual(rejection, { name: `nno.capacity_${granted.length}`, reason: 'schema_count_limit' });
+  assert.deepEqual(rejection, { name: `nno_capacity_${granted.length}`, reason: 'schema_count_limit' });
   const visible = registry.providerDefinitions().map((item) => item.function.name);
   assert.ok(granted.every((name) => visible.includes(name)));
   assert.ok(!visible.includes(rejection.name));
 });
 
 test('authenticated host tool grant filters built-in and external tools by exact name', async () => {
-  const registry = new ToolRegistry(process.cwd(), { allowedTools: ['fs_read_text', 'nno.customer.lookup'] });
+  const registry = new ToolRegistry(process.cwd(), { allowedTools: ['fs_read_text', 'nno_customer_lookup'] });
   await registry.initialize();
   registry.installExternal({
-    name: 'nno.customer.lookup', version: 1, purpose: 'Look up a permitted customer',
+    name: 'nno_customer_lookup', version: 1, purpose: 'Look up a permitted customer',
     sideEffect: 'read_only', scope: 'external', cancellation: true, timeoutMs: 1000,
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     executor: async () => ({ content: 'permitted' }),
   });
   registry.installExternal({
-    name: 'nno.host.processes', version: 1, purpose: 'Forbidden host process access',
+    name: 'nno_host_processes', version: 1, purpose: 'Forbidden host process access',
     sideEffect: 'external_effect', scope: 'host', cancellation: true, timeoutMs: 1000,
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     executor: async () => ({ content: 'forbidden' }),
   });
-  assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), ['fs_read_text', 'nno.customer.lookup']);
-  assert.deepEqual(registry.providerDefinitions().map((item) => item.function.name).sort(), ['fs_read_text', 'nno.customer.lookup']);
-  assert.equal(registry.definition('nno.host.processes'), undefined);
+  assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), ['fs_read_text', 'nno_customer_lookup']);
+  assert.deepEqual(registry.providerDefinitions().map((item) => item.function.name).sort(), ['fs_read_text', 'nno_customer_lookup']);
+  assert.equal(registry.definition('nno_host_processes'), undefined);
 });
 
 test('hosted tool catalogs cannot install, expose, or search for root subagents', async () => {

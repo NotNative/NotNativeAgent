@@ -33,6 +33,7 @@ import { ReferenceStore, referenceDefinitions } from './tools/reference-store.js
 import { allowedByManifest, catalogVisible, isToolSurfaceEligible } from './tools/provider-surface.js';
 import { withPreparedWriteTarget } from './tools/write-target.js';
 import { normalizeArgumentAliases } from './tools/argument-normalization.js';
+import { requireCanonicalToolName } from './tool-name.js';
 import { advanceFromAuthoredState, mutationEvidence, transactionalSnapshot,
   withAuthoredAdvanceMetadata } from './tools/filesystem-mutation-state.js';
 import { telegramNotificationDefinition } from './notifications/telegram.js';
@@ -192,7 +193,7 @@ export class ToolRegistry {
       // unavailable; a later canonical request will report that availability honestly.
       throw new ContractError('unknown_tool', `tool ${call.name} is unavailable${migrationHint}`);
     }
-    const binding = call.name.startsWith('ref.')
+    const binding = call.name.startsWith('ref_')
       ? { args: call.args, bindings: [] } : this.#references.bindArguments(call.args);
     const validated = await definition.validate(binding.args);
     const normalized = binding.bindings.length === 0 ? validated : {
@@ -252,6 +253,7 @@ export class ToolRegistry {
     if (!definition || typeof definition.executor !== 'function') {
       throw new ContractError('invalid_external_tool', 'external tool requires an executor');
     }
+    requireCanonicalToolName(definition.name);
     this.#install({ ...definition, validate: definition.validate ?? schemaValidator(definition.inputSchema) });
   }
   revokeSource(source) {

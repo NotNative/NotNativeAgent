@@ -4,10 +4,23 @@ import { createServer } from 'node:http';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { ContractError } from '../src/ids.js';
-import { McpManager } from '../src/mcp-manager.js';
+import { canonicalMcpToolNames, McpManager } from '../src/mcp-manager.js';
 import { HttpMcpTransport, MCP_CURRENT_VERSION } from '../src/mcp-transport.js';
 
 const registry = () => ({ installExternal() {}, revokeSource() {} });
+
+test('MCP tool names are readable, canonical, bounded, and collision-stable', () => {
+  const tools = [
+    { name: 'read.file' }, { name: 'read-file' },
+    { name: `inspect-${'segment-'.repeat(20)}` },
+  ];
+  const first = canonicalMcpToolNames('vendor-east', tools);
+  const second = canonicalMcpToolNames('vendor-east', tools);
+  assert.deepEqual(first, second);
+  assert.equal(new Set(first).size, tools.length);
+  assert.ok(first.every((name) => /^[A-Za-z][A-Za-z0-9_]{0,63}$/u.test(name)));
+  assert.ok(first.every((name) => name.startsWith('mcp_vendor_east_')));
+});
 
 test('AC-MCP-02 exposes authenticating state and applies independent shutdown deadline', async () => {
   let finishInitialize;
@@ -60,13 +73,13 @@ test('AC-MCP-03 capability changes replace only the next snapshot and preserve p
   const manager = new McpManager({ registry: trackedRegistry, configs: mcpConfig().mcpServers, transportFactory: () => transport });
   await manager.initialize();
   const currentStepSnapshot = Object.freeze([...active.keys()]);
-  assert.deepEqual(currentStepSnapshot, ['mcp.remote.first']);
+  assert.deepEqual(currentStepSnapshot, ['mcp_remote_first']);
   tools = [{ name: 'second', description: 'second tool', inputSchema: { type: 'object', properties: {} } }];
   assert.equal(await manager.handleNotification('remote', { method: 'notifications/tools/list_changed' }), true);
-  assert.deepEqual(currentStepSnapshot, ['mcp.remote.first']);
-  assert.deepEqual([...active.keys()], ['mcp.remote.second']);
-  assert.equal(history.get('mcp.remote.first@1').name, 'mcp.remote.first');
-  assert.equal(history.get('mcp.remote.second@2').name, 'mcp.remote.second');
+  assert.deepEqual(currentStepSnapshot, ['mcp_remote_first']);
+  assert.deepEqual([...active.keys()], ['mcp_remote_second']);
+  assert.equal(history.get('mcp_remote_first@1').name, 'mcp_remote_first');
+  assert.equal(history.get('mcp_remote_second@2').name, 'mcp_remote_second');
 });
 
 test('AC-MCP-04 configured header references resolve only at the HTTP boundary', async (t) => {
@@ -260,7 +273,7 @@ test('AC-MCP-05 in-flight transport failure revokes capabilities and reconnect n
   };
   const manager = new McpManager({ registry: trackedRegistry, configs: mcpConfig().mcpServers, transportFactory });
   await manager.initialize();
-  const tool = active.get('mcp.remote.mutate');
+  const tool = active.get('mcp_remote_mutate');
 
   await assert.rejects(tool.executor({ args: {} }, new AbortController().signal), { code: 'mcp_closed' });
   assert.equal(manager.status()[0].state, 'degraded');

@@ -43,15 +43,15 @@ test('external capability discovery needs neither vendor names nor external keyw
   const registry = new ToolRegistry(process.cwd());
   await registry.initialize();
   registry.installExternal({
-    name: 'mcp.vendor.lookup', version: 1, purpose: 'Lookup inventory widgets',
+    name: 'mcp_vendor_lookup', version: 1, purpose: 'Lookup inventory widgets',
     sideEffect: 'read_only', scope: 'external', cancellation: true, timeoutMs: 1000,
     inputSchema: { type: 'object', properties: {} }, executor: async () => ({ content: 'unused' }),
   });
   const result = await registry.definition('tool_search').executor({ args: { query: 'inventory widgets' } }, new AbortController().signal);
   const content = JSON.parse(result.content);
-  assert.ok(content.matches.some((item) => item.name === 'mcp.vendor.lookup'));
+  assert.ok(content.matches.some((item) => item.name === 'mcp_vendor_lookup'));
   assert.equal(content.lease.granted.length, 0);
-  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'mcp.vendor.lookup'), false);
+  assert.equal(registry.providerDefinitions().some((item) => item.function.name === 'mcp_vendor_lookup'), false);
   await registry.close();
 });
 

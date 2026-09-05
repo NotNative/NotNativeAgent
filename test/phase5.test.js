@@ -843,7 +843,7 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
   const request = providerRequest({
     tools: {
       providerDefinitions(query) { selectedQuery = query; return [{ type: 'function', function: { name: 'fs_read_text' } }]; },
-      snapshot() { return [{ name: 'fs_read_text' }, { name: 'mcp.memory.search' }, { name: 'git_inspect' }]; },
+      snapshot() { return [{ name: 'fs_read_text' }, { name: 'mcp_memory_search' }, { name: 'git_inspect' }]; },
     },
   }, {
     model: 'fixture', temperature: 0, maxOutputTokens: 128, reasoningEffort: 'medium', enableThinking: true,
@@ -855,7 +855,7 @@ test('AC-TURN-02 context assembly is ordered, attributed, paired, bounded, and c
   assert.equal(request.enableThinking, true);
   assert.match(request.messages[0].content, /NotNativeAgent/u);
   const catalog = request.messages.find((item) => /Use tool_search/u.test(item.content));
-  assert.match(catalog.content, /\["git_inspect","mcp\.memory\.search"\]/u);
+  assert.match(catalog.content, /\["git_inspect","mcp_memory_search"\]/u);
   assert.doesNotMatch(catalog.content, /fs_read_text/u);
   assert.doesNotMatch(JSON.stringify(request), /credential|api.?key|secret-reference/iu);
 });
