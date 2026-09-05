@@ -158,7 +158,7 @@ function classify(request, definition) {
   if (definition.name === 'web_browse') return browserClassification(request);
   const localControl = localControlClassification(definition);
   if (localControl) return localControl;
-  if (definition.scope === 'ephemeral_reference' && definition.name.startsWith('ref.')) return ephemeralReferenceClassification(definition);
+  if (definition.scope === 'ephemeral_reference' && definition.name.startsWith('ref_')) return ephemeralReferenceClassification(definition);
   // Why: sealed conversation_work scope—not provider-name punctuation—is this authority boundary.
   if (definition.scope === 'conversation_work') {
     return Object.freeze({ risk: 'safe', reason: 'bounded_conversation_work', effect: definition.sideEffect, scope: 'conversation_work', complexity: 'simple' });

@@ -67,7 +67,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'invalid_permission_choice', 'invalid_persistence', 'invalid_providers',
     'invalid_review_timeout', 'invalid_route_capability', 'invalid_route_fallback',
     'invalid_skills_command', 'invalid_subscription', 'invalid_subscription_bound',
-    'invalid_tool_output_bound', 'invalid_trust_zone', 'invalid_version',
+    'invalid_tool_name', 'invalid_tool_output_bound', 'invalid_trust_zone', 'invalid_version',
     'invalid_web_search_command', 'manifest_invalid', 'manifest_required',
     'manifest_shape_invalid', 'manifest_too_large', 'manifest_version_future',
     'manifest_version_invalid',

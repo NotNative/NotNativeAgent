@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ToolRegistry } from '../src/tool-registry.js';
+import { isCanonicalToolName } from '../src/tool-name.js';
 import { providerSchema, schemaShapeValidator } from '../src/tools/schema.js';
 import { systemTimeDefinition } from '../src/tools/system-time.js';
 import { invalidResult } from '../src/tools/governor.js';
@@ -50,6 +51,7 @@ test('all bundled tool schemas are closed, documented, and safe to project to pr
     const tools = registry.snapshot();
     assert.deepEqual(tools.map((tool) => tool.name).sort(), [...MAXIMAL_BUNDLED_TOOL_NAMES].sort());
     for (const tool of tools) {
+      assert.equal(isCanonicalToolName(tool.name), true, `${tool.name} is not a canonical provider tool name`);
       assert.equal(tool.inputSchema.type, 'object', `${tool.name} must accept one object`);
       assert.equal(tool.inputSchema.additionalProperties, false, `${tool.name} must reject unknown fields`);
       assert.equal(typeof tool.purpose, 'string', `${tool.name} lacks a purpose`);
@@ -76,6 +78,8 @@ test('all bundled tool schemas are closed, documented, and safe to project to pr
         assert.equal(Object.hasOwn(documented.properties[name], 'maxUtf8Bytes'), false);
       }
     }
+    const providerNames = registry.providerDefinitions().map((entry) => entry.function.name);
+    assert.equal(providerNames.every(isCanonicalToolName), true, 'provider projection contains a noncanonical tool name');
   } finally { await registry.close(); }
 });
 

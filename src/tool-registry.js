@@ -226,7 +226,7 @@ export class ToolRegistry {
     });
   }
   #assertReadBeforeMutation(name, normalized) {
-    if (!(name.startsWith('fs.') || name.startsWith('fs_')) || !normalized?.args?.expected_sha256) return;
+    if (!name.startsWith('fs_') || !normalized?.args?.expected_sha256) return;
     const target = normalized.resolved?.source?.path ?? normalized.resolved?.path;
     if (!target || normalized.resolved?.exists === false) return;
     if (normalized.resolved?.staleEditRecovered === true) return;
@@ -267,6 +267,7 @@ export class ToolRegistry {
     }
   }
   #install(definition) {
+    requireCanonicalToolName(definition?.name, 'invalid_tool_name');
     if (this.hosted && definition.name === 'agent_run') return false;
     if (!allowedByManifest(this.allowedTools, definition.name)) return false;
     if (this.#definitions.has(definition.name)) throw new Error(`duplicate tool ${definition.name}`);

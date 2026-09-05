@@ -359,6 +359,27 @@ test('conversational wording cannot revoke deterministic safe-tool eligibility',
   assert.equal(result.reasonCode, 'deterministic_safe');
 });
 
+test('canonical reference tools retain deterministic ephemeral classification', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'canonical-reference' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1;
+    return { outcome: 'hard_deny', confidence: 1, reason_code: 'unexpected_semantic_review' };
+  } } });
+  const request = Object.freeze({
+    id: 'reference-request', providerCallId: 'provider-reference', toolName: 'ref_store',
+    args: { kind: 'draft', value: 'bounded draft' }, resolved: {},
+    authorityId: 'authority-1', authorityVersion: 1, policyVersion: 1,
+    definitionVersion: 2, caller: 'primary', expiresAt: Date.now() + 60_000,
+  });
+  const result = await reviewer.review(request, {
+    ...context,
+    definition: { name: 'ref_store', sideEffect: 'reversible', scope: 'ephemeral_reference' },
+  });
+  assert.equal(result.reasonCode, 'deterministic_safe');
+  assert.equal(semanticCalls, 0);
+});
+
 test('fs_directory list is governed as a deterministic read despite sharing a mutation tool', async () => {
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'directory-list-read' });
   let semanticCalls = 0;
