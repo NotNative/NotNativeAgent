@@ -7,7 +7,7 @@ import { systemTimeDefinition } from '../src/tools/system-time.js';
 import { invalidResult } from '../src/tools/governor.js';
 
 const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
-  'ref_store', 'ref.inspect',
+  'ref_store', 'ref_inspect',
   'fs.list_directory', 'fs.read_text', 'fs.read_lines', 'fs.glob', 'fs_search_text',
   'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.delete_file', 'fs.metadata',
   'fs.create_directory', 'fs.copy_file', 'fs.move_file', 'fs_read', 'fs_list', 'fs.directory',

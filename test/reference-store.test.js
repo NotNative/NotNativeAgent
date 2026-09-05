@@ -50,7 +50,7 @@ test('ephemeral drafts retain exact values while inspection exposes metadata onl
   );
   const reference = JSON.parse(stored.content).reference;
   assert.match(reference, /^nna_ref_draft_/u);
-  const inspect = registry.definition('ref.inspect');
+  const inspect = registry.definition('ref_inspect');
   const inspected = await inspect.executor(await inspect.validate({ reference }), new AbortController().signal);
   assert.equal(JSON.parse(inspected.content).kind, 'draft');
   assert.doesNotMatch(inspected.content, /exact multiline/u);

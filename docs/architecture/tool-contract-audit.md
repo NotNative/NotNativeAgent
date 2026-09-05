@@ -21,7 +21,7 @@ The audit compared each tool's JSON schema, normalization aliases, runtime valid
 
 | Area | Tools audited | Result |
 | --- | --- | --- |
-| References | `ref_store`, `ref.inspect` | Hardened. Kind-specific normalization is explicit, unknown fields fail at the shared shape boundary, and model-authored draft values are capped at 32 KiB. Larger observation-owned references remain internal and do not consume provider output. |
+| References | `ref_store`, `ref_inspect` | Hardened. Kind-specific normalization is explicit, unknown fields fail at the shared shape boundary, and model-authored draft values are capped at 32 KiB. Larger observation-owned references remain internal and do not consume provider output. |
 | Filesystem observation | `fs.list_directory`, `fs.read_text`, `fs.read_lines`, `fs.glob`, `fs_search_text`, `fs.metadata`, `fs_read`, `fs_list` | Pass. Defaults, path/pattern roles, and receipt behavior are provider-visible; numeric safety bounds remain runtime-enforced. |
 | Filesystem mutation | `fs.write_text`, `fs.edit_text`, `fs.edit_lines`, `fs.delete_file`, `fs.create_directory`, `fs.copy_file`, `fs.move_file`, `fs.directory` | Fixed. `fs.write_text@2`, `fs.edit_text@4`, and `fs.edit_lines@3` are disjoint and bound model-authored payloads to the practical provider envelope. Stateful receipt and target failures remain runtime evidence, not hidden argument grammar. |
 | NNA guidance/diagnostics | `nna.search_guidance`, `nna.read_guidance`, `nna.diagnose_turn`, `nna.list_sessions`, `nna.mcp_status`, `nna.mcp_test` | Pass. Selector conflicts and exact-id behavior are now visible through retained field descriptions. |

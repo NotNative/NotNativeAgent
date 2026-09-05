@@ -136,7 +136,7 @@ function storeDefinition(store, paths) {
 
 function inspectDefinition(store) {
   return {
-    name: 'ref.inspect', version: 1,
+    name: 'ref_inspect', version: 1,
     purpose: 'Inspect bounded metadata for an ephemeral typed reference without reproducing its stored value.',
     sideEffect: 'read_only', scope: 'ephemeral_reference', cancellation: true, timeoutMs: 10_000,
     inputSchema: {
