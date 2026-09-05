@@ -20,7 +20,7 @@ async function fixture(options = {}) {
 
 test('root metadata and directory tools may target host paths while hosted tools remain bounded', async () => {
   const { root, definitions } = await fixture();
-  const metadata = definitions.get('fs.metadata');
+  const metadata = definitions.get('fs_metadata');
   const inspected = await metadata.validate({ path: 'source.txt' });
   const result = await metadata.executor(inspected, new AbortController().signal);
   assert.match(result.content, /"kind":"file"/u);
@@ -88,7 +88,7 @@ test('device paths remain forbidden while symlinks use their resolved host targe
   const { root, definitions } = await fixture();
   const outside = await mkdtemp(join(tmpdir(), 'nna-fs-outside-'));
   await writeFile(join(outside, 'secret.txt'), 'outside');
-  const metadata = definitions.get('fs.metadata');
+  const metadata = definitions.get('fs_metadata');
   const external = await metadata.validate({ path: join(outside, 'secret.txt') });
   assert.equal(external.resolved.insideWorkspace, false);
   for (const path of ['CON', 'aux.txt', 'folder/NUL.log', 'trailing.']) {
@@ -100,7 +100,7 @@ test('device paths remain forbidden while symlinks use their resolved host targe
     assert.equal(escaped.resolved.insideWorkspace, false);
     const hosted = await fixture({ boundedToWorkspace: true });
     await symlink(join(outside, 'secret.txt'), join(hosted.root, 'escape.txt'));
-    await assert.rejects(hosted.definitions.get('fs.metadata').validate({ path: 'escape.txt' }), { code: 'tool_scope_denied' });
+    await assert.rejects(hosted.definitions.get('fs_metadata').validate({ path: 'escape.txt' }), { code: 'tool_scope_denied' });
   } catch (error) {
     if (error.code !== 'EPERM') throw error;
     t.diagnostic('native symlink assertion unavailable without Windows create-symbolic-link privilege');

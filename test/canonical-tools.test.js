@@ -84,7 +84,7 @@ test('directory listing is intuitive, one level deep, and default tree skips are
     const absentResult = await list.executor(absent, new AbortController().signal);
     assert.equal(absentResult.metadata.observation_outcome, 'target_not_found');
     assert.equal(absentResult.metadata.target_exists, false);
-    const metadata = item.registry.definition('fs.metadata');
+    const metadata = item.registry.definition('fs_metadata');
     const missingMetadata = await metadata.executor(await metadata.validate({ path: 'src/not-installed' }), new AbortController().signal);
     assert.equal(missingMetadata.metadata.observation_outcome, 'target_not_found');
     await assert.rejects(list.validate({ path: '.', depth: 0 }), { code: 'tool_schema_invalid' });

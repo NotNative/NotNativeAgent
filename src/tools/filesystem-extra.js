@@ -11,7 +11,7 @@ export function filesystemExtraDefinitions(paths, changes, receipts) {
 }
 
 function metadataDefinition(paths) {
-  return definition('fs.metadata', 'Inspect bounded metadata for one accessible file or directory.', 'read_only', {
+  return definition('fs_metadata', 'Inspect bounded metadata for one accessible file or directory.', 'read_only', {
     path: { type: 'string', maxLength: 4096, description: 'Required path to one existing file or directory.' },
   }, ['path'], async (args) => ({ args: shape(args, ['path']), resolved: await paths.resolveOptionalMetadata(args.path) }),
   async (request) => ({
