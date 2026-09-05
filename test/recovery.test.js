@@ -28,11 +28,11 @@ let finishSequence = 0;
 function typedProvider(provider) {
   const wrapper = Object.create(provider);
   wrapper.stream = async function* stream(request, ...args) {
-    const supportsFinish = request.tools?.some((tool) => tool.function?.name === 'turn.finish') === true;
+    const supportsFinish = request.tools?.some((tool) => tool.function?.name === 'turn_finish') === true;
     if (supportsFinish && !request.responseFormat && !currentTurnDeclared(request.messages)) {
       finishSequence += 1;
       yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: `typed-finish-${finishSequence}`, function: { name: 'turn.finish', arguments: '{"outcome":"completed"}' },
+        index: 0, id: `typed-finish-${finishSequence}`, function: { name: 'turn_finish', arguments: '{"outcome":"completed"}' },
       }] };
       yield { type: 'terminal', finishReason: 'tool_calls' };
       return;
@@ -48,7 +48,7 @@ function currentTurnDeclared(messages = []) {
     if (messages[index].role === 'user') latestUser = index;
   }
   return messages.slice(latestUser + 1).some((message) => message.tool_calls
-    ?.some((call) => call.function?.name === 'turn.finish'));
+    ?.some((call) => call.function?.name === 'turn_finish'));
 }
 
 test('a host without steering returns terminal bounded recovery instead of an attention wait', async () => {

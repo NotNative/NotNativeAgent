@@ -7,14 +7,14 @@ function definition() {
   return turnFinishDefinition({ declare(value) { return value; } });
 }
 
-test('turn.finish states the conditional reason and question contract on the provider surface', () => {
+test('turn_finish states the conditional reason and question contract on the provider surface', () => {
   const tool = definition();
   assert.match(tool.purpose, /Omit reason_code and question/u);
   assert.match(tool.inputSchema.properties.reason_code.description, /Forbidden for completed and needs_input/u);
   assert.match(tool.inputSchema.properties.question.description, /Forbidden for every other outcome/u);
 });
 
-test('turn.finish accepts only the fields required by each outcome', async () => {
+test('turn_finish accepts only the fields required by each outcome', async () => {
   assert.deepEqual((await definition().validate({ outcome: 'completed' })).args, {
     outcome: 'completed', reason_code: null, question: null,
   });
@@ -26,13 +26,13 @@ test('turn.finish accepts only the fields required by each outcome', async () =>
   });
 });
 
-test('turn.finish rejection explains how to repair conditionally forbidden fields', async () => {
+test('turn_finish rejection explains how to repair conditionally forbidden fields', async () => {
   await assert.rejects(definition().validate({ outcome: 'completed', reason_code: 'done' }), {
     code: 'tool_schema_invalid',
     message: 'reason_code is accepted only when outcome is blocked, incomplete, or failed; omit reason_code for completed and needs_input',
   });
   await assert.rejects(definition().validate({ outcome: 'failed' }), {
-    code: 'tool_schema_invalid', message: 'turn.finish requires a valid reason_code when outcome is failed',
+    code: 'tool_schema_invalid', message: 'turn_finish requires a valid reason_code when outcome is failed',
   });
   await assert.rejects(definition().validate({ outcome: 'completed', question: 'Done?' }), {
     code: 'tool_schema_invalid',

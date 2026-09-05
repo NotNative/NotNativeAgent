@@ -4,7 +4,7 @@ import { completionEvidence, completionEvidenceHint } from './completion-evidenc
 
 export async function continueAfterTerminalDeclaration(engine, active, items, trustedHandoff, settleStep) {
   if (!isSuccessfulDeclarationBatch(items)) return null;
-  // Why: turn.finish is bookkeeping for the completion supervisor, not another unit of
+  // Why: turn_finish is bookkeeping for the completion supervisor, not another unit of
   // user work. Charging it against the bounded work-step budget would reduce the useful
   // budget merely because the model followed the terminal-outcome protocol.
   await settleStep('continued');
@@ -18,7 +18,7 @@ export async function continueAfterTerminalDeclaration(engine, active, items, tr
 }
 
 function isSuccessfulDeclarationBatch(items) {
-  return items.length > 0 && items.every((item) => declarationName(item) === 'turn.finish'
+  return items.length > 0 && items.every((item) => declarationName(item) === 'turn_finish'
     && item.result?.status === 'succeeded');
 }
 

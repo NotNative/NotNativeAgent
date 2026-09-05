@@ -9,7 +9,7 @@ surface to every ordinary provider step. The deliberately small deterministic or
 2. `fs_list`, `fs_read`, and `fs_search_text`;
 3. `shell_run`;
 4. `work_plan`, `work_status`, and `work_task_update`;
-5. `turn.finish`;
+5. `turn_finish`;
 6. `git.inspect`.
 
 A definition is omitted only when its subsystem is unavailable or an authenticated host

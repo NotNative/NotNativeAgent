@@ -184,7 +184,7 @@ function finishCall(outcome, detail = {}) {
   return [
     { type: 'tool_fragment', fragments: [{
       index: 0, id: `finish-${outcome}`, function: {
-        name: 'turn.finish', arguments: JSON.stringify({ outcome, ...detail }),
+        name: 'turn_finish', arguments: JSON.stringify({ outcome, ...detail }),
       },
     }] },
     { type: 'terminal', finishReason: 'tool_calls' },
@@ -193,7 +193,7 @@ function finishCall(outcome, detail = {}) {
 
 function hasFinishCall(request) {
   return request.messages?.some((message) => message.tool_calls
-    ?.some((call) => call.function?.name === 'turn.finish')) === true;
+    ?.some((call) => call.function?.name === 'turn_finish')) === true;
 }
 
 class ScriptedProvider {

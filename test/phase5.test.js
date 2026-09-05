@@ -2301,7 +2301,7 @@ test('AC-HEAD-08/AC-PROD-04/AC-OBS-02 plain text uses canonical semantics and lo
     providerStep += 1;
     if (providerStep === 1) {
       yield { type: 'tool_fragment', fragments: [{
-        index: 0, id: 'plain-finish', function: { name: 'turn.finish', arguments: '{"outcome":"completed"}' },
+        index: 0, id: 'plain-finish', function: { name: 'turn_finish', arguments: '{"outcome":"completed"}' },
       }] };
       yield { type: 'terminal', finishReason: 'tool_calls' };
       return;

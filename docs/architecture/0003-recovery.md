@@ -106,7 +106,7 @@ for primary or delegated model work.
 
 The configured model-step ceiling remains a final bounded guard (1,024 productive steps by default), so a
 long build can exceed dozens of useful tool steps without being mistaken for a loop.
-The protocol-only `turn.finish` declaration has a lifecycle receipt but does not consume that
+The protocol-only `turn_finish` declaration has a lifecycle receipt but does not consume that
 productive budget. Reaching the guard yields the engine-owned `limit_reached` outcome.
 Explicit mission deadlines and budgets, cancellation, security/authority denials, the model-step
 ceiling, and irrecoverable runtime failures remain terminal boundaries. Attention parking does not

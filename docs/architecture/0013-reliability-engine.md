@@ -124,7 +124,7 @@ public package entry point and exports the current names without historical alia
 16. Completion supervision treats provider-reported output usage at the exact requested ceiling
     as truncation even when a compatible provider labels the finish `stop`. Completion claims,
     future-action phrases, questions, and blocker language are content-free telemetry advisories;
-    none can select a terminal state. The model must declare its disposition through `turn.finish`,
+    none can select a terminal state. The model must declare its disposition through `turn_finish`,
     and deterministic engine evidence may reject that declaration and continue recovery.
 17. Browser evidence records its verification route. Rendering a workspace path through NNA's
     managed HTTP origin does not prove that the artifact works through a direct `file://` or
@@ -152,13 +152,13 @@ public package entry point and exports the current names without historical alia
     terminal blocker, bounded incompletion, and model-reported failure. A typed blocked,
     incomplete, or failed declaration may honestly end a turn without falsifying durable work;
     unfinished tasks remain unfinished and retain their bounded reasons.
-24. `turn.finish` records a structured model declaration of `completed`, `blocked`, `incomplete`,
+24. `turn_finish` records a structured model declaration of `completed`, `blocked`, `incomplete`,
     `failed`, or `needs_input`. Reliability validates the declaration against durable work,
     unresolved failures, and current evidence. The declaration grants no authority and cannot
     override contradictory engine state. Authenticated steering invalidates an earlier declaration.
     The engine alone owns `denied`, `cancelled`, and `limit_reached`. The bookkeeping-only
     declaration step remains auditable but does not consume the productive model-step budget.
-25. After `turn.finish`, the final-response checkpoint receives a bounded machine-derived evidence
+25. After `turn_finish`, the final-response checkpoint receives a bounded machine-derived evidence
     ledger with actual tool request/result counts, successful unique file reads, verification calls,
     and tool names. The same ledger is stored in the terminal record. It constrains mechanical scope
     claims without attempting to infer or grade nuanced prose conclusions.

@@ -43,19 +43,19 @@ test('failed boundary becomes a failed case only after child cleanup', async () 
   const result = await lab.forceAt(root, { sequence: 1, type: 'message' }, { spawn: () => proc, recordTimeoutMs: 1, cleanupTimeoutMs: 100 });
   assert.equal(result.passed, false); assert.equal(proc.kills, 1); assert.equal(proc.signalCode, 'SIGKILL');
 });
-const finishTool = [{ function: { name: 'turn.finish' } }];
+const finishTool = [{ function: { name: 'turn_finish' } }];
 test('fixture cleans abandoned declarations and preserves unreplayed remainder', async () => {
   const pending = new Map(); const provider = typedTerminalProvider({ async *stream() { yield { type: 'text', text: 'done' }; yield { type: 'terminal' }; } }, pending);
   const iterator = provider.stream({ messages: [{ role: 'user', content: 'one' }], tools: finishTool });
   await iterator.next(); assert.equal(pending.size, 1); await iterator.return(); assert.equal(pending.size, 0);
   pending.set('replay', [{ type: 'text', text: 'first' }, { type: 'terminal' }]);
-  const request = { messages: [{ role: 'user' }, { role: 'assistant', tool_calls: [{ id: 'replay', function: { name: 'turn.finish' } }] }], tools: finishTool };
+  const request = { messages: [{ role: 'user' }, { role: 'assistant', tool_calls: [{ id: 'replay', function: { name: 'turn_finish' } }] }], tools: finishTool };
   const replay = provider.stream(request); assert.equal((await replay.next()).value.text, 'first'); await replay.return();
   assert.deepEqual(await Array.fromAsync(provider.stream(request)), [{ type: 'terminal' }]); assert.equal(pending.size, 0);
 });
 test('fixture cannot replay a previous turn and tolerates null transcript entries', async () => {
   const pending = new Map([['old', [{ type: 'text', text: 'STALE' }]]]);
   const provider = typedTerminalProvider({ async *stream() { yield { type: 'text', text: 'fresh' }; yield { type: 'terminal' }; } }, pending);
-  const events = await Array.fromAsync(provider.stream({ messages: [{ role: 'assistant', tool_calls: [{ id: 'old', function: { name: 'turn.finish' } }] }, { role: 'user', content: 'new' }, null], tools: [] }));
+  const events = await Array.fromAsync(provider.stream({ messages: [{ role: 'assistant', tool_calls: [{ id: 'old', function: { name: 'turn_finish' } }] }, { role: 'user', content: 'new' }, null], tools: [] }));
   assert.equal(events[0].text, 'fresh');
 });

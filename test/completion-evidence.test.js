@@ -9,7 +9,7 @@ test('completion evidence reports exact successful reads and verification calls'
     request('read-2', 'fs_read', { path: 'src/a.js' }), result('read-2', 'fs_read', 'succeeded'),
     request('read-3', 'fs_read', { path: 'src/b.js' }), result('read-3', 'fs_read', 'failed'),
     request('verify-1', 'project.verify', {}), result('verify-1', 'project.verify', 'succeeded'),
-    request('finish-1', 'turn.finish', { outcome: 'completed' }), result('finish-1', 'turn.finish', 'succeeded'),
+    request('finish-1', 'turn_finish', { outcome: 'completed' }), result('finish-1', 'turn_finish', 'succeeded'),
     { type: 'tool_request', turnId: 'other', providerCallId: 'other', toolName: 'fs_read', args: { path: 'ignored' } },
   ];
   const evidence = completionEvidence(transcript, 'turn-1');

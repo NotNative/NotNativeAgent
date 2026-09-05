@@ -13,7 +13,7 @@ export class TypedSessionEngine extends SessionEngine {
 }
 
 // Adapts legacy scripted providers so their terminal prose does not bypass the production
-// turn.finish protocol. This belongs only to tests that are exercising a different boundary.
+// turn_finish protocol. This belongs only to tests that are exercising a different boundary.
 export function typedTerminalProvider(provider, pending = new Map()) {
   const wrapper = Object.create(provider);
   wrapper.stream = async function* stream(request, ...args) {
@@ -42,7 +42,7 @@ export function typedTerminalProvider(provider, pending = new Map()) {
     try {
       yield { type: 'tool_fragment', fragments: [{
         index: 0, id: declarationId,
-        function: { name: 'turn.finish', arguments: JSON.stringify(declaration) },
+        function: { name: 'turn_finish', arguments: JSON.stringify(declaration) },
       }] };
       declared = true;
       yield { type: 'terminal', finishReason: 'tool_calls' };
@@ -54,21 +54,21 @@ export function typedTerminalProvider(provider, pending = new Map()) {
 function pendingDeclarationId(messages = []) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     if (messages[index]?.role === 'user') break;
-    const call = messages[index]?.tool_calls?.find((item) => item?.function?.name === 'turn.finish');
+    const call = messages[index]?.tool_calls?.find((item) => item?.function?.name === 'turn_finish');
     if (call) return call.id;
   }
   return null;
 }
 
 function supportsFinish(request) {
-  return !request.responseFormat && request.tools?.some((tool) => tool.function?.name === 'turn.finish') === true;
+  return !request.responseFormat && request.tools?.some((tool) => tool.function?.name === 'turn_finish') === true;
 }
 
 function currentTurnDeclared(messages = []) {
   let latestUser = -1;
   for (let index = 0; index < messages.length; index += 1) if (messages[index]?.role === 'user') latestUser = index;
   return messages.slice(latestUser + 1).some((message) => message?.tool_calls
-    ?.some((call) => call.function?.name === 'turn.finish'));
+    ?.some((call) => call.function?.name === 'turn_finish'));
 }
 
 function isTerminalTextStep(events) {

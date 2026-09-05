@@ -63,7 +63,7 @@ export class MandatoryReviewer {
         );
       }
       if (context.reviewPosture === 'prompt' && decision.outcome === 'approve'
-        && !administrator && !['system.elevate', 'turn.finish'].includes(context.definition.name)) {
+        && !administrator && !['system.elevate', 'turn_finish'].includes(context.definition.name)) {
         decision = escalate('prompt_posture_operator_decision', request, 'Prompt posture requires operator approval before execution.');
       }
       if (decision.outcome === 'approve') decision = refreshApprovalWindow(decision, this.decisionTtlMs);
@@ -184,11 +184,11 @@ function localControlClassification(definition) {
   if (definition.sideEffect === 'read_only' && definition.scope === 'tool_catalog' && definition.name === 'tool_search') {
     return Object.freeze({ risk: 'safe', reason: 'bounded_tool_catalog', effect: 'read_only', scope: 'tool_catalog', complexity: 'simple' });
   }
-  // Why: turn.finish records an assertion for deterministic supervision; it does not grant
+  // Why: turn_finish records an assertion for deterministic supervision; it does not grant
   // authority or cause an external effect. Sending that assertion to semantic review would
   // make terminal reliability depend circularly on another model response.
   if (definition.sideEffect !== 'read_only' || definition.scope !== 'conversation_control'
-    || definition.name !== 'turn.finish') return null;
+    || definition.name !== 'turn_finish') return null;
   return Object.freeze({ risk: 'safe', reason: 'typed_terminal_declaration', effect: 'read_only', scope: 'conversation_control', complexity: 'simple' });
 }
 

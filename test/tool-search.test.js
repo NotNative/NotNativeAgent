@@ -7,7 +7,7 @@ import { ConversationWork } from '../src/conversation-work.js';
 const FOUNDATION = [
   'tool_search',
   'fs_list', 'fs_read', 'fs_search_text',
-  'shell_run', 'work_plan', 'work_status', 'work_task_update', 'turn.finish',
+  'shell_run', 'work_plan', 'work_status', 'work_task_update', 'turn_finish',
   'git.inspect',
 ];
 
@@ -110,7 +110,9 @@ test('tool_search reports repair-complete query diagnostics without conflating s
 });
 
 test('retired dotted tool names fail with a canonical migration hint but remain non-executable', async () => {
-  const registry = new ToolRegistry(process.cwd(), { conversationWork: new ConversationWork() });
+  const registry = new ToolRegistry(process.cwd(), {
+    conversationWork: new ConversationWork(), terminalControl: { declare: async () => ({}) },
+  });
   await registry.initialize();
   for (const [index, retired, canonical] of [
     ['search', 'tool.search', 'tool_search'],
@@ -121,6 +123,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['work plan', 'work.plan', 'work_plan'],
     ['work status', 'work.status', 'work_status'],
     ['work task update', 'work.task_update', 'work_task_update'],
+    ['turn finish', 'turn.finish', 'turn_finish'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

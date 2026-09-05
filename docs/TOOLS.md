@@ -4,7 +4,7 @@
 
 Every ordinary provider step receives a deterministic foundational surface, with `tool_search`
 first: `tool_search`; `fs_list`, `fs_read`, and `fs_search_text`; `shell_run`;
-`work_plan`, `work_status`, and `work_task_update`; `turn.finish`; and `git.inspect`.
+`work_plan`, `work_status`, and `work_task_update`; `turn_finish`; and `git.inspect`.
 A foundational tool is omitted only when that subsystem is genuinely unavailable or an
 authenticated host manifest removes it. NNA never selects or withholds schemas by matching
 words in the operator's request, and ordinary root conversations never enter a zero-tool mode.

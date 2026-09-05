@@ -11,7 +11,7 @@ const MAX_QUESTION = 1024;
 export function turnFinishDefinition(control) {
   if (!control || typeof control.declare !== 'function') return null;
   return {
-    name: 'turn.finish', version: 1,
+    name: 'turn_finish', version: 1,
     purpose: 'Declare a typed terminal turn outcome before the final response when the outcome is not an ordinary clean completion or when an active completion gate requires an explicit disposition. NNA validates this declaration against durable work, tool failures, and evidence. Use completed after successful gated work. Use blocked, incomplete, or failed with reason_code. Use needs_input with question. Omit reason_code and question for every outcome that does not require them.',
     // Why: this records model intent inside the active turn but performs no external action.
     // Semantic review would circularly ask another model to approve the model's own disposition;
@@ -40,7 +40,7 @@ function validateDeclaration(value) {
   const keys = new Set(['outcome', 'reason_code', 'question']);
   if (!value || typeof value !== 'object' || Array.isArray(value)
     || Object.keys(value).some((key) => !keys.has(key)) || !OUTCOMES.includes(value.outcome)) {
-    throw new ContractError('tool_schema_invalid', 'turn.finish requires a supported outcome');
+    throw new ContractError('tool_schema_invalid', 'turn_finish requires a supported outcome');
   }
   if (['blocked', 'incomplete', 'failed'].includes(value.outcome)) requireText(value.reason_code, 'reason_code', MAX_REASON, value.outcome);
   if (value.outcome === 'needs_input') requireText(value.question, 'question', MAX_QUESTION, value.outcome);
@@ -59,6 +59,6 @@ function validateDeclaration(value) {
 
 function requireText(value, field, maximum, outcome) {
   if (typeof value !== 'string' || value.trim().length < 1 || value.length > maximum) {
-    throw new ContractError('tool_schema_invalid', `turn.finish requires a valid ${field} when outcome is ${outcome}`);
+    throw new ContractError('tool_schema_invalid', `turn_finish requires a valid ${field} when outcome is ${outcome}`);
   }
 }

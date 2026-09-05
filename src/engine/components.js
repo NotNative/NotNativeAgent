@@ -178,7 +178,7 @@ function administratorAdapter(engine, options) {
 }
 
 function declareTerminalOutcome(engine, value) {
-  if (!engine.active) throw new ContractError('turn_inactive', 'turn.finish requires an active turn');
+  if (!engine.active) throw new ContractError('turn_inactive', 'turn_finish requires an active turn');
   engine.active.terminalDeclaration = Object.freeze({ ...value, declaredAtStepId: engine.active.stepId });
   return engine.active.terminalDeclaration;
 }

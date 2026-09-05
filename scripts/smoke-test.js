@@ -44,7 +44,7 @@ const engine = new SessionEngine({
       if (requests === 1) {
         assert.equal(request.messages.at(-1)?.content, REQUEST_TEXT);
         yield { type: 'tool_fragment', fragments: [{
-          index: 0, id: 'offline-smoke-finish', function: { name: 'turn.finish', arguments: '{"outcome":"completed"}' },
+          index: 0, id: 'offline-smoke-finish', function: { name: 'turn_finish', arguments: '{"outcome":"completed"}' },
         }] };
         yield { type: 'terminal', finishReason: 'tool_calls' };
         return;

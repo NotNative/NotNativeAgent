@@ -6,8 +6,8 @@ const READ_TOOLS = new Set(['fs_read', 'fs.read_lines', 'fs.read_text']);
 
 export function completionEvidence(transcript, turnId) {
   const records = Array.isArray(transcript) ? transcript.filter((item) => turnIdentity(item) === turnId) : [];
-  const requests = records.filter((item) => item.type === 'tool_request' && item.toolName !== 'turn.finish');
-  const results = new Map(records.filter((item) => item.type === 'tool_result' && item.toolName !== 'turn.finish')
+  const requests = records.filter((item) => item.type === 'tool_request' && item.toolName !== 'turn_finish');
+  const results = new Map(records.filter((item) => item.type === 'tool_result' && item.toolName !== 'turn_finish')
     .map((item) => [item.providerCallId, item]));
   const successful = requests.filter((request) => lifecycle(results.get(request.providerCallId)) === 'succeeded');
   // Compatibility: new sealed requests store canonical path, while durable journals written
