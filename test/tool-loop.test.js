@@ -383,7 +383,7 @@ test('turn diagnostics expose lifecycle classifications without transcript conte
   await store.close();
   const definition = selfDiagnosticsDefinitions(() => ({
     journalPath: store.path, sessionsRoot: root, sessionId: 'diagnose', state: 'IDLE',
-  })).find((item) => item.name === 'nna.diagnose_turn');
+  })).find((item) => item.name === 'nna_diagnose_turn');
   const result = await definition.executor(await definition.validate({ turn_id: 'turn-1' }), new AbortController().signal);
   assert.match(result.content, /first_token_timeout/u);
   assert.match(result.content, /needs_input/u);
@@ -401,7 +401,7 @@ test('turn diagnostics select previous turns by offset and disclose bounded turn
   const definition = selfDiagnosticsDefinitions(() => ({
     journalPath: store.path, sessionsRoot: root, sessionId: 'diagnose-history',
     activeTurnId: 'turn-current', state: 'RUNNING',
-  })).find((item) => item.name === 'nna.diagnose_turn');
+  })).find((item) => item.name === 'nna_diagnose_turn');
 
   const result = await definition.executor(
     await definition.validate({ turn_offset: 1 }), new AbortController().signal,
@@ -439,7 +439,7 @@ test('turn diagnostics can enumerate and inspect another durable session', async
   assert.match(catalog.content, /"latest_failure_code": "recovery_exhausted"/u);
   assert.match(catalog.content, /"session_id": "hosted"[^]*"resumable": false/u);
   assert.match(catalog.content, /"resume_blocked_reason": "authenticated_host_session"/u);
-  const diagnose = definitions.find((item) => item.name === 'nna.diagnose_turn');
+  const diagnose = definitions.find((item) => item.name === 'nna_diagnose_turn');
   const result = await diagnose.executor(await diagnose.validate({ session_id: 'other' }), new AbortController().signal);
   assert.match(result.content, /"session_id": "other"/u);
   assert.match(result.content, /file_missing/u);
@@ -457,7 +457,7 @@ test('turn diagnostics can enumerate and inspect another durable session', async
 test('self diagnostics reject invalid optional values', async () => {
   const definitions = selfDiagnosticsDefinitions(() => ({}));
   const list = definitions.find((item) => item.name === 'nna.list_sessions');
-  const diagnose = definitions.find((item) => item.name === 'nna.diagnose_turn');
+  const diagnose = definitions.find((item) => item.name === 'nna_diagnose_turn');
   await assert.rejects(list.validate({ limit: null }), /limit must be an optional integer/u);
   await assert.rejects(diagnose.validate({ session_id: '../outside' }), /diagnostic selector, limit, session_id, turn_id, or turn_offset is invalid or conflicting/u);
   await assert.rejects(diagnose.validate({ turn_id: 'turn-1', turn_offset: 1 }), /turn_offset is invalid or conflicting/u);
@@ -952,7 +952,7 @@ test('registry exposes workspace operations and packaged self-guidance', async (
   assert.deepEqual(registry.snapshot().map((item) => item.name).sort(), [
     'code_diagnostics',
     'fs_copy_file', 'fs_create_directory', 'fs_delete_file', 'fs_directory', 'fs_edit_lines', 'fs_edit_text', 'fs_glob', 'fs_list', 'fs_list_directory', 'fs_metadata', 'fs_move_file', 'fs_read', 'fs_read_lines', 'fs_read_text', 'fs_search_text', 'fs_write_text', 'git_inspect',
-    'image_inspect', 'nna.diagnose_turn', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
+    'image_inspect', 'nna.list_sessions', 'nna.read_guidance', 'nna.search_guidance', 'nna_diagnose_turn', 'process_run', 'project_verify', 'ref_inspect', 'ref_store', 'shell_run', 'system_time', 'tool_search', 'web.browse', 'web.fetch', 'web.search',
   ]);
   assert.equal(registry.snapshot().every((item) => Number.isSafeInteger(item.maxOutputBytes) && item.maxOutputBytes > 0), true);
 });

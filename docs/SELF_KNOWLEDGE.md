@@ -23,7 +23,7 @@ added after a conversation began become invocable in a newly created conversatio
 application restart is not required.
 
 For a failed, stalled, unexpectedly compacted, or otherwise surprising turn, NNA must use
-`nna.diagnose_turn` before inferring a cause from the visible transcript. Its `selector` can
+`nna_diagnose_turn` before inferring a cause from the visible transcript. Its `selector` can
 inspect `current`, `latest`, `latest_failed`, or return a bounded `list`; an exact correlated
 `turn_id` or `session_id` can select older evidence. This lets one Console
 inspect another Console's durable journal without guessing filesystem paths. The result is deliberately bounded and

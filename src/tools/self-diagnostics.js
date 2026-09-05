@@ -21,7 +21,7 @@ export function selfDiagnosticsDefinitions(contextProvider) {
 
 function diagnoseTurnDefinition(contextProvider) {
   return {
-    name: 'nna.diagnose_turn', version: 1,
+    name: 'nna_diagnose_turn', version: 1,
     purpose: 'Inspect bounded, content-redacted lifecycle evidence for the active or an earlier NNA turn. Use turn_offset 1 for the previous turn.',
     sideEffect: 'read_only', scope: 'runtime_diagnostics', cancellation: true, timeoutMs: 10_000,
     inputSchema: {

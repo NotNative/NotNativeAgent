@@ -613,12 +613,12 @@ test('runtime diagnostics with no filesystem target are deterministically approv
     ledger, semanticReviewer: { async review() { semanticCalls += 1; } },
   });
   const result = await reviewer.review({
-    ...readRequest('diagnose-turn'), toolName: 'nna.diagnose_turn',
+    ...readRequest('diagnose-turn'), toolName: 'nna_diagnose_turn',
     args: { turn_id: null }, resolved: null,
   }, {
     ...context,
     authority: { id: 'authority-1', intent: [{ content: 'Inspect the previous turn logs' }], mission: null },
-    definition: { name: 'nna.diagnose_turn', sideEffect: 'read_only', scope: 'runtime_diagnostics' },
+    definition: { name: 'nna_diagnose_turn', sideEffect: 'read_only', scope: 'runtime_diagnostics' },
   });
   assert.equal(result.outcome, 'approve');
   assert.equal(result.reasonCode, 'deterministic_safe');
