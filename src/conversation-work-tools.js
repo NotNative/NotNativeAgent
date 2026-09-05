@@ -37,7 +37,7 @@ function statusDefinition(work) {
 }
 
 function goalDefinition(work) {
-  return definition('work.goal', 'Create, update, complete, block, or reopen the one durable goal for this conversation.', 'reversible', {
+  return definition('work_goal', 'Create, update, complete, block, or reopen the one durable goal for this conversation.', 'reversible', {
     action: { type: 'string', enum: ['set', 'complete', 'block', 'reopen'], description: 'Required goal transition.' },
     objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required goal text when action is set; omit otherwise.' },
     evidence: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required completion evidence when action is complete; omit otherwise.' },

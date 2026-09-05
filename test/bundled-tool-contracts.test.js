@@ -16,7 +16,7 @@ const MAXIMAL_BUNDLED_TOOL_NAMES = Object.freeze([
   'web.search', 'web.fetch', 'web.browse', 'image.inspect', 'tool_search',
   'process.run', 'shell_run', 'project.verify', 'git_inspect', 'code.diagnostics',
   'skill.search', 'skill.load', 'agent.run',
-  'work_plan', 'work_status', 'work.goal', 'work.task_add', 'work_task_update',
+  'work_plan', 'work_status', 'work_goal', 'work.task_add', 'work_task_update',
   'turn_finish',
   'notification.telegram', 'session.search_history', 'session.read_history', 'system.time',
   'workspace.change',

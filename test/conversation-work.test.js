@@ -95,7 +95,7 @@ test('conversation work records and reopens a terminal blocked goal', async () =
 test('agent work tools share the same durable state machine', async () => {
   const work = new ConversationWork();
   const definitions = new Map(conversationWorkDefinitions(work).map((item) => [item.name, item]));
-  const goal = definitions.get('work.goal');
+  const goal = definitions.get('work_goal');
   const add = definitions.get('work.task_add');
   await goal.executor({ args: { action: 'set', objective: 'Track model work' } }, new AbortController().signal);
   const output = await add.executor({ args: { title: 'Collect evidence' } }, new AbortController().signal);

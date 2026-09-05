@@ -125,6 +125,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['work task update', 'work.task_update', 'work_task_update'],
     ['turn finish', 'turn.finish', 'turn_finish'],
     ['git inspect', 'git.inspect', 'git_inspect'],
+    ['work goal', 'work.goal', 'work_goal'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },

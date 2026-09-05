@@ -185,7 +185,7 @@ export function advanceWorkCadence(active) {
 const OBSERVABLE_MUTATIONS = new Set([
   'fs.write_text', 'fs.edit_text', 'fs.edit_lines', 'fs.directory', 'fs.create_directory',
   'fs.copy_file', 'fs.move_file', 'fs.delete_file', 'process.run', 'shell_run',
-  'work_plan', 'work.goal', 'work.task_add', 'work_task_update',
+  'work_plan', 'work_goal', 'work.task_add', 'work_task_update',
 ]);
 
 export function observeToolState(active, items, definitionFor = () => null) {

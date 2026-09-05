@@ -352,7 +352,7 @@ Conversation work has one atomic tool and four granular tools in the foundationa
   unfinished task must also be blocked. The optional returned `revision` prevents stale replacement.
 - `work_status`: inspect the current durable goal and ordered tasks. When work exists, its result
   can be passed unchanged to `work_plan`.
-- `work.goal`: create, update, complete, block, or reopen the durable goal.
+- `work_goal`: create, update, complete, block, or reopen the durable goal.
 - `work.task_add`: append one task to the current goal.
 - `work_task_update`: update one existing task by its stable id.
 
