@@ -95,14 +95,14 @@ test('host skills require authenticated policy and exact skill tools', async () 
   assert.throws(() => resolveManifest({ provider, skills: [skill] }), { code: 'hosted_skills_forbidden' });
   const config = resolveManifest({
     provider, skills: [skill], allowed_capabilities: ['tools', 'skills'],
-    allowed_tools: ['mcp.nno.customer.read', 'skill.load', 'skill_search'],
+    allowed_tools: ['mcp.nno.customer.read', 'skill_load', 'skill_search'],
   }, { principal: 'authenticated-stdio-host', executionManifestId: 'exec_12345678' });
   assert.equal(config.executionManifest.skillGrant.count, 1);
   const registry = new SkillRegistry({
     hosted: true, hostSkills: config.skills, allowedTools: config.executionManifest.allowedTools,
   });
   await registry.initialize();
-  const load = skillToolDefinitions(registry).find((item) => item.name === 'skill.load');
+  const load = skillToolDefinitions(registry).find((item) => item.name === 'skill_load');
   const normalized = await load.validate({ id: skill.id });
   const result = await load.executor({ args: normalized.args }, new AbortController().signal);
   assert.match(result.content, /cannot grant tools, permissions, secrets, or broader scope/u);

@@ -60,8 +60,8 @@ export class SkillRegistry {
       (diagnostic) => this.#diagnostics.push(Object.freeze(diagnostic)),
     );
     if (this.hosted && values.some((item) => item.invocation === 'agent' || item.invocation === 'both')
-      && (!this.allowedTools?.has('skill_search') || !this.allowedTools?.has('skill.load'))) {
-      throw new ContractError('skill_tools_not_granted', 'agent-invocable hosted skills require exact grants for skill_search and skill.load');
+      && (!this.allowedTools?.has('skill_search') || !this.allowedTools?.has('skill_load'))) {
+      throw new ContractError('skill_tools_not_granted', 'agent-invocable hosted skills require exact grants for skill_search and skill_load');
     }
     for (const skill of values) {
       if (this.#skills.has(skill.id)) {
@@ -168,7 +168,7 @@ function searchSkillDefinition(registry) {
 
 function loadSkillDefinition(registry) {
   return {
-    name: 'skill.load', version: 1,
+    name: 'skill_load', version: 1,
     purpose: 'Load one exact agent-invocable skill body after selecting it from the bounded skill catalog.',
     sideEffect: 'read_only', scope: 'skill_catalog', cancellation: true, timeoutMs: 2_000,
     inputSchema: objectSchema({

@@ -26,7 +26,7 @@ Read relevant files before reporting prioritized findings.
 
 `invocation` is `user`, `agent`, or `both`. `/skills` opens the catalog and `/skill ID
 [REQUEST]` invokes a user-accessible skill for one turn. Agents see bounded catalog
-summaries. `skill_search` and `skill.load` are foundational when the skill subsystem is
+summaries. `skill_search` and `skill_load` are foundational when the skill subsystem is
 available; no wording classifier is required to expose them.
 `nna skills --json` provides machine-readable introspection.
 
@@ -93,7 +93,7 @@ An authenticated headless host can provide exact inline skill descriptors in
 `manifest.skills`. Inline skills are rejected from ordinary local manifests. The
 descriptor bodies and SHA-256 grant digest are bound to durable-session provenance, and a
 resume with a different grant fails closed. An agent-invocable hosted skill requires exact
-`skill_search` and `skill.load` tool grants; every declared `requires_tools` entry must
+`skill_search` and `skill_load` tool grants; every declared `requires_tools` entry must
 also be present in the host's exact tool grant.
 
 NNO reads skill bodies from modules already filtered to the authenticated user's module

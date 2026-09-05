@@ -274,7 +274,7 @@ function skillCatalogMessage(items) {
   }));
   return {
     role: 'system',
-    content: `Available bounded skills (catalog only; use skill_search and skill.load for agent-invocable bodies):\n${JSON.stringify(catalog)}`,
+    content: `Available bounded skills (catalog only; use skill_search and skill_load for agent-invocable bodies):\n${JSON.stringify(catalog)}`,
     provenance: 'skill_catalog', trust: 'configured_skill_catalog',
   };
 }

@@ -156,6 +156,7 @@ test('retired dotted tool names fail with a canonical migration hint but remain 
     ['web search', 'web.search', 'web_search'],
     ['agent run', 'agent.run', 'agent_run'],
     ['skill search', 'skill.search', 'skill_search'],
+    ['skill load', 'skill.load', 'skill_load'],
   ]) {
     await assert.rejects(registry.seal({ name: retired, providerCallId: `retired-${index}`, args: {} }, {
       policyVersion: 1, authority: { id: 'authority', version: 1, restrictionVersion: 0 },
