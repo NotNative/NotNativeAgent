@@ -34,7 +34,7 @@ test('SearXNG client requests JSON and returns bounded normalized results', asyn
       results: [
         { title: 'One', url: 'https://example.test/1', content: 'first', engine: 'test' },
         { title: 'Two', url: 'https://example.test/2', content: 'second' },
-      ], suggestions: ['next'],
+      ], suggestions: ['next'], unresponsive_engines: [['duckduckgo', 'CAPTCHA']],
     }), { status: 200, headers: { 'content-type': 'application/json' } });
   } });
   const result = await client.search('https://search.example.test/', { query: 'nna search', limit: 1, safe_search: 2 });
@@ -43,13 +43,37 @@ test('SearXNG client requests JSON and returns bounded normalized results', asyn
   assert.equal(requested.searchParams.get('safesearch'), '2');
   assert.equal(result.results.length, 1);
   assert.equal(result.results[0].title, 'One');
+  assert.equal(result.search_state, 'results_returned');
+  assert.deepEqual(result.upstream_failures, [{ engine: 'duckduckgo', reason: 'CAPTCHA' }]);
+});
+
+test('SearXNG client distinguishes an empty search from upstream engine degradation', async () => {
+  const degraded = new SearxngClient({ fetch: async () => new Response(JSON.stringify({
+    results: [], suggestions: [], unresponsive_engines: [
+      ['brave', 'Too many requests'], ['duckduckgo', 'CAPTCHA'], ['invalid'], null,
+    ],
+  }), { status: 200 }) });
+  const empty = new SearxngClient({ fetch: async () => new Response(JSON.stringify({
+    results: [], suggestions: [], unresponsive_engines: [],
+  }), { status: 200 }) });
+
+  assert.deepEqual(await degraded.search('https://search.example.test', { query: 'norse mythology' }), {
+    query: 'norse mythology', endpoint: 'https://search.example.test', search_state: 'upstream_degraded',
+    results: [], suggestions: [], upstream_failures: [
+      { engine: 'brave', reason: 'Too many requests' }, { engine: 'duckduckgo', reason: 'CAPTCHA' },
+    ],
+  });
+  assert.equal((await empty.search('https://search.example.test', { query: 'missing' })).search_state, 'no_results');
 });
 
 test('web_search is globally configured and unavailable when disabled', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-web-tool-'));
   const workspace = join(root, 'workspace');
   const configPath = join(root, 'config.json');
-  const client = { search: async (endpoint, args) => ({ endpoint, query: args.query, results: [], suggestions: [] }) };
+  const client = { search: async (endpoint, args) => ({
+    endpoint, query: args.query, search_state: 'upstream_degraded', results: [], suggestions: [],
+    upstream_failures: [{ engine: 'brave', reason: 'Too many requests' }],
+  }) };
   const registry = new ToolRegistry(workspace, { webSearchConfigPath: configPath, webSearchClient: client });
   try {
     await mkdir(workspace);
@@ -65,7 +89,11 @@ test('web_search is globally configured and unavailable when disabled', async ()
     assert.equal(request.resolved.endpoint, 'http://10.0.0.5:8080');
     assert.deepEqual(request.publicArgs, { query: 'hello', time_range: 'week', limit: 6 });
     const result = await registry.definition('web_search').executor(request, new AbortController().signal);
-    assert.equal(JSON.parse(result.content).query, 'hello');
+    const content = JSON.parse(result.content);
+    assert.equal(content.query, 'hello');
+    assert.equal(content.search_state, 'upstream_degraded');
+    assert.equal(content.recovery_hint, 'The search service responded, but upstream engines failed. Retry later or use another source.');
+    assert.equal(result.metadata.upstream_failure_count, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 

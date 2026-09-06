@@ -11,6 +11,8 @@ const MAX_TITLE_CHARACTERS = 512;
 const MAX_URL_CHARACTERS = 4096;
 const MAX_CONTENT_CHARACTERS = 4096;
 const MAX_ENGINE_CHARACTERS = 128;
+const MAX_ENGINE_FAILURES = 16;
+const MAX_FAILURE_REASON_CHARACTERS = 256;
 const MAX_SOURCE_STRING_CHARACTERS = 32_768;
 
 export class SearxngClient {
@@ -21,7 +23,10 @@ export class SearxngClient {
 
   async test(endpoint, signal) {
     const result = await this.search(endpoint, { query: 'SearXNG', limit: 1 }, signal);
-    return Object.freeze({ ok: true, endpoint: normalizeSearxngEndpoint(endpoint), results: result.results.length });
+    return Object.freeze({
+      ok: true, endpoint: normalizeSearxngEndpoint(endpoint), results: result.results.length,
+      search_state: result.search_state, upstream_failures: result.upstream_failures,
+    });
   }
 
   async search(endpoint, input, signal) {
@@ -31,10 +36,15 @@ export class SearxngClient {
       throw new ContractError('web_search_response_invalid', 'SearXNG did not return a JSON search result list');
     }
     const limit = input.limit ?? DEFAULT_RESULT_LIMIT;
+    const results = Object.freeze(value.results.slice(0, limit).map(normalizeResult).filter(Boolean));
+    const upstreamFailures = normalizeUpstreamFailures(value.unresponsive_engines);
+    // Why: an empty result is valid evidence, but engine failures make that evidence inconclusive.
     return Object.freeze({
       query: input.query, endpoint: normalizeSearxngEndpoint(endpoint),
-      results: Object.freeze(value.results.slice(0, limit).map(normalizeResult).filter(Boolean)),
+      search_state: results.length > 0 ? 'results_returned' : upstreamFailures.length > 0 ? 'upstream_degraded' : 'no_results',
+      results,
       suggestions: Object.freeze(Array.isArray(value.suggestions) ? value.suggestions.filter(shortString).slice(0, MAX_SUGGESTIONS) : []),
+      upstream_failures: upstreamFailures,
     });
   }
 }
@@ -84,6 +94,19 @@ function normalizeResult(value) {
     engine: shortString(value.engine) ? truncateCharacters(value.engine, MAX_ENGINE_CHARACTERS) : undefined,
     score: Number.isFinite(value.score) ? value.score : undefined,
   });
+}
+
+function normalizeUpstreamFailures(value) {
+  if (!Array.isArray(value)) return Object.freeze([]);
+  const failures = [];
+  for (const item of value.slice(0, MAX_ENGINE_FAILURES)) {
+    if (!Array.isArray(item) || !shortString(item[0]) || !shortString(item[1])) continue;
+    failures.push(Object.freeze({
+      engine: truncateCharacters(item[0], MAX_ENGINE_CHARACTERS),
+      reason: truncateCharacters(item[1], MAX_FAILURE_REASON_CHARACTERS),
+    }));
+  }
+  return Object.freeze(failures);
 }
 
 async function boundedJson(response, maximum, signal) {

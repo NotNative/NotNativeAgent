@@ -30,11 +30,20 @@ export function webSearchDefinition(options) {
       const result = await client.search(request.resolved.endpoint, request.args, signal);
       validateSearchResult(result);
       const results = result.results.map((item) => resultProjection(item, options.references));
-      const response = { query: result.query, endpoint: result.endpoint, results, suggestions: result.suggestions ?? [] };
+      const response = {
+        query: result.query, endpoint: result.endpoint, search_state: result.search_state,
+        results, suggestions: result.suggestions ?? [], upstream_failures: result.upstream_failures ?? [],
+      };
+      if (result.search_state === 'upstream_degraded') {
+        response.recovery_hint = 'The search service responded, but upstream engines failed. Retry later or use another source.';
+      }
       let content;
       try { content = JSON.stringify(response); }
       catch (error) { throw new ContractError('web_search_response_invalid', 'WebSearch result could not be serialized', { cause: error }); }
-      return { content, metadata: { endpoint: result.endpoint, result_count: results.length } };
+      return { content, metadata: {
+        endpoint: result.endpoint, result_count: results.length, search_state: result.search_state,
+        upstream_failure_count: response.upstream_failures.length,
+      } };
     },
   };
 }
@@ -62,12 +71,24 @@ async function validate(args, configPath) {
 }
 
 function validateSearchResult(result) {
+  const failures = result?.upstream_failures;
   if (!result || typeof result !== 'object' || Array.isArray(result)
     || typeof result.endpoint !== 'string' || typeof result.query !== 'string'
     || !Array.isArray(result.results) || result.results.length > 20
-    || (result.suggestions !== undefined && !Array.isArray(result.suggestions))) {
+    || !['results_returned', 'no_results', 'upstream_degraded'].includes(result.search_state)
+    || (result.suggestions !== undefined && !Array.isArray(result.suggestions))
+    || (failures !== undefined && (!Array.isArray(failures) || failures.length > 16
+      || failures.some((item) => !validUpstreamFailure(item))))
+    || (result.search_state === 'results_returned') !== (result.results.length > 0)
+    || (result.search_state === 'upstream_degraded') !== (result.results.length === 0 && (failures?.length ?? 0) > 0)) {
     throw new ContractError('web_search_response_invalid', 'WebSearch client returned an invalid result');
   }
+}
+
+function validUpstreamFailure(value) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && typeof value.engine === 'string' && Array.from(value.engine).length > 0 && Array.from(value.engine).length <= 128
+    && typeof value.reason === 'string' && Array.from(value.reason).length > 0 && Array.from(value.reason).length <= 256;
 }
 
 function resultProjection(item, references) {
