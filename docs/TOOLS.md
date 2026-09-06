@@ -343,6 +343,7 @@ NNA installs bounded self-inspection tools independently of the workspace:
 - `nna_read_guidance`: read one document returned by the search.
 - `nna_diagnose_turn`: inspect bounded, content-redacted lifecycle evidence using selector
   `current`, `latest`, `latest_failed`, or `list`, or an exact durable `session_id`/`turn_id`.
+  A selector with no matching retained session or turn returns a successful negative observation.
 - `agent_run`: run one bounded foreground specialist through the configured Sub-agents provider route; available only to standalone root NNA and absent from hosted catalogs and search.
 - `git_inspect`: inspect bounded repository status, working or staged diffs, and recent commit history through explicit read-only Git argv. An existing directory that is not a Git repository returns a successful `target_not_git_repository` observation; inability to launch or inspect Git remains a tool failure.
 

@@ -390,6 +390,27 @@ test('turn diagnostics expose lifecycle classifications without transcript conte
   assert.doesNotMatch(result.content, /do-not-leak/u);
 });
 
+test('empty diagnostic selectors return successful negative observations', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-empty-diagnose-'));
+  const store = new JournalStore(root, 'empty-diagnose');
+  await store.open();
+  await store.append('session_created', { sessionId: 'empty-diagnose' });
+  await store.close();
+  const diagnose = selfDiagnosticsDefinitions(() => ({
+    journalPath: store.path, sessionsRoot: root, sessionId: 'empty-diagnose', state: 'IDLE',
+  })).find((item) => item.name === 'nna_diagnose_turn');
+
+  const current = await diagnose.executor(await diagnose.validate({}), new AbortController().signal);
+  assert.equal(JSON.parse(current.content).observation_outcome, 'no_turn_available');
+  assert.equal(current.metadata.observation_outcome, 'no_turn_available');
+
+  const failed = await diagnose.executor(
+    await diagnose.validate({ selector: 'latest_failed' }), new AbortController().signal,
+  );
+  assert.equal(JSON.parse(failed.content).observation_outcome, 'no_failed_session');
+  assert.equal(failed.metadata.observation_outcome, 'no_failed_session');
+});
+
 test('turn diagnostics select previous turns by offset and disclose bounded turn identifiers', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-previous-turn-diagnose-'));
   const store = new JournalStore(root, 'diagnose-history');

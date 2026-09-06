@@ -72,7 +72,10 @@ async function executeTurnDiagnosis(contextProvider, request, signal) {
     const sessions = await listDurableSessions(context, MAX_SESSION_LIMIT, signal);
     const selected = request.args.selector === 'latest_failed'
       ? sessions.find((item) => item.latest_failure_code) : sessions[0];
-    if (!selected) throw new ContractError('diagnostics_session_not_found', `no ${request.args.selector === 'latest_failed' ? 'failed ' : ''}durable session was found`);
+    if (!selected) return negativeDiagnosis(
+      request.args.selector === 'latest_failed' ? 'no_failed_session' : 'no_durable_session',
+      { selector: request.args.selector, available_turns: [] },
+    );
     selectedSessionId = selected.session_id;
   }
   const sessionId = selectedSessionId ?? context.sessionId;
@@ -86,18 +89,27 @@ async function executeTurnDiagnosis(contextProvider, request, signal) {
       request.args.turn_offset ?? 0,
       sessionId === context.sessionId ? context.activeTurnId : null,
     );
-  if (!turnId) throw new ContractError('diagnostics_turn_unavailable', 'no recent turn is available to diagnose');
+  if (!turnId) return negativeDiagnosis('no_turn_available', { session_id: sessionId, available_turns: availableTurns });
   const records = page.records.filter((record) => recordTurnId(record) === turnId);
-  if (records.length === 0) throw new ContractError(
-    'diagnostics_turn_not_found',
-    'the requested turn is outside the bounded recent journal window; inspect available_turns and choose a listed turn',
-  );
+  if (records.length === 0) return negativeDiagnosis('turn_not_found', {
+    session_id: sessionId, turn_id: turnId, available_turns: availableTurns,
+  });
   return {
     content: JSON.stringify({
       ...summarize(sessionId, turnId, records, sessionId === context.sessionId ? context.state : null),
       available_turns: availableTurns,
     }, null, 2),
     metadata: { session_id: sessionId, turn_id: turnId, records_examined: records.length, redacted: true, truncated_history: page.hasMore },
+  };
+}
+
+function negativeDiagnosis(observationOutcome, detail) {
+  // Why: a diagnostic selector that finds no matching retained evidence completed its
+  // bounded query. Missing diagnostic storage remains an execution failure above.
+  const value = { schema: 'nna.diagnostic_observation.v1', observation_outcome: observationOutcome, ...detail };
+  return {
+    content: JSON.stringify(value, null, 2),
+    metadata: { observation_outcome: observationOutcome, redacted: true },
   };
 }
 

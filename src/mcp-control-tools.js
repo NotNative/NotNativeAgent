@@ -60,7 +60,16 @@ function testDefinition(control) {
     },
     executor: async (request, signal) => {
       if (signal.aborted) throw new ContractError('tool_cancelled', 'tool was cancelled');
-      const result = await control.test(request.args.id, signal);
+      let result;
+      try { result = await control.test(request.args.id, signal); }
+      catch (error) {
+        if (signal.aborted || ['tool_cancelled', 'mcp_cancelled'].includes(error?.code)) throw error;
+        if (!(error instanceof ContractError)
+          || ['mcp_server_invalid', 'mcp_server_missing'].includes(error.code)) throw error;
+        // Why: connection, authentication, and protocol rejection are findings produced
+        // by the requested test. The tool executed successfully even when the server did not.
+        return connectionFailureObservation(request.args.id, error);
+      }
       const tools = boundedToolNames(result.tools);
       return {
         content: JSON.stringify({
@@ -69,6 +78,20 @@ function testDefinition(control) {
         }, null, 2),
         metadata: { id: request.args.id, status: result.status, tools: tools.length },
       };
+    },
+  };
+}
+
+function connectionFailureObservation(id, error) {
+  const observation = {
+    id, status: 'failed', protocol_version: null, capabilities: {}, tools: [],
+    reason_code: error.code ?? 'mcp_connection_failed', retryable: error.retryable === true,
+  };
+  return {
+    content: JSON.stringify(observation, null, 2),
+    metadata: {
+      id, status: 'failed', tools: 0, reason_code: observation.reason_code,
+      observation_outcome: 'connection_test_failed',
     },
   };
 }
