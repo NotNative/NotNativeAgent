@@ -84,7 +84,10 @@ test('web_search is globally configured and unavailable when disabled', async ()
     await registry.initialize();
     assert.equal(registry.definition('web_search').purpose,
       'Search the web through ordered SearXNG profiles and return bounded source summaries.');
-    await assert.rejects(registry.seal({ providerCallId: 'disabled', name: 'web_search', args: { query: 'hello' } }, sealContext()), { code: 'web_search_disabled' });
+    await assert.rejects(
+      registry.seal({ providerCallId: 'disabled', name: 'web_search', args: { query: 'hello' } }, sealContext()),
+      { code: 'web_search_disabled', message: /\/websearch[^]*https:\/\/searx\.space\//u },
+    );
     await saveWebSearchConfig(configPath, { enabled: true, provider: 'searxng', endpoint: 'http://10.0.0.5:8080' });
     const request = await registry.seal({
       providerCallId: 'enabled', name: 'web_search',
@@ -96,7 +99,8 @@ test('web_search is globally configured and unavailable when disabled', async ()
     const content = JSON.parse(result.content);
     assert.equal(content.query, 'hello');
     assert.equal(content.search_state, 'upstream_degraded');
-    assert.equal(content.recovery_hint, 'Every configured search profile was tried. Retry later or use another source.');
+    assert.equal(content.recovery_hint,
+      'Every configured search profile was tried. Ask the user to add a backup SearXNG profile in /websearch. Public instances are listed at https://searx.space/.');
     assert.equal(content.profile_attempts.length, 1);
     assert.equal(result.metadata.upstream_failure_count, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -319,7 +323,7 @@ test('web_search preserves degraded empty evidence and fails only when every pro
     await failed.initialize();
     const failedRequest = await failed.seal({ providerCallId: 'failed', name: 'web_search', args: { query: 'absent' } }, sealContext());
     await assert.rejects(failed.definition('web_search').executor(failedRequest, new AbortController().signal), {
-      code: 'web_search_profiles_failed',
+      code: 'web_search_profiles_failed', message: /\/websearch[^]*https:\/\/searx\.space\//u,
     });
   } finally { await rm(root, { recursive: true, force: true }); }
 });

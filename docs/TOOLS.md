@@ -298,6 +298,9 @@ The global WebSearch tool is:
   summaries. Failure, degradation, or zero results advance to the next configured profile.
   The result distinguishes matches, valid empty searches, and upstream-engine degradation.
   It includes bounded profile attempts, engine failure details, and recovery guidance.
+  Exhausted-profile guidance directs the agent to ask the user to add a backup through
+  `/websearch`; it identifies `https://searx.space/` as a directory of public instances.
+  NNA never selects or configures a public instance without the user.
   A profile endpoint may intentionally be loopback, private-network, or public;
   that exception applies only to this tool and does not relax other network tools.
 - `web_fetch`: fetch up to 1 MiB of UTF-8 text from an explicit public HTTP(S) URL or an

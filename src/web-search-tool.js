@@ -4,6 +4,8 @@ import { loadWebSearchConfig } from './web-search-config.js';
 import { SearxngClient } from './searxng-client.js';
 import { normalizeArgumentAliases } from './tools/argument-normalization.js';
 
+const PROFILE_RECOVERY_GUIDANCE = 'Ask the user to add a backup SearXNG profile in /websearch. Public instances are listed at https://searx.space/.';
+
 export function webSearchDefinition(options) {
   const client = options.client ?? new SearxngClient();
   return {
@@ -36,7 +38,7 @@ export function webSearchDefinition(options) {
         used_profile_id: result.used_profile_id, profile_attempts: result.profile_attempts,
       };
       if (result.search_state === 'upstream_degraded') {
-        response.recovery_hint = 'Every configured search profile was tried. Retry later or use another source.';
+        response.recovery_hint = `Every configured search profile was tried. ${PROFILE_RECOVERY_GUIDANCE}`;
       }
       let content;
       try { content = JSON.stringify(response); }
@@ -69,7 +71,9 @@ async function validate(args, configPath) {
     if (error instanceof ContractError) throw error;
     throw new ContractError('web_search_config_unavailable', 'WebSearch configuration could not be loaded', { cause: error });
   }
-  if (!config.enabled || config.profiles.length === 0) throw new ContractError('web_search_disabled', 'WebSearch is not configured; use /websearch');
+  if (!config.enabled || config.profiles.length === 0) {
+    throw new ContractError('web_search_disabled', `WebSearch is not configured. ${PROFILE_RECOVERY_GUIDANCE}`);
+  }
   return {
     args: { ...args, limit: args.limit ?? 8 },
     resolved: { profiles: config.profiles, source: 'global_web_search_profiles' },
@@ -98,7 +102,8 @@ async function searchProfiles(client, profiles, args, signal) {
     }
   }
   if (valid.length === 0) {
-    throw new ContractError('web_search_profiles_failed', 'Every configured WebSearch profile failed', { cause: lastError });
+    throw new ContractError('web_search_profiles_failed',
+      `Every configured WebSearch profile failed. ${PROFILE_RECOVERY_GUIDANCE}`, { cause: lastError });
   }
   const last = valid.at(-1);
   return combinedResult({
