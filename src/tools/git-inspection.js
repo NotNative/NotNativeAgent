@@ -42,10 +42,38 @@ async function validate(paths, input) {
 
 async function execute(request, signal, spawnProcess) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'Git inspection was cancelled');
-  const child = spawnProcess('git', gitArguments(request.args), {
-    cwd: request.args.path, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  return collect(child, request.args.operation, signal);
+  const options = { cwd: request.args.path, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] };
+  const probe = await collect(spawnProcess('git', repositoryProbeArguments(), options), signal);
+  if (probe.exitCode !== 0) {
+    if (!reportsNonRepository(probe.stderr)) {
+      throw new ContractError('git_repository_unavailable', 'The target Git repository could not be inspected');
+    }
+    // Why: a negative repository probe is a complete read-only observation. It must not
+    // enter the unresolved-failure ledger or prevent an otherwise successful turn.
+    return {
+      content: 'The target directory is not a Git repository.',
+      metadata: {
+        operation: request.args.operation, bytes: Buffer.byteLength(probe.stderr),
+        exit_code: probe.exitCode, target_exists: true,
+        is_repository: false, observation_outcome: 'target_not_git_repository',
+      },
+    };
+  }
+  const result = await collect(spawnProcess('git', gitArguments(request.args), options), signal);
+  if (result.exitCode !== 0) {
+    throw new ContractError('git_repository_unavailable', 'The requested Git inspection could not be completed');
+  }
+  return {
+    content: result.stdout.trim() || 'no Git output',
+    metadata: {
+      operation: request.args.operation, bytes: Buffer.byteLength(result.stdout),
+      exit_code: result.exitCode, target_exists: true, is_repository: true,
+    },
+  };
+}
+
+function repositoryProbeArguments() {
+  return ['-c', 'color.ui=false', '-c', 'core.pager=cat', 'rev-parse', '--git-dir'];
 }
 
 function gitArguments(input) {
@@ -56,7 +84,7 @@ function gitArguments(input) {
   return [...prefix, 'log', '-n', String(input.max_entries), '--date=iso-strict', '--pretty=format:%H%x09%ad%x09%s'];
 }
 
-function collect(child, operation, signal) {
+function collect(child, signal) {
   return new Promise((resolve, reject) => {
     let stdout = ''; let stderr = ''; let bytes = 0; let settled = false;
     const cleanup = () => {
@@ -82,9 +110,10 @@ function collect(child, operation, signal) {
     child.stdout.on('data', consumeStdout); child.stdout.on('error', streamError);
     child.stderr.on('data', consumeStderr); child.stderr.on('error', streamError);
     child.on('error', (error) => finish(() => reject(new ContractError('git_unavailable', error.code === 'ENOENT' ? 'Git is not installed or not available on PATH' : 'Git inspection could not start'))));
-    child.on('close', (code) => finish(() => {
-      if (code !== 0) { reject(new ContractError('git_repository_unavailable', 'The target is not an accessible Git repository')); return; }
-      resolve({ content: stdout.trim() || 'no Git output', metadata: { operation, bytes: Buffer.byteLength(stdout), exit_code: code } });
-    }));
+    child.on('close', (code) => finish(() => resolve({ stdout, stderr, exitCode: code })));
   });
+}
+
+function reportsNonRepository(stderr) {
+  return /(?:not a git repository|not a git work tree)/iu.test(stderr);
 }
