@@ -15,7 +15,8 @@ import { SearxngClient } from './searxng-client.js';
 import { SearxngDeployment } from './searxng-deployment.js';
 import { configuredMcpStatus, testConfiguredMcpServer } from './experience/mcp.js';
 import {
-  configureWebSearch, deployWebSearch, disableWebSearch, manageWebSearch, removeWebSearchDeployment, resetWebSearch, webSearchStatus,
+  addWebSearchProfile, configureWebSearch, deleteWebSearchProfile, deployWebSearch, disableWebSearch,
+  manageWebSearch, removeWebSearchDeployment, resetWebSearch, setPrimaryWebSearchProfile, webSearchStatus,
 } from './experience/websearch.js';
 import { nextReviewPosture, reviewPostureNotice } from './review-posture.js';
 import { restoreTranscript } from './experience/transcript.js';
@@ -398,8 +399,11 @@ export class ExperienceEngine {
   }
   async availableModels() { return availableWorkspaceModels(this); }
   async qualifyActiveModel() { return qualifyWorkspaceModel(this); }
-  webSearchStatus(test = false) { return webSearchStatus(this.#webSearchState(), test); }
+  webSearchStatus(test = false, profileId = null) { return webSearchStatus(this.#webSearchState(), test, profileId); }
   configureWebSearch(endpoint, managed = false) { return configureWebSearch(this.#webSearchState(), endpoint, managed); }
+  addWebSearchProfile(displayName, endpoint) { return addWebSearchProfile(this.#webSearchState(), displayName, endpoint); }
+  setPrimaryWebSearchProfile(profileId) { return setPrimaryWebSearchProfile(this.#webSearchState(), profileId); }
+  deleteWebSearchProfile(profileId) { return deleteWebSearchProfile(this.#webSearchState(), profileId); }
   async disableWebSearch() { return disableWebSearch(this.#webSearchState()); }
   async resetWebSearch() { return resetWebSearch(this.#webSearchState()); }
   async deployWebSearch() { return deployWebSearch(this.#webSearchState()); }

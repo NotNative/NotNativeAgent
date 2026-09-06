@@ -7,10 +7,13 @@ import test from 'node:test';
 import { SearxngClient } from '../src/searxng-client.js';
 import { SearxngDeployment, MANAGED_SEARXNG_ENDPOINT } from '../src/searxng-deployment.js';
 import { ToolRegistry } from '../src/tool-registry.js';
-import { loadWebSearchConfig, saveWebSearchConfig } from '../src/web-search-config.js';
+import { ContractError } from '../src/ids.js';
+import {
+  appendWebSearchProfile, loadWebSearchConfig, promoteWebSearchProfile, removeWebSearchProfile, saveWebSearchConfig,
+} from '../src/web-search-config.js';
 import { runWebSearchCommand } from '../src/web-search-cli.js';
 import { commandDefinition } from '../src/tui/commands.js';
-import { webSearchOverlay } from '../src/tui/overlays.js';
+import { webSearchOverlay } from '../src/tui/websearch-overlay.js';
 
 test('global WebSearch configuration is absent-safe, normalized, and durable', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-web-config-'));
@@ -20,7 +23,8 @@ test('global WebSearch configuration is absent-safe, normalized, and durable', a
     const saved = await saveWebSearchConfig(path, {
       enabled: true, provider: 'searxng', endpoint: 'http://192.168.1.8:8080/search/', managed: false,
     });
-    assert.equal(saved.endpoint, 'http://192.168.1.8:8080');
+    assert.equal(saved.version, 2);
+    assert.equal(saved.profiles[0].endpoint, 'http://192.168.1.8:8080');
     assert.deepEqual(await loadWebSearchConfig(path), saved);
     assert.match(await readFile(path, 'utf8'), /"provider": "searxng"/u);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -79,20 +83,21 @@ test('web_search is globally configured and unavailable when disabled', async ()
     await mkdir(workspace);
     await registry.initialize();
     assert.equal(registry.definition('web_search').purpose,
-      'Search the web through the user-configured SearXNG service and return bounded source summaries.');
+      'Search the web through ordered SearXNG profiles and return bounded source summaries.');
     await assert.rejects(registry.seal({ providerCallId: 'disabled', name: 'web_search', args: { query: 'hello' } }, sealContext()), { code: 'web_search_disabled' });
     await saveWebSearchConfig(configPath, { enabled: true, provider: 'searxng', endpoint: 'http://10.0.0.5:8080' });
     const request = await registry.seal({
       providerCallId: 'enabled', name: 'web_search',
       args: { q: 'hello', recency: 'week', maxResults: '6' },
     }, sealContext());
-    assert.equal(request.resolved.endpoint, 'http://10.0.0.5:8080');
+    assert.equal(request.resolved.profiles[0].endpoint, 'http://10.0.0.5:8080');
     assert.deepEqual(request.publicArgs, { query: 'hello', time_range: 'week', limit: 6 });
     const result = await registry.definition('web_search').executor(request, new AbortController().signal);
     const content = JSON.parse(result.content);
     assert.equal(content.query, 'hello');
     assert.equal(content.search_state, 'upstream_degraded');
-    assert.equal(content.recovery_hint, 'The search service responded, but upstream engines failed. Retry later or use another source.');
+    assert.equal(content.recovery_hint, 'Every configured search profile was tried. Retry later or use another source.');
+    assert.equal(content.profile_attempts.length, 1);
     assert.equal(result.metadata.upstream_failure_count, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
@@ -160,6 +165,21 @@ test('configuration is not persisted until endpoint validation succeeds', async 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('WebSearch CLI adds, promotes, and removes validated profiles', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-web-cli-profiles-'));
+  const paths = { webSearchConfig: join(root, 'config.json'), managedSearxng: join(root, 'managed') };
+  const client = { test: async (endpoint) => ({ ok: true, endpoint, results: 1 }) };
+  try {
+    await runWebSearchCommand(['configure', 'https://primary.example'], paths, { client });
+    const added = await runWebSearchCommand(['add', 'community', 'https://backup.example'], paths, { client });
+    assert.deepEqual(added.config.profiles.map((item) => item.id), ['primary', 'community']);
+    const promoted = await runWebSearchCommand(['promote', 'community'], paths, { client });
+    assert.deepEqual(promoted.config.profiles.map((item) => item.id), ['community', 'primary']);
+    const removed = await runWebSearchCommand(['remove-profile', 'community'], paths, { client });
+    assert.deepEqual(removed.config.profiles.map((item) => item.id), ['primary']);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('reset removes only saved WebSearch configuration for installer rediscovery', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-web-reset-'));
   const paths = { webSearchConfig: join(root, 'config.json'), managedSearxng: join(root, 'managed') };
@@ -170,7 +190,7 @@ test('reset removes only saved WebSearch configuration for installer rediscovery
     });
     const result = await runWebSearchCommand(['reset'], paths);
     assert.equal(result.configured, false);
-    assert.equal(result.config.endpoint, null);
+    assert.deepEqual(result.config.profiles, []);
     assert.equal((await loadWebSearchConfig(paths.webSearchConfig)).enabled, false);
     assert.equal((await stat(paths.managedSearxng)).isDirectory(), true);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -211,15 +231,118 @@ test('/websearch exposes an actionable keyboard menu', () => {
   assert.equal(commandDefinition('/websearch').name, '/websearch');
   assert.equal(commandDefinition('/search_config').name, '/websearch');
   const view = webSearchOverlay({
-    config: { enabled: true, provider: 'searxng', endpoint: 'http://127.0.0.1:8888', managed: true },
+    config: { enabled: true, profiles: [{ id: 'primary', display_name: 'Local', provider: 'searxng', endpoint: 'http://127.0.0.1:8888', managed: true }] },
     test: { ok: true, results: 1 },
   });
   assert.equal(view.kind, 'websearch');
-  assert.deepEqual(view.items.map((item) => item.id), ['action:configure', 'test', 'deploy', 'start', 'stop', 'disable', 'remove']);
+  assert.deepEqual(view.items.map((item) => item.id), [
+    'action:configure', 'action:add', 'test:primary', 'deploy', 'start', 'stop', 'disable', 'remove',
+  ]);
   const disabled = webSearchOverlay({
-    config: { enabled: false, provider: 'searxng', endpoint: null, managed: false }, test: null,
+    config: { enabled: false, profiles: [] }, test: null,
   });
-  assert.deepEqual(disabled.items.map((item) => item.id), ['action:configure', 'deploy', 'remove']);
+  assert.deepEqual(disabled.items.map((item) => item.id), ['action:configure', 'action:add', 'deploy', 'remove']);
+});
+
+test('WebSearch profiles are bounded, unique, ordered, and removable', () => {
+  const legacy = {
+    enabled: true, provider: 'searxng', endpoint: 'https://primary.example/search/', managed: false,
+  };
+  const withFallback = appendWebSearchProfile(legacy, 'Community backup', 'https://backup.example');
+  assert.deepEqual(withFallback.profiles.map((item) => item.id), ['primary', 'community-backup']);
+  assert.equal(withFallback.profiles[0].endpoint, 'https://primary.example');
+  const promoted = promoteWebSearchProfile(withFallback, 'community-backup');
+  assert.deepEqual(promoted.profiles.map((item) => item.id), ['community-backup', 'primary']);
+  assert.deepEqual(removeWebSearchProfile(promoted, 'community-backup').profiles.map((item) => item.id), ['primary']);
+  assert.throws(() => appendWebSearchProfile(withFallback, 'Duplicate', 'https://primary.example'), {
+    code: 'web_search_endpoint_duplicate',
+  });
+});
+
+test('web_search advances through failures and empty results until a profile returns sources', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-web-fallback-'));
+  const workspace = join(root, 'workspace'); const configPath = join(root, 'config.json'); const calls = [];
+  const client = { search: async (endpoint, args) => {
+    calls.push(endpoint);
+    if (endpoint.includes('primary')) throw Object.assign(new Error('offline'), { code: 'web_search_request_failed' });
+    if (endpoint.includes('empty')) return {
+      endpoint, query: args.query, search_state: 'no_results', results: [], suggestions: [], upstream_failures: [],
+    };
+    return {
+      endpoint, query: args.query, search_state: 'results_returned',
+      results: [{ title: 'Found', url: 'https://source.example', content: 'evidence' }],
+      suggestions: [], upstream_failures: [],
+    };
+  } };
+  try {
+    await mkdir(workspace);
+    await saveWebSearchConfig(configPath, { enabled: true, profiles: [
+      { id: 'primary', display_name: 'Primary', endpoint: 'https://primary.example' },
+      { id: 'empty', display_name: 'Empty', endpoint: 'https://empty.example' },
+      { id: 'working', display_name: 'Working', endpoint: 'https://working.example' },
+    ] });
+    const registry = new ToolRegistry(workspace, { webSearchConfigPath: configPath, webSearchClient: client });
+    await registry.initialize();
+    const request = await registry.seal({ providerCallId: 'fallback', name: 'web_search', args: { query: 'evidence' } }, sealContext());
+    const result = await registry.definition('web_search').executor(request, new AbortController().signal);
+    const content = JSON.parse(result.content);
+    assert.deepEqual(calls, ['https://primary.example', 'https://empty.example', 'https://working.example']);
+    assert.equal(content.used_profile_id, 'working');
+    assert.deepEqual(content.profile_attempts.map((item) => item.outcome), ['request_failed', 'no_results', 'results_returned']);
+    assert.equal(result.metadata.fallback_used, true);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('web_search preserves degraded empty evidence and fails only when every profile transport fails', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-web-exhaustion-'));
+  const workspace = join(root, 'workspace'); const configPath = join(root, 'config.json');
+  try {
+    await mkdir(workspace);
+    await saveWebSearchConfig(configPath, { enabled: true, profiles: [
+      { id: 'one', display_name: 'One', endpoint: 'https://one.example' },
+      { id: 'two', display_name: 'Two', endpoint: 'https://two.example' },
+    ] });
+    const mixed = new ToolRegistry(workspace, { webSearchConfigPath: configPath, webSearchClient: {
+      search: async (endpoint, args) => endpoint.includes('one')
+        ? Promise.reject(Object.assign(new Error('offline'), { code: 'web_search_request_failed' }))
+        : ({ endpoint, query: args.query, search_state: 'no_results', results: [], suggestions: [], upstream_failures: [] }),
+    } });
+    await mixed.initialize();
+    const request = await mixed.seal({ providerCallId: 'mixed', name: 'web_search', args: { query: 'absent' } }, sealContext());
+    const observation = JSON.parse((await mixed.definition('web_search').executor(request, new AbortController().signal)).content);
+    assert.equal(observation.search_state, 'upstream_degraded');
+    assert.deepEqual(observation.profile_attempts.map((item) => item.outcome), ['request_failed', 'no_results']);
+
+    const failed = new ToolRegistry(workspace, { webSearchConfigPath: configPath, webSearchClient: {
+      search: async () => { throw Object.assign(new Error('offline'), { code: 'web_search_request_failed' }); },
+    } });
+    await failed.initialize();
+    const failedRequest = await failed.seal({ providerCallId: 'failed', name: 'web_search', args: { query: 'absent' } }, sealContext());
+    await assert.rejects(failed.definition('web_search').executor(failedRequest, new AbortController().signal), {
+      code: 'web_search_profiles_failed',
+    });
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('web_search cancellation stops the profile chain', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-web-cancel-'));
+  const workspace = join(root, 'workspace'); const configPath = join(root, 'config.json'); let calls = 0;
+  try {
+    await mkdir(workspace);
+    await saveWebSearchConfig(configPath, { enabled: true, profiles: [
+      { id: 'one', display_name: 'One', endpoint: 'https://one.example' },
+      { id: 'two', display_name: 'Two', endpoint: 'https://two.example' },
+    ] });
+    const registry = new ToolRegistry(workspace, { webSearchConfigPath: configPath, webSearchClient: {
+      search: async () => { calls += 1; throw new ContractError('web_search_cancelled', 'cancelled'); },
+    } });
+    await registry.initialize();
+    const request = await registry.seal({ providerCallId: 'cancel', name: 'web_search', args: { query: 'stop' } }, sealContext());
+    await assert.rejects(registry.definition('web_search').executor(request, new AbortController().signal), {
+      code: 'web_search_cancelled',
+    });
+    assert.equal(calls, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 function sealContext() {

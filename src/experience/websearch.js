@@ -1,28 +1,59 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  configuredWebSearch, loadWebSearchConfig, resetWebSearchConfig, saveWebSearchConfig,
+  appendWebSearchProfile, loadWebSearchConfig, promoteWebSearchProfile, removeWebSearchProfile,
+  replacePrimaryWebSearch, resetWebSearchConfig, saveWebSearchConfig,
 } from '../web-search-config.js';
 import { ContractError } from '../ids.js';
 
-export async function webSearchStatus(state, test = false) {
+export async function webSearchStatus(state, test = false, profileId = null) {
   requireWebSearchState(state, { client: test });
   const config = await loadWebSearchConfig(state.path);
   let checked = null;
   if (test && config.enabled) {
-    checked = await state.client.test(config.endpoint).catch((error) => ({ ok: false, error: error.code ?? error.message }));
+    const profile = selectedProfile(config, profileId);
+    checked = await state.client.test(profile.endpoint).catch((error) => ({
+      ok: false, profile_id: profile.id, endpoint: profile.endpoint, error: error.code ?? error.message,
+    }));
+    if (checked.ok) checked = { ...checked, profile_id: profile.id };
   }
   return { config, test: checked };
 }
 
 export async function configureWebSearch(state, endpoint, managed = false) {
   requireWebSearchState(state, { client: true });
-  const candidate = configuredWebSearch(endpoint, managed);
+  const current = await loadWebSearchConfig(state.path);
+  const candidate = replacePrimaryWebSearch(current, endpoint, managed);
   try {
-    const checked = await state.client.test(candidate.endpoint);
+    const checked = await state.client.test(candidate.profiles[0].endpoint);
     return { config: await saveWebSearchConfig(state.path, candidate), test: checked };
   } catch (error) {
     throw operationFailure(error, 'web_search_configuration_failed', 'WebSearch configuration could not be verified and saved');
   }
+}
+
+export async function addWebSearchProfile(state, displayName, endpoint) {
+  requireWebSearchState(state, { client: true });
+  const current = await loadWebSearchConfig(state.path);
+  const candidate = appendWebSearchProfile(current, displayName, endpoint);
+  const added = candidate.profiles.at(-1);
+  try {
+    const checked = await state.client.test(added.endpoint);
+    return { config: await saveWebSearchConfig(state.path, candidate), test: { ...checked, profile_id: added.id } };
+  } catch (error) {
+    throw operationFailure(error, 'web_search_configuration_failed', 'WebSearch profile could not be verified and saved');
+  }
+}
+
+export async function setPrimaryWebSearchProfile(state, profileId) {
+  requireWebSearchState(state);
+  const config = promoteWebSearchProfile(await loadWebSearchConfig(state.path), profileId);
+  return { config: await saveWebSearchConfig(state.path, config), test: null };
+}
+
+export async function deleteWebSearchProfile(state, profileId) {
+  requireWebSearchState(state);
+  const config = removeWebSearchProfile(await loadWebSearchConfig(state.path), profileId);
+  return { config: await saveWebSearchConfig(state.path, config), test: null, removed_profile_id: profileId };
 }
 
 export async function disableWebSearch(state) {
@@ -50,8 +81,18 @@ export async function removeWebSearchDeployment(state) {
   requireWebSearchState(state, { deployment: true });
   const current = await loadWebSearchConfig(state.path);
   const deployment = await state.deployment.remove();
-  const config = current.managed ? await resetWebSearchConfig(state.path) : current;
+  const managed = current.profiles.filter((item) => item.managed).map((item) => item.id);
+  let config = current;
+  for (const id of managed) config = removeWebSearchProfile(config, id);
+  if (managed.length > 0) config = await saveWebSearchConfig(state.path, config);
   return { config, test: null, deployment, removed: true };
+}
+
+function selectedProfile(config, profileId) {
+  const profile = profileId
+    ? config.profiles.find((item) => item.id === profileId) : config.profiles[0];
+  if (!profile) throw new ContractError('web_search_profile_missing', `WebSearch profile does not exist: ${profileId ?? 'primary'}`);
+  return profile;
 }
 
 export async function manageWebSearch(state, action) {
@@ -63,7 +104,10 @@ export async function manageWebSearch(state, action) {
   } catch (error) {
     throw operationFailure(error, 'web_search_management_failed', `Managed WebSearch could not ${action}`);
   }
-  return webSearchStatus(state, action === 'start');
+  if (action !== 'start') return webSearchStatus(state, false);
+  const config = await loadWebSearchConfig(state.path);
+  const managed = config.profiles.find((item) => item.managed);
+  return webSearchStatus(state, true, managed?.id ?? null);
 }
 
 async function resetConfiguration(state, outcome) {

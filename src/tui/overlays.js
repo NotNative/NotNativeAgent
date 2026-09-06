@@ -242,34 +242,6 @@ export function workspaceTrustOverlay(workspaceRoot) {
   ], 'trust');
 }
 
-export function webSearchOverlay(status, options = {}) {
-  status = status ?? {}; const config = status.config ?? {};
-  const lines = [
-    `Status     ${config.enabled ? 'Enabled' : 'Not configured'}`,
-    `Endpoint   ${config.endpoint ?? '--'}`,
-    `Source     ${config.enabled ? config.managed ? 'NNA-managed local service' : 'Existing SearXNG service' : '--'}`,
-  ];
-  if (status.test) lines.push(`Validation ${status.test.ok ? `Passed (${status.test.results} results)` : `Failed (${status.test.error})`}`);
-  if (options.message) lines.push('', options.message);
-  lines.push('', config.enabled
-    ? 'WebSearch is available to every conversation. Choose an action below.'
-    : 'Connect an existing SearXNG service, or let NNA deploy one locally with Docker.');
-  const items = [
-    { id: 'action:configure', label: config.enabled ? 'Change endpoint' : 'Connect existing SearXNG', detail: 'Enter its base URL, validate it, then save', section: 'Connection' },
-  ];
-  if (config.enabled) items.push({ id: 'test', label: 'Validate current endpoint', detail: 'Run a bounded JSON search without changing configuration', section: 'Connection' });
-  items.push({ id: 'deploy', label: config.managed ? 'Redeploy local SearXNG' : 'Deploy SearXNG locally', detail: 'Use Docker to create and validate an NNA-managed service', section: 'Managed local service' });
-  if (config.managed) {
-    items.push({ id: 'start', label: 'Start local service', detail: 'Start the preserved NNA-managed deployment', section: 'Managed local service' });
-    items.push({ id: 'stop', label: 'Stop local service', detail: 'Stop without deleting its container or data', section: 'Managed local service' });
-  }
-  if (config.enabled || config.endpoint) items.push({
-    id: 'disable', label: 'Disable WebSearch', detail: 'Clear the active connection; preserve any local deployment', section: 'Configuration',
-  });
-  items.push({ id: 'remove', label: 'Remove local deployment', detail: 'Stop and delete NNA-managed containers and deployment data', section: 'Managed local service' });
-  return menuOverlay('websearch', 'WebSearch · SearXNG', lines, items, options.selectedId ?? items[0]?.id);
-}
-
 export function webFetchOverlay(config, options = {}) {
   const trustedOrigins = config?.trusted_origins ?? [];
   const lines = [

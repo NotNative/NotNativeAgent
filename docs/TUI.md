@@ -302,10 +302,11 @@ record ID or field names, so existing Provider and MCP consumers remain bound. C
 created while configuring a Provider or MCP server receive an origin-oriented initial label such
 as `<provider label>-Provider` or `<MCP name>-MCP`; operators may rename them for broader reuse.
 
-`/websearch` opens the global SearXNG manager. It can test, disable, or forget an existing
-endpoint, deploy/start/stop NNA's optional local container, and preserves managed data
-when stopped. `/websearch URL` validates a remote, private-network, or local endpoint
-before saving it. The setting is global across conversations and agent roles.
+`/websearch` opens the global SearXNG profile manager. It can add, validate, promote,
+or remove named endpoints and can deploy, start, or stop NNA's optional local container.
+The displayed order is authoritative: an empty, degraded, or failed search advances to
+the next profile. `/websearch URL` validates and saves the primary endpoint. Profiles are
+global across conversations and agent roles. Stopping a managed service preserves its data.
 
 `/mcp` opens the MCP server manager. Main can add Streamable HTTP or shell-free stdio
 servers, test connection and discovery, enable or disable entries, and safely remove them.

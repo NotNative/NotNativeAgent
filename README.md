@@ -35,7 +35,8 @@ authentication key, and default model. The installer also checks supporting depe
 and preserves an existing NNA configuration when upgrading.
 
 WebSearch setup is highly recommended. You can point NNA at an existing SearXNG endpoint or
-let the installer offer a local Docker deployment when Docker is available. The Telegram
+let the installer offer a local Docker deployment when Docker is available. The `/websearch`
+manager can add ordered fallback SearXNG profiles after installation. The Telegram
 gateway is optional; configure it only if you want to communicate with NNA remotely through
 an authorized Telegram account. Interactive WebBrowse is also optional: the installer skips
 an existing valid Playwright Chromium runtime, or offers to download one when it is absent.

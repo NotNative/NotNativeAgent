@@ -6,7 +6,8 @@ import { validateKeyBindings } from './experience/key-bindings.js';
 import { RetainedTerminalScreen } from './tui/terminal-screen.js';
 import { createRenderLoop } from './tui/render-loop.js';
 import { commandDefinition } from './tui/commands.js';
-import { auditOverlay, configOverlay, gatewayOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, webSearchOverlay, workspaceTrustOverlay } from './tui/overlays.js';
+import { auditOverlay, configOverlay, gatewayOverlay, mcpOverlay, overlayCommandDraft, providerOverlay, valueOverlay, skillsOverlay, webFetchOverlay, workspaceTrustOverlay } from './tui/overlays.js';
+import { webSearchOverlay } from './tui/websearch-overlay.js';
 import { runContextCommand } from './tui/context.js';
 import { handleCommandPickerAction, resetCommandPicker } from './tui/command-picker.js';
 import { handleHealthOverlayAction, healthOverlay } from './tui/health.js';
@@ -440,11 +441,16 @@ async function webSearchCommand(argument, workspace) {
   }
   const [action, ...rest] = argument.trim().split(/\s+/u);
   let result;
-  if (action === 'test') result = await workspace.webSearchStatus(true);
+  if (action === 'test') result = await workspace.webSearchStatus(true, rest[0] ?? null);
   else if (action === 'deploy') result = await workspace.deployWebSearch();
   else if (['disable', 'reset'].includes(action)) result = await workspace.disableWebSearch();
   else if (['remove', 'remove-deployment'].includes(action)) result = await workspace.removeWebSearchDeployment();
   else if (['start', 'stop'].includes(action)) result = await workspace.manageWebSearch(action);
+  else if (action === 'add') {
+    if (rest.length < 2) throw new ContractError('web_search_endpoint_required', 'use /websearch add PROFILE_NAME URL');
+    result = await workspace.addWebSearchProfile(rest[0], rest[1]);
+  } else if (action === 'promote') result = await workspace.setPrimaryWebSearchProfile(rest[0]);
+  else if (action === 'remove-profile') result = await workspace.deleteWebSearchProfile(rest[0]);
   else if (action === 'configure') {
     if (rest.length === 0) throw new ContractError('web_search_endpoint_required', 'use /websearch configure URL');
     result = await workspace.configureWebSearch(rest.join(' '), false);
@@ -452,7 +458,9 @@ async function webSearchCommand(argument, workspace) {
   workspace.projection.openOverlay(webSearchOverlay(result, { message: webSearchMessage(action) }));
 }
 async function webSearchAction(action, workspace) {
-  if (action === 'test') return workspace.webSearchStatus(true);
+  if (action.startsWith('test:')) return workspace.webSearchStatus(true, action.slice(5));
+  if (action.startsWith('promote:')) return workspace.setPrimaryWebSearchProfile(action.slice(8));
+  if (action.startsWith('remove-profile:')) return workspace.deleteWebSearchProfile(action.slice(15));
   if (action === 'deploy') return workspace.deployWebSearch();
   if (action === 'disable') return workspace.disableWebSearch();
   if (action === 'remove') return workspace.removeWebSearchDeployment();
@@ -460,6 +468,9 @@ async function webSearchAction(action, workspace) {
   throw new ContractError('web_search_action_invalid', 'unknown WebSearch menu action');
 }
 function webSearchMessage(action) {
+  if (action.startsWith('test:')) return 'Profile validation completed.';
+  if (action.startsWith('promote:')) return 'The selected profile is now primary.';
+  if (action.startsWith('remove-profile:')) return 'The selected WebSearch profile was removed.';
   if (action === 'deploy') return 'Local SearXNG was deployed or redeployed, validated, and activated.';
   if (action === 'disable' || action === 'reset') return 'WebSearch was disabled and its saved configuration was removed.';
   if (action === 'remove' || action === 'remove-deployment') return 'The NNA-managed local SearXNG deployment was removed.';

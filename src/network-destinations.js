@@ -67,10 +67,10 @@ function addTelemetry(result, telemetry) {
 
 function addWebSearch(result, config) {
   if (!config.enabled) return;
-  result.push({
-    kind: 'web_search', id: 'searxng', destination: config.endpoint,
-    trust_zone: zone(config.endpoint), purpose: 'reviewed_web_search',
-    state: 'configured', credential_reference: null,
+  for (const [index, profile] of config.profiles.entries()) result.push({
+    kind: 'web_search', id: profile.id, destination: profile.endpoint,
+    trust_zone: zone(profile.endpoint), purpose: 'reviewed_web_search',
+    state: index === 0 ? 'primary' : 'fallback', credential_reference: null,
   });
 }
 

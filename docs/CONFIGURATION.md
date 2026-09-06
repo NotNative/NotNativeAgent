@@ -409,14 +409,23 @@ redaction, and migration requirements. Browser clients call NNO, never NNA direc
 
 WebSearch is global rather than tab-local. Its configuration lives at
 `$NNA_HOME/config/web-search.json`, so Main, other conversations, subagents, and
-non-TUI workflows use the same endpoint.
+non-TUI workflows use the same ordered profile chain.
 
 Use `/websearch` for the keyboard-driven manager. `/websearch URL` validates and
-saves an existing SearXNG endpoint; `/websearch test`, `/websearch disable`,
-`/websearch reset`, and `/websearch deploy` are direct forms. Reset removes only
-the saved WebSearch endpoint so a later installer run offers setup again; an existing
+saves the primary SearXNG endpoint. The manager can add, validate, promote, and remove
+named fallback profiles. `/websearch test [ID]`, `/websearch add NAME URL`,
+`/websearch promote ID`, and `/websearch remove-profile ID` are direct forms for
+single-token profile names. `/websearch disable`, `/websearch reset`, and
+`/websearch deploy` remain available. Reset removes only saved WebSearch profiles;
+an existing
 managed container and its data remain available for update or reuse. The quiet aliases `/search-config` and
 `/search_config` remain available.
+
+`web_search` tries profiles sequentially in their displayed order. A transport failure,
+upstream degradation, or zero usable results advances to the next profile. Cancellation
+stops the chain. The result identifies every attempted profile and the profile that
+returned sources. NNA supports at most eight profiles and never rotates endpoints to
+evade an operator's rate limit.
 
 NNA does not install Docker. Local deployment first verifies the Docker client,
 daemon, Compose support, Linux-container mode, and port 8888. It then starts the

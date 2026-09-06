@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:dd618ca5e07295633f7967b7a0ade19638ab7aa92f72a1b1c7afe36eb40e9abb",
+  "source_digest": "sha256:065876dea17767f52d9427145d1a5ec819efbc36b2097c80e3c51fd2ab030614",
   "counts": {
-    "modules": 340,
+    "modules": 341,
     "component_edges": 70
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "experience-engine",
       "label": "Experience Engine",
       "ownership": "Owns operator interaction and presentation.",
-      "module_count": 90
+      "module_count": 91
     },
     {
       "id": "reliability-engine",
@@ -108,8 +108,8 @@
     {
       "from": "experience-engine",
       "to": "experience-engine",
-      "import_count": 163,
-      "module_count": 54
+      "import_count": 166,
+      "module_count": 55
     },
     {
       "from": "foundation",
@@ -3118,6 +3118,7 @@
         "src/tui/terminal-screen.js",
         "src/tui/trust-command.js",
         "src/tui/webfetch-command.js",
+        "src/tui/websearch-overlay.js",
         "src/tui/work-command.js"
       ]
     },
@@ -3626,12 +3627,21 @@
       ]
     },
     {
+      "path": "src/tui/websearch-overlay.js",
+      "component": "experience-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/tui/surface-engine.js"
+      ]
+    },
+    {
       "path": "src/tui/websearch-setup.js",
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
         "src/tui/form-engine.js",
-        "src/tui/overlays.js"
+        "src/tui/surface-engine.js",
+        "src/tui/websearch-overlay.js"
       ]
     },
     {

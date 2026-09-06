@@ -14,7 +14,7 @@ export const TUI_COMMANDS = Object.freeze([
   command('/attachment remove ID', 'Remove a failed managed image', 'conversation'),
   command('/audit', 'Show redacted authorization, grounding, and learning decisions', 'governance'),
   command('/support [preview|PATH.zip]', 'Create or preview a redacted troubleshooting ZIP', 'diagnostics'),
-  command('/websearch [status|configure URL|test|deploy|disable|remove]', 'Manage SearXNG web search', 'configuration'),
+  command('/websearch [status|configure URL|add NAME URL|test [ID]|promote ID|remove-profile ID|deploy|disable|remove]', 'Manage ordered SearXNG profiles', 'configuration'),
   command('/webfetch [status|trust ORIGIN|revoke ORIGIN]', 'Manage exact private origins trusted for WebFetch', 'configuration'),
   command('/workspace PATH', 'Open a new conversation rooted at a working directory', 'sessions'),
   command('/sessions', 'Browse recent durable sessions and terminal outcomes', 'sessions'),

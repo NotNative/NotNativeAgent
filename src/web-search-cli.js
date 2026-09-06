@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  configuredWebSearch, loadWebSearchConfig, resetWebSearchConfig, saveWebSearchConfig,
+  appendWebSearchProfile, loadWebSearchConfig, promoteWebSearchProfile, removeWebSearchProfile,
+  replacePrimaryWebSearch, resetWebSearchConfig, saveWebSearchConfig,
 } from './web-search-config.js';
 import { SearxngClient } from './searxng-client.js';
 import { SearxngDeployment } from './searxng-deployment.js';
@@ -10,6 +11,7 @@ const ACTION = Object.freeze({
   status: 'status', refreshManaged: 'refresh-managed', reset: 'reset', disable: 'disable',
   installIfUnconfigured: 'install-if-unconfigured', configure: 'configure', deploy: 'deploy',
   installLocal: 'install-local', remove: 'remove', removeDeployment: 'remove-deployment',
+  add: 'add', promote: 'promote', removeProfile: 'remove-profile',
 });
 
 export async function runWebSearchCommand(args, paths, options = {}) {
@@ -22,7 +24,7 @@ export async function runWebSearchCommand(args, paths, options = {}) {
   const current = await loadWebSearchConfig(paths.webSearchConfig);
   if (action === ACTION.status) return { configured: current.enabled, config: current };
   if (action === ACTION.refreshManaged) {
-    if (!current.enabled || !current.managed) return { skipped: true, reason: 'not_managed', config: current };
+    if (!current.enabled || !current.profiles.some((item) => item.managed)) return { skipped: true, reason: 'not_managed', config: current };
     const refreshed = await managedDeployment().refreshIfNeeded();
     return { configured: true, config: current, deployment: refreshed, refreshed: refreshed.refreshed === true };
   }
@@ -38,18 +40,35 @@ export async function runWebSearchCommand(args, paths, options = {}) {
     if (typeof endpoint !== 'string' || !endpoint.trim()) {
       throw new ContractError('web_search_endpoint_required', 'configure requires a SearXNG endpoint');
     }
-    const candidate = configuredWebSearch(endpoint, false);
-    const test = await searchClient().test(candidate.endpoint);
+    const candidate = replacePrimaryWebSearch(current, endpoint, false);
+    const test = await searchClient().test(candidate.profiles[0].endpoint);
     return { config: await saveWebSearchConfig(paths.webSearchConfig, candidate), test };
+  }
+  if (action === ACTION.add) {
+    if (!args[1] || !args[2]) throw new ContractError('web_search_endpoint_required', 'add requires PROFILE_NAME and URL');
+    const candidate = appendWebSearchProfile(current, args[1], args[2]);
+    const added = candidate.profiles.at(-1);
+    const test = await searchClient().test(added.endpoint);
+    return { config: await saveWebSearchConfig(paths.webSearchConfig, candidate), test: { ...test, profile_id: added.id } };
+  }
+  if (action === ACTION.promote) {
+    if (!args[1]) throw new ContractError('web_search_profile_missing', 'promote requires a profile ID');
+    return { config: await saveWebSearchConfig(paths.webSearchConfig, promoteWebSearchProfile(current, args[1])) };
+  }
+  if (action === ACTION.removeProfile) {
+    if (!args[1]) throw new ContractError('web_search_profile_missing', 'remove-profile requires a profile ID');
+    return { config: await saveWebSearchConfig(paths.webSearchConfig, removeWebSearchProfile(current, args[1])) };
   }
   if (action === ACTION.deploy || action === ACTION.installLocal) {
     const deployed = await managedDeployment().deploy();
-    const config = await saveWebSearchConfig(paths.webSearchConfig, configuredWebSearch(deployed.endpoint, true));
+    const config = await saveWebSearchConfig(paths.webSearchConfig, replacePrimaryWebSearch(current, deployed.endpoint, true));
     return { config, deployment: deployed };
   }
   if (action === ACTION.remove || action === ACTION.removeDeployment) {
     const removed = await managedDeployment().remove();
-    const config = current.managed ? await resetWebSearchConfig(paths.webSearchConfig) : current;
+    let config = current;
+    for (const item of current.profiles.filter((entry) => entry.managed)) config = removeWebSearchProfile(config, item.id);
+    if (config !== current) config = await saveWebSearchConfig(paths.webSearchConfig, config);
     return { config, deployment: removed, removed: true };
   }
   throw new ContractError('invalid_web_search_command', 'invalid WebSearch command');

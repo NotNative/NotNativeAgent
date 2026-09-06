@@ -12,7 +12,10 @@ test('AC-PRIV-01 every configured and dynamic egress surface exposes destination
   const root = await mkdtemp(join(tmpdir(), 'nna-destinations-'));
   const webSearchConfigPath = join(root, 'web-search.json');
   await saveWebSearchConfig(webSearchConfigPath, {
-    enabled: true, provider: 'searxng', endpoint: 'http://192.168.1.8:8080', managed: false,
+    enabled: true, profiles: [
+      { id: 'local', display_name: 'Local', endpoint: 'http://192.168.1.8:8080' },
+      { id: 'public', display_name: 'Public', endpoint: 'https://search.example.test' },
+    ],
   });
   const config = resolveManifest({
     persistence: 'ephemeral', workspace_root: root,
@@ -34,8 +37,10 @@ test('AC-PRIV-01 every configured and dynamic egress surface exposes destination
   assert.equal(report.status, 'ready');
   assert.equal(report.default_unrelated_egress, false);
   assert.deepEqual(report.destinations.map((item) => item.kind), [
-    'provider', 'mcp', 'telemetry', 'web_search', 'governed_tool', 'governed_tool', 'governed_tool', 'hook', 'extension',
+    'provider', 'mcp', 'telemetry', 'web_search', 'web_search',
+    'governed_tool', 'governed_tool', 'governed_tool', 'hook', 'extension',
   ]);
+  assert.deepEqual(report.destinations.filter((item) => item.kind === 'web_search').map((item) => item.state), ['primary', 'fallback']);
   assert.equal(report.destinations.every((item) => item.destination && item.purpose && item.state), true);
   assert.equal(report.destinations.find((item) => item.kind === 'provider').credential_reference, 'MODEL_TOKEN');
   assert.equal(JSON.stringify(report).includes('secret'), false);

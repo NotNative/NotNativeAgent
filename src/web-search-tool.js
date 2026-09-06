@@ -8,7 +8,7 @@ export function webSearchDefinition(options) {
   const client = options.client ?? new SearxngClient();
   return {
     name: 'web_search', version: 1,
-    purpose: 'Search the web through the user-configured SearXNG service and return bounded source summaries.',
+    purpose: 'Search the web through ordered SearXNG profiles and return bounded source summaries.',
     sideEffect: 'read_only', scope: 'web_search', cancellation: true, timeoutMs: 20_000,
     inputSchema: {
       type: 'object', additionalProperties: false, required: ['query'], properties: {
@@ -27,22 +27,25 @@ export function webSearchDefinition(options) {
     }),
     validate: async (args) => validate(args, options.configPath),
     executor: async (request, signal) => {
-      const result = await client.search(request.resolved.endpoint, request.args, signal);
+      const result = await searchProfiles(client, request.resolved.profiles, request.args, signal);
       validateSearchResult(result);
       const results = result.results.map((item) => resultProjection(item, options.references));
       const response = {
         query: result.query, endpoint: result.endpoint, search_state: result.search_state,
         results, suggestions: result.suggestions ?? [], upstream_failures: result.upstream_failures ?? [],
+        used_profile_id: result.used_profile_id, profile_attempts: result.profile_attempts,
       };
       if (result.search_state === 'upstream_degraded') {
-        response.recovery_hint = 'The search service responded, but upstream engines failed. Retry later or use another source.';
+        response.recovery_hint = 'Every configured search profile was tried. Retry later or use another source.';
       }
       let content;
       try { content = JSON.stringify(response); }
       catch (error) { throw new ContractError('web_search_response_invalid', 'WebSearch result could not be serialized', { cause: error }); }
       return { content, metadata: {
         endpoint: result.endpoint, result_count: results.length, search_state: result.search_state,
-        upstream_failure_count: response.upstream_failures.length,
+        upstream_failure_count: response.upstream_failures.length, used_profile_id: result.used_profile_id,
+        attempted_profile_count: result.profile_attempts.length,
+        fallback_used: result.profile_attempts.length > 1,
       } };
     },
   };
@@ -66,23 +69,86 @@ async function validate(args, configPath) {
     if (error instanceof ContractError) throw error;
     throw new ContractError('web_search_config_unavailable', 'WebSearch configuration could not be loaded', { cause: error });
   }
-  if (!config.enabled || !config.endpoint) throw new ContractError('web_search_disabled', 'WebSearch is not configured; use /websearch');
-  return { args: { ...args, limit: args.limit ?? 8 }, resolved: { endpoint: config.endpoint, source: 'global_web_search' } };
+  if (!config.enabled || config.profiles.length === 0) throw new ContractError('web_search_disabled', 'WebSearch is not configured; use /websearch');
+  return {
+    args: { ...args, limit: args.limit ?? 8 },
+    resolved: { profiles: config.profiles, source: 'global_web_search_profiles' },
+  };
+}
+
+async function searchProfiles(client, profiles, args, signal) {
+  const attempts = []; const valid = []; let lastError;
+  // Why: sequential routing preserves the operator's priority and avoids multiplying shared-service traffic.
+  for (const item of profiles) {
+    try {
+      const result = await client.search(item.endpoint, args, signal);
+      validateSearchResult(result);
+      attempts.push(Object.freeze({
+        profile_id: item.id, endpoint: item.endpoint, outcome: result.search_state,
+      }));
+      valid.push(result);
+      if (result.results.length > 0) return combinedResult(result, item.id, attempts, valid);
+    } catch (error) {
+      if (signal?.aborted || error?.code === 'web_search_cancelled') throw error;
+      lastError = error;
+      attempts.push(Object.freeze({
+        profile_id: item.id, endpoint: item.endpoint, outcome: 'request_failed',
+        reason_code: safeReasonCode(error?.code),
+      }));
+    }
+  }
+  if (valid.length === 0) {
+    throw new ContractError('web_search_profiles_failed', 'Every configured WebSearch profile failed', { cause: lastError });
+  }
+  const last = valid.at(-1);
+  return combinedResult({
+    ...last, search_state: attempts.some((item) => item.outcome === 'request_failed'
+      || item.outcome === 'upstream_degraded') ? 'upstream_degraded' : 'no_results',
+  }, null, attempts, valid);
+}
+
+function combinedResult(result, profileId, attempts, valid) {
+  const suggestions = [...new Set(valid.flatMap((item) => item.suggestions ?? []))].slice(0, 8);
+  const upstreamFailures = valid.flatMap((item) => item.upstream_failures ?? []).slice(0, 16);
+  return Object.freeze({
+    ...result, suggestions: Object.freeze(suggestions), upstream_failures: Object.freeze(upstreamFailures),
+    used_profile_id: profileId, profile_attempts: Object.freeze([...attempts]),
+  });
+}
+
+function safeReasonCode(value) {
+  return typeof value === 'string' && /^[a-z0-9_.-]{1,128}$/u.test(value)
+    ? value : 'web_search_request_failed';
 }
 
 function validateSearchResult(result) {
   const failures = result?.upstream_failures;
+  const profileDegraded = result?.profile_attempts?.some((item) =>
+    ['request_failed', 'upstream_degraded'].includes(item?.outcome)) === true;
   if (!result || typeof result !== 'object' || Array.isArray(result)
     || typeof result.endpoint !== 'string' || typeof result.query !== 'string'
     || !Array.isArray(result.results) || result.results.length > 20
     || !['results_returned', 'no_results', 'upstream_degraded'].includes(result.search_state)
     || (result.suggestions !== undefined && !Array.isArray(result.suggestions))
+    || (result.profile_attempts !== undefined && (!Array.isArray(result.profile_attempts)
+      || result.profile_attempts.length < 1 || result.profile_attempts.length > 8
+      || result.profile_attempts.some((item) => !validProfileAttempt(item))))
     || (failures !== undefined && (!Array.isArray(failures) || failures.length > 16
       || failures.some((item) => !validUpstreamFailure(item))))
     || (result.search_state === 'results_returned') !== (result.results.length > 0)
-    || (result.search_state === 'upstream_degraded') !== (result.results.length === 0 && (failures?.length ?? 0) > 0)) {
+    || (result.search_state === 'upstream_degraded') !== (result.results.length === 0
+      && ((failures?.length ?? 0) > 0 || profileDegraded))) {
     throw new ContractError('web_search_response_invalid', 'WebSearch client returned an invalid result');
   }
+}
+
+function validProfileAttempt(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || typeof value.profile_id !== 'string' || value.profile_id.length < 1 || value.profile_id.length > 64
+    || typeof value.endpoint !== 'string' || value.endpoint.length < 1 || value.endpoint.length > 4096
+    || !['results_returned', 'no_results', 'upstream_degraded', 'request_failed'].includes(value.outcome)) return false;
+  return value.reason_code === undefined || (value.outcome === 'request_failed'
+    && typeof value.reason_code === 'string' && /^[a-z0-9_.-]{1,128}$/u.test(value.reason_code));
 }
 
 function validUpstreamFailure(value) {
