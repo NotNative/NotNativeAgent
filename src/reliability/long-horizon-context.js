@@ -2,9 +2,9 @@
 import { createHash } from 'node:crypto';
 import { ContractError } from '../ids.js';
 
-/** Trigger after twelve settled turns or when tool output consumes ten percent of usable input. */
+/** Trigger after eight settled turns or when tool output consumes ten percent of usable input. */
 export const LONG_HORIZON_POLICY = Object.freeze({
-  completedTurns: 12, toolPayloadRatio: 0.10, estimatedBytesPerToken: 4,
+  completedTurns: 8, toolPayloadRatio: 0.10, estimatedBytesPerToken: 4,
 });
 
 export function longHorizonCompressionTrigger(records, options = {}) {

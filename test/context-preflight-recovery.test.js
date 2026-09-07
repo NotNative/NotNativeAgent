@@ -61,3 +61,25 @@ test('tool-schema overflow is included in preflight and cannot be hidden by comp
   assert.equal(run.facts.length, 0);
   assert.deepEqual(run.terminals, ['failed']);
 });
+
+test('settled-turn age refreshes a large-window hot context before pressure is reached', async () => {
+  const run = fixture();
+  run.engine.transcript = [
+    ...Array.from({ length: 8 }, (_, index) => ([
+      { type: 'message', role: 'user', turnId: `settled-${index}`, content: `request ${index}` },
+      { type: 'message', role: 'assistant', turnId: `settled-${index}`, content: `result ${index} ${'x'.repeat(3_000)}` },
+    ])).flat(),
+    { type: 'message', role: 'user', turnId: 'current', content: 'Continue with the current task.' },
+  ];
+
+  const context = await prepareEngineContext(
+    run.engine, [...run.engine.transcript], '', run.active, false, run.operations,
+  );
+
+  assert.deepEqual(run.transitions, ['compacting_context']);
+  assert.equal(run.facts.length, 1);
+  assert.ok(run.facts[0].omitted > 0);
+  assert.ok(context.some((message) => message.role === 'user'
+    && message.content === 'Continue with the current task.'));
+  assert.ok(run.engine.transcript.some((record) => record.type === 'compaction'));
+});

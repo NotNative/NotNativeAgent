@@ -225,8 +225,11 @@ async function pressureProjection(engine, active, operations, measurement) {
   });
   const tier = engine.reliability.pressureTier(measurement.rawContextTokens, measurement.effectiveInputTokens, policy);
   active.contextPressureTier = tier;
-  if (horizon && tier !== 'none') {
-    engine.telemetry?.record('context.compression', tier === 'compact' ? 'escalated' : 'observed', {
+  if (horizon) {
+    // Why: pressure-only compaction lets large-window models replay stale behavior
+    // indefinitely. A bounded turn interval refreshes only the provider projection;
+    // the complete conversation remains authoritative in the durable journal.
+    engine.telemetry?.record('context.compression', 'escalated', {
       ...horizon, tier, ratio,
     }, { turnId: active.turnId, stepId: active.stepId });
   }
@@ -252,6 +255,20 @@ async function pressureProjection(engine, active, operations, measurement) {
       }),
     );
   }
+  recordPressureTelemetry(engine, active, measurement, projection, tier, ratio);
+  if (tier === 'compact' || horizon) {
+    active.contextCompressionTrigger = horizon?.reason ?? null;
+    throw new ContractError(
+      'context_too_large',
+      horizon
+        ? 'context reached the long-horizon continuation refresh boundary'
+        : 'context reached the automatic compaction pressure boundary',
+    );
+  }
+  return projection;
+}
+
+function recordPressureTelemetry(engine, active, measurement, projection, tier, ratio) {
   engine.telemetry?.record('context.pressure', tier === 'none' ? 'measured' : 'projected', {
     tier, ratio, raw_estimated_tokens: measurement.rawContextTokens,
     effective_input_tokens: measurement.effectiveInputTokens,
@@ -265,11 +282,6 @@ async function pressureProjection(engine, active, operations, measurement) {
     duplicate_result_bytes_saved: projection.duplicateResultBytesSaved,
     source_fingerprint: projection.sourceFingerprint,
   }, { turnId: active.turnId, stepId: active.stepId });
-  if (tier === 'compact') {
-    active.contextCompressionTrigger = horizon?.reason ?? null;
-    throw new ContractError('context_too_large', 'context reached the automatic compaction pressure boundary');
-  }
-  return projection;
 }
 
 function compactionStartedDetail(active, planned, beforeEstimatedTokens, targetTokens) {

@@ -24,10 +24,15 @@ pressure controls instead of behaving like an unbounded token window.
 
 ## Long-horizon compression
 
-Pressure is not the only checkpoint trigger. NNA also refreshes its continuation after 12
+Pressure is not the only checkpoint trigger. NNA also refreshes its continuation after 8
 completed turns, when settled tool-result payload reaches 10% of the effective input window,
 or when a fingerprint proves that retained checkpoint records drifted. Only records after the
 latest checkpoint contribute to the interval and payload triggers.
+
+The completed-turn interval is an independent full-compaction trigger, even when a model has a
+very large advertised context window. This prevents an old behavioral pattern from remaining in
+the model-facing hot transcript merely because raw capacity is plentiful. The full conversation,
+tool evidence, and reviewer accounting remain unchanged in the durable journal.
 
 Compaction preserves the active turn and five newest completed turns under normal conditions.
 Older tool exchanges become typed, redacted, ledger-backed receipts containing the tool,

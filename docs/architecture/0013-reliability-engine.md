@@ -169,6 +169,10 @@ public package entry point and exports the current names without historical alia
     reviewer-ledger, tool, visual, and optional durable-work evidence. A prose-only stop in such a
     turn receives a bounded continuation instruction and cannot return the engine to idle. An
     ordinary response-only conversation retains the clean-stop compatibility path.
+27. Long-horizon continuation refresh is independent of context-window pressure. After eight
+    settled turns without a newer compaction checkpoint, the engine compacts the provider-facing
+    hot working set while retaining the complete transcript and evidence in the durable journal.
+    The trigger is structural and does not classify intent, failure, or progress from model prose.
 
 ## Consequences
 
