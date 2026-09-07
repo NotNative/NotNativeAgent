@@ -39,7 +39,7 @@ import { awaitEngineAttention } from './engine/attention.js';
 import { changeEngineWorkspace, restoreEngineWorkspace } from './engine/workspace-transition.js';
 import { continueAfterExactToolBoundary } from './engine/tool-recovery.js';
 import { updateToolFailures } from './engine/tool-failures.js';
-import { continueAfterTerminalDeclaration } from './engine/terminal-declaration.js';
+import { continueAfterTerminalDeclaration, persistSupervisedResponse } from './engine/terminal-declaration.js';
 import { carriedReviewerRequestIds, refreshReviewerCompletion, reviewerCompletionHint, terminalContinuationRequired } from './engine/reviewer-completion.js';
 export class SessionEngine {
   state = new StateAuthority();
@@ -376,10 +376,7 @@ export class SessionEngine {
     if (supervised.disposition !== 'continue') return { continue: false, text: active.stepText, outcome: supervised.disposition };
     if (supervised.obligation) active.completionObligation = supervised.obligation;
     await this.#settleAttempt(active, 'completed');
-    await this.#persist('message', assistantMessage(active.turnId, active.stepText, {
-      partial_data: true, stepId: active.stepId,
-    }));
-    active.committedStepText = active.stepText;
+    active.committedStepText = await persistSupervisedResponse(active, supervised, (...args) => this.#persist(...args));
     this.state.transition('recovering', { trigger: supervised.category, turnId: active.turnId });
     const plan = this.reliability.continuation(
       active, supervised.category, supervised.progressEvidence, this.reliability.partialOutputProgress(active.stepText),
@@ -411,7 +408,7 @@ export class SessionEngine {
       active.authority = this.authority.snapshot(this.config);
       // Why: a terminal declaration was made against the pre-steering intent. Authenticated
       // steering changes that intent, so the model must explicitly declare the new outcome.
-      active.terminalDeclaration = null;
+      active.terminalDeclaration = null; active.provisionalFinal = null;
       active.conversationIntent = projectConversationIntent(active.authority, { anchor: active.prompt });
       active.approvedProposal = resolveApprovedAssistantProposal(this.transcript, steering.content)
         || active.approvedProposal;
@@ -434,9 +431,12 @@ export class SessionEngine {
     });
   }
   async #completeFromStep(result, active) {
-    assertMissionBudget(active); this.state.transition('evaluating_completion', { trigger: 'stream_sealed', turnId: active.turnId });
+    assertMissionBudget(active);
+    if (result.terminalDeclarationSettled !== true) {
+      this.state.transition('evaluating_completion', { trigger: 'stream_sealed', turnId: active.turnId });
+    }
     active.finalText = result.text;
-    return this.#finalize(result.outcome ?? 'incomplete', result.text, null);
+    return this.#finalize(result.outcome ?? 'incomplete', result.text, null, { deliverableStepId: result.deliverableStepId });
   }
   async #finalize(outcome, text, failureDetail, options = {}) {
     return finalizeEngineTurn(this, outcome, text, failureDetail, options, {

@@ -8,7 +8,7 @@ export function chatCompletionBody(profile, request, responseFormat, reasoningCo
     ...(profile.capabilities?.usage === false ? {} : { stream_options: { include_usage: true } }),
     ...(Number.isInteger(request.maxOutputTokens) ? { max_tokens: request.maxOutputTokens } : {}),
     ...(request.tools?.length ? {
-      tools: request.tools, tool_choice: 'auto',
+      tools: request.tools, tool_choice: request.toolChoice ?? 'auto',
       ...(typeof request.parallelToolCalls === 'boolean' ? { parallel_tool_calls: request.parallelToolCalls } : {}),
     } : {}),
     ...(responseFormat ? { response_format: responseFormat } : {}), ...reasoningControls,

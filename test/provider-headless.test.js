@@ -317,6 +317,24 @@ test('provider requests explicitly disable parallel tool calls when requested', 
   assert.equal(body.tool_choice, 'auto');
 });
 
+test('provider requests can require the typed terminal declaration tool', async () => {
+  let body;
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, model: 'fixture', capabilities: {},
+  }, {}, { fetch: async (_url, options) => {
+    body = JSON.parse(options.body);
+    return new Response('data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n', {
+      status: 200, headers: { 'content-type': 'text/event-stream' },
+    });
+  } });
+  const toolChoice = { type: 'function', function: { name: 'turn_finish' } };
+  for await (const _item of provider.stream({
+    model: 'fixture', messages: [], toolChoice,
+    tools: [{ type: 'function', function: { name: 'turn_finish', parameters: { type: 'object' } } }],
+  }, new AbortController().signal)) { /* consume */ }
+  assert.deepEqual(body.tool_choice, toolChoice);
+});
+
 test('batch-compatible requests omit the single-call control', async () => {
   let body;
   const provider = new OpenAICompatibleProvider({

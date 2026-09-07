@@ -248,7 +248,7 @@ function providerConfiguration(request) {
     reasoning_effort: fieldState(effortSent, reasoning.reasoning_effort),
     enable_thinking: fieldState(thinkingSent, reasoning.chat_template_kwargs?.enable_thinking),
     reasoning_mode: fieldState(typeof request.reasoningMode === 'string', request.reasoningMode),
-    tool_choice: request.tools.length > 0 ? 'auto' : null,
+    tool_choice: request.tools.length > 0 ? request.toolChoice ?? 'auto' : null,
     tool_call_mode: request.toolCallMode ?? 'single',
     parallel_tool_calls: fieldState(
       request.tools.length > 0 && typeof request.parallelToolCalls === 'boolean',

@@ -26,6 +26,13 @@ export function assistantMessage(turnId, content, detail) {
   };
 }
 
+export function responseCandidateRecord(turnId, content, stepId) {
+  return {
+    version: '1.0', type: 'response_candidate', role: 'assistant', content,
+    trust: 'model', turnId, stepId, disposition: 'awaiting_terminal_declaration',
+  };
+}
+
 export function toolRequestRecord(request, turnId, stepId = null) {
   return {
     type: 'tool_request', turnId, stepId, requestId: request.id,

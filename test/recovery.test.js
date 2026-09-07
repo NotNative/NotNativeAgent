@@ -359,6 +359,17 @@ function toolCall(id, path) {
   ];
 }
 
+function finishCall(outcome) {
+  return [
+    { type: 'tool_fragment', fragments: [{
+      index: 0, id: `finish-${outcome}`, function: {
+        name: 'turn_finish', arguments: JSON.stringify({ outcome }),
+      },
+    }] },
+    { type: 'terminal', finishReason: 'tool_calls' },
+  ];
+}
+
 test('interactive context usage refreshes after every settled model step', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-context-usage-'));
   await writeFile(join(root, 'target.txt'), 'verified evidence', 'utf8');
@@ -1168,6 +1179,48 @@ test('AC-PROD-03/AC-TURN-10 truncated useful output is preserved and continued',
   assert.equal(count, 2);
   assert.equal(engine.transcript.some((item) => item.role === 'assistant' && item.partial === true), true);
   assert.equal(result.recovery[0].action, 'retry_continuation');
+});
+
+test('a typed terminal declaration commits the retained response without regenerating it', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-retained-terminal-response-'));
+  await writeFile(join(root, 'target.txt'), 'verified evidence', 'utf8');
+  const requests = [];
+  const output = [];
+  const finalText = 'The requested inspection is complete. The target contains verified evidence.';
+  const provider = { async *stream(request) {
+    requests.push(request);
+    if (requests.length === 1) {
+      yield* toolCall('retained-response-read', 'target.txt');
+      return;
+    }
+    if (requests.length === 2) {
+      yield { type: 'text', text: finalText };
+      yield { type: 'terminal', finishReason: 'stop' };
+      return;
+    }
+    assert.ok(request.messages.some((item) => item.role === 'system'
+      && item.content.includes('do not repeat it; call only turn_finish')));
+    assert.deepEqual(request.toolChoice, { type: 'function', function: { name: 'turn_finish' } });
+    yield* finishCall('completed');
+  } };
+  const engine = new RuntimeSessionEngine({
+    config: config(root), providerFactory: () => provider,
+    hookRoot: join(root, 'hooks'),
+    output: async (record) => output.push(record),
+  });
+  await engine.initialize();
+
+  const result = await engine.submit({ request_id: 'retained-response', content: 'Inspect target.txt.' }, 'operator');
+
+  assert.equal(result.outcome, 'completed');
+  assert.equal(result.text, finalText);
+  assert.equal(requests.length, 3);
+  assert.equal(output.filter((item) => item.type === 'stream_delta'
+    && item.text === finalText).length, 1);
+  assert.deepEqual(engine.transcript.filter((item) => item.type === 'message'
+    && item.role === 'assistant').map((item) => ({ content: item.content, partial: item.partial })), [
+    { content: finalText, partial: false },
+  ]);
 });
 
 test('a provider-mislabeled output ceiling cannot complete on a future-action pledge', async () => {

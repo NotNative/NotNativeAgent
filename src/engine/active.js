@@ -21,7 +21,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     startedAt: Date.now(), toolCalls: 0,
     capabilityPhase: 'orientation', toolEvidenceObserved: false, providerToolSurface: null,
     observableStateRevision: 0, toolEvidenceRevision: 0, completionObligation: null,
-    terminalDeclaration: null, terminalDeclarationRequired: false, completionEvidence: null,
+    terminalDeclaration: null, terminalDeclarationRequired: false, completionEvidence: null, provisionalFinal: null,
     visualEvidence: null, browserEvidence: null, readOnlyBatchStreak: 0,
     carriedReviewerRequestIds: [], reviewerCompletion: null,
     workCadence: null,

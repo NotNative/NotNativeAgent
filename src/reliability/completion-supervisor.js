@@ -46,7 +46,7 @@ export function evaluateCompletion(active, text, work = null) {
     return Object.freeze({
       disposition: 'continue', category: 'terminal_declaration_required', required: true,
       progressEvidence: null,
-      hint: 'Do not stop on prose alone. Perform any remaining action now. When the turn is genuinely terminal, call turn_finish with the truthful outcome; then provide the final response.',
+      hint: 'Do not stop on prose alone. Perform any remaining action now. If your preceding response already contains the complete user-facing answer, do not repeat it; call only turn_finish with the truthful outcome. The harness retained that response and will commit it after the declaration passes.',
     });
   }
   // A clean provider stop is sufficient to complete an ordinary conversational turn.
