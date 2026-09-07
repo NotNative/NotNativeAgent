@@ -5,6 +5,7 @@ import { EventHub } from '../src/events.js';
 import { ToolGovernor, toolSettlementTerminal } from '../src/tools/governor.js';
 import { evaluateCompletion } from '../src/reliability/completion-supervisor.js';
 import { finalizeEngineTurn } from '../src/engine/finalization.js';
+import { persistSupervisedResponse } from '../src/engine/terminal-declaration.js';
 
 async function execute(raw) {
   const governor = new ToolGovernor({ events: new EventHub(), reviewer: {}, registry: {
@@ -57,7 +58,7 @@ test('pending plan completion passes through every terminal evidence gate', () =
 test('concurrent finalization joins one terminal persistence and output', async () => {
   const records = [];
   const engine = { active: { turnId: 'turn', finalized: false }, config: {},
-    state: { state: 'finalizing_turn', transition() {} }, lifecycles: { finish() {} },
+    state: { state: 'finalizing_turn', transition(to) { records.push(`state:${to}`); this.state = to; } }, lifecycles: { finish() {} },
     output: async (record) => records.push(record), tools: { close() {} } };
   const operations = { publish: async () => {}, persist: async (type) => records.push(type),
     rejectDuplicate() { throw new Error('duplicate'); } };
@@ -66,5 +67,46 @@ test('concurrent finalization joins one terminal persistence and output', async 
   assert.deepEqual(await first, await second);
   assert.equal(records.filter((value) => value === 'turn_outcome').length, 1);
   assert.equal(records.filter((value) => value?.type === 'turn_result').length, 1);
+  assert.ok(records.indexOf('turn_outcome') < records.indexOf('state:idle'));
   await assert.rejects(finalizeEngineTurn(engine, 'completed', '', null, {}, operations), /duplicate/);
+});
+
+test('terminal persistence failure leaves the turn non-idle and emits no completion', async () => {
+  const output = [];
+  const transitions = [];
+  const engine = {
+    active: { turnId: 'turn', finalized: false }, config: {},
+    state: { state: 'finalizing_turn', transition(to) { transitions.push(to); this.state = to; } },
+    lifecycles: { finish() {} }, output: async (record) => output.push(record), tools: { close() {} },
+  };
+  let terminalAttempts = 0;
+  const failure = Object.assign(new Error('injected terminal flush failure'), { code: 'persistence_failed' });
+  const operations = {
+    publish: async () => {},
+    persist: async (type) => {
+      if (type === 'turn_outcome') { terminalAttempts += 1; throw failure; }
+    },
+    rejectDuplicate() { throw new Error('duplicate'); },
+  };
+
+  const first = finalizeEngineTurn(engine, 'completed', 'report', null, {}, operations);
+  const joined = finalizeEngineTurn(engine, 'failed', 'different', null, {}, operations);
+  await assert.rejects(first, failure);
+  await assert.rejects(joined, failure);
+  assert.equal(terminalAttempts, 1);
+  assert.equal(engine.state.state, 'finalizing_turn');
+  assert.equal(engine.active.turnId, 'turn');
+  assert.deepEqual(transitions, []);
+  assert.equal(output.length, 0);
+});
+
+test('a response candidate is not admitted to turn memory before its journal append', async () => {
+  const active = {
+    turnId: 'turn', stepId: 'step', stepText: 'Durable answer.', provisionalFinal: null,
+  };
+  const failure = Object.assign(new Error('injected candidate flush failure'), { code: 'persistence_failed' });
+  await assert.rejects(persistSupervisedResponse(
+    active, { category: 'terminal_declaration_required' }, async () => { throw failure; },
+  ), failure);
+  assert.equal(active.provisionalFinal, null);
 });

@@ -632,7 +632,7 @@ test('Unattended posture converts semantic escalation to guidance without openin
   assert.equal(await readFile(path, 'utf8'), 'before');
 });
 
-test('AC-SESS-03 failed durable tool-result commit prevents continuation and leaves a valid prefix', async () => {
+test('AC-SESS-03 failed durable tool-result commit prevents continuation and false terminal completion', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-tool-commit-failure-'));
   const sessions = join(root, 'sessions');
   await writeFile(join(root, 'target.txt'), 'durable fact');
@@ -650,18 +650,23 @@ test('AC-SESS-03 failed durable tool-result commit prevents continuation and lea
     storeFactory: (storeRoot, id, options) => new FailAfterToolResultStore(storeRoot, id, options),
   });
   await engine.initialize();
-  const result = await engine.submit({ request_id: 'commit-failure-turn', content: 'Read target.txt' }, 'operator');
-  assert.equal(result.outcome, 'failed');
+  await assert.rejects(
+    engine.submit({ request_id: 'commit-failure-turn', content: 'Read target.txt' }, 'operator'),
+    { code: 'persistence_unavailable' },
+  );
   assert.equal(providerCalls, 1);
+  assert.equal(engine.state.state, 'finalizing_turn');
+  assert.equal(typeof engine.active?.turnId, 'string');
   await assert.rejects(
     engine.shutdown({ request_id: 'commit-failure-stop', type: 'shutdown' }),
-    { code: 'persistence_unavailable' },
+    { code: 'shutdown_state_invalid' },
   );
   const recovered = new JournalStore(sessions, 'commit-failure');
   const prefix = await recovered.open();
   assert.equal(prefix.corruptTail, false);
   assert.equal(prefix.records.some((item) => item.type === 'tool_request'), true);
   assert.equal(prefix.records.some((item) => item.type === 'tool_result'), false);
+  assert.equal(prefix.records.some((item) => item.type === 'turn_outcome'), false);
   await recovered.close();
 });
 

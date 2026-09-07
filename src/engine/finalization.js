@@ -46,21 +46,22 @@ async function finalizeOnce(engine, active, text, options, operations, faults) {
   await faults.capture('event', () => operations.publish(
     'turn.terminal', 'turn', 'terminal', active, faults.outcome, hookPayload(engine, active, { model_response: text }),
   ));
+  const work = engine.work?.snapshot();
+  if (work && (work.goal || work.tasks.length > 0)) {
+    await faults.capture('persistence', () => operations.persist('work_state', work));
+  }
+  // Invariant: the durable terminal record is the commit point. The runtime must
+  // remain non-idle and retain the active turn if this append cannot be verified.
+  const terminalBeforePersistence = terminalRecord(engine, active, faults.outcome, text, faults.primary, faults.secondary);
+  await operations.persist('turn_outcome', terminalBeforePersistence);
+  faults.latchCommit();
   await faults.capture('state', () => engine.state.transition(
     'idle', { trigger: 'finalization_committed', turnId: active.turnId },
   ));
   // Browser sessions are turn-scoped evidence collectors. Closing them here is
   // deterministic lifecycle work and must not consume another provider/review step.
   await faults.capture('cleanup', () => engine.tools?.close?.());
-  engine.active = null;
-  const work = engine.work?.snapshot();
-  if (work && (work.goal || work.tasks.length > 0)) {
-    await faults.capture('persistence', () => operations.persist('work_state', work));
-  }
-  // Each snapshot follows a fault boundary, so later consumers see failures discovered there.
-  const terminalBeforePersistence = terminalRecord(engine, active, faults.outcome, text, faults.primary, faults.secondary);
-  await faults.capture('persistence', () => operations.persist('turn_outcome', terminalBeforePersistence));
-  faults.latchCommit();
+  if (engine.state.state === 'idle') engine.active = null;
   const terminalBeforeOutput = terminalRecord(engine, active, faults.outcome, text, faults.primary, faults.secondary);
   await faults.capture('output', () => engine.output(terminalBeforeOutput));
   return terminalRecord(engine, active, faults.outcome, text, faults.primary, faults.secondary);
