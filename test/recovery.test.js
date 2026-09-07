@@ -164,6 +164,15 @@ test('low-pressure no-progress recovery does not substitute compaction for corre
   assert.equal(recovery.noProgress('schema', null, {}, { allowCompaction: false }).action.action, 'nudge');
 });
 
+test('structured completion gates stop at their local recovery boundary', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 2 });
+  const first = recovery.continuation('unresolved_reviewed_tool_outcome');
+  const second = recovery.continuation('unresolved_reviewed_tool_outcome');
+  assert.equal(first.continue, true);
+  assert.equal(second.continue, false);
+  assert.equal(second.exhausted, true);
+});
+
 test('content-free provider completions remain non-terminal with bounded distinct recovery', () => {
   const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
   const plans = Array.from({ length: 12 }, () => recovery.providerUnusableCompletion(
@@ -1181,7 +1190,7 @@ test('AC-PROD-03/AC-TURN-10 truncated useful output is preserved and continued',
   assert.equal(result.recovery[0].action, 'retry_continuation');
 });
 
-test('a typed terminal declaration commits the retained response without regenerating it', async () => {
+test('a settled tool turn accepts one clean final response without a declaration round trip', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-retained-terminal-response-'));
   await writeFile(join(root, 'target.txt'), 'verified evidence', 'utf8');
   const requests = [];
@@ -1198,10 +1207,7 @@ test('a typed terminal declaration commits the retained response without regener
       yield { type: 'terminal', finishReason: 'stop' };
       return;
     }
-    assert.ok(request.messages.some((item) => item.role === 'system'
-      && item.content.includes('do not repeat it; call only turn_finish')));
-    assert.deepEqual(request.toolChoice, { type: 'function', function: { name: 'turn_finish' } });
-    yield* finishCall('completed');
+    throw new Error('a settled clean response must not trigger another provider request');
   } };
   const engine = new RuntimeSessionEngine({
     config: config(root), providerFactory: () => provider,
@@ -1214,7 +1220,10 @@ test('a typed terminal declaration commits the retained response without regener
 
   assert.equal(result.outcome, 'completed');
   assert.equal(result.text, finalText);
-  assert.equal(requests.length, 3);
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].toolChoice, undefined);
+  assert.equal(result.completion_evidence.tool_requests, 1);
+  assert.equal(result.completion_evidence.succeeded, 1);
   assert.equal(output.filter((item) => item.type === 'stream_delta'
     && item.text === finalText).length, 1);
   assert.deepEqual(engine.transcript.filter((item) => item.type === 'message'

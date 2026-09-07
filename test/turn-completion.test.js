@@ -9,7 +9,8 @@ function definition() {
 
 test('turn_finish states the conditional reason and question contract on the provider surface', () => {
   const tool = definition();
-  assert.match(tool.purpose, /Omit reason_code and question/u);
+  assert.match(tool.purpose, /Ordinary clean completion requires no declaration/u);
+  assert.match(tool.purpose, /forbids reason_code and question/u);
   assert.match(tool.inputSchema.properties.reason_code.description, /Forbidden for completed and needs_input/u);
   assert.match(tool.inputSchema.properties.question.description, /Forbidden for every other outcome/u);
 });

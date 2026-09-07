@@ -37,9 +37,6 @@ export function providerRequest(engine, route, context, options = {}) {
   const request = Object.freeze({
     model: route.model, messages: flattenedMessages,
     tools, temperature: route.temperature, toolCallMode,
-    ...(options.terminalDeclarationOnly ? {
-      toolChoice: Object.freeze({ type: 'function', function: Object.freeze({ name: 'turn_finish' }) }),
-    } : {}),
     ...(toolCallMode === 'single' ? { parallelToolCalls: false } : {}),
     maxOutputTokens: boundedOutputTokens(route.maxOutputTokens, options.outputReserveTokens),
     ...(reasoning.reasoningEffort === undefined ? {} : { reasoningEffort: reasoning.reasoningEffort }),
@@ -299,7 +296,6 @@ export function modelStepRequestOptions(reasoningMode, active) {
     conversationIntent: active.conversationIntent,
     approvedProposal: active.approvedProposal,
     capabilityPhase: active.capabilityPhase,
-    terminalDeclarationOnly: active.provisionalFinal !== null,
     active,
   };
 }

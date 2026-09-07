@@ -13,12 +13,6 @@ export function carriedReviewerRequestIds(transcript) {
     .map((item) => item?.request_id).filter((value) => typeof value === 'string' && value.length > 0));
 }
 
-export function terminalContinuationRequired(transcript) {
-  if (!Array.isArray(transcript)) return false;
-  const terminal = [...transcript].reverse().find((item) => item?.type === 'turn_outcome');
-  return CARRIED_OUTCOMES.has(terminal?.outcome);
-}
-
 export function refreshReviewerCompletion(engine, active) {
   const state = engine.ledger.completionState({
     turnIds: [active.turnId], requestIds: active.carriedReviewerRequestIds,

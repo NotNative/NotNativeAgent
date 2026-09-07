@@ -43,10 +43,10 @@ test('executor output bounding preserves the original byte count and projection 
   assert.equal(result.metadata.projectionReason, 'tool_output_bound');
 });
 
-test('pending plan completion passes through every terminal evidence gate', () => {
+test('pending plan completion accepts its final deliverable while other evidence gates remain active', () => {
   const work = { pendingCompletion: { goal: { status: 'completed' } }, goal: { status: 'active' }, tasks: [] };
   const completed = { terminalDeclaration: { outcome: 'completed' } };
-  assert.equal(evaluateCompletion({}, 'report', work).disposition, 'incomplete');
+  assert.equal(evaluateCompletion({}, 'report', work).disposition, 'completed');
   for (const outcome of ['blocked', 'needs_input', 'failed', 'incomplete', 'completed']) {
     assert.equal(evaluateCompletion({ terminalDeclaration: { outcome } }, 'report', work).disposition, outcome);
   }
@@ -100,13 +100,13 @@ test('terminal persistence failure leaves the turn non-idle and emits no complet
   assert.equal(output.length, 0);
 });
 
-test('a response candidate is not admitted to turn memory before its journal append', async () => {
+test('an obligation-gated response candidate is not admitted before its journal append', async () => {
   const active = {
     turnId: 'turn', stepId: 'step', stepText: 'Durable answer.', provisionalFinal: null,
   };
   const failure = Object.assign(new Error('injected candidate flush failure'), { code: 'persistence_failed' });
   await assert.rejects(persistSupervisedResponse(
-    active, { category: 'terminal_declaration_required' }, async () => { throw failure; },
+    active, { category: 'fixture_gate', preserveCandidate: true }, async () => { throw failure; },
   ), failure);
   assert.equal(active.provisionalFinal, null);
 });

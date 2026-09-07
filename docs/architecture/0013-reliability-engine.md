@@ -124,8 +124,9 @@ public package entry point and exports the current names without historical alia
 16. Completion supervision treats provider-reported output usage at the exact requested ceiling
     as truncation even when a compatible provider labels the finish `stop`. Completion claims,
     future-action phrases, questions, and blocker language are content-free telemetry advisories;
-    none can select a terminal state. The model must declare its disposition through `turn_finish`,
-    and deterministic engine evidence may reject that declaration and continue recovery.
+    none can select a terminal state. A clean provider stop ends the turn when no structured
+    obligation remains. Deterministic engine evidence may reject a typed declaration and continue
+    bounded recovery.
 17. Browser evidence records its verification route. Rendering a workspace path through NNA's
     managed HTTP origin does not prove that the artifact works through a direct `file://` or
     double-click launch route.
@@ -152,23 +153,21 @@ public package entry point and exports the current names without historical alia
     terminal blocker, bounded incompletion, and model-reported failure. A typed blocked,
     incomplete, or failed declaration may honestly end a turn without falsifying durable work;
     unfinished tasks remain unfinished and retain their bounded reasons.
-24. `turn_finish` records a structured model declaration of `completed`, `blocked`, `incomplete`,
-    `failed`, or `needs_input`. Reliability validates the declaration against durable work,
-    unresolved failures, and current evidence. The declaration grants no authority and cannot
-    override contradictory engine state. Authenticated steering invalidates an earlier declaration.
-    The engine alone owns `denied`, `cancelled`, and `limit_reached`. The bookkeeping-only
-    declaration step remains auditable but does not consume the productive model-step budget.
-25. After `turn_finish`, the final-response checkpoint receives a bounded machine-derived evidence
-    ledger with actual tool request/result counts, successful unique file reads, verification calls,
-    and tool names. The same ledger is stored in the terminal record. It constrains mechanical scope
-    claims without attempting to infer or grade nuanced prose conclusions.
-26. Engine-managed turns do not infer completion from a provider's clean prose stop after any tool
-    use or while continuing a prior blocked, failed, incomplete, or needs-input turn. Those terminal
-    dispositions pass through `turn_finish`. This adds one protocol call only where structured work
-    state exists and avoids keyword inference: the supervisor compares the typed declaration with
-    reviewer-ledger, tool, visual, and optional durable-work evidence. A prose-only stop in such a
-    turn receives a bounded continuation instruction and cannot return the engine to idle. An
-    ordinary response-only conversation retains the clean-stop compatibility path.
+24. `turn_finish` optionally records `completed`, `blocked`, `incomplete`, `failed`, or
+    `needs_input` when the model must express a non-default disposition or answer an explicit
+    completion gate. Reliability validates the declaration against durable work, unresolved
+    failures, and current evidence. The declaration grants no authority and cannot override
+    contradictory engine state. Authenticated steering invalidates an earlier declaration. The
+    engine alone owns `denied`, `cancelled`, and `limit_reached`. An optional bookkeeping step
+    remains auditable but does not consume the productive model-step budget.
+25. Each settled tool batch refreshes a bounded machine-derived evidence ledger with actual tool
+    request/result counts, successful unique file reads, verification calls, and tool names. The
+    next model step receives the ledger, and the terminal record stores it. This constrains
+    mechanical scope claims without attempting to infer or grade nuanced prose conclusions.
+26. Engine-managed turns accept a clean provider stop after tool use when the reviewer ledger,
+    tool failures, durable work, visual evidence, transport state, and steering expose no concrete
+    obligation. Tool use alone never creates a second terminal protocol. Each remaining structured
+    obligation supplies one specific continuation category with a local recovery bound.
 27. Long-horizon continuation refresh is independent of context-window pressure. After eight
     settled turns without a newer compaction checkpoint, the engine compacts the provider-facing
     hot working set while retaining the complete transcript and evidence in the durable journal.

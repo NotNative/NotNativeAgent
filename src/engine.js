@@ -40,13 +40,12 @@ import { changeEngineWorkspace, restoreEngineWorkspace } from './engine/workspac
 import { continueAfterExactToolBoundary } from './engine/tool-recovery.js';
 import { updateToolFailures } from './engine/tool-failures.js';
 import { continueAfterTerminalDeclaration, persistSupervisedResponse } from './engine/terminal-declaration.js';
-import { carriedReviewerRequestIds, refreshReviewerCompletion, reviewerCompletionHint, terminalContinuationRequired } from './engine/reviewer-completion.js';
+import { completionEvidence, completionEvidenceHint } from './engine/completion-evidence.js';
+import { carriedReviewerRequestIds, refreshReviewerCompletion, reviewerCompletionHint } from './engine/reviewer-completion.js';
 export class SessionEngine {
-  state = new StateAuthority();
-  lifecycles = new LifecycleRegistry();
+  state = new StateAuthority(); lifecycles = new LifecycleRegistry();
   authority = new AuthorityRecord();
-  transcript = [];
-  steering = [];
+  transcript = []; steering = [];
   recoveryNotices = [];
   active = null;
   constructor(options) {
@@ -113,7 +112,7 @@ export class SessionEngine {
     if (this.state.state !== 'idle') return this.#rejectBusy(command);
     const turn = this.lifecycles.start('turn');
     this.active = createActiveTurn(turn.id, command.request_id, this.config.recovery, this.reliability);
-    const active = this.active; active.carriedReviewerRequestIds = carriedReviewerRequestIds(this.transcript); active.terminalDeclarationRequired = terminalContinuationRequired(this.transcript);
+    const active = this.active; active.carriedReviewerRequestIds = carriedReviewerRequestIds(this.transcript);
     active.enrichment.skills = this.skills.beginTurn();
     let operation;
     try {
@@ -323,14 +322,14 @@ export class SessionEngine {
       await this.#persist('message', assistantMessage(active.turnId, active.stepText, { stepId: active.stepId }));
       active.committedStepText = active.stepText;
     }
-    active.terminalDeclarationRequired = true; const items = await this.toolLoop.process(calls, active); const trustedHandoff = prepareTrustedToolHandoff(this, items);
+    const items = await this.toolLoop.process(calls, active); const trustedHandoff = prepareTrustedToolHandoff(this, items);
     const delegatedAccounting = items.map((item) => item.result?.metadata?.token_accounting).filter(Boolean);
     if (delegatedAccounting.length > 0) active.delegatedTokenAccounting = this.reliability.combineTokenAccounting([
       active.delegatedTokenAccounting, ...delegatedAccounting,
     ]); observeToolContracts(this, active, items);
     active.toolConstraints = mergeToolConstraints(active.toolConstraints, items);
     this.tools.grantWorkflowLease(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean), { source: 'tool_constraint' });
-    updateToolFailures(active, items); refreshReviewerCompletion(this, active);
+    updateToolFailures(active, items); refreshReviewerCompletion(this, active); active.completionEvidence = completionEvidence(this.transcript, active.turnId);
     const steeringApplied = await this.#consumeSteering(active);
     const declaration = await continueAfterTerminalDeclaration(this, active, items, trustedHandoff, (outcome) => this.#settleStep(active, outcome));
     if (declaration) return declaration;
@@ -347,7 +346,7 @@ export class SessionEngine {
     if (!progress.continue) return continueAfterExactToolBoundary(this, active, items, progress, (action) => this.#recordRecovery(action, active));
     this.state.transition('preparing_continuation', { trigger: 'tool_results_committed', turnId: active.turnId });
     const outcomeHint = reviewerCompletionHint(active.reviewerCompletion); return { continue: true,
-      hint: [trustedHandoff?.hint ?? toolContinuationHint(items, this.reliability.hint(behavioralAction) ?? this.reliability.hint(progress.action)), outcomeHint].filter(Boolean).join('\n\n'),
+      hint: [trustedHandoff?.hint ?? toolContinuationHint(items, this.reliability.hint(behavioralAction) ?? this.reliability.hint(progress.action)), outcomeHint, completionEvidenceHint(active.completionEvidence)].filter(Boolean).join('\n\n'),
       forceCompact: progress.action?.action === 'compact' || behavioralAction?.action === 'compact' };
   }
   async #afterTextStep(active) {
@@ -372,6 +371,7 @@ export class SessionEngine {
     if (advisories.length > 0) this.telemetry?.record('completion.language_advisory', 'observed', {
       signals: advisories, declaration_present: Boolean(active.terminalDeclaration),
     }, { turnId: active.turnId, stepId: active.stepId }); refreshReviewerCompletion(this, active);
+    active.completionEvidence = completionEvidence(this.transcript, active.turnId);
     const supervised = this.reliability.evaluateCompletion(active, active.stepText, this.work?.snapshot());
     if (supervised.disposition !== 'continue') return { continue: false, text: active.stepText, outcome: supervised.disposition };
     if (supervised.obligation) active.completionObligation = supervised.obligation;

@@ -59,7 +59,7 @@ test('an unresolved tool failure cannot disappear behind calm prose or a complet
     recovery: { actions: [] }, terminalDeclaration: { outcome: 'completed' },
   };
   assert.deepEqual(evaluateCompletion(active, 'The remaining report is calm.'), {
-    disposition: 'continue', category: 'unresolved_tool_failure', progressEvidence: null,
+    disposition: 'continue', category: 'unresolved_tool_failure', required: true, progressEvidence: null,
   });
   active.terminalDeclaration = null;
   assert.deepEqual(evaluateCompletion(active, 'No authorized route remains.'), {
@@ -99,16 +99,14 @@ test('reviewer-ledger evidence prevents a clean stop from hiding an unresolved t
   });
 });
 
-test('engine protocol requires a typed terminal declaration instead of accepting a promise-only stop', () => {
+test('settled structured state accepts a clean stop after tool use without self-attestation', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
     correctableToolFailures: [], recovery: { actions: [] }, reviewerCompletion: null,
-    terminalDeclarationRequired: true,
   };
   const result = evaluateCompletion(active, 'Writing the files now, starting with the index.');
-  assert.equal(result.disposition, 'continue');
-  assert.equal(result.category, 'terminal_declaration_required');
-  assert.match(result.hint, /Perform any remaining action now/u);
+  assert.equal(result.disposition, 'completed');
+  assert.equal(result.category, 'settled_output');
   active.terminalDeclaration = { outcome: 'completed' };
   assert.deepEqual(evaluateCompletion(active, 'The requested response is complete.'), {
     disposition: 'completed', category: 'declared_completion',

@@ -26,11 +26,12 @@ export function evaluateCompletion(active, text, work = null) {
       return Object.freeze({ disposition: declaration.outcome, category: 'declared_tool_failure' });
     }
     if (!declaration) return Object.freeze({ disposition: 'incomplete', category: 'terminal_declaration_missing' });
-    return Object.freeze({ disposition: 'continue', category: 'unresolved_tool_failure', progressEvidence: null });
+    return Object.freeze({ disposition: 'continue', category: 'unresolved_tool_failure', required: true, progressEvidence: null });
   }
   if ((active.correctableToolFailures?.length ?? 0) > 0
-    && declaration?.outcome === 'completed' && !exactRequestWasBounded(active)) {
-    return Object.freeze({ disposition: 'continue', category: 'uncorrected_tool_request', progressEvidence: null });
+    && !['blocked', 'incomplete', 'failed', 'needs_input'].includes(declaration?.outcome)
+    && !exactRequestWasBounded(active)) {
+    return Object.freeze({ disposition: 'continue', category: 'uncorrected_tool_request', required: true, progressEvidence: null });
   }
   const visualGate = visualEvidenceGate(active.visualEvidence, declaration);
   if (visualGate) return visualGate;
@@ -39,18 +40,8 @@ export function evaluateCompletion(active, text, work = null) {
   if (declaration?.outcome === 'incomplete') return Object.freeze({ disposition: 'incomplete', category: 'declared_incomplete' });
   if (declaration?.outcome === 'failed') return Object.freeze({ disposition: 'failed', category: 'declared_failure' });
   if (declaration?.outcome === 'completed') return Object.freeze({ disposition: 'completed', category: 'declared_completion' });
-  if (active.terminalDeclarationRequired === true) {
-    // Why: a prose stop cannot distinguish a finished response from a promise to act.
-    // The protocol declaration gives the deterministic supervisor a typed outcome that
-    // it can compare with reviewer, tool, visual, and durable-work evidence.
-    return Object.freeze({
-      disposition: 'continue', category: 'terminal_declaration_required', required: true,
-      progressEvidence: null,
-      hint: 'Do not stop on prose alone. Perform any remaining action now. If your preceding response already contains the complete user-facing answer, do not repeat it; call only turn_finish with the truthful outcome. The harness retained that response and will commit it after the declaration passes.',
-    });
-  }
-  // A clean provider stop is sufficient to complete an ordinary conversational turn.
-  // This compatibility path is used only by callers that do not opt into the engine protocol.
+  // Invariant: a clean provider stop completes the turn when no structured gate remains.
+  // Tool use alone never creates a second terminal protocol or a model self-attestation duty.
   return Object.freeze({ disposition: 'completed', category: 'settled_output' });
 }
 
@@ -75,7 +66,7 @@ function visualEvidenceGate(evidence, declaration) {
   if (!evidence || evidence.verdict === 'pass' || declaration?.outcome !== 'completed') return null;
   if (evidence.verdict === 'minor_caveat') return null;
   return Object.freeze({
-    disposition: 'continue', category: 'visual_evidence_conflict', progressEvidence: null,
+    disposition: 'continue', category: 'visual_evidence_conflict', required: true, progressEvidence: null,
     hint: 'The latest image_inspect verdict does not support an absolute visual-pass claim. DOM inspection, console output, and textual reasoning cannot supersede visible evidence. Either obtain a newer screenshot and image_inspect verdict after a material change, or finish with a qualified description of the remaining visible caveat. Do not claim that artifacts are absent without newer visual evidence.',
   });
 }
@@ -146,9 +137,9 @@ function claimsCompletion(text) {
 function unfinishedWorkGate(work, declaration) {
   const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
   if (work?.pendingCompletion) {
-    // Why: staging a plan is bookkeeping, not evidence that terminal checks passed.
-    return declaration ? null
-      : Object.freeze({ disposition: 'incomplete', category: 'terminal_declaration_missing' });
+    // Why: the final assistant response is the deliverable that commits staged work completion.
+    // Requiring a second declaration would make bookkeeping a liveness dependency.
+    return null;
   }
   const unfinished = tasks.filter((task) => task.status !== 'completed');
   const goalActive = work?.goal?.status === 'active';
@@ -166,7 +157,6 @@ function unfinishedWorkGate(work, declaration) {
   if (['blocked', 'incomplete', 'failed'].includes(declaration?.outcome)) {
     return Object.freeze({ disposition: declaration.outcome, category: `active_work_declared_${declaration.outcome}` });
   }
-  if (!declaration) return Object.freeze({ disposition: 'incomplete', category: 'terminal_declaration_missing' });
   const summary = `${unfinished.length} unfinished task(s); goal ${goalActive ? 'active' : 'settled'}; work revision ${work?.revision ?? 0}`;
   return Object.freeze({
     disposition: 'continue', category: 'unfinished_conversation_work', required: true,

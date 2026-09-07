@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { resolveManifest } from '../src/config.js';
 import { SessionEngine } from '../src/engine.js';
-import { carriedReviewerRequestIds, reviewerCompletionHint, terminalContinuationRequired } from '../src/engine/reviewer-completion.js';
+import { carriedReviewerRequestIds, reviewerCompletionHint } from '../src/engine/reviewer-completion.js';
 
 const unresolved = Object.freeze({
   schema: 'nna.reviewer-completion.v1', unresolved_count: 1,
@@ -22,10 +22,6 @@ test('only a non-completed latest turn carries unresolved reviewed tool outcomes
   assert.deepEqual(carriedReviewerRequestIds([
     ...blocked, { type: 'turn_outcome', outcome: 'completed', reviewer_completion: unresolved },
   ]), []);
-  assert.equal(terminalContinuationRequired(blocked), true);
-  assert.equal(terminalContinuationRequired([
-    ...blocked, { type: 'turn_outcome', outcome: 'completed', reviewer_completion: unresolved },
-  ]), false);
 });
 
 test('reviewer completion guidance is bounded structured state, not inferred prose', () => {

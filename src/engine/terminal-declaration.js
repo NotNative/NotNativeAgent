@@ -5,7 +5,7 @@ import { refreshReviewerCompletion } from './reviewer-completion.js';
 import { assistantMessage, responseCandidateRecord } from './records.js';
 
 export async function persistSupervisedResponse(active, supervised, persist) {
-  if (supervised.category === 'terminal_declaration_required') {
+  if (supervised.preserveCandidate === true) {
     const candidate = responseCandidateRecord(active.turnId, active.stepText, active.stepId);
     await persist('response_candidate', candidate);
     // Invariant: memory learns about the candidate only after the journal accepts it.

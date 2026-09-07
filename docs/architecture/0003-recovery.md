@@ -46,13 +46,11 @@ with a changed recovery hint. A failed health check keeps the cancellable wait a
 successful check permits the next attempt. Authenticated steering wakes the wait and resets the
 episode. Content-free attempts do not consume the productive model-step ceiling.
 
-Uncertain task progress is supervisory evidence rather than a terminal condition: after the
-configured nudge/compaction ladder, recovery escalates through reassessment, a materially
-different strategy, and explicit recovery of the authenticated conversation objective.
-Completion promises, unfinished optional plans, and other ambiguous progress signals may
-therefore continue until fresh evidence settles them or the absolute model-step boundary
-is reached. An unchanged tool request and observable effect is stronger evidence; it ends
-only after a patient exact-no-effect ceiling of at least twelve identical episodes.
+Uncertain task progress is supervisory evidence rather than a terminal condition. Structured
+unfinished work and unsettled tool effects receive category-specific recovery. Completion
+promises and other prose signals remain diagnostic advisories and cannot extend a turn. An
+unchanged tool request and observable effect is stronger evidence; it ends only after a patient
+exact-no-effect ceiling of at least twelve identical episodes.
 
 Every authenticated user turn creates a fresh supervisor, so progress fingerprints,
 episode counts, and recovery actions never carry into the next turn. Distinct repeated
@@ -112,8 +110,9 @@ for primary or delegated model work.
 
 The configured model-step ceiling remains a final bounded guard (1,024 productive steps by default), so a
 long build can exceed dozens of useful tool steps without being mistaken for a loop.
-The protocol-only `turn_finish` declaration has a lifecycle receipt but does not consume that
-productive budget. Reaching the guard yields the engine-owned `limit_reached` outcome.
+An optional protocol-only `turn_finish` declaration has a lifecycle receipt but does not consume
+that productive budget. Tool use does not require the declaration when all structured obligations
+are settled. Reaching the guard yields the engine-owned `limit_reached` outcome.
 Explicit mission deadlines and budgets, cancellation, security/authority denials, the model-step
 ceiling, and irrecoverable runtime failures remain terminal boundaries. Attention parking does not
 weaken or defer those boundaries; abort signals wake a parked turn immediately.
