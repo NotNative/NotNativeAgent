@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:37127b604bd5f81aea48b8b66427a067051c873cd8df7f6344ff4900deca4468",
+  "source_digest": "sha256:1617e3f875f6371ef716b85eee3bab966f5dd18d4709d7c47467d18582f09863",
   "counts": {
     "modules": 343,
     "component_edges": 70
@@ -226,12 +226,6 @@
       "module_count": 8
     },
     {
-      "from": "experience-engine",
-      "to": "persistence",
-      "import_count": 8,
-      "module_count": 7
-    },
-    {
       "from": "foundation",
       "to": "experience-engine",
       "import_count": 8,
@@ -260,6 +254,12 @@
       "to": "providers",
       "import_count": 7,
       "module_count": 2
+    },
+    {
+      "from": "experience-engine",
+      "to": "persistence",
+      "import_count": 7,
+      "module_count": 7
     },
     {
       "from": "gateway",
@@ -334,6 +334,12 @@
       "module_count": 3
     },
     {
+      "from": "experience-engine",
+      "to": "agentic-engine",
+      "import_count": 3,
+      "module_count": 3
+    },
+    {
       "from": "foundation",
       "to": "integrations",
       "import_count": 3,
@@ -374,12 +380,6 @@
       "to": "persistence",
       "import_count": 3,
       "module_count": 3
-    },
-    {
-      "from": "experience-engine",
-      "to": "agentic-engine",
-      "import_count": 2,
-      "module_count": 2
     },
     {
       "from": "experience-engine",
@@ -1237,7 +1237,6 @@
       "entrypoint": false,
       "imports": [
         "src/experience/transcript.js",
-        "src/persistence/session-history.js",
         "src/store.js"
       ]
     },
@@ -1410,6 +1409,7 @@
       "component": "experience-engine",
       "entrypoint": false,
       "imports": [
+        "src/engine/records.js",
         "src/ids.js"
       ]
     },

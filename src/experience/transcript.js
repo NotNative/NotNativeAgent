@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
+import { presentedToolTarget } from '../engine/records.js';
 
 const RECORD = Object.freeze({ message: 'message', outcome: 'turn_outcome' });
 const ROLE = Object.freeze({ assistant: 'assistant', user: 'user' });
@@ -7,6 +8,41 @@ const EVENT = Object.freeze({ input: 'user_input', delta: 'stream_delta', result
 
 export function restoreTranscript(projection, sessionId, transcript) {
   for (const event of transcriptEvents(transcript)) projection.apply(sessionId, event);
+}
+
+export function restoreDurablePresentation(projection, sessionId, journalRecords, transcript, options = {}) {
+  const events = Array.isArray(journalRecords) && journalRecords.length > 0
+    ? journalEvents(journalRecords, options) : transcriptEvents(transcript);
+  for (const event of events) projection.apply(sessionId, event);
+}
+
+export function journalEvents(records, options = {}) {
+  if (!Array.isArray(records)) throw new ContractError('transcript_invalid', 'saved journal must be an array');
+  const source = presentationSource(records, options.truncated === true);
+  const requests = new Map();
+  const committedCandidates = committedCandidateKeys(source);
+  const events = [];
+  for (const record of source) {
+    validateJournalRecord(record);
+    const item = record.payload;
+    if (record.type === 'conversation_cleared') { events.length = 0; requests.clear(); continue; }
+    if (record.type === 'tool_request') {
+      requests.set(item.requestId ?? item.providerCallId, item);
+      if (item.providerCallId) requests.set(item.providerCallId, item);
+      continue;
+    }
+    if (record.type === 'message') appendMessageEvent(events, item);
+    else if (record.type === 'steering_consumed') appendMessageEvent(events, item.message);
+    else if (record.type === 'response_candidate' && !committedCandidates.has(candidateKey(item))) {
+      events.push({ type: EVENT.delta, turn_id: turnIdentity(item), text: item.content,
+        historical_message: true, provisional: true });
+    } else if (record.type === 'tool_result') events.push(historicalToolEvent(item, requests));
+    else if (record.type === 'turn_outcome') events.push({ ...item, type: EVENT.result, turn_id: turnIdentity(item) });
+    else if (record.type === 'turn_interrupted') events.push(interruptedTurnEvent(item));
+    else if (record.type === 'compaction') events.push(compactionEvent(item));
+    else if (record.type === 'compaction_snapshot') events.push(compactionEvent(item.fact));
+  }
+  return events;
 }
 
 export function transcriptEvents(transcript) {
@@ -45,6 +81,79 @@ export function transcriptEvents(transcript) {
     }
   }
   return events;
+}
+
+function presentationSource(records, truncated) {
+  if (!truncated) return records;
+  const boundary = records.findIndex((record) => record?.type === 'compaction_snapshot'
+    && Array.isArray(record.payload?.records));
+  if (boundary < 0) return records;
+  const snapshot = records[boundary].payload;
+  const seeded = snapshot.records.map((payload) => ({ type: payload.type, payload }));
+  seeded.push({ type: 'compaction', payload: snapshot.fact });
+  return [...seeded, ...records.slice(boundary + 1)];
+}
+
+function committedCandidateKeys(records) {
+  return new Set(records.filter((record) => record?.type === 'message'
+    && record.payload?.role === ROLE.assistant).map((record) => candidateKey(record.payload)));
+}
+
+function candidateKey(item) {
+  return `${turnIdentity(item) ?? ''}\u0000${item?.stepId ?? ''}\u0000${item?.content ?? ''}`;
+}
+
+function appendMessageEvent(events, item) {
+  validateTranscriptItem(item);
+  if (item.role === ROLE.user) events.push({ type: EVENT.input, text: item.content });
+  else if (item.role === ROLE.assistant) events.push({
+    type: EVENT.delta, turn_id: turnIdentity(item), text: item.content, historical_message: true,
+  });
+}
+
+function historicalToolEvent(item, requests) {
+  const request = requests.get(item.requestId) ?? requests.get(item.providerCallId) ?? null;
+  return {
+    type: 'tool_status', turn_id: turnIdentity(item),
+    tool_request_id: item.requestId ?? null, provider_call_id: item.providerCallId ?? null,
+    tool: item.toolName ?? request?.toolName ?? 'unknown_tool', status: item.status,
+    target: presentedToolTarget(item.toolName ?? request?.toolName, request?.args),
+    elapsed_ms: item.elapsedMs ?? null, effect_certainty: item.effectCertainty ?? null,
+    reason_code: item.reasonCode ?? null,
+    observation_outcome: item.metadata?.observation_outcome ?? null,
+    diagnostic_outcome: item.metadata?.diagnosticOutcome ?? null,
+    diagnostic_visibility: item.metadata?.diagnosticVisibility ?? null,
+  };
+}
+
+function compactionEvent(fact) {
+  const projection = fact?.projection ?? {};
+  return {
+    type: 'context_compaction_status', status: 'completed', historical: true,
+    before_estimated_tokens: byteTokenEstimate(projection.originalBytes),
+    after_estimated_tokens: byteTokenEstimate(projection.projectedBytes),
+    retained_records: fact?.retainedRecords?.length ?? 0,
+    protected_turns: projection.protectedTurnCount ?? 0,
+    payload_compacted_records: projection.payloadCompactedRecords ?? 0,
+  };
+}
+
+function interruptedTurnEvent(item) {
+  return {
+    type: EVENT.result, turn_id: turnIdentity(item), outcome: 'failed', partial: true,
+    failure: { code: item.reason ?? 'process_interrupted' },
+  };
+}
+
+function byteTokenEstimate(bytes) {
+  return Number.isFinite(bytes) ? Math.ceil(bytes / 3) : null;
+}
+
+function validateJournalRecord(record) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)
+    || typeof record.type !== 'string' || !record.payload || typeof record.payload !== 'object') {
+    throw new ContractError('transcript_record_invalid', 'saved journal contains an invalid record');
+  }
 }
 
 function turnIdentity(item) {

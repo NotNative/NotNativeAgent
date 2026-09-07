@@ -48,6 +48,7 @@ async function restoreDurableEngine(engine, operations) {
     throw new ContractError('journal_corrupt', `verified prefix preserved at ${recovered.recoveryPath}`);
   }
   assertResumeProvenance(recovered.headerRecords, engine.config.executionManifest, engine.config.mission);
+  engine.restoredJournalRecords = recovered.records;
   engine.resumeBoundary = { beforeSequence: recovered.records[0]?.sequence ?? null, hasMore: recovered.truncated };
   const interrupted = await operations.restore(recovered.records, recovered.truncated);
   engine.attachments.restore(recovered.records);

@@ -40,11 +40,24 @@ export async function compactWorkspaceConversation(workspace, sessionId, options
 }
 
 function refreshProjectedContext(workspace, projected, session, result) {
-  resetProjectedTranscript(workspace, projected, session);
+  workspace.projection.apply(session.id, historicalCompactionEvent(result));
   if (Number.isFinite(result.afterBytes)) {
     projected.contextBytes = result.afterBytes;
     projected.contextTokens = Math.ceil(result.afterBytes / ESTIMATED_BYTES_PER_TOKEN);
   }
+}
+
+function historicalCompactionEvent(result) {
+  return {
+    type: 'context_compaction_status', status: 'completed', historical: true,
+    before_estimated_tokens: tokenEstimate(result.beforeBytes),
+    after_estimated_tokens: tokenEstimate(result.afterBytes),
+    retained_records: result.retained, payload_compacted_records: result.reduced,
+  };
+}
+
+function tokenEstimate(bytes) {
+  return Number.isFinite(bytes) ? Math.ceil(bytes / ESTIMATED_BYTES_PER_TOKEN) : null;
 }
 
 function resetProjectedTranscript(workspace, projected, session) {

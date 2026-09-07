@@ -19,7 +19,7 @@ import {
   manageWebSearch, removeWebSearchDeployment, resetWebSearch, setPrimaryWebSearchProfile, webSearchStatus,
 } from './experience/websearch.js';
 import { nextReviewPosture, reviewPostureNotice } from './review-posture.js';
-import { restoreTranscript } from './experience/transcript.js';
+import { restoreDurablePresentation } from './experience/transcript.js';
 import { restorePresentation, tabPoolRecords } from './experience/presentation.js';
 import { createNextConversation, createWorkspaceConversation, observeWorkspaceChange } from './experience/directory.js';
 import { restoreWorkspace } from './experience/restore.js';
@@ -129,7 +129,9 @@ export class ExperienceEngine {
       workspace: sessionConfig.workspaceRoot,
     }), role);
     this.projection.sessions.get(sessionId).commandCapabilities = { memoryAvailable: engine.memory.enabled, mcpReady: engine.mcp.status().some((item) => item.state === 'ready') };
-    restoreTranscript(this.projection, sessionId, engine.transcript);
+    restoreDurablePresentation(this.projection, sessionId, engine.restoredJournalRecords, engine.transcript, {
+      truncated: engine.resumeBoundary?.hasMore === true,
+    });
     this.projection.sessions.get(sessionId).work = engine.workStatus();
     Object.assign(this.projection.sessions.get(sessionId), engine.resumeBoundary ?? { beforeSequence: null, hasMore: false });
     restorePresentation(this.projection.sessions.get(sessionId), engine, options.presentation);

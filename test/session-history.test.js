@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { restoreSessionRecords } from '../src/persistence/session-history.js';
-import { transcriptEvents } from '../src/experience/transcript.js';
+import { journalEvents, transcriptEvents } from '../src/experience/transcript.js';
 
 test('AC-SESS-02 semantic transcript preserves partial text, tool pairs, compaction, and exact outcome order', () => {
   const records = [
@@ -30,6 +30,54 @@ test('AC-SESS-02 semantic transcript preserves partial text, tool pairs, compact
 test('transcript projection rejects malformed records with a stable error', () => {
   assert.throws(() => transcriptEvents([null]), { code: 'transcript_record_invalid' });
   assert.throws(() => transcriptEvents(null), { code: 'transcript_invalid' });
+});
+
+test('durable journal projection restores tool activity, checkpoints, and one committed response', () => {
+  const records = [
+    record('message', { type: 'message', role: 'user', content: 'Inspect it.', turnId: 'turn-1' }),
+    record('tool_request', {
+      type: 'tool_request', turnId: 'turn-1', requestId: 'request-1',
+      providerCallId: 'call-1', toolName: 'fs_read_text', args: { path: 'target.txt' },
+    }),
+    record('tool_result', {
+      type: 'tool_result', turnId: 'turn-1', requestId: 'request-1', providerCallId: 'call-1',
+      toolName: 'fs_read_text', status: 'succeeded', effectCertainty: 'known', elapsedMs: 12,
+    }),
+    record('response_candidate', {
+      type: 'response_candidate', role: 'assistant', content: 'Inspection complete.',
+      turnId: 'turn-1', stepId: 'step-answer',
+    }),
+    record('message', {
+      type: 'message', role: 'assistant', content: 'Inspection complete.',
+      turnId: 'turn-1', stepId: 'step-answer', partial: false,
+    }),
+    record('compaction', {
+      type: 'compaction', retainedRecords: [{ type: 'message' }],
+      projection: { originalBytes: 3_000, projectedBytes: 1_500, payloadCompactedRecords: 1 },
+    }),
+    record('turn_outcome', { turn_id: 'turn-1', outcome: 'completed' }),
+  ];
+
+  const projected = journalEvents(records);
+  assert.deepEqual(projected.map((item) => item.type), [
+    'user_input', 'tool_status', 'stream_delta', 'context_compaction_status', 'turn_result',
+  ]);
+  assert.equal(projected[1].target, 'target.txt');
+  assert.equal(projected.filter((item) => item.type === 'stream_delta').length, 1);
+  assert.equal(projected[3].before_estimated_tokens, 1_000);
+});
+
+test('truncated journal replay seeds display history from a durable compaction snapshot', () => {
+  const snapshotMessage = { type: 'message', role: 'user', content: 'Earlier request', turnId: 'turn-1' };
+  const projected = journalEvents([
+    record('compaction_snapshot', {
+      records: [snapshotMessage], fact: { type: 'compaction', retainedRecords: [], projection: {} },
+    }),
+    record('message', { type: 'message', role: 'assistant', content: 'Later response', turnId: 'turn-2' }),
+  ], { truncated: true });
+  assert.deepEqual(projected.map((item) => item.type), [
+    'user_input', 'context_compaction_status', 'stream_delta',
+  ]);
 });
 
 test('bounded-tail recovery identifies an authoritative conversation reset', () => {

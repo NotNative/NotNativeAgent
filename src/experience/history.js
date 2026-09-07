@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readJournalPage } from '../store.js';
-import { restoreSessionRecords } from '../persistence/session-history.js';
-import { transcriptEvents } from './transcript.js';
+import { journalEvents } from './transcript.js';
 
 const MAX_RETAINED_HISTORY_RECORDS = 4096;
 
@@ -14,9 +13,7 @@ export async function loadEarlierTranscriptPage(workspace, limit = 100) {
     beforeSequence: view.beforeSequence, limit: Math.min(limit, available),
   });
   if (!page || !Array.isArray(page.records)) return false;
-  const restored = restoreSessionRecords(page.records);
-  if (!Array.isArray(restored?.transcript)) return false;
   view.beforeSequence = page.beforeSequence;
   view.hasMore = page.hasMore;
-  return workspace.projection.prependHistory(view.id, transcriptEvents(restored.transcript));
+  return workspace.projection.prependHistory(view.id, journalEvents(page.records));
 }

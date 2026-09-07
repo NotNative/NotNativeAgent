@@ -100,7 +100,7 @@ export function toolStatus(engine, active, item, status) {
     version: '1.0', type: 'tool_status', session_id: engine.sessionId,
     turn_id: active.turnId, tool_request_id: item.request?.id ?? null,
     provider_call_id: item.call?.providerCallId ?? null, tool: toolName, status,
-    target: boundedTarget(toolName, presentedArgs, item.request?.resolved, agentRoute),
+    target: presentedToolTarget(toolName, presentedArgs, item.request?.resolved, agentRoute),
     arguments: presentedArgs,
     agent_route: agentRoute,
     effect: item.request?.resolved?.readOnly === true ? 'read_only' : definition?.sideEffect ?? null,
@@ -129,7 +129,7 @@ function diagnosticVisibility(value) {
   return value === 'reduced_by_script' ? value : null;
 }
 
-function boundedTarget(tool, args, resolved = null, agentRoute = null) {
+export function presentedToolTarget(tool, args, resolved = null, agentRoute = null) {
   if (!args || typeof args !== 'object') return null;
   if (tool === 'agent_run') return agentInvocation(args, agentRoute);
   if (tool === 'process_run') return processInvocation(args);
