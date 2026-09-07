@@ -99,6 +99,22 @@ test('reviewer-ledger evidence prevents a clean stop from hiding an unresolved t
   });
 });
 
+test('engine protocol requires a typed terminal declaration instead of accepting a promise-only stop', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    correctableToolFailures: [], recovery: { actions: [] }, reviewerCompletion: null,
+    terminalDeclarationRequired: true,
+  };
+  const result = evaluateCompletion(active, 'Writing the files now, starting with the index.');
+  assert.equal(result.disposition, 'continue');
+  assert.equal(result.category, 'terminal_declaration_required');
+  assert.match(result.hint, /Perform any remaining action now/u);
+  active.terminalDeclaration = { outcome: 'completed' };
+  assert.deepEqual(evaluateCompletion(active, 'The requested response is complete.'), {
+    disposition: 'completed', category: 'declared_completion',
+  });
+});
+
 test('operator-directed closing idioms are not reported as future task work', () => {
   const text = 'The requested change is complete. Let me know if you need anything else.';
   assert.equal(completionAdvisories(text).includes('future_action_language'), false);

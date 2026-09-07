@@ -162,6 +162,13 @@ public package entry point and exports the current names without historical alia
     ledger with actual tool request/result counts, successful unique file reads, verification calls,
     and tool names. The same ledger is stored in the terminal record. It constrains mechanical scope
     claims without attempting to infer or grade nuanced prose conclusions.
+26. Engine-managed turns do not infer completion from a provider's clean prose stop after any tool
+    use or while continuing a prior blocked, failed, incomplete, or needs-input turn. Those terminal
+    dispositions pass through `turn_finish`. This adds one protocol call only where structured work
+    state exists and avoids keyword inference: the supervisor compares the typed declaration with
+    reviewer-ledger, tool, visual, and optional durable-work evidence. A prose-only stop in such a
+    turn receives a bounded continuation instruction and cannot return the engine to idle. An
+    ordinary response-only conversation retains the clean-stop compatibility path.
 
 ## Consequences
 

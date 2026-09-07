@@ -40,7 +40,7 @@ import { changeEngineWorkspace, restoreEngineWorkspace } from './engine/workspac
 import { continueAfterExactToolBoundary } from './engine/tool-recovery.js';
 import { updateToolFailures } from './engine/tool-failures.js';
 import { continueAfterTerminalDeclaration } from './engine/terminal-declaration.js';
-import { carriedReviewerRequestIds, refreshReviewerCompletion, reviewerCompletionHint } from './engine/reviewer-completion.js';
+import { carriedReviewerRequestIds, refreshReviewerCompletion, reviewerCompletionHint, terminalContinuationRequired } from './engine/reviewer-completion.js';
 export class SessionEngine {
   state = new StateAuthority();
   lifecycles = new LifecycleRegistry();
@@ -113,7 +113,7 @@ export class SessionEngine {
     if (this.state.state !== 'idle') return this.#rejectBusy(command);
     const turn = this.lifecycles.start('turn');
     this.active = createActiveTurn(turn.id, command.request_id, this.config.recovery, this.reliability);
-    const active = this.active; active.carriedReviewerRequestIds = carriedReviewerRequestIds(this.transcript);
+    const active = this.active; active.carriedReviewerRequestIds = carriedReviewerRequestIds(this.transcript); active.terminalDeclarationRequired = terminalContinuationRequired(this.transcript);
     active.enrichment.skills = this.skills.beginTurn();
     let operation;
     try {
@@ -323,7 +323,7 @@ export class SessionEngine {
       await this.#persist('message', assistantMessage(active.turnId, active.stepText, { stepId: active.stepId }));
       active.committedStepText = active.stepText;
     }
-    const items = await this.toolLoop.process(calls, active); const trustedHandoff = prepareTrustedToolHandoff(this, items);
+    active.terminalDeclarationRequired = true; const items = await this.toolLoop.process(calls, active); const trustedHandoff = prepareTrustedToolHandoff(this, items);
     const delegatedAccounting = items.map((item) => item.result?.metadata?.token_accounting).filter(Boolean);
     if (delegatedAccounting.length > 0) active.delegatedTokenAccounting = this.reliability.combineTokenAccounting([
       active.delegatedTokenAccounting, ...delegatedAccounting,

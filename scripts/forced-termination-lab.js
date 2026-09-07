@@ -94,8 +94,13 @@ async function childRun(root, targetSequence) {
         }),
       },
     }] };
+    else if (calls === 3) yield { type: 'tool_fragment', fragments: [{
+      index: 0, id: 'force-kill-finish', function: {
+        name: 'turn_finish', arguments: JSON.stringify({ outcome: 'completed' }),
+      },
+    }] };
     else yield { type: 'text', text: 'completed' };
-    yield { type: 'terminal', finishReason: calls <= 2 ? 'tool_calls' : 'stop' };
+    yield { type: 'terminal', finishReason: calls <= 3 ? 'tool_calls' : 'stop' };
   } };
   class ObservedStore extends JournalStore {
     async append(type, payload) {

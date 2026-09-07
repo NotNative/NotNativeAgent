@@ -39,9 +39,18 @@ export function evaluateCompletion(active, text, work = null) {
   if (declaration?.outcome === 'incomplete') return Object.freeze({ disposition: 'incomplete', category: 'declared_incomplete' });
   if (declaration?.outcome === 'failed') return Object.freeze({ disposition: 'failed', category: 'declared_failure' });
   if (declaration?.outcome === 'completed') return Object.freeze({ disposition: 'completed', category: 'declared_completion' });
+  if (active.terminalDeclarationRequired === true) {
+    // Why: a prose stop cannot distinguish a finished response from a promise to act.
+    // The protocol declaration gives the deterministic supervisor a typed outcome that
+    // it can compare with reviewer, tool, visual, and durable-work evidence.
+    return Object.freeze({
+      disposition: 'continue', category: 'terminal_declaration_required', required: true,
+      progressEvidence: null,
+      hint: 'Do not stop on prose alone. Perform any remaining action now. When the turn is genuinely terminal, call turn_finish with the truthful outcome; then provide the final response.',
+    });
+  }
   // A clean provider stop is sufficient to complete an ordinary conversational turn.
-  // Typed declarations remain required where another gate needs an explicit disposition
-  // (for example unfinished durable work or unresolved tool failures).
+  // This compatibility path is used only by callers that do not opt into the engine protocol.
   return Object.freeze({ disposition: 'completed', category: 'settled_output' });
 }
 
