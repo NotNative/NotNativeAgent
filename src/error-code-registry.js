@@ -267,7 +267,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'provider_tool_call_test_invalid', 'provider_tool_call_test_timeout', 'provider_tool_schema_rejected',
     'provider_transport_error', 'provider_transport_idle_timeout', 'provider_unavailable',
     'provider_usage_invalid', 'provider_first_token_timeout', 'provider_idle_timeout',
-    'provider_reasoning_effort_invalid', 'provider_rejected', 'provider_thinking_mode_invalid',
+    'provider_reasoning_control_rejected', 'provider_reasoning_effort_invalid', 'provider_rejected', 'provider_thinking_mode_invalid',
     'provider_transient', 'route_capability_invalid', 'route_capability_unavailable',
     'route_cycle', 'route_inheritance_invalid', 'route_profile_missing',
     'route_provider_invalid', 'route_role_invalid', 'route_setting_invalid',

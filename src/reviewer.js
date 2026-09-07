@@ -5,6 +5,9 @@ import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
 import { EXTERNAL_BROWSER_GUIDANCE } from './reliability/external-browser.js';
 import { workspaceTransitionClassification } from './reliability/workspace-scope.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
+const REVIEWER_SERVICE_FAILURES = new Set([
+  'mandatory_review_failed', 'provider_reasoning_control_rejected', 'semantic_review_unavailable',
+]);
 export class MandatoryReviewer {
   constructor(options) {
     this.ledger = options.ledger;
@@ -84,7 +87,7 @@ export class MandatoryReviewer {
     const prior = this.ledger.summary(request).slice(0, -1);
     // Why: availability failures fail closed for that request but do not establish a policy denial.
     if (entry.repetition >= 1 && prior.some((item) => item.decision === 'deny_with_guidance'
-      && !['semantic_review_unavailable', 'mandatory_review_failed'].includes(item.reasonCode))) {
+      && !REVIEWER_SERVICE_FAILURES.has(item.reasonCode))) {
       return deny(
         'repeated_denied_operation',
         'An equivalent operation was already denied. Choose a materially different or safer approach.',
@@ -274,7 +277,8 @@ async function boundedReview(component, input, timeoutMs, externalSignal, correl
     else externalSignal?.addEventListener('abort', cancel, { once: true });
   });
   try {
-    const operation = Promise.resolve().then(() => component.review(input, controller.signal, correlation)).catch(() => null);
+    const operation = Promise.resolve().then(() => component.review(input, controller.signal, correlation))
+      .catch((error) => semanticFailureCandidate(error));
     return await Promise.race([operation, timeout, cancellation]);
   } finally {
     clearTimeout(timer);
@@ -283,6 +287,13 @@ async function boundedReview(component, input, timeoutMs, externalSignal, correl
 }
 
 function normalizeCandidate(value, request, surface) {
+  if (value?.failureCode === 'provider_reasoning_control_rejected') {
+    return deny(
+      value.failureCode,
+      'The reviewer provider rejected its configured reasoning controls. Test or update the Reviewer route in /providers.',
+      request,
+    );
+  }
   if (!validSemanticDecision(value)) {
     return deny(
       'semantic_review_unavailable',
@@ -303,6 +314,11 @@ function normalizeCandidate(value, request, surface) {
     return decision('escalate_to_operator', value.reason_code ?? 'operator_decision_required', request, value.guidance ?? null);
   }
   return deny(value.reason_code ?? 'semantic_denial', value.guidance ?? 'Operation was not authorized.', request);
+}
+
+function semanticFailureCandidate(error) {
+  return error?.code === 'provider_reasoning_control_rejected'
+    ? Object.freeze({ failureCode: error.code }) : null;
 }
 
 function validSemanticDecision(value) {

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:24ea371f6303e4a564f1392aec710e0efada7a4d548f1c0dd193f139168316e1",
+  "source_digest": "sha256:e4d794d99b3138dc5d5468c7fc14e152d4d62e332e6c2e5712234f60593bf26c",
   "counts": {
-    "modules": 341,
+    "modules": 342,
     "component_edges": 70
   },
   "components": [
@@ -48,7 +48,7 @@
       "id": "providers",
       "label": "Providers",
       "ownership": "Owns model routing and provider wire adaptation.",
-      "module_count": 21
+      "module_count": 22
     },
     {
       "id": "tools",
@@ -166,16 +166,16 @@
       "module_count": 10
     },
     {
+      "from": "providers",
+      "to": "providers",
+      "import_count": 15,
+      "module_count": 7
+    },
+    {
       "from": "experience-engine",
       "to": "providers",
       "import_count": 13,
       "module_count": 9
-    },
-    {
-      "from": "providers",
-      "to": "providers",
-      "import_count": 13,
-      "module_count": 6
     },
     {
       "from": "agentic-engine",
@@ -1997,6 +1997,7 @@
         "src/provider/model-metadata.js",
         "src/provider/qualification.js",
         "src/provider/reasoning.js",
+        "src/provider/rejection-classification.js",
         "src/provider/tool-call-compatibility.js",
         "src/reliability/retry-after.js"
       ]
@@ -2081,7 +2082,8 @@
       "component": "providers",
       "entrypoint": false,
       "imports": [
-        "src/ids.js"
+        "src/ids.js",
+        "src/provider/reasoning.js"
       ]
     },
     {
@@ -2116,6 +2118,12 @@
       "imports": [
         "src/ids.js"
       ]
+    },
+    {
+      "path": "src/provider/rejection-classification.js",
+      "component": "providers",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/provider/request-metadata.js",

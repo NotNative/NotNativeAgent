@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseProtocolLine } from '../src/contracts.js';
 import { EventHub } from '../src/events.js';
+import { ContractError } from '../src/ids.js';
 import { RoutedSemanticReviewer } from '../src/provider/model-reviewer.js';
 import { MandatoryReviewer } from '../src/reviewer.js';
 import { ReviewerLedger } from '../src/persistence/reviewer-ledger.js';
@@ -692,7 +693,10 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
     yield { type: 'terminal' };
   } };
   const router = {
-    resolve: (role) => ({ role, model: 'reviewer-model', maxOutputTokens: 8192, profile: { id: 'shared-primary' } }),
+    resolve: (role) => ({
+      role, model: 'reviewer-model', maxOutputTokens: 8192, reasoningEffort: 'low',
+      enableThinking: undefined, profile: { id: 'shared-primary' },
+    }),
     provider: () => provider,
   };
   const reviewer = new RoutedSemanticReviewer(router, {
@@ -707,8 +711,8 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
   assert.equal(result.outcome, 'approve');
   assert.deepEqual(captured.tools, []);
   assert.equal(captured.temperature, 0);
-  assert.equal(captured.reasoningMode, 'off');
-  assert.equal(captured.reasoningEffort, undefined);
+  assert.equal(captured.reasoningMode, undefined);
+  assert.equal(captured.reasoningEffort, 'low');
   assert.equal(captured.enableThinking, undefined);
   assert.equal(captured.responseFormat.type, 'json_schema');
   assert.equal(captured.responseFormat.json_schema.strict, true);
@@ -728,6 +732,36 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
     ['provider.request', 'started', 'reviewer', 'reviewer-model'],
     ['provider.request', 'succeeded', 'reviewer', 'reviewer-model'],
   ]);
+});
+
+test('reviewer reasoning-control rejection remains a typed fail-closed service failure', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'reasoning-control-rejected' });
+  const reviewer = new MandatoryReviewer({
+    ledger,
+    semanticReviewer: { async review() {
+      throw new ContractError('provider_reasoning_control_rejected', 'provider-controlled detail');
+    } },
+  });
+  const result = await reviewer.review(mutationRequest('reasoning-control-rejected'), context);
+  assert.equal(result.outcome, 'deny_with_guidance');
+  assert.equal(result.reasonCode, 'provider_reasoning_control_rejected');
+  assert.match(result.guidance, /Reviewer route in \/providers/u);
+  assert.doesNotMatch(result.guidance, /provider-controlled detail/u);
+});
+
+test('reviewer omits reasoning controls when its route has no verified setting', async () => {
+  let captured;
+  const provider = { async *stream(request) {
+    captured = request;
+    yield { type: 'text', text: '{"outcome":"approve","confidence":1,"reason_code":"intent_match"}' };
+    yield { type: 'terminal' };
+  } };
+  const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
+  const reviewer = new RoutedSemanticReviewer({ resolve: () => route, provider: () => provider });
+  await reviewer.review({ request: {}, authenticatedIntent: [] }, new AbortController().signal);
+  assert.equal(Object.hasOwn(captured, 'reasoningMode'), false);
+  assert.equal(Object.hasOwn(captured, 'reasoningEffort'), false);
+  assert.equal(Object.hasOwn(captured, 'enableThinking'), false);
 });
 
 test('semantic reviewer makes one bounded schema-repair attempt with separate evidence', async () => {

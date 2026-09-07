@@ -43,7 +43,7 @@ graph LR
 | Reliability Engine | 35 | Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Governance Engine, Persistence, Product foundation, Providers, Reliability Engine, Tools |
 | Gateway | 4 | Agentic Engine, Gateway, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine | Experience Engine, Gateway, Product foundation |
 | Persistence | 11 | Persistence, Product foundation, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Governance Engine, Integration surfaces, Persistence, Product foundation, Providers, Tools |
-| Providers | 21 | Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Providers, Reliability Engine |
+| Providers | 22 | Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Providers, Reliability Engine |
 | Tools | 44 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Reliability Engine, Tools | Agentic Engine, Experience Engine, Governance Engine, Product foundation, Reliability Engine, Tools |
 | Guidance and extensions | 9 | Governance Engine, Guidance and extensions, Product foundation | Agentic Engine, Experience Engine, Guidance and extensions, Product foundation, Tools |
 | Integration surfaces | 10 | Agentic Engine, Integration surfaces, Persistence, Product foundation, Providers | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
@@ -65,8 +65,8 @@ Counts represent static local imports. Same-component imports are included becau
 | Agentic Engine | Agentic Engine | 33 | 10 |
 | Providers | Product foundation | 25 | 18 |
 | Integration surfaces | Product foundation | 16 | 10 |
+| Providers | Providers | 15 | 7 |
 | Experience Engine | Providers | 13 | 9 |
-| Providers | Providers | 13 | 6 |
 | Agentic Engine | Reliability Engine | 12 | 6 |
 | Agentic Engine | Tools | 12 | 7 |
 | Governance Engine | Product foundation | 12 | 10 |
@@ -88,4 +88,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:24ea371f6303e4a564f1392aec710e0efada7a4d548f1c0dd193f139168316e1`.
+Source fingerprint: `sha256:e4d794d99b3138dc5d5468c7fc14e152d4d62e332e6c2e5712234f60593bf26c`.

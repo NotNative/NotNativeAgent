@@ -107,13 +107,13 @@ failed probe does not renew that lease, but it does not terminate inference imme
 Explicit operator first-token, idle, and overall deadlines remain authoritative and are never
 extended by a health probe.
 
-The mandatory semantic reviewer always disables model thinking. Its decision is a small,
-strictly validated JSON authorization result. Generic OpenAI-compatible models receive the
-no-reasoning effort control; Qwen-family models receive their supported binary
-`enable_thinking: false` chat-template control. Qwen models do not support the OpenAI
-`low`/`medium`/`high` effort scale, and some local hosts promote an unsupported effort to fully
-enabled reasoning. NNA therefore omits configured OpenAI effort values for Qwen and leaves its
-thinking at the model/provider default unless `enable_thinking` is explicitly configured.
+The mandatory semantic reviewer produces a small, strictly validated JSON authorization result.
+Its strict response schema and local validation bound the decision. The Reviewer route controls
+reasoning through its provider settings; NNA does not universally disable reviewer thinking.
+Some models reject a no-reasoning control, while other models use a binary chat-template setting.
+When the Reviewer route has no verified reasoning setting, NNA leaves reasoning at the provider
+default. A provider rejection of configured reasoning controls fails closed with a distinct reason
+code and directs the operator to test or update the Reviewer route in `/providers`.
 
 Manifests carrying the exact historical 30-second/45-second stream defaults, or the former
 persisted 10-minute/5-minute pair, migrate to inherited policy. The exact historical

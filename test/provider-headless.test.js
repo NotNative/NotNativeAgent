@@ -573,6 +573,23 @@ test('AC-FAIL-08/AC-PROV-01 rejects invalid usage and types provider context rej
   }, { code: 'provider_context_limit', retryable: false });
 });
 
+test('provider reasoning-control rejection is typed without exposing provider text', async () => {
+  const remoteDetail = 'GLM-5.3-Flash does not support disabling thinking with its chat template.';
+  const provider = new OpenAICompatibleProvider({
+    endpoint: 'http://127.0.0.1:1/v1', credentialEnv: null, capabilities: {}, model: 'fixture',
+  }, { maxOutputBytes: 4096 }, { fetch: async () => Response.json({ error: { message: remoteDetail } }, {
+    status: 400, headers: { 'content-type': 'application/json' },
+  }) });
+  await assert.rejects(async () => {
+    for await (const _event of provider.stream({ model: 'fixture', messages: [] }, new AbortController().signal)) { /* consume */ }
+  }, (error) => {
+    assert.equal(error.code, 'provider_reasoning_control_rejected');
+    assert.equal(error.retryable, false);
+    assert.doesNotMatch(error.message, /GLM-5\.3-Flash/u);
+    return true;
+  });
+});
+
 test('AC-PROV-01 types in-band SSE errors without exposing provider-controlled text', async () => {
   const remoteSecret = 'remote-error-secret-value';
   const provider = new OpenAICompatibleProvider({

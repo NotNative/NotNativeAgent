@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, newId } from '../ids.js';
+import { routeReasoningFields } from './reasoning.js';
 
 const MAX_REVIEWER_OUTPUT_BYTES = 32_768;
 const MAX_REASON_CODE_CHARACTERS = 128;
@@ -106,7 +107,9 @@ function reviewerRequest(route, input, invalidOutput) {
   );
   return Object.freeze({
     model: route.model, temperature: 0, maxOutputTokens: Math.min(route.maxOutputTokens ?? 4096, 4096),
-    reasoningMode: 'off', messages, tools: [], responseFormat: reviewerResponseFormat(),
+    // Why: reviewer JSON is bounded by responseFormat and local validation. Reasoning controls
+    // are provider dialect settings; a universal "off" request is invalid for some models.
+    ...routeReasoningFields(route), messages, tools: [], responseFormat: reviewerResponseFormat(),
   });
 }
 

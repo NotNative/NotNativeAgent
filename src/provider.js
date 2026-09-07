@@ -8,6 +8,9 @@ import { sanitizeProviderUsage, unrecognizedDeltaEvent } from './provider/event-
 import { providerModelLimits } from './provider/model-metadata.js';
 import { chatCompletionBody } from './provider/tool-call-compatibility.js';
 import { probeToolCallMode, qualifyProviderRequests } from './provider/qualification.js';
+import {
+  isContextLimitError, isGrammarFailure, isImageUnsupportedError, isReasoningControlRejection,
+} from './provider/rejection-classification.js';
 const MIN_PROVIDER_STREAM_BYTES = 2_097_152;
 const UNDECLARED_PROVIDER_STREAM_BYTES = 67_108_864;
 const MAX_PROVIDER_STREAM_BYTES = 268_435_456;
@@ -357,6 +360,9 @@ function decodeChunk(value) {
     if (isImageUnsupportedError(value.error)) {
       throw new ContractError('provider_image_unsupported', 'provider explicitly rejected image input');
     }
+    if (isReasoningControlRejection(value.error)) {
+      throw new ContractError('provider_reasoning_control_rejected', 'provider rejected the configured reasoning controls');
+    }
     const status = Number(value.error.code);
     const retryable = Number.isInteger(status) && (status === 408 || status === 429 || status >= 500);
     const grammarFailure = isGrammarFailure(value.error);
@@ -417,67 +423,13 @@ async function providerErrorResponse(response, trustZone) {
   if (response.status === 413 || isContextLimitError(body)) {
     return new ContractError('provider_context_limit', 'provider rejected the request because its context limit was exceeded');
   }
+  if (isReasoningControlRejection(body)) {
+    return new ContractError('provider_reasoning_control_rejected', 'provider rejected the configured reasoning controls');
+  }
   if (isGrammarFailure(body)) {
     return new ContractError('provider_tool_schema_rejected', 'provider could not compile the supplied tool schema into a valid grammar');
   }
   return providerError(response.status, 'provider request failed', providerRetryAfterMs(response, trustZone));
-}
-
-const IMAGE_UNSUPPORTED_CODES = new Set([
-  'unsupported_image', 'image_not_supported', 'unsupported_content_type',
-  'unsupported_image_input', 'vision_not_supported', 'multimodal_not_supported',
-]);
-
-function isImageUnsupportedError(value) {
-  const fields = boundedErrorStrings(value);
-  if (fields.some((item) => IMAGE_UNSUPPORTED_CODES.has(item.toLowerCase().replaceAll('-', '_')))) return true;
-  const text = fields.join(' ').toLowerCase();
-  return [
-    /(?:image|vision|multimodal).{0,64}(?:not supported|unsupported|not available|not enabled)/u,
-    /(?:does not|doesn't|cannot|can't).{0,48}(?:support|accept|process).{0,32}(?:image|vision|multimodal)/u,
-    /(?:unsupported|invalid) content (?:type|part).{0,48}image/u,
-    /(?:text[- ]only|only supports? text).{0,48}(?:model|input|content)?/u,
-  ].some((pattern) => pattern.test(text));
-}
-
-function isGrammarFailure(value) {
-  const text = boundedErrorStrings(value).join(' ').toLowerCase();
-  return /(?:failed|error).{0,64}(?:parse|compile).{0,32}grammar/u.test(text)
-    || /failed to initialize samplers.{0,96}grammar/u.test(text);
-}
-
-const CONTEXT_LIMIT_CODES = new Set([
-  'context_length_exceeded', 'context_window_exceeded', 'context_size_exceeded',
-  'input_too_long', 'prompt_too_long', 'max_context_length_exceeded',
-  'maximum_context_length_exceeded', 'tokens_exceeded',
-]);
-
-function isContextLimitError(value) {
-  const fields = boundedErrorStrings(value);
-  if (fields.some((item) => CONTEXT_LIMIT_CODES.has(item.toLowerCase().replaceAll('-', '_')))) return true;
-  const text = fields.join(' ').toLowerCase();
-  return [
-    /(?:maximum|max) context (?:length|window|size).{0,96}(?:exceed|token|larger|greater)/u,
-    /context (?:length|window|size).{0,96}(?:exceed|too (?:long|large)|overflow|limit)/u,
-    /(?:input|prompt).{0,64}(?:too (?:long|large)|exceed).{0,64}(?:context|token|limit|length)/u,
-    /(?:requested|provided|input).{0,64}(?:tokens?|token count).{0,96}(?:exceed|greater|larger|maximum|max)/u,
-    /(?:number|amount) of tokens.{0,96}(?:exceed|greater|larger|context)/u,
-    /request.{0,64}exceed.{0,96}(?:available )?context (?:length|window|size)/u,
-    /(?:kv|k-v) cache.{0,64}(?:insufficient|not enough|exhausted).{0,64}(?:context|token|capacity)?/u,
-  ].some((pattern) => pattern.test(text));
-}
-
-function boundedErrorStrings(value) {
-  const result = []; const pending = [value]; let visited = 0; let bytes = 0;
-  while (pending.length > 0 && visited < 128 && bytes < 32_768) {
-    const item = pending.pop(); visited += 1;
-    if (typeof item === 'string' || typeof item === 'number') {
-      const text = String(item).slice(0, 4096); bytes += Buffer.byteLength(text, 'utf8'); result.push(text);
-    } else if (item && typeof item === 'object') {
-      pending.push(...Object.values(item).slice(0, 32));
-    }
-  }
-  return result;
 }
 
 async function boundedResponseJson(response, maxBytes = 1_048_576) {
