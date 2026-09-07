@@ -125,6 +125,7 @@ export function toolContext(engine, active) {
   return {
     policyVersion: engine.config.version, authority: active.authority,
     sessionId: engine.sessionId, turnId: active.turnId, stepId: active.stepId,
+    operatorRequestId: active.requestId,
     caller: 'primary', surface: engine.surface,
     reviewPosture: engine.reviewPosture,
     stateRevision: active.observableStateRevision ?? 0,

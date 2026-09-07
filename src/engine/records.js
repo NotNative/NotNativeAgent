@@ -66,6 +66,7 @@ export function terminalRecord(engine, active, outcome, text, detail, secondaryF
     secondary_failures: Object.freeze([...secondaryFailures]),
     recovery: active.recovery?.actions ?? [],
     completion_evidence: active.completionEvidence,
+    reviewer_completion: active.reviewerCompletion,
     attachment_admission: active.admission,
   };
 }

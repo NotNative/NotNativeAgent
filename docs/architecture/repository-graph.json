@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:e4d794d99b3138dc5d5468c7fc14e152d4d62e332e6c2e5712234f60593bf26c",
+  "source_digest": "sha256:9f6401c57f111858bc8830b5c720c0b344093b62fee33820d1a169b72f0c898f",
   "counts": {
-    "modules": 342,
+    "modules": 343,
     "component_edges": 70
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "agentic-engine",
       "label": "Agentic Engine",
       "ownership": "Owns turns, steps, lifecycle, and orchestration.",
-      "module_count": 22
+      "module_count": 23
     },
     {
       "id": "governance-engine",
@@ -150,7 +150,7 @@
     {
       "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 33,
+      "import_count": 35,
       "module_count": 10
     },
     {
@@ -821,6 +821,7 @@
         "src/engine/persistence.js",
         "src/engine/provider-recovery.js",
         "src/engine/records.js",
+        "src/engine/reviewer-completion.js",
         "src/engine/runtime-helpers.js",
         "src/engine/terminal-declaration.js",
         "src/engine/tool-failures.js",
@@ -1025,6 +1026,12 @@
       ]
     },
     {
+      "path": "src/engine/reviewer-completion.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "src/engine/runtime-helpers.js",
       "component": "agentic-engine",
       "entrypoint": false,
@@ -1045,6 +1052,7 @@
       "entrypoint": false,
       "imports": [
         "src/engine/completion-evidence.js",
+        "src/engine/reviewer-completion.js",
         "src/tools/loop.js"
       ]
     },

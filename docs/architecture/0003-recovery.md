@@ -76,6 +76,12 @@ and the actual durable checkpoint (`tool_results_committed`,
 or model content. Effect certainty is derived from both live and durable correlated
 tool-result shapes, including partial and unknown effects, instead of a generic
 placeholder.
+
+Reviewer-ledger outcome evidence is not a recovery counter. A blocked, failed, incomplete, or
+needs-input turn carries its bounded unresolved reviewed request identities into the next turn.
+The completion supervisor reads a content-free reviewer-ledger projection and rejects completion
+until an exact later execution settles the operation or `turn_finish` declares a truthful
+non-completed outcome. This projection is independent of the optional model-authored work plan.
 When the authenticated host does not expose steering, recovery cannot enter
 `awaiting_attention`. NNA instead returns `limit_reached` with the same bounded recovery detail and
 resume condition. Cancellation remains available on both paths.

@@ -6,6 +6,7 @@ import { retentionCompactionTarget, validateRetentionLimit } from './retention.j
 
 const DEFAULT_RETENTION_ENTRIES = 10_000;
 const MAX_REPLAY_RECORDS = 1_000_000;
+const MAX_COMPLETION_REQUESTS = 64;
 
 export class ReviewerLedger {
   #entries = new Map();
@@ -29,12 +30,14 @@ export class ReviewerLedger {
     await this.#enforceRetention();
   }
 
-  async propose(request, classification) {
+  async propose(request, classification, causal = {}) {
     const existing = this.#entries.get(request.id);
     if (existing) return existing;
     const entry = {
       requestId: request.id, signature: operationSignature(request), toolName: request.toolName,
       targetFingerprint: fingerprint(targetIdentity(request)), classification,
+      operationFingerprint: completionOperationFingerprint(request),
+      turnId: boundedIdentity(causal.turnId), operatorRequestId: boundedIdentity(causal.operatorRequestId),
       decision: null, execution: null, repetition: this.#repetitionCount(request),
     };
     await this.#record('proposal', entry);
@@ -113,6 +116,30 @@ export class ReviewerLedger {
     }));
   }
 
+  completionState(options = {}) {
+    const turnIds = boundedIdentitySet(options.turnIds);
+    const requestIds = boundedIdentitySet(options.requestIds);
+    const entries = [...this.#entries.values()];
+    const latestSuccess = new Map();
+    for (let index = 0; index < entries.length; index += 1) {
+      if (confirmedExecution(entries[index])) latestSuccess.set(entries[index].operationFingerprint, index);
+    }
+    const selected = [];
+    let unresolvedCount = 0;
+    for (let index = 0; index < entries.length; index += 1) {
+      const entry = entries[index];
+      if (entry.toolName === 'turn_finish' || (!turnIds.has(entry.turnId) && !requestIds.has(entry.requestId))) continue;
+      if (settledOutcome(entry) || (latestSuccess.get(entry.operationFingerprint) ?? -1) > index) continue;
+      unresolvedCount += 1;
+      if (selected.length < MAX_COMPLETION_REQUESTS) selected.push(completionEntry(entry));
+    }
+    return Object.freeze({
+      schema: 'nna.reviewer-completion.v1', inspected_entries: entries.length,
+      unresolved_count: unresolvedCount, unresolved_truncated: unresolvedCount > selected.length,
+      unresolved: Object.freeze(selected),
+    });
+  }
+
   health() {
     return Object.freeze({
       status: 'ready', entries: this.#entries.size, durable: this.#store !== null,
@@ -166,6 +193,9 @@ export class ReviewerLedger {
   #apply(type, payload) {
     switch (type) {
       case 'proposal':
+        payload.operationFingerprint ??= legacyCompletionFingerprint(payload);
+        payload.turnId ??= null;
+        payload.operatorRequestId ??= null;
         this.#addEntry(payload);
         break;
       case 'decision':
@@ -196,6 +226,9 @@ function entryRecords(entry) {
     signature: entry.signature,
     toolName: entry.toolName,
     targetFingerprint: entry.targetFingerprint,
+    operationFingerprint: entry.operationFingerprint,
+    turnId: entry.turnId,
+    operatorRequestId: entry.operatorRequestId,
     classification: entry.classification,
     repetition: entry.repetition,
     decision: null,
@@ -233,6 +266,52 @@ export function operationSignature(request) {
     definitionVersion: request.definitionVersion,
   };
   return createHash('sha256').update(stableJson(value)).digest('hex');
+}
+
+function completionOperationFingerprint(request) {
+  return fingerprint(stableJson({ toolName: request.toolName, args: request.args, target: targetIdentity(request) }));
+}
+
+function legacyCompletionFingerprint(entry) {
+  // Compatibility: older durable entries have no causal completion identity. Keep them
+  // auditable, but do not let incomplete historical data become a completion gate.
+  return `legacy:${entry.requestId}`;
+}
+
+function boundedIdentity(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 256 ? value : null;
+}
+
+function boundedIdentitySet(values) {
+  if (!Array.isArray(values)) return new Set();
+  return new Set(values.slice(0, MAX_COMPLETION_REQUESTS).map(boundedIdentity).filter(Boolean));
+}
+
+function confirmedExecution(entry) {
+  const terminal = entry.execution?.terminal;
+  return terminal?.status === 'succeeded' && ['completed', 'none'].includes(terminal.effect_certainty);
+}
+
+function settledOutcome(entry) {
+  if (confirmedExecution(entry)) return true;
+  const terminal = entry.execution?.terminal;
+  // Why: an invalid request with no effect is repair feedback, not unfinished execution.
+  return terminal?.status === 'invalid_request' && terminal.effect_certainty === 'none';
+}
+
+function completionEntry(entry) {
+  const terminal = entry.execution?.terminal;
+  const decision = entry.decision?.outcome ?? null;
+  const state = !decision ? 'review_pending'
+    : decision !== 'approve' ? 'not_approved'
+      : !entry.execution ? 'not_executed'
+        : !terminal ? 'running' : terminal.status;
+  return Object.freeze({
+    request_id: entry.requestId, origin_turn_id: entry.turnId, tool: entry.toolName,
+    operation_fingerprint: entry.operationFingerprint, state,
+    reason_code: terminal?.reason_code ?? entry.decision?.reasonCode ?? null,
+    effect_certainty: terminal?.effect_certainty ?? 'none',
+  });
 }
 
 function stableJson(value, ancestors = new WeakSet()) {

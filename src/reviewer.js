@@ -36,7 +36,8 @@ export class MandatoryReviewer {
       mission: context.authority?.mission, review_posture: context.reviewPosture,
     }, correlation);
     try {
-      const entry = await this.ledger.propose(request, classification);
+      const entry = await this.ledger.propose(request, classification,
+        { turnId: context.turnId, operatorRequestId: context.operatorRequestId });
       let decision;
       const missionViolation = missionBoundaryViolation(request, context.definition, context.authority?.mission);
       const intentRelation = authenticatedIntentRelation(request, context.authority, context.definition);

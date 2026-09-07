@@ -101,3 +101,67 @@ test('large reviewer retention compacts with headroom instead of rewriting every
   assert.equal(ledger.health().entries, 95);
   await ledger.close();
 });
+
+test('reviewer completion projection carries unresolved outcomes and closes exact successful retries', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'completion-projection' });
+  const denied = request('denied-write');
+  await ledger.propose(denied, { risk: 'review_required', scope: 'workspace' }, {
+    turnId: 'turn-blocked', operatorRequestId: 'operator-blocked',
+  });
+  await ledger.commitDecision(denied.id, {
+    id: 'denied-decision', outcome: 'deny_with_guidance', reasonCode: 'semantic_review_unavailable',
+  });
+  const unresolved = ledger.completionState({ turnIds: ['turn-blocked'] });
+  assert.equal(unresolved.unresolved_count, 1);
+  assert.deepEqual(unresolved.unresolved[0], {
+    request_id: 'denied-write', origin_turn_id: 'turn-blocked', tool: 'fs_write_text',
+    operation_fingerprint: unresolved.unresolved[0].operation_fingerprint,
+    state: 'not_approved', reason_code: 'semantic_review_unavailable', effect_certainty: 'none',
+  });
+
+  const invalid = Object.freeze({
+    ...request('invalid-plan'), providerCallId: 'invalid-provider', toolName: 'work_plan',
+    args: { revision: 1, objective: 'Track work', tasks: [] }, resolved: {},
+  });
+  await ledger.propose(invalid, { risk: 'safe', scope: 'conversation_work' }, {
+    turnId: 'turn-invalid', operatorRequestId: 'operator-invalid',
+  });
+  await ledger.commitDecision(invalid.id, { id: 'invalid-decision', outcome: 'approve', reasonCode: 'deterministic_safe' });
+  await ledger.executionStarted(invalid.id, 'invalid-decision');
+  await ledger.settle(invalid.id, {
+    status: 'invalid_request', effect_certainty: 'none', reason_code: 'work_revision_conflict',
+  });
+  assert.equal(ledger.completionState({ turnIds: ['turn-invalid'] }).unresolved_count, 0);
+
+  const retry = request('successful-retry');
+  await ledger.propose(retry, { risk: 'review_required', scope: 'workspace' }, {
+    turnId: 'turn-retry', operatorRequestId: 'operator-retry',
+  });
+  await ledger.commitDecision(retry.id, { id: 'retry-decision', outcome: 'approve', reasonCode: 'intent_match' });
+  await ledger.executionStarted(retry.id, 'retry-decision');
+  await ledger.settle(retry.id, { status: 'succeeded', effect_certainty: 'completed', result_fingerprint: 'written' });
+  assert.equal(ledger.completionState({ requestIds: ['denied-write'], turnIds: ['turn-retry'] }).unresolved_count, 0);
+});
+
+test('durable reviewer completion causality survives restart without retaining tool arguments', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-ledger-completion-'));
+  const options = { durable: true, root, sessionId: 'completion-durable' };
+  const ledger = new ReviewerLedger(options);
+  await ledger.initialize();
+  const denied = request('durable-denial');
+  await ledger.propose(denied, { risk: 'review_required', scope: 'workspace' }, {
+    turnId: 'durable-turn', operatorRequestId: 'durable-operator-request',
+  });
+  await ledger.commitDecision(denied.id, {
+    id: 'durable-decision', outcome: 'deny_with_guidance', reasonCode: 'semantic_review_unavailable',
+  });
+  await ledger.close();
+  const restored = new ReviewerLedger(options);
+  await restored.initialize();
+  const state = restored.completionState({ turnIds: ['durable-turn'] });
+  assert.equal(state.unresolved_count, 1);
+  assert.equal(state.unresolved[0].request_id, 'durable-denial');
+  assert.doesNotMatch(await readFile(join(root, 'completion-durable.review.journal.ndjson'), 'utf8'),
+    /seeded-secret-content|private-name\.txt/u);
+  await restored.close();
+});

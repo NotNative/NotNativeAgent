@@ -81,6 +81,24 @@ test('future-action language is advisory and does not override a clean stop', ()
     .includes('future_action_language'));
 });
 
+test('reviewer-ledger evidence prevents a clean stop from hiding an unresolved tool outcome', () => {
+  const active = {
+    finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    correctableToolFailures: [], recovery: { actions: [] }, reviewerCompletion: {
+      schema: 'nna.reviewer-completion.v1', unresolved_count: 1,
+      unresolved: [{ tool: 'fs_write_text', state: 'not_approved', effect_certainty: 'none' }],
+    },
+  };
+  const pending = evaluateCompletion(active, 'Retrying now.');
+  assert.equal(pending.disposition, 'continue');
+  assert.equal(pending.category, 'unresolved_reviewed_tool_outcome');
+  assert.match(pending.hint, /reviewer ledger contains unresolved tool outcomes/u);
+  active.terminalDeclaration = { outcome: 'blocked' };
+  assert.deepEqual(evaluateCompletion(active, 'The reviewer remains unavailable.'), {
+    disposition: 'blocked', category: 'reviewed_tool_outcome_blocked',
+  });
+});
+
 test('operator-directed closing idioms are not reported as future task work', () => {
   const text = 'The requested change is complete. Let me know if you need anything else.';
   assert.equal(completionAdvisories(text).includes('future_action_language'), false);

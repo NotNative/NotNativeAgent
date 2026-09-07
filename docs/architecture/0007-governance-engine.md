@@ -59,6 +59,11 @@ while retaining the existing reviewer ledger. This is a compatibility migration,
 second authorization vote. Once field evidence proves recovery and diagnostics, the
 reviewer ledger may become a domain-specific projection of governance records.
 
+The completion supervisor reads a bounded reviewer-ledger projection. The projection contains
+causal request identities, tool names, state classifications, effect certainty, and fingerprints.
+It contains no tool arguments or output. A later exact successful operation settles a carried
+failure deterministically. Optional model-authored work plans remain a separate state domain.
+
 Each mirrored authorization decision cites two immutable, content-free evidence records:
 the sealed tool request and the authenticated intent snapshot considered for that exact
 request. The records contain hashes, versions, scope, and classifications—not prompt text,

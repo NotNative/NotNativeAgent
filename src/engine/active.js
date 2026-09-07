@@ -23,6 +23,7 @@ export function createActiveTurn(turnId, requestId, recoveryOptions = {}, reliab
     observableStateRevision: 0, toolEvidenceRevision: 0, completionObligation: null,
     terminalDeclaration: null, completionEvidence: null,
     visualEvidence: null, browserEvidence: null, readOnlyBatchStreak: 0,
+    carriedReviewerRequestIds: [], reviewerCompletion: null,
     workCadence: null,
     providerTerminal: false, providerRoute: null, attemptEventShape: null,
     toolAssemblerFactory: () => reliability?.createToolCallAssembler?.() ?? new ToolCallAssembler(),

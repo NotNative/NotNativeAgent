@@ -17,6 +17,8 @@ export function evaluateCompletion(active, text, work = null) {
   const declaration = active.terminalDeclaration ?? null;
   const workGate = unfinishedWorkGate(work, declaration);
   if (workGate) return workGate;
+  const reviewerGate = reviewerCompletionGate(active.reviewerCompletion, declaration);
+  if (reviewerGate) return reviewerGate;
   if ((active.unresolvedToolFailures?.length ?? 0) > 0) {
     if (declaration?.outcome === 'needs_input') return Object.freeze({ disposition: 'needs_input', category: 'blocked_after_tool_failure' });
     if (declaration?.outcome === 'blocked') return Object.freeze({ disposition: 'blocked', category: 'terminal_tool_blocker' });
@@ -41,6 +43,23 @@ export function evaluateCompletion(active, text, work = null) {
   // Typed declarations remain required where another gate needs an explicit disposition
   // (for example unfinished durable work or unresolved tool failures).
   return Object.freeze({ disposition: 'completed', category: 'settled_output' });
+}
+
+function reviewerCompletionGate(state, declaration) {
+  if (state?.schema !== 'nna.reviewer-completion.v1' || state.unresolved_count < 1) return null;
+  if (declaration?.outcome === 'needs_input') {
+    return Object.freeze({ disposition: 'needs_input', category: 'reviewed_tool_outcome_needs_input' });
+  }
+  if (['blocked', 'incomplete', 'failed'].includes(declaration?.outcome)) {
+    return Object.freeze({ disposition: declaration.outcome, category: `reviewed_tool_outcome_${declaration.outcome}` });
+  }
+  const summary = state.unresolved.slice(0, 16)
+    .map((item) => `${item.tool}:${item.state}:${item.effect_certainty}`).join('; ');
+  return Object.freeze({
+    disposition: 'continue', category: 'unresolved_reviewed_tool_outcome', required: true,
+    progressEvidence: summary,
+    hint: 'The reviewer ledger contains unresolved tool outcomes. Retry or verify each operation. Otherwise, use turn_finish with a truthful non-completed outcome.',
+  });
 }
 
 function visualEvidenceGate(evidence, declaration) {
