@@ -37,6 +37,25 @@ test('completion supervision continues when provider usage reaches a mislabeled 
   assert.equal(result.category, 'truncated_output');
 });
 
+test('the truncation gate fingerprints the attempt output policy, not the discarded tail wording', () => {
+  const active = {
+    finishReason: 'length', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
+    recovery: { actions: [] }, attemptOutputLimitTokens: 32_000, attemptUsage: null,
+  };
+  const one = evaluateCompletion(active, 'Partial analysis beginning: the service layer ');
+  const two = evaluateCompletion(active, 'Entirely different discarded tail wording instead. ');
+  assert.equal(one.disposition, 'continue');
+  assert.equal(one.category, 'truncated_output');
+  assert.equal(two.progressEvidence.value, one.progressEvidence.value);
+  assert.equal(one.progressEvidence.detail.kind, 'output_ceiling');
+  assert.equal(one.progressEvidence.detail.checkpoint, 'partial_assistant_message_committed');
+  assert.deepEqual(one.progressEvidence.detail.summary.output_limit_tokens, 32_000);
+  assert.equal(one.progressEvidence.detail.summary.output_bytes > 0, true);
+  assert.equal(one.progressEvidence.value, 'output_ceiling:32000');
+  const unbounded = evaluateCompletion({ ...active, attemptOutputLimitTokens: null }, 'The request tails off.');
+  assert.equal(unbounded.progressEvidence.value, 'output_ceiling:length_stop');
+});
+
 test('structured terminal declarations drive disposition without treating state prose as input requests', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],

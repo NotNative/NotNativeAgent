@@ -9,7 +9,10 @@ export function evaluateCompletion(active, text, work = null) {
   if (reachedOutputCeiling({
     finishReason, outputLimitTokens: active.attemptOutputLimitTokens, usage: active.attemptUsage,
   })) {
-    return Object.freeze({ disposition: 'continue', category: 'truncated_output', progressEvidence: text });
+    return Object.freeze({
+      disposition: 'continue', category: 'truncated_output',
+      progressEvidence: truncatedOutputEvidence(text, active.attemptOutputLimitTokens),
+    });
   }
   if (TOOL_SIGNAL.has(finishReason) && (active.toolAssembler?.size ?? 0) === 0) {
     return Object.freeze({ disposition: 'continue', category: 'missing_tool_call', progressEvidence: null });
@@ -43,6 +46,24 @@ export function evaluateCompletion(active, text, work = null) {
   // Invariant: a clean provider stop completes the turn when no structured gate remains.
   // Tool use alone never creates a second terminal protocol or a model self-attestation duty.
   return Object.freeze({ disposition: 'completed', category: 'settled_output' });
+}
+
+// Why: repeated output-ceiling completions must be supervised as one bounded
+// episode per attempt budget. The discarded tail wording differs on every
+// attempt, so content fingerprints would keep re-crediting an unchanged
+// truncation condition as fresh progress indefinitely.
+function truncatedOutputEvidence(text, attemptOutputLimitTokens) {
+  const limit = Number.isSafeInteger(attemptOutputLimitTokens) && attemptOutputLimitTokens > 0
+    ? attemptOutputLimitTokens : null;
+  return Object.freeze({
+    value: `output_ceiling:${limit ?? 'length_stop'}`,
+    detail: Object.freeze({
+      kind: 'output_ceiling', checkpoint: 'partial_assistant_message_committed',
+      summary: Object.freeze({
+        output_limit_tokens: limit, output_bytes: Buffer.byteLength(String(text), 'utf8'),
+      }),
+    }),
+  });
 }
 
 function reviewerCompletionGate(state, declaration) {

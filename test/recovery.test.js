@@ -173,6 +173,27 @@ test('structured completion gates stop at their local recovery boundary', () => 
   assert.equal(second.exhausted, true);
 });
 
+test('consecutive output-ceiling attempts count one bounded truncation episode instead of fresh tail evidence', () => {
+  const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
+  const ceiling = (limit) => ({
+    value: `output_ceiling:${limit ?? 'length_stop'}`,
+    detail: {
+      kind: 'output_ceiling', checkpoint: 'partial_assistant_message_committed',
+      summary: { output_limit_tokens: limit ?? null },
+    },
+  });
+  const first = recovery.continuation('truncated_output', ceiling(32_000));
+  assert.equal(first.progress, true);
+  assert.equal(first.action.action, 'retry_continuation');
+  assert.equal(recovery.continuation('truncated_output', ceiling(32_000)).action.action, 'nudge');
+  assert.equal(recovery.continuation('truncated_output', ceiling(32_000)).action.action, 'nudge');
+  assert.deepEqual(recovery.continuation('truncated_output', ceiling(32_000)),
+    { continue: false, exhausted: true, count: 3 });
+  const raised = recovery.continuation('truncated_output', ceiling(64_000));
+  assert.equal(raised.progress, true);
+  assert.equal(raised.action.action, 'retry_continuation');
+});
+
 test('content-free provider completions remain non-terminal with bounded distinct recovery', () => {
   const recovery = new RecoverySupervisor({ localLimit: 3, ladder: ['nudge', 'nudge'] });
   const plans = Array.from({ length: 12 }, () => recovery.providerUnusableCompletion(
@@ -1101,6 +1122,44 @@ test('AC-PROD-03/AC-TURN-10 truncated useful output is preserved and continued',
   assert.equal(count, 2);
   assert.equal(engine.transcript.some((item) => item.role === 'assistant' && item.partial === true), true);
   assert.equal(result.recovery[0].action, 'retry_continuation');
+});
+
+test('AC-PROD-03/AC-TURN-10 prolonged output-ceiling truncation parks in attention instead of consuming the step ceiling', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-truncation-bound-'));
+  let calls = 0;
+  const RESUME = 'Resume from the preserved analysis.';
+  const provider = { async *stream(request) {
+    calls += 1;
+    if (request.messages.some((message) => message.role === 'user' && message.content === RESUME)) {
+      yield { type: 'text', text: 'The preserved analysis was resumed and is complete.' };
+      yield { type: 'terminal', finishReason: 'stop' };
+      return;
+    }
+    yield { type: 'text', text: `Partial analysis with a distinct discarded tail ${calls}: ${'item'.padEnd(96, '-')}` };
+    yield { type: 'metadata', finishReason: 'length' };
+    yield { type: 'terminal' };
+  } };
+  const output = [];
+  const engine = new SessionEngine({
+    config: config(root, 'ephemeral', {
+      recovery: { max_model_steps: 16, local_retry_limit: 3, ladder: ['nudge', 'nudge'] },
+    }),
+    providerFactory: () => provider,
+    output: async (record) => output.push(record),
+  });
+  await engine.initialize();
+  const turn = engine.submit({ request_id: 'truncation-bound-turn', content: 'Analyze the involved services.' }, 'operator');
+  await waitForEngineState(engine, 'awaiting_attention');
+  const parkedCalls = calls;
+  await engine.steer({ request_id: 'truncation-resume', content: RESUME }, 'operator');
+  const result = await turn;
+  assert.equal(result.outcome, 'completed');
+  assert.equal(parkedCalls, 4);
+  assert.equal(calls, 5);
+  assert.equal(engine.state.transitions.some((item) => item.to === 'awaiting_attention'), true);
+  assert.equal(output.some((record) => record.delta_type === 'recovery_attention'), true);
+  assert.deepEqual(result.recovery.map((item) => item.action), ['retry_continuation', 'nudge', 'nudge']);
+  assert.ok(engine.transcript.some((item) => item.role === 'assistant' && item.partial === true));
 });
 
 test('a settled tool turn accepts one clean final response without a declaration round trip', async () => {

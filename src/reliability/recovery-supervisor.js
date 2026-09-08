@@ -16,8 +16,11 @@ const CHECKPOINT_SEPARATOR_RESERVE = 32;
 const MIN_EXACT_NO_EFFECT_LIMIT = 3;
 const EMPTY_COMPLETION_BASE_DELAY_MS = 250;
 const EMPTY_COMPLETION_MAX_DELAY_MS = 30_000;
+// Why: every category here recurs without a distinct external change, so each
+// must own a terminal episode bound; progress evidence that cannot change
+// (an unchanged request shape or output budget) must not keep a turn alive.
 const BOUNDED_COMPLETION_CATEGORIES = new Set([
-  'missing_tool_call', 'task_context_lost', 'unresolved_tool_failure',
+  'missing_tool_call', 'truncated_output', 'task_context_lost', 'unresolved_tool_failure',
   'unresolved_reviewed_tool_outcome', 'uncorrected_tool_request', 'visual_evidence_conflict',
 ]);
 
@@ -226,6 +229,16 @@ export function recoveryExhaustionText(detail, options = {}) {
       + `Completed tool effects and diagnostics remain preserved.${preserved}\n\n`
       + 'The turn remains active. Provide direction to resume from the preserved activity, or cancel the turn.';
   }
+  if (detail.exhaustion_category === 'truncated_output') {
+    const attempts = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} attempts` : '';
+    const checkpoint = usefulAssistantCheckpoint(options.transcript, options.turnId);
+    const preserved = checkpoint
+      ? `\n\nLast useful assistant checkpoint:\n${checkpoint}`
+      : '';
+    return `The model reached its configured output ceiling${attempts} without producing a settling response. `
+      + `Committed partial output and diagnostics remain preserved.${preserved}\n\n`
+      + 'The turn remains active. Raise the configured output allowance, provide direction to resume from the preserved activity, or cancel the turn.';
+  }
   if (detail.exhaustion_category === 'tool_no_progress') {
     const attempts = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} repetitions` : '';
     return `The same failure condition, request shape, and observable effect remained unchanged${attempts}, even after escalating recovery guidance.\n\n`
@@ -302,7 +315,9 @@ function boundedLabel(value, fallback) {
 export function recoveryHint(action) {
   if (!action) return null;
   const guidance = {
-    nudge: action.repeated_request_fingerprints?.length > 0
+    nudge: action.category === 'truncated_output'
+      ? 'The previous response reached the output ceiling without settling. Do not extend the same unfinished segment into the ceiling again; produce a concise completion of the active segment, or declare a truthful task outcome.'
+      : action.repeated_request_fingerprints?.length > 0
       ? 'The same tool request and result were repeated without observable progress. Do not submit the same arguments again; inspect the failure or choose a materially different bounded action.'
       : 'Previous work made no observable progress. Reassess the task and choose a materially different bounded action.',
     retry_continuation: 'Continue the active operator request using new evidence or a materially different action. Do not restart the conversation, greet the user again, ask what task to perform, or repeat an unchanged failed request.',
