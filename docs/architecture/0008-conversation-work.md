@@ -38,10 +38,11 @@ The Console's `/plan` hub is the primary view. `/tasks` is an alias for the same
 `/goal` and `/task` provide direct keyboard workflows. The footer shows only a compact
 completed/total count. Ordinary and multi-step conversations remain plan-free unless the
 operator explicitly requests tracking or the agent deliberately decides durable coordination
-would materially help. Once a plan exists, completion supervision continues unfinished work,
-keeps `work_plan` available, and yields instead of nudging when the model genuinely requires
-operator input. A recorded blocked goal ends the turn as `blocked`; prose alone cannot override
-active durable work.
+would materially help. Once a plan exists, it survives clean turn boundaries and remains available
+to later authenticated turns. Active work alone does not force the current provider response to
+continue: only a concrete current-turn reviewer, tool, visual, transport, or typed terminal
+obligation may do so. A recorded blocked goal ends the turn as `blocked`; prose alone cannot
+override active durable work.
 
 While work is active, the provider projection identifies the current unfinished task and reports
 the number of model steps since the durable work revision changed. The counter is descriptive:

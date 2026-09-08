@@ -26,26 +26,30 @@ export async function continueAfterTerminalDeclaration(engine, active, items, tr
   // Why: turn_finish is bookkeeping for the completion supervisor, not another unit of
   // user work. Charging it against the bounded work-step budget would reduce the useful
   // budget merely because the model followed the terminal-outcome protocol.
-  await settleStep('continued');
   refreshReviewerCompletion(engine, active);
   active.completionEvidence = completionEvidence(engine.transcript, active.turnId);
-  if (active.provisionalFinal) {
+  const candidate = active.provisionalFinal ?? (active.stepText
+    ? Object.freeze({ text: active.stepText, stepId: active.stepId })
+    : null);
+  if (candidate) {
     const supervised = engine.reliability.evaluateCompletion(
-      active, active.provisionalFinal.text, engine.work?.snapshot(),
+      active, candidate.text, engine.work?.snapshot(),
     );
     if (supervised.disposition !== 'continue') {
       // Why: the declaration is a typed settlement for the already-streamed answer.
       // Generating another answer after settlement duplicates visible output and gives a
       // later provider call an opportunity to diverge from the reviewed turn evidence.
+      await settleStep(supervised.disposition);
       return Object.freeze({
         continue: false,
-        text: active.provisionalFinal.text,
+        text: candidate.text,
         outcome: supervised.disposition,
-        deliverableStepId: active.provisionalFinal.stepId,
+        deliverableStepId: candidate.stepId,
         terminalDeclarationSettled: true,
       });
     }
   }
+  await settleStep('continued');
   engine.state.transition('preparing_continuation', { trigger: 'terminal_declaration_recorded', turnId: active.turnId });
   const evidenceHint = completionEvidenceHint(active.completionEvidence);
   return Object.freeze({

@@ -15,7 +15,8 @@ The Reliability Engine owns:
 - per-turn recovery supervisors, episode budgets, progress evidence, exhaustion facts,
   and recovery guidance;
 - completion supervision, including explicit or usage-inferred truncation, lost-task,
-  unfinished-work, unfulfilled future-action pledges, and unresolved-tool-failure judgments;
+  typed durable-work contradictions, unfulfilled future-action pledges, and
+  unresolved-tool-failure judgments;
 - context budgeting, long-horizon pressure policy, deterministic hot/cold projections,
   and cold-evidence continuity;
 - context-compression safety classification, content-identity duplicate receipts,
@@ -130,10 +131,10 @@ public package entry point and exports the current names without historical alia
 17. Browser evidence records its verification route. Rendering a workspace path through NNA's
     managed HTTP origin does not prove that the artifact works through a direct `file://` or
     double-click launch route.
-18. Contradictions between typed terminal declarations and unchanged durable-work state have
-    category-specific continuation limits below the global model-step ceiling. When the evidence does not change,
-    NNA parks the active turn for operator attention instead of manufacturing progress or ending
-    the durable goal. New tool evidence or authenticated steering resets stale recovery episodes.
+18. Durable work survives clean turn boundaries and remains authoritative context for later turns.
+    Its active state alone is not a same-turn continuation obligation. Contradictions between typed
+    terminal declarations and recorded blocked or pending-completion state remain deterministic;
+    NNA never manufactures progress or ends the durable goal from provider prose.
 19. Provider context-limit recovery permits at most two compaction episodes. The second is admitted
     only when the durable request manifests prove that the first compacted request was materially
     smaller than the original rejected request.
@@ -165,7 +166,8 @@ public package entry point and exports the current names without historical alia
     next model step receives the ledger, and the terminal record stores it. This constrains
     mechanical scope claims without attempting to infer or grade nuanced prose conclusions.
 26. Engine-managed turns accept a clean provider stop after tool use when the reviewer ledger,
-    tool failures, durable work, visual evidence, transport state, and steering expose no concrete
+    tool failures, typed durable-work contradictions, visual evidence, transport state, and steering
+    expose no concrete current-turn obligation. An active cross-turn plan is context, not such an
     obligation. Tool use alone never creates a second terminal protocol. Each remaining structured
     obligation supplies one specific continuation category with a local recovery bound.
 27. Long-horizon continuation refresh is independent of context-window pressure. After eight

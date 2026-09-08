@@ -14,7 +14,6 @@ const MAX_CHECKPOINT_CHARACTERS = 2_400;
 const CHECKPOINT_HEAD_RATIO = 0.7;
 const CHECKPOINT_SEPARATOR_RESERVE = 32;
 const MIN_EXACT_NO_EFFECT_LIMIT = 3;
-const MIN_DURABLE_WORK_CONTINUATION_LIMIT = 6;
 const EMPTY_COMPLETION_BASE_DELAY_MS = 250;
 const EMPTY_COMPLETION_MAX_DELAY_MS = 30_000;
 const BOUNDED_COMPLETION_CATEGORIES = new Set([
@@ -324,9 +323,6 @@ export function recoveryHint(action) {
 
 function terminalNoProgressLimit(category, localLimit, exactNoEffectLimit) {
   if (category === 'tool_no_progress') return exactNoEffectLimit;
-  if (category === 'unfinished_conversation_work') {
-    return Math.max(MIN_DURABLE_WORK_CONTINUATION_LIMIT, localLimit * 2);
-  }
   if (BOUNDED_COMPLETION_CATEGORIES.has(category)) return localLimit;
   return null;
 }

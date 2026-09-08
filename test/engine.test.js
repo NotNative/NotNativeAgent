@@ -167,7 +167,7 @@ test('completion supervision settles an explicit terminal blocker without report
     .includes('future_action_language'));
 });
 
-test('completion supervision requires a terminal blocker to settle active durable work', () => {
+test('completion supervision accepts a typed blocker while durable work remains active', () => {
   const active = {
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
     recovery: { actions: [] }, terminalDeclaration: { outcome: 'blocked' },
@@ -178,7 +178,7 @@ test('completion supervision requires a terminal blocker to settle active durabl
   };
   const unrecorded = evaluateCompletion(active, "I can't complete this because the dependency is unavailable.", work);
   assert.equal(unrecorded.disposition, 'blocked');
-  assert.equal(unrecorded.category, 'active_work_declared_blocked');
+  assert.equal(unrecorded.category, 'declared_terminal_blocker');
 
   work.goal.status = 'blocked';
   const recorded = evaluateCompletion(active, 'The dependency remains unavailable.', work);
@@ -532,40 +532,48 @@ test('a conversational offer ending in a question completes without claiming a b
   assert.equal(calls, 1);
 });
 
-test('active durable work forces model continuation until tasks and goal are complete', async () => {
+test('active durable work survives a clean turn boundary without forcing continuation', async () => {
   let calls = 0;
-  let engine;
   const provider = { async *stream() {
     calls += 1;
-    if (calls === 1) {
-      yield* finishCall('completed');
-      return;
-    } else if (calls === 2) {
-      yield { type: 'text', text: 'The report is ready, but the durable work ledger is still open.' };
-    } else {
-      await engine.updateTask('T1', 'completed', 'verified report delivered');
-      await engine.completeGoal('all durable tasks verified');
-      yield { type: 'text', text: 'The report and durable work state are complete.' };
-    }
+    yield { type: 'text', text: 'I gathered the requirements. Which deployment target should we design for?' };
     yield { type: 'terminal', finishReason: 'stop', usage: null };
   } };
-  engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  const engine = new SessionEngine({ config: config(), providerFactory: () => provider });
   await engine.initialize();
-  await engine.setGoal('Deliver the verified report');
-  await engine.addTask('Compile the final report');
+  await engine.setGoal('Design the deployment plan');
+  await engine.addTask('Gather requirements');
 
-  const result = await engine.submit({ request_id: 'work-gated-turn', content: 'Finish the report' }, 'operator');
+  const result = await engine.submit({ request_id: 'work-cross-turn', content: 'Start discovery' }, 'operator');
 
-  assert.equal(calls, 3);
+  assert.equal(calls, 1);
   assert.equal(result.outcome, 'completed');
-  assert.equal(engine.workStatus().goal.status, 'completed');
-  assert.equal(engine.workStatus().goal.evidenceRef.startsWith('assistant_message:'), true);
-  assert.equal(engine.transcript.some((record) => record.role === 'assistant'
-    && `assistant_message:${record.turnId}:${record.stepId ?? 'terminal'}` === engine.workStatus().goal.evidenceRef
-    && record.content === result.text), true);
-  assert.equal(engine.workStatus().pendingCompletion, null);
-  assert.equal(engine.workStatus().tasks[0].status, 'completed');
-  assert.equal(result.recovery.some((item) => item.category === 'unfinished_conversation_work'), true);
+  assert.equal(engine.workStatus().goal.status, 'active');
+  assert.equal(engine.workStatus().tasks[0].status, 'pending');
+  assert.deepEqual(result.recovery, []);
+});
+
+test('assistant text and accepted needs_input declaration settle the same response', async () => {
+  let calls = 0;
+  const question = 'Which city should host the primary fleet hub?';
+  const provider = { async *stream() {
+    calls += 1;
+    yield { type: 'text', text: question };
+    yield* finishCall('needs_input', { question });
+  } };
+  const engine = new SessionEngine({ config: config(), providerFactory: () => provider });
+  await engine.initialize();
+  await engine.setGoal('Design the fleet deployment plan');
+  await engine.addTask('Gather deployment requirements');
+
+  const result = await engine.submit({ request_id: 'same-response-input', content: 'Continue discovery' }, 'operator');
+
+  assert.equal(calls, 1);
+  assert.equal(result.outcome, 'needs_input');
+  assert.equal(result.text, question);
+  assert.equal(engine.transcript.filter((record) => record.role === 'assistant'
+    && record.content === question).length, 1);
+  assert.deepEqual(result.recovery, []);
 });
 
 test('active durable work cannot turn an assistant authorization question into a synthetic user answer', async () => {

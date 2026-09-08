@@ -135,14 +135,11 @@ function claimsCompletion(text) {
 }
 
 function unfinishedWorkGate(work, declaration) {
-  const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
   if (work?.pendingCompletion) {
     // Why: the final assistant response is the deliverable that commits staged work completion.
     // Requiring a second declaration would make bookkeeping a liveness dependency.
     return null;
   }
-  const unfinished = tasks.filter((task) => task.status !== 'completed');
-  const goalActive = work?.goal?.status === 'active';
   const goalBlocked = work?.goal?.status === 'blocked';
   if (goalBlocked) {
     if (declaration?.outcome === 'needs_input') {
@@ -150,19 +147,11 @@ function unfinishedWorkGate(work, declaration) {
     }
     return Object.freeze({ disposition: 'blocked', category: 'recorded_work_blocker' });
   }
-  if (!goalActive && unfinished.length === 0) return null;
-  if (declaration?.outcome === 'needs_input') {
-    return Object.freeze({ disposition: 'needs_input', category: 'active_work_requested_input' });
-  }
-  if (['blocked', 'incomplete', 'failed'].includes(declaration?.outcome)) {
-    return Object.freeze({ disposition: declaration.outcome, category: `active_work_declared_${declaration.outcome}` });
-  }
-  const summary = `${unfinished.length} unfinished task(s); goal ${goalActive ? 'active' : 'settled'}; work revision ${work?.revision ?? 0}`;
-  return Object.freeze({
-    disposition: 'continue', category: 'unfinished_conversation_work', required: true,
-    progressEvidence: summary,
-    hint: 'An optional durable plan is active and still unfinished. Continue the work or use work_plan to update the complete task snapshot with concrete evidence; do not stop merely because a milestone changed. If operator input is genuinely required, ask one concrete question and mark the relevant task blocked when possible. Do not offer optional follow-up work or ask whether to continue.',
-  });
+  // Why: conversation work is durable across authenticated turns. An active goal or
+  // unfinished task is context for the next turn, not proof that this provider response
+  // is incomplete. Only current-turn reviewer, tool, visual, or transport evidence may
+  // force an immediate continuation.
+  return null;
 }
 
 export function completionAdvisories(text) {
