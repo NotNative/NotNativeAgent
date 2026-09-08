@@ -77,8 +77,9 @@ kernel-grounded independently of transcript compaction and restores with the ses
 agent must record concrete evidence before completing a task or goal, and must not create
 planning state merely because the capability exists or the work has multiple steps. When the
 operator explicitly requests a goal or task list, the agent persists it before dependent work.
-While a plan exists, completion supervision nudges unfinished work forward but yields when the model is
-genuinely waiting for operator input.
+An active plan survives clean turn boundaries without forcing the provider to continue talking.
+The Console plan manager can clear the goal and every task after explicit confirmation while
+preserving the conversation transcript and tool history.
 
 Provider context is a bounded hot working set rather than the complete durable transcript.
 When records become cold through projection or compaction, NNA supplies a small discovery-only

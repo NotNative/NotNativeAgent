@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from '../ids.js';
-import { planOverlay, taskOverlay } from './overlays.js';
+import { planClearConfirmationOverlay, planOverlay, taskOverlay } from './overlays.js';
 
 const WORK_NOTICE_CATEGORY = 'work';
 const TASK_PREFIX = 'task:';
@@ -16,7 +16,9 @@ export async function handleWorkCommand(name, argument, workspace) {
   const engine = workspace.activeEngine();
   const value = argument.trim();
   if (name === '/plan' || name === '/tasks') {
-    if (value) throw new ContractError('work_command_invalid', `${name} does not accept arguments; use /goal or /task to update progress`);
+    if (value && value !== 'manage') {
+      throw new ContractError('work_command_invalid', `${name} accepts only "manage"; use /goal or /task to update progress`);
+    }
     return openPlan(workspace);
   }
   if (name === '/goal') {
@@ -48,8 +50,18 @@ export function openPlan(workspace, selectedId = null, engine = workspace.active
 
 export async function handleWorkSelection(selected, workspace, overlay) {
   if (!selected || typeof selected.id !== 'string') return false;
-  if (!['plan', 'work-task'].includes(overlay.kind)) return false;
+  if (!['plan', 'work-task', 'plan-clear-confirm'].includes(overlay.kind)) return false;
   const engine = workspace.activeEngine();
+  if (overlay.kind === 'plan-clear-confirm') {
+    if (selected.id === 'clear') {
+      await engine.clearWork();
+      openPlan(workspace, null, engine);
+      showWorkNotice(workspace, 'Plan cleared. The conversation transcript was preserved.');
+    } else {
+      openPlan(workspace, 'action:clear-plan', engine);
+    }
+    return true;
+  }
   if (overlay.kind === 'plan' && selected.id.startsWith(TASK_PREFIX)) {
     const id = selected.id.slice(TASK_PREFIX.length);
     workspace.projection.openOverlay(taskOverlay(engine.workStatus(), id));
@@ -58,6 +70,10 @@ export async function handleWorkSelection(selected, workspace, overlay) {
   if (overlay.kind === 'plan' && selected.id === 'action:goal-reopen') {
     await engine.reopenGoal();
     openPlan(workspace, null, engine);
+    return true;
+  }
+  if (overlay.kind === 'plan' && selected.id === 'action:clear-plan') {
+    workspace.projection.openOverlay(planClearConfirmationOverlay(engine.workStatus()));
     return true;
   }
   if (overlay.kind === 'work-task') {

@@ -147,12 +147,13 @@ ID directly. It restores the saved transcript in a new tab using the current Con
 and workspace configuration. Authenticated hosted and mission sessions are intentionally excluded;
 their originating host must resume them with the original execution authority.
 
-`/plan` opens the optional durable work hub for the active conversation; `/tasks` is an
-alias for the same view. One goal may own up to 64 ordered tasks, with at most one task
+`/plan` opens the optional durable work hub for the active conversation; `/plan manage`,
+`/tasks`, and `/tasks manage` are aliases for the same view. One goal may own up to 64 ordered tasks, with at most one task
 in progress. Use `/goal TEXT`, `/goal complete EVIDENCE`, or `/goal reopen`, and use
 `/task add TEXT`, `/task start ID`, `/task pending ID`, `/task complete ID EVIDENCE`, or
 `/task block ID REASON`. The menu provides the same operations without requiring command
-memorization. Completion requires evidence and blocking requires a reason. Work state is
+memorization. Its confirmed **Clear plan** action removes the goal and every task while
+preserving the conversation transcript and tool history. Completion requires evidence and blocking requires a reason. Work state is
 stored in the conversation journal, restored by `/resume`, preserved independently of
 context compaction, and summarized as `plan completed/total` in the footer. No planning
 state is created for an ordinary conversation unless the operator or agent chooses to do so.

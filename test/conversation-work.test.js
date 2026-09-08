@@ -10,6 +10,7 @@ import { workSummaryRows } from '../src/tui/work-summary.js';
 import { TuiProjection } from '../src/experience/projection.js';
 import { TuiRenderer } from '../src/tui/renderer.js';
 import { handleMouse } from '../src/tui/mouse.js';
+import { handleWorkCommand, handleWorkSelection } from '../src/tui/work-command.js';
 
 test('conversation work enforces one active task and evidence-based completion', async () => {
   const records = [];
@@ -293,6 +294,7 @@ test('plan and task overlays expose structured progress with a compact footer in
   const plan = planOverlay(work);
   assert.equal(plan.kind, 'plan');
   assert.ok(plan.items.some((item) => item.id === 'task:T2'));
+  assert.ok(plan.items.some((item) => item.id === 'action:clear-plan'));
   assert.equal(taskOverlay(work, 'T2').parent, 'plan');
   const status = sessionStatusLine({
     metadata: { endpoint: 'local', model: 'model' }, usage: null, viewportEnd: null, viewportLineCount: 0,
@@ -300,6 +302,55 @@ test('plan and task overlays expose structured progress with a compact footer in
     contextLimitBytes: null, work,
   }, 240);
   assert.match(status, /plan 1\/2/u);
+});
+
+test('/plan manage opens the manager and clears durable work only after confirmation', async () => {
+  const work = new ConversationWork();
+  await work.setGoal('Remove this temporary plan');
+  await work.addTask('Remove this temporary task');
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { provider: 'local', model: 'model' });
+  let changes = 0;
+  const engine = {
+    workStatus: () => work.snapshot(),
+    clearWork: () => work.clear(),
+  };
+  const workspace = {
+    projection,
+    activeEngine: () => engine,
+    onChange: () => { changes += 1; },
+  };
+
+  await handleWorkCommand('/plan', 'manage', workspace);
+  assert.equal(projection.overlay.kind, 'plan');
+  const clearAction = projection.overlay.items.find((item) => item.id === 'action:clear-plan');
+  await handleWorkSelection(clearAction, workspace, projection.overlay);
+  assert.equal(projection.overlay.kind, 'plan-clear-confirm');
+  assert.equal(projection.overlay.items[projection.overlay.selected].id, 'cancel');
+  assert.notEqual(work.snapshot().goal, null);
+
+  await handleWorkSelection({ id: 'cancel' }, workspace, projection.overlay);
+  assert.equal(projection.overlay.kind, 'plan');
+  assert.notEqual(work.snapshot().goal, null);
+  await handleWorkSelection(clearAction, workspace, projection.overlay);
+  await handleWorkSelection({ id: 'clear' }, workspace, projection.overlay);
+
+  assert.equal(work.snapshot().goal, null);
+  assert.deepEqual(work.snapshot().tasks, []);
+  assert.equal(projection.overlay.kind, 'plan');
+  assert.equal(projection.overlay.items.some((item) => item.id === 'action:clear-plan'), false);
+  assert.match(projection.notice.text, /transcript was preserved/u);
+  assert.equal(changes, 1);
+});
+
+test('/plan rejects arguments other than the documented manage alias', async () => {
+  const projection = new TuiProjection();
+  projection.addSession('s1', 'Main', { provider: 'local', model: 'model' });
+  const workspace = { projection, activeEngine: () => ({ workStatus: () => ({ goal: null, tasks: [] }) }) };
+  await assert.rejects(handleWorkCommand('/plan', 'wipe', workspace), {
+    code: 'work_command_invalid',
+    message: '/plan accepts only "manage"; use /goal or /task to update progress',
+  });
 });
 
 test('responsive work shelf keeps goal and ordered tasks visible beside the composer', () => {

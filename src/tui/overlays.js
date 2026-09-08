@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { contextPercentText } from './context.js';
-import { createMenuOverlay } from './surface-engine.js';
+import { createConfirmationOverlay, createMenuOverlay } from './surface-engine.js';
 const PROVIDER_ROLE_LABELS = Object.freeze({
   primary: 'Primary', subagent: 'Sub-agents', reviewer: 'Permission reviewer', vision: 'Vision',
 });
@@ -367,10 +367,28 @@ export function planOverlay(work, options = {}) {
     id: `task:${task.id}`, label: `${taskMarker(task.status)} ${task.id}  ${task.title}`,
     badge: task.status.replace('_', ' '), detail: task.evidence ?? task.blockedReason ?? 'Open task details', section: 'Tasks',
   });
+  if (goal || tasks.length > 0) items.push({
+    id: 'action:clear-plan', label: 'Clear plan',
+    detail: 'Remove the durable goal and every task from this conversation', section: 'Manage plan',
+  });
   return Object.freeze({
     ...menuOverlay('plan', 'Plan', lines, items, options.selectedId ?? selectedTaskId(tasks)),
     actionLabel: 'Up/Down choose · Enter manage',
   });
+}
+
+export function planClearConfirmationOverlay(work) {
+  const tasks = Array.isArray(work?.tasks) ? work.tasks : [];
+  return createConfirmationOverlay('plan-clear-confirm', 'Clear plan', [
+    `Goal   ${work?.goal?.objective ?? 'None'}`,
+    `Tasks  ${tasks.length}`,
+    '',
+    'This removes the durable goal and every task from this conversation.',
+    'The conversation transcript and tool history are not removed.',
+  ], [
+    { id: 'cancel', label: 'Keep plan', detail: 'Return without changing durable work' },
+    { id: 'clear', label: 'Clear goal and tasks', detail: 'Persist an empty work snapshot for this conversation' },
+  ], { safeId: 'cancel', parent: 'plan' });
 }
 
 function selectedTaskId(tasks) { const active = tasks.find((task) => task.status === 'in_progress'); return active ? `task:${active.id}` : 'action:add-task'; }

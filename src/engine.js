@@ -212,8 +212,8 @@ export class SessionEngine {
   completeGoal(evidence) { return this.work.completeGoal(evidence); }
   blockGoal(reason) { return this.work.blockGoal(reason); }
   reopenGoal() { return this.work.reopenGoal(); }
-  addTask(title) { return this.work.addTask(title); }
-  updateTask(id, status, detail) { return this.work.updateTask(id, status, detail); }
+  addTask(title) { return this.work.addTask(title); } updateTask(id, status, detail) { return this.work.updateTask(id, status, detail); }
+  clearWork() { return this.work.clear(); }
   deleteMemory(id, expectedVersion) {
     return this.memory.delete(id, this.config.workspaceRoot, expectedVersion);
   }

@@ -34,11 +34,13 @@ or task list must be persisted before dependent work begins. These tools add no 
 process, secret, or network authority. Hosted sessions receive only the exact work tools named
 by their execution manifest; one grant never implies another.
 
-The Console's `/plan` hub is the primary view. `/tasks` is an alias for the same hub, while
-`/goal` and `/task` provide direct keyboard workflows. The footer shows only a compact
+The Console's `/plan` hub is the primary view. `/plan manage`, `/tasks`, and `/tasks manage`
+are aliases for the same hub, while `/goal` and `/task` provide direct keyboard workflows. The footer shows only a compact
 completed/total count. Ordinary and multi-step conversations remain plan-free unless the
 operator explicitly requests tracking or the agent deliberately decides durable coordination
-would materially help. Once a plan exists, it survives clean turn boundaries and remains available
+would materially help. The hub can clear the complete durable work snapshot only after an explicit
+confirmation whose safe default preserves the plan. Clearing work does not clear transcript or
+tool history. Once a plan exists, it survives clean turn boundaries and remains available
 to later authenticated turns. Active work alone does not force the current provider response to
 continue: only a concrete current-turn reviewer, tool, visual, transport, or typed terminal
 obligation may do so. A recorded blocked goal ends the turn as `blocked`; prose alone cannot
