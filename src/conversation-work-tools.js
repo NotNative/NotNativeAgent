@@ -11,18 +11,18 @@ export function conversationWorkDefinitions(work) {
 }
 
 function planDefinition(work) {
-  return definition('work_plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. Use work_task_update for a routine status or detail change to one existing task; it does not require resending the title. Output from work_plan or work_status can be passed back unchanged. Preserve returned task ids when updating existing tasks; omit id only for a new task.', 'reversible', {
-    revision: { type: 'integer', minimum: 0, description: 'Optional revision returned by work_plan or work_status. A stale revision is rejected without changing work.' },
+  return definition('work_plan', 'Replace the durable conversation goal and complete ordered task snapshot in one call. For an initial plan, omit id from every task; NNA assigns ids. When replacing an existing plan, copy each preserved task id exactly from work_status or a prior work_plan result, and omit id for each newly added task. Never invent task ids. Use work_task_update for a routine status or detail change to one existing task; it does not require resending the title. Output from work_plan or work_status can be passed back unchanged.', 'reversible', {
+    revision: { type: 'integer', minimum: 0, description: 'Optional revision copied from work_plan or work_status when replacing an existing plan. Omit for an initial plan. A stale revision is rejected without changing work.' },
     objective: { type: 'string', minLength: 1, maxLength: 2048, description: 'Required current goal objective.' },
     goal_status: { type: 'string', enum: GOAL_STATUSES, description: 'Goal status. Defaults to active.' },
     goal_evidence: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required only when goal_status is completed.' },
     goal_blocked_reason: { type: 'string', minLength: 1, maxLength: 1024, description: 'Required only when goal_status is blocked.' },
     tasks: {
-      type: 'array', maxItems: 64, description: 'Required complete ordered task list; omitted prior tasks are removed.',
+      type: 'array', maxItems: 64, description: 'Required complete ordered task list. Initial-plan tasks omit id. On replacement, copy ids only for tasks already returned by NNA; omit id for new tasks. Omitted prior tasks are removed.',
       items: {
-        type: 'object', additionalProperties: false, required: ['title'], properties: {
-          id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Existing task id returned by work_plan; omit for a new task.' },
-          title: { type: 'string', minLength: 1, maxLength: 512, description: 'Concise task title.' },
+        type: 'object', description: 'One complete task snapshot. Every task requires title, including tasks with an existing id.', additionalProperties: false, required: ['title'], properties: {
+          id: { type: 'string', pattern: '^T[1-9][0-9]{0,5}$', description: 'Optional identity for a task that already exists. Copy the exact id returned by work_status or work_plan. Never create or guess an id such as T1; omit id and NNA assigns one for a new task.' },
+          title: { type: 'string', minLength: 1, maxLength: 512, description: 'Required concise task title, even when preserving an existing task by id.' },
           status: { type: 'string', enum: TASK_STATUSES, description: 'Defaults to pending.' },
           detail: { type: 'string', minLength: 1, maxLength: 1024, description: 'Completion evidence or blocking reason.' },
         },

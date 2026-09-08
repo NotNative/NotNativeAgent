@@ -112,6 +112,10 @@ test('provider contracts preserve semantic guidance and keep edit selectors disj
     const browse = providerSchema(registry.definition('web_browse').inputSchema, { mode: 'documented' });
     assert.match(browse.properties.action.description, /Navigate: set exactly one of url or path/u);
     assert.match(browse.properties.action.description, /Fill_secret: set target, secret_id, and secret_field/u);
+    const workPlan = providerSchema(registry.definition('work_plan').inputSchema, { mode: 'documented' });
+    assert.match(workPlan.properties.tasks.description, /Initial-plan tasks omit id/u);
+    assert.match(workPlan.properties.tasks.items.properties.id.description, /Never create or guess an id/u);
+    assert.match(workPlan.properties.tasks.items.properties.title.description, /even when preserving an existing task by id/u);
   } finally { await registry.close(); }
 });
 

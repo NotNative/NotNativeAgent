@@ -358,7 +358,9 @@ Conversation work has one atomic tool and four granular tools in the foundationa
 - `work_plan`: atomically replace the bounded goal and ordered tasks; terminal states require
   evidence or a reason and at most one task may be in progress. Its result uses the same
   model-facing shape as its input. A blocked goal requires `goal_blocked_reason`, and every
-  unfinished task must also be blocked. The optional returned `revision` prevents stale replacement.
+  unfinished task must also be blocked. New tasks omit `id`; NNA assigns it. A replacement copies
+  only task ids returned by the current plan, while invented or duplicate ids are rejected with a
+  corrective error. The optional returned `revision` prevents stale replacement.
 - `work_status`: inspect the current durable goal and ordered tasks. When work exists, its result
   can be passed unchanged to `work_plan`.
 - `work_goal`: create, update, complete, block, or reopen the durable goal.

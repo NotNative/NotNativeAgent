@@ -321,7 +321,7 @@ test('invalid plan guidance keeps bookkeeping subordinate to substantive work', 
       content: 'task detail is invalid',
     },
   }]);
-  assert.match(hint, /bookkeeping, not as completion of or a blocker[^]*work_task_update[^]*independent task action[^]*Do not repeat unchanged/iu);
+  assert.match(hint, /bookkeeping, not as completion of or a blocker[^]*Never invent a task id[^]*work_task_update[^]*independent task action[^]*Do not repeat unchanged/iu);
 });
 
 test('review denial continuation favors safer progress before operator interruption', () => {

@@ -347,7 +347,12 @@ function normalizePlan(value, state) {
   const tasks = value.tasks.map((item) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw new ContractError('work_plan_invalid', 'each work-plan task must be an object');
     const id = item.id === undefined ? null : normalizeTaskId(item.id);
-    if (id && (!known.has(id) || ids.has(id))) throw new ContractError('work_plan_invalid', `task id ${id} is unknown or duplicated`);
+    if (id && !known.has(id)) {
+      throw new ContractError('work_plan_invalid', `task id ${id} was not returned by the current work plan; omit id to create this task`);
+    }
+    if (id && ids.has(id)) {
+      throw new ContractError('work_plan_invalid', `task id ${id} appears more than once; include each existing task id at most once`);
+    }
     if (id) ids.add(id);
     const title = boundedText(item.title, 'task title', MAX_TASK_TITLE);
     const status = item.status ?? 'pending';

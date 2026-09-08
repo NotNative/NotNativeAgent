@@ -147,6 +147,30 @@ test('work plan and status expose one lossless round-trip contract', async () =>
   assert.equal(after.goal.status, before.goal.status);
 });
 
+test('work plan documents NNA-owned task ids and gives distinct identity repairs', async () => {
+  const work = new ConversationWork();
+  const plan = conversationWorkDefinitions(work).find((item) => item.name === 'work_plan');
+  const taskSchema = plan.inputSchema.properties.tasks.items;
+
+  assert.match(plan.purpose, /initial plan, omit id from every task/u);
+  assert.match(plan.purpose, /Never invent task ids/u);
+  assert.match(taskSchema.properties.id.description, /Copy the exact id returned by work_status or work_plan/u);
+  assert.match(taskSchema.properties.title.description, /even when preserving an existing task by id/u);
+
+  await assert.rejects(
+    work.replacePlan({ objective: 'Reject invented identities', tasks: [{ id: 'T1', title: 'New task' }] }),
+    { code: 'work_plan_invalid', message: 'task id T1 was not returned by the current work plan; omit id to create this task' },
+  );
+  await work.replacePlan({ objective: 'Reject duplicate identities', tasks: [{ title: 'Existing task' }] });
+  await assert.rejects(
+    work.replacePlan({
+      objective: 'Reject duplicate identities',
+      tasks: [{ id: 'T1', title: 'First copy' }, { id: 'T1', title: 'Second copy' }],
+    }),
+    { code: 'work_plan_invalid', message: 'task id T1 appears more than once; include each existing task id at most once' },
+  );
+});
+
 test('work plan round-trips a terminal blocked goal with its reason', async () => {
   const work = new ConversationWork();
   const definitions = new Map(conversationWorkDefinitions(work).map((item) => [item.name, item]));
