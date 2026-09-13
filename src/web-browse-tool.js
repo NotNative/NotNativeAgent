@@ -4,7 +4,7 @@ import { mkdir, readFile, rm } from 'node:fs/promises';
 import { extname, isAbsolute, relative, resolve, sep, join } from 'node:path';
 import { ContractError } from './ids.js';
 import { loadManagedPlaywright } from './playwright-runtime.js';
-import { WebFetchDestinationPolicy, allowedWebAddresses } from './web-fetch-tool.js';
+import { WebFetchDestinationPolicy, allowedWebAddresses, removeUrlWhitespace } from './web-fetch-tool.js';
 
 const ACTIONS = new Set(['navigate', 'inspect', 'click', 'fill', 'fill_secret', 'press', 'screenshot', 'close']);
 const MAX_TEXT = 65_536;
@@ -300,8 +300,11 @@ function respond(response, status, content) {
 }
 
 function normalizeHttpUrl(value) {
-  let url; try { url = new URL(value); } catch { throw invalid(); }
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw invalid();
+  let url;
+  try { url = new URL(removeUrlWhitespace(value)); } catch { throw invalid('browser argument "url" is not a valid HTTP(S) URL'); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+    throw invalid('browser argument "url" must be a bare HTTP(S) URL without embedded credentials');
+  }
   url.hash = ''; return url;
 }
 function isExactLoopbackUrl(url) {

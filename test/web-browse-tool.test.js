@@ -251,3 +251,16 @@ test('hosted registries do not implicitly expose the standalone root browser', a
   await registry.initialize();
   assert.equal(registry.snapshot().some((item) => item.name === 'web_browse'), false);
 });
+
+test('web_browse repairs whitespace-split URLs and names the url argument when validation still fails', async () => {
+  const { definition, manager } = await fixture();
+  const repaired = await definition.validate({ action: 'navigate', url: 'https:// forecast.weather.gov/point/36/-94' });
+  assert.equal(repaired.args.url, 'https://forecast.weather.gov/point/36/-94');
+  await assert.rejects(definition.validate({ action: 'navigate', url: 'not a url' }), {
+    code: 'tool_schema_invalid', message: 'browser argument "url" is not a valid HTTP(S) URL',
+  });
+  await assert.rejects(definition.validate({ action: 'navigate', url: 'https://user:pass@bad.example.test/' }), {
+    code: 'tool_schema_invalid', message: /browser argument "url"/u,
+  });
+  await manager.close();
+});

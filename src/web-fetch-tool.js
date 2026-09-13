@@ -8,6 +8,8 @@ import { pinnedHttpRequest } from './pinned-http.js';
 import { loadWebFetchConfig } from './web-fetch-config.js';
 
 const MAX_BYTES = 1_048_576;
+const MAX_ERROR_DETAIL_BYTES = 2_048;
+const MAX_ERROR_DETAIL_CHARS = 1_000;
 const MAX_REDIRECTS = 5;
 const DEFAULT_FETCH_TIMEOUT_MS = 15_000;
 const TOOL_TIMEOUT_MS = 20_000;
@@ -104,7 +106,11 @@ export class WebFetchClient {
         url = normalizeUrl(new URL(location, url).href);
         continue;
       }
-      if (!response.ok) throw new ContractError('web_fetch_http_error', `WebFetch returned HTTP ${response.status}`, response.status >= 500);
+      if (!response.ok) {
+        const detail = await readErrorDetail(response);
+        throw new ContractError('web_fetch_http_error',
+          `WebFetch returned HTTP ${response.status}${detail ? `: ${detail}` : ''}`, response.status >= 500);
+      }
       const contentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase() ?? '';
       if (!textType(contentType)) throw new ContractError('web_fetch_type_rejected', `WebFetch does not admit ${contentType || 'unknown content'}`);
       const bytes = await readBounded(response);
@@ -130,11 +136,17 @@ export class WebFetchDestinationPolicy {
 }
 
 function normalizeUrl(value) {
+  // Why: raw whitespace is invalid in every URL, so removing it is a mechanically safe repair of
+  // model tokenization artifacts; the boundary still rejects any value that is not a bare HTTP(S) URL.
   let url;
-  try { url = new URL(value); } catch { throw invalid(); }
+  try { url = new URL(removeUrlWhitespace(value)); } catch { throw invalid(); }
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw invalid();
   url.hash = '';
   return url;
+}
+
+export function removeUrlWhitespace(value) {
+  return typeof value === 'string' ? value.replace(/\s/gu, '') : value;
 }
 
 export async function allowedWebAddresses(url, resolver = resolveHost, destination = 'public_network') {
@@ -202,6 +214,32 @@ async function readBounded(response) {
 function combinedSignal(signal, timeoutMs) {
   const timeout = AbortSignal.timeout(timeoutMs);
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
+// Why: HTTP problem documents routinely name the exact field or path to repair, and web_fetch
+// previously discarded them, forcing blind retries. The body is untrusted content: it is capped,
+// lossily decoded, stripped of control characters, and whitespace-collapsed, and it carries no authority.
+async function readErrorDetail(response) {
+  if (!response.body) return '';
+  const chunks = [];
+  let length = 0;
+  try {
+    for await (const chunk of response.body) {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      const room = MAX_ERROR_DETAIL_BYTES - length;
+      if (bytes.byteLength >= room) {
+        if (room > 0) chunks.push(bytes.subarray(0, room));
+        length = MAX_ERROR_DETAIL_BYTES;
+        break;
+      }
+      chunks.push(bytes);
+      length += bytes.byteLength;
+    }
+  } catch {
+    return '';
+  }
+  const text = new TextDecoder('utf-8').decode(Buffer.concat(chunks, length));
+  return text.replace(/[\u0000-\u001F\u007F]+/gu, ' ').replace(/\s+/gu, ' ').trim().slice(0, MAX_ERROR_DETAIL_CHARS);
 }
 
 function textType(value) {

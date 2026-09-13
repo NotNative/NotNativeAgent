@@ -88,6 +88,33 @@ test('AC-SEC-07 WebFetch pins the validated public address and revalidates every
   assert.deepEqual(connections, [{ host: 'public.example.test', address: '93.184.216.34', authorization: undefined }]);
 });
 
+test('web_fetch surfaces a bounded sanitized excerpt of HTTP error bodies so the model can repair the call', async () => {
+  const client = new WebFetchClient({
+    resolve: async () => ['93.184.216.34'],
+    transport: async () => new Response('{"error":true,"reason":"Invalid value at \'wind_speed_unit\'"}', {
+      status: 400, headers: { 'content-type': 'application/problem+json' },
+    }),
+  });
+  await assert.rejects(client.fetchText('https://api.example.test/v1', new AbortController().signal), (error) =>
+    error.code === 'web_fetch_http_error' && error.retryable === false
+    && error.message.includes('HTTP 400') && error.message.includes("Invalid value at 'wind_speed_unit'"));
+  const noisy = new WebFetchClient({
+    resolve: async () => ['93.184.216.34'],
+    transport: async () => new Response(`\u0000\u001b${'x'.repeat(5_000)}`, { status: 500, headers: { 'content-type': 'text/plain' } }),
+  });
+  await assert.rejects(noisy.fetchText('https://api.example.test/flaky', new AbortController().signal), (error) =>
+    error.code === 'web_fetch_http_error' && error.retryable === true
+    && error.message.includes('HTTP 500') && !/[\u0000-\u001F]/u.test(error.message)
+    && error.message.length <= 'WebFetch returned HTTP 500: '.length + 1_000);
+});
+
+test('web_fetch repairs whitespace-split URLs mechanically at the schema boundary', async () => {
+  const definition = webFetchDefinition();
+  const normalized = await definition.validate({ url: 'https://exam ple.test/a b/c#fragment' });
+  assert.equal(normalized.args.url, 'https://example.test/ab/c');
+  await assert.rejects(definition.validate({ url: '   ' }), { code: 'tool_schema_invalid' });
+});
+
 test('trusted exact private origins are admitted while other private origins remain blocked', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-webfetch-'));
   const path = join(root, 'web-fetch.json');
