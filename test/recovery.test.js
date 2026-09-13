@@ -71,20 +71,21 @@ test('a host without steering returns terminal bounded recovery instead of an at
   assert.equal(records[0].type, 'attention_unavailable');
 });
 
-test('turn-scoped failures clear only after a successful superseding operation', () => {
+test('possible-effect failures persist across a success elsewhere while no-effect failures never bind completion', () => {
   const active = { toolFailureLedger: new Map() };
   const item = (path, status, effect = 'none') => ({
     call: { name: 'fs_write_text', args: { path } },
     result: { status, reason_code: status === 'failed' ? 'write_failed' : null, effect_certainty: effect },
   });
   updateToolFailures(active, [item('a.txt', 'failed')]);
-  updateToolFailures(active, [item('b.txt', 'succeeded')]);
-  assert.deepEqual(active.unresolvedToolFailures, ['write_failed']);
-  updateToolFailures(active, [item('a.txt', 'succeeded')]);
   assert.deepEqual(active.unresolvedToolFailures, []);
 
   updateToolFailures(active, [item('a.txt', 'failed', 'unknown')]);
+  updateToolFailures(active, [item('b.txt', 'succeeded')]);
+  assert.deepEqual(active.unresolvedToolFailures, ['write_failed']);
   updateToolFailures(active, [item('a.txt', 'succeeded')]);
+  // Why: a later success on the same target cannot disprove what an unknown-effect
+  // failure may already have changed, so its obligation stays visible.
   assert.deepEqual(active.unresolvedToolFailures, ['write_failed']);
 });
 

@@ -165,11 +165,16 @@ public package entry point and exports the current names without historical alia
     request/result counts, successful unique file reads, verification calls, and tool names. The
     next model step receives the ledger, and the terminal record stores it. This constrains
     mechanical scope claims without attempting to infer or grade nuanced prose conclusions.
-26. Engine-managed turns accept a clean provider stop after tool use when the reviewer ledger,
-    tool failures, typed durable-work contradictions, visual evidence, transport state, and steering
-    expose no concrete current-turn obligation. An active cross-turn plan is context, not such an
-    obligation. Tool use alone never creates a second terminal protocol. Each remaining structured
-    obligation supplies one specific continuation category with a local recovery bound.
+ 26. Engine-managed turns accept a clean provider stop after tool use when the reviewer ledger, tool
+     failures, typed durable-work contradictions, visual evidence, transport state, and steering
+     expose no concrete current-turn obligation. An active cross-turn plan is context, not such an
+     obligation. Tool use alone never creates a second terminal protocol. Each remaining structured
+     obligation supplies one specific continuation category with a local recovery bound. Only a
+     possible external effect may hold completion open: a reviewer rejection or deferral, and any
+     settled terminal with no possible effect, is a final classification that creates no
+     continuation obligation and is never carried into later turns. A rejected terminal declaration
+     consumes the same bounded recovery episodes as any other supervised continuation; exhaustion
+     parks for operator attention.
 27. Long-horizon continuation refresh is independent of context-window pressure. After eight
     settled turns without a newer compaction checkpoint, the engine compacts the provider-facing
     hot working set while retaining the complete transcript and evidence in the durable journal.

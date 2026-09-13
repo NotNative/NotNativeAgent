@@ -20,6 +20,10 @@ function updateFailure(ledger, item) {
     return;
   }
   const effect = item.result?.effect_certainty ?? 'unknown';
+  // Why: a settled non-success with no possible effect (denial, missing target, failed
+  // read) is repair feedback, not a dangling obligation. Recording it here would keep
+  // completion supervision nagging long after the model chose a different route.
+  if (effect === 'none') return;
   const key = effect === 'unknown' ? `unknown:${scope}` : scope;
   ledger.set(key, Object.freeze({
     reasonCode: item.result?.reason_code ?? status ?? 'tool_failed', effectCertainty: effect, scope,

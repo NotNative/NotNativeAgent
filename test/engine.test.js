@@ -105,7 +105,7 @@ test('reviewer-ledger evidence prevents a clean stop from hiding an unresolved t
     finishReason: 'stop', toolAssembler: { size: 0 }, unresolvedToolFailures: [],
     correctableToolFailures: [], recovery: { actions: [] }, reviewerCompletion: {
       schema: 'nna.reviewer-completion.v1', unresolved_count: 1,
-      unresolved: [{ tool: 'fs_write_text', state: 'not_approved', effect_certainty: 'none' }],
+      unresolved: [{ tool: 'fs_write_text', state: 'failed', effect_certainty: 'unknown' }],
     },
   };
   const pending = evaluateCompletion(active, 'Retrying now.');

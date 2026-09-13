@@ -18,7 +18,7 @@ export async function persistSupervisedResponse(active, supervised, persist) {
   return active.stepText;
 }
 
-export async function continueAfterTerminalDeclaration(engine, active, items, trustedHandoff, settleStep) {
+export async function continueAfterTerminalDeclaration(engine, active, items, trustedHandoff, settleStep, recordRecovery) {
   if (!isSuccessfulDeclarationBatch(items)) {
     if (items.some((item) => declarationName(item) !== 'turn_finish')) active.provisionalFinal = null;
     return null;
@@ -31,6 +31,7 @@ export async function continueAfterTerminalDeclaration(engine, active, items, tr
   const candidate = active.provisionalFinal ?? (active.stepText
     ? Object.freeze({ text: active.stepText, stepId: active.stepId })
     : null);
+  let gateHint = null;
   if (candidate) {
     const supervised = engine.reliability.evaluateCompletion(
       active, candidate.text, engine.work?.snapshot(),
@@ -48,13 +49,26 @@ export async function continueAfterTerminalDeclaration(engine, active, items, tr
         terminalDeclarationSettled: true,
       });
     }
+    // Why: a rejected terminal declaration is a supervised continuation, not free
+    // bookkeeping. Without episode accounting, a model repeating one unchanged answer
+    // could be nudged forever because bookkeeping steps never consume the model-step
+    // budget. Exhaustion parks for operator attention instead of re-asking indefinitely.
+    const plan = engine.reliability.continuation(active, supervised.category, supervised.progressEvidence, {}, {
+      allowCompaction: active.contextPressureTier === 'compact',
+    });
+    if (plan.action) await recordRecovery(plan.action, active);
+    if (!plan.continue) {
+      await settleStep('incomplete');
+      return Object.freeze({ exhausted: true, category: supervised.category, count: plan.count });
+    }
+    gateHint = supervised.hint ?? engine.reliability.hint(plan.action);
   }
   await settleStep('continued');
   engine.state.transition('preparing_continuation', { trigger: 'terminal_declaration_recorded', turnId: active.turnId });
   const evidenceHint = completionEvidenceHint(active.completionEvidence);
   return Object.freeze({
     continue: true, countModelStep: false,
-    hint: [trustedHandoff?.hint ?? toolContinuationHint(items), evidenceHint].filter(Boolean).join('\n\n'),
+    hint: [gateHint, trustedHandoff?.hint ?? toolContinuationHint(items), evidenceHint].filter(Boolean).join('\n\n'),
   });
 }
 

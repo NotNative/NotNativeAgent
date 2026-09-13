@@ -331,7 +331,7 @@ export class SessionEngine {
     this.tools.grantWorkflowLease(active.toolConstraints.map((constraint) => constraint.required_tool).filter(Boolean), { source: 'tool_constraint' });
     updateToolFailures(active, items); refreshReviewerCompletion(this, active); active.completionEvidence = completionEvidence(this.transcript, active.turnId);
     const steeringApplied = await this.#consumeSteering(active);
-    const declaration = await continueAfterTerminalDeclaration(this, active, items, trustedHandoff, (outcome) => this.#settleStep(active, outcome));
+    const declaration = await continueAfterTerminalDeclaration(this, active, items, trustedHandoff, (outcome) => this.#settleStep(active, outcome), (action) => this.#recordRecovery(action, active));
     if (declaration) return declaration;
     const behavior = observeToolState(active, items, (name) => this.tools.definition(name));
     const evidence = this.reliability.toolProgressEvidence(items, steeringApplied, { constraints: active.toolConstraints, stateRevision: active.observableStateRevision });

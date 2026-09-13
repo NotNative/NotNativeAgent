@@ -287,6 +287,8 @@ function boundedIdentitySet(values) {
   return new Set(values.slice(0, MAX_COMPLETION_REQUESTS).map(boundedIdentity).filter(Boolean));
 }
 
+const DECISION_TERMINAL_OUTCOMES = new Set(['deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
+
 function confirmedExecution(entry) {
   const terminal = entry.execution?.terminal;
   return terminal?.status === 'succeeded' && ['completed', 'none'].includes(terminal.effect_certainty);
@@ -294,9 +296,15 @@ function confirmedExecution(entry) {
 
 function settledOutcome(entry) {
   if (confirmedExecution(entry)) return true;
+  // Why: a rejection or deferral is a final classification (ADR 0007). It remains audited
+  // in this ledger, but it creates no continuation obligation the model could lawfully
+  // settle — retrying a denied request is forbidden, so counting it as unresolved traps
+  // the turn in retry-or-declare loops.
+  if (!entry.execution && DECISION_TERMINAL_OUTCOMES.has(entry.decision?.outcome)) return true;
   const terminal = entry.execution?.terminal;
-  // Why: an invalid request with no effect is repair feedback, not unfinished execution.
-  return terminal?.status === 'invalid_request' && terminal.effect_certainty === 'none';
+  // Why: any settled terminal with no possible effect is repair feedback, not unfinished
+  // execution. Only a possible external effect may hold completion open.
+  return terminal?.effect_certainty === 'none';
 }
 
 function completionEntry(entry) {
