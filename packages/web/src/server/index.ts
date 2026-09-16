@@ -7,7 +7,7 @@ import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { ENV } from './env.ts';
 import { registerHarnessAdapter } from './harness/adapter.ts';
-import { mockHarness } from './harness/mock.ts';
+import { mockHarness } from './harness/mock/index.ts';
 
 export function startServer(): { port: number } {
   if (ENV.harness !== 'nna') {

@@ -5,7 +5,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | Phase | Doc(s) | Status |
 |---|---|---|
 | P0 scaffold + shell | 01 | ✅ done 2026-07-21 (typecheck ×3 · vitest 6/6 · vite build · prod-serve + echo-loop smoke) |
-| P1 harness seam | 02 | pending |
+| P1 harness seam | 02 | ✅ done 2026-07-22 (typecheck ×3 · vitest 11/11 incl. in-process contract tests · vite build · live smoke: LF-8 event sequence, Last-Event-ID replay, messageID echo, permission 404-settled) |
 | P2 sync engine | 04 | pending |
 | P3 chat UI | 05 | pending |
 | P4 server/API | 03 | pending |
@@ -34,6 +34,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   server. Verified: /health, /auth/*, /api/session echo POST→reply, / + assets 200.
   Known limits: agent sandbox cannot spawn esbuild → dev-loop (`pnpm dev`) is a
   user-terminal step; browser visual check pending user eyes at http://127.0.0.1:3902.
+- 2026-07-22 · **P1 done.** Doc 02 read in full (1484 lines) → `NOTES/02-harness-contract.md`.
+  Mock harness rewritten as contract implementation (`server/harness/mock/{index,store,sim,
+  events,fixtures}.ts`): bare-payload wire (D12), §6 shapes via new `ui/lib/nna/types.ts`,
+  LF-8 turn simulation (transcription deltas → durable part), §5.1 envelope + ring replay
+  w/ Last-Event-ID, v1+v2 permissions, questions, todos, fork/abort/revert/summarize/share,
+  providers/models/agents/commands/tools-ids/path/project, `x-nnd-directory` header transport.
+  Server proxy adds session-list sanitation (§3.2 keep-list). UI SDK facade (`nna/client.ts`)
+  grows to the §3.4 catalog with §3.5a directory transport + ascendingId message ids; events
+  client unwraps envelopes; sessions store keeps authoritative status map; ChatView busy
+  pill; control stream standardized to `notnative:*` data frames. New in-process contract
+  tests (messageID echo, 204+events, replay, abort-mid-part, permission 404-settled).
+  Also: P0 mojibake repaired; harness naming centralized (`server/lib/harnessNaming.ts`).
 
 ## Delta/Delayed register
 
@@ -50,3 +62,8 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | D9 | PWA manifest link + install/push hooks | P4/P11 | server endpoint exists; HTML prelude simplified |
 | D10 | mobile surface | long-term | renders desktop tree + console warning |
 | D11 | control-stream consumers | P2 (doc 04) | subscribed in App, handlers minimal |
+| D12 | bare harness payloads | P1 | `{data,error,response}` synthesized in UI facade; v2 surface keeps `{data}` on the wire |
+| D13 | seam renames | P1 | `x-nnd-directory`, stdout line `notnativeagent server listening on <URL>`, `NNA_*` env, `notnative:*` control events — coordinated pass pending NNA |
+| D14 | mock scope boundary | P1 | mock = §12.1 + early §12.2 items; lifecycle/spawn/Basic-auth (P-01/03/22) belong to the future NNA adapter, not the mock |
+| D15 | wire-name duplication | P1 | `server/lib/harnessNaming.ts` mirrors `ui/lib/nna/constants.ts`; both files change together |
+| D16 | WS event bridges | P2 (doc 04) | P1 ships SSE only; §9.4 WS frame vocabulary recorded in NOTES/02 |

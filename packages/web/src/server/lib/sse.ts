@@ -3,7 +3,7 @@
  * and the control stream (/api/notnative/events).
  * Frame format: optional `id:`, `event:`, `data:` lines terminated by blank line.
  */
-export type SseFrame = { event?: string; data: string; id?: string };
+export type SseFrame = { event?: string; data?: string; id?: string; comment?: string };
 
 export function sseResponse(
   onOpen: (send: (frame: SseFrame) => void) => () => void,
@@ -18,9 +18,13 @@ export function sseResponse(
       const send = (frame: SseFrame) => {
         if (closed) return;
         let out = '';
+        if (frame.comment !== undefined) {
+          controller.enqueue(encoder.encode(`:${frame.comment}\n\n`));
+          return;
+        }
         if (frame.id) out += `id: ${frame.id}\n`;
         if (frame.event) out += `event: ${frame.event}\n`;
-        out += `data: ${frame.data}\n\n`;
+        out += `data: ${frame.data ?? ''}\n\n`;
         try {
           controller.enqueue(encoder.encode(out));
         } catch {

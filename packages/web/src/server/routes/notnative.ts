@@ -7,6 +7,7 @@ import path from 'node:path';
 import { Hono } from 'hono';
 import { ENV } from '../env.ts';
 import { publishControlEvent, subscribeControlEvents } from '../lib/bus.ts';
+import { CONTROL_EVENTS } from '../lib/harnessNaming.ts';
 import { sseResponse } from '../lib/sse.ts';
 
 const CONTROL_HEARTBEAT_MS = 45_000;
@@ -30,14 +31,15 @@ async function writeSettings(settings: Record<string, unknown>): Promise<void> {
 export function createNotNativeRoutes(): Hono {
   const app = new Hono();
 
-  // SSE control stream: first frame is `event-stream-ready`, heartbeat 45 s
+  // SSE control stream (§5.4): unnamed data frames `{type:"notnative:*", properties}`
+  // — onmessage-compatible; comment heartbeats keep intermediaries alive only.
   app.get('/api/notnative/events', (c) =>
     sseResponse((send) => {
       const unsubscribe = subscribeControlEvents((event) =>
-        send({ event: event.type, data: JSON.stringify(event.payload ?? {}) }),
+        send({ data: JSON.stringify({ type: event.type, properties: event.payload ?? {} }) }),
       );
-      send({ event: 'event-stream-ready', data: JSON.stringify({ at: Date.now() }) });
-      const heartbeat = setInterval(() => send({ data: ': heartbeat' }), CONTROL_HEARTBEAT_MS);
+      send({ data: JSON.stringify({ type: CONTROL_EVENTS.eventStreamReady, properties: {} }) });
+      const heartbeat = setInterval(() => send({ comment: 'heartbeat' }), CONTROL_HEARTBEAT_MS);
       return () => {
         unsubscribe();
         clearInterval(heartbeat);

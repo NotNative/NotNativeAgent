@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useSessionsStore } from '../stores/useSessionsStore.ts';
 import { useI18n } from './I18nProvider.tsx';
 
@@ -7,6 +7,7 @@ export function ChatView() {
   const [draft, setDraft] = useState('');
   const session = useSessionsStore((s) => s.sessions.find((x) => x.id === s.selectedSessionId));
   const messages = useSessionsStore((s) => s.messages);
+  const status = useSessionsStore((s) => (s.selectedSessionId ? s.sessionStatus[s.selectedSessionId] : undefined));
   const sendPending = useSessionsStore((s) => s.sendPending);
   const sendText = useSessionsStore((s) => s.sendText);
 
@@ -25,6 +26,13 @@ export function ChatView() {
           <div className="mt-8 text-center text-sm text-neutral-600">{t('shell.noSession')}</div>
         ) : (
           <div className="mx-auto flex max-w-3xl flex-col gap-4">
+            {status && status.type !== 'idle' ? (
+              <div className="mx-auto rounded-full bg-amber-500/15 px-3 py-1 text-[11px] text-amber-400">
+                {status.type === 'retry'
+                  ? `retrying (${status.attempt}): ${status.message}`
+                  : t('shell.busy')}
+              </div>
+            ) : null}
             {messages.map((message) => (
               <article key={message.id} className="text-sm">
                 <div className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">

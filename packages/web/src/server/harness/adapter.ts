@@ -16,12 +16,7 @@ export interface HarnessAdapter {
   handle(request: Request): Promise<Response>;
 }
 
-export const harnessJson = (data: unknown, status = 200): Response =>
-  new Response(JSON.stringify({ data }), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  });
-
+/** Harness wire responses are BARE payloads (doc 02 / D12) — no {data} wrapper. */
 export const harnessError = (message: string, status = 400): Response =>
   new Response(JSON.stringify({ error: { message } }), {
     status,

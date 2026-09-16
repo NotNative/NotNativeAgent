@@ -49,7 +49,7 @@ export function ContextRail() {
       {RAIL_SURFACES.map((surface) => (
         <button
           key={surface.id}
-          title={`${surface.label} â€” lands with its phase`}
+          title={`${surface.label} — lands with its phase`}
           className="h-8 w-8 rounded text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
           type="button"
         >

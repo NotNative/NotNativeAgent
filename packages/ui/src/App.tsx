@@ -1,8 +1,9 @@
-﻿import { useEffect, useState } from 'react';
-import { Toaster } from 'sonner';
+import { useEffect, useState } from 'react';
+import { Toaster, toast } from 'sonner';
 import { fetchHealth, initializeApp } from './lib/initializeApp.ts';
 import { removeSplashScreen } from './lib/splash.ts';
 import { subscribeControlEvents, subscribeHarnessEvents } from './lib/nna/events.ts';
+import type { SessionStatus } from './lib/nna/types.ts';
 import { useConfigStore } from './stores/useConfigStore.ts';
 import { useFeatureFlagsStore } from './stores/useFeatureFlagsStore.ts';
 import { useSessionsStore } from './stores/useSessionsStore.ts';
@@ -28,8 +29,8 @@ export function App() {
           .setPlanModeExperimentalEnabled(health.planModeExperimentalEnabled);
       }
 
-      // doc 01 Â§4.3 step 4: â‰¤10 attempts, 1000 ms base doubling, 16 s cap,
-      // exhausted â†’ manual recovery screen (never a dead splash, Â§16.10).
+      // doc 01 §4.3 step 4: ≤10 attempts, 1000 ms base doubling, 16 s cap,
+      // exhausted → manual recovery screen (never a dead splash, §16.10).
       let ok = false;
       let delay = 1000;
       for (let attempt = 1; attempt <= 10; attempt += 1) {
@@ -45,7 +46,7 @@ export function App() {
         return;
       }
 
-      void useSessionsStore.getState().loadSessions();
+      void useSessionsStore.getState().loadSessions().then(() => useSessionsStore.getState().refreshStatus());
       removeSplashScreen();
       if (typeof window !== 'undefined') {
         window.__notnativeAppReady = true;
@@ -53,11 +54,41 @@ export function App() {
       }
 
       void subscribeHarnessEvents((event) => {
-        if (event.type === 'session.created' || event.type === 'session.updated') {
-          void useSessionsStore.getState().loadSessions();
-        }
-        if (event.type === 'message.updated') {
-          void useSessionsStore.getState().refreshMessages();
+        const sessions = useSessionsStore.getState();
+        switch (event.type) {
+          case 'session.created':
+          case 'session.updated':
+          case 'session.deleted':
+            void sessions.loadSessions();
+            break;
+          case 'message.updated':
+          case 'message.part.updated':
+          case 'message.removed':
+          case 'message.part.removed':
+            void sessions.refreshMessages();
+            break;
+          case 'session.status': {
+            const sessionId = event.properties?.sessionID;
+            const status = event.properties?.status as SessionStatus | undefined;
+            if (typeof sessionId === 'string' && status) sessions.applyStatusEvent(sessionId, status);
+            break;
+          }
+          case 'session.idle':
+            void sessions.refreshStatus();
+            break;
+          case 'permission.asked':
+            toast.message(`Permission requested (${String(event.properties?.permission ?? '?')}) — reply surface lands in P2`);
+            break;
+          case 'question.asked':
+            toast.message('Harness asked a question — answer card lands in P2');
+            break;
+          case 'session.error': {
+            const error = event.properties?.error as { name?: string } | undefined;
+            toast.error(`Turn error: ${error?.name ?? 'unknown'}`);
+            break;
+          }
+          default:
+            break;
         }
       }).then((unsubscribe) => {
         if (cancelled) unsubscribe();
@@ -69,7 +100,7 @@ export function App() {
         else cleanups.push(unsubscribe);
       });
 
-      // step 5: providers/agents recovery â€” 2 s poll, 15 attempts, while empty
+      // step 5: providers/agents recovery — 2 s poll, 15 attempts, while empty
       let ticks = 0;
       const poll = setInterval(() => {
         ticks += 1;

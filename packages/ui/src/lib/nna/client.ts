@@ -1,12 +1,12 @@
 /**
- * Harness SDK facade (doc 01 HP-2/3/4/5; method catalog lands with doc 02).
- *  - every read returns { data, error }; non-2xx → `<op> failed (<status>): <msg>`
- *  - GETs carry a 30 s timeout (POST + /event bypass); the wait is abandoned on
- *    timeout while a shared coalesced fetch may complete
- *  - one current directory (normalized) travels on every scoped call
+ * Harness SDK facade (doc 02 §3.3/§3.5a/App D). The only browser path to the
+ * harness. Synthesizes the `{data,error,response}` result envelope client-side
+ * (D12: harness wire bodies are bare payloads); never fabricates statuses.
+ * Directory transport follows §3.5a: GET/HEAD carry `?directory=`, other
+ * methods carry the percent-encoded header (+ `uri` marker when encoded).
  */
 import { runtimeFetch } from '../runtime-fetch.ts';
-import { getEventStreamUrl } from '../runtime-url.ts';
+import { getRealtimeBaseUrl } from '../runtime-url.ts';
 import {
   DEFAULT_BASE_URL,
   DIRECTORY_ENCODING_HEADER,
@@ -14,6 +14,22 @@ import {
   HARNESS_HEALTH_TIMEOUT_MS,
   HARNESS_REQUEST_TIMEOUT_MS,
 } from './constants.ts';
+import type {
+  AgentInfo,
+  CommandInfo,
+  HarnessConfig,
+  HarnessPath,
+  MessageEntry,
+  PermissionRequest,
+  PromptAsyncBody,
+  Provider,
+  QuestionRequest,
+  Session,
+  SessionStatus,
+  Todo,
+} from './types.ts';
+
+export type HarnessSession = Session;
 
 export interface HarnessResult<T> {
   data?: T;
@@ -41,35 +57,29 @@ export function getHarnessDirectory(): string {
   return currentDirectory;
 }
 
-function directoryHeaders(headers: Headers): Headers {
-  if (!currentDirectory) return headers;
+let idCounter = 0;
+/** Monotonic client message ids (§11.14): the harness echoes them verbatim. */
+export function ascendingId(prefix: string): string {
+  const epochPart = (Date.now() * 4096 + ++idCounter).toString(36).padStart(11, '0');
+  const tail = Math.random().toString(36).slice(2, 16).padEnd(14, '0');
+  return `${prefix}_${epochPart}_${tail}`;
+}
+
+function applyDirectory(method: string, path: string, headers: Headers): string {
+  if (!currentDirectory) return path;
+  const isRead = method === 'GET' || method === 'HEAD';
+  if (isRead) {
+    const key = path.startsWith('/api/') ? 'location[directory]' : 'directory';
+    const joiner = path.includes('?') ? '&' : '?';
+    return `${path}${joiner}${key}=${encodeURIComponent(currentDirectory)}`;
+  }
   if (/[^\x00-\xFF]/.test(currentDirectory)) {
-    headers.set(DIRECTORY_HEADER, encodeURI(currentDirectory));
+    headers.set(DIRECTORY_HEADER, encodeURIComponent(currentDirectory));
     headers.set(DIRECTORY_ENCODING_HEADER, 'uri');
   } else {
     headers.set(DIRECTORY_HEADER, currentDirectory);
   }
-  return headers;
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  const text = await response.text();
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { raw: text };
-  }
-}
-
-function unwrap<T>(body: unknown): HarnessResult<T> {
-  if (body && typeof body === 'object' && 'data' in (body as Record<string, unknown>)) {
-    const data = (body as Record<string, unknown>).data as T;
-    if (data === undefined || data === null) return { error: 'operation failed: empty response' };
-    return { data };
-  }
-  if (body === null || body === undefined) return { error: 'operation failed: empty response' };
-  return { data: body as T };
+  return path;
 }
 
 export class HarnessError extends Error {
@@ -81,6 +91,17 @@ export class HarnessError extends Error {
   }
 }
 
+async function readBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+}
+
+/** Result-envelope factory (never throws; callers branch on `error`). */
 async function request<T>(
   operation: string,
   path: string,
@@ -88,10 +109,11 @@ async function request<T>(
   timeoutMs?: number,
 ): Promise<HarnessResult<T>> {
   const method = (init?.method ?? 'GET').toUpperCase();
-  const headers = directoryHeaders(new Headers(init?.headers));
-  const isEvent = path.includes('/event');
+  const headers = new Headers(init?.headers);
+  const finalPath = applyDirectory(method, path, headers);
+  const isEvent = finalPath.includes('/event');
 
-  const doFetch = runtimeFetch(`${base}${path}`, { ...init, method, headers });
+  const doFetch = runtimeFetch(`${base}${finalPath}`, { ...init, method, headers });
   let response: Response;
   try {
     if (method === 'GET' && !isEvent) {
@@ -107,81 +129,160 @@ async function request<T>(
     }
   } catch (error) {
     if (error instanceof HarnessError) return { error: error.message };
-    return { error: `${operation} failed: ${String(error)}` };
+    return { error: `${operation} failed: ${String(error)}` }; // transport failure (§11.8), no invented status
   }
 
-  const body = await readJson(response);
+  const body = await readBody(response);
   if (!response.ok) {
     const message =
       (body as { error?: { message?: string } } | null)?.error?.message ??
       (body as { message?: string } | null)?.message ??
       response.statusText;
-    return {
-      error: `${operation} failed (${response.status}): ${message}`,
-      response: { status: response.status },
-    };
+    return { error: `${operation} failed (${response.status}): ${message}`, response: { status: response.status } };
   }
-  const result = unwrap<T>(body);
-  result.response = { status: response.status };
-  return result;
+  return { data: body as T, response: { status: response.status } };
 }
 
-// ── operations ──────────────────────────────────────────────────────────────
-export interface HarnessSession {
-  id: string;
-  title: string;
-  directory: string;
-  time: { created: number; updated: number };
-}
+const post = (body: unknown): RequestInit => ({
+  method: 'POST',
+  body: JSON.stringify(body),
+  headers: { 'content-type': 'application/json' },
+});
+const PATCH = (body: unknown): RequestInit => ({
+  method: 'PATCH',
+  body: JSON.stringify(body),
+  headers: { 'content-type': 'application/json' },
+});
+const DEL = (): RequestInit => ({ method: 'DELETE' });
+const sid = (id: string) => encodeURIComponent(id);
 
-export interface HarnessMessage {
-  id: string;
-  sessionID: string;
-  role: 'user' | 'assistant';
-  time: { created: number };
-  parts: Array<Record<string, unknown>>;
-}
-
+// ── operations (catalog: doc 02 §3.4) ────────────────────────────────────────
 export const harnessClient = {
+  // lifecycle/health
+  async globalHealth(): Promise<HarnessResult<{ healthy: boolean; version: string }>> {
+    return request('globalHealth', '/global/health', undefined, HARNESS_HEALTH_TIMEOUT_MS);
+  },
+  /** HP-5 probe target: the harness's own health endpoint. */
+  async probe(): Promise<HarnessResult<{ healthy: boolean; version: string }>> {
+    return this.globalHealth();
+  },
+
+  // identity
+  async getPath(): Promise<HarnessResult<HarnessPath>> {
+    return request('getPath', '/path');
+  },
+  async getProject(): Promise<HarnessResult<unknown>> {
+    return request('getProject', '/project/current');
+  },
+
+  // sessions (P-04)
   async listSessions(): Promise<HarnessResult<HarnessSession[]>> {
     return request('listSessions', '/session');
   },
-  async createSession(input: { title?: string; directory?: string }): Promise<HarnessResult<HarnessSession>> {
-    return request('createSession', '/session', {
-      method: 'POST',
-      body: (JSON.stringify(input) ?? '') as BodyInit,
-      headers: { 'content-type': 'application/json' },
-    });
+  async createSession(input: { title?: string; directory?: string; parentID?: string }): Promise<HarnessResult<HarnessSession>> {
+    return request('createSession', '/session', post(input));
   },
-  async listMessages(sessionId: string): Promise<HarnessResult<HarnessMessage[]>> {    return request('listMessages', `/session/${encodeURIComponent(sessionId)}/message`);
+  async getSession(sessionId: string): Promise<HarnessResult<HarnessSession>> {
+    return request('getSession', `/session/${sid(sessionId)}`);
   },
-  async sendMessage(
-    sessionId: string,
-    parts: Array<Record<string, unknown>>,
-  ): Promise<HarnessResult<{ accepted: boolean }>> {
-    return request('sendMessage', `/session/${encodeURIComponent(sessionId)}/message`, {
-      method: 'POST',
-      body: JSON.stringify({ parts }) ?? '',
-      headers: { 'content-type': 'application/json' },
-    });
+  async updateSession(sessionId: string, patchBody: Record<string, unknown>): Promise<HarnessResult<HarnessSession>> {
+    return request('updateSession', `/session/${sid(sessionId)}`, PATCH(patchBody));
   },
-  async listProviders(): Promise<HarnessResult<unknown>> {
-    return request('listProviders', '/provider');
+  async deleteSession(sessionId: string): Promise<HarnessResult<boolean>> {
+    return request('deleteSession', `/session/${sid(sessionId)}`, DEL());
   },
-  async listAgents(): Promise<HarnessResult<unknown>> {
-    return request('listAgents', '/agent');
+  async forkSession(sessionId: string, messageID?: string): Promise<HarnessResult<HarnessSession>> {
+    return request('forkSession', `/session/${sid(sessionId)}/fork`, post({ ...(messageID ? { messageID } : {}) }));
   },
-  async getConfig(): Promise<HarnessResult<unknown>> {
+  async abortSession(sessionId: string): Promise<HarnessResult<boolean>> {
+    return request('abortSession', `/session/${sid(sessionId)}/abort`, post({}));
+  },
+  async revertSession(sessionId: string, messageID: string, partID?: string): Promise<HarnessResult<HarnessSession>> {
+    return request('revertSession', `/session/${sid(sessionId)}/revert`, post({ messageID, ...(partID ? { partID } : {}) }));
+  },
+  async unrevertSession(sessionId: string): Promise<HarnessResult<HarnessSession>> {
+    return request('unrevertSession', `/session/${sid(sessionId)}/unrevert`, post({}));
+  },
+  async summarizeSession(sessionId: string, model?: { providerID?: string; modelID?: string }): Promise<HarnessResult<boolean>> {
+    return request('summarizeSession', `/session/${sid(sessionId)}/summarize`, post(model ?? {}));
+  },
+  async listChildren(sessionId: string): Promise<HarnessResult<HarnessSession[]>> {
+    return request('listChildren', `/session/${sid(sessionId)}/children`);
+  },
+  async listTodos(sessionId: string): Promise<HarnessResult<Todo[]>> {
+    return request('listTodos', `/session/${sid(sessionId)}/todo`);
+  },
+  /** Authoritative status map (P-07): omission ⇒ idle; failure ⇒ error, never {}. */
+  async sessionStatus(): Promise<HarnessResult<Record<string, SessionStatus>>> {
+    return request('sessionStatus', '/session/status');
+  },
+
+  // turns (P-05)
+  async listMessages(sessionId: string, limit?: number): Promise<HarnessResult<MessageEntry[]>> {
+    const query = limit ? `?limit=${limit}` : '';
+    return request('listMessages', `/session/${sid(sessionId)}/message${query}`);
+  },
+  async promptAsync(sessionId: string, body: PromptAsyncBody): Promise<HarnessResult<void>> {
+    return request('promptAsync', `/session/${sid(sessionId)}/prompt_async`, post(body));
+  },
+  async sendCommand(sessionId: string, body: Record<string, unknown>): Promise<HarnessResult<{ info: unknown; parts: unknown }>> {
+    return request('sendCommand', `/session/${sid(sessionId)}/command`, post(body));
+  },
+  async runShell(sessionId: string, body: Record<string, unknown>): Promise<HarnessResult<{ info: unknown; parts: unknown }>> {
+    return request('runShell', `/session/${sid(sessionId)}/shell`, post(body));
+  },
+
+  // permissions (P-08)
+  async listPermissions(): Promise<HarnessResult<PermissionRequest[]>> {
+    return request('listPermissions', '/permission');
+  },
+  async replyToPermission(requestId: string, reply: 'once' | 'always' | 'reject', message?: string): Promise<HarnessResult<boolean>> {
+    return request('replyToPermission', `/permission/${sid(requestId)}/reply`, post({ reply, ...(message ? { message } : {}) }));
+  },
+  async getPermissionV2(sessionId: string, requestId: string): Promise<HarnessResult<unknown>> {
+    return request('getPermissionV2', `/api/session/${sid(sessionId)}/permission/${sid(requestId)}`);
+  },
+
+  // questions (P-09)
+  async listQuestions(): Promise<HarnessResult<QuestionRequest[]>> {
+    return request('listQuestions', '/question');
+  },
+  async replyToQuestion(requestId: string, answers: string[][]): Promise<HarnessResult<boolean>> {
+    return request('replyToQuestion', `/question/${sid(requestId)}/reply`, post({ answers }));
+  },
+  async rejectQuestion(requestId: string): Promise<HarnessResult<boolean>> {
+    return request('rejectQuestion', `/question/${sid(requestId)}/reject`, post({}));
+  },
+
+  // config/providers/agents (P-10/P-11/P-12)
+  async getConfig(): Promise<HarnessResult<HarnessConfig>> {
     return request('getConfig', '/config');
   },
-  async getPath(): Promise<HarnessResult<unknown>> {
-    return request('getPath', '/path');
+  async updateConfig(config: Record<string, unknown>): Promise<HarnessResult<HarnessConfig>> {
+    return request('updateConfig', '/config', { method: 'PATCH', body: JSON.stringify({ config }), headers: { 'content-type': 'application/json' } });
   },
-  /** HP-5 health probe — short timeout, no coalescing surprises. */
-  async probe(): Promise<HarnessResult<unknown>> {
-    return request('probe', '/path', undefined, HARNESS_HEALTH_TIMEOUT_MS);
+  async getProvidersForConfig(): Promise<HarnessResult<{ providers: Provider[]; default: Record<string, string> }>> {
+    return request('getProvidersForConfig', '/config/providers');
+  },
+  async listProviders(): Promise<HarnessResult<Provider[]>> {
+    return request('listProviders', '/provider');
+  },
+  async listAgents(): Promise<HarnessResult<AgentInfo[]>> {
+    return request('listAgents', '/agent');
+  },
+  async listCommands(): Promise<HarnessResult<CommandInfo[]>> {
+    return request('listCommands', '/command');
+  },
+  async listToolIds(): Promise<HarnessResult<string[]>> {
+    return request('listToolIds', '/experimental/tool/ids');
+  },
+
+  // streams (P-06): URL builders — EventSource owns reconnect/Last-Event-ID
+  harnessEventUrl(): string {
+    const query = currentDirectory ? `?directory=${encodeURIComponent(currentDirectory)}` : '';
+    return `${getRealtimeBaseUrl()}/api/event${query}`;
   },
   async eventStreamUrl(): Promise<string> {
-    return getEventStreamUrl('/api/event');
+    return this.harnessEventUrl();
   },
 };

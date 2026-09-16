@@ -15,7 +15,7 @@ import { createWebAPIs } from './api/createWebAPIs.ts';
 
 const apiBaseUrl = window.__NOTNATIVE_API_BASE_URL__ || window.location.origin;
 
-// doc 01 Â§4.2 order: surface stamp â†’ endpoint â†’ credentials â†’ bridge â†’ APIs.
+// doc 01 §4.2 order: surface stamp → endpoint → credentials → bridge → APIs.
 const surface = resolveHostedSurface();
 stampHostedSurface(surface);
 configureRuntimeUrlResolver({ apiBaseUrl });
@@ -27,7 +27,7 @@ watchHostedSurfaceViewport(surface);
 
 if (surface === 'mobile') {
   // Delta P0: mobile app tree (doc 11) is long-term deferred; renders desktop tree.
-  console.warn('[notnative] mobile surface deferred â€” rendering desktop layout');
+  console.warn('[notnative] mobile surface deferred — rendering desktop layout');
 }
 
 const rootElement = document.getElementById('root');

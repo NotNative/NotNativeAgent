@@ -8,12 +8,40 @@ import { acquireRuntimeUrlAuthToken, appendAuthTokenToUrl } from '../runtime-aut
 import { getRealtimeBaseUrl } from '../runtime-url.ts';
 
 export interface HarnessEvent {
-  id?: number;
+  id?: string;
   type: string;
   properties?: Record<string, unknown>;
+  directory?: string;
 }
 
 export type HarnessEventListener = (event: HarnessEvent) => void;
+
+/**
+ * §5.1: global frames carry `{directory, payload:{id,type,properties}}`;
+ * directory streams also accept the bare payload form.
+ */
+export function unwrapEventFrame(raw: unknown): HarnessEvent | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const record = raw as Record<string, unknown>;
+  if (record.payload && typeof record.payload === 'object') {
+    const payload = record.payload as Record<string, unknown>;
+    return {
+      id: typeof payload.id === 'string' ? payload.id : undefined,
+      type: String(payload.type ?? ''),
+      properties: (payload.properties ?? {}) as Record<string, unknown>,
+      directory: typeof record.directory === 'string' ? record.directory : undefined,
+    };
+  }
+  if (typeof record.type === 'string') {
+    return {
+      id: typeof record.id === 'string' ? record.id : undefined,
+      type: record.type,
+      properties: (record.properties ?? {}) as Record<string, unknown>,
+      directory: typeof record.directory === 'string' ? record.directory : undefined,
+    };
+  }
+  return null;
+}
 
 async function openStream(
   path: string,
@@ -25,9 +53,10 @@ async function openStream(
   const source = new EventSource(url);
   source.onmessage = (message: MessageEvent) => {
     try {
-      onEvent(JSON.parse(message.data) as HarnessEvent);
+      const event = unwrapEventFrame(JSON.parse(message.data));
+      if (event) onEvent(event);
     } catch {
-      /* opaque frames (heartbeats, unknown shapes) pass silently */
+      /* opaque frames (comments, unknown shapes) pass silently */
     }
   };
   if (onReady) source.onopen = () => onReady();
