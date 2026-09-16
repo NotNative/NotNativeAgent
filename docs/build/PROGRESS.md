@@ -7,7 +7,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P0 scaffold + shell | 01 | ✅ done 2026-07-21 (typecheck ×3 · vitest 6/6 · vite build · prod-serve + echo-loop smoke) |
 | P1 harness seam | 02 | ✅ done 2026-07-22 (typecheck ×3 · vitest 11/11 incl. in-process contract tests · vite build · live smoke: LF-8 event sequence, Last-Event-ID replay, messageID echo, permission 404-settled) |
 | P2 sync engine | 04 | 🔶 done 2026-09-16 (typecheck ×3 · vitest 84/84 across 12 suites · gates+smoke · adversarial sub-agent review: P0+P1 fixed in-slice, residuals registered) |
-| P3 chat UI | 05 | pending |
+| P3 chat UI | 05 | 🔶 P3a done 2026-09-16 (chat product spine: timeline turns+streaming tail, composer w/ prompt-language+keyboard policy+blocked-send+queue/steer+shell mode, §F cards w/ Alt-keys, sidebar lifecycle-sorted w/ §F.10 fix, tabs w/ neighbor close, engine mount replacing P1 interim stores; 105 vitest · tsc ×3 · gates+smoke · adversarial review P0+P1 fixed; P3b/P3c queued per NOTES 05) |
 | P4 server/API | 03 | pending |
 | P5 themes/settings | 14 | pending |
 | P6 review | 06 | pending |
@@ -94,6 +94,31 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   (add-on contract, package activations, concerns incl. NNA harness-surface gap and
   console ADR 0018/0019 reconciliation registered, integration robustness noted as
   future NNA work). No product code changed; gates stay green (84/84, tsc ×3).
+
+- 2026-09-16 · **P3a done (chat spine).** Doc 05 read in full (1957 lines) →
+  NOTES/05 staging. Built under packages/ui/src/chat/: prompt-language
+  (4-key tokenizer+triggers+shell transitions+§H.7 instruction exact),
+  keyboard-policy (§B.5 exact), send-planner (§B.9/§F.4 taxonomy: local
+  command/queue/steer/blocked-authority + §B.9 error mapping), turns
+  projection renderable gate + §E.1 status derivation tool-phrase table,
+  drafts (identity, tombstones, §B.10 client-held queue), input-history
+  (§H.4 recall+overlays), composer v2 split to fit POWER10 matrix (real
+  idle-flush queue, shell mode → runShell action, reactive catalog,
+  draft-restore on failure returns column to draft), transcript (tail
+  dedupe, synthetic filtering, skill/reasoning/tool/subtask/unknown-safe,
+  §E.1 chip, §F cards incl. Alt+Enter/Alt+Shift+Enter/Alt+Backspace newest-
+  wins), sidebar (§F.10 lifecycle ordering — engine-level tie-break fix
+  applied), session tabs (left-neighbor close, digit keys renderable-only,
+  no tombstones), engine mount (App rewired; P1 interim session store
+  retired from the wire path; runShell/abort actions via routing).
+  Adversarial review: P0-1 openSession no longer denies pending requests
+  (§F.4/GUI-POWER10 #2); P1×11 fixed in-slice (tail dup, real queue,
+  draft-failure restore, picker sources, shell no-op, reactive catalog,
+  card keyboard, sidebar updated-sort, tab neighbor/tombstone, POWER10
+  split, synthetic leak). P2-residuals recorded (§I error card, subtenants
+  subtree scope, Other… input, retry tick, unbounded maps list, §E.9 panel).
+  105 tests incl. 21 new chat gates; engine +2 (P2-4 partial reconcile,
+  P2-11 tie-break) verified.
 
 ## Delta/Delayed register
 

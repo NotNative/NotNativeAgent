@@ -80,7 +80,7 @@ export function buildEngineParts(transport: 'auto' | 'ws' | 'sse'): EngineParts 
   wireEngineModules(ctx);
   ctx.manager.configure(bootstrapperFor(ctx));
   const actions = createSessionActions(
-    buildEngineServices(ctx.manager, ctx.loader, ctx.routing, ctx.materializer, () => partsWaitForConnection(ctx)),
+    buildEngineServices(ctx, () => partsWaitForConnection(ctx)),
     () => ctx.manager.children,
   );
   return {
@@ -295,38 +295,44 @@ function partsApplyDirectoryBatch(ctx: EngineCtx, dir: string, events: HarnessEv
 }
 
 function buildEngineServices(
-  manager: ChildStoreManager,
-  loader: SessionMessageLoader,
-  routing: EventRoutingIndex,
-  materializer: ReturnType<typeof createMaterializationScheduler>,
+  ctx: EngineCtx,
   waitForConnection: () => Promise<void>,
 ): import('./session-lifecycle.ts').EngineServices {
   return {
     activeDirectory: () => useSessionViewStore.getState().activeDirectory,
+    directoryForSession: (sessionID) => buildServiceDirectoryOf(ctx, sessionID),
     currentSessionId: () => useSessionViewStore.getState().currentSessionId,
     isConnected: () => useConfigStore.getState().isConnected,
-    ensureChild: (directory) => manager.ensureChild(directory),
-    peekChild: (directory) => manager.peekChild(directory),
-    registerSessionRoute: (sessionID, directory) => registerSessionDirectory(routing, sessionID, directory),
+    ensureChild: (directory) => ctx.manager.ensureChild(directory),
+    peekChild: (directory) => ctx.manager.peekChild(directory),
+    registerSessionRoute: (sessionID, directory) => registerSessionDirectory(ctx.routing, sessionID, directory),
     registerMessageRoute: () => undefined,
-    enqueueMaterialization: (request, directory) => materializer.enqueue(request, directory),
+    enqueueMaterialization: (request, directory) => ctx.materializer.enqueue(request, directory),
     onStatusEvent: (sessionID, status, directory) => {
-      const store = manager.children.get(normalizeDirectory(directory));
+      const store = ctx.manager.children.get(normalizeDirectory(directory));
       if (store) store.setState({ session_status: { ...store.getState().session_status, [sessionID]: status } });
     },
-    loaderInitializeCreated: (directory, sessionID, store) => loader.initializeCreatedSession({ directory, sessionID, store }),
-    loaderOptimisticAdd: (directory, sessionID, store, item) => loader.optimisticAdd({ directory, sessionID, store }, item),
-    loaderOptimisticRemove: (directory, sessionID, store, messageID) => loader.optimisticRemove({ directory, sessionID, store }, messageID),
-    loaderOptimisticConfirm: (directory, sessionID, store, messageID) => loader.optimisticConfirm({ directory, sessionID, store }, messageID),
-    loaderRefreshTail: (directory, sessionID, store) => loader.refreshTail({ directory, sessionID, store }, 30),
+    loaderInitializeCreated: (directory, sessionID, store) => ctx.loader.initializeCreatedSession({ directory, sessionID, store }),
+    loaderOptimisticAdd: (directory, sessionID, store, item) => ctx.loader.optimisticAdd({ directory, sessionID, store }, item),
+    loaderOptimisticRemove: (directory, sessionID, store, messageID) => ctx.loader.optimisticRemove({ directory, sessionID, store }, messageID),
+    loaderOptimisticConfirm: (directory, sessionID, store, messageID) => ctx.loader.optimisticConfirm({ directory, sessionID, store }, messageID),
+    loaderRefreshTail: (directory, sessionID, store) => ctx.loader.refreshTail({ directory, sessionID, store }, 30),
     waitForConnection,
     onSelectSession: (sessionID, directory) => {
       useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: normalizeDirectory(directory) });
-      registerSessionDirectory(routing, sessionID, directory);
+      registerSessionDirectory(ctx.routing, sessionID, directory);
     },
   };
 }
 
+/** Routing-index lookup; falls back to the ACTIVE directory only when that
+ * store actually exists (doc 04 §D.3 rule 4 — never a bare guess). */
+function buildServiceDirectoryOf(ctx: EngineCtx, sessionID: string): string | null {
+  const indexed = ctx.routing.sessionDirectoryById.get(sessionID);
+  if (indexed) return indexed;
+  const active = normalizeDirectory(useSessionViewStore.getState().activeDirectory);
+  return ctx.manager.children.has(active) ? active : null;
+}
 function forceBootstrapChildren(manager: ChildStoreManager): void {
   for (const [dir, store] of [...manager.children]) {
     if (store.getState().status === 'loading') continue;

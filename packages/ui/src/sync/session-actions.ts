@@ -89,6 +89,7 @@ export async function optimisticSend(
   input: {
     directory: string;
     sessionID: string;
+    delivery?: 'steer' | 'queue';
     parts: Array<{ type: 'text'; text: string } | { type: 'file'; url?: string; mime?: string; filename?: string }>;
     model: { providerID: string; modelID: string };
     agent?: string;
@@ -150,6 +151,7 @@ async function dispatchPrompt(
       messageID,
       model: input.model,
       ...(input.agent ? { agent: input.agent } : {}),
+      ...(input.delivery ? { delivery: input.delivery } : {}),
       parts: input.parts.map((part) =>
         part.type === 'text'
           ? { type: 'text', text: part.text }

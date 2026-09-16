@@ -311,3 +311,21 @@ export interface HarnessEventPayload {
   type: string;
   properties: Record<string, unknown>;
 }
+
+/** Presentation view over the harness union (doc 05 §0.2): the UI renders
+ * flattened shapes; casts happen once at the boundary, never inline. */
+export interface PresentationMessage {
+  id: string;
+  sessionID: string;
+  role: 'user' | 'assistant' | 'system';
+  parentID?: string;
+  time: { created: number; completed?: number };
+  finish?: string;
+  error?: { name?: string; message?: string; data?: { message?: string } };
+  providerID?: string;
+  modelID?: string;
+  agent?: string;
+  variant?: string;
+  tokens?: { total?: number; input: number; output: number; reasoning: number; cache: { read: number; write: number } };
+  cost?: number;
+}

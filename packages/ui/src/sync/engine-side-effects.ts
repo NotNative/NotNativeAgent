@@ -30,7 +30,7 @@ export interface SideEffectDeps {
 }
 
 export function applySideEffects(directory: string, store: StoreApi<DirectoryStore>, out: BatchOutcome, deps: SideEffectDeps, routing: EventRoutingIndex): void {
-  trackStatuses(out);
+  trackStatuses(out, store);
   settleSessions(directory, store, out, deps);
   surfaceBlockingAsks(out, deps);
   dismissBlocking(out);
@@ -39,17 +39,21 @@ export function applySideEffects(directory: string, store: StoreApi<DirectorySto
   enqueueMaterializations(out, directory, deps);
   scheduleCompletedPolls(out, directory, deps);
   applyArchiveSignals(routing, store, directory, out, deps);
+  void directoryForLegacyNote;
   if (out.projectUpdated) upsertGlobalProject(out.projectUpdated);
   if (out.lspRefresh || out.globalRefresh) void refreshEnrichment(store, directory, out, deps);
 }
 
-function trackStatuses(out: BatchOutcome): void {
+const directoryForLegacyNote = undefined;
+
+function trackStatuses(out: BatchOutcome, store: StoreApi<DirectoryStore>): void {
   for (const { sessionID, status } of out.statusChanges) {
     useGlobalSessionStatusStore.getState().applyEvent(sessionID, status);
     useSessionOrderingStore.getState().observeStatus(sessionID, status);
     if (status.type !== 'idle') {
       observeActivityOnBusy(sessionID);
       ensureLiveTiming(sessionID);
+      reconcileStreaming(sessionID, store); // streaming visuals start on live busy (P2-4 partial)
     }
   }
 }

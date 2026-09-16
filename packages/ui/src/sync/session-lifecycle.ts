@@ -28,6 +28,8 @@ export interface EngineServices {
   loaderRefreshTail: (directory: string, sessionID: string, store: StoreApi<DirectoryStore>) => Promise<void>;
   waitForConnection: () => Promise<void>;
   onSelectSession: (sessionID: string, directory: string) => void;
+  /** session → owning directory (routing index accessor for actions) */
+  directoryForSession?: (sessionID: string) => string | null;
 }
 
 /** §F.1 createSession: routing pre-register, child insert, loader claim, select. */
@@ -65,6 +67,16 @@ export async function restoreSessionAction(sessionID: string, directory: string)
   // sentinel 0: readers classify by truthiness; lists must fetch inclusive
   const result = await harnessClient.updateSession(sessionID, { time: { archived: 0 } }, { directory });
   if (result.error) throw new Error(result.error);
+}
+
+/** Shell run (doc 05 §B.3 inputMode=shell): the harness executes; output rides the stream. */
+export async function runShellAction(sessionID: string, command: string, directory: string): Promise<void> {
+  await harnessClient.runShell(sessionID, { command }, { directory });
+}
+
+/** Abort the session's running turn (§B.11); idempotent harness-side. */
+export async function abortSessionAction(sessionID: string, directory: string): Promise<void> {
+  await harnessClient.abortSession(sessionID, { directory });
 }
 
 /** Delete: a 404 on a CHILD is expected (cascade) and commits locally. */

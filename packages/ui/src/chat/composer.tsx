@@ -1,0 +1,354 @@
+// SPDX-License-Identifier: Apache-2.0
+/**
+ * Composer v2 (doc 05 §B, P3a): prompt language + textarea editor, real
+ * draft-held queue with idle flush, shell mode routing to the harness,
+ * pickers sourced from the draft/snippet/registry stores, reactive harness
+ * catalog, restore-on-failure that returns draft sends to the draft column.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { StoreApi } from 'zustand/vanilla';
+import type { DirectoryStore } from '../sync/types.ts';
+import { useSessionViewStore } from '../sync/view-store.ts';
+import type { SyncEngine } from '../sync/sync-engine.ts';
+import type { ReactNode } from 'react';
+import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
+import { toast } from 'sonner';
+import { activeTrigger, commandRegistry, replaceTriggerToken, tokenizePrompt, type AutocompleteTrigger, type PromptToken } from './prompt-language.ts';
+import { shouldSubmitEnter, recallDirection } from './keyboard-policy.ts';
+import { readDraft, saveDraft, flushDraftsNow, type DraftAttachment, type QueuedMessage } from './drafts.ts';
+import { recordSend, recallList, recallDirectionResult, type HistoryEntry } from './input-history.ts';
+import { planSend, sendErrorKind, type PlannedSend } from './send-planner.ts';
+import { ComposerFooter, AttachmentChips, PickerPopup } from './composer-bits.tsx';
+import type { PartLite } from './turns.ts';
+
+const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw'];
+const MAX_LINES = 8;
+const SEND_FALLBACK_MODEL = { providerID: 'mock', modelID: 'mock' } as const;
+
+export interface ComposerServices {
+  engine: SyncEngine;
+  store: (directory?: string) => StoreApi<DirectoryStore>;
+  dispatch: (command: 'undo' | 'redo' | 'timeline' | 'compact') => void;
+}
+
+export interface ComposerProps {
+  services: ComposerServices;
+  sessionID: string | null;
+  directory: string;
+  sessionKey: string; // real id | 'draft'
+}
+
+type OutgoingPart = { type: 'text'; text: string; synthetic?: boolean } | { type: 'file'; url?: string; filename?: string; mime?: string };
+
+export function Composer(props: ComposerProps): ReactNode {
+  const { services, sessionID, directory, sessionKey } = props;
+  const [text, setText] = useState('');
+  const [attachments, setAttachments] = useState<DraftAttachment[]>([]);
+  const [agent, setAgent] = useState('build');
+  const [autoAccept, setAutoAccept] = useState(false);
+  const [shell, setShell] = useState(false);
+  const [queueChips, setQueueChips] = useState<QueuedMessage[]>([]);
+  const [picker, setPicker] = useState<{ trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void } | null>(null);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const restoringRef = useRef(false);
+  const recallRef = useRef<{ list: HistoryEntry[]; position: number; liveText: string }>({ list: [], position: -1, liveText: '' });
+  const restoreSnapshot = useRef<{ text: string; attachments: DraftAttachment[] }>({ text: '', attachments: [] });
+
+  const store = services.store(directory);
+  const snapshot = useSyncExternalStore(store.subscribe, store.getState);
+  const commandSet = useMemo(() => commandRegistry(snapshot.command, BUILTIN_COMMANDS), [snapshot.command]);
+  const agentNames = useMemo(() => snapshot.agent.map((entry) => entry.name), [snapshot.agent]);
+  const snippets = useMemo(() => new Map<string, string>(), []);
+  const skillSet = useMemo(() => new Set<string>(), []);
+
+  useEffect(() => {
+    const draft = readDraft(directory, sessionKey);
+    restoringRef.current = true;
+    setText(draft.text);
+    setAttachments(draft.attachments);
+    setAutoAccept(draft.autoAccept);
+    setQueueChips(draft.queue);
+    restoringRef.current = false;
+  }, [directory, sessionKey]);
+
+  useEffect(() => () => { flushDraftsNow(); }, []);
+
+  const persist = useCallback((nextText: string, nextAttachments: DraftAttachment[], nextAutoAccept: boolean, queue?: QueuedMessage[]) => {
+    if (restoringRef.current) return;
+    saveDraft(directory, sessionKey, {
+      text: nextText,
+      attachments: nextAttachments,
+      autoAccept: nextAutoAccept,
+      queue: queue ?? (sessionKey === 'draft' ? readDraft(directory, 'draft').queue : readDraft(directory, sessionID ?? '').queue),
+    });
+  }, [directory, sessionKey]);
+
+  const subscribeStatus = useGlobalSessionStatusStore.subscribe;
+  const statusById = useSyncExternalStore(subscribeStatus, () => useGlobalSessionStatusStore.getState().statusById);
+  const status = sessionID ? statusById[sessionID] : undefined;
+  const busy = Boolean(status && status.type !== 'idle');
+  const permissionCount = useSyncExternalStore(store.subscribe, () => (sessionID ? store.getState().permission[sessionID]?.length ?? 0 : 0));
+  const questionCount = useSyncExternalStore(store.subscribe, () => (sessionID ? store.getState().question[sessionID]?.length ?? 0 : 0));
+  const blocked = permissionCount > 0 || questionCount > 0;
+
+  function applyPick(trigger: AutocompleteTrigger, item: string): void {
+    const replacement = trigger.kind === 'mention' ? `@${item}` : trigger.kind === 'snippet' ? `#${item}` : `/${item}`;
+    const { text: next, caret } = replaceTriggerToken(text, trigger, replacement);
+    setPicker(null);
+    updateText(next, caret);
+    editorRef.current?.focus();
+  }
+
+  function pickerItems(trigger: AutocompleteTrigger, query: string): string[] {
+    const needle = query.toLowerCase();
+    const source = trigger.kind === 'mention'
+      ? agentNames
+      : trigger.kind === 'snippet'
+          ? [...snippets.keys()]
+          : [...commandSet, ...skillSet];
+    return source.filter((name) => name.toLowerCase().includes(needle)).sort();
+  }
+
+  const changed = (event: ChangeEvent<HTMLTextAreaElement>): void => {
+    const next = event.target.value;
+    const caret = event.target.selectionStart ?? next.length;
+    if (text.length === 0 && caret === 0 && next.startsWith('!')) {
+      setShell(true);
+      updateText(next.slice(1), 0);
+      return;
+    }
+    updateText(next);
+    trigger(event.target.value, caret);
+  };
+
+  let triggerCount = 0;
+  function trigger(value: string, caret: number): void {
+    triggerCount += 1;
+    void triggerCount;
+    const found = activeTrigger(shell ? '' : value, caret);
+    setPicker(found ? { trigger: found, items: pickerItems(found, found.query), insert: (item) => applyPick(found, item) } : null);
+  }
+
+  function updateText(next: string, caret?: number): void {
+    setText(next);
+    persist(next, attachments, autoAccept);
+    if (caret !== undefined) requestAnimationFrame(() => editorRef.current?.setSelectionRange(caret, caret));
+  }
+
+  const submit = async (): Promise<void> => {
+    const composed = shell ? text.trim() : text.trim();
+    if (!composed) return;
+    restoreSnapshot.current = { text, attachments };
+    const tokens = tokenizePrompt(shell ? `!${text}` : text, { commands: commandSet, skills: skillSet, snippets, agents: new Set(agentNames) });
+    const skillInstruction = skillMentionFrom(tokens);
+    const plan = planSend({
+      text: composed,
+      queued: [],
+      busy: busy || blocked,
+      blockedByPermission: permissionCount > 0,
+      blockedByQuestion: questionCount > 0,
+      memorySettings: 'queue',
+      targets: { sessionID, directory, model: SEND_FALLBACK_MODEL, agent },
+      snippets,
+      tokens,
+      attachmentNames: attachments.map((a) => a.name),
+    });
+    await executePlan(plan, tokens, composed, skillInstruction);
+  };
+
+  async function executePlan(plan: PlannedSend, tokens: PromptToken[], composed: string, skillInstruction: string | null): Promise<void> {
+    void tokens;
+    if (plan.localCommand) {
+      setText('');
+      persist('', attachments, autoAccept);
+      if (plan.localCommand.name === 'btw') toast.message('btw opens as a fork surface in P3b');
+      else services.dispatch(plan.localCommand.name as 'undo' | 'redo' | 'timeline' | 'compact');
+      return;
+    }
+    if (sessionID && plan.denyPermissions) {
+      for (const request of [...(store.getState().permission[sessionID] ?? [])]) {
+        await services.engine.actions.replyPermission(sessionID, request, 'reject').catch(() => toast.error('Failed to deny the permission request'));
+      }
+    }
+    if (sessionID && plan.rejectQuestions) {
+      for (const request of [...(store.getState().question[sessionID] ?? [])]) {
+        await services.engine.actions.replyQuestion(sessionID, request, [], true).catch(() => toast.error('Failed to dismiss the question'));
+      }
+    }
+    if (plan.queueTarget) {
+      const live = readDraft(directory, sessionKey).queue;
+      const queuedMessage = plan.queueTarget;
+      setQueueChips([...live, queuedMessage]);
+      saveDraft(directory, sessionKey, { text: '', attachments: [], autoAccept, queue: [...live, queuedMessage] });
+      setText('');
+      setAttachments([]);
+      toast.message('Message queued behind the running turn');
+      return;
+    }
+    if (!plan.deliverable) return;
+    const outgoing: OutgoingPart[] = [
+      { type: 'text' as const, text: plan.deliverable.text },
+      ...(skillInstruction ? [{ type: 'text' as const, text: skillInstruction, synthetic: true }] : []),
+    ];
+    for (const attachment of attachments) {
+      outgoing.push({ type: 'file', url: attachment.dataUrl, filename: attachment.name, mime: attachment.mime });
+    }
+    try {
+      await deliver(outgoing, plan.delivery);
+      recordSend({ directory, sessionID, text: composed, attachments, scope: 'session', attachmentTarget: 'scoped' });
+      setText('');
+      setAttachments([]);
+      persist('', [], autoAccept);
+      recallRef.current = { list: [], position: -1, liveText: '' };
+    } catch (error) {
+      if (!sessionID) {
+        // draft send failure returns the column to the draft and keeps the prompt
+        useSessionViewStore.getState().setCurrentSession(null);
+        saveDraft(directory, 'draft', { text: restoreSnapshot.current.text, attachments: restoreSnapshot.current.attachments, autoAccept, queue: readDraft(directory, 'draft').queue });
+      }
+      setText(restoreSnapshot.current.text);
+      setAttachments(restoreSnapshot.current.attachments);
+      describeSendFailure(error, restoreSnapshot.current.attachments.length > 0);
+    }
+  }
+
+  async function deliver(outgoing: OutgoingPart[], delivery: 'steer' | null): Promise<void> {
+    const target = sessionID;
+    const payloadParts = outgoing.map((part) => part.type === 'file'
+      ? ({ type: 'file' as const, url: part.url, filename: part.filename, mime: part.mime })
+      : ({ type: 'text' as const, text: part.text }));
+    const command = shell ? text.trim() : '';
+    if (target && shell && command) {
+      await services.engine.actions.runShell(target, command);
+      return;
+    }
+    if (target) {
+      await services.engine.actions.send({ directory, sessionID: target, parts: payloadParts, model: SEND_FALLBACK_MODEL, agent, ...(delivery ? { delivery } : {}) });
+      return;
+    }
+    const created = await services.engine.actions.createSession({ directory });
+    await services.engine.actions.send({ directory, sessionID: created.id, parts: payloadParts, model: SEND_FALLBACK_MODEL, agent });
+    useSessionViewStore.getState().setCurrentSession(created.id);
+    useSessionViewStore.getState().setActiveDirectory(directory);
+  }
+
+  function skillMentionFrom(tokens: PromptToken[]): string | null {
+    const names = [...new Set(tokens.filter((token) => token.kind === 'skill').map((token) => token.name))];
+    if (names.length === 0) return null;
+    return `The user explicitly mentioned these skills in their message: ${names.map((n) => `/${n}`).join(', ')}. Use the corresponding skill tool when it is relevant to accomplishing the user's request.`;
+  }
+
+  function describeSendFailure(error: unknown, hadAttachments: boolean): void {
+    const kind = sendErrorKind(error);
+    if (kind === 'runtime-changed') toast.error('Message failed to send. Attachments restored.');
+    else if (kind === 'payload-too-large') toast.error('Attachments are too large to send. Trim the batch and try again.');
+    else toast.error(hadAttachments ? 'Message failed to send. Attachments restored.' : 'Message failed to send. Your text was restored.');
+  }
+
+  function onKey(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
+    if (picker) {
+      if (event.key === 'Enter' || event.key === 'Tab') event.preventDefault();
+      return;
+    }
+    if (event.key === 'Enter' && shouldSubmitEnter({ isExpanded: false, enterToSend: null, isMobile: false, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey })) {
+      event.preventDefault();
+      void submit();
+      return;
+    }
+    if (event.key === 'Escape' && shell) {
+      event.preventDefault();
+      setShell(false);
+      return;
+    }
+    if (event.key === 'Backspace' && shell && text.length === 0) {
+      setShell(false);
+      return;
+    }
+    if (!shell) onHistoryKey(event);
+  }
+
+  function onHistoryKey(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
+    const direction = recallDirection(editorRef.current?.selectionStart ?? 0, text.length, event.key);
+    if (!direction) return;
+    event.preventDefault();
+    recallRef.current.list = recallRef.current.list.length
+      ? recallRef.current.list
+      : recallList({ directory, sessionID, scope: 'session', visibleUserPrompts: visiblePrompts() });
+    const result = recallDirectionResult(recallRef.current.list, recallRef.current.position, direction);
+    recallRef.current.position = result.next;
+    if (!result.entry) {
+      updateText(recallRef.current.liveText, recallRef.current.liveText.length);
+      recallRef.current = { list: [], position: -1, liveText: '' };
+      return;
+    }
+    if (direction === 'older') recallRef.current.liveText = text;
+    setText(result.entry.text);
+    editorRef.current?.setSelectionRange(0, 0);
+  }
+
+  function visiblePrompts(): string[] {
+    const messages = snapshot.message[sessionID ?? ''] ?? [];
+    return messages
+      .filter((message) => message.role === 'user')
+      .map((message) => ((snapshot.part[message.id] ?? []) as PartLite[]).filter((part) => part.type === 'text').map((part) => String(part.text ?? '')).join('\n').trim())
+      .filter(Boolean);
+  }
+
+  function attachFiles(event: ChangeEvent<HTMLInputElement>): void {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (files.length === 0) return;
+    void Promise.all(files.map(async (file) => {
+      const dataUrl = file.size <= 1_000_000 ? await fileToDataUrl(file) : '';
+      if (!dataUrl) toast.error(`Failed to attach ${file.name} (too large for direct send; rides through the fs surface at P4)`);
+      return { name: file.name, mime: file.type || 'application/octet-stream', dataUrl };
+    })).then((next) => {
+      const merged = dedupeNames([...attachments, ...next.filter((a) => a.dataUrl)]);
+      setAttachments(merged);
+      persist(text, merged, autoAccept);
+    }).catch(() => toast.error('Attachment failed'));
+  }
+
+  const lineCount = Math.max(2, Math.min(MAX_LINES, text.split('\n').length));
+  const canSend = text.trim().length > 0;
+
+  return (
+    <form className="relative rounded-xl border border-white/10 bg-neutral-900/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
+      onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+      {queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
+      <AttachmentChips attachments={attachments} onRemove={(next) => { setAttachments(next); persist(text, next, autoAccept); }} />
+      <PickerPopup picker={picker} />
+      <textarea ref={editorRef} value={text} onChange={changed} onKeyDown={onKey}
+        rows={lineCount} placeholder={shell ? 'bash command…' : 'Message the agent…'}
+        data-testid="composer-editor"
+        className={`w-full resize-none rounded-lg bg-transparent p-2 text-sm outline-none placeholder:text-neutral-600 ${shell ? 'font-mono text-amber-200' : 'text-neutral-100'} focus:outline-none`} />
+      <ComposerFooter
+        busy={busy}
+        canSend={canSend}
+        autoAccept={autoAccept}
+        onAutoAccept={() => { const next = !autoAccept; setAutoAccept(next); persist(text, attachments, next); }}
+        onStop={() => sessionID && void services.engine.actions.abort(sessionID)}
+        agent={agent}
+        agents={agentNames}
+        onAgent={setAgent}
+        onFiles={(files) => attachFiles({ target: { files, value: '' } } as never)}
+      />
+    </form>
+  );
+}
+
+async function fileToDataUrl(file: File): Promise<string> {
+  const reader = new FileReader();
+  return new Promise((resolvePromise, rejectPromise) => {
+    reader.onload = () => resolvePromise(String(reader.result));
+    reader.onerror = () => rejectPromise(reader.error ?? new Error('file read failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function dedupeNames(list: DraftAttachment[]): DraftAttachment[] {
+  const seen = new Set<string>();
+  return list.filter((a) => (seen.has(a.name) ? false : (seen.add(a.name), true)));
+}
+
+export type { QueuedMessage };

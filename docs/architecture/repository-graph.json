@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:11201026ade1025b19f5b40a571f875b7f49da75c6a2e76c421de26d866b9389",
+  "source_digest": "sha256:46be97ed34ab5280a2dac62a9721f67b7fa9d4d10e119d9b085768bbcfd05e24",
   "counts": {
-    "modules": 88,
-    "component_edges": 9
+    "modules": 102,
+    "component_edges": 10
   },
   "components": [
     {
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 12
+      "module_count": 26
     },
     {
       "id": "web-server",
@@ -89,16 +89,22 @@
       "module_count": 33
     },
     {
-      "from": "sync-engine",
-      "to": "runtime-io",
-      "import_count": 7,
-      "module_count": 6
+      "from": "ui-shell",
+      "to": "sync-engine",
+      "import_count": 20,
+      "module_count": 7
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 6,
-      "module_count": 4
+      "import_count": 15,
+      "module_count": 12
+    },
+    {
+      "from": "sync-engine",
+      "to": "runtime-io",
+      "import_count": 7,
+      "module_count": 6
     },
     {
       "from": "web-server",
@@ -113,15 +119,15 @@
       "module_count": 2
     },
     {
+      "from": "ui-shell",
+      "to": "runtime-io",
+      "import_count": 4,
+      "module_count": 3
+    },
+    {
       "from": "gates",
       "to": "web-server",
       "import_count": 3,
-      "module_count": 1
-    },
-    {
-      "from": "ui-shell",
-      "to": "runtime-io",
-      "import_count": 2,
       "module_count": 1
     },
     {
@@ -143,15 +149,155 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/app-engine.ts",
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/MainLayout.tsx",
         "packages/ui/src/lib/initializeApp.ts",
-        "packages/ui/src/lib/nnd/events.ts",
-        "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/lib/splash.ts",
-        "packages/ui/src/stores/useConfigStore.ts",
-        "packages/ui/src/stores/useFeatureFlagsStore.ts",
-        "packages/ui/src/stores/useSessionsStore.ts"
+        "packages/ui/src/stores/useFeatureFlagsStore.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/app-engine.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/sync/sync-engine.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/chat-view.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/composer.tsx",
+        "packages/ui/src/chat/transcript.tsx",
+        "packages/ui/src/sync/sync-engine.ts",
+        "packages/ui/src/sync/types.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/composer-bits.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/drafts.ts",
+        "packages/ui/src/chat/prompt-language.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/composer.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/composer-bits.tsx",
+        "packages/ui/src/chat/drafts.ts",
+        "packages/ui/src/chat/input-history.ts",
+        "packages/ui/src/chat/keyboard-policy.ts",
+        "packages/ui/src/chat/prompt-language.ts",
+        "packages/ui/src/chat/send-planner.ts",
+        "packages/ui/src/chat/turns.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/sync-engine.ts",
+        "packages/ui/src/sync/types.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/drafts.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/input-history.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/drafts.ts",
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/keyboard-policy.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/chat/prompt-language.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/send-planner.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/drafts.ts",
+        "packages/ui/src/chat/prompt-language.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/session-sidebar.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/time-format.ts",
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/session-ordering.ts",
+        "packages/ui/src/sync/sync-engine.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/session-tabs.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/sync-engine.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/time-format.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/chat/transcript.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/time-format.ts",
+        "packages/ui/src/chat/turns.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/sync-engine.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/turns.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
       ]
     },
     {
@@ -180,9 +326,15 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/components/ChatView.tsx",
-        "packages/ui/src/components/SessionSidebar.tsx",
-        "packages/ui/src/components/ShellChrome.tsx"
+        "packages/ui/src/chat/app-engine.ts",
+        "packages/ui/src/chat/chat-view.tsx",
+        "packages/ui/src/chat/composer.tsx",
+        "packages/ui/src/chat/session-sidebar.tsx",
+        "packages/ui/src/chat/session-tabs.tsx",
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/stores/useConfigStore.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/view-store.ts"
       ]
     },
     {

@@ -98,8 +98,8 @@ export interface OrderingSessionRecord {
 function compareWithinScope(a: OrderingSessionRecord, b: OrderingSessionRecord, rankById: Record<string, number>): number {
   const ra = rankById[a.id] ?? baselineRank.get(a.id) ?? 0;
   const rb = rankById[b.id] ?? baselineRank.get(b.id) ?? 0;
-  if (ra !== rb) return rb - ra; // ranks/ baselines are NEWER-HIGHER
-  if (a.time.updated !== b.time.updated) return b.time.updated - a.time.updated;
+  if (ra !== rb) return rb - ra; // ranks/baselines are NEWER-HIGHER
+  // §F.10 invariant: NEVER sort lists by time.updated — created desc, id asc
   if (a.time.created !== b.time.created) return b.time.created - a.time.created;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }

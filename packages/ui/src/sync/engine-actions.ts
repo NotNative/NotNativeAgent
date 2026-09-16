@@ -9,7 +9,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { PermissionRequest, QuestionRequest, Session } from '../lib/nnd/types.ts';
 import type { MaterializationRequest, DirectoryStore } from './types.ts';
 import type { EngineServices } from './session-lifecycle.ts';
-import { createSession, archiveSessionAction, restoreSessionAction, deleteSessionAction } from './session-lifecycle.ts';
+import { createSession, archiveSessionAction, restoreSessionAction, deleteSessionAction, abortSessionAction, runShellAction } from './session-lifecycle.ts';
 import { optimisticSend, replyToPermission, replyToQuestion, dismissOpenRequestsForSession } from './session-actions.ts';
 
 export type SessionActionsApi = {
@@ -18,6 +18,8 @@ export type SessionActionsApi = {
   archive: (sessionID: string, directory: string) => Promise<void>;
   restore: (sessionID: string, directory: string) => Promise<void>;
   deleteSession: (sessionID: string, directory: string) => Promise<void>;
+  abort: (sessionID: string) => Promise<void>;
+  runShell: (sessionID: string, command: string) => Promise<void>;
   replyPermission: (sessionID: string, request: PermissionRequest, reply: 'once' | 'always' | 'reject') => Promise<void>;
   replyQuestion: (sessionID: string, request: QuestionRequest, answers: string[][], reject: boolean) => Promise<void>;
   dismissRequests: (rootSessionID: string) => Promise<void>;
@@ -33,6 +35,14 @@ export function createSessionActions(
     archive: (sessionID, directory) => archiveSessionAction(sessionID, directory),
     restore: (sessionID, directory) => restoreSessionAction(sessionID, directory),
     deleteSession: (sessionID, directory) => deleteSessionAction(services, sessionID, directory),
+    runShell: async (sessionID, command) => {
+      const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
+      await runShellAction(sessionID, command, directory);
+    },
+    abort: async (sessionID) => {
+      const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
+      await abortSessionAction(sessionID, directory);
+    },
     replyPermission: (sessionID, request, reply) => replyToPermission(services, children(), sessionID, request, reply),
     replyQuestion: (sessionID, request, answers, reject) => replyToQuestion(services, children(), sessionID, request, answers, reject),
     dismissRequests: (rootSessionID) => dismissOpenRequestsForSession(services, children(), rootSessionID),
