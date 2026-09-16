@@ -19,14 +19,29 @@ export function MainLayout(): ReactNode {
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
   const [services] = useState<ComposerServices>(() => ({
     engine,
-    store: (directory?: string) => {
-      const current = directory ?? useSessionViewStore.getState().activeDirectory;
+    store: () => {
+      const current = useSessionViewStore.getState().activeDirectory;
       return engine.childStoreOf(current || '/') ?? engine.manager.ensureChild(current || '/');
     },
     dispatch: (command) => {
-      if (command === 'timeline') toast.message('Timeline dialog arrives in P3b');
+      const live = useSessionViewStore.getState();
+      const sessionID = live.currentSessionId;
+      if (command === 'timeline') {
+        window.dispatchEvent(new CustomEvent('nnd:timeline-open'));
+        return;
+      }
+      if ((command === 'undo' || command === 'redo') && sessionID) {
+        const store = engine.childStoreOf(live.activeDirectory);
+        const messages = store?.getState().message[sessionID] ?? [];
+        const lastUser = [...messages].reverse().find((message) => message.role === 'user');
+        if (lastUser) {
+          void engine.actions.revert(sessionID, lastUser.id).catch(() => toast.error('Revert failed'));
+        } else {
+          toast.message('Nothing to revert yet');
+        }
+        return;
+      }
       if (command === 'compact') toast.message('Compaction runs harness-side in P4+');
-      if (command === 'undo' || command === 'redo') toast.message('Revert/undo rides the harness action surface in P3b');
     },
   }));
 

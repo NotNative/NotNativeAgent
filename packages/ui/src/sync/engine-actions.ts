@@ -9,7 +9,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { PermissionRequest, QuestionRequest, Session } from '../lib/nnd/types.ts';
 import type { MaterializationRequest, DirectoryStore } from './types.ts';
 import type { EngineServices } from './session-lifecycle.ts';
-import { createSession, archiveSessionAction, restoreSessionAction, deleteSessionAction, abortSessionAction, runShellAction } from './session-lifecycle.ts';
+import { createSession, archiveSessionAction, restoreSessionAction, deleteSessionAction, abortSessionAction, runShellAction, renameSessionAction, forkSessionAction, revertSessionAction } from './session-lifecycle.ts';
 import { optimisticSend, replyToPermission, replyToQuestion, dismissOpenRequestsForSession } from './session-actions.ts';
 
 export type SessionActionsApi = {
@@ -20,6 +20,9 @@ export type SessionActionsApi = {
   deleteSession: (sessionID: string, directory: string) => Promise<void>;
   abort: (sessionID: string) => Promise<void>;
   runShell: (sessionID: string, command: string) => Promise<void>;
+  rename: (sessionID: string, title: string) => Promise<void>;
+  fork: (sessionID: string, messageID: string | undefined) => Promise<string>;
+  revert: (sessionID: string, messageID: string) => Promise<void>;
   replyPermission: (sessionID: string, request: PermissionRequest, reply: 'once' | 'always' | 'reject') => Promise<void>;
   replyQuestion: (sessionID: string, request: QuestionRequest, answers: string[][], reject: boolean) => Promise<void>;
   dismissRequests: (rootSessionID: string) => Promise<void>;
@@ -35,6 +38,18 @@ export function createSessionActions(
     archive: (sessionID, directory) => archiveSessionAction(sessionID, directory),
     restore: (sessionID, directory) => restoreSessionAction(sessionID, directory),
     deleteSession: (sessionID, directory) => deleteSessionAction(services, sessionID, directory),
+    rename: async (sessionID, title) => {
+      const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
+      await renameSessionAction(sessionID, title, directory);
+    },
+    fork: async (sessionID, messageID) => {
+      const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
+      return forkSessionAction(sessionID, messageID, directory);
+    },
+    revert: async (sessionID, messageID) => {
+      const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
+      await revertSessionAction(sessionID, messageID, directory);
+    },
     runShell: async (sessionID, command) => {
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
       await runShellAction(sessionID, command, directory);

@@ -74,6 +74,24 @@ export async function runShellAction(sessionID: string, command: string, directo
   await harnessClient.runShell(sessionID, { command }, { directory });
 }
 
+/** Title rename: PATCH the session record; the event stream reconciles. */
+export async function renameSessionAction(sessionID: string, title: string, directory: string): Promise<void> {
+  const result = await harnessClient.updateSession(sessionID, { title }, { directory });
+  if (result.error) throw new Error(result.error);
+}
+
+/** Fork-from-message: creates a new session rooted at that message. */
+export async function forkSessionAction(sessionID: string, messageID: string | undefined, directory: string): Promise<string> {
+  const result = await harnessClient.forkSession(sessionID, messageID, { directory });
+  if (result.error || !result.data) throw new Error(result.error ?? 'fork failed');
+  return result.data.id;
+}
+
+/** Revert-to-message (§D.6 timeline action); harness-owned Undo primitive. */
+export async function revertSessionAction(sessionID: string, messageID: string, directory: string): Promise<void> {
+  const result = await harnessClient.revertSession(sessionID, messageID, undefined, { directory });
+  if (result.error) throw new Error(result.error);
+}
 /** Abort the session's running turn (§B.11); idempotent harness-side. */
 export async function abortSessionAction(sessionID: string, directory: string): Promise<void> {
   await harnessClient.abortSession(sessionID, { directory });

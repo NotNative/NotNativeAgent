@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:46be97ed34ab5280a2dac62a9721f67b7fa9d4d10e119d9b085768bbcfd05e24",
+  "source_digest": "sha256:2645ce227b841632a002ea5e11b858fa57bfc6a2911451aaa9bed859f10e855a",
   "counts": {
-    "modules": 102,
+    "modules": 108,
     "component_edges": 10
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 26
+      "module_count": 32
     },
     {
       "id": "web-server",
@@ -91,20 +91,26 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 20,
-      "module_count": 7
+      "import_count": 23,
+      "module_count": 9
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 15,
-      "module_count": 12
+      "import_count": 18,
+      "module_count": 15
     },
     {
       "from": "sync-engine",
       "to": "runtime-io",
       "import_count": 7,
       "module_count": 6
+    },
+    {
+      "from": "ui-shell",
+      "to": "runtime-io",
+      "import_count": 6,
+      "module_count": 5
     },
     {
       "from": "web-server",
@@ -117,12 +123,6 @@
       "to": "runtime-io",
       "import_count": 4,
       "module_count": 2
-    },
-    {
-      "from": "ui-shell",
-      "to": "runtime-io",
-      "import_count": 4,
-      "module_count": 3
     },
     {
       "from": "gates",
@@ -172,6 +172,10 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/composer.tsx",
+        "packages/ui/src/chat/model-picker.tsx",
+        "packages/ui/src/chat/prompt-rail.tsx",
+        "packages/ui/src/chat/starters.ts",
+        "packages/ui/src/chat/timeline-dialog.tsx",
         "packages/ui/src/chat/transcript.tsx",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
@@ -196,9 +200,12 @@
         "packages/ui/src/chat/drafts.ts",
         "packages/ui/src/chat/input-history.ts",
         "packages/ui/src/chat/keyboard-policy.ts",
+        "packages/ui/src/chat/model-picker.tsx",
         "packages/ui/src/chat/prompt-language.ts",
         "packages/ui/src/chat/send-planner.ts",
+        "packages/ui/src/chat/starters.ts",
         "packages/ui/src/chat/turns.ts",
+        "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
@@ -232,11 +239,44 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/chat/model-catalog.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/model-picker.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/chat/model-picker.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/model-catalog.ts",
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/prompt-language.ts",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/prompt-rail.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/turns.ts",
+        "packages/ui/src/sync/types.ts"
       ]
     },
     {
@@ -274,10 +314,29 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/starters.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/time-format.ts",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/chat/timeline-dialog.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/time-format.ts",
+        "packages/ui/src/chat/turns.ts",
+        "packages/ui/src/sync/sync-engine.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
     },
     {
       "path": "packages/ui/src/chat/transcript.tsx",

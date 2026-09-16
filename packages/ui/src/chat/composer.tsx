@@ -19,6 +19,8 @@ import { readDraft, saveDraft, flushDraftsNow, type DraftAttachment, type Queued
 import { recordSend, recallList, recallDirectionResult, type HistoryEntry } from './input-history.ts';
 import { planSend, sendErrorKind, type PlannedSend } from './send-planner.ts';
 import { ComposerFooter, AttachmentChips, PickerPopup } from './composer-bits.tsx';
+import { ModelPicker, type ModelSelection } from './model-picker.tsx';
+import { starterInsertText, type Starter } from './starters.ts';
 import type { PartLite } from './turns.ts';
 
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw'];
@@ -36,6 +38,15 @@ export interface ComposerProps {
   sessionID: string | null;
   directory: string;
   sessionKey: string; // real id | 'draft'
+  expanded?: boolean; // focus mode (§B.2): unbounded editor, transcript hidden
+  onToggleExpanded?: () => void;
+  onRunBtw?: (parentSessionID: string) => void;
+  onOpenTimeline?: () => void;
+  starters?: import('./starters.ts').Starter[];
+  providers?: import('../lib/nnd/types.ts').Provider[];
+  modelSelection?: { providerID: string; modelID: string; variant: string | null } | null;
+  onModelSelection?: (selection: { providerID: string; modelID: string; variant: string | null }) => void;
+  onAddProvider?: () => void;
 }
 
 type OutgoingPart = { type: 'text'; text: string; synthetic?: boolean } | { type: 'file'; url?: string; filename?: string; mime?: string };
@@ -48,6 +59,8 @@ export function Composer(props: ComposerProps): ReactNode {
   const [autoAccept, setAutoAccept] = useState(false);
   const [shell, setShell] = useState(false);
   const [queueChips, setQueueChips] = useState<QueuedMessage[]>([]);
+  const [modelPickerOpen, setModelPickerOpen] = useState(false);
+  const [starterMenu, setStarterMenu] = useState(false);
   const [picker, setPicker] = useState<{ trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void } | null>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const restoringRef = useRef(false);
@@ -56,10 +69,12 @@ export function Composer(props: ComposerProps): ReactNode {
 
   const store = services.store(directory);
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
+  const providerCatalog = useSyncExternalStore(store.subscribe, () => store.getState().provider);
   const commandSet = useMemo(() => commandRegistry(snapshot.command, BUILTIN_COMMANDS), [snapshot.command]);
   const agentNames = useMemo(() => snapshot.agent.map((entry) => entry.name), [snapshot.agent]);
   const snippets = useMemo(() => new Map<string, string>(), []);
   const skillSet = useMemo(() => new Set<string>(), []);
+  const rows = props.expanded ? 24 : Math.max(2, Math.min(MAX_LINES, text.split('\n').length));
 
   useEffect(() => {
     const draft = readDraft(directory, sessionKey);
@@ -118,11 +133,11 @@ export function Composer(props: ComposerProps): ReactNode {
       return;
     }
     updateText(next);
-    trigger(event.target.value, caret);
+    triggerPending(next, caret);
   };
 
   let triggerCount = 0;
-  function trigger(value: string, caret: number): void {
+  function triggerPending(value: string, caret: number): void {
     triggerCount += 1;
     void triggerCount;
     const found = activeTrigger(shell ? '' : value, caret);
@@ -133,6 +148,13 @@ export function Composer(props: ComposerProps): ReactNode {
     setText(next);
     persist(next, attachments, autoAccept);
     if (caret !== undefined) requestAnimationFrame(() => editorRef.current?.setSelectionRange(caret, caret));
+  }
+
+  function applyStarter(starter: Starter): void {
+    const next = starterInsertText(starter, text);
+    setStarterMenu(false);
+    updateText(next, next.length);
+    editorRef.current?.focus();
   }
 
   const submit = async (): Promise<void> => {
@@ -161,8 +183,15 @@ export function Composer(props: ComposerProps): ReactNode {
     if (plan.localCommand) {
       setText('');
       persist('', attachments, autoAccept);
-      if (plan.localCommand.name === 'btw') toast.message('btw opens as a fork surface in P3b');
-      else services.dispatch(plan.localCommand.name as 'undo' | 'redo' | 'timeline' | 'compact');
+      if (plan.localCommand.name === 'btw') {
+        if (sessionID && props.onRunBtw) {
+          props.onRunBtw(sessionID);
+        } else {
+          toast.message('btw needs an open session');
+        }
+      } else {
+        services.dispatch(plan.localCommand.name as 'undo' | 'redo' | 'timeline' | 'compact');
+      }
       return;
     }
     if (sessionID && plan.denyPermissions) {
@@ -309,19 +338,45 @@ export function Composer(props: ComposerProps): ReactNode {
     }).catch(() => toast.error('Attachment failed'));
   }
 
-  const lineCount = Math.max(2, Math.min(MAX_LINES, text.split('\n').length));
   const canSend = text.trim().length > 0;
+  const starterList = props.starters ?? [];
 
   return (
     <form className="relative rounded-xl border border-white/10 bg-neutral-900/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
       onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       {queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
+      {sessionKey === 'draft' && starterList.length > 0 ? (
+        <div className="flex flex-wrap gap-1 px-1 pt-1" data-testid="starter-chips">
+          {starterList.map((starter) => (
+            <span key={starter.id} className="group inline-flex items-center rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-neutral-300 hover:border-white/25">
+              <button type="button" onClick={() => applyStarter(starter)}>{starter.label}</button>
+              <button type="button" aria-label={`Remove ${starter.label}`} className="ml-1 hidden text-neutral-600 group-hover:inline" onClick={() => {
+                import('./starters.ts').then(({ removeStarter }) => removeStarter(starter.id, directory)).catch(() => undefined);
+              }}>×</button>
+            </span>
+          ))}
+        </div>
+      ) : null}
       <AttachmentChips attachments={attachments} onRemove={(next) => { setAttachments(next); persist(text, next, autoAccept); }} />
       <PickerPopup picker={picker} />
+      {modelPickerOpen ? (
+        <ModelPicker
+          providers={providerCatalog as import('../lib/nnd/types.ts').Provider[]}
+          selection={props.modelSelection ?? null}
+          onPick={(selection: ModelSelection) => { setModelPickerOpen(false); props.onModelSelection?.(selection); }}
+          onOpenAddProvider={() => { setModelPickerOpen(false); props.onAddProvider?.(); }}
+        />
+      ) : null}
       <textarea ref={editorRef} value={text} onChange={changed} onKeyDown={onKey}
-        rows={lineCount} placeholder={shell ? 'bash command…' : 'Message the agent…'}
+        rows={rows} placeholder={shell ? 'bash command…' : 'Message the agent…'}
         data-testid="composer-editor"
         className={`w-full resize-none rounded-lg bg-transparent p-2 text-sm outline-none placeholder:text-neutral-600 ${shell ? 'font-mono text-amber-200' : 'text-neutral-100'} focus:outline-none`} />
+      <div className="flex items-center rounded-lg bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-300 hover:bg-neutral-800" title={'Model and agent settings'}>
+        <button type="button" aria-label="Model selector" data-testid="model-trigger" onClick={() => setModelPickerOpen(!modelPickerOpen)}>
+          {props.modelSelection ? `${props.modelSelection.modelID}${props.modelSelection.variant ? ` · ${props.modelSelection.variant}` : ''}` : 'mock · mock-smart'}
+        </button>
+        {props.onToggleExpanded ? <button type="button" aria-label={props.expanded ? 'Collapse expanded editor' : 'Focus mode'} className="ml-auto text-[11px] text-neutral-500" onClick={props.onToggleExpanded}>⛶</button> : null}
+      </div>
       <ComposerFooter
         busy={busy}
         canSend={canSend}

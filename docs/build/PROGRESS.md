@@ -7,7 +7,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P0 scaffold + shell | 01 | ✅ done 2026-07-21 (typecheck ×3 · vitest 6/6 · vite build · prod-serve + echo-loop smoke) |
 | P1 harness seam | 02 | ✅ done 2026-07-22 (typecheck ×3 · vitest 11/11 incl. in-process contract tests · vite build · live smoke: LF-8 event sequence, Last-Event-ID replay, messageID echo, permission 404-settled) |
 | P2 sync engine | 04 | 🔶 done 2026-09-16 (typecheck ×3 · vitest 84/84 across 12 suites · gates+smoke · adversarial sub-agent review: P0+P1 fixed in-slice, residuals registered) |
-| P3 chat UI | 05 | 🔶 P3a done 2026-09-16 (chat product spine: timeline turns+streaming tail, composer w/ prompt-language+keyboard policy+blocked-send+queue/steer+shell mode, §F cards w/ Alt-keys, sidebar lifecycle-sorted w/ §F.10 fix, tabs w/ neighbor close, engine mount replacing P1 interim stores; 105 vitest · tsc ×3 · gates+smoke · adversarial review P0+P1 fixed; P3b/P3c queued per NOTES 05) |
+| P3 chat UI | 05 | 🔶 P3a+P3b done 2026-09-16 (P3a: chat product spine — timeline turns+streaming tail, composer w/ prompt-language+keyboard policy+blocked-send+queue/steer+shell mode, §F cards w/ Alt-keys, sidebar lifecycle-sorted w/ §F.10 fix, tabs w/ neighbor close, engine mount replacing P1 interim stores · P3b: model picker layers/favorites/effort, starters §H.5, timeline dialog revert/fork, prompt rail, BTW fork, focus mode, rename/fork/revert/runShell actions; 113 vitest · tsc ×3 · gates+smoke; P3a review P0+P1 fixed; P3b review queued; P3c per NOTES 05) |
 | P4 server/API | 03 | pending |
 | P5 themes/settings | 14 | pending |
 | P6 review | 06 | pending |
@@ -119,6 +119,23 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   subtree scope, Other… input, retry tick, unbounded maps list, §E.9 panel).
   105 tests incl. 21 new chat gates; engine +2 (P2-4 partial reconcile,
   P2-11 tie-break) verified.
+
+- 2026-09-16 · **P3b done (chat depth).** model-catalog (3-layer
+  provider→model→variant layers, favorites persisted per runtime, effort
+  cycle Default→variants both directions, §A.2 collision display labels),
+  ModelPicker popover (search, Favorites+provider groups, current marker,
+  star toggle, Left/Right effort within row), starters §H.5 (two groups,
+  insert rule commands 'text ' vs skills sha 'text
+', hover X remove), composer P3b props (expanded/focus mode, /btw →
+  runShell-style fork via actions.fork + banner, model selection round-trip),
+  timeline dialog §A.7 (newest-first, search, revert/fork/scroll actions,
+  no-text placeholder), prompt rail §A.8 (≥2 prompts teleport instant),
+  engine actions: rename (PATCH title), fork (returns new session id),
+  revert (to-message), MainLayout /timeline via 'nnd:timeline-open' event,
+  /undo //redo → last user message revert. Deferred with halo: BTW peek
+  panel + promote/destroy (fork-open only in P3b), AI rename small-model
+  service (P4+), starters DnD reorder + shared marker (P5 settings),
+  model tooltip metadata (P5). 113 tests (+8 catalog/starters gates).
 
 ## Delta/Delayed register
 
