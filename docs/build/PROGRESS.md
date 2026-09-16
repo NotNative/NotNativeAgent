@@ -77,6 +77,24 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   abort rule (P2-10), covered-snapshot settle + ordering tie-break (P2-11),
   minor churn/bounds items (P2-12) — full list in NOTES/04 §"Review register".
 
+- 2026-09-16 · **ADR 0020 accepted (both repos), design freeze.** Ecosystem framing
+  locked: NNA = root headless-first harness (TUI native, GUI-less core, add-on
+  activation contract; NNO today, NND as second package); NND = GUI integration
+  package + standalone remote client (client-only mode needs the NND web service
+  installed in the target NNA); NNO = business layer above; delegated contexts spawn
+  per consumer with run-as entitlement; loopback default + token handshake; network
+  exposure = explicit opt-in gate; NNA projection (13-state) = sole turn-state
+  authority; surfaces own their sessions/config; governance owns decisions (mode
+  ladder is settable, not decidable, client-side); lifecycle split (NNA core owns
+  commands, NND-local owns tray/shell face). NND registry grew four terms
+  (integration package, engine context, projection frame, shell). PLAN.md re-scoped:
+  P4 → NND web-service package routes (not a standalone server), P11 promoted to
+  client core, P12 = shell delivery vehicle; ecosystem phases PA/PB/PC appended.
+  NNA-side stub written: NotNativeAgent/docs/architecture/0020-ecosystem-integration.md
+  (add-on contract, package activations, concerns incl. NNA harness-surface gap and
+  console ADR 0018/0019 reconciliation registered, integration robustness noted as
+  future NNA work). No product code changed; gates stay green (84/84, tsc ×3).
+
 ## Delta/Delayed register
 
 | # | Item | Phase landing | Note |

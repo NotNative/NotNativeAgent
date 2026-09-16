@@ -3,7 +3,7 @@
   "standard": "NND-CTL/1",
   "scope": "packages/ui/src, packages/web/src, scripts; production sources only",
   "stats": {
-    "terms": 32,
+    "terms": 36,
     "deprecatedIdentifiers": 0,
     "rationaleMarkers": 1,
     "modelFacingTools": 0,

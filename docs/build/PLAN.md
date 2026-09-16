@@ -18,16 +18,19 @@ doc summaries but no code is written for them.
 | P1 Harness seam | 02 | `harness/` adapter implementing P-01…P-24 ports in mock form; SDK-facade client in UI (`{data,error}` convention, `/api` base, directory scoping, event stream); wire examples from doc 02 as fixtures |
 | P2 Sync/state engine | 04 | Event pipeline → reducers → stores; bootstrap/reconnect/recovery; optimistic sends + failure taxonomy; ordering; retention; persistence keys; correctness invariants tested |
 | P3 Chat UI | 05 | Composer, message-part renderers, work-status labels, sidebar/session UX, question/permission flows, command palette |
-| P4 Server surface | 03 | Route table (~253) implemented in layers as UI needs them; fs/git/projects; disk layout; env table; CLI (`notnative`) with `--json/--quiet`, exit codes |
+| P4 NND web-service package | 03 | Route surface implemented as the NND integration package (GUI-companion routes: fs/git/projects + GUI serving), NOT a standalone server product (ADR 0020); client beam routes ride into NNA packaging with the package |
 | P5 Themes/settings | 14 | Token table, theme system, settings registry + snapshot gate, shortcuts, i18n scaffold (en first) |
 | P6 Review surfaces | 06 | File browser/editor (CM6), diff system, git view, worktrees, plan view, inline comments |
 | P7 Terminal | 07 | v3 wire protocol, PTY lifecycle (Windows ConPTY path), xterm renderer (ghostty evaluated), project actions |
 | P8 Autonomy | 12 | Session goals, scheduled tasks, message queue, multi-run/fusion |
 | P9 Knowledge/context | 15 | Knowledge blocks, memory tool surface, project context, skills, MCP config, snippets |
 | P10 Preview/inspection | 13 | Dev-server discovery, preview embedding, element inspection, walkthrough pipeline |
-| P11 Remote/security | 08 | Password scrypt/JWT, passkeys, URL/device tokens, tunnels, pairing links, relay (contract-level; broker validated at build time) |
-| P12 Electron shell | 09 | In-process server, IPC bridge + security gating, boot outcome, tray/menu/updates/packaging |
+| P11 Remote/Auth (promoted) | 08 | NND client core capability per ADR 0020: password scrypt/JWT, passkeys, URL/device tokens, tunnels, pairing links, relay (contract-level; broker validated at build time) |
+| P12 Desktop shell (delivery vehicle) | 09 | NND-as-product shell: connection manager (multi-NNA instances), in-process server optional, IPC bridge + security gating, tray, boot outcome, updates, packaging |
 | P13 Integration verify | all | End-to-end run of core journeys; deferred-items register reviewed; NNA integration notes written |
+| PA Ecosystem seam | ADR 0020 | NNA harness surface lands (projection frames, 13-state authority, mode get/set, entitlement slot); NND adapter replaces mock; acceptance = NND harness contract suite green against real NNA |
+| PB Shell and doors | ADR 0020 | NND web-service package emits/installs into NNA (local-integration mode); desktop shell; tray/facelifting on NNA lifecycle; browser + shell doors |
+| PC Delegated contexts | ADR 0020 | NNO user contexts with entitlement; gateway conversation contexts; entitlement-neutral local token retires the mock assumptions |
 
 Deferred (no phase yet): 10 VS Code, 11 Mobile/Capacitor. Mini Chat window + embedded
 session-chat iframe ride in with P12 (they are Electron-surface features).

@@ -7,6 +7,14 @@ Product name **NotNativeDesktop** (short: NotNative). Brand map applied everywhe
 harness-facing names may be re-coordinated — they are centralized in
 `harness-constants` files (server + UI) so a rename is one file each side.
 
+**Ecosystem roles (ADR 0020, 2026-09-16)**: NNA is the root, headless-first harness
+product (harness + TUI + daemon lifecycle in core; no built-in GUI; add-on activation
+contract — NNO today, NND as second consumer). NND is the GUI integration package
+(web service + desktop shell + client engine) plus a standalone remote client; NND
+client can only connect to NNA instances with the NND web-service package installed.
+NNO is the business layer installed on top of NNA. Delegated contexts spawn per
+consumer (run-as entitlement). Full framing: `docs/architecture/0020-nna-ecosystem-topology.md`.
+
 | Reference (OpenChamber) | NotNativeDesktop |
 |---|---|
 | `openchamber:` DOM event / channel prefix | `notnative:` |
