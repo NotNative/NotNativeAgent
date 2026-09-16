@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * NotNativeDesktop server entry.
  * Runs on Node ≥22.18 with native TypeScript execution (erasable syntax only).

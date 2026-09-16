@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Splash lifecycle (doc 01 §4.1/§5.2/§10.1): the HTML owns rendering; the UI
  * owns dismissal gates. Dismiss = fade-out class (300 ms) then removal, with a

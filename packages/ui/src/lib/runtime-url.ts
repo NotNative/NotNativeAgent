@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Runtime URL resolver (doc 01 §11): every UI network call resolves against the
  * active instance origin. Harness traffic shares that origin under /api (HP-1).

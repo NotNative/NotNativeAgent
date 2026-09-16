@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Shell/platform classification (doc 01 §3.5). Electron + VS Code detection
  * become live when their phases land; behavior is identical to false today.

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { Hono } from 'hono';
 import { ENV } from './env.ts';
 import { getHarnessAdapter } from './harness/adapter.ts';

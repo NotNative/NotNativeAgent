@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Mock harness fixtures — doc 02 §6–§7 shapes, modeled on the §7.2 worked
  * example. These are also the seed for NNA contract tests (D14).
@@ -12,7 +13,7 @@ import type {
   Provider,
   Session,
   SessionTokens,
-} from '../../../../../ui/src/lib/nna/types.ts';
+} from '../../../../../ui/src/lib/nnd/types.ts';
 
 export const DEFAULT_DIRECTORY = process.cwd().replace(/\\/g, '/');
 

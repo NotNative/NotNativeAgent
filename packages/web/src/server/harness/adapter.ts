@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * ──────────────────────────────────────────────────────────────────────────
  *  HARNESS SEAM — the single isolation boundary (doc 02 owns the contract).

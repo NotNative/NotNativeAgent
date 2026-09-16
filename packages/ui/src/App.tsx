@@ -1,9 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
 import { useEffect, useState } from 'react';
 import { Toaster, toast } from 'sonner';
 import { fetchHealth, initializeApp } from './lib/initializeApp.ts';
 import { removeSplashScreen } from './lib/splash.ts';
-import { subscribeControlEvents, subscribeHarnessEvents } from './lib/nna/events.ts';
-import type { SessionStatus } from './lib/nna/types.ts';
+import { subscribeControlEvents, subscribeHarnessEvents } from './lib/nnd/events.ts';
+import type { SessionStatus } from './lib/nnd/types.ts';
 import { useConfigStore } from './stores/useConfigStore.ts';
 import { useFeatureFlagsStore } from './stores/useFeatureFlagsStore.ts';
 import { useSessionsStore } from './stores/useSessionsStore.ts';

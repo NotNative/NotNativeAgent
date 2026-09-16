@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Server-Sent Events response helper shared by the harness proxy (/api/event)
  * and the control stream (/api/notnative/events).

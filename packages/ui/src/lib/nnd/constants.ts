@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Harness-facing constants (doc 01 HP-1…HP-10 / doc 02 owns the contract).
  * THE coordination point with NotNativeAgent (NNA): wire-visible names live
@@ -9,7 +10,7 @@ const viteEnv: Record<string, string | undefined> | undefined = (
 ).env;
 
 /** HP-1: harness traffic shares the UI origin under /api (absolute when injected). */
-export const DEFAULT_BASE_URL: string = viteEnv?.VITE_NNA_URL || '/api';
+export const DEFAULT_BASE_URL: string = viteEnv?.VITE_NND_URL || '/api';
 
 /** HP-4: canonical directory scoping header (NNA naming pass may rename). */
 export const DIRECTORY_HEADER = 'x-nnd-directory';

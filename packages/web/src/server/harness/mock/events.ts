@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Mock harness event hub — doc 02 §5.1/P-06.
  * Envelope: {directory, payload:{id, type, properties}} on every stream.
@@ -5,7 +6,7 @@
  * an unknown cursor replays nothing (clients must resync from snapshots).
  */
 import { sseResponse } from '../../lib/sse.ts';
-import type { GlobalEvent } from '../../../../../ui/src/lib/nna/types.ts';
+import type { GlobalEvent } from '../../../../../ui/src/lib/nnd/types.ts';
 
 const RING_LIMIT = 2048;
 const HEARTBEAT_MS = 20_000;

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Startup trace (doc 01 §4.7): ?startupTrace=1 or
  * localStorage.NOTNATIVE_STARTUP_TRACE=1. Ring buffer of ≤500 entries,

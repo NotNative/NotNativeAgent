@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * P1 session list + message demo store. The real session/message source of
  * truth is the sync engine (P2/doc 04); this store exists so the shell has
@@ -5,8 +6,8 @@
  * events (not timers), and keeps the authoritative sessionStatus map (§11.1).
  */
 import { create } from 'zustand';
-import { ascendingId, harnessClient, type HarnessSession } from '../lib/nna/client.ts';
-import type { Part, SessionStatus } from '../lib/nna/types.ts';
+import { ascendingId, harnessClient, type HarnessSession } from '../lib/nnd/client.ts';
+import type { Part, SessionStatus } from '../lib/nnd/types.ts';
 
 export interface ChatMessage {
   id: string;

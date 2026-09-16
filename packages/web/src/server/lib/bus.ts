@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Control-stream bus: server-own events fanned out to every SSE subscriber on
  * GET /api/notnative/events (doc 01 §3.2; consumption rules doc 04).

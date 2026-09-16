@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Minimal static serving of the built UI (packages/web/dist). Dev mode never
  * uses this — Vite proxies /auth,/health,/api to this server instead.

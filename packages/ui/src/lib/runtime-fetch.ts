@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * runtimeFetch (doc 01 §10.4–§10.5): the single fetch path for all UI traffic.
  *  - resolves /api|/auth|/health relative calls against the active instance origin

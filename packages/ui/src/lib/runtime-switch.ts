@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Runtime endpoint / instance switching (doc 01 §11.1).
  * Keys: `local` | `host:<id>` | `url:<origin>` | sentinel `mobile-disconnected`

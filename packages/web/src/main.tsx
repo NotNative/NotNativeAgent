@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 ﻿import './index.css';
 import { registerRuntimeAPIs } from '@notnative/ui/lib/api/registry.ts';
 import { installRuntimeFetchBridge } from '@notnative/ui/lib/runtime-fetch.ts';

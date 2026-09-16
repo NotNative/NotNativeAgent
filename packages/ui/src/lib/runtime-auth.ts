@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Runtime auth (doc 01 HP-8/HP-10):
  *  - bearer token + extra headers applied to runtimeFetch traffic
@@ -108,4 +109,10 @@ export async function appendAuthTokenToUrl(url: string): Promise<string> {
 
 export function getCurrentUrlToken(): string | null {
   return urlToken?.token ?? null;
+}
+
+/** WS closed before `ready`: the token is being replayed against a server that
+ * will not accept it — drop it so reconnects do not storm (doc 04 §D.1). */
+export function clearCachedUrlAuthToken(): void {
+  urlToken = null;
 }

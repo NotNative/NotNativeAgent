@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { ChatView } from './ChatView.tsx';
 import { ContextRail, HeaderBar } from './ShellChrome.tsx';
 import { SessionSidebar } from './SessionSidebar.tsx';

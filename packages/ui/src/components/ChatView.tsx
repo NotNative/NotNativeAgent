@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { useState } from 'react';
 import { useSessionsStore } from '../stores/useSessionsStore.ts';
 import { useI18n } from './I18nProvider.tsx';

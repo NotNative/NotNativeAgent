@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Access to the injected "who am I" window globals (doc 01 §3.1).
  * Absence has meaning; never invent defaults here — consumers decide.

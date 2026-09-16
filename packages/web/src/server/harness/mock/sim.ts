@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Mock turn execution (doc 02 LF-8 + §5.2.1 worked wire examples).
  * Order matters: user echo (caller messageID verbatim, §11.14) → busy →
@@ -24,7 +25,7 @@ import type {
   Session,
   TextPart,
   UserMessage,
-} from '../../../../../ui/src/lib/nna/types.ts';
+} from '../../../../../ui/src/lib/nnd/types.ts';
 
 export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -116,15 +117,39 @@ export async function runTurn(session: Session, userEntry: MessageEntry, reply: 
   const list = entries.get(session.id) ?? [];
   entries.set(session.id, list);
   list.push(userEntry);
-
   emitEvent(dir, 'message.updated', { sessionID: session.id, info: userEntry.info });
 
+  const entry = beginTurn(session, dir, userEntry);
+  const part = beginTextPart(entry, dir);
+
+  sessionStatus.set(session.id, { type: 'busy' });
+  emitEvent(dir, 'session.status', { sessionID: session.id, status: { type: 'busy' } });
+  const turn = { aborted: false };
+  activeTurns.set(session.id, turn);
+  emitEvent(dir, 'session.next.step.started', {
+    timestamp: Date.now(),
+    sessionID: session.id,
+    assistantMessageID: entry.info.id,
+    agent: (entry.info as AssistantMessage).agent,
+    model: { id: (entry.info as AssistantMessage).modelID, providerID: (entry.info as AssistantMessage).providerID },
+  });
+  await streamTextDeltas(turn, part, dir, session.id, reply);
+
+  const aborted = turn.aborted;
+  activeTurns.delete(session.id);
+  part.time = { start: part.time?.start ?? Date.now(), end: Date.now() };
+  if (aborted) return finishTurnAborted(session, entry, part, list);
+  return finishTurnOk(session, entry, part, list, reply);
+}
+
+function beginTurn(session: Session, dir: string, userEntry: MessageEntry): MessageEntry {
+  const user = userEntry.info as UserMessage;
   const info: AssistantMessage = {
     id: ascendingId('msg'),
     sessionID: session.id,
     role: 'assistant',
     time: { created: Date.now() },
-    parentID: userEntry.info.id,
+    parentID: user.id,
     modelID: 'mock-smart',
     providerID: 'nnd-mock',
     mode: 'primary',
@@ -133,24 +158,14 @@ export async function runTurn(session: Session, userEntry: MessageEntry, reply: 
     cost: 0,
     tokens: { total: 0, input: 8, output: 16, reasoning: 0, cache: { read: 0, write: 0 } },
   };
-  const entry: MessageEntry = { info, parts: [] };
+  return { info, parts: [] };
+}
 
-  sessionStatus.set(session.id, { type: 'busy' });
-  emitEvent(dir, 'session.status', { sessionID: session.id, status: { type: 'busy' } });
-  const turn = { aborted: false };
-  activeTurns.set(session.id, turn);
-
-  emitEvent(dir, 'session.next.step.started', {
-    timestamp: Date.now(),
-    sessionID: session.id,
-    assistantMessageID: info.id,
-    agent: info.agent,
-    model: { id: info.modelID, providerID: info.providerID },
-  });
-
+function beginTextPart(entry: MessageEntry, dir: string): TextPart {
+  const info = entry.info as AssistantMessage;
   const part: TextPart = {
     id: ascendingId('prt'),
-    sessionID: session.id,
+    sessionID: info.sessionID,
     messageID: info.id,
     type: 'text',
     text: '',
@@ -158,49 +173,56 @@ export async function runTurn(session: Session, userEntry: MessageEntry, reply: 
   };
   emitEvent(dir, 'session.next.text.started', {
     timestamp: Date.now(),
-    sessionID: session.id,
+    sessionID: info.sessionID,
     assistantMessageID: info.id,
     textID: part.id,
   });
+  return part;
+}
+
+async function streamTextDeltas(turn: { aborted: boolean }, part: TextPart, dir: string, sessionID: string, reply: string): Promise<void> {
   const chunks = reply.match(/.{1,16}/gsu) ?? [reply];
   for (const chunk of chunks) {
     if (turn.aborted) break;
     part.text += chunk;
     emitEvent(dir, 'session.next.text.delta', {
       timestamp: Date.now(),
-      sessionID: session.id,
-      assistantMessageID: info.id,
+      sessionID,
+      assistantMessageID: part.messageID,
       textID: part.id,
       delta: chunk,
     });
     await sleep(60);
   }
-  const aborted = turn.aborted;
-  activeTurns.delete(session.id);
-  part.time = { start: part.time?.start ?? Date.now(), end: Date.now() };
+  emitEvent(dir, 'session.next.text.ended', {
+    timestamp: Date.now(),
+    sessionID,
+    assistantMessageID: part.messageID,
+    textID: part.id,
+    text: part.text,
+  });
+}
 
-  if (aborted) {
-    emitEvent(dir, 'session.next.text.ended', {
-      timestamp: Date.now(),
-      sessionID: session.id,
-      assistantMessageID: info.id,
-      textID: part.id,
-      text: part.text,
-    });
-    entry.parts.push(part);
-    list.push(entry);
-    info.error = { name: 'MessageAbortedError', data: { message: 'The running turn was aborted.' } };
-    info.time.completed = Date.now();
-    emitEvent(dir, 'message.part.updated', { sessionID: session.id, time: Date.now(), part });
-    emitEvent(dir, 'message.updated', { sessionID: session.id, info });
-    emitEvent(dir, 'session.error', {
-      sessionID: session.id,
-      error: { name: 'MessageAbortedError', data: { message: 'The running turn was aborted.' } },
-    });
-    settleIdle(session);
-    return entry;
-  }
+function finishTurnAborted(session: Session, entry: MessageEntry, part: TextPart, list: MessageEntry[]): MessageEntry {
+  const dir = session.directory;
+  const info = entry.info as AssistantMessage;
+  entry.parts.push(part);
+  list.push(entry);
+  info.error = { name: 'MessageAbortedError', data: { message: 'The running turn was aborted.' } };
+  info.time.completed = Date.now();
+  emitEvent(dir, 'message.part.updated', { sessionID: session.id, time: Date.now(), part });
+  emitEvent(dir, 'message.updated', { sessionID: session.id, info });
+  emitEvent(dir, 'session.error', {
+    sessionID: session.id,
+    error: { name: 'MessageAbortedError', data: { message: 'The running turn was aborted.' } },
+  });
+  settleIdle(session);
+  return entry;
+}
 
+function finishTurnOk(session: Session, entry: MessageEntry, part: TextPart, list: MessageEntry[], reply: string): MessageEntry {
+  const dir = session.directory;
+  const info = entry.info as AssistantMessage;
   emitEvent(dir, 'session.next.text.ended', {
     timestamp: Date.now(),
     sessionID: session.id,

@@ -1,0 +1,286 @@
+{
+  "schema": "nnd.controlled-technical-language.v1",
+  "standard": "NND-CTL/1",
+  "inspiration": {
+    "name": "ASD-STE100",
+    "issue": 9,
+    "url": "https://www.asd-ste100.org/"
+  },
+  "term_kinds": [
+    "technical_noun",
+    "technical_verb",
+    "data_term",
+    "lifecycle_term"
+  ],
+  "model_facing_fields": [
+    "purpose",
+    "description",
+    "guidance",
+    "hint"
+  ],
+  "rationale_markers": [
+    "Why",
+    "Invariant",
+    "Compatibility",
+    "Security"
+  ],
+  "terms": [
+    {
+      "id": "CTL-TERM-001",
+      "term": "harness",
+      "kind": "technical_noun",
+      "definition": "The external agentic backend that drives sessions. NotNativeDesktop never imports harness internals; all traffic rides a seam adapter.",
+      "identifiers": ["harness", "harnessClient", "HarnessAdapter"],
+      "avoid_for_concept": ["opencode", "backend", "engine"]
+    },
+    {
+      "id": "CTL-TERM-002",
+      "term": "runtime",
+      "kind": "lifecycle_term",
+      "definition": "One connected harness origin the UI targets. Every live-side cache and async completion is scoped and guarded by its runtime key.",
+      "identifiers": ["runtime", "runtimeKey", "getRuntimeKey"],
+      "avoid_for_concept": ["instance", "origin", "connection"]
+    },
+    {
+      "id": "CTL-TERM-003",
+      "term": "surface",
+      "kind": "technical_noun",
+      "definition": "A presentation context such as web or desktop. Surfaces share one UI package and differ only through capability adapters.",
+      "identifiers": ["surface", "RuntimeSurface"],
+      "avoid_for_concept": ["platform", "shell"]
+    },
+    {
+      "id": "CTL-TERM-004",
+      "term": "directory",
+      "kind": "technical_noun",
+      "definition": "The canonical normalized path a session is bound to. Directory keys are normalized before any store, cache, or routing use.",
+      "identifiers": ["directory", "normalizeDirectory"],
+      "avoid_for_concept": ["workspace", "project", "folder", "path"]
+    },
+    {
+      "id": "CTL-TERM-005",
+      "term": "session",
+      "kind": "technical_noun",
+      "definition": "A conversation bound to a directory, carrying turns of work. Session identity spans runtime, directory, and session id.",
+      "identifiers": ["session", "sessionID", "Session"],
+      "avoid_for_concept": ["conversation", "chat", "thread"]
+    },
+    {
+      "id": "CTL-TERM-006",
+      "term": "message",
+      "kind": "data_term",
+      "definition": "One ordered entry of a session transcript. Messages order by created time with id tie-break, never by id.",
+      "identifiers": ["message", "Message", "messageID"],
+      "avoid_for_concept": ["entry", "item"]
+    },
+    {
+      "id": "CTL-TERM-007",
+      "term": "part",
+      "kind": "data_term",
+      "definition": "A rendered unit of a message, such as text, tool call, or reasoning. Parts upsert by part id inside a message bucket.",
+      "identifiers": ["part", "partID", "Part"],
+      "avoid_for_concept": ["chunk", "segment"]
+    },
+    {
+      "id": "CTL-TERM-008",
+      "term": "permission",
+      "kind": "technical_noun",
+      "definition": "A harness emitted blocker that gates an action until the user replies. Permissions route to the owning session, not the containing store.",
+      "identifiers": ["permission", "PermissionRequest"],
+      "avoid_for_concept": ["approval", "consent"]
+    },
+    {
+      "id": "CTL-TERM-009",
+      "term": "question",
+      "kind": "technical_noun",
+      "definition": "A harness emitted request for user input that blocks the turn until answered or rejected.",
+      "identifiers": ["question", "QuestionRequest"],
+      "avoid_for_concept": ["prompt", "answer"]
+    },
+    {
+      "id": "CTL-TERM-010",
+      "term": "todo",
+      "kind": "data_term",
+      "definition": "Harness owned checklist state for a session, mirrored into the UI and persisted per session identity.",
+      "identifiers": ["todo", "Todo", "todosPersisted"],
+      "avoid_for_concept": ["task", "checklist"]
+    },
+    {
+      "id": "CTL-TERM-011",
+      "term": "worktree",
+      "kind": "technical_noun",
+      "definition": "A git worktree directory that sessions can be created in or moved to, used by multi run fan out.",
+      "identifiers": ["worktree", "WorktreeMetadata"],
+      "avoid_for_concept": ["branch"]
+    },
+    {
+      "id": "CTL-TERM-012",
+      "term": "pipeline",
+      "kind": "lifecycle_term",
+      "definition": "The live channel carrier that selects transports, keeps order per directory, coalesces safely, and reconnects with backoff.",
+      "identifiers": ["EventPipeline", "createEventPipeline", "eventPipeline"],
+      "avoid_for_concept": ["stream", "socket", "connection"]
+    },
+    {
+      "id": "CTL-TERM-013",
+      "term": "transport",
+      "kind": "technical_noun",
+      "definition": "The carrier choice between server sent events and WebSocket frames. Transport selection and fallback stay inside the pipeline.",
+      "identifiers": ["transport"],
+      "avoid_for_concept": ["protocol", "socket"]
+    },
+    {
+      "id": "CTL-TERM-014",
+      "term": "envelope",
+      "kind": "data_term",
+      "definition": "The event container shape carrying id, type, and properties. Envelope normalization happens once on arrival.",
+      "identifiers": ["HarnessEvent", "unwrapEventFrame"],
+      "avoid_for_concept": ["payload", "frame"]
+    },
+    {
+      "id": "CTL-TERM-015",
+      "term": "dispatch",
+      "kind": "technical_verb",
+      "definition": "Delivering one ordered flush of queued events to their owning directory store in a single publication.",
+      "identifiers": ["handleFlush", "DirectoryEventBatch"],
+      "avoid_for_concept": ["emit", "send", "publish"]
+    },
+    {
+      "id": "CTL-TERM-016",
+      "term": "coalescing",
+      "kind": "data_term",
+      "definition": "Merging queued replace-type events and concatenating deltas by key so flush frames stay bounded under burst.",
+      "identifiers": ["coalesced"],
+      "avoid_for_concept": ["throttle", "debounce"]
+    },
+    {
+      "id": "CTL-TERM-017",
+      "term": "backpressure",
+      "kind": "lifecycle_term",
+      "definition": "A server signal that widens flush frames for a bounded window so a slow client drains without dropping order.",
+      "identifiers": ["BACKPRESSURE_MODE_MS", "backpressure"],
+      "avoid_for_concept": ["pressure"]
+    },
+    {
+      "id": "CTL-TERM-018",
+      "term": "cursor",
+      "kind": "data_term",
+      "definition": "The replay position of the live stream, updated from stream ids and page responses, never advancing past proven data.",
+      "identifiers": ["cursor", "LastEventID", "lastEventId"],
+      "avoid_for_concept": ["offset"]
+    },
+    {
+      "id": "CTL-TERM-019",
+      "term": "bootstrap",
+      "kind": "lifecycle_term",
+      "definition": "The staged first paint sequence for a directory: critical snapshot, deferred enrichment, then the authoritative session list.",
+      "identifiers": ["bootstrapDirectory", "runGlobalBootstrap"],
+      "avoid_for_concept": ["init", "load", "mount"]
+    },
+    {
+      "id": "CTL-TERM-020",
+      "term": "generation guard",
+      "kind": "lifecycle_term",
+      "definition": "The closure that proves an async completion still belongs to the current run, store, runtime, and loader before it may publish.",
+      "identifiers": ["isCurrent"],
+      "avoid_for_concept": ["token", "lock"]
+    },
+    {
+      "id": "CTL-TERM-021",
+      "term": "optimistic send",
+      "kind": "lifecycle_term",
+      "definition": "A user turn rendered before harness confirmation, restored exactly when the send fails and confirmed in place when ambiguous.",
+      "identifiers": ["optimisticAdd", "optimisticRemove"],
+      "avoid_for_concept": ["pending", "staged"]
+    },
+    {
+      "id": "CTL-TERM-022",
+      "term": "authoritative snapshot",
+      "kind": "data_term",
+      "definition": "A fetched list or status map that replaces stored state, including empty results, provenance tracked by list source.",
+      "identifiers": ["sessionListSource", "applySnapshot"],
+      "avoid_for_concept": ["cache", "snapshot data"]
+    },
+    {
+      "id": "CTL-TERM-023",
+      "term": "tombstone",
+      "kind": "data_term",
+      "definition": "A deletion revision that beats later overlay merges so archive and delete survive bootstrap replay.",
+      "identifiers": ["sessionDeletedRevision", "tombstone"],
+      "avoid_for_concept": ["marker"]
+    },
+    {
+      "id": "CTL-TERM-024",
+      "term": "materialization",
+      "kind": "lifecycle_term",
+      "definition": "The cooldown guarded scheduler that refetches missing transcript slices after gaps instead of trusting partial state.",
+      "identifiers": ["materializing", "materializeSessionSnapshots", "MaterializationRequest"],
+      "avoid_for_concept": ["hydrate", "resync"]
+    },
+    {
+      "id": "CTL-TERM-025",
+      "term": "eviction",
+      "kind": "lifecycle_term",
+      "definition": "The bounded disposal of directory stores and message maps by access time, grace, and pending request safety.",
+      "identifiers": ["ChildStoreManager", "canDispose"],
+      "avoid_for_concept": ["cleanup", "dispose"]
+    },
+    {
+      "id": "CTL-TERM-026",
+      "term": "watchdog",
+      "kind": "lifecycle_term",
+      "definition": "The periodic check that repairs stuck or stale sessions through monotonic status polls and stream gap detection.",
+      "identifiers": ["startWatchdog", "watchdogPass"],
+      "avoid_for_concept": ["timer", "monitor"]
+    },
+    {
+      "id": "CTL-TERM-027",
+      "term": "persisted cache",
+      "kind": "data_term",
+      "definition": "A stale while revalidate store snapshot that paints instantly and is replaced by authoritative data, never an authority itself.",
+      "identifiers": ["writeCachedSessions", "readDirCache"],
+      "avoid_for_concept": ["storage", "database"]
+    },
+    {
+      "id": "CTL-TERM-028",
+      "term": "streaming store",
+      "kind": "lifecycle_term",
+      "definition": "The message lifecycle view of activity that decides which sessions present a streaming indicator.",
+      "identifiers": ["useStreamingStore", "reconcileActivity"],
+      "avoid_for_concept": ["presence"]
+    },
+    {
+      "id": "CTL-TERM-029",
+      "term": "loader",
+      "kind": "lifecycle_term",
+      "definition": "The single HTTP authority for transcript pages, with cursor paging, in flight sharing, and generation guards.",
+      "identifiers": ["SessionMessageLoader", "refreshTail"],
+      "avoid_for_concept": ["fetcher", "cache"]
+    },
+    {
+      "id": "CTL-TERM-030",
+      "term": "gate",
+      "kind": "lifecycle_term",
+      "definition": "A script enforced check in the repository quality suite. Gates are deterministic evidence before any judgment.",
+      "identifiers": ["qualityGates", "sealVersionLedger", "runControlledLanguageGates"],
+      "avoid_for_concept": ["lint", "test"]
+    },
+    {
+      "id": "CTL-TERM-031",
+      "term": "sync engine",
+      "kind": "lifecycle_term",
+      "definition": "The composition root owning child stores, loader, routing, pipeline, watchdog, and materialization for each runtime.",
+      "identifiers": ["createSyncEngine", "SyncEngine"],
+      "avoid_for_concept": ["store", "context"]
+    },
+    {
+      "id": "CTL-TERM-032",
+      "term": "reconcile",
+      "kind": "technical_verb",
+      "definition": "Applying a fresh authority against live state while preserving terminal outcomes and never regressing written progress.",
+      "identifiers": ["reconcileStreaming", "reconcileSnapshot"],
+      "avoid_for_concept": ["merge", "sync"]
+    }
+  ],
+  "deprecated_identifiers": []
+}

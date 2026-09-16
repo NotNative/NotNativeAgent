@@ -1,5 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
- * Wire-visible harness names, server side. MIRROR of packages/ui/src/lib/nna/constants.ts
+ * Wire-visible harness names, server side. MIRROR of packages/ui/src/lib/nnd/constants.ts
  * (the node runtime graph must not import the Vite-flavored UI module) — the NNA
  * naming pass edits BOTH files together. Doc 02 §9 + NOTES/02 D13/D15.
  */

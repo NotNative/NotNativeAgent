@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 ﻿import { useConfigStore } from '../stores/useConfigStore.ts';
 import { useTheme } from './ThemeProvider.tsx';
 import { useI18n } from './I18nProvider.tsx';
@@ -33,14 +34,14 @@ export function HeaderBar() {
 
 
 const RAIL_SURFACES: Array<{ id: string; label: string; glyph: string }> = [
-  { id: 'context', label: 'Context', glyph: 'â—Ž' },
-  { id: 'git', label: 'Git', glyph: 'â‘‚' },
-  { id: 'pr', label: 'Pull requests', glyph: 'â‡„' },
-  { id: 'diff', label: 'Diff', glyph: 'â‡†' },
-  { id: 'editor', label: 'Files', glyph: 'â–¤' },
-  { id: 'terminal', label: 'Terminal', glyph: 'â¯' },
-  { id: 'notes', label: 'Notes', glyph: 'âœŽ' },
-  { id: 'browser', label: 'Browser', glyph: 'â—' },
+  { id: 'context', label: 'Context', glyph: '◎' },
+  { id: 'git', label: 'Git', glyph: '⑂' },
+  { id: 'pr', label: 'Pull requests', glyph: '⇄' },
+  { id: 'diff', label: 'Diff', glyph: '⇆' },
+  { id: 'editor', label: 'Files', glyph: '▤' },
+  { id: 'terminal', label: 'Terminal', glyph: '❯' },
+  { id: 'notes', label: 'Notes', glyph: '✎' },
+  { id: 'browser', label: 'Browser', glyph: '◍' },
 ];
 
 export function ContextRail() {

@@ -1,0 +1,24 @@
+{
+  "schema": "nnd.controlled-language-report.v1",
+  "standard": "NND-CTL/1",
+  "scope": "packages/ui/src, packages/web/src, scripts; production sources only",
+  "stats": {
+    "terms": 32,
+    "deprecatedIdentifiers": 0,
+    "rationaleMarkers": 1,
+    "modelFacingTools": 0,
+    "proseFields": 0,
+    "proseSentences": 0,
+    "longProseCandidates": 0,
+    "unqualifiedBoundaryCandidates": 0,
+    "maximumSentenceWords": 0
+  },
+  "long_prose_candidates": [],
+  "unqualified_boundary_candidates": [],
+  "rationale_marker_counts": {
+    "Why": 0,
+    "Invariant": 1,
+    "Compatibility": 0,
+    "Security": 0
+  }
+}

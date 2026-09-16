@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Mock harness router — doc 02 §12.1 minimal-compatible surface plus the
  * §12.2 items our UI needs early (v2 permission probes, commands, fork,
@@ -32,7 +33,7 @@ import {
   todos,
 } from './store.ts';
 import { buildUserEntry, runTurn, settleIdle, sleep, userTextOf } from './sim.ts';
-import type { PromptAsyncBody, Session } from '../../../../../ui/src/lib/nna/types.ts';
+import type { PromptAsyncBody, Session } from '../../../../../ui/src/lib/nnd/types.ts';
 
 const json = (data: unknown, status = 200): Response =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
@@ -195,7 +196,18 @@ async function route(request: Request): Promise<Response> {
     return json(out);
   }
   if (method === 'GET' && path === '/session') {
-    return json(scopedDirectory ? sessionsInDirectory(directory) : [...sessions.values()].sort((a, b) => b.time.updated - a.time.updated));
+    // §J.3 list filters: `roots` narrows to parentless sessions; `archived`
+    // means ALSO include archived (default excludes them); truthful clients
+    // fetch inclusive and split client-side.
+    const roots = url.searchParams.get('roots');
+    const archived = url.searchParams.get('archived') === 'true';
+    const limit = Number(url.searchParams.get('limit') ?? '') || Number.POSITIVE_INFINITY;
+    let list = scopedDirectory ? sessionsInDirectory(directory) : [...sessions.values()];
+    if (!archived) list = list.filter((session) => !session.time.archived);
+    if (roots === 'true') list = list.filter((session) => !session.parentID);
+    else if (roots === 'false') list = list.filter((session) => Boolean(session.parentID));
+    list = list.sort((a, b) => a.id.localeCompare(b.id));
+    return json(list.slice(0, Number.isFinite(limit) ? limit : undefined));
   }
   if (method === 'POST' && path === '/session') {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -291,8 +303,22 @@ async function route(request: Request): Promise<Response> {
     const list = entries.get(sessionId) ?? [];
 
     if (method === 'GET') {
-      const limit = Number(url.searchParams.get('limit') ?? '') || list.length;
-      return json(list.slice(-limit));
+      // Cursor window (doc 04 §E.1 / J.3): `before` is an exclusive message id;
+      // the next-older cursor rides the `x-next-cursor` response header.
+      const limitParam = Number(url.searchParams.get('limit') ?? '');
+      const limit = limitParam > 0 ? limitParam : list.length;
+      const before = url.searchParams.get('before');
+      let window = list;
+      if (before) {
+        const index = list.findIndex((entry) => entry.info.id === before);
+        if (index < 0) return harnessError(`before cursor not found: ${before}`, 400);
+        window = list.slice(0, index);
+      }
+      const page = window.slice(Math.max(0, window.length - limit));
+      const more = window.length > page.length;
+      const headers: Record<string, string> = { 'content-type': 'application/json' };
+      if (more && page.length > 0) headers['x-next-cursor'] = page[0]!.info.id;
+      return new Response(JSON.stringify(page), { status: 200, headers });
     }
     if (method === 'POST') {
       const body = (await request.json().catch(() => ({}))) as Partial<PromptAsyncBody>;

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 ﻿import type { RuntimeAPIs, TerminalApi } from '@notnative/ui/lib/api/types.ts';
 
 const notReady = (member: string) => () => {

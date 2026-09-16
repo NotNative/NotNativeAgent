@@ -1,0 +1,983 @@
+{
+  "schema_version": 1,
+  "generated_by": "scripts/repository-graph.js",
+  "scope": "packages/ui/src, packages/web/src, scripts",
+  "source_digest": "sha256:11201026ade1025b19f5b40a571f875b7f49da75c6a2e76c421de26d866b9389",
+  "counts": {
+    "modules": 88,
+    "component_edges": 9
+  },
+  "components": [
+    {
+      "id": "sync-engine",
+      "label": "Client sync and state engine",
+      "ownership": "Owns the event pipeline, stores, bootstrap, recovery, and materialization (doc 04).",
+      "module_count": 35
+    },
+    {
+      "id": "harness-facade",
+      "label": "Harness SDK facade",
+      "ownership": "Owns the browser-to-harness contract client and wire types (docs 02/04).",
+      "module_count": 4
+    },
+    {
+      "id": "runtime-io",
+      "label": "Runtime adaptation",
+      "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
+      "module_count": 13
+    },
+    {
+      "id": "ui-shell",
+      "label": "UI shell",
+      "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
+      "module_count": 12
+    },
+    {
+      "id": "web-server",
+      "label": "Web server",
+      "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
+      "module_count": 15
+    },
+    {
+      "id": "web-entry",
+      "label": "Web entrypoints",
+      "ownership": "Owns Vite entry, base components, and browser adapter factory.",
+      "module_count": 2
+    },
+    {
+      "id": "gates",
+      "label": "Quality gates",
+      "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
+      "module_count": 7
+    },
+    {
+      "id": "foundation",
+      "label": "Product foundation",
+      "ownership": "Provides everything the components above have not claimed.",
+      "module_count": 0
+    }
+  ],
+  "entrypoints": [
+    "packages/ui/src/main.tsx",
+    "packages/web/src/main.tsx",
+    "packages/web/src/server/index.ts",
+    "scripts/dev.mjs"
+  ],
+  "external_dependencies": [
+    "@hono/node-server",
+    "hono",
+    "node:assert/strict",
+    "node:child_process",
+    "node:crypto",
+    "node:fs",
+    "node:fs/promises",
+    "node:os",
+    "node:path",
+    "node:process",
+    "node:url",
+    "react",
+    "react-dom/client",
+    "sonner",
+    "zustand",
+    "zustand/vanilla"
+  ],
+  "component_edges": [
+    {
+      "from": "sync-engine",
+      "to": "harness-facade",
+      "import_count": 48,
+      "module_count": 33
+    },
+    {
+      "from": "sync-engine",
+      "to": "runtime-io",
+      "import_count": 7,
+      "module_count": 6
+    },
+    {
+      "from": "ui-shell",
+      "to": "harness-facade",
+      "import_count": 6,
+      "module_count": 4
+    },
+    {
+      "from": "web-server",
+      "to": "harness-facade",
+      "import_count": 5,
+      "module_count": 5
+    },
+    {
+      "from": "harness-facade",
+      "to": "runtime-io",
+      "import_count": 4,
+      "module_count": 2
+    },
+    {
+      "from": "gates",
+      "to": "web-server",
+      "import_count": 3,
+      "module_count": 1
+    },
+    {
+      "from": "ui-shell",
+      "to": "runtime-io",
+      "import_count": 2,
+      "module_count": 1
+    },
+    {
+      "from": "runtime-io",
+      "to": "ui-shell",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "sync-engine",
+      "to": "ui-shell",
+      "import_count": 1,
+      "module_count": 1
+    }
+  ],
+  "modules": [
+    {
+      "path": "packages/ui/src/App.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/MainLayout.tsx",
+        "packages/ui/src/lib/initializeApp.ts",
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/splash.ts",
+        "packages/ui/src/stores/useConfigStore.ts",
+        "packages/ui/src/stores/useFeatureFlagsStore.ts",
+        "packages/ui/src/stores/useSessionsStore.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/ChatView.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/stores/useSessionsStore.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/ErrorBoundary.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/components/I18nProvider.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/components/MainLayout.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/ChatView.tsx",
+        "packages/ui/src/components/SessionSidebar.tsx",
+        "packages/ui/src/components/ShellChrome.tsx"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/SessionSidebar.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/stores/useSessionsStore.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/ShellChrome.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/ThemeProvider.tsx",
+        "packages/ui/src/stores/useConfigStore.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/ThemeProvider.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/api/registry.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/api/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/api/types.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/chunkLoadRecovery.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/initializeApp.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/stores/useConfigStore.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/client.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/constants.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/constants.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/events.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/nnd/types.ts",
+      "component": "harness-facade",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/platform.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/runtime-auth.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-url.ts",
+        "packages/ui/src/lib/runtimeConfig.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/runtime-fetch.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/runtime-switch.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-url.ts",
+        "packages/ui/src/lib/runtimeConfig.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/runtime-url.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtimeConfig.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/runtimeConfig.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/runtimeSurface.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtimeConfig.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/splash.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/startupTrace.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/main.tsx",
+      "component": "ui-shell",
+      "entrypoint": true,
+      "imports": [
+        "packages/ui/src/App.tsx",
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/ThemeProvider.tsx"
+      ]
+    },
+    {
+      "path": "packages/ui/src/stores/useConfigStore.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/stores/useFeatureFlagsStore.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/stores/useSessionsStore.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/activity-streaming.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/blocking-reducer.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/event-equality.ts",
+        "packages/ui/src/sync/reducer-core.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/bootstrap-context.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/bootstrap-directory.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/bootstrap-context.ts",
+        "packages/ui/src/sync/bootstrap-enrichment.ts",
+        "packages/ui/src/sync/bootstrap.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/persist-cache.ts",
+        "packages/ui/src/sync/sanitize.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/bootstrap-enrichment.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/bootstrap.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/sync/global-stores.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/child-store.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/engine-actions.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/session-actions.ts",
+        "packages/ui/src/sync/session-lifecycle.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/engine-instance.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/stores/useConfigStore.ts",
+        "packages/ui/src/sync/activity-streaming.ts",
+        "packages/ui/src/sync/bootstrap-directory.ts",
+        "packages/ui/src/sync/bootstrap.ts",
+        "packages/ui/src/sync/child-store.ts",
+        "packages/ui/src/sync/engine-actions.ts",
+        "packages/ui/src/sync/engine-materialization.ts",
+        "packages/ui/src/sync/engine-message-poll.ts",
+        "packages/ui/src/sync/engine-recovery.ts",
+        "packages/ui/src/sync/engine-side-effects.ts",
+        "packages/ui/src/sync/engine-support.ts",
+        "packages/ui/src/sync/engine-watchdog.ts",
+        "packages/ui/src/sync/event-pipeline.ts",
+        "packages/ui/src/sync/event-reducer.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/persist-cache.ts",
+        "packages/ui/src/sync/routing-index.ts",
+        "packages/ui/src/sync/session-actions.ts",
+        "packages/ui/src/sync/session-lifecycle.ts",
+        "packages/ui/src/sync/session-message-loader.ts",
+        "packages/ui/src/sync/session-ordering.ts",
+        "packages/ui/src/sync/types.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/engine-materialization.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/sync/materialization.ts",
+        "packages/ui/src/sync/routing-index.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/engine-message-poll.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/sync/child-store.ts",
+        "packages/ui/src/sync/event-equality.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/engine-recovery.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/bootstrap-enrichment.ts",
+        "packages/ui/src/sync/child-store.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/routing-index.ts",
+        "packages/ui/src/sync/session-actions.ts",
+        "packages/ui/src/sync/session-message-loader.ts",
+        "packages/ui/src/sync/session-ordering.ts",
+        "packages/ui/src/sync/types.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/engine-side-effects.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/activity-streaming.ts",
+        "packages/ui/src/sync/engine-support.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/materialization.ts",
+        "packages/ui/src/sync/reducer-core.ts",
+        "packages/ui/src/sync/routing-index.ts",
+        "packages/ui/src/sync/session-ordering.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/engine-support.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/sync/activity-streaming.ts",
+        "packages/ui/src/sync/event-reducer.ts",
+        "packages/ui/src/sync/reducer-core.ts",
+        "packages/ui/src/sync/routing-index.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/engine-watchdog.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/child-store.ts",
+        "packages/ui/src/sync/event-equality.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/session-actions.ts",
+        "packages/ui/src/sync/types.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/event-equality.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/event-pipeline.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtime-url.ts",
+        "packages/ui/src/sync/pipeline-attempts.ts",
+        "packages/ui/src/sync/pipeline-queues.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/event-reducer.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/blocking-reducer.ts",
+        "packages/ui/src/sync/event-equality.ts",
+        "packages/ui/src/sync/reducer-core.ts",
+        "packages/ui/src/sync/sanitize.ts",
+        "packages/ui/src/sync/transcript-reducer.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/global-stores.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/sanitize.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/materialization.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/message-ordering.ts",
+        "packages/ui/src/sync/sanitize.ts",
+        "packages/ui/src/sync/session-message-loader.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/message-ordering.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/persist-cache.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/pipeline-attempts.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/sync/pipeline-queues.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/pipeline-queues.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/reducer-core.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/routing-index.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/sanitize.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/session-actions.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/materialization.ts",
+        "packages/ui/src/sync/message-ordering.ts",
+        "packages/ui/src/sync/session-lifecycle.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/session-lifecycle.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/session-actions.ts",
+        "packages/ui/src/sync/session-message-loader.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/session-message-loader.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/sync/message-ordering.ts",
+        "packages/ui/src/sync/sanitize.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/session-ordering.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/sync-engine.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/sync/child-store.ts",
+        "packages/ui/src/sync/engine-actions.ts",
+        "packages/ui/src/sync/engine-instance.ts",
+        "packages/ui/src/sync/event-pipeline.ts",
+        "packages/ui/src/sync/persist-cache.ts",
+        "packages/ui/src/sync/routing-index.ts",
+        "packages/ui/src/sync/session-message-loader.ts",
+        "packages/ui/src/sync/types.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/transcript-reducer.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/events.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/event-equality.ts",
+        "packages/ui/src/sync/message-ordering.ts",
+        "packages/ui/src/sync/reducer-core.ts",
+        "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/types.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/sync/view-store.ts",
+      "component": "sync-engine",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/api/createWebAPIs.ts",
+      "component": "web-entry",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/main.tsx",
+      "component": "web-entry",
+      "entrypoint": true,
+      "imports": [
+        "packages/web/src/api/createWebAPIs.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/app.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/lib/static.ts",
+        "packages/web/src/server/routes/auth.ts",
+        "packages/web/src/server/routes/notnative.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/env.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/harness/adapter.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/harness/mock/events.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/web/src/server/lib/sse.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/harness/mock/fixtures.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/web/src/server/lib/harnessNaming.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/harness/mock/index.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/harness/mock/events.ts",
+        "packages/web/src/server/harness/mock/fixtures.ts",
+        "packages/web/src/server/harness/mock/sim.ts",
+        "packages/web/src/server/harness/mock/store.ts",
+        "packages/web/src/server/lib/harnessNaming.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/harness/mock/sim.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/web/src/server/harness/mock/events.ts",
+        "packages/web/src/server/harness/mock/fixtures.ts",
+        "packages/web/src/server/harness/mock/store.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/harness/mock/store.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/web/src/server/harness/mock/fixtures.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/index.ts",
+      "component": "web-server",
+      "entrypoint": true,
+      "imports": [
+        "packages/web/src/server/app.ts",
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/harness/mock/index.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/bus.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/harnessNaming.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/sse.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/static.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/routes/auth.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/notnative.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/bus.ts",
+        "packages/web/src/server/lib/harnessNaming.ts",
+        "packages/web/src/server/lib/sse.ts"
+      ]
+    },
+    {
+      "path": "scripts/bump-version.js",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/controlled-language-gates.js",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/dev.mjs",
+      "component": "gates",
+      "entrypoint": true,
+      "imports": []
+    },
+    {
+      "path": "scripts/quality-gates.js",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/release-gates.js",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/repository-graph.js",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/smoke-test.js",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/app.ts",
+        "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/harness/mock/index.ts"
+      ]
+    }
+  ]
+}

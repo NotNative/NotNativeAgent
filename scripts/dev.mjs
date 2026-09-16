@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: Apache-2.0
 /**
  * NotNativeDesktop dev launcher (doc 01 §15.1 equivalent).
  * Spawns the API server (Node, --watch) + Vite UI dev server, kills children on exit.

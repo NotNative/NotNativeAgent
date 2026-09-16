@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Chunk load recovery (doc 01 §4.6): dynamic-import failures are detected by
  * message patterns, retried once after 250 ms, then — outside VS Code —

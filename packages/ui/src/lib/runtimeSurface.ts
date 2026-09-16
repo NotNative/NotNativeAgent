@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Hosted-surface decision + runtime classification helpers (doc 01 §3.5, §6.3).
  * Mobile branch is recognized but its app tree is long-term deferred (doc 11);

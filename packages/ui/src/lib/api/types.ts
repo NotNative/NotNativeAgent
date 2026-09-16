@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * RuntimeAPIs — the instance-adapter contract (doc 01 §3.3).
  * P0 ships the boot-critical members fully typed; git/files bodies land with

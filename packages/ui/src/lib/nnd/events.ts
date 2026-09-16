@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * SSE subscriptions for header-less transports, riding HP-8 URL tokens.
  * Harness stream: /api/event · Control stream: /api/notnative/events.

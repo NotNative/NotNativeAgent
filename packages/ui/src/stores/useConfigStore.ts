@@ -1,18 +1,14 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Config/connection store (doc 01 §14, HP-5). The sync engine (P2/doc 04) will
  * own session/message state; this store keeps the connection classification and
  * the provider/agent inventories the shell boot gate depends on.
  */
 import { create } from 'zustand';
-import { harnessClient } from '../lib/nna/client.ts';
+import { harnessClient } from '../lib/nnd/client.ts';
 
 export type ConnectionPhase = 'connecting' | 'reconnecting' | 'connected';
-export type DisconnectReason =
-  | 'health_check_failed'
-  | 'health_check_unhealthy'
-  | 'health_probe_unhealthy'
-  | 'init_error'
-  | null;
+export type DisconnectReason = string | null;
 
 interface ConfigState {
   providers: unknown[];

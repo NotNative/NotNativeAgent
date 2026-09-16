@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { create } from 'zustand';
 
 /** Feature flags store (doc 01 §14): P0 carries the plan-mode health flag. */

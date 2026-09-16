@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { RuntimeAPIs } from './types.ts';
 
 /** Global RuntimeAPIs registry (doc 01 §3.3: the UI imports it once at boot). */

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * /auth/* — session status + URL-token minting (doc 01 HP-10).
  * Full auth model (scrypt passwords, JWT, passkeys, device tokens) is doc 08,

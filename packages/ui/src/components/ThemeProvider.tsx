@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 // Delta P0: `system` variant resolution via matchMedia lands with doc 14 (P5);

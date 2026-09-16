@@ -1,4 +1,5 @@
-﻿import { harnessClient } from '../lib/nna/client.ts';
+// SPDX-License-Identifier: Apache-2.0
+import { harnessClient } from '../lib/nnd/client.ts';
 import { useI18n } from './I18nProvider.tsx';
 import { useSessionsStore } from '../stores/useSessionsStore.ts';
 

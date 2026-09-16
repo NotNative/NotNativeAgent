@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { createContext, useContext, type ReactNode } from 'react';
 
 // P0 English-only stub; the i18n catalog format + 12 locales are doc 14 (P5).

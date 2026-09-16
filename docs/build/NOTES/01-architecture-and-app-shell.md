@@ -12,7 +12,7 @@ Shared UI (@notnative/ui, source-consumed)
 web/PWA entry (@notnative/web) ──► server (same package, Node+Hono)
   │  serves HTML entries, /api/notnative/* (own), /api/fs,/api/git,/api/vcs,
   │  /api/notnative/events (SSE control), /auth/*, /health
-  └─ /api/* proxy ──► HARNESS (NNA later; mock now)
+  ─ /api/* proxy ──► HARNESS (NNA later; mock now)
 ```
 - UI never addresses the harness directly; harness rides the same origin under `/api`.
 - Two UI paths: (1) RuntimeAPIs → runtimeFetch → server-owned routes;

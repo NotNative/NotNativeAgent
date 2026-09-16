@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Harness wire shapes — doc 02 §5–§7. This file is the contract both the mock
  * harness (server) and the UI facade compile against; NNA must match it too.

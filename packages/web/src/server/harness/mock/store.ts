@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Mock harness state store (in-memory; the whole point of the mock is that it
  * is disposable). Directory scoping, caller message-id passthrough (doc 02
@@ -13,7 +14,7 @@ import type {
   Session,
   SessionStatus,
   Todo,
-} from '../../../../../ui/src/lib/nna/types.ts';
+} from '../../../../../ui/src/lib/nnd/types.ts';
 
 export const sessions = new Map<string, Session>();
 export const entries = new Map<string, MessageEntry[]>();

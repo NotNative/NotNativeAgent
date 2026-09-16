@@ -6,7 +6,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 |---|---|---|
 | P0 scaffold + shell | 01 | ✅ done 2026-07-21 (typecheck ×3 · vitest 6/6 · vite build · prod-serve + echo-loop smoke) |
 | P1 harness seam | 02 | ✅ done 2026-07-22 (typecheck ×3 · vitest 11/11 incl. in-process contract tests · vite build · live smoke: LF-8 event sequence, Last-Event-ID replay, messageID echo, permission 404-settled) |
-| P2 sync engine | 04 | pending |
+| P2 sync engine | 04 | 🔶 done 2026-09-16 (typecheck ×3 · vitest 84/84 across 12 suites · gates+smoke · adversarial sub-agent review: P0+P1 fixed in-slice, residuals registered) |
 | P3 chat UI | 05 | pending |
 | P4 server/API | 03 | pending |
 | P5 themes/settings | 14 | pending |
@@ -46,6 +46,36 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   pill; control stream standardized to `notnative:*` data frames. New in-process contract
   tests (messageID echo, 204+events, replay, abort-mid-part, permission 404-settled).
   Also: P0 mojibake repaired; harness naming centralized (`server/lib/harnessNaming.ts`).
+
+- 2026-09-16 · **P2 done (resumed + completed by new agent).** Interrupted build
+  repaired: sync-engine corruption (stray parens, missing view-store, bogus
+  allSettled-concurrency) + repo-wide NUL/mojibake sweep (15 files; box-drawing
+  comment dividers). Brand unified nna→nnd paths (`lib/nnd`), VITE_NND_URL.
+  Engine split to POWER10 caps: pipeline-queues/attempts, transcript/blocking
+  reducers, bootstrap(+directory/enrichment), engine-{instance,recovery,
+  materialization,watchdog,message-poll,side-effects,actions,support}, view-store.
+  84 vitest tests per NOTES §J.2 hinges (queues: 4 coalescing keys + barriers +
+  frames + caps; reducer: freshness/chronology/terminal-part/dedupe/no-op/
+  tombstone; routing precedence; child-store scheduler+eviction; loader
+  inflight/expansion/tail/generations; optimistic taxonomy; ordering/timing;
+  signature merge; batch primitive publication). Quality suite added
+  (quality-gates POWER10 hard caps TS-aware, controlled-language NND-CTL with
+  32-term registry + report, repository-graph, bump-version, release-gates,
+  in-process smoke) wired to `pnpm run check`.
+  Adversarial review dispositions (sub-agent): FIXED — runtime-reset scheduler
+  brick (manager.reset, §11.2), primitive field publication in batches
+  (sessionRevision/Total/deletedRevision), mergeBootstrapLists closed hierarchy,
+  global bootstrap at start, eviction sweep interval, signature guard reads
+  post-fetch state (no resurrect/loss), archive echo carries the stripped record
+  (global cached bucket + status retirement), pipeline interrupt/heartbeat
+  classification + real disconnect reasons. REGISTERED for later phases:
+  control-frame normalization seam (P2-2), routing scan/info.directory (P2-3),
+  streaming reconcile hooks + bounds (P2-4), per-dir watchdog cooldowns +
+  discovery insert (P2-5), recovery runtime guards (P2-6), lifecycle action
+  completeness (P2-7), optimistic revert-branch + ownership dirs (P2-8), loader
+  complete-flag/deletion-merge (P2-9), bootstrap pagination + project.current
+  abort rule (P2-10), covered-snapshot settle + ordering tie-break (P2-11),
+  minor churn/bounds items (P2-12) — full list in NOTES/04 §"Review register".
 
 ## Delta/Delayed register
 
