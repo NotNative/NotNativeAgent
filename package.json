@@ -1,0 +1,18 @@
+{
+  "name": "notnative-desktop",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "NotNativeDesktop — a cleanroom workspace for running and reviewing agent work. Harness: NotNativeAgent (interim: contract-shaped mock).",
+  "engines": { "node": ">=22.18" },
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "node --watch packages/web/src/server/index.ts",
+    "dev:ui": "pnpm --filter @notnative/web dev",
+    "build": "pnpm --filter @notnative/web build",
+    "start": "node packages/web/src/server/index.ts",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @notnative/ui test"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@notnative/web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node src/server/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.ui.json && tsc --noEmit -p tsconfig.server.json"
+  },
+  "dependencies": {
+    "@notnative/ui": "workspace:*",
+    "@hono/node-server": "^1.14.0",
+    "hono": "^4.8.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zustand": "^5.0.8",
+    "sonner": "^2.0.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.11",
+    "@types/node": "^24.0.3",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^5.0.4",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.9"
+  }
+}

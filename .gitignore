@@ -1,0 +1,11 @@
+node_modules/
+.pnpm-store/
+dist/
+dist-*/
+.vite/
+*.log
+.DS_Store
+.env.local
+coverage/
+packages/web/dist/
+*.tsbuildinfo

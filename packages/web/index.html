@@ -1,0 +1,51 @@
+﻿<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>NotNativeDesktop</title>
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('notnative.themeMode') || 'dark';
+          var variant = mode === 'light' ? 'light' : 'dark';
+          document.documentElement.classList.remove('dark', 'light');
+          document.documentElement.classList.add(variant);
+          document.documentElement.style.colorScheme = variant;
+          document.documentElement.setAttribute('data-nn-splash-variant', variant);
+          document.documentElement.style.setProperty('--nn-splash-bg', variant === 'dark' ? '#151313' : '#fffcf0');
+        } catch (error) {}
+        window.process = window.process || { env: {} };
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </head>
+  <body>
+
+    <div id="initial-loading">
+      <div style="text-align:center">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M32 6 L54 18 L54 46 L32 58 L10 46 L10 18 Z" stroke="currentColor" stroke-width="2" opacity="0.8" />
+          <path d="M32 6 L32 32 M54 18 L32 32 M10 18 L32 32" stroke="currentColor" stroke-width="1.5" opacity="0.5" />
+        </svg>
+        <div style="margin-top:10px;font-size:13px;opacity:0.75">Starting NotNativeDesktopâ€¦</div>
+      </div>
+    </div>
+    <div id="root"></div>
+    <script>
+      (function () {
+        // 10 s fallback: a fragile boot must never trap the user on the splash.
+        if (window.__NOTNATIVE_LOCAL_ORIGIN__) return;
+        setTimeout(function () {
+          var splash = document.getElementById('initial-loading');
+          if (splash && !splash.classList.contains('fade-out')) {
+            splash.classList.add('fade-out');
+            setTimeout(function () { splash.remove(); }, 320);
+          }
+        }, 10000);
+      })();
+    </script>
+  </body>
+</html>
+
