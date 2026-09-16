@@ -92,6 +92,12 @@ export async function revertSessionAction(sessionID: string, messageID: string, 
   const result = await harnessClient.revertSession(sessionID, messageID, undefined, { directory });
   if (result.error) throw new Error(result.error);
 }
+
+/** /redo: release the reverted slice (harness restores; loader refetches). */
+export async function unrevertSessionAction(sessionID: string, directory: string): Promise<void> {
+  const result = await harnessClient.unrevertSession(sessionID, { directory });
+  if (result.error) throw new Error(result.error);
+}
 /** Abort the session's running turn (§B.11); idempotent harness-side. */
 export async function abortSessionAction(sessionID: string, directory: string): Promise<void> {
   await harnessClient.abortSession(sessionID, { directory });

@@ -76,14 +76,14 @@ function TurnRow({ turn, store, engine, tailID }: { turn: ChatTurn; store: Store
   const inline = tailID ? turn.assistant.filter((message) => message.id !== tailID) : turn.assistant;
   return (
     <section className="flex flex-col gap-3" data-testid="chat-turn">
-      <UserBubble parts={partsOf(turn.userMessage.id)} />
+      <UserBubble parts={partsOf(turn.userMessage.id)} anchorID={turn.userMessage.id} />
       {settled && inline.length > 1 ? (
         <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="self-start rounded-full bg-white/5 px-3 py-1 text-[11px] text-neutral-400 hover:text-neutral-200">
           Activity ({inline.length}) {open ? '−' : '+'}
         </button>
       ) : null}
       {open ? inline.map((message) => (
-        <AssistantRow key={message.id} message={message} parts={partsOf(message.id)} live={tailID === message.id ? false : message.time.completed === undefined} />
+        <AssistantRow key={message.id} message={message} parts={partsOf(message.id)} anchorID={message.id} live={tailID === message.id ? false : message.time.completed === undefined} />
       )) : null}
     </section>
   );
@@ -93,10 +93,10 @@ function presentationOf(message: import('../lib/nnd/types.ts').Message): import(
   return message as unknown as import('../lib/nnd/types.ts').PresentationMessage;
 }
 
-function UserBubble({ parts }: { parts: PartLite[] }): ReactNode {
+function UserBubble({ parts, anchorID }: { parts: PartLite[]; anchorID: string }): ReactNode {
   const text = parts.filter((part) => part.type === 'text' && !part.synthetic && !part.ignored).map((part) => part.text ?? '').join('');
   return (
-    <div className="flex justify-end">
+    <div id={`message-${anchorID}`} className="flex scroll-mt-16 justify-end">
       <div className={`max-w-[85%] rounded-xl p-3 text-sm text-neutral-100 ${text.startsWith('!') || text.startsWith('/') ? 'bg-neutral-800/80 font-mono text-[13px]' : 'bg-indigo-950/60'}`}>
         {text.startsWith('!') ? <span aria-hidden className="mr-1 text-amber-300">$</span> : null}
         {text || '[No text content]'}
@@ -105,10 +105,10 @@ function UserBubble({ parts }: { parts: PartLite[] }): ReactNode {
   );
 }
 
-function AssistantRow({ message, parts, live }: { message: import('../lib/nnd/types.ts').PresentationMessage; parts: PartLite[]; live: boolean }): ReactNode {
+function AssistantRow({ message, parts, live, anchorID }: { message: import('../lib/nnd/types.ts').PresentationMessage; parts: PartLite[]; live: boolean; anchorID?: string }): ReactNode {
   const visible = parts.filter((part) => !SKIP_KIND.has(part.type) && !part.synthetic && !part.ignored);
   return (
-    <article className="flex flex-col gap-1" data-testid="chat-assistant-row">
+    <article id={anchorID ? `message-${anchorID}` : undefined} className="flex flex-col gap-1 scroll-mt-16" data-testid="chat-assistant-row">
       {visible.map((part, index) => <PartView key={index} part={part} />)}
       {message.error ? <ErrorCallout message={message.error} /> : null}
       <footer className="flex items-center gap-2 px-1 text-[10px] text-neutral-600">

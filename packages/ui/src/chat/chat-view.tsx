@@ -15,9 +15,37 @@ import { Composer, type ComposerServices } from './composer.tsx';
 import { Transcript, StatusChip } from './transcript.tsx';
 import { TimelineDialog } from './timeline-dialog.tsx';
 import { PromptNavigatorRail } from './prompt-rail.tsx';
+import { WorkStatusPanel } from './work-status-panel.tsx';
 import { startersFor, type Starter } from './starters.ts';
 import type { ModelSelection } from './model-picker.tsx';
 import { toast } from 'sonner';
+import { recapFor } from './work-status.ts';
+
+/** §E.3/§E.4 band: recap note + suggestion chip (chip FILLS, never sends). */
+function RecapNote({ pair }: { pair: { recap: string; suggestion: string } }): ReactNode {
+  return (
+    <div className="mb-2 flex flex-col gap-1 rounded-lg bg-white/5 px-3 py-2" data-testid="recap-note">
+      <div className="text-[11px] text-neutral-400">
+        <span className="text-neutral-500">Recap: </span>
+        {pair.recap}
+      </div>
+      {pair.suggestion ? (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            title="Use suggested message"
+            aria-label="Use suggested message"
+            className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-neutral-200 hover:border-white/25"
+            onClick={() => window.dispatchEvent(new CustomEvent('nnd:composer-fill', { detail: { text: pair.suggestion } }))}
+          >
+            {pair.suggestion}
+          </button>
+          <span className="text-[10px] text-neutral-600">fills the composer — nothing sends without you</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 const SESSION_SWITCH_HOLD_MS = 400;
 
@@ -87,28 +115,34 @@ export function ChatView(props: ChatViewProps): ReactNode {
   }
 
   return (
-    <section className={`relative flex h-full min-w-0 flex-1 flex-col ${expanded ? 'bg-neutral-950' : ''}`} data-testid="chat-view" aria-hidden={undefined}>
-      <div className={`min-h-0 flex-1 overflow-y-auto pb-40 ${expanded ? 'hidden' : ''}`} data-chat-column>
-        <Transcript store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} directory={shownRef.directory} />
+    <section className={`relative flex h-full min-w-0 flex-1 flex-row ${expanded ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        <div className={`min-h-0 flex-1 overflow-y-auto pb-40 ${expanded ? 'hidden' : ''}`} data-chat-column>
+          <Transcript store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} directory={shownRef.directory} />
+        </div>
+        <PromptNavigatorRail store={shownRef.store} sessionID={shownRef.sessionID} />
+        <div className="relative z-10 border-t border-white/10 bg-neutral-950/60 px-4 py-3" data-composer-bound>
+          <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
+          {!expanded && shownRef.sessionID && recapFor(shownRef.store.getState(), shownRef.sessionID) ? (
+            <RecapNote pair={recapFor(shownRef.store.getState(), shownRef.sessionID)!} />
+          ) : null}
+          <Composer
+            services={props.services}
+            sessionID={shownRef.sessionID}
+            directory={shownRef.directory}
+            sessionKey={shownRef.sessionID ?? 'draft'}
+            expanded={expanded}
+            onToggleExpanded={() => setExpanded((value) => !value)}
+            onRunBtw={runBtw}
+            onOpenTimeline={() => setTimelineOpen(true)}
+            starters={shownRef.sessionID === null ? starters : []}
+            modelSelection={modelSelection}
+            onModelSelection={setModelSelection}
+            onAddProvider={() => toast('Provider management opens with the settings pages (P5)')}
+          />
+        </div>
       </div>
-      <PromptNavigatorRail store={shownRef.store} sessionID={shownRef.sessionID} />
-      <div className="relative z-10 border-t border-white/10 bg-neutral-950/60 px-4 py-3" data-composer-bound>
-        <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
-        <Composer
-          services={props.services}
-          sessionID={shownRef.sessionID}
-          directory={shownRef.directory}
-          sessionKey={shownRef.sessionID ?? 'draft'}
-          expanded={expanded}
-          onToggleExpanded={() => setExpanded((value) => !value)}
-          onRunBtw={runBtw}
-          onOpenTimeline={() => setTimelineOpen(true)}
-          starters={shownRef.sessionID === null ? starters : []}
-          modelSelection={modelSelection}
-          onModelSelection={setModelSelection}
-          onAddProvider={() => toast('Provider management opens with the settings pages (P5)')}
-        />
-      </div>
+      {expanded ? null : <WorkStatusPanel store={shownRef.store} engine={props.services.engine} />}
       {timelineOpen && shownRef.sessionID ? (
         <TimelineDialog store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} onClose={() => setTimelineOpen(false)} />
       ) : null}

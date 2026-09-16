@@ -88,6 +88,19 @@ export function Composer(props: ComposerProps): ReactNode {
 
   useEffect(() => () => { flushDraftsNow(); }, []);
 
+  // §B.9/§C.10: one fill channel for revert/undo and the §E.4 suggestion chip.
+  useEffect(() => {
+    const handler = (event: Event): void => {
+      const text = (event as CustomEvent<{ text?: string }>).detail?.text ?? '';
+      if (!text) return;
+      setText(text);
+      persist(text, attachments, autoAccept);
+      requestAnimationFrame(() => { editorRef.current?.focus(); });
+    };
+    window.addEventListener('nnd:composer-fill', handler);
+    return () => window.removeEventListener('nnd:composer-fill', handler);
+  }, [attachments, autoAccept]);
+
   const persist = useCallback((nextText: string, nextAttachments: DraftAttachment[], nextAutoAccept: boolean, queue?: QueuedMessage[]) => {
     if (restoringRef.current) return;
     saveDraft(directory, sessionKey, {
@@ -170,7 +183,7 @@ export function Composer(props: ComposerProps): ReactNode {
       blockedByPermission: permissionCount > 0,
       blockedByQuestion: questionCount > 0,
       memorySettings: 'queue',
-      targets: { sessionID, directory, model: SEND_FALLBACK_MODEL, agent },
+      targets: { sessionID, directory, model: props.modelSelection ?? { ...SEND_FALLBACK_MODEL }, agent },
       snippets,
       tokens,
       attachmentNames: attachments.map((a) => a.name),
@@ -241,6 +254,11 @@ export function Composer(props: ComposerProps): ReactNode {
     }
   }
 
+  const pickedModel = (): { providerID: string; modelID: string } => {
+    const selection = props.modelSelection;
+    return selection ? { providerID: selection.providerID, modelID: selection.modelID } : SEND_FALLBACK_MODEL;
+  };
+
   async function deliver(outgoing: OutgoingPart[], delivery: 'steer' | null): Promise<void> {
     const target = sessionID;
     const payloadParts = outgoing.map((part) => part.type === 'file'
@@ -251,12 +269,18 @@ export function Composer(props: ComposerProps): ReactNode {
       await services.engine.actions.runShell(target, command);
       return;
     }
+    if (!target && shell && command) {
+      // §B.3: shell mode text is a HARNESS-executed command — never model
+      // input, and never the first message that materializes a session.
+      toast.error('Open a session to run shell commands.');
+      return;
+    }
     if (target) {
-      await services.engine.actions.send({ directory, sessionID: target, parts: payloadParts, model: SEND_FALLBACK_MODEL, agent, ...(delivery ? { delivery } : {}) });
+      await services.engine.actions.send({ directory, sessionID: target, parts: payloadParts, model: pickedModel(), agent, ...(delivery ? { delivery } : {}) });
       return;
     }
     const created = await services.engine.actions.createSession({ directory });
-    await services.engine.actions.send({ directory, sessionID: created.id, parts: payloadParts, model: SEND_FALLBACK_MODEL, agent });
+    await services.engine.actions.send({ directory, sessionID: created.id, parts: payloadParts, model: pickedModel(), agent });
     useSessionViewStore.getState().setCurrentSession(created.id);
     useSessionViewStore.getState().setActiveDirectory(directory);
   }
@@ -279,7 +303,12 @@ export function Composer(props: ComposerProps): ReactNode {
       if (event.key === 'Enter' || event.key === 'Tab') event.preventDefault();
       return;
     }
-    if (event.key === 'Enter' && shouldSubmitEnter({ isExpanded: false, enterToSend: null, isMobile: false, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey })) {
+    if (event.key === 'Escape' && props.expanded) {
+      event.preventDefault();
+      props.onToggleExpanded?.();
+      return;
+    }
+    if (event.key === 'Enter' && shouldSubmitEnter({ isExpanded: Boolean(props.expanded), enterToSend: null, isMobile: false, shiftKey: event.shiftKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey })) {
       event.preventDefault();
       void submit();
       return;

@@ -26,19 +26,50 @@ export function MainLayout(): ReactNode {
     dispatch: (command) => {
       const live = useSessionViewStore.getState();
       const sessionID = live.currentSessionId;
+      const store = engine.childStoreOf(live.activeDirectory);
       if (command === 'timeline') {
         window.dispatchEvent(new CustomEvent('nnd:timeline-open'));
         return;
       }
-      if ((command === 'undo' || command === 'redo') && sessionID) {
-        const store = engine.childStoreOf(live.activeDirectory);
-        const messages = store?.getState().message[sessionID] ?? [];
-        const lastUser = [...messages].reverse().find((message) => message.role === 'user');
-        if (lastUser) {
-          void engine.actions.revert(sessionID, lastUser.id).catch(() => toast.error('Revert failed'));
-        } else {
-          toast.message('Nothing to revert yet');
-        }
+      if (!sessionID || !store) {
+        toast.message('Nothing selected to ' + command);
+        return;
+      }
+      const snapshot = store.getState();
+      const messages = snapshot.message[sessionID] ?? [];
+      if (command === 'undo') {
+        // §D.6 keep-point semantics: revert TO the last user message. The
+        // harness retains the slice; the view announces RE-Truncation at that
+        // point and the message text re-fills the composer.
+        const lastUserIndex = (() => {
+          for (let i = messages.length - 1; i >= 0; i -= 1) {
+            if (messages[i]!.role === 'user') return i;
+          }
+          return -1;
+        })();
+        if (lastUserIndex < 0) { toast.message('Nothing to revert yet'); return; }
+        const target = messages[lastUserIndex]!;
+        const targetText = ((snapshot.part[target.id] ?? []) as { type: string; text?: string }[])
+          .filter((part) => part.type === 'text').map((part) => part.text ?? '').join('\n');
+        void engine.actions.revert(sessionID, target.id)
+          .then(() => {
+            const live = store.getState();
+            const index = (live.message[sessionID] ?? []).findIndex((message) => message.id === target.id);
+            if (index >= 0) {
+              const truncated = (live.message[sessionID] ?? []).slice(0, index);
+              const part = { ...live.part };
+              for (const message of (live.message[sessionID] ?? []).slice(index)) delete part[message.id];
+              store.setState({ message: { ...live.message, [sessionID]: truncated }, part });
+            }
+            window.dispatchEvent(new CustomEvent('nnd:composer-fill', { detail: { text: targetText } }));
+          })
+          .catch(() => toast.error('Failed to revert the conversation'));
+        return;
+      }
+      if (command === 'redo') {
+        void engine.actions.unrevert(sessionID)
+          .then(() => engine.loader.refreshTail({ directory: live.activeDirectory, sessionID, store: engine.childStoreOf(live.activeDirectory) ?? engine.manager.ensureChild(live.activeDirectory) }, 50))
+          .catch(() => toast.error('Failed to redo the reverted slice'));
         return;
       }
       if (command === 'compact') toast.message('Compaction runs harness-side in P4+');

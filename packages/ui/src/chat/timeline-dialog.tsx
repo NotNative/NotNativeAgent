@@ -4,13 +4,13 @@
  * rows navigate/fork/revert; fork hands the prompt to the composer when the
  * harness returns one (pendingComposerRestore consumed by the composer).
  */
-import { useSyncExternalStore, useState, useMemo } from 'react';
+import { useSyncExternalStore, useState, useMemo, type ReactNode } from 'react';
+import { toast } from 'sonner';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { projectTurns, type PartLite } from './turns.ts';
 import { formatRelative } from './time-format.ts';
-import type { ReactNode } from 'react';
 
 export interface TimelineDialogProps {
   store: StoreApi<DirectoryStore>;
@@ -35,7 +35,9 @@ export function TimelineDialog({ store, engine, sessionID, onClose }: TimelineDi
   const visible = rows.filter((row) => row.text.toLowerCase().includes(query.trim().toLowerCase()));
 
   return (
-    <div role="dialog" aria-label="Conversation Timeline" className="absolute inset-0 z-30 flex items-start justify-center bg-black/50 p-10" data-testid="timeline-dialog">
+    <div role="dialog" aria-label="Conversation Timeline" tabIndex={0} data-testid="timeline-dialog"
+      className="absolute inset-0 z-30 flex items-start justify-center bg-black/50 p-10"
+      onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }}>
       <div className="flex max-h-[70vh] w-full max-w-2xl flex-col rounded-xl border border-white/10 bg-neutral-950 p-3">
         <div className="mb-2 flex items-center gap-2">
           <strong className="text-[13px] text-neutral-100">Conversation Timeline</strong>
@@ -51,8 +53,8 @@ export function TimelineDialog({ store, engine, sessionID, onClose }: TimelineDi
               <button type="button" className="min-w-0 flex-1 text-left text-[12px] text-neutral-300" onClick={() => scrollTo(row.id, onClose)}>
                 <span className="line-clamp-2">{row.text || '[No text content]'}</span>
               </button>
-              <button type="button" className="text-[10px] text-neutral-500 hover:text-neutral-200" aria-label="Revert from here" onClick={() => void engine.actions.revert(sessionID, row.id).then(onClose).catch(() => undefined)}>⟲</button>
-              <button type="button" className="text-[10px] text-neutral-500 hover:text-neutral-200" aria-label="Fork from here" onClick={() => void engine.actions.fork(sessionID, row.id).then(onClose).catch(() => undefined)}>⑂</button>
+              <button type="button" className="text-[10px] text-neutral-500 hover:text-neutral-200" aria-label="Revert from here" onClick={() => void engine.actions.revert(sessionID, row.id).then(onClose).catch(() => toast.error('Failed to revert the conversation'))}>⟲</button>
+              <button type="button" className="text-[10px] text-neutral-500 hover:text-neutral-200" aria-label="Fork from here" onClick={() => void engine.actions.fork(sessionID, row.id).then(onClose).catch(() => toast.error('Failed to fork the session'))}>⑂</button>
             </div>
           ))}
         </div>
@@ -62,11 +64,12 @@ export function TimelineDialog({ store, engine, sessionID, onClose }: TimelineDi
   );
 }
 
-/** Idempotent anchor: clear the hash so repeat presses still work (§E.9 pinned rule). */
+/** Idempotent anchor: replaceState clears the hash WITHOUT a history entry,
+ * then sets it for repeat presses (the consumption contract doc 05 §J.3). */
 function scrollTo(messageID: string, onClose: () => void): void {
   onClose();
   if (typeof window === 'undefined') return;
-  window.location.hash = '';
+  window.history.replaceState(null, '', window.location.pathname + window.location.search);
   window.location.hash = `#message-${messageID}`;
   document.getElementById(`message-${messageID}`)?.scrollIntoView({ block: 'start' });
 }

@@ -9,7 +9,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { PermissionRequest, QuestionRequest, Session } from '../lib/nnd/types.ts';
 import type { MaterializationRequest, DirectoryStore } from './types.ts';
 import type { EngineServices } from './session-lifecycle.ts';
-import { createSession, archiveSessionAction, restoreSessionAction, deleteSessionAction, abortSessionAction, runShellAction, renameSessionAction, forkSessionAction, revertSessionAction } from './session-lifecycle.ts';
+import { createSession, archiveSessionAction, restoreSessionAction, deleteSessionAction, abortSessionAction, runShellAction, renameSessionAction, forkSessionAction, revertSessionAction, unrevertSessionAction } from './session-lifecycle.ts';
 import { optimisticSend, replyToPermission, replyToQuestion, dismissOpenRequestsForSession } from './session-actions.ts';
 
 export type SessionActionsApi = {
@@ -23,6 +23,7 @@ export type SessionActionsApi = {
   rename: (sessionID: string, title: string) => Promise<void>;
   fork: (sessionID: string, messageID: string | undefined) => Promise<string>;
   revert: (sessionID: string, messageID: string) => Promise<void>;
+  unrevert: (sessionID: string) => Promise<void>;
   replyPermission: (sessionID: string, request: PermissionRequest, reply: 'once' | 'always' | 'reject') => Promise<void>;
   replyQuestion: (sessionID: string, request: QuestionRequest, answers: string[][], reject: boolean) => Promise<void>;
   dismissRequests: (rootSessionID: string) => Promise<void>;
@@ -44,11 +45,22 @@ export function createSessionActions(
     },
     fork: async (sessionID, messageID) => {
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
-      return forkSessionAction(sessionID, messageID, directory);
+      const childID = await forkSessionAction(sessionID, messageID, directory);
+      // §A.2/BTW: a forked child must MATERIALIZE its transcript like any
+      // other surfaced session — register the route and enqueue the loader
+      // demand; the mock copies entries harness-side with no message events.
+      services.registerSessionRoute(childID, directory);
+      services.ensureChild(directory);
+      services.enqueueMaterialization({ reason: 'ensure-session-messages', sessionID: childID }, directory);
+      return childID;
     },
     revert: async (sessionID, messageID) => {
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
       await revertSessionAction(sessionID, messageID, directory);
+    },
+    unrevert: async (sessionID) => {
+      const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();
+      await unrevertSessionAction(sessionID, directory);
     },
     runShell: async (sessionID, command) => {
       const directory = services.directoryForSession?.(sessionID) ?? services.activeDirectory();

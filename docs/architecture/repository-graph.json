@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:2645ce227b841632a002ea5e11b858fa57bfc6a2911451aaa9bed859f10e855a",
+  "source_digest": "sha256:2de57dd6446373097a7f879023bc334acc79bcb183afb399ab6642aa3d3f6ad9",
   "counts": {
-    "modules": 108,
+    "modules": 111,
     "component_edges": 10
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 32
+      "module_count": 35
     },
     {
       "id": "web-server",
@@ -91,14 +91,14 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 23,
-      "module_count": 9
+      "import_count": 29,
+      "module_count": 12
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 18,
-      "module_count": 15
+      "import_count": 19,
+      "module_count": 16
     },
     {
       "from": "sync-engine",
@@ -177,6 +177,8 @@
         "packages/ui/src/chat/starters.ts",
         "packages/ui/src/chat/timeline-dialog.tsx",
         "packages/ui/src/chat/transcript.tsx",
+        "packages/ui/src/chat/work-status-panel.tsx",
+        "packages/ui/src/chat/work-status.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
         "packages/ui/src/sync/view-store.ts"
@@ -260,6 +262,15 @@
       "imports": [
         "packages/ui/src/chat/model-catalog.ts",
         "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/panel-gate.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/work-status.ts",
+        "packages/ui/src/sync/types.ts"
       ]
     },
     {
@@ -357,6 +368,29 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/work-status-panel.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/panel-gate.ts",
+        "packages/ui/src/chat/work-status.ts",
+        "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/sync-engine.ts",
+        "packages/ui/src/sync/types.ts",
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/work-status.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/turns.ts",
+        "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/sync/types.ts"
       ]
     },
     {

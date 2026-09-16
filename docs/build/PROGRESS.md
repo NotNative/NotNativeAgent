@@ -7,7 +7,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P0 scaffold + shell | 01 | ✅ done 2026-07-21 (typecheck ×3 · vitest 6/6 · vite build · prod-serve + echo-loop smoke) |
 | P1 harness seam | 02 | ✅ done 2026-07-22 (typecheck ×3 · vitest 11/11 incl. in-process contract tests · vite build · live smoke: LF-8 event sequence, Last-Event-ID replay, messageID echo, permission 404-settled) |
 | P2 sync engine | 04 | 🔶 done 2026-09-16 (typecheck ×3 · vitest 84/84 across 12 suites · gates+smoke · adversarial sub-agent review: P0+P1 fixed in-slice, residuals registered) |
-| P3 chat UI | 05 | 🔶 P3a+P3b done 2026-09-16 (P3a: chat product spine — timeline turns+streaming tail, composer w/ prompt-language+keyboard policy+blocked-send+queue/steer+shell mode, §F cards w/ Alt-keys, sidebar lifecycle-sorted w/ §F.10 fix, tabs w/ neighbor close, engine mount replacing P1 interim stores · P3b: model picker layers/favorites/effort, starters §H.5, timeline dialog revert/fork, prompt rail, BTW fork, focus mode, rename/fork/revert/runShell actions; 113 vitest · tsc ×3 · gates+smoke; P3a review P0+P1 fixed; P3b review queued; P3c per NOTES 05) |
+| P3 chat UI | 05 | 🔶 P3a+P3b+P3c done 2026-09-16 (P3a: chat spine; P3b: model picker/starters/timeline/prompt-rail/BTW fork/focus mode; P3c: work-status panel §E.9 subset + §E.3/§E.4 recap+suggestion band; P3b+P3c adversarial review: P0×2 + P1×9 fixed; 122 vitest · tsc ×3 · gates+smoke · P3d/P4+ per NOTES 05 §A + review register) |
 | P4 server/API | 03 | pending |
 | P5 themes/settings | 14 | pending |
 | P6 review | 06 | pending |
@@ -136,6 +136,32 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   panel + promote/destroy (fork-open only in P3b), AI rename small-model
   service (P4+), starters DnD reorder + shared marker (P5 settings),
   model tooltip metadata (P5). 113 tests (+8 catalog/starters gates).
+
+- 2026-09-16 · **P3c done (work-status §E.9 subset + §E.3/§E.4).** work-status
+  selectors + panel-gate (§E.9 identity rule: computed only while
+  sessionStatusReady + idle + completed turn; committed stats SURVIVE the next
+  active turn — review caught the broken wiring), panel (presence-collapsed
+  sections Session/Project/Turn stats/Subagents/Tasks, catalog-resolved
+  context limit, §G no-borrow rule honored, no fabricated 0% on tokenless
+  totals, no cost-only row), recapFor v2: metadata.nnd.assist + `generatedAt`
+  60s quiet window + anchor freshness; §E.4 suggestion chip in the composer
+  band FILLS the composer (never sends) via the nnd:composer-fill channel
+  (shared with /undo). Adversarial review fixed: P0-1 fork children now
+  REGISTER + ENQUEUE ensure-session-messages materialization (they were
+  skeleton-forever), P0-2 /undo vs /redo split (keep-point truncate +
+  composer refill vs unrevert+refetch) with 'nnd:composer-fill'; P1×9:
+  expanded keyboard policy wired, model selection reaches promptAsync, shell
+  on draft no longer creates a prompt session, timeline anchors
+  (id=message-*) + replaceState hash + error toasts + Escape, panel committed
+  stats wired, context% suppresses tokenless totals + catalog limit, recap
+  branded + quiet + suggestion surface. Register: §I cards, picker metadata
+  tooltips, starters add-dialog + DnD, BTW peek/promote, §E.9 MCP/Pinned/
+  context-sources rows + equalizer persistence,subscription, cycleVariant per-row variant, transient-runtimeKey guard for
+  persistence namespaces, POWER10 span-heuristic blindness to TSX (tracked
+  in gates backlog). 122 tests (+9).
+  subscription, cycleVariant per-row variant, transient-runtimeKey guard for
+  persistence namespaces, POWER10 span-heuristic blindness to TSX (tracked in
+  gates backlog). 122 tests (+9).
 
 ## Delta/Delayed register
 
