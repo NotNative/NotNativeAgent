@@ -1,37 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
-import { createContext, useContext, type ReactNode } from 'react';
-
-// P0 English-only stub; the i18n catalog format + 12 locales are doc 14 (P5).
-const en: Record<string, string> = {
-  'app.title': 'NotNativeDesktop',
-  'shell.sessions': 'Sessions',
-  'shell.newSession': 'New session',
-  'shell.chatPlaceholder': 'Send a message to the harness…',
-  'shell.send': 'Send',
-  'shell.noSession': 'No session selected',
-  'shell.connecting': 'Connecting to harness…',
-  'shell.connected': 'Harness connected',
-  'shell.offline': 'Harness offline',
-  'shell.mockBanner': 'Mock harness — NotNativeAgent integration pending',
-  'shell.busy': 'Working…',
-  'shell.recovery.title': 'Startup did not finish',
-  'shell.recovery.retry': 'Retry',
-};
-
-interface I18nApi {
-  t: (key: string) => string;
-}
-
-const I18nContext = createContext<I18nApi | null>(null);
-
-export function I18nProvider({ children }: { children?: ReactNode }) {
-  const api: I18nApi = { t: (key) => en[key] ?? key };
-  return <I18nContext value={api}>{children}</I18nContext>;
-}
-
-export function useI18n(): I18nApi {
-  const api = useContext(I18nContext);
-  if (!api) throw new Error('useI18n outside I18nProvider');
-  return api;
-}
-
+/**
+ * P0 stub retired (P5-4): the real i18n layer lives in lib/i18n/ (doc 14
+ * §H); this module keeps the historical import path for the shell
+ * consumers. New code imports from lib/i18n/context.tsx.
+ */
+export {
+  I18nProvider,
+  useI18n,
+  type I18nApi,
+} from '../lib/i18n/context.tsx';
+export type { I18nKey } from '../lib/i18n/messages/en.ts';

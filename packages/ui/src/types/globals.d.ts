@@ -16,6 +16,8 @@ declare global {
     __NOTNATIVE_SURFACE__?: 'desktop' | 'mobile';
     /** Bound runtime key stamped by the shell (mirror/storage namespaces). */
     __NOTNATIVE_RUNTIME_KEY__?: string;
+    /** Host-injected BCP-ish language tag (VS Code webviews, §H.2). */
+    __NOTNATIVE_HOST_LANGUAGE__?: string;
     /** Instance adapter injected by the entrypoint. */
     __NOTNATIVE_RUNTIME_APIS__?: RuntimeAPIs;
     /** Electron shell identity (P12). */

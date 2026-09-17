@@ -136,6 +136,16 @@ verbatim per P5-1 (they are design-system internals, not brand seams).
   stub, keeping `t`), bootstrap strings for splash/connection.
 - The P0 stub's `shell.*` keys move into `messages/en.ts` unchanged so the
   existing consumers keep compiling.
+- P5-4 landed outcome: single `messages/locales.ts` holds the 11 partial
+  catalogs (per-locale file split arrives with real translation volumes);
+  locale labels are ENDONYM table (`NATIVE_LABELS`) — the doc's
+  `common.language.*` label keys are deferred until translations carry
+  them; en ships shell + bootstrap + notification-template-default keys
+  closed set. `label(locale)` keeps working for the appearance picker.
+- I18n store: English synchronous, catalogs merged over en, module-cached;
+  optimistic switch keeps `loadingLocale` marker then settles (sync catalogs
+  settle on the next microtask; the async dynamic-loader contract remains
+  for future bundles).
 
 ## F. Deltas / deferred register (new rows for PROGRESS)
 
@@ -147,6 +157,10 @@ verbatim per P5-1 (they are design-system internals, not brand seams).
 | E4 | iframe/embedded theme sync + VS Code adapter | defer | no embedded/VS Code surfaces until P10/P12 |
 | E5 | custom theme import UX (Settings→Appearance reload) | P5-3+ | GET /api/config/themes exists; page lands with settings UI |
 | E6 | shiki/terminal/diff theme consumers | P6/P7 | contract noted §E.8 |
+| E7 | splash shells speak the stored locale (§H.4 readStoredLocaleForBootstrap wired into HTML splash) | P12 | helper exported; web splash is pre-React HTML until the shell phase |
+| E8 | `getCurrentIntlLocale()` glue (BCP47ByLocale → Intl consumers, §H.2 intl.ts) | P6+ | mapping table shipped in runtime.ts; time/money formatters (doc §J) consume when they land |
+| E9 | `useI18n.ts` as a separate hook file | folded into context.tsx | doc parity note; single export surface kept |
+| E10 | normalizer collapse calls recorded | P5-4 done | bare `pt`/`pt-PT` → pt-BR; `es-419`/`en-GB` → base; LOCALES order is load-bearing for bare `zh` (pinned by test) |
 
 ## H. P5-3 review dispositions (adversarial sub-agent, 2026-09-17)
 
