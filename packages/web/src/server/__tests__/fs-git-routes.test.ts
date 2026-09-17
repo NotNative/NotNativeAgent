@@ -25,7 +25,7 @@ function app() {
 }
 
 async function get(path: string): Promise<Response> {
-  return app().fetch(new Request(`${origin}${path}`));
+  return Promise.resolve(app().fetch(new Request(`${origin}${path}`)));
 }
 
 beforeEach(() => {

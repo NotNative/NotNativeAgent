@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:21cfbcd5a7fb221cb69d3562f4bf069d5f176db47cb544e8c7fbe41375792156",
+  "source_digest": "sha256:6e8cf96abc0afcfb75d829c080bbfe5abce8db4b30a456232d39f83399438704",
   "counts": {
-    "modules": 114,
+    "modules": 115,
     "component_edges": 10
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 17
+      "module_count": 18
     },
     {
       "id": "web-entry",
@@ -1068,7 +1068,8 @@
         "packages/web/src/server/routes/auth.ts",
         "packages/web/src/server/routes/fs.ts",
         "packages/web/src/server/routes/git.ts",
-        "packages/web/src/server/routes/notnative.ts"
+        "packages/web/src/server/routes/notnative.ts",
+        "packages/web/src/server/routes/projects.ts"
       ]
     },
     {
@@ -1199,6 +1200,14 @@
         "packages/web/src/server/lib/bus.ts",
         "packages/web/src/server/lib/harnessNaming.ts",
         "packages/web/src/server/lib/sse.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/projects.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts"
       ]
     },
     {

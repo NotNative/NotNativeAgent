@@ -39,7 +39,7 @@ graph LR
 | Harness SDK facade | 4 | Runtime adaptation | Client sync and state engine, UI shell, Web server |
 | Runtime adaptation | 14 | UI shell | Client sync and state engine, Harness SDK facade, UI shell |
 | UI shell | 35 | Client sync and state engine, Harness SDK facade, Runtime adaptation | Client sync and state engine, Runtime adaptation |
-| Web server | 17 | Harness SDK facade | Quality gates |
+| Web server | 18 | Harness SDK facade | Quality gates |
 | Web entrypoints | 2 | — | — |
 | Quality gates | 7 | Web server | — |
 | Product foundation | 0 | — | — |
@@ -66,4 +66,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:21cfbcd5a7fb221cb69d3562f4bf069d5f176db47cb544e8c7fbe41375792156`.
+Source fingerprint: `sha256:6e8cf96abc0afcfb75d829c080bbfe5abce8db4b30a456232d39f83399438704`.

@@ -7,6 +7,7 @@ import { createAuthRoutes } from './routes/auth.ts';
 import { createNotNativeRoutes } from './routes/notnative.ts';
 import { registerFsRoutes } from './routes/fs.ts';
 import { registerGitRoutes } from './routes/git.ts';
+import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
 
 /**
  * Session list sanitation (doc 02 §3.2): server-side keep-list, `summary`
@@ -69,6 +70,9 @@ export function createApp() {
   // catch-all (Hono matches in registration order, doc 03 §5.14/§5.13).
   registerFsRoutes(app);
   registerGitRoutes(app);
+  registerSettingsRoutes(app);
+  registerProjectsRoutes(app);
+  registerGitReadRoutes(app);
 
   // Harness proxy: everything under /api goes through the seam (HP-1).
   app.all('/api/*', async (c) => {
