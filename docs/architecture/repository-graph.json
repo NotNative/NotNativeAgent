@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:632fe327a7bd5475390e1318dbfc4143e40d8ecb16aff20efa09ec0349578183",
+  "source_digest": "sha256:c59629bc3bebe00a4794e0b27a8c5c47498934dc9bc38765bdf34bb86fe69792",
   "counts": {
-    "modules": 204,
+    "modules": 211,
     "component_edges": 11
   },
   "components": [
@@ -24,19 +24,19 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 75
+      "module_count": 76
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 55
+      "module_count": 60
     },
     {
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 24
+      "module_count": 25
     },
     {
       "id": "web-entry",
@@ -85,8 +85,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 53,
-      "module_count": 22
+      "import_count": 62,
+      "module_count": 26
     },
     {
       "from": "sync-engine",
@@ -97,8 +97,8 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 29,
-      "module_count": 12
+      "import_count": 30,
+      "module_count": 13
     },
     {
       "from": "ui-shell",
@@ -410,6 +410,43 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/comments/controller.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/comments/focus-chat.ts",
+        "packages/ui/src/lib/comments/drafts.ts",
+        "packages/ui/src/lib/inline-comments.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/comments/focus-chat.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/components/comments/InlineComments.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/comments/controller.ts",
+        "packages/ui/src/lib/comments/drafts.ts",
+        "packages/ui/src/lib/inline-comments.ts",
+        "packages/ui/src/lib/platform.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/comments/useActiveSessionKey.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/diff/DiffView.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -432,6 +469,15 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/components/files/editor-stage.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/lib/files/api.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/files/file-dialogs.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -446,7 +492,11 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/comments/InlineComments.tsx",
+        "packages/ui/src/components/comments/controller.ts",
+        "packages/ui/src/components/comments/useActiveSessionKey.ts",
         "packages/ui/src/components/files/FileTree.tsx",
+        "packages/ui/src/components/files/editor-stage.tsx",
         "packages/ui/src/components/files/file-dialogs.tsx",
         "packages/ui/src/lib/files/api.ts",
         "packages/ui/src/lib/files/edit-support.ts",
@@ -499,8 +549,10 @@
         "packages/ui/src/components/diff/DiffView.tsx",
         "packages/ui/src/components/files/FilesView.tsx",
         "packages/ui/src/components/git/GitView.tsx",
+        "packages/ui/src/components/plan/PlanView.tsx",
         "packages/ui/src/components/settings/search.ts",
         "packages/ui/src/components/settings/window.tsx",
+        "packages/ui/src/components/worktrees/WorktreesView.tsx",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/settings/apply.ts",
         "packages/ui/src/lib/settings/store.ts",
@@ -515,7 +567,11 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/comments/InlineComments.tsx",
+        "packages/ui/src/components/comments/controller.ts",
+        "packages/ui/src/components/comments/useActiveSessionKey.ts",
         "packages/ui/src/lib/files/api.ts",
+        "packages/ui/src/lib/inline-comments.ts",
         "packages/ui/src/lib/plan/save-queue.ts",
         "packages/ui/src/lib/runtime-switch.ts"
       ]
@@ -668,6 +724,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/components/ThemeProvider.tsx",
+        "packages/ui/src/lib/add-selection-to-chat.ts",
         "packages/ui/src/lib/platform.ts",
         "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/lib/shortcuts/hooks.ts",
@@ -693,7 +750,8 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
-        "packages/ui/src/components/I18nProvider.tsx"
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/lib/server-api.ts"
       ]
     },
     {
@@ -850,6 +908,12 @@
       "imports": [
         "packages/ui/src/stores/useConfigStore.ts"
       ]
+    },
+    {
+      "path": "packages/ui/src/lib/inline-comments.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/ui/src/lib/nnd/client.ts",
@@ -1826,6 +1890,7 @@
         "packages/web/src/server/routes/fs-write.ts",
         "packages/web/src/server/routes/fs.ts",
         "packages/web/src/server/routes/git-diff.ts",
+        "packages/web/src/server/routes/git-worktrees.ts",
         "packages/web/src/server/routes/git.ts",
         "packages/web/src/server/routes/notnative.ts",
         "packages/web/src/server/routes/projects.ts",
@@ -1982,6 +2047,15 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/routes/fs.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/git-worktrees.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/routes/git.ts"
       ]
     },
     {

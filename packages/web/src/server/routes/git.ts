@@ -41,7 +41,7 @@ export function registerGitRoutes(app: Hono): void {
   });
 }
 
-function isGitRepository(directory: string): boolean {
+export function isGitRepository(directory: string): boolean {
   if (!existsSync(directory)) return false;
   const gitDir = git(['rev-parse', '--is-inside-work-tree'], directory);
   return gitDir.status === 0 && gitDir.stdout.trim() === 'true';

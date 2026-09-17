@@ -12,6 +12,7 @@ import { useSettingsStore } from '../lib/settings/store.ts';
 import { useTheme } from './ThemeProvider.tsx';
 import { listBuiltInThemes } from '../lib/theme/themes.ts';
 import { isMac } from '../lib/platform.ts';
+import { captureToChat } from '../lib/add-selection-to-chat.ts';
 
 const SETTINGS_OPEN_EVENT = 'nnd:settings-open';
 
@@ -33,6 +34,9 @@ export function ShellShortcuts(): ReactNode {
   useKeybind('cycle_theme', () => {
     cycleRegisteredTheme(themeRef.current);
   });
+  // doc 06 Appendix B / §10.5: add-to-chat capture; with nothing selected it
+  // just focuses the composer (the capture chain owns that behavior).
+  useKeybind('add_selection_to_chat', () => { captureToChat(); });
 
   return null;
 }

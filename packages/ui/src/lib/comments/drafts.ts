@@ -42,6 +42,11 @@ const SOURCES = new Set<DraftSource>([
 
 export interface SessionSlot { drafts: CommentDraft[]; touchedAt: number }
 
+/** The slot a surface reads (contract identical to the store actions). */
+export function draftKeyFor(directory: string, sessionKey: string): string {
+  return draftKey(getRuntimeKey(), directory, sessionKey);
+}
+
 export function normalizedDirectory(directory: string): string {
   return directory.replaceAll('\\', '/');
 }

@@ -9,6 +9,7 @@ import { registerFsRoutes } from './routes/fs.ts';
 import { registerFsReadRoutes } from './routes/fs-read.ts';
 import { registerGitDiffRoutes } from './routes/git-diff.ts';
 import { registerGitRoutes } from './routes/git.ts';
+import { registerGitWorktreeRoutes } from './routes/git-worktrees.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
@@ -76,6 +77,7 @@ export function createApp() {
   registerFsReadRoutes(app);
   registerGitDiffRoutes(app);
   registerGitRoutes(app);
+  registerGitWorktreeRoutes(app);
   registerSettingsRoutes(app);
   registerProjectsRoutes(app);
   registerGitReadRoutes(app);

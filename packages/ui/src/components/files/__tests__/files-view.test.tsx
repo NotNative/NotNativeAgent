@@ -18,6 +18,9 @@ import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
 import { FilesView } from '../FilesView.tsx';
 import { I18nProvider } from '../../I18nProvider.tsx';
 import { useFilesViewTabsStore } from '../../../lib/files/tabs-store.ts';
+import { __resetDraftsForTests, draftKeyFor, useInlineCommentDrafts } from '../../../lib/comments/drafts.ts';
+import { useSessionViewStore } from '../../../sync/view-store.ts';
+import { FOCUS_EVENT_NAME } from '../../comments/focus-chat.ts';
 
 const fetchMock = runtimeFetch as unknown as Mock;
 const DIR = '/repo';
@@ -132,6 +135,44 @@ describe('FilesView flow (doc 06 §2/§3 v1)', () => {
       await Promise.resolve();
     });
     expect(useFilesViewTabsStore.getState().byRoot[DIR]!.openPaths.length).toBe(0);
+  });
+
+  it('§10.2 v1: the selection becomes a file-source comment with extracted code and a focus handoff', async () => {
+    __resetDraftsForTests();
+    useSessionViewStore.setState({ currentSessionId: 'ses_files', activeDirectory: DIR });
+    let focusEvents = 0;
+    const onFocus = (): void => { focusEvents += 1; };
+    window.addEventListener(FOCUS_EVENT_NAME, onFocus);
+    await render();
+    const textarea = document.querySelector('[data-editor-host] textarea') as HTMLTextAreaElement;
+    // 'hello\n' — select "hello" (offsets 0..5 → line 0)
+    await act(async () => {
+      textarea.setSelectionRange(0, 5);
+      (document.querySelector('[data-testid="files-add-comment"]') as HTMLElement).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const input = document.querySelector('[data-comment-input] textarea') as HTMLTextAreaElement | null;
+    expect(input).not.toBeNull();
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(input!, 'this word looks wrong');
+      input!.dispatchEvent(new Event('input', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      (document.querySelector('[data-testid="comment-save"]') as HTMLElement).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const slot = useInlineCommentDrafts.getState().store[draftKeyFor(DIR, 'ses_files')]?.drafts ?? [];
+    expect(slot).toHaveLength(1);
+    expect(slot[0]!.source).toBe('file');
+    expect(slot[0]!.code).toBe('hello');
+    expect(slot[0]!.startLine).toBe(0);
+    expect(focusEvents).toBe(1); // §10.2 #4
+    expect(document.querySelectorAll('[data-comment-card]')).toHaveLength(1);
+    window.removeEventListener(FOCUS_EVENT_NAME, onFocus);
   });
 });
 

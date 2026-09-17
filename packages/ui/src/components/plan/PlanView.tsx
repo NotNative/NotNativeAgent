@@ -15,6 +15,10 @@ import { createPlanSaveQueue, PLAN_AUTOSAVE_DEBOUNCE_MS, planEpochFor, sessionPl
 import { readFileText, writeFileText } from '../../lib/files/api.ts';
 import { getRuntimeKey } from '../../lib/runtime-switch.ts';
 import { useI18n } from '../I18nProvider.tsx';
+import { beginCommentFromSelection, InlineComments } from '../comments/InlineComments.tsx';
+import { useInlineCommentController } from '../comments/controller.ts';
+import { useActiveSessionKey } from '../comments/useActiveSessionKey.ts';
+import type { LineRange } from '../../lib/inline-comments.ts';
 
 const planQueue = createPlanSaveQueue();
 planQueue.bindRuntimeSource(() => getRuntimeKey()); // §8.2: the drop check reads the LIVE runtime
@@ -120,6 +124,29 @@ function planOnEdit(refs: PlanRefs, ui: PlanUi, settle: (error: string | null) =
   refs.timer.current = window.setTimeout(() => planFlush(refs, settle), PLAN_AUTOSAVE_DEBOUNCE_MS);
 }
 
+/** §8.1/§8.3 document load: epoch-keyed fresh read with a seq guard so a
+ * stale load loses the switch race; switch/unmount flushes the OLD buffer
+ * synchronously (never crosses documents). */
+function usePlanDocumentLoad(refs: PlanRefs, ui: PlanUi, settle: (error: string | null) => void, directory: string, runtimeKey: string, visible: boolean): void {
+  useEffect(() => {
+    if (!visible) return undefined;
+    const seq = refs.loadSeq.current + 1;
+    refs.loadSeq.current = seq;
+    void (async (): Promise<void> => {
+      const { path, key } = sessionPlanFile(directory, runtimeKey);
+      await planQueue.pendingFor(key); // §8.1: a re-open reads post-write state
+      planQueue.reset(key); // fresh revision series after the fresh load
+      const text = await readFileText(directory, path).catch(() => ''); // missing plan: blank, authored on save
+      if (seq !== refs.loadSeq.current) return; // stale load lost the switch race
+      planApplyLoaded(refs, ui, directory, runtimeKey, path, text);
+    })();
+    return () => {
+      planStopTimer(refs); // §8.3: switch/unmount clears the stale debounce…
+      planFlush(refs, settle); // …and flushes the OLD buffer synchronously (never crossed)
+    };
+  }, [directory, visible, runtimeKey, refs, ui, settle]);
+}
+
 function PlanHeader(props: { title: string; fileLabel: string; dirty: boolean; saveError: string | null; statusSaveFailed: string; statusUnsaved: string; statusSaved: string; saveNow: string; onSaveNow: () => void }): ReactNode {
   const { title, fileLabel, dirty, saveError, statusSaveFailed, statusUnsaved, statusSaved, saveNow, onSaveNow } = props;
   return (
@@ -146,6 +173,7 @@ export function PlanView(props: PlanViewProps): ReactNode {
   const [content, setContent] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const planTextRef = useRef<HTMLTextAreaElement | null>(null);
   const refs: PlanRefs = useRef({
     buffer: { current: null }, baseline: { current: '' }, scheduled: { current: '' },
     revision: { current: 0 }, timer: { current: null }, loadSeq: { current: 0 },
@@ -156,26 +184,11 @@ export function PlanView(props: PlanViewProps): ReactNode {
     if (error === null) setDirty(refs.buffer.current !== null && refs.buffer.current.content !== refs.baseline.current);
   }, [refs]);
 
-  useEffect(() => {
-    if (!visible) return undefined;
-    const seq = refs.loadSeq.current + 1;
-    refs.loadSeq.current = seq;
-    void (async (): Promise<void> => {
-      const { path, key } = sessionPlanFile(directory, runtimeKey);
-      await planQueue.pendingFor(key); // §8.1: a re-open reads post-write state
-      planQueue.reset(key); // fresh revision series after the fresh load
-      const text = await readFileText(directory, path).catch(() => ''); // missing plan: blank, authored on save
-      if (seq !== refs.loadSeq.current) return; // stale load lost the switch race
-      planApplyLoaded(refs, ui, directory, runtimeKey, path, text);
-    })();
-    return () => {
-      planStopTimer(refs); // §8.3: switch/unmount clears the stale debounce…
-      planFlush(refs, settle); // …and flushes the OLD buffer synchronously (never crossed)
-    };
-  }, [directory, visible, runtimeKey, refs, ui, settle]);
+  usePlanDocumentLoad(refs, ui, settle, directory, runtimeKey, visible);
 
   const title = useMemo(() => firstHeading(content) || t('plan.title'), [content, t]);
   const label = docPath?.split(/[\\/]/u).pop() ?? t('plan.file');
+  const readSelection = useCallback((): { start: number; end: number } | null => readPlanSelection(planTextRef.current, content), [content]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 px-3 pb-3 pt-2" data-testid="plan-view" data-plan-host="">
@@ -186,6 +199,7 @@ export function PlanView(props: PlanViewProps): ReactNode {
         onSaveNow={() => planFlush(refs, settle)}
       />
       <textarea
+        ref={planTextRef}
         className="min-h-0 flex-1 resize-none rounded-lg border border-border/60 bg-card/40 p-3 font-mono text-xs text-foreground outline-none"
         style={{ whiteSpace: 'pre-wrap' }}
         value={content}
@@ -193,6 +207,53 @@ export function PlanView(props: PlanViewProps): ReactNode {
         data-language="markdown"
         onChange={(event) => planOnEdit(refs, ui, settle, event.target.value)}
       />
+      <PlanCommentBar content={content} directory={directory} fileLabel={label} readSelection={readSelection} />
     </div>
+  );
+}
+
+function readPlanSelection(field: HTMLTextAreaElement | null, content: string): { start: number; end: number } | null {
+  if (field === null) return null;
+  const start = field.selectionStart ?? 0;
+  const end = field.selectionEnd ?? 0;
+  if (start >= end || end > content.length) return null;
+  return { start, end };
+}
+
+interface PlanCommentBarProps {
+  content: string;
+  directory: string;
+  fileLabel: string;
+  readSelection: () => { start: number; end: number } | null;
+}
+
+function PlanCommentBar(props: PlanCommentBarProps): ReactNode {
+  const sessionKey = useActiveSessionKey();
+  const comments = useInlineCommentController({
+    directory: props.directory, sessionKey, source: 'plan', fileLabel: props.fileLabel, language: 'markdown', content: props.content,
+  } as const);
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex justify-end">
+        <CommentBeginButton
+          onClick={() => beginCommentFromSelection(props.content, props.readSelection(), comments.begin)}
+        />
+      </div>
+      <InlineComments controller={comments} hostId="plan" />
+    </div>
+  );
+}
+
+function CommentBeginButton(props: { onClick: () => void }): ReactNode {
+  const { t } = useI18n();
+  return (
+    <button
+      type="button"
+      className="rounded border border-border/50 bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+      onClick={props.onClick}
+      data-testid="plan-add-comment"
+    >
+      {t('comments.add')}
+    </button>
   );
 }

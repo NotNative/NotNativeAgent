@@ -17,6 +17,9 @@ import { runtimeFetch } from '../../../lib/runtime-fetch.ts';
 import { PlanView, sessionPlanFile } from '../PlanView.tsx';
 import { sessionPlanPath, planEpochFor } from '../../../lib/plan/save-queue.ts';
 import { I18nProvider } from '../../I18nProvider.tsx';
+import { __resetDraftsForTests, draftKeyFor, useInlineCommentDrafts } from '../../../lib/comments/drafts.ts';
+import { useSessionViewStore } from '../../../sync/view-store.ts';
+import { FOCUS_EVENT_NAME } from '../../comments/focus-chat.ts';
 
 const fetchMock = runtimeFetch as unknown as Mock;
 
@@ -219,5 +222,43 @@ describe('PlanView flow (doc 06 §8 subset)', () => {
     });
     expect(reads()[1]).toBe(`read:/proj-d:${planPath('/proj-d')}`); // post-write read (§8.1)
     expect(orderLog.indexOf(`write:/proj-d:${planPath('/proj-d')}`)).toBeLessThan(orderLog.indexOf(`read:/proj-d:${planPath('/proj-d')}`, 1));
+  });
+
+  it('§10.2 v1: a plan selection becomes a plan-source comment with markdown language and the focus handoff', async () => {
+    __resetDraftsForTests();
+    useSessionViewStore.setState({ currentSessionId: 'ses_plan', activeDirectory: '/proj-a' });
+    let focusEvents = 0;
+    const onFocus = (): void => { focusEvents += 1; };
+    window.addEventListener(FOCUS_EVENT_NAME, onFocus);
+    await render('/proj-a');
+    const textarea = document.querySelector('[data-plan-host] textarea') as HTMLTextAreaElement;
+    await act(async () => {
+      textarea.setSelectionRange(0, 6); // 'plan A' on line 0
+      (document.querySelector('[data-testid="plan-add-comment"]') as HTMLElement).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const input = document.querySelector('[data-comment-input] textarea') as HTMLTextAreaElement | null;
+    expect(input).not.toBeNull();
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(input!, 'tighten this wording');
+      input!.dispatchEvent(new Event('input', { bubbles: true }));
+      await Promise.resolve();
+    });
+    await act(async () => {
+      (document.querySelector('[data-testid="comment-save"]') as HTMLElement).click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    const slot = useInlineCommentDrafts.getState().store[draftKeyFor('/proj-a', 'ses_plan')]?.drafts ?? [];
+    expect(slot).toHaveLength(1);
+    expect(slot[0]!.source).toBe('plan');
+    expect(slot[0]!.language).toBe('markdown');
+    expect(slot[0]!.code).toBe('plan A text');
+    expect(slot[0]!.fileLabel).toBe(planPath('/proj-a').split(/[\\/]/u).pop()); // the resolved plan file's basename
+    expect(focusEvents).toBe(1); // §10.2 #4
+    expect(document.querySelectorAll('[data-comment-card]')).toHaveLength(1);
+    window.removeEventListener(FOCUS_EVENT_NAME, onFocus);
   });
 });

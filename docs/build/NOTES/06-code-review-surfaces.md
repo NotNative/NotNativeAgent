@@ -41,6 +41,25 @@ land with PA0020), and deltas for the multi-session build.
   sessions / 20 drafts / 1 MiB byte-LRU, consume/restore with pinned id),
   §10.5 capture chain (composer excluded) + composer append/focus wiring;
   §7 WorktreesView list + ordering. NOT in this slice → E-06-9..13.
+- **P6-3b (delivered 20260917-9)** — §10.2 comment lifecycle v1 on the
+  textarea hosts: controller path (session-target gate + exact
+  "Select a session to save comment" toast, range normalization, code
+  extraction from the SNAPSHOT frozen at begin, create focuses the composer
+  through the focus channel; update/delete; outside mousedown cancels only
+  while the input text is empty), input + card widgets with the doc labels
+  ("Lines {start}-{end}" 1-based display, placeholder with the save
+  shortcut, Edit/Delete comment), source 'plan' (markdown) on PlanView and
+  source 'file' on FilesView; the RENDER rail is a line-list approximation
+  until the CodeMirror slot widgets (E20/E-06-11) and modern §10.3 Pierre
+  diff overlays stay registered. §7 delivered live: worktree topology
+  family v1 (doc 03 5.13 #61/63/66: list/create/remove, managed root =
+  dataDir/git-worktrees/<slug>/<name>, primary-run removal with Windows
+  transient retry + prune fallbacks, dirty refusal without --force,
+  create's name slug-sanitized), WorktreesView dialog + remove + order
+  persistence. MainLayout: plan pane + worktrees overlay toggles;
+  ShellShortcuts wires add_selection_to_chat (mod+l) to the capture
+  chain (§10.5); the §10.5 selection-toolbar registry and §10.4
+  FilePreviewCommentMenu remain registered (P11/E-06 distances).
 - Deferred beyond P6 core: §9 PR/Linear (needs GitHub/Linear server
   families + auth = P11), §5.3 branch/commit/pr scopes (range routes P6-2+
   if cheap; PR snapshot P11), §8.6 walkthrough (P10/doc 13), §10.6 review
@@ -85,6 +104,23 @@ land with PA0020), and deltas for the multi-session build.
 - **E-06-13** (registered P6-3 review): the draft envelope uses
   shape-validation until zod clears the PA dependency registry; the swap
   is mechanical (validated `parseEnvelope` boundary already isolated).
+- **E-06-14** (registered P6-3b review): `env.ts` `ENV.dataDir` evaluates
+  eagerly at import — server tests that touch the managed roots MUST set
+  `NOTNATIVE_DATA_DIR` before the first (dynamic) import of route code;
+  codify the dynamic-import rule or make dataDir per-call lazy before more
+  server suites land.
+- **E-06-15** (registered P6-3b review): plan-host CRLF — strip `\r` from
+  draft `code` at the E20 CodeMirror swap; plan reads must not normalize
+  endings (the save path preserves it, P6-3 core).
+- **E-06-16** (registered P6-3b review): decide the `deleteLocalBranch`
+  failure contract (error field in the #66 `{success}` envelope) together
+  with the #62 validate family.
+- **E-06-17** (registered P6-3b review): i18n sweep for pre-existing
+  editor literals ("Wrap: on/off", "Auto-save on/Manual save", "Unsaved",
+  worktree aria arrows, plain "X" close, header titles).
+- **E-06-18** (registered P6-3b review): self-removal guard/confirm for the
+  worktree the app itself points at (uses /api/git/worktree-type #67) when
+  per-card worktree metadata lands.
 
 ## B. Brand seam + harness port mapping
 
@@ -125,4 +161,7 @@ read-retry schedule 50/100/150 ms; positions LRU 100 (P6-3). Tab close
 discard guard has NO cancel path (§2.7). P6-3 pins: PLAN_AUTOSAVE_DEBOUNCE
 350 ms; inline drafts 50 sessions / 20 per session / 1 MiB envelope
 (byte-indexed); worktree order key `mobile-worktree-order`; drafts storage
-key `notnative.inlineComments.v3`.
+key `notnative.inlineComments.v3`; comment slots freeze content at begin
+(v1; E20 swap keeps the contract); worktree managed root =
+`<dataDir>/git-worktrees/<project-slug>/<name>` with name slugs capped at
+60 chars; P6-3b removal retry = 4 x ~1 s (Windows transient), no --force.
