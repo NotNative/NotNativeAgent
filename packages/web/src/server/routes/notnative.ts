@@ -3,31 +3,15 @@
  * /api/notnative/* and other server-owned UI routes (doc 03 owns the full table;
  * P0 ships the boot-critical subset only).
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { Hono, type Context } from 'hono';
 import { ENV } from '../env.ts';
 import { publishControlEvent, subscribeControlEvents } from '../lib/bus.ts';
 import { CONTROL_EVENTS } from '../lib/harnessNaming.ts';
+import { resolveSurfaceKind } from '../lib/settings-gate.ts';
+import { readMergedSettings, writeSettingsPatch } from '../lib/settings-store.ts';
 import { sseResponse } from '../lib/sse.ts';
 
 const CONTROL_HEARTBEAT_MS = 45_000;
-
-async function readSettings(): Promise<Record<string, unknown>> {
-  try {
-    const file = path.join(ENV.dataDir, 'settings.json');
-    const raw = await readFile(file, 'utf8');
-    const parsed = JSON.parse(raw);
-    return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
-async function writeSettings(settings: Record<string, unknown>): Promise<void> {
-  await mkdir(ENV.dataDir, { recursive: true });
-  await writeFile(path.join(ENV.dataDir, 'settings.json'), JSON.stringify(settings, null, 2), 'utf8');
-}
 
 export function createNotNativeRoutes(): Hono {
   const app = new Hono();
@@ -35,8 +19,21 @@ export function createNotNativeRoutes(): Hono {
   // SSE control stream (§5.4): unnamed data frames `{type:"notnative:*", properties}`
   // — onmessage-compatible; comment heartbeats keep intermediaries alive only.
   app.get('/api/notnative/events', (c) => controlStream(c));
-  app.get('/api/notnative/settings', async (c) => c.json({ settings: await readSettings(), source: 'web' }));
-  app.put('/api/notnative/settings', async (c) => putSettings(c));
+  // §F.3 bridge: the RuntimeAPIs settings.load/save pair rides the SAME
+  // registry-gated store as /api/config/settings (one storage, no drift).
+  app.get('/api/notnative/settings', async (c) => {
+    const kind = resolveSurfaceKind(undefined, c.req.header('x-nnd-surface'));
+    return c.json({ settings: readMergedSettings(kind), source: 'web' });
+  });
+  app.put('/api/notnative/settings', async (c) => {
+    const kind = resolveSurfaceKind(undefined, c.req.header('x-nnd-surface'));
+    const patch = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+      return c.json({ error: 'settings patch must be a JSON object' }, 400);
+    }
+    const outcome = writeSettingsPatch(patch, kind);
+    return c.json({ settings: outcome.settings, source: 'web' });
+  });
   app.get('/api/notnative/update-check', (c) => updateCheck(c));
   app.post('/api/notnative/update-install', (c) =>
     c.json({ error: 'self-update is not available in this build', code: 'UPDATE_UNSUPPORTED' }, 400),
@@ -58,14 +55,6 @@ function controlStream(c: Context): Response {
       clearInterval(heartbeat);
     };
   }, c.req.raw.signal);
-}
-
-async function putSettings(c: Context): Promise<Response> {
-  const patch = await c.req.json().catch(() => ({}) as Record<string, unknown>);
-  const current = await readSettings();
-  const merged = { ...current, ...patch };
-  await writeSettings(merged);
-  return c.json({ settings: merged, source: 'web' });
 }
 
 function updateCheck(c: Context): Response {

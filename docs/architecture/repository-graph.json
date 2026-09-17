@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:0c5e5c9e187194089abaff5f2fb36fc714aca13865186f94893d8300e44a9798",
+  "source_digest": "sha256:f98379ce6677c445c10526c71442226d2946f89ac34d5fba8081961715c22b71",
   "counts": {
-    "modules": 144,
-    "component_edges": 10
+    "modules": 154,
+    "component_edges": 11
   },
   "components": [
     {
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 41
+      "module_count": 46
     },
     {
       "id": "ui-shell",
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 20
+      "module_count": 22
     },
     {
       "id": "web-entry",
@@ -48,7 +48,7 @@
       "id": "gates",
       "label": "Quality gates",
       "ownership": "Owns POWER10, NND-CTL, graph, release, and smoke tooling (ADR 0016/0017).",
-      "module_count": 7
+      "module_count": 10
     },
     {
       "id": "foundation",
@@ -103,7 +103,7 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 12,
+      "import_count": 13,
       "module_count": 7
     },
     {
@@ -129,6 +129,12 @@
       "to": "web-server",
       "import_count": 3,
       "module_count": 1
+    },
+    {
+      "from": "gates",
+      "to": "runtime-io",
+      "import_count": 2,
+      "module_count": 2
     },
     {
       "from": "runtime-io",
@@ -456,6 +462,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/settings/persistence.ts",
         "packages/ui/src/lib/theme/css-generator.ts",
         "packages/ui/src/lib/theme/custom.ts",
         "packages/ui/src/lib/theme/storage.ts",
@@ -586,6 +593,50 @@
       "imports": [
         "packages/ui/src/lib/runtime-fetch.ts"
       ]
+    },
+    {
+      "path": "packages/ui/src/lib/settings/parse.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/settings/registry.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/settings/parsers.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/color.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/settings/persistence.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/platform.ts",
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/runtimeSurface.ts",
+        "packages/ui/src/lib/settings/parse.ts",
+        "packages/ui/src/lib/settings/registry.ts",
+        "packages/ui/src/lib/settings/save-state.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/settings/registry.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/settings/parsers.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/settings/save-state.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/ui/src/lib/splash.ts",
@@ -1408,6 +1459,21 @@
       "imports": []
     },
     {
+      "path": "packages/web/src/server/lib/settings-gate.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/settings-store.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/settings-gate.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/lib/sse.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -1455,6 +1521,8 @@
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/bus.ts",
         "packages/web/src/server/lib/harnessNaming.ts",
+        "packages/web/src/server/lib/settings-gate.ts",
+        "packages/web/src/server/lib/settings-store.ts",
         "packages/web/src/server/lib/sse.ts"
       ]
     },
@@ -1463,7 +1531,9 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
-        "packages/web/src/server/env.ts"
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/settings-gate.ts",
+        "packages/web/src/server/lib/settings-store.ts"
       ]
     },
     {
@@ -1499,6 +1569,21 @@
       "imports": []
     },
     {
+      "path": "scripts/registry-render.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "scripts/registry-snapshot.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/settings/registry.ts",
+        "scripts/registry-render.mjs"
+      ]
+    },
+    {
       "path": "scripts/release-gates.js",
       "component": "gates",
       "entrypoint": false,
@@ -1518,6 +1603,14 @@
         "packages/web/src/server/app.ts",
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/harness/mock/index.ts"
+      ]
+    },
+    {
+      "path": "scripts/tmp-parse-debug.mjs",
+      "component": "gates",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/settings/parse.ts"
       ]
     }
   ]

@@ -11,8 +11,9 @@ import { execFileSync } from 'node:child_process';
 import { dirname, join as joinPath } from 'node:path';
 import type { Hono } from 'hono';
 import { ENV } from '../env.ts';
+import { readMergedSettings, writeSettingsPatch } from '../lib/settings-store.ts';
+import { resolveSurfaceKind } from '../lib/settings-gate.ts';
 
-const SETTINGS_FILE = joinPath(ENV.dataDir, 'settings.json');
 const PROJECTS_DIR = joinPath(ENV.dataDir, 'projects');
 const RESTART_MESSAGE = 'Configuration is saved on disk. Restart your connected OpenCode server to apply the changes.';
 
@@ -38,28 +39,17 @@ async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
   await rename(tmp, path);
 }
 
-/** Shallow-plus-one merge: undefined deletes a top-level key, objects merge
- * one level deep, everything else replaces. Deliberately simple; deep-merge
- * semantics stay out until the settings registry (P5) demands them. */
-function mergeSettings(current: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
-  const merged: Record<string, unknown> = { ...current };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined) delete merged[key];
-    else if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const existing = merged[key];
-      merged[key] = existing && typeof existing === 'object' && !Array.isArray(existing)
-        ? { ...(existing as Record<string, unknown>), ...(value as Record<string, unknown>) }
-        : value;
-    } else merged[key] = value;
-  }
-  return merged;
-}
-
 export function registerSettingsRoutes(app: Hono): void {
+  // Registry-gated CRUD (doc 03 §5.6 + 14 §F.3): GET resolves one surface
+  // kind to a flat doc (kind → surfaces[kind] → base → absent); PUT routes
+  // through the registry gate (unknown/computed/local/device/owner keys are
+  // dropped) and merges atomically into preferences.json + the settings
+  // mirror. ?surface= is a QUERY PARAM (§F.2, CORS-simple; header fallback).
   app.get('/api/config/settings', async (c) => {
-    const surface = c.req.header('x-nnd-surface') ?? 'web';
-    const settings = await readJson<Record<string, unknown>>(SETTINGS_FILE, {});
-    return c.json({ ...settings, surface });
+    // Pure-QUERY surface param (§K3 "no headers — CORS-simple" on this route);
+    // the /api/notnative bridge keeps the header fallback for its host.
+    const kind = resolveSurfaceKind(c.req.query('surface'), undefined);
+    return c.json(readMergedSettings(kind, kind));
   });
   app.put('/api/config/settings', async (c) => {
     let patch: Record<string, unknown>;
@@ -69,10 +59,9 @@ export function registerSettingsRoutes(app: Hono): void {
     } catch {
       return c.json({ error: 'settings patch must be a JSON object' }, 400);
     }
-    const current = await readJson<Record<string, unknown>>(SETTINGS_FILE, {});
-    const merged = mergeSettings(current, patch);
-    await writeJsonAtomic(SETTINGS_FILE, merged);
-    return c.json({ ...deferredRestart(), settings: merged });
+    const kind = resolveSurfaceKind(c.req.query('surface'), undefined);
+    const outcome = writeSettingsPatch(patch, kind);
+    return c.json({ ...deferredRestart(), settings: outcome.settings });
   });
   app.get('/api/config/themes', async (c) => {
     const themesDir = joinPath(ENV.dataDir, 'themes');

@@ -5,7 +5,7 @@
  * tmp+rename for write, rename within the single ?directory workspace, delete
  * is rm -rf semantics with scope-root refusal, 404 on missing targets.
  */
-import { existsSync, mkdirSync, renameSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, rmSync, readFileSync, statSync } from 'node:fs';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type { Hono, Context } from 'hono';
@@ -37,6 +37,17 @@ function requireContext(c: Context): { ok: true; scopeDir: string } | { ok: fals
 
 function denied(): Response {
   return Response.json({ error: 'Access denied' }, { status: 403 });
+}
+
+/** §5.14 write family (carried-over P4-3 register): identical content skips
+ * the atomic rewrite — mtime must not churn for editor autosave loops. */
+function isContentNoOp(target: string, content: string): boolean {
+  try {
+    if (!existsSync(target) || !statSync(target).isFile()) return false;
+    return readFileSync(target).equals(Buffer.from(content, 'utf8'));
+  } catch {
+    return false; // unreadable existing file: treat as a real write
+  }
 }
 
 function fsFailed(error: unknown): Response {
@@ -93,9 +104,12 @@ async function writeHandler(c: Context): Promise<Response> {
   if (existsSync(target) && statSync(target).isDirectory()) {
     return Response.json({ error: 'Path is a directory' }, { status: 400 });
   }
+  if (isContentNoOp(target, body.content)) {
+    return Response.json({ success: true, path: target, unchanged: true });
+  }
   try {
     await mkdir(resolve(target, '..'), { recursive: true });
-    // §5.14: atomic tmp+rename; content-no-op check lands with P5 registry
+    // §5.14: atomic tmp+rename (content-no-op already returned above)
     const tmp = `${target}.tmp-${process.pid}-${Date.now()}`;
     await writeFile(tmp, body.content, 'utf8');
     renameSync(tmp, target);

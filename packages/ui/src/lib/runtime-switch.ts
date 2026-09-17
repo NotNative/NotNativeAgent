@@ -48,6 +48,15 @@ export function initializeRuntimeEndpoint(config: { apiBaseUrl: string; runtimeK
   if (activeApiBaseUrl) return; // one-shot; ignores repeats
   activeApiBaseUrl = config.apiBaseUrl.replace(/\/+$/, '');
   activeRuntimeKey = config.runtimeKey ?? deriveRuntimeKey(activeApiBaseUrl);
+  stampRuntimeKeyGlobal();
+}
+
+/** Storage-namespace stamp for the mirror/device-seed keys (doc 14 §F.3). */
+function stampRuntimeKeyGlobal(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.__NOTNATIVE_RUNTIME_KEY__ = activeRuntimeKey;
+  } catch { /* read-only hosts fall back to runtime-switch reads */ }
 }
 
 export interface SwitchRuntimeEndpointOptions {
@@ -86,6 +95,7 @@ export async function switchRuntimeEndpoint(options: SwitchRuntimeEndpointOption
   // 1. in-memory values (authoritative), then best-effort globals (may be read-only)
   activeApiBaseUrl = apiBaseUrl;
   activeRuntimeKey = runtimeKey;
+  stampRuntimeKeyGlobal();
   writeWindowGlobal('__NOTNATIVE_API_BASE_URL__', apiBaseUrl);
   if (options.clientToken !== undefined) {
     writeWindowGlobal('__NOTNATIVE_CLIENT_TOKEN__', options.clientToken);

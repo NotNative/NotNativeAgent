@@ -59,38 +59,46 @@ beforeEach(() => {
 
 afterEach(() => {
   try { rmSync(joinPath(isolatedDataDir, 'settings.json'), { force: true }); } catch { /* isolated */ }
+  try { rmSync(joinPath(isolatedDataDir, 'preferences.json'), { force: true }); } catch { /* isolated */ }
   void globalThis;
 });
 
-describe('settings (§5.6)', () => {
-  it('GET starts empty with the surface echo', async () => {
-    const body = await (await call('/api/config/settings')).json() as { surface: string; theme?: string };
+describe('settings (§5.6, registry-gated per doc 14 §F.4)', () => {
+  it('GET starts empty with the surface echo (computed keys only on their surfaces)', async () => {
+    const body = await (await call('/api/config/settings')).json() as {
+      surface: string; themeMode?: string; hasDesktopUiPassword?: boolean;
+    };
     expect(body.surface).toBe('web');
-    expect(body.theme).toBeUndefined();
+    expect(body.themeMode).toBeUndefined();
+    expect(body.hasDesktopUiPassword).toBeUndefined(); // desktop-only computed (§F.2)
   });
 
-  it('PUT merges one level deep, persists atomically, defers restart (external harness)', async () => {
+  it('PUT persists registered keys to preferences.json + mirror; unknown keys dropped', async () => {
     const first = await call('/api/config/settings', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ theme: 'dark', nested: { a: 1 } }),
+      body: JSON.stringify({ chatRenderMode: 'sorted', unknownFreshKey: { a: 1 } }),
     });
-    const shape = await first.json() as { theme?: string; nested?: { a?: number; b?: number }; requiresRestart: boolean; requiresReload: boolean; settings: { theme?: string } };
+    const shape = await first.json() as { chatRenderMode?: string; unknownFreshKey?: unknown; requiresRestart: boolean; requiresReload: boolean; settings: { chatRenderMode?: string } };
     expect(shape.requiresRestart).toBe(true);
     expect(shape.requiresReload).toBe(false);
-    expect(shape.settings.theme).toBe('dark');
-    const settingsPath = joinPath(isolatedDataDir, 'settings.json');
-    expect(existsSync(`${settingsPath}.tmp-`)).toBe(false); // no stray tmp residue in the name space
-    expect(JSON.parse(readFileSync(settingsPath, 'utf8')).theme).toBe('dark');
+    expect(shape.settings.chatRenderMode).toBe('sorted');
+    expect('unknownFreshKey' in shape.settings).toBe(false); // registry gate dropped it
+    const preferencesPath = joinPath(isolatedDataDir, 'preferences.json');
+    const doc = JSON.parse(readFileSync(preferencesPath, 'utf8')) as { fields: { chatRenderMode?: { value?: string } } };
+    expect(doc.fields.chatRenderMode?.value).toBe('sorted'); // §F.3 split store
+    const mirror = JSON.parse(readFileSync(joinPath(isolatedDataDir, 'settings.json'), 'utf8')) as { chatRenderMode?: string };
+    expect(mirror.chatRenderMode).toBe('sorted'); // legacy mirror kept in sync
     await call('/api/config/settings', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ nested: { b: 2 } }),
+      body: JSON.stringify({ timeFormatPreference: '12h' }),
     });
-    const after = JSON.parse(readFileSync(settingsPath, 'utf8')) as { theme?: string; nested?: { a?: number; b?: number } };
-    expect(after.theme).toBe('dark'); // untouched keys survive
-    expect(after.nested?.a).toBe(1); // one-level merge keeps existing
-    expect(after.nested?.b).toBe(2); // and adds new
+    const after = JSON.parse(readFileSync(preferencesPath, 'utf8')) as {
+      fields: { chatRenderMode?: { value?: string }; timeFormatPreference?: { value?: string } };
+    };
+    expect(after.fields.chatRenderMode?.value).toBe('sorted'); // untouched keys survive
+    expect(after.fields.timeFormatPreference?.value).toBe('12h'); // and new keys land
   });
 });
 

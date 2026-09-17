@@ -211,8 +211,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   import format (E.6) + settings registry snapshot gate (P5-2), VS Code
   webview typography column (P10), i18n catalog + shortcuts (P5-3).
 
-- 2026-09-17 · **P5-2 done (theme system per doc 14 §E).** lib/theme/: types
-  (Theme/E.6 interchange shape), color (hex canonicalization + darken/
+- 2026-09-17 · **P5-2 done (theme system per doc 14 §E).** lib/theme/: types  (Theme/E.6 interchange shape), color (hex canonicalization + darken/
   lighten/mix/contrast), validation (isValidTheme §E.6 subset + diagnostics),
   pr-colors (withPrColors, partial-pr merge), derive (seed→FULL-schema
   expansion, no half-mapped tokens), presets/ (brand pair, flexoki, 14 pair
@@ -234,6 +233,34 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   flip-flop tests, color math table, exact derivation values, meta in-place)
   + P2 nits (alias dedupe, non-hex edge filters, seed persist, meta patch,
   NOTES declarations). 181 UI tests (+14). web 23/23 · gates+smoke+graph.
+
+- 2026-09-17 · **P5-3 done (settings registry + snapshot gate + persistence).**
+  lib/settings/: parsers (bool/str/trim/int/num/oneof/list/set/record/
+  modelRef caps), registry.ts = SINGLE TABLE with 186 fields (§F.5 inventory
+  + F.4 LOCAL_DEVICE_KEYS + DESKTOP_SHELL_KEYS as first-class; deferred
+  groups registered in NOTES/14 §D with their phases), autoSaveKeys() derived.
+  scripts/registry-snapshot.mjs (root script registry:snapshot) → checked-in
+  `packages/web/src/server/lib/settings-registry.json`; staleness gate test
+  re-renders and fails on drift (§F.6 procedure enforced). Server:
+  settings-gate.ts (snapshot-only key gate: unknown/computed/local/device/
+  owner dropped; secret accepted-never-returned; ?surface= query param with
+  header fallback) + settings-store.ts (§F.3 split store: preferences.json
+  `{version:1,fields}`, settings.json rollback mirror w/ legacy keys kept,
+  seed-once, unparseable-preferences discipline, atomic 0600 writes,
+  kind→surfaces[kind]→base GET resolution, kind values never on base) +
+  routes rewired: /api/config/settings registry-gated, /api/notnative/
+  settings UNIFIED onto the same store (two-store drift from P0/P4 retired).
+  Client engine: lib/settings/persistence.ts — cached GET (2s TTL + HP-6
+  in-flight dedupe), updateDesktopSettings (filter → echo suppression →
+  pending merge → 200 ms debounce → keepalive PUT), lifecycle flushes,
+  save-state module (6 s error reset, notnative:settings-save-state),
+  settings-synced event ({bootstrap, adoptTheme grades}) consumed by
+  ThemeProvider for §E.3 bootstrap theme adoption (wired; adoption triggers
+  when a server doc actually carries theme fields — no writer does yet, so
+  inert by design until P5-4+ theme writes). fs-write no-op
+  (identical content → unchanged:true, no mtime churn). P4-2 settings tests
+  updated to registry semantics; new suites: ui registry/parse/persistence
+  (200 total), web p5-3 settings + fs no-op (31 total). gates+smoke+graph.
 
 ## Delta/Delayed register
 

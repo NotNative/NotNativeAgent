@@ -14,6 +14,8 @@ declare global {
     __NOTNATIVE_RELAY_HOST_ID__?: string;
     /** Surface stamp, applied once at boot. */
     __NOTNATIVE_SURFACE__?: 'desktop' | 'mobile';
+    /** Bound runtime key stamped by the shell (mirror/storage namespaces). */
+    __NOTNATIVE_RUNTIME_KEY__?: string;
     /** Instance adapter injected by the entrypoint. */
     __NOTNATIVE_RUNTIME_APIS__?: RuntimeAPIs;
     /** Electron shell identity (P12). */

@@ -27,6 +27,7 @@ import {
 } from '../lib/theme/storage.ts';
 import { CSSVariableGenerator } from '../lib/theme/css-generator.ts';
 import { fetchCustomThemes } from '../lib/theme/custom.ts';
+import { onSettingsSynced } from '../lib/settings/persistence.ts';
 import {
   DEFAULT_DARK_THEME_ID,
   DEFAULT_LIGHT_THEME_ID,
@@ -87,15 +88,7 @@ export function ThemeProvider({ children }: { children?: ReactNode }) {
     setPrefs(next);
   };
 
-  useEffect(() => listenSystemVariant(setSystemDark), []);
-  useEffect(() => subscribeThemeStorageChanges((adopted) => {
-    if (adopted) setPrefs(adopted); // adoption: never re-persisted (no intent)
-  }), []);
-  useEffect(() => {
-    const darkPair = resolveSlot(prefs.darkThemeId, catalog, true);
-    return applyTheme(theme, darkPair.colors.surface.background);
-  }, [theme, prefs.darkThemeId, catalog]);
-  useEffect(() => loadInitialCustoms(setCustomThemes, setThemesLoading), []);
+  useThemeEffects({ prefs, setPrefs, theme, catalog, setSystemDark, setCustomThemes, setThemesLoading });
 
   const api: ThemeApi = {
     mode: prefs.themeMode,
@@ -118,6 +111,42 @@ export function ThemeProvider({ children }: { children?: ReactNode }) {
   return <ThemeContext value={api}>{children}</ThemeContext>;
 }
 
+interface ThemeEffectDeps {
+  prefs: ThemePreferences;
+  setPrefs: (prefs: ThemePreferences) => void;
+  theme: Theme;
+  catalog: Theme[];
+  setSystemDark: (dark: boolean) => void;
+  setCustomThemes: (themes: Theme[]) => void;
+  setThemesLoading: (loading: boolean) => void;
+}
+
+/** §E.4 mechanics as one effect bundle (order matters: adoption → apply). */
+function useThemeEffects(deps: ThemeEffectDeps): void {
+  useEffect(() => listenSystemVariant(deps.setSystemDark), []);
+  useEffect(() => subscribeThemeStorageChanges((adopted) => {
+    if (adopted) deps.setPrefs(adopted); // cross-window adoption never re-persists
+  }), []);
+  useEffect(() => onSettingsSynced((detail) => bootstrapAdoption(detail, deps)), []);
+  useEffect(() => {
+    const darkPair = resolveSlot(deps.prefs.darkThemeId, deps.catalog, true);
+    return applyTheme(deps.theme, darkPair.colors.surface.background);
+  }, [deps.theme, deps.prefs.darkThemeId, deps.catalog]);
+  useEffect(() => loadInitialCustoms(deps.setCustomThemes, deps.setThemesLoading), []);
+}
+
+/** §E.3: bootstrap-grade settings sync adopts the server's theme pair. */
+function bootstrapAdoption(
+  detail: { adoptTheme: boolean; settings: Record<string, unknown> },
+  deps: ThemeEffectDeps,
+): void {
+  if (!detail.adoptTheme) return;
+  const adopted = themePrefsFromServerDoc(detail.settings, deps.prefs);
+  if (!adopted) return;
+  writeThemePreferences(adopted);
+  deps.setPrefs(adopted);
+}
+
 /** §E.6 Reload action: ≥500 ms spinner floor so the flicker is readable. */
 async function reloadThemesAction(
   setCustomThemes: (themes: Theme[]) => void,
@@ -132,6 +161,31 @@ async function reloadThemesAction(
   } finally {
     setThemesLoading(false);
   }
+}
+
+/** §E.3: bootstrap-grade settings sync adopts the server's theme pair.
+ * FIELD-WISE merge onto the current prefs — absent keys never reset to
+ * defaults ("missing is not default", doc 14 §K1). */
+function themePrefsFromServerDoc(doc: Record<string, unknown>, current: ThemePreferences): ThemePreferences | null {
+  const useSystem = doc['useSystemTheme'];
+  const variant = doc['themeVariant'];
+  const light = doc['lightThemeId'];
+  const dark = doc['darkThemeId'];
+  const hasMode = useSystem === true || useSystem === false || variant === 'light' || variant === 'dark';
+  const hasPair = typeof light === 'string' && light.length > 0
+    || typeof dark === 'string' && dark.length > 0;
+  if (!hasMode && !hasPair) return null;
+  const next: ThemePreferences = { ...current };
+  if (useSystem === true) next.themeMode = 'system';
+  else if (useSystem === false) next.themeMode = variant === 'light' || variant === 'dark' ? variant : next.themeMode;
+  else if (variant === 'light' || variant === 'dark') next.themeMode = variant;
+  if (typeof light === 'string' && light.length > 0) next.lightThemeId = light;
+  if (typeof dark === 'string' && dark.length > 0) next.darkThemeId = dark;
+  return (
+    next.themeMode !== current.themeMode
+    || next.lightThemeId !== current.lightThemeId
+    || next.darkThemeId !== current.darkThemeId
+  ) ? next : null;
 }
 
 function prefersDark(): boolean {
