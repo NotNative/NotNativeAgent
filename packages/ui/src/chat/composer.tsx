@@ -22,6 +22,7 @@ import { ComposerFooter, AttachmentChips, PickerPopup } from './composer-bits.ts
 import { ModelPicker, type ModelSelection } from './model-picker.tsx';
 import { starterInsertText, type Starter } from './starters.ts';
 import type { PartLite } from './turns.ts';
+import { fsSearch } from '../lib/server-api.ts';
 
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw'];
 const MAX_LINES = 8;
@@ -66,6 +67,7 @@ export function Composer(props: ComposerProps): ReactNode {
   const restoringRef = useRef(false);
   const recallRef = useRef<{ list: HistoryEntry[]; position: number; liveText: string }>({ list: [], position: -1, liveText: '' });
   const restoreSnapshot = useRef<{ text: string; attachments: DraftAttachment[] }>({ text: '', attachments: [] });
+  const pickerRef = useRef<{ trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void } | null>(null);
 
   const store = services.store(directory);
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
@@ -149,12 +151,32 @@ export function Composer(props: ComposerProps): ReactNode {
     triggerPending(next, caret);
   };
 
-  let triggerCount = 0;
+  let triggerMentionToken = 0;
   function triggerPending(value: string, caret: number): void {
-    triggerCount += 1;
-    void triggerCount;
     const found = activeTrigger(shell ? '' : value, caret);
-    setPicker(found ? { trigger: found, items: pickerItems(found, found.query), insert: (item) => applyPick(found, item) } : null);
+    if (!found) { setPicker(null); pickerRef.current = null; return; }
+    const items = pickerItems(found, found.query);
+    const pickerEntry = { trigger: found, items, insert: (item: string) => applyPick(found, item) };
+    setPicker(pickerEntry);
+    pickerRef.current = pickerEntry;
+    if (found.kind === 'mention') {
+      // §B.6: mentions cover PROJECT FILES (fuzzy over the chat directory)
+      // + agents; file results come from /api/fs/search (doc 03 §5.14).
+      const token = ++triggerMentionToken;
+      void fsSearch(directory, found.query).then((files) => {
+        if (token !== triggerMentionToken) return; // stale completion publishes nothing
+        const current = getCurrentPicker();
+        if ((current?.trigger.tokenStart ?? -1) !== found.tokenStart) return;
+        const merged = [...new Set([...agentNames, ...files.map((file) => file.path)])]
+          .filter((name) => name.toLowerCase().includes(found.query.toLowerCase()))
+          .sort();
+        setPicker({ trigger: found, items: merged, insert: (item) => applyPick(found, item) });
+      }).catch(() => undefined); // picker stays agent-only on failure
+    }
+  }
+
+  function getCurrentPicker(): { trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void } | null {
+    return pickerRef.current;
   }
 
   function updateText(next: string, caret?: number): void {

@@ -8,7 +8,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P1 harness seam | 02 | ✅ done 2026-07-22 (typecheck ×3 · vitest 11/11 incl. in-process contract tests · vite build · live smoke: LF-8 event sequence, Last-Event-ID replay, messageID echo, permission 404-settled) |
 | P2 sync engine | 04 | 🔶 done 2026-09-16 (typecheck ×3 · vitest 84/84 across 12 suites · gates+smoke · adversarial sub-agent review: P0+P1 fixed in-slice, residuals registered) |
 | P3 chat UI | 05 | 🔶 P3a+P3b+P3c done 2026-09-16 (P3a: chat spine; P3b: model picker/starters/timeline/prompt-rail/BTW fork/focus mode; P3c: work-status panel §E.9 subset + §E.3/§E.4 recap+suggestion band; P3b+P3c adversarial review: P0×2 + P1×9 fixed; 122 vitest · tsc ×3 · gates+smoke · P3d/P4+ per NOTES 05 §A + review register) |
-| P4 server/API | 03 | pending |
+| P4 server/API | 03 | 🔶 P4-1 done 2026-09-16 (fs+git UI-serving routes per §5.14/§5.13 subset: fs list/search(NND ext)/git-dirs + git check/status-light, workspace containment, non-repo payload rule, pre-proxy mount; web vitest suite added 10/10 · gates+smoke · P4 review queued; P4-2/P4-3 staged per NOTES 03) |
 | P5 themes/settings | 14 | pending |
 | P6 review | 06 | pending |
 | P7 terminal | 07 | pending |

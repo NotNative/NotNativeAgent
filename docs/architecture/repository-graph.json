@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:2de57dd6446373097a7f879023bc334acc79bcb183afb399ab6642aa3d3f6ad9",
+  "source_digest": "sha256:21cfbcd5a7fb221cb69d3562f4bf069d5f176db47cb544e8c7fbe41375792156",
   "counts": {
-    "modules": 111,
+    "modules": 114,
     "component_edges": 10
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 13
+      "module_count": 14
     },
     {
       "id": "ui-shell",
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 15
+      "module_count": 17
     },
     {
       "id": "web-entry",
@@ -109,8 +109,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 6,
-      "module_count": 5
+      "import_count": 7,
+      "module_count": 6
     },
     {
       "from": "web-server",
@@ -208,6 +208,7 @@
         "packages/ui/src/chat/starters.ts",
         "packages/ui/src/chat/turns.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/server-api.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
@@ -570,6 +571,14 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/runtimeConfig.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/server-api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
       ]
     },
     {
@@ -1057,6 +1066,8 @@
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/lib/static.ts",
         "packages/web/src/server/routes/auth.ts",
+        "packages/web/src/server/routes/fs.ts",
+        "packages/web/src/server/routes/git.ts",
         "packages/web/src/server/routes/notnative.ts"
       ]
     },
@@ -1166,6 +1177,18 @@
       "imports": [
         "packages/web/src/server/env.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/server/routes/fs.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/routes/git.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/routes/notnative.ts",

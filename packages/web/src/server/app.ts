@@ -5,6 +5,8 @@ import { getHarnessAdapter } from './harness/adapter.ts';
 import { createStaticHandler, DIST_DIR } from './lib/static.ts';
 import { createAuthRoutes } from './routes/auth.ts';
 import { createNotNativeRoutes } from './routes/notnative.ts';
+import { registerFsRoutes } from './routes/fs.ts';
+import { registerGitRoutes } from './routes/git.ts';
 
 /**
  * Session list sanitation (doc 02 §3.2): server-side keep-list, `summary`
@@ -63,6 +65,10 @@ export function createApp() {
 
   app.route('/', createAuthRoutes());
   app.route('/', createNotNativeRoutes());
+  // P4-1: NND-owned fs/git surface — MUST register before the /api proxy
+  // catch-all (Hono matches in registration order, doc 03 §5.14/§5.13).
+  registerFsRoutes(app);
+  registerGitRoutes(app);
 
   // Harness proxy: everything under /api goes through the seam (HP-1).
   app.all('/api/*', async (c) => {
