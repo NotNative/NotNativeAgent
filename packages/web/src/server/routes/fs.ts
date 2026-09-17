@@ -41,7 +41,7 @@ export function resolveWithin(scopeDir: string, requested: string): string | nul
   return candidate;
 }
 
-function realpath(pathValue: string): string {
+export function realpath(pathValue: string): string {
   try {
     return realpathSync(pathValue);
   } catch {

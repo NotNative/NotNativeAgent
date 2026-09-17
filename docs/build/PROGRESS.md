@@ -8,7 +8,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P1 harness seam | 02 | ✅ done 2026-07-22 (typecheck ×3 · vitest 11/11 incl. in-process contract tests · vite build · live smoke: LF-8 event sequence, Last-Event-ID replay, messageID echo, permission 404-settled) |
 | P2 sync engine | 04 | 🔶 done 2026-09-16 (typecheck ×3 · vitest 84/84 across 12 suites · gates+smoke · adversarial sub-agent review: P0+P1 fixed in-slice, residuals registered) |
 | P3 chat UI | 05 | 🔶 P3a+P3b+P3c done 2026-09-16 (P3a: chat spine; P3b: model picker/starters/timeline/prompt-rail/BTW fork/focus mode; P3c: work-status panel §E.9 subset + §E.3/§E.4 recap+suggestion band; P3b+P3c adversarial review: P0×2 + P1×9 fixed; 122 vitest · tsc ×3 · gates+smoke · P3d/P4+ per NOTES 05 §A + review register) |
-| P4 server/API | 03 | 🔶 P4-1+P4-2 done 2026-09-16 (P4-1: fs+git UI-serving routes pre-proxy w/ device-aware+realpath containment — review P0-1/P0-2 cross-device+junction escapes fixed; P4-2: settings CRUD §5.6 + themes + projects config/context §5.15 + git log/branches w/ sentinel parse — review P1×4 fixed incl. NUL-byte source defect; web 16/16 · UI 122 · gates+smoke; P4-3 staged per NOTES 03) |
+| P4 server/API | 03 | 🔶 P4-1..3 done 2026-09-16 (P4-1: fs read+git status/check pre-proxy w/ containment; P4-2: settings/themes/projects-config/context + git log/branches; P4-3: fs write family (mkdir/write/delete/rename atomic+root-refusal) + session-folders §5.22 (last-writer-wins, 413, sync write queue); P4-1 review escaped-fixes landed, P4-2 review P1×4 fixed, P4-3 review QUEUED; web 23/23 · UI 122 · gates+smoke) |
 | P5 themes/settings | 14 | pending |
 | P6 review | 06 | pending |
 | P7 terminal | 07 | pending |
@@ -178,6 +178,21 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   neutralized unless target realpath stays in scope), gitignore
   approximation, plans-dir lazy-empty case, parse light/drop of merge/rebase
   states (P4-2 with full §5.13 files), rename `old -> new` path shape.
+
+- 2026-09-16 · **P4-3 done (fs write family + session-folders).** /api/fs
+  mkdir/write/delete/rename (P4-3): all four handlers workspace-bound with
+  the SAME device-aware + realpath containment as the read routes; write is
+  atomic tmp+rename; rename relies on single-?directory-scope (both targets
+  containment-checked); delete refuses the scope root; mkdir rejects
+  allowOutsideWorkspace outright (§5.14 grant rule). /api/session-folders
+  §5.22: last-writer-wins by updatedAt (`ignored:true`), 4MiB cap after
+  parse (413), malformed stored snapshots → 500 with documented strings,
+  single-flight write queue, atomic rename. Refactored to sub-functions to
+  clear the 60-line function gate that fired mid-slice. Review: QUEUED
+  (context budget) — first next-session item before P5; risk areas: write
+  no-op check missing (registered P5), content-no-op false-positive on
+  registerFile-gated routes, session-folders corruption semantics.
+  23/23 web tests (+7).
 
 ## Delta/Delayed register
 

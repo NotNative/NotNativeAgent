@@ -8,6 +8,8 @@ import { createNotNativeRoutes } from './routes/notnative.ts';
 import { registerFsRoutes } from './routes/fs.ts';
 import { registerGitRoutes } from './routes/git.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
+import { registerFsWriteRoutes } from './routes/fs-write.ts';
+import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
 
 /**
  * Session list sanitation (doc 02 §3.2): server-side keep-list, `summary`
@@ -73,6 +75,8 @@ export function createApp() {
   registerSettingsRoutes(app);
   registerProjectsRoutes(app);
   registerGitReadRoutes(app);
+  registerFsWriteRoutes(app);
+  registerSessionFoldersRoutes(app);
 
   // Harness proxy: everything under /api goes through the seam (HP-1).
   app.all('/api/*', async (c) => {

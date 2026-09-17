@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:6e8cf96abc0afcfb75d829c080bbfe5abce8db4b30a456232d39f83399438704",
+  "source_digest": "sha256:fd7dd70091996285eb6f2c42282f845c7eafc4fc4b24263cb8b5470d70fac326",
   "counts": {
-    "modules": 115,
+    "modules": 117,
     "component_edges": 10
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 18
+      "module_count": 20
     },
     {
       "id": "web-entry",
@@ -1066,10 +1066,12 @@
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/lib/static.ts",
         "packages/web/src/server/routes/auth.ts",
+        "packages/web/src/server/routes/fs-write.ts",
         "packages/web/src/server/routes/fs.ts",
         "packages/web/src/server/routes/git.ts",
         "packages/web/src/server/routes/notnative.ts",
-        "packages/web/src/server/routes/projects.ts"
+        "packages/web/src/server/routes/projects.ts",
+        "packages/web/src/server/routes/session-folders.ts"
       ]
     },
     {
@@ -1180,6 +1182,14 @@
       ]
     },
     {
+      "path": "packages/web/src/server/routes/fs-write.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/routes/fs.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/routes/fs.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -1204,6 +1214,14 @@
     },
     {
       "path": "packages/web/src/server/routes/projects.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/session-folders.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": [
