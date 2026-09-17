@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
+/**
+ * ThemeProvider (doc 14 §E/Delta D8): `system` resolves via matchMedia and
+ * follows OS changes; the variant is applied as `.dark`/`.light` root classes
+ * (the token default block keys off those selectors). The chosen mode
+ * persists under `notnative.themeMode`.
+ */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-// Delta P0: `system` variant resolution via matchMedia lands with doc 14 (P5);
-// until then `system` renders the dark variant. Default mode is dark.
 const STORAGE_KEY = 'notnative.themeMode';
 type Mode = 'system' | 'light' | 'dark';
 type Variant = 'light' | 'dark';
@@ -17,7 +21,18 @@ const ThemeContext = createContext<ThemeApi | null>(null);
 
 export function ThemeProvider({ children }: { children?: ReactNode }) {
   const [mode, setModeState] = useState<Mode>(readStoredMode);
-  const variant: Variant = mode === 'light' ? 'light' : 'dark';
+  const [systemVariant, setSystemVariant] = useState<Variant>(detectSystemVariant);
+  const variant: Variant = mode === 'system' ? systemVariant : (mode as Variant);
+
+  useEffect(() => {
+    const query = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (event: MediaQueryListEvent): void => {
+      setSystemVariant(event.matches ? 'dark' : 'light');
+    };
+    setSystemVariant(query.matches ? 'dark' : 'light');
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -41,6 +56,11 @@ export function useTheme(): ThemeApi {
   const api = useContext(ThemeContext);
   if (!api) throw new Error('useTheme outside ThemeProvider');
   return api;
+}
+
+function detectSystemVariant(): Variant {
+  if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 function readStoredMode(): Mode {

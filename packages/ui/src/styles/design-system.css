@@ -1,0 +1,224 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * Design-system static defaults (doc 14 §B.1/§B.2): the full token block for
+ * light (`:root`) and dark (`.dark`), the generated-token SEED (runtime
+ * themes overwrite whole blocks via the CSS variable generator), the radius
+ * scale, the Tailwind `@theme inline` color mapping, and the semantic
+ * typography variables (§B.3, web/desktop values).
+ *
+ * Values authored in the planning doc table §B.1 lines 134-152 (oklch with
+ * the authored hex intent in comments) + §B.2 radius/fonts/z/motion.
+ */
+
+:root,
+.dark {
+  /* shell/environment tokens (B.1 first block) */
+  --oc-safe-area-top: 0px;
+  --oc-safe-area-right: 0px;
+  --oc-safe-area-bottom: 0px;
+  --oc-safe-area-visual-bottom: 0px;
+  --oc-safe-area-left: 0px;
+  --oc-header-height: 56px;
+  --oc-visual-viewport-offset-top: 0px;
+  --oc-visual-viewport-height: 100dvh;
+  --oc-wco-left-inset: 0px;
+  --oc-wco-right-inset: 0px;
+  --oc-wco-titlebar-height: 0px;
+  --ui-regular-font-weight: 400;
+  --oc-scrollbar-thumb: oklch(0.32 0.03 50 / 0.4);
+  --oc-scrollbar-thumb-hover: oklch(0.32 0.03 50 / 0.6);
+  --padding-scale: 1;
+  --oc-text-selection: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+:root {
+  --oc-glass-blur: 22px;
+  --oc-glass-opacity: 52%;
+  --oc-glass-popover-opacity: 50%;
+  --oc-glass-tooltip-opacity: 62%;
+  --oc-glass-saturation: 1.24;
+}
+
+.dark {
+  --oc-glass-blur: 26px;
+  --oc-glass-opacity: 50%;
+  --oc-glass-popover-opacity: 52%;
+  --oc-glass-tooltip-opacity: 64%;
+  --oc-glass-saturation: 1.16;
+}
+
+:root {
+  /* Core palette — LIGHT (shadcn-style aliases, doc B.1 table) */
+  --background: oklch(0.97 0.02 85);            /* warm sand */
+  --foreground: oklch(0.25 0.02 40);
+  --card: oklch(0.99 0.01 90);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.99 0.01 90);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.65 0.2 55);                /* orange */
+  --primary-foreground: oklch(0.97 0.02 85);    /* near-white */
+  --secondary: oklch(0.92 0.02 80);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.9 0.015 75);
+  --muted-foreground: oklch(0.45 0.02 50);
+  --accent: oklch(0.92 0.02 80);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.55 0.25 25);
+  --destructive-foreground: oklch(0.97 0.02 85);
+  --border: oklch(0.85 0.02 70);
+  --input: oklch(0.88 0.02 75);
+  --ring: oklch(0.65 0.2 55);
+  --radius: 0.5625rem;
+  --chart-1: oklch(0.58 0.15 230);
+  --chart-2: oklch(0.58 0.15 145);              /* oasis-green */
+  --chart-3: oklch(0.65 0.2 55);                /* orange */
+  --chart-4: oklch(0.55 0.18 30);               /* rose */
+  --chart-5: oklch(0.6 0.16 85);                /* golden sand */
+  --sidebar: oklch(0.95 0.02 80);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.9 0.02 75);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+.dark {
+  /* Core palette — DARK (doc B.1 table; #151313 base family) */
+  --background: oklch(0.16 0.01 30);            /* #151313 */
+  --foreground: oklch(0.85 0.02 90);            /* #cdccc3 */
+  --card: oklch(0.19 0.01 40);                  /* #1C1B1A */
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.24 0.01 40);               /* #282726 */
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.77 0.17 85);               /* #edb449 golden sand */
+  --primary-foreground: oklch(0.16 0.01 30);
+  --secondary: oklch(0.29 0.01 40);             /* #343331 */
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.33 0.01 40);                 /* #403E3C */
+  --muted-foreground: oklch(0.75 0.02 80);      /* #b6b4ab */
+  --accent: oklch(0.29 0.01 40);                /* #343331 */
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.65 0.15 30);           /* #d98678 */
+  --destructive-foreground: oklch(0.9 0.02 80);
+  --border: oklch(0.31 0.01 35);                /* #393836 */
+  --input: oklch(0.33 0.01 40);                 /* #403E3C */
+  --ring: oklch(0.77 0.17 85);
+  --chart-1: oklch(0.68 0.12 230);              /* #5aa9d9 */
+  --chart-2: oklch(0.68 0.12 145);              /* #81af6c */
+  --chart-3: oklch(0.7 0.13 95);                /* #c2974d */
+  --chart-4: oklch(0.65 0.14 45);               /* #d8886d */
+  --chart-5: oklch(0.68 0.12 55);               /* #d29470 */
+  --sidebar: oklch(0.16 0.01 30);               /* #151313 */
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.24 0.01 40);        /* #282726 */
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+/* Generated-token SEED (doc §B.1 runtime tokens: bloom clusters condensed to
+ * their base variables; active runtime themes overwrite whole blocks). */
+:root {
+  --surface-background: var(--background);
+  --surface-foreground: var(--foreground);
+  --surface-muted: var(--muted);
+  --surface-muted-foreground: var(--muted-foreground);
+  --surface-elevated: var(--card);
+  --surface-elevated-foreground: var(--foreground);
+  --interactive-border: var(--border);
+  --interactive-border-hover: var(--border);
+  --interactive-border-focus: var(--ring);
+  --interactive-focus: var(--ring);
+  --interactive-cursor: var(--foreground);
+  --interactive-hover: var(--accent);
+  --interactive-active: var(--primary);
+  --status-error: var(--destructive);
+  --status-error-foreground: var(--destructive-foreground);
+  --status-warning: var(--chart-5);
+  --status-success: var(--chart-2);
+  --status-info: var(--chart-1);
+  --pr-open: var(--status-success);
+  --pr-draft: var(--muted-foreground);
+  --pr-blocked: var(--status-warning);
+  --pr-merged: #8250df;
+  --pr-closed: var(--destructive);
+  --chat-background: var(--background);
+  --chat-user-message-bg: var(--primary);
+  --chat-assistant-message-bg: var(--card);
+  --chat-timestamp: var(--muted-foreground);
+  --chat-divider: var(--border);
+  --chat-typing: var(--muted-foreground);
+  --tools-background: var(--card);
+  --tools-border: var(--border);
+  --loading-spinner: var(--primary);
+  --loading-spinner-track: var(--muted);
+}
+
+/* B.2 radius scale (4/7/9/12 px) */
+:root {
+  --radius-none: 0;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.4375rem;
+  --radius-lg: 0.5625rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+}
+
+/* B.2 motion + fonts (overridden per theme by config.transitions/fonts) */
+:root {
+  --transition-fast: 150ms ease-in-out;
+  --font-sans: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-family-sans: var(--font-sans);
+  --font-mono: ui-monospace, "SFMono-Regular", "Menlo", "Cascadia Mono", "Segoe UI Mono", monospace;
+  --font-family-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+}
+
+/* B.3 semantic typography (web/desktop column) */
+:root {
+  --text-markdown: 0.875rem;
+  --text-code: 0.75rem;
+  --text-ui-header: 0.875rem;
+  --text-ui-label: 0.8125rem;
+  --text-meta: 0.8125rem;
+  --text-micro: 0.8125rem;
+  --text-settings-page-title: 1.0625rem;
+}
+
+/* B.2 Tailwind @theme inline: alias every color so the utilities exist */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-chat-user-message-bg: var(--chat-user-message-bg);
+  --color-status-success: var(--status-success);
+  --color-status-error: var(--status-error);
+  --color-status-warning: var(--status-warning);
+  --color-status-info: var(--status-info);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}

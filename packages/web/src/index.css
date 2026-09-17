@@ -1,7 +1,11 @@
 @import "tailwindcss";
+@import "../ui/src/styles/design-system.css";
 
+/* P0-era bridge variables kept until the doc-14 settings registry lands */
 :root {
   --nn-accent: #edb449;
+  --nn-splash-bg: var(--background);
+  --nn-splash-fg: var(--foreground);
 }
 
 html,
@@ -12,9 +16,9 @@ body,
 
 body {
   margin: 0;
-  background: #171717;
-  color: #dcd7ce;
-  font-family: ui-sans, "Segoe UI", system-ui, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
 }
 
 #initial-loading {
@@ -23,12 +27,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--nn-splash-bg, #151313);
-  color: var(--nn-splash-fg, #dcd7ce);
+  background: var(--nn-splash-bg, var(--background));
+  color: var(--nn-splash-fg, var(--foreground));
   transition: opacity 300ms ease;
   z-index: 50;
-}
-
-#initial-loading.fade-out {
-  opacity: 0;
 }
