@@ -14,8 +14,9 @@ import { resolveWithin, realpath } from './fs.ts';
 const WRITE_MAX_BYTES = 25 * 1024 * 1024;
 
 function containedReal(scopeDir: string, target: string): boolean {
-  return resolveWithin(realpath(scopeDir), target) !== null
-    && resolveWithin(realpath(scopeDir), realpath(target)) !== null;
+  // Single clause (review F4): BOTH endpoints realpath'd, lexical mismatch
+  // against the junctioned ?directory no longer false-403s.
+  return resolveWithin(realpath(scopeDir), realpath(target)) !== null;
 }
 
 interface PathBody { path?: string; allowOutsideWorkspace?: boolean }

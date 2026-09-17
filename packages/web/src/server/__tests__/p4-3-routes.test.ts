@@ -131,16 +131,25 @@ describe('session folders (§5.22)', () => {
       collapsedFolderIds: [],
       updatedAt: 100,
     };
-    const saved = await call('/api/session-folders', {
+    let saved = await call('/api/session-folders', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(snapshot),
     });
     expect((await saved.json()) as { success: boolean }).toMatchObject({ success: true });
-    const warm = await (await call('/api/session-folders')).json() as { version: number; exists?: boolean; foldersMap: Record<string, unknown> };
+    const warm = await (await call('/api/session-folders')).json() as { version: number; exists: boolean; foldersMap: Record<string, unknown> };
     expect(warm.version).toBe(1);
-    expect(warm.exists).toBeUndefined(); // the warm snapshot shape has no exists marker
+    expect(warm.exists).toBe(true); // §5.22 doc-verbatim warm shape carries exists:true
     expect(Object.keys(warm.foldersMap)).toContain('chats');
+    // an OLDER snapshot arriving later is ignored: disk keeps the NEWER one
+    const stale = await call('/api/session-folders', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...snapshot, updatedAt: 50, foldersMap: { chats: [{ id: 'stale', name: 'Stale', sessionIds: [], createdAt: 0 }] } }),
+    });
+    expect((await stale.json()) as { success: boolean; ignored: boolean }).toMatchObject({ success: true, ignored: true });
+    const onDisk = JSON.parse(readFileSync(joinPath(isolatedDataDir, 'session-folders.json'), 'utf8')) as { updatedAt: number };
+    expect(onDisk.updatedAt).toBe(100); // newer snapshot retained
   });
 
   it('older updatedAt is accepted but IGNORED (last-writer-wins)', async () => {

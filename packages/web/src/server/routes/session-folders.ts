@@ -7,7 +7,7 @@
  * synchronized write queue (single in-flight write promise).
  */
 import { existsSync, readFileSync, mkdirSync } from 'node:fs';
-import { writeFile, rename, mkdir as mkdirAsync } from 'node:fs/promises';
+import { writeFile, rename } from 'node:fs/promises';
 import { join as joinPath } from 'node:path';
 import type { Hono } from 'hono';
 import { ENV } from '../env.ts';
@@ -50,7 +50,9 @@ export function registerSessionFoldersRoutes(app: Hono): void {
     const parsed = stored();
     if (parsed === null) return c.json({ error: 'Stored session folders have an invalid shape' }, 500);
     if (!shapeValid(parsed)) return c.json({ error: 'Stored session folders are malformed' }, 500);
-    return c.json(omitExists(parsed));
+    // §5.22 doc-verbatim warm shape: `{version, foldersMap, collapsedFolderIds,
+    // updatedAt, exists:true}` — stored verbatim, returned verbatim.
+    return c.json(parsed);
   });
 
   app.post('/api/session-folders', async (c) => {
@@ -61,20 +63,26 @@ export function registerSessionFoldersRoutes(app: Hono): void {
     try { snapshot = JSON.parse(raw); } catch { return c.json({ error: 'Body must be JSON' }, 400); }
     if (!shapeValid(snapshot)) return c.json({ error: 'session folders snapshot has an invalid shape' }, 400);
     const incoming = snapshot as Snapshot;
-    const current = stored();
-    if (current && shapeValid(current) && current.updatedAt > incoming.updatedAt) {
-      return c.json({ success: true, ignored: true }); // last-writer-wins by updatedAt
-    }
     const payload = JSON.stringify({ ...incoming, version: 1, exists: true });
     if (payload.length > CAP) return c.json({ error: 'Payload too large' }, 413);
     if (!existsSync(ENV.dataDir)) mkdirSync(ENV.dataDir, { recursive: true });
-    const tmp = `${SNAPSHOT_FILE}.tmp-${process.pid}-${Date.now()}`;
+    // LWW + persistence run INSIDE the single-flight queue (review F1/F2):
+    // staleness is verified at write time, failures fail the call, and a
+    // dropped-stale write answers `ignored` per §5.22.
+    const result = { outcome: 'written' as 'written' | 'stale', failed: false };
     writeQueue = writeQueue.then(async () => {
-      await mkdirAsync(ENV.dataDir, { recursive: true });
+      const current = stored();
+      if (current && shapeValid(current) && current.updatedAt > incoming.updatedAt) {
+        result.outcome = 'stale'; // drop stale write
+        return;
+      }
+      const tmp = `${SNAPSHOT_FILE}.tmp-${process.pid}-${Date.now()}`;
       await writeFile(tmp, payload, 'utf8');
       await rename(tmp, SNAPSHOT_FILE);
-    }).catch(() => { /* write failure surfaces 500 below via flush */ });
+    }).catch(() => { result.failed = true; });
     await writeQueue;
+    if (result.failed) return c.json({ error: 'Failed to persist session folders' }, 500);
+    if (result.outcome === 'stale') return c.json({ success: true, ignored: true });
     return c.json({ success: true });
   });
 }
