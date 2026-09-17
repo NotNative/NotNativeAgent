@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:141875bdf1592259c20408156aa3193b4fa48cc2e3671259de3f161adce1f4c6",
+  "source_digest": "sha256:632fe327a7bd5475390e1318dbfc4143e40d8ecb16aff20efa09ec0349578183",
   "counts": {
-    "modules": 198,
+    "modules": 204,
     "component_edges": 11
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 71
+      "module_count": 75
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 53
+      "module_count": 55
     },
     {
       "id": "web-server",
@@ -85,8 +85,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 50,
-      "module_count": 21
+      "import_count": 53,
+      "module_count": 22
     },
     {
       "from": "sync-engine",
@@ -510,6 +510,17 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/plan/PlanView.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/lib/files/api.ts",
+        "packages/ui/src/lib/plan/save-queue.ts",
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/SessionSidebar.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -678,6 +689,20 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/worktrees/WorktreesView.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/add-selection-to-chat.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/api/registry.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -698,6 +723,14 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/comments/drafts.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/files/api.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -713,6 +746,12 @@
     },
     {
       "path": "packages/ui/src/lib/files/edit-support.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/files/positions.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
@@ -841,6 +880,12 @@
     {
       "path": "packages/ui/src/lib/nnd/types.ts",
       "component": "harness-facade",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/plan/save-queue.ts",
+      "component": "runtime-io",
       "entrypoint": false,
       "imports": []
     },

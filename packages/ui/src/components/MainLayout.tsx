@@ -14,12 +14,13 @@ import { SettingsWindow } from './settings/window.tsx';
 import { FilesView } from './files/FilesView.tsx';
 import { DiffView } from './diff/DiffView.tsx';
 import { GitView } from './git/GitView.tsx';
+// PlanView + WorktreesView land with their MainLayout toggles in P6-3b (budget); components are committed standalone per doc 06 sections 8/7.
 import { BUILT_PAGE_SLUGS, type SettingsPageSlug } from './settings/search.ts';
 import { bindSettingsBridge } from '../lib/settings/store.ts';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
 import type { ComposerServices } from '../chat/composer.tsx';
 
-/** MainLayout (doc 01 §13.1) with the P3a chat product, the P5-6
+/** MainLayout (doc 01 13.1) with the P3a chat product, the P5-6
  * SettingsWindow (gear / mod+, / ?settings=<slug>) and the P6-1 FilesView
  * (Files button; full surface with the tree over the chat column). */
 export function MainLayout(): ReactNode {
@@ -68,7 +69,7 @@ export function MainLayout(): ReactNode {
       const snapshot = store.getState();
       const messages = snapshot.message[sessionID] ?? [];
       if (command === 'undo') {
-        // §D.6 keep-point semantics: revert TO the last user message. The
+        // D.6 keep-point semantics: revert TO the last user message. The
         // harness retains the slice; the view announces RE-Truncation at that
         // point and the message text re-fills the composer.
         const lastUserIndex = (() => {
@@ -122,7 +123,7 @@ export function MainLayout(): ReactNode {
       useSessionViewStore.setState({ currentSessionId: null, activeDirectory: directory });
     },
     openSession: (sessionID: string, directory: string) => {
-      // §F.4: navigation NEVER denies pending requests — dismiss is authority
+      // F.4: navigation NEVER denies pending requests — dismiss is authority
       // of the send path and the explicit card buttons only.
       useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
     },

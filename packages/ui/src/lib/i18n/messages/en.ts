@@ -203,6 +203,15 @@ const en = {
   'filesView.goToLine.range': 'Line {current} of {max}',
   'common.error': 'Error',
   'common.retry': 'Retry',
+  'worktrees.title': 'Worktrees',
+  'worktrees.new': 'New Worktree',
+  'worktrees.empty': 'No worktrees for this project yet.',
+  'plan.title': 'Plan',
+  'plan.save': 'Save now',
+  'plan.unsaved': 'Unsaved',
+  'plan.saved': 'Saved',
+  'plan.saveFailed': 'Save failed',
+  'plan.file': 'plan',
 };
 
 export type I18nKey = keyof typeof en;

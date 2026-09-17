@@ -92,6 +92,20 @@ export function flushDraftsNow(): void {
   if (storeCache) writeStore(storeCache);
 }
 
+/** Test support: drop the in-memory cache so a test starts from clean storage. */
+export function __resetDraftStoreForTests(): void {
+  if (pendingTimer) {
+    clearTimeout(pendingTimer);
+    pendingTimer = null;
+  }
+  storeCache = null;
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    /* nothing */
+  }
+}
+
 export function dropDraft(directory: string, sessionKey: DraftSessionKey): void {
   delete readStore()[draftKey(directory, sessionKey)];
   flushDraftsNow();

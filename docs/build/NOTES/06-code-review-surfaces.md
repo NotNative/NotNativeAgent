@@ -33,6 +33,14 @@ land with PA0020), and deltas for the multi-session build.
   §10.2 lifecycle on CodeMirror-replacement editor + §10.5
   add-selection-to-chat + §7 Worktree list/version (creation flows =
   worktree domain → P6-3 if budget, else P8 with PA).
+  Delivered 20260917-8: §3.4 sticky position map (textarea-host v1),
+  §8.2/§8.3 save queue (per-key serialized chains, revision watermark
+  dedup, failed-write clears while-latest, live-runtime drop, pendingFor),
+  §8.1 fresh load awaits pendingFor before reading, §8.4 PlanView with
+  close/switch flush, §8.5 session-plan path v1, §10.1 draft store (50
+  sessions / 20 drafts / 1 MiB byte-LRU, consume/restore with pinned id),
+  §10.5 capture chain (composer excluded) + composer append/focus wiring;
+  §7 WorktreesView list + ordering. NOT in this slice → E-06-9..13.
 - Deferred beyond P6 core: §9 PR/Linear (needs GitHub/Linear server
   families + auth = P11), §5.3 branch/commit/pr scopes (range routes P6-2+
   if cheap; PR snapshot P11), §8.6 walkthrough (P10/doc 13), §10.6 review
@@ -57,6 +65,26 @@ land with PA0020), and deltas for the multi-session build.
 - **E-06-8** (registered P6-2): the untracked-file diff (empty `git diff`
   output) needs the content path (`git show :/`-style or --no-index) —
   defer with the image diff (§5.11) builder.
+- **E-06-9** (registered P6-3): session-plan resolution v1 = deterministic
+  FNV-1a epoch per directory (`planEpochFor`) as the `<created>-ms` slug
+  stand-in; real session create-ms resolution, `.opencode/plans`
+  discovery of EXISTING candidates, and saved-project-plan routes land
+  with the session domain (P9).
+- **E-06-10** (registered P6-3): §10.4 Improve/Implement send dialogs and
+  the §10.1 consumeDrafts→send path ride the P8 send family; the composer
+  fill channel already carries `append`.
+- **E-06-11** (registered P6-3): §10.2 comment-dialog lifecycle + §10.3
+  slot widgets on the editor host = P6-3b (textarea-host v1; CodeMirror
+  swap = E20). File-editor captures fall back to no language until
+  languageByExtension exists (E20 surface). The mod+l binding is
+  registered in the P5-5 config; the dispatcher→captureToChat wiring and
+  MainLayout toggles land with P6-3b.
+- **E-06-12** (registered P6-3): §7 worktree creation/repair dialog flows,
+  `git worktree` server family, and WorktreesView→MainLayout wiring =
+  P6-3b; ordering store persists `mobile-worktree-order` (doc §7 key).
+- **E-06-13** (registered P6-3 review): the draft envelope uses
+  shape-validation until zod clears the PA dependency registry; the swap
+  is mechanical (validated `parseEnvelope` boundary already isolated).
 
 ## B. Brand seam + harness port mapping
 
@@ -94,4 +122,7 @@ roots / 50 open / 500 expanded / 4,096 chars / 90-day TTL / 8 snapshots);
 AUTO_SAVE_DELAY 1,500 ms; "Saved" linger 2,000 ms; stat poll 2,000 ms;
 MAX_CONTENT_POLL_BYTES 200,000; LARGE_FILE_CHAR_THRESHOLD 200,000; empty
 read-retry schedule 50/100/150 ms; positions LRU 100 (P6-3). Tab close
-discard guard has NO cancel path (§2.7).
+discard guard has NO cancel path (§2.7). P6-3 pins: PLAN_AUTOSAVE_DEBOUNCE
+350 ms; inline drafts 50 sessions / 20 per session / 1 MiB envelope
+(byte-indexed); worktree order key `mobile-worktree-order`; drafts storage
+key `notnative.inlineComments.v3`.

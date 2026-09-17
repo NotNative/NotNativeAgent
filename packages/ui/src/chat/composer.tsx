@@ -67,6 +67,8 @@ export function Composer(props: ComposerProps): ReactNode {
   const restoringRef = useRef(false);
   const recallRef = useRef<{ list: HistoryEntry[]; position: number; liveText: string }>({ list: [], position: -1, liveText: '' });
   const restoreSnapshot = useRef<{ text: string; attachments: DraftAttachment[] }>({ text: '', attachments: [] });
+  const textRef = useRef(text);
+  textRef.current = text;
   const pickerRef = useRef<{ trigger: AutocompleteTrigger; items: string[]; insert: (item: string) => void } | null>(null);
 
   const store = services.store(directory);
@@ -90,17 +92,33 @@ export function Composer(props: ComposerProps): ReactNode {
 
   useEffect(() => () => { flushDraftsNow(); }, []);
 
-  // §B.9/§C.10: one fill channel for revert/undo and the §E.4 suggestion chip.
+  // §B.9/§C.10: one fill channel for revert/undo and the §E.4 suggestion chip
+  // (detail without `append` replaces). §10.5 add-to-chat rides the same
+  // channel with `append: true` — the capture is appended to the pending
+  // input and the caret moves after it. §10.5 focus-only rides
+  // `nnd:composer-focus` (no capture: just focus).
   useEffect(() => {
     const handler = (event: Event): void => {
-      const text = (event as CustomEvent<{ text?: string }>).detail?.text ?? '';
-      if (!text) return;
-      setText(text);
-      persist(text, attachments, autoAccept);
-      requestAnimationFrame(() => { editorRef.current?.focus(); });
+      const detail = (event as CustomEvent<{ text?: string; append?: boolean }>).detail;
+      const incoming = detail?.text ?? '';
+      if (!incoming) return;
+      const appended = detail?.append === true;
+      const base = textRef.current;
+      const next = appended && base.length > 0 ? `${base}\n\n${incoming}` : incoming;
+      setText(next);
+      persist(next, attachments, autoAccept);
+      requestAnimationFrame(() => {
+        editorRef.current?.focus();
+        if (appended) editorRef.current?.setSelectionRange(next.length, next.length);
+      });
     };
+    const focusHandler = (): void => { editorRef.current?.focus(); };
     window.addEventListener('nnd:composer-fill', handler);
-    return () => window.removeEventListener('nnd:composer-fill', handler);
+    window.addEventListener('nnd:composer-focus', focusHandler);
+    return () => {
+      window.removeEventListener('nnd:composer-fill', handler);
+      window.removeEventListener('nnd:composer-focus', focusHandler);
+    };
   }, [attachments, autoAccept]);
 
   const persist = useCallback((nextText: string, nextAttachments: DraftAttachment[], nextAutoAccept: boolean, queue?: QueuedMessage[]) => {
