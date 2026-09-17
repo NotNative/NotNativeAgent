@@ -9,7 +9,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P2 sync engine | 04 | 🔶 done 2026-09-16 (typecheck ×3 · vitest 84/84 across 12 suites · gates+smoke · adversarial sub-agent review: P0+P1 fixed in-slice, residuals registered) |
 | P3 chat UI | 05 | 🔶 P3a+P3b+P3c done 2026-09-16 (P3a: chat spine; P3b: model picker/starters/timeline/prompt-rail/BTW fork/focus mode; P3c: work-status panel §E.9 subset + §E.3/§E.4 recap+suggestion band; P3b+P3c adversarial review: P0×2 + P1×9 fixed; 122 vitest · tsc ×3 · gates+smoke · P3d/P4+ per NOTES 05 §A + review register) |
 | P4 server/API | 03 | 🔶 P4-1..3 done 2026-09-16 (P4-1: fs read+git status/check pre-proxy w/ containment; P4-2: settings/themes/projects-config/context + git log/branches; P4-3: fs write family (mkdir/write/delete/rename atomic+root-refusal) + session-folders §5.22 (last-writer-wins, 413, sync write queue); P4-1 review escaped-fixes landed, P4-2 review P1×4 fixed, P4-3 review QUEUED; web 23/23 · UI 122 · gates+smoke) |
-| P5 themes/settings | 14 | 🔶 P5-1 done 2026-09-16 (design-system.css full token block §B.1 light+dark + generated-token seed + radius/fonts/motion + §B.3 semantic typography + §B.2 @theme inline mappings wired into web index.css; ThemeProvider upgraded: system mode follows matchMedia both ways (Delta D8 resolved); 130 UI tests (theme tokens 5 + provider 3) · gates+smoke; P5-2 settings registry + presets + i18n queued) |
+| P5 themes/settings | 14 | 🔶 P5-1+P5-2 done 2026-09-17 (P5-1: design-system token block + ThemeProvider D8; P5-2: full theme system per doc 14 §E — 38 built-ins (14 pairs + 6 singles, seeds→full-schema derive), isValidTheme gate, pr-colors, CSSVariableGenerator (single style element, both variant scopes, !important alias block), runtimeKey-scoped persistence + splash mirror + write-intent-on-setter, custom themes GET/validate; adversarial review: P0 mirror split + P1×4 fixed (flip-flop guards pinned, color math + exact derivations tested, meta in-place patch); 181 UI tests (+14) · web 23/23 · gates+smoke+graph+version paired; P5-3 settings registry next) |
 | P6 review | 06 | pending |
 | P7 terminal | 07 | pending |
 | P8 autonomy | 12 | pending |
@@ -211,6 +211,30 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   import format (E.6) + settings registry snapshot gate (P5-2), VS Code
   webview typography column (P10), i18n catalog + shortcuts (P5-3).
 
+- 2026-09-17 · **P5-2 done (theme system per doc 14 §E).** lib/theme/: types
+  (Theme/E.6 interchange shape), color (hex canonicalization + darken/
+  lighten/mix/contrast), validation (isValidTheme §E.6 subset + diagnostics),
+  pr-colors (withPrColors, partial-pr merge), derive (seed→FULL-schema
+  expansion, no half-mapped tokens), presets/ (brand pair, flexoki, 14 pair
+  families, 6 singles ⇒ 38 built-ins per NOTES/14 C.1 resolution),
+  themes.ts (registration order, app-light/app-dark alias map, defaults),
+  css-generator + css-blocks (single `nnd-theme-variables` element, dual
+  scope emission :root+.dark / :root+:root:not(.dark), !important alias
+  block, ALL §B.1 runtime clusters, camelCase→kebab syntax tokens, config
+  fonts/transitions, typography re-emission), storage (runtimeKey-scoped
+  `notnative.theme.v2:*`, legacy seed mapping incl. single-theme ids, splash
+  mirror incl. branded `notnative.themeMode`, all-or-null parse), custom.ts
+  (GET /api/config/themes, client re-validation, withPrColors wrap).
+  ThemeProvider: mode+light/dark PAIR, system matchMedia both ways (D8),
+  transition suppression (2 frames, nnd-theme-switching), browser chrome
+  (body bg + plain/media theme-color metas in place), write intent rides the
+  SETTER (adoption/OS flips never write — flip-flop tests pinned), reload
+  w/ 500 ms spinner floor. Adversarial review (sub-agent): P0 splash-mirror
+  split fixed (+index.html system resolution), P1×5 (custom pr wrap,
+  flip-flop tests, color math table, exact derivation values, meta in-place)
+  + P2 nits (alias dedupe, non-hex edge filters, seed persist, meta patch,
+  NOTES declarations). 181 UI tests (+14). web 23/23 · gates+smoke+graph.
+
 ## Delta/Delayed register
 
 | # | Item | Phase landing | Note |
@@ -231,3 +255,9 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | D14 | mock scope boundary | P1 | mock = §12.1 + early §12.2 items; lifecycle/spawn/Basic-auth (P-01/03/22) belong to the future NNA adapter, not the mock |
 | D15 | wire-name duplication | P1 | `server/lib/harnessNaming.ts` mirrors `ui/lib/nna/constants.ts`; both files change together |
 | D16 | WS event bridges | P2 (doc 04) | P1 ships SSE only; §9.4 WS frame vocabulary recorded in NOTES/02 |
+| E1 | typographyWatcher static-sheet substitution | P5-1 done | identical values; rem-root scaling (applyTypography) lands P5-3 |
+| E2 | non-EN locales partial catalogs w/ en fallback | P5-4 | per-locale parity = authoring work; resolve chain per doc 14 §H.2 |
+| E3 | 38 preset palettes self-authored seeds | P5-2 done | originals untranscribed (doc gap §M); NOTES/14 C.1/E.2 interpretation recorded |
+| E4 | iframe theme sync + VS Code adapter | defer (P10/P12) | no embedded/vscode surface until those phases |
+| E5 | custom-theme import UX (Appearance→Reload) | P5-3 | GET /api/config/themes + client gate live; page comes with settings UI |
+| E6 | shiki/terminal/diff theme consumers | P6/P7 | §E.8 conversion contracts recorded in NOTES/14 |

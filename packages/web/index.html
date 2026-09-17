@@ -8,7 +8,10 @@
     <script>
       (function () {
         try {
-          var mode = localStorage.getItem('notnative.themeMode') || 'dark';
+          var mode = localStorage.getItem('notnative.themeMode') || localStorage.getItem('themeMode') || 'dark';
+          if (mode === 'system') {
+            mode = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+          }
           var variant = mode === 'light' ? 'light' : 'dark';
           document.documentElement.classList.remove('dark', 'light');
           document.documentElement.classList.add(variant);

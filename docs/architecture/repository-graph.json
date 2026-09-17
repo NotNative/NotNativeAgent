@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:cc3a20fe11f19d31c3eaff613d4f706fb64424efc931b682d8cdeb62bb659729",
+  "source_digest": "sha256:0c5e5c9e187194089abaff5f2fb36fc714aca13865186f94893d8300e44a9798",
   "counts": {
-    "modules": 117,
+    "modules": 144,
     "component_edges": 10
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 14
+      "module_count": 41
     },
     {
       "id": "ui-shell",
@@ -101,13 +101,13 @@
       "module_count": 16
     },
     {
-      "from": "sync-engine",
+      "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 7,
-      "module_count": 6
+      "import_count": 12,
+      "module_count": 7
     },
     {
-      "from": "ui-shell",
+      "from": "sync-engine",
       "to": "runtime-io",
       "import_count": 7,
       "module_count": 6
@@ -455,7 +455,13 @@
       "path": "packages/ui/src/components/ThemeProvider.tsx",
       "component": "ui-shell",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "packages/ui/src/lib/theme/css-generator.ts",
+        "packages/ui/src/lib/theme/custom.ts",
+        "packages/ui/src/lib/theme/storage.ts",
+        "packages/ui/src/lib/theme/themes.ts",
+        "packages/ui/src/lib/theme/types.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/api/registry.ts",
@@ -592,6 +598,246 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/theme/color.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/theme/css-blocks.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/color.ts",
+        "packages/ui/src/lib/theme/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/css-generator.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/css-blocks.ts",
+        "packages/ui/src/lib/theme/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/custom.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/theme/pr-colors.ts",
+        "packages/ui/src/lib/theme/types.ts",
+        "packages/ui/src/lib/theme/validation.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/derive.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/color.ts",
+        "packages/ui/src/lib/theme/seed.ts",
+        "packages/ui/src/lib/theme/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/pr-colors.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/aura.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/ayu.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/carbonfox.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/catppuccin.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/core.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/fields.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/gruvbox.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/jetbrains.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/kanagawa.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/monokai.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/nightowl.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/nord.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/onedarkpro.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/singles.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/solarized.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/presets/tokyonight.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/seed.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/seed.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/storage.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/theme/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/themes.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/derive.ts",
+        "packages/ui/src/lib/theme/pr-colors.ts",
+        "packages/ui/src/lib/theme/presets/aura.ts",
+        "packages/ui/src/lib/theme/presets/ayu.ts",
+        "packages/ui/src/lib/theme/presets/carbonfox.ts",
+        "packages/ui/src/lib/theme/presets/catppuccin.ts",
+        "packages/ui/src/lib/theme/presets/core.ts",
+        "packages/ui/src/lib/theme/presets/fields.ts",
+        "packages/ui/src/lib/theme/presets/gruvbox.ts",
+        "packages/ui/src/lib/theme/presets/jetbrains.ts",
+        "packages/ui/src/lib/theme/presets/kanagawa.ts",
+        "packages/ui/src/lib/theme/presets/monokai.ts",
+        "packages/ui/src/lib/theme/presets/nightowl.ts",
+        "packages/ui/src/lib/theme/presets/nord.ts",
+        "packages/ui/src/lib/theme/presets/onedarkpro.ts",
+        "packages/ui/src/lib/theme/presets/singles.ts",
+        "packages/ui/src/lib/theme/presets/solarized.ts",
+        "packages/ui/src/lib/theme/presets/tokyonight.ts",
+        "packages/ui/src/lib/theme/seed.ts",
+        "packages/ui/src/lib/theme/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/theme/types.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/theme/validation.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/theme/color.ts",
+        "packages/ui/src/lib/theme/types.ts"
+      ]
     },
     {
       "path": "packages/ui/src/main.tsx",
