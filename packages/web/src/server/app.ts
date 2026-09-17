@@ -7,6 +7,7 @@ import { createAuthRoutes } from './routes/auth.ts';
 import { createNotNativeRoutes } from './routes/notnative.ts';
 import { registerFsRoutes } from './routes/fs.ts';
 import { registerFsReadRoutes } from './routes/fs-read.ts';
+import { registerGitDiffRoutes } from './routes/git-diff.ts';
 import { registerGitRoutes } from './routes/git.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
@@ -73,6 +74,7 @@ export function createApp() {
   // catch-all (Hono matches in registration order, doc 03 §5.14/§5.13).
   registerFsRoutes(app);
   registerFsReadRoutes(app);
+  registerGitDiffRoutes(app);
   registerGitRoutes(app);
   registerSettingsRoutes(app);
   registerProjectsRoutes(app);

@@ -39,6 +39,24 @@ land with PA0020), and deltas for the multi-session build.
   flow (P8/doc 12), Formatters §Appendix B editor keys already registered
   in P5-5 config (`save_file`/`find_in_file`/`open_go_to_line`/`add_
   selection_to_chat`).
+- **E-06-4** (registered P6-2 review): outside-workspace grant params
+  (`?allowOutsideWorkspace&outsideFileGrant` on stat/read/raw + fs/serve)
+  are DESKTOP-runtime grants (§2.8); the web build issues none and the
+  server 403s grant attempts — grant plumbing lands with P12/doc 08.
+- **E-06-5** (registered P6-2 review): `RuntimeAPIs.files` adapter
+  indirection is bypassed (ui/lib/files/api.ts talks to the server routes
+  directly); the adapter contract lands with the desktop shell (P12).
+- **E-06-6** (registered P6-2 review): sidebar tree deltas of §2.9a
+  (uploads, marquee names, drag-drop) + gitignored heuristics ride P6-3/the
+  sidebar surface; `search` remains bounds-limited (depth 3 / 100 dirs
+  server walk, registered vs §2.3's 150-limit).
+- **E-06-7** (registered P6-2): sidebar surfaces "Collapse all folders" +
+  upload-to-path drop targets (§2.9a) and § + row-menu reveal/download
+  actions (§2.4 tail: Copy Path, Save/Download, Reveal) land with the
+  sidebar surface; en keys already registered.
+- **E-06-8** (registered P6-2): the untracked-file diff (empty `git diff`
+  output) needs the content path (`git show :/`-style or --no-index) —
+  defer with the image diff (§5.11) builder.
 
 ## B. Brand seam + harness port mapping
 

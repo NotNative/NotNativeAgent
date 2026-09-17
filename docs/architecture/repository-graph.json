@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:45f28bce734b7fc921e2eb9c122bb9c5ce5db7658082eda08a02f27d5af7833a",
+  "source_digest": "sha256:141875bdf1592259c20408156aa3193b4fa48cc2e3671259de3f161adce1f4c6",
   "counts": {
-    "modules": 191,
+    "modules": 198,
     "component_edges": 11
   },
   "components": [
@@ -24,19 +24,19 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 68
+      "module_count": 71
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 50
+      "module_count": 53
     },
     {
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 23
+      "module_count": 24
     },
     {
       "id": "web-entry",
@@ -85,8 +85,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 49,
-      "module_count": 20
+      "import_count": 50,
+      "module_count": 21
     },
     {
       "from": "sync-engine",
@@ -410,6 +410,22 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/diff/DiffView.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/diff/DiffViewer.tsx"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/diff/DiffViewer.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/git/diff-model.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/ErrorBoundary.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -453,6 +469,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/git/GitView.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/I18nProvider.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -472,7 +496,9 @@
         "packages/ui/src/chat/session-sidebar.tsx",
         "packages/ui/src/chat/session-tabs.tsx",
         "packages/ui/src/components/ShellShortcuts.tsx",
+        "packages/ui/src/components/diff/DiffView.tsx",
         "packages/ui/src/components/files/FilesView.tsx",
+        "packages/ui/src/components/git/GitView.tsx",
         "packages/ui/src/components/settings/search.ts",
         "packages/ui/src/components/settings/window.tsx",
         "packages/ui/src/lib/nnd/client.ts",
@@ -704,6 +730,28 @@
       "imports": [
         "packages/ui/src/lib/i18n/runtime.ts",
         "packages/ui/src/lib/i18n/store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/git/api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/git/diff-model.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/git/store.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts"
       ]
     },
     {
@@ -1732,6 +1780,7 @@
         "packages/web/src/server/routes/fs-read.ts",
         "packages/web/src/server/routes/fs-write.ts",
         "packages/web/src/server/routes/fs.ts",
+        "packages/web/src/server/routes/git-diff.ts",
         "packages/web/src/server/routes/git.ts",
         "packages/web/src/server/routes/notnative.ts",
         "packages/web/src/server/routes/projects.ts",
@@ -1881,6 +1930,14 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/routes/git-diff.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/routes/fs.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/routes/git.ts",

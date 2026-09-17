@@ -12,6 +12,8 @@ import { useConfigStore } from '../stores/useConfigStore.ts';
 import { ShellShortcuts, settingsOpenEventName } from './ShellShortcuts.tsx';
 import { SettingsWindow } from './settings/window.tsx';
 import { FilesView } from './files/FilesView.tsx';
+import { DiffView } from './diff/DiffView.tsx';
+import { GitView } from './git/GitView.tsx';
 import { BUILT_PAGE_SLUGS, type SettingsPageSlug } from './settings/search.ts';
 import { bindSettingsBridge } from '../lib/settings/store.ts';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
@@ -27,6 +29,7 @@ export function MainLayout(): ReactNode {
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
   const [settingsPage, setSettingsPage] = useState<SettingsPageSlug | null>(() => slugFromLocation());
   const [filesOpen, setFilesOpen] = useState(false);
+  const [reviewPane, setReviewPane] = useState<'' | 'diff' | 'git'>('');
 
   const closeSettings = useCallback(() => setSettingsPage(null), []);
   const openSettings = useCallback((slug: SettingsPageSlug) => setSettingsPage(slug), []);
@@ -149,9 +152,36 @@ export function MainLayout(): ReactNode {
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          data-testid="diff-toggle"
+          title="Changes"
+          onClick={() => {
+            setFilesOpen(false);
+            setReviewPane(reviewPane === 'diff' ? '' : 'diff');
+          }}
+        >
+          ⇆ diffs
+        </button>
+        <button
+          type="button"
+          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          data-testid="git-toggle"
+          title="Git"
+          onClick={() => {
+            setFilesOpen(false);
+            setReviewPane(reviewPane === 'git' ? '' : 'git');
+          }}
+        >
+          ⑂ git
+        </button>
+        <button
+          type="button"
+          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="files-toggle"
           title="Files"
-          onClick={() => setFilesOpen(!filesOpen)}
+          onClick={() => {
+            setReviewPane('');
+            setFilesOpen(!filesOpen);
+          }}
         >
           ▤ files
         </button>
@@ -168,6 +198,10 @@ export function MainLayout(): ReactNode {
       <div className="flex min-h-0 flex-1">
         {filesOpen ? (
           <FilesView directory={activeDirectory} visible />
+        ) : reviewPane === 'diff' ? (
+          <DiffView directory={activeDirectory} visible />
+        ) : reviewPane === 'git' ? (
+          <GitView directory={activeDirectory} />
         ) : (
           <>
             <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} />
