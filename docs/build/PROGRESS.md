@@ -262,6 +262,31 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   updated to registry semantics; new suites: ui registry/parse/persistence
   (200 total), web p5-3 settings + fs no-op (31 total). gates+smoke+graph.
 
+- 2026-09-17 · **P5-5 done (shortcuts engine, doc 14 §I).** lib/shortcuts/:
+  config (§I.1 table mirrored 1:1, 36 bindings incl. literal ctrl+/[, prefix
+  families, internals), bindings (chord grammar: aliases cmd/meta→mod,
+  option→alt, two-chord cap, empty-token rejection, bare-prefix ≥1-of-mod|
+  ctrl incl. mod+alt per §I.1; mac ⌃⌥⇧⌘ vs Ctrl/Alt/Shift named display +
+  named-key labels; §I.2 conflict rule; browser-risk feedback; authority
+  rules), schema (lookups + effectiveShortcutCombo override→default +
+  overrideIsPermitted), registry (first-bound wins + NEXT-IN-LINE
+  re-acquire on removal; nested suspend), dispatcher (armed mod+k FAMILY
+  with sibling candidates, 3000ms lazy expiry + boundary pins, Escape
+  consumed only while armed, mismatch clears w/o passthrough, digit
+  prefixes before normal chords, editable policy w/ AltGraph yield,
+  IME-composition rules incl. armed-second eligibility w/ preventDefault
+  decision pinned, mac/non-mac mod≡Ctrl aliasing, capture-phase second-key
+  listener), hooks (single window router, symmetric install/uninstall,
+  per-component useKeybind(s)). recorderConflict shaped for §I.3
+  (exact/prefix/none + replaceable + overrides-aware). Adversarial review
+  (sub-agent): P0 bare-prefix router crash fixed; P1×5 fixed (router
+  teardown closure, capture listener, AltGraph, arming editable gate,
+  registry re-acquire, recorderConflict API, vacuous IME test rewritten,
+  mac-ctrl pin); P2 pins (expiry boundaries, display labels, corrupt
+  tokens, key whitelist). Deferred to the settings-UI slice: recorder
+  page + main-app router wiring + §I.4/§I.5 ownership; §J formatters with
+  first Intl consumers. 250 UI tests (+30). web 33/33 · gates+smoke+graph.
+
 ## Delta/Delayed register
 
 | # | Item | Phase landing | Note |

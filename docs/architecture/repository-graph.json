@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:d3e67c6ced3408ec47cc649b0aebfaa96245ce640d58a0245164f8cd5a0508be",
+  "source_digest": "sha256:0a888fda6e5027918b5186c747a6b81e10352c7c15f3621128ca0ac319a7ef4f",
   "counts": {
-    "modules": 159,
+    "modules": 166,
     "component_edges": 11
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 52
+      "module_count": 59
     },
     {
       "id": "ui-shell",
@@ -690,6 +690,72 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/shortcuts/bindings.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/shortcuts/config.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/shortcuts/config.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/shortcuts/dispatcher.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/shortcuts/bindings.ts",
+        "packages/ui/src/lib/shortcuts/config.ts",
+        "packages/ui/src/lib/shortcuts/registry.ts",
+        "packages/ui/src/lib/shortcuts/schema.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/shortcuts/hooks.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/shortcuts/dispatcher.ts",
+        "packages/ui/src/lib/shortcuts/registry.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/shortcuts/index.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/shortcuts/bindings.ts",
+        "packages/ui/src/lib/shortcuts/config.ts",
+        "packages/ui/src/lib/shortcuts/dispatcher.ts",
+        "packages/ui/src/lib/shortcuts/hooks.ts",
+        "packages/ui/src/lib/shortcuts/registry.ts",
+        "packages/ui/src/lib/shortcuts/schema.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/shortcuts/registry.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/shortcuts/schema.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/shortcuts/schema.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/shortcuts/bindings.ts",
+        "packages/ui/src/lib/shortcuts/config.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/splash.ts",

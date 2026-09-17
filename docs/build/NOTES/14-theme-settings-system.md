@@ -28,7 +28,14 @@ what lands per slice.
   server gate + debounced PUT/mirror/auto-save machinery; fs-write no-op
   carry-over from P4-3.
 - **P5-4** — items 3(partial, settings primitives with the `settingsItem`
-  anchor), 7(SettingsWindow/pages/search), 8(i18n), 9(shortcuts).
+  anchor), 7(SettingsWindow/pages/search), 8(i18n), 9(shortcuts engine —
+  re-routed to P5-5), settings label keys.
+- **P5-5 (shortcuts engine, done)** — item 9: config/schema/bindings/
+  registry/dispatcher/hooks per §I.1–I.2 + §I.3 authority rules. NOT yet in
+  slice (registered): the settings Recorder page + main-app router wiring +
+  contextual ownership (§I.3/§I.4) ride the settings-UI slice; formatting
+  helpers (§J) and the appearance picker §G.4 wiring land with the settings
+  UI too.
   Count split recorded in PLAN/PROGRESS.
 
 ## B. Brand seam renames (openchamber → notnative/nnd; one list)
@@ -161,6 +168,52 @@ verbatim per P5-1 (they are design-system internals, not brand seams).
 | E8 | `getCurrentIntlLocale()` glue (BCP47ByLocale → Intl consumers, §H.2 intl.ts) | P6+ | mapping table shipped in runtime.ts; time/money formatters (doc §J) consume when they land |
 | E9 | `useI18n.ts` as a separate hook file | folded into context.tsx | doc parity note; single export surface kept |
 | E10 | normalizer collapse calls recorded | P5-4 done | bare `pt`/`pt-PT` → pt-BR; `es-419`/`en-GB` → base; LOCALES order is load-bearing for bare `zh` (pinned by test) |
+
+## I. P5-5 shortcut engine decisions (§I.1–I.3) + review dispositions
+
+Schema = 36 bindings mirrored 1:1 from §I.1 (17/5/7/3/4 across the five
+categories; literal `ctrl+]`/`ctrl+[`; prefix-style `mod` and `mod+alt`;
+internals `abort_run`, `cycle_thinking_variant`, `save_file`,
+`find_in_file`). Engine decisions (recorded, not in the doc):
+
+1. **Bare-prefix grammar** = ≥1 of mod|ctrl (alt/shift may join — §I.1's
+   `switch_context_surface` is `mod+alt`); `{alt}`/`{shift}` alone are
+   format errors. Empty `+` tokens rejected (corrupt overrides become
+   format errors, never ghost prefixes). Schema round-trip is tested.
+2. **Second chords are EXACT as declared** — `mod+k r`'s second is bare
+   `r`; a held-Ctrl second is a mismatch → prefix clears. Pin for the
+   recorder guidance copy.
+3. **Armed prefix = the whole sibling family** (mod+k arms ALL mod+k
+   candidates whose action has a live handler); arm-time snapshot of
+   candidates (registered decision — late-registrant handlers require
+   re-arming; the doc is silent, original OT re-resolved at dispatch).
+4. **Windows mod≡Ctrl aliasing**: non-mac chords `ctrl`→`mod` at match
+   time; mac keeps literal ctrl for ⌃]. AltGraph (win ctrl+alt) yields to
+   text entry in both routers (§I.2 verbatim).
+5. **Capture-phase second-key listener** added at router install (deferred
+   §I.4 consumers need it; inner stopPropagation cannot kill sequences).
+6. **Registry re-acquire**: removal promotes the next-in-line bound
+   handler (§I.4 toolbar over fallback contract is robust to unmount
+   order).
+7. **recorderConflict(actionId, combo, overrides)** returns
+   `{kind: exact|prefix|none, replaceable, otherActionId}` and resolves
+   opponents WITH the live overrides — recorder-spec-shaped for §I.3;
+   prefix conflicts block; exact customizable conflicts replace (loser →
+   UNASSIGNED); internals block, never replaceable.
+8. Expiry is strictly-greater (3000ms boundary dispatches; 3001 not) and
+   swept LAZILY by the next keydown (no timer).
+9. Display: named-key labels (comma→',', arrows→←/→, Esc); mac glyph
+   order ⌃⌥⇧⌘; names Ctrl/Alt/Shift.
+10. Review dispositions: P0 bare-prefix crash fixed; P1 router unInstall
+    closure leak fixed (module-stored listener refs, symmetric teardown
+    test); P1 capture listener; P1 AltGraph; P1 arming editable gate; P1
+    registry re-acquire; P1 recorderConflict shape; P1 IME armed-second
+    test made real (+preventDefault-during-composition decision: the
+    matched second key preventDefaults to avoid composition insertion —
+    pinned by test); P2 expiry pins, display tables, dead code, ghost
+    tokens, normalizeEventKey whitelist, I18nKey-typed labels +
+    round-trip label test. Deferred: recorder page, router wiring,
+    §I.4/§I.5 helpers (settings-UI slice), formatting §J.
 
 ## H. P5-3 review dispositions (adversarial sub-agent, 2026-09-17)
 
