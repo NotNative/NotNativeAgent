@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f724fdb1c8d748eb03ed6ee2d9cb16e64ff5c1dae6680da020770cae934a340d",
+  "source_digest": "sha256:45f28bce734b7fc921e2eb9c122bb9c5ce5db7658082eda08a02f27d5af7833a",
   "counts": {
-    "modules": 183,
+    "modules": 191,
     "component_edges": 11
   },
   "components": [
@@ -24,19 +24,19 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 64
+      "module_count": 68
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 47
+      "module_count": 50
     },
     {
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 22
+      "module_count": 23
     },
     {
       "id": "web-entry",
@@ -83,16 +83,16 @@
   ],
   "component_edges": [
     {
+      "from": "ui-shell",
+      "to": "runtime-io",
+      "import_count": 49,
+      "module_count": 20
+    },
+    {
       "from": "sync-engine",
       "to": "harness-facade",
       "import_count": 48,
       "module_count": 33
-    },
-    {
-      "from": "ui-shell",
-      "to": "runtime-io",
-      "import_count": 38,
-      "module_count": 17
     },
     {
       "from": "ui-shell",
@@ -416,6 +416,43 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/components/files/file-dialogs.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/files/FilesView.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/files/FileTree.tsx",
+        "packages/ui/src/components/files/file-dialogs.tsx",
+        "packages/ui/src/lib/files/api.ts",
+        "packages/ui/src/lib/files/edit-support.ts",
+        "packages/ui/src/lib/files/tabs-store.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/shortcuts/hooks.ts",
+        "packages/ui/src/lib/shortcuts/schema.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/files/FileTree.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/lib/files/api.ts",
+        "packages/ui/src/lib/files/directory-requests.ts",
+        "packages/ui/src/lib/files/edit-support.ts",
+        "packages/ui/src/lib/files/tabs-store.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/I18nProvider.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -435,6 +472,7 @@
         "packages/ui/src/chat/session-sidebar.tsx",
         "packages/ui/src/chat/session-tabs.tsx",
         "packages/ui/src/components/ShellShortcuts.tsx",
+        "packages/ui/src/components/files/FilesView.tsx",
         "packages/ui/src/components/settings/search.ts",
         "packages/ui/src/components/settings/window.tsx",
         "packages/ui/src/lib/nnd/client.ts",
@@ -629,6 +667,32 @@
     },
     {
       "path": "packages/ui/src/lib/chunkLoadRecovery.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/files/api.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/files/directory-requests.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/files/edit-support.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/files/tabs-store.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
@@ -1665,6 +1729,7 @@
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/lib/static.ts",
         "packages/web/src/server/routes/auth.ts",
+        "packages/web/src/server/routes/fs-read.ts",
         "packages/web/src/server/routes/fs-write.ts",
         "packages/web/src/server/routes/fs.ts",
         "packages/web/src/server/routes/git.ts",
@@ -1793,6 +1858,14 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/fs-read.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/routes/fs.ts"
       ]
     },
     {

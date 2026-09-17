@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
- * P4-1 filesystem routes (doc 03 §5.14 subset): list/search/git-dirs with
+ * P4-1 filesystem routes (doc 03 5.14 subset): list/search/git-dirs with
  * WORKSPACE-BOUND containment (mode 1 of two authorization modes). Target
  * paths must resolve inside the `directory` scope; symlink escapes map to
  * 403 'Access denied'. Responses echo the CALLER's path space.
@@ -53,7 +53,7 @@ function containedAfterRealpath(scopeDir: string, candidate: string): boolean {
   return resolveWithin(realpath(scopeDir), candidate) !== null;
 }
 
-/** §5.14 fs/list (P0-2 hardening): the TARGET must be realpath-contained in
+/** 5.14 fs/list (P0-2 hardening): the TARGET must be realpath-contained in
  * the scope realpath BEFORE any stat/readdir — a junction/symlink that escapes
  * the workspace maps to 403. Entry booleans report the lstat (link) plus the
  * target stat; links whose target escapes are listed but marked with
@@ -107,7 +107,7 @@ function joinChild(base: string, name: string): string {
   return base.endsWith(sep) ? `${base}${name}` : `${base}${sep}${name}`;
 }
 
-/** NND-extended server-side picker search (§D delta): bounded walk with the
+/** NND-extended server-side picker search (D delta): bounded walk with the
  * skip list + `.git` boundary (P1 review fix — .git internals never surface),
  * SYMBOLIC-LINK DESCENT SKIPPED unless the target realpath stays in scope,
  * filename filter, limit capped at 200. */
@@ -120,7 +120,7 @@ function searchFiles(query: QueryBag): Response {
   const rootReal = realpath(resolve(scopeDir, '.'));
   if (!containedAfterRealpath(scopeReal, rootReal)) return deniedResponse();
   if (!existsSync(rootReal)) return notFoundResponse();
-  const results: { path: string; name: string; isDirectory: boolean }[] = [];
+  const results: { path: string; relativePath: string; name: string; isDirectory: boolean }[] = [];
   const walk = (dir: string, depth: number, visited: number): number => {
     if (depth > GIT_DIRS_MAX_DEPTH || visited > GIT_DIRS_MAX_DIRS || results.length >= limit) return visited;
     let entries;
@@ -142,7 +142,7 @@ function searchFiles(query: QueryBag): Response {
       }
       const lower = name.toLowerCase();
       const matches = needle.length === 0 || lower.includes(needle) || relativePath.toLowerCase().includes(needle);
-      if (childStat.isFile() && matches) results.push({ path: relativePath, name, isDirectory: false });
+      if (childStat.isFile() && matches) results.push({ path: child, relativePath, name, isDirectory: false });
       if (descend) {
         visited = walk(child, depth + 1, visited);
         if (results.length >= limit) return visited;
@@ -155,7 +155,7 @@ function searchFiles(query: QueryBag): Response {
   return Response.json({ path: rootReal, query: needle, entries: results.slice(0, limit) });
 }
 
-/** §5.14 git-dirs (P1 fix): REQUIRED `directory` scope; the walk is realpath-
+/** 5.14 git-dirs (P1 fix): REQUIRED `directory` scope; the walk is realpath-
  * contained; root itself is NOT listed even when it holds `.git`. */
 function gitDirs(query: QueryBag): Response {
   const scopeDir = query.directory;

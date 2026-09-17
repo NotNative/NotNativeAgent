@@ -11,21 +11,22 @@ import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { useConfigStore } from '../stores/useConfigStore.ts';
 import { ShellShortcuts, settingsOpenEventName } from './ShellShortcuts.tsx';
 import { SettingsWindow } from './settings/window.tsx';
+import { FilesView } from './files/FilesView.tsx';
 import { BUILT_PAGE_SLUGS, type SettingsPageSlug } from './settings/search.ts';
 import { bindSettingsBridge } from '../lib/settings/store.ts';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
 import type { ComposerServices } from '../chat/composer.tsx';
 
-/** MainLayout (doc 01 §13.1) with the P3a chat product wired in + the P5-6
- * SettingsWindow (opens via the gear, `mod+,`, or `?settings=<slug>`). The
- * settings bridge + appearance appliers bind at APP BOOT (§F.3/§B.3), not
- * on first settings open, so duet overrides/appearance apply pre-open. */
+/** MainLayout (doc 01 §13.1) with the P3a chat product, the P5-6
+ * SettingsWindow (gear / mod+, / ?settings=<slug>) and the P6-1 FilesView
+ * (Files button; full surface with the tree over the chat column). */
 export function MainLayout(): ReactNode {
   const engine = mountEngine();
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
   const [settingsPage, setSettingsPage] = useState<SettingsPageSlug | null>(() => slugFromLocation());
+  const [filesOpen, setFilesOpen] = useState(false);
 
   const closeSettings = useCallback(() => setSettingsPage(null), []);
   const openSettings = useCallback((slug: SettingsPageSlug) => setSettingsPage(slug), []);
@@ -148,6 +149,15 @@ export function MainLayout(): ReactNode {
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          data-testid="files-toggle"
+          title="Files"
+          onClick={() => setFilesOpen(!filesOpen)}
+        >
+          ▤ files
+        </button>
+        <button
+          type="button"
+          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="settings-gear"
           title="Settings (Ctrl+Comma)"
           onClick={() => openSettings('general')}
@@ -156,8 +166,14 @@ export function MainLayout(): ReactNode {
         </button>
       </header>
       <div className="flex min-h-0 flex-1">
-        <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} />
-        <ChatView services={services} currentDirectory={activeDirectory} />
+        {filesOpen ? (
+          <FilesView directory={activeDirectory} visible />
+        ) : (
+          <>
+            <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} />
+            <ChatView services={services} currentDirectory={activeDirectory} />
+          </>
+        )}
       </div>
       {settingsPage !== null ? (
         <SettingsWindow initialPage={settingsPage} onClose={closeSettings} />

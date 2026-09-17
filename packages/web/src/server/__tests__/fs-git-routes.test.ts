@@ -63,12 +63,14 @@ describe('fs routes (§5.14)', () => {
     expect(body.error).toBe('directory parameter is required');
   });
 
-  it('search_filenames returns bounded relative-path matches that stay in scope', async () => {
+  it('search_filenames returns bounded matches (ABSOLUTE path + relativePath) in scope', async () => {
     writeFileSync(`${scope}${sep}mention-one.md`, '#x');
     const response = await get(`/api/fs/search?directory=${encodeURIComponent(scope)}&query=mention&limit=10`);
-    const body = await response.json() as { entries: { path: string }[] };
+    const body = await response.json() as { entries: { path: string; relativePath: string; name: string }[] };
     expect(response.status).toBe(200);
-    expect(body.entries.some((entry) => entry.path === 'mention-one.md')).toBe(true);
+    const hit = body.entries.find((entry) => entry.relativePath === 'mention-one.md');
+    expect(hit, JSON.stringify(body.entries)).toBeDefined();
+    expect(hit!.path.startsWith(scope)).toBe(true); // §2.9a: absolute usable for opening
   });
 
   it('search never escapes the workspace (absolute out-of-scope path is rebuilt in-scope)', async () => {

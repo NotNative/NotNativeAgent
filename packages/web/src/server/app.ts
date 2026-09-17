@@ -6,6 +6,7 @@ import { createStaticHandler, DIST_DIR } from './lib/static.ts';
 import { createAuthRoutes } from './routes/auth.ts';
 import { createNotNativeRoutes } from './routes/notnative.ts';
 import { registerFsRoutes } from './routes/fs.ts';
+import { registerFsReadRoutes } from './routes/fs-read.ts';
 import { registerGitRoutes } from './routes/git.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
@@ -71,6 +72,7 @@ export function createApp() {
   // P4-1: NND-owned fs/git surface — MUST register before the /api proxy
   // catch-all (Hono matches in registration order, doc 03 §5.14/§5.13).
   registerFsRoutes(app);
+  registerFsReadRoutes(app);
   registerGitRoutes(app);
   registerSettingsRoutes(app);
   registerProjectsRoutes(app);
