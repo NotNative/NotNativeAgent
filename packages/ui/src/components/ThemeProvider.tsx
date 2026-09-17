@@ -28,6 +28,7 @@ import {
 import { CSSVariableGenerator } from '../lib/theme/css-generator.ts';
 import { fetchCustomThemes } from '../lib/theme/custom.ts';
 import { onSettingsSynced } from '../lib/settings/persistence.ts';
+import { setSettingsField } from '../lib/settings/store.ts';
 import {
   DEFAULT_DARK_THEME_ID,
   DEFAULT_LIGHT_THEME_ID,
@@ -85,6 +86,12 @@ export function ThemeProvider({ children }: { children?: ReactNode }) {
     if (writeThemePreferences(next)) {
       writeThemeMirror(next, splashColors(next, catalogRef.current), nextVariant);
     }
+    // §G.4: the theme radio/pair WRITES the server fields (user intent only;
+    // the themeVariant derived key is computed server-side at read).
+    setSettingsField('themeId', nextVariant === 'dark' ? next.darkThemeId : next.lightThemeId);
+    setSettingsField('useSystemTheme', next.themeMode === 'system');
+    setSettingsField('lightThemeId', next.lightThemeId);
+    setSettingsField('darkThemeId', next.darkThemeId);
     setPrefs(next);
   };
 

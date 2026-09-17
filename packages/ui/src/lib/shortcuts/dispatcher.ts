@@ -252,16 +252,17 @@ export function armedShortcutActionId(): string | null {
   return armed?.candidates[0]?.actionId ?? null;
 }
 
-/** §I.3 recorder contract: full-schema conflict scan WITH overrides →
- * `exact` conflicts are replaceable iff the opponent is customizable
- * (loser gets UNASSIGNED); internal opponents block; shared FIRST-chord
- * sequences with different seconds are fine. */
+/** §I.3 recorder contract: full-schema conflict scan WITH overrides —
+ * exact matches win over prefix matches regardless of schema order
+ * (`exact` replaceable iff the opponent is customizable; the loser gets
+ * UNASSIGNED; prefix conflicts block). */
 export function recorderConflict(
   actionId: string,
   combo: ShortcutCombo | null,
   overrides: Record<string, string> = {},
 ): { kind: 'exact' | 'prefix' | 'none'; replaceable: boolean; otherActionId: string | null } {
   if (!combo || combo.chords.length === 0) return { kind: 'none', replaceable: false, otherActionId: null };
+  let prefix: { kind: 'exact' | 'prefix' | 'none'; replaceable: boolean; otherActionId: string | null } | null = null;
   for (const group of SHORTCUT_SCHEMA) {
     for (const decl of group.entries) {
       if (decl.id === actionId) continue;
@@ -270,14 +271,13 @@ export function recorderConflict(
       const bothExact = opponent.chords.length === combo.chords.length
         && equalsChord(opponent.chords[0]!, combo.chords[0]!, false)
         && (opponent.chords.length === 1 || equalsChord(opponent.chords[1]!, combo.chords[1]!, false));
-      const sharesFirst = equalsChord(opponent.chords[0]!, combo.chords[0]!, false);
       if (bothExact) {
         return { kind: 'exact', replaceable: decl.customizable === true, otherActionId: decl.id };
       }
-      if (sharesFirst) {
-        return { kind: 'prefix', replaceable: false, otherActionId: decl.id }; // prefix conflicts block (§I.3)
+      if (prefix === null && equalsChord(opponent.chords[0]!, combo.chords[0]!, false)) {
+        prefix = { kind: 'prefix', replaceable: false, otherActionId: decl.id };
       }
     }
   }
-  return { kind: 'none', replaceable: false, otherActionId: null };
+  return prefix ?? { kind: 'none', replaceable: false, otherActionId: null };
 }

@@ -287,6 +287,30 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   page + main-app router wiring + §I.4/§I.5 ownership; §J formatters with
   first Intl consumers. 250 UI tests (+30). web 33/33 · gates+smoke+graph.
 
+- 2026-09-17 · **P5-6 done (settings UI core).** components/settings/:
+  primitives (§A.3 blocks + settingsItem anchors incl. section anchors),
+  page-tree registry (§G.2: 6 built pages + landing notes for the rest —
+  never a silent gap), SettingsWindow (§G.1 chrome + §G.6 search jump w/
+  per-control highlight + close-refusal while recording + registry
+  suspension §I.2), pages appearance/chat/sessions/notifications/general/
+  shortcuts (§G.4/§G.5 subsets bound to the P5-3 registry through the
+  settings store; recorder dialog §I.3 w/ risk + conflict feedback and
+  confirm-stays-local), lib/shortcuts/recorder.ts (pure §I.3 machine),
+  lib/settings/{store,apply,font-options} (§F.3 apply step + §B.3/§B.4
+  appliers bound at app boot), lib/format/time.ts (§J), ShellShortcuts
+  (§I.2 router install mac-aware + open_settings/cycle_theme), theme pair
+  writes to the registry on user intent (§G.4), MainLayout gear + ?settings=
+  deep link. Adversarial review (sub-agent): P0×2 fixed (jsdom
+  scrollIntoView crash + jump assertions; cycle_theme invalid hook), P1×8
+  fixed (boot bind, anchor orphans + §G.6 resolution gate test,
+  customize-only rows, theme registry writes, mojibake sweep + new
+  quality-gate scan, isMac plumb, suspension + prefix invalidation,
+  opencodeBinary allowEmpty), P2 cluster (recorder pins, cornerRadius/goal
+  caps, single-sourced slugs). Registered deferrals E12–E18 (Base-UI dialog
+  upgrade, page i18n key sweep, deep-link history, notification permission
+  gating, voice/about slugs, recorder-dialog test file, control-form
+  deltas). 280 UI tests · web 33/33 · gates+smoke+graph.
+
 ## Delta/Delayed register
 
 | # | Item | Phase landing | Note |

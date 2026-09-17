@@ -24,6 +24,14 @@ export function isWebRuntime(): boolean {
   return !isDesktopShell() && !isVSCodeRuntime();
 }
 
+/** §I.1 platform split: mod = Cmd on macOS else Ctrl (affects the dispatcher
+ * event-chord derivation, the recorder strokes, and display glyphs). */
+export function isMac(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Mac|iPhone|iPad/u.test(navigator.userAgent) === true
+    && !(/iPhone|iPad/u.test(navigator.userAgent) && navigator.maxTouchPoints > 2 && /Macintosh/u.test(navigator.userAgent));
+}
+
 export function getClientPlatform(): 'ios' | 'android' | 'vscode' | 'desktop' | 'web' {
   if (isDesktopShell()) return 'desktop';
   if (isVSCodeRuntime()) return 'vscode';

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
- * P4-1 filesystem routes (doc 03 Â§5.14 subset): list/search/git-dirs with
+ * P4-1 filesystem routes (doc 03 §5.14 subset): list/search/git-dirs with
  * WORKSPACE-BOUND containment (mode 1 of two authorization modes). Target
  * paths must resolve inside the `directory` scope; symlink escapes map to
  * 403 'Access denied'. Responses echo the CALLER's path space.
@@ -29,7 +29,7 @@ function fail(c: { json: (body: unknown, status?: number) => Response }, status:
 /** Resolve a requested path against the workspace scope. CONTAINMENT IS
  * DEVICE-AWARE (P0-1): on Windows `relative()` returns an ABSOLUTE string for
  * cross-drive targets (accepted blind otherwise). `..bar` is a legal in-scope
- * filename â€” only exact `..` and `../` prefixes are traversal. */
+ * filename — only exact `..` and `../` prefixes are traversal. */
 export function resolveWithin(scopeDir: string, requested: string): string | null {
   const scopeRoot = resolve(scopeDir);
   const candidate = isAbsolute(requested) ? resolve(requested) : resolve(scopeRoot, requested);
@@ -53,8 +53,8 @@ function containedAfterRealpath(scopeDir: string, candidate: string): boolean {
   return resolveWithin(realpath(scopeDir), candidate) !== null;
 }
 
-/** Â§5.14 fs/list (P0-2 hardening): the TARGET must be realpath-contained in
- * the scope realpath BEFORE any stat/readdir â€” a junction/symlink that escapes
+/** §5.14 fs/list (P0-2 hardening): the TARGET must be realpath-contained in
+ * the scope realpath BEFORE any stat/readdir — a junction/symlink that escapes
  * the workspace maps to 403. Entry booleans report the lstat (link) plus the
  * target stat; links whose target escapes are listed but marked with
  * booleans false so UI treaters never dereference them (registered delta). */
@@ -107,8 +107,8 @@ function joinChild(base: string, name: string): string {
   return base.endsWith(sep) ? `${base}${name}` : `${base}${sep}${name}`;
 }
 
-/** NND-extended server-side picker search (Â§D delta): bounded walk with the
- * skip list + `.git` boundary (P1 review fix â€” .git internals never surface),
+/** NND-extended server-side picker search (§D delta): bounded walk with the
+ * skip list + `.git` boundary (P1 review fix — .git internals never surface),
  * SYMBOLIC-LINK DESCENT SKIPPED unless the target realpath stays in scope,
  * filename filter, limit capped at 200. */
 function searchFiles(query: QueryBag): Response {
@@ -155,7 +155,7 @@ function searchFiles(query: QueryBag): Response {
   return Response.json({ path: rootReal, query: needle, entries: results.slice(0, limit) });
 }
 
-/** Â§5.14 git-dirs (P1 fix): REQUIRED `directory` scope; the walk is realpath-
+/** §5.14 git-dirs (P1 fix): REQUIRED `directory` scope; the walk is realpath-
  * contained; root itself is NOT listed even when it holds `.git`. */
 function gitDirs(query: QueryBag): Response {
   const scopeDir = query.directory;

@@ -61,7 +61,7 @@ export const SETTINGS_REGISTRY: SettingsField[] = [
   // Workspace & instance facts
   f('lastDirectory', 'instance', pStr({ trim: true, max: 2048 }), { adopt: 'bootstrap-only' }),
   f('homeDirectory', 'instance', pStr({ trim: true, max: 2048 })),
-  f('opencodeBinary', 'instance', pStr({ trim: true, max: 2048 }), { note: 'harness binary path (brand pass pending, D13)' }),
+  f('opencodeBinary', 'instance', pStr({ trim: true, max: 2048, allowEmpty: true }), { note: 'harness binary path (brand pass pending, D13); empty clears the override' }),
   f('projects', 'instance', pList(pStr({ max: 2048 }), 64), { note: 'string paths v1; ProjectEntry[] with sidebarCollapsed when the projects UI lands (P6)' }),
   f('activeProjectId', 'instance', pStr({ trim: true, max: 256 }), { adopt: 'bootstrap-only' }),
   f('securityScopedBookmarks', 'instance', pSet(64), { surfaces: ['desktop'] }),
@@ -167,7 +167,7 @@ export const SETTINGS_REGISTRY: SettingsField[] = [
   f('uiFont', 'profile', pOneOf(['inter', 'fixel', 'geist-sans', 'atkinson-hyperlegible', 'source-sans-3', 'roboto', 'noto-sans', 'dm-sans', 'manrope', 'system']), { uiField: 'typography', autoSave: true }),
   f('monoFont', 'profile', pOneOf(['jetbrains-mono', 'fira-code', 'geist-mono', 'commit-mono', 'source-code-pro', 'cascadia-code', 'roboto-mono', 'iosevka', 'system-mono']), { uiField: 'typography', autoSave: true }),
   f('padding', 'profile', pNum(50, 200), { perSurface: true, uiField: 'typography', autoSave: true }),
-  f('cornerRadius', 'profile', pNum(0), { perSurface: true, uiField: 'typography', autoSave: true }),
+  f('cornerRadius', 'profile', pNum(0, 1024), { perSurface: true, uiField: 'typography', autoSave: true }),
   f('shortcutOverrides', 'profile', pRecord(pStr({ min: 1, max: 64 }), { maxEntries: 64 }), { uiField: 'shortcuts' }),
 
   // Models & agents (profile)
@@ -191,7 +191,7 @@ export const SETTINGS_REGISTRY: SettingsField[] = [
   f('sessionSuggestionEnabled', 'profile', pBool(), { uiField: 'session', autoSave: true }),
   f('sessionGoalEnabled', 'profile', pBool(), { uiField: 'session', autoSave: true }),
   f('sessionGoalDefaultBudgetEnabled', 'profile', pBool(), { uiField: 'session', autoSave: true }),
-  f('sessionGoalDefaultBudget', 'profile', pInt(1000), { uiField: 'session', autoSave: true }),
+  f('sessionGoalDefaultBudget', 'profile', pInt(1000, 100_000_000), { uiField: 'session', autoSave: true }),
   f('summarizeLastMessage', 'profile', pBool(), { uiField: 'session' }),
   f('summaryThreshold', 'profile', pInt(0), { uiField: 'session' }),
   f('summaryLength', 'profile', pInt(10), { uiField: 'session' }),

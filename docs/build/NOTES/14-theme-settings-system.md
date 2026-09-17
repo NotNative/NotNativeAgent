@@ -169,6 +169,42 @@ verbatim per P5-1 (they are design-system internals, not brand seams).
 | E9 | `useI18n.ts` as a separate hook file | folded into context.tsx | doc parity note; single export surface kept |
 | E10 | normalizer collapse calls recorded | P5-4 done | bare `pt`/`pt-PT` → pt-BR; `es-419`/`en-GB` → base; LOCALES order is load-bearing for bare `zh` (pinned by test) |
 
+## J. P5-6 settings-UI-core decisions (§A.3/§G/§I.3/§J/§B.3) + review dispositions
+
+Landed: primitives with `settingsItem` anchors (SettingsSection carries a
+section-level anchor too), the full page-tree registry (built pages:
+general/appearance/chat/notifications/sessions/shortcuts; everything else
+renders the registered-phase landing note), SettingsWindow + search index
+(§G.6 ids == rendered anchors, enforced by a resolution gate test),
+six built pages, the §I.3 recorder dialog + shortcuts page (customize-only
+rows; overrides ride `shortcutOverrides`), §J time/money/timezone,
+appearance appliers (rem-root scale, --padding-scale, radius remap delta
+E11, font choices — stacks only), ShellShortcuts router install (mac-aware)
++ shell-owned actions, settings bridge + appliers bound at APP BOOT,
+theme pair writes to the registry on USER INTENT, window-suspends-global
+registry (§I.2) and the recorder invalidates armed prefixes (§I.4),
+quality-gates gained the CP1252-mojibake scan.
+
+Review dispositions: P0-1 scrollIntoView crash (jsdom stub + per-control
+`data-settings-search-highlight` + timer cancel + jump assertions); P0-2
+cycle_theme invalid hook fixed (settler ref); P1 boot bind; P1 anchor
+orphans (fixed ids + section anchors + resolution net); P1 customize-only
+rows; P1 theme registry writes; P1 mojibake (chat/notifications/general/
+fs.ts + the gate); P1 `isMac()` plumbed into dispatcher + recorder strokes;
+P1 registry suspension + prefix invalidation; P1 `opencodeBinary`
+allowEmpty (empty clears the override). P2s landed: expiry/risk/exceeded/
+modifier-only recorder pins, per-control highlight, `BUILTIN_SLUGS`
+single-sourced, cornerRadius 0..1024 + goalBudget ≤1e8 parser caps,
+browser-risk badge in the dialog. REGISTERED deferrals — E12 Base-UI
+dialog upgrade (Escape-close/focus-trap/nested-dim/sr-only description),
+E13 page i18n key sweep (labels hardcoded en today; keys join the closed
+set page-by-page), E14 `?settings=` history integration, E15 notifications
+permission-denied gating + permission reconciliation, E16 `voice`/`about`
+slugs join the page registry with their pages, E17 recorder-dialog test
+file (its wiring attributes + confirm-stays-local are engine-pinned only),
+E18 control-form deltas (selects-for-radios on chat; enterToSend pair UI;
+terminalFontSize reset semantics; filePreview event dispatch in P6).
+
 ## I. P5-5 shortcut engine decisions (§I.1–I.3) + review dispositions
 
 Schema = 36 bindings mirrored 1:1 from §I.1 (17/5/7/3/4 across the five

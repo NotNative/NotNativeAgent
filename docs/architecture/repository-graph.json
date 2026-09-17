@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:0a888fda6e5027918b5186c747a6b81e10352c7c15f3621128ca0ac319a7ef4f",
+  "source_digest": "sha256:f724fdb1c8d748eb03ed6ee2d9cb16e64ff5c1dae6680da020770cae934a340d",
   "counts": {
-    "modules": 166,
+    "modules": 183,
     "component_edges": 11
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 59
+      "module_count": 64
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 35
+      "module_count": 47
     },
     {
       "id": "web-server",
@@ -90,6 +90,12 @@
     },
     {
       "from": "ui-shell",
+      "to": "runtime-io",
+      "import_count": 38,
+      "module_count": 17
+    },
+    {
+      "from": "ui-shell",
       "to": "sync-engine",
       "import_count": 29,
       "module_count": 12
@@ -99,12 +105,6 @@
       "to": "harness-facade",
       "import_count": 19,
       "module_count": 16
-    },
-    {
-      "from": "ui-shell",
-      "to": "runtime-io",
-      "import_count": 15,
-      "module_count": 8
     },
     {
       "from": "sync-engine",
@@ -434,7 +434,12 @@
         "packages/ui/src/chat/composer.tsx",
         "packages/ui/src/chat/session-sidebar.tsx",
         "packages/ui/src/chat/session-tabs.tsx",
+        "packages/ui/src/components/ShellShortcuts.tsx",
+        "packages/ui/src/components/settings/search.ts",
+        "packages/ui/src/components/settings/window.tsx",
         "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/settings/apply.ts",
+        "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/stores/useConfigStore.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/view-store.ts"
@@ -451,6 +456,128 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/settings/page-helpers.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/settings/store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/appearance.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/ThemeProvider.tsx",
+        "packages/ui/src/components/settings/page-helpers.tsx",
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/format/time.ts",
+        "packages/ui/src/lib/i18n/runtime.ts",
+        "packages/ui/src/lib/settings/font-options.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/chat.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/page-helpers.tsx",
+        "packages/ui/src/components/settings/primitives.tsx"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/general.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/page-helpers.tsx",
+        "packages/ui/src/components/settings/primitives.tsx"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/notifications.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/page-helpers.tsx",
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/sessions.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/page-helpers.tsx",
+        "packages/ui/src/components/settings/primitives.tsx"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/pages/shortcuts.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/page-helpers.tsx",
+        "packages/ui/src/components/settings/primitives.tsx",
+        "packages/ui/src/components/settings/recorder-dialog.tsx",
+        "packages/ui/src/lib/i18n/messages/en.ts",
+        "packages/ui/src/lib/shortcuts/bindings.ts",
+        "packages/ui/src/lib/shortcuts/config.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/primitives.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/components/settings/recorder-dialog.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/lib/platform.ts",
+        "packages/ui/src/lib/shortcuts/bindings.ts",
+        "packages/ui/src/lib/shortcuts/config.ts",
+        "packages/ui/src/lib/shortcuts/dispatcher.ts",
+        "packages/ui/src/lib/shortcuts/recorder.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/search.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/messages/en.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/settings/window.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/ErrorBoundary.tsx",
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/settings/pages/appearance.tsx",
+        "packages/ui/src/components/settings/pages/chat.tsx",
+        "packages/ui/src/components/settings/pages/general.tsx",
+        "packages/ui/src/components/settings/pages/notifications.tsx",
+        "packages/ui/src/components/settings/pages/sessions.tsx",
+        "packages/ui/src/components/settings/pages/shortcuts.tsx",
+        "packages/ui/src/components/settings/search.ts",
+        "packages/ui/src/lib/i18n/messages/en.ts",
+        "packages/ui/src/lib/shortcuts/registry.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/ShellChrome.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -461,11 +588,24 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/ShellShortcuts.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/ThemeProvider.tsx",
+        "packages/ui/src/lib/platform.ts",
+        "packages/ui/src/lib/settings/store.ts",
+        "packages/ui/src/lib/shortcuts/hooks.ts",
+        "packages/ui/src/lib/theme/themes.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/ThemeProvider.tsx",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/settings/persistence.ts",
+        "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/lib/theme/css-generator.ts",
         "packages/ui/src/lib/theme/custom.ts",
         "packages/ui/src/lib/theme/storage.ts",
@@ -492,6 +632,15 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/format/time.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/i18n/runtime.ts",
+        "packages/ui/src/lib/i18n/store.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/i18n/bootstrap.ts",
@@ -648,6 +797,21 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/settings/apply.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/settings/font-options.ts",
+        "packages/ui/src/lib/settings/store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/settings/font-options.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/ui/src/lib/settings/parse.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -690,6 +854,16 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/settings/store.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/settings/parse.ts",
+        "packages/ui/src/lib/settings/persistence.ts",
+        "packages/ui/src/lib/settings/registry.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/shortcuts/bindings.ts",
@@ -738,6 +912,15 @@
         "packages/ui/src/lib/shortcuts/hooks.ts",
         "packages/ui/src/lib/shortcuts/registry.ts",
         "packages/ui/src/lib/shortcuts/schema.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/shortcuts/recorder.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/shortcuts/bindings.ts",
+        "packages/ui/src/lib/shortcuts/dispatcher.ts"
       ]
     },
     {

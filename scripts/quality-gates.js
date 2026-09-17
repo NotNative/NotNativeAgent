@@ -54,6 +54,8 @@ function auditFile(label, source, errors) {
   if (source.length > MAX_SOURCE_BYTES) errors.push(`${label} is ${source.length} bytes (max ${MAX_SOURCE_BYTES})`);
   if (lines.some((line) => /[ \t]+$/u.test(line))) errors.push(`${label} has trailing whitespace`);
   if (!source.includes(SPDX_TOKEN)) errors.push(`${label} lacks SPDX identifier`);
+  // Encoding incident guard (P2/P5-6 history): CP1252-misread UTF-8 remnants.
+  if (/\u00C2[\u0080-\u00BF]|\u00E2\u20AC/u.test(source)) errors.push(`${label} has CP1252-mojibake sequences (encoding incident)`);
   const clean = lines.map((line) => blankLine(line));
   for (const span of functionSpans(clean)) {
     if (span.length > MAX_FUNCTION_LINES) {

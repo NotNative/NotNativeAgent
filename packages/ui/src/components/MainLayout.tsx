@@ -9,14 +9,40 @@ import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { useConfigStore } from '../stores/useConfigStore.ts';
+import { ShellShortcuts, settingsOpenEventName } from './ShellShortcuts.tsx';
+import { SettingsWindow } from './settings/window.tsx';
+import { BUILT_PAGE_SLUGS, type SettingsPageSlug } from './settings/search.ts';
+import { bindSettingsBridge } from '../lib/settings/store.ts';
+import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
 import type { ComposerServices } from '../chat/composer.tsx';
 
-/** MainLayout (doc 01 §13.1) with the P3a chat product wired in. */
+/** MainLayout (doc 01 §13.1) with the P3a chat product wired in + the P5-6
+ * SettingsWindow (opens via the gear, `mod+,`, or `?settings=<slug>`). The
+ * settings bridge + appearance appliers bind at APP BOOT (§F.3/§B.3), not
+ * on first settings open, so duet overrides/appearance apply pre-open. */
 export function MainLayout(): ReactNode {
   const engine = mountEngine();
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
+  const [settingsPage, setSettingsPage] = useState<SettingsPageSlug | null>(() => slugFromLocation());
+
+  const closeSettings = useCallback(() => setSettingsPage(null), []);
+  const openSettings = useCallback((slug: SettingsPageSlug) => setSettingsPage(slug), []);
+
+  useEffect(() => {
+    bindSettingsBridge();
+    bindAppearanceAppliers();
+  }, []);
+
+  useEffect(() => {
+    const onOpen = (event: Event): void => {
+      const detail = (event as CustomEvent<SettingsPageSlug | undefined>).detail;
+      openSettings(detail ?? 'general');
+    };
+    window.addEventListener(settingsOpenEventName, onOpen);
+    return () => window.removeEventListener(settingsOpenEventName, onOpen);
+  }, [openSettings]);
   const [services] = useState<ComposerServices>(() => ({
     engine,
     store: () => {
@@ -112,20 +138,41 @@ export function MainLayout(): ReactNode {
 
   return (
     <div className="flex h-screen flex-col flex-1 bg-neutral-900 text-neutral-100">
+      <ShellShortcuts />
       <header className="flex items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>
         <SessionTabs engine={engine} directory={activeDirectory} />
         <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] ${connected ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/40 text-red-300'}`} data-testid="connection-pill">
           {connected ? 'connected' : 'reconnecting'}
         </span>
+        <button
+          type="button"
+          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          data-testid="settings-gear"
+          title="Settings (Ctrl+Comma)"
+          onClick={() => openSettings('general')}
+        >
+          ⚙ settings
+        </button>
       </header>
       <div className="flex min-h-0 flex-1">
         <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} />
         <ChatView services={services} currentDirectory={activeDirectory} />
       </div>
+      {settingsPage !== null ? (
+        <SettingsWindow initialPage={settingsPage} onClose={closeSettings} />
+      ) : null}
       <Toaster position="bottom-right" />
     </div>
   );
+}
+
+/** `?settings=<slug>` deep link (PWA manifest shortcut target). */
+function slugFromLocation(): SettingsPageSlug | null {
+  if (typeof window === 'undefined') return null;
+  const raw = new URLSearchParams(window.location.search).get('settings');
+  if (raw === null || raw.length === 0) return null;
+  return (BUILT_PAGE_SLUGS as readonly string[]).includes(raw) ? (raw as SettingsPageSlug) : null;
 }
 
 function normalizeDirectoryInput(directory: string): string {

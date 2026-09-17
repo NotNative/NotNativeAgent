@@ -18,10 +18,11 @@ export function pBool(): ParserFn<boolean> {
   return (v) => (typeof v === 'boolean' ? v : null);
 }
 
-export function pStr(opts: { trim?: boolean; min?: number; max?: number } = {}): ParserFn<string> {
+export function pStr(opts: { trim?: boolean; min?: number; max?: number; allowEmpty?: boolean } = {}): ParserFn<string> {
   return (value) => {
     if (typeof value !== 'string') return null;
     const out = opts.trim ? value.trim() : value;
+    if (opts.allowEmpty === true) return out;
     if (out.length === 0) return null;
     if (opts.min !== undefined && out.length < opts.min) return null;
     if (opts.max !== undefined && out.length > opts.max) return null;
