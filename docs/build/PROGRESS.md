@@ -12,7 +12,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P5 themes/settings | 14 | 🔶 P5-1..5 done 2026-09-17 (P5-1 token block + D8; P5-2 theme system: 38 built-ins + derive + generator + §E.3 persistence + §E.6 validation, review P0+P1×5 fixed; P5-3 settings registry 186 fields + snapshot gate + §F.3 split store + server gate + client persistence engine + fs-write no-op, review P0×2+P1×6 fixed; P5-4 i18n scaffold (12 locales, closed en set, partial catalogs w/ en fallback, provider/store/runtime/bootstrap), review P0+P1×3 fixed; P5-5 shortcuts engine (36 bindings, grammar/registry/dispatcher/hooks, capture listener, AltGraph + IME rules, recorderConflict), review P0+P1×5 fixed; 250 UI · 33 web · gates+smoke+graph each; P5-6 settings UI (window/pages/search/recorder + §I.3/I.4 wiring + §J formatters) queued) |
 | P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
-| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a pairing payload + device store; P8-1b password/JWT/cookie sessions + URL tokens; P8-1c scope classifier + tunnel gate + /connect (reviewed); P8-1d passkeys server family (WebAuthn seam, binding store, /api/passkeys management, reset purge; real-ceremony E2E); 66 tests; steps 6-15 queued per NOTES/08 §A) |
+| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a-c reviewed; P8-1d passkeys + E2E; P8-2a relay identity + E2EE + tunnel codec primitives (reviewed, contracts probe-proven); broker/UX remainder queued per NOTES/08 §A) |
 | P9 autonomy | 12 | pending |
 | P10 knowledge/context | 15 | pending |
 | P11 preview | 13 | pending |
@@ -393,6 +393,29 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   authenticator (real CBOR/COSE) — plus P1×2 (corrupt userID regeneration,
   transports allowlist/caps) and the machinery split for file caps.
   184 web (+15 p8-1-passkeys) · 389 UI · typecheck+gates green.
+
+- 2026-09-18 · **P8-2a delivered (doc 08 relay steps 6/7: identity + Layer 2
+  + Layer 3 primitives).** RelayIdentityStore (strict regeneration gate,
+  serverId formula, ECDSA IEEE-P1363 URL auth verified through WebCrypto
+  as the worker would, ws/wss query rows), E2EE derivation chain
+  (ECDH→HKDF→two AES-GCM keys, IV prefix+BE counter, fail-closed decrypt
+  incl. replay/regression/version/GCM, 64 KiB cap), handshake grammar
+  (reduced JWKs, capability flags), tunnel codec byte contract (types
+  1-13, 5B header, odd stream ids, fragmentation with the 16 MiB
+  assembler bound, empty-body single chunk, payload shape guards).
+  Registered E-08-23 in NOTES/08. 195 web (+11 p8-2-relay-primitives) ·
+  389 UI · typecheck green.
+
+- 2026-09-18 · **P8-2a review fixed (sub-agent).** P1×2 (chunk-size cap
+  enforcement at MAX_TUNNEL_PAYLOAD_BYTES; BigInt-stepped wire counter
+  with a 2^53 exactness gate — Number() collapse probe-verified) + P2×4
+  (final-chunk assembler bound hole, 256-group pending flood cap, guard
+  strictness registered E-08-24, concurrent-mint singleflight) + test
+  junk replaced with real negative verification rows. All byte/parameter
+  contracts probe-proven (serverId order, P1363 sig, IV offsets, WHATWG
+  ws/wss rows). 201 web (+6) · 389 UI · gates+graph green; E-08-25
+  registered (a-e pending bounds/bigint/singleflight+LWW/fresh-ts/
+  outbound-cap deferrals).
 
 ## Delta/Delayed register
 

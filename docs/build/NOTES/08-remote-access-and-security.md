@@ -185,6 +185,67 @@ SSH -> reverse proxy -> invariants.
   browser + gate UX) rides the pairing/UX slice (E-08-6 family);
   settings-driven publicOrigin origin allowlist rides the settings
   runtime (E-08-22).
+- **P8-2a (delivered this slice)** - relay steps 6/7 primitives:
+  `lib/relay/identity.ts` — RelayIdentityStore over `<dataDir>/relay-
+  identity.json` {version:1, signing ECDSA P-256, encryption ECDH P-256,
+  both w/ private+public JWKs, 0600 atomic tmp+rename}; STRICT
+  regeneration gate (absent -> mint + persist + round-trip verify;
+  corrupt presence -> throw, never re-mint, because a new signing key
+  abuses a new serverId and orphans every paired device; E-08-23 pins
+  the dedicated-file posture until the settings registry gains relay
+  keys); serverId = base64url(sha256(canonical {crv,kty,x,y} JSON));
+  authParams signs `${ts}.${serverId}.${role}.${connectionId ?? ''}`
+  ECDSA-SHA256 IEEE P1363 (sig 86 b64url chars, pk = canonical JWK b64url
+  of the JSON string) with `relaySocketUrl(base, role, ts, …carry
+  ts/sig/pk/serverId/appId/v=1 (+platform/appVersion/grant/
+  connectionId))` building the doc 3.3 query rows w/ WHATWG ws/wss scheme
+  survival.
+  `lib/relay/crypto.ts` — Layer 2: ECDH P-256 deriveBits 256 -> HKDF-
+  SHA-256 (salt = handshake nonce 16B, info utf8 'openchamber-relay-v1',
+  512 bits) -> two AES-256-GCM keys per direction; per-direction IV =
+  4B random prefix + 8B BE counter from 1; frame `[v=1][12B IV][ct+16B
+  tag]`; 64 KiB plaintext cap; MAX_TUNNEL_PAYLOAD_BYTES reserves the 5+5
+  header/envelope bytes; fail-closed decrypt (>=29 B, version=1, counter
+  strictly > last, GCM) — counter read offset pinned at byte 5; hello/
+  ready grammar (clientPubJwk reduced to {kty,crv,x,y} — private d never
+  crosses the wire; capability flags echo only when true; foreign/junk
+  decode -> null).
+  `lib/relay/tunnel-codec.ts` — Layer 3: const-object frame types 1..13
+  (erasable-syntax contract, never renumbered), 5B header byte-exact
+  codec with the 0x80 fragment flag, odd-stream allocator (odd start
+  corrected), chunkPayload (empty body = ONE empty chunk),
+  encodeFragmentedMessage (WsText/WsBinary only), fragment assembler
+  bounded 16 MiB (non-fragmentable fragmented frames = CodecError),
+  JSON payload guards (HttpRequest/HttpResponse/StreamAbort/WsOpen/
+   WsOpened/WsClose shapes). Adversarial review pass (self) fixed, all
+   regression-tested: runaway tunnel-counter math (the decryptor read the
+   8 B BE counter via Number() — a hostile wire counter above 2^53-1 is
+   unrepresentable exactly and passed Number.isSafeInteger; now read as
+   BigInt, >2^53-1 rejected pre-GCM as 'exceeds the exact range', wire
+   counter 0 pinned rejectable); a fragment-assembler bound hole (the
+   FINAL chunk's bytes were never counted toward the 16 MiB cap — total
+   now checked at completion, bound-exact messages still legal); the
+   chunk-size budget (chunkPayload validates positive safe integers and
+   rejects sizes > MAX_TUNNEL_PAYLOAD_BYTES, doc 08 §3.5, so fragmented
+   frames can never violate the encrypted plaintext budget); an
+   unbounded-pending hardening (MAX_PENDING_FRAGMENT_STREAMS=256 distinct
+   (streamId,type) partials; a flood across many stream ids is a channel
+   error instead of memory growth; reset() frees slots); payload-guard
+   strictness E-08-24; identity hardening (concurrent resolve()
+   single-mints via a shared in-flight promise; leftover .tmp- mint
+   residue is never read — the reader opens only the canonical path;
+   truncated JSON is corrupt and refuses regeneration). Proven by
+   execution: relaySocketUrl WHATWG contract (base path/query preserved,
+   duplicate params replaced by set(), ws/wss schemes kept/lowercased,
+   base64url sig/pk/serverId emitted percent-free as the worker sees
+   them); authParams signed-domain negatives (role/connectionId/ts change,
+   empty connId slot -> WebCrypto verify false); IEEE P1363 r||s = 64 B =
+   86 b64url chars verified through WebCrypto. Cross-implementation
+   contract notes registered E-08-25. Tests 17 (p8-2-relay-primitives.test.ts).
+  NOT in this slice: the broker sockets/host control machine (3.3) +
+  framers/keepalive + the dispatcher/client mux (3.5/3.9/3.10) + demand
+  lifecycle (3.12) — next slices; the /health serverId field (E-08-2)
+  lands with the host service wire.
 - NOT yet in: password/JWT/cookie sessions, scope classifier + tunnel
   gate, and passkeys are now in; NEXT: relay (6-8), candidates (9),
   tunnels (10), UX (11-12), SSH (13), reverse proxy (14), invariants (15).
@@ -309,6 +370,44 @@ SSH -> reverse proxy -> invariants.
 - **E-08-22 (publicOrigin slot)**: §2.4's settings-driven additional
   expected origin is not wired yet — the origin allowlist carries the
   request origin only until the settings runtime lands (E-08-4 tail).
+- **E-08-23 (relay identity store file)**: section 3.2 stores the signing
+  and encryption keypairs in the settings registry; NND keeps them in a
+  dedicated atomic dataDir file (relay-identity.json) until the registry
+  gains relay keys. Machine-managed secrets, never user-editable; the
+  push-relay key sharing lands with the push slice. The strict
+  regeneration gate (never mint over a corrupt read) is honored.
+- **E-08-24 (payload-guard strictness)**: section 3.6 pins payload SHAPES
+  but not ranges; NND guards fail fast at parse: HttpResponse status must
+  be a safe integer 100..599 (the doc hands `status` to the client
+  Response; a malformed/600+ value constructing a nonsense Response was
+  rejected as a design), WsClose code must be a safe integer (dispatcher
+  later clamps to 1000..4999; NaN/Infinity never reach a byte writer) and
+  reason stays string-or-absent, HttpRequest.hasBody boolean-or-absent.
+  Cross-impl note: the reference OC client emits exactly these shapes, so
+  tightening cannot kill legitimate frames — a deviation would 4xx at the
+  guard level, not silently misparse.
+- **E-08-25 (relay primitives hardening choices, not doc-pinned)**:
+  (a) MAX_PENDING_FRAGMENT_STREAMS=256 — the doc bounds assembled MESSAGE
+  bytes only; the assembler's pending-groups map was growable by a
+  fragmented-frame flood across many stream ids; exceeding the bound is a
+  CodecError (fail closed, channel error posture, same as message
+  overflow).   (b) decryptor counter read is BigInt-exact: wire counters >
+  2^53-1 are rejected pre-GCM ('exceeds the exact range') — a correct
+  peer never mints one (2^53 frames is years of steady traffic even at
+  100 k frames/s); without this,
+  Number() collapsed 2^53 and 2^53+1 onto the same inexact value.
+  (c) RelayIdentityStore.resolve() single-mints process-wide under
+  concurrent calls (shared in-flight promise, identical identity object
+  handed to every concurrent caller); across PROCESSES a simultaneous
+  mint is last-writer-wins and acceptable — each process adopts whichever
+  self-consistent file its round-trip verify read, and the relay host
+  service slice mints once at boot. (d) Fresh-ts contract: authParams
+  records the caller's ts verbatim; the host service must mint ts at
+  socket open because a re-implementation worker rejects stale ts (doc
+  §3.2). (e) encodeFragmentedMessage caps chunk SIZE (via chunkPayload)
+  but not the total fragmented-message size — the outbound 16 MiB
+  counterpart of the assembler bound rides the framer slice with the host
+  WS maxPayload (§3.9); the peer assembler bounds it defensively today.
 
 ## C. Constants pinned this slice
 

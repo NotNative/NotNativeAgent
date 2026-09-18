@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f4c2b09549a6b2cb6324f6cf3d4355a13d0e286df8da29cb25ae3399256ef53a",
+  "source_digest": "sha256:65e2a9e8dbd6faa86684c6b48e868cda56d82652985505a64074b75501167b6a",
   "counts": {
-    "modules": 240,
+    "modules": 243,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 48
+      "module_count": 51
     },
     {
       "id": "web-entry",
@@ -2139,6 +2139,28 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/crypto.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/identity.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/identity.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/tunnel-codec.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/crypto.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/lib/settings-gate.ts",
