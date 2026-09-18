@@ -130,9 +130,11 @@ function writeIdentityFile(path: string, value: IdentityStoreShape, dataDir: str
 export class RelayIdentityStore {
   private identity: RelayIdentity | null = null;
   private inflight: Promise<RelayIdentity> | null = null;
+  private readonly dataDir: string;
   private readonly path: string;
 
-  constructor(private readonly dataDir: string) {
+  constructor(dataDir: string) {
+    this.dataDir = dataDir;
     this.path = joinPath(dataDir, 'relay-identity.json');
   }
 

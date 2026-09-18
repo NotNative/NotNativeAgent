@@ -12,7 +12,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P5 themes/settings | 14 | 🔶 P5-1..5 done 2026-09-17 (P5-1 token block + D8; P5-2 theme system: 38 built-ins + derive + generator + §E.3 persistence + §E.6 validation, review P0+P1×5 fixed; P5-3 settings registry 186 fields + snapshot gate + §F.3 split store + server gate + client persistence engine + fs-write no-op, review P0×2+P1×6 fixed; P5-4 i18n scaffold (12 locales, closed en set, partial catalogs w/ en fallback, provider/store/runtime/bootstrap), review P0+P1×3 fixed; P5-5 shortcuts engine (36 bindings, grammar/registry/dispatcher/hooks, capture listener, AltGraph + IME rules, recorderConflict), review P0+P1×5 fixed; 250 UI · 33 web · gates+smoke+graph each; P5-6 settings UI (window/pages/search/recorder + §I.3/I.4 wiring + §J formatters) queued) |
 | P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
-| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a-c reviewed; P8-1d passkeys + E2E; P8-2a relay identity + E2EE + tunnel codec primitives (reviewed, contracts probe-proven); broker/UX remainder queued per NOTES/08 §A) |
+| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a-c reviewed; P8-1d passkeys + E2E; P8-2a relay primitives (contracts probe-proven); P8-2b host broker reviewed; dispatcher/service/UX remainder queued per NOTES/08 §A) |
 | P9 autonomy | 12 | pending |
 | P10 knowledge/context | 15 | pending |
 | P11 preview | 13 | pending |
@@ -416,6 +416,22 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   ws/wss rows). 201 web (+6) · 389 UI · gates+graph green; E-08-25
   registered (a-e pending bounds/bigint/singleflight+LWW/fresh-ts/
   outbound-cap deferrals).
+
+- 2026-09-18 · **P8-2b delivered + reviewed (doc 08 §3.3/3.4/3.11 host
+  side).** Host control machine (outbound authenticated control socket,
+  30s ping / +10s pong grace, exponential reconnect 1s×2 cap 30s,
+  nonzero close → lastError, owner-guarded opens/closes; the inverted-
+  ternary reconnect wedge found and fixed), data legs (open timeout w/
+  clear-on-open, host-handshake responder integration, recv/send chain
+  discipline, 90s idle reaper swept at 30s), established-frame ROUTING
+  fix (duplicate hello re-answers the SAME ready; a different fingerprint
+  closes 1008; other text closes 1011 — the broker previously dead-routed
+  the responder), no-listener crash guard on CONNECTING teardown (P1),
+  one-close-decision guards, and a loopback fake worker (worker-parity
+  auth verify, 4001 replacement, upgrade gate, verbatim forwarding) as a
+  test-only prosthesis. E-08-26a–g + broker timing constants registered.
+  9 gates in p8-2-relay-host.test.ts · 210 web (+9) · 389 UI ·
+  typecheck+gates green.
 
 ## Delta/Delayed register
 

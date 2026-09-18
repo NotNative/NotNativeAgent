@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:65e2a9e8dbd6faa86684c6b48e868cda56d82652985505a64074b75501167b6a",
+  "source_digest": "sha256:29978122dd05985a9759b16dfc3e9ea720ab77024b1668968a993f3775eb3827",
   "counts": {
-    "modules": 243,
+    "modules": 245,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 51
+      "module_count": 53
     },
     {
       "id": "web-entry",
@@ -2145,6 +2145,25 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
+        "packages/web/src/server/lib/relay/identity.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/handshake.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/crypto.ts",
+        "packages/web/src/server/lib/relay/identity.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/host-broker.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/crypto.ts",
+        "packages/web/src/server/lib/relay/handshake.ts",
         "packages/web/src/server/lib/relay/identity.ts"
       ]
     },

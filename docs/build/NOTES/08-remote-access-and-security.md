@@ -240,12 +240,78 @@ SSH -> reverse proxy -> invariants.
    base64url sig/pk/serverId emitted percent-free as the worker sees
    them); authParams signed-domain negatives (role/connectionId/ts change,
    empty connId slot -> WebCrypto verify false); IEEE P1363 r||s = 64 B =
-   86 b64url chars verified through WebCrypto. Cross-implementation
-   contract notes registered E-08-25. Tests 17 (p8-2-relay-primitives.test.ts).
-  NOT in this slice: the broker sockets/host control machine (3.3) +
-  framers/keepalive + the dispatcher/client mux (3.5/3.9/3.10) + demand
-  lifecycle (3.12) — next slices; the /health serverId field (E-08-2)
-  lands with the host service wire.
+    86 b64url chars verified through WebCrypto. Cross-implementation
+    contract notes registered E-08-25. Tests 17 (p8-2-relay-primitives.test.ts).
+   NOT in this slice: the broker sockets/host control machine (3.3) +
+   framers/keepalive + the dispatcher/client mux (3.5/3.9/3.10) + demand
+   lifecycle (3.12) — next slices; the /health serverId field (E-08-2)
+   lands with the host service wire.
+- **P8-2b (delivered this slice)** - relay step 7 host side: the HOST
+  broker (`lib/relay/host-broker.ts`) + the two handshake state machines
+  (`lib/relay/handshake.ts`), driven end to end through a LOOPBACK fake
+  relay worker (test-only prosthesis: worker-parity ECDSA verify against
+  the presented pk, 4001 one-host-slot replacement, verbatim binary
+  forwarding, upgrade gates for observing timing windows).
+  `handshake.ts` — host responder: hello grammar validate -> negotiate
+  (both-peers-advertise) -> ready re-answer; the readyText is stored
+  BEFORE the derive so an interleaved retry sees an in-flight answer (E-
+  08-26a); client initiator: hello re-sent on the retry cadence until the
+  ready arrives, overall deadline fails the attempt (1011); duplicate
+  ready after establishment is ignored (echoes stay legal, matching the
+  doc's client rule).
+  `host-broker.ts` — control machine: ONE outbound control socket with
+  ping 30 s + quiet-window beyond interval + 10 s grace terminate ->
+  exponential reconnect 1 s x2 cap 30 s; a nonzero close code becomes
+  lastError ('control closed (<code>)') and open clears it; state
+  disabled/connecting/connected/reconnecting surfaces in getStatus
+  {state, serverId, connectedClients, relayUrl, lastError}; the
+  reconnect-open returns the machine to `connected` (the first-open
+  ternary was inverted and pinned a recovered control at `reconnecting` —
+  fixed) and superseded dial sockets carry owner guards so a stale open/
+  close never steers the machine.
+  Data legs: each connected client announcement triggers one host-data
+  socket (open timeout 15 s, terminated + 1012 'open timeout' on miss;
+  the timer is CLEARED on socket open — it used to hover over healthy
+  legs and kill them 1012 late) running the real responder, then
+  established binaries decrypt fail-closed (1011 on any decrypt failure)
+  through a serialized receive chain, and outbound frames encrypt through
+  a per-leg send chain so ECDH-counter ticks hit the wire in order; the
+  64 KiB plaintext cap rejects oversize sends without touching the chain;
+  legs pair 1:1 by connectionId (skip when one exists), survive a CONTROL
+  blink (legs ride their own relay sockets; only announcement/disconnect/
+  sync messages move them), and the idle reaper sweeps every 30 s closing
+  legs silent >90 s with 1001 (close code 1001, count freed; every
+  inbound frame refreshes; production timing defaults: controlPingMs
+  30000, pong grace 10000, dataOpenTimeoutMs 15000, dataIdleMs 90000,
+  sweep 30000, reconnect 1000 x2 cap 30000 — the SHORT test timing is
+  per-test override only).
+  Established-TEXT routing fix (the slice's load-bearing repair): the
+  broker NEVER becomes the 1011 authority on established channels — TEXT
+  frames route into the responder, which re-answers the IDENTICAL-hello
+  retry (same key fingerprint, ready resent), closes 1008 on a rekey
+  attempt (different fingerprint, never rekey in place) and 1011 on
+  strays (doc 08 §3.4; the previous routing short-circuited every text
+  as 1011 and made the 1008 path dead). Foreign 'ready' text after
+  establishment still closes 1011 through the responder.
+  Adversarial fixes, all regression-tested: ws sockets are ALWAYS armed
+  with an error listener — ws aborts a CONNECTING socket by emitting
+  'error' WITHOUT listeners on the next tick, which crashed the process
+  out of the open-timeout teardown (emerges as an unhandled exception
+  one tick after a green test otherwise); `finish()` is single-shot (the
+  close-decision map check guards onLegClosed so the responder close and
+  the ws-close event can never double-report); legs close exactly once.
+  Tests 9 (p8-2-relay-host.test.ts): control connect/4001-replacement
+  with gate-observed lastError, E2EE leg both directions + late-frame
+  (openTimer-clear regression) + oversize reject, sync reconciliation
+  (drop closed by sync 1000 exactly, keep legs untouched), idle reaper
+  1001 + pairing teardown propagation, rekey-1008/plaintext-1011,
+  duplicate-hello re-answer, host-data open timeout 1012, dead-relay
+  supervision.
+  NOT in this slice: tunnel framer/dispatcher (3.5/3.9/3.10), the
+  machine claim/demand lifecycle (§3.12) — the broker assumes the claim,
+  the WS maxPayload needle rides the framer slice, and the
+  fake worker stays test-only (the real 3.3 host-socket rows validated
+  through relaySocketUrl in P8-2a).
 - NOT yet in: password/JWT/cookie sessions, scope classifier + tunnel
   gate, and passkeys are now in; NEXT: relay (6-8), candidates (9),
   tunnels (10), UX (11-12), SSH (13), reverse proxy (14), invariants (15).
@@ -406,8 +472,35 @@ SSH -> reverse proxy -> invariants.
   socket open because a re-implementation worker rejects stale ts (doc
   §3.2). (e) encodeFragmentedMessage caps chunk SIZE (via chunkPayload)
   but not the total fragmented-message size — the outbound 16 MiB
-  counterpart of the assembler bound rides the framer slice with the host
-  WS maxPayload (§3.9); the peer assembler bounds it defensively today.
+   counterpart of the assembler bound rides the framer slice with the host
+   WS maxPayload (§3.9); the peer assembler bounds it defensively today.
+- **E-08-26 (host broker postures, decisions not doc-pinned)**:
+  (a) Established-TEXT authority sits in the responder, not the broker:
+  the broker routes post-established TEXT frames into the responder and
+  only the responder decides duplicate-Hello re-answer / rekey-1008 /
+  plaintext-1011. Without this the broker's 1011 short-circuit made the
+  doc §3.4 duplicate-hello rule (and its 1008 rekey gate) dead code.
+  (b) CONNECTING-socket teardown discipline: ws emits 'error' with zero
+  listeners when a handshake-phase socket is aborted (terminate/close on
+  a still-connecting dial) — every broker-owned socket carries a listener
+  so a stuck relay dial can never kill the host process; the close event
+  owns the leg bookkeeping.
+  (c) One close decision per leg: the finish() path is map-guarded so the
+  responder close, the open-timeout and the ws-close event can never
+  double-fire onLegClosed (hosts observe leg-life decisions in order).
+  (d) The reconnect-open returns the machine to `connected` and clears
+  lastError on the fresh open; only a nonzero close code during
+  disconnects labels lastError. (e) Control-sweep timings stay as the
+  machine defaults in code (see section C); tests ride SHORT overrides
+  per harness — the current restored from `timing` merge.   (f) The probe
+  of ws's CONNECTING-abort also re-pinned that a client-initiated
+  ws.close(1001) completes the full server-side close handshake through
+  the relay pairing (idle-reaper teardown reaches the client leg as
+  frames, not zombies). (g) Host-broker sendToClient rejects (no
+  established leg / 64 KiB oversize) with a plain rejected promise — the
+  demand-lifecycle slice owns catch-or-ignore discipline at its call
+  sites; the leg's own chain self-heals (catch) so a failed send can
+  never stall subsequent frames on the same leg.
 
 ## C. Constants pinned this slice
 
@@ -426,3 +519,8 @@ allowlists per section 2.6; client token `oc_client_` + 32 B b64url
 (HttpOnly, SameSite=Lax) and 401 text 'Connection link is invalid or expired.'
 otherwise; credential endpoints at tunnel scope answer 403 with
 `tunnelLocked:true`.
+Relay host broker: control ping 30000 / pong grace 10000 (quiet window
+beyond interval + grace terminates) / reconnect 1000 x2 cap 30000;
+data open timeout 15000, idle reaper closes inbound-silent legs at
+90000 with 1001, sweep 30000. Test-only SHORT timing overrides live in
+the harness (per-test `timing` merge), never in production defaults.
