@@ -384,15 +384,130 @@ SSH -> reverse proxy -> invariants.
   loopback sockets/pools get `closeIdleConnections` hygiene in the
   harness. Tests 18 (p8-2-relay-dispatcher.test.ts).
   NOT in this slice: the client-side section 3.10 surface (deferred to
-  the pairing/UX slice), the batcher + scheduler + flowControl/batch
-  negotiation wiring into the leg (rides the client slice + host service
-  assembly), leg-level 1011 closure on scheduler/codec violations (the
-  `failLegSafe` sites are stubs awaiting the leg slice), and WS-downstream
-  backpressure stays eager-enqueue (upload pacing is client-side; the
-  bounded-queue abort page rides the machine-claim slice).
+  the pairing/UX slice), and WS-downstream backpressure stays
+  eager-enqueue (upload pacing is client-side; the bounded-queue abort
+  page rides the pairing/UX slice); the batcher+scheduler wire into the
+  leg and the leg-level 1011 closures LANDED with P8-3a.
 - NOT yet in: password/JWT/cookie sessions, scope classifier + tunnel
-  gate, and passkeys are now in; NEXT: relay (6-8), candidates (9),
-  tunnels (10), UX (11-12), SSH (13), reverse proxy (14), invariants (15).
+  gate, passkeys, and the relay stack are now in; NEXT: pairing store +
+  §5.4-5.7 + candidate refresh (9/§3.13), tunnels (10), pairing+instance
+  UX (11-12), SSH (13), reverse proxy (14), invariants (15).
+- **P8-3a (delivered this slice)** - checklist step 8 tail: the relay HOST
+  SERVICE lifecycle (§3.12), the machine claim, the §3.15 management
+  routes, the §3.13 relay candidate + /health serverId (E-08-2), and the
+  PRODUCTION leg mux assembling §3.5-3.9.
+  `relay-config.ts` - the machine-owned `{enabled, relayUrl}` store in
+  `<dataDir>/relay-config.json` (E-08-28: dedicated file until the settings
+  registry gains relay keys; 0600 atomic tmp+rename; STRICT reader flags
+  corrupt presence and `write()` refuses — the service never heals a
+  drifted shape, mirrors the E-08-23 posture); env helpers: relay URL
+  chain env -> stored -> default `wss://relay.openchamber.dev/ws` with
+  `relayUrlLocked` pinned by a valid env, hold-out rows (§11.1:
+  `NOTNATIVE_RELAY_HOST` off/on + `NOTNATIVE_ELECTRON_DEV` with the
+  on-override), and the batch-window env (1..5000 clamp, default 150)
+  consumed by leg batches (review P2: the helper was dead until wired).
+  `host-lock.ts` - `relay-host.lock` = `{pid, claimedAt}` w/ injectable
+  liveness: tryClaim only vs NO LIVE claimant (kill(pid,0); ESRCH stale
+  claimable; EPERM alive), forceClaim unconditional (pairing/enable),
+  release deletes only the owner file, corrupt read == no-claim (the
+  worker 4001 arbitration is the authority per the pre-lock posture),
+  claimed/contended/write-failed tri-state (review P1: a write failure
+  must behave pre-lock — the host still starts; warn dedupes per failure
+  streak and re-arms on success).
+  `host-service.ts` - RelayHostService: reconcile = Promise.allSettled
+  demand signals, ANY affirmative wins, a failed check with no affirmative
+  THROWS (never fake no-demand); demand true -> persist `enabled:true` +
+  start, false -> persist + stop; sources = boot, the 60 s poll (tests
+  retime), and future pairing/revoke call sites (ensureEnabledForPairing/
+  candidate now; revoke/purge join the pairing slice); claim arbitration:
+  non-force start tryClaims, a live foreign claimant stands the host down
+  into `standby` with the pid-naming lastError, the 30 s watcher re-tests,
+  a freed claim is taken ONLY after the 120 s grace (both the watcher and
+  the demand path honor it), a FRESH boot tryClaims instantly ("clean
+  restart always wins the window"); hold-out instances never host on
+  boot/demand/watcher but DO on explicit force (§3.15 enable /
+  ensureEnabledForPairing), reporting a standby-style state with an
+  explanatory lastError; `disable()` persists false, stops the host and
+  RELEASES the claim but KEEPS the poll/watcher machines armed (review P1:
+  after disable, a later headless pairing write must be able to re-host —
+  the poll is the recovery path); `enable()` normalizes (ws/wss kept,
+  junk/absent falls back to the default), persists, RESTARTS force-claim;
+  `ensureEnabledForPairing()` writes enabled, force-claims (no churn when
+  running), returns the candidate; cor Config corrupt => ensure/enable
+  THROW (route 500), disable degrades to off. getStatus answers
+  `{enabled, state disabled|connecting|connected|reconnecting|standby,
+  serverId, connectedClients, relayUrl, relayUrlLocked, lastError}` with
+  the multi-instance signature text. Singleton `getRelayHostService()`
+  shared by boot + routes (boot options win; routes resolve option-less).
+  `routes/relay.ts` - §3.15 rows behind the global UI gate inside the
+  registerApiSurfaces block (before the /api proxy catch-all): GET status
+  (200/500), POST enable `{relayUrl?}` JSON w/ a 16 KiB BOUNDED reader
+  (400 on oversize/non-JSON/non-string — review P2: the body was buffered
+  before the cap), POST disable. `index.ts` boot: `getRelayHostService
+  ({demandSignals:[uiAuth.hasActiveRelayClients], localPort: ENV.port,
+  platform: runtime, appVersion: version}).start()` + shutdown dispose;
+  the pairing-session demand signal (§5.4 hasActiveRelaySession) JOINS
+  with the pairing store slice.
+  `/health` gains `serverId` (E-08-2) via the SHARED identity
+  singleton (`getSharedRelayIdentityStore`, same-dir rebinding for test
+  suites + reset seam) and `peekRelayServerId()` fail-soft resolve — never
+  a 500 on identity trouble; /ui-auth gained the hasActiveRelayClients
+  accessor so the demand signal never builds a parallel store.
+  `leg-host.ts` + assembly - the production leg mux per established E2EE
+  leg: ingress = broker's decrypted frame payload -> MIXED-MODE demux
+  (E-08-30: [0x00] single, [0x01] N-frame batch, else BARE frame — the
+  §3.7 carrier ships envelope-free setup/teardown/keepalive; the demux
+  rule is parse-validated: 0x01 is a container ONLY when an exact
+  multi-segment run of buffered-type frames parses, otherwise bare-frame
+  fallback, fail-closed junk -> channel error) -> per-(stream,type)
+  fragment assembler -> dispatcher.handleFrame; egress = dispatcher ->
+  OutboundFrameBatcher (offerEncoded entry, buffered types only, window
+  env consumed, timer unref'd) -> raw carrier = broker.sendToClient; the
+  channel failure seam is ONE-SHOT (dispatcher failLegSafe now disposes +
+  reports; scheduler onError joins) and the leg closes 1011 named.
+  `dispatcher.ts` gained `onChannelFailure` + `sendFrameNow` (terminal
+  rows — the 1008 refusal, the upstream-close mirror, and the
+  StreamAbort-after-release — bypass the §3.8 queue because their own
+  `releaseStream` cancel would otherwise eat the not-yet-pumped frame;
+  the batcher still flushes pending work first so per-stream order holds:
+  the wire probe caught the lost 1008). Broker: `terminateLeg` public;
+  `onLegEstablished` carries the NEGOTIATED caps so the leg mux knows
+  batch/flowControl truth. `loopback-adapters.ts` gained the production
+  `ws` dial (RealLoopbackSocket: origin + x-openchamber-relay-connection
+  injected, 16 MiB maxPayload, CONNECTING-queued send, close/terminate;
+  the E-07-3 loopback posture verified: the dial is 127.0.0.1 so the wire
+  gate classifies local; the device still brings its own URL token/cookie
+  — no credential injection, §3.9/§3.16). The dispatcher file-cap extract
+  pulled TunnelRequestBody into `request-body.ts` (P8-2c convention).
+  Review fixed P0×2: (1) dispatcher 511 lines -> request-body extract;
+  (2) THE 0x01 COLLISION — type 1 HttpRequest IS byte 0x01, so every
+  spec-compliant bare setup frame vs the container tag was ambiguous and
+  the first rule 1011'd every client leg; the demux rule now parses the
+  length-prefix run instead of trusting the tag (residual aliasing is
+  unreachable for JSON payloads; documented in batch.ts). P1×3: claim
+  write-failure stood hosts down (tri-state), disable() killed the
+  machines, unhandled-rejection surface on the direct carrier (sendFrame
+  no-flowControl + leg-host no-batch + sendFrameNow convert to the
+  one-shot fail). P2×3: batch-window env consumed, bounded enable body,
+  batcher timer unref. Tests 45 across three files: p8-3-relay-host-lock
+  (17: config round-trip/corrupt-refusal/ws-shape, claim
+  claim/own-refresh/stale/EPERM/release-only-own/corrupt-overwrite,
+  env chain/hold-out/clamps), p8-3-relay-service (22: the demand matrix
+  incl. throw-aborts + affirmative-wins, hold-out suppression + force
+  bypass, foreign-claim standby + watcher stand-down + 120 s grace +
+  boot instant reclaim + poll-resumes-after-disable, ensure/enable/disable
+  truths incl. corrupt 500s, §3.15 routes through the real gate w/ the
+  400 shapes, /health serverId), p8-3-relay-wire (6: the PRODUCTION wire
+  E2E — real broker + leg mux + real loopback stub: HTTP both ways incl.
+  a BARE HttpRequest frame, WS upstream both ways with real WsOpen/WsClose
+  codes, replay closes the leg; the loopback fake worker extracted to
+  `__tests__/helpers/relay-fake-worker.ts` and shared).
+  NOT in this slice: pairing session store + §5.5 routes + redeem
+  (§5.4-5.7) + the LAN candidate refresh endpoint (§3.13 step 9 next);
+  client §3.10 surface w/ the E-08-27 window heuristics + §2.5 passkey
+  client lib (pairing/UX slices); the revoke/purge reconcile call sites
+  (device routes, E-08-13 family); SSH/host-lock over network claim
+  detail beyond process.kill; settings-registry relay keys.
   NOT wired: /api/client-auth/clients authority routes (§2.7 core-routes
   set, E-08-13) - they ride with the pairing/UX slice; the settings-store
   `readStoredSecretValue` accessor exists for that wiring. /api/system/
@@ -591,6 +706,55 @@ SSH -> reverse proxy -> invariants.
   excludes keepalives, so pings can never sit as outstanding boundary
   references). The heuristics land with the client-side 3.10 slice and
   its ACK RTT telemetry.
+- **E-08-28 (relay config store file)**: §3.12/§11.2 author
+  `privateRelay = {enabled, relayUrl}` in the settings registry; the
+  registry has no relay keys yet, so NND keeps the machine-owned pair in
+  a dedicated atomic dataDir file `relay-config.json` (0600; strict
+  reader; corrupt presence is flagged, never healed, writes refuse) —
+  the E-08-23 posture. The registry migration rides the settings/auth
+  slices. `relayUrlLocked` pins a VALID `NOTNATIVE_RELAY_URL`; an
+  invalid env falls through the chain rather than corrupting boot
+  (the doc's env row assumes a valid value).
+- **E-08-29 (machine claim postures, not doc-pinned)**: (a) a corrupt
+  `relay-host.lock` reads as no-claim and is overwritten by the next
+  claim — an attacker with data-dir write access already owns the
+  machine, and the worker's 4001/identity arbitration remains the
+  authority (pre-lock posture; string-pinned by test). (b) Claim WRITE
+  failure is a tri-state (`claimed|contended|write-failed`): only
+  `contended` stands a host down; `write-failed` proceeds ("behaves
+  pre-lock") so a read-only data dir cannot hold the relay hostage.
+  (c) The liveness probe is injectable (tests fake dead/foreign pids);
+  default = `process.kill(pid, 0)` with ESRCH stale / EPERM alive.
+  (d) The takeover grace is measured from standby ENTRY (not from the
+  claim's death) — simple, monotonic, and the watch/poll/reconcile all
+  honor the same clock; a fresh boot carries no standby and reclaims
+  instantly. (e) `disable()` releases the claim but KEPT the 60 s poll
+  and the 30 s watcher armed (P8-3a review fix): a later headless
+  pairing write re-hosts within a minute without a reboot.
+- **E-08-30 (mixed-mode L2 demux)**: the shared §3.7 batcher ships
+  buffered singles as `[0x00]`, N-frame groups as `[0x01](len|frame)*N`,
+  and setup/teardown/keepalive rows ENVELOPE-FREE (pinned by the P8-2c
+  chain). The receiving demux (`decodeFrameOrContainer`) therefore
+  treats a bare frame as a legal single. The naive "types never equal
+  0x00/0x01" rule was WRONG (type 1 HttpRequest IS byte 0x01 — caught
+  by review P0): the shipped rule treats `0x01` as a container ONLY
+  when an exact length-prefixed multi-segment run parses where every
+  segment is ≥ header-sized and every segment header type is a
+  buffered type (the only frames a producer of `[0x01]` ever embeds);
+  bare fallback otherwise; junk fails closed (channel error). Residual
+  aliasing (a client that sends a bare HttpRequest whose streamId
+  bytes continue to look like a buffered-type container) is
+  self-inflicted, unreachable for JSON payloads, and contained by the
+  stream dispatcher.
+- **E-08-31 (terminal rows bypass the §3.8 queue)**: the 1008 refusal,
+  the upstream-close mirror, and the StreamAbort-after-release ship
+  through `sendFrameNow` (direct carrier, batcher flush-first) because
+  their own `releaseStream`/`abortStream` cancel would otherwise drop
+  the not-yet-pumped close — found by the production wire probe (the
+  fake-worker harness consumed its own frames asymptomatically).
+   Dispatcher-tier refuses (fragmented non-WS) remain non-fatal frame
+   refusals; the LEG-HOST assembler owns the channel-level kill via the
+   codec's throw (1011).
 
 ## C. Constants pinned this slice
 
@@ -619,6 +783,17 @@ maxBatchFrames 32 (envelope reserve 1+4 B); downstream window starts
 64 KiB (cap 1 MiB constant, E-08-27), queue caps 4 MiB bytes / 4096
 frames / 4096 outstanding; response chunks 8 KiB under flow control
 (legacy budget 64 KiB - 10); request-body buffer cap 512 KiB, delivery
-deadline 15 s; WS re-chunk cap = MAX_TUNNEL_PAYLOAD_BYTES; close codes
+ deadline 15 s; WS re-chunk cap = MAX_TUNNEL_PAYLOAD_BYTES; close codes
 clamp 1000..4999 (default 1000); ws allowlist = the five path set from
 section 3.9 (shared with the URL-token WS list).
+Relay host service (P8-3a): claim watcher 30000, demand poll 60000,
+CLAIM_TAKEOVER_GRACE_MS 120000 (standby-clock; boot reclaims via
+tryClaim with no grace); default relay endpoint
+`wss://relay.openchamber.dev/ws`; relay-config/locks are dedicated
+dataDir files (`relay-config.json` 0600, `relay-host.lock` 0644 —
+pid+timestamp non-secret; E-08-28/29); enable body cap 16 KiB
+(bounded stream); batch-pump env `NOTNATIVE_RELAY_BATCH_WINDOW_MS`
+clamp 1..5000 default 150; hold-out envs `NOTNATIVE_RELAY_HOST`
+off/on + `NOTNATIVE_ELECTRON_DEV` (on wins). Machine files per
+instance: serverId + lock + config share the dataDir across instances
+by design (identity arbitration at the worker).

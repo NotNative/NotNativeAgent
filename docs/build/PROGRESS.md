@@ -12,7 +12,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P5 themes/settings | 14 | 🔶 P5-1..5 done 2026-09-17 (P5-1 token block + D8; P5-2 theme system: 38 built-ins + derive + generator + §E.3 persistence + §E.6 validation, review P0+P1×5 fixed; P5-3 settings registry 186 fields + snapshot gate + §F.3 split store + server gate + client persistence engine + fs-write no-op, review P0×2+P1×6 fixed; P5-4 i18n scaffold (12 locales, closed en set, partial catalogs w/ en fallback, provider/store/runtime/bootstrap), review P0+P1×3 fixed; P5-5 shortcuts engine (36 bindings, grammar/registry/dispatcher/hooks, capture listener, AltGraph + IME rules, recorderConflict), review P0+P1×5 fixed; 250 UI · 33 web · gates+smoke+graph each; P5-6 settings UI (window/pages/search/recorder + §I.3/I.4 wiring + §J formatters) queued) |
 | P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
-| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a-c reviewed; P8-1d passkeys + E2E; P8-2a-c relay stack: primitives, host broker, batch/scheduler/dispatcher (all reviewed); client §3.10 + service/claim + candidates/UX remainder queued per NOTES/08 §A) |
+| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a-d + P8-2a-c delivered + reviewed; P8-3a relay host service: demand lifecycle + machine claim + §3.15 routes + /health serverId + production leg mux — reviewed; client §3.10 + pairing store/UX + candidates + tunnels remainder queued per NOTES/08 §A) |
 | P9 autonomy | 12 | pending |
 | P10 knowledge/context | 15 | pending |
 | P11 preview | 13 | pending |
@@ -445,8 +445,41 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   clamped closes + 1008 refusals, duplicate-stream aborts, Ping→Pong,
   detached lifecycle pump). Review fixed P1×3 (batch dead-lock, window
   ledger dead-loop, undici live-body rejection) + P2×5. 18 suite tests.
-  228 web (+18) · 389 UI · typecheck + gates + graph (250 modules) green.
-  typecheck+gates green.
+   228 web (+18) · 389 UI · typecheck + gates + graph (250 modules) green.
+   typecheck+gates green.
+- 2026-09-18 · **P8-3a delivered + reviewed (doc 08 §3.12/3.13/3.15 + §3.5-3.9
+  assembly, checklist step 8 tail).** Relay host service lifecycle (demand
+  reconcile via allSettled any-wins/throw-aborts; relay-config.json machine
+  store E-08-28; 60s demand poll + 30s claim watcher), machine claim
+  (relay-host.lock tryClaim/forceClaim/release w/ synthetic-liveness probe,
+  ESRCH stale claimable, EPERM alive, corrupt==no-claim, write-failure
+  pre-lock posture via tri-state outcome E-08-29), standby takeover
+  (foreign claimant stand-down + 120s grace, boot instant reclaim),
+  passive hold-out env (NOTNATIVE_RELAY_HOST off/on + ELECTRON_DEV with
+  the on-override), enable/disable/status §3.15 routes (16KiB bounded
+  reader, ws/wss normalization w/ default fallback, relayUrlLocked), the
+  §3.13 relay candidate (getPairingCandidate + ensureEnabledForPairing
+  force-claim), /health serverId E-08-2 (shared identity singleton +
+  fail-soft peek), and the PRODUCTION leg mux (leg-host: mixed-mode L2
+  demux E-08-30 — §3.7 wires tag or bare frame, dispatcher entry —
+  fragment assembler, dispatcher, batcher offerEncoded, loopback-adapters
+  RealLoopbackSocket `ws` production dial w/ origin+relay-connection
+  injection; broker terminateLeg + negotiated capabilities on
+  onLegEstablished; /health batch-window env consumption). Review fixed
+  P0×2 (dispatcher 511-line cap -> request-body.ts extract; the REAL
+  0x01 batch-tag collision — a bare HttpRequest frame byte was misread as
+  the [0x01] container tag and 1011'd every spec-compliant client leg;
+  shipped the parse-validated demux rule: 0x01 is a container only when an
+  exact multi-segment run of buffered-type frames parses, bare fallback
+  otherwise) + P1×3 (claim write-failure stood hosts DOWN — tri-state
+  claimed/contended/write-failed E-08-31; disable() killed the poll/
+  watcher de-lifecycling the service; unhandled-rejection surface on the
+  direct carrier paths) + P2×3 (dead env helper consumed by leg batches,
+  bounded enable body, batcher timer unref). 45 suite tests across three
+  files (lock+config 17, service+routes+health 22, production wire 6: HTTP
+  E2E incl. a bare-frame leg, WS upstream both ways + closes, replay
+  closes 1011). 273 web (+45) · 389 UI · gates+smoke+graph (257) ·
+  version paired.
 
 ## Delta/Delayed register
 
