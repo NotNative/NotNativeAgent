@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Toaster, toast } from 'sonner';
+import { useI18n } from '../lib/i18n/context.tsx';
 import { mountEngine } from '../chat/app-engine.ts';
 import { ChatView } from '../chat/chat-view.tsx';
 import { ChatSidebar, bindBlockedProbe } from '../chat/session-sidebar.tsx';
@@ -16,6 +17,7 @@ import { DiffView } from './diff/DiffView.tsx';
 import { GitView } from './git/GitView.tsx';
 import { PlanView } from './plan/PlanView.tsx';
 import { WorktreesView } from './worktrees/WorktreesView.tsx';
+import { TerminalView } from './terminal/TerminalView.tsx';
 import { BUILT_PAGE_SLUGS, type SettingsPageSlug } from './settings/search.ts';
 import { bindSettingsBridge } from '../lib/settings/store.ts';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
@@ -26,12 +28,13 @@ import type { ComposerServices } from '../chat/composer.tsx';
  * (Files button; full surface with the tree over the chat column). */
 export function MainLayout(): ReactNode {
   const engine = mountEngine();
+  const { t } = useI18n();
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const global = useSyncExternalStore(useGlobalSyncStore.subscribe, useGlobalSyncStore.getState);
   const connected = useSyncExternalStore(useConfigStore.subscribe, () => useConfigStore.getState().isConnected);
   const [settingsPage, setSettingsPage] = useState<SettingsPageSlug | null>(() => slugFromLocation());
   const [filesOpen, setFilesOpen] = useState(false);
-  const [reviewPane, setReviewPane] = useState<'' | 'diff' | 'git' | 'plan'>('');
+  const [reviewPane, setReviewPane] = useState<'' | 'diff' | 'git' | 'plan' | 'terminal'>('');
   const [worktreesOpen, setWorktreesOpen] = useState(false);
 
   const closeSettings = useCallback(() => setSettingsPage(null), []);
@@ -191,6 +194,18 @@ export function MainLayout(): ReactNode {
         <button
           type="button"
           className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
+          data-testid="terminal-toggle"
+          title={t('terminal.title')}
+          onClick={() => {
+            setFilesOpen(false);
+            setReviewPane(reviewPane === 'terminal' ? '' : 'terminal');
+          }}
+        >
+          &gt;_ {t('terminal.title')}
+        </button>
+        <button
+          type="button"
+          className="rounded px-2 py-0.5 text-[11px] text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100"
           data-testid="worktrees-toggle"
           title="Worktrees"
           onClick={() => setWorktreesOpen(!worktreesOpen)}
@@ -228,6 +243,8 @@ export function MainLayout(): ReactNode {
           <GitView directory={activeDirectory} />
         ) : reviewPane === 'plan' ? (
           <PlanView directory={activeDirectory} visible />
+        ) : reviewPane === 'terminal' ? (
+          <TerminalView directory={activeDirectory} visible />
         ) : (
           <>
             <ChatSidebar engine={engine} currentDirectory={activeDirectory} currentSessionId={view.currentSessionId} actions={actions} />

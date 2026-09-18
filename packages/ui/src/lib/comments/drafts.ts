@@ -27,6 +27,7 @@ export interface CommentDraft {
   language: string;
   text: string;
   createdAt: string;
+  terminalId?: string; // terminal variant only (doc 07 section 7.4 step 4): the session or tab id the selection came from
 }
 
 export type DraftInput = Omit<CommentDraft, 'id' | 'createdAt' | 'sessionKey'>;
@@ -76,7 +77,8 @@ function isDraft(value: unknown): value is CommentDraft {
     && typeof draft.startLine === 'number'
     && typeof draft.endLine === 'number'
     && typeof draft.source === 'string' && SOURCES.has(draft.source as DraftSource)
-    && (draft.side === undefined || draft.side === 'original' || draft.side === 'modified');
+    && (draft.side === undefined || draft.side === 'original' || draft.side === 'modified')
+    && (draft.terminalId === undefined || typeof draft.terminalId === 'string');
 }
 
 function isSlot(value: unknown): value is SessionSlot {

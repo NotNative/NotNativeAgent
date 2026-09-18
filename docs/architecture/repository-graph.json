@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:57ec1b1d7106654a491af635988c7f95a82e4e1522021c0b05cb9deabb11ac41",
+  "source_digest": "sha256:80ed050fcff2bbe789e70fba056b4c4eddabf1c17c2118375a0346f4be7c2761",
   "counts": {
-    "modules": 223,
+    "modules": 229,
     "component_edges": 11
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 76
+      "module_count": 81
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 60
+      "module_count": 61
     },
     {
       "id": "web-server",
@@ -91,8 +91,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 62,
-      "module_count": 26
+      "import_count": 70,
+      "module_count": 27
     },
     {
       "from": "sync-engine",
@@ -558,7 +558,9 @@
         "packages/ui/src/components/plan/PlanView.tsx",
         "packages/ui/src/components/settings/search.ts",
         "packages/ui/src/components/settings/window.tsx",
+        "packages/ui/src/components/terminal/TerminalView.tsx",
         "packages/ui/src/components/worktrees/WorktreesView.tsx",
+        "packages/ui/src/lib/i18n/context.tsx",
         "packages/ui/src/lib/nnd/client.ts",
         "packages/ui/src/lib/settings/apply.ts",
         "packages/ui/src/lib/settings/store.ts",
@@ -735,6 +737,23 @@
         "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/lib/shortcuts/hooks.ts",
         "packages/ui/src/lib/theme/themes.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/terminal/TerminalView.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/I18nProvider.tsx",
+        "packages/ui/src/components/comments/focus-chat.ts",
+        "packages/ui/src/components/comments/useActiveSessionKey.ts",
+        "packages/ui/src/lib/comments/drafts.ts",
+        "packages/ui/src/lib/i18n/store.ts",
+        "packages/ui/src/lib/server-api.ts",
+        "packages/ui/src/lib/terminal/observer.ts",
+        "packages/ui/src/lib/terminal/store.ts",
+        "packages/ui/src/lib/terminal/transport-singleton.ts",
+        "packages/ui/src/lib/terminal/wire.ts"
       ]
     },
     {
@@ -1175,6 +1194,48 @@
     },
     {
       "path": "packages/ui/src/lib/startupTrace.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/terminal/observer.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/server-api.ts",
+        "packages/ui/src/lib/terminal/store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/terminal/store.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/server-api.ts",
+        "packages/ui/src/lib/terminal/wire.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/terminal/transport-singleton.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/terminal/transport.ts",
+        "packages/ui/src/lib/terminal/wire.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/terminal/transport.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/terminal/wire.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/terminal/wire.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []

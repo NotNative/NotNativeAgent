@@ -23,17 +23,29 @@ approximations for the multi-session build.
   server shutdown (section 4.8). All timings exact per section 3.6/12.
 - **P7-2 (client)** — checklist steps 7+11-12: TerminalTransport (one socket,
   projections 512 KiB, q-dedupe, reconnect matrix 500ms*2^(n-1) cap 8 s, 60 s
-  hidden/offline slow path, wake on visible/online, 45 s app ping, 10 s connect
-  timeout, 15 s idle socket hold, pre-open close invalidates the URL token),
-  useTerminalStore (per-directory tabs, sessionStorage persistence of tab metadata,
-  buffers map outside persistence, 512 KiB oldest-chunk trim, execution guards,
-  actionMutationRevisions, reconcileServerSessions as sole adopting writer),
-  session observer (5 s cadence, coalesced, hidden/offline pause, per-adapter
-  WeakMap, runtime+revision guards), TerminalView (tab strip + close + restart,
-  quick-keys row semantics per section 6.4, create-at-fitted-or-provisional,
+  hidden/offline slow path, wake on visible/online, 45 s app ping, 10 s
+  connect timeout, 15 s idle socket hold, pre-open close invalidates the URL
+  token), useTerminalStore (per-directory tabs, sessionStorage persistence of
+  tab metadata, buffers map outside persistence, 512 KiB oldest-chunk trim,
+  execution guards, actionMutationRevisions, reconcileServerSessions as sole
+  adopting writer), session observer (5 s cadence, coalesced, hidden/offline
+  pause, per-adapter WeakMap, runtime+revision guards), TerminalView (tab
+  strip + close + restart, quick-keys row semantics per section 6.4, create-at-fitted-or-provisional,
   snapshot replay with recorded size, exit text, fatal banner states), MainLayout
   toggle; Flow 5 (attach selection -> inline comment draft store source 'terminal'
   + composer focus via the P6-3b channel).
+  - **P7-2 delivery (this slice)**: wire.ts/transport.ts/transport-singleton.ts
+    mod-splits; store.ts; observer.ts; terminal/TerminalView.tsx (hook-split
+    for the 60-line span cap); server-api terminal command-plane family;
+    i18n terminal.* keys; tests: 12 transport + 11 store + 5 observer + 2
+    view = 30 for the slice. Adversarial review registered E-07-14..23
+    below; web package untouched. Flow-5 v1 shape: startLine/endLine stay
+    1/1 (E-07-1), the selection rides the draft `text` field (the P6
+    composer consumer fills from `text`; doc 7.4's `code` trio is
+    registered with the renderer), and the draft carries `terminalId`
+    (sessionId fallback tab id). A refused/failed RESTART keeps the tab
+    live (toast only, no demotion/buffer drop): the session still exists
+    server-side.
 - Registered beyond P7: renderer is NOT libghostty-vt (see delta), input/mouse
   encoding matrix, IME lifecycle, ghostty tests, project actions orchestration
   (doc 12 phase), URL extraction (doc 13 phase), cross-device-with-two-clients
@@ -118,6 +130,80 @@ approximations for the multi-session build.
   node-pty is required through `createRequire` (the package is ESM under
   Node strip-only execution; a bare `require`/parameter property crashes
   `node src/server/index.ts` boot).
+
+## B3. P7-2 adversarial-review deltas (registered this pass)
+
+- **E-07-13 (buffer-version tick, backfilled from the slice code)**: the
+  doc keeps buffers OUTSIDE the persisted zustand state (section 6.2), but
+  the v1 line-buffer viewport still re-renders on arrival, so every buffer
+  write bumps a per `(directory, tabId)` counter in the store; the surface
+  swap (E-07-1) removes this mechanism.
+- **E-07-14 (create storm gate)**: section F1 step 5 re-arms create on every
+  store patch while a tab lacks a session id, so a FAILED create (or a
+  listing demotion, or a fatal error) retried POST /api/terminal/create in
+  an unbounded pump. v1 spawns only the seeded idle placeholder; a failed/
+  exited tab is retried by user action (the + tab button), never re-created
+  automatically. Corollary: hydrated strips are lifecycle 'exited' and wait
+  for the 5 s listing instead of racing a duplicate create before the
+  snapshot (Flow 2 step 3 links by id since creates use sessionId = tabId);
+  a directory whose listing stays empty keeps its dead exited tab (user
+  adds a new one). v1 replaces the doc's "fatal banner retry" surface.
+- **E-07-15 (observer wake gating)**: section 7.3 step 4's wake set fired a
+  listing pass on HIDE too (a wasted request at the exact moment the page
+  went dark). v1 gates focus/visibilitychange/online wakes on visible +
+  online, matching the cadence-timer pause; the invariant "authoritative
+  refresh on recovery, never a background storm" now covers events too.
+- **E-07-16 (observer scope lifecycle)**: scopes stopped their timer when
+  the last listener left but stayed in the map forever (dead directories
+  accumulate). The last unsubscribe now DELETES the scope; the unused
+  per-scope runtimeKey field is gone (runtime staleness is guarded inside
+  the request by the captured key).
+- **E-07-17 (reconcile authority)**: section 6.2's per-action dedupe was
+  order-dependent (the LAST listing candidate silently won; a running
+  session listed before a newer exited one produced TWO tabs for the same
+  action), and plain sessions collided on a shared dedupe key (two plain
+  exited sessions collapsed into one tab). v1 groups candidates per action,
+  picks the authority in the documented order (running > newest createdAt >
+  highest sessionId), drops the superseded local action records, keeps
+  user-driven starting/stopping tabs out of listing demotions, seeds a
+  fresh tab when an unknown directory meets an empty listing (previously a
+  crash path), and fingerprints identical listings as a no-op (the 5 s
+  cadence stopped rewriting state/re-rendering and resetting the 10-min
+  keepalive interval every tick).
+- **E-07-18 (client create single-flight)**: the single-flight ref held only
+  the last value, so a fast tab switch during create could start a second
+  concurrent create. v1 keeps a per-tab flight Set keyed by tab id
+  ("single-flight per (directory, tab)").
+- **E-07-19 (attach on a CONNECTING socket)**: subscribe sent attach when a
+  socket object existed even if still connecting; a real browser WS throws
+  InvalidStateError on send-before-open, which tore down a healthy dial and
+  burned a reconnect attempt (invisible in the fake-socket tests). v1
+  tracks socketReady; attaches defer to onopen (the open loop re-attaches
+  every subscription id, covering late session joins mid-dial).
+- **E-07-20 (kill button semantics)**: the quick-key Kill button issued
+  DELETE /api/terminal/:id (documented CLOSE semantics, section 6.8) while
+  labelling itself a kill. v1 rides POST /api/terminal/force-kill
+  {sessionId} (immediate SIGKILL per section 3.7), so the label now names
+  the behavior; the tab-level 'x' close remains the DELETE close, and the
+  exit event demotes the tab.
+- **E-07-21 (tab close failure)**: section 6.8 ties tab close to the
+  session delete; a failed DELETE rejected before removal (tab + buffer
+  preserved, the session still runs server-side) but callers voided the
+  promise (unhandled rejection, silent no-op). v1 keeps the conservative
+  semantics and surfaces a terminal.closeFailed toast at the view.
+- **E-07-22 (bounded redraw ticks)**: the E-07-13 bufferVersions tick map
+  grew unbounded across session churn. Entries are pruned on buffer drop
+  (they mirror LIVE buffers only) and reset with the test reset. The
+  buffer map itself retains exited-tab content on purpose: the exited
+  session stays attachable and the tab displays its final output until
+  close/restart (closeTab drops it), so growth is bounded by tabs the user
+  can close, registered rather than auto-evicted.
+- **E-07-23 (unsubscribe/handshake hygiene)**: the transport unsubscribe is
+  idempotent (a double React cleanup must not re-send detach or reschedule
+  the idle hold), a re-subscribe inside the hold window re-attaches and
+  cancels the close, and the reconnect counter resets when a scheduled
+  reconnect fires with zero subscribers (the next subscribe negotiates a
+  fresh backoff instead of inheriting a stale attempt).
 
 ## C. Constants pinned this slice
 

@@ -93,3 +93,124 @@ export async function removeWorktree(directory: string, worktreePath: string, de
   if (!response.ok || body.success !== true) return { ok: false, error: body.error ?? 'remove failed' };
   return { ok: true, branch: body.branch ?? null };
 }
+
+// ---------- terminal command plane (doc 07 section 3.7) ----------
+
+export interface TerminalShellOptionResponse { id: string; name: string; supportsLogin: boolean }
+
+export async function listTerminalShells(): Promise<TerminalShellOptionResponse[]> {
+  const response = await runtimeFetch('/api/terminal/shells');
+  if (!response.ok) return [];
+  const body = await response.json() as TerminalShellOptionResponse[];
+  return Array.isArray(body) ? body : [];
+}
+
+export interface TerminalServerSessionResponse {
+  sessionId: string;
+  cwd: string;
+  status: 'running' | 'exited';
+  createdAt: number;
+  mode: 'interactive' | 'command';
+  purpose: { type: 'terminal' | 'project-action'; actionId?: string; executionId?: string | null };
+}
+
+/** cwd '' observes ALL directories. Listings never include command text. */
+export async function listTerminalSessions(cwd = ''): Promise<TerminalServerSessionResponse[]> {
+  const query = cwd.length > 0 ? `?cwd=${encodeURIComponent(cwd)}` : '';
+  const response = await runtimeFetch(`/api/terminal/sessions${query}`);
+  if (!response.ok) return [];
+  const body = await response.json() as { sessions?: TerminalServerSessionResponse[] };
+  return Array.isArray(body.sessions) ? body.sessions : [];
+}
+
+export interface CreateTerminalRequest {
+  cwd: string;
+  sessionId?: string;
+  cols?: number;
+  rows?: number;
+  themeMode?: 'light' | 'dark';
+  terminalBackground?: string;
+  terminalForeground?: string;
+  shell?: string;
+  loginShell?: boolean;
+  purpose?: { type: 'terminal' } | { type: 'project-action'; actionId: string; executionId: string };
+  mode?: 'interactive' | 'command';
+  command?: string;
+}
+
+export type TerminalCreateResult = {
+  ok: true;
+  sessionId: string;
+  cols: number;
+  rows: number;
+  status: string;
+  mode: 'interactive' | 'command';
+  purpose: TerminalServerSessionResponse['purpose'];
+} | {
+  ok: false;
+  error: string;
+  code?: string;
+}
+
+export async function createTerminalSession(request: CreateTerminalRequest): Promise<TerminalCreateResult> {
+  const response = await runtimeFetch('/api/terminal/create', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  const body = await response.json().catch(() => ({})) as {
+    sessionId?: string;
+    cols?: number;
+    rows?: number;
+    status?: string;
+    mode?: 'interactive' | 'command';
+    purpose?: TerminalServerSessionResponse['purpose'];
+    error?: string;
+    code?: string;
+  };
+  if (!response.ok) return { ok: false, error: body.error ?? 'create failed', code: body.code };
+  if (body.sessionId === undefined) return { ok: false, error: 'create failed' };
+  return {
+    ok: true,
+    sessionId: body.sessionId,
+    cols: body.cols ?? 80,
+    rows: body.rows ?? 24,
+    status: body.status ?? 'running',
+    mode: body.mode ?? 'interactive',
+    purpose: body.purpose ?? { type: 'terminal' },
+  };
+}
+
+export async function resizeTerminalSession(sessionId: string, cols: number, rows: number): Promise<boolean> {
+  const response = await runtimeFetch(`/api/terminal/${encodeURIComponent(sessionId)}/resize`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cols, rows }),
+  });
+  return response.ok;
+}
+
+export async function restartTerminalSession(sessionId: string, options: { cwd?: string; cols?: number; rows?: number } = {}): Promise<boolean> {
+  const response = await runtimeFetch(`/api/terminal/${encodeURIComponent(sessionId)}/restart`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(options),
+  });
+  return response.ok;
+}
+
+export async function closeTerminalSession(sessionId: string): Promise<boolean> {
+  const response = await runtimeFetch(`/api/terminal/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+  return response.ok;
+}
+
+export async function forceKillTerminals(scope: { sessionId?: string; cwd?: string }): Promise<{ ok: boolean; killedCount: number }> {
+  const response = await runtimeFetch('/api/terminal/force-kill', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(scope),
+  });
+  if (!response.ok) return { ok: false, killedCount: 0 };
+  const body = await response.json().catch(() => ({})) as { killedCount?: number };
+  return { ok: true, killedCount: body.killedCount ?? 0 };
+}
+
+export async function touchTerminalSessions(sessionIds: string[]): Promise<void> {
+  await runtimeFetch('/api/terminal/touch', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionIds }),
+  }).catch(() => undefined); // swallowed by design: the server decides freshness
+}
