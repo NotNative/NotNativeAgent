@@ -12,7 +12,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P5 themes/settings | 14 | 🔶 P5-1..5 done 2026-09-17 (P5-1 token block + D8; P5-2 theme system: 38 built-ins + derive + generator + §E.3 persistence + §E.6 validation, review P0+P1×5 fixed; P5-3 settings registry 186 fields + snapshot gate + §F.3 split store + server gate + client persistence engine + fs-write no-op, review P0×2+P1×6 fixed; P5-4 i18n scaffold (12 locales, closed en set, partial catalogs w/ en fallback, provider/store/runtime/bootstrap), review P0+P1×3 fixed; P5-5 shortcuts engine (36 bindings, grammar/registry/dispatcher/hooks, capture listener, AltGraph + IME rules, recorderConflict), review P0+P1×5 fixed; 250 UI · 33 web · gates+smoke+graph each; P5-6 settings UI (window/pages/search/recorder + §I.3/I.4 wiring + §J formatters) queued) |
 | P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
-| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a pairing payload + device store; P8-1b password/JWT/cookie sessions + URL tokens; P8-1c scope classifier + tunnel gate + /connect (reviewed); 57 tests; steps 5-15 queued per NOTES/08 §A) |
+| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a pairing payload + device store; P8-1b password/JWT/cookie sessions + URL tokens; P8-1c scope classifier + tunnel gate + /connect (reviewed); P8-1d passkeys server family (WebAuthn seam, binding store, /api/passkeys management, reset purge; real-ceremony E2E); 66 tests; steps 6-15 queued per NOTES/08 §A) |
 | P9 autonomy | 12 | pending |
 | P10 knowledge/context | 15 | pending |
 | P11 preview | 13 | pending |
@@ -373,6 +373,26 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   mint/consume postcondition, ui-cookie fail-closed, open-mode url-token
   rejection, connect Set-Cookie matrix, rate-block record churn). 169 web
   · 389 UI · gates+graph green.
+
+- 2026-09-18 · **P8-1d delivered (doc 08 step 5: passkeys server family).**
+  @simplewebauthn/server v14 added; WebAuthnCeremony seam (real adapter +
+  injectable fixtures), disabled-unless-password posture, HMAC passphrase
+  binding store (`ui-passkeys.json` strict-read + atomic rewrite) that
+  clears on password/secret change, per-rpID scoping + origin derivation,
+  5-min one-shot challenge bookkeeping pinned to the ceremony's own
+  challenge, session-cookie-only registration + excludeCredentials,
+  anonymous authentication over the login rate limiter issuing the exact
+  password-login cookie/mint/tail (trustDevice + desktop mint), revoke by
+  id AND rpID, GET/DELETE /api/passkeys management, tunnel-scope 403
+  family, and the auth-reset passkey purge (E-08-3 complete). Registered
+  E-08-20..22 in NOTES/08. Adversarial review (sub-agent) fixed P0×2 —
+  expected-origin ports (rpID drops the port, origin keeps it; scheme-
+  default 80/443 suppressed) verified against the REAL adapter, and the
+  granted session cookie was being dropped by the passkey finalize —
+  driven now by a route-level E2E with a server-built synthetic P-256
+  authenticator (real CBOR/COSE) — plus P1×2 (corrupt userID regeneration,
+  transports allowlist/caps) and the machinery split for file caps.
+  184 web (+15 p8-1-passkeys) · 389 UI · typecheck+gates green.
 
 ## Delta/Delayed register
 

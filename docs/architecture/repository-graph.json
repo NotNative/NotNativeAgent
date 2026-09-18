@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:340b663ca78995ef4a7ed02d241649072fd3a8cc1ed9a43b6426bb1cc86eb1bf",
+  "source_digest": "sha256:f4c2b09549a6b2cb6324f6cf3d4355a13d0e286df8da29cb25ae3399256ef53a",
   "counts": {
-    "modules": 236,
+    "modules": 240,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 44
+      "module_count": 48
     },
     {
       "id": "web-entry",
@@ -65,6 +65,7 @@
   ],
   "external_dependencies": [
     "@hono/node-server",
+    "@simplewebauthn/server",
     "hono",
     "node-pty",
     "node:assert/strict",
@@ -2078,6 +2079,12 @@
       "imports": []
     },
     {
+      "path": "packages/web/src/server/lib/auth/rp-context.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/web/src/server/lib/auth/tunnel-auth.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -2095,8 +2102,31 @@
         "packages/web/src/server/lib/auth/password.ts",
         "packages/web/src/server/lib/auth/rate-limit.ts",
         "packages/web/src/server/lib/auth/remote-clients.ts",
-        "packages/web/src/server/lib/auth/tunnel-auth.ts"
+        "packages/web/src/server/lib/auth/tunnel-auth.ts",
+        "packages/web/src/server/lib/auth/url-tokens.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/ui-passkeys.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/rp-context.ts",
+        "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/lib/auth/webauthn-ceremony.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/url-tokens.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/webauthn-ceremony.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/lib/bus.ts",
@@ -2143,7 +2173,8 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/lib/auth/tunnel-auth.ts",
-        "packages/web/src/server/lib/auth/ui-auth.ts"
+        "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/lib/auth/ui-passkeys.ts"
       ]
     },
     {

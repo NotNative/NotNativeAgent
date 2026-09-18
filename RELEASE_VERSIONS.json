@@ -12,6 +12,10 @@
     {
       "version": "20260918-3",
       "content_sha256": "e2bc1c8359d8ebee51b46064f41f610291d532dd55149b9e8bcd936634bc6171"
+    },
+    {
+      "version": "20260918-4",
+      "content_sha256": "7487905c1bf84bb8d6e2709775b8f19b07bd9bbbf1337c3d7457a796cb429a39"
     }
   ]
 }

@@ -3,10 +3,9 @@
  * UI auth controller (doc 08 sections 2.2/2.3/2.6): scrypt password
  * verification, hand-rolled HS256 session cookie (`oc_ui_session`), the
  * login flow with per-IP rate limiting, short-lived URL tokens for
- * cookie-less WS/SSE/asset paths on a fixed allowlist, and the global
- * /api gate. `oc_url_token` is the doc-literal query param; the
- * coordinated `nn_url_token` alias (DECISIONS brand seam) is accepted on
- * the same targets.
+ * cookie-less WS/SSE/asset paths (allowlist in url-tokens.ts), and the
+ * global /api gate. The coordinated `nn_url_token` alias rides next to the
+ * doc literal until the coordination pass.
  */
 import { randomBytes } from 'node:crypto';
 import { readEnvUiPassword } from '../../env.ts';
@@ -16,6 +15,7 @@ import {
   resolveJwtSecretHolder, signSessionJwt, verifySessionJwt,
   type JwtSecretHolder,
 } from './jwt.ts';
+import { firstQueryParam, urlTokenTargetAllowed } from './url-tokens.ts';
 import {
   createLoginRateLimiter, DEFAULT_RATE_LIMIT_CONFIG, envRateLimitOverrides,
   rateLimitHeaders, type LoginRateLimitConfig, type LoginRateLimiter,
@@ -23,28 +23,10 @@ import {
 import { RemoteClientStore, type RemoteClientRecord } from './remote-clients.ts';
 
 export const UI_SESSION_COOKIE = 'oc_ui_session';
-export const URL_TOKEN_QUERY_ALIASES = ['oc_url_token', 'nn_url_token'] as const;
 export const CLEAR_SESSION_COOKIE_HEADER = `${UI_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
 
 const CLIENT_URL_PARENT_PREFIX = 'client:'; // URL tokens bound to device records (doc 08 section 2.6)
 const NO_STORE = 'no-store';
-
-// WS upgrades + fixed GET allowlist (doc 08 section 2.6). The branded
-// spellings ride next to the doc literals until the coordination pass.
-const URL_TOKEN_GET_EXACT = new Set([
-  '/api/event', '/api/global/event',
-  '/api/openchamber/events', '/api/notnative/events',
-  '/api/openchamber/realtime-proxy/sse',
-  '/api/notifications/stream',
-  '/api/fs/raw', '/api/fs/serve',
-]);
-const URL_TOKEN_GET_PREFIXES = ['/api/fs/serve/', '/api/preview/proxy/'];
-const URL_TOKEN_GET_PATTERN = /\/api\/projects\/[^/]+\/icon$/u;
-const URL_TOKEN_WS_EXACT = new Set([
-  '/api/event/ws', '/api/global/event/ws',
-  '/api/openchamber/realtime-proxy/ws',
-  '/api/terminal/ws', '/api/dictation/ws', '/api/dev-tunnel',
-]);
 
 export type AuthGranted =
   | { ok: true; scope: 'open' }
@@ -109,14 +91,6 @@ const DEFAULT_URL_TOKEN_BUDGET = 512;
 /** Only a desktop shell may mint its durable device token at login (§2.3 5). */
 const DESKTOP_MINT_KINDS = new Set(['desktop', 'desktop-local']);
 
-export function urlTokenTargetAllowed(method: string, pathname: string, upgrade: boolean): boolean {
-  if (upgrade) return URL_TOKEN_WS_EXACT.has(pathname);
-  if (method !== 'GET') return false;
-  if (URL_TOKEN_GET_EXACT.has(pathname)) return true;
-  if (URL_TOKEN_GET_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return true;
-  return URL_TOKEN_GET_PATTERN.test(pathname);
-}
-
 export function parseClientIp(headers: Headers, remoteAddress?: string): string {
   const forwarded = headers.get('x-forwarded-for');
   if (forwarded !== null) {
@@ -180,6 +154,23 @@ export class UiAuthController {
 
   passwordRequired(): boolean {
     return normalizedPassword(this.options.resolvePassword()) !== '';
+  }
+
+  /** Seam for the passkeys store's HMAC binding (§2.4): the resolved
+   * password and the session JWT secret, read-only. */
+  resolvePasswordForBinding(): string {
+    return this.options.resolvePassword();
+  }
+
+  jwtSecretForBinding(): string {
+    return this.jwt.secret();
+  }
+
+  /** Cookie-session check for requireSessionAuth surfaces (§2.2: passkeys
+   * registration/management + global reset accept the cookie ONLY). */
+  requireSessionCookie(headers: Headers): boolean {
+    const validity = { clearSessionCookie: false };
+    return this.byCookie(headers, validity) !== null;
   }
 
   verifyPassword(candidate: unknown): boolean {
@@ -305,18 +296,7 @@ export class UiAuthController {
       return { status: 401, body: { error: 'Invalid credentials' }, ...clearCookie };
     }
     this.limiter.clear(inputs.ip);
-    const ttl = (inputs.body as { trustDevice?: unknown } | null)?.trustDevice === true
-      ? this.options.trustSessionTtlMs
-      : this.options.sessionTtlMs;
-    const mint = this.maybeMintClientToken(inputs.body, ttl);
-    return {
-      status: 200,
-      body: { authenticated: true, ...mint },
-      setCookie: sessionCookieHeaderValue(
-        this.issueSessionToken(ttl).token, ttl, this.options.now(), secureFromHeaders(inputs.headers, inputs.url),
-      ),
-      headers: noStore,
-    };
+    return this.grantedLogin(inputs);
   }
 
   mintUrlTokenFromRequest(headers: Headers, url: URL, method: string): RouteAction {
@@ -409,6 +389,36 @@ export class UiAuthController {
     };
   }
 
+  /** Shared login tail for password and passkey logins (§2.3/§2.4): clears
+   * the rate bucket, issues the cookie at the trust-device TTL, and mints
+   * the desktop client token when asked. */
+  grantedLogin(inputs: { ip: string; body: unknown; headers: Headers; url: URL }): RouteAction {
+    const body = inputs.body as { trustDevice?: unknown } | null;
+    const ttl = body?.trustDevice === true ? this.options.trustSessionTtlMs : this.options.sessionTtlMs;
+    this.limiter.clear(inputs.ip);
+    const mint = this.maybeMintClientToken(inputs.body, ttl);
+    return {
+      status: 200,
+      body: { authenticated: true, ...mint },
+      setCookie: sessionCookieHeaderValue(
+        this.issueSessionToken(ttl).token, ttl, this.options.now(), secureFromHeaders(inputs.headers, inputs.url),
+      ),
+      headers: { 'cache-control': NO_STORE },
+    };
+  }
+
+  /** Limiter passthroughs so the passkey verify route rides the same login
+   * rate limit as password login (E-08-21). */
+  rateAttemptLogin(ip: string): { allowed: boolean; headers: Record<string, string> } {
+    const result = this.limiter.attempt(ip);
+    if (result.allowed) return { allowed: true, headers: {} };
+    return { allowed: false, headers: { 'cache-control': NO_STORE, ...rateLimitHeaders(result) } };
+  }
+
+  rateRecordLogin(ip: string): void {
+    this.limiter.record(ip);
+  }
+
   /** Terminal WS upgrade admission (E-07-3 slot): the loopback gate lives in
    * the wire layer; this predicate adds the cookie/URL-token check once the
    * password is configured. */
@@ -444,14 +454,6 @@ export function sanitizeOutboundClient(client: RemoteClientRecord): Record<strin
   const { tokenHash: _secret, ...rest } = client as RemoteClientRecord & { tokenHash?: string };
   void _secret;
   return { ...rest };
-}
-
-export function firstQueryParam(url: URL): string | null {
-  for (const alias of URL_TOKEN_QUERY_ALIASES) {
-    const value = url.searchParams.get(alias);
-    if (typeof value === 'string' && value !== '') return value;
-  }
-  return null;
 }
 
 export function defaultResolvePassword(): string {

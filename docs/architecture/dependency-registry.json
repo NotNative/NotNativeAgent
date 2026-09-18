@@ -34,6 +34,13 @@
       "reviewed_at": "2026-09-17"
     },
     {
+      "name": "@simplewebauthn/server",
+      "packages": ["@notnative/web"],
+      "reason": "Passkey (WebAuthn) ceremony (doc 08 section 2.4): server-side registration/authentication option generation and attestation/assertion verification, wrapped by the WebAuthnCeremony seam",
+      "license": "MIT",
+      "reviewed_at": "2026-09-18"
+    },
+    {
       "name": "react",
       "packages": ["@notnative/ui", "@notnative/web"],
       "reason": "UI layer (doc 05); useSyncExternalStore binding for the sync engine leaf selectors",

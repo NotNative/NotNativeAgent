@@ -11,10 +11,12 @@
 import { Hono } from 'hono';
 import {
   CLEAR_SESSION_COOKIE_HEADER, getUiAuthController, parseClientIp, secureFromHeaders, type RouteAction,
+  UI_SESSION_COOKIE,
 } from '../lib/auth/ui-auth.ts';
 import {
   getTunnelAuthController, type RequestScope, type TunnelSession,
 } from '../lib/auth/tunnel-auth.ts';
+import { getUiPasskeysController, type PasskeyAction } from '../lib/auth/ui-passkeys.ts';
 
 interface SocketEnv {
   incoming?: { socket?: { remoteAddress?: string } };
@@ -30,6 +32,59 @@ function requestScope(headers: Headers, url: URL, socketAddress?: string): Reque
   return getTunnelAuthController().classify(headers, url, socketAddress);
 }
 
+const uiAuthProvider = (): ReturnType<typeof getUiAuthController> => getUiAuthController();
+
+/** §2.4 tunnel-scope lock: every passkey endpoint hard-403s. */
+async function guardedPasskeyScope<T extends PasskeyAction>(
+  c: { req: { raw: Request }; env: unknown },
+  handler: (pk: ReturnType<typeof getUiPasskeysController>, headers: Headers, url: URL) => Promise<T> | T,
+): Promise<T | PasskeyAction> {
+  const headers = c.req.raw.headers;
+  const url = new URL(c.req.raw.url);
+  if (requestScope(headers, url, remoteSocketAddress(c.env)) !== 'local') {
+    return { status: 403, body: { error: 'Passkey endpoints are disabled for tunnel scope', tunnelLocked: true }, headers: { 'cache-control': 'no-store' } };
+  }
+  return handler(getUiPasskeysController(uiAuthProvider), headers, url);
+}
+
+/** Registration gates: disabled-400 first, then the session-cookie-only
+ * rule (§2.2/§2.4: a bare client token never registers keys). */
+async function guardedPasskey<T extends PasskeyAction>(
+  c: { req: { raw: Request }; env: unknown },
+  handler: (pk: ReturnType<typeof getUiPasskeysController>, headers: Headers, url: URL) => Promise<T> | T,
+): Promise<T | PasskeyAction> {
+  return guardedPasskeyScope(c, async (pk, headers, url) => {
+    if (!pk.hasPassword()) return pk.disabledAction();
+    if (!getUiAuthController().requireSessionCookie(headers)) {
+      return { status: 401, body: { error: 'UI authentication required', locked: true }, headers: { 'cache-control': 'no-store' } };
+    }
+    return handler(pk, headers, url);
+  });
+}
+
+/** Management gates: also cookie-only (the /api global gate already passed;
+ * a bearer that got through must still be refused here, §2.4). */
+async function managementPasskey<T extends PasskeyAction>(
+  c: { req: { raw: Request; param?: (name: string) => string }; env: unknown },
+  handler: (pk: ReturnType<typeof getUiPasskeysController>, headers: Headers, url: URL) => T,
+): Promise<PasskeyAction> {
+  const headers = c.req.raw.headers;
+  const url = new URL(c.req.raw.url);
+  if (requestScope(headers, url, remoteSocketAddress(c.env)) !== 'local') {
+    return { status: 403, body: { error: 'Passkey endpoints are disabled for tunnel scope', tunnelLocked: true }, headers: { 'cache-control': 'no-store' } };
+  }
+  const pk = getUiPasskeysController(uiAuthProvider);
+  if (!pk.hasPassword()) return pk.disabledAction();
+  if (!getUiAuthController().requireSessionCookie(headers)) {
+    return { status: 401, body: { error: 'UI authentication required', locked: true }, headers: { 'cache-control': 'no-store' } };
+  }
+  return handler(pk, headers, url);
+}
+
+function passkeyAction(action: PasskeyAction | RouteAction): Response {
+  return finalize(action as RouteAction);
+}
+
 export function createAuthRoutes(): Hono {
   const app = new Hono();
 
@@ -41,6 +96,20 @@ export function createAuthRoutes(): Hono {
     return finalize(getUiAuthController().sessionStatus(headers, url, c.req.method));
   });
 
+  registerSessionRoutes(app);
+  registerPasskeyRoutes(app);
+
+  // One-time tunnel entrance (§4.5): rate-limited, newest-token exchange,
+  // 302 -> / with the oc_tunnel_session cookie. Never cached.
+  app.get('/connect', (c) => handleConnect(c.req.raw.headers, new URL(c.req.raw.url), remoteSocketAddress(c.env)));
+
+  return app;
+}
+
+/** Password login, URL-token minting, and the global sign-out reset
+ * (§2.3/§2.6/§2.2): tunnel scope hard-403s login/reset, and the reset tail
+ * purges passkeys (E-08-3 completion). */
+function registerSessionRoutes(app: Hono): void {
   app.post('/auth/session', async (c) => {
     const headers = c.req.raw.headers;
     const url = new URL(c.req.raw.url);
@@ -76,14 +145,10 @@ export function createAuthRoutes(): Hono {
     if (requestScope(headers, new URL(c.req.raw.url), remoteSocketAddress(c.env)) !== 'local') {
       return finalize({ status: 403, body: { error: 'Global auth reset is disabled for tunnel scope', tunnelLocked: true }, headers: { 'cache-control': 'no-store' } });
     }
-    return finalize(getUiAuthController().resetSessionAuth(headers));
+    const action = getUiAuthController().resetSessionAuth(headers);
+    if (action.status === 200) getUiPasskeysController(uiAuthProvider).resetForAuthReset(); // E-08-3 tail
+    return finalize(action);
   });
-
-  // One-time tunnel entrance (§4.5): rate-limited, newest-token exchange,
-  // 302 -> / with the oc_tunnel_session cookie. Never cached.
-  app.get('/connect', (c) => handleConnect(c.req.raw.headers, new URL(c.req.raw.url), remoteSocketAddress(c.env)));
-
-  return app;
 }
 
 /** /connect handling (§4.5): rate limit first, then the newest-token
@@ -169,10 +234,40 @@ async function readTextBounded(raw: Request, max: number): Promise<string | null
   return null;
 }
 
-function finalize(action: RouteAction): Response {
+function finalize(action: RouteAction | PasskeyAction): Response {
   const headers = new Headers();
   for (const [name, value] of Object.entries(action.headers ?? {})) headers.set(name, value);
   if (action.setCookie !== undefined) headers.append('set-cookie', action.setCookie);
   if (action.clearSessionCookie === true) headers.append('set-cookie', CLEAR_SESSION_COOKIE_HEADER);
   return new Response(JSON.stringify(action.body), { status: action.status, headers });
+}
+
+/** Passkey surface (§2.4): registration/management are session-cookie-only
+ * (registration gates + the gated /api management rows), authentication is
+ * anonymous over the login rate limit, and the whole family is hard-403 at
+ * tunnel scope. Routes finalize through the SHARED builder so a granted
+ * login's Set-Cookie attaches to the authenticate/verify answer. */
+function registerPasskeyRoutes(app: Hono): void {
+  app.post('/auth/passkey/register/options', async (c) =>
+    passkeyAction(await guardedPasskey(c, (pk, headers, url) => pk.registerOptions(headers, url))));
+
+  app.post('/auth/passkey/register/verify', async (c) =>
+    passkeyAction(await guardedPasskey(c, async (pk, headers, url) =>
+      pk.registerVerify(headers, url, await readDocumentBody(c.req.raw)))));
+
+  app.post('/auth/passkey/authenticate/options', async (c) =>
+    passkeyAction(await guardedPasskeyScope(c, (pk, headers, url) => pk.authenticationOptions(headers, url))));
+
+  app.post('/auth/passkey/authenticate/verify', async (c) => {
+    const headers = c.req.raw.headers;
+    const ip = parseClientIp(headers, remoteSocketAddress(c.env));
+    return passkeyAction(await guardedPasskeyScope(c, async (pk, headers2, url) =>
+      pk.authenticateVerify(headers2, url, await readDocumentBody(c.req.raw), ip)));
+  });
+
+  app.get('/api/passkeys', async (c) =>
+    passkeyAction(await managementPasskey(c, (pk, headers, url) => pk.listFor(headers, url))));
+
+  app.delete('/api/passkeys/:id', async (c) =>
+    passkeyAction(await managementPasskey(c, (pk, headers, url) => pk.revoke(c.req.param('id'), headers, url))));
 }

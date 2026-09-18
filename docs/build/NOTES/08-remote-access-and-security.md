@@ -129,8 +129,64 @@ SSH -> reverse proxy -> invariants.
   invalid TTL values (0/NaN/negative) clamp to the 30 min DEFAULT pending
   the settings runtime; CGNAT 100.64/10 stays public (doc-literal
   "private or loopback" read).
-- NOT yet in: password/JWT/cookie sessions + scope classifier + tunnel
-  gate are now in; NEXT: passkeys (5), relay (6-8), candidates (9),
+- **P8-1d (delivered this slice)** - checklist step 5: passkeys (WebAuthn
+  server). `lib/auth/ui-passkeys.ts`: disabled-unless-password (400 exact
+  'Passkeys require UI password protection to be enabled'), store
+  `<data-dir>/ui-passkeys.json` {version:1, userID 32B b64url,
+  passwordBinding: HMAC(jwtSecret, password) hex, passkeys[]} with strict
+  read + atomic 0600 rewrite; the binding GUARD runs on construction and
+  on every access — a changed password or rotated secret clears the whole
+  list and rewrites the file empty; per-rpID scoping (rpID from
+  x-forwarded-host first hop else Host else URL hostname, lowercased,
+  bracket-stripped, port-stripped; localhost|127.0.0.1|::1 local set;
+  expected origin from x-forwarded-proto scheme + the host KEEPING its
+  non-default port (WebAuthn clientDataJSON.origins carry the port; the
+  lib compares exact strings - review fix; scheme-default ports and the
+  rpID itself drop the port; IPv6 re-brackets in the origin), registration is
+  session-cookie-ONLY (route gates refuse bearer management callers 401
+  even after the /api gate), authentication is anonymous over the LOGIN
+  rate limiter (E-08-21; 429 + X-RateLimit headers; failures record),
+  5-minute one-shot challenge records whose bound value is the challenge
+  the ceremony actually returned (256-entry budget), register options
+  shape (attestationType none, residentKey required, userVerification
+  required, excludeCredentials per rpID, userID 32B), verify stores
+  {id, publicKey b64url, counter, transports, deviceType, backedUp,
+  createdAt, lastUsedAt, label(<=80), rpID}; duplicate id+rpID replaces on
+  re-registration (E-08-20), authentication verify requires UV, bumps
+  counter and lastUsedAt, then issues the session cookie EXACTLY like
+  password login (trustDevice honored; desktop client-token mint honored
+  via the shared grantedLogin tail), revoke matches id AND current rpID
+  (404 otherwise), GET /api/passkeys + DELETE /api/passkeys/:id management
+  (cookie-only inside the gated /api scope), tunnel scope hard-403s the
+  whole family ('Passkey endpoints are disabled for tunnel scope',
+  tunnelLocked) and the auth-reset flow now PURGES passkeys (E-08-3 tail
+  complete). Ceremony runs through a WebAuthnCeremony seam: realCeremony
+  wraps @simplewebauthn/server v14 (^14.0.2, new dependency); tests inject
+  fixtures while the route guards run against the REAL adapter (a
+  fabricated response object fails 400 verified:false). Hostile/oversize
+  WebAuthn payloads die as verified:false, never a 500. Review pass fixes,
+  all regression-tested: the authenticate/verify route finalizes through
+  the SHARED route finalize so a granted login's Set-Cookie actually
+  attaches (was dropped by the passkey-only response builder); a corrupted
+  or mis-shaped userID (not 43-char 32B b64url) regenerates the store
+  instead of flowing verbatim into registration option bytes; transports
+  are laundered to the IANA token set (deduped) before the store write;
+  the seams split into rp-context.ts / webauthn-ceremony.ts /
+  url-tokens.ts for the 500-line gate, and the grantedLogin desktop mint
+  kind gate stays in float with password login (possessor parity: the
+  doc's client library is expected to carry clientKind through the passkey
+  verify, so the shell's passkey unlock keeps its desktop-local mint).
+  Route-level E2E runs the FULL lifecycle through the real @simplewebauthn
+  adapter with a server-built synthetic P-256 authenticator (CBOR/COSE
+  fixtures): ported-origin registration 200, scheme-default-origin
+  rejection 400, anonymous login issuing a WORKING oc_ui_session cookie
+  (counter bump visible through it, revoke through it). Tests 15
+  (p8-1-passkeys.test.ts). NOT in: client library §2.5 (@simplewebauthn/
+  browser + gate UX) rides the pairing/UX slice (E-08-6 family);
+  settings-driven publicOrigin origin allowlist rides the settings
+  runtime (E-08-22).
+- NOT yet in: password/JWT/cookie sessions, scope classifier + tunnel
+  gate, and passkeys are now in; NEXT: relay (6-8), candidates (9),
   tunnels (10), UX (11-12), SSH (13), reverse proxy (14), invariants (15).
   NOT wired: /api/client-auth/clients authority routes (§2.7 core-routes
   set, E-08-13) - they ride with the pairing/UX slice; the settings-store
@@ -239,6 +295,20 @@ SSH -> reverse proxy -> invariants.
   ("device bearer tokens pass at any scope"); a tunnel-parked desktop
   keeps its /auth/session probe working. Registered for review; if the
   reference disagrees, the tunnel row wins with a one-line swap.
+- **E-08-20 (ceremony seam + duplicate registration)**: the WebAuthn
+  ceremony is exercised at SEAM level (options generation + one fail-closed
+  verify against the real @simplewebauthn adapter; happy paths via an
+  injected adapter). Real-device ceremony verification is a QA step for
+  the settings/auth UX slice. Re-registering the same credential id on the
+  same rpID replaces the saved record (idempotent re-pairing) — the doc is
+  silent on duplicates; replacing beats permanently wedging a lost key.
+- **E-08-21 (passkey login rides the login limiter)**: §2.4 "issues the
+  session cookie exactly like password login" is read to include the
+  §2.2 rate limit; /auth/passkey/authenticate/verify attempts/records/
+  clears with the same per-IP budget and a 429 carries the same headers.
+- **E-08-22 (publicOrigin slot)**: §2.4's settings-driven additional
+  expected origin is not wired yet — the origin allowlist carries the
+  request origin only until the settings runtime lands (E-08-4 tail).
 
 ## C. Constants pinned this slice
 

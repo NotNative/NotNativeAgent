@@ -19,9 +19,9 @@ import type { TerminalRuntime } from '../terminal/session-core.ts';
 import { attachTerminalWebsocket } from '../terminal/wire.ts';
 import {
   createUiAuthController, getUiAuthController, resetUiAuthForTests,
-  CLEAR_SESSION_COOKIE_HEADER, UI_SESSION_COOKIE, URL_TOKEN_QUERY_ALIASES,
-  urlTokenTargetAllowed,
+  CLEAR_SESSION_COOKIE_HEADER, UI_SESSION_COOKIE,
 } from '../lib/auth/ui-auth.ts';
+import { URL_TOKEN_QUERY_ALIASES, urlTokenTargetAllowed } from '../lib/auth/url-tokens.ts';
 import { resolveJwtSecretHolder, signSessionJwt, verifySessionJwt } from '../lib/auth/jwt.ts';
 import { createLoginRateLimiter } from '../lib/auth/rate-limit.ts';
 import { normalizedPassword, createPasswordHashCache } from '../lib/auth/password.ts';
