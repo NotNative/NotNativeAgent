@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:2d2ffc1eb4bf4385aee4b5145444f80ea0ca1d548cd99be7abe3506ac56bafc9",
+  "source_digest": "sha256:340b663ca78995ef4a7ed02d241649072fd3a8cc1ed9a43b6426bb1cc86eb1bf",
   "counts": {
-    "modules": 235,
+    "modules": 236,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 43
+      "module_count": 44
     },
     {
       "id": "web-entry",
@@ -1951,6 +1951,7 @@
       "imports": [
         "packages/web/src/server/env.ts",
         "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/lib/auth/tunnel-auth.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/static.ts",
         "packages/web/src/server/routes/auth.ts",
@@ -2077,6 +2078,14 @@
       "imports": []
     },
     {
+      "path": "packages/web/src/server/lib/auth/tunnel-auth.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/rate-limit.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/lib/auth/ui-auth.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -2085,7 +2094,8 @@
         "packages/web/src/server/lib/auth/jwt.ts",
         "packages/web/src/server/lib/auth/password.ts",
         "packages/web/src/server/lib/auth/rate-limit.ts",
-        "packages/web/src/server/lib/auth/remote-clients.ts"
+        "packages/web/src/server/lib/auth/remote-clients.ts",
+        "packages/web/src/server/lib/auth/tunnel-auth.ts"
       ]
     },
     {
@@ -2132,6 +2142,7 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
+        "packages/web/src/server/lib/auth/tunnel-auth.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts"
       ]
     },

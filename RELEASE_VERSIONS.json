@@ -8,6 +8,10 @@
     {
       "version": "20260918-2",
       "content_sha256": "b498852a4497224df461f9e1fa95593b96f6b85933aa58274ddb543343956a81"
+    },
+    {
+      "version": "20260918-3",
+      "content_sha256": "e2bc1c8359d8ebee51b46064f41f610291d532dd55149b9e8bcd936634bc6171"
     }
   ]
 }

@@ -9,7 +9,7 @@ import { createApp } from './app.ts';
 import { ENV } from './env.ts';
 import { registerHarnessAdapter } from './harness/adapter.ts';
 import { mockHarness } from './harness/mock/index.ts';
-import { getUiAuthController } from './lib/auth/ui-auth.ts';
+import { upgradeAllowedForRequest } from './lib/auth/ui-auth.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
@@ -23,13 +23,12 @@ export function startServer(): { port: number } {
   const terminal = createTerminalRuntime();
   const app = createApp({ terminal });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
-  // E-07-3 slot: the ui-auth controller backs the terminal upgrade gate
-  // (loopback stays enforced in the wire layer).
-  const controller = getUiAuthController();
+  // E-07-3 slot: the ui/tunnel composed predicate backs the terminal
+  // upgrade gate (loopback stays enforced in the wire layer).
   const wiring = attachTerminalWebsocket(
     server as HttpServer,
     terminal,
-    (url, headers, method) => controller.upgradeAllowed(url, headers, method),
+    (url, headers, method) => upgradeAllowedForRequest(url, headers, method),
   );
   terminal.startSweep();
   console.log(`NotNativeDesktop server ready -> http://${ENV.host}:${ENV.port} (harness: ${ENV.harness})`);

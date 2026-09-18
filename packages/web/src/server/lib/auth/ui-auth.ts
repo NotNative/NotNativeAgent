@@ -11,6 +11,7 @@
 import { randomBytes } from 'node:crypto';
 import { readEnvUiPassword } from '../../env.ts';
 import { createPasswordHashCache, normalizedPassword, passwordMatches, type PasswordSecrets } from './password.ts';
+import { getTunnelAuthController } from './tunnel-auth.ts';
 import {
   resolveJwtSecretHolder, signSessionJwt, verifySessionJwt,
   type JwtSecretHolder,
@@ -414,6 +415,29 @@ export class UiAuthController {
   upgradeAllowed(url: URL, headers: Headers, method: string): boolean {
     return this.authenticate(headers, url, method).ok;
   }
+
+  /** Bearer + URL-token credentials only (no JWT cookie branch, no open
+   * pass-through): the device-token surface that passes at ANY scope (§2.9)
+   * and the /auth/session tunnel-scope row. */
+  credentialGrant(headers: Headers, url: URL, method: string, urlTokensEnabled: boolean = true): boolean {
+    const bearer = headers.get('authorization');
+    if (bearer !== null) return this.byBearer(bearer).ok;
+    const fromUrlToken = urlTokensEnabled ? this.byUrlToken(headers, url, method) : null;
+    if (fromUrlToken !== null) return fromUrlToken.ok;
+    return false;
+  }
+}
+
+/** Composed WS-upgrade admission across scopes (ui + tunnel controllers):
+ * at tunnel scope the device-bearing credentials and a tunnel session both
+ * admit; otherwise the local ui predicate answers. Used by index.ts. */
+export function upgradeAllowedForRequest(url: URL, headers: Headers, method: string): boolean {
+  const scope = getTunnelAuthController().classify(headers, url);
+  if (scope === 'tunnel' || scope === 'unknown-public') {
+    if (getUiAuthController().credentialGrant(headers, url, method)) return true;
+    return getTunnelAuthController().requireTunnelSession(headers.get('cookie') ?? undefined);
+  }
+  return getUiAuthController().upgradeAllowed(url, headers, method);
 }
 
 export function sanitizeOutboundClient(client: RemoteClientRecord): Record<string, unknown> {
