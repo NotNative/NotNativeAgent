@@ -37,6 +37,7 @@ const COMPONENTS = Object.freeze([
     path === 'headless.js' || path.startsWith('integration-') || path.startsWith('nno-')
     || path.startsWith('secret-broker-') || path.startsWith('session-broker') || path.startsWith('subagent-')
   )),
+  component('opencode-surface', 'OpenCode surface', 'Serves the OpenCode wire contract over live session engines.', matches('opencode/')),
   component('foundation', 'Product foundation', 'Provides shared configuration, contracts, telemetry, and product utilities.', () => true),
 ]);
 
@@ -44,6 +45,7 @@ const OWNERSHIP_EDGES = Object.freeze([
   ['experience-engine', 'agentic-engine', 'submits operator work'],
   ['gateway', 'agentic-engine', 'submits remote work'],
   ['integrations', 'agentic-engine', 'submits hosted work'],
+  ['opencode-surface', 'agentic-engine', 'serves wire operator work'],
   ['agentic-engine', 'governance-engine', 'requests authority decisions'],
   ['agentic-engine', 'reliability-engine', 'requests reliability decisions'],
   ['agentic-engine', 'providers', 'dispatches model requests'],

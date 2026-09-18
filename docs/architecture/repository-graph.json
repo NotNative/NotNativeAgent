@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:4e35ee4f6d7497d1533a44551cd702054460db478c53d8d3e6aec8b3b1616f2c",
+  "source_digest": "sha256:9346215302a4d292a75f56679266e2f9aa7d558a9c2db3b0ec81db9cf0ac3a1b",
   "counts": {
-    "modules": 343,
-    "component_edges": 70
+    "modules": 351,
+    "component_edges": 75
   },
   "components": [
     {
@@ -67,6 +67,12 @@
       "label": "Integration surfaces",
       "ownership": "Owns headless, NNO, sub-agent, and service boundaries.",
       "module_count": 10
+    },
+    {
+      "id": "opencode-surface",
+      "label": "OpenCode surface",
+      "ownership": "Serves the OpenCode wire contract over live session engines.",
+      "module_count": 8
     },
     {
       "id": "foundation",
@@ -220,6 +226,12 @@
       "module_count": 4
     },
     {
+      "from": "opencode-surface",
+      "to": "opencode-surface",
+      "import_count": 10,
+      "module_count": 6
+    },
+    {
       "from": "guidance",
       "to": "foundation",
       "import_count": 9,
@@ -292,6 +304,12 @@
       "module_count": 4
     },
     {
+      "from": "opencode-surface",
+      "to": "foundation",
+      "import_count": 5,
+      "module_count": 2
+    },
+    {
       "from": "persistence",
       "to": "persistence",
       "import_count": 5,
@@ -467,6 +485,12 @@
     },
     {
       "from": "foundation",
+      "to": "opencode-surface",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "foundation",
       "to": "tools",
       "import_count": 1,
       "module_count": 1
@@ -509,6 +533,18 @@
     },
     {
       "from": "integrations",
+      "to": "persistence",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "opencode-surface",
+      "to": "agentic-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "opencode-surface",
       "to": "persistence",
       "import_count": 1,
       "module_count": 1
@@ -574,6 +610,7 @@
         "src/integration-cli.js",
         "src/mcp-credentials.js",
         "src/onboarding.js",
+        "src/opencode/cli-operation.js",
         "src/persistence/session-data.js",
         "src/plain-text.js",
         "src/process-fatal-boundary.js",
@@ -1831,6 +1868,77 @@
         "src/persistence/atomic-json.js",
         "src/provider/route-configuration.js"
       ]
+    },
+    {
+      "path": "src/opencode/cli-operation.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/serve.js",
+        "src/structured-log.js"
+      ]
+    },
+    {
+      "path": "src/opencode/protocol.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/version.js"
+      ]
+    },
+    {
+      "path": "src/opencode/registry.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/slug.js"
+      ]
+    },
+    {
+      "path": "src/opencode/serve.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/cli-options.js",
+        "src/config.js",
+        "src/onboarding.js",
+        "src/opencode/server.js",
+        "src/opencode/sessions.js",
+        "src/opencode/version.js"
+      ]
+    },
+    {
+      "path": "src/opencode/server.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/opencode/protocol.js",
+        "src/opencode/version.js"
+      ]
+    },
+    {
+      "path": "src/opencode/sessions.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/engine.js",
+        "src/ids.js",
+        "src/ingress.js",
+        "src/opencode/registry.js",
+        "src/opencode/slug.js"
+      ]
+    },
+    {
+      "path": "src/opencode/slug.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/opencode/version.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/path-policy.js",

@@ -23,6 +23,7 @@ import { runSecretBrokerCommand } from './secret-broker-cli.js';
 import { runWebBrowseCommand } from './web-browse-cli.js';
 import { runUpdateCommand } from './update-cli.js';
 import { runIntegrationCommand } from './integration-cli.js';
+import { runOpencodeCommand } from './opencode/cli-operation.js';
 import { installProcessFatalBoundary } from './process-fatal-boundary.js';
 
 const fatalBoundary = installProcessFatalBoundary({
@@ -79,6 +80,12 @@ try {
   }
   else if (options.mode === 'integration') {
     await runIntegrationCommand(options.prompt, await runtimePaths(), {
+      output: process.stdout, diagnostics: process.stderr,
+    });
+  }
+  else if (options.mode === 'opencode') {
+    const paths = await runtimePaths();
+    await runOpencodeCommand(options, paths, {
       output: process.stdout, diagnostics: process.stderr,
     });
   }
@@ -157,6 +164,8 @@ function help() {
     '  nna webbrowse status|verify               Inspect optional Playwright Chromium runtime',
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
     '  nna integration serve                    Start the ephemeral NNO integration service',
+    '  nna opencode serve [--hostname H] [--port P] [--advertise-version V]',
+    '                                           OpenCode-compatible wire surface for OpenChamber',
     '  nna uninstall [--delete-user-data|--keep-user-data]',
     '  nna update --check                     Check the repository for a newer version',
     '  nna update                             Install the latest repository version with rollback',

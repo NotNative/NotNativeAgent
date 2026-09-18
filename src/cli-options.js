@@ -12,6 +12,7 @@ export function parseCli(argv) {
   const options = {
     mode, manifestPath: null, sessionId: null, prompt: [], providerProfile: null,
     providerEndpoint: null, model: null, providerCredentialEnv: null,
+    serveAction: null, serveHostname: null, servePort: null, advertiseVersion: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
@@ -33,10 +34,16 @@ export function parseCli(argv) {
     else if (value === '--provider-credential-env') options.providerCredentialEnv = credentialName(argv[++index], value);
     else if (value === '--no-color') options.color = false;
     else if (value === '--reduced-motion') options.reducedMotion = true;
+    else if (mode === 'opencode' && value === '--hostname') options.serveHostname = requiredValue(argv[++index], value);
+    else if (mode === 'opencode' && value === '--port') {
+      options.servePort = parseServePort(requiredValue(argv[++index], value));
+    }
+    else if (mode === 'opencode' && value === '--advertise-version') options.advertiseVersion = requiredValue(argv[++index], value);
     else if (value === '--json' && mode === 'skills') options.prompt.push(value);
     else if (value === '--check' && mode === 'update') options.prompt.push(value);
     else if (mode === 'uninstall' && ['--delete-user-data', '--keep-user-data'].includes(value)) options.prompt.push(value);
     else if (value.startsWith('-')) throw new ContractError('invalid_option', `unknown option ${value}`);
+    else if (mode === 'opencode' && value === 'serve') options.serveAction = 'serve';
     else options.prompt.push(value);
   }
   if (mode === 'headless' && [options.providerEndpoint, options.model, options.providerCredentialEnv].some(Boolean)) {
@@ -48,8 +55,16 @@ export function parseCli(argv) {
 const MODES = new Set([
   'tui', 'text', 'headless', 'host', 'session', 'sessions', 'websearch', 'skills', 'gateway',
   'webfetch', 'webbrowse', 'provider', 'secrets', 'uninstall', 'help', 'version', '--help', '-h', '--version', '-v',
-  'update', 'integration',
+  'update', 'integration', 'opencode',
 ]);
+
+function parseServePort(value) {
+  const port = Number(value);
+  if (!Number.isSafeInteger(port) || port < 0 || port > 65_535) {
+    throw new ContractError('invalid_option', '--port requires a TCP port between 0 and 65535');
+  }
+  return port;
+}
 
 export async function loadManifest(path) {
   if (!path) throw new ContractError('manifest_required', '--manifest PATH is required');

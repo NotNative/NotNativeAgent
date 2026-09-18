@@ -37,13 +37,16 @@ test('AC-HEAD-03 ordinary headless is authenticated stdio and exposes no network
 });
 
 test('launch options support prompt, host, and config aliases without breaking legacy modes', () => {
-  assert.deepEqual(parseCli(['-p', 'hello']), {
-    mode: 'text', manifestPath: null, sessionId: null, prompt: ['hello'], providerProfile: null,
+  const baseFields = {
+    manifestPath: null, sessionId: null, providerProfile: null,
     providerEndpoint: null, model: null, providerCredentialEnv: null,
+    serveAction: null, serveHostname: null, servePort: null, advertiseVersion: null,
+  };
+  assert.deepEqual(parseCli(['-p', 'hello']), {
+    ...baseFields, mode: 'text', prompt: ['hello'],
   });
   assert.deepEqual(parseCli(['--config', 'purpose.json', '-p']), {
-    mode: 'text', manifestPath: 'purpose.json', sessionId: null, prompt: [], providerProfile: null,
-    providerEndpoint: null, model: null, providerCredentialEnv: null,
+    ...baseFields, manifestPath: 'purpose.json', mode: 'text', prompt: [],
   });
   assert.equal(parseCli(['host']).mode, 'headless');
   assert.equal(parseCli(['headless']).mode, 'headless');

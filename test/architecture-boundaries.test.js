@@ -67,16 +67,18 @@ function ownerOf(path) {
   if (path === 'tui.js' || path.startsWith('tui/')) return 'tui';
   if (path === 'gateway-cli.js') return 'gateway-control';
   if (path.startsWith('gateway/')) return 'gateway';
+  if (path.startsWith('opencode/')) return 'opencode';
   return 'shared';
 }
 
 function forbidden(owner, targetOwner) {
-  if (owner === 'engine' || owner === 'governance') return targetOwner === 'tui' || targetOwner === 'gateway';
+  if (owner === 'engine' || owner === 'governance') return ['tui', 'gateway', 'opencode'].includes(targetOwner);
   if (owner === 'reliability') {
-    return ['engine', 'governance', 'experience', 'tui', 'gateway'].includes(targetOwner);
+    return ['engine', 'governance', 'experience', 'tui', 'gateway', 'opencode'].includes(targetOwner);
   }
-  if (owner === 'experience') return targetOwner === 'tui' || targetOwner === 'gateway';
-  if (owner === 'tui') return targetOwner === 'gateway';
-  if (owner === 'gateway') return targetOwner === 'tui';
+  if (owner === 'experience') return ['tui', 'gateway', 'opencode'].includes(targetOwner);
+  if (owner === 'tui') return ['gateway', 'opencode'].includes(targetOwner);
+  if (owner === 'gateway') return ['tui', 'opencode'].includes(targetOwner);
+  if (owner === 'opencode') return ['tui', 'gateway'].includes(targetOwner);
   return false;
 }
