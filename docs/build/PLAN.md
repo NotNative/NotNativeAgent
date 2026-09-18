@@ -22,10 +22,10 @@ doc summaries but no code is written for them.
 | P5 Themes/settings | 14 | Token table, theme system, settings registry + snapshot gate, shortcuts, i18n scaffold (en first) |
 | P6 Review surfaces | 06 | File browser/editor (CM6), diff system, git view, worktrees, plan view, inline comments |
 | P7 Terminal | 07 | v3 wire protocol, PTY lifecycle (Windows ConPTY path), xterm renderer (ghostty evaluated), project actions |
-| P8 Autonomy | 12 | Session goals, scheduled tasks, message queue, multi-run/fusion |
-| P9 Knowledge/context | 15 | Knowledge blocks, memory tool surface, project context, skills, MCP config, snippets |
-| P10 Preview/inspection | 13 | Dev-server discovery, preview embedding, element inspection, walkthrough pipeline |
-| P11 Remote/Auth (promoted) | 08 | NND client core capability per ADR 0020: password scrypt/JWT, passkeys, URL/device tokens, tunnels, pairing links, relay (contract-level; broker validated at build time) |
+| P8 Remote/Auth (promoted) | 08 | NND client core capability per ADR 0020: password scrypt/JWT, passkeys, URL/device tokens, tunnels, pairing links, relay (contract-level; broker validated at build time). Renumbered 2026-09-18 from P11 to P8 so working slices stay in doc order (P6→06, P7→07, P8→08); old P8/P9/P10 shift down one |
+| P9 Autonomy | 12 | Session goals, scheduled tasks, message queue, multi-run/fusion |
+| P10 Knowledge/context | 15 | Knowledge blocks, memory tool surface, project context, skills, MCP config, snippets |
+| P11 Preview/inspection | 13 | Dev-server discovery, preview embedding, element inspection, walkthrough pipeline |
 | P12 Desktop shell (delivery vehicle) | 09 | NND-as-product shell: connection manager (multi-NNA instances), in-process server optional, IPC bridge + security gating, tray, boot outcome, updates, packaging |
 | P13 Integration verify | all | End-to-end run of core journeys; deferred-items register reviewed; NNA integration notes written |
 | PA Ecosystem seam | ADR 0020 | NNA harness surface lands (projection frames, 13-state authority, mode get/set, entitlement slot); NND adapter replaces mock; acceptance = NND harness contract suite green against real NNA |

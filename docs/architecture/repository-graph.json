@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:80ed050fcff2bbe789e70fba056b4c4eddabf1c17c2118375a0346f4be7c2761",
+  "source_digest": "sha256:4a89120f6d84c965f1b0dbc4b7620b17258b6b156031b2019d52cd058937b62a",
   "counts": {
-    "modules": 229,
+    "modules": 231,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 37
+      "module_count": 39
     },
     {
       "id": "web-entry",
@@ -2043,6 +2043,18 @@
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/wire.ts"
       ]
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/pairing-payload.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/remote-clients.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "packages/web/src/server/lib/bus.ts",

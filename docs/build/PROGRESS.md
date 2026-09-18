@@ -10,12 +10,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P3 chat UI | 05 | 🔶 P3a+P3b+P3c done 2026-09-16 (P3a: chat spine; P3b: model picker/starters/timeline/prompt-rail/BTW fork/focus mode; P3c: work-status panel §E.9 subset + §E.3/§E.4 recap+suggestion band; P3b+P3c adversarial review: P0×2 + P1×9 fixed; 122 vitest · tsc ×3 · gates+smoke · P3d/P4+ per NOTES 05 §A + review register) |
 | P4 server/API | 03 | 🔶 P4-1..3 done 2026-09-16 (P4-1: fs read+git status/check pre-proxy w/ containment; P4-2: settings/themes/projects-config/context + git log/branches; P4-3: fs write family (mkdir/write/delete/rename atomic+root-refusal) + session-folders §5.22 (last-writer-wins, 413, sync write queue); P4-1 review escaped-fixes landed, P4-2 review P1×4 fixed, P4-3 review QUEUED; web 23/23 · UI 122 · gates+smoke) |
 | P5 themes/settings | 14 | 🔶 P5-1..5 done 2026-09-17 (P5-1 token block + D8; P5-2 theme system: 38 built-ins + derive + generator + §E.3 persistence + §E.6 validation, review P0+P1×5 fixed; P5-3 settings registry 186 fields + snapshot gate + §F.3 split store + server gate + client persistence engine + fs-write no-op, review P0×2+P1×6 fixed; P5-4 i18n scaffold (12 locales, closed en set, partial catalogs w/ en fallback, provider/store/runtime/bootstrap), review P0+P1×3 fixed; P5-5 shortcuts engine (36 bindings, grammar/registry/dispatcher/hooks, capture listener, AltGraph + IME rules, recorderConflict), review P0+P1×5 fixed; 250 UI · 33 web · gates+smoke+graph each; P5-6 settings UI (window/pages/search/recorder + §I.3/I.4 wiring + §J formatters) queued) |
-| P6 review | 06 | pending |
-| P7 terminal | 07 | pending |
-| P8 autonomy | 12 | pending |
-| P9 knowledge/context | 15 | pending |
-| P10 preview | 13 | pending |
-| P11 remote/security | 08 | pending |
+| P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
+| P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
+| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a: pairing v2 payload + remote-client store, 18 tests, review fixed; checklist steps 3-15 queued per NOTES/08 §A) |
+| P9 autonomy | 12 | pending |
+| P10 knowledge/context | 15 | pending |
+| P11 preview | 13 | pending |
 | P12 Electron | 09 | pending |
 | (deferred) VS Code | 10 | long-term deferred |
 | (deferred) Mobile | 11 | long-term deferred |
@@ -310,6 +310,34 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   upgrade, page i18n key sweep, deep-link history, notification permission
   gating, voice/about slugs, recorder-dialog test file, control-form
   deltas). 280 UI tests · web 33/33 · gates+smoke+graph.
+
+- 2026-09-17 · **P6 done (review surfaces, doc 06).** Four slices committed 2026-09-17
+  (commits f195bbb, 652f774, f5e76d5, 1322c66): P6-1 fs domain + FilesView core
+  (stat/read/raw routes, tabs store, FileTree dialogs, editor load/autosave/image/binary),
+  P6-2 diff + git view (diff-model, first-party DiffViewer, git-router, GitView),
+  P6-3 plan + comments + worktrees core (PlanSaveQueue, draft store, capture chain,
+  WorktreesView), P6-3b inline comment lifecycle v1 + live worktrees + shell wiring.
+  Adversarial sub-agent reviews fixed per slice (P0 clusters incl. transport throw,
+  file-diff containment, cross-device enumeration-adjacent worktree paths, composer
+  data losses); registered E-06-4..18 in NOTES/06. 359 UI · 48 web · gates+smoke+graph.
+
+- 2026-09-17 · **P7 done (terminal, doc 07).** Two slices committed 2026-09-17
+  (commits 8be1140, 758cfe6): P7-1 server core (WS codec v3, history sanitizer,
+  theme-response answering, shells family, node-pty ConPTY backend, TerminalRuntime
+  create/restart/kill lifecycle, idempotent command plane, loopback-gated upgrader),
+  P7-2 client (TerminalTransport, terminal store + observer, TerminalView v1 with
+  line-buffer renderer, MainLayout pane). Adversarial reviews fixed (incl. real ConPTY
+  end-to-end gates); registered E-07-3..23 in NOTES/07. 389 UI · web 94 ·
+  gates+smoke+graph.
+
+- 2026-09-18 · **P8-1a delivered (doc 08 steps 1-2), resumed by new agent.** Pairing
+  v2 payload contract (strict encoder, link head `openchamber://connect?v=2&p=`,
+  16384 triple cap, v1 rejected) + remote-client credential store (hash-only, dedupe-
+  replace, bearer auth, sticky relay, 60 s lastUsed throttle, revoke/purge) + 18 tests
+  (`p8-1-auth-core.test.ts`). Adversarial review pass fixed P0x4 + P1 cluster; registered
+  E-08-1..10 in NOTES/08. Ledger reconciled this session: P6/P7 rows + log entries
+  added; phase renumbering adopted (doc 08 = P8; PLAN.md P11→P8, autonomy/knowledge/
+  preview shift to P9/P10/P11) to match working slice numbering.
 
 ## Delta/Delayed register
 

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "releases": [
+    {
+      "version": "20260918-1",
+      "content_sha256": "7d93296ffeb177c63d6751d6e80a1aae4ce3a7a6375b633b8b6988622e2eb5e1"
+    }
+  ]
+}
