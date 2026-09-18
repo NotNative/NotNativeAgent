@@ -13,6 +13,9 @@ import { registerGitWorktreeRoutes } from './routes/git-worktrees.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
+import { registerTerminalRoutes } from './terminal/routes.ts';
+import { createTerminalRuntime } from './terminal/bootstrap.ts';
+import type { TerminalRuntime } from './terminal/session-core.ts';
 
 /**
  * Session list sanitation (doc 02 §3.2): server-side keep-list, `summary`
@@ -55,8 +58,9 @@ async function sanitizeSessionList(response: Response): Promise<Response> {
   }
 }
 
-export function createApp() {
+export function createApp(options?: { terminal?: TerminalRuntime }) {
   const app = new Hono();
+  const terminal = options?.terminal ?? createTerminalRuntime();
 
   app.get('/health', (c) =>
     c.json({
@@ -78,6 +82,7 @@ export function createApp() {
   registerGitDiffRoutes(app);
   registerGitRoutes(app);
   registerGitWorktreeRoutes(app);
+  registerTerminalRoutes(app, terminal);
   registerSettingsRoutes(app);
   registerProjectsRoutes(app);
   registerGitReadRoutes(app);

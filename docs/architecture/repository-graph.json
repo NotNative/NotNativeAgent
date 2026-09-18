@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:c59629bc3bebe00a4794e0b27a8c5c47498934dc9bc38765bdf34bb86fe69792",
+  "source_digest": "sha256:57ec1b1d7106654a491af635988c7f95a82e4e1522021c0b05cb9deabb11ac41",
   "counts": {
-    "modules": 211,
+    "modules": 223,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 25
+      "module_count": 37
     },
     {
       "id": "web-entry",
@@ -66,11 +66,16 @@
   "external_dependencies": [
     "@hono/node-server",
     "hono",
+    "node-pty",
     "node:assert/strict",
+    "node:buffer",
     "node:child_process",
     "node:crypto",
     "node:fs",
     "node:fs/promises",
+    "node:http",
+    "node:module",
+    "node:net",
     "node:os",
     "node:path",
     "node:process",
@@ -78,6 +83,7 @@
     "react",
     "react-dom/client",
     "sonner",
+    "ws",
     "zustand",
     "zustand/vanilla"
   ],
@@ -1894,7 +1900,10 @@
         "packages/web/src/server/routes/git.ts",
         "packages/web/src/server/routes/notnative.ts",
         "packages/web/src/server/routes/projects.ts",
-        "packages/web/src/server/routes/session-folders.ts"
+        "packages/web/src/server/routes/session-folders.ts",
+        "packages/web/src/server/terminal/bootstrap.ts",
+        "packages/web/src/server/terminal/routes.ts",
+        "packages/web/src/server/terminal/session-core.ts"
       ]
     },
     {
@@ -1969,7 +1978,9 @@
         "packages/web/src/server/app.ts",
         "packages/web/src/server/env.ts",
         "packages/web/src/server/harness/adapter.ts",
-        "packages/web/src/server/harness/mock/index.ts"
+        "packages/web/src/server/harness/mock/index.ts",
+        "packages/web/src/server/terminal/bootstrap.ts",
+        "packages/web/src/server/terminal/wire.ts"
       ]
     },
     {
@@ -2093,6 +2104,116 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/terminal/bootstrap.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/terminal/pty-backend.ts",
+        "packages/web/src/server/terminal/session-core.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/terminal/create-validate.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/terminal/history.ts",
+        "packages/web/src/server/terminal/protocol.ts",
+        "packages/web/src/server/terminal/pty-backend.ts",
+        "packages/web/src/server/terminal/records.ts",
+        "packages/web/src/server/terminal/shells.ts",
+        "packages/web/src/server/terminal/theme-response.ts",
+        "packages/web/src/server/terminal/types.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/terminal/history.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/terminal/protocol.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/terminal/types.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/terminal/pty-backend.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/terminal/records.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/terminal/history.ts",
+        "packages/web/src/server/terminal/pty-backend.ts",
+        "packages/web/src/server/terminal/theme-response.ts",
+        "packages/web/src/server/terminal/types.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/terminal/routes.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/terminal/session-core.ts",
+        "packages/web/src/server/terminal/types.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/terminal/session-core.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/terminal/create-validate.ts",
+        "packages/web/src/server/terminal/history.ts",
+        "packages/web/src/server/terminal/protocol.ts",
+        "packages/web/src/server/terminal/pty-backend.ts",
+        "packages/web/src/server/terminal/records.ts",
+        "packages/web/src/server/terminal/shells.ts",
+        "packages/web/src/server/terminal/theme-response.ts",
+        "packages/web/src/server/terminal/types.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/terminal/shells.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/terminal/types.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/terminal/theme-response.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/terminal/history.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/terminal/types.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/terminal/wire.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/terminal/protocol.ts",
+        "packages/web/src/server/terminal/records.ts",
+        "packages/web/src/server/terminal/session-core.ts"
       ]
     },
     {

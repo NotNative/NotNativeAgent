@@ -20,6 +20,20 @@
       "reviewed_at": "2026-09-16"
     },
     {
+      "name": "ws",
+      "packages": ["@notnative/web"],
+      "reason": "Terminal binary WebSocket transport (0x01+JSON frames, 64 KiB cap, protocol v3 per doc 07 section 3); one socket multiplexes every attached terminal",
+      "license": "MIT",
+      "reviewed_at": "2026-09-17"
+    },
+    {
+      "name": "node-pty",
+      "packages": ["@notnative/web"],
+      "reason": "PTY backend for the terminal subsystem (doc 07 section 4): useConpty on Windows, process-group kill on POSIX; doc-named backend when not running under Bun",
+      "license": "MIT",
+      "reviewed_at": "2026-09-17"
+    },
+    {
       "name": "react",
       "packages": ["@notnative/ui", "@notnative/web"],
       "reason": "UI layer (doc 05); useSyncExternalStore binding for the sync engine leaf selectors",
