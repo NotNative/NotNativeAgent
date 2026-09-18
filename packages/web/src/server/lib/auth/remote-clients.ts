@@ -200,6 +200,20 @@ export class RemoteClientStore {
     return before - this.clients.length;
   }
 
+  /** Active-record lookup by record id: URL tokens bind to `client:<id>`
+   * (doc 08 section 2.6) and must keep failing closed while the device
+   * record is revoked, expired, or unknown. No transport stamping here. */
+  getActiveClient(id: unknown): RemoteClientRecord | undefined {
+    if (typeof id !== 'string' || id === '') return undefined;
+    const record = this.clients.find((client) => client.id === id);
+    if (record === undefined || record.revokedAt !== null) return undefined;
+    if (record.expiresAt !== undefined) {
+      const expiry = Date.parse(record.expiresAt);
+      if (!Number.isFinite(expiry) || expiry <= this.now()) return undefined;
+    }
+    return record;
+  }
+
   listClients(): RemoteClientRecord[] {
     return [...this.clients]; // tokenHash: present; plaintext tokens never stored
   }

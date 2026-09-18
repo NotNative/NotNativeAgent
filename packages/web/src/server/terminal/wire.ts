@@ -19,18 +19,28 @@ export const TERMINAL_WS_CLOSE_GRACE_MS = 1_000; // section 4.8: ws.close() with
 
 export interface TerminalWiring { dispose(): void }
 
+/** E-07-3 auth slot (doc 08 §2.6): the credential predicate rides next to
+ * the loopback cap; URL-token/cookie checks stay in lib/auth (ui-auth). */
+export type TerminalUpgradeGate = (url: URL, headers: Headers, method: string) => boolean;
+
 function isLoopbackPeer(remoteAddress: string | undefined): boolean {
   if (remoteAddress === undefined) return true; // in-process/uds: the desktop host dials loopback by design
   return remoteAddress === '127.0.0.1' || remoteAddress === '::1' || remoteAddress === '::ffff:127.0.0.1';
 }
 
-export function attachTerminalWebsocket(server: HttpServer, runtime: TerminalRuntime): TerminalWiring {
+export function attachTerminalWebsocket(server: HttpServer, runtime: TerminalRuntime, gate?: TerminalUpgradeGate): TerminalWiring {
   const wss = new WebSocketServer({ noServer: true, maxPayload: TERMINAL_WS_MAX_PAYLOAD_BYTES });
   const onUpgrade = (request: IncomingMessage, socket: import('node:net').Socket, head: Buffer): void => {
-    const path = String(request.url ?? '').split('?')[0] ?? '';
+    const rawUrl = String(request.url ?? '');
+    const url = new URL(rawUrl, 'http://notnative.invalid');
+    const path = url.pathname;
     if (path !== TERMINAL_WS_PATH) return; // other upgrades are not ours
     if (!isLoopbackPeer(request.socket.remoteAddress)) {
       socket.destroy(); // 403 equivalent for the WS upgrade gate (E-07-3 slot)
+      return;
+    }
+    if (!admittedByGate(url, incomingHeaders(request), request.method ?? 'GET', gate)) {
+      socket.destroy(); // fail closed: a throwing gate must not crash the upgrade listener
       return;
     }
     wss.handleUpgrade(request, socket, head, (client) => wireClient(client, runtime));
@@ -56,8 +66,24 @@ export function attachTerminalWebsocket(server: HttpServer, runtime: TerminalRun
   };
 }
 
-function wireClient(client: WebSocket, runtime: TerminalRuntime): void {
-  const adapter = socketAdapter(client);
+function admittedByGate(url: URL, headers: Headers, method: string, gate: TerminalUpgradeGate | undefined): boolean {
+  if (gate === undefined) return true;
+  try {
+    return gate(url, headers, method);
+  } catch {
+    return false;
+  }
+}
+
+function incomingHeaders(request: IncomingMessage): Headers {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(request.headers)) {
+    if (typeof value === 'string') headers.set(name, value);
+  }
+  return headers;
+}
+
+function wireClient(client: WebSocket, runtime: TerminalRuntime): void {  const adapter = socketAdapter(client);
   client.send(encodeFrame({ v: 3, t: 'hello' }));
   client.on('message', (data: WebSocket.RawData) => {
     try {

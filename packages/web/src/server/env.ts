@@ -20,7 +20,7 @@ export const ENV = {
   dataDir: process.env.NOTNATIVE_DATA_DIR ?? path.join(os.homedir(), '.notnative-desktop'),
   /** Placeholder until doc 03's disk layout lands. */
   settingsFile: null as string | null,
-  /** UI-level auth gate. Password auth is fully specified in doc 08 (P11). */
+  /** UI-level auth gate. Password auth is fully specified in doc 08 (P8). */
   uiPassword: process.env.NOTNATIVE_UI_PASSWORD ?? '',
   planModeExperimentalEnabled: truthy(
     process.env.NOTNATIVE_EXPERIMENTAL_PLAN_MODE ?? process.env.NOTNATIVE_EXPERIMENTAL,
@@ -28,3 +28,10 @@ export const ENV = {
   /** Harness selection: 'mock' until the NNA adapter is wired. */
   harness: (process.env.NOTNATIVE_HARNESS ?? 'mock') as 'mock' | 'nna',
 } as const;
+
+/** Call-time env read for the doc 08 password source (module-level ENV is a
+ * boot snapshot; the ui-auth resolver must see late test/ops changes). */
+export function readEnvUiPassword(): string {
+  const value = process.env.NOTNATIVE_UI_PASSWORD;
+  return typeof value === 'string' ? value : '';
+}

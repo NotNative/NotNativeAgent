@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Hono } from 'hono';
+import type { Context, Next } from 'hono';
 import { ENV } from './env.ts';
 import { getHarnessAdapter } from './harness/adapter.ts';
+import { getUiAuthController, CLEAR_SESSION_COOKIE_HEADER, type AuthOutcome } from './lib/auth/ui-auth.ts';
 import { createStaticHandler, DIST_DIR } from './lib/static.ts';
 import { createAuthRoutes } from './routes/auth.ts';
 import { createNotNativeRoutes } from './routes/notnative.ts';
@@ -58,6 +60,20 @@ async function sanitizeSessionList(response: Response): Promise<Response> {
   }
 }
 
+async function apiAuthGate(c: Context, next: Next): Promise<Response | void> {
+  const controller = getUiAuthController();
+  const outcome: AuthOutcome = controller.authenticate(
+    c.req.raw.headers,
+    new URL(c.req.raw.url),
+    c.req.method,
+  );
+  if (outcome.ok) return next();
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(outcome.headers)) headers.set(name, value);
+  if (outcome.clearSessionCookie) headers.append('set-cookie', CLEAR_SESSION_COOKIE_HEADER);
+  return new Response(JSON.stringify(outcome.body), { status: outcome.status, headers });
+}
+
 export function createApp(options?: { terminal?: TerminalRuntime }) {
   const app = new Hono();
   const terminal = options?.terminal ?? createTerminalRuntime();
@@ -74,20 +90,12 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
   );
 
   app.route('/', createAuthRoutes());
-  app.route('/', createNotNativeRoutes());
-  // P4-1: NND-owned fs/git surface — MUST register before the /api proxy
-  // catch-all (Hono matches in registration order, doc 03 §5.14/§5.13).
-  registerFsRoutes(app);
-  registerFsReadRoutes(app);
-  registerGitDiffRoutes(app);
-  registerGitRoutes(app);
-  registerGitWorktreeRoutes(app);
-  registerTerminalRoutes(app, terminal);
-  registerSettingsRoutes(app);
-  registerProjectsRoutes(app);
-  registerGitReadRoutes(app);
-  registerFsWriteRoutes(app);
-  registerSessionFoldersRoutes(app);
+  // Global /api gate (doc 08 §2.2 requireAuth): cookie session, client
+  // bearer, or allowlisted URL token. Registered after the /auth routes so
+  // their bespoke headers (login/reset) run un-wrapped; every later /api
+  // surface + the harness proxy rides behind it.
+  app.use('/api/*', apiAuthGate);
+  registerApiSurfaces(app, terminal);
 
   // Harness proxy: everything under /api goes through the seam (HP-1).
   app.all('/api/*', async (c) => {
@@ -117,4 +125,22 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
   );
 
   return app;
+}
+
+/** NND-owned /api surfaces (P4/P6/P7 slices): registered between the auth
+ * gate and the harness-proxy catch-all (Hono matches in registration
+ * order, doc 03 §5.14/§5.13 — nothing may register after the proxy). */
+function registerApiSurfaces(app: Hono, terminal: TerminalRuntime): void {
+  app.route('/', createNotNativeRoutes());
+  registerFsRoutes(app);
+  registerFsReadRoutes(app);
+  registerGitDiffRoutes(app);
+  registerGitRoutes(app);
+  registerGitWorktreeRoutes(app);
+  registerTerminalRoutes(app, terminal);
+  registerSettingsRoutes(app);
+  registerProjectsRoutes(app);
+  registerGitReadRoutes(app);
+  registerFsWriteRoutes(app);
+  registerSessionFoldersRoutes(app);
 }

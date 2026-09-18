@@ -4,6 +4,10 @@
     {
       "version": "20260918-1",
       "content_sha256": "7d93296ffeb177c63d6751d6e80a1aae4ce3a7a6375b633b8b6988622e2eb5e1"
+    },
+    {
+      "version": "20260918-2",
+      "content_sha256": "b498852a4497224df461f9e1fa95593b96f6b85933aa58274ddb543343956a81"
     }
   ]
 }

@@ -187,6 +187,23 @@ function canShowOnSurface(key: string, kind: SurfaceKind): boolean {
   return !surfaces || surfaces.includes(kind);
 }
 
+/** Secret read for auth consumers (doc 08 password source via the settings
+ * registry): nullish surface values degrade to the base value; the value
+ * never travels to a response. */
+export function readStoredSecretValue(key: string): string {
+  seedPreferencesFromSettings();
+  const prefs = preferenceDoc();
+  if (!prefs) return '';
+  const field = prefs.fields[key];
+  if (!field) return '';
+  const perSurface = fieldPerSurface(key);
+  const kind = fieldSurfaces(key)?.[0] ?? 'desktop';
+  const value = perSurface && field.surfaces !== undefined
+    ? field.surfaces[kind]?.value
+    : field.value;
+  return typeof value === 'string' ? value : '';
+}
+
 /** Non-throwing stat helper for tests/diagnostics. */
 export function storeFileStats(): { preferences: boolean; settings: boolean } {
   const stat = (path: string): boolean => existsSync(path) && statSync(path).isFile();

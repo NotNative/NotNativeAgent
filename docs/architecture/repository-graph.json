@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:4a89120f6d84c965f1b0dbc4b7620b17258b6b156031b2019d52cd058937b62a",
+  "source_digest": "sha256:2d2ffc1eb4bf4385aee4b5145444f80ea0ca1d548cd99be7abe3506ac56bafc9",
   "counts": {
-    "modules": 231,
+    "modules": 235,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 39
+      "module_count": 43
     },
     {
       "id": "web-entry",
@@ -1951,6 +1951,7 @@
       "imports": [
         "packages/web/src/server/env.ts",
         "packages/web/src/server/harness/adapter.ts",
+        "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/static.ts",
         "packages/web/src/server/routes/auth.ts",
         "packages/web/src/server/routes/fs-read.ts",
@@ -2040,12 +2041,31 @@
         "packages/web/src/server/env.ts",
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/harness/mock/index.ts",
+        "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/wire.ts"
       ]
     },
     {
+      "path": "packages/web/src/server/lib/auth/jwt.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
       "path": "packages/web/src/server/lib/auth/pairing-payload.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/password.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/rate-limit.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": []
@@ -2055,6 +2075,18 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/ui-auth.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/auth/jwt.ts",
+        "packages/web/src/server/lib/auth/password.ts",
+        "packages/web/src/server/lib/auth/rate-limit.ts",
+        "packages/web/src/server/lib/auth/remote-clients.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/lib/bus.ts",
@@ -2100,7 +2132,7 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
-        "packages/web/src/server/env.ts"
+        "packages/web/src/server/lib/auth/ui-auth.ts"
       ]
     },
     {
