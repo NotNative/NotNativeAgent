@@ -8,201 +8,25 @@
  * both ways, sync reconciliation, the idle reaper (1001), rekey-1008 and
  * plaintext-after-established-1011, and dead-relay leg supervision.
  */
-import http from 'node:http';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as joinPath, sep } from 'node:path';
-import { webcrypto } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
-import { WebSocket, WebSocketServer, type WebSocket as WsClient } from 'ws';
+import { WebSocket, type WebSocket as WsClient } from 'ws';
 import { RelayIdentityStore, publicJwkCanonical } from '../lib/relay/identity.ts';
 import { decryptFrame, encryptFrame, type OpenedSession } from '../lib/relay/crypto.ts';
 import { MAX_PLAINTEXT_FRAME_BYTES } from '../lib/relay/crypto.ts';
 import { createClientInitiator } from '../lib/relay/handshake.ts';
 import { RelayHostBroker, RELAY_CLOSE, type RelayHostTiming } from '../lib/relay/host-broker.ts';
+import { closeAllFakeWorkers, createFakeWorker, type FakeWorker } from './helpers/relay-fake-worker.ts';
 
 const scratchDirs: string[] = [];
-const workers: FakeWorker[] = [];
 
 afterAll(async () => {
-  for (const worker of workers) await worker.close();
+  await closeAllFakeWorkers();
 });
 
-interface FakeWorker {
-  url: string;
-  hostControl: () => WsClient | null;
-  closeControl: (code: number, reason: string) => void;
-  pauseControl(): void;
-  unpauseControl(): void;
-  pauseData(): void;
-  unpauseData(): void;
-  awaitClientLeg(connectionId: string): Promise<WsClient>;
-  announceSync(connectionIds: string[]): void;
-  /** Ungates held upgrades, terminates every live socket, closes the server. */
-  close(): Promise<void>;
-}
-
-function fakeWorker(): Promise<FakeWorker> {
-  const wss = new WebSocketServer({ noServer: true, maxPayload: 1024 * 1024 });
-  const dataSockets = new Map<string, WsClient>();
-  const clientLegs = new Map<string, WsClient>();
-  const pendingLegs = new Map<string, (ws: WsClient) => void>();
-  let controlGate: Promise<void> | null = null;
-  let controlGateResolve: (() => void) | null = null;
-  let dataGate: Promise<void> | null = null;
-  let dataGateResolve: (() => void) | null = null;
-  let hostControlSocket: WsClient | null = null;
-  let hostServerId: string | null = null;
-  wss.on('connection', (ws: WsClient, request: http.IncomingMessage) => {
-    const params = new URL(request.url ?? '', 'http://relay.invalid');
-    const role = params.searchParams.get('role') ?? '';
-    const serverId = params.searchParams.get('serverId') ?? '';
-    const connectionId = params.searchParams.get('connectionId') ?? '';
-    if (role === 'client') {
-      clientLegs.set(connectionId, ws);
-      pendingLegs.get(connectionId)?.(ws);
-      pendingLegs.delete(connectionId);
-      hostControlSocket?.send(JSON.stringify({ type: 'connected', connectionId }));
-      ws.on('message', (data: Buffer, isBinary: boolean) => {
-        dataSockets.get(connectionId)?.send(data as Buffer, { binary: isBinary }); // forward verbatim, kind preserved
-      });
-      return;
-    }
-    // host roles: the frame plumbing attaches synchronously so no inbound
-    // frame or close can race the async verify; only the PAIRING (slot
-    // assignment) lands after the worker-parity signature check
-    const paired = { value: false };
-    ws.on('message', (data: Buffer, isBinary: boolean) => {
-      if (!paired.value || role !== 'host-data') return;
-      clientLegs.get(connectionId)?.send(data as Buffer, { binary: isBinary }); // kind preserved
-    });
-    ws.on('close', () => {
-      if (paired.value && role === 'host-data') {
-        clientLegs.get(connectionId)?.close(1000, 'host leg closed'); // the pairing teardown propagates
-      }
-    });
-    void verifyHostSig(
-      params.searchParams.get('pk') ?? '',
-      params.searchParams.get('sig') ?? '',
-      `${params.searchParams.get('ts') ?? ''}.${serverId}.${role}.${connectionId}`,
-    ).then((ok) => {
-      if (!ok) {
-        ws.close(RELAY_CLOSE.AuthFailed, 'signature rejected');
-        return;
-      }
-      if (role === 'host-control') {
-        if (hostControlSocket !== null && hostServerId === serverId) {
-          hostControlSocket.close(RELAY_CLOSE.ControlReplaced, 'Control replaced');
-        }
-        hostControlSocket = ws;
-        hostServerId = serverId;
-        return;
-      }
-      if (role === 'host-data') {
-        paired.value = true;
-        dataSockets.set(connectionId, ws);
-        return;
-      }
-      ws.close(RELAY_CLOSE.AuthFailed, 'unknown role');
-    });
-  });
-  const httpServer = http.createServer((request, response) => {
-    response.writeHead(404);
-    response.end();
-  });
-  httpServer.on('upgrade', async (request, socket, head) => {
-    const target = new URL(request.url ?? '', 'http://relay.invalid');
-    if (target.pathname !== '/ws') return;
-    const role = target.searchParams.get('role');
-    if (role === 'host-control' && controlGate !== null) {
-      await controlGate; // paused: the upgrade never completes while the 4001 window is observed
-    }
-    if (role === 'host-data' && dataGate !== null) {
-      await dataGate; // paused: holds the host dial so the open timeout fires
-    }
-    wss.handleUpgrade(request, socket, head, (ws) => wss.emit('connection', ws, request));
-  });
-  const ungateAll = (): void => {
-    controlGateResolve?.();
-    controlGateResolve = null;
-    controlGate = null;
-    dataGateResolve?.();
-    dataGateResolve = null;
-    dataGate = null;
-  };
-  workers.push({
-    url: '',
-    hostControl: () => hostControlSocket,
-    closeControl: (code: number, reason: string) => hostControlSocket?.close(code, reason),
-    pauseControl(): void {
-      if (controlGate === null) controlGate = new Promise((gate) => { controlGateResolve = gate; });
-    },
-    unpauseControl(): void {
-      controlGateResolve?.();
-      controlGateResolve = null;
-      controlGate = null;
-    },
-    pauseData(): void {
-      if (dataGate === null) dataGate = new Promise((gate) => { dataGateResolve = gate; });
-    },
-    unpauseData(): void {
-      dataGateResolve?.();
-      dataGateResolve = null;
-      dataGate = null;
-    },
-    awaitClientLeg(connectionId: string): Promise<WsClient> {
-      const existing = clientLegs.get(connectionId);
-      if (existing !== undefined) return Promise.resolve(existing);
-      return new Promise((resolveLeg) => {
-        pendingLegs.set(connectionId, resolveLeg);
-      });
-    },
-    announceSync(ids: string[]): void {
-      hostControlSocket?.send(JSON.stringify({ type: 'sync', connectionIds: ids }));
-    },
-    close(): Promise<void> {
-      ungateAll();
-      const terminateAll = (): void => { for (const client of wss.clients) client.terminate(); };
-      terminateAll();
-      return new Promise((resolve) => {
-        setTimeout(() => { // reaped late arrivals cannot keep the server open
-          terminateAll();
-          httpServer.close(() => resolve());
-        }, 25);
-      });
-    },
-  });
-  return new Promise((resolveWithWorker) => {
-    httpServer.listen(0, '127.0.0.1', () => {
-      const address = httpServer.address();
-      const port = typeof address === 'object' && address !== null ? address.port : 0;
-      workers[workers.length - 1]!.url = `ws://127.0.0.1:${port}/ws`;
-      resolveWithWorker(workers[workers.length - 1]!);
-    });
-  });
-}
-
 const CLIENT_ROLE_PARAMS = 'v=1&role=client&appId=openchamber';
-
-async function verifyHostSig(pk: string, sig: string, payload: string): Promise<boolean> {
-  let publicJwk: Record<string, unknown>;
-  try {
-    publicJwk = JSON.parse(Buffer.from(pk, 'base64url').toString('utf8')) as Record<string, unknown>;
-  } catch {
-    return false;
-  }
-  try {
-    const key = await webcrypto.subtle.importKey('jwk', publicJwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
-    return await webcrypto.subtle.verify(
-      { name: 'ECDSA', hash: 'SHA-256' },
-      key,
-      new Uint8Array(Buffer.from(sig, 'base64url')),
-      Buffer.from(payload, 'utf8'),
-    );
-  } catch {
-    return false;
-  }
-}
 
 async function waitFor(predicate: () => boolean, timeoutMs = 1500): Promise<void> {
   const start = Date.now();
@@ -285,7 +109,7 @@ async function harness(
   const dir = mkdtempSync(`${tmpdir()}${sep}nnd-broker-`);
   scratchDirs.push(dir);
   const identity = identityWithin ?? new RelayIdentityStore(dir);
-  const worker = await fakeWorker();
+  const worker = await createFakeWorker();
   const state: TestHarness = {
     worker,
     identity,

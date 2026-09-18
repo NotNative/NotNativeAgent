@@ -55,7 +55,7 @@ export interface RelayHostBrokerOptions {
   capabilities?: Partial<CapabilityOptions>;
   timing?: Partial<RelayHostTiming>;
   onLegFrame?: RelayLegEvent;
-  onLegEstablished?: (connectionId: string) => void;
+  onLegEstablished?: (connectionId: string, capabilities: CapabilityOptions) => void;
   onLegClosed?: (connectionId: string, code: number, reason: string) => void;
 }
 
@@ -90,7 +90,7 @@ export class RelayHostBroker {
   private readonly timing: RelayHostTiming;
   private readonly caps: CapabilityOptions;
   private readonly onLegFrame?: RelayLegEvent;
-  private readonly onLegEstablished?: (connectionId: string) => void;
+  private readonly onLegEstablished?: (connectionId: string, capabilities: CapabilityOptions) => void;
   private readonly onLegClosed?: (connectionId: string, code: number, reason: string) => void;
 
   private state: HostBrokerState = 'disabled';
@@ -306,7 +306,7 @@ export class RelayHostBroker {
       onEstablished: (establishedSession: HostEstablished) => {
         leg.established = true;
         leg.session = establishedSession.session;
-        this.onLegEstablished?.(connectionId);
+        this.onLegEstablished?.(connectionId, establishedSession.capabilities);
       },
     });
     leg.responder = responder;
@@ -374,6 +374,12 @@ export class RelayHostBroker {
         this.closeLeg(leg.connectionId, RELAY_CLOSE.IdleTimeout, 'client idle timeout');
       }
     }
+  }
+
+  /** Public leg teardown for host-side channel failures (dispatcher/L3
+   * posture §3.9): exactly one close decision per leg; no-op when gone. */
+  terminateLeg(connectionId: string, code: number, reason: string): void {
+    this.closeLeg(connectionId, code, reason);
   }
 
   private closeLeg(connectionId: string, code: number, reason: string): void {

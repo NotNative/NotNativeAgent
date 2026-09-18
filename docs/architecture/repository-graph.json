@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:f7f36132e6c9c135f6d715793ee4b17cf2a8df83b8cbe5db4e211f7f53a96a75",
+  "source_digest": "sha256:8ccfa9ffb30bf3a610d5036f6c44c334ced59f27668cbcabc44dba30236b3426",
   "counts": {
-    "modules": 250,
+    "modules": 257,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 58
+      "module_count": 65
     },
     {
       "id": "web-entry",
@@ -1954,6 +1954,7 @@
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/lib/auth/tunnel-auth.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/lib/relay/identity.ts",
         "packages/web/src/server/lib/static.ts",
         "packages/web/src/server/routes/auth.ts",
         "packages/web/src/server/routes/fs-read.ts",
@@ -1964,6 +1965,7 @@
         "packages/web/src/server/routes/git.ts",
         "packages/web/src/server/routes/notnative.ts",
         "packages/web/src/server/routes/projects.ts",
+        "packages/web/src/server/routes/relay.ts",
         "packages/web/src/server/routes/session-folders.ts",
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/routes.ts",
@@ -2044,6 +2046,7 @@
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/harness/mock/index.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/lib/relay/host-service.ts",
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/wire.ts"
       ]
@@ -2171,10 +2174,10 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
-        "packages/web/src/server/lib/relay/crypto.ts",
         "packages/web/src/server/lib/relay/dispatcher-ws.ts",
         "packages/web/src/server/lib/relay/downstream.ts",
         "packages/web/src/server/lib/relay/loopback-adapters.ts",
+        "packages/web/src/server/lib/relay/request-body.ts",
         "packages/web/src/server/lib/relay/tunnel-codec.ts"
       ]
     },
@@ -2206,10 +2209,55 @@
       ]
     },
     {
-      "path": "packages/web/src/server/lib/relay/identity.ts",
+      "path": "packages/web/src/server/lib/relay/host-lock.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/host-service-types.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/host-broker.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/host-service.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/relay/handshake.ts",
+        "packages/web/src/server/lib/relay/host-broker.ts",
+        "packages/web/src/server/lib/relay/host-lock.ts",
+        "packages/web/src/server/lib/relay/host-service-types.ts",
+        "packages/web/src/server/lib/relay/identity.ts",
+        "packages/web/src/server/lib/relay/leg-host.ts",
+        "packages/web/src/server/lib/relay/relay-config.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/identity.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/leg-host.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/batch.ts",
+        "packages/web/src/server/lib/relay/dispatcher-ws.ts",
+        "packages/web/src/server/lib/relay/dispatcher.ts",
+        "packages/web/src/server/lib/relay/handshake.ts",
+        "packages/web/src/server/lib/relay/loopback-adapters.ts",
+        "packages/web/src/server/lib/relay/relay-config.ts",
+        "packages/web/src/server/lib/relay/tunnel-codec.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/lib/relay/loopback-adapters.ts",
@@ -2217,6 +2265,23 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/lib/relay/dispatcher-ws.ts",
+        "packages/web/src/server/lib/relay/tunnel-codec.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/relay-config.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/batch.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/request-body.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/crypto.ts",
         "packages/web/src/server/lib/relay/tunnel-codec.ts"
       ]
     },
@@ -2331,6 +2396,15 @@
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/settings-gate.ts",
         "packages/web/src/server/lib/settings-store.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/relay.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/host-service.ts",
+        "packages/web/src/server/lib/relay/relay-config.ts"
       ]
     },
     {

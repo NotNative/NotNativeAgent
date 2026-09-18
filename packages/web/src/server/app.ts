@@ -5,9 +5,11 @@ import { ENV } from './env.ts';
 import { getHarnessAdapter } from './harness/adapter.ts';
 import { getUiAuthController, CLEAR_SESSION_COOKIE_HEADER, type AuthOutcome } from './lib/auth/ui-auth.ts';
 import { getTunnelAuthController, TUNNEL_COOKIE_NAME } from './lib/auth/tunnel-auth.ts';
+import { peekRelayServerId } from './lib/relay/identity.ts';
 import { createStaticHandler, DIST_DIR } from './lib/static.ts';
 import { createAuthRoutes } from './routes/auth.ts';
 import { createNotNativeRoutes } from './routes/notnative.ts';
+import { registerRelayRoutes } from './routes/relay.ts';
 import { registerFsRoutes } from './routes/fs.ts';
 import { registerFsReadRoutes } from './routes/fs-read.ts';
 import { registerGitDiffRoutes } from './routes/git-diff.ts';
@@ -106,7 +108,7 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
   const app = new Hono();
   const terminal = options?.terminal ?? createTerminalRuntime();
 
-  app.get('/health', (c) =>
+  app.get('/health', async (c) =>
     c.json({
       ok: true,
       name: ENV.appName,
@@ -114,6 +116,9 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
       runtime: process.env?.NOTNATIVE_RUNTIME ?? 'web',
       // HP-9: keep the field name — the UI feature-flag wiring depends on it
       planModeExperimentalEnabled: ENV.planModeExperimentalEnabled,
+      // E-08-2: serverId greets with the relay identity once the host keys
+      // exist; clients identity-gate learned addresses against it (§3.13)
+      serverId: await peekRelayServerId(),
     }),
   );
 
@@ -160,6 +165,7 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
  * order, doc 03 §5.14/§5.13 — nothing may register after the proxy). */
 function registerApiSurfaces(app: Hono, terminal: TerminalRuntime): void {
   app.route('/', createNotNativeRoutes());
+  registerRelayRoutes(app);
   registerFsRoutes(app);
   registerFsReadRoutes(app);
   registerGitDiffRoutes(app);

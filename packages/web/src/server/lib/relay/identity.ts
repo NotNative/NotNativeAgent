@@ -16,6 +16,7 @@ import { createHash, createPrivateKey, sign } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join as joinPath } from 'node:path';
 import { webcrypto } from 'node:crypto';
+import { ENV } from '../../env.ts';
 
 export type RelayRole = 'host-control' | 'host-data' | 'client';
 export const RELAY_APP_ID = 'openchamber';
@@ -216,4 +217,41 @@ export class RelayIdentityStore {
     parsed.searchParams.set('pk', auth.pk);
     return parsed.toString();
   }
+}
+
+// ---- process-wide shared store (server boot + /health speak the SAME
+// identity; no parallel stores may mint different serverIds) ------------------
+
+interface SharedStorePlace {
+  dataDir: string;
+  store: RelayIdentityStore;
+}
+
+let sharedPlace: SharedStorePlace | null = null;
+
+/** The process-wide relay identity store (E-08-25c: mint once at boot —
+ * every consumer shares one store; a dataDir change rebinds so test
+ * suites with fresh temp dirs never resurrect another suite's files). */
+export function getSharedRelayIdentityStore(dataDir?: string): RelayIdentityStore {
+  const dir = dataDir ?? ENV.dataDir;
+  if (sharedPlace === null || sharedPlace.dataDir !== dir) {
+    sharedPlace = { dataDir: dir, store: new RelayIdentityStore(dir) };
+  }
+  return sharedPlace.store;
+}
+
+/** Fail-soft /health peek (E-08-2): resolves or mints the shared identity
+ * and answers its serverId; any failure (corrupt store gate) answers null
+ * and /health never 500s on relay identity trouble. */
+export async function peekRelayServerId(): Promise<string | null> {
+  try {
+    return await getSharedRelayIdentityStore().serverId();
+  } catch {
+    return null;
+  }
+}
+
+/** Test seam: forgets the shared store instance (fresh dataDir per suite). */
+export function resetSharedRelayIdentityForTests(): void {
+  sharedPlace = null;
 }

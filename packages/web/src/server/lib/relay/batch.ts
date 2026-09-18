@@ -12,6 +12,7 @@ import {
   MAX_PLAINTEXT_FRAME_BYTES,
 } from './crypto.ts';
 import {
+  TUNNEL_FRAME_HEADER_BYTES,
   TunnelFrameType,
   encodeTunnelFrame, type TunnelFrame,
 } from './tunnel-codec.ts';
@@ -59,6 +60,46 @@ export function decodeBatchContainer(bytes: Buffer): { kind: 'single'; frame: Bu
   return { kind: 'batch', frames };
 }
 
+/** Mixed-mode L2 demux (the §3.7 wire truth the batcher ships): [0x00]
+ * singles pass through; a [0x01]-leading message is a batch CONTAINER only
+ * when it parses as an exact length-prefixed run whose every frame is a
+ * legal ≥ 5 B tunnel frame of a BUFFERED type (HttpBody/WsText/WsBinary —
+ * the only frames the shared batcher ever puts in a container). Otherwise
+ * the 0x01 first byte is a BARE frame's header byte: type 1 HttpRequest
+ * (or type 0 flag-noise) ships envelope-free per §3.7 ("non-buffered
+ * singles go bare"), so the strict container probe MUST fall back instead
+ * of miscasting the open wire. A bare fallback under a 5 B header, and an
+ * unclassifiable message, return null (the caller fails the channel).
+ * Residual aliasing: a bare HttpRequest whose streamId exactly spans a
+ * payload that starts with a buffered-type byte is a self-inflicted
+ * client defect and the stream bounds contain it. */
+export function decodeFrameOrContainer(bytes: Buffer): { kind: 'single'; frame: Buffer } | { kind: 'batch'; frames: Buffer[] } | null {
+  if (bytes.length < 1) return null;
+  const tag = bytes[0]!;
+  if (tag === 0x00) return decodeBatchContainer(bytes);
+  if (tag === 0x01 && isStrictBatchContainer(bytes)) return decodeBatchContainer(bytes);
+  if (bytes.length < TUNNEL_FRAME_HEADER_BYTES) return null;
+  return { kind: 'single', frame: bytes };
+}
+
+/** The 0x01 demux discriminator: an exact multi-segment parse (every
+ * segment ≥ header bytes; N ≥ 1; no trailing slack) over BUFFERED-type
+ * frames only — the shape every legal container producer emits. */
+function isStrictBatchContainer(bytes: Buffer): boolean {
+  let cursor = 1;
+  let segments = 0;
+  while (cursor + 4 <= bytes.length) {
+    const length = bytes.readUInt32BE(cursor);
+    cursor += 4;
+    if (length < TUNNEL_FRAME_HEADER_BYTES || length > bytes.length - cursor) return false;
+    const frame = bytes.subarray(cursor, cursor + length);
+    if (!BATCH_BUFFERED_TYPES.has(frame[0]! & 0x7f)) return false;
+    cursor += length;
+    segments += 1;
+  }
+  return cursor === bytes.length && segments >= 1;
+}
+
 export interface OutboundBatcherOptions {
   windowMs?: number;
   maxBatchBytes?: number;
@@ -72,6 +113,9 @@ export interface OutboundBatcherOptions {
  * never interleaves per-stream order (setup frames flush first). */
 export interface OutboundFrameBatcher {
   offer(frame: TunnelFrame): Promise<void>;
+  /** Same gate, fed pre-encoded frame bytes (encoded-frame carriers):
+   * the type comes from the header byte; the stored bytes re-encode free. */
+  offerEncoded(frameBytes: Buffer): Promise<void>;
   flush(): Promise<void>;
   dispose(): void;
   pendingBytes(): number;
@@ -92,7 +136,7 @@ class OutboundFrameBatcherImpl implements OutboundFrameBatcher {
   private readonly windowMs: number;
   private readonly maxBatchBytes: number;
   private readonly maxBatchFrames: number;
-  private buffered: { frame: TunnelFrame; bytes: Buffer }[] = [];
+  private buffered: Buffer[] = [];
   private bufferedBytes = 0;
   private chain: Promise<void> = Promise.resolve();
   private timer: NodeJS.Timeout | null = null;
@@ -111,7 +155,11 @@ class OutboundFrameBatcherImpl implements OutboundFrameBatcher {
   }
 
   offer(frame: TunnelFrame): Promise<void> {
-    return this.enqueue(() => this.offerNow(frame));
+    return this.enqueue(() => this.offerNowBytes(encodeTunnelFrame(frame)));
+  }
+
+  offerEncoded(frameBytes: Buffer): Promise<void> {
+    return this.enqueue(() => this.offerNowBytes(frameBytes));
   }
 
   flush(): Promise<void> {
@@ -143,6 +191,7 @@ class OutboundFrameBatcherImpl implements OutboundFrameBatcher {
       this.timer = null;
       void this.flush();
     }, Math.max(1, this.windowMs) as never);
+    this.timer.unref?.(); // broker `scheduleUnref` posture (§C): windows never hold the event loop
   }
 
   private cancelWindow(): void {
@@ -164,19 +213,18 @@ class OutboundFrameBatcherImpl implements OutboundFrameBatcher {
     this.buffered = [];
     this.bufferedBytes = 0;
     this.lastFlushStamp = this.readClock();
-    const frames = take.map((entry) => entry.bytes);
-    await this.send(encodeBatchContainer(frames));
+    await this.send(encodeBatchContainer(take));
   }
 
-  private async offerNow(frame: TunnelFrame): Promise<void> {
+  private async offerNowBytes(bytes: Buffer): Promise<void> {
     if (this.disposed) return;
-    const bytes = encodeTunnelFrame(frame);
-    if (!BATCH_BUFFERED_TYPES.has(frame.type)) {
+    const type = bytes[0]! & 0x7f;
+    if (!BATCH_BUFFERED_TYPES.has(type)) {
       await this.flushBuffer(); // setup/teardown/keepalive flush the buffer first (per-stream order)
       await this.send(bytes);
       return;
     }
-    this.buffered.push({ frame, bytes });
+    this.buffered.push(bytes);
     this.bufferedBytes += bytes.length + BATCH_ENVELOPE_RESERVED_BYTES;
     if (this.capsReached()) {
       await this.flushBuffer(); // cap flush: everything keeps its dispatch order

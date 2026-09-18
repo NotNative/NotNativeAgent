@@ -76,12 +76,17 @@ export interface WsBridgeDeps {
   connectionId: string;
   wsFactory: RelayHostSocketLikeFactory;
   sendFrame: (frame: TunnelFrame) => Promise<void>;
+  /** Terminal close rows: refuse 1008 + upstream-close mirror must
+   * survive their own releaseStream cancel (bypasses the §3.8 queue).
+   * Defaults to `sendFrame` for direct drivers. */
+  sendFrameNow?: (frame: TunnelFrame) => Promise<void>;
   releaseStream: (streamId: number) => void;
   killStream: (streamId: number, reason: string) => void;
 }
 
 export function createWsBridge(deps: WsBridgeDeps): WsBridge {
-  const sendClose = (streamId: number, code: number, reason: string): Promise<void> => deps.sendFrame({
+  const sendNow = (frame: TunnelFrame): Promise<void> => (deps.sendFrameNow ?? deps.sendFrame)(frame);
+  const sendClose = (streamId: number, code: number, reason: string): Promise<void> => sendNow({
     type: TunnelFrameType.WsClose, streamId, hasMore: false,
     payload: encodeJsonPayload({ code, reason: reason.slice(0, 120) }),
   });

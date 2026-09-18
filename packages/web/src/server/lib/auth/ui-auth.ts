@@ -173,6 +173,12 @@ export class UiAuthController {
     return this.byCookie(headers, validity) !== null;
   }
 
+  /** Relay demand signal (§3.12, remote devices): delegates to the owned
+   * credential store so the relay service never builds a parallel store. */
+  hasActiveRelayClients(): boolean {
+    return this.options.clientStore.hasActiveRelayClients();
+  }
+
   verifyPassword(candidate: unknown): boolean {
     const resolved = normalizedPassword(this.options.resolvePassword());
     if (resolved === '') return false; // open mode never verifies

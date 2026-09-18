@@ -9,7 +9,8 @@ import { createApp } from './app.ts';
 import { ENV } from './env.ts';
 import { registerHarnessAdapter } from './harness/adapter.ts';
 import { mockHarness } from './harness/mock/index.ts';
-import { upgradeAllowedForRequest } from './lib/auth/ui-auth.ts';
+import { upgradeAllowedForRequest, getUiAuthController } from './lib/auth/ui-auth.ts';
+import { getRelayHostService } from './lib/relay/host-service.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
@@ -31,11 +32,28 @@ export function startServer(): { port: number } {
     (url, headers, method) => upgradeAllowedForRequest(url, headers, method),
   );
   terminal.startSweep();
+  // Relay host service (doc 08 §3.12): demand signals drive the lifecycle —
+  // paired relay devices keep the host up; the 60 s poll also catches
+  // headless pairing writes; the claim watcher arbitrates multi-instance
+  // hosts. Registered BEFORE /api surfaces answer traffic is unnecessary:
+  // the routes resolve the same singleton lazily.
+  const relayService = getRelayHostService({
+    demandSignals: [() => getUiAuthController().hasActiveRelayClients()],
+    localPort: ENV.port,
+    platform: process.env.NOTNATIVE_RUNTIME ?? 'web',
+    appVersion: ENV.version,
+  });
+  try {
+    relayService.start();
+  } catch (error) {
+    console.warn(`relay service boot failed: ${String(error)}`);
+  }
   console.log(`NotNativeDesktop server ready -> http://${ENV.host}:${ENV.port} (harness: ${ENV.harness})`);
   const shutdown = (): void => {
     // doc 07 section 4.8: stop the sweep, kill all PTYs, drop the WS server
     terminal.dispose();
     wiring.dispose();
+    relayService.dispose();
     server.close();
   };
   process.once('SIGINT', shutdown);

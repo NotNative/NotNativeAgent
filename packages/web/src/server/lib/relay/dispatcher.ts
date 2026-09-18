@@ -3,15 +3,12 @@
  * Relay host dispatcher (doc 08 section 3.9, `createTunnelHost`): one
  * instance per relay leg. It consumes decrypted tunnel frames and
  * forwards to the local server over loopback, streaming responses back
- * through the §3.8 downstream scheduler. It NEVER injects credentials -
- * tunneled requests authenticate exactly like any remote client (bearer /
- * ?oc_url_token=); the relay grants reachability, not authorization.
- * HTTP + WS path allowlists (defense in depth) keep the tunnel from
- * becoming a generic loopback port bouncer; WS sub-streams live in
- * `dispatcher-ws.ts` (bridged here).
+ * through the §3.8 downstream scheduler. It NEVER injects credentials —
+ * tunneled requests authenticate exactly like any remote client; HTTP+WS
+ * allowlists keep the tunnel from becoming a generic port bouncer; WS
+ * sub-streams live in `dispatcher-ws.ts` (bridged here).
  */
 import { Buffer } from 'node:buffer';
-import { MAX_TUNNEL_PAYLOAD_BYTES } from './crypto.ts';
 import {
   TunnelFrameType, chunkPayload, encodeJsonPayload, encodeTunnelFrame, isFragmentableType,
   isHttpRequestPayload, isWsClosePayload, parseJsonPayload,
@@ -26,10 +23,10 @@ import {
   requestInitOf, normalizeRequestHeaders, normalizeResponseHeaders, defaultLoopbackFetch,
   unavailableSocketFactory, type LoopbackRequestInit, type LoopbackResponseLike,
 } from './loopback-adapters.ts';
+import { TunnelRequestBody, RESPONSE_BODY_CHUNK_BYTES } from './request-body.ts';
 
 export type { LoopbackRequestInit, LoopbackResponseLike } from './loopback-adapters.ts';
-
-export const RESPONSE_BODY_CHUNK_BYTES = MAX_TUNNEL_PAYLOAD_BYTES; // legacy budget when flow control is off
+export { RESPONSE_BODY_CHUNK_BYTES };
 export const BODY_BUFFER_MAX_BYTES = 512 * 1024;
 export const BODY_DELIVERY_TIMEOUT_MS = 15_000;
 export const DOWNSTREAM_CHUNK_BYTES = 8 * 1024;
@@ -41,96 +38,6 @@ export function isAllowedRelayHttpPath(path: string): boolean {
   const clean = (path.split('?')[0] ?? '').replace(/\/{2,}/gu, '/');
   if (HTTP_HOST_ALLOWLIST_EXACT.has(clean)) return true;
   return HTTP_HOST_ALLOWLIST_PREFIXES.some((prefix) => clean.startsWith(`${prefix}/`) || clean === prefix);
-}
-
-interface LiveBodyController {
-  enqueue(chunk: Uint8Array): void;
-  close(): void;
-  error(reason?: unknown): void;
-}
-
-/** Client request body in the buffering phase. Bodies ≤ 512 KiB land as
- * ONE concatenated loopback body (content-length framing) when the
- * client's StreamEnd arrives; crossing the cap switches to a live web
- * ReadableStream fed by the body itself (the buffered prefix enqueues
- * first). While buffering, frames must keep arriving before the delivery
- * deadline; past the switch the deadline does not apply. */
-class TunnelRequestBody {
-  chunks: Buffer[] = [];
-  bytes = 0;
-  crossed = false;
-  framesReceived = 0;
-  deadlineTimer: NodeJS.Timeout | null = null;
-  private controller: LiveBodyController | null = null;
-  private arrived: Buffer[] = []; // live chunks seen before `start` ran
-  private closed = false;
-
-  /** Single concatenated body (content-length framing, never chunked). */
-  bufferedBody(): Buffer {
-    return Buffer.concat(this.chunks);
-  }
-
-  /** Live web stream: the buffered prefix flushes first, then chunks
-   * arrive through `push`; `close` ends it; `fail` surfaces an abort so
-   * the loopback transfer dies with the tunnel stream. */
-  requestStream(prefix: Buffer): ReadableStream<Uint8Array> {
-    const body = this;
-    return new ReadableStream<Uint8Array>({
-      start(controller) {
-        body.controller = controller as unknown as LiveBodyController;
-        if (prefix.length === 0) controller.enqueue(new Uint8Array(0));
-        else for (const piece of chunkPayload(prefix, RESPONSE_BODY_CHUNK_BYTES)) controller.enqueue(piece);
-        for (const chunk of body.arrived.splice(0)) controller.enqueue(chunk);
-        if (body.closed) body.controller = null;
-      },
-      pull() { /* chunks enqueue eagerly; undici paces the transfer */ },
-    });
-  }
-
-  push(chunk: Buffer): void {
-    if (this.closed) return; // StreamEnd already passed; late frames never reach the loopback
-    const controller = this.controller;
-    if (controller === null) {
-      this.arrived.push(chunk);
-      return;
-    }
-    try {
-      controller.enqueue(chunk);
-    } catch {
-      this.closed = true; // the transfer died server-side; keep client frames dropping
-    }
-  }
-
-  close(): void {
-    this.closed = true;
-    const controller = this.controller;
-    this.controller = null;
-    if (controller === null) return;
-    try {
-      controller.close();
-    } catch {
-      // already closed by the consumer
-    }
-  }
-
-  fail(reason: string): void {
-    const controller = this.controller;
-    this.controller = null;
-    this.arrived = [];
-    if (controller === null) return;
-    this.closed = true;
-    try {
-      controller.error(new Error(reason));
-    } catch {
-      // already errored/closed
-    }
-  }
-
-  clearDeadline(): void {
-    if (this.deadlineTimer === null) return;
-    clearTimeout(this.deadlineTimer);
-    this.deadlineTimer = null;
-  }
 }
 
 interface StreamState {
@@ -155,6 +62,9 @@ export interface CreateTunnelHostInput {
   /** L3 carrier: the leg's sendToClient (one encrypted message per call). */
   send: (plaintext: Uint8Array) => Promise<void> | void;
   flowControl?: boolean;
+  /** Channel-level failures close the relay leg 1011 (§3.9 posture: the
+   * dispatcher owns no leg socket; the failure is reported once, upstream). */
+  onChannelFailure?: (reason: string) => void;
   fetchImpl?: (url: string, init: LoopbackRequestInit) => Promise<LoopbackResponseLike>;
   wsFactory?: RelayHostSocketLikeFactory;
   bodyDeliveryTimeoutMs?: number;
@@ -173,6 +83,7 @@ class TunnelHostImpl implements TunnelHost {
   private readonly bodyTimeout: number;
   private readonly responseChunkBytes: number;
   private readonly fetchImpl: (url: string, init: LoopbackRequestInit) => Promise<LoopbackResponseLike>;
+  private readonly onChannelFailure?: (reason: string) => void;
   private readonly scheduler: ReturnType<typeof createDownstreamScheduler>;
   private readonly wsBridge: ReturnType<typeof createWsBridge>;
   private readonly streams = new Map<number, StreamState>();
@@ -185,17 +96,19 @@ class TunnelHostImpl implements TunnelHost {
     this.flowControl = input.flowControl !== false;
     this.bodyTimeout = input.bodyDeliveryTimeoutMs ?? BODY_DELIVERY_TIMEOUT_MS;
     this.responseChunkBytes = input.responseChunkBytes ?? (this.flowControl ? DOWNSTREAM_CHUNK_BYTES : RESPONSE_BODY_CHUNK_BYTES);
+    this.onChannelFailure = input.onChannelFailure;
     this.fetchImpl = input.fetchImpl ?? defaultLoopbackFetch();
     this.scheduler = createDownstreamScheduler({
       emit: (frameBytes) => void this.send(frameBytes),
       streamZeroEmit: (frameBytes) => void this.send(frameBytes),
-      onError: () => undefined, // the leg owns channel closure (1011)
+      onError: (error) => this.failLegSafe(`downstream scheduler failed: ${messageOf(error)}`),
     });
     this.wsBridge = createWsBridge({
       localPort: this.localPort,
       connectionId: this.connectionId,
       wsFactory: input.wsFactory ?? unavailableSocketFactory(),
       sendFrame: (frame) => this.sendFrame(frame),
+      sendFrameNow: (frame) => this.sendFrameNow(frame),
       releaseStream: (streamId) => this.releaseStream(streamId),
       killStream: (streamId, reason) => void this.failStream(streamId, reason),
     });
@@ -209,8 +122,8 @@ class TunnelHostImpl implements TunnelHost {
         return;
       }
       if (frame.hasMore && !isFragmentableType(frame.type)) {
-        // §3.6: any other frame type arriving fragmented is a hard channel error
-        this.failLegSafe(`non-fragmentable frame type ${frame.type} arrived fragmented; channel closes`);
+        // §3.6 dispatcher-tier guard: refuse the frame, the channel stays
+        // alive (the leg-host assembler kills the channel 1011 instead)
         return;
       }
       await this.handleStreamFrame(frame);
@@ -443,7 +356,13 @@ class TunnelHostImpl implements TunnelHost {
   private async sendFrame(frame: TunnelFrame): Promise<void> {
     if (this.disposed) return;
     if (!this.flowControl) {
-      await this.send(encodeTunnelFrame(frame)); // no credit plane: one frame per encrypted message
+      try {
+        await this.send(encodeTunnelFrame(frame)); // no credit plane: one frame per encrypted message
+      } catch (error) {
+        // leg-gone on the direct carrier path must never surface as an
+        // unhandled rejection (void-forgotten pumps/requests await this)
+        this.failLegSafe(`dispatcher send failed: ${messageOf(error)}`);
+      }
       return;
     }
     try {
@@ -455,8 +374,22 @@ class TunnelHostImpl implements TunnelHost {
   }
 
   private failLegSafe(reason: string = 'dispatcher failure'): void {
-    // channel-level failures belong to the leg; the dispatcher opens no more work
-    void reason;
+    if (this.disposed) return;
+    this.dispose();
+    this.onChannelFailure?.(reason);
+  }
+
+  /** Terminal close rows (refusal 1008, upstream-close mirror) must reach
+   * the client even though their stream releases (cancels) at the same
+   * instant: they bypass the §3.8 queue but keep batcher order (the
+   * batcher flushes buffered work before a single-frame ship). */
+  sendFrameNow(frame: TunnelFrame): Promise<void> {
+    if (this.disposed) return Promise.resolve();
+    return Promise.resolve(this.send(encodeTunnelFrame(frame))).catch((error: unknown) => {
+      // terminal rows ride the direct carrier; a leg-gone reject collapses
+      // into the one-shot channel failure instead of an unhandled rejection
+      this.failLegSafe(`dispatcher terminal send failed: ${messageOf(error)}`);
+    });
   }
 
   /** Stream-level failure: abort both sides, frame the client with the
@@ -480,7 +413,9 @@ class TunnelHostImpl implements TunnelHost {
   }
 
   private async upstreamAbort(state: StreamState, reason: string): Promise<void> {
-    await this.sendFrame({
+    // failure rows always follow a state release; ship them directly so
+    // the release cancel cannot eat the abort notice (§3.10 ambiguity)
+    await this.sendFrameNow({
       type: TunnelFrameType.StreamAbort, streamId: state.id, hasMore: false,
       payload: encodeJsonPayload({ reason }),
     });
