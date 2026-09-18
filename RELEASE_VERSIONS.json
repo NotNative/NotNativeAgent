@@ -24,6 +24,10 @@
     {
       "version": "20260918-6",
       "content_sha256": "87cba352a802c37e1ae75dac9db05ce4187d3ac56845bdbaa272fdaa8fdfffeb"
+    },
+    {
+      "version": "20260918-7",
+      "content_sha256": "adce9c0314a057eb6e65887728b293f34aa21d2d407e4dfdeb4af52401c68949"
     }
   ]
 }

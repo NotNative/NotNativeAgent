@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:29978122dd05985a9759b16dfc3e9ea720ab77024b1668968a993f3775eb3827",
+  "source_digest": "sha256:f7f36132e6c9c135f6d715793ee4b17cf2a8df83b8cbe5db4e211f7f53a96a75",
   "counts": {
-    "modules": 245,
+    "modules": 250,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 53
+      "module_count": 58
     },
     {
       "id": "web-entry",
@@ -2141,11 +2141,49 @@
       "imports": []
     },
     {
+      "path": "packages/web/src/server/lib/relay/batch.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/crypto.ts",
+        "packages/web/src/server/lib/relay/tunnel-codec.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/lib/relay/crypto.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/lib/relay/identity.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/dispatcher-ws.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/crypto.ts",
+        "packages/web/src/server/lib/relay/tunnel-codec.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/dispatcher.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/crypto.ts",
+        "packages/web/src/server/lib/relay/dispatcher-ws.ts",
+        "packages/web/src/server/lib/relay/downstream.ts",
+        "packages/web/src/server/lib/relay/loopback-adapters.ts",
+        "packages/web/src/server/lib/relay/tunnel-codec.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/downstream.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/tunnel-codec.ts"
       ]
     },
     {
@@ -2172,6 +2210,15 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/relay/loopback-adapters.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/relay/dispatcher-ws.ts",
+        "packages/web/src/server/lib/relay/tunnel-codec.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/lib/relay/tunnel-codec.ts",

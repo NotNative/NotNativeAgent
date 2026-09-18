@@ -312,6 +312,84 @@ SSH -> reverse proxy -> invariants.
   the WS maxPayload needle rides the framer slice, and the
   fake worker stays test-only (the real 3.3 host-socket rows validated
   through relaySocketUrl in P8-2a).
+- **P8-2c (delivered this slice)** - relay Layer 3 host side: the batch
+  container + outbound batcher (`lib/relay/batch.ts`), the downstream
+  scheduler (`lib/relay/downstream.ts`), and the host dispatcher
+  (`lib/relay/dispatcher.ts` + the WS bridge split `dispatcher-ws.ts`,
+  honoring the 500/60 gates).
+  `batch.ts` - container codec (1 frame -> `[0x00][frame]`, N frames ->
+  `[0x01]([4B BE len][frame])xN`, truncation/foreign tags refuse) +
+  `createOutboundFrameBatcher` defaults 150 ms / 24 KiB / 32 frames
+  (batch window tunable via `OPENCHAMBER_RELAY_BATCH_WINDOW_MS`): only
+  HttpBody/WsText/WsBinary buffer; setup/teardown/keepalive frames flush
+  the buffer first preserving per-stream order; the leading edge ships
+  instantly when the channel is quiet; caps and the trailing window
+  flush on the same offer (group sizes stay exact at the caps);
+  teardown drops un-flushed frames. The empty-payload -> one-empty-chunk
+  codec row is pinned for response bodies (section 3.9 recycling).
+  `downstream.ts` - credit scheduler: fixed start window 64 KiB, hard
+  cap 1 MiB (E-08-27: grow/halve heuristics DEFERRED, byte accounting
+  identical); ACK unit = 8 B BE cumulative RAW tunnel-frame bytes
+  (5 B headers included; envelopes, encryption overhead, and
+  stream-zero keepalives excluded) on stream 0; the host therefore keeps
+  stream-zero frames OUT of the ack ledger entirely (a ping held as an
+  outstanding boundary reference would make every correct client ack
+  look off-boundary - found and fixed in review); the window gate counts
+  sent-but-unacked bytes only (ackedBytes never inflated the gate, which
+  meant credit never released - found and fixed); an un-fittable head
+  stays queued at its stream front (it used to be dropped with its send
+  promise never settling - found and fixed); per-stream FIFO with
+  round-robin rounds, stream 0 selected first each round and never
+  window-gated; strictly-increasing acks must land exactly on an
+  outstanding frame boundary - regression/duplicate, beyond-sent, and
+  off-boundary values fail the channel via onError; queue caps 4 MiB /
+  4096 frames / 4096 outstanding; cancelStream releases queued work
+  only (outstanding frames still ACK-consumed).
+  `dispatcher.ts` contract rows: HTTP allowlist exactly `/health`,
+  `/api`, `/api/*`, `/auth`, `/auth/*`; WS allowlist exactly
+  `/api/global/event/ws`, `/api/event/ws`, `/api/terminal/ws`,
+  `/api/dictation/ws`, `/api/dev-tunnel`; hop-by-hop strip both ways +
+  CR/LF header drops; `x-openchamber-relay-connection` + loopback origin
+  injected (client origins overwritten); synthetic 403/400 JSON responses
+  always name `{error, reason, source:'relay-tunnel-host'}`; request
+  bodies buffered <= 512 KiB and forwarded as ONE concatenated body
+  (content-length framing) only at StreamEnd; `hasBody` with zero body
+  frames aborts ('tunnel request body frames were lost'); the 15 s
+  delivery deadline is armed at the hasBody request (not at the first
+  body frame - a body whose frames never arrive would otherwise stall
+  forever) and clears on finish/live-switch/abort; > 512 KiB switches to
+  a live web `ReadableStream` body with `duplex:'half'` fed from the
+  buffered prefix (the async-generator body shape was wrong for undici -
+  extractBody refuses it; the controller rewrite also closes the live
+  stream at the client StreamEnd); response bodies chunked 8 KiB under
+  flow control, full budget otherwise; WS sub-streams allowed only on
+  the WS allowlist (fragment reassembly in through the per-stream
+  assembler, re-chunked out, closes clamp 1000..4999 default 1000,
+  refusals answer 1008 without dialing), Ping -> Pong on stream 0,
+  DeliveryAck -> scheduler (the wire carries 8 B payload; the earlier
+  9 B frame-wrapped test feed was the contradiction - fixed test-side),
+  unexpected HttpResponse/WsOpened inbound ignored, duplicate ids abort
+  both sides + upstream abort, StreamAbort/dispose abort the fetch or
+  terminate the loopback socket.
+  Adversarial fixes, all regression-tested: fragmented NON-WS tunnel
+  frames are now refused at the frame entry (the codec guard existed but
+  the dispatcher never enforced it - a fragmented HttpBody would have
+  fed a truncated payload); `isWsOpenPayload` dereferenced an absent
+  `protocols` (a guard-side TypeError swallowed by `parseJsonPayload`
+  answered every valid bare-path WsOpen with 1008) - fixed in the codec;
+  the request lifecycle runs DETACHED from `handleFrame` (the inline
+  fetch/wait stalled the frame pump so the client's StreamEnd could
+  never arrive during a live transfer); the loopback-fetch failure path
+  aborts the stream state it failed (it used to leak an open count);
+  loopback sockets/pools get `closeIdleConnections` hygiene in the
+  harness. Tests 18 (p8-2-relay-dispatcher.test.ts).
+  NOT in this slice: the client-side section 3.10 surface (deferred to
+  the pairing/UX slice), the batcher + scheduler + flowControl/batch
+  negotiation wiring into the leg (rides the client slice + host service
+  assembly), leg-level 1011 closure on scheduler/codec violations (the
+  `failLegSafe` sites are stubs awaiting the leg slice), and WS-downstream
+  backpressure stays eager-enqueue (upload pacing is client-side; the
+  bounded-queue abort page rides the machine-claim slice).
 - NOT yet in: password/JWT/cookie sessions, scope classifier + tunnel
   gate, and passkeys are now in; NEXT: relay (6-8), candidates (9),
   tunnels (10), UX (11-12), SSH (13), reverse proxy (14), invariants (15).
@@ -501,6 +579,18 @@ SSH -> reverse proxy -> invariants.
   demand-lifecycle slice owns catch-or-ignore discipline at its call
   sites; the leg's own chain self-heals (catch) so a failed send can
   never stall subsequent frames on the same leg.
+- **E-08-27 (downstream window heuristics deferred, fixed-window posture)**:
+  section 3.8's adaptive window (grow x2 only when the window itself
+  limited throughput with near-best observed RTT; halve when delivery
+  delay exceeds minRtt + 100 ms; adjustment once per window, never per
+  frame) is DEFERRED past the relay host slices. The shipped scheduler
+  runs the FIXED start window 64 KiB with the 1 MiB cap constant
+  retained and byte accounting identical: in-flight (sent, unacked) raw
+  frame bytes <= window; acks release exact boundaries; stream-zero
+  bytes stay excluded from the ledger (the client's cumulative count
+  excludes keepalives, so pings can never sit as outstanding boundary
+  references). The heuristics land with the client-side 3.10 slice and
+  its ACK RTT telemetry.
 
 ## C. Constants pinned this slice
 
@@ -524,3 +614,11 @@ beyond interval + grace terminates) / reconnect 1000 x2 cap 30000;
 data open timeout 15000, idle reaper closes inbound-silent legs at
 90000 with 1001, sweep 30000. Test-only SHORT timing overrides live in
 the harness (per-test `timing` merge), never in production defaults.
+Relay L3 host (P8-2c): batch window 150 ms / maxBatchBytes 24 KiB /
+maxBatchFrames 32 (envelope reserve 1+4 B); downstream window starts
+64 KiB (cap 1 MiB constant, E-08-27), queue caps 4 MiB bytes / 4096
+frames / 4096 outstanding; response chunks 8 KiB under flow control
+(legacy budget 64 KiB - 10); request-body buffer cap 512 KiB, delivery
+deadline 15 s; WS re-chunk cap = MAX_TUNNEL_PAYLOAD_BYTES; close codes
+clamp 1000..4999 (default 1000); ws allowlist = the five path set from
+section 3.9 (shared with the URL-token WS list).

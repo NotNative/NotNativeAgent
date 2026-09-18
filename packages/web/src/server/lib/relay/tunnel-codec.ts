@@ -242,7 +242,9 @@ export function isStreamAbortPayload(value: unknown): value is StreamAbortPayloa
 
 export function isWsOpenPayload(value: unknown): value is WsOpenPayload {
   if (!isRecord(value) || typeof value.path !== 'string') return false;
-  return stringMap(value.query ?? {}) && Array.isArray(value.protocols ?? []) && (value.protocols as unknown[]).every((p) => typeof p === 'string');
+  if (!stringMap(value.query ?? {})) return false;
+  if (value.protocols === undefined) return true; // optional subprotocol list
+  return Array.isArray(value.protocols) && (value.protocols as unknown[]).every((p) => typeof p === 'string');
 }
 
 export function isWsOpenedPayload(value: unknown): value is WsOpenedPayload {
