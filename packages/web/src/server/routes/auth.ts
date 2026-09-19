@@ -17,6 +17,7 @@ import {
   getTunnelAuthController, type RequestScope, type TunnelSession,
 } from '../lib/auth/tunnel-auth.ts';
 import { getUiPasskeysController, type PasskeyAction } from '../lib/auth/ui-passkeys.ts';
+import { readTextBounded } from '../lib/http/read-bounded.ts';
 
 interface SocketEnv {
   incoming?: { socket?: { remoteAddress?: string } };
@@ -210,28 +211,6 @@ async function readDocumentBody(raw: Request): Promise<unknown> {
   } catch {
     return null; // malformed body -> null -> verifyPassword fails -> 401 flow
   }
-}
-
-/** 64 KiB bounded read: the only unauthenticated body surface must never
- * buffer arbitrary LAN noise into memory. */
-async function readTextBounded(raw: Request, max: number): Promise<string | null> {
-  const stream = raw.body?.getReader();
-  if (stream === undefined) return '';
-  const decoder = new TextDecoder();
-  let total = '';
-  let budget = max;
-  while (budget >= 0) {
-    const next = await stream.read();
-    if (next.done) return total + decoder.decode();
-    const chunk = decoder.decode(next.value, { stream: true });
-    total += chunk;
-    budget -= chunk.length;
-    if (budget < 0) {
-      await stream.cancel().catch(() => undefined);
-      return null;
-    }
-  }
-  return null;
 }
 
 function finalize(action: RouteAction | PasskeyAction): Response {

@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:8ccfa9ffb30bf3a610d5036f6c44c334ced59f27668cbcabc44dba30236b3426",
+  "source_digest": "sha256:a0b744256d5720bc43798f8dfeaca847ee785ddb830978598a0bea9fb53f4461",
   "counts": {
-    "modules": 257,
+    "modules": 261,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 65
+      "module_count": 69
     },
     {
       "id": "web-entry",
@@ -1957,6 +1957,7 @@
         "packages/web/src/server/lib/relay/identity.ts",
         "packages/web/src/server/lib/static.ts",
         "packages/web/src/server/routes/auth.ts",
+        "packages/web/src/server/routes/client-auth.ts",
         "packages/web/src/server/routes/fs-read.ts",
         "packages/web/src/server/routes/fs-write.ts",
         "packages/web/src/server/routes/fs.ts",
@@ -2045,6 +2046,7 @@
         "packages/web/src/server/env.ts",
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/harness/mock/index.ts",
+        "packages/web/src/server/lib/auth/pairing-sessions.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/relay/host-service.ts",
         "packages/web/src/server/terminal/bootstrap.ts",
@@ -2058,10 +2060,28 @@
       "imports": []
     },
     {
+      "path": "packages/web/src/server/lib/auth/pairing-candidates.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/pairing-payload.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/lib/auth/pairing-payload.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/auth/pairing-sessions.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/auth/remote-clients.ts",
+        "packages/web/src/server/lib/auth/ui-auth.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/lib/auth/password.ts",
@@ -2139,6 +2159,12 @@
     },
     {
       "path": "packages/web/src/server/lib/harnessNaming.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/http/read-bounded.ts",
       "component": "web-server",
       "entrypoint": false,
       "imports": []
@@ -2327,7 +2353,25 @@
       "imports": [
         "packages/web/src/server/lib/auth/tunnel-auth.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
-        "packages/web/src/server/lib/auth/ui-passkeys.ts"
+        "packages/web/src/server/lib/auth/ui-passkeys.ts",
+        "packages/web/src/server/lib/http/read-bounded.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/client-auth.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/auth/pairing-candidates.ts",
+        "packages/web/src/server/lib/auth/pairing-payload.ts",
+        "packages/web/src/server/lib/auth/pairing-sessions.ts",
+        "packages/web/src/server/lib/auth/rate-limit.ts",
+        "packages/web/src/server/lib/auth/remote-clients.ts",
+        "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/lib/relay/host-service.ts",
+        "packages/web/src/server/lib/relay/identity.ts"
       ]
     },
     {
@@ -2403,6 +2447,7 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": [
+        "packages/web/src/server/lib/http/read-bounded.ts",
         "packages/web/src/server/lib/relay/host-service.ts",
         "packages/web/src/server/lib/relay/relay-config.ts"
       ]

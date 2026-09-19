@@ -99,7 +99,7 @@ export class RemoteClientStore {
    * never turn a truncated file into an empty client inventory on reload. */
   private save(): void {
     try {
-      mkdirSync(this.dataDir, { recursive: true });
+      mkdirSync(this.dataDir, { recursive: true, mode: 0o700 });
       const tmp = `${this.path()}.tmp-${process.pid}-${this.now()}`;
       writeFileSync(tmp, JSON.stringify({ version: 1, clients: this.clients } satisfies ClientStoreShape), { mode: 0o600 });
       renameSync(tmp, this.path());

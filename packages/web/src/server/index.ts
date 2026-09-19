@@ -10,6 +10,7 @@ import { ENV } from './env.ts';
 import { registerHarnessAdapter } from './harness/adapter.ts';
 import { mockHarness } from './harness/mock/index.ts';
 import { upgradeAllowedForRequest, getUiAuthController } from './lib/auth/ui-auth.ts';
+import { getPairingSessionStore } from './lib/auth/pairing-sessions.ts';
 import { getRelayHostService } from './lib/relay/host-service.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
@@ -38,7 +39,10 @@ export function startServer(): { port: number } {
   // hosts. Registered BEFORE /api surfaces answer traffic is unnecessary:
   // the routes resolve the same singleton lazily.
   const relayService = getRelayHostService({
-    demandSignals: [() => getUiAuthController().hasActiveRelayClients()],
+    demandSignals: [
+      () => getUiAuthController().hasActiveRelayClients(),
+      () => getPairingSessionStore().hasActiveRelaySession(), // §3.12: still-redeemable relay pairings
+    ],
     localPort: ENV.port,
     platform: process.env.NOTNATIVE_RUNTIME ?? 'web',
     appVersion: ENV.version,

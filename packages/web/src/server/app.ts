@@ -8,6 +8,7 @@ import { getTunnelAuthController, TUNNEL_COOKIE_NAME } from './lib/auth/tunnel-a
 import { peekRelayServerId } from './lib/relay/identity.ts';
 import { createStaticHandler, DIST_DIR } from './lib/static.ts';
 import { createAuthRoutes } from './routes/auth.ts';
+import { createClientAuthPublicRoutes, registerClientAuthRoutes } from './routes/client-auth.ts';
 import { createNotNativeRoutes } from './routes/notnative.ts';
 import { registerRelayRoutes } from './routes/relay.ts';
 import { registerFsRoutes } from './routes/fs.ts';
@@ -123,6 +124,10 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
   );
 
   app.route('/', createAuthRoutes());
+  // The anonymous pairing redeem (doc 08 §5.5) rides BEFORE the /api gate:
+  // an unauthenticated device pairs exactly once and the /api gate would
+  // otherwise 401 it before the rate limiter even sees a body.
+  app.route('/', createClientAuthPublicRoutes());
   // Global /api gate (doc 08 §2.2 requireAuth): cookie session, client
   // bearer, or allowlisted URL token. Registered after the /auth routes so
   // their bespoke headers (login/reset) run un-wrapped; every later /api
@@ -166,6 +171,7 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
 function registerApiSurfaces(app: Hono, terminal: TerminalRuntime): void {
   app.route('/', createNotNativeRoutes());
   registerRelayRoutes(app);
+  registerClientAuthRoutes(app);
   registerFsRoutes(app);
   registerFsReadRoutes(app);
   registerGitDiffRoutes(app);

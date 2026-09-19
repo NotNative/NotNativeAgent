@@ -10,6 +10,7 @@ import { Hono } from 'hono';
 import { getRelayHostService } from '../lib/relay/host-service.ts';
 import { resetRelayHostServiceForTests } from '../lib/relay/host-service.ts';
 import { RELAY_ENABLE_BODY_MAX_BYTES } from '../lib/relay/relay-config.ts';
+import { readTextBounded } from '../lib/http/read-bounded.ts';
 
 export function resetRelayRoutesForTests(): void {
   resetRelayHostServiceForTests();
@@ -60,24 +61,4 @@ async function readEnableBody(request: Request): Promise<{ relayUrl?: string } |
   }
 }
 
-/** 16 KiB bounded read (§3.15 enable-body budget): the reader cancels at
- * the cap instead of buffering an unbounded body before the size check. */
-async function readTextBounded(raw: Request, max: number): Promise<string | null> {
-  const stream = raw.body?.getReader();
-  if (stream === undefined) return '';
-  const decoder = new TextDecoder();
-  let total = '';
-  let budget = max;
-  while (budget >= 0) {
-    const next = await stream.read();
-    if (next.done) return total + decoder.decode();
-    const chunk = decoder.decode(next.value, { stream: true });
-    total += chunk;
-    budget -= chunk.length;
-    if (budget < 0) {
-      await stream.cancel().catch(() => undefined);
-      return null;
-    }
-  }
-  return null;
-}
+// 16 KiB enable-body budget (§3.15) rides the shared bounded reader.

@@ -8,6 +8,7 @@
  * doc literal until the coordination pass.
  */
 import { randomBytes } from 'node:crypto';
+import { ENV } from '../../env.ts';
 import { readEnvUiPassword } from '../../env.ts';
 import { createPasswordHashCache, normalizedPassword, passwordMatches, type PasswordSecrets } from './password.ts';
 import { getTunnelAuthController } from './tunnel-auth.ts';
@@ -135,7 +136,9 @@ export class UiAuthController {
   private readonly options: ResolvedOptions;
 
   constructor(options: UiAuthOptionsInput = {}) {
-    const dataDir = options.dataDir ?? process.env.NOTNATIVE_DATA_DIR ?? '';
+    // Boot default rides ENV.dataDir (hoedirs fallback; review P0): a bare
+    // `new UiAuthController()` on a stock launch must land in the real dir.
+    const dataDir = options.dataDir ?? process.env.NOTNATIVE_DATA_DIR ?? ENV.dataDir;
     this.options = {
       dataDir,
       clientStore: options.clientStore ?? new RemoteClientStore(dataDir),
@@ -177,6 +180,12 @@ export class UiAuthController {
    * credential store so the relay service never builds a parallel store. */
   hasActiveRelayClients(): boolean {
     return this.options.clientStore.hasActiveRelayClients();
+  }
+
+  /** Read seam for the pairing store's default mint and the client-auth
+   * routes (§2.7 authority rows run against the same shared store). */
+  getClientStore(): RemoteClientStore {
+    return this.options.clientStore;
   }
 
   verifyPassword(candidate: unknown): boolean {

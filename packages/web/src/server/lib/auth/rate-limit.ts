@@ -136,6 +136,67 @@ function positiveIntEnv(name: string): number | undefined {
   return value;
 }
 
+/** Redeem rate limit (doc 08 section 5.5): 10 attempts / 5 min keyed by
+ * the RAW socket remote address + pairing id — deliberately not req.ip,
+ * because the redeem is unauthenticated and the proxy must not be able
+ * to widen the bucket. Sliding window, no lock phase; a successful
+ * redeem clears the bucket; 429 answers the same safe error text. */
+export const REDEEM_RATE_WINDOW_MS = 5 * 60_000;
+export const REDEEM_RATE_MAX_ATTEMPTS = 10;
+
+export function createRedeemRateLimiter(
+  config: { windowMs?: number; maxAttempts?: number } = {},
+  now: () => number = Date.now,
+): LoginRateLimiter {
+  const windowMs = config.windowMs ?? REDEEM_RATE_WINDOW_MS;
+  const maxAttempts = config.maxAttempts ?? REDEEM_RATE_MAX_ATTEMPTS;
+  const buckets = new Map<string, number[]>();
+
+  const prune = (key: string): number[] | null => {
+    const entries = buckets.get(key);
+    if (entries === undefined) return null;
+    const stamp = now();
+    const alive = entries.filter((entry) => stamp - entry < windowMs);
+    if (alive.length === 0) {
+      buckets.delete(key);
+      return null;
+    }
+    buckets.set(key, alive);
+    return alive;
+  };
+
+  return {
+    attempt(key) {
+      const alive = prune(key);
+      const stamp = now();
+      if (alive === null) {
+        return { allowed: true, limit: maxAttempts, remaining: maxAttempts, resetAt: stamp + windowMs, locked: false, retryAfterSeconds: null };
+      }
+      if (alive.length >= maxAttempts) {
+        const resetAt = alive[0]! + windowMs;
+        return {
+          allowed: false,
+          limit: maxAttempts,
+          remaining: 0,
+          resetAt,
+          locked: true,
+          retryAfterSeconds: Math.max(1, Math.ceil((resetAt - stamp) / 1000)),
+        };
+      }
+      const resetAt = alive[0]! + windowMs;
+      return { allowed: true, limit: maxAttempts, remaining: Math.max(0, maxAttempts - alive.length), resetAt, locked: false, retryAfterSeconds: null };
+    },
+    record(key) {
+      const entries = buckets.get(key) ?? [];
+      entries.push(now());
+      buckets.set(key, entries);
+    },
+    clear(key) {
+      buckets.delete(key);
+    },
+  };
+}
+
 /** X-RateLimit header triple (epoch seconds for Reset per doc 08 section 2.2). */
 export function rateLimitHeaders(result: LoginRateLimitResult): Record<string, string> {
   return {
