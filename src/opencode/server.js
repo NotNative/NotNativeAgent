@@ -4,7 +4,8 @@
 // the wire; route-level semantics live with the route table and operations.
 import { createServer } from 'node:http';
 import {
-  sendJson, sendEmpty, readJsonBody, matchesBasicAuthorization, parseTarget, basicAuthorization,
+  sendJson, sendEmpty, sendNoContent, sendText, sendUnknownError, readJsonBody, matchesBasicAuthorization, parseTarget, basicAuthorization,
+  sseOpen,
 } from './protocol.js';
 import {
   WIRED_OPENCODE_VERSION, DIAGNOSTICS_ROUTE, DEFAULT_BASIC_USERNAME, DEFAULT_SERVE_HOSTNAME,
@@ -27,6 +28,7 @@ export class OpenCodeCompatServer {
       wiredVersion: options.wiredVersion ?? WIRED_OPENCODE_VERSION,
       registry: options.registry,
       operations: options.operations,
+      bus: options.bus ?? null,
       logger: options.logger,
     });
   }
@@ -76,8 +78,15 @@ export class OpenCodeCompatServer {
 
   #reject(res, status, req, target, error = null) {
     res.opencodeErrorCode = error ? (error.code ?? 'internal_failure') : null;
-    if (error) this.#options.logger?.record({ type: 'opencode_http_error', status, code: error.code ?? 'internal_failure', url: target?.pathname });
+    this.#options.logger?.record({ type: 'opencode_route_failure', status, code: res.opencodeErrorCode ?? 'internal_failure', url: res.req?.url ?? target?.pathname, ...(error ? { message: error.message } : {}) });
     if (res.writableEnded) return;
+    if (res.headersSent) {
+      // Why: late handler failures after headers must not crash the response
+      // chain with a second writeHead; close the socket instead of lying again.
+      this.#options.logger?.record({ type: 'opencode_http_error', status, code: 'late_handler_failure', url: target?.pathname });
+      res.end();
+      return;
+    }
     sendEmpty(res, status);
   }
 
@@ -105,8 +114,11 @@ function matchRoute(method, pathname) {
 const ROUTES = [
   { method: 'GET', match: exact('/global/health'), handler: health },
   { method: 'GET', match: exact(DIAGNOSTICS_ROUTE), handler: diagnostics },
+  { method: 'GET', match: exact('/global/event'), handler: globalEventStream },
   { method: 'GET', match: exact('/session'), handler: listSessions },
   { method: 'POST', match: exact('/session'), handler: createSession },
+  { method: 'POST', match: prefix('/session/', '/prompt_async'), handler: promptSessionAsync },
+  { method: 'POST', match: prefix('/session/', '/message'), handler: promptMessage },
   { method: 'GET', match: prefix('/session/', '/message'), handler: sessionMessages },
   { method: 'DELETE', match: prefix('/session/'), handler: deleteSession },
   { method: 'GET', match: prefix('/session/'), handler: getSession },
@@ -163,10 +175,64 @@ async function sessionMessages(ctx) {
   }
 }
 
+// Why: gold OpenCode answers prompt POSTs synchronously (blocking until the
+// turn closes), requires application/json (otherwise 415 plain text), and
+// reports failures as an UnknownError envelope even for unknown sessions.
+async function promptMessage(ctx) {
+  const gate = jsonContentGate(ctx.req);
+  if (gate) return gate(ctx.res);
+  const read = await readJsonBody(ctx.req);
+  if (read.error) return sendUnknownError(ctx.res, 400, 'prompt body was malformed JSON');
+  try {
+    const response = await ctx.options.operations.prompt(ctx.params.id, read.value?.parts ?? []);
+    sendJson(ctx.res, 200, response);
+  } catch (error) {
+    promptFailure(ctx, error);
+  }
+}
+
+async function promptSessionAsync(ctx) {
+  const gate = jsonContentGate(ctx.req);
+  if (gate) return gate(ctx.res);
+  const read = await readJsonBody(ctx.req);
+  if (read.error) return sendUnknownError(ctx.res, 400, 'prompt body was malformed JSON');
+  try {
+    ctx.options.operations.promptAsync(ctx.params.id, read.value?.parts ?? []).catch((error) => {
+      ctx.options.logger?.record({ type: 'opencode_prompt_failed', code: error?.code ?? 'internal_failure', sessionID: ctx.params.id });
+    });
+    sendNoContent(ctx.res);
+  } catch (error) {
+    promptFailure(ctx, error);
+  }
+}
+
+async function globalEventStream(ctx) {
+  sseOpen(ctx.res);
+  const unsubscribe = ctx.options.bus.subscribe(ctx.res, { directory: ctx.target.directory ?? null });
+  ctx.res.on('close', unsubscribe);
+}
+
+function jsonContentGate(req) {
+  const header = req.headers['content-type'];
+  if (typeof header === 'string' && header.startsWith('application/json')) return null;
+  return (res) => sendText(res, 415, `Unsupported content-type: ${header ?? 'text/plain'}`);
+}
+
+function promptFailure(ctx, error) {
+  if (error?.code === 'opencode_session_missing') return sendUnknownError(ctx.res, 500, 'failed to resolve prompt session');
+  if (typeof error?.code === 'string' && error.code.startsWith('opencode_prompt_')) {
+    const overflow = error.code === 'opencode_prompt_queue_overflow';
+    return sendUnknownError(ctx.res, overflow ? 429 : 400, error.message);
+  }
+  ctx.options.logger?.record({ type: 'opencode_prompt_failed', code: error?.code ?? 'internal_failure', sessionID: ctx.params.id });
+  sendUnknownError(ctx.res, 500, 'prompt failed on the agentic surface');
+}
+
 async function deleteSession(ctx) {
   try {
     await ctx.options.operations.remove(ctx.params.id);
-    sendJson(ctx.res, 200, { ok: true });
+    // Why: gold DELETE answers with the bare boolean `true` on these routes.
+    sendJson(ctx.res, 200, true);
   } catch (error) {
     if (error?.code === 'opencode_session_missing') return sendEmpty(ctx.res, 404);
     throw error;

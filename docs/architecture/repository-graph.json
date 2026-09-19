@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:9346215302a4d292a75f56679266e2f9aa7d558a9c2db3b0ec81db9cf0ac3a1b",
+  "source_digest": "sha256:b72ebea27fb7fbe877f6f004bc981c0573966c2c6d6823f309fd730210158778",
   "counts": {
-    "modules": 351,
+    "modules": 353,
     "component_edges": 75
   },
   "components": [
@@ -72,7 +72,7 @@
       "id": "opencode-surface",
       "label": "OpenCode surface",
       "ownership": "Serves the OpenCode wire contract over live session engines.",
-      "module_count": 8
+      "module_count": 10
     },
     {
       "id": "foundation",
@@ -184,6 +184,12 @@
       "module_count": 9
     },
     {
+      "from": "opencode-surface",
+      "to": "opencode-surface",
+      "import_count": 13,
+      "module_count": 7
+    },
+    {
       "from": "agentic-engine",
       "to": "reliability-engine",
       "import_count": 12,
@@ -224,12 +230,6 @@
       "to": "reliability-engine",
       "import_count": 11,
       "module_count": 4
-    },
-    {
-      "from": "opencode-surface",
-      "to": "opencode-surface",
-      "import_count": 10,
-      "module_count": 6
     },
     {
       "from": "guidance",
@@ -280,6 +280,12 @@
       "module_count": 4
     },
     {
+      "from": "opencode-surface",
+      "to": "foundation",
+      "import_count": 7,
+      "module_count": 4
+    },
+    {
       "from": "agentic-engine",
       "to": "guidance",
       "import_count": 6,
@@ -302,12 +308,6 @@
       "to": "persistence",
       "import_count": 5,
       "module_count": 4
-    },
-    {
-      "from": "opencode-surface",
-      "to": "foundation",
-      "import_count": 5,
-      "module_count": 2
     },
     {
       "from": "persistence",
@@ -1925,7 +1925,9 @@
         "src/ids.js",
         "src/ingress.js",
         "src/opencode/registry.js",
-        "src/opencode/slug.js"
+        "src/opencode/slug.js",
+        "src/opencode/wire-events.js",
+        "src/opencode/wire-session.js"
       ]
     },
     {
@@ -1939,6 +1941,23 @@
       "component": "opencode-surface",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "src/opencode/wire-events.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/opencode/protocol.js"
+      ]
+    },
+    {
+      "path": "src/opencode/wire-session.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
     },
     {
       "path": "src/path-policy.js",

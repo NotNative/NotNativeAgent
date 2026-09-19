@@ -29,6 +29,7 @@ export async function startOpencodeServe(options = {}) {
     wiredVersion,
     registry: workspace.registry,
     operations: workspace.operations,
+    bus: workspace.bus,
     logger: options.logger ?? null,
     password: options.password ?? null,
     username: options.username ?? DEFAULT_BASIC_USERNAME,
@@ -79,6 +80,7 @@ export class OpencodeServeRuntime {
       try { await this.workspace.operations.remove(record.id); } catch { /* stop is best-effort */ }
     }
     await this.server.stop();
+    this.workspace.bus.close();
   }
 }
 

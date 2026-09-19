@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Session operations for the OpenCode surface: one live SessionEngine per
 // OpenChamber session, wired like the headless/plain-text surfaces (canonical
-// ingress only), plus the façade's route-level error vocabulary.
+// ingress only), the per-session wire voice (cadence + prompt queue), and the
+// façade's route-level error vocabulary.
 import { SessionEngine } from '../engine.js';
 import { CanonicalIngress } from '../ingress.js';
-import { newId } from '../ids.js';
-import { ContractError } from '../ids.js';
+import { newId, ContractError } from '../ids.js';
 import { mkdirSync } from 'node:fs';
 import { OpenCodeSessionRegistry, projectIdentifier } from './registry.js';
 import slugifyTitle from './slug.js';
+import { createWireEventBus } from './wire-events.js';
+import { createWireSession } from './wire-session.js';
 
 // Why: the opencode surface is an authenticated operator surface (OpenChamber
 // renders permission cards); the engine's interactive broker wiring therefore
@@ -18,10 +20,11 @@ const SURFACE_NAME = 'interactive_tui';
 export function createOpenCodeSessionWorkspace(options = {}) {
   ensureStoreRoots(options);
   const registry = new OpenCodeSessionRegistry();
+  const bus = createWireEventBus();
   const wiredVersion = options.wiredVersion;
-  const workspace = { registry, wiredVersion };
+  const workspace = { registry, bus, wiredVersion };
   const operations = defineWorkspaceOperations(workspace, options);
-  return { workspace, registry, operations };
+  return { workspace, registry, bus, operations };
 }
 
 function ensureStoreRoots(options) {
@@ -34,9 +37,11 @@ function ensureStoreRoots(options) {
 }
 
 function defineWorkspaceOperations(workspace, options) {
+  const { registry, bus, wiredVersion } = workspace;
   return {
+    bus,
     async list() {
-      return workspace.registry.list().map((record) => workspace.registry.describe(record, workspace.wiredVersion));
+      return registry.list().map((record) => registry.describe(record, wiredVersion));
     },
     async create(input = {}) {
       return attachSession(workspace, options, {
@@ -46,28 +51,52 @@ function defineWorkspaceOperations(workspace, options) {
     },
     get(ocId) {
       const session = requireSession(workspace, ocId);
-      return workspace.registry.describe(session, workspace.wiredVersion);
+      return registry.describe(session, wiredVersion);
     },
     async messages(ocId) {
       const session = requireSession(workspace, ocId);
-      return messageListFor(session);
+      return session.wireSession.messages();
+    },
+    prompt(ocId, parts) {
+      const session = requireSession(workspace, ocId);
+      return session.wireSession.prompt(parts);
+    },
+    promptAsync(ocId, parts) {
+      const session = requireSession(workspace, ocId);
+      return session.wireSession.prompt(parts);
+    },
+    async sync(ocId) {
+      const session = requireSession(workspace, ocId);
+      return session.wireSession.pendingCount();
     },
     async remove(ocId) {
       const session = requireSession(workspace, ocId);
       await session.engine.shutdown({ request_id: newId('oc_shutdown'), type: 'shutdown' });
-      workspace.registry.remove(ocId);
+      registry.remove(ocId);
+      bus.publishSession({
+        directory: session.directory ?? '',
+        project: session.projectID ?? '',
+        sessionID: ocId,
+        type: 'session.deleted',
+        properties: { sessionID: ocId },
+      });
       return { closed: true };
     },
   };
 }
 
 async function attachSession(workspace, options, { title, directory }) {
+  const { registry, bus, wiredVersion } = workspace;
   const sessionId = newId('session');
+  let wireSession = null;
   const engine = new SessionEngine({
     config: options.config,
     sessionId,
     surface: SURFACE_NAME,
-    output: (record) => options.logger?.record(record, { sessionId }),
+    output: async (record) => {
+      wireSession?.observe(record);
+      options.logger?.record(record, { sessionId });
+    },
     storeRoot: options.storeRoot,
     reviewerRoot: options.reviewerRoot,
     providerFactory: options.providerFactory,
@@ -76,8 +105,9 @@ async function attachSession(workspace, options, { title, directory }) {
     secretBroker: options.secretBroker,
   });
   await engine.initialize({ deferMcp: true });
+  const ocId = newId('ses');
   const record = {
-    ocId: newId('ses'),
+    ocId,
     engine,
     ingress: new CanonicalIngress(engine, { interactive: true }),
     title,
@@ -87,19 +117,37 @@ async function attachSession(workspace, options, { title, directory }) {
     path: '',
     createdAt: Date.now(),
   };
-  const stored = workspace.registry.attach(record);
+  wireSession = createWireSession({
+    record, bus, version: wiredVersion,
+    info: () => {
+      const stored = registry.get(ocId);
+      const touched = registry.touch(ocId) ?? stored;
+      return registry.describe(touched ?? stored, wiredVersion);
+    },
+  });
+  const modelRef = configModelRef(options.config);
+  if (modelRef) wireSession.setModelRef(modelRef);
+  const stored = registry.attach({ ...record, wireSession });
   options.logger?.record({ type: 'opencode_session_created', ocId: stored.ocId, sessionId, title }, { sessionId });
-  return workspace.registry.describe(stored, workspace.wiredVersion);
+  options.logger?.record({ type: 'opencode_session_started', ocId: stored.ocId, sessionId, title, directory: stored.directory }, { sessionId });
+  return registry.describe(stored, wiredVersion);
 }
 
-async function messageListFor(session) {
-  // Why: M0 serves the empty-transcript wire shape only; part synthesis for
-  // prompts lands with the message routes in M1 and replaces this gate.
-  const entries = session.engine.transcript;
-  if (entries.some((item) => item.type === 'message')) {
-    throw new ContractError('opencode_messages_unsupported', 'transcript synthesis arrives with the M1 message routes');
-  }
-  return [];
+function configModelRef(config) {
+  const primary = boundedRef(config?.routes?.primary);
+  if (primary) return primary;
+  const provider = config?.provider;
+  if (!provider || typeof provider !== 'object') return null;
+  return boundedRef(provider);
+}
+
+function boundedRef(source) {
+  if (!source || typeof source !== 'object') return null;
+  const providerID = typeof source.providerId === 'string' && source.providerId ? source.providerId
+    : typeof source.id === 'string' && source.id ? source.id : null;
+  const modelID = typeof source.model === 'string' && source.model ? source.model : null;
+  if (!providerID && !modelID) return null;
+  return { providerID: providerID ?? 'nna', modelID: modelID ?? 'nna' };
 }
 
 function requireSession(workspace, ocId) {

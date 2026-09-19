@@ -150,6 +150,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nno_integration_activation_incompatible', 'nno_integration_activation_invalid', 'nno_integration_activation_missing',
     'nno_integration_activation_required', 'notification_duplicate', 'notification_invalid',
     'notification_turn_missing', 'onboarding_env_incomplete', 'opencode_messages_unsupported',
+    'opencode_prompt_parts_invalid', 'opencode_prompt_parts_unsupported', 'opencode_prompt_queue_overflow',
     'opencode_session_missing', 'operator_decision_unexpected',
     'option_value_missing', 'permissions_command_invalid', 'permissions_unavailable',
     'pinned_http_address_invalid', 'pinned_http_signal_required', 'plain_text_boundary_invalid', 'playwright_root_invalid',

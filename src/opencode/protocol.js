@@ -18,6 +18,30 @@ export function sendEmpty(res, status) {
   res.end();
 }
 
+// Why: 204 with NO content-length matched the observed prompt_async answer.
+export function sendNoContent(res) {
+  if (res.writableEnded) return;
+  res.writeHead(204);
+  res.end();
+}
+
+// Why: OC answers media violations with plain text, not JSON.
+export function sendText(res, status, text) {
+  if (res.writableEnded) return;
+  res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', 'content-length': String(Buffer.byteLength(text, 'utf8')) });
+  res.end(text);
+}
+
+// Why: gold OpenCode renders 4xx/5xx internal errors as an UnknownError
+// envelope with a random-ref field (`err_<hex>`), never empty on these routes.
+export function sendUnknownError(res, status, message) {
+  sendJson(res, status, { name: 'UnknownError', data: { message, ref: newReference() } });
+}
+
+function newReference() {
+  return `err_${Math.abs(Number(process.hrtime.bigint() % 281_474_976_710_656n)).toString(16).slice(0, 8)}`;
+}
+
 export async function readJsonBody(req, maximumBytes = MAX_REQUEST_BODY_BYTES) {
   const chunks = [];
   let total = 0;
@@ -67,7 +91,8 @@ export function sseFrame(res, frame = {}) {
 }
 
 export function sseClose(res) {
-  if (!res.writableEnded) res.end();
+  if (res.writableEnded || typeof res.end !== 'function') return;
+  res.end();
 }
 
 export function parseTarget(url) {
