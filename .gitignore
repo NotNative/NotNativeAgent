@@ -11,3 +11,4 @@
 /autonomy-test-run.log
 # Local NNA-managed project memory. Repository instructions belong in AGENTS.md.
 /NNA.md
+.tmp/
