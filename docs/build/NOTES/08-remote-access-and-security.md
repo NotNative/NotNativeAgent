@@ -645,6 +645,98 @@ SSH -> reverse proxy -> invariants.
   pairing UX + connect-url (steps 11-12), per-request connectTtlMs/
   sessionTtlMs overrides on start (E-08-36).
 
+- **P8-5a (delivered this slice)** — checklist step 7 tail + the client
+  half of steps 11-12: the relay CLIENT mirror ships as the ui-side
+  contract (`packages/ui/src/lib/relay/`, browser-safe: Uint8Array +
+  globalThis WebCrypto, no node:buffer/DOM types — the server tsconfig
+  compiles the same files). `bytes.ts` (base64url/BE helpers, Node-codec
+  vector parity); `protocol.ts` (frame numerals, 5 B header, close-code
+  policy 4010/4002/4029 terminal + 1011/1012/1006, §3.11 timing
+  constants, odd stream ids from 1); `crypto.ts` (Layer 2: ECDH P-256 →
+  HKDF-SHA-256 → two AES-256-GCM keys, IV = 4 B random prefix + 8 B BE
+  counter from 1, >2^53-1 counter rejected pre-GCM, fail-closed decrypt,
+  hello/ready grammar; subtle rides `typeof crypto.subtle` so DOM and
+  node both compile); `handshake.ts` (client initiator: 1 s l s hello
+  retries + 30 s deadline, duplicate ready ignored, 1011 on
+  timeout/binary-before-established); `tunnel-codec.ts` (Uint8Array
+  frames, WS-only fragmentation with the 16 MiB bound + 256-slot partial
+  groups, §3.7 container DEMUX in the [0x00]/[0x01] mixed mode — the bare
+  HttpRequest fallback is pinned byte-exact against the host demux —
+  payload guards per E-08-24); `tunnel-payloads.ts` (tunnel.invalid
+  normalization, INLINE path?query with the query record left empty —
+  byte-faithful search params through the host's
+  `path + loopbackQueryOf(query ?? undefined)` dial —
+  buildClientRelaySocketUrl with the exact §3.3 role=client URL and the
+  openchamber wire strings (E-08-25), grant rides the URL only);
+  `tunnel-acks.ts` (§3.8 ledger: cumulative raw nonzero frame bytes with
+  5 B headers, keepalives excluded, per-handshake reset, inline at
+  16 KiB + 10 ms tail, never awaits credit); `transport-error.ts`
+  (ambiguous tagging, non-enumerable flag); `wire-socket.ts` (platform
+  WS seam, binaryType=arraybuffer); `tunnel-client-fetch.ts` (§3.10
+  fetch: string/AB/view = one chunk, ReadableStream streamed,
+  Blob/FormData/URLSearchParams probe content-type via a throwaway
+  Request, empty stream body = ONE empty HttpBody, abort = plain
+  AbortError + StreamAbort, body.cancel() → StreamAbort, 204/205/304
+  build null-body Responses (E-08-43), request-body read failures settle
+  ambiguous (E-08-46), Request-object body/signal fallback native-parity);
+  `tunnel-client-ws.ts` (native shape: readyState only via real
+  WsOpened/WsClose, send-before-open exact text, local WsClose keeps the
+  link until the host echo completes onclose, CONNECTING close kills the
+  host dial, messages fragment through the budget, >16 MiB pre-checked,
+  host StreamAbort → 1006 / channel death → 1012 (E-08-47));
+  `tunnel-client-inbound.ts` (ledger counts every decoded frame BEFORE
+  dispatch, assembler per (streamId,type), Ping → Pong stream zero,
+  well-formed unexpected ignored, malformed fails the channel);
+  `tunnel-client-outbound.ts` (§3.7 client outbound containers gated by
+  the NEGOTIATED batch capability; buffered types only, setup/keepalive
+  flush first, 24 KiB/32 cap, leading edge instant, teardown drops);
+  `tunnel-client.ts` (the machine: generation-gated wire handlers,
+  sendChain encrypt serialization (one encrypt = one WS message = one
+  counter tick, wires in order) + recvChain for the counter check,
+  INBOUND-driven keepalive honoring ping interval/timeout options, §3.11
+  backoff base × 2^completedCycles cap 30 s (60 s offline/hidden), wake
+  fast-path hooks, fetches racing the connect attempt are QUEUED and
+  rejected UNTAGGED when the attempt fails (§6.6 posture), terminal
+  codes retain + fail fast forever, closedGenerations → a single
+  watermark, lane + abort-listener releases everywhere (E-08-48), send
+  crypto failures fail-closed, wire-factory throw → failChannel).
+  Runtime integration: `runtime-tunnel.ts` (byte-equal descriptor reuse —
+  grant + canonical JWK JSON — terminal-dead reuse refused (E-08-49);
+  adoptRelayTunnel joins the status fan-out (E-08-49); grant stays
+  memory-only); `runtime-switch.ts` (relay activation BEFORE the eager
+  §6.0 mint, null relay deactivates); `runtime-fetch.ts` (relay mode
+  transports through the tunnel, read coalescing both modes);
+  `runtime-auth.ts` (the URL-token mint rides the tunnel in relay mode;
+  mint failures clear the shared token atomically, never an empty window
+  (E-08-45)); `runtime-socket.ts` (openRuntimeWebSocket = the sanctioned
+  socket op). HOST side: `downstream.ts` carries the E-08-27 heuristics
+  live — grow ×2 only when a head was BLOCKED by the window AND the ack
+  delivery delay is ≤ minRtt + 50 ms; halve when the delay exceeds
+  minRtt + 100 ms (floor 64 KiB, cap 1 MiB); one adjustment per window
+  (checkpoint = latest ack + the CURRENT post-adjust window, E-08-42);
+  the window-latch only arms on pump-skipped heads (sparse traffic never
+  inflates); stream-zero-first rounds; `now` clock seam for the gates.
+  `dispatcher.sendFrameNow` + the wsBridge refusal/close rows route
+  `scheduler.sendNow`: terminal rows bypass the §3.8 queue but STAY
+  ledger-accounted (E-08-41) — the review proved every mirrored WsClose/
+  StreamAbort row acked past `outstandingBytes` and failed the channel
+  1011 forever. Tests: ui +39 (relay-primitives 21, fake broker +
+  tunnel-client 14 incl. reconnect/terminal/pong-deadline/ledger parity
+  /local-close echo/backoff-by-measurement, runtime-tunnel 4) + web 13
+  (p8-5a E2E 6: the REAL client over the production host-service leg —
+  GET/POST streaming, the >64 KiB ack-driven response, WS both ways with
+  code propagation and a post-close fetch proving sendNow accounting,
+  keepalive, client-leg replacement reconnect; p8-5a-downstream-window
+  7: deterministic grow/halve/checkpoint/ack-law/cancel suites). web
+  413/31 files, ui 428/53, both tsconfigs clean, gates + graph (294) +
+  smoke pass, sealed 20260919-1.
+  NOT in this slice (the step-11/12 UI faces): §2.5 client passkey lib,
+  §2.8 expiry store + §6.6 SessionAuthGate + §6.7 banner, §6.1 pairing
+  dialog + §5.8 QR, §5.9 CLI connect-url (needs the doc-03 CLI
+  framework, registered for its own slice), §6.4/§6.5 desktop
+  probe/restore (desktop IPC = doc 09/P12); app transports (terminal,
+  harness streams) keep direct-mode wiring until the desktop/mobile
+  phases call openRuntimeWebSocket.
 ## B. Adaptation deltas (registered)
 
 - **E-08-34 (§4.7 failure-path interpretation, not doc-literal)**:
@@ -699,6 +791,68 @@ SSH -> reverse proxy -> invariants.
   seeds). Covered by the existing p5-3 suite + the tunnel-core secret
   pins.
 
+- **E-08-41 (terminal rows stay ledger-accounted; scheduler.sendNow)**:
+  the review found the admissibility seam: the client ledger counts EVERY
+  decoded nonzero frame (§3.8 mandate), but the host's mirrored WsClose/
+  StreamAbort/refusal rows bypassed `scheduler.send` via
+  `dispatcher.sendFrameNow` → their bytes acked past `outstandingBytes`
+  → "beyond sent bytes" → channel 1011 on EVERY closed WS or cancelled
+  request. `DownstreamScheduler.sendNow` ships the row synchronously
+  (release-cancel cannot eat it) while pushing the exact raw byte count
+  into the outstanding list, keeping boundary validation lawful. No
+  client-side change (acking late rows of cancelled streams is the doc
+  mandate). E2E-pinned: a post-WS-close fetch rides the same tunnel.
+- **E-08-42 (window checkpoint = acked + the POST-adjust window)**: the
+  doc's "boundary = latest ack position + window" is read with the
+  CURRENT (post-adjust) window: after each adjust attempt the checkpoint
+  is `ackedBytes + windowBytes` with the possibly-grown/halved value, so
+  every adaptive cycle gets one full window of acks before the next
+  evaluation. Deterministic grow/halve/checkpoint suites pin: latch-only
+  from blocked heads, near-best grow (≤ minRtt + 50), delayed halve
+  (> minRtt + 100, floor 64 KiB, cap 1 MiB), no per-frame oscillation.
+- **E-08-43 (bodyless responses)**: a 204/205/304 head can never
+  construct a Response with a stream body (undici throws); the client
+  builds `new Response(null, …)` and drops the controller (the host
+  should never send such heads - belt over braces, native parity kept).
+- **E-08-44 (client outbound batching ships)**: §3.7 is a negotiated
+  optional capability; the client sends one frame per decrypted message
+  when `batch` is false, and through the same container shapes
+  (`[0x00]`/`[0x01](len+frame)*N`) when negotiated true - buffered types
+  only, setup/keepalive flush first, 24 KiB/32 caps, leading edge
+  instant, teardown drops un-flushed work, `batchWindowMs` honored
+  (previously a dead option).
+- **E-08-45 (URL-token mint failure clears the shared token)**: §2.6's
+  "mint failures clear the shared token; no empty-token window" is now
+  honored - every mint failure (transport/log/HTTP !ok) resets the
+  token field to null in one atomic write; consumers never see an
+  empty-string token, and a 60 s-old consumed token cannot serve again.
+- **E-08-46 (client fetch semantics pinned)**: Request-object inputs
+  fall back to the Request's own body/signal when the init omits them
+  (native fetch parity; a consumed stream still errors plainly); a
+  body-pump failure REJECTS the fetch as ambiguous (the head already
+  reached the wire) instead of leaving the promise unsettled; Path+query
+  ride INLINE in the HttpRequest payload (the query record stays empty —
+  byte-faithful through the host's dial), documented against the shape
+  guard's optional query record.
+- **E-08-47 (local WS close completes via the echo)**: local `close()`
+  sends WsClose (also for a CONNECTING surface — it kills the host's
+  pending loopback dial), flips the surface CLOSED at once (native
+  shape), keeps the link record until the host's clamped WsClose echo
+  routes `onclose` exactly once; channel death closes 1012 with the
+  echo-free path as before. The onmessage handler attached AFTER the
+  close never fires (deliver guards on `closing`).
+- **E-08-48 (client bookkeeping releases)**: fetch lanes release on
+  StreamEnd/StreamAbort/WsClose/channel resets (late frames of finished
+  ids are already ignored and stay ledger-counted); abort listeners
+  detach on every settling path (per-lane detach hook); scopedGenerations
+  shrink to a single watermark closing guard; the §3.7 outbound ledger
+  resets per cycle and disposes on close.
+- **E-08-49 (runtime singleton live-tunnel posture)**: an equal
+  re-activate reuses the live tunnel; a TERMINAL-failed client
+  (4010/4002/4029 retained, §3.11) is NOT live - terminal reuse would
+  wedge the §6.4 hot-switch forever, so the runtime deactivates and
+  builds fresh. adoptRelayTunnel joins the status fan-out (an adopted
+  probe tunnel stays status-visible for the banner/switch per §6.2).
 - **E-08-1 (JWT hand-rolled)**: the doc uses the `jose` library's SignJWT;
   NND hand-rolls HS256 sign/verify with node:crypto to avoid the
   dependency (JWT is `{type:'ui-session', iat, exp}` only; verification is
