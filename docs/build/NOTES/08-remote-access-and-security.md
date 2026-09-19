@@ -502,21 +502,75 @@ SSH -> reverse proxy -> invariants.
   a BARE HttpRequest frame, WS upstream both ways with real WsOpen/WsClose
   codes, replay closes the leg; the loopback fake worker extracted to
   `__tests__/helpers/relay-fake-worker.ts` and shared).
-  NOT in this slice: pairing session store + §5.5 routes + redeem
-  (§5.4-5.7) + the LAN candidate refresh endpoint (§3.13 step 9 next);
-  client §3.10 surface w/ the E-08-27 window heuristics + §2.5 passkey
-  client lib (pairing/UX slices); the revoke/purge reconcile call sites
-  (device routes, E-08-13 family); SSH/host-lock over network claim
-  detail beyond process.kill; settings-registry relay keys.
-  NOT wired: /api/client-auth/clients authority routes (§2.7 core-routes
-  set, E-08-13) - they ride with the pairing/UX slice; the settings-store
-  `readStoredSecretValue` accessor exists for that wiring. /api/system/
-  shutdown's requireShutdownAuth tunnelscope flavor rides the doc 03
+  NOT in this slice: client §3.10 surface w/ the E-08-27 window
+  heuristics + §2.5 passkey client lib (pairing/UX slices); SSH/host-lock
+  over network claim detail beyond process.kill; the settings-registry
+  relay keys (E-08-28 dedicated-file posture until then); /api/system/
+  shutdown's requireShutdownAuth tunnel-scope flavor rides the doc 03
   system-family route; tunnel TTL settings keys ride the tunnels slice.
-- Deferred beyond P8-1: passkeys (step 5, @simplewebauthn registry path),
-  relay primitives/client/host (steps 6-8, E2EE transcript), candidates +
-  restore (9), tunnel providers (10), pairing/instance UX (11-12), SSH (13),
-  reverse-proxy posture (14), invariant sweep (15).
+- **P8-4a (delivered this slice)** — checklist step 9 server half + the
+  E-08-13 route family: the pairing session store
+  (`lib/auth/pairing-sessions.ts`, `<data-dir>/client-pairing-sessions.json`
+  version 1 @0600 atomic; id `pair_`+12 B hex, secret 32 B b64url hashed,
+  fingerprint XXXX-XXXX, TTL 10 min, kinds default mobile+desktop,
+  `usesRelay` from the link), redeem one-time semantics with the mint
+  retry-safe tail (a thrown mint leaves the session redeemable), sweep
+  retention (used/cancelled until inactive+TTL, unredeemed drop at
+  expiry), sync single-threaded store (E-08-32). The client-auth route
+  family `routes/client-auth.ts`: redeem rides BEFORE the /api gate
+  (anonymous, 10/5 min keyed raw-socket:pairingId, sliding window, no
+  lock phase; success clears the bucket; one generic error for every
+  failure class incl. 429); the gated family (authority = UI session |
+  desktop-local | open mode; plain tokens self-only) — clients
+  list/create/revoke/purge, pairing sessions create/list/cancel, the
+  §3.13 candidates refresh (client-reached local address first, then
+  the interface scan, relay last, serverId rides; loopback auto-origins
+  never advertised; NEVER URL-token-authorized, ironically free from
+  url-tokens.ts allowlist), §3.13 transports view (LAN from the server
+  bind: concrete non-loopback bind passes through, wildcard scans the
+  LAN IPv4, loopback bind -> null), candidate math (serverUrl primary
+  10, request-origin extra 20 when different+not-loopback, https
+  -> tunnel type, relay 30 via ensureEnabledForPairing when requested,
+  legacy getPairingCandidate when defaulted, never when
+  includeRelay:false; 400 'No usable pairing candidate' when an
+  includeDirect:false link has no relay). Reconcile call sites wired:
+  session create/cancel/redeem + device revoke/purge fire-and-forget
+  with the demand matrix from index.ts gaining the
+  `hasActiveRelaySession()` signal (`hasActiveRelayClients()` joined).
+  Shared bounded-body reader extracted to `lib/http/read-bounded.ts`
+  (auth/relay private copies reduced). Tests 42 (p8-4a-pairing-store 15,
+  p8-4a-client-auth-routes 12 + p8-4b-client-auth-authority 15 across a
+  shared `__tests__/helpers/client-auth-harness.ts`: one dataDir per
+  worker, once-built app — routes carry the redeem limiter state).
+  NOT in this slice (_SYM client halves + tunnels): the section 6.4
+  desktop restore/hot-switch probe + mobile reprobe (steps 11-12), the
+  §5.8 QR render + §5.9 CLI connect-url surface (they ride the UX/CLI
+  slices), tunnel bootstrap + providers (step 10), E-08-27 window
+  heuristics, SSH (13).
+- **P8-4a review fixes (adversarial sub-agent ses_f48d0a552ffejimD2JyQP6KHkP;
+  P0×1 + P1×2 + P2 cluster)**: P0 — the auth-family singletons defaulted
+  `dataDir ?? ''` while the relay service defaults via ENV.dataDir: a
+  stock launch (env unset is the NORMAL condition) built
+  `/client-pairing-sessions.json` and 500'd pairing create (split-brain
+  with the identity dir). Fixed: pairing store + ui-auth controller
+  default through ENV.dataDir (homedir fallback). P1 — redeem catch
+  classified EVERYTHING as the generic 400 after minting (a disk-full
+  write fault was attacker-facing AND rate-bucket-charged AND the minted
+  token undelivered): typed `InvalidPairingSessionError` (the one-string
+  contract) vs `PairingStoreFault`, store rolls the usedAt/clientId
+  stamp back on a failed save (consume-on-confirm), route 500s faults
+  WITHOUT charging the bucket. P1 — GET pending-sessions/transports were
+  any-bearer; now manage-authority (session | desktop-local | open) 403
+  'Client tokens cannot read the pairing surface' (candidates refresh
+  correctly stays bearer-wide per §3.13). P2 cluster — registerClient
+  split (device routes vs pairing+candidates registrars, 60-line cap),
+  dead `void store === undefined` line removed, empty label accepted as
+  unset (store normalizes null; route no longer 400s whitespace), cancel
+  of a USED session answers {cancelled:false} (E-08-33g: one-time grants
+  have nothing left to revoke), mkdir 0700 dirs (§12.2, both stores),
+  wildcard bind names (0.0.0.0/::) rejected as serverUrl, fireReconcile
+  on ensure-failure exits (503/500 clear the half-enable promptly
+  instead of waiting for the poll).
 
 ## B. Adaptation deltas (registered)
 
@@ -752,9 +806,52 @@ SSH -> reverse proxy -> invariants.
   their own `releaseStream`/`abortStream` cancel would otherwise drop
   the not-yet-pumped close — found by the production wire probe (the
   fake-worker harness consumed its own frames asymptomatically).
-   Dispatcher-tier refuses (fragmented non-WS) remain non-fatal frame
-   refusals; the LEG-HOST assembler owns the channel-level kill via the
-   codec's throw (1011).
+  Dispatcher-tier refuses (fragmented non-WS) remain non-fatal frame
+  refusals; the LEG-HOST assembler owns the channel-level kill via the
+  codec's throw (1011).
+- **E-08-32 (pairing store is synchronous)**: §5.4 describes serialized
+  mutations via a promise queue (`withStoreMutation`). NND's store, like
+  `remote-clients.ts`, is a synchronous in-memory record set with atomic
+  0600 file writes — the event-loop quiescence of sync ops already
+  guarantees no interleaving, so the queue is a no-op here. Pin: if a
+  future mint becomes async, the store MUST gain the promise queue (or
+  the redeem's `usedAt` stamping races first-writer-wins) — the safeLitmus
+  test pins the retry-safety that would break.
+- **E-08-33 (candidate authority decisions, not doc-pinned)**:
+  (a) redeem rate limiting uses a dedicated sliding window limiter
+  (10/5 min) WITH NO lockout phase — the login limiter's 15-min lock is
+  a separate contract; `Retry-After` derives from the window end;
+  (b) the refresh endpoint's "client-reached address" reads the socket
+  LOCAL address (what the device actually hit), never the Host header —
+  a tunnel-relayed leg lands on loopback and is dropped, the interface
+  scan continues;
+  (c) explicit `serverUrl` MAY be loopback (the "This computer only"
+  scope owns this); the auto request-origin FALLBACK is loopback-filtered
+  and yields 400 'No usable pairing candidate' rather than a
+  loopback-only link;
+  (d) `includeRelay: true` + `ensureEnabledForPairing() === null`
+  (register-haspopup/identity trouble) answers 503 rather than a
+  silent relay-less link — the operator asked to be reachable;
+  (e) the redeem mint's auth flow re-authenticates inside the handler
+  (the gate outcome is not threaded through; the double bearer check is
+  throttled by the 60 s lastUsed write stamp, so no file churn);
+  (f) redeem attempts are keyed raw-socket:pairingId with NO lockout —
+  this deliberately diverges from the login limiter (no lock phase per
+  §5.5); x-forwarded-for is never consulted;
+  (g) cancel of a used session answers cancelled:false (2/404 at the
+  route) — a one-time grant has nothing left to revoke and the redeem
+  stamp is the audit anchor;
+  (h) error-class typing: auth classes carry E-08's one message via
+  `InvalidPairingSessionError`; server faults are `MintFailure` /
+  `PairingStoreFault` — the route 500s them, does NOT charge the redeem
+  bucket, and the store rolls back the consume-on-confirm stamp;
+  (i) GET pending-sessions/transports are manage-authority (a hijacked
+  device token must not poll pairing state or learn the LAN topology);
+  the §3.13 candidates refresh stays bearer-wide (it rides live
+  transports);
+  (j) store writes create the dataDir at 0700 into 0600 files (§12.2),
+  and the auth-family singletons default through ENV.dataDir so a stock
+  boot (env unset) shares the relay identity directory.
 
 ## C. Constants pinned this slice
 
@@ -793,7 +890,18 @@ tryClaim with no grace); default relay endpoint
 dataDir files (`relay-config.json` 0600, `relay-host.lock` 0644 —
 pid+timestamp non-secret; E-08-28/29); enable body cap 16 KiB
 (bounded stream); batch-pump env `NOTNATIVE_RELAY_BATCH_WINDOW_MS`
-clamp 1..5000 default 150; hold-out envs `NOTNATIVE_RELAY_HOST`
+ clamp 1..5000 default 150; hold-out envs `NOTNATIVE_RELAY_HOST`
 off/on + `NOTNATIVE_ELECTRON_DEV` (on wins). Machine files per
 instance: serverId + lock + config share the dataDir across instances
 by design (identity arbitration at the worker).
+Pairing/clients routes (P8-4a): redeem limiter sliding window 10 per
+5 min keyed `<raw socket addr>:<pairingId>` (no lock phase, success
+clears; bounded 64 KiB bodies); pairing session TTL 10 min, sweep
+retention = inactiveAt+TTL (used/cancelled) / expiry (unredeemed);
+client/pairing route bodies cap 64 KiB (shared bounded reader
+`lib/http/read-bounded.ts`; relay enable stays 16 KiB); stores
+`client-pairing-sessions.json` + `remote-clients.json` both 0600
+atomic in the dataDir; the redeem route registers BEFORE the /api
+gate (createClientAuthPublicRoutes), the gated family rides
+`registerApiSurfaces`; boot demandSignals = hasActiveRelayClients()
++ hasActiveRelaySession().

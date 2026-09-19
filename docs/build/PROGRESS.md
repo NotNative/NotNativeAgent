@@ -12,7 +12,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P5 themes/settings | 14 | 🔶 P5-1..5 done 2026-09-17 (P5-1 token block + D8; P5-2 theme system: 38 built-ins + derive + generator + §E.3 persistence + §E.6 validation, review P0+P1×5 fixed; P5-3 settings registry 186 fields + snapshot gate + §F.3 split store + server gate + client persistence engine + fs-write no-op, review P0×2+P1×6 fixed; P5-4 i18n scaffold (12 locales, closed en set, partial catalogs w/ en fallback, provider/store/runtime/bootstrap), review P0+P1×3 fixed; P5-5 shortcuts engine (36 bindings, grammar/registry/dispatcher/hooks, capture listener, AltGraph + IME rules, recorderConflict), review P0+P1×5 fixed; 250 UI · 33 web · gates+smoke+graph each; P5-6 settings UI (window/pages/search/recorder + §I.3/I.4 wiring + §J formatters) queued) |
 | P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
-| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a-d + P8-2a-c delivered + reviewed; P8-3a relay host service: demand lifecycle + machine claim + §3.15 routes + /health serverId + production leg mux — reviewed; client §3.10 + pairing store/UX + candidates + tunnels remainder queued per NOTES/08 §A) |
+| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a-d + P8-2a-c + P8-3a delivered + reviewed; P8-4a pairing store + §5.5-5.7 routes + redeem + §3.13 candidates/transports + §2.7 authority family + reconcile call sites delivered — reviewed pending; next: review + tunnels (10) + pairing/UX 11-12 + SSH 13 + reverse proxy 14 + invariants 15 per NOTES/08 §A) |
 | P9 autonomy | 12 | pending |
 | P10 knowledge/context | 15 | pending |
 | P11 preview | 13 | pending |
@@ -475,11 +475,51 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   claimed/contended/write-failed E-08-31; disable() killed the poll/
   watcher de-lifecycling the service; unhandled-rejection surface on the
   direct carrier paths) + P2×3 (dead env helper consumed by leg batches,
-  bounded enable body, batcher timer unref). 45 suite tests across three
+  bounded enable body, batcher timer unref).   45 suite tests across three
   files (lock+config 17, service+routes+health 22, production wire 6: HTTP
   E2E incl. a bare-frame leg, WS upstream both ways + closes, replay
   closes 1011). 273 web (+45) · 389 UI · gates+smoke+graph (257) ·
-  version paired.
+  version 20260918-8 sealed (a1e4f83 + ledger 36a764f).
+- 2026-09-18 · **P8-4a delivered + reviewed (doc 08 step 9 server half + E-08-13
+  family; adversarial ses_f48d0a552ffejimD2JyQP6KHkP).** Pairing session
+  store (client-pairing-sessions.json 0600, one-time secret via create/
+  redeem replies only, mint retry-safe tail, sweep retention inactive+TTL,
+  sync store posture E-08-32) + the /api/client-auth route family: redeem
+  anonymous pre-gate (10/5 min sliding window keyed raw-socket:pairingId,
+  success clears bucket, one generic error for every failure class incl.
+  429 + Retry-After), gated authority family (manage = UI session |
+  desktop-local | open; plain tokens self-only; pairing reads
+  manage-gated), pairing sessions create/list/cancel (§5.5 candidate
+  math: serverUrl primary 10, request-origin extra 20 when
+  different+not-loopback, https->tunnel type, empty label -> unset,
+  loopback fallback refused w/ 400 'No usable pairing candidate',
+  wildcards rejected, includeRelay true -> ensureEnabledForPairing
+  force-claim + 503 when unavailable, default -> legacy
+  getPairingCandidate, false -> never; dedupe), §3.13 candidates refresh
+  (socket local-address first, interface scan, relay last, serverId
+  rides, never URL-token-authorized pinned by test) + transports view
+  (LAN from server bind: concrete non-loopback passthrough, wildcard
+  LAN-IPv4 scan, loopback -> null), and the §3.12 reconcile call sites
+  (create/cancel/redeem/revoke/purge fire-and-forget; index.ts demand
+  joins hasActiveRelaySession() beside hasActiveRelayClients()). Shared
+  bounded-body reader extracted (lib/http/read-bounded.ts). Review fixed
+  P0 (auth-family singletons defaulted dataDir '' — stock boot 500'd
+  pairing create and split-brained the identity dir; now ENV.dataDir) +
+  P1×2 (redeem IO faults were masked as the attacker-facing generic 400
+  after minting — typed InvalidPairingSessionError vs PairingStoreFault,
+  consume-on-confirm stamp rollback, faults 500 without charging the
+  bucket; GET pairing reads were any-bearer — manage authority now) +
+  P2 cluster (registrar split, empty-label unset posture, cancel-of-used
+  404 E-08-33g, 0700 dirs, wildcard serverUrl rejection, reconcile on
+  ensure-failure exits). 42 tests (store 15: formats/TTL/hash-only/
+  one-generic-error matrix/label precedence/retry-safe/sweep/persistence/
+  corrupt-reset/ENV-default/save-fault rollback; routes 27 across two
+  files w/ a shared harness: rate keying incl. socket-split buckets +
+  clear-on-success + fault-no-record, wire byte-equality of auth error
+  classes, exact 201/200 shapes, no-store, loopback exclusion, origin
+  extra dedupe, cancel 404-already-gone/used, authority matrix, drain
+  fixtures, password-mode rows + URL-token refusal). Web 315 (+42) · UI
+  389 · gates+smoke+graph (261) pending final seal.
 
 ## Delta/Delayed register
 
