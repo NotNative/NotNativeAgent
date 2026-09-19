@@ -569,10 +569,135 @@ SSH -> reverse proxy -> invariants.
   of a USED session answers {cancelled:false} (E-08-33g: one-time grants
   have nothing left to revoke), mkdir 0700 dirs (§12.2, both stores),
   wildcard bind names (0.0.0.0/::) rejected as serverUrl, fireReconcile
-  on ensure-failure exits (503/500 clear the half-enable promptly
-  instead of waiting for the poll).
+   on ensure-failure exits (503/500 clear the half-enable promptly
+   instead of waiting for the poll).
+- **P8-4c (delivered this slice)** — checklist step 10 (tunnels): the
+  capability registry (`lib/tunnels/tunnel-capabilities.ts`, cloudflare
+  quick/managed-remote/managed-local + ngrok quick with exact
+  requires/supports/stability + per-platform install hints), §4.2
+  normalization/validation (`tunnel-validate.ts`: blank-mode/provider
+  fallbacks vs extant-unrecognized 422s, intent/mode matching incl.
+  private-network as a recognized-but-unmatched string, configPath
+  `~`/absolute + home containment (case-insensitive win32), hostname
+  lowercase/wildcard/empty rules, token whitespace with the
+  raw-value remediation text, `TunnelServiceError` codes mapped
+  400/422/500). Provider drivers (§4.3): `cloudflare-quick.ts` (temp HOME
+  + USERPROFILE/APPDATA on win32, CF_TELEMETRY_DISABLE=1, URL regex over
+  both streams, 30 s kill + cleanup with the exact error text),
+  `cloudflare-managed.ts` (managed-remote `--token-file` 0o600 temp file
+  never argv, stdout drained by the readiness sink without logging,
+  stderr mirrored; managed-local default/config with the guarded reads
+  ≤256 KiB, yaml/JSON ingress hostname, --config only when requested,
+  fatal/ready pattern sets + 6 s liveness + 20 s hard timeout),
+  `ngrok-tunnel.ts` (env authtoken → `config check` with the
+  add-authtoken remediation, api.ngrok.com 5 s gate, JSON-log +
+  127.0.0.1:4040 API poll harvest (https preferred, ngrok-host
+  validation), summarizeNgrokOutput precedence, 30 s timeout). Shared plumbing:
+  `tunnel-spawn.ts` (PATH/PATHEXT + WindowsApps alias scan, `--version`
+  probes with 5 s timeout, .bat/.cmd never resolved, spawn deps seams +
+  `rmTempDir` with EBUSY-tolerant retries), `tunnel-readiness.ts`
+  (bounded sink + fatal-first pattern wait), `tunnel-controller.ts`
+  (guarded-stop idp contract). §4.4 profile store
+  (`tunnel-profile-store.ts`, `cloudflare-managed-remote-tunnels.json`
+  v1 0600 promise-locked writer, sanitize-on-read/write, dedupe by id
+  AND hostname first-wins, upsert conflict removal + explicit-heal of a
+  corrupt store, legacy cloudflare-named-tunnels.json migration kept in
+  place, resolveToken presetId-then-hostname, token-free API views).
+  §4.6/§4.7 service + routes: `tunnel-service.ts` (promise-mutex starts,
+  one-controller invariant, same-config reuse vs replacement with
+  tunnelId persistence across idempotent re-starts + controller deaths,
+  §4.7 failure path detach-without-revoke, stop retained w/o controller,
+  lazy dead-controller status re-sync, §4.4 token resolution chain
+  request→store→settings with type-junk passthrough into the
+  normalizer), `routes/tunnel.ts` (check/providers/doctor with the
+  CLI-parity `hasSavedManagedRemoteProfile=1` + POST body never echoed +
+  managed-local config probe, status lifecycle shape, managed-remote
+  token upsert, start with the one-time connectUrl, stop with counts;
+  doctor disagreements mapped per §5.34: provider/mode unsupported
+  doctor 400 vs start 422). Settings: seven §11.2 keys registered in the
+  canonical UI registry + snapshot (token secret:true), TTL re-clamps
+  wired into both settings PUTs, `tunnel-settings.ts` (defaults reader +
+  §4.7 env startup request under NOTNATIVE_TUNNEL_*), `index.ts` tunnel
+  plane (TTL panel + service seeding + startup tunnel that never aborts
+  boot + shutdown dispose). system/info gained the tunnelUrl view
+  (GATED — E-08-35). Adversarial review fixed (ses_f4859e55bffevrAmsmKa493OW0,
+  P1×2 + P2 cluster, all pinned in tests): tunnel-scope visitors may read
+  the diagnostics family but never start/stop tunnels or write
+  run-token profiles (operator-guard routes, E-08-37); TTL wire junk
+  now rides the clamp default instead of disabling expiry; win32
+  USERPROFILE/APPDATA join the quick-tunnel temp-HOME isolation;
+  temp-dir removals bound-retried + guarded against stopping a
+  half-finished stop; `/connect` limiter keys by socket address (XFF
+  only as the no-socket fallback, §8.5 anti-spoof); yaml parse errors
+  no longer echo config lines into responses; doctor mode validation
+  (400 {ok:false}); settings PUTs ride the bounded reader (512 KiB);
+  ngrok stdout listener deduped; spawnSync probes timeout; .bat/.cmd
+  never launch targets; buildRequest passes type-junk into the
+  normalizer so wrong types 400 instead of silently starting with
+  stored secrets. Tests +44 (p8-4c: core 15, profile-store 12,
+  providers 22, ngrok 12, service 11, routes 14 across
+  helpers/tunnel-fakes.ts + tunnel-service-kit.ts + env-boot.ts), web
+  401 total; the settings-store seed change (E-08-40) covered by the
+  existing p5-3 suite.
+  NOT in this slice: Ngrok-Skip-Browser-Warning CORS preflight
+  (E-08-38 note; no CORS middleware in the rebuild yet — reverse-proxy
+  slice), CLI tunnel commands/profiles (doc 03 CLI slice), the §5.8/5.9
+  pairing UX + connect-url (steps 11-12), per-request connectTtlMs/
+  sessionTtlMs overrides on start (E-08-36).
 
 ## B. Adaptation deltas (registered)
+
+- **E-08-34 (§4.7 failure-path interpretation, not doc-literal)**:
+  on a failed START whose config differs from the active tunnel, the
+  service stops the previous controller (§4.2 one-controller invariant)
+  and detaches the active record WITHOUT revoking artifacts; a later
+  successful start is a genuine URL replacement whose revocation covers
+  everything (newest-token already voided by the detach, sessions marked
+  'tunnel-revoked' per the replacement contract). The failure moment
+  itself revokes nothing; the previous id/pinned sessions survive it.
+- **E-08-35 (/api/system/info GATED)**: the reference exposes it pub;
+  NND keeps every /api row behind the gate (an anonymous caller gets the
+  non-sensitive version/serverId subset from /health) — pid/startedAt/
+  port/tunnelUrl require the session.
+- **E-08-36 (per-request TTL fields not honored)**: doc 03 §5.34's start
+  request lists `connectTtlMs?`/`sessionTtlMs?`/`managedRemoteTunnelPresetName?`;
+  NND tunnels are settings-governed (§11.2 clamps + §4.5) and the start
+  fields are accepted-but-unhonored (documented in buildRequest). Revisit
+  with the pairing/UX slice if a real caller needs per-request TTLs.
+- **E-08-37 (tunnel-scope control guard, review P1)**: the §2.9 gate
+  admits tunnel-session cookies to the whole /api family at tunnel scope,
+  but START/STOP/managed-remote-token upsert are operator verbs — a
+  stolen one-time link must not (a) stop the operator's tunnel for free
+  or (b) point the instance at the attacker's own cloudflared head
+  (persistent foothold; every later bootstrap link mints through their
+  edge). `routes/tunnel.ts` guards the control family: device bearer /
+  URL token admitted anywhere; local scope (open mode/session/cookie)
+  operates the console; tunnel|unknown-public scope reads only
+  (check/providers/doctor/status), writes answer 403
+  {tunnelLocked:true, code:'tunnel_locked'}. Judgment call: tighter than
+  the literal §2.9 admit-all reading, aligned with §4.5's "the tunnel
+  session grants exactly the local-anonymous level and nothing above".
+- **E-08-38 (startup tunnel env brand + deferred CORS)**: the §4.7
+  startup request reads NOTNATIVE_TUNNEL_{PROVIDER,MODE,HOSTNAME,TOKEN,
+  CONFIG_PATH} (NND brand of the reference OPENCHAMBER_TUNNEL_* family;
+  provider/mode gate the request); the `Ngrok-Skip-Browser-Warning`
+  preflight allowlist is DEFERRED to the reverse-proxy slice (no CORS
+  middleware exists in the rebuild yet — the reference caveat applies to
+  browser lodash preamble only).
+- **E-08-39 (yaml dependency)**: managed-local configs are .yml/.yaml;
+  the `yaml` package (ISC) implements the reference `yaml.parse`
+  ingress-hostname extraction (JSON configs ride JSON.parse). Registered
+  in docs/architecture/dependency-registry.json.
+- **E-08-40 (settings-store seed posture)**: the review found that a
+  FRESH dataDir with no settings.json left preferences.json absent, so
+  `preferenceDoc()` treated "absent" like "corrupt" and the gated-write
+  fallback path mirrored RAW values into settings.json AND echoed them
+  into the response — a `managedRemoteTunnelToken` write on a stock boot
+  leaked in its own response. Fixed: `seedPreferencesFromSettings` now
+  seeds an EMPTY registry-gated doc when no legacy settings.json exists
+  (the corrupt-PRESENCE refusal is untouched — only a MISSING file
+  seeds). Covered by the existing p5-3 suite + the tunnel-core secret
+  pins.
 
 - **E-08-1 (JWT hand-rolled)**: the doc uses the `jose` library's SignJWT;
   NND hand-rolls HS256 sign/verify with node:crypto to avoid the
@@ -905,3 +1030,26 @@ atomic in the dataDir; the redeem route registers BEFORE the /api
 gate (createClientAuthPublicRoutes), the gated family rides
 `registerApiSurfaces`; boot demandSignals = hasActiveRelayClients()
 + hasActiveRelaySession().
+
+Tunnels (P8-4c): cloudflared quick URL timeout 30 s (kill SIGINT + exact
+text 'Tunnel URL not received within 30 seconds'), trycloudflare regex
+over both streams; managed-remote: token temp file `openchamber-cf-*/`
+0o600 written via `--token-file` (never argv), ready set
+{registered tunnel connection / connection*registered / starting
+metrics server / connected to edge}, fatal set {error parsing*config /
+failed to *config / invalid token / unauthorized / credentials file
+*not found / provided tunnel credentials are invalid}, liveness
+fallback 6 s on ANY output, hard failure 20 s; managed-local configs
+≤256 KiB non-empty .yml/.yaml/.json; spawnSync probes 5 s timeout
+1 MiB buffer; ngrok: API poll 250 ms (test-shrinkable), URL timeout
+30 s, api.ngrok.com gate 5 s, poll-answer signal 1.5 s; profile store
+`cloudflare-managed-remote-tunnels.json` v1 0600 promise-locked (write
+retries 3 x 100 ms via rmTempDir semantics for temp dirs only);
+doctor flags `tokenProvided`/`hasSavedManagedRemoteProfile=1`; start
+body cap 64 KiB; settings PUT caps 512 KiB; TTL clamps (already
+§4.5) surface as ttlConfig {bootstrapTtlMs (0 when expiry disabled),
+sessionTtlMs}; the /connect limiter keys the SOCKET address first
+(XFF only as the no-socket fallback — §8.5 anti-spoof, supersedes the
+P8-1 header-first keying); quick-tunnel child env carries HOME +
+USERPROFILE + APPDATA pointed at the temp HOME on win32; .bat/.cmd/
+.com PATH candidates are never launch targets (Node EINVAL posture).

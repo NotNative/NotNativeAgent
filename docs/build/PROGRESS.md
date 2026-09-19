@@ -12,7 +12,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P5 themes/settings | 14 | 🔶 P5-1..5 done 2026-09-17 (P5-1 token block + D8; P5-2 theme system: 38 built-ins + derive + generator + §E.3 persistence + §E.6 validation, review P0+P1×5 fixed; P5-3 settings registry 186 fields + snapshot gate + §F.3 split store + server gate + client persistence engine + fs-write no-op, review P0×2+P1×6 fixed; P5-4 i18n scaffold (12 locales, closed en set, partial catalogs w/ en fallback, provider/store/runtime/bootstrap), review P0+P1×3 fixed; P5-5 shortcuts engine (36 bindings, grammar/registry/dispatcher/hooks, capture listener, AltGraph + IME rules, recorderConflict), review P0+P1×5 fixed; 250 UI · 33 web · gates+smoke+graph each; P5-6 settings UI (window/pages/search/recorder + §I.3/I.4 wiring + §J formatters) queued) |
 | P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
-| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a-d + P8-2a-c + P8-3a delivered + reviewed; P8-4a pairing store + §5.5-5.7 routes + redeem + §3.13 candidates/transports + §2.7 authority family + reconcile call sites delivered — reviewed pending; next: review + tunnels (10) + pairing/UX 11-12 + SSH 13 + reverse proxy 14 + invariants 15 per NOTES/08 §A) |
+| P8 remote/security | 08 | 🔶 in progress 2026-09-18 (P8-1a-d + P8-2a-c + P8-3a + P8-4a delivered + reviewed; P8-4c tunnels delivered (step 10: providers/§4.3, profile store/§4.4, service lifecycle/§4.7, routes/§4.6 + §11.2 keys) + review fixes applied; next: pairing/instance UX + client §3.10 (11-12), SSH (13), reverse proxy (14), invariants sweep (15) per NOTES/08 §A) |
 | P9 autonomy | 12 | pending |
 | P10 knowledge/context | 15 | pending |
 | P11 preview | 13 | pending |
@@ -518,8 +518,41 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   clear-on-success + fault-no-record, wire byte-equality of auth error
   classes, exact 201/200 shapes, no-store, loopback exclusion, origin
   extra dedupe, cancel 404-already-gone/used, authority matrix, drain
-  fixtures, password-mode rows + URL-token refusal). Web 315 (+42) · UI
-  389 · gates+smoke+graph (261) pending final seal.
+   jars, authority matrix, drain
+   fixtures, password-mode rows + URL-token refusal). Web 315 (+42) · UI
+   389 · gates+smoke+graph (261) pending final seal.
+
+- 2026-09-18 · **P8-4c delivered + reviewed (doc 08 step 10: tunnels).**
+  Capability registry + §4.2 normalize/validate (fallbacks vs unsupported,
+  intent matching, ~ home-containment, host/token rules, 400/422/500
+  mapping); §4.3 drivers — cloudflared quick (temp HOME/USERPROFILE on
+  win32, URL both-streams, 30 s kill+cleanup+exact text), managed-remote
+  (--token-file 0o600 temp never argv, stdout drained not logged, ready/
+  fatal sets + 6 s liveness + 20 s hard fail, cleanup on exit/stop),
+  managed-local (guarded reads ≤256 KiB, yaml/JSON ingress hostname,
+  --config only when requested), ngrok quick (env→config-check authtoken
+  remediation, API 5 s gate, JSON+4040 harvest https-first, summarize);
+  §4.4 profile store (cloudflare-managed-remote-tunnels.json 0600
+  promise-locked, sanitize+dedupe id/hostname, upsert conflict removal +
+  corrupt heal, legacy named-tunnels migration, token-free views);
+  §4.7 service (mutex one-controller, same-config reuse vs replacement
+  with tunnelId persistence, failure path detach-without-revoke, stop
+  retained w/o controller, lazy dead-controller resync, §4.4 token
+  chain) + §4.6 routes (check/providers/doctor+CLI flag/status/token
+  upsert/start connectUrl/stop) + seven §11.2 settings keys (canonical
+  registry + snapshot, token secret) + TTL wire-up + §4.7 startup env
+  tunnel (NOTNATIVE_TUNNEL_*) + shutdown dispose. Adversarial review
+  (ses_f4859e55bffevrAmsmKa493OW0) fixed
+  P1×2 (tunnel-scope visitors could start/stop tunnels + write run-token
+  profiles — operator guard E-08-37; TTL wire junk disabled expiry) +
+  P2 cluster (USERPROFILE/APPDATA quick isolation, rmSync retries+guarded
+  stop, /connect socket-key limiter, yaml parse echo, doctor mode 400,
+  settings PUT bounded, ngrok listener dedupe, spawnSync timeouts,
+  .bat/.cmd launch exclusion, buildRequest type-junk 400s) — deltas
+  E-08-34..40. 44 tests (core 15, profile-store 12, providers 22, ngrok
+  12, service 11, routes 14 across three helpers) + settings-store seed
+  fix E-08-40. Web 401 (+44 net w/ scratch removal) · UI 389 ·
+  gates+smoke+graph (276) — seal 20260918-10.
 
 ## Delta/Delayed register
 
