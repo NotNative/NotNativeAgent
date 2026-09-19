@@ -9,6 +9,7 @@
  */
 import { getInjectedClientToken, getInjectedRuntimeHeaders } from './runtimeConfig.ts';
 import { getApiBaseUrl } from './runtime-url.ts';
+import { isRelayModeActive, relayFetchOrThrow } from './runtime-tunnel.ts';
 
 let bearerToken: string | null | undefined = undefined; // undefined = not yet initialized
 let extraHeaders: Record<string, string> | null | undefined = undefined;
@@ -65,19 +66,27 @@ export function acquireRuntimeUrlAuthToken(): () => void {
 async function mintUrlToken(): Promise<void> {
   const generation = credentialGeneration;
   try {
-    const response = await fetch(`${getApiBaseUrl()}/auth/url-token`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: applyRuntimeAuthHeaders(new Headers({ 'content-type': 'application/json' })),
-    });
-    if (!response.ok) return;
+    // In relay mode the mint rides the tunnel (§3.10): there is no
+    // reachable network base URL, and response classification is unchanged.
+    const response = isRelayModeActive()
+      ? await relayFetchOrThrow(`${getApiBaseUrl()}/auth/url-token`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: applyRuntimeAuthHeaders(new Headers({ 'content-type': 'application/json' })),
+      })
+      : await fetch(`${getApiBaseUrl()}/auth/url-token`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: applyRuntimeAuthHeaders(new Headers({ 'content-type': 'application/json' })),
+      });
+    if (!response.ok) { urlToken = null; return; } // §2.6: mint failure clears the shared token (atomic; never an empty-token window)
     const body = (await response.json().catch(() => null)) as { token?: string; expiresAt?: string } | null;
-    if (!body?.token || !body.expiresAt) return;
+    if (!body?.token || !body.expiresAt) { urlToken = null; return; }
     if (generation !== credentialGeneration) return; // superseded by a credential change
     urlToken = { token: body.token, expiresAt: new Date(body.expiresAt).getTime() };
     scheduleRefresh();
   } catch {
-    /* prompt retry rides on the next acquire; token absence is not fatal */
+    urlToken = null; // §2.6: transport/parse failures never leave a dead token served
   }
 }
 

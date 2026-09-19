@@ -40,6 +40,10 @@
     {
       "version": "20260918-10",
       "content_sha256": "79543474dc6f78520b80196efe8e4c66d1985044e737a1aab7cde009c306bdde"
+    },
+    {
+      "version": "20260919-1",
+      "content_sha256": "ea4564b51ca981b27bd5e58254d94a993d43f9416938421b142e162f7e8fddce"
     }
   ]
 }

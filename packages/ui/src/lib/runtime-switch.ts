@@ -6,6 +6,7 @@
  * namespaces (§16.7).
  */
 import { writeWindowGlobal } from './runtimeConfig.ts';
+import type { RelayDescriptor } from './runtime-tunnel.ts';
 
 export const DEFAULT_RUNTIME_KEY = 'url:default';
 export const MOBILE_DISCONNECTED_RUNTIME_KEY = 'mobile-disconnected';
@@ -64,7 +65,7 @@ export interface SwitchRuntimeEndpointOptions {
   clientToken?: string | null;
   runtimeKey?: string;
   requestHeaders?: Record<string, string>;
-  // relay?: descriptor — lands with doc 08 (P11); must activate before token mint
+  relay?: RelayDescriptor;
 }
 
 type Listener = (detail: RuntimeEndpointChangedDetail) => void;
@@ -109,7 +110,11 @@ export async function switchRuntimeEndpoint(options: SwitchRuntimeEndpointOption
   if (options.requestHeaders) setRuntimeExtraHeaders(options.requestHeaders);
   if (options.clientToken !== undefined) setRuntimeBearerToken(options.clientToken);
 
-  // 3. (relay activation would go here, BEFORE the mint — P11)
+  // 3. relay activation BEFORE the eager token mint (the mint rides the
+  // tunnel once a descriptor is installed; a null relay deactivates).
+  const { activateRelayTunnel, deactivateRelayTunnel } = await import('./runtime-tunnel.ts');
+  if (options.relay !== undefined) activateRelayTunnel(options.relay);
+  else deactivateRelayTunnel();
 
   // 4. fire-and-forget the token refresh; it rides the new credential set
   void refreshRuntimeUrlAuthToken(apiBaseUrl);

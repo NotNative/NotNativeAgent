@@ -382,14 +382,24 @@ class TunnelHostImpl implements TunnelHost {
   /** Terminal close rows (refusal 1008, upstream-close mirror) must reach
    * the client even though their stream releases (cancels) at the same
    * instant: they bypass the §3.8 queue but keep batcher order (the
-   * batcher flushes buffered work before a single-frame ship). */
+   * batcher flushes buffered work before a single-frame ship) and stay
+   * ACCOUNTED in the §3.8 ack ledger (scheduler.sendNow). */
   sendFrameNow(frame: TunnelFrame): Promise<void> {
     if (this.disposed) return Promise.resolve();
-    return Promise.resolve(this.send(encodeTunnelFrame(frame))).catch((error: unknown) => {
-      // terminal rows ride the direct carrier; a leg-gone reject collapses
-      // into the one-shot channel failure instead of an unhandled rejection
+    try {
+      if (this.flowControl) {
+        this.scheduler.sendNow(frame);
+        return Promise.resolve();
+      }
+      return Promise.resolve(this.send(encodeTunnelFrame(frame))).catch((error: unknown) => {
+        // terminal rows ride the direct carrier; a leg-gone reject collapses
+        // into the one-shot channel failure instead of an unhandled rejection
+        this.failLegSafe(`dispatcher terminal send failed: ${messageOf(error)}`);
+      });
+    } catch (error) {
       this.failLegSafe(`dispatcher terminal send failed: ${messageOf(error)}`);
-    });
+      return Promise.resolve();
+    }
   }
 
   /** Stream-level failure: abort both sides, frame the client with the

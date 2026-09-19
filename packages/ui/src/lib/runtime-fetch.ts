@@ -13,6 +13,7 @@
  */
 import { applyRuntimeAuthHeaders } from './runtime-auth.ts';
 import { resolveApiUrl } from './runtime-url.ts';
+import { isRelayModeActive, relayFetchOrThrow } from './runtime-tunnel.ts';
 
 const COALESCE_ALLOWLIST = /^\/api\/(config|path|app\/agents|agent|project|command)(\?|$)/;
 
@@ -75,7 +76,7 @@ export async function runtimeFetch(input: RequestInfo, init?: RequestInit): Prom
     const promise =
       existing ??
       (() => {
-        const p = fetchNative(url, requestInit).finally(() => inflight.delete(url));
+        const p = transportFetch(url, requestInit).finally(() => inflight.delete(url));
         inflight.set(url, p);
         return p;
       })();
@@ -83,6 +84,13 @@ export async function runtimeFetch(input: RequestInfo, init?: RequestInit): Prom
     return response.clone();
   }
 
+  return transportFetch(url, requestInit);
+}
+
+/** Relay mode transports through the tunnel; hosted mode rides the native
+ * fetch path (§3.10 runtime integration). Read coalescing applies to both. */
+function transportFetch(url: string, requestInit: RequestInit): Promise<Response> {
+  if (isRelayModeActive()) return relayFetchOrThrow(url, requestInit);
   return fetchNative(url, requestInit);
 }
 

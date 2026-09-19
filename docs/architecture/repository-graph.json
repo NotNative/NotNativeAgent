@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:12e9608a91ec44d668393aaf38fec536059395847cfd823ca34c6e50c03296d0",
+  "source_digest": "sha256:ff7d0951fe9dfd7f8eeaca1d9dac29ef0423126b43fba400e357ebb6147087ca",
   "counts": {
-    "modules": 276,
+    "modules": 294,
     "component_edges": 11
   },
   "components": [
@@ -24,7 +24,7 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 81
+      "module_count": 99
     },
     {
       "id": "ui-shell",
@@ -987,10 +987,163 @@
       "imports": []
     },
     {
+      "path": "packages/ui/src/lib/relay/bytes.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/relay/crypto.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/bytes.ts",
+        "packages/ui/src/lib/relay/protocol-jwk.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/handshake.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/crypto.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/protocol-jwk.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/relay/protocol.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/protocol-jwk.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/transport-error.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/relay/tunnel-acks.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/bytes.ts",
+        "packages/ui/src/lib/relay/protocol.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/tunnel-client-fetch.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/crypto.ts",
+        "packages/ui/src/lib/relay/protocol.ts",
+        "packages/ui/src/lib/relay/transport-error.ts",
+        "packages/ui/src/lib/relay/tunnel-client-types.ts",
+        "packages/ui/src/lib/relay/tunnel-codec.ts",
+        "packages/ui/src/lib/relay/tunnel-payloads.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/tunnel-client-inbound.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/protocol.ts",
+        "packages/ui/src/lib/relay/tunnel-acks.ts",
+        "packages/ui/src/lib/relay/tunnel-client-fetch.ts",
+        "packages/ui/src/lib/relay/tunnel-client-types.ts",
+        "packages/ui/src/lib/relay/tunnel-client-ws.ts",
+        "packages/ui/src/lib/relay/tunnel-codec.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/tunnel-client-outbound.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/crypto.ts",
+        "packages/ui/src/lib/relay/tunnel-codec.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/tunnel-client-types.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/relay/tunnel-client-ws.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/crypto.ts",
+        "packages/ui/src/lib/relay/protocol.ts",
+        "packages/ui/src/lib/relay/tunnel-client-types.ts",
+        "packages/ui/src/lib/relay/tunnel-codec.ts",
+        "packages/ui/src/lib/relay/tunnel-payloads.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/tunnel-client.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/bytes.ts",
+        "packages/ui/src/lib/relay/crypto.ts",
+        "packages/ui/src/lib/relay/handshake.ts",
+        "packages/ui/src/lib/relay/protocol.ts",
+        "packages/ui/src/lib/relay/tunnel-acks.ts",
+        "packages/ui/src/lib/relay/tunnel-client-fetch.ts",
+        "packages/ui/src/lib/relay/tunnel-client-inbound.ts",
+        "packages/ui/src/lib/relay/tunnel-client-outbound.ts",
+        "packages/ui/src/lib/relay/tunnel-client-types.ts",
+        "packages/ui/src/lib/relay/tunnel-client-ws.ts",
+        "packages/ui/src/lib/relay/tunnel-codec.ts",
+        "packages/ui/src/lib/relay/tunnel-payloads.ts",
+        "packages/ui/src/lib/relay/wire-socket.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/tunnel-codec.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/bytes.ts",
+        "packages/ui/src/lib/relay/crypto.ts",
+        "packages/ui/src/lib/relay/protocol.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/tunnel-payloads.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/bytes.ts",
+        "packages/ui/src/lib/relay/tunnel-codec.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/relay/wire-socket.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/tunnel-client-types.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/runtime-auth.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/runtime-tunnel.ts",
         "packages/ui/src/lib/runtime-url.ts",
         "packages/ui/src/lib/runtimeConfig.ts"
       ]
@@ -1001,7 +1154,18 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtime-tunnel.ts",
         "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/runtime-socket.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/tunnel-client-types.ts",
+        "packages/ui/src/lib/relay/tunnel-payloads.ts",
+        "packages/ui/src/lib/runtime-tunnel.ts"
       ]
     },
     {
@@ -1009,8 +1173,18 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/runtime-tunnel.ts",
         "packages/ui/src/lib/runtime-url.ts",
         "packages/ui/src/lib/runtimeConfig.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/runtime-tunnel.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/tunnel-client-types.ts",
+        "packages/ui/src/lib/relay/tunnel-client.ts"
       ]
     },
     {
