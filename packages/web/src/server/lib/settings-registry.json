@@ -688,6 +688,28 @@
       "surfaces": [
         "desktop"
       ]
+    },
+    "tunnelProvider": {
+      "scope": "instance"
+    },
+    "tunnelMode": {
+      "scope": "instance"
+    },
+    "managedLocalTunnelConfigPath": {
+      "scope": "instance"
+    },
+    "managedRemoteTunnelHostname": {
+      "scope": "instance"
+    },
+    "managedRemoteTunnelToken": {
+      "scope": "instance",
+      "secret": true
+    },
+    "tunnelBootstrapTtlMs": {
+      "scope": "instance"
+    },
+    "tunnelSessionTtlMs": {
+      "scope": "instance"
     }
   }
 }

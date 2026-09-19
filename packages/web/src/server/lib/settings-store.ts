@@ -59,16 +59,20 @@ function writeAtomic(path: string, value: unknown): void {
   renameSync(tmp, path);
 }
 
-/** One-time seed: preferences.json from settings.json registered keys. */
+/** One-time seed: preferences.json from settings.json registered keys; a
+ * boot WITHOUT legacy settings.json seeds an EMPTY registry-gated doc so
+ * the normal gated write path owns the store from the very first write
+ * (the corrupt-presence refusal is untouched — only a MISSING file seeds). */
 export function seedPreferencesFromSettings(): void {
   if (existsSync(PREFERENCES_FILE)) return;
   const legacy = readJson(SETTINGS_FILE);
-  if (!legacy || typeof legacy !== 'object' || Array.isArray(legacy)) return;
   const fields: Record<string, StoredFieldValue> = {};
   const now = new Date().toISOString();
-  for (const [key, value] of Object.entries(legacy as Record<string, unknown>)) {
-    if (!isRegisteredKey(key) || !isWritableField(key)) continue;
-    fields[key] = { value, updatedAt: now };
+  if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
+    for (const [key, value] of Object.entries(legacy as Record<string, unknown>)) {
+      if (!isRegisteredKey(key) || !isWritableField(key)) continue;
+      fields[key] = { value, updatedAt: now };
+    }
   }
   writeAtomic(PREFERENCES_FILE, { version: 1, fields } satisfies PreferenceDoc);
 }

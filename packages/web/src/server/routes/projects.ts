@@ -13,6 +13,12 @@ import type { Hono } from 'hono';
 import { ENV } from '../env.ts';
 import { readMergedSettings, writeSettingsPatch } from '../lib/settings-store.ts';
 import { resolveSurfaceKind } from '../lib/settings-gate.ts';
+import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
+import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
+
+/** Settings-patch body cap: bounded-reader posture over the wire family
+ * (review P2 — an admitted guest must not be able to unbond the store). */
+const SETTINGS_BODY_MAX = 512 * 1024;
 
 const PROJECTS_DIR = joinPath(ENV.dataDir, 'projects');
 const RESTART_MESSAGE = 'Configuration is saved on disk. Restart your connected OpenCode server to apply the changes.';
@@ -52,15 +58,14 @@ export function registerSettingsRoutes(app: Hono): void {
     return c.json(readMergedSettings(kind, kind));
   });
   app.put('/api/config/settings', async (c) => {
-    let patch: Record<string, unknown>;
-    try {
-      patch = await c.req.json() as Record<string, unknown>;
-      if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new Error('shape');
-    } catch {
+    const body = await readJsonBodyBounded(c.req.raw, SETTINGS_BODY_MAX);
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
       return c.json({ error: 'settings patch must be a JSON object' }, 400);
     }
+    const patch = body as Record<string, unknown>;
     const kind = resolveSurfaceKind(c.req.query('surface'), undefined);
     const outcome = writeSettingsPatch(patch, kind);
+    wireTunnelSettings(patch); // §4.5 runtime TTL re-clamps ride settings writes
     return c.json({ ...deferredRestart(), settings: outcome.settings });
   });
   app.get('/api/config/themes', async (c) => {

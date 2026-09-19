@@ -140,13 +140,13 @@ export class TunnelAuthController {
   private readonly sessions = new Map<string, TunnelSession>();
   private readonly limiter;
   private readonly now: () => number;
-  private readonly sessionTtlMs: number;
-  private bootstrapTtl: ClampedTtl;
+  private sessionTtlMs: number;
+  private bootstrapTtlState: ClampedTtl;
 
   constructor(options: TunnelAuthOptionsInput = {}) {
     this.now = options.now ?? Date.now;
     this.sessionTtlMs = clampSessionTtl(options.sessionTtlMs);
-    this.bootstrapTtl = clampBootstrapTtl(options.bootstrapTtlMs);
+    this.bootstrapTtlState = clampBootstrapTtl(options.bootstrapTtlMs);
     this.limiter = createLoginRateLimiter({
       windowMs: 5 * 60_000,
       maxAttempts: 20,
@@ -156,10 +156,40 @@ export class TunnelAuthController {
     }, this.now);
   }
 
-  /** Runtime TTL update hook (settings normalization rides in with the
-   * tunnels slice; until then the controller keeps its clamped defaults). */
+  /** Runtime TTL update hook (the tunnels slice wires settings writes here). */
   applyBootstrapTtl(value: number | null): void {
-    this.bootstrapTtl = clampBootstrapTtl(value);
+    this.bootstrapTtlState = clampBootstrapTtl(value);
+  }
+
+  applySessionTtl(value: number): void {
+    this.sessionTtlMs = clampSessionTtl(value);
+  }
+
+  get bootstrapTtl(): ClampedTtl {
+    return this.bootstrapTtlState;
+  }
+
+  get sessionTtl(): number {
+    return this.sessionTtlMs;
+  }
+
+  /** Expiry of the live bootstrap token (status.ttlConfig + start responses;
+   * null = no expiry configured). */
+  bootstrapExpiresAt(): string | null {
+    return this.bootstrap?.expiresAt ?? null;
+  }
+
+  /** status.hasBootstrapToken anchor (`null` expiry must still read true). */
+  hasLiveBootstrapToken(): boolean {
+    return this.bootstrap !== null && this.bootstrap.usedAt === null && this.bootstrap.revokedAt === null;
+  }
+
+  /** §4.7 start-failure cleanup: the active record is cleared without
+   * revoking artifacts (the previous tunnel keeps whatever auth state it
+   * granted; failure must not punish its visitors). */
+  detachActiveTunnel(): void {
+    this.active = null;
+    this.bootstrap = null;
   }
 
   activeTunnel(): ActiveTunnel | null {
@@ -359,13 +389,17 @@ function sha256Hex(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
+/** §4.5 connect limiter key: the SOCKET address first — an unauthenticated
+ * surface never trusts the client-printed IP (doc 03 §8.5 anti-spoof);
+ * XFF is only the in-process/no-socket fallback. */
 export function firstForwardedIp(headers: Headers, socketAddress?: string): string {
+  if (typeof socketAddress === 'string' && socketAddress !== '') return socketAddress;
   const forwarded = headers.get('x-forwarded-for');
   if (forwarded !== null) {
     const first = forwarded.split(',')[0]?.trim() ?? '';
     if (first !== '') return first;
   }
-  return typeof socketAddress === 'string' ? socketAddress : '';
+  return '';
 }
 
 export function parseCookieHeader(header: string): Map<string, string> {

@@ -4,8 +4,9 @@
  * setting — key, scope, parser, and flag markers. Snapshot generation, the
  * server gate, the client sanitizer, mirrors, and auto-saves all derive from
  * it; "a key that is not in the registry does not persist" (§K invariant 2).
- * Deferred groups (tunnels, github, ssh/desktop-rate, stt) sit out per
- * NOTES/14 §D and land with P11/P12 — their absence is intentional.
+ * Deferred groups (github rate/ssh, stt) sit out per NOTES/14 §D and land
+ * with P11/P12 — their absence is intentional (the tunnels group landed
+ * with P8-4c).
  */
 import {
   pBool,
@@ -269,6 +270,17 @@ export const SETTINGS_REGISTRY: SettingsField[] = [
   f('desktopLocalPort', 'instance', pInt(0, 65535), { owner: 'desktop-shell', surfaces: ['desktop'] }),
   f('desktopSshInstances', 'instance', pList(pStr({ max: 1024 }), 16), { owner: 'desktop-shell', surfaces: ['desktop'] }),
   f('desktopWindowState', 'instance', pRecord(pNum(0), { maxEntries: 16 }), { owner: 'desktop-shell', surfaces: ['desktop'] }),
+
+  // TUNNELS (doc 08 §11.2): the tunnels group (P8-4c server side). UI
+  // affordances ride the pairing/instance-UX slice; `tunnelBootstrapTtlMs`
+  // null-disable authoring rides the server write paths (§4.5).
+  f('tunnelProvider', 'instance', pOneOf(['cloudflare', 'ngrok']), { note: 'preferred provider fallback (blank -> cloudflare)' }),
+  f('tunnelMode', 'instance', pOneOf(['quick', 'managed-local', 'managed-remote']), { note: 'preferred mode (blank -> quick)' }),
+  f('managedLocalTunnelConfigPath', 'instance', pStr({ trim: true, max: 2048 }), { note: '~ or absolute inside the home directory (doc 08 section 4.2)' }),
+  f('managedRemoteTunnelHostname', 'instance', pStr({ trim: true, max: 256 })),
+  f('managedRemoteTunnelToken', 'instance', pStr({ trim: true, max: 4096 }), { secret: true, note: 'cloudflared run token; profile store preferred (4.4)' }),
+  f('tunnelBootstrapTtlMs', 'instance', pInt(60_000, 24 * 60 * 60_000), { note: 'connect-link TTL; explicit null disables expiry (4.5)' }),
+  f('tunnelSessionTtlMs', 'instance', pInt(300_000, 30 * 24 * 60 * 60_000)),
 ];
 
 /** One dead marker field kept for the parser-map contract sample above; the

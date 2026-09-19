@@ -69,6 +69,13 @@
       "reviewed_at": "2026-09-16"
     },
     {
+      "name": "yaml",
+      "packages": ["@notnative/web"],
+      "reason": "cloudflared managed-local tunnel configs are .yml/.yaml; the ingress[].hostname extraction parses the file like the reference (doc 08 section 4.3, yaml.parse)",
+      "license": "ISC",
+      "reviewed_at": "2026-09-18"
+    },
+    {
       "name": "@notnative/ui",
       "packages": ["@notnative/web"],
       "reason": "Workspace seam package: the web entry mounts the shared UI and swaps against it",

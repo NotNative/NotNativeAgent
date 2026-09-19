@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a0b744256d5720bc43798f8dfeaca847ee785ddb830978598a0bea9fb53f4461",
+  "source_digest": "sha256:12e9608a91ec44d668393aaf38fec536059395847cfd823ca34c6e50c03296d0",
   "counts": {
-    "modules": 261,
+    "modules": 276,
     "component_edges": 11
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 69
+      "module_count": 84
     },
     {
       "id": "web-entry",
@@ -85,6 +85,7 @@
     "react-dom/client",
     "sonner",
     "ws",
+    "yaml",
     "zustand",
     "zustand/vanilla"
   ],
@@ -1968,6 +1969,7 @@
         "packages/web/src/server/routes/projects.ts",
         "packages/web/src/server/routes/relay.ts",
         "packages/web/src/server/routes/session-folders.ts",
+        "packages/web/src/server/routes/tunnel.ts",
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/routes.ts",
         "packages/web/src/server/terminal/session-core.ts"
@@ -2049,6 +2051,7 @@
         "packages/web/src/server/lib/auth/pairing-sessions.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
         "packages/web/src/server/lib/relay/host-service.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-startup.ts",
         "packages/web/src/server/terminal/bootstrap.ts",
         "packages/web/src/server/terminal/wire.ts"
       ]
@@ -2347,6 +2350,139 @@
       "imports": []
     },
     {
+      "path": "packages/web/src/server/lib/tunnels/cloudflare-managed.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/tunnels/tunnel-controller.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-install.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-readiness.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-spawn.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-validate.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/cloudflare-quick.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/tunnels/tunnel-controller.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-install.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-readiness.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-spawn.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-validate.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/ngrok-tunnel.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/tunnels/tunnel-controller.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-install.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-spawn.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-validate.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-capabilities.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-controller.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/tunnels/tunnel-capabilities.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-spawn.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-install.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/tunnels/tunnel-capabilities.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-spawn.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-profile-store.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-readiness.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/tunnels/tunnel-spawn.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-service.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/tunnel-auth.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-controller.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-profile-store.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-spawn.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-starters.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-validate.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-settings.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/auth/tunnel-auth.ts",
+        "packages/web/src/server/lib/settings-store.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-spawn.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-starters.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/tunnels/cloudflare-managed.ts",
+        "packages/web/src/server/lib/tunnels/cloudflare-quick.ts",
+        "packages/web/src/server/lib/tunnels/ngrok-tunnel.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-controller.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-spawn.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-validate.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-startup.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/auth/tunnel-auth.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-service.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-settings.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/lib/tunnels/tunnel-validate.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/lib/tunnels/tunnel-capabilities.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/routes/auth.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -2427,9 +2563,12 @@
         "packages/web/src/server/env.ts",
         "packages/web/src/server/lib/bus.ts",
         "packages/web/src/server/lib/harnessNaming.ts",
+        "packages/web/src/server/lib/http/read-bounded.ts",
         "packages/web/src/server/lib/settings-gate.ts",
         "packages/web/src/server/lib/settings-store.ts",
-        "packages/web/src/server/lib/sse.ts"
+        "packages/web/src/server/lib/sse.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-service.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-settings.ts"
       ]
     },
     {
@@ -2438,8 +2577,10 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/http/read-bounded.ts",
         "packages/web/src/server/lib/settings-gate.ts",
-        "packages/web/src/server/lib/settings-store.ts"
+        "packages/web/src/server/lib/settings-store.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-settings.ts"
       ]
     },
     {
@@ -2458,6 +2599,25 @@
       "entrypoint": false,
       "imports": [
         "packages/web/src/server/env.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/routes/tunnel.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/auth/tunnel-auth.ts",
+        "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/lib/http/read-bounded.ts",
+        "packages/web/src/server/lib/tunnels/cloudflare-managed.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-capabilities.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-install.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-profile-store.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-service.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-settings.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-spawn.ts",
+        "packages/web/src/server/lib/tunnels/tunnel-validate.ts"
       ]
     },
     {

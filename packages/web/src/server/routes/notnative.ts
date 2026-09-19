@@ -9,9 +9,13 @@ import { publishControlEvent, subscribeControlEvents } from '../lib/bus.ts';
 import { CONTROL_EVENTS } from '../lib/harnessNaming.ts';
 import { resolveSurfaceKind } from '../lib/settings-gate.ts';
 import { readMergedSettings, writeSettingsPatch } from '../lib/settings-store.ts';
+import { wireTunnelSettings } from '../lib/tunnels/tunnel-settings.ts';
+import { getTunnelService } from '../lib/tunnels/tunnel-service.ts';
+import { readJsonBodyBounded } from '../lib/http/read-bounded.ts';
 import { sseResponse } from '../lib/sse.ts';
 
 const CONTROL_HEARTBEAT_MS = 45_000;
+const SERVER_STARTED_AT = new Date().toISOString();
 
 export function createNotNativeRoutes(): Hono {
   const app = new Hono();
@@ -27,12 +31,33 @@ export function createNotNativeRoutes(): Hono {
   });
   app.put('/api/notnative/settings', async (c) => {
     const kind = resolveSurfaceKind(undefined, c.req.header('x-nnd-surface'));
-    const patch = await c.req.json().catch(() => ({}) as Record<string, unknown>);
-    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+    const body = await readJsonBodyBounded(c.req.raw, 512 * 1024);
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
       return c.json({ error: 'settings patch must be a JSON object' }, 400);
     }
-    const outcome = writeSettingsPatch(patch, kind);
+    const outcome = writeSettingsPatch(body as Record<string, unknown>, kind);
+    wireTunnelSettings(body as Record<string, unknown>); // §4.5 runtime TTL re-clamps ride settings writes
     return c.json({ settings: outcome.settings, source: 'web' });
+  });
+  // §5 doc 03 system info row: runtime/platform/pid/started/port + the live
+  // tunnel URL. GATED in NND (the original served it pub — deviation noted
+  // in the ledger; the anonymous /health surface carries the same
+  // non-sensitive version/serverId subset).
+  app.get('/api/system/info', (c) => {
+    let tunnelUrl: string | null = null;
+    try {
+      tunnelUrl = getTunnelService().status().url ?? null;
+    } catch {
+      tunnelUrl = null; // service singleton not seeded yet (early boot/tests)
+    }
+    return c.json({
+      openchamberVersion: ENV.version,
+      runtime: process.env?.NOTNATIVE_RUNTIME ?? 'web',
+      pid: process.pid,
+      startedAt: SERVER_STARTED_AT,
+      port: ENV.port,
+      tunnelUrl,
+    });
   });
   app.get('/api/notnative/update-check', (c) => updateCheck(c));
   app.post('/api/notnative/update-install', (c) =>

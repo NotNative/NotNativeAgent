@@ -12,6 +12,7 @@ import { mockHarness } from './harness/mock/index.ts';
 import { upgradeAllowedForRequest, getUiAuthController } from './lib/auth/ui-auth.ts';
 import { getPairingSessionStore } from './lib/auth/pairing-sessions.ts';
 import { getRelayHostService } from './lib/relay/host-service.ts';
+import { wireTunnelPlane } from './lib/tunnels/tunnel-startup.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
@@ -52,12 +53,16 @@ export function startServer(): { port: number } {
   } catch (error) {
     console.warn(`relay service boot failed: ${String(error)}`);
   }
+  // Tunnel plane (doc 08 §4): TTL re-clamp, singleton seeding, §4.7
+  // startup tunnel (failures degrade to no tunnel and never abort boot).
+  const tunnelPlane = wireTunnelPlane();
   console.log(`NotNativeDesktop server ready -> http://${ENV.host}:${ENV.port} (harness: ${ENV.harness})`);
   const shutdown = (): void => {
     // doc 07 section 4.8: stop the sweep, kill all PTYs, drop the WS server
     terminal.dispose();
     wiring.dispose();
     relayService.dispose();
+    void tunnelPlane.dispose(); // §4.7: revoke artifacts, stop the provider controller
     server.close();
   };
   process.once('SIGINT', shutdown);

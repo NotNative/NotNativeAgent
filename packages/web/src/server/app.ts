@@ -11,6 +11,7 @@ import { createAuthRoutes } from './routes/auth.ts';
 import { createClientAuthPublicRoutes, registerClientAuthRoutes } from './routes/client-auth.ts';
 import { createNotNativeRoutes } from './routes/notnative.ts';
 import { registerRelayRoutes } from './routes/relay.ts';
+import { registerTunnelRoutes } from './routes/tunnel.ts';
 import { registerFsRoutes } from './routes/fs.ts';
 import { registerFsReadRoutes } from './routes/fs-read.ts';
 import { registerGitDiffRoutes } from './routes/git-diff.ts';
@@ -172,6 +173,7 @@ function registerApiSurfaces(app: Hono, terminal: TerminalRuntime): void {
   app.route('/', createNotNativeRoutes());
   registerRelayRoutes(app);
   registerClientAuthRoutes(app);
+  registerTunnelRoutes(app);
   registerFsRoutes(app);
   registerFsReadRoutes(app);
   registerGitDiffRoutes(app);
