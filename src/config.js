@@ -80,7 +80,7 @@ export function resolveManifest(manifest = {}, options = {}) {
       providerMs, providerOverrideMs, connectMs, firstTokenMs, firstTokenOverrideMs,
       idleMs, idleOverrideMs, semanticReviewMs, approvalMs,
       providerConcurrency, providerQueueLimit, toolConcurrency, persistenceFlushMs, shutdownMs,
-      maxOutputBytes: 2_097_152, maxModelSteps: recovery.maxModelSteps,
+      maxOutputBytes: 2_097_152, maxModelSteps: recovery.maxModelSteps, turnWallClockMs: recovery.turnWallClockMs,
       ...context, maxSteering: 32,
     },
     provenance: options.principal ?? PRINCIPAL_IDS.localOperator,
@@ -96,12 +96,13 @@ function validateRecovery(value) {
   const input = isRecord(value) ? value : {};
   const maxModelSteps = boundedInteger(input.max_model_steps, 1024, 16, 100_000);
   const localLimit = boundedInteger(input.local_retry_limit, 3, 2, 5);
+  const turnWallClockMs = optionalZeroUnsetInteger(input.turn_wall_clock_ms, 1_000, 86_400_000);
   const ladder = input.ladder ?? ['nudge', 'compact', 'compact', 'compact'];
   if (!Array.isArray(ladder) || ladder.length < localLimit - 1 || ladder.length > 4
     || ladder.some((item) => !['nudge', 'compact'].includes(item))) {
     throw new ContractError('recovery_config_invalid', 'recovery ladder must provide one to four supported bounded actions');
   }
-  return { maxModelSteps, localLimit, ladder: ladder.slice(0, localLimit - 1) };
+  return { maxModelSteps, localLimit, turnWallClockMs, ladder: ladder.slice(0, localLimit - 1) };
 }
 function validateReviewerLedger(value) {
   const input = isRecord(value) ? value : {};

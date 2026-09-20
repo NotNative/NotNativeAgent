@@ -29,7 +29,7 @@ export function validateNestedManifestKeys(manifest) {
   inspectObject(manifest.tui, 'tui', ['reduced_motion', 'color', 'key_bindings'], warnings);
   inspectObject(manifest.telemetry, 'telemetry', ['enabled', 'destination', 'retention'], warnings);
   inspectObject(manifest.reviewer_ledger, 'reviewer_ledger', ['retention_entries'], warnings);
-  inspectObject(manifest.recovery, 'recovery', ['max_model_steps', 'local_retry_limit', 'ladder'], warnings);
+  inspectObject(manifest.recovery, 'recovery', ['max_model_steps', 'local_retry_limit', 'ladder', 'turn_wall_clock_ms'], warnings);
   inspectArray(manifest.mcp_servers, 'mcp_servers', MCP, warnings, inspectMcpChildren);
   inspectArray(manifest.skills, 'skills', ['id', 'version', 'description', 'invocation', 'body', 'source', 'requires_tools'], warnings);
   inspectMission(manifest.mission, warnings);

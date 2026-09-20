@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
-import { ProcessFatalBoundary, fatalMarker } from '../src/process-fatal-boundary.js';
+import { ProcessFatalBoundary, fatalMarker, processLifecycleMarker } from '../src/process-fatal-boundary.js';
 
 test('fatal process boundary records one sanitized marker, drains cleanup, and exits nonzero', async () => {
   const host = new EventEmitter();
@@ -49,4 +49,61 @@ test('fatal marker contains only stable bounded classifications', () => {
   assert.equal(marker.product_version, 'v1');
   assert.equal(JSON.stringify(marker).includes('credential'), false);
   assert.match(marker.fingerprint, /^[a-f0-9]{64}$/u);
+});
+
+test('fatal process boundary records one exit lifecycle marker on orderly exit and drops the listener on dispose', () => {
+  const host = new EventEmitter();
+  const markers = [];
+  const boundary = new ProcessFatalBoundary({
+    process: host, version: 'v9', writeMarker: (marker) => markers.push(marker), exit: () => undefined,
+  }).install();
+
+  host.emit('exit', 3);
+  host.emit('exit', 3);
+
+  assert.equal(markers.length, 1);
+  assert.equal(markers[0].code, 'process_exit');
+  assert.equal(markers[0].kind, 'process_exit');
+  assert.equal(markers[0].severity, 'info');
+  assert.equal(markers[0].exit_code, 3);
+  assert.equal(markers[0].product_version, 'v9');
+  assert.equal(host.listenerCount('exit'), 1);
+  boundary.dispose();
+  host.emit('exit', 4);
+  assert.equal(markers.length, 1);
+  assert.equal(host.listenerCount('exit'), 0);
+});
+
+test('process exit records no lifecycle marker after a fatal trip', async () => {
+  const host = new EventEmitter();
+  const markers = [];
+  const boundary = new ProcessFatalBoundary({
+    process: host, version: 'v9', timeoutMs: 5,
+    writeMarker: (marker) => markers.push(marker), exit: () => undefined,
+  }).install();
+  host.emit('uncaughtException', Object.assign(new Error('fatal detail'), { code: 'fixture_failure' }));
+  await boundary.completion;
+  host.emit('exit', 1);
+  assert.deepEqual(markers.map((marker) => marker.code), ['process_fatal']);
+  boundary.dispose();
+});
+
+test('process exit marker logging failure cannot alter termination', () => {
+  const host = new EventEmitter();
+  const boundary = new ProcessFatalBoundary({
+    process: host, writeMarker: () => { throw new Error('disk full'); }, exit: () => undefined,
+  }).install();
+  host.emit('exit', 0);
+  boundary.dispose();
+});
+
+test('process lifecycle marker keeps only bounded exit classifications', () => {
+  const marker = processLifecycleMarker(0, 'SIGTERM', 'v1');
+  assert.equal(marker.code, 'process_exit');
+  assert.equal(marker.exit_code, 0);
+  assert.equal(marker.signal_code, 'SIGTERM');
+  assert.equal(marker.product_version, 'v1');
+  const empty = processLifecycleMarker(undefined, undefined, 'v1');
+  assert.equal(empty.exit_code, null);
+  assert.equal(empty.signal_code, null);
 });

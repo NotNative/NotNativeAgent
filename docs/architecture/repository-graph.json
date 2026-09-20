@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:b72ebea27fb7fbe877f6f004bc981c0573966c2c6d6823f309fd730210158778",
+  "source_digest": "sha256:6686c6f02f81eea37fa5e2fd5afc47e123d4c5a811f7cf1959ca65ebeee96dbb",
   "counts": {
-    "modules": 353,
+    "modules": 354,
     "component_edges": 75
   },
   "components": [
@@ -12,7 +12,7 @@
       "id": "agentic-engine",
       "label": "Agentic Engine",
       "ownership": "Owns turns, steps, lifecycle, and orchestration.",
-      "module_count": 23
+      "module_count": 24
     },
     {
       "id": "governance-engine",
@@ -150,14 +150,14 @@
     {
       "from": "agentic-engine",
       "to": "foundation",
-      "import_count": 41,
-      "module_count": 16
+      "import_count": 42,
+      "module_count": 17
     },
     {
       "from": "agentic-engine",
       "to": "agentic-engine",
-      "import_count": 37,
-      "module_count": 10
+      "import_count": 38,
+      "module_count": 11
     },
     {
       "from": "providers",
@@ -178,6 +178,12 @@
       "module_count": 7
     },
     {
+      "from": "agentic-engine",
+      "to": "reliability-engine",
+      "import_count": 13,
+      "module_count": 7
+    },
+    {
       "from": "experience-engine",
       "to": "providers",
       "import_count": 13,
@@ -188,12 +194,6 @@
       "to": "opencode-surface",
       "import_count": 13,
       "module_count": 7
-    },
-    {
-      "from": "agentic-engine",
-      "to": "reliability-engine",
-      "import_count": 12,
-      "module_count": 6
     },
     {
       "from": "agentic-engine",
@@ -845,7 +845,6 @@
         "src/authority.js",
         "src/context.js",
         "src/engine/active.js",
-        "src/engine/attention.js",
         "src/engine/completion-evidence.js",
         "src/engine/components.js",
         "src/engine/context-controls.js",
@@ -861,6 +860,7 @@
         "src/engine/records.js",
         "src/engine/reviewer-completion.js",
         "src/engine/runtime-helpers.js",
+        "src/engine/step-loop.js",
         "src/engine/terminal-declaration.js",
         "src/engine/tool-failures.js",
         "src/engine/tool-recovery.js",
@@ -1082,6 +1082,16 @@
         "src/reliability/tool-call-deduplication.js",
         "src/tools/capability-continuity.js",
         "src/tools/catalog-context.js"
+      ]
+    },
+    {
+      "path": "src/engine/step-loop.js",
+      "component": "agentic-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/context.js",
+        "src/engine/attention.js",
+        "src/runtime-config.js"
       ]
     },
     {

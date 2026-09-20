@@ -219,6 +219,11 @@ export function recoveryExhaustionText(detail, options = {}) {
     return `The configured model-step ceiling was reached${steps}. Completed work and diagnostics remain preserved.\n\n`
       + 'This explicit runtime boundary ended the turn. Increase the configured ceiling or start a continuation turn if more work is intended.';
   }
+  if (detail.exhaustion_category === 'turn_wall_clock_limit') {
+    const steps = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} model steps` : '';
+    return `The configured per-turn wall-clock budget was reached${steps}. Completed work and diagnostics remain preserved.\n\n`
+      + 'This explicit runtime boundary ended the turn. Increase recovery.turn_wall_clock_ms or start a continuation turn if more work is intended.';
+  }
   if (detail.exhaustion_category === 'empty_output') {
     const checkpoint = usefulAssistantCheckpoint(options.transcript, options.turnId);
     const attempts = Number.isInteger(detail.exhaustion_count) ? ` after ${detail.exhaustion_count} attempts` : '';

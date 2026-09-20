@@ -355,9 +355,9 @@ export class ExperienceEngine {
       compressionLevel3Threshold: config.limits.contextCompressionLevel3Threshold,
     };
   }
-  async configureRecovery(maxModelSteps, localLimit, ladder) {
+  async configureRecovery(maxModelSteps, localLimit, ladder, turnWallClockMs = this.config.recovery?.turnWallClockMs ?? null) {
     return (await this.#publishGlobalConfiguration(
-      (current) => withRecoverySettings(current, maxModelSteps, localLimit, ladder),
+      (current) => withRecoverySettings(current, maxModelSteps, localLimit, ladder, turnWallClockMs),
     )).recovery;
   }
   async configureRuntimeLimits(values) { return (await this.#publishGlobalConfiguration((current) => withRuntimeLimits(current, values))).limits; }

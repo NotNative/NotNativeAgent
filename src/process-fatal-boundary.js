@@ -6,6 +6,7 @@ import { dirname } from 'node:path';
 export class ProcessFatalBoundary {
   #cleanup = new Set();
   #tripped = false;
+  #exited = false;
   #completion = null;
 
   constructor(options = {}) {
@@ -16,11 +17,21 @@ export class ProcessFatalBoundary {
     this.version = options.version ?? 'unknown';
     this.onUnhandledRejection = (reason) => { void this.#trip('unhandled_rejection', reason); };
     this.onUncaughtException = (error) => { void this.#trip('uncaught_exception', error); };
+    this.onExit = (code) => {
+      // Invariant: a tripped fatal boundary records process_fatal as the authoritative terminal
+      // event; a later info-severity process_exit would misattribute that death as orderly.
+      if (this.#tripped || this.#exited) return;
+      this.#exited = true;
+      try { this.writeMarker(processLifecycleMarker(code, this.process.signalCode, this.version)); } catch { /* lifecycle logging is best-effort */ }
+    };
   }
 
   install() {
     this.process.on('unhandledRejection', this.onUnhandledRejection);
     this.process.on('uncaughtException', this.onUncaughtException);
+    // Invariant: 'exit' is synchronous-only and cannot run for a hard kill (SIGKILL/taskkill)
+    // or a V8 heap abort, so its marker is best-effort attribution of orderly termination only.
+    this.process.on('exit', this.onExit);
     return this;
   }
 
@@ -33,6 +44,7 @@ export class ProcessFatalBoundary {
   dispose() {
     this.process.removeListener('unhandledRejection', this.onUnhandledRejection);
     this.process.removeListener('uncaughtException', this.onUncaughtException);
+    this.process.removeListener('exit', this.onExit);
     this.#cleanup.clear();
   }
 
@@ -65,6 +77,15 @@ export function fatalMarker(kind, error, version) {
     timestamp: new Date().toISOString(), severity: 'fatal', category: 'process',
     code: 'process_fatal', kind, error_name: name, error_code: code,
     fingerprint, product_version: version, pid: process.pid,
+  });
+}
+
+export function processLifecycleMarker(exitCode, signalCode, version) {
+  return Object.freeze({
+    timestamp: new Date().toISOString(), severity: 'info', category: 'process',
+    code: 'process_exit', kind: 'process_exit',
+    exit_code: Number.isSafeInteger(exitCode) ? exitCode : null,
+    signal_code: safeLabel(signalCode, null), product_version: version, pid: process.pid,
   });
 }
 

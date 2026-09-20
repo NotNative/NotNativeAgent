@@ -57,6 +57,7 @@ export function manifestFromConfig(config) {
     recovery: {
       max_model_steps: config.recovery.maxModelSteps,
       local_retry_limit: config.recovery.localLimit, ladder: config.recovery.ladder,
+      turn_wall_clock_ms: config.recovery.turnWallClockMs ?? undefined,
     },
   });
 }
@@ -196,10 +197,11 @@ export function withContextSettings(config, maxContextBytes,
   return { manifest, config: resolveManifest(manifest) };
 }
 
-export function withRecoverySettings(config, maxModelSteps, localLimit, ladder) {
+export function withRecoverySettings(config, maxModelSteps, localLimit, ladder, turnWallClockMs = config.recovery?.turnWallClockMs ?? null) {
   const manifest = manifestFromConfig(config);
   manifest.recovery = {
     max_model_steps: maxModelSteps, local_retry_limit: localLimit, ladder,
+    turn_wall_clock_ms: turnWallClockMs ?? undefined,
   };
   return { manifest, config: resolveManifest(manifest) };
 }

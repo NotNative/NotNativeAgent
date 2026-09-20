@@ -35,7 +35,7 @@ import { persistEngineRecord } from './engine/persistence.js';
 import { runEngineSubagent, subagentParallelLimit } from './subagent-runtime.js';
 import { finalizeEngineTurn } from './engine/finalization.js';
 import { projectConversationIntent, resolveApprovedAssistantProposal } from './engine/intent-projection.js';
-import { awaitEngineAttention } from './engine/attention.js';
+import { runModelStepLoop } from './engine/step-loop.js';
 import { changeEngineWorkspace, restoreEngineWorkspace } from './engine/workspace-transition.js';
 import { continueAfterExactToolBoundary } from './engine/tool-recovery.js';
 import { updateToolFailures } from './engine/tool-failures.js';
@@ -258,31 +258,14 @@ export class SessionEngine {
         && item.role === 'user' && item.turnId === active.turnId));
       applyPendingConfiguration(this, active);
       let context = await this.#prepareContext(prior, content, active); context = appendRecoveryHint(context, reviewerCompletionHint(refreshReviewerCompletion(this, active)));
-      const maxModelSteps = this.config.limits.maxModelSteps;
-      let modelStepIndex = 0;
-      while (modelStepIndex < maxModelSteps) {
-        const result = await this.#runModelStep(context, active);
-        if (result.countModelStep !== false) modelStepIndex += 1;
-        if (result.exhausted) {
-          const attention = await awaitEngineAttention(this, active, result,
-            { persist: (...args) => this.#persist(...args), consumeSteering: (turn) => this.#consumeSteering(turn) });
-          if (attention.terminal) return this.#finalize('limit_reached', attention.explanation, attention.detail, { emitText: true });
-          applyPendingConfiguration(this, active);
-          context = await this.#prepareContext(this.transcript, '', active);
-          context = appendRecoveryHint(context, attention.hint);
-          continue;
-        }
-        if (!result.continue) return this.#completeFromStep(result, active);
-        applyPendingConfiguration(this, active);
-        context = await this.#prepareContext(this.transcript, '', active, result.forceCompact);
-        context = appendRecoveryHint(context, result.hint);
-      }
-      const detail = this.reliability.exhaustionDetail(active.recovery, this.transcript, active.unresolvedToolFailures, {
-        category: 'model_step_limit', count: maxModelSteps,
+      return await runModelStepLoop(this, active, context, {
+        finalize: (...args) => this.#finalize(...args),
+        prepareContext: (...args) => this.#prepareContext(...args),
+        runModelStep: (...args) => this.#runModelStep(...args),
+        completeFromStep: (result, turn) => this.#completeFromStep(result, turn),
+        persist: (...args) => this.#persist(...args),
+        consumeSteering: (turn) => this.#consumeSteering(turn),
       });
-      return this.#finalize('limit_reached', this.reliability.exhaustionText(detail, {
-        transcript: this.transcript, turnId: active.turnId,
-      }), detail, { emitText: true });
     } catch (error) {
       error = missionFailureForError(active, error);
       const outcome = active.cancelled ? 'cancelled' : 'failed';

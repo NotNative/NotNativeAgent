@@ -16,6 +16,7 @@ import { contextPressureScale } from '../src/reliability/provider-recovery.js';
 import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
 import { awaitEngineAttention } from '../src/engine/attention.js';
 import { updateToolFailures } from '../src/engine/tool-failures.js';
+import { manifestFromConfig, withRecoverySettings } from '../src/provider/route-configuration.js';
 
 class SessionEngine extends RuntimeSessionEngine {
   constructor(options) {
@@ -139,8 +140,18 @@ test('configured recovery ladder escalates without treating uncertain progress a
   const manifest = config(process.cwd(), 'ephemeral', {
     recovery: { max_model_steps: 4096, local_retry_limit: 5, ladder: ['nudge', 'nudge', 'compact', 'compact'] },
   });
-  assert.deepEqual(manifest.recovery, { maxModelSteps: 4096, localLimit: 5, ladder: ['nudge', 'nudge', 'compact', 'compact'] });
+  assert.deepEqual(manifest.recovery, { maxModelSteps: 4096, localLimit: 5, turnWallClockMs: null, ladder: ['nudge', 'nudge', 'compact', 'compact'] });
   assert.equal(manifest.limits.maxModelSteps, 4096);
+  assert.equal(manifest.limits.turnWallClockMs, null);
+  assert.equal(config(process.cwd(), 'ephemeral', {
+    recovery: { max_model_steps: 4096, local_retry_limit: 5, ladder: ['nudge', 'nudge', 'compact', 'compact'], turn_wall_clock_ms: 0 },
+  }).limits.turnWallClockMs, null);
+  assert.equal(config(process.cwd(), 'ephemeral', {
+    recovery: { max_model_steps: 4096, local_retry_limit: 5, ladder: ['nudge', 'nudge', 'compact', 'compact'], turn_wall_clock_ms: 90_000 },
+  }).limits.turnWallClockMs, 90_000);
+  assert.throws(() => config(process.cwd(), 'ephemeral', {
+    recovery: { max_model_steps: 4096, local_retry_limit: 5, ladder: ['nudge', 'nudge', 'compact', 'compact'], turn_wall_clock_ms: 500 },
+  }), { code: 'invalid_limit' });
   assert.throws(() => config(process.cwd(), 'ephemeral', {
     recovery: { local_retry_limit: 5, ladder: ['nudge', 'compact'] },
   }), { code: 'recovery_config_invalid' });
@@ -157,6 +168,27 @@ test('configured recovery ladder escalates without treating uncertain progress a
   assert.equal(recovery.actions.at(-1).action, 'change_strategy');
   recovery.noProgress('configured');
   assert.equal(recovery.actions.at(-1).action, 'recover_objective');
+});
+
+test('per-turn wall-clock budget round-trips through the config-manifest bridge', () => {
+  const ladder = ['nudge', 'nudge', 'compact', 'compact'];
+  const base = config(process.cwd(), 'ephemeral');
+  assert.equal(base.limits.turnWallClockMs, null, 'the budget is opt-in and disabled when absent');
+  const set = withRecoverySettings(base, 4096, 5, ladder, 90_000);
+  assert.equal(set.manifest.recovery.turn_wall_clock_ms, 90_000);
+  assert.equal(set.config.recovery.turnWallClockMs, 90_000);
+  assert.equal(set.config.limits.turnWallClockMs, 90_000);
+  assert.equal(manifestFromConfig(set.config).recovery.turn_wall_clock_ms, 90_000, 'a set value survives config-to-manifest');
+  const preserved = withRecoverySettings(set.config, 4096, 5, ladder);
+  assert.equal(preserved.config.limits.turnWallClockMs, 90_000, 'omitting the budget preserves the resolved value');
+  const disabled = withRecoverySettings(set.config, 4096, 5, ladder, null);
+  assert.equal(disabled.manifest.recovery.turn_wall_clock_ms, undefined, 'a disabled budget carries no manifest value');
+  assert.equal(manifestFromConfig(disabled.config).recovery.turn_wall_clock_ms, undefined);
+  assert.equal(disabled.config.limits.turnWallClockMs, null);
+  const zeroed = withRecoverySettings(set.config, 4096, 5, ladder, 0);
+  assert.equal(zeroed.config.limits.turnWallClockMs, null);
+  assert.throws(() => withRecoverySettings(base, 4096, 5, ladder, '90000'), { code: 'invalid_limit' });
+  assert.throws(() => withRecoverySettings(base, 4096, 5, ladder, 86_400_001), { code: 'invalid_limit' });
 });
 
 test('low-pressure no-progress recovery does not substitute compaction for correction', () => {
@@ -1349,6 +1381,30 @@ test('configured model-step ceiling terminates a still-progressing turn at the d
   assert.equal(result.failure.exhaustion_category, 'model_step_limit');
   assert.equal(result.failure.exhaustion_count, 16);
   assert.match(result.text, /explicit runtime boundary ended the turn/u);
+});
+
+test('configured per-turn wall-clock budget terminates a still-progressing turn at a step boundary', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-wall-clock-'));
+  for (let index = 0; index < 8; index += 1) {
+    await writeFile(join(root, `wc-${index}.txt`), `unique-${index}`, 'utf8');
+  }
+  let count = 0;
+  const provider = { async *stream() {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    yield* toolCall(`wc-call-${count}`, `wc-${count % 8}.txt`);
+    count += 1;
+  } };
+  const engine = new SessionEngine({
+    config: config(root, 'ephemeral', { recovery: { max_model_steps: 64, turn_wall_clock_ms: 1000 } }),
+    providerFactory: () => provider,
+  });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'wall-clock-turn', content: 'Read many files' }, 'operator');
+  assert.equal(result.outcome, 'limit_reached');
+  assert.equal(result.failure.exhaustion_category, 'turn_wall_clock_limit');
+  assert.ok(result.failure.exhaustion_count >= 1, 'at least one model step must run before the budget can bind');
+  assert.equal(count, result.failure.exhaustion_count);
+  assert.match(result.text, /per-turn wall-clock budget was reached/u);
 });
 
 test('AC-REV-09 unchanged successful observations trigger a call boundary without parking the turn', async () => {
