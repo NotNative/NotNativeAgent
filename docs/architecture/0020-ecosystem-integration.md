@@ -59,6 +59,29 @@ clients always authenticate against the target instance's configured surface.
 - Identity/entitlement header slot (entitlement-neutral local token now; NNO
   principal pass-through later).
 
+## Mid-turn operator questions
+
+The OpenCode-wire surface (OpenChamber-compatible serve mode) exposes one
+operator-question contract, owned by the engine and voice-rendered per surface:
+
+1. An unanswered question pauses indefinitely. It never times out into denial;
+   only an authenticated `question_response`, an explicit `question_decline`,
+   or turn abort settles it. The interactive permission broker's bounded
+   approval window deliberately does not apply.
+2. `question_response` and `question_decline` are canonical interactive-only
+   commands. They travel the same authenticated ingress as `permission_decision`
+   (wire: `/question/:id/reply` and `/question/:id/reject`) and are unknown
+   controls elsewhere.
+3. The question broker is engine-internal and surface-neutral. Surfaces observe
+   asked/settled events and render the transport voice; the broker decides
+   nothing about rendering.
+4. The batch shape keeps OpenCode question-tool parity: one to eight questions,
+   one to sixteen labelled options each, answers as a row-per-question matrix
+   of bounded labels. Bounds fail closed; partial answers never coerce.
+5. Review posture never gates questions. Asking is operator speech, not an
+   effect; an answer supplies exactly the choice it states and grants no
+   execution authority. Authority remains reviewer-governed as in ADR 0002.
+
 ## Related surface ADRs
 
 ADR 0018 (web operator surface) and ADR 0019 (native desktop surface) describe the

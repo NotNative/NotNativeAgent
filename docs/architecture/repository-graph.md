@@ -46,11 +46,11 @@ graph LR
 | Gateway | 4 | Agentic Engine, Gateway, Integration surfaces, Persistence, Product foundation, Providers, Reliability Engine | Experience Engine, Gateway, Product foundation |
 | Persistence | 11 | Persistence, Product foundation, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Governance Engine, Integration surfaces, OpenCode surface, Persistence, Product foundation, Providers, Tools |
 | Providers | 22 | Persistence, Product foundation, Providers, Reliability Engine | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Providers, Reliability Engine |
-| Tools | 44 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Reliability Engine, Tools | Agentic Engine, Experience Engine, Governance Engine, Product foundation, Reliability Engine, Tools |
+| Tools | 45 | Agentic Engine, Governance Engine, Guidance and extensions, Integration surfaces, Persistence, Product foundation, Reliability Engine, Tools | Agentic Engine, Experience Engine, Governance Engine, Product foundation, Reliability Engine, Tools |
 | Guidance and extensions | 9 | Governance Engine, Guidance and extensions, Product foundation | Agentic Engine, Experience Engine, Guidance and extensions, Product foundation, Tools |
 | Integration surfaces | 10 | Agentic Engine, Integration surfaces, Persistence, Product foundation, Providers | Agentic Engine, Experience Engine, Gateway, Integration surfaces, Product foundation, Tools |
 | OpenCode surface | 10 | Agentic Engine, OpenCode surface, Persistence, Product foundation | OpenCode surface, Product foundation |
-| Product foundation | 84 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine, Tools |
+| Product foundation | 85 | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine, Tools | Agentic Engine, Experience Engine, Gateway, Governance Engine, Guidance and extensions, Integration surfaces, OpenCode surface, Persistence, Product foundation, Providers, Reliability Engine, Tools |
 
 ## Strongest observed component dependencies
 
@@ -59,12 +59,12 @@ Counts represent static local imports. Same-component imports are included becau
 | Importer | Imported component | Imports | Importing modules |
 |---|---|---:|---:|
 | Experience Engine | Experience Engine | 166 | 55 |
-| Product foundation | Product foundation | 151 | 72 |
+| Product foundation | Product foundation | 152 | 73 |
 | Experience Engine | Product foundation | 81 | 57 |
-| Tools | Product foundation | 57 | 36 |
-| Tools | Tools | 54 | 20 |
+| Tools | Product foundation | 58 | 37 |
+| Tools | Tools | 55 | 20 |
 | Reliability Engine | Reliability Engine | 45 | 17 |
-| Agentic Engine | Product foundation | 42 | 17 |
+| Agentic Engine | Product foundation | 43 | 17 |
 | Agentic Engine | Agentic Engine | 38 | 11 |
 | Providers | Product foundation | 25 | 18 |
 | Integration surfaces | Product foundation | 16 | 10 |
@@ -91,4 +91,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:6686c6f02f81eea37fa5e2fd5afc47e123d4c5a811f7cf1959ca65ebeee96dbb`.
+Source fingerprint: `sha256:a97861a28c253b301e102fef71de192d73cacb650f47af6c919768fb8352f944`.

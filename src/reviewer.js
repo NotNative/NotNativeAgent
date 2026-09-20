@@ -67,7 +67,7 @@ export class MandatoryReviewer {
         );
       }
       if (context.reviewPosture === 'prompt' && decision.outcome === 'approve'
-        && !administrator && !['system_elevate', 'turn_finish'].includes(context.definition.name)) {
+        && !administrator && !['system_elevate', 'turn_finish', 'question'].includes(context.definition.name)) {
         decision = escalate('prompt_posture_operator_decision', request, 'Prompt posture requires operator approval before execution.');
       }
       if (decision.outcome === 'approve') decision = refreshApprovalWindow(decision, this.decisionTtlMs);
@@ -187,6 +187,11 @@ function classify(request, definition) {
 function localControlClassification(definition) {
   if (definition.sideEffect === 'read_only' && definition.scope === 'tool_catalog' && definition.name === 'tool_search') {
     return Object.freeze({ risk: 'safe', reason: 'bounded_tool_catalog', effect: 'read_only', scope: 'tool_catalog', complexity: 'simple' });
+  }
+  // Why: a question is operator speech, not an effect. Review posture never
+  // gates it; escalation would put a permission prompt in front of the question.
+  if (definition.sideEffect === 'read_only' && definition.scope === 'conversation_control' && definition.name === 'question') {
+    return Object.freeze({ risk: 'safe', reason: 'operator_question', effect: 'read_only', scope: 'conversation_control', complexity: 'simple' });
   }
   // Why: turn_finish records an assertion for deterministic supervision; it does not grant
   // authority or cause an external effect. Sending that assertion to semantic review would

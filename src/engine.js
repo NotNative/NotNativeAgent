@@ -168,6 +168,16 @@ export class SessionEngine {
     return this.permissionBroker.decide(command, principal);
   }
 
+  decideQuestion(command, principal) {
+    if (!this.questionBroker) throw new ContractError('interactive_decision_forbidden', 'interactive question is unavailable');
+    return this.questionBroker.answer(command, principal);
+  }
+
+  declineQuestion(command, principal) {
+    if (!this.questionBroker) throw new ContractError('interactive_decision_forbidden', 'interactive question is unavailable');
+    return this.questionBroker.decline(command, principal);
+  }
+
   async updateConfiguration(command, principal) {
     return updateEngineConfiguration(this, command, principal);
   }

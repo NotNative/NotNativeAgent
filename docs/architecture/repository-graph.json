@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:6686c6f02f81eea37fa5e2fd5afc47e123d4c5a811f7cf1959ca65ebeee96dbb",
+  "source_digest": "sha256:a97861a28c253b301e102fef71de192d73cacb650f47af6c919768fb8352f944",
   "counts": {
-    "modules": 354,
+    "modules": 356,
     "component_edges": 75
   },
   "components": [
@@ -54,7 +54,7 @@
       "id": "tools",
       "label": "Tools",
       "ownership": "Owns built-in tool contracts and execution adapters.",
-      "module_count": 44
+      "module_count": 45
     },
     {
       "id": "guidance",
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 84
+      "module_count": 85
     }
   ],
   "entrypoints": [
@@ -120,8 +120,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 151,
-      "module_count": 72
+      "import_count": 152,
+      "module_count": 73
     },
     {
       "from": "experience-engine",
@@ -132,13 +132,13 @@
     {
       "from": "tools",
       "to": "foundation",
-      "import_count": 57,
-      "module_count": 36
+      "import_count": 58,
+      "module_count": 37
     },
     {
       "from": "tools",
       "to": "tools",
-      "import_count": 54,
+      "import_count": 55,
       "module_count": 20
     },
     {
@@ -150,7 +150,7 @@
     {
       "from": "agentic-engine",
       "to": "foundation",
-      "import_count": 42,
+      "import_count": 43,
       "module_count": 17
     },
     {
@@ -934,6 +934,7 @@
         "src/provider/model-runtime.js",
         "src/provider/router.js",
         "src/provider/runner.js",
+        "src/question-broker.js",
         "src/reliability-engine.js",
         "src/reviewer.js",
         "src/skill-registry.js",
@@ -2330,6 +2331,14 @@
       ]
     },
     {
+      "path": "src/question-broker.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
+      ]
+    },
+    {
       "path": "src/redaction.js",
       "component": "foundation",
       "entrypoint": false,
@@ -2908,6 +2917,7 @@
         "src/tools/project-verification.js",
         "src/tools/provider-surface-planner.js",
         "src/tools/provider-surface.js",
+        "src/tools/question.js",
         "src/tools/reference-store.js",
         "src/tools/schema.js",
         "src/tools/search.js",
@@ -3128,6 +3138,14 @@
       "entrypoint": false,
       "imports": [
         "src/tools/core-names.js"
+      ]
+    },
+    {
+      "path": "src/tools/question.js",
+      "component": "tools",
+      "entrypoint": false,
+      "imports": [
+        "src/question-broker.js"
       ]
     },
     {

@@ -4,6 +4,7 @@ import { MemoryBoundary } from '../memory.js';
 import { McpManager } from '../mcp-manager.js';
 import { ModelRouter } from '../provider/router.js';
 import { InteractivePermissionBroker } from '../permission-broker.js';
+import { QuestionBroker } from '../question-broker.js';
 import { ProviderRunner } from '../provider/runner.js';
 import { RoutedSemanticReviewer } from '../provider/model-reviewer.js';
 import { ReviewerLedger } from '../persistence/reviewer-ledger.js';
@@ -103,6 +104,7 @@ function installExtensions(engine, options) {
     runner: options.hookRunner,
   });
   engine.permissionBroker = permissionBroker(engine, options);
+  engine.questionBroker = questionBroker(engine, options);
 }
 
 function installCapabilities(engine, options, storeRoot, hooks) {
@@ -141,7 +143,7 @@ function installCapabilities(engine, options, storeRoot, hooks) {
       run: (input, signal) => engine.runSubagent(input, signal),
     } : null,
     workspaceControl: engine.config.executionManifest === null ? { change: (path) => engine.changeWorkspace(path) } : null,
-    conversationWork: engine.work, terminalControl: { declare: (value) => declareTerminalOutcome(engine, value) },
+    conversationWork: engine.work, terminalControl: { declare: (value) => declareTerminalOutcome(engine, value) }, questionBroker: engine.questionBroker,
     telegramNotifications: engine.telegramNotifications,
     activeTurnId: () => engine.active?.turnId ?? null, sessionHistory: historyToolOptions(engine),
   });
@@ -291,6 +293,12 @@ function permissionBroker(engine, options) {
   return new InteractivePermissionBroker({
     output: engine.output, timeoutMs: options.permissionTimeoutMs ?? engine.config.limits.approvalMs,
   });
+}
+
+function questionBroker(engine, options) {
+  if (options.questionBroker) return options.questionBroker;
+  if (engine.surface !== 'interactive_tui') return null;
+  return new QuestionBroker({ output: engine.output });
 }
 
 function toolLoop(engine, hooks) {

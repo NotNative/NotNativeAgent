@@ -2,7 +2,7 @@
 import { ContractError, requireExternalId } from './ids.js';
 import { failureEnvelope } from './failure-envelope.js';
 
-export const PROTOCOL_VERSION = Object.freeze({ major: 1, minor: 0 });
+export const PROTOCOL_VERSION = Object.freeze({ major: 1, minor: 1 });
 /** Terminal turn outcomes exposed to protocol consumers and configuration validation. */
 export const TURN_OUTCOMES = Object.freeze([
   'completed', 'blocked', 'incomplete', 'needs_input', 'denied', 'cancelled', 'failed', 'limit_reached',
@@ -16,7 +16,8 @@ const PROTOCOL_LIMITS = Object.freeze({
   attachmentPathChars: 4_096, mimeTypeChars: 128,
 });
 const PERMISSION_CHOICES = Object.freeze(['allow_once', 'allow_session', 'allow_workspace', 'deny', 'cancel']);
-
+const QUESTION_DECLINE_REASONS = Object.freeze(['dismissed', 'cancelled', 'timeout']);
+const QUESTION_COMMANDS = new Set(['question_response', 'question_decline']);
 const INPUT_TYPES = new Set([
   'initialize', 'submit', 'steer', 'cancel', 'configuration_update', 'shutdown',
   'attachment_retry', 'attachment_remove',
@@ -44,7 +45,8 @@ export function validateCommand(value, options = {}) {
   if (!isRecord(value)) throw new ContractError('invalid_command', 'command must be an object');
   requireExternalId(value.request_id);
   const permissionDecision = value.type === 'permission_decision' && options.interactive === true;
-  if (!INPUT_TYPES.has(value.type) && !permissionDecision) {
+  const questionCommand = QUESTION_COMMANDS.has(value.type) && options.interactive === true;
+  if (!INPUT_TYPES.has(value.type) && !permissionDecision && !questionCommand) {
     throw new ContractError('unknown_control', 'unknown or unsupported control message');
   }
   const version = parseVersion(value.version);
@@ -58,6 +60,8 @@ export function validateCommand(value, options = {}) {
   }
   if (value.type === 'attachment_remove') validateAttachmentId(value.attachment_id);
   if (permissionDecision) validatePermissionDecision(value);
+  if (value.type === 'question_response') validateQuestionResponse(value);
+  if (value.type === 'question_decline') validateQuestionDecline(value);
   if (value.type === 'configuration_update' && !isRecord(value.manifest)) {
     throw new ContractError('configuration_update_invalid', 'configuration update requires a complete manifest');
   }
@@ -101,6 +105,32 @@ function validatePermissionDecision(value) {
   for (const field of ['permission_token', 'tool_request_id']) requireExternalId(value[field]);
   if (!PERMISSION_CHOICES.includes(value.choice)) {
     throw new ContractError('invalid_permission_choice', 'permission choice is invalid');
+  }
+}
+
+// Question commands carry the broker token identity + row-per-question matrix.
+// The token is the wire `que_…` id, hence requireExternalId; no OC parity for
+// unknown-prefixed ids here — bounds mirror the permission decision contract.
+function validateQuestionResponse(value) {
+  requireExternalId(value.request_id, 'request_id');
+  requireExternalId(value.question_token);
+  const answers = value.answers;
+  if (!Array.isArray(answers) || answers.length < 1 || answers.length > 8) {
+    throw new ContractError('question_request_invalid', 'answers must be a non-empty matrix of at most 8 rows');
+  }
+  for (const row of answers) {
+    if (!Array.isArray(row) || row.length < 1 || row.length > 8
+      || row.some((label) => typeof label !== 'string' || label.trim().length === 0 || label.length > 256)) {
+      throw new ContractError('question_request_invalid', 'answers rows must be 1 to 8 bounded label strings');
+    }
+  }
+}
+
+function validateQuestionDecline(value) {
+  requireExternalId(value.request_id, 'request_id');
+  requireExternalId(value.question_token);
+  if (value.reason !== undefined && !QUESTION_DECLINE_REASONS.includes(value.reason)) {
+    throw new ContractError('question_request_invalid', 'decline reason is invalid');
   }
 }
 

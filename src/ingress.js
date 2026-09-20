@@ -40,6 +40,8 @@ export class CanonicalIngress {
     if (command.type === 'attachment_retry') return this.engine.retryAttachment(command, principal);
     if (command.type === 'attachment_remove') return this.engine.removeAttachment(command, principal);
     if (command.type === 'permission_decision') return this.engine.decidePermission(command, principal);
+    if (command.type === 'question_response') return this.engine.decideQuestion(command, principal);
+    if (command.type === 'question_decline') return this.engine.declineQuestion(command, principal);
     if (command.type === 'configuration_update') return this.engine.updateConfiguration(command, principal);
     if (command.type === 'shutdown') return this.engine.shutdown(command, principal);
     throw new ContractError('unsupported_control', `${command.type} is not accepted by canonical ingress`);

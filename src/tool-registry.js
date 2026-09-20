@@ -41,6 +41,7 @@ import { sessionHistoryDefinitions } from './session-history-tools.js';
 import { systemTimeDefinition } from './tools/system-time.js';
 import { workspaceChangeDefinition } from './tools/workspace.js';
 import { turnFinishDefinition } from './tools/turn-completion.js';
+import { questionDefinition } from './tools/question.js';
 import { logicalLines, replaceLineRange } from './tools/text-edit-helpers.js';
 import { planProviderToolNames } from './tools/provider-surface-planner.js';
 import { consumeWorkflowLease, grantWorkflowLeases } from './tools/workflow-leases.js';
@@ -78,6 +79,7 @@ export class ToolRegistry {
     this.conversationWork = options.conversationWork;
     this.telegramNotifications = options.telegramNotifications; this.activeTurnId = options.activeTurnId; this.sessionHistory = options.sessionHistory;
     this.terminalControl = options.terminalControl;
+    this.questionBroker = options.questionBroker ?? null;
     this.administrator = options.administrator ?? null;
   }
   async initialize() {
@@ -115,6 +117,7 @@ export class ToolRegistry {
     if (this.subagentControl && !this.hosted) this.#install(subagentDefinition(this.subagentControl));
     if (this.conversationWork) for (const definition of conversationWorkDefinitions(this.conversationWork)) this.#install(definition);
     const turnFinish = turnFinishDefinition(this.terminalControl); if (turnFinish) this.#install(turnFinish);
+    if (this.questionBroker) this.#install(questionDefinition(this.questionBroker));
     if (this.telegramNotifications) this.#install(telegramNotificationDefinition(this.telegramNotifications, this.activeTurnId));
     for (const definition of sessionHistoryDefinitions(this.sessionHistory)) this.#install(definition);
     this.#install(systemTimeDefinition());
