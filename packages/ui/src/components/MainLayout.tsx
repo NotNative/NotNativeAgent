@@ -11,6 +11,7 @@ import { useSessionViewStore } from '../sync/view-store.ts';
 import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { useConfigStore } from '../stores/useConfigStore.ts';
 import { ShellShortcuts, settingsOpenEventName } from './ShellShortcuts.tsx';
+import { AuthExpiredBanner } from './auth/AuthExpiredBanner.tsx';
 import { SettingsWindow } from './settings/window.tsx';
 import { FilesView } from './files/FilesView.tsx';
 import { DiffView } from './diff/DiffView.tsx';
@@ -234,6 +235,7 @@ export function MainLayout(): ReactNode {
           ⚙ settings
         </button>
       </header>
+      <AuthExpiredBanner />
       <div className="flex min-h-0 flex-1">
         {filesOpen ? (
           <FilesView directory={activeDirectory} visible />

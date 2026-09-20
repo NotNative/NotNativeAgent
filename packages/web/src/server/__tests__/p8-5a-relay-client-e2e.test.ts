@@ -1,11 +1,11 @@
 ﻿// SPDX-License-Identifier: Apache-2.0
 /**
- * P8-5a E2E (doc 08 Â§3.10 runtime client over the production relay wire):
+ * P8-5a E2E (doc 08 §3.10 runtime client over the production relay wire):
  * the REAL @notnative/ui tunnel client rides the loopback fake worker down
  * the host's production leg (broker + per-leg mux + E2EE + downstream
  * scheduler). HTTP GET/POST with streamed bodies round trips to the local
  * stub server, the WS substream dials a real ws upstream both ways with
- * close-code propagation, a >64 KiB response proves the Â§3.8 DeliveryAck
+ * close-code propagation, a >64 KiB response proves the §3.8 DeliveryAck
  * ledger (the downstream window stalls forever without acks), a second
  * client with a 300 ms idle clock keeps its Pong alive on stream zero, and
  * the client leg's replacement reconnects while the host leg survives.

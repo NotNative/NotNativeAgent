@@ -4,11 +4,37 @@ import { Toaster } from 'sonner';
 import { fetchHealth, initializeApp } from './lib/initializeApp.ts';
 import { removeSplashScreen } from './lib/splash.ts';
 import { mountEngine } from './chat/app-engine.ts';
+import { installAuthSessionFocusWatch } from './lib/runtime-auth-expiry.ts';
 import { useFeatureFlagsStore } from './stores/useFeatureFlagsStore.ts';
 import { useI18n } from './components/I18nProvider.tsx';
 import { MainLayout } from './components/MainLayout.tsx';
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** doc 01 §4.3 step 4: fetchHealth flag, then ≤10 init attempts (1 s ×2, 16 s
+ *  cap → manual recovery). The boot phase runs once per init epoch. */
+async function runBootPhase(isCancelled: () => boolean, onRecovery: () => void): Promise<void> {
+  const health = await fetchHealth();
+  if (health && !isCancelled()) {
+    useFeatureFlagsStore.getState().setPlanModeExperimentalEnabled(health.planModeExperimentalEnabled);
+  }
+  let ok = false;
+  let delay = 1000;
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    ok = await initializeApp();
+    if (ok || isCancelled()) break;
+    await sleep(delay);
+    delay = Math.min(delay * 2, 16_000);
+  }
+  if (isCancelled()) return;
+  if (!ok) { onRecovery(); return; }
+  mountEngine();
+  removeSplashScreen();
+  if (typeof window !== 'undefined') {
+    window.__notnativeAppReady = true;
+    window.dispatchEvent(new CustomEvent('notnative:app-ready'));
+  }
+}
 
 export function App() {
   const { t } = useI18n();
@@ -16,35 +42,14 @@ export function App() {
   const [initFailed, setInitFailed] = useState(false);
 
   useEffect(() => {
+    // §2.8/§6.7 step 6: focus revalidation so a fresh tab is honest after a
+    // long suspension — one request per wake, ≥5 min throttle inside the watch.
+    return installAuthSessionFocusWatch();
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
-    const run = async () => {
-      const health = await fetchHealth();
-      if (health && !cancelled) {
-        useFeatureFlagsStore.getState().setPlanModeExperimentalEnabled(health.planModeExperimentalEnabled);
-      }
-      // doc 01 §4.3 step 4: ≤10 attempts, 1000ms base ×2, 16s cap → recovery
-      let ok = false;
-      let delay = 1000;
-      for (let attempt = 1; attempt <= 10; attempt += 1) {
-        ok = await initializeApp();
-        if (ok || cancelled) break;
-        await sleep(delay);
-        delay = Math.min(delay * 2, 16_000);
-      }
-      if (cancelled) return;
-      if (!ok) {
-        setInitFailed(true);
-        removeSplashScreen();
-        return;
-      }
-      mountEngine();
-      removeSplashScreen();
-      if (typeof window !== 'undefined') {
-        window.__notnativeAppReady = true;
-        window.dispatchEvent(new CustomEvent('notnative:app-ready'));
-      }
-    };
-    void run();
+    void runBootPhase(() => cancelled, () => { setInitFailed(true); removeSplashScreen(); });
     return () => { cancelled = true; };
   }, [initEpoch]);
 

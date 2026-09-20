@@ -18,6 +18,7 @@ import { shouldSubmitEnter, recallDirection } from './keyboard-policy.ts';
 import { readDraft, saveDraft, flushDraftsNow, type DraftAttachment, type QueuedMessage } from './drafts.ts';
 import { recordSend, recallList, recallDirectionResult, type HistoryEntry } from './input-history.ts';
 import { planSend, sendErrorKind, type PlannedSend } from './send-planner.ts';
+import { useAuthSessionStore, authSessionBlocksSend } from '../lib/runtime-auth-expiry.ts';
 import { ComposerFooter, AttachmentChips, PickerPopup } from './composer-bits.tsx';
 import { ModelPicker, type ModelSelection } from './model-picker.tsx';
 import { starterInsertText, type Starter } from './starters.ts';
@@ -212,7 +213,7 @@ export function Composer(props: ComposerProps): ReactNode {
 
   const submit = async (): Promise<void> => {
     const composed = shell ? text.trim() : text.trim();
-    if (!composed) return;
+    if (!composed || sendBlocked) return;
     restoreSnapshot.current = { text, attachments };
     const tokens = tokenizePrompt(shell ? `!${text}` : text, { commands: commandSet, skills: skillSet, snippets, agents: new Set(agentNames) });
     const skillInstruction = skillMentionFrom(tokens);
@@ -407,11 +408,15 @@ export function Composer(props: ComposerProps): ReactNode {
     }).catch(() => toast.error('Attachment failed'));
   }
 
-  const canSend = text.trim().length > 0;
+  const authStatus = useAuthSessionStore((state) => state.status);
+  const sendBlocked = authSessionBlocksSend(authStatus);
+  // §6.7 step 3: the send guard blocks while the session expiry is confirmed.
+  const canSend = text.trim().length > 0 && !sendBlocked;
   const starterList = props.starters ?? [];
 
   return (
     <form className="relative rounded-xl border border-white/10 bg-neutral-900/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
+      data-send-blocked={sendBlocked ? 'auth-expired' : undefined}
       onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       {queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
       {sessionKey === 'draft' && starterList.length > 0 ? (

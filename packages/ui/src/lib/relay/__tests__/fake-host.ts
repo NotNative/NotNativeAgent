@@ -3,7 +3,7 @@
 // speaks the SAME primitives as the client mirror (shared ui crypto +
 // codec), answers one legal hello per leg, and drives the wire back:
 // HttpResponse/HttpBody/StreamEnd, fragmented WsText/WsBinary, WsOpen/Ws
-// Close, StreamAbort, and it keeps the Â§3.8 host-ack ledger (cumulative
+// Close, StreamAbort, and it keeps the §3.8 host-ack ledger (cumulative
 // nonzero raw frame bytes) plus the latest DeliveryAck the client sent.
 import {
   decodeHandshakeHello, encodeHandshakeReady, deriveSessionKeys, openSession, encryptFrame,
@@ -26,7 +26,7 @@ export interface HttpRequestHead {
 }
 
 export interface FakeHost {
-  /** Every decoded clientâ†’host frame in wire order (test assertions). */
+  /** Every decoded client→host frame in wire order (test assertions). */
   saw: Array<{ type: number; streamId: number; payload: Uint8Array }>;
   requests: HttpRequestHead[];
   bodyBytesByStream: Map<number, Uint8Array[]>;
@@ -54,7 +54,7 @@ export class FakeBroker {
   ) {}
 
   async onClientMessage(data: string | ArrayBuffer | ArrayBufferView): Promise<void> {
-    // Serialize the wire order (the decrypt counter check requires it, Â§3.4).
+    // Serialize the wire order (the decrypt counter check requires it, §3.4).
     const run = this.inbound.then((): Promise<void> => this.processClientMessage(data));
     this.inbound = run.catch(() => undefined);
     await run;
@@ -121,7 +121,7 @@ export class FakeBroker {
     }
   }
 
-  /** Encrypted brokerâ†’client send; raw nonzero counts book the ledger. */
+  /** Encrypted broker→client send; raw nonzero counts book the ledger. */
   sendFrame(type: number, streamId: number, payload: Uint8Array, hasMore = false): Promise<void> {
     const session = this.session;
     if (session === null) throw new Error('fake broker not established');
@@ -149,7 +149,7 @@ function decodeCumulative8B(payload: Uint8Array): number {
   return Number(value);
 }
 
-/** Â§3.4 host key material (pairing-identity stand-in for the tests). */
+/** §3.4 host key material (pairing-identity stand-in for the tests). */
 export async function makeHostKeys(): Promise<{ privateJwk: RelayJwk; publicJwk: RelayJwk }> {
   return await generateEphemeralKeypair();
 }

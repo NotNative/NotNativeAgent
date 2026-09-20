@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:ff7d0951fe9dfd7f8eeaca1d9dac29ef0423126b43fba400e357ebb6147087ca",
+  "source_digest": "sha256:986c80d4d27180e210292d6092dd9afb18520f681e83c2d117cbd3a73b99421d",
   "counts": {
-    "modules": 294,
+    "modules": 314,
     "component_edges": 11
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 99
+      "module_count": 109
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 61
+      "module_count": 71
     },
     {
       "id": "web-server",
@@ -65,6 +65,7 @@
   ],
   "external_dependencies": [
     "@hono/node-server",
+    "@simplewebauthn/browser",
     "@simplewebauthn/server",
     "hono",
     "node-pty",
@@ -81,6 +82,7 @@
     "node:path",
     "node:process",
     "node:url",
+    "qrcode",
     "react",
     "react-dom/client",
     "sonner",
@@ -93,8 +95,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 70,
-      "module_count": 27
+      "import_count": 94,
+      "module_count": 36
     },
     {
       "from": "sync-engine",
@@ -167,6 +169,7 @@
         "packages/ui/src/components/I18nProvider.tsx",
         "packages/ui/src/components/MainLayout.tsx",
         "packages/ui/src/lib/initializeApp.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
         "packages/ui/src/lib/splash.ts",
         "packages/ui/src/stores/useFeatureFlagsStore.ts"
       ]
@@ -222,6 +225,7 @@
         "packages/ui/src/chat/starters.ts",
         "packages/ui/src/chat/turns.ts",
         "packages/ui/src/lib/nnd/types.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
         "packages/ui/src/lib/server-api.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/sync-engine.ts",
@@ -409,6 +413,38 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/auth/AuthExpiredBanner.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-auth-expiry.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/auth/gateText.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/sessionAuthGateState.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/auth/SessionAuthGate.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/auth/gateText.ts",
+        "packages/ui/src/lib/passkeys.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtime-switch.ts",
+        "packages/ui/src/lib/sessionAuthGateState.ts",
+        "packages/ui/src/lib/sessionAuthGateTrust.ts",
+        "packages/ui/src/lib/sessionAuthGateView.ts",
+        "packages/ui/src/lib/splash.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/ChatView.tsx",
       "component": "ui-shell",
       "entrypoint": false,
@@ -554,6 +590,7 @@
         "packages/ui/src/chat/session-sidebar.tsx",
         "packages/ui/src/chat/session-tabs.tsx",
         "packages/ui/src/components/ShellShortcuts.tsx",
+        "packages/ui/src/components/auth/AuthExpiredBanner.tsx",
         "packages/ui/src/components/diff/DiffView.tsx",
         "packages/ui/src/components/files/FilesView.tsx",
         "packages/ui/src/components/git/GitView.tsx",
@@ -569,6 +606,78 @@
         "packages/ui/src/stores/useConfigStore.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/view-store.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/pairing/PairingDialog.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/pairing/PairingResultPanel.tsx",
+        "packages/ui/src/components/pairing/PairingScopeForm.tsx",
+        "packages/ui/src/components/pairing/usePairingDialog.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/pairing/pairingLive.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/pairing/pairingReducer.ts",
+        "packages/ui/src/components/pairing/usePairingDialog.ts",
+        "packages/ui/src/lib/pairing-client.ts",
+        "packages/ui/src/lib/pairing-watch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/pairing/pairingReducer.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/pairing/pairingText.ts",
+        "packages/ui/src/lib/pairing-client.ts",
+        "packages/ui/src/lib/pairing-watch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/pairing/PairingResultPanel.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/pairing/pairingText.ts",
+        "packages/ui/src/lib/pairing-qr.ts",
+        "packages/ui/src/lib/pairing-watch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/pairing/PairingScopeForm.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/pairing/pairingText.ts",
+        "packages/ui/src/lib/pairing-client.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/pairing/pairingText.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/pairing-client.ts",
+        "packages/ui/src/lib/pairing-watch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/pairing/usePairingDialog.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/components/pairing/pairingLive.ts",
+        "packages/ui/src/components/pairing/pairingReducer.ts",
+        "packages/ui/src/components/pairing/pairingText.ts",
+        "packages/ui/src/lib/pairing-client.ts",
+        "packages/ui/src/lib/pairing-qr.ts",
+        "packages/ui/src/lib/pairing-watch.ts"
       ]
     },
     {
@@ -816,6 +925,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/connection-payload.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/relay/bytes.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/files/api.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -973,6 +1090,46 @@
       "component": "harness-facade",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/pairing-client.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/connection-payload.ts",
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/pairing-qr.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/pairing-watch.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/pairing-client.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/passkeys-support.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/passkeys.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/passkeys-support.ts",
+        "packages/ui/src/lib/runtime-auth.ts"
+      ]
     },
     {
       "path": "packages/ui/src/lib/plan/save-queue.ts",
@@ -1139,6 +1296,15 @@
       ]
     },
     {
+      "path": "packages/ui/src/lib/runtime-auth-expiry.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/runtime-fetch.ts",
+        "packages/ui/src/lib/runtime-url.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/lib/runtime-auth.ts",
       "component": "runtime-io",
       "entrypoint": false,
@@ -1153,6 +1319,7 @@
       "component": "runtime-io",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
         "packages/ui/src/lib/runtime-auth.ts",
         "packages/ui/src/lib/runtime-tunnel.ts",
         "packages/ui/src/lib/runtime-url.ts"
@@ -1216,6 +1383,36 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/sessionAuthGateState.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/passkeys-support.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/runtime-auth.ts",
+        "packages/ui/src/lib/runtimeConfig.ts",
+        "packages/ui/src/lib/sessionAuthGateTrust.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/sessionAuthGateTrust.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/sessionAuthGateState.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/lib/sessionAuthGateView.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/passkeys.ts",
+        "packages/ui/src/lib/runtime-auth-expiry.ts",
+        "packages/ui/src/lib/sessionAuthGateState.ts"
       ]
     },
     {
@@ -1663,7 +1860,8 @@
       "imports": [
         "packages/ui/src/App.tsx",
         "packages/ui/src/components/I18nProvider.tsx",
-        "packages/ui/src/components/ThemeProvider.tsx"
+        "packages/ui/src/components/ThemeProvider.tsx",
+        "packages/ui/src/components/auth/SessionAuthGate.tsx"
       ]
     },
     {

@@ -730,13 +730,78 @@ SSH -> reverse proxy -> invariants.
   7: deterministic grow/halve/checkpoint/ack-law/cancel suites). web
   413/31 files, ui 428/53, both tsconfigs clean, gates + graph (294) +
   smoke pass, sealed 20260919-1.
-  NOT in this slice (the step-11/12 UI faces): §2.5 client passkey lib,
-  §2.8 expiry store + §6.6 SessionAuthGate + §6.7 banner, §6.1 pairing
-  dialog + §5.8 QR, §5.9 CLI connect-url (needs the doc-03 CLI
-  framework, registered for its own slice), §6.4/§6.5 desktop
-  probe/restore (desktop IPC = doc 09/P12); app transports (terminal,
-  harness streams) keep direct-mode wiring until the desktop/mobile
-  phases call openRuntimeWebSocket.
+   NOT in this slice (the step-11/12 UI faces): §2.5 client passkey lib,
+   §2.8 expiry store + §6.6 SessionAuthGate + §6.7 banner, §6.1 pairing
+   dialog + §5.8 QR, §5.9 CLI connect-url (needs the doc-03 CLI
+   framework, registered for its own slice), §6.4/§6.5 desktop
+   probe/restore (desktop IPC = doc 09/P12); app transports (terminal,
+   harness streams) keep direct-mode wiring until the desktop/mobile
+   phases call openRuntimeWebSocket.
+
+- **P8-5b (delivered this slice)** — checklist steps 11-12 UI faces
+  (§2.5 passkey client lib, §2.8 expiry detection, §5.1-5.8 payload/QR
+  + pairing dialog, §6.6 gate + §6.7 expiry banner; the §6.4/§6.5
+  desktop host surfaces stay P12 as registered in P8-5a). UI side:
+  `connection-payload.ts` (both §5.1 parsers - URL-first + the Android
+  WebView regex fallback sharing `normalizePairingPayload` w/ the
+  16384 three-surface cap, v2-only, future-expiry rule, candidate
+  normalizers incl. relay JWK strict-normalization), `pairing-client.ts`
+  (§5.6/5.7 candidate racing - identity-gated direct probes, relay last
+  through a throwaway tunnel, needs-login short-circuit, one body per
+  redeem; `planPairingRequest` scope forms - loopback/local option,
+  LAN with the fallback checkbox, anywhere relay-default; §6.1 transport
+  selection from the /transports view), `pairing-qr.ts` (§5.8
+  `qrcode` toDataURL width 1024 margin 2 level L - resolution over
+  error correction - link exactly as text), `pairing-watch.ts` (§6.1
+  step 8 result machine: redeemed/expired/cancelled close reasons,
+  visibility-gated hidden spins, no redemption faked on fetch failure),
+  `passkeys.ts`+`passkeys-support.ts` (§2.5 ceremonies over a session-
+  capable runtime seam: support detection, registerCurrentDevicePasskey
+  one shot, authenticate, list/revoke/reset faces with the server's
+  disabled-unless-password + one-generic error shapes), and the §2.8
+  `runtime-auth-expiry.ts` (classifier narrowed to /api|/auth minus the
+  probe + client-auth flows, 15 s nested confirm probe, same-origin
+  filtering, focus/visibility revalidation ≥5 min, composer send-guard
+  predicate `authSessionBlocksSend`). Components: `SessionAuthGate`
+  (§6.6 stages incl. tunnel-locked without a password form, bounded
+  4×1.5 s retry ladder, trust-device checkbox persisted on toggle,
+  passkey unlock/enroll with a separate ceremony busy flag, re-entry
+  from the banner via `reauthenticating`, host-switcher slot,
+  `skipAuth` for the VS Code rail), `AuthExpiredBanner` (non-blocking
+  under-header one-store consumer, Log in never self-logins), and the
+  pairing dialog family (`PairingDialog/ScopeForm/ResultPanel` +
+  reducer/live hooks: 5 s visible-client input-free polling, countdown,
+  copyable link, QR, panel phases per §6.1). WEB-parity faces pinned by
+  the p8-5b harness suites (route shapes + payload byte-parity through
+  the real ui client against the sealed server routes).
+  App wiring (the §6.6/6.7 activation, previously library-only): main.tsx
+  mounts `SessionAuthGate` above App per the doc-01 provider tree so a
+  locked visitor never boots the app; App installs the §2.8 focus watch;
+  MainLayout renders the §6.7 banner under the header; the composer send
+  guard (button + Enter path, data-send-blocked) honors
+  `authSessionBlocksSend`; the gate releases the HTML splash on its
+  first answered probe; trust-device key rebranded
+  `notnative.uiAuth.trustDevice` per NOTES/01. Registered E-08-50/51/52
+  (no ThemeSystemProvider layer; sequential probe/support presence
+  assembly; relay-consent `includeRelay:true` force-start with the
+  anywhere-preflight refusal). Adversarial sub-agent review
+  (ses_f3ee2b0a7ffe67K6YxJaLot3Yj) fixed P0×1 + P1×3 + P2×1 in-slice:
+  P0 passkey transport failures wedged gate busy/deadlock - the
+  tolerant status-0 degrade now covers every ceremony face
+  (options/verify/list/revoke/register paths); P1 `planPairingRequest`
+  dropped the operator's relay consent (checkbox now rides
+  `includeRelay:true`, 503 surfaces as a create error); P1 gate
+  re-entry on a tunnel lock wrongly cleared the expiry store
+  (only `authenticated` marks ok now); P1 PairingDialog rendered its
+  modal while `open:false`; P2 main.tsx provider-tree comment named a
+  non-existent ThemeSystemProvider layer. Tests: ui 577/61 files (+149
+  vs the P8-5a seal; +7 of those from the review fixes: passkey
+  transport tolerance 5, tunnel-lock re-entry, open:false) +
+  web 438/33 (+25 p8-5b route-shape/payload-parity); suites
+  composer-auth-guard 3, app-composition 2, auth-faces + pairing-dialog
+  + passkeys + pairing + session-auth-gate + runtime-auth-expiry
+  delivered with the slice. ui/web typechecks + controlled-language +
+  length gates green; graph + smoke + seal at 20260920-1.
 ## B. Adaptation deltas (registered)
 
 - **E-08-34 (§4.7 failure-path interpretation, not doc-literal)**:
@@ -853,6 +918,36 @@ SSH -> reverse proxy -> invariants.
   wedge the §6.4 hot-switch forever, so the runtime deactivates and
   builds fresh. adoptRelayTunnel joins the status fan-out (an adopted
   probe tunnel stays status-visible for the banner/switch per §6.2).
+- **E-08-50 (§4.4/gate provider tree: no ThemeSystemProvider)**: the
+  NOTES/01 tree names `I18nProvider > ThemeSystemProvider > ThemeProvider >
+  SessionAuthGate > App`, but this repo builds no ThemeSystemProvider
+  component; the rendered tree is `I18nProvider > ThemeProvider >
+  SessionAuthGate > App` (main.tsx comment now states the real shape).
+  The gate slot is exactly where the doc puts it - directly between the
+  theme layer and App - so §6.6 semantics are untouched. If a
+  system-appearance layer ever splits out of ThemeProvider, it slots in
+  above the gate without moving the gate.
+- **E-08-51 (§6.6 step 1 probe/support assembly order, not parallel)**:
+  the doc reads "GET /auth/session + passkey support/status fetch in
+  parallel". NND assembles sequentially instead: local support first
+  (a browser capability await, no network), then the probe with the
+  bounded retry ladder, then the passkey PRESENCE list only once
+  authenticated (the list route needs the session, so it cannot
+  honestly parallel the probe anyway). The first-paint cost is the
+  capability await; the §6.6 stage mapping is unchanged.
+- **E-08-52 (§6.1 step 2 relay-consent mapping + anywhere preflight)**:
+  the checkbox is operator consent and rides the create body as
+  `includeRelay: true` whenever it is on (home network AND anywhere) -
+  that flag is what force-starts the relay host server-side
+  (ensureEnabledForPairing), so a promised relay candidate is never
+  silently dropped because the relay happens to be off; an unstartable
+  relay answers 503 and is shown as a create error. The one deliberate
+  adaptation: 'anywhere' with the fallback checkbox OFF and a transports
+  view that offers no relay refuses preflight ('relay-unavailable'
+  guidance) instead of force-starting a relay the operator may have
+  explicitly disabled; checking the box (default on) keeps the
+  doc-literal force-start. The 'empty-scope' plan refusal is retired -
+  'anywhere' always has a candidate once consent is given.
 - **E-08-1 (JWT hand-rolled)**: the doc uses the `jose` library's SignJWT;
   NND hand-rolls HS256 sign/verify with node:crypto to avoid the
   dependency (JWT is `{type:'ui-session', iat, exp}` only; verification is

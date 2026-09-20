@@ -41,6 +41,20 @@
       "reviewed_at": "2026-09-18"
     },
     {
+      "name": "@simplewebauthn/browser",
+      "packages": ["@notnative/ui"],
+      "reason": "Client half of the passkey ceremonies (doc 08 §2.5): startRegistration/startAuthentication + WebAuthnError codes consumed by the session gate and settings page; pairs with @simplewebauthn/server above",
+      "license": "MIT",
+      "reviewed_at": "2026-09-19"
+    },
+    {
+      "name": "qrcode",
+      "packages": ["@notnative/ui"],
+      "reason": "Pairing QR face (doc 08 §5.8): toDataURL of the connection payload for the mobile camera; server never renders the QR",
+      "license": "MIT",
+      "reviewed_at": "2026-09-19"
+    },
+    {
       "name": "react",
       "packages": ["@notnative/ui", "@notnative/web"],
       "reason": "UI layer (doc 05); useSyncExternalStore binding for the sync engine leaf selectors",

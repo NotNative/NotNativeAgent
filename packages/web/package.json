@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "node src/server/index.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.ui.json && tsc --noEmit -p tsconfig.server.json",
+    "typecheck": "tsc --noEmit -p tsconfig.ui.json && tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.cross.json",
     "test": "node --max-old-space-size=3072 node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {

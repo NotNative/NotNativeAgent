@@ -1,7 +1,7 @@
 ﻿// SPDX-License-Identifier: Apache-2.0
 /**
- * Loader gates (doc 04 Â§E.1) with the harness client mocked: in-flight share,
- * prefetchâ†’initial promotion, underfill expansion, tail refresh that never
+ * Loader gates (doc 04 §E.1) with the harness client mocked: in-flight share,
+ * prefetch→initial promotion, underfill expansion, tail refresh that never
  * clobbers the coverage cursor, queued refreshes behind in-flight loads,
  * generation rejection, and initializeCreatedSession empty-claim supersede.
  */

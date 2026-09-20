@@ -6,5 +6,6 @@
     "types": ["node"],
     "lib": ["es2023"]
   },
-  "include": ["src/server/**/*.ts"]
+  "include": ["src/server/**/*.ts"],
+  "exclude": ["src/server/__tests__/p8-5b-pairing-route-shape.test.ts"]
 }

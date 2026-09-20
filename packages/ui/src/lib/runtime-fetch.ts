@@ -12,6 +12,7 @@
  * patches window.fetch, so runtimeFetch can never recurse into itself.
  */
 import { applyRuntimeAuthHeaders } from './runtime-auth.ts';
+import { observeRuntimeAuthResponse } from './runtime-auth-expiry.ts';
 import { resolveApiUrl } from './runtime-url.ts';
 import { isRelayModeActive, relayFetchOrThrow } from './runtime-tunnel.ts';
 
@@ -76,7 +77,7 @@ export async function runtimeFetch(input: RequestInfo, init?: RequestInit): Prom
     const promise =
       existing ??
       (() => {
-        const p = transportFetch(url, requestInit).finally(() => inflight.delete(url));
+        const p = observedFetch(url, requestInit).finally(() => inflight.delete(url));
         inflight.set(url, p);
         return p;
       })();
@@ -84,7 +85,17 @@ export async function runtimeFetch(input: RequestInfo, init?: RequestInit): Prom
     return response.clone();
   }
 
-  return transportFetch(url, requestInit);
+  return observedFetch(url, requestInit);
+}
+
+/**
+ * Every response is reported to the auth-expiry observer (doc 08 §2.8) —
+ * including coalesced ones, which share a single transport hop.
+ */
+async function observedFetch(url: string, requestInit: RequestInit): Promise<Response> {
+  const response = await transportFetch(url, requestInit);
+  observeRuntimeAuthResponse(url, response.status);
+  return response;
 }
 
 /** Relay mode transports through the tunnel; hosted mode rides the native

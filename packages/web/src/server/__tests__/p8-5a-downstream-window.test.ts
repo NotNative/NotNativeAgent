@@ -1,11 +1,11 @@
 ﻿// SPDX-License-Identifier: Apache-2.0
 /**
- * P8-5a window heuristics gates (doc 08 Â§3.5/Â§3.8, E-08-27 closure) for
+ * P8-5a window heuristics gates (doc 08 §3.5/§3.8, E-08-27 closure) for
  * the adaptive downstream window. Frame shape: 8187-byte payload + 5-byte
  * header = exactly 8192 raw bytes ("tiles"); the start window is 8 tiles
- * (64 KiB) and each grow doubles the tile count (cap 1 MiB). GROW Ã—2 only
+ * (64 KiB) and each grow doubles the tile count (cap 1 MiB). GROW ×2 only
  * when a head BLOCKED by the window latched the latch AND the ack delivery
- * delay is near the best observed RTT (â‰¤ minRtt + 50 ms); HALVE when the
+ * delay is near the best observed RTT (≤ minRtt + 50 ms); HALVE when the
  * delay exceeds minRtt + 100 ms; one adjustment per checkpointed window
  * of acks (checkpoint = latest ack position + window); ack-law violations
  * fail the channel once; cancelled streams release queued work only.
@@ -89,25 +89,25 @@ async function ride(rig: Rig, tiles: number, ms = FAST_MS): Promise<void> {
   }
 }
 
-describe('adaptive downstream window (Â§3.5/Â§3.8, E-08-27)', () => {
+describe('adaptive downstream window (§3.5/§3.8, E-08-27)', () => {
   it('the start window only seeds telemetry when nothing ever blocked: no adjust', async () => {
     const rig = makeRig();
-    await rig.stream(7); // 57344 â‰¤ 65536: the pump never skips a head
+    await rig.stream(7); // 57344 ≤ 65536: the pump never skips a head
     rig.tick(FAST_MS);
-    rig.ack(7); // sample 2ms â†’ minRtt 2; checkpoint advances; latch never set
+    rig.ack(7); // sample 2ms → minRtt 2; checkpoint advances; latch never set
     expect(rig.window()).toBe(INITIAL_WINDOW_BYTES);
     expect(rig.failures).toEqual([]);
     expect(rig.outstanding()).toBe(0);
   });
 
-  it('grow Ã—2 when a blocked head latched AND the ack RTT is near the best observed', async () => {
+  it('grow ×2 when a blocked head latched AND the ack RTT is near the best observed', async () => {
     const rig = makeRig();
     await rig.stream(8); // fills the 64 KiB window exactly (65536)
-    const blocked = rig.startOne(); // the 9th head: 73728 > 65536 â†’ LATCH, stays queued
+    const blocked = rig.startOne(); // the 9th head: 73728 > 65536 → LATCH, stays queued
     await drainTasks();
     expect(rig.outstanding()).toBe(8);
     rig.tick(FAST_MS);
-    rig.ack(8); // sample 2 â†’ minRtt 2; latch â†’ GROW Ã—2; checkpoint = 65536 + 131072
+    rig.ack(8); // sample 2 → minRtt 2; latch → GROW ×2; checkpoint = 65536 + 131072
     await blocked; // the queued head admitted again (pump reopened by the ack)
     expect(rig.window()).toBe(2 * INITIAL_WINDOW_BYTES);
     expect(rig.outstanding()).toBe(1);
@@ -120,7 +120,7 @@ describe('adaptive downstream window (Â§3.5/Â§3.8, E-08-27)', () => {
     const first = rig.startOne();
     await drainTasks();
     rig.tick(FAST_MS);
-    rig.ack(8); // GROW Ã—2 (latch consumed); checkpoint = 65536 + 131072 = 196608
+    rig.ack(8); // GROW ×2 (latch consumed); checkpoint = 65536 + 131072 = 196608
     await first;
     expect(rig.window()).toBe(2 * INITIAL_WINDOW_BYTES);
     // `first` counts as one tile: 15 more tiles top the grown window exactly.
@@ -128,10 +128,10 @@ describe('adaptive downstream window (Â§3.5/Â§3.8, E-08-27)', () => {
     const second = rig.startOne(); // re-latch inside the same checkpoint window
     await drainTasks();
     rig.tick(FAST_MS);
-    rig.ack(15); // 188416 < checkpoint: latch armed, near-best RTT â€” NO adjust yet
+    rig.ack(15); // 188416 < checkpoint: latch armed, near-best RTT — NO adjust yet
     await second; // the queued head admitted (16 tiles is one tile past the 15 acked)
     expect(rig.window()).toBe(2 * INITIAL_WINDOW_BYTES);
-    rig.ack(1); // crossing 196608: the pending adjustment fires NOW (latch + near-best) â†’ 262144
+    rig.ack(1); // crossing 196608: the pending adjustment fires NOW (latch + near-best) → 262144
     expect(rig.window()).toBe(4 * INITIAL_WINDOW_BYTES);
     expect(rig.failures).toEqual([]);
   });
@@ -142,28 +142,28 @@ describe('adaptive downstream window (Â§3.5/Â§3.8, E-08-27)', () => {
     const first = rig.startOne();
     await drainTasks();
     rig.tick(FAST_MS);
-    rig.ack(8); // grow â†’ 131072 (checkpoint = 65536 + 131072 = 196608)
+    rig.ack(8); // grow → 131072 (checkpoint = 65536 + 131072 = 196608)
     await first;
     await rig.stream(15); // outstanding 16 tiles = 131072
     const second = rig.startOne();
     await drainTasks();
     rig.tick(FAST_MS);
-    rig.ack(16); // crossing 196608 â†’ grow â†’ 262144 (checkpoint = 196608 + 262144 = 458752)
+    rig.ack(16); // crossing 196608 → grow → 262144 (checkpoint = 196608 + 262144 = 458752)
     await second;
     expect(rig.window()).toBe(4 * INITIAL_WINDOW_BYTES);
     // Riding near-best acks alone never adjusts the window (latch absent);
     // the halve fires at the NEXT checkpoint crossing with a slow sample.
-    await ride(rig, 31); // acked 458752 â†’ 712704 (< checkpoint 720896)
+    await ride(rig, 31); // acked 458752 → 712704 (< checkpoint 720896)
     expect(rig.window()).toBe(4 * INITIAL_WINDOW_BYTES);
     await rig.stream(1);
     rig.tick(SLOW_MS); // sample 402ms > minRtt(2) + 100
-    rig.ack(1); // crossing 720896 â†’ HALVE 262144 â†’ 131072; checkpoint = 851968
+    rig.ack(1); // crossing 720896 → HALVE 262144 → 131072; checkpoint = 851968
     expect(rig.window()).toBe(2 * INITIAL_WINDOW_BYTES);
-    await ride(rig, 15); // acked 720896 â†’ 843776 (< checkpoint 851968)
+    await ride(rig, 15); // acked 720896 → 843776 (< checkpoint 851968)
     expect(rig.window()).toBe(2 * INITIAL_WINDOW_BYTES);
     await rig.stream(1);
     rig.tick(SLOW_MS * 2);
-    rig.ack(1); // crossing 851968 â†’ HALVE 131072 â†’ 65536 (the floor holds)
+    rig.ack(1); // crossing 851968 → HALVE 131072 → 65536 (the floor holds)
     expect(rig.window()).toBe(INITIAL_WINDOW_BYTES);
     expect(rig.failures).toEqual([]);
   });
@@ -172,14 +172,14 @@ describe('adaptive downstream window (Â§3.5/Â§3.8, E-08-27)', () => {
     const regression = makeRig();
     await regression.stream(1);
     regression.ack(1);
-    regression.ackRawCumulative(1); // dropped backwards â†’ regression/duplicate
+    regression.ackRawCumulative(1); // dropped backwards → regression/duplicate
     expect(regression.failures[0]).toContain('regression or duplicate');
     const beyond = makeRig();
-    beyond.ack(3); // nothing sent yet â†’ beyond sent bytes
+    beyond.ack(3); // nothing sent yet → beyond sent bytes
     expect(beyond.failures[0]).toContain('beyond sent bytes');
     const offBoundary = makeRig();
     await offBoundary.stream(1);
-    offBoundary.ackRawCumulative(RAW - 1); // inside a frame â†’ off boundary
+    offBoundary.ackRawCumulative(RAW - 1); // inside a frame → off boundary
     expect(offBoundary.failures[0]).toContain('off frame boundary');
     const shortPayload = makeRig();
     shortPayload.scheduler.onAck(Buffer.alloc(4));
