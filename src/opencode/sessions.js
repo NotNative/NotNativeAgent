@@ -6,6 +6,7 @@
 import { SessionEngine } from '../engine.js';
 import { CanonicalIngress } from '../ingress.js';
 import { newId, ContractError } from '../ids.js';
+import { QuestionBroker } from '../question-broker.js';
 import { mkdirSync } from 'node:fs';
 import { OpenCodeSessionRegistry, projectIdentifier } from './registry.js';
 import slugifyTitle from './slug.js';
@@ -22,7 +23,8 @@ export function createOpenCodeSessionWorkspace(options = {}) {
   const registry = new OpenCodeSessionRegistry();
   const bus = createWireEventBus();
   const wiredVersion = options.wiredVersion;
-  const workspace = { registry, bus, wiredVersion };
+  const pendingQuestions = new Map();
+  const workspace = { registry, bus, wiredVersion, pendingQuestions };
   const operations = defineWorkspaceOperations(workspace, options);
   return { workspace, registry, bus, operations };
 }
@@ -69,10 +71,16 @@ function defineWorkspaceOperations(workspace, options) {
       const session = requireSession(workspace, ocId);
       return session.wireSession.pendingCount();
     },
+    // Why: question tokens identify owning sessions; answers travel the same
+    // authenticated ingress as prompt traffic and settle the parked tool call.
+    ...questionOperations(workspace),
     async remove(ocId) {
       const session = requireSession(workspace, ocId);
       await session.engine.shutdown({ request_id: newId('oc_shutdown'), type: 'shutdown' });
       registry.remove(ocId);
+      for (const [token, owner] of [...workspace.pendingQuestions.entries()]) {
+        if (owner === ocId) workspace.pendingQuestions.delete(token);
+      }
       bus.publishSession({
         directory: session.directory ?? '',
         project: session.projectID ?? '',
@@ -88,6 +96,9 @@ function defineWorkspaceOperations(workspace, options) {
 async function attachSession(workspace, options, { title, directory }) {
   const { registry, bus, wiredVersion } = workspace;
   const sessionId = newId('session');
+  const ocId = newId('ses');
+  const sessionDirectory = directory ?? options.directory ?? '';
+  const projectID = projectIdentifier(sessionDirectory);
   let wireSession = null;
   const engine = new SessionEngine({
     config: options.config,
@@ -97,6 +108,8 @@ async function attachSession(workspace, options, { title, directory }) {
       wireSession?.observe(record);
       options.logger?.record(record, { sessionId });
     },
+    questionBroker: attachQuestionVoice(workspace, { ocId, sessionId, directory: sessionDirectory, projectID },
+      options, (record) => wireSession?.observe(record)),
     storeRoot: options.storeRoot,
     reviewerRoot: options.reviewerRoot,
     providerFactory: options.providerFactory,
@@ -105,15 +118,14 @@ async function attachSession(workspace, options, { title, directory }) {
     secretBroker: options.secretBroker,
   });
   await engine.initialize({ deferMcp: true });
-  const ocId = newId('ses');
   const record = {
     ocId,
     engine,
     ingress: new CanonicalIngress(engine, { interactive: true }),
     title,
     slug: slugifyTitle(title),
-    directory: directory ?? options.directory ?? '',
-    projectID: projectIdentifier(directory ?? options.directory ?? ''),
+    directory: sessionDirectory,
+    projectID,
     path: '',
     createdAt: Date.now(),
   };
@@ -154,6 +166,58 @@ function requireSession(workspace, ocId) {
   const session = workspace.registry.get(ocId);
   if (!session) throw new ContractError('opencode_session_missing', 'session was not found on the opencode surface');
   return session;
+}
+
+function questionOperations(workspace) {
+  return {
+    questionReply(token, body = {}) {
+      const session = requireQuestionSession(workspace, token);
+      return session.ingress.submit({
+        version: '1.0', type: 'question_response', request_id: newId('oc_qreply'),
+        question_token: token, answers: body.answers ?? [],
+      }, 'opencode-wire');
+    },
+    questionReject(token, body = {}) {
+      const session = requireQuestionSession(workspace, token);
+      return session.ingress.submit({
+        version: '1.0', type: 'question_decline', request_id: newId('oc_qreject'),
+        question_token: token, ...(body.reason === undefined ? {} : { reason: body.reason }),
+      }, 'opencode-wire');
+    },
+  };
+}
+
+function requireQuestionSession(workspace, token) {
+  const owner = workspace.pendingQuestions.get(token ?? '');
+  const session = owner === undefined ? null : workspace.registry.get(owner);
+  if (!session) throw new ContractError('question_unknown', 'interactive question is unavailable on this surface');
+  return session;
+}
+
+function attachQuestionVoice(workspace, ids, options, observe) {
+  const { bus, pendingQuestions } = workspace;
+  return new QuestionBroker({
+    output: async (record) => { observe(record); options.logger?.record(record, { sessionId: ids.sessionId }); },
+    emit: {
+      asked: (pending) => {
+        pendingQuestions.set(pending.token, ids.ocId);
+        publishQuestion(bus, ids, 'question.asked', {
+          question_token: pending.token, narrative: pending.narrative, questions: pending.batch,
+        });
+      },
+      settled: (pending, kind) => {
+        pendingQuestions.delete(pending.token);
+        publishQuestion(bus, ids, `question.${kind}`, { question_token: pending.token, kind });
+      },
+    },
+  });
+}
+
+function publishQuestion(bus, ids, type, properties) {
+  bus.publishSession({
+    directory: ids.directory, project: ids.projectID, sessionID: ids.ocId, type,
+    properties: Object.freeze({ sessionID: ids.ocId, ...properties }),
+  });
 }
 
 function boundedTitle(value) {

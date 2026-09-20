@@ -122,6 +122,8 @@ const ROUTES = [
   { method: 'GET', match: prefix('/session/', '/message'), handler: sessionMessages },
   { method: 'DELETE', match: prefix('/session/'), handler: deleteSession },
   { method: 'GET', match: prefix('/session/'), handler: getSession },
+  { method: 'POST', match: prefix('/question/', '/reply'), handler: questionReply },
+  { method: 'POST', match: prefix('/question/', '/reject'), handler: questionReject },
 ];
 
 function exact(path) { return (pathname) => (pathname === path ? {} : null); }
@@ -210,6 +212,42 @@ async function globalEventStream(ctx) {
   sseOpen(ctx.res);
   const unsubscribe = ctx.options.bus.subscribe(ctx.res, { directory: ctx.target.directory ?? null });
   ctx.res.on('close', unsubscribe);
+}
+
+// Why: `/question/:id/reply` and `/question/:id/reject` are the OpenChamber
+// question voice; the token is the broker question token, and settlement is
+// idempotent only within the broker's pending lifetime (404 once stale).
+async function questionReply(ctx) {
+  const gate = jsonContentGate(ctx.req);
+  if (gate) return gate(ctx.res);
+  const read = await readJsonBody(ctx.req);
+  if (read.error) return sendUnknownError(ctx.res, 400, 'question reply body was malformed JSON');
+  try {
+    sendJson(ctx.res, 200, await ctx.options.operations.questionReply(ctx.params.id, read.value ?? {}));
+  } catch (error) {
+    questionFailure(ctx, error);
+  }
+}
+
+async function questionReject(ctx) {
+  const gate = jsonContentGate(ctx.req);
+  if (gate) return gate(ctx.res);
+  const read = await readJsonBody(ctx.req);
+  if (read.error) return sendUnknownError(ctx.res, 400, 'question reject body was malformed JSON');
+  try {
+    sendJson(ctx.res, 200, await ctx.options.operations.questionReject(ctx.params.id, read.value ?? {}));
+  } catch (error) {
+    questionFailure(ctx, error);
+  }
+}
+
+function questionFailure(ctx, error) {
+  if (error?.code === 'question_unknown') return sendEmpty(ctx.res, 404);
+  if (['question_request_invalid', 'invalid_id', 'invalid_version', 'unknown_control', 'incompatible_version'].includes(error?.code)) {
+    return sendUnknownError(ctx.res, 400, error.message);
+  }
+  ctx.options.logger?.record({ type: 'opencode_question_failed', code: error?.code ?? 'internal_failure', question_token: ctx.params.id });
+  sendUnknownError(ctx.res, 500, 'question settlement failed on the agentic surface');
 }
 
 function jsonContentGate(req) {

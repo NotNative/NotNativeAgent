@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:a97861a28c253b301e102fef71de192d73cacb650f47af6c919768fb8352f944",
+  "source_digest": "sha256:02999d9bb259d8228575f3f09b323f411f5af96414879512706f58ceb64968e5",
   "counts": {
     "modules": 356,
     "component_edges": 75
@@ -256,6 +256,12 @@
       "module_count": 4
     },
     {
+      "from": "opencode-surface",
+      "to": "foundation",
+      "import_count": 8,
+      "module_count": 4
+    },
+    {
       "from": "reliability-engine",
       "to": "tools",
       "import_count": 8,
@@ -275,12 +281,6 @@
     },
     {
       "from": "gateway",
-      "to": "foundation",
-      "import_count": 7,
-      "module_count": 4
-    },
-    {
-      "from": "opencode-surface",
       "to": "foundation",
       "import_count": 7,
       "module_count": 4
@@ -1938,7 +1938,8 @@
         "src/opencode/registry.js",
         "src/opencode/slug.js",
         "src/opencode/wire-events.js",
-        "src/opencode/wire-session.js"
+        "src/opencode/wire-session.js",
+        "src/question-broker.js"
       ]
     },
     {
