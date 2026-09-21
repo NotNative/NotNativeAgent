@@ -64,6 +64,10 @@
     {
       "version": "20260920-5",
       "content_sha256": "7dee9f0763109b21590a47a72a32946c6f4d2578e5a99a46fb049dfdb81baaa5"
+    },
+    {
+      "version": "20260921-2",
+      "content_sha256": "6f1348ab23edaf15fb9622f40ddfc0acf2ee13b08080eac6887de795bf2e3245"
     }
   ]
 }

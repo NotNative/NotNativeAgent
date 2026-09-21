@@ -13,7 +13,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
-| P9 autonomy | 12 | pending |
+| P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..13; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
 | P10 knowledge/context | 15 | pending |
 | P11 preview | 13 | pending |
 | P12 Electron | 09 | pending |
@@ -702,6 +702,39 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   wiring P12). Registered E-08-67..69; §6.4/6.5 identity-gated probe
   cluster rides P12 (E-08-68). web 511 tests (+8) · ui 608 (+9) ·
   typecheck ×4 · gates+graph (326)+smoke — seal 20260920-5.
+
+- 2026-09-20 · **P9-1 delivered + reviewed (doc 12 message-queue server
+  runtime, checklist step 7 — §D.1-§D.5).** packages/web/src/server/queue/
+  (9 modules): D.1 item contract (parse matrix 400s, 200k content cap,
+  attachment coercion, context metadata required, 103/100 previews),
+  D.2 store (message-queue.json v1, monotone revision per mutation,
+  pid-tmp atomic writes, corrupt rename-aside + write-disable-on-read-
+  failure re-enabled by the reconcile beat, 20/50-session limits —
+  newest-kept / oldest-evicted-never-in-flight), D.3 delivery loop
+  (500 ms idle quiet timer, abort-hold 2 s, per-ITEM backoff
+  2 s×2→60 s cap, LIVE idle verification (status-map absent + the
+  2-message tail complete), head re-read, §D.3.6 exact part order w/
+  the composer-parity slash expansion ($ARGUMENTS/$1..$N
+  last-absorbs/append), command-vs-prompt routing (command route only
+  sans context), onPromptSent hooks, broadcast-first behavioral),
+  D.4 in-memory TTL holds (auto-release backstop wakes survive the
+  holder's death — review P1), D.5 route family (snapshot/enqueue/
+  take/takeAll/full-permutation order/item+session delete/hold;
+  409 in-flight; every reply carries directory incl. emptied queues)
+  + `notnative:message-queue.updated` broadcast on the control stream,
+  alphabetical reconcileAll + startup load-then-reconcile.
+  Adversarial review (ses_f3d3abec2ffeaO2aJ2zinI31je) fixed P1×3 + P2×2:
+  P1 held queues strand forever when the asserting UI dies (schedule
+  the expiry's own wake), P1 write-disable re-enable was dead code
+  (reconcile probes now), P1 delete replies could drop the directory
+  (memory-only entries); P2 take-over-empty bumped revisions, P2
+  abort stamps never vacuumed. Registered E-09-1..13 (brand rows,
+  knowledge seam, quiet-coalescing earliest-arm, catalog load
+  degrades to prose, feed stop posture, legacy id/createdAt parse).
+  Builder agent (ses_f3dba4e26ffePW1CAscFFAL7t8 + fixer
+  ses_f3d56f27dffeTQu3hrCWPtTDSj; adversarial ses_f3d3abec2ffeaO2aJ2zinI31je).
+  web 585 tests (+74 across 5 suites) · ui 608 (+0) · typecheck ×4 ·
+  gates green — seal 20260920-6.
 
 ## Delta/Delayed register
 

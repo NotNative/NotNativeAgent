@@ -20,6 +20,7 @@ import { registerGitWorktreeRoutes } from './routes/git-worktrees.ts';
 import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes } from './routes/projects.ts';
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
+import { registerMessageQueueRoutes } from './queue/queue-routes.ts';
 import { registerTerminalRoutes } from './terminal/routes.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import type { TerminalRuntime } from './terminal/session-core.ts';
@@ -207,6 +208,7 @@ export function errorHygiene(error: unknown, c: Context): Response {
  * order, doc 03 §5.14/§5.13 — nothing may register after the proxy). */
 function registerApiSurfaces(app: Hono, terminal: TerminalRuntime): void {
   app.route('/', createNotNativeRoutes());
+  registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
   registerRelayRoutes(app);
   registerClientAuthRoutes(app);
   registerTunnelRoutes(app);

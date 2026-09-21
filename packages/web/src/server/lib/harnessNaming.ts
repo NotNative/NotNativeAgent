@@ -22,6 +22,8 @@ export const CONTROL_EVENTS = {
   sessionStatus: 'notnative:session-status',
   sessionActivity: 'notnative:session-activity',
   notification: 'notnative:notification',
+  // §D.5 message-queue fanout (E-09-1: NND brand on the doc-12 channel)
+  messageQueueUpdated: 'notnative:message-queue.updated',
 } as const;
 
 /**
