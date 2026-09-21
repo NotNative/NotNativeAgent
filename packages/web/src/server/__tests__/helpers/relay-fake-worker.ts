@@ -21,6 +21,8 @@ export interface FakeWorker {
   unpauseData(): void;
   awaitClientLeg(connectionId: string): Promise<WsClient>;
   announceSync(connectionIds: string[]): void;
+  /** Injects a worker -> host `connected` announcement (duplicate-leg pins). */
+  announceConnected(connectionId: string): void;
   /** Ungates held upgrades, terminates every live socket, closes the server. */
   close(): Promise<void>;
 }
@@ -149,6 +151,9 @@ export function createFakeWorker(): Promise<FakeWorker> {
     },
     announceSync(ids: string[]): void {
       hostControlSocket?.send(JSON.stringify({ type: 'sync', connectionIds: ids }));
+    },
+    announceConnected(connectionId: string): void {
+      hostControlSocket?.send(JSON.stringify({ type: 'connected', connectionId }));
     },
     close(): Promise<void> {
       ungateAll();

@@ -262,6 +262,17 @@ describe('Layer 3 tunnel codec (doc 08 sections 3.6)', () => {
     expect(() => decodeTunnelFrame(Buffer.from([1, 2, 3]))).toThrow(CodecError);
   });
 
+  it('a foreign frame numeral is a CodecError, never decodable noise (§3.6 contract, §12.5 fail-closed)', () => {
+    for (const numeral of [0, 127, 14, 200]) {
+      const foreign = encodeTunnelFrame({ type: numeral, streamId: 1, hasMore: false, payload: Buffer.from('x') });
+      expect(() => decodeTunnelFrame(foreign)).toThrow(/unknown tunnel frame type/u);
+    }
+    for (const [type, numeral] of Object.entries(TunnelFrameType)) {
+      void type;
+      expect(() => decodeTunnelFrame(encodeTunnelFrame({ type: numeral as number, streamId: 0, hasMore: false, payload: Buffer.alloc(0) }))).not.toThrow();
+    }
+  });
+
   it('fragmentation: chunked WS text reassembles byte-exact; empty body yields ONE empty chunk', () => {
     const payload = Buffer.from('x'.repeat(64 * 1024 - 10));
     const frames = encodeFragmentedMessage(TunnelFrameType.WsText, 3, payload, 1024);

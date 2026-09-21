@@ -12,7 +12,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P5 themes/settings | 14 | 🔶 P5-1..5 done 2026-09-17 (P5-1 token block + D8; P5-2 theme system: 38 built-ins + derive + generator + §E.3 persistence + §E.6 validation, review P0+P1×5 fixed; P5-3 settings registry 186 fields + snapshot gate + §F.3 split store + server gate + client persistence engine + fs-write no-op, review P0×2+P1×6 fixed; P5-4 i18n scaffold (12 locales, closed en set, partial catalogs w/ en fallback, provider/store/runtime/bootstrap), review P0+P1×3 fixed; P5-5 shortcuts engine (36 bindings, grammar/registry/dispatcher/hooks, capture listener, AltGraph + IME rules, recorderConflict), review P0+P1×5 fixed; 250 UI · 33 web · gates+smoke+graph each; P5-6 settings UI (window/pages/search/recorder + §I.3/I.4 wiring + §J formatters) queued) |
 | P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
-|. P8 remote/security | 08 | 🔶 in progress 2026-09-20 (P8-1a-d + P8-2a-c + P8-3a + P8-4a/c delivered + reviewed; P8-5a relay CLIENT face delivered; P8-5b pairing/auth UX delivered (gate+banner wired into the app tree); P8-5c CLI connect-url delivered (doc 03 CLI framework seed); P8-6 SSH machines UI-ownable contract faces delivered (types/import/store/bridge seam — Electron internals = P12 per §7.4); P8-7 reverse-proxy posture delivered (origin checks over proxy headers w/ IPv6 + dev-proxy parity, robots hygiene, SSE pin, onError belt); next: invariants sweep (15) per NOTES/08 §A) |
+| P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
 | P9 autonomy | 12 | pending |
 | P10 knowledge/context | 15 | pending |
 | P11 preview | 13 | pending |
@@ -687,6 +687,21 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   case-sensitive packaged origins). Registered E-08-65/66. web 503
   tests (+13) · ui 599 (+0) · typecheck ×4 · gates green — seal
   20260920-4.
+
+- 2026-09-20 · **P8-8 delivered — P8 PHASE COMPLETE (doc 08 §12
+  invariants sweep, checklist step 15).** The audit ran all 42 §12.1-12.5
+  rows: 30 already pinned by their owning suites, 9 new pins, 2
+  gap-fixed, 3 registered; the matrix lives in NOTES/08 §D.
+  New sweep suite p8-8-invariants-sweep (static no-leak rows: no
+  Authorization/cookie logging in server src; 0o600 on every secret
+  store except the E-08-29 host-lane; no-store helper discipline;
+  tunnel bodies token-free; ui runtime/relay never persist) + runtime
+  rows (duplicate host dials; failChannel payloads). GAP-FIXED:
+  decodeTunnelFrame foreign numerals now CodecError in both mirrors
+  (E-08-69); redactSensitiveUrl landed as lib/redact-url.ts (E-08-67,
+  wiring P12). Registered E-08-67..69; §6.4/6.5 identity-gated probe
+  cluster rides P12 (E-08-68). web 511 tests (+8) · ui 608 (+9) ·
+  typecheck ×4 · gates+graph (326)+smoke — seal 20260920-5.
 
 ## Delta/Delayed register
 

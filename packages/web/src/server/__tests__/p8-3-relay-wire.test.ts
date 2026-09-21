@@ -143,19 +143,35 @@ function decodeHostTraffic(message: Buffer): WireFrame[] {
   }));
 }
 
-/** Frame streamer over one leg: decodes each new wire message once, in
- * order, and hands back the tunnel frames it carried. */
-function makeFrameStream(leg: ClientLeg, startWireIndex: number): () => Promise<WireFrame[]> {
+/** Frame collector over one leg: decodes wire messages in order into an
+ * accumulating list, and resolves waits when a TARGET frame exists —
+ * coalesced batch containers no longer decide which frames a probe
+ * observance (the old per-batch stream() starved when
+ * `WsOpened`+`upstream-hello` shared one batch and left nothing new to
+ * await, and truncated response probes when the head batch preceded the
+ * body batch). */
+function frameCollector(leg: ClientLeg, startWireIndex = 0): {
+  seen: WireFrame[];
+  awaitOnce: (want: (frame: WireFrame) => boolean) => Promise<WireFrame[]>;
+} {
+  const seen: WireFrame[] = [];
   let cursor = startWireIndex;
-  return async (): Promise<WireFrame[]> => {
-    await waitFor(() => leg.inbound.length > cursor, 2500);
-    const out: WireFrame[] = [];
-    for (const wire of leg.inbound.slice(cursor)) {
-      const plaintext = Buffer.from(await decryptFrame(leg.session.hostToClient, wire));
-      out.push(...decodeHostTraffic(plaintext));
+  const pull = async (): Promise<void> => {
+    while (cursor < leg.inbound.length) {
+      const plaintext = Buffer.from(await decryptFrame(leg.session.hostToClient, leg.inbound[cursor]!));
+      cursor += 1;
+      seen.push(...decodeHostTraffic(plaintext));
     }
-    cursor = leg.inbound.length;
-    return out;
+  };
+  return {
+    seen,
+    async awaitOnce(want: (frame: WireFrame) => boolean): Promise<WireFrame[]> {
+      await waitFor(async () => {
+        await pull();
+        return seen.some(want);
+      }, 2500);
+      return [...seen];
+    },
   };
 }
 
@@ -262,8 +278,9 @@ describe('mixed-mode demux (the 0x01 tag vs bare HttpRequest disambiguation)', (
       hasMore: false,
       payload: encodeJsonPayload({ method: 'GET', path: '/api/probe', query: { q: '1' }, headers: {} }),
     });
-    const stream = makeFrameStream(leg, 0);
-    const frames = await stream();
+    const stream = frameCollector(leg);
+    await stream.awaitOnce((frame) => frame.type === TunnelFrameType.StreamEnd && frame.streamId === 105);
+    const frames = stream.seen;
     const response = frames.find((frame) => frame.type === TunnelFrameType.HttpResponse);
     expect(response?.streamId).toBe(105);
     expect(JSON.parse(response!.payload.toString('utf8'))).toMatchObject({ status: 200 });
@@ -281,8 +298,9 @@ describe('production relay wire (broker + leg mux + loopback)', () => {
       hasMore: false,
       payload: encodeJsonPayload({ method: 'GET', path: '/api/probe', query: { q: '1' }, headers: {} }),
     });
-    const stream = makeFrameStream(leg, 0);
-    const frames = await stream();
+    const stream = frameCollector(leg);
+    await stream.awaitOnce((frame) => frame.type === TunnelFrameType.StreamEnd && frame.streamId === 101);
+    const frames = stream.seen;
     const response = frames.find((frame) => frame.type === TunnelFrameType.HttpResponse);
     expect(response?.streamId).toBe(101);
     const head = JSON.parse(response!.payload.toString('utf8')) as { status: number; headers: Record<string, string> };
@@ -296,25 +314,24 @@ describe('production relay wire (broker + leg mux + loopback)', () => {
 
   it('a WsOpen dials the real local ws upstream; texts and closes cross both ways', async () => {
     const leg = await establishLeg('wire-ws');
-    const stream = makeFrameStream(leg, 0);
+    const stream = frameCollector(leg);
     await sendTunnelFrame(leg, {
       type: TunnelFrameType.WsOpen,
       streamId: 103,
       hasMore: false,
       payload: encodeJsonPayload({ path: '/api/event/ws', protocols: [] }),
     });
-    const opened = (await stream()).find((frame) => frame.type === TunnelFrameType.WsOpened);
+    await stream.awaitOnce((frame) => frame.type === TunnelFrameType.WsOpened && frame.streamId === 103);
+    const opened = stream.seen.find((frame) => frame.type === TunnelFrameType.WsOpened);
     expect(opened?.streamId).toBe(103);
-    const hello = (await stream()).find((frame) => frame.type === TunnelFrameType.WsText);
-    expect(hello?.payload.toString('utf8')).toBe('upstream-hello');
+    await stream.awaitOnce((frame) => frame.type === TunnelFrameType.WsText && frame.payload.toString('utf8') === 'upstream-hello');
     await sendTunnelFrame(leg, {
       type: TunnelFrameType.WsText,
       streamId: 103,
       hasMore: false,
       payload: Buffer.from('client-ping'),
     });
-    const echo = (await stream()).find((frame) => frame.type === TunnelFrameType.WsText);
-    expect(echo?.payload.toString('utf8')).toBe('echo:client-ping');
+    await stream.awaitOnce((frame) => frame.type === TunnelFrameType.WsText && frame.payload.toString('utf8') === 'echo:client-ping');
     expect(upstreamSeenPing).toBe(true);
     await sendTunnelFrame(leg, {
       type: TunnelFrameType.WsClose,
@@ -322,7 +339,8 @@ describe('production relay wire (broker + leg mux + loopback)', () => {
       hasMore: false,
       payload: encodeJsonPayload({ code: 1000, reason: 'done' }),
     });
-    const closeFrame = (await stream()).find((frame) => frame.type === TunnelFrameType.WsClose);
+    await stream.awaitOnce((frame) => frame.type === TunnelFrameType.WsClose && frame.streamId === 103);
+    const closeFrame = stream.seen.find((frame) => frame.type === TunnelFrameType.WsClose && frame.streamId === 103);
     expect(closeFrame).toBeDefined();
     expect(upstreamCloseCode).not.toBeNull();
     await disposeByReplay(leg);

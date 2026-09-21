@@ -112,6 +112,15 @@ describe('relay layer 3 codec', () => {
     expect(utf8Text(frame.payload)).toBe('HEAD');
   });
 
+  it('a foreign frame numeral throws CodecError instead of decoding as noise (§3.6, §12.5 parity with the host mirror)', () => {
+    for (const numeral of [0, 127, 14, 200, TunnelFrameType.DeliveryAck + 1]) {
+      expect(() => decodeTunnelFrame(frameOf(numeral, 1, 'x'))).toThrow(/unknown tunnel frame type/u);
+    }
+    for (const numeral of Object.values(TunnelFrameType) as number[]) {
+      expect(() => decodeTunnelFrame(frameOf(numeral, 0, ''))).not.toThrow();
+    }
+  });
+
   it('stream id allocator issues odd ids from 1', () => {
     const allocator = createStreamIdAllocator();
     expect(allocator.next()).toBe(CLIENT_FIRST_STREAM_ID);

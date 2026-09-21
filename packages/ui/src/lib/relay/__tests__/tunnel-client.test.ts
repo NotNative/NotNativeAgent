@@ -273,6 +273,30 @@ describe('relay tunnel client over a fake broker', () => {
     rig.client.close();
   });
 
+  it('terminal 4002 (duplicate client leg) fails fast forever like 4010 (§12.5)', async () => {
+    const rig = makeRig(await makeHostKeys());
+    await readyBroker(rig);
+    const socketsBefore = rig.brokers.length;
+    (rig.brokers[0] as Entry).socket.brokerCloses(4002, 'duplicate connection');
+    await until(() => rig.client.getStatus().state === 'error');
+    expect(rig.client.getStatus().lastError).toContain('duplicate connection');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(rig.brokers.length).toBe(socketsBefore); // no reconnect ladder ever arms
+    rig.client.close();
+  });
+
+  it('an unknown close code is never terminal and rides the standard ladder (§12.5 fail-closed)', async () => {
+    const rig = makeRig(await makeHostKeys());
+    await readyBroker(rig);
+    (rig.brokers[0] as Entry).socket.brokerCloses(4500, 'unrecognized');
+    const socketsBefore = rig.brokers.length;
+    await until(() => rig.client.getStatus().state === 'reconnecting');
+    expect(rig.client.getStatus().lastError).toContain('unrecognized'); // reason carried, no special grace invented
+    await until(() => rig.brokers.length > socketsBefore, 3000); // the standard base-delay retry follows
+    await until(() => rig.client.getStatus().state === 'connected');
+    rig.client.close();
+  });
+
   it('keepalive is inbound-driven: idle id pings on stream 0; a Pong keeps the channel live', async () => {
     const rig = makeRig(await makeHostKeys(), { pingIntervalMs: 40, pingTimeoutMs: 120 });
     const broker = await readyBroker(rig);

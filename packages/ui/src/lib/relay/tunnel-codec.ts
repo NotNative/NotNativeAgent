@@ -21,6 +21,9 @@ export type { TunnelFrame };
 
 export class CodecError extends Error {}
 
+/** §3.6: the numerals are the contract (never renumbered). */
+const KNOWN_FRAME_TYPES: ReadonlySet<number> = new Set(Object.values(TunnelFrameType) as number[]);
+
 export function encodeTunnelFrame(frame: TunnelFrame): Uint8Array {
   const head = (frame.type & 0x7f) | (frame.hasMore ? HAS_MORE_FLAG : 0);
   const bytes = new Uint8Array(TUNNEL_FRAME_HEADER_BYTES + frame.payload.length);
@@ -32,8 +35,13 @@ export function encodeTunnelFrame(frame: TunnelFrame): Uint8Array {
 
 export function decodeTunnelFrame(bytes: Uint8Array): TunnelFrame {
   if (bytes.length < TUNNEL_FRAME_HEADER_BYTES) throw new CodecError('tunnel frame header truncated');
+  const type = (bytes[0] as number) & 0x7f;
+  // §3.6: the frame numerals are the wire contract — a foreign numeral is a
+  // protocol violation, never ignorable noise (§12.5 fail-closed parity
+  // with the server mirror).
+  if (!KNOWN_FRAME_TYPES.has(type)) throw new CodecError(`unknown tunnel frame type ${type}`);
   return {
-    type: ((bytes[0] as number) & 0x7f),
+    type,
     streamId: u8ReadUInt32BE(bytes, 1),
     hasMore: ((bytes[0] as number) & HAS_MORE_FLAG) !== 0,
     payload: bytes.subarray(TUNNEL_FRAME_HEADER_BYTES),

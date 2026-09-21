@@ -40,6 +40,12 @@ export type TunnelFrameType = (typeof TunnelFrameType)[keyof typeof TunnelFrameT
 
 export const HAS_MORE_FLAG = 0x80;
 
+/** §3.6: the frame numerals are the wire contract (never renumbered) — a
+ * foreign numeral is a protocol violation, not ignorable noise (§12.5:
+ * fail-closed defaults; the demux's bare-frame fallback leans on THIS
+ * decoder to refuse unrecognizable types). */
+const KNOWN_FRAME_TYPES: ReadonlySet<number> = new Set(Object.values(TunnelFrameType) as number[]);
+
 export interface TunnelFrame {
   type: TunnelFrameType | number;
   streamId: number;
@@ -58,8 +64,10 @@ export function encodeTunnelFrame(frame: TunnelFrame): Buffer {
 export function decodeTunnelFrame(bytes: Buffer): TunnelFrame {
   if (bytes.length < TUNNEL_FRAME_HEADER_BYTES) throw new CodecError('tunnel frame header truncated');
   const head = bytes.readUInt8(0);
+  const type = head & 0x7f;
+  if (!KNOWN_FRAME_TYPES.has(type)) throw new CodecError(`unknown tunnel frame type ${type}`);
   return {
-    type: head & 0x7f,
+    type,
     streamId: bytes.readUInt32BE(1),
     hasMore: (head & HAS_MORE_FLAG) !== 0,
     payload: bytes.subarray(TUNNEL_FRAME_HEADER_BYTES),

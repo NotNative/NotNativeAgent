@@ -952,6 +952,42 @@ SSH -> reverse proxy -> invariants.
   web 503/35 (+13: origin rows incl. the two raw-socket upgrade
   probes + hygiene/stream pins) - ui unchanged 599/62 -
   typechecks x4 - gates green. Seal 20260920-4 with the entry below.
+
+- **P8-8 (delivered this slice)** - checklist step 15, the S12
+  invariants sweep, closing the doc 08 phase. The full row matrix
+  lives in the new '## D. Invariants sweep (P8-8)' section: 42 rows
+  audited - 30 already PINNED (named suites per row), 9 NEW pins, 2
+  GAP-FIXED, 3 registered deferred/deviation rows. The new sweep
+  suite `p8-8-invariants-sweep.test.ts` pins the static no-leak rows
+  (server src carries no raw Authorization/cookie-header logging;
+  every secret store writes 0o600 - the relay-host lane 0o644 stays
+  the E-08-29 exception; client-auth routes answer only through the
+  single no-store json helper; tunnel route bodies token-free except
+  the sanctioned /connect?t= seat; ui runtime/relay files carry no
+  persistence APIs) plus runtime rows (duplicate connected/sync
+  announcements keep exactly ONE host-data dial - CountingIdentity
+  dial counter; the leg failChannel never carries payload bytes -
+  sentinel). GAP-FIXED: (E-08-69) `decodeTunnelFrame` accepted
+  foreign frame numerals as ignorable noise in BOTH mirrors - now a
+  CodecError 'unknown tunnel frame type N' fails the channel closed,
+  with pins in p8-2-relay-primitives + the ui relay-parity test + the
+  sweep sentinel; (E-08-67) `redactSensitiveUrl` (S12.1) did not
+  exist - added `packages/ui/src/lib/redact-url.ts` doc-exact
+  (userinfo strip; t|token|auth|secret|api query keys -> [REDACTED];
+  verbatim passthrough) w/ its own suite, display-face wiring
+  deferred to P12. New ui pins: Authorization parse-side filter in
+  extra headers + memory-only bearer discipline (S12.3 parse half;
+  write half is doc 09/P12 per E-08-68); terminal 4002 fails fast
+  forever + the unknown close code rides the standard ladder, never
+  grace. Registered E-08-67/68/69. The p8-3-relay-wire harness got a
+  frame-targeted `frameCollector` replacing a latent per-batch
+  consumption race (the P8-7-era flake diagnosed for real). tests:
+  web 511/36 (+8: 7 sweep + 1 primitives) - ui 608/64 (+9 spread
+  across relay/e2e/runtime rows) - typechecks x4 - gates green -
+  graph (326) - seal 20260920-5. P8 PHASE COMPLETE: all 15
+  checklist steps delivered and reviewed; remaining registered
+  work rides other phases (P4 CLI/server middot-layer, P12
+  desktop faces, doc 11 mobile).
 ## B. Adaptation deltas (registered)
 
 - **E-08-34 (§4.7 failure-path interpretation, not doc-literal)**:
@@ -1246,6 +1282,37 @@ SSH -> reverse proxy -> invariants.
   and ws passes (setupOutgoing), and changeOrigin then fixes the Host, so
   Origin and Host render the same host on the gate. Pinned by a config
   read test (form drift re-opens the dev doom).
+- **E-08-67 (redactSensitiveUrl: helper shipped, display faces defer)**:
+   §12.1's "client-side host URL display is redacted" shipped NO
+   implementation — the doc's display consumers (§6.5 device rows /
+   switcher, banner probes) are §6.4/6.5 P12 surface. The P8-8 sweep
+   adds the canonical helper (`packages/ui/src/lib/redact-url.ts`,
+   doc-exact regex `^(t|.*(?:token|auth|secret|api).*)$`i, userinfo
+   stripped, unparsable input returned verbatim) with ui pins. The
+   faces that render host URLs must route through it when they land
+   (P12); the §6.1 pairing dialog shows the LINK/label, not host URLs,
+   so nothing currently displays an unredacted URL.
+- **E-08-68 (§6.4/6.5 identity-gated probe cluster defers to P12)**:
+   §12.5's "identity gating before credentials" and the LAN-candidate
+   serverId trust bind to the desktop/mobile probe and hot-switch
+   machinery (the `wrong-service` status type already sits in
+   ui/targets), which stay P12 per the P8-5a slice map. What exists is
+   pinned: serverId rides every candidate (p8-4b), serverId stability
+   is identity-singleton (p8-5c), URL tokens are bound to their parent
+   (p8-1-auth-ui) and tunnel sessions to their tunnelId (p8-1-tunnel).
+   The desktop shell's `requestHeaders` write-side Authorization filter
+   is doc 09 (P12) for the same reason.
+- **E-08-69 (foreign relay frame numerals fail closed; were silently
+   ignored)**: the §12.5 sweep probe fed a numeral-0x7f frame through
+   the host leg and the codec DECODED it (decodeTunnelFrame never
+   validated the §3.6 type range; unknown types flowed into the
+   dispatcher as ignorable noise — a hostile peer could desync the
+   ledger grammar unnoticed). Fixed in BOTH mirrors: decodeTunnelFrame
+   rejects numerals outside TunnelFrameType (CodecError 'unknown tunnel
+   frame type N') so the leg/client fails the channel instead
+   (fail-closed default, §3.4/§12.5). Byte format unchanged; only the
+   refuse-not-ingest posture is new; pinned in both codec suites and
+   by the §12.5 sweep sentinel + the 4002/unknown-close-code ui rows.
 - **E-08-1 (JWT hand-rolled)**: the doc uses the `jose` library's SignJWT;
   NND hand-rolls HS256 sign/verify with node:crypto to avoid the
   dependency (JWT is `{type:'ui-session', iat, exp}` only; verification is
@@ -1600,3 +1667,110 @@ sessionTtlMs}; the /connect limiter keys the SOCKET address first
 P8-1 header-first keying); quick-tunnel child env carries HOME +
 USERPROFILE + APPDATA pointed at the temp HOME on win32; .bat/.cmd/
 .com PATH candidates are never launch targets (Node EINVAL posture).
+
+## D. Invariants sweep (P8-8)
+
+§12 re-audit as a checklist (step 15). Statuses: PINNED = a named
+existing test suite pins it; NEW PIN = pinned by this slice; GAP-FIXED
+= a hole fixed in code this slice, with tests; dev rows cite their
+registered E-08-NN. The static greps live in
+`packages/web/src/server/__tests__/p8-8-invariants-sweep.test.ts` (suite
+name p8-8-invariants-sweep; rows (a)-(e) below).
+
+### §12.1 never log or leak
+
+| Row | Pin | Status |
+| --- | --- | --- |
+| Pairing secrets/hashes never in logs or long-lived replies | p8-4a-pairing-store 'sha256 secretHash ... never the plaintext' + 'lists pending sessions without secrets and without the hash'; p8-4a-client-auth-routes 'plaintext token exactly once'; p8-5b route/parity suites | PINNED |
+| create/redeem (+429, cancel, purge) `Cache-Control: no-store` | p8-4a-client-auth-routes 'rate limits ... 429 keeps no-store' + no-store asserts (47/100/186); NEW static sweep (c): client-auth.ts answers only through the single no-store `json()` helper | PINNED + NEW PIN |
+| Links render in the pairing dialog only; QR transient, never a file; CLI stdout link is the product surface | p8-5b pairing-dialog tests (QR next to the printable link, copy rows, open:false), p8-1-auth-core link caps; CLI print row per §5.9 (E-08-57 family); the startup-tunnel console link is the doc's own "printed/QR'd at tunnel start" row (§11 line 119/§4.7 line 1373) | PINNED |
+| Device tokens (`oc_client_`) and URL tokens never join logs | NEW sweep (a): zero console/logger statement lines in server src mentioning authorization/cookie (comments excluded) | NEW PIN |
+| URL tokens: 60 s + fixed allowlist | p8-1-auth-ui 'url tokens: mint/resolve, expiry, budget eviction, both parents' (393), 'rides the allowlist in both spellings' (638), 'expired URL tokens fall through' (437) | PINNED |
+| cloudflared managed-remote: stdout drained unlogged, `--token-file` 0o600 non-argv, deleted on exit | p8-4c-tunnel-providers 'writes the token to a 0o600 temp file, spawns --token-file (never argv)' (81) | PINNED |
+| Profile store never echoes tokens (preset ids only) | p8-4c-tunnel-profile-store 'tokens never leak into the file listing surface (§12.1)' (59); p8-4c-tunnel-routes 'managed-remote-token upsert ... §12.1: tokens never echo' (222-235) + doctor POST never-echo (204); NEW sweep (d): jsonRoute bodies token-free except the /connect bootstrap seat | PINNED + NEW PIN |
+| Relay failChannel rows carry connectionId + reason only | NEW sweep runtime: leg-host sentinel — a hostile payload's bytes never join the failure reason (structural, ≤200 chars); E-08-69 joiner | NEW PIN |
+| Client-side display redaction (`redactSensitiveUrl`) | ui redact-url.test.ts (doc-exact regex + userinfo strip + verbatim passthrough); wiring of display faces = E-08-67 | GAP-FIXED |
+| Diagnostics/analytics never carry credentials | no diagnostics/analytics surface exists in the rebuild (§3.14 analytics + §6.4 probe machinery are P12); startupTrace is opt-in ring memory | Registered (E-08-68) |
+| jwt-secret/relay keys/token stores 0o600; chmod-on-write; scrypt salt memory-only | NEW sweep (b): every `writeFileSync` in the 9 secret stores carries 0o600 (host-lock 0o644 = registered E-08-29 exception); p8-1-auth-core atomic writes; p8-2a/p8-3 config/identity strict-readers | PINNED + NEW PIN |
+| Never log raw Authorization/cookie headers | NEW sweep (a) (same row as tokens) | NEW PIN |
+
+### §12.2 server storage locations
+
+| Row | Pin | Status |
+| --- | --- | --- |
+| `jwt-secret` 0o600 | p8-1-auth-ui 'secret holder loads the file, rotates...' (165) + regenerated/rewritten rows; sweep (b) | PINNED + NEW PIN |
+| `remote-clients.json` 0o600 / dir 0o700, sha256 hashes | p8-1-auth-core 'persists atomically...strict-reads' (171); sweep (b) | PINNED + NEW PIN |
+| `client-pairing-sessions.json` 0o600, sha256 secretHash | p8-4a-pairing-store 131/store rows; sweep (b) | PINNED + NEW PIN |
+| `ui-passkeys.json` | p8-1-passkeys store hygiene (227/371); written 0o600 (doc says default umask — impl is stricter; noted, no delta) | PINNED |
+| `relay-host.lock` {pid, claimedAt} default mode | p8-3-relay-host-lock suite (claim/reclaim/release rows); 0o644 explicit = E-08-29 | PINNED |
+| `cloudflare-managed-remote-tunnels.json` 0o600 plaintext tokens | p8-4c-tunnel-profile-store; sweep (b) | PINNED + NEW PIN |
+| `settings.json` (identity JWKs private halves, relay config, tunnel settings) | p5-3 settings suites; the identity/config halves ride the dedicated files (E-08-23/28) at 0o600 | PINNED |
+| relay keys + `relay-config` dedicated files | E-08-23/E-08-28; p8-2-relay-primitives identity rows + p8-3-relay-host-lock config rows; sweep (b) | PINNED |
+| In-memory only: scrypt salt, JWT binding, URL-token map, tunnel sessions, login limiter | p8-1-auth-core (password/salt), p8-1-auth-ui (jwt binding/limiter/url tokens), p8-1-tunnel (bootstrap/session in-memory) — none touch storage | PINNED |
+| Doc paths read OPENCHAMBER_DATA_DIR/~/.config/openchamber | NND brand NOTNATIVE_DATA_DIR/`~\.notnative-desktop` per the E-08-4/E-08-38 brand seam | Deviation (registered) |
+
+### §12.3 client storage
+
+| Row | Pin | Status |
+| --- | --- | --- |
+| Browser/PWA: cookie jar only; nothing token-bearing in JS storage | NEW sweep (e): the ui runtime/relay file family carries no persistence APIs (localStorage/sessionStorage/indexedDB/caches) — grant/URL-token/bearer cannot leave memory; ui settings mirror excludes `secret` fields by registry rule; SessionAuthGate stores only the trust-device flag | NEW PIN |
+| Runtime bearer is injected + memory-only; extra headers never keep Authorization | ui runtime-auth.test.ts (NEW): parse-side filter + set-once + no-overwrite + tokenless injection surface | NEW PIN |
+| Desktop: requestHeaders never keep Authorization (parse AND write) | parse side = runtime-auth.test.ts NEW PIN; write/desktop-store side is doc 09 (P12) | NEW PIN + deferral (E-08-68) |
+| Mobile secure store, metadata-only localStorage, migration | doc 11 mobile slice (P13) — outside this doc's build | Registered |
+| `grant` never persisted; QR payloads never written to disk | sweep (e) + p8-5a E2E (grant rides the §3.3 URL), relay-primitives URL-shape pin, p8-5b dialog/QR rows | NEW PIN (e) + PINNED |
+
+### §12.4 revocation semantics
+
+| Row | Pin | Status |
+| --- | --- | --- |
+| `DELETE /api/client-auth/clients/:id` (self/desktop-local/UI session) | p8-4b-client-auth-authority 'plain tokens see only themselves, may only revoke themselves...' + p8-1-auth-core 'authenticate rejects revoked...' (269) + 'revoked residue survives until purge' (200) | PINNED |
+| Pending pairing cancel | p8-4a-pairing-store 'cancel stamps once...' (191) + used-cancel {cancelled:false} (320) + cross-process cancel (409); p8-4a-client-auth-routes cancel rows (278) | PINNED |
+| Passkey `DELETE /api/passkeys/:id` rpID-scoped | p8-1-passkeys 'revoke matches id AND rpID; auth-reset purge...' (351) | PINNED |
+| `POST /api/auth/reset` rotation; device tokens survive; passkeys cleared | p8-1-auth-ui 'reset rotates the session secret; device tokens survive' (614) + env-backed refusal (719); p8-1-passkeys 'auth reset purges passkeys' (500) | PINNED |
+| Tunnel stop/replace → cookie dead, listed inactive | p8-1-tunnel 'stop/replace: clearActiveTunnel revokes + nulls; wrong-tunnel sessions die with the new id' (217) + 'stop: artifacts die...' (423); p8-4c-tunnel-service replacement rows (60-75,135) | PINNED |
+| Bootstrap newest-only revocation | p8-1-tunnel 'bootstrap tokens: newest-only, clamped expiry, one-shot redeem' (149) + one-time /connect (264) | PINNED |
+| `/relay/disable` / demand loss | p8-3-relay-service 'disable persists the off-truth...' (325) + route rows (465) + demand-revival poll (390) | PINNED |
+| URL token 60 s + allowlist sweep | p8-1-auth-ui 393/437/638 (see §12.1) | PINNED |
+
+### §12.5 invalidation rules
+
+| Row | Pin | Status |
+| --- | --- | --- |
+| One-time: pairing secret `usedAt` | p8-4a-pairing-store one-time + spent-id rows (118/200/229/349/396) | PINNED |
+| One-time: bootstrap token (`usedAt` + newest-only) | p8-1-tunnel 149/264 | PINNED |
+| One-time: URL token 60 s | p8-1-auth-ui 393 | PINNED |
+| One-time: relay `grant` (single-use, unpersisted) | sweep (e) + p8-5a E2E grant-through-URL + relay-primitives client-role URL shape (grant only when provided) | NEW PIN + PINNED |
+| One tunnel controller per instance | p8-4c-tunnel-service 'concurrent starts serialize (no orphaned controllers)' (173) + replacement/reuse rows (48-93) | PINNED |
+| One relay host claim per machine/data dir | p8-3-relay-host-lock (17 claim rows) + p8-3-relay-service standby/grace/boot-reclaim (239-312) | PINNED |
+| One host-control slot per serverId (4001) | p8-2-relay-host 'control replacement: lastError reflects the 4001 close...' (147) | PINNED |
+| One client leg per connection; duplicate ⇒ 4002 | NEW sweep runtime: duplicate `connected`/sync announcements keep exactly ONE host-data dial (CountingIdentity dial counter); ui tunnel-client NEW 'terminal 4002 fails fast forever'; the 4002 itself is the worker's rule (E2E parity via p8-2/p8-5a) | NEW PIN |
+| Candidates are snapshots; `usesRelay` sticky | p8-4b candidates rows (97/166: refresh per call, never URL-token-admitted); p8-1-auth-core 'relay flag is sticky' (269) | PINNED |
+| Failed store read aborts reconcile (never fake no-demand) | p8-3-relay-service 'a demand read failure with NO affirmative throws' (181) | PINNED |
+| Pending-list polling never fakes redemption | ui pairing.test 'a failed poll neither blanks the signal nor fakes redemption' (396) + p8-5b harness rows | PINNED |
+| URL tokens bind to the parent session | p8-1-auth-ui 'both parents' (393) + 'bound to expired device parents fail closed' (448) + 'revoked device records kill their bound URL tokens' (668) | PINNED |
+| Tunnel sessions bind to their tunnelId | p8-1-tunnel 'sessions: ... revoked/wrong-tunnel/expired rejection' (192) + stop/replace (217) | PINNED |
+| JWTs bind to the rotatable secret | p8-1-auth-ui 494/614/719 + p8-1-auth-core 'secret holder loads the file, rotates...' (165) | PINNED |
+| E2EE binds pinned `hostEncPubJwk` (rekey ⇒ 1008) | p8-2-relay-host 'a rekey attempt closes 1008; post-established plaintext closes 1011' (228) + p8-5a E2E | PINNED |
+| LAN-candidate trust binds `serverId`; identity gating before credentials | p8-4b 'serverId rides the payload' (97) + p8-5c serverId stability; the probe/`wrong-service` flows are §6.4/6.5 P12 (E-08-68) | PINNED + deferral (E-08-68) |
+| Passkeys bind per rpID + password binding | p8-1-passkeys rpID rows (181/195) + binding guards (227) + revoke rpID match (351) | PINNED |
+| Unknown close code never grants grace | ui tunnel-client 'reconnect backoff...' (4008 rides the standard ladder, 236) + NEW 'an unknown close code is never terminal and rides the standard ladder' (4500) + NEW 'terminal 4002 fails fast forever' | PINNED + NEW PIN |
+| Plaintext after `ready` kills the channel | p8-2-relay-host 228 (1011) | PINNED |
+| A body that lost frames is aborted, not forwarded | p8-2-relay-dispatcher 'hasBody with ZERO body frames aborts...' (362) + stalled-stream deadline (376) | PINNED |
+| A misclassified transport never hides relay demand | p8-1-tunnel classifier matrix (102/119) + p8-3-relay-service demand-throws rows (181/197) | PINNED |
+| A leaked credential is useless after revoke | p8-1-auth-core 269/288 (hash-set validated on every request) + gate rows (427/668) | PINNED |
+| A foreign frame numeral is protocol noise, not data | GAP-FIXED (E-08-69): both decodeTunnelFrame mirrors now CodecError outside TunnelFrameType; pinned in p8-2-relay-primitives + ui relay-primitives + the sweep sentinel | GAP-FIXED |
+
+Sweep summary: 42 §12 rows audited; 30 PINNED (pre-existing, named
+above), 9 NEW PINs (web sweep (a)-(e) static, web duplicate-leg + leg
+sentinel, ui runtime-auth, ui 4002 + unknown-code-close, ui codec
+foreign-numeral mirror count), 2 GAP-FIXED (decodeTunnelFrame type-range
+fail-closed in both mirrors; redactSensitiveUrl helper), 3 registered
+defer/deviation rows (E-08-67 wiring, E-08-68 §6.4/6.5 identity cluster +
+desktop write-side filter + doc-11 mobile, brand paths). Counts of
+suite-joined pins are exact in the test files. The sweep also exposed a
+latent p8-3-relay-wire E2E race (per-batch stream consumption starved
+frame-targeted probes whenever coalesced batches carried the wanted
+frames for the NEXT probe) — the harness now uses a frameCollector with
+per-frame waits (test-side; production paths unchanged, 511/36 web green
+×2 consecutive full runs).
+
