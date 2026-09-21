@@ -57,22 +57,7 @@ function defineWorkspaceOperations(workspace, options) {
       const session = requireSession(workspace, ocId);
       return registry.describe(session, wiredVersion);
     },
-    async messages(ocId) {
-      const session = requireSession(workspace, ocId);
-      return session.wireSession.messages();
-    },
-    prompt(ocId, parts) {
-      const session = requireSession(workspace, ocId);
-      return session.wireSession.prompt(parts);
-    },
-    promptAsync(ocId, parts) {
-      const session = requireSession(workspace, ocId);
-      return session.wireSession.prompt(parts);
-    },
-    async sync(ocId) {
-      const session = requireSession(workspace, ocId);
-      return session.wireSession.pendingCount();
-    },
+    ...turnOperations(workspace),
     // Why: question tokens identify owning sessions; answers travel the same
     // authenticated ingress as prompt traffic and settle the parked tool call.
     ...questionOperations(workspace),
@@ -170,6 +155,37 @@ function requireSession(workspace, ocId) {
   const session = workspace.registry.get(ocId);
   if (!session) throw new ContractError('opencode_session_missing', 'session was not found on the opencode surface');
   return session;
+}
+
+function turnOperations(workspace) {
+  return {
+    async messages(ocId) {
+      const session = requireSession(workspace, ocId);
+      return session.wireSession.messages();
+    },
+    prompt(ocId, parts) {
+      const session = requireSession(workspace, ocId);
+      return session.wireSession.prompt(parts);
+    },
+    promptAsync(ocId, parts) {
+      const session = requireSession(workspace, ocId);
+      return session.wireSession.prompt(parts);
+    },
+    // Why: the operator's stop must release both the active turn (authenticated
+    // cancel through the engine ingress) and never-run queued prompts (wire drain).
+    cancel(ocId, body = {}) {
+      const session = requireSession(workspace, ocId);
+      const drained = session.wireSession.abort();
+      return session.ingress.submit({
+        version: '1.0', type: 'cancel', request_id: newId('oc_cancel'),
+        ...(body.reason === undefined ? {} : { reason: body.reason }),
+      }, 'opencode-wire').then((ack) => ({ ...ack, aborted_prompts: drained }));
+    },
+    async sync(ocId) {
+      const session = requireSession(workspace, ocId);
+      return session.wireSession.pendingCount();
+    },
+  };
 }
 
 function questionOperations(workspace) {

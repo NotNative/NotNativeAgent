@@ -88,6 +88,12 @@ Semantic escalations on this surface settle immediately as
 parking on a voice the wire does not carry; `permission_decision` remains an
 interactive-only command with no route here.
 
+The wire session is cancellable: `POST /session/:id/abort` submits the
+authenticated engine `cancel` command and drains queued prompts that never
+reached the engine. Operator-stopped turns settle as `cancelled`; the wire
+voice labels their assistant finish `abort` so OpenChamber can render the
+distinction. Pending questions release with `operator_cancelled` (clause 1).
+
 ## Related surface ADRs
 
 ADR 0018 (web operator surface) and ADR 0019 (native desktop surface) describe the

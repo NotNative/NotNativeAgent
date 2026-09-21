@@ -119,6 +119,7 @@ const ROUTES = [
   { method: 'POST', match: exact('/session'), handler: createSession },
   { method: 'POST', match: prefix('/session/', '/prompt_async'), handler: promptSessionAsync },
   { method: 'POST', match: prefix('/session/', '/message'), handler: promptMessage },
+  { method: 'POST', match: prefix('/session/', '/abort'), handler: sessionAbort },
   { method: 'GET', match: prefix('/session/', '/message'), handler: sessionMessages },
   { method: 'DELETE', match: prefix('/session/'), handler: deleteSession },
   { method: 'GET', match: prefix('/session/'), handler: getSession },
@@ -212,6 +213,20 @@ async function globalEventStream(ctx) {
   sseOpen(ctx.res);
   const unsubscribe = ctx.options.bus.subscribe(ctx.res, { directory: ctx.target.directory ?? null });
   ctx.res.on('close', unsubscribe);
+}
+
+// Why: `POST /session/:id/abort` is the OpenChamber stop button: it cancels
+// the active turn through the authenticated engine cancel command and drains
+// never-run queued prompts on the wire voice. Unknown sessions are bare 404s
+// like GET /session/:id; there is no body to parse.
+async function sessionAbort(ctx) {
+  try {
+    sendJson(ctx.res, 200, await ctx.options.operations.cancel(ctx.params.id));
+  } catch (error) {
+    if (error?.code === 'opencode_session_missing') return sendEmpty(ctx.res, 404);
+    ctx.options.logger?.record({ type: 'opencode_abort_failed', code: error?.code ?? 'internal_failure', sessionID: ctx.params.id });
+    sendUnknownError(ctx.res, 500, 'abort failed on the agentic surface');
+  }
 }
 
 // Why: `/question/:id/reply` and `/question/:id/reject` are the OpenChamber

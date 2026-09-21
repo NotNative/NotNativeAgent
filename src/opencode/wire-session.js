@@ -33,6 +33,7 @@ export function createWireSession({ record, bus, info, version }) {
     setModelRef(next) { applyModelRef(state, next); },
     observe(record) { observeEngineRecord(state, record); },
     prompt(parts) { return prompt(state, parts); },
+    abort() { return abortPending(state); },
     messages() { return messagesFromLedger(state); },
     pendingCount() { return state.ledger.filter((entry) => entry.response === null).length; },
   };
@@ -71,6 +72,9 @@ function prompt(state, parts) {
 }
 
 async function runEntry(state, entry) {
+  // Why: an aborted queued entry was settled by the wire abort path; its
+  // chained turn must not submit a fresh prompt after the operator's stop.
+  if (entry.aborted) return entry.response;
   state.active = entry;
   entry.assistantCreated = entry.createdAt;
   entry.textStart = Date.now();
@@ -121,7 +125,10 @@ function settleEntry(state, entry, result) {
   entry.textEnded = nowMs;
   entry.assistantCompleted = nowMs;
   entry.tokens = tokenView(result?.usage);
-  entry.finish = result?.outcome === 'completed' ? 'stop' : 'error';
+  // Why: a cancelled turn settles distinctly from an engine failure; the wire
+  // voice labels operator-stopped turns `abort` so OpenChamber can render it.
+  entry.finish = result?.outcome === 'completed' ? 'stop'
+    : result?.outcome === 'cancelled' ? 'abort' : 'error';
   publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: nowMs });
   publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: nowMs });
   const response = buildAssistantResponse(state, entry);
@@ -151,6 +158,30 @@ function closeTurn(state, entry) {
   entry.closedAt = Date.now();
 }
 
+// Why: the operator stop button must stop everything, not just the active
+// turn: queued prompts never reach the engine, so the wire abandons them here
+// (settled responses, no busy frames, and an idle sentinel when nothing runs).
+function abortPending(state) {
+  const drained = [];
+  for (const entry of state.ledger) {
+    if (entry.response !== null || entry === state.active) continue;
+    entry.aborted = true;
+    entry.finish = 'abort';
+    entry.textEnded = Date.now();
+    entry.assistantCompleted = entry.textEnded;
+    publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: textPartFinal(state, entry), time: entry.textEnded });
+    publishDurable(state, 'message.part.updated', { sessionID: state.sessionID, part: stepFinishPart(state, entry), time: entry.textEnded });
+    entry.response = buildAssistantResponse(state, entry);
+    publishDurable(state, 'message.updated', { sessionID: state.sessionID, info: entry.response.info });
+    drained.push(entry);
+  }
+  if (drained.length > 0 && state.active === null) {
+    publishBare(state, 'session.status', { sessionID: state.sessionID, status: { type: 'idle' } });
+    publishBare(state, 'session.idle', { sessionID: state.sessionID });
+  }
+  return drained.length;
+}
+
 function publishDurable(state, type, properties) {
   state.seq += 1;
   state.bus.publishSession({ directory: state.directory, project: state.project, sessionID: state.sessionID, type, properties, mirror: true, seq: state.seq });
@@ -169,7 +200,7 @@ function createEntry(state, text) {
     assistantId: newId('msg'), stepStartId: newId('prt'), textPartId: newId('prt'), stepFinishId: newId('prt'),
     createdAt: Date.now(), assistantCreated: null, assistantCompleted: null,
     textStart: null, textEnded: null, deltaStart: null, closedAt: null,
-    assistantContent: '', finish: null, tokens: ZERO_TOKENS, response: null,
+    assistantContent: '', finish: null, tokens: ZERO_TOKENS, response: null, aborted: false,
   };
 }
 
