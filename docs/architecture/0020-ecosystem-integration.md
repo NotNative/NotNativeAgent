@@ -82,6 +82,12 @@ operator-question contract, owned by the engine and voice-rendered per surface:
    effect; an answer supplies exactly the choice it states and grants no
    execution authority. Authority remains reviewer-governed as in ADR 0002.
 
+The wire session pins `auto-review` and mounts no permission card transport.
+Semantic escalations on this surface settle immediately as
+`deny_with_guidance` (governor `interactive_escalation_unavailable`) instead of
+parking on a voice the wire does not carry; `permission_decision` remains an
+interactive-only command with no route here.
+
 ## Related surface ADRs
 
 ADR 0018 (web operator surface) and ADR 0019 (native desktop surface) describe the

@@ -13,9 +13,11 @@ import slugifyTitle from './slug.js';
 import { createWireEventBus } from './wire-events.js';
 import { createWireSession } from './wire-session.js';
 
-// Why: the opencode surface is an authenticated operator surface (OpenChamber
-// renders permission cards); the engine's interactive broker wiring therefore
-// applies, matching the NNA console surface contract.
+// Why: the opencode surface is an authenticated operator surface whose only
+// operator voice over the wire is the question reply route. It stays
+// interactive_tui so mid-turn questions remain available, but permission
+// cards have no transport here: the session pins auto-review with a fail-closed
+// reviewer, so escalations settle as deny_with_guidance instead of parking.
 const SURFACE_NAME = 'interactive_tui';
 
 export function createOpenCodeSessionWorkspace(options = {}) {
@@ -110,6 +112,8 @@ async function attachSession(workspace, options, { title, directory }) {
     },
     questionBroker: attachQuestionVoice(workspace, { ocId, sessionId, directory: sessionDirectory, projectID },
       options, (record) => wireSession?.observe(record)),
+    permissionBroker: false,
+    reviewPosture: 'auto-review',
     storeRoot: options.storeRoot,
     reviewerRoot: options.reviewerRoot,
     providerFactory: options.providerFactory,

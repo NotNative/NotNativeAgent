@@ -288,6 +288,10 @@ function toolsAllowed(executionManifest) {
 }
 
 function permissionBroker(engine, options) {
+  // Why: an explicit `false` opts an interactive surface out of the permission
+  // card transport; escalations then fail closed through the governor's
+  // interactive_escalation_unavailable path instead of parking on an unreachable voice.
+  if (options.permissionBroker === false) return null;
   if (options.permissionBroker) return options.permissionBroker;
   if (engine.surface !== 'interactive_tui') return null;
   return new InteractivePermissionBroker({
