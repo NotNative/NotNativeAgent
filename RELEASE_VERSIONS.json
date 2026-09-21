@@ -48,6 +48,10 @@
     {
       "version": "20260920-1",
       "content_sha256": "3b6929b3aaeaa41ade39f948c0f62de03d4ec636ec8d159f9ff92e8b7739eeab"
+    },
+    {
+      "version": "20260920-2",
+      "content_sha256": "3d9ea023e63db9c7c32be5e29564cbf0075b308b40aeb817e43a18aa20cdbcec"
     }
   ]
 }

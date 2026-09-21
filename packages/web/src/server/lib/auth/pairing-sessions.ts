@@ -8,7 +8,13 @@
  * redeem error is ONE string for missing/cancelled/used/expired/kind
  * failures (indistinguishable attacker class, section 5.4). Mutations
  * run on the synchronous store quiescence of the event loop — the
- * E-08-32 note pins why no promise queue is needed here.
+ * E-08-32 note pins why no promise queue is needed here. Every op also
+ * re-reads the file FIRST (refreshFromDisk): the P8-5c CLI writes sessions
+ * from a side process (doc 08 section 5.9), so the file is the cross-process
+ * source of truth and a boot-time singleton (the live server) still sees
+ * CLI-created sessions; the sync op between reload and save keeps the
+ * cross-process window at documented last-writer-wins microseconds, the
+ * same posture as the relay identity lazy mint (E-08-23/E-08-25c).
  */
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Buffer } from 'node:buffer';
@@ -135,9 +141,17 @@ export class PairingSessionStore {
     }
   }
 
+  /** Op-start re-read (see header): disk is the cross-process truth; the
+   *  window between this and this op's own save is sync-only microseconds. */
+  private refreshFromDisk(): void {
+    this.load();
+  }
+
   private save(): void {
     mkdirSync(this.dataDir, { recursive: true, mode: 0o700 }); // file 0600 into the 0o700 dir (§12.2)
-    const tmp = `${this.path()}.tmp-${this.now()}`;
+    // Two concurrent CLI runtimes could pick the same millisecond; the pid
+    // makes the tmp name per-writer (same discipline as identity/relay-config).
+    const tmp = `${this.path()}.tmp-${process.pid}-${this.now()}`;
     writeFileSync(tmp, JSON.stringify({ version: 1, sessions: this.sessions } satisfies PairingStoreShape), { mode: 0o600 });
     renameSync(tmp, this.path());
   }
@@ -154,6 +168,7 @@ export class PairingSessionStore {
   }
 
   createPairingSession(input: CreatePairingInput): OneTimePairingSession {
+    this.refreshFromDisk();
     this.sweep();
     const stamp = this.now();
     const secret = randomBytes(32).toString('base64url');
@@ -178,6 +193,7 @@ export class PairingSessionStore {
 
   /** Pending = not used ∧ not cancelled ∧ not expired (public, no secrets). */
   listPendingSessions(): PublicPairingSession[] {
+    this.refreshFromDisk();
     const stamp = this.now();
     return this.sessions
       .filter((session) => session.usedAt === null && session.cancelledAt === null && Date.parse(session.expiresAt) > stamp)
@@ -186,12 +202,14 @@ export class PairingSessionStore {
 
   /** Relay-demand signal (section 3.12): any still-redeemable relay session. */
   hasActiveRelaySession(): boolean {
+    this.refreshFromDisk();
     const stamp = this.now();
     return this.sessions.some((session) => session.usesRelay && session.usedAt === null
       && session.cancelledAt === null && Date.parse(session.expiresAt) > stamp);
   }
 
   findSession(id: unknown): PublicPairingSession | undefined {
+    this.refreshFromDisk();
     if (typeof id !== 'string' || id === '') return undefined;
     const record = this.sessions.find((session) => session.id === id);
     return record === undefined ? undefined : publicView(record);
@@ -201,6 +219,7 @@ export class PairingSessionStore {
    * a one-time grant has nothing left to revoke; E-08-33g) session answers
    * {cancelled,false} — the route maps that to 404 ("unknown/already gone"). */
   cancelPairingSession(id: string): { cancelled: boolean; pairing: PublicPairingSession | null } {
+    this.refreshFromDisk();
     const record = this.sessions.find((session) => session.id === id);
     if (record === undefined) return { cancelled: false, pairing: null };
     if (record.cancelledAt !== null || record.usedAt !== null) return { cancelled: false, pairing: publicView(record) };
@@ -218,6 +237,7 @@ export class PairingSessionStore {
     const pairingId = stringOf(input.pairingId);
     const secret = stringOf(input.secret);
     if (pairingId === '' || secret === '') throw new InvalidPairingSessionError();
+    this.refreshFromDisk();
     this.sweep();
     const record = this.sessions.find((session) => session.id === pairingId);
     if (record === undefined) throw new InvalidPairingSessionError();

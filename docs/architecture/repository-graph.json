@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:986c80d4d27180e210292d6092dd9afb18520f681e83c2d117cbd3a73b99421d",
+  "source_digest": "sha256:175fc15458ecc3a3afa6d43ca94b5bf8816498d408e70e01e4d1e695b793b6bd",
   "counts": {
-    "modules": 314,
-    "component_edges": 11
+    "modules": 321,
+    "component_edges": 12
   },
   "components": [
     {
@@ -42,7 +42,7 @@
       "id": "web-entry",
       "label": "Web entrypoints",
       "ownership": "Owns Vite entry, base components, and browser adapter factory.",
-      "module_count": 2
+      "module_count": 9
     },
     {
       "id": "gates",
@@ -115,6 +115,12 @@
       "to": "harness-facade",
       "import_count": 19,
       "module_count": 16
+    },
+    {
+      "from": "web-entry",
+      "to": "web-server",
+      "import_count": 9,
+      "module_count": 3
     },
     {
       "from": "sync-engine",
@@ -2306,6 +2312,74 @@
     },
     {
       "path": "packages/web/src/api/createWebAPIs.ts",
+      "component": "web-entry",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/cli/args.ts",
+      "component": "web-entry",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/cli/bin.ts",
+      "component": "web-entry",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/cli/args.ts",
+        "packages/web/src/cli/main.ts",
+        "packages/web/src/cli/output.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/cli/connect-url-command.ts",
+      "component": "web-entry",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/cli/args.ts",
+        "packages/web/src/cli/connect-url.ts",
+        "packages/web/src/cli/instances.ts",
+        "packages/web/src/cli/output.ts",
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/auth/pairing-candidates.ts",
+        "packages/web/src/server/lib/auth/pairing-sessions.ts",
+        "packages/web/src/server/lib/relay/identity.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/cli/connect-url.ts",
+      "component": "web-entry",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/cli/args.ts",
+        "packages/web/src/cli/instances.ts",
+        "packages/web/src/server/env.ts",
+        "packages/web/src/server/lib/auth/pairing-candidates.ts",
+        "packages/web/src/server/lib/relay/identity.ts",
+        "packages/web/src/server/lib/relay/relay-config.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/cli/instances.ts",
+      "component": "web-entry",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/env.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/cli/main.ts",
+      "component": "web-entry",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/cli/args.ts",
+        "packages/web/src/cli/connect-url-command.ts",
+        "packages/web/src/cli/output.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/cli/output.ts",
       "component": "web-entry",
       "entrypoint": false,
       "imports": []

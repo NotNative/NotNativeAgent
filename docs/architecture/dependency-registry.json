@@ -50,9 +50,16 @@
     {
       "name": "qrcode",
       "packages": ["@notnative/ui"],
-      "reason": "Pairing QR face (doc 08 §5.8): toDataURL of the connection payload for the mobile camera; server never renders the QR",
+      "reason": "Pairing QR face (doc 08 \u00a75.8): toDataURL of the connection payload for the mobile camera; server never renders the QR",
       "license": "MIT",
       "reviewed_at": "2026-09-19"
+    },
+    {
+      "name": "qrcode-terminal",
+      "packages": ["@notnative/web"],
+      "reason": "CLI connect-url --qr render (doc 08 \u00a75.9 / doc 03 \u00a710.1): small QR to the terminal; the printed link is exactly the pairing-v2 link",
+      "license": "MIT",
+      "reviewed_at": "2026-09-20"
     },
     {
       "name": "react",

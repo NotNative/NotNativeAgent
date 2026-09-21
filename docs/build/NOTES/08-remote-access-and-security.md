@@ -802,6 +802,60 @@ SSH -> reverse proxy -> invariants.
   + passkeys + pairing + session-auth-gate + runtime-auth-expiry
   delivered with the slice. ui/web typechecks + controlled-language +
   length gates green; graph + smoke + seal at 20260920-1.
+
+- **P8-5c (delivered this slice)** — checklist step 11 tail: the
+  §5.9 `connect-url` CLI command (doc 03 S10 CLI framework seeded with
+  it; the rest of the S10.1 inventory is the P4 CLI slice, roster
+  errors exit 2 with a Levenshtein suggestion). `packages/web/src/cli/`:
+  `args.ts` (long + `--foo=value` + short aliases + `--no-x` booleans,
+  CliUsageError=exit 2), `output.ts` (S10 modes: --json wins over -q,
+  human decorations TTY/NO_COLOR gated; warnings reach piped stdout),
+  `instances.ts` (probePortHealth + ensureServerRunning: detached spawn
+  of `node <abs>/server/index.ts` with openSync lp fds (never the
+  launcher's stdio), 30 s readiness poll, `<data-dir>/instances/
+  notnative-<port>.json` record; timeout = SIGTERM own-child + record
+  removal + CliRuntimeError exit 5), `connect-url.ts` (the exact S5.9
+  resolution order: --server normalize (junk/scheme = usage exit 2,
+  WHATWG-canonicalized) > --host full-URL passthrough (bind loopback)
+  > concrete host http://host:port > wildcard LAN scan lan-detected >
+  loopback-fallback; relay endpoint chain env > relay-config.json >
+  DEFAULT; candidate builders ui-typed), `connect-url-command.ts`
+  (direct + optional relay candidates; §2.6 identity lazy-mint from
+  the shared strict store; pairing session created DIRECTLY in the
+  on-disk store (usesRelay = link carries relay) - the S3.12 demand
+  poll picks it up; link encoded through the SHARED ui encoder;
+  warnings PASSWORD_NOT_SET/API_ONLY_DEFERRED; [RELAY_STARTING] when
+  the config does not say enabled; [LAN_UNREACHABLE] on loopback
+  direct; --qr via qrcode-terminal bound-module (bbox level L exactly
+  like the doc) w/ throw withheld as [QR_UNAVAILABLE]; S5.9 --json
+  exact shape; --quiet = link only w/ warnings on stderr), `main.ts`
+  (dispatch, help overview vs topic, pending roster), `bin.ts`
+  (exit-code mapping; CliRuntimeError 5). Registry grew
+  qrcode-terminal; tsconfig gains src/cli + src/types;
+  package.json bin `notnative` (NND brand of the reference binary,
+  seam-naming row). Live smoke done manually: auto-start + discovery
+  re-run both paths against real servers, then cleanup. Adversarial
+  sub-agent review (ses_f3e4ff5b2ffelKEKfunoIX2JMs) fixed P0x1 +
+  P1x5 + P2x4-chunk: P0 the pairing store is a boot singleton -
+  CLI-created sessions were INVISIBLE to a live server (redeem would
+  always fail) - every store op now refreshes from disk first
+  (cross-process shrink to last-writer-wins, +4 tests in the
+  p8-4a matrix incl. stale-redeem stamping) and save() tmp names pid
+  (collide-on-millisecond two-writers); P1 --lan unparseable,
+  flags-only/dispatch refused + positionals (exit 2), help pages
+  split, readiness timeout KILLS the spawned child + record removal +
+  exit 5 class, --quiet warnings to stderr (doc-only stdout); P2
+  HTTPS case-sensitivity candidate type, --port 08/1.9 junk + -p=x
+  syntax, address tokens that would build broken URLs, dead helper
+  removed. Registered E-08-53 (doc 03 relay-only row superseded by
+  doc 08 direct+relay), 54 (store op-start reload + pid tmp), 55
+  (auto-start kill-on-timeout posture + concurrent-CLI probe->spawn
+  record last-writer-wins accepted as advisory), 56 (public URL
+  passthrough binds loopback), 57 (S5.9 exact JSON shape wins over
+  the generic doc 03 messages[] row; warnings in human/quiet only).
+  tests web 483/34 (+29 net: p8-5c 29 incl. parser/dispatch rows,
+  p8-4a +3 cross-process) - ui 577/61 unchanged - typechecks x4 -
+  gates green - graph (321) + smoke + seal 20260920-2.
 ## B. Adaptation deltas (registered)
 
 - **E-08-34 (§4.7 failure-path interpretation, not doc-literal)**:
@@ -946,8 +1000,65 @@ SSH -> reverse proxy -> invariants.
   view that offers no relay refuses preflight ('relay-unavailable'
   guidance) instead of force-starting a relay the operator may have
   explicitly disabled; checking the box (default on) keeps the
-  doc-literal force-start. The 'empty-scope' plan refusal is retired -
-  'anywhere' always has a candidate once consent is given.
+   doc-literal force-start. The 'empty-scope' plan refusal is retired -
+   'anywhere' always has a candidate once consent is given.
+- **E-08-53 (§5.9 candidate set beats the doc-03 §10.1 table)**: doc 03's
+  connect-url row reads `--relay` = "relay-only link (single candidate)";
+  doc 08 §5.9 is explicit that ONE direct candidate is always in the set,
+  with the relay candidate ADDED when --relay is passed or the host relay
+  is already enabled. The build follows doc 08 (the later, remote-access
+  authority), so a --relay link is direct PLUS relay, never relay-only.
+  This also matches §5.6 step 6 ("persist every transport the link
+  carried"), keeps the loopback-fallback case working through the relay,
+  and lets the device's multi-transport record survive a later disable.
+- **E-08-54 (pairing store ops re-read the file first; CLI write is
+  last-writer-wins)**: doc 08 §5.9 has the CLI create the pairing session
+  directly against the on-disk store the host serves the redeem from. The
+  NND store is a boot-time singleton (E-08-32), so a load-once runtime
+  would never see a session the CLI wrote from a side process — the live
+  redeem, the pending list and the §3.12 relay-demand poll all read the
+  in-memory list. Every store op now refreshes from disk FIRST (sync,
+  E-08-32 posture intact): the file is the cross-process source of truth,
+  the window between refresh and the op's own save is sync-only
+  microseconds, and cross-process races degrade to the documented
+  last-writer-wins — the same posture the relay identity lazy mint ships
+  (E-08-23/E-08-25c). The save's tmp name gains the pid (two writers could
+  pick the same millisecond and collide on the tmp+rename pair). A corrupt
+  file still degrades to no-known-sessions (fail-safe, unchanged).
+- **E-08-55 (auto-start process posture: kill on readiness timeout, record
+  advisory)**: when the CLI's spawned child never answers /health within
+  the 30 s cap, the run treats the start as FAILED: it SIGTERMs the child
+  it owns (only the pid its own spawn returned), removes the instance
+  record, and answers exit 5 (doc 03 S10 runtime class) instead of a bare
+  exit 1 — a half-started server must not outlive the reporting failure or
+  leave a lying record for the stop/status slice. The full serve/stop/
+  restart lifecycle stays doc 03 (P4); NND's instance record stays a
+  simpler registry (pid/port/host) until that slice. Two concurrent CLI
+  invocations racing probe→spawn is accepted as last-writer-wins on the
+  instance records (the loser's child fails to bind and exits); stop/
+  status must treat records as advisory, not authoritative.
+- **E-08-56 (public-URL passthrough binds loopback)**: §5.9 bullet 2
+  passes full http(s) --host/--server URLs through as the ADVERTISED
+  public server URL ("a remote deploy behind a proxy"). NND's reading is
+  deliberate: the link advertises that URL, while the local auto-started
+  instance still binds loopback (the redeem is served by the local
+  instance; no wildcard exposition is implied by naming a public URL).
+  Only concrete LOCAL bind intents (--host <address>, --lan → 0.0.0.0)
+  change the spawn's bind. A URL-shaped or pathy --host token is refused
+  as a usage error (exit 2) rather than silently becoming a broken
+  candidate URL; bare IPv6 literals ride in brackets inside the advertised
+  URL.
+- **E-08-57 (S5.9 exact JSON shape wins over the doc-03 §10.3 messages[])**:
+  doc 03 §10.3 wants every --json document to carry
+  `status` + `messages: [{level, code, message}]`; doc 08 §5.9 pins
+  connect-url's --json to EXACTLY
+  {serverUrl, connectUrl, pairingId, fingerprint, expiresAt, candidates,
+  autoStarted} (+ the --qr block). The build keeps the S5.9 shape byte-exact
+  (machine link consumers) and routes warnings to human/quiet output only;
+  --json drops the warning rows (PASSWORD_NOT_SET, API_ONLY_DEFERRED)
+  silently rather than widening the document. The reconnect path stays
+  legible: autoStarted/expiresAt/candidates self-describe the link state,
+  and the P4 CLI slice can revisit when the shared output engine lands.
 - **E-08-1 (JWT hand-rolled)**: the doc uses the `jose` library's SignJWT;
   NND hand-rolls HS256 sign/verify with node:crypto to avoid the
   dependency (JWT is `{type:'ui-session', iat, exp}` only; verification is

@@ -12,7 +12,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P5 themes/settings | 14 | 🔶 P5-1..5 done 2026-09-17 (P5-1 token block + D8; P5-2 theme system: 38 built-ins + derive + generator + §E.3 persistence + §E.6 validation, review P0+P1×5 fixed; P5-3 settings registry 186 fields + snapshot gate + §F.3 split store + server gate + client persistence engine + fs-write no-op, review P0×2+P1×6 fixed; P5-4 i18n scaffold (12 locales, closed en set, partial catalogs w/ en fallback, provider/store/runtime/bootstrap), review P0+P1×3 fixed; P5-5 shortcuts engine (36 bindings, grammar/registry/dispatcher/hooks, capture listener, AltGraph + IME rules, recorderConflict), review P0+P1×5 fixed; 250 UI · 33 web · gates+smoke+graph each; P5-6 settings UI (window/pages/search/recorder + §I.3/I.4 wiring + §J formatters) queued) |
 | P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
-|. P8 remote/security | 08 | 🔶 in progress 2026-09-20 (P8-1a-d + P8-2a-c + P8-3a + P8-4a/c delivered + reviewed; P8-5a relay CLIENT face delivered; P8-5b pairing/auth UX delivered (§2.5 passkey client, §2.8 expiry store, §6.6/6.7 gate+banner wired into the app tree, §6.1 pairing dialog + §5.8 QR) + review fixes; next: P8-5c CLI connect-url (§5.9), SSH (13), reverse proxy (14), invariants sweep (15) per NOTES/08 §A) |
+|. P8 remote/security | 08 | 🔶 in progress 2026-09-20 (P8-1a-d + P8-2a-c + P8-3a + P8-4a/c delivered + reviewed; P8-5a relay CLIENT face delivered; P8-5b pairing/auth UX delivered (§2.5 passkey client, §2.8 expiry store, §6.6/6.7 gate+banner wired into the app tree, §6.1 pairing dialog + §5.8 QR) + review fixes; P8-5c CLI connect-url delivered (doc 03 S10 CLI framework seeded, §5.9 semantics, live auto-start smoke) + review fixes incl. the P0 pairing-store visibility fix; next: SSH (13), reverse proxy (14), invariants sweep (15) per NOTES/08 §A) |
 | P9 autonomy | 12 | pending |
 | P10 knowledge/context | 15 | pending |
 | P11 preview | 13 | pending |
@@ -620,6 +620,30 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   byte-parity + route shapes. ui 577 tests (+149 vs the P8-5a seal) ·
   web 438 (+25) ·
   typecheck ×4 · gates green — seal 20260920-1.
+
+- 2026-09-20 · **P8-5c delivered + reviewed (doc 08 §5.9 connect-url + the
+  doc 03 CLI framework seed).** packages/web/src/cli/: shared parser
+  (long/inline/short/-no-x aliases, usage exit 2), output engine (S10
+  modes, --json-over--quiet, decorations TTY-gated, warnings reach
+  piped stdout), instances (probe + detached auto-start with real log
+  fds + 30 s readiness + kill-on-timeout + instance record), connect-url
+  (exact §5.9 resolution order, direct+optional relay candidates with
+  the shared identity lazy-mint, pairing session written DIRECTLY to
+  the on-disk store, link via the shared ui encoder, [RELAY_STARTING]/
+  [LAN_UNREACHABLE] advisories, qrcode-terminal --qr, S5.9 --json
+  shape, --quiet link-only), dispatch/help/roster + bin entry
+  (`notnative`, exit codes 0..5). Adversarial review
+  (ses_f3e4ff5b2ffelKEKfunoIX2JMs) fixed P0×1 + P1×5 + P2×4: P0 the
+  pairing store was a boot singleton — CLI-created sessions were
+  invisible to a live server (every CLI link would fail redeem);
+  every store op now refreshes from disk (last-writer-wins posture)
+  + pid-stamped tmp names; P1 --lan flag missing, dispatch refused
+  flags-only/positionals, help pages split, orphaned child killed on
+  readiness timeout + record removal + exit 5, quiet warnings to
+  stderr; P2 HTTPS case-sensitivity, port junk parsing, address token
+  guards. Registered E-08-53..57. Live smoke: auto-start +
+  discovery-drop-in both verified against real servers. web 483 tests
+  (+29) · ui 577 (+0) · typecheck ×4 · gates green — seal 20260920-2.
 
 ## Delta/Delayed register
 

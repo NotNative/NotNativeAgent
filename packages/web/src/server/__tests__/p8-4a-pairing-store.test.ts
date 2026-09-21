@@ -377,3 +377,41 @@ describe('pairing session store', () => {
     expect(outcome.token).toMatch(/^oc_client_/u);
   });
 });
+
+describe('cross-process pairing writes (P8-5c CLI, E-08-54 posture)', () => {
+  it('a stale store sees another PROCESS create and does not clobber it on save', () => {
+    const dir = freshDir();
+    const stale = createPairingSessionStore({ dataDir: dir, now, mintClient: recordMint }); // loaded empty, like the live server at boot
+    const sideProcess = createPairingSessionStore({ dataDir: dir, now, mintClient: recordMint });
+    const cliSession = sideProcess.createPairingSession({ label: 'cli-created', usesRelay: true });
+    expect(stale.hasActiveRelaySession()).toBe(true); // op-start refresh, not just construction
+    const createdOnStale = stale.createPairingSession({});
+    const disk = JSON.parse(readFileSync(`${dir}/client-pairing-sessions.json`, 'utf8')) as { sessions: Array<{ id: string }> };
+    const ids = disk.sessions.map((entry) => entry.id);
+    expect(ids).toContain(cliSession.id); // the reload prevented the full-file clobber
+    expect(ids).toContain(createdOnStale.id);
+    expect(stale.listPendingSessions().map((entry) => entry.id)).toContain(cliSession.id);
+  });
+
+  it('a stale store redeems a CLI-minted session and stamps the consumed truth', () => {
+    const dir = freshDir();
+    const stale = createPairingSessionStore({ dataDir: dir, now, mintClient: recordMint });
+    const sideProcess = createPairingSessionStore({ dataDir: dir, now, mintClient: recordMint });
+    const cliSession = sideProcess.createPairingSession({ usesRelay: true });
+    const outcome = stale.redeemPairingSession({ pairingId: cliSession.id, secret: cliSession.secret }, recordMint);
+    expect(outcome.token).toMatch(/^oc_client_/u);
+    const view = sideProcess.findSession(cliSession.id);
+    expect(view?.usedAt).not.toBeNull();
+    expect(view?.clientId).toBe(outcome.client.id);
+    expect(stale.hasActiveRelaySession()).toBe(false); // redeemed row no longer carries demand
+  });
+
+  it('a stale store cancels a CLI-minted session (revocation crosses processes)', () => {
+    const dir = freshDir();
+    const stale = createPairingSessionStore({ dataDir: dir, now, mintClient: recordMint });
+    const sideProcess = createPairingSessionStore({ dataDir: dir, now, mintClient: recordMint });
+    const cliSession = sideProcess.createPairingSession({ usesRelay: true });
+    expect(stale.cancelPairingSession(cliSession.id).cancelled).toBe(true);
+    expect(sideProcess.hasActiveRelaySession()).toBe(false);
+  });
+});
