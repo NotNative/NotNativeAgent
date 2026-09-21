@@ -878,8 +878,8 @@ SSH -> reverse proxy -> invariants.
   source, sshCommand:'ssh <alias>'} rows, Match/Include/comments
   skipped, glob aliases pattern rows, whole-file dedupe - E-08-63
   simplifications) + `desktopSshImportHosts` bridge-guarded read +
-  `importCandidateIsUseable`. `desktopSshStore.ts`: the §7.3 store -
-  Driver `DesktopSshBridge` seam {invoke, listenStatus,
+  `importCandidateIsUseable`.   `desktopSshStore.ts`: the §7.3 store -
+  a `DesktopSshBridge` seam {invoke, listenStatus,
   readSshConfig} (all doc-09 internals ride it), `SSH_BRIDGE_COMMANDS`
   vocabulary, `SSH_PHASES` exact machine + `normalizeStatus`/
   `isSshPhase`, `sortStatuses` (updatedAtMs desc; equal-stamp
@@ -907,6 +907,51 @@ SSH -> reverse proxy -> invariants.
   ui 599/62 (+22 desktop-ssh: contract/parse/import/store rows
   incl. the failure-path semantics) - web unchanged 483/34 -
   typechecks - gates green. Seal at 20260920-3 with the entry below.
+
+- **P8-7 (delivered this slice)** - checklist step 14 (doc 08 section 9
+  reverse-proxy posture, the server-side rows the proxy feeds).
+  `lib/http/request-security.ts`: origin consumption with HOST
+  equality only (the TLS-at-edge rule - protocol never compares),
+  candidates host / x-forwarded-host (first hop) / the publicOrigin
+  setting, packaged-client origins pre-allowed (case-folded), absent
+  Origin passes, junk Origin fail-closed, bare-host headers parsed by
+  regex (URL 'host:443' would otherwise read as a scheme) w/ the
+  WHATWG default-port drop (:80/:443 and canonicalization :080==80)
+  + an IPv6 bracket arm ([::1]:4090) - E-08-65 registers the
+  judgment cluster + the direct-exposure XFF-spoof posture (browsers
+  cannot set arbitrary WS headers; non-browser clients are not
+  origin-bound; the E-07-3 loopback cap bounds direct exposure) +
+  the bare-host slew. WIRED: terminal/wire.ts destroys upgrades whose
+  Origin header is present and disallowed (loopback cap first, E-07-3
+  credential gate after) - multi-valued Origin headers JOIN and fail
+  closed (a doubled Origin masquerading as absent would be fail-OPEN);
+  the dev vite proxy now sends origin:=apiTarget headers for the web
+  AND ws passes (E-08-66, S3.9 dialer parity - changeOrigin fixes the
+  Host while the gate reads the origin). app.ts: registerPublicHygiene
+  (X-Robots-Tag noindex,nofollow on every response via c.header after
+  next + disallow-all /robots.txt anonymous route) + onError
+  errorHygiene belt (a rejecting compose would otherwise stamp no
+  tag) + registerHarnessProxy extract (POWER10). Header rows for the
+  §9 SSE contract stay pinned by the new suite (x-accel-buffering:
+  no + no-cache,no-transform survived a LIVE control-stream body).
+  Cookie Secure (x-forwarded-proto), passkey rpID
+  (x-forwarded-host), redeem raw-socket limiter and the
+  compression-one-layer rule (no middleware yet - doc 03 P4) were
+  already sealed/pinned by their owning suites; this slice adds the
+  posture rows that were missing. Adversarial sub-agent review
+  (ses_f3e09f794ffe7LZlAYllgOdVxZ) fixed P1x3 + P2x2 in-slice: P1
+  IPv6 hosts never matched (bracket arm + port canonicalization,
+  raw-socket upgrade pin reaching 101), P1 the dev proxy would have
+  killed EVERY dev terminal WS (origin overwrite queued in the
+  proxy, not the gate), P1 doubled-Origin fail-open (multi-valued
+  join), P2 hono-default 500s carried no tag (onError belt), P2
+  packaged origins case-folded. Relay leg parity CONFIRMED (the
+  dispatcher/WS dialers inject origin http://127.0.0.1:<localPort>
+  which hosts render as 127.0.0.1:<localPort> - equality holds;
+  p8-3-relay-wire + p8-5a E2E green). Registered E-08-65/66. tests
+  web 503/35 (+13: origin rows incl. the two raw-socket upgrade
+  probes + hygiene/stream pins) - ui unchanged 599/62 -
+  typechecks x4 - gates green. Seal 20260920-4 with the entry below.
 ## B. Adaptation deltas (registered)
 
 - **E-08-34 (§4.7 failure-path interpretation, not doc-literal)**:
@@ -1158,6 +1203,49 @@ SSH -> reverse proxy -> invariants.
   quietly; with a bridge, a failed config read still attaches the status
   listener - a transient desktopSshConfig failure must not orphan the
   pushed-event channel (the only status channel S7.3 defines).
+- **E-08-65 (§9 origin-consumption judgment cluster: IPv6 arm, port
+  canonicalization, bare-host slew, dup headers, direct-exposure spoof)**:
+  the §9 host-equality rule is HOST-ONLY by doc, and five choices ride on
+  top. (a) Bracketed IPv6 literals get a dedicated bare-host branch
+  (`[::1]:4090` etc.); the pre-fix bare regex had no bracket arm, so an
+  IPv6 Host header parsed null forever and every IPv6-dialed browser
+  origin stayed fail-closed against the doc's "an origin whose host
+  equals the forwarded/host header passes" promise - fixed, and
+  unbracketed junk IPv6 text (`fe80::1`) still parses null (fail closed;
+  browsers never emit that shape as a Host). (b) Bare-header ports
+  canonicalize the WHATWG way (`:080` == `:80`, `:08080` == `:8080`)
+  BEFORE the 80/443 default-port drop, so the URL-parsed origin side and
+  the bare-header candidate side reach the same rendered host (the doc's
+  edge-terminated `:443` parity, now also for junk-padded ports).
+  (c) Schemelessness is accepted: a bare-host (`my.tunnel.app`, no
+  scheme) Origin compares equal to its own Host - browsers never emit a
+  schemeless Origin, and a client that does is not origin-bound anyway,
+  so the equality sweep adds nothing to gain; junk with a scheme and no
+  host (`javascript:alert(1)`) parses null and fails closed.
+  (d) A DOUBLED Origin/Host header must never masquerade as ABSENT: the
+  upgrade-gate header harvest joins multi-valued headers with `, ` so the
+  merged value parses as no origin and the upgrade is destroyed (the
+  pre-fix behavior silently dropped array-valued headers, turning a
+  disallowed origin into an absent one - fail-OPEN). (e) x-forwarded-host
+  SPOOF posture on DIRECT (no-proxy) exposure: the gate consumes forwarded
+  headers by doc design (§9); a malicious BROWSER page cannot set
+  x-forwarded-host on a WS upgrade (browsers own Origin and forbid
+  arbitrary upgrade headers), and a client that can is not origin-bound
+  anyway, so the spoof gains nothing where the gate bites - and direct
+  exposure is already bounded to loopback peers by the E-07-3 loopback
+  cap (E-08-5 rate-limit family reasoning). Registered, not fixed.
+- **E-08-66 (dev proxy origin overwrite for the §9 terminal WS gate)**:
+  the vite dev /api proxy (changeOrigin) rewrites Host to
+  127.0.0.1:<target port> while relaying the browser Origin
+  (http://localhost:<vite port>) UNCHANGED, so the §9 origin gate would
+  destroy every dev terminal WS upgrade the moment it landed. Fixed in
+  the proxy config, not the gate: the /api proxy now sends
+  `headers: { origin: apiTarget }` - the §3.9 relay dialer's
+  origin-overwrite convention ("client origins are unreliable") applied
+  to the dev hop; http-proxy merges the `headers` map into BOTH the web
+  and ws passes (setupOutgoing), and changeOrigin then fixes the Host, so
+  Origin and Host render the same host on the gate. Pinned by a config
+  read test (form drift re-opens the dev doom).
 - **E-08-1 (JWT hand-rolled)**: the doc uses the `jose` library's SignJWT;
   NND hand-rolls HS256 sign/verify with node:crypto to avoid the
   dependency (JWT is `{type:'ui-session', iat, exp}` only; verification is

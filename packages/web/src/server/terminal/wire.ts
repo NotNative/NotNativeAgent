@@ -12,6 +12,7 @@ import type { Server as HttpServer, IncomingMessage } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { TERMINAL_WS_MAX_PAYLOAD_BYTES, TERMINAL_WS_PATH, encodeFrame } from './protocol.ts';
 import { TerminalRuntime } from './session-core.ts';
+import { originAdmittedByHeaders } from '../lib/http/request-security.ts';
 import type { SocketLike } from './records.ts';
 
 export const SERVER_WS_PING_INTERVAL_MS = 15_000;
@@ -39,7 +40,19 @@ export function attachTerminalWebsocket(server: HttpServer, runtime: TerminalRun
       socket.destroy(); // 403 equivalent for the WS upgrade gate (E-07-3 slot)
       return;
     }
-    if (!admittedByGate(url, incomingHeaders(request), request.method ?? 'GET', gate)) {
+    const headers = incomingHeaders(request);
+    // Doc 08 §9 checklist step 14: a browser Origin header must name this
+    // instance's host (x-forwarded-host/publicOrigin candidates included);
+    // protocol never compares (edge-terminated TLS), absent origin passes.
+    if (!originAdmittedByHeaders({
+      originHeader: headers.get('origin'),
+      hostHeader: headers.get('host'),
+      forwardedHostHeader: headers.get('x-forwarded-host'),
+    })) {
+      socket.destroy();
+      return;
+    }
+    if (!admittedByGate(url, headers, request.method ?? 'GET', gate)) {
       socket.destroy(); // fail closed: a throwing gate must not crash the upgrade listener
       return;
     }
@@ -75,9 +88,16 @@ function admittedByGate(url: URL, headers: Headers, method: string, gate: Termin
   }
 }
 
-function incomingHeaders(request: IncomingMessage): Headers {
+/** §9 gate input: multi-valued headers join with ", " so a DOUBLED Origin
+ *  (or Host) stays a single unparseable value - dropping the extras would
+ *  masquerade a disallowed origin as an absent one and pass the gate. */
+export function incomingHeaders(request: IncomingMessage): Headers {
   const headers = new Headers();
   for (const [name, value] of Object.entries(request.headers)) {
+    if (Array.isArray(value)) {
+      headers.set(name, value.join(', '));
+      continue;
+    }
     if (typeof value === 'string') headers.set(name, value);
   }
   return headers;

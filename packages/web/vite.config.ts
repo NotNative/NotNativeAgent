@@ -17,7 +17,13 @@ export default defineConfig({
     proxy: {
       '/auth': { target: apiTarget, changeOrigin: true },
       '/health': { target: apiTarget, changeOrigin: true },
-      '/api': { target: apiTarget, changeOrigin: true, ws: true },
+      // §3.9/§9 parity: the dev hop rewrites Origin to the target exactly
+      // like the relay loopback dialer, so the terminal WS upgrade gate's
+      // host-equality rule (vs the changeOrigin-rewritten Host) keeps
+      // admitting the vite client. http-proxy merges `headers` into BOTH
+      // the web and ws passes (setupOutgoing), after which changeOrigin
+      // fixes the Host header.
+      '/api': { target: apiTarget, changeOrigin: true, ws: true, headers: { origin: apiTarget } },
       '/manifest.webmanifest': { target: apiTarget, changeOrigin: true },
     },
   },

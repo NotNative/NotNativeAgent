@@ -106,9 +106,43 @@ async function apiTunnelGate(headers: Headers, url: URL, method: string, next: N
   return new Response(JSON.stringify({ error: 'Tunnel authentication required', locked: true, tunnelLocked: true }), { status: 401, headers: responseHeaders });
 }
 
+/** Doc 08 §9 public-instance hygiene (checklist step 14): the whole shell
+ *  stays out of search indexes even behind a proxy — X-Robots-Tag on every
+ *  response plus a disallow-all /robots.txt, both anonymous. Exported seam:
+ *  the streamed-response stamping (Hono clones c.res to add the header on a
+ *  finalized response) is pinned against a real SSE body, not just JSON. */
+export function registerPublicHygiene(app: Hono): void {
+  app.use('*', async (c, next) => {
+    await next();
+    c.header('x-robots-tag', 'noindex, nofollow');
+  });
+  app.get('/robots.txt', (c) =>
+    c.text('User-agent: *\nDisallow: /\n', 200, { 'content-type': 'text/plain; charset=utf-8' }),
+  );
+}
+
+/** Harness proxy: everything under /api goes through the seam (HP-1). */
+function registerHarnessProxy(app: Hono): void {
+  app.all('/api/*', async (c) => {
+    try {
+      const response = await getHarnessAdapter().handle(c.req.raw);
+      const listPath = /^\/api\/(experimental\/)?session$/.test(new URL(c.req.raw.url).pathname);
+      if (listPath && c.req.method === 'GET') return await sanitizeSessionList(response);
+      return response;
+    } catch (error) {
+      return c.json(
+        { error: { message: `harness request failed: ${String(error)}` } },
+        502,
+      );
+    }
+  });
+}
+
 export function createApp(options?: { terminal?: TerminalRuntime }) {
   const app = new Hono();
   const terminal = options?.terminal ?? createTerminalRuntime();
+
+  registerPublicHygiene(app);
 
   app.get('/health', async (c) =>
     c.json({
@@ -136,20 +170,7 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
   app.use('/api/*', apiAuthGate);
   registerApiSurfaces(app, terminal);
 
-  // Harness proxy: everything under /api goes through the seam (HP-1).
-  app.all('/api/*', async (c) => {
-    try {
-      const response = await getHarnessAdapter().handle(c.req.raw);
-      const listPath = /^\/api\/(experimental\/)?session$/.test(new URL(c.req.raw.url).pathname);
-      if (listPath && c.req.method === 'GET') return await sanitizeSessionList(response);
-      return response;
-    } catch (error) {
-      return c.json(
-        { error: { message: `harness request failed: ${String(error)}` } },
-        502,
-      );
-    }
-  });
+  registerHarnessProxy(app);
 
   // Static UI (production builds; dev is served by Vite)
   const serveStatic = createStaticHandler(DIST_DIR);
@@ -163,7 +184,22 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
     c.json({ error: { message: `not found: ${new URL(c.req.raw.url).pathname}` } }, 404),
   );
 
+  // Hygiene belt for the one path the middleware cannot see: hono's default
+  // 500 replaces c.res AFTER a rejecting compose, so NND mirrors the default
+  // answer and stamps the tag itself (§9 "every response"; every NND route
+  // is try/catch-guarded today, this belt keeps a future unguarded route
+  // from re-opening the hole).
+  app.onError(errorHygiene);
+
   return app;
+}
+
+/** The §9 belt answer, exported so the error path is tested through real
+ *  hono machinery (a throwing route + the production handler). */
+export function errorHygiene(error: unknown, c: Context): Response {
+  void error;
+  c.header('x-robots-tag', 'noindex, nofollow');
+  return c.text('Internal Server Error', 500);
 }
 
 /** NND-owned /api surfaces (P4/P6/P7 slices): registered between the auth
