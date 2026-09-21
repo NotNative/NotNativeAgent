@@ -856,6 +856,57 @@ SSH -> reverse proxy -> invariants.
   tests web 483/34 (+29 net: p8-5c 29 incl. parser/dispatch rows,
   p8-4a +3 cross-process) - ui 577/61 unchanged - typechecks x4 -
   gates green - graph (321) + smoke + seal 20260920-2.
+
+- **P8-6 (delivered this slice)** — checklist step 13 UI-ownable half
+  (doc 08 section 7 SSH remote machines; the S7.4 main-process
+  internals - master ssh channel, installers, bundle upload, forward
+  lifecycle, host-key prompts - are doc 09/P12 as the slice map
+  states). `packages/ui/src/lib/desktopSsh.ts`: the S7.2 instance
+  contract (DesktopSshInstance/StoredSecret/PortForward types,
+  `parseSshCommand` - program-word excluded by case-insensitive
+  basename, quoted groups kept, value-flag vocabulary w/ `-q` boolean
+  per real ssh - destination = last positional, shipped `sshParsed` on
+  the record), strict `normalizeSshInstance` (unusable = null;
+  remote/local/auth groups defaulted; timeout clamp 5..600 default 30;
+  forwards capped 64 w/ id minting + 1..65535 ports;
+  E-08-58 bounds), `remoteLanNeedsPassword` (S7.3 remote-LAN bind
+  rule), `needsSecretStorageConfirm` (store:'settings' confirm, doc-
+  literal even when disabled - pinned w/ the disabled row),
+  `suggestRandomLocalPort` (port-in-use retry helper),
+  `sshRuntimeKey` (`ssh:<id>` scheme E-08-61). `desktopSshImport.ts`:
+  `parseSshConfig` (~/.ssh/config Host aliases -> {host, pattern,
+  source, sshCommand:'ssh <alias>'} rows, Match/Include/comments
+  skipped, glob aliases pattern rows, whole-file dedupe - E-08-63
+  simplifications) + `desktopSshImportHosts` bridge-guarded read +
+  `importCandidateIsUseable`. `desktopSshStore.ts`: the §7.3 store -
+  Driver `DesktopSshBridge` seam {invoke, listenStatus,
+  readSshConfig} (all doc-09 internals ride it), `SSH_BRIDGE_COMMANDS`
+  vocabulary, `SSH_PHASES` exact machine + `normalizeStatus`/
+  `isSshPhase`, `sortStatuses` (updatedAtMs desc; equal-stamp
+  replaces, strictly-older pushes dropped - E-08-59), actions
+  connect/disconnect/cancel/retry/upsert(in-place for existing ids)/
+  createFromCommand/refusal traceability/remove + loadConfig +
+  refreshStatuses + refreshImportCandidates (via the guarded read) -
+  every trigger without a bridge records SSH_BRIDGE_UNAVAILABLE in
+  lastError; the pushed stream survives config-read failure (listener
+  attaches in both paths - E-08-64); statuses cleared with instances
+  on `setBridge`; StoredSecret values mirrored verbatim per S7.2 with
+  no echo paths (E-08-60 discipline). Statuses land via pushed events
+  only (refreshStatuses = the one manual full pass). The shells
+  surface ships with the P12 Remote Instances page; the store/module
+  names stay spec-named for that wiring. Adversarial
+  sub-agent review (ses_f3e23db48ffewK6wydq4mPWhyV) fixed P1x5 +
+  P2x4 in-slice: P1 program-word exclusion (.exe/absolute paths),
+  -q was a VALUE flag (mundane commands parsed destination-less),
+  loadConfig failure orphaned the pushed-event channel, bridge-less
+  triggers failed silently, createFromCommand refusal untraceable;
+  P2 upsert rows jumped to the list tail, status port rule now
+  consistent with the instance ports, setBridge kept stale statuses,
+  candidate refresh bypassed the guard; equal-stamp + secrecy
+  posture CONFIRMED correct w/ pins. Registered E-08-58..64. tests
+  ui 599/62 (+22 desktop-ssh: contract/parse/import/store rows
+  incl. the failure-path semantics) - web unchanged 483/34 -
+  typechecks - gates green. Seal at 20260920-3 with the entry below.
 ## B. Adaptation deltas (registered)
 
 - **E-08-34 (§4.7 failure-path interpretation, not doc-literal)**:
@@ -1059,6 +1110,54 @@ SSH -> reverse proxy -> invariants.
   silently rather than widening the document. The reconnect path stays
   legible: autoStarted/expiresAt/candidates self-describe the link state,
   and the P4 CLI slice can revisit when the shared output engine lands.
+- **E-08-58 (S7.2/S7.3 bounds and defaults the doc pins no numbers for)**:
+  connectionTimeoutSec clamps to 5..600 with default 30 (doc gives no
+  limits); every port field (instance config or pushed status) must be an
+  integer 1..65535 or the field is dropped; portForwards caps at 64 rows,
+  drops shape-invalid rows, and synthesizes `fwd_*` ids for rows without
+  one; status retryAttempt floors at 0 and junk updatedAtMs warps to
+  Date.now(); random-port suggestions ride the 49152..61000 band dodging
+  the busy set with a deterministic linear exhaust.
+- **E-08-59 (S7.3 pushed-stamp discipline: equal replaces, only older
+  drops)**: the store drops a pushed status only when the in-shelf row is
+  STRICTLY newer (current.updatedAtMs > incoming.updatedAtMs); an
+  equal-timestamp push REPLACES last-write-wins - ms-resolution publishers
+  can collide and arrival order is the sequencer. sortStatuses is a
+  stable sort, so equal stamps keep input order (display-only concern).
+- **E-08-60 (S7.2 secrets mirror verbatim; the UI never echoes)**: the
+  store mirrors bridge-configured instances VERBATIM, including
+  StoredSecret `value` strings - the S7.2 shared shape carries them and
+  config truth/at-rest ownership is doc 09's, not the UI's to rewrite.
+  UI-owned faces bind to a no-echo discipline (no console/log paths exist
+  in the ui ssh libs today; the pages slice's toasts/log dialogs must
+  render status metadata only, never values).
+- **E-08-61 (S7.4 ssh runtime key scheme)**: doc 01's key vocabulary
+  ('local', 'host:<id>', mobile per-device) covers no ssh machine; NND
+  pins `ssh:<id>` via sshRuntimeKey(), prefix-distinct from paired host
+  ids so the two id spaces cannot collide. Doc 09/P12 owns the actual
+  switch wiring; localUrl already rides the ready/degraded phase rows.
+- **E-08-62 (S7.2 parse choices: value flags and basename program word)**:
+  VALUE_FLAGS mirrors real-ssh value options; `-q` is deliberately NOT
+  one (quiet-mode boolean; swallowing its neighbour turned
+  `ssh -q host` into destination null). The program word matches on the
+  path BASENAME (`ssh`/`ssh.exe`, case-insensitive) so POSIX absolute
+  paths and `SSH.EXE` variants are excluded too; attached values (`-p465`)
+  and `-E/-W`-style strays parse as boolean trails, which cannot
+  displace the destination (last-positional rule is immune).
+- **E-08-63 (S7.3 importer simplifications, not doc-pinned)**:
+  parseSshConfig is flat-line: aliases dedupe across the WHOLE file
+  (ssh's first-match cascade is ignored - harmless for candidates), `*`
+  is excluded while any glob alias stays a `pattern` row without the
+  usability check, Match/Include/comment lines skip (an `Host` row
+  inside a Match block still parses - benign for candidates). Include
+  expansion remains doc-09 bridge work.
+- **E-08-64 (S7.3 bridge-less posture and stream survival)**: with no
+  bridge, loadConfig answers `loaded` with an empty shelf and EVERY
+  trigger (refresh/import/connect family) records
+  'desktop ssh bridge is unavailable...' in lastError instead of failing
+  quietly; with a bridge, a failed config read still attaches the status
+  listener - a transient desktopSshConfig failure must not orphan the
+  pushed-event channel (the only status channel S7.3 defines).
 - **E-08-1 (JWT hand-rolled)**: the doc uses the `jose` library's SignJWT;
   NND hand-rolls HS256 sign/verify with node:crypto to avoid the
   dependency (JWT is `{type:'ui-session', iat, exp}` only; verification is
