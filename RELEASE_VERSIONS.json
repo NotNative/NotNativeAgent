@@ -88,6 +88,10 @@
     {
       "version": "20260922-1",
       "content_sha256": "6ebb76f9c141eccce7f5d1666a44a46da105907ddaa2aed19a4ddd197e6d70bc"
+    },
+    {
+      "version": "20260922-2",
+      "content_sha256": "791ace49f8ceb278ce312bfcfec2b6bc9c23d20f5d53caf3ad324c8e862f0145"
     }
   ]
 }

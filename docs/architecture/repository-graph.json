@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:b38d95769860e8eb3d200a42f6f6882a37a776943b9c3b4f3008f9a210db7259",
+  "source_digest": "sha256:436aec19bc9d256ee501864cb9a143ed202d60e3321dd2642e00d8af2fdeff7b",
   "counts": {
     "modules": 341,
     "component_edges": 12
@@ -109,7 +109,7 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 30,
+      "import_count": 31,
       "module_count": 13
     },
     {
@@ -613,6 +613,7 @@
         "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/stores/useConfigStore.ts",
         "packages/ui/src/sync/global-stores.ts",
+        "packages/ui/src/sync/persist-cache.ts",
         "packages/ui/src/sync/view-store.ts"
       ]
     },

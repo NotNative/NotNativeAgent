@@ -151,7 +151,8 @@ export type MaterializationReason =
   | 'stream-reconnect'
   | 'transport-switch'
   | 'stale-status-resync'
-  | 'settled-running-tool';
+  | 'settled-running-tool'
+  | 'boot-open';
 
 export interface MaterializationRequest {
   reason: MaterializationReason;

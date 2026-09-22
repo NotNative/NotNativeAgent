@@ -76,3 +76,23 @@ arm a goal from UI or API yet), no mock session-metadata persistence, no SSE.
 The installed desktop app (P12a) does NOT contain this layer's behavior beyond
 dead code — it was packaged before goals landed; the next P12 packaging run
 picks it up.
+
+## 2026-09-22 · P12b-1 tray + scripted source install (seal 20260922-1)
+
+**Verified working (live, on this machine)**
+
+| Surface | Evidence |
+|---|---|
+| `install.ps1` full run | exit 0: robocopy copy → pnpm --frozen-lockfile → electron postinstall repair → `electron-package.mjs --no-nsis` (web dist + esbuild bundle + sibling JSON + tray icons) → Desktop + Start Menu shortcuts |
+| Launch path | Started via the real Desktop `.lnk` (electron.exe + main.mjs, install dir) |
+| Boot chain (installed) | `%APPDATA%\NotNativeDesktop\logs\main.log`: port fallback 57123→61776 (dev instance held 57123), `tray icon active (open web / open desktop / quit)`, server ready, window navigated |
+| Health + assets | `/health` 200 (version `20260921.0.6` after the unpackaged-version fix; before the fix it reported the ELECTRON version `44.4.3`), `/assets/*.js` 200 |
+| Co-existence | repo checkout instance (userData `… Dev`) and scripted install (userData `NotNativeDesktop`, `install-mode.txt` marker) ran simultaneously on different ports |
+| Word-processor hardening | two install failures fixed: PS parser mojibake on em dash (pure-ASCII policy); `$ErrorActionPreference=Stop` aborted on vite/pnpm stderr → `Invoke-Native` routes native stderr to log files, exit code authoritative |
+
+**Known broken / not yet usable**: `install.sh` written but NEVER executed
+(no bash/WSL on this host — unverified); `-Uninstall` behavior with a running
+service untested (auditor in flight); tray menu ACTIONS (browser open,
+quit) implemented but clickable only by a human; NSIS installer still works
+but no longer the primary path; installer audit finds slate empty until the
+adversarial pass reports.

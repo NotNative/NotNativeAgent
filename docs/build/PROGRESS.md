@@ -846,6 +846,31 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   this infra slice is behaviorally verified; the adversarial audit agent
   fires on the committed tree next round (fixes land as follow-up).
 
+- 2026-09-22 · **P12b-2 GUI-PLAN sweep delivered + SLICE-A `chat-alive` wiring
+  (user directive #2 begins).** Sweep agent delivered GUI-PLAN.md (index) +
+  Sections 1–4: wanted feature inventory W-01…W-113 with doc cites,
+  file:line-verified current state (top reason the GUI looks empty: boot never
+  opens a session — the restore pair had zero call sites), OpenChamber port
+  map, and the ordered slice plan A→G. SLICE-A implemented in-session:
+  `openInitialSession` (engine-instance.ts) priority chain — existing
+  selection wins; validated last-active pointer (exists in the authoritative
+  list AND same directory); non-archived seeded welcome demo; else honest
+  empty draft — executed after the initial resync resolves; boot-open also
+  enqueues the message tail load (`'boot-open'` added to
+  MaterializationReason) so the transcript doesn't skeleton forever (found:
+  NOTHING loaded session messages on sidebar click either — events/child
+  pivots were the only enqueue sources). Restore pair fully wired:
+  onSelectSession + MainLayout open/openDraft call
+  persistLastActiveSession. Welcome mock copy refreshed. Tests
+  sync/__tests__/parts-boot-open.test.ts 7/7; ui 615/615 (65 files,
+  worker-capped under memory pressure); typecheck ×4 green (cross+server
+  clean, ui+web-ui green after reason-union fix). Live: artifacts rebuilt,
+  redeployed to the installed tree (dist + assets + version source),
+  relaunched via shortcut; /health `20260922.0.1`; boot chain green; bundle
+  contains the boot-open reason. GUI-PLAN marked SLICE-A task-1 landed.
+  NOTE: `desktopUiPassword` is now set on this machine (sweep observed
+  04:48Z) — the installed app boots to the auth gate by design.
+
 ## Delta/Delayed register
 
 | # | Item | Phase landing | Note |

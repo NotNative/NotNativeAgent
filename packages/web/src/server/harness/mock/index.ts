@@ -66,10 +66,11 @@ function welcomeSeed(): void {
           messageID,
           type: 'text',
           text:
-            'This workspace is running against the **mock harness**. The NotNativeAgent ' +
-            '(NNA) adapter takes its place behind the same seam. Send a message to watch ' +
-            'the event-stream turn simulation; include the words "permission", "question", ' +
-            'or "todo" to see those flows fire.',
+            'Welcome! This session opens automatically on boot. The workspace currently ' +
+            'runs against the **mock harness** — the NotNativeAgent (NNA) adapter takes ' +
+            'its place behind the same seam until the real one lands. Send a message to ' +
+            'watch a streamed turn on the event stream; include the words "permission", ' +
+            '"question", or "todo" to see those flows fire.',
         },
       ],
     },

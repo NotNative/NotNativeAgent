@@ -1,41 +1,24 @@
-# GUI-PLAN — Wanted vs Implemented Gap Map & Slice Plan
+# GUI-PLAN — Section 1: Wanted feature inventory (ACCEPTANCE LIST)
 
-**Status:** living document (v1). Owner: the GUI bring-up effort.
-**Purpose:** single source of truth for closing the gap between the
-`docs/planning/*.md` cleanroom spec (what NotNativeDesktop WANTS to be — an
-OpenChamber-class workspace on our own agentic harness) and what actually
-exists in the repo today. Sections:
+Owner: the GUI bring-up effort. Superset index: [`../GUI-PLAN.md`](../GUI-PLAN.md)
+(sections: 1 → this file · 2 → SECTION-2-current-state.md ·
+3 → SECTION-3-reference-map.md · 4 → SECTION-4-slice-plan.md).
 
-| Section | File | Content |
-|---|---|---|
-| 1 | this file, §Collection 1 | **Wanted feature inventory** — the acceptance list (every user-facing capability the planning docs want, with doc+§ citations) |
-| 2 | this file, §Collection 2 | **Current state** — what renders today, what is wired, why the installed app looks empty |
-| 3 | this file, §Collection 3 | **Reference map** — per capability, where OpenChamber (`D:\ProjectRepo\External\openchamber`, READ-ONLY reference) implements it and what to port |
-| 4 | this file, §Collection 4 | **Slice plan** — ordered slices with user-facing acceptance guarantees; SLICE-A first |
+**Purpose:** the inventory of what NotNativeDesktop WANTS to be. Walk order:
+the docs named by the effort brief (00-INDEX map; 01, 03, 04, 05, 06, 07, 08,
+09, 12, 13, 14, 15). Citations are doc-§/section-title. The build checklist
+sections (05 §J, 06 §13, 07 §11, 08 §14, 09 §15, 12 §J, 13 §L, 14 §L, 15 §M)
+are the docs' own acceptance lists and are the authority for "done".
 
 Conventions: wanted capabilities carry stable ids `W-xx` so slices can cite
 them. "Harness" = our agentic backend behind `packages/web/src/server/harness/*`
 (objective: NotNativeAgent "NNA"; today the `mock` adapter only. The
 contract/auth = `docs/planning/02-opencode-harness-contract.md`).
 
-Section 4 slice plan (ordered), summarized — full detail in §Collection 4:
-
-- **SLICE-A — "Alive session"**: real streamed turn end-to-end (auth gate →
-  boot → streamed reply rendering → abort/retry) with the mock harness
-  wrapper; the smallest change that makes the installed app look alive.
-- SLICE-B Work band: directory/project data on harness, git/fs UI grounded in real payload.
-- SLICE-C Autonomy: goals + scheduled + multi-run/fusion wiring with real harness + persisted state.
-- SLICE-D Real data sinks (real answers from the model; fs/git against working tree).
-- SLICE-E Shell polish (updater, tray, notifications splash) — parity with doc 09 §15.
-
----
-
 ## Collection 1 — Wanted feature inventory (ACCEPTANCE LIST)
 
-Every user-facing capability the planning docs specify. Walk order: the docs
-named by the effort brief (00-INDEX map; 01, 03, 04, 05, 06, 07, 08, 09, 12,
-13, 14, 15). Citations are doc-§/section-title. The build checklist sections
-(05 §J, 06 §13, 07 §11, 08 §14, 09 §15, 12 §J, 13 §L, 14 §L, 15 §M) are the
+Every user-facing capability the planning docs specify. The build checklist
+sections (05 §J, 06 §13, 07 §11, 08 §14, 09 §15, 12 §J, 13 §L, 14 §L, 15 §M) are the
 docs' own acceptance lists and are the authority for "done".
 
 ### 1.1 App shell & boot (01)

@@ -8,6 +8,7 @@ import { ChatSidebar, bindBlockedProbe } from '../chat/session-sidebar.tsx';
 import { SessionTabs } from '../chat/session-tabs.tsx';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
+import { persistLastActiveSession } from '../sync/persist-cache.ts';
 import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { useConfigStore } from '../stores/useConfigStore.ts';
 import { ShellShortcuts, settingsOpenEventName } from './ShellShortcuts.tsx';
@@ -126,11 +127,13 @@ export function MainLayout(): ReactNode {
 
   const actions = {
     openDraft: (directory: string) => {
+      persistLastActiveSession(null, directory); // draft intent clears the pointer
       useSessionViewStore.setState({ currentSessionId: null, activeDirectory: directory });
     },
     openSession: (sessionID: string, directory: string) => {
       // F.4: navigation NEVER denies pending requests — dismiss is authority
       // of the send path and the explicit card buttons only.
+      persistLastActiveSession(sessionID, directory); // remember for next boot
       useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
     },
     rename: async (sessionID: string, title: string) => {

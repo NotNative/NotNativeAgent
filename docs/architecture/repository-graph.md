@@ -50,7 +50,7 @@ graph LR
 |---|---|---:|---:|
 | UI shell | Runtime adaptation | 94 | 36 |
 | Client sync and state engine | Harness SDK facade | 48 | 33 |
-| UI shell | Client sync and state engine | 30 | 13 |
+| UI shell | Client sync and state engine | 31 | 13 |
 | UI shell | Harness SDK facade | 19 | 16 |
 | Web entrypoints | Web server | 9 | 3 |
 | Client sync and state engine | Runtime adaptation | 7 | 6 |
@@ -68,4 +68,4 @@ graph LR
 - `packages/web/src/server/index.ts`
 - `scripts/dev.mjs`
 
-Source fingerprint: `sha256:b38d95769860e8eb3d200a42f6f6882a37a776943b9c3b4f3008f9a210db7259`.
+Source fingerprint: `sha256:436aec19bc9d256ee501864cb9a143ed202d60e3321dd2642e00d8af2fdeff7b`.

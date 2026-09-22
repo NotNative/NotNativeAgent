@@ -28,7 +28,7 @@ import { createMessageCompletionPoll } from './engine-message-poll.ts';
 import { applySideEffects, type SideEffectDeps } from './engine-side-effects.ts';
 import { useGlobalSessionsStore, useGlobalSessionStatusStore, useGlobalSyncStore } from './global-stores.ts';
 import { useSessionOrderingStore } from './session-ordering.ts';
-import { installPersistLifecycleFlush, writeCachedSessions, readLastActiveSession } from './persist-cache.ts';
+import { installPersistLifecycleFlush, writeCachedSessions, readLastActiveSession, persistLastActiveSession } from './persist-cache.ts';
 import { useConfigStore } from '../stores/useConfigStore.ts';
 import { useSessionViewStore } from './view-store.ts';
 import { defaultHarnessDirectory, recoverInterruptedTurnAfterMessageLoad, reconcileStreaming } from './engine-support.ts';
@@ -148,6 +148,37 @@ function partsIsRecentBoot(ctx: EngineCtx): boolean {
   return ctx.bootedAt !== 0 && Date.now() - ctx.bootedAt < BOOT_DEBOUNCE_MS;
 }
 
+/** SLICE-A chat-alive (doc 05 §A boot-open, v1): pick the session to open on
+ * boot. Priority: an existing selection (user or draft) wins; then the
+ * persisted last-active pointer when it still exists in the authoritative
+ * list and matches this directory; then the seeded welcome demo. When none
+ * apply nothing opens — the empty draft stays the honest state. */
+export interface InitialOpenInput {
+  currentSessionId: string | null;
+  directory: string;
+  storeSessions: Session[];
+  pointer: { sessionId: string; directory: string } | null;
+  select: (sessionID: string, directory: string) => void;
+}
+
+export async function openInitialSession(input: InitialOpenInput): Promise<void> {
+  if (input.currentSessionId) return; // existing selection always wins
+  const p = input.pointer;
+  const pointerValid = p !== null
+    && normalizeDirectory(p.directory) === input.directory
+    && input.storeSessions.some((session) => session.id === p.sessionId);
+  if (p && pointerValid) { input.select(p.sessionId, input.directory); return; }
+  const welcome = input.storeSessions.find((session) => !session.time?.archived && session.title?.startsWith('Welcome'));
+  if (welcome) input.select(welcome.id, input.directory);
+}
+
+/** Boot-open select: view pointer + routing + message tail load. */
+function selectBootSession(ctx: EngineCtx, sessionID: string, directory: string): void {
+  useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
+  registerSessionDirectory(ctx.routing, sessionID, directory);
+  ctx.materializer.enqueue({ reason: 'boot-open', sessionID }, directory);
+}
+
 async function partsStart(ctx: EngineCtx): Promise<void> {
   if (ctx.disposed || ctx.finalized) return;
   await runGlobalBootstrap(); // §C.1: global bootstrap FIRST (per mount / runtime switch)
@@ -156,8 +187,18 @@ async function partsStart(ctx: EngineCtx): Promise<void> {
   const directory = normalizeDirectory(await defaultHarnessDirectory());
   useSessionViewStore.getState().setActiveDirectory(directory);
   ctx.manager.ensureChild(directory);
-  void readLastActiveSession(); // confirm-before-open lands with doc 05 layout
-  void ctx.recovery.resyncDirectory(directory, 'initial');
+  // SLICE-A chat-alive: once the authoritative session list lands, open the
+  // last active session (or the seeded welcome demo on first run). The user
+  // had that session open before, so restoring it needs no confirmation;
+  // when nothing restores, the empty draft (doc 05) stays the honest state.
+  const initialResync = ctx.recovery.resyncDirectory(directory, 'initial');
+  void initialResync.then(() => openInitialSession({
+    currentSessionId: useSessionViewStore.getState().currentSessionId,
+    directory: normalizeDirectory(directory),
+    storeSessions: ctx.manager.peekChild(normalizeDirectory(directory))?.getState().session ?? [],
+    pointer: readLastActiveSession(),
+    select: (sessionID, sessionDirectory) => selectBootSession(ctx, sessionID, sessionDirectory),
+  })).catch(() => { /* boot-open is best-effort: the empty draft remains valid */ });
   ctx.watchdogStop?.();
   ctx.watchdogStop = startWatchdog({
     disposed: () => ctx.disposed,
@@ -321,6 +362,7 @@ function buildEngineServices(
     onSelectSession: (sessionID, directory) => {
       useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: normalizeDirectory(directory) });
       registerSessionDirectory(ctx.routing, sessionID, directory);
+      persistLastActiveSession(sessionID, normalizeDirectory(directory)); // restore-remembering opens
     },
   };
 }
