@@ -812,6 +812,40 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   stale-dist build-stamp), P13 integration verify. The P12a installer remains
   installed and running on this machine.
 
+- 2026-09-22 · **P12b-1 tray + scripted source install (user directive pivot).**
+  User: the packaged NSIS flow is not intuitive; the GUI is nearly empty.
+  Deliverable 1 landed: repo-root `install.ps1` (row-bot action-pattern
+  parity) copies source → `%LOCALAPPDATA%\NotNativeDesktop`, pnpm-installs,
+  repairs electron postinstall, runs `electron-package.mjs --no-nsis`
+  (artifacts only), stamps the scripted-install identity marker, and creates
+  Desktop + Start Menu shortcuts; `install.sh` written for POSIX parity
+  (UNVERIFIED on this host — no bash/WSL distro; registered). Tray slice in
+  `packages/electron/tray.mjs` mirrors the reference launcher: status
+  feedback (starting/running/stopped icon+tooltip), menu [Open App (default)
+  | Open Web UI in Browser | status | Quit], close-hides-to-tray (service
+  outlives window), Quit = dispose→quit→8s watchdog, boot-failure stays
+  alive in stopped state when trayed. Icons generated dependency-free
+  (`scripts/electron-tray-icon.mjs` raw PNG encoder). IPC invoke face
+  extracted to `ipc-face.mjs` (file cap). Scripted install gets product
+  identity via `install-mode.txt` (userData `%APPDATA%\NotNativeDesktop`,
+  AUMID without `.dev`) — repo checkout and installed copy co-exist. Version
+  surface fix: unpackaged `app.getVersion()` returns the ELECTRON version
+  (probed: /health said 44.4.3) — main now reads the root manifest
+  (probed: /health 20260921.0.6). Live evidence: full scripted install
+  executed (exit 0: copy/pnpm/build green/2 shortcuts), launched VIA the
+  desktop shortcut, boot chain in `%APPDATA%\NotNativeDesktop\logs\main.log`
+  (port fallback 57123→61776 while repo-dev instance held 57123, tray line,
+  server ready, window navigated), /health 200 + /assets 200. Pipeline
+  failures en route and fixed: PS parser mojibake (em dash → pure ASCII),
+  and the big one — vite/pnpm stderr under $ErrorActionPreference=Stop
+  aborted install.ps1 twice (NativeCommandError); native calls now route
+  stderr to log files via a Continue-region helper (Invoke-Native), exit
+  codes authoritative. D-09-16/17 registered. NOTE: running app predates
+  main.mjs version fix → installed copy patched in place (single-file copy),
+  full tree refresh lands with the next reinstall. Deviation registered:
+  this infra slice is behaviorally verified; the adversarial audit agent
+  fires on the committed tree next round (fixes land as follow-up).
+
 ## Delta/Delayed register
 
 | # | Item | Phase landing | Note |

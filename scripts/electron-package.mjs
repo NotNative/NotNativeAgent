@@ -34,6 +34,8 @@ const NATIVE_EXTERNALS = ['node-pty'];
 // copies no JSON siblings, so the pipeline must stage them next to the bundle.
 const SIBLING_DATA = [path.join('packages', 'web', 'src', 'server', 'lib', 'settings-registry.json')];
 
+const NO_NSIS = process.argv.includes('--no-nsis'); // script-install mode: build shell artifacts only
+
 main().catch((error) => {
   process.stderr.write(`electron-package failed: ${error?.stack ?? error}\n`);
   process.exitCode = 1;
@@ -41,12 +43,17 @@ main().catch((error) => {
 
 async function main() {
   const version = readRootVersion();
-  log(`packaging NotNativeDesktop ${version} (win-x64, unsigned)`);
+  log(`packaging NotNativeDesktop ${version} (win-x64,${NO_NSIS ? ' artifacts only' : ' unsigned NSIS'})`);
   ensureElectronBinary();
+  generateTrayIcons();
   buildWebUi();
   stageWebDist();
   await bundleServer();
   copySiblingData();
+  if (NO_NSIS) {
+    log('artifacts ready (electron/, no installer pass)');
+    return;
+  }
   runElectronBuilder(version);
   reportArtifacts();
 }
@@ -82,6 +89,15 @@ function ensureElectronBinary() {
 
 function failBinaryUnreachable(detail) {
   throw new Error(`ELECTRON_BINARY_UNREACHABLE: ${detail}`);
+}
+
+/** Tray status icons (pure-Node PNG encoder, no deps) — tray fails soft without them. */
+function generateTrayIcons() {
+  const script = path.join(ROOT, 'scripts', 'electron-tray-icon.mjs');
+  if (!existsSync(script)) throw new Error(`tray icon generator missing at ${script}`);
+  const result = spawnSync(process.execPath, [script], { cwd: ROOT, stdio: 'inherit', env: process.env });
+  if (result.status !== 0) throw new Error(`tray icon generation exited ${result.status}`);
+  log(`tray icons ok: ${path.join(SHELL_DIR, 'assets')}`);
 }
 
 // ── step 1: vite build (web package's own CLI, cwd-relative outDir) ────────

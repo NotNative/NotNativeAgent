@@ -8,11 +8,13 @@
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is
  * dynamically imported (the module reads env at import time).
  */
-import { app, BrowserWindow, ipcMain, powerMonitor, shell } from 'electron';
+import { app, BrowserWindow, powerMonitor, shell } from 'electron';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { createInvokeFace } from './ipc-face.mjs';
+import { createTrayController } from './tray.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -26,12 +28,25 @@ const PACKAGED = Boolean(app.isPackaged);
 let mainWindow = null;
 let serverHandle = null;
 let chosenPort = 0;
+let trayController = null;
+let quitting = false;
 
 // ── §1.2/1.3 module-load identity (before app.whenReady) ────────────────────
 
+function installModeMarkerFile() {
+  return path.join(path.dirname(directoryPathFromModuleUrl(import.meta.url)), 'install-mode.txt');
+}
+
+/** install.ps1 stamps this marker so a source install gets product identity
+ * (its own userData + AppUserModelId) while the repo checkout stays 'Dev'. */
+function isScriptedInstall() {
+  try { return fs.readFileSync(installModeMarkerFile(), 'utf8').trim() === 'script'; } catch { return false; }
+}
+
 app.setName(APP_NAME);
-if (!PACKAGED) app.setPath('userData', path.join(app.getPath('appData'), APP_NAME + ' Dev')); // D-09-6 split
-app.setAppUserModelId(PACKAGED ? APP_ID : `${APP_ID}.dev`);
+const SCRIPTED = !PACKAGED && isScriptedInstall();
+if (!PACKAGED && !SCRIPTED) app.setPath('userData', path.join(app.getPath('appData'), APP_NAME + ' Dev')); // D-09-6 split
+app.setAppUserModelId(PACKAGED || SCRIPTED ? APP_ID : `${APP_ID}.dev`);
 if (process.platform === 'linux' && typeof app.setDesktopName === 'function') app.setDesktopName('notnativedesktop.desktop');
 try {
   // §1.3 #2: local requests never route through a system proxy.
@@ -205,7 +220,7 @@ function applyServerEnv(port) {
   process.env.NOTNATIVE_DIST_DIR = resolveDistDir();
   process.env.NOTNATIVE_RUNTIME = 'desktop';
   // D-09-12: the server's version surface must agree with the installer's.
-  process.env.NOTNATIVE_APP_VERSION = app.getVersion();
+  process.env.NOTNATIVE_APP_VERSION = productVersion();
   // NOTNATIVE_DATA_DIR stays UNSET — the server default ~/.notnative-desktop
   // wins so packaged and `pnpm start` share state (D-09-6).
   if (!process.env.NO_PROXY) process.env.NO_PROXY = 'localhost,127.0.0.1';
@@ -214,6 +229,16 @@ function applyServerEnv(port) {
 
 function localOrigin() {
   return `http://127.0.0.1:${chosenPort}`;
+}
+
+/** Product version surface for the scripted (unpackaged) install: electron's
+ * app.getVersion() returns the BINARY version in dev mode — read the root
+ * manifest instead so /health matches the installer identity (D-09-12). */
+function productVersion() {
+  if (PACKAGED) return app.getVersion();
+  try {
+    return JSON.parse(fs.readFileSync(path.join(selfDir(), '..', '..', 'package.json'), 'utf8')).version ?? app.getVersion();
+  } catch { return app.getVersion(); }
 }
 
 // ── §2.2 health polling helper ──────────────────────────────────────────────
@@ -316,6 +341,14 @@ function createMainWindow() {
   });
   attachWindowGuards(win);
   win.once('ready-to-show', () => win.show());
+  // Tray mode: the close button hides the window and the service keeps
+  // running (reference launcher semantics); Quit belongs to the tray menu.
+  win.on('close', (event) => {
+    if (trayController?.active && !quitting && !win.webContents.isCrashed()) {
+      event.preventDefault();
+      win.hide();
+    }
+  });
   win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
   win.loadURL(SPLASH_URL).catch(() => { /* splash is cosmetic */ });
   return win;
@@ -328,70 +361,37 @@ function focusMainWindow() {
   mainWindow.focus();
 }
 
-// ── §11.1 v1 + D-09-3: minimal invoke face with sender framing ─────────────
+/** Tray "Open <App>": reuse the window or create one targeted at the UI. */
+function ensureMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    mainWindow = createMainWindow();
+    if (serverHandle) mainWindow.loadURL(localOrigin()).catch(() => { /* cosmetic */ });
+  }
+  focusMainWindow();
+}
+
+/** Tray Quit: deliberate teardown (dispose → quit → hard watchdog). */
+function quitFromTray() {
+  if (quitting) return;
+  quitting = true;
+  console.log('[shell] quit requested from tray');
+  try { trayController?.destroy(); } catch (error) { console.error('[shell] tray teardown failed:', error); }
+  try { serverHandle?.dispose(); } catch (error) { console.error('[shell] server dispose failed:', error); }
+  app.quit();
+  setTimeout(() => app.exit(0), 8_000); // watchdog: never hang on a stuck handle
+}
+
+// ── §11.1 v1 + D-09-3: the invoke face lives in ipc-face.mjs (file cap) ─────
 
 function appFileUrlPrefix() {
   return `file:///${encodeURI(app.getAppPath().replaceAll('\\', '/'))}`;
 }
 
-function senderFrameUrls(event) {
-  const urls = [];
-  for (const frame of event.frames ?? []) {
-    if (frame && typeof frame.url === 'string') urls.push(frame.url);
-  }
-  const own = event.senderFrame && typeof event.senderFrame.url === 'string' ? event.senderFrame.url : '';
-  if (!urls.includes(own) && own) urls.push(own);
-  return urls;
-}
-
-function isLocalSender(event) {
-  const origin = `${localOrigin()}/`;
-  const appPrefix = appFileUrlPrefix();
-  const urls = senderFrameUrls(event);
-  if (urls.length === 0) return false;
-  return urls.some((url) => (
-    url.startsWith(origin) || url === origin.replace(/\/$/u, '')
-    || url.startsWith('data:text/html') // our own splash document
-    || url.startsWith(appPrefix)
-  ));
-}
-
-function runInvokeCommand(command, payload) {
-  if (command === 'desktop_open_external') {
-    const target = payload && typeof payload.url === 'string' ? payload.url : '';
-    try {
-      const parsed = new URL(target);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return { ok: false, error: 'url-must-be-http-or-https' };
-      shell.openExternal(parsed.href).catch(() => {});
-      return { ok: true };
-    } catch { return { ok: false, error: 'invalid-url' }; }
-  }
-  if (command === 'desktop_get_boot_info') {
-    return { ok: true, result: { port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch } };
-  }
-  return { ok: false, error: 'unknown-command' }; // never throws raw (§11.1)
-}
-
-function registerInvokeIpc() {
-  ipcMain.on('nnd:desktop-invoke', (event, envelope) => {
-    const seq = envelope && typeof envelope.seq === 'number' ? envelope.seq : -1;
-    const reply = (result) => {
-      try { event.sender.send('nnd:desktop-reply', { seq, ...result }); } catch { /* frame gone */ }
-    };
-    let result;
-    try {
-      if (!isLocalSender(event)) {
-        console.warn(`[shell] invoke rejected for sender: ${JSON.stringify(senderFrameUrls(event))}`);
-        result = { ok: false, error: 'sender-not-allowed' };
-      } else {
-        result = runInvokeCommand(String(envelope?.command ?? ''), envelope?.payload);
-      }
-    } catch (error) {
-      result = { ok: false, error: safeStringify(error) };
-    }
-    reply(result);
-  });
-}
+const invokeFace = createInvokeFace({
+  origin: () => localOrigin(),
+  appPathPrefix: () => appFileUrlPrefix(),
+  bootInfo: () => ({ port: chosenPort, version: app.getVersion(), platform: process.platform, arch: process.arch }),
+});
 
 // ── §1.3 boot flow ──────────────────────────────────────────────────────────
 
@@ -412,7 +412,21 @@ async function boot() {
   console.log(`[shell] app start version=${app.getVersion()} packaged=${PACKAGED} platform=${process.platform} arch=${process.arch} argv=${JSON.stringify(process.argv)}`);
   chosenPort = await selectPort();
   applyServerEnv(chosenPort);
-  registerInvokeIpc();
+  invokeFace.register();
+  trayController = createTrayController({
+    title: APP_NAME,
+    assetsDir: path.join(selfDir(), 'assets'),
+    origin: localOrigin(),
+    ensureMainWindow,
+    onQuit: quitFromTray,
+  });
+  if (trayController.create()) {
+    console.log('[shell] tray icon active (open web / open desktop / quit)');
+  } else {
+    trayController = null;
+    console.log('[shell] tray assets unavailable — running without tray icon');
+  }
+  trayController?.setStatus('starting');
   mainWindow = createMainWindow();
   powerMonitor.on('resume', () => {
     // D-09-11: sealed notnative: brand fan-out (renderer reconnects immediately)
@@ -423,11 +437,17 @@ async function boot() {
   const healthy = await startServerAndProbe();
   if (!healthy) throw new Error(`server health check failed on ${localOrigin()} after ${HEALTH_TIMEOUT_MS} ms`);
   writeStoredPort(chosenPort);
+  trayController?.setStatus('running', localOrigin());
   console.log(`[shell] navigating main window to ${localOrigin()}/`);
   await mainWindow.webContents.loadURL(`${localOrigin()}/`);
 }
 
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => {
+  // With a tray the service intentionally outlives closed/hidden windows;
+  // without one (asset-less fallback) closing the only window is exit.
+  if (trayController?.active) return;
+  app.quit();
+});
 app.on('before-quit', () => {
   if (!serverHandle) return;
   try { serverHandle.dispose(); } catch (error) { console.error('[shell] server dispose failed:', error); }
@@ -435,5 +455,11 @@ app.on('before-quit', () => {
 
 boot().catch((error) => {
   console.error('[electron] startup failed:', error);
+  // Reference launcher semantics: with a tray keep the process alive in the
+  // stopped state (user can Quit from the menu); without one, exit.
+  if (trayController?.active) {
+    trayController.setStatus('stopped');
+    return;
+  }
   app.exit(1);
 });

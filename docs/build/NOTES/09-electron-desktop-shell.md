@@ -113,6 +113,27 @@ remaining P12 slices ride after it.
   files is loader-version-dependent; the loose file is deterministic. (Found
   the hard way: first packaged boot died on selfDir() resolving to
   `app.asar\main.mjs\dist-server\` — main.mjs selfDir is now dirname-based.)
+- **D-09-16** tray (reference launcher pattern, modeled on the row-bot
+  launcher): Electron Tray owns status feedback (starting → running/stopped,
+  tooltip + regenerated menu), menu is exactly [Open <App> (default,
+  restore-or-create window) | Open Web UI in Browser (default browser,
+  enabled only when running) | — status line — | Quit]; window close HIDES
+  while a tray is active (service outlives the window); Quit does
+  dispose → app.quit → 8 s hard watchdog; boot failure with a tray stays
+  alive in the stopped state (no tray → legacy exit 1). Icons are generated
+  dependency-free PNGs (scripts/electron-tray-icon.mjs, teal stopped gray),
+  tray misses degrade to window-only mode. ipc invocation face extracted to
+  ipc-face.mjs (file-cap hygiene; behavior byte-identical).
+- **D-09-17** scripted source install: repo-root install.ps1 (row-bot
+  action-pattern parity) copies the source into
+  `%LOCALAPPDATA%\NotNativeDesktop`, pnpm-installs there, repairs the
+  electron postinstall, builds shell artifacts (`electron-package.mjs
+  --no-nsis`), stamps `packages/electron/install-mode.txt` (`script`), and
+  creates Desktop + Start Menu shortcuts targeting electron.exe + main.mjs.
+  The marker gives the SCRIPTED install product identity (userData
+  `%APPDATA%\NotNativeDesktop`, AppUserModelId without `.dev`) while a repo
+  checkout keeps the `… Dev` split — the two can co-exist on one machine.
+  NSIS packaging remains available but secondary.
 
 ## B2. First-install residuals (P12a audit, 2026-09-22 — registered not fixed)
 

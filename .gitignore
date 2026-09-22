@@ -9,4 +9,5 @@ dist-*/
 coverage/
 packages/web/dist/
 packages/electron/resources/web-dist/
+packages/electron/install-mode.txt
 *.tsbuildinfo
