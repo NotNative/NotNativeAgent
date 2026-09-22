@@ -753,6 +753,33 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   Sealed as 20260921-3. New `docs/build/EVALUATION.md` seeded with the
   verified-working / known-broken matrix this assessment produced.
 
+- 2026-09-22 · **P12a installable shell — FIRST INSTALL ON THIS SYSTEM.**
+  Electron v1 subset (doc 09 + NOTES/09 D-09-1..15): in-process server (never
+  sidecar), port stored→57123→ephemeral via test-bind before bundle import,
+  env set pre-import, loopback-only, splash→health→navigate boot chain,
+  preload allowlist + sender framing, NSIS oneClick perMachine unsigned.
+  Pipeline `scripts/electron-package.mjs`: vite → stage web-dist → esbuild
+  server (node-pty the lone external; createRequire banner + bundle audits)
+  → sibling-data staging → electron-builder → installer + sha256. First
+  packaged boots exposed three packaged-only defects no source-checkout gate
+  could see: selfDir() file-vs-directory (boot died "bundle missing
+  app.asar\main.mjs\…"), ESM bundle without require for CJS deps (ws →
+  "Dynamic require of events"), runtime settings-registry.json unstaged
+  (ENOENT). All fixed + regression-guarded in the pipeline. Version surface
+  unified (NOTNATIVE_APP_VERSION, D-09-12). Independent verification on
+  hardware: silent /S install (and silent uninstall — dir gone), boot chain
+  in main.log, /health 200 version=20260921.0.3, / 200, /assets 200, port
+  persisted; terminal-create degrades to a clean JSON error (node-pty
+  unshipped by design, D-09-5 — P12b ships it). App left RUNNING on :57123
+  for user evaluation. Adversarial audit: auditor stalled after the 3-defect
+  proof chain; orchestrator completed probes (pty shape live-probed, IPC
+  framing, port TOCTOU, dual-instance dataDir, version surfaces) — five
+  residuals registered in NOTES/09 §B2, none release-blocking. Builder
+  agent stalled mid-verify and was takeover-released; both its fixes and the
+  orchestrator's landed green. web 586/586 · ui 608/608 · typecheck · gates
+  + graph (336 modules) · installer sha256 53de3fa76c9ec36d66fb502c0dae7602
+  a0d3a46505400b551573f37566c4075d. Sealed as 20260921-3.
+
 ## Delta/Delayed register
 
 | # | Item | Phase landing | Note |

@@ -67,4 +67,10 @@ async function serveFile(abs: string): Promise<Response> {
   });
 }
 
-export const DIST_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../dist');
+/** UI dist root. NOTNATIVE_DIST_DIR wins (the P12 desktop shell points the
+ * in-process server at resources/web-dist); the default stays the web
+ * package's own dist build. */
+const DIST_DIR_OVERRIDE = process.env.NOTNATIVE_DIST_DIR?.trim();
+export const DIST_DIR = DIST_DIR_OVERRIDE
+  ? path.resolve(DIST_DIR_OVERRIDE)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../dist');

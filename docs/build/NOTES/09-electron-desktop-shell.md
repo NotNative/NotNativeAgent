@@ -96,7 +96,43 @@ remaining P12 slices ride after it.
   (doc text shows the reference brand; our control vocabulary is ours).
 - **D-09-12** version pairing: electron-builder gets the product version via
   extraMetadata override at package time; packages/electron/package.json keeps
-  0.0.1 like ui/web (outside the pairing gate).
+  0.0.1 like ui/web (outside the pairing gate). The SERVER version surface now
+  agrees: main sets NOTNATIVE_APP_VERSION=app.getVersion() before the bundle
+  import and ENV.version reads it (source runs keep the 0.0.1 placeholder).
+  Verified on the installed app: /health version = 20260921.0.3.
+- **D-09-13** ESM bundle interop: the esbuild server bundle ships a
+  createRequire banner (`const require = createRequire(import.meta.url)`) —
+  CJS deps (ws) require() Node builtins and die at import without it.
+  electron-package.mjs audits the banner marker into every build.
+- **D-09-14** runtime JSON siblings: esbuild copies no data files, so
+  settings-registry.json (read relative to import.meta.url by settings-gate)
+  is staged into dist-server/ by the pipeline (SIBLING_DATA list; a missing
+  entry fails packaging, not the desktop at boot).
+- **D-09-15** dist-server ships OUTSIDE app.asar (extraResources) and
+  resolveServerBundle prefers that loose copy — ESM import() of asar-internal
+  files is loader-version-dependent; the loose file is deterministic. (Found
+  the hard way: first packaged boot died on selfDir() resolving to
+  `app.asar\main.mjs\dist-server\` — main.mjs selfDir is now dirname-based.)
+
+## B2. First-install residuals (P12a audit, 2026-09-22 — registered not fixed)
+
+- node-pty is external AND unshipped: packaged terminal-create returns the
+  module-load error as a JSON error (probed live: server stays healthy).
+  Shipping + asarUnpack + Electron-ABI rebuild = P12b.
+- Dual-instance sharing of ~/.notnative-desktop (packaged + dev `pnpm start`):
+  queue dispatch and settings writes assume one server; occurrence-claim
+  machinery exists only for scheduled tasks (lands P9-3). Cross-process
+  arbitration is a P13 integration-verify item.
+- Port handoff race: selectPort test-binds then closes before the server
+  binds — a second process can win the gap (~ms). Failure mode is a clean
+  boot abort with main.log evidence, not a wrong-port bind.
+- IPC allowlist accepts any `data:text/html` frame forever (own splash
+  allowance): reachable only from same-origin hosted content; blast radius is
+  openExternal(http/https) + boot info (port/version). v1-acceptable under
+  the D-09-3 allowlist design.
+- Install dir is `%LOCALAPPDATA%\Programs\@notnativeelectron` (package name,
+  matching the reference app's convention) while productName/exe/userData say
+  NotNativeDesktop; uninstall leaves logs+prefs (standard Electron posture).
 
 ## C. Facts pinned by probe (doc-09 rows we must honor byte-exact)
 

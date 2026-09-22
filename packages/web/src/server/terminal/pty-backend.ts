@@ -40,9 +40,17 @@ export type PtyFactory = (spec: PtySpawnSpec) => PtyHandle & PtyEvents;
 export function createNodePtyFactory(): PtyFactory {
   // node-pty is a CJS-only native module; the package is ESM ("type":
   // "module", Node strip-only execution) so `createRequire` is the only
-  // caller-side bridge. Loaded once at factory construction (server boot).
-  const pty = createRequire(import.meta.url)('node-pty') as NodePtyModule;
+  // caller-side bridge. P12a delta D-09-5: the require is DEFERRED to the
+  // first spawn (not factory construction) so a packaged shell without a
+  // node-pty binary still boots the server; terminal creation then fails
+  // cleanly with the module-load error surfaced to the client.
+  let backend: NodePtyModule | null = null;
+  const load = (): NodePtyModule => {
+    if (backend === null) backend = createRequire(import.meta.url)('node-pty') as NodePtyModule;
+    return backend;
+  };
   return (spec: PtySpawnSpec): PtyHandle & PtyEvents => {
+    const pty = load();
     const child = pty.spawn(spec.executable, spec.args, {
       name: 'xterm-256color',
       cwd: spec.cwd,

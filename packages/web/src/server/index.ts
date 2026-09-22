@@ -18,7 +18,7 @@ import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
 
-export function startServer(): { port: number } {
+export function startServer(): { port: number; dispose(): void } {
   if (ENV.harness !== 'nna') {
     // NOTNATIVE_HARNESS=nna wires the NotNativeAgent adapter here (seam is ready)
     registerHarnessAdapter(mockHarness);
@@ -62,18 +62,20 @@ export function startServer(): { port: number } {
   // smoky/test app router never holds the event loop open on its own.
   bootMessageQueue();
   console.log(`NotNativeDesktop server ready -> http://${ENV.host}:${ENV.port} (harness: ${ENV.harness})`);
-  const shutdown = (): void => {
-    // doc 07 section 4.8: stop the sweep, kill all PTYs, drop the WS server
-    terminal.dispose();
+  let disposed = false;
+  const dispose = (): void => {
+    if (disposed) return;
+    disposed = true;
+    terminal.dispose(); // doc 07 section 4.8: stop sweep, kill all PTYs, drop the WS server
     wiring.dispose();
     relayService.dispose();
     void tunnelPlane.dispose(); // §4.7: revoke artifacts, stop the provider controller
     getMessageQueueRuntime().dispose(); // doc 12 §D runtime owns timers/feed
     server.close();
   };
-  process.once('SIGINT', shutdown);
-  process.once('SIGTERM', shutdown);
-  return { port: ENV.port };
+  process.once('SIGINT', dispose);
+  process.once('SIGTERM', dispose);
+  return { port: ENV.port, dispose }; // P12a (NOTES/09 A.2): the in-process shell disposes through this same body
 }
 
 const isDirectRun = process.argv[1] && process.argv[1].replaceAll('\\', '/').endsWith('server/index.ts');

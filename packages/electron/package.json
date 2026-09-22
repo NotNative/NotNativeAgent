@@ -1,0 +1,54 @@
+{
+  "name": "@notnative/electron",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "description": "NotNativeDesktop Electron desktop shell (P12a installable shell).",
+  "scripts": {
+    "package": "node ../../scripts/electron-package.mjs"
+  },
+  "build": {
+    "appId": "dev.notnative.desktop",
+    "productName": "NotNativeDesktop",
+    "directories": {
+      "output": "../../dist-electron"
+    },
+    "files": [
+      "main.mjs",
+      "preload.mjs",
+      "resources/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/web-dist",
+        "to": "web-dist"
+      },
+      {
+        "from": "dist-server",
+        "to": "dist-server"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "forceCodeSigning": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "NotNativeDesktop-Setup-${version}-win-x64.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3"
+  }
+}

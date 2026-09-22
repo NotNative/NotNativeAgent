@@ -15,7 +15,9 @@ export const ENV = {
   /** API port; standalone default 3000 arrives with the CLI (doc 03). Dev launcher passes 3902. */
   port: Number(process.env.NOTNATIVE_PORT ?? process.env.PORT ?? 3902),
   host: process.env.NOTNATIVE_HOST ?? '127.0.0.1',
-  version: '0.0.1',
+  /** Packaged identity rides in via NOTNATIVE_APP_VERSION (Electron sets it
+   * from app.getVersion(), D-09-12); source runs keep the 0.0.1 placeholder. */
+  version: process.env.NOTNATIVE_APP_VERSION ?? '0.0.1',
   appName: 'NotNativeDesktop',
   dataDir: process.env.NOTNATIVE_DATA_DIR ?? path.join(os.homedir(), '.notnative-desktop'),
   /** Placeholder until doc 03's disk layout lands. */

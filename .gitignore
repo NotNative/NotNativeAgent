@@ -8,4 +8,5 @@ dist-*/
 .env.local
 coverage/
 packages/web/dist/
+packages/electron/resources/web-dist/
 *.tsbuildinfo
