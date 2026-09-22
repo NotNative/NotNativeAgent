@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "../ui/src/styles/design-system.css";
+@import "../../ui/src/styles/design-system.css";
 
 /* P0-era bridge variables kept until the doc-14 settings registry lands */
 :root {

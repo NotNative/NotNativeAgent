@@ -25,6 +25,7 @@ async function main() {
   await coherentPackage(version);
   spawnGate('scripts/quality-gates.js', 'quality gates');
   spawnGate('scripts/smoke-test.js', 'smoke test');
+  buildGate();
   const writeRequested = process.argv.includes('--write-hashes');
   if (errors.length === 0 && version) await sealVersionLedger(version, writeRequested);
   if (writeRequested && errors.length === 0 && version) await writeManifest();
@@ -80,6 +81,17 @@ function spawnGate(script, label) {
   const result = spawnSync(process.execPath, [join(root, script)], { cwd: root, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   if (result.status !== 0) errors.push(`${label} failed: ${failureText(result)}`);
   else if (result.stdout) process.stdout.write(result.stdout);
+}
+
+// The release gates must compile what ships. The 20260921-2 seal rotted here:
+// quality gates + smoke never exercise the vite/CSS pipeline, so a broken
+// relative @import in packages/web/src/index.css survived five slices.
+function buildGate() {
+  const webDir = join(root, 'packages', 'web');
+  const viteCli = join(webDir, 'node_modules', 'vite', 'bin', 'vite.js');
+  const result = spawnSync(process.execPath, [viteCli, 'build'], { cwd: webDir, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  if (result.status !== 0) errors.push(`production build failed: ${failureText(result)}`);
+  else process.stdout.write('production build succeeded (packages/web/dist)\n');
 }
 
 async function sealVersionLedger(version, recordMissing) {

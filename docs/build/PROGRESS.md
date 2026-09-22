@@ -13,7 +13,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 | P6 review | 06 | ✅ done 2026-09-17 (P6-1 fs domain + FilesView core; P6-2 diff + git view; P6-3 plan/comments/worktrees core; P6-3b inline comment lifecycle + live worktrees; per-slice adversarial reviews fixed; 359 UI · 48 web · gates+smoke+graph) |
 | P7 terminal | 07 | ✅ done 2026-09-17 (P7-1 server core: WS codec v3, sanitizer, theme responses, shells, node-pty, runtime, command plane; P7-2 client: Transport/store/observer/TerminalView v1; adversarial reviews fixed; 389 UI · 94 web · gates+smoke+graph) |
 | P8 remote/security | 08 | ✅ done 2026-09-20 (all 15 checklist steps delivered + reviewed: P8-1a-d auth/creds/gate/passkeys · P8-2a-c + P8-3a relay primitives/host · P8-4a/c pairing+tunnels · P8-5a relay client face · P8-5b pairing/auth UX wired · P8-5c CLI connect-url · P8-6 SSH contract faces · P8-7 reverse-proxy posture · P8-8 §12 invariants sweep (42 rows, E-08-1..69); ui 608/64 · web 511/36 · typecheck ×4 · gates+graph+smoke; deferred rows in NOTES/08 §D/§B) |
-| P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..13; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
+| P9 autonomy | 12 | 🔶 in progress 2026-09-20 (P9-1 message-queue server runtime delivered + reviewed: §D.1-5 store/limits/delivery loop/holds/routes + slash expansion + knowledge seam + feed reconcile; E-09-1..14; next: goals runtime (B), scheduled tasks (C), + the D.6-D.8 UI store per NOTES/12 §A/§J) |
 | P10 knowledge/context | 15 | pending |
 | P11 preview | 13 | pending |
 | P12 Electron | 09 | pending |
@@ -728,13 +728,30 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   the expiry's own wake), P1 write-disable re-enable was dead code
   (reconcile probes now), P1 delete replies could drop the directory
   (memory-only entries); P2 take-over-empty bumped revisions, P2
-  abort stamps never vacuumed. Registered E-09-1..13 (brand rows,
+  abort stamps never vacuumed. Registered E-09-1..14 (brand rows,
   knowledge seam, quiet-coalescing earliest-arm, catalog load
   degrades to prose, feed stop posture, legacy id/createdAt parse).
   Builder agent (ses_f3dba4e26ffePW1CAscFFAL7t8 + fixer
   ses_f3d56f27dffeTQu3hrCWPtTDSj; adversarial ses_f3d3abec2ffeaO2aJ2zinI31je).
   web 585 tests (+74 across 5 suites) · ui 608 (+0) · typecheck ×4 ·
   gates green — seal 20260920-6.
+
+- 2026-09-21 · **Build-path repair + build gate (assessment slice).** Full independent
+  verification of 20260921-2: typecheck ×4 green · ui 608/608 · web 586/586 ·
+  gates+smoke+graph green · seal manifest honest (release:check green pre-edit).
+  The only real failure: `pnpm build`. `packages/web/src/index.css` imported
+  `../ui/src/styles/design-system.css` — resolves to the nonexistent
+  `packages/web/ui/…`; the line was BORN wrong at P5-1 (2026-09-16, verified in
+  commit 3f70fc6) and rotted unnoticed because no seal since P1 actually ran
+  `vite build` (release-gates only spawns quality-gates + smoke; D7: the builder
+  sandbox could not spawn esbuild). Fix: `../../ui/src/styles/design-system.css`
+  (the vite JS alias `@notnative/ui` does not apply to Tailwind's CSS resolver).
+  Gate hole closed: `scripts/release-gates.js` now runs the web production build
+  via the web package's own vite CLI (dist stays manifest-excluded). The seal
+  machinery proved honest both directions: it flagged the pre-fix mismatch and
+  required this re-seal. Adversarial sub-agent audit ran before the seal.
+  Sealed as 20260921-3. New `docs/build/EVALUATION.md` seeded with the
+  verified-working / known-broken matrix this assessment produced.
 
 ## Delta/Delayed register
 
