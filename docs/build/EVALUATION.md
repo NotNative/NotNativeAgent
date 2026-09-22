@@ -57,3 +57,22 @@ named in the P4-3 log entry); stale-dist serving after a failed build
 `pnpm start` then serves the last-good UI silently — serve-time build-stamp
 check = P12b candidate); E-06-4..18, E-07-3..23, E-08-1..69, E-09-1..14
 rows; chunk size/code-split warnings in the vite build output.
+
+## 2026-09-22 · P9-2a goals core layer (seal 20260921-5 → docs 20260921-6)
+
+**Verified working (test-level only — nothing user-facing yet)**
+
+| Surface | Evidence |
+|---|---|
+| Goal payload parse/clamps (§B.1) | vitest: hostile-input matrix — empty id / unknown status / objectiveless rejection, 5000/280/200 clamps, budget range 1..1e8 |
+| Objective-file id-shape guard | `..`, short, slash-shaped ids refused BEFORE any filesystem use (pattern-pinned tests) |
+| Metadata merge + id guard (§B.5.1) | namespace-preserving merge tests; goal-only removal keeps sibling keys; stale-write (id mismatch) refused |
+| State machine T1–T17 | pure-transform suite: T17 arm-over-complete refusal, settle resets both streaks, resume second-life, exact-20 counter alignment with MAX_AUTO_TURNS |
+| Suite truth | web 644/644 (43 files) · typecheck ×4 · gates+graph(340) · smoke · production build |
+
+**Known broken / not usable from this layer (by design — P9-2b):** no tick
+runtime, no small-model module/evaluator exchange, no goal routes (nothing can
+arm a goal from UI or API yet), no mock session-metadata persistence, no SSE.
+The installed desktop app (P12a) does NOT contain this layer's behavior beyond
+dead code — it was packaged before goals landed; the next P12 packaging run
+picks it up.

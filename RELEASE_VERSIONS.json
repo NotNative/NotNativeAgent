@@ -80,6 +80,10 @@
     {
       "version": "20260921-5",
       "content_sha256": "c24ca1a4b4f563cc81e2e551e24c9289b5aee4dcc93d8b2303b61871f9bcecb4"
+    },
+    {
+      "version": "20260921-6",
+      "content_sha256": "9f9aee7e34fe9b3eb81f6fdd31689858ea3dd1558f34fd097e050b0341698dc6"
     }
   ]
 }
