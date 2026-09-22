@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
- * SessionAuthGate copy + stage-to-heading mapping (doc 08 §6.6). Split out of
- * `SessionAuthGate.tsx` so the component file stays under the length gate.
- *
- * Strings are literal English defaults, overridable per-instance through the
- * gate's `labels` prop: `t()` accepts only registered `I18nKey`s and
- * `useI18n()` throws outside its provider, so registering the auth keys in
- * `lib/i18n/messages/en.ts` is the follow-up that replaces this table.
+ * SessionAuthGate copy + stage-to-heading mapping (doc 08 §6.6). Defaults are
+ * the EN literals AND registered i18n keys (`GATE_KEY`): inside an
+ * I18nProvider the component translates them via `useOptionalI18n`, bare
+ * mounts (tests, VS Code shell) fall back to the literal table. Explicit
+ * `labels` overrides keep absolute authority either way.
  */
 import {
   formatRetryAfterLine,
@@ -14,6 +12,7 @@ import {
   type SessionGateView,
   type SessionProbe,
 } from '../../lib/sessionAuthGateState.ts';
+import type { I18nKey } from '../../lib/i18n/messages/en.ts';
 
 // Canonical `unknown presence` lives with the state module; re-exported so
 // labels consumers can keep importing it alongside the copy table.
@@ -41,6 +40,27 @@ export const GATE_TEXT = {
 /** Widened view of the table: merged overrides are plain `string`s. */
 export type GateText = { [K in keyof typeof GATE_TEXT]: string };
 
+/** Registered i18n key per gate string (W-64 polish). Keys mirror the EN
+ * table one-to-one; the dictionary test guards the values from drifting. */
+export const GATE_KEY: { [K in keyof typeof GATE_TEXT]: I18nKey } = {
+  pending: 'auth.gate.pending',
+  lockedTitle: 'auth.gate.lockedTitle',
+  passwordLabel: 'auth.gate.passwordLabel',
+  unlock: 'auth.gate.unlock',
+  unlocking: 'auth.gate.unlocking',
+  trustDevice: 'auth.gate.trustDevice',
+  usePasskey: 'auth.gate.usePasskey',
+  addPasskey: 'auth.gate.addPasskey',
+  passkeysDisabled: 'auth.gate.passkeysDisabled',
+  tunnelTitle: 'auth.gate.tunnelTitle',
+  tunnelBody: 'auth.gate.tunnelBody',
+  rateLimitedTitle: 'auth.gate.rateLimitedTitle',
+  errorTitle: 'auth.gate.errorTitle',
+  retry: 'auth.gate.retry',
+  authenticating: 'auth.gate.authenticating',
+  passwordRejected: 'auth.gate.passwordRejected',
+};
+
 /** Rendered defaults for the two inputs the gate needs before it has answers. */
 export const PENDING_PROBE: SessionProbe = {
   stage: 'pending',
@@ -62,11 +82,13 @@ export function headingFor(stage: SessionGateView['stage'], text: GateText): str
 /**
  * Merge caller overrides over the defaults. Written key-by-key rather than as
  * one spread so a `labels` entry that is present-but-undefined can never erase
- * a default line from the rendered screen.
+ * a default line from the rendered screen. The defaults parameter lets
+ * provider-aware callers pass t()-translated tables (W-64); bare mounts use
+ * the literal table.
  */
-export function resolveGateText(labels?: Partial<GateText>): GateText {
-  if (labels === undefined) return GATE_TEXT;
-  const merged = { ...GATE_TEXT } as Record<keyof GateText, string>;
+export function resolveGateText(labels?: Partial<GateText>, defaults: GateText = GATE_TEXT): GateText {
+  if (labels === undefined) return defaults;
+  const merged = { ...defaults } as Record<keyof GateText, string>;
   for (const key of Object.keys(labels) as Array<keyof GateText>) {
     const value = labels[key];
     if (typeof value === 'string' && value.length > 0) merged[key] = value;
@@ -82,8 +104,9 @@ export function resolveGateText(labels?: Partial<GateText>): GateText {
 export function describeLoginFailure(
   outcome: PasswordLoginResult,
   labels?: Partial<GateText>,
+  defaults: GateText = GATE_TEXT,
 ): string {
-  const text = resolveGateText(labels);
+  const text = resolveGateText(labels, defaults);
   if (outcome.tunnelLocked) return text.tunnelBody;
   if (outcome.status === 429) return formatRetryAfterLine(outcome.retryAfterSeconds);
   if (outcome.status === 0) return outcome.error ?? text.errorTitle;

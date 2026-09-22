@@ -9,6 +9,7 @@ import { SessionTabs } from '../chat/session-tabs.tsx';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { persistLastActiveSession } from '../sync/persist-cache.ts';
+import { defaultHarnessDirectory } from '../sync/engine-support.ts';
 import { useGlobalSyncStore } from '../sync/global-stores.ts';
 import { useConfigStore } from '../stores/useConfigStore.ts';
 import { ShellShortcuts, settingsOpenEventName } from './ShellShortcuts.tsx';
@@ -38,6 +39,7 @@ export function MainLayout(): ReactNode {
   const [filesOpen, setFilesOpen] = useState(false);
   const [reviewPane, setReviewPane] = useState<'' | 'diff' | 'git' | 'plan' | 'terminal'>('');
   const [worktreesOpen, setWorktreesOpen] = useState(false);
+  const [harnessDirectory, setHarnessDirectory] = useState('');
 
   const closeSettings = useCallback(() => setSettingsPage(null), []);
   const openSettings = useCallback((slug: SettingsPageSlug) => setSettingsPage(slug), []);
@@ -125,6 +127,20 @@ export function MainLayout(): ReactNode {
     if (directory) useSessionViewStore.getState().setActiveDirectory(directory);
   }, [global.path, view.activeDirectory]);
 
+  // SLICE-B: review panes ride the ACTIVE HARNESS directory (doc engine-support
+  // defaultHarnessDirectory) — never the literal '/'. Resolution stores the
+  // directory once so boot-time panes see the real root.
+  useEffect(() => {
+    if (view.activeDirectory || harnessDirectory !== '') return;
+    void defaultHarnessDirectory().then((resolved) => {
+      if (!resolved) return;
+      setHarnessDirectory(resolved);
+      if (!useSessionViewStore.getState().activeDirectory) {
+        useSessionViewStore.getState().setActiveDirectory(resolved);
+      }
+    }).catch(() => undefined);
+  }, [view.activeDirectory, harnessDirectory]);
+
   const actions = {
     openDraft: (directory: string) => {
       persistLastActiveSession(null, directory); // draft intent clears the pointer
@@ -148,7 +164,7 @@ export function MainLayout(): ReactNode {
     },
   };
 
-  const activeDirectory = normalizeDirectoryInput(view.activeDirectory || globalHome(global) || '/');
+  const activeDirectory = normalizeDirectoryInput(view.activeDirectory || globalHome(global) || harnessDirectory);
 
   return (
     <div className="flex h-screen flex-col flex-1 bg-neutral-900 text-neutral-100">

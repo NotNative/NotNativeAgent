@@ -49,5 +49,11 @@ export function useI18n(): I18nApi {
   return api;
 }
 
+/** Tests and pre-provider mounts read without exploding; callers translate the
+ * null case into their literal EN fallback (SessionAuthGate copy, W-64). */
+export function useOptionalI18n(): I18nApi | null {
+  return useContext(I18nContext);
+}
+
 export type { I18nKey, Dictionary } from './messages/en.ts';
 export type { Locale } from './runtime.ts';

@@ -21,6 +21,8 @@ import {
   serializeEditorContent,
 } from '../../lib/files/edit-support.ts';
 import { effectiveSelectedPath, useFilesViewTabsStore } from '../../lib/files/tabs-store.ts';
+import { workspaceRelativePath } from '../../lib/files/workspace-paths.ts';
+import { publishReviewRefresh } from '../../lib/git/refresh-hints';
 import { createDirectory, deleteEntry, readFileStat, readFileText, renameEntry, writeFileText } from '../../lib/files/api.ts';
 import { getRuntimeKey } from '../../lib/runtime-switch.ts';
 import { useKeybind } from '../../lib/shortcuts/hooks.ts';
@@ -31,6 +33,16 @@ import { useInlineCommentController } from '../comments/controller.ts';
 import { useActiveSessionKey } from '../comments/useActiveSessionKey.ts';
 
 type SaveStatus = 'idle' | 'saving' | 'saved';
+
+/** doc 06 §2.4/§3.7.7 tail: mutations broadcast a refresh hint for the
+ * touched paths so the tree/git/diff surfaces refresh off the same signal. */
+function publishWorkspaceHint(root: string, paths: string[], reason: string): void {
+  if (root.length === 0) return;
+  const relative = paths
+    .map((path) => workspaceRelativePath(root, path))
+    .filter((entry): entry is string => entry !== null);
+  publishReviewRefresh(root, relative.length > 0 ? relative : null, reason);
+}
 
 interface DialogSpec {
   mode: FileDialogMode;
@@ -221,6 +233,7 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
       const stat = await readFileStat(directory, path);
       if (stat !== null && stat.isFile) statRef.current = { size: stat.size, mtimeMs: stat.mtimeMs ?? null };
       setSaveStatus('saved');
+      publishWorkspaceHint(directory, [path], 'file-save');
       window.setTimeout(() => setSaveStatus('idle'), SAVE_STATUS_LINGER_MS);
       return true;
     } catch {
@@ -335,16 +348,22 @@ export function FilesView({ directory, visible, mode = 'full' }: { directory: st
         const target = joinPath(dialogSpec.parent, value);
         await writeFileText(directory, target, '');
         toast.success(t('filesView.toast.fileCreated'));
+        publishWorkspaceHint(directory, [target], 'fs-mutation');
       } else if (dialogSpec.mode === 'create-folder') {
-        await createDirectory(directory, joinPath(dialogSpec.parent, value));
+        const target = joinPath(dialogSpec.parent, value);
+        await createDirectory(directory, target);
         toast.success(t('filesView.toast.folderCreated'));
+        publishWorkspaceHint(directory, [target], 'fs-mutation');
       } else if (dialogSpec.mode === 'rename' && dialogSpec.path !== undefined) {
-        await renameEntry(directory, dialogSpec.path, joinPath(dialogSpec.parent, value));
+        const target = joinPath(dialogSpec.parent, value);
+        await renameEntry(directory, dialogSpec.path, target);
         useFilesViewTabsStore.getState().removeOpenPathsByPrefix(directory, dialogSpec.path);
         toast.success(t('filesView.toast.renamed'));
+        publishWorkspaceHint(directory, [dialogSpec.path, target], 'fs-mutation');
       } else if (dialogSpec.mode === 'delete' && dialogSpec.path !== undefined) {
         await deleteEntry(directory, dialogSpec.path);
         useFilesViewTabsStore.getState().removeOpenPathsByPrefix(directory, dialogSpec.path);
+        publishWorkspaceHint(directory, [dialogSpec.path], 'fs-mutation');
       }
       setDialog(null);
     } catch (error) {

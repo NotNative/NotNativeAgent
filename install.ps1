@@ -16,6 +16,16 @@
 # Native-tool stderr (vite/pnpm chatter) is routed to log FILES, never the
 # PowerShell error stream - $ErrorActionPreference Stop would otherwise abort
 # on harmless build-tool output (proven failure mode).
+#
+# Upgrade semantics (second run): the copy is merge-only (robocopy /E, never
+# /MIR). Files deleted upstream linger until a full reinstall; every runtime
+# artifact is regenerated wholesale by electron-package --no-nsis, so stale
+# leftovers cannot change behavior, only disk. Clean reset = -Uninstall +
+# reinstall. The install REFUSES to copy while the installed app is running
+# (a running electron.exe would fail the copy mid-tree with exit 8 and no
+# diagnosis); -Uninstall refuses the tree drop for the same reason and erases
+# data gracefully (locked files stay behind with a warning, nothing half-dies
+# silently).
 # =============================================================================
 param(
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA "NotNativeDesktop"),
@@ -36,22 +46,39 @@ function Write-Good([string]$Text) { Write-Host "  $Text" -ForegroundColor Green
 
 # Native processes emit warnings on stderr; in PowerShell those become error
 # records, and Stop would terminate on any of them. Continue lets stderr flow
-# into the log file; the exit code stays authoritative.
-function Invoke-Native([string]$Tool, [string[]]$ToolArgs, [string]$ErrorLog) {
+# into the log file; the exit code stays authoritative. Robocopy prints its
+# own diagnostics (access denied etc.) on STDOUT, not stderr - so callers that
+# care pass -OutputLog to capture stdout as well (the default still sinks it).
+function Invoke-Native([string]$Tool, [string[]]$ToolArgs, [string]$ErrorLog, [string]$OutputLog) {
     $previous = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
-        & $Tool @ToolArgs 2>$ErrorLog 1>$null
+        if ($OutputLog) {
+            & $Tool @ToolArgs 2>$ErrorLog 1>$OutputLog
+        } else {
+            & $Tool @ToolArgs 2>$ErrorLog 1>$null
+        }
         return $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $previous
     }
 }
 
-function Show-NativeFailures([string]$ErrorLog, [int]$Lines = 30) {
-    if (Test-Path $ErrorLog) {
-        Get-Content $ErrorLog -ErrorAction SilentlyContinue | Select-Object -First $Lines | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
+function Show-NativeFailures([string]$ErrorLog, [int]$Lines = 30, [switch]$FromTail) {
+    if (Test-Path -LiteralPath $ErrorLog) {
+        $rows = if ($FromTail) { Get-Content -LiteralPath $ErrorLog -Tail $Lines -ErrorAction SilentlyContinue }
+                else { Get-Content -LiteralPath $ErrorLog -ErrorAction SilentlyContinue | Select-Object -First $Lines }
+        $rows | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow }
     }
+}
+
+# True when an electron.exe from THIS install tree is running. Robocopy and
+# Remove-Item both die mid-tree on a locked running binary - refuse early with
+# a readable message instead of aborting in an undefined half-state.
+function Test-InstallRunning([string]$ExePath) {
+    if (!(Test-Path -LiteralPath $ExePath)) { return $false }
+    $procs = @(Get-Process -Name electron -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $ExePath })
+    return $procs.Count -gt 0
 }
 
 if ($Uninstall) {
@@ -60,19 +87,35 @@ if ($Uninstall) {
         $links = @((Join-Path $DesktopDir "$name.lnk"), (Join-Path $StartMenuDir "$name.lnk"))
         foreach ($link in $links) { if (Test-Path $link) { Remove-Item $link -Force; Write-Host "  removed shortcut $link" } }
     }
+    if (Test-InstallRunning $ElectronExe) {
+        Write-Host "  NOT deleted: the app is running from $InstallDir (its electron.exe is locked while alive)." -ForegroundColor Yellow
+        Write-Host "  quit it from the tray menu, then re-run -Uninstall. Shortcuts were removed either way." -ForegroundColor Yellow
+        exit 2
+    }
     if ($InstallDir -ne $Source) {
         if (Test-Path $InstallDir) { Remove-Item $InstallDir -Recurse -Force; Write-Host "  removed install tree" }
     }
     if ($PurgeData) {
+        $partial = $false
         foreach ($data in @((Join-Path $env:USERPROFILE ".notnative-desktop"), (Join-Path $env:APPDATA "NotNativeDesktop"), (Join-Path $env:APPDATA "NotNativeDesktop Dev"))) {
-            if (Test-Path $data) { Remove-Item $data -Recurse -Force; Write-Host "  erased data $data" }
+            if (Test-Path $data) {
+                # Locked data files (a running dev instance shares these dirs) must
+                # not abort the purge half-way with EAP=Stop - erase what is loose.
+                Remove-Item $data -Recurse -Force -ErrorAction SilentlyContinue
+                if (Test-Path $data) { $partial = $true; Write-Host "  partially erased $data (some files locked by a running instance)" -ForegroundColor Yellow }
+                else { Write-Host "  erased data $data" }
+            }
         }
-        Write-Host "  user data erased" -ForegroundColor Yellow
+        if ($partial) { Write-Host "  user data erased except the locked files listed above" -ForegroundColor Yellow }
+        else { Write-Host "  user data erased" -ForegroundColor Yellow }
     }
     Write-Heading "Uninstall complete"; exit 0
 }
 
 if ($Source -eq $InstallDir) { throw "-InstallDir must differ from the source repo (got $InstallDir)" }
+if (Test-InstallRunning $ElectronExe) {
+    throw "NotNativeDesktop appears to be running from $InstallDir - quit it from the tray menu, then re-run the install (robocopy + pnpm would mutate a tree the running process still holds; robocopy /E cannot touch the binary itself since node_modules is excluded, but a lockfile change makes pnpm relink node_modules under it)"
+}
 
 Write-Heading "Installing NotNativeDesktop"
 Write-Host "  source : $Source"
@@ -90,8 +133,15 @@ $copyExit = Invoke-Native "robocopy" @(
     "/XD", "node_modules", ".git", ".vite", "coverage", "dist", "dist-server",
     "dist-electron", "resources", "__pycache__",
     "/XF", "*.log", ".env.local", "packaging-*.log", "install-mode.txt"
-) "robocopy-errors.log"
-if ($copyExit -ge 8) { Show-NativeFailures "robocopy-errors.log"; throw "robocopy failed with code $copyExit" }
+) "robocopy-errors.log" "robocopy-out.log"
+if ($copyExit -ge 8) {
+    # robocopy diagnostics ("access denied", stat failures) go to STDOUT. The
+    # old call sank stdout to $null, so a failure printed only the exit code;
+    # the out log keeps the failure lines whole for diagnosis.
+    Show-NativeFailures "robocopy-out.log" 20 -FromTail
+    Show-NativeFailures "robocopy-errors.log" 10
+    throw "robocopy failed with code $copyExit"
+}
 Write-Good "source copied"
 
 Push-Location $InstallDir
@@ -113,8 +163,37 @@ try {
 
     Write-Heading "Building shell artifacts (web dist + server bundle + tray icons)"
     $bundle = Join-Path $InstallDir "packages\electron\dist-server\server.mjs"
+    # -SkipBuild integrity check: a torn earlier build (crash between esbuild,
+    # sibling JSON staging and icon generation) used to be reused silently and
+    # the shell booted into a half-built state. All four outputs are required.
+    $reusable = $false
     if ($SkipBuild -and (Test-Path $bundle)) {
-        Write-Good "existing artifacts reused (-SkipBuild)"
+        $reusable = $true
+        foreach ($artifact in @(
+            (Join-Path $InstallDir "packages\electron\dist-server\settings-registry.json"),
+            (Join-Path $InstallDir "packages\electron\assets\tray-running.png"),
+            (Join-Path $InstallDir "packages\electron\assets\tray-stopped.png")
+        )) { if (!(Test-Path -LiteralPath $artifact)) { $reusable = $false } }
+        if (!$reusable) { Write-Host "  -SkipBuild ignored: stored artifacts incomplete - rebuilding" -ForegroundColor Yellow }
+    }
+    if ($reusable) {
+        # Freshness probe (no build-stamp system exists): if any watched source
+        # is newer than the stored bundle the artifacts may be stale - warn, do
+        # not override -SkipBuild's explicit intent to reuse.
+        $bundleStamp = (Get-Item -LiteralPath $bundle).LastWriteTimeUtc
+        $watched = Get-ChildItem -Path @(
+            (Join-Path $InstallDir "packages\web\src"),
+            (Join-Path $InstallDir "scripts"),
+            (Join-Path $InstallDir "packages\electron")
+        ) -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch '\\(dist-server|dist|resources|assets|node_modules)\\' }
+        $newest = $watched | Sort-Object LastWriteTimeUtc | Select-Object -Last 1
+        if ($newest -and $newest.LastWriteTimeUtc -gt $bundleStamp) {
+            Write-Host "  WARNING: sources are newer than the stored artifacts (newest: $($newest.FullName))" -ForegroundColor Yellow
+            Write-Host "  the reused build may be stale - re-run install.ps1 without -SkipBuild to rebuild" -ForegroundColor Yellow
+        } else {
+            Write-Good "existing artifacts reused (-SkipBuild)"
+        }
     } else {
         $buildExit = Invoke-Native "node" @("scripts\electron-package.mjs", "--no-nsis") "build-errors.log"
         if ($buildExit -ne 0) { Show-NativeFailures "build-errors.log" 30; throw "electron-package failed (exit $buildExit)" }

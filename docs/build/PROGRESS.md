@@ -871,6 +871,35 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   NOTE: `desktopUiPassword` is now set on this machine (sweep observed
   04:48Z) — the installed app boots to the auth gate by design.
 
+- 2026-09-22 · **P12b-3 SLICE-B `review-band` + installer audit fixes + web-only
+  runner + hidden boot (seal 20260922-3).** Builder delivered SLICE-B 7/7
+  guarantees: Files tree with git status dots/badges + 15 s visible-gated
+  cadence + hint-driven restat; Diff per-scope stacks with >500-line gate +
+  scope-aware single-hunk apply (version-locked against the server contract) +
+  §5.8 scroll anchoring; Git stage/unstage/discard/commit optimistic with
+  rollback; worktrees verified; Terminal seam un-stubbed
+  (`createRealTerminalApi` over the PTY transport singleton, web RuntimeAPIs);
+  review panes bound to the ACTIVE harness directory (`'/'` literal removed);
+  refresh-hints bus + buffered hidden-window replay wired through Files/Diff/
+  Git/FileTree (+ store applyStatus/invalidateStatus). ui 646/646 (73 files),
+  web 644/644, tsc ×4 zero, gates 350 files, graph 350 modules; builder
+  deferred §6.7 checkout/merge/stash routes, untracked-diff render, retained
+  hidden panes, hunk kbd nav, i18n sweep, shared poller (all in the notes
+  file). Adversarial audit of P12b-1 landed its approved fix set: honest tray
+  stopped label, terminal boot-failure page (no splash forever; Open App no
+  longer re-splashes), crashed-renderer reload, running-service guards +
+  graceful purge reporting, robocopy stdout diagnostics, -SkipBuild
+  completeness + staleness warning, artifacts integrity oracle
+  (deterministic digests, live-verified), artifacts-mode skips dead
+  web-dist staging, install.sh parity set (static-only), NOTES/09 D-09-12/16
+  corrected + D-09-18 registered. Web-only runner scripts/web-serve.mjs
+  (user-requested preview without the desktop window); auth-gate copy
+  registered i18n-side (useOptionalI18n + GATE_KEY + drift test). New:
+  `--hidden` electron boot (tray-only first paint; boot FAILURE still shows
+  its page deliberately). SLICE-A loop live-proven on the wire (23 deltas,
+  status transitions, abort → MessageAbortedError → idle) against the
+  web-only preview at :58080.
+
 ## Delta/Delayed register
 
 | # | Item | Phase landing | Note |

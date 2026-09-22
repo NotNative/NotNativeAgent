@@ -1,53 +1,90 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
- * GitView (doc 06 §6, P6-2 core subset): repository workbench showing the
- * changes tree (staged/unstaged groups with stage-all buttons), the commit
- * section (message + Commit/Commit & sync busy flow), reverted dialogs,
- * branch info + clean empty state. Dialogs beyond these (history/graph/
- * stashes/conflict/update-branch) are registered for P6-2b with the
- * §6.7-§6.9 route family; PR chip = P11.
+ * GitView (doc 06 §6, P6-2 v1 + SLICE-B): repository workbench with
+ * `visible` gating retained by the shell — full sweep on reveal, 15 s
+ * light-status reconcile cadence (§6.4), optimistic stage/unstage/discard
+ * with rollback, Commit/Commit & sync, branch info + clean empty state, and
+ * the §6.8 READ-ONLY History/Branches dialogs. Mutations publish §13#1
+ * refresh hints (paths) so the diff/tree surfaces refresh from one signal.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useGitStore, groupedStatusFiles, scheduleGitReconcile } from '../../lib/git/store';
 import {
-  commitChanges, discardGitFiles, fetchGitBranches, fetchGitStatus, stageGitFiles, unstageGitFiles,
+  commitChanges, discardGitFiles, fetchGitBranches, stageGitFiles, unstageGitFiles,
   statusSymbol, type GitStatus, type GitStatusFile,
 } from '../../lib/git/api';
-import { useI18n } from '../I18nProvider.tsx';
+import { publishReviewRefresh, useReviewRefreshHints } from '../../lib/git/refresh-hints';
+import { GIT_STATUS_POLL_INTERVAL_MS } from '../../lib/files/edit-support.ts';
+import { GitDialogHost, type GitDialogKind } from './git-dialogs.tsx';
 
-export function GitView({ directory }: { directory: string }): ReactNode {
-  const { t } = useI18n();
-  void t;
+export function GitView({ directory, visible = true }: { directory: string; visible?: boolean }): ReactNode {
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [branch, setBranch] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState<'' | 'commit' | 'stage' | 'revert'>('');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dialog, setDialog] = useState<GitDialogKind>(null);
   const [confirmRevert, setConfirmRevert] = useState<GitStatusFile | null>(null);
-  const statusRef = useRef<GitStatus | null>(null);
-  statusRef.current = status;
   const ensureStatus = useGitStore((state) => state.ensureStatus);
-  const refreshAll = useGitStore((state) => state.ensureAll);
+  const ensureAll = useGitStore((state) => state.ensureAll);
   const bumpIndexRevision = useGitStore((state) => state.bumpIndexRevision);
   const moveOptimistic = useGitStore((state) => state.moveStatusPathsOptimistically);
   const restore = useGitStore((state) => state.restoreStatus);
+  const statusRef = useRef<GitStatus | null>(null);
+  statusRef.current = status;
 
+  const refresh = useCallback(async (): Promise<void> => {
+    const next = await ensureStatus(directory, 'full');
+    setStatus(next);
+    bumpIndexRevision(directory);
+    scheduleGitReconcile(directory);
+  }, [directory, ensureStatus, bumpIndexRevision]);
+
+  // Reveal + §6.4 cadence: full sweep on mount/reveal, then light reconcile.
   useEffect(() => {
+    if (!visible || directory.length === 0) return undefined;
+    let live = true;
     void (async () => {
-      setLoading(true);
-      const next = await ensureStatus(directory, 'light');
-      setStatus(next);
+      const light = await ensureStatus(directory, 'light');
+      if (!live) return;
+      setStatus(light);
       const branches = await fetchGitBranches(directory);
+      if (!live) return;
       setBranch(branches?.current ?? null);
       setLoading(false);
     })();
-  }, [directory, ensureStatus]);
+    const poll = window.setInterval(() => {
+      if (document.hidden) return;
+      void ensureStatus(directory, 'light').then((next) => {
+        if (live && next !== null) setStatus(next);
+      });
+    }, GIT_STATUS_POLL_INTERVAL_MS);
+    return () => {
+      live = false;
+      window.clearInterval(poll);
+    };
+  }, [visible, directory, ensureStatus]);
+
+  // Hidden→visible full sweep (§13#1 companion: store caches stay warm).
+  useEffect(() => {
+    if (!visible || directory.length === 0) return;
+    void ensureAll(directory).catch(() => undefined);
+    return undefined;
+  }, [visible, directory, ensureAll]);
+
+  // Hint replay: §11.4 notifyGitStatusInvalidated → restat soon after.
+  useReviewRefreshHints(directory, visible, () => {
+    useGitStore.getState().invalidateStatus(directory);
+    void ensureStatus(directory, 'light').then((next) => {
+      if (next !== null) setStatus(next);
+    });
+    void fetchGitBranches(directory).then((next) => setBranch(next?.current ?? null));
+  });
 
   const grouped = status !== null ? groupedStatusFiles(status) : { staged: [], working: [] };
-  const staged = grouped.staged.filter((entry) => isStaged(entry));
-  const working = grouped.working.filter((entry) => !staged.includes(entry));
+  const staged = grouped.staged;
+  const working = grouped.working;
 
   const withBusy = useCallback(async (kind: 'commit' | 'stage' | 'revert', run: () => Promise<void>): Promise<void> => {
     setBusy(kind);
@@ -58,14 +95,7 @@ export function GitView({ directory }: { directory: string }): ReactNode {
     }
   }, []);
 
-  const refresh = useCallback(async (): Promise<void> => {
-    const next = await ensureStatus(directory, 'full');
-    setStatus(next);
-    bumpIndexRevision(directory);
-    scheduleGitReconcile(directory);
-  }, [directory, ensureStatus, bumpIndexRevision]);
-
-  const stage = useCallback((paths: string[], direction: 'stage' | 'unstage'): void => {
+  const stageWithHint = useCallback((paths: string[], direction: 'stage' | 'unstage'): void => {
     void withBusy('stage', async () => {
       const before = statusRef.current;
       try {
@@ -75,6 +105,7 @@ export function GitView({ directory }: { directory: string }): ReactNode {
         bumpIndexRevision(directory);
         scheduleGitReconcile(directory);
         setStatus(await ensureStatus(directory, 'full'));
+        publishReviewRefresh(directory, paths, 'git-mutation');
       } catch {
         if (before !== null) restore(directory, before);
         toast.error(direction === 'stage' ? 'Failed to stage file' : 'Failed to unstage file');
@@ -82,13 +113,14 @@ export function GitView({ directory }: { directory: string }): ReactNode {
     });
   }, [directory, moveOptimistic, restore, bumpIndexRevision, ensureStatus, withBusy]);
 
-  const revert = useCallback((paths: string[]): void => {
+  const discardWithHint = useCallback((paths: string[]): void => {
     void withBusy('revert', async () => {
       try {
         await discardGitFiles(directory, paths);
-        refresh().catch(() => undefined);
+        await refresh();
+        publishReviewRefresh(directory, paths, 'git-mutation');
       } catch {
-        toast.error('Failed to revert file');
+        toast.error('Failed to discard changes');
       }
     });
   }, [directory, refresh, withBusy]);
@@ -99,40 +131,66 @@ export function GitView({ directory }: { directory: string }): ReactNode {
         toast.error('Enter a commit message');
         return;
       }
-      const result = await commitChanges(directory, message);
-      if ('error' in result) {
-        toast.error('Commit failed');
-        return;
-      }
+      await commitChanges(directory, message);
       toast.success('Commit created');
       setMessage('');
+      bumpIndexRevision(directory);
       await refresh();
-      if (sync) toast.message('Commit created — push lands with P11 routes');
+      publishReviewRefresh(directory, null, 'git-mutation');
+      if (sync) toast.message('Commit created — push rides with the P11 routes');
     });
-  }, [directory, message, refresh, withBusy]);
+  }, [directory, message, refresh, withBusy, bumpIndexRevision]);
 
   if (loading) {
-    return <Centered label="Checking repository..." data-testid="git-view-loading" />;
+    return <Centered label="Checking repository..." testid="git-view-loading" />;
   }
   if (status === null || status.isGitRepository === false) {
-    return <Centered label="Not a git repository. Use the Git tab to initialize or change directories." data-testid="git-empty" />;
+    return <Centered label="Not a git repository. Use the Git tab to initialize or change directories." testid="git-empty" />;
   }
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 px-3 pb-3 pt-2" data-testid="git-view">
       <header className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/40 px-3 py-2">
-        <span className="text-xs font-medium text-foreground">{branch ?? 'Detached HEAD'}</span>
+        <span className="text-xs font-medium text-foreground" data-testid="git-branch">{branch ?? 'Detached HEAD'}</span>
         <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] text-primary">Current</span>
-        <span className="ml-auto text-[10px] text-muted-foreground">Graph · Stashes — P6-2b dialogs</span>
+        <span className="ml-auto flex items-center gap-1">
+          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-history" onClick={() => setDialog('history')}>History</button>
+          <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-branches" onClick={() => setDialog('branches')}>Branches</button>
+        </span>
       </header>
       <div className="flex min-h-0 flex-1 gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto">
-          <Section title="Staged" accent onStageAll={working.length > 0 ? () => stage(working.map((entry) => entry.path), 'stage') : undefined} onUnstageAll={staged.length > 0 ? () => stage(staged.map((entry) => entry.path), 'unstage') : undefined}>
-            {staged.map((entry) => <FileRow key={entry.path} entry={entry} staged selected={selected.has(entry.path)} onToggle={() => toggleSelect(entry.path)} onStageToggle={() => stage([entry.path], 'unstage')} onRevert={() => setConfirmRevert(entry)} />)}
+          <Section
+            title="Staged"
+            accent
+            primaryLabel="Unstage all"
+            onPrimary={staged.length > 0 ? () => stageWithHint(staged.map((entry) => entry.path), 'unstage') : undefined}
+          >
+            {staged.map((entry) => (
+              <FileRow
+                key={`staged:${entry.path}`}
+                entry={entry}
+                staged
+                onStageToggle={() => stageWithHint([entry.path], 'unstage')}
+                onRevert={() => setConfirmRevert(entry)}
+              />
+            ))}
             {staged.length === 0 ? <EmptyLine label="No staged changes" /> : null}
           </Section>
-          <Section title="Changes">
-            {working.map((entry) => <FileRow key={entry.path} entry={entry} staged={false} selected={selected.has(entry.path)} onToggle={() => toggleSelect(entry.path)} onStageToggle={() => stage([entry.path], 'stage')} onRevert={() => setConfirmRevert(entry)} />)}
+          <Section
+            title="Changes"
+            primaryLabel="Stage all"
+            onPrimary={working.length > 0 ? () => stageWithHint(working.map((entry) => entry.path), 'stage') : undefined}
+          >
+            {working.map((entry) => (
+              <FileRow
+                key={`working:${entry.path}`}
+                entry={entry}
+                staged={false}
+                onStageToggle={() => stageWithHint([entry.path], 'stage')}
+                onRevert={() => setConfirmRevert(entry)}
+              />
+            ))}
             {working.length === 0 ? <EmptyLine label="No changes" /> : null}
           </Section>
         </div>
@@ -168,6 +226,7 @@ export function GitView({ directory }: { directory: string }): ReactNode {
           </div>
         </aside>
       </div>
+      <GitDialogHost directory={directory} onClose={() => setDialog(null)} dialog={dialog} />
       {confirmRevert !== null ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="git-revert-dialog">
           <div className="w-80 rounded-lg border border-border/60 bg-card p-4">
@@ -175,9 +234,9 @@ export function GitView({ directory }: { directory: string }): ReactNode {
             <div className="mt-1 text-xs text-muted-foreground">{`Are you sure you want to revert ${confirmRevert.path}? This cannot be undone.`}</div>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" className="rounded border border-border/60 px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground" onClick={() => setConfirmRevert(null)}>Cancel</button>
-              <button type="button" className="rounded bg-status-error/20 px-3 py-1 text-xs text-status-error" onClick={() => {
+              <button type="button" className="rounded bg-status-error/20 px-3 py-1 text-xs text-status-error" data-testid="git-revert-confirm" onClick={() => {
                 setConfirmRevert(null);
-                revert([confirmRevert.path]);
+                discardWithHint([confirmRevert.path]);
               }}>Revert</button>
             </div>
           </div>
@@ -185,62 +244,80 @@ export function GitView({ directory }: { directory: string }): ReactNode {
       ) : null}
     </div>
   );
-
-  function toggleSelect(path: string): void {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }
 }
 
-function isStaged(entry: GitStatusFile): boolean {
-  return entry.index !== '' && entry.index !== ' ' && entry.index !== '?';
-}
-
-function Centered({ label, ...rest }: { label: string } & Record<string, string>): ReactNode {
+function Centered({ label, testid }: { label: string; testid: string }): ReactNode {
   return (
-    <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground" {...rest}>
+    <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground" data-testid={testid}>
       {label}
     </div>
   );
 }
 
 function Section({
-  title, accent, onStageAll, onUnstageAll, children,
+  title, accent, primaryLabel, onPrimary, children,
 }: {
   title: string;
   accent?: boolean;
-  onStageAll?: (() => void) | undefined;
-  onUnstageAll?: (() => void) | undefined;
+  primaryLabel: string;
+  onPrimary?: (() => void) | undefined;
   children: ReactNode;
 }): ReactNode {
   return (
     <section className={`rounded-lg border p-2 ${accent ? 'border-primary/30 bg-primary/5' : 'border-border/60 bg-card/40'}`}>
       <header className="mb-1 flex items-center gap-2 px-1">
-        <span className={`text-[11px] font-semibold uppercase tracking-wider ${accent ? 'text-primary' : 'text-muted-foreground'}`}>{title}</span>
-        {onStageAll ? <button type="button" className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-success hover:text-success" onClick={onStageAll}>Stage all changes</button> : null}
-        {onUnstageAll ? <button type="button" className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={onUnstageAll}>Unstage all changes</button> : null}
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</span>
+        {onPrimary !== undefined ? (
+          <button
+            type="button"
+            className={`ml-auto rounded px-1.5 text-[10px] hover:text-foreground ${accent ? 'text-primary' : 'text-muted-foreground'}`}
+            data-testid={`git-${title.toLowerCase()}-primary`}
+            onClick={onPrimary}
+          >
+            {primaryLabel}
+          </button>
+        ) : null}
       </header>
-      <div className="flex flex-col gap-0.5">{children}</div>
+      {children}
     </section>
   );
 }
 
-function FileRow({
-  entry, staged, selected, onToggle, onStageToggle, onRevert,
-}: { entry: GitStatusFile; staged: boolean; selected: boolean; onToggle: () => void; onStageToggle: () => void; onRevert: () => void }): ReactNode {
+function FileRow({ entry, staged, onStageToggle, onRevert }: {
+  entry: GitStatusFile;
+  staged: boolean;
+  onStageToggle: () => void;
+  onRevert: () => void;
+}): ReactNode {
   const symbol = statusSymbol(entry);
   return (
-    <div className="flex min-h-8 items-center gap-2 rounded px-2 hover:bg-interactive-hover/30">
-      <input type="checkbox" className="h-3.5 w-3.5 accent-[var(--primary)]" checked={selected} onChange={onToggle} aria-label={`Select ${entry.path}`} />
-      <span className="inline-block w-3 text-center font-mono text-xs" style={{ color: symbolColorOf(symbol) }}>{symbol}</span>
-      <button type="button" className="min-w-0 flex-1 truncate text-left text-xs text-foreground hover:text-primary" title={entry.path} onClick={onStageToggle}>
+    <div className="flex items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-interactive-hover/30" data-testid="git-file-row" data-scope={staged ? 'staged' : 'working'} data-path={entry.path}>
+      <span className="w-4 text-center text-[11px]" style={{ color: symbolColorOf(symbol) }}>{symbol}</span>
+      <button
+        type="button"
+        className="min-w-0 flex-1 truncate text-left text-xs text-foreground hover:text-primary"
+        title={entry.path}
+        data-testid="git-file-name"
+        onClick={onStageToggle}
+      >
         {entry.path}
       </button>
-      <button type="button" aria-label={`Revert changes in ${entry.path}`} className="rounded px-1 py-0.5 text-[11px] text-muted-foreground hover:text-status-error" onClick={onRevert}>
+      <button
+        type="button"
+        aria-label={staged ? `Unstage ${entry.path}` : `Stage ${entry.path}`}
+        data-testid={`git-file-${staged ? 'unstage' : 'stage'}`}
+        className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground"
+        onClick={onStageToggle}
+      >
+        {staged ? 'Unstage' : 'Stage'}
+      </button>
+      <button
+        type="button"
+        aria-label={staged ? `Unstage changes in ${entry.path}` : `Discard changes in ${entry.path}`}
+        className="rounded px-1 py-0.5 text-[11px] text-muted-foreground hover:text-status-error"
+        data-testid={`git-file-revert-${staged ? 'staged' : 'working'}`}
+        onClick={onRevert}
+      >
         ↺
       </button>
     </div>

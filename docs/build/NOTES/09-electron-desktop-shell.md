@@ -97,9 +97,15 @@ remaining P12 slices ride after it.
 - **D-09-12** version pairing: electron-builder gets the product version via
   extraMetadata override at package time; packages/electron/package.json keeps
   0.0.1 like ui/web (outside the pairing gate). The SERVER version surface now
-  agrees: main sets NOTNATIVE_APP_VERSION=app.getVersion() before the bundle
-  import and ENV.version reads it (source runs keep the 0.0.1 placeholder).
-  Verified on the installed app: /health version = 20260921.0.3.
+  agrees: main sets NOTNATIVE_APP_VERSION=productVersion() before the bundle
+  import and ENV.version reads it (packaged → app.getVersion(); unpackaged
+  script install → the ROOT package.json version, falling back to
+  app.getVersion() only when that manifest is missing - the old direct
+  app.getVersion() surface leaked the electron BINARY version, probed live as
+  /health 44.4.3). Verified live: packaged install /health = 20260921.0.3;
+  script install /health = 20260921.0.6 (source runs keep the 0.0.1
+  placeholder). The boot log line still prints app.getVersion() (the binary
+  identity); /health carries the product identity.
 - **D-09-13** ESM bundle interop: the esbuild server bundle ships a
   createRequire banner (`const require = createRequire(import.meta.url)`) —
   CJS deps (ws) require() Node builtins and die at import without it.
@@ -119,11 +125,16 @@ remaining P12 slices ride after it.
   restore-or-create window) | Open Web UI in Browser (default browser,
   enabled only when running) | — status line — | Quit]; window close HIDES
   while a tray is active (service outlives the window); Quit does
-  dispose → app.quit → 8 s hard watchdog; boot failure with a tray stays
-  alive in the stopped state (no tray → legacy exit 1). Icons are generated
-  dependency-free PNGs (scripts/electron-tray-icon.mjs, teal stopped gray),
-  tray misses degrade to window-only mode. ipc invocation face extracted to
-  ipc-face.mjs (file-cap hygiene; behavior byte-identical).
+  dispose → app.quit → 8 s hard watchdog (dispose is disposed-guarded
+  server-side, so the before-quit double-call is a no-op); boot failure with
+  a tray stays alive in the stopped state (no tray → legacy exit 1). Icons
+  are generated dependency-free PNGs (scripts/electron-tray-icon.mjs,
+  running=teal ring; starting shares the gray stopped PNG); tray misses
+  degrade to window-only mode. Status-line honesty: 'stopped' renders
+  "Server stopped", never the stale
+  "Server starting…" (P12b-1 audit). ipc invocation face extracted to
+  ipc-face.mjs (file-cap hygiene; behavior byte-identical, verified against
+  866926b^ main.mjs).
 - **D-09-17** scripted source install: repo-root install.ps1 (row-bot
   action-pattern parity) copies the source into
   `%LOCALAPPDATA%\NotNativeDesktop`, pnpm-installs there, repairs the
@@ -134,6 +145,44 @@ remaining P12 slices ride after it.
   `%APPDATA%\NotNativeDesktop`, AppUserModelId without `.dev`) while a repo
   checkout keeps the `… Dev` split — the two can co-exist on one machine.
   NSIS packaging remains available but secondary.
+- **D-09-18** P12b-1 adversarial-audit fixes (tray + scripted install).
+  Windows install.ps1: install REFUSES while the install-tree electron.exe
+  is running (Get-Process path match; robocopy now also captures its stdout
+  to robocopy-out.log, and its own diagnostics — which go to stdout — are
+  shown tail-first on a failure instead of being sunk by 1>$null);
+  -Uninstall refuses the tree drop with tray-quit guidance (exit 2;
+  shortcuts still removed) and -PurgeData degrades gracefully (per-dir
+  SilentlyContinue + "partially erased" honesty; locked files stay behind).
+  Upgrade semantics are documented behavior: merge-only copy (robocopy /E,
+  never /MIR — /MIR would hard-delete arbitrary files in a user-supplied
+  -InstallDir); upstream-deleted files linger until a full reinstall; every
+  runtime artifact is regenerated wholesale by --no-nsis so lingering orphans
+  are inert. -SkipBuild requires bundle + settings-registry.json + both tray
+  PNGs (a torn prior build rebuilds instead of booting half-built) and WARNS
+  when watched sources are newer than the stored bundle (freshness oracle,
+  warning-only). Electron shell: boot failure with a tray swaps the splash
+  spinner for a local failure page (data: URL, error text + main.log path +
+  quit-and-reinstall guidance; textContent only, no HTML injection);
+  trays' stopped state says "Server stopped"; Open App reloads a crashed
+  renderer document instead of re-showing it (ensureMainWindow never
+  re-invokes boot — a failed boot is terminal for the process, retry is a
+  registered residual). electron-package --no-nsis prints an integrity
+  oracle (sha256: server bundle, settings-registry.json, both tray PNGs +
+  a sorted-rel-path recursive digest of packages/web/dist) and SKIPS
+  resources/web-dist staging (consumed only by electron-builder; the
+  artifacts-only install serves packages/web/dist directly — the staged copy
+  was dead weight and is not even migrated by robocopy's /XD resources).
+  install.sh parity (STATIC ONLY — written and reviewed without a bash host,
+  still not executed): bash-only guard as first statement; data-erasure is
+  now opt-in via --purge-data (--keep-data accepted as no-op) matching
+  install.ps1; purge also erases electron userData dirs; install dir with
+  whitespace is refused (desktop-entry Exec/Icon cannot quote it); macOS
+  electron binary path (dist/Electron.app/Contents/MacOS/Electron) replaces
+  the always-false dist/electron check; desktop entry Exec args are quoted
+  and Icon points at the generated tray PNG (an ELF binary never renders as
+  a freedesktop Icon). Honest deployment note: these fixes live in the REPO;
+  the running script-installed instance keeps the pre-fix code until the
+  next scripted install run (install dir was NOT patched in the audit).
 
 ## B2. First-install residuals (P12a audit, 2026-09-22 — registered not fixed)
 

@@ -41,6 +41,8 @@ interface GitState {
   bucketOf: (directory: string) => NonNullable<GitState['buckets'][string]>;
   ensureAll: (directory: string) => Promise<void>;
   ensureStatus: (directory: string, mode?: 'light' | 'full') => Promise<GitStatus | null>;
+  /** Trees publish their fresh light snapshot so Diff/Git views share it. */
+  applyStatus: (directory: string, status: GitStatus, mode: 'light' | 'full') => void;
   moveStatusPathsOptimistically: (directory: string, paths: string[], direction: 'stage' | 'unstage') => GitStatus | null;
   restoreStatus: (directory: string, snapshot: GitStatus) => void;
   bumpIndexRevision: (directory: string) => void;
@@ -48,6 +50,8 @@ interface GitState {
   clearDiffCache: (directory: string, paths?: string[]) => void;
   getDiff: (directory: string, path: string, staged: boolean, contextLines: number) => Promise<string | null>;
   invalidate: (directory?: string) => void;
+  /** §11.1 hint-driven restat: drop ONLY the status entry (caches kept). */
+  invalidateStatus: (directory: string) => void;
   __resetForTests: () => void;
 }
 
@@ -115,6 +119,13 @@ export const useGitStore = create<GitState>((set, getState) => ({
       return { buckets: { ...state.buckets, [key]: { ...existing, status: { status, fetchedAt: Date.now(), mode } } } };
     });
     return status;
+  },
+  applyStatus: (directory, status, mode) => {
+    const key = keyFor(directory, getRuntimeKey());
+    set((state) => {
+      const existing = state.buckets[key] ?? getState().bucketOf(directory);
+      return { buckets: { ...state.buckets, [key]: { ...existing, status: { status, fetchedAt: Date.now(), mode } } } };
+    });
   },
   moveStatusPathsOptimistically: (directory, paths, direction) => {
     const key = keyFor(directory, getRuntimeKey());
@@ -224,14 +235,26 @@ export const useGitStore = create<GitState>((set, getState) => ({
       return { buckets: next };
     });
   },
+  invalidateStatus: (directory) => {
+    const key = keyFor(directory, getRuntimeKey());
+    set((state) => {
+      const existing = state.buckets[key];
+      if (existing === undefined || existing.status === undefined) return state;
+      const next = { ...state.buckets, [key]: { ...existing, status: undefined } };
+      return { buckets: next };
+    });
+  },
   __resetForTests: () => set({ buckets: {} }),
 }));
 
-// 6.3 grouped status readers.
+// 6.3 grouped status readers: per-scope significance — one porcelain entry
+// may sit in BOTH stacks ("MM": staged edit + further worktree edit); the
+// stacked surfaces key their rows by `path|scope` so both render.
 export function groupedStatusFiles(status: GitStatus): { staged: GitStatusFile[]; working: GitStatusFile[] } {
-  const staged = status.files.filter(isStagedStatusFile);
-  const working = status.files.filter((entry) => isWorkingStatusFile(entry) && !(staged.includes(entry)));
-  return { staged, working };
+  return {
+    staged: status.files.filter(isStagedStatusFile),
+    working: status.files.filter(isWorkingStatusFile),
+  };
 }
 
 let reconcileTimer: number | null = null;

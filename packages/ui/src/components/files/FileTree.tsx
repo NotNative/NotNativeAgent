@@ -1,28 +1,32 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
- * FileTree (doc 06 §2.1/§2.2/§2.3 minus status dots = P6-2): directory
- * children load through DirectoryRequests (one in-flight read per path,
- * force replaces, `clear()` on scope change), sorted dirs-first then
- * name.localeCompare; expanded directories re-read on the 8 s poller while
- * visible; load errors keep the previous snapshot + inline Refresh;
- * "Directory not found" collapses the path. Search (200 ms debounce) rides
- * /api/fs/search. Row menus + header actions expose the exact doc labels.
+ * FileTree (doc 06 §2.1/§2.2/§2.3): directory children load through
+ * DirectoryRequests (one in-flight read per path, force replaces, `clear()`
+ * on scope change), sorted dirs-first then name.localeCompare; expanded
+ * directories re-read on the 8 s poller while visible; load errors keep the
+ * previous snapshot + inline Refresh; "Directory not found" collapses the
+ * path. Search (200 ms debounce) rides /api/fs/search. Row menus + header
+ * actions expose the exact doc labels. Git status dots/badges (§2.2) ride a
+ * 15 s light-status cadence + refresh hints; open tabs beat git status.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DirectoryRequests } from '../../lib/files/directory-requests.ts';
 import { listDirectory, searchWorkspaceFiles, type FsEntry } from '../../lib/files/api.ts';
+import { workspaceRelativePath } from '../../lib/files/workspace-paths.ts';
 import { TREE_SEARCH_DEBOUNCE_MS, DIRECTORY_POLL_INTERVAL_MS } from '../../lib/files/edit-support.ts';
 import { useFilesViewTabsStore } from '../../lib/files/tabs-store.ts';
+import { buildFileTreeStatusIndex, treeStatusColor, type FileTreeStatusIndex } from '../../lib/git/file-tree-status.ts';
 import { useI18n } from '../I18nProvider.tsx';
+import { useGitTreeStatus } from './file-tree-git-status.ts';
 
-export interface FileNode { name: string; path: string; isDirectory: boolean }
+export interface FileNode { name: string; path: string; relativePath: string | null; isDirectory: boolean }
 
 type ChildrenByDir = Record<string, { nodes: FileNode[]; error?: string }>;
 
 const requests = new DirectoryRequests();
 const requestsClear = (): void => requests.clear();
 
-/** §2.1/§2.3 full machine: state, loaders, effects. */
+/** §2.1/§2.3 full machine: state, loaders, effects + §2.2 status index. */
 function useFileTreeModel(root: string, runtimeKey: string, visible: boolean, expanded: string[]): TreeModel {
   const [childrenByDir, setChildrenByDir] = useState<ChildrenByDir>({});
   const [rootError, setRootError] = useState<string | null>(null);
@@ -32,6 +36,7 @@ function useFileTreeModel(root: string, runtimeKey: string, visible: boolean, ex
   const scopeRef = useRef({ root, runtimeKey });
   const loadDirRef = useRef(model.loadDir);
   loadDirRef.current = model.loadDir;
+  const status = useGitTreeStatus(root, runtimeKey, visible, model.loadDir, childrenByDir);
 
   const inScope = useCallback((): boolean =>
     scopeRef.current.root === root && scopeRef.current.runtimeKey === runtimeKey, []);
@@ -45,7 +50,7 @@ function useFileTreeModel(root: string, runtimeKey: string, visible: boolean, ex
     const timer = window.setTimeout(() => {
       void searchWorkspaceFiles(root, searchQuery.trim(), 150).then((entries) => {
         if (!inScope()) return;
-        setResults(toNodes(entries.filter((entry) => !entry.isDirectory)));
+        setResults(toNodes(root, entries.filter((entry) => !entry.isDirectory)));
       });
     }, TREE_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
@@ -61,6 +66,7 @@ function useFileTreeModel(root: string, runtimeKey: string, visible: boolean, ex
     searchResults,
     loadDir: model.loadDir,
     refreshAll: model.refreshAll,
+    status,
   };
 }
 
@@ -72,7 +78,10 @@ interface TreeModel {
   searchResults: FileNode[] | null;
   loadDir: (dir: string, force?: boolean) => Promise<FsEntry[] | null>;
   refreshAll: () => void;
+  status: FileTreeStatusIndex;
 }
+
+const EMPTY_STATUS_INDEX: FileTreeStatusIndex = { statusByPath: new Map(), badgeByDir: new Map() };
 
 interface TreeLoadersDeps {
   root: string;
@@ -106,7 +115,7 @@ function useTreeLoaders(deps: TreeLoadersDeps): TreeLoaders {
     try {
       const entries = await requests.run(`${runtimeKey}::${root}::${dir}`, () => listDirectory(root, dir, false), force);
       if (live.root !== root || live.runtimeKey !== runtimeKey) return null;
-      applyChildren(dir, toNodes(entries));
+      applyChildren(dir, toNodes(root, entries));
       return entries;
     } catch (error) {
       if (live.root !== root || live.runtimeKey !== runtimeKey) return null;
@@ -115,7 +124,7 @@ function useTreeLoaders(deps: TreeLoadersDeps): TreeLoaders {
         setRootError(message);
         return null;
       }
-      applyChildren(dir, /not found/iu.test(message) ? null : [], message);
+      applyChildren(dir, /not found/iu.test(message) ? null : toNodes(root, []), message);
       return null;
     }
   }, [root, runtimeKey, applyChildren, setRootError]);
@@ -134,15 +143,6 @@ interface ScopeRecord {
 
 function scopeFor(root: string, runtimeKey: string): ScopeRecord {
   return { root, runtimeKey };
-}
-
-
-
-/** §2.1 step 8/9: scope identification, stale-clearing, freshness kick and
- * the 8 s expanded-dirs poller (live only; hidden tabs never consume IO). */
-interface ScopeRecord {
-  root: string;
-  runtimeKey: string;
 }
 
 /** §2.1 step 8/9: scope identification, stale-clearing, freshness kick and
@@ -195,9 +195,9 @@ function useTreeScopeEffects(deps: {
   }, [root, visible, scopeKey, loadDirRef]);
 }
 
-function toNodes(entries: FsEntry[]): FileNode[] {
+function toNodes(root: string, entries: FsEntry[]): FileNode[] {
   return entries
-    .map((entry) => ({ name: entry.name, path: entry.path, isDirectory: Boolean(entry.isDirectory) }))
+    .map((entry) => ({ name: entry.name, path: entry.path, relativePath: workspaceRelativePath(root, entry.path), isDirectory: Boolean(entry.isDirectory) }))
     .sort((a, b) => a.isDirectory === b.isDirectory ? a.name.localeCompare(b.name) : a.isDirectory ? -1 : 1);
 }
 
@@ -213,10 +213,12 @@ export function FileTree({ root, runtimeKey, visible, onOpenFile, onNewFile, onN
 }): ReactNode {
   const { t } = useI18n();
   const expanded = useFilesViewTabsStore((state) => state.byRoot[root]?.expandedPaths ?? []);
+  const openPathsRaw = useFilesViewTabsStore((state) => state.byRoot[root]?.openPaths ?? EMPTY_OPEN_PATHS);
   const toggleExpandedPath = useFilesViewTabsStore((state) => state.toggleExpandedPath);
   const collapseAllExpandedPaths = useFilesViewTabsStore((state) => state.collapseAllExpandedPaths);
   const model = useFileTreeModel(root, runtimeKey, visible, expanded);
   const viewError = model.childrenByDir['.']?.error;
+  const openPaths = useMemo(() => new Set(openPathsRaw), [openPathsRaw]);
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="files-tree">
@@ -232,12 +234,14 @@ export function FileTree({ root, runtimeKey, visible, onOpenFile, onNewFile, onN
           <TreeSearchResults nodes={model.searchResults} onOpenFile={onOpenFile} />
         ) : null}
         {model.searchResults === null ? (
-          <TreeRows root={root} nodes={model.childrenByDir['.']?.nodes ?? []} error={viewError} expanded={expanded} childrenByDir={model.childrenByDir} onToggle={toggleExpandedPath} onRefreshDir={model.loadDir} onOpenFile={onOpenFile} onNewFile={onNewFile} onNewFolder={onNewFolder} onRename={onRename} onDelete={onDelete} />
+          <TreeRows root={root} nodes={model.childrenByDir['.']?.nodes ?? []} error={viewError} expanded={expanded} childrenByDir={model.childrenByDir} status={model.status} openPaths={openPaths} onToggle={toggleExpandedPath} onRefreshDir={model.loadDir} onOpenFile={onOpenFile} onNewFile={onNewFile} onNewFolder={onNewFolder} onRename={onRename} onDelete={onDelete} />
         ) : null}
       </div>
     </div>
   );
 }
+
+const EMPTY_OPEN_PATHS: string[] = [];
 
 function TreeToolbar({
   searchQuery, setSearchQuery, onNewFile, onNewFolder, onRefresh, onCollapseAll,
@@ -294,6 +298,8 @@ interface TreeRowsProps {
   error?: string;
   expanded: string[];
   childrenByDir: ChildrenByDir;
+  status: FileTreeStatusIndex;
+  openPaths: Set<string>;
   onToggle: (root: string, path: string) => void;
   onRefreshDir: (dir: string, force?: boolean) => Promise<FsEntry[] | null>;
   onOpenFile: (path: string) => void;
@@ -330,8 +336,20 @@ function DirNodeList(props: TreeRowsProps & { depth: number; walkDir: string }):
   );
 }
 
+/** TreeRow (§2.2): shared icon slot + ONE status dot. Open-tab membership
+ * beats git status; the dot color varies per status (--status-* palette). */
+function treeDotFor(node: FileNode, props: TreeRowsProps): { status: string; color: string } | null {
+  if (node.isDirectory) return null;
+  if (props.openPaths.has(node.path)) return { status: 'open', color: 'var(--status-info)' };
+  const git = node.relativePath !== null ? props.status.statusByPath.get(node.relativePath) ?? null : null;
+  if (git === null) return null;
+  return { status: git, color: treeStatusColor(git) };
+}
+
 function TreeRow({ props, node, depth }: { props: TreeRowsProps; node: FileNode; depth: number }): ReactNode {
   const isExpanded = props.expanded.includes(node.path);
+  const badge = node.isDirectory && node.relativePath !== null ? props.status.badgeByDir.get(node.relativePath) ?? null : null;
+  const dot = treeDotFor(node, props);
   return (
     <div data-tree-path={node.path}>
       <div className="group flex min-h-7 items-center gap-1 rounded px-1 hover:bg-interactive-hover/30" style={{ paddingLeft: depth * 14 + 4 }}>
@@ -353,6 +371,21 @@ function TreeRow({ props, node, depth }: { props: TreeRowsProps; node: FileNode;
         >
           {node.name}
         </button>
+        {badge !== null && badge.modified > 0 ? (
+          <span className="shrink-0 text-[10px] tabular-nums" style={{ color: 'var(--status-warning)' }}>M{badge.modified}</span>
+        ) : null}
+        {badge !== null && badge.added > 0 ? (
+          <span className="shrink-0 text-[10px] tabular-nums" style={{ color: 'var(--status-success)' }}>+{badge.added}</span>
+        ) : null}
+        {dot !== null ? (
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: dot.color }}
+            data-testid="file-status-dot"
+            data-status={dot.status}
+            aria-label={`${node.name} status: ${dot.status}`}
+          />
+        ) : null}
         <RowMenu props={props} node={node} />
       </div>
       {node.isDirectory && isExpanded ? <DirNodeList {...props} depth={depth + 1} walkDir={node.path} /> : null}

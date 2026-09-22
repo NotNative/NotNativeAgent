@@ -21,9 +21,9 @@
  * - desktop remote password login (§6.6.3) goes through `invokeDesktop(
  *   'desktop_remote_password_login')` in doc 09, which does not exist in this
  *   repo yet; that surface is the `loginPassword` prop instead;
- * - strings are injected via `labels` because `t()` takes only registered
- *   `I18nKey`s and `useI18n()` throws outside its provider. Registering the
- *   auth keys in `lib/i18n/messages/en.ts` is a follow-up.
+ * - copy resolves through the i18n dictionary when a provider is mounted
+ *   (`useOptionalI18n` + `GATE_KEY`, W-64); bare mounts (tests, VS Code
+ *   surface) fall back to the literal EN table in gateText.ts.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { setRuntimeBearerToken } from '../../lib/runtime-auth.ts';
@@ -58,12 +58,14 @@ import {
 import { readTrustDevice, rememberTrustDevice } from '../../lib/sessionAuthGateTrust.ts';
 import {
   GATE_TEXT,
+  GATE_KEY,
   PENDING_PROBE,
   describeLoginFailure,
   headingFor,
   resolveGateText,
   type GateText,
 } from './gateText.ts';
+import { useOptionalI18n } from '../../lib/i18n/context.tsx';
 
 export interface SessionAuthGateProps {
   children?: ReactNode;
@@ -90,8 +92,14 @@ type GateBusy = 'none' | 'submit' | 'passkey';
 export function SessionAuthGate(props: SessionAuthGateProps): ReactNode {
   const runtime = useGateRuntime(props);
   const model = useGateModel(runtime, props.skipAuth === true);
-  const actions = useGateActions(runtime, model, props);
-  const text = resolveGateText(props.labels);
+  const i18n = useOptionalI18n(); // gate renders inside the provider — but must not explode when it does not (tests)
+  const text = useMemo(() => {
+    if (!i18n) return resolveGateText(props.labels);
+    const translated = {} as Record<keyof GateText, string>;
+    for (const key of Object.keys(GATE_KEY) as Array<keyof GateText>) translated[key] = i18n.t(GATE_KEY[key]);
+    return resolveGateText(props.labels, translated);
+  }, [i18n, props.labels]);
+  const actions = useGateActions(runtime, model, props, text);
 
   if (props.skipAuth === true) return props.children ?? null;
   const view = sessionGateView(model.probe ?? PENDING_PROBE, model.support ?? NO_SUPPORT, model.presence);
@@ -226,6 +234,7 @@ function useGateActions(
   runtime: SessionGateRuntime,
   model: GateModel,
   props: SessionAuthGateProps,
+  textDefault: GateText,
 ) {
   const settleSuccess = useCallback((): void => {
     model.setPasswordValue('');
@@ -253,9 +262,9 @@ function useGateActions(
       return;
     }
     model.setBusy('none');
-    model.setInlineError(describeLoginFailure(outcome, props.labels));
+    model.setInlineError(describeLoginFailure(outcome, props.labels, textDefault));
     if (outcome.status === 429 || outcome.locked || outcome.tunnelLocked) await model.refresh();
-  }, [model, props, runtime, settleSuccess]);
+  }, [model, props, runtime, settleSuccess, textDefault]);
 
   const passkey = usePasskeyActions(runtime, model, props.issueClientToken === true, settleSuccess);
   const retry = useCallback((): void => {

@@ -1,20 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-﻿import type { RuntimeAPIs, TerminalApi } from '@notnative/ui/lib/api/types.ts';
+﻿import type { RuntimeAPIs } from '@notnative/ui/lib/api/types.ts';
+import { createRealTerminalApi } from '@notnative/ui/lib/api/terminal-adapter.ts';
 
 const notReady = (member: string) => () => {
   throw new Error(member + ' is not wired in the P0 web shell yet');
 };
-
-function createStubTerminal(): TerminalApi {
-  return {
-    createSession: async () => {
-      throw new Error('terminal unsupported in web shell P0');
-    },
-    connect: () => ({ close: () => undefined }),
-    sendInput: () => undefined,
-    resize: () => undefined,
-  };
-}
 
 async function loadSettings(): Promise<{ settings: Record<string, unknown>; source: 'desktop' | 'web' }> {
   try {
@@ -41,7 +31,7 @@ async function saveSettings(changes: Record<string, unknown>): Promise<Record<st
 export function createWebAPIs(): RuntimeAPIs {
   return {
     runtime: { platform: 'web', isDesktop: false, isVSCode: false, label: 'web' },
-    terminal: createStubTerminal(),
+    terminal: createRealTerminalApi(), // SLICE-B: the live PTY seam over the terminal lib (doc 07)
     git: new Proxy({}, { get: (_t, prop) => notReady(`git.${String(prop)}`) }),
     files: {
       listDirectory: notReady('files.listDirectory'),

@@ -6,7 +6,7 @@
  */
 import { runtimeFetch } from '../runtime-fetch.ts';
 
-export interface GitStatusFile { path: string; index: string; working_dir: string }
+export interface GitStatusFile { path: string; index: string; working_dir: string; staged?: boolean }
 export interface GitStatus {
   isGitRepository: boolean;
   branch: string | null;
@@ -17,10 +17,11 @@ export interface GitStatus {
   rebaseInProgress?: boolean;
 }
 export interface GitBranch {
+  isGitRepository?: boolean;
   current: string | null;
-  local: { name: string; tracking?: string }[];
+  /** Branch NAMES as /api/git/branches answers them (§5.13 read family). */
+  local: string[];
   remote: string[];
-  unpushedCount?: number;
 }
 
 async function getJson<T>(url: string): Promise<T | null> {
@@ -43,14 +44,29 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 }
 
 export async function fetchGitStatus(directory: string, mode: 'light' | 'full'): Promise<GitStatus | null> {
-  return getJson<GitStatus>(`/api/git/status?directory=${encodeURIComponent(directory)}&mode=${mode}`);
+  const status = await getJson<GitStatus>(`/api/git/status?directory=${encodeURIComponent(directory)}&mode=${mode}`);
+  if (status === null || !Array.isArray(status.files)) return status;
+  return { ...status, files: normalizeStatusFiles(status.files) };
+}
+
+/** Client-side recovery (doc 06 §2.2 untracked): the route erases the `?`
+ * porcelain codes; a porcelain v1 row needs one non-space symbol, so an
+ * entry with BOTH sides blank and `staged:false` can only be `??` —
+ * restore the verbatim codes so every status derivation is uniform. */
+export function normalizeStatusFiles(files: GitStatusFile[]): GitStatusFile[] {
+  return files.map((entry) => {
+    if (entry.index === ' ' && entry.working_dir === ' ' && entry.staged !== true) {
+      return { ...entry, index: '?', working_dir: '?' };
+    }
+    return entry;
+  });
 }
 
 export async function fetchGitBranches(directory: string): Promise<GitBranch | null> {
   return getJson<GitBranch>(`/api/git/branches?directory=${encodeURIComponent(directory)}`);
 }
 
-export async function fetchGitLog(directory: string, maxCount = 50): Promise<{ commits: { hash: string; subject: string; author: string; date: string }[] } | null> {
+export async function fetchGitLog(directory: string, maxCount = 50): Promise<{ isGitRepository?: boolean; commits: { hash: string; subject: string; author: string; date: number }[] } | null> {
   return getJson(`/api/git/log?directory=${encodeURIComponent(directory)}&maxCount=${maxCount}`);
 }
 
@@ -83,17 +99,19 @@ export async function commitChanges(directory: string, message: string): Promise
   return postJson(`/api/git/commit?directory=${encodeURIComponent(directory)}`, { message });
 }
 
-/** §6.3/§11.1 status derivation per §2.2 (index/working_dir codes). */
+/** §6.3/§11.1 status derivation per §2.2 porcelain codes: staged = the index
+ * (X) carries a significant code; working = the worktree (Y) carries one.
+ * Untracked (both sides `?` after §2.2 recovery) is WORKING, never staged. */
 export function isStagedStatusFile(entry: GitStatusFile): boolean {
-  return (entry.index !== '' && entry.index !== ' ' && entry.index !== '?');
+  return entry.index !== '' && entry.index !== ' ' && entry.index !== '?';
 }
 
 export function isWorkingStatusFile(entry: GitStatusFile): boolean {
-  return entry.working_dir !== '' && entry.working_dir !== ' ' ? true : entry.index === '?';
+  return (entry.working_dir !== '' && entry.working_dir !== ' ') || entry.index === '?';
 }
 
 export function statusSymbol(entry: GitStatusFile): 'M' | 'A' | 'D' | 'R' | 'C' | 'U' {
-  const code = entry.index !== ' ' && entry.index !== '' ? entry.index : entry.working_dir;
+  const code = entry.index !== ' ' && entry.index !== '' && entry.index !== '?' ? entry.index : entry.working_dir;
   if (code === 'A' || code === '?') return 'A';
   if (code === 'D') return 'D';
   if (code === 'R') return 'R';

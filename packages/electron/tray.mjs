@@ -22,6 +22,7 @@ const ICON_FILES = {
 function statusLabel(status, origin) {
   if (status === 'running' && origin) return `Server running on ${origin}`;
   if (status === 'running') return 'Server running';
+  if (status === 'stopped') return 'Server stopped (see the tray menu: Open App / Quit)';
   return 'Server starting…';
 }
 

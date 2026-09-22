@@ -47,10 +47,20 @@ async function main() {
   ensureElectronBinary();
   generateTrayIcons();
   buildWebUi();
-  stageWebDist();
+  // resources/web-dist exists ONLY for the NSIS pipeline (electron-builder
+  // files 'resources/**' + extraResources). The artifacts-only install serves
+  // straight from packages/web/dist (main.mjs resolveDistDir unpackaged arm),
+  // so a staged copy is dead weight there - skip it instead of shipping MiBs
+  // the runtime never reads (P12b-1 audit).
+  if (NO_NSIS) {
+    log('artifacts-only mode: resources/web-dist staging skipped (serves packages/web/dist)');
+  } else {
+    stageWebDist();
+  }
   await bundleServer();
   copySiblingData();
   if (NO_NSIS) {
+    reportArtifactIntegrity();
     log('artifacts ready (electron/, no installer pass)');
     return;
   }
@@ -218,6 +228,47 @@ function reportArtifacts() {
   const sha256 = createHash('sha256').update(readFileSync(setup)).digest('hex');
   log(`installer: ${path.basename(setup)} (${(statSync(setup).size / 1024 / 1024).toFixed(1)} MiB)`);
   log(`sha256:  ${sha256}`);
+}
+
+// ── artifacts-only integrity oracle (--no-nsis) ─────────────────────────────
+// The NSIS path prints the installer sha256; this mode ships no installer, so
+// the runnable artifact set needs its own verifiable print: server bundle +
+// staged sibling data + tray assets + the web dist tree the shell serves (a
+// missing artifact fails here instead of booting into a half-built install).
+
+function sha256Hex(file) {
+  return createHash('sha256').update(readFileSync(file)).digest('hex');
+}
+
+/** Deterministic tree digest: pre-sorted relative paths, rolling sha chain. */
+function directoryDigest(dir) {
+  const rows = [];
+  const walk = (current) => {
+    const entries = readdirSync(current, { withFileTypes: true })
+      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else rows.push(`${path.relative(dir, full).replaceAll('\\', '/')} ${sha256Hex(full)}`);
+    }
+  };
+  walk(dir);
+  return { files: rows.length, digest: createHash('sha256').update(rows.join('\n')).digest('hex') };
+}
+
+function reportArtifactIntegrity() {
+  const bundle = path.join(SHELL_DIR, 'dist-server', 'server.mjs');
+  const registry = path.join(SHELL_DIR, 'dist-server', 'settings-registry.json');
+  const webDist = path.join(WEB_DIR, 'dist');
+  const trayDir = path.join(SHELL_DIR, 'assets');
+  const trayIcons = [path.join(trayDir, 'tray-running.png'), path.join(trayDir, 'tray-stopped.png')];
+  const missing = [bundle, registry, webDist, ...trayIcons].filter((artifact) => !existsSync(artifact));
+  if (missing.length > 0) throw new Error(`artifact integrity check incomplete, missing: ${missing.join(', ')}`);
+  for (const artifact of [bundle, registry, ...trayIcons]) {
+    log(`sha256 ${path.relative(ROOT, artifact).replaceAll('\\', '/')}: ${sha256Hex(artifact)}`);
+  }
+  const web = directoryDigest(webDist);
+  log(`sha256 web-dist tree (packages/web/dist, ${web.files} files, sorted rel-path digest): ${web.digest}`);
 }
 
 function findInstallers() {

@@ -109,23 +109,20 @@ function parsePatch(path: string, patch: string): FileDiffMetadata {
   let oldStart = 0;
   let newStart = 0;
   let rows: DiffRow[] = [];
-  let headerLine = '';
+  let hunkHeader = '';
   let insertions = 0;
   let deletions = 0;
   for (const line of patch.split('\n')) {
     if (line.startsWith('@@ ')) {
-      if (rows.length > 0) hunks.push(finishHunk(headerLine, oldStart, newStart, rows));
-      headerLine = headerLine.length === 0 || hunks.length > 0 ? headerLine : headerLine;
+      if (rows.length > 0) hunks.push(finishHunk(hunkHeader, oldStart, newStart, rows));
+      hunkHeader = line;
       const match = /@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/u.exec(line);
       oldStart = match !== null ? Number(match[1]) : 1;
       newStart = match !== null ? Number(match[2]) : 1;
       rows = [];
       continue;
     }
-    if (/^(diff |index |--- |\+\+\+ )/u.test(line)) {
-      if (headerLine.length === 0) headerLine = line;
-      continue;
-    }
+    if (/^(diff |index |--- |\+\+\+ )/u.test(line)) continue;
     if (line.startsWith('+')) {
       rows.push({ kind: 'add', text: line.slice(1) });
       insertions += 1;
@@ -138,7 +135,7 @@ function parsePatch(path: string, patch: string): FileDiffMetadata {
       rows.push({ kind: 'context', text: '\\ no newline at end of file' });
     }
   }
-  if (rows.length > 0) hunks.push(finishHunk(headerLine, oldStart, newStart, rows));
+  if (rows.length > 0) hunks.push(finishHunk(hunkHeader, oldStart, newStart, rows));
   return { path, hunks, insertionCount: insertions, deletionCount: deletions };
 }
 

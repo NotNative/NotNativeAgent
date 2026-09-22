@@ -251,6 +251,25 @@ const en = {
   'plan.saved': 'Saved',
   'plan.saveFailed': 'Save failed',
   'plan.file': 'plan',
+  // SessionAuthGate copy (doc 08 §6.6): the gate resolves defaults through
+  // t() when a provider is present (W-64 polish); GATE_TEXT stays the literal
+  // fallback for bare mounts.
+  'auth.gate.pending': 'Checking session…',
+  'auth.gate.lockedTitle': 'This instance is locked',
+  'auth.gate.passwordLabel': 'Server password',
+  'auth.gate.unlock': 'Unlock',
+  'auth.gate.unlocking': 'Unlocking…',
+  'auth.gate.trustDevice': 'Trust this device',
+  'auth.gate.usePasskey': 'Use passkey',
+  'auth.gate.addPasskey': 'Add passkey',
+  'auth.gate.passkeysDisabled': 'Passkeys are disabled until a UI password is set.',
+  'auth.gate.tunnelTitle': 'Tunnel access needs a connect token',
+  'auth.gate.tunnelBody': 'This host is reachable through the relay tunnel, which does not accept passwords. Use a one-time connect link from the host.',
+  'auth.gate.rateLimitedTitle': 'Too many attempts',
+  'auth.gate.errorTitle': 'Cannot reach this host',
+  'auth.gate.retry': 'Try again',
+  'auth.gate.authenticating': 'Waiting for the authenticator…',
+  'auth.gate.passwordRejected': 'The password was not accepted',
 };
 
 export type I18nKey = keyof typeof en;

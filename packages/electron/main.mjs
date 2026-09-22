@@ -24,12 +24,16 @@ const HEALTH_POLL_START_MS = 250;
 const HEALTH_POLL_MAX_MS = 2_000;
 const LOG_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 const PACKAGED = Boolean(app.isPackaged);
+// --hidden start (row-bot parity): service boots to tray-only; the FIRST
+// window reveal belongs to the user (tray Open App / ensureMainWindow).
+const HIDDEN_START = process.argv.includes('--hidden');
 
 let mainWindow = null;
 let serverHandle = null;
 let chosenPort = 0;
 let trayController = null;
 let quitting = false;
+let bootFailure = null; // boot-abort message; trayed installs linger and must say why
 
 // ── §1.2/1.3 module-load identity (before app.whenReady) ────────────────────
 
@@ -276,6 +280,29 @@ const SPLASH_HTML = [
 ].join('');
 const SPLASH_URL = `data:text/html,${encodeURIComponent(SPLASH_HTML)}`;
 
+// Boot-failure page (trayed stopped state): the splash spinner must not be the only surface when
+// the server never came up — say why, name the escape hatches (tray Quit + reinstall + log path).
+const FAILURE_PAGE_HTML = [
+  '<!doctype html><html><head><meta charset="utf-8">',
+  '<style>html,body{margin:0;height:100%;background:#0c0a09;color:#fafaf9;',
+  'display:grid;place-items:center;font-family:system-ui,"segoe ui",sans-serif;',
+  'color-scheme:dark;text-align:center}</style></head><body><div>',
+  '<div style="font-size:16px;font-weight:600">NotNativeDesktop could not start</div>',
+  '<div id="m" style="margin-top:10px;opacity:.55;max-width:560px;word-break:break-word;white-space:pre-line"></div>',
+  '<div style="margin-top:16px;opacity:.75;font-size:13px">Quit from the tray menu, reinstall, and check the log file.</div>',
+  '</div><script>document.getElementById("m").textContent=decodeURIComponent(location.hash.slice(1));</script>',
+  '</body></html>',
+].join('');
+
+function bootFailurePageUrl(message) {
+  // Details ride in as plain text (textContent), never injected HTML.
+  const detail = [
+    String(message ?? 'unknown startup failure'),
+    `Log: ${LOG_FILE}`,
+  ].filter((line) => line.length > 0).join('\n');
+  return `data:text/html,${encodeURIComponent(FAILURE_PAGE_HTML)}#${encodeURIComponent(detail)}`;
+}
+
 function buildInitScript() {
   const j = (value) => JSON.stringify(value);
   // D-09-2: boot outcome is always {target:'local',status:'ok'} post-health.
@@ -340,7 +367,7 @@ function createMainWindow() {
     },
   });
   attachWindowGuards(win);
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => { if (!HIDDEN_START || bootFailure) win.show(); });
   // Tray mode: the close button hides the window and the service keeps
   // running (reference launcher semantics); Quit belongs to the tray menu.
   win.on('close', (event) => {
@@ -350,7 +377,7 @@ function createMainWindow() {
     }
   });
   win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
-  win.loadURL(SPLASH_URL).catch(() => { /* splash is cosmetic */ });
+  win.loadURL(bootFailure ? bootFailurePageUrl(bootFailure) : SPLASH_URL).catch(() => { /* splash/error is cosmetic */ });
   return win;
 }
 
@@ -361,12 +388,18 @@ function focusMainWindow() {
   mainWindow.focus();
 }
 
-/** Tray "Open <App>": reuse the window or create one targeted at the UI. */
+/** Tray "Open <App>": reuse the window or create one targeted at the UI. It
+ * never re-invokes boot(): a failed boot keeps serving the failure page. */
 function ensureMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     mainWindow = createMainWindow();
     if (serverHandle) mainWindow.loadURL(localOrigin()).catch(() => { /* cosmetic */ });
+  } else if (mainWindow.webContents.isCrashed()) {
+    // A crashed renderer reborn blank: Open App must not just re-show the
+    // corpse — reload the document (origin when running, failure page when not).
+    mainWindow.webContents.reload();
   }
+  if (!mainWindow.isVisible()) mainWindow.show(); // --hidden boots reveal here
   focusMainWindow();
 }
 
@@ -455,10 +488,16 @@ app.on('before-quit', () => {
 
 boot().catch((error) => {
   console.error('[electron] startup failed:', error);
-  // Reference launcher semantics: with a tray keep the process alive in the
-  // stopped state (user can Quit from the menu); without one, exit.
+  // Reference launcher semantics: with a tray keep the process alive in the stopped state (user
+  // can Quit from the menu; without a tray, exit). The trayed lingering must answer "then what?":
+  // swap the splash spinner for the failure page so the user sees why and what to do next.
   if (trayController?.active) {
     trayController.setStatus('stopped');
+    // Message only, never the stack: fixed card; the full trace is already in main.log.
+    bootFailure = error instanceof Error ? error.message : String(error);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.loadURL(bootFailurePageUrl(bootFailure)).catch(() => { /* cosmetic */ });
+    }
     return;
   }
   app.exit(1);

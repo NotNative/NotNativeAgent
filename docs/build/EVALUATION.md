@@ -96,3 +96,24 @@ service untested (auditor in flight); tray menu ACTIONS (browser open,
 quit) implemented but clickable only by a human; NSIS installer still works
 but no longer the primary path; installer audit finds slate empty until the
 adversarial pass reports.
+
+## 2026-09-22 · P12b-3 SLICE-B review-band + audit fixes (seal 20260922-3)
+
+**Verified working (test-level + audit-level + live wire)**
+
+| Surface | Evidence |
+|---|---|
+| Files tab real tree + status dots + hints | `file-tree-status.test.ts` 5 + `workspace-paths.test.ts` 2 + files-view 3; 15 s cadence fake-timer asserted |
+| Diff scope stacks + >500 gate + hunk apply | `diff-view.test.tsx` 5 + `diff-scroll-anchor.test.ts` 4; server single-hunk contract honored after FULL blob match |
+| Git stage/unstage/discard/commit | `git-view.test.tsx` 6 (optimistic rollback + cadence) |
+| Terminal seam real | `terminal-adapter.test.ts` 3; stub replaced in createWebAPIs (web only) |
+| Boot failure honesty (electron) | audit-verified: failure page replaces splash; Open App no longer re-splashes; live detection of the running instance |
+| Artifacts integrity | `electron-package.mjs --no-nsis` prints 5 deterministic hashes (live-verified twice) |
+| Streaming loop (SLICE-A) | wire capture: 23 text deltas + status transitions + abort → `MessageAbortedError` → idle |
+
+**Known broken / not yet usable**: §6.7 checkout/merge/stash (no server
+routes yet — GitView dialogs read-only), untracked-file diff render, retained
+hidden panes, hunk keyboard nav, i18n sweep of new literals, shared status
+poller (P6-3), install.sh STILL never executed (no POSIX host), tray retry
+after failed boot, `--hidden` verified at code level only (launch flag read
+before window creation; live check pending the next install run).

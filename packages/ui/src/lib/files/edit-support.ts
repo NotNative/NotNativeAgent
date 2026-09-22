@@ -13,6 +13,7 @@ export const SAVE_STATUS_LINGER_MS = 2_000;
 export const STAT_POLL_INTERVAL_MS = 2_000;
 export const DIRECTORY_POLL_INTERVAL_MS = 8_000;
 export const TREE_SEARCH_DEBOUNCE_MS = 200;
+export const GIT_STATUS_POLL_INTERVAL_MS = 15_000; // §6.3 reconcile cadence
 export const EMPTY_READ_RETRIES_MS = [50, 100, 150];
 
 export interface PreparedFileContent {
