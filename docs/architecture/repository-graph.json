@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:2def49f7fbd656ccafb8cc4aff30ad449d39b084950d09b33b14b6655eea2f83",
+  "source_digest": "sha256:9661de00c66a2b91c785b57ea2013765b524640ed1aaa6e97734ebef0cf0d9e7",
   "counts": {
-    "modules": 336,
+    "modules": 340,
     "component_edges": 12
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 94
+      "module_count": 98
     },
     {
       "id": "web-entry",
@@ -2457,6 +2457,37 @@
       "component": "web-server",
       "entrypoint": false,
       "imports": []
+    },
+    {
+      "path": "packages/web/src/server/goals/goal-constants.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/web/src/server/goals/goal-metadata.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-payload.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/goals/goal-payload.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-constants.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/goals/goal-state.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-constants.ts",
+        "packages/web/src/server/goals/goal-payload.ts"
+      ]
     },
     {
       "path": "packages/web/src/server/harness/adapter.ts",

@@ -72,6 +72,14 @@
     {
       "version": "20260921-3",
       "content_sha256": "cd1fec8dcfe0249ffef2f87e4a29195f10b70a029b09f9e731176758774204f0"
+    },
+    {
+      "version": "20260921-4",
+      "content_sha256": "9d01f05be6cc360e00343b638236cdd2c1765790c5259cd3f276331a82039868"
+    },
+    {
+      "version": "20260921-5",
+      "content_sha256": "c24ca1a4b4f563cc81e2e551e24c9289b5aee4dcc93d8b2303b61871f9bcecb4"
     }
   ]
 }

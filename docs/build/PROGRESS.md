@@ -780,6 +780,38 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   + graph (336 modules) · installer sha256 53de3fa76c9ec36d66fb502c0dae7602
   a0d3a46505400b551573f37566c4075d. Sealed as 20260921-3.
 
+- 2026-09-22 · **P9-2a PARTIAL — goals core layer committed; goal rounds exhausted.**
+  Session-goal runtime arrives in two steps; this commit ships the foundation
+  and an exact resume map. ON DISK + SEALED (20260921-4): `goals/goal-constants.ts`
+  (§B.2 all twelve constants verbatim, settle reasons, notification titles),
+  `goals/goal-payload.ts` (§B.1 schema, tolerant-bounded parse, clamps,
+  objective-file id shape validated BEFORE fs, `${ts36}${rand6}` goal ids),
+  `goals/goal-metadata.ts` (namespace-preserving read-modify-merge for
+  PATCH /session/{id}, goal-only removal that keeps sibling keys, §B.5.1
+  id-guard), `goals/goal-state.ts` (T1–T17 as pure payload transforms —
+  arm/pause/resume/reactivate/settle/continue, refusal-as-null contract,
+  settle always resets both streaks). Tests: builder's p9-2a-goal-payload
+  suite + orchestrator's p9-2a-goals-core (25 tests incl. the constant pin,
+  hostile-input clamps, fs-shape guard, T17 refusal, 20-continue counter
+  alignment, resume-fresh-tolerance). One defect found by the new tests and
+  fixed: armGoal accepted an objectiveless goal the parser would later
+  disown. web 644/644 (43 files) · typecheck · gates+graph(340) · smoke ·
+  build green; NOT UI-touched.
+  RESUME (P9-2b, next session): tick runtime B.5 (quiet windows, gates in
+  evaluation order, accounting B.5.4), evaluator exchange + small-model
+  module (doc 02 §7.4 + injectable provider seam + deterministic mock),
+  mock session-metadata persistence (store has only time.*), routes
+  (arm/pause/resume/clear + objective PUT/GET/DELETE) into app.ts,
+  createSessionGoal + B.6 prompts, deferred-by-order items: T9/B.5.6
+  length-recovery, truncation derivation edges, SSE, notifications. Then
+  P9-3 scheduled tasks (doc 12 §C 606–935; §J items 3–6; hinges: two
+  processes ≠ double-run, DST cron equality, once→enabled:false), P9-4 UI
+  batch (queue D.6–D.8 + goal controls B.8 + task dialog), P9-5 multi-run/
+  fusion (E) + F.1, P10 doc 15 (§M checklist, 1928), P11 doc 13 (§L, 1013),
+  P12b (tray, openchamber://connect verbatim, updater, node-pty shipping,
+  stale-dist build-stamp), P13 integration verify. The P12a installer remains
+  installed and running on this machine.
+
 ## Delta/Delayed register
 
 | # | Item | Phase landing | Note |
