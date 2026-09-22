@@ -152,17 +152,26 @@ export function MainLayout(): ReactNode {
       persistLastActiveSession(sessionID, directory); // remember for next boot
       useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
     },
-    rename: async (sessionID: string, title: string) => {
-      void sessionID; void title;
-      toast.message('Session PATCH channel lands with P4; title queued');
+    rename: (sessionID: string, title: string): Promise<void> => {
+      const trimmed = title.trim();
+      if (!trimmed) {
+        toast.message('Title unchanged — empty name');
+        return Promise.resolve();
+      }
+      return engine.actions.rename(sessionID, trimmed)
+        .then(() => { toast.success('Session renamed'); })
+        .catch(() => { toast.error('Failed to rename the session'); });
     },
     archive: async (sessionID: string, directory: string) => {
       await engine.actions.archive(sessionID, directory);
     },
+    restore: async (sessionID: string, directory: string) => {
+      await engine.actions.restore(sessionID, directory);
+    },
     deleteSession: async (sessionID: string, directory: string) => {
       await engine.actions.deleteSession(sessionID, directory);
     },
-  };
+  } as const;
 
   const activeDirectory = normalizeDirectoryInput(view.activeDirectory || globalHome(global) || harnessDirectory);
 

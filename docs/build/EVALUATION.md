@@ -117,3 +117,23 @@ hidden panes, hunk keyboard nav, i18n sweep of new literals, shared status
 poller (P6-3), install.sh STILL never executed (no POSIX host), tray retry
 after failed boot, `--hidden` verified at code level only (launch flag read
 before window creation; live check pending the next install run).
+
+## 2026-09-22 · P12b-4 SLICE-C session product (seal 20260922-4)
+
+**Verified working (test-level)**
+
+| Surface | Evidence |
+|---|---|
+| Tool cards + markdown-lite | `tool-cards` 9 tests + hardened inert renderer; live bash output pane; mock trigger lifecycle tests (web +4) |
+| Folders + real rename + archive | `useSessionFoldersStore` 6 + `session-rename-archive` 3 (PATCH {title}) |
+| Blocking cards §F | `blocking-cards` 7 (bash body, Alt-stack, edit diff, question tabs/custom rule, 404 toast) |
+| Server-owned queue UI | `useMessageQueueStore` 10 (revision gate, permutation PUT + restore-on-409, take-for-input, clear) |
+| Timeline/rail | `prompt-rail` 2 (reactive, newest-first, hover preview) |
+| Suite truth | ui 683/683 (79 files) · web 648/648 (44 files) · tsc ×4 0 · gates 357 · graph current |
+
+**Known broken / not yet usable (carried after C)**: §6.7 server
+auto-accept runtime; queued attachments (envelope sends `[]`); hold/take-all
+chips; rail windowing; timeline-dialog dedicated test file; the SLICE-B
+deferral list above; install.sh never executed; preview :58080 serves
+pre-SLICE-C dist until the next redeploy (the desktop instance gets C at the
+same redeploy).

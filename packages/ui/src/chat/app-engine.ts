@@ -6,7 +6,18 @@
  */
 import { createSyncEngine, type SyncEngine } from '../sync/sync-engine.ts';
 import { subscribeControlEvents, subscribeHarnessEvents, unwrapEventFrame } from '../lib/nnd/events.ts';
+import { useMessageQueueStore } from '../stores/useMessageQueueStore.ts';
 import { toast } from 'sonner';
+
+/** Doc 12 §D.5/§D.6: the message-queue fanout rides the control stream as a
+ *  REVISION notification — the store re-reads the snapshot (coalesced). */
+const MESSAGE_QUEUE_UPDATED = 'notnative:message-queue.updated';
+
+export function handleQueueBroadcast(type: string, properties: Record<string, unknown> | undefined): void {
+  if (type !== MESSAGE_QUEUE_UPDATED) return;
+  const revision = typeof properties?.['revision'] === 'number' ? properties['revision'] : 0;
+  void useMessageQueueStore.getState().applyRevisionNotification(revision);
+}
 
 let engineSingleton: SyncEngine | null = null;
 let subscriptionCleanups: Array<() => void> = [];
@@ -50,6 +61,7 @@ async function wireStreams(engine: SyncEngine): Promise<void> {
     subscriptionCleanups.push(stopHarness);
     const stopControl = await subscribeControlEvents((event) => {
       engine.handleHarnessEventDirect(event);
+      handleQueueBroadcast(event.type, event.properties);
     });
     subscriptionCleanups.push(stopControl);
   } catch (error) {

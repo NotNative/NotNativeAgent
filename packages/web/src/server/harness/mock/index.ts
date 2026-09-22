@@ -69,8 +69,9 @@ function welcomeSeed(): void {
             'Welcome! This session opens automatically on boot. The workspace currently ' +
             'runs against the **mock harness** — the NotNativeAgent (NNA) adapter takes ' +
             'its place behind the same seam until the real one lands. Send a message to ' +
-            'watch a streamed turn on the event stream; include the words "permission", ' +
-            '"question", or "todo" to see those flows fire.',
+            'watch a streamed turn on the event stream; include the words "tool" (add ' +
+            '"bash" for live command output, "fail" for a settled tool error), ' +
+            '"permission", "question", or "todo" to see those flows fire.',
         },
       ],
     },

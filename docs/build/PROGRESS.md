@@ -900,6 +900,30 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   status transitions, abort → MessageAbortedError → idle) against the
   web-only preview at :58080.
 
+- 2026-09-22 · **P12b-4 SLICE-C `session-product-b` (seal 20260922-4).** User
+  confirmed the whole loop in their own testing ("double-click → tray →
+  window → backend connects — so it's a start") → GUI depth continues.
+  Builder landed all 5 slice tasks: tool cards
+  (chat/tool-cards.tsx + markdown-lite.tsx hardened dependency-free
+  renderer) with running/settled/error states, JSON view modes, live bash
+  output pane; mock tool-demo lifecycle (`tool`/`bash`/`fail` triggers, full
+  event chain inside doc-02 shapes); sidebar product — folders store +
+  collapsible zones + archive/restore + REAL session rename (stale P4 toast
+  deleted); blocking cards per doc 05 §F (bash/edit/write/webfetch bodies,
+  Alt-stack reply semantics, question tabs + Summary with [[label]]/custom
+  Other rule, honest 404); server-owned message queue UI
+  (useMessageQueueStore: revision-gated snapshots, optimistic add with
+  restore, full-permutation reorder, take-for-input, clear + follow-up
+  steering setting) with composer QueueChipsRow + broadcast wiring; timeline
+  fork-from-any-turn (fill-not-send, ESC-first close) + reactive prompt rail
+  with hover preview. Truth: ui 683/683 (79 files, +37 confirmed twice),
+  web 648/648 (44 files, mock tool-trigger tests), tsc ×4 zero, gates 357
+  files, graph current. Deferred in notes: §6.7 server auto-accept runtime,
+  queued attachments envelope, hold/take-all chips, rail windowing,
+  timeline-dialog dedicated test file. Install channel: build-step stdout
+  now captured (build-out.log) so artifact integrity digests surface during
+  installs; failure diagnosis is tail-first.
+
 ## Delta/Delayed register
 
 | # | Item | Phase landing | Note |

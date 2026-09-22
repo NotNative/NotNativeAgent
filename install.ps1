@@ -195,8 +195,15 @@ try {
             Write-Good "existing artifacts reused (-SkipBuild)"
         }
     } else {
-        $buildExit = Invoke-Native "node" @("scripts\electron-package.mjs", "--no-nsis") "build-errors.log"
-        if ($buildExit -ne 0) { Show-NativeFailures "build-errors.log" 30; throw "electron-package failed (exit $buildExit)" }
+        # -OutputLog keeps the integrity oracle + vite chatter readable after
+        # the run; the console only echoes the short digest lines.
+        $buildExit = Invoke-Native "node" @("scripts\electron-package.mjs", "--no-nsis") "build-errors.log" "build-out.log"
+        if ($buildExit -ne 0) {
+            Show-NativeFailures "build-errors.log" 30
+            Show-NativeFailures "build-out.log" 30 -FromTail
+            throw "electron-package failed (exit $buildExit)"
+        }
+        Show-NativeFailures "build-out.log" 8 -FromTail # trailing lines = integrity digest
         Write-Good "build green"
     }
 } finally { Pop-Location }

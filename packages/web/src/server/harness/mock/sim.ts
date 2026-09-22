@@ -53,10 +53,71 @@ export function buildUserEntry(session: Session, parts: PromptPartInput[], messa
 
 const userTextOf = (entry: MessageEntry): string =>
   entry.parts
-    .filter((p) => p.type === 'text' && typeof (p as TextPart).text === 'string' && !(p as TextPart).synthetic)
+    .filter((p) => p.type === 'text' && typeof (p as TextPart).text === 'string' && !(p as TextPart).text?.startsWith('!') && !(p as TextPart).synthetic)
     .map((p) => (p as TextPart).text)
     .join('\n')
     .trim();
+
+// ── tool-lifecycle demo (doc 02 §5.2.3 worked sequence) ────────────────────
+/**
+ * A "tool" word in the user text replays the doc-02 tool lifecycle against
+ * the RUNNING assistant turn: input transcription → pending part → called →
+ * running → (bash: live `state.output` deltas via message.part.delta,
+ * field "output") → success/failed → completed/error part. Everything stays
+ * inside the doc-02 event/part vocabulary; `error` lands a real error state.
+ */
+export type ToolDemoVariant = 'read' | 'bash' | 'fail';
+
+const TOOL_STEP_MS = 90;
+const DUMMY_CWD = 'D:/workspace/notnative';
+
+export function toolDemoVariantOf(userText: string): ToolDemoVariant | null {
+  const lowered = userText.toLowerCase();
+  if (!lowered.includes('tool')) return null;
+  if (lowered.includes('fail') || lowered.includes('error') || lowered.includes('fail')) return 'fail';
+  if (lowered.includes('bash') || lowered.includes('command')) return 'bash';
+  return 'read';
+}
+
+const BASH_OUTPUT_LINES = [
+  'RUN  v3.2.4  --maxWorkers=2',
+  ' ✓ chat/__tests__/tool-card.test.tsx (7 tests) 214ms',
+  ' ✓ chat/__tests__/transcript-parts.test.tsx (12 tests) 501ms',
+  ' Test Files  2 passed (2)',
+  '      Tests  19 passed (19)',
+];
+
+interface ToolSpec {
+  tool: string;
+  input: Record<string, unknown>;
+  title: string;
+  finish: { status: 'completed'; output: string; metadata: Record<string, unknown> } | { status: 'error'; error: string; metadata: Record<string, unknown> };
+}
+
+function specFor(variant: ToolDemoVariant): ToolSpec {
+  if (variant === 'bash') {
+    return {
+      tool: 'bash',
+      input: { command: 'pnpm --filter @notnative/ui test -- --maxWorkers=2', description: 'run the ui test suite' },
+      title: 'pnpm --filter @notnative/ui test',
+      finish: { status: 'completed', output: BASH_OUTPUT_LINES.join('\n'), metadata: { exitCode: 0, outputLines: BASH_OUTPUT_LINES.length, workingDirectory: DUMMY_CWD } },
+    };
+  }
+  if (variant === 'fail') {
+    return {
+      tool: 'grep',
+      input: { pattern: 'definitely-missing-symbol', path: 'packages/ui/src' },
+      title: 'No matches for “definitely-missing-symbol”',
+      finish: { status: 'error', error: 'no matches found in the requested paths (exit 1)', metadata: { exitCode: 1 } },
+    };
+  }
+  return {
+    tool: 'read',
+    input: { path: 'packages/ui/src/chat/turns.ts' },
+    title: 'packages/ui/src/chat/turns.ts',
+    finish: { status: 'completed', output: 'export function projectTurns(messages: Message[]): ChatTurn[] {\n  const turns: ChatTurn[] = [];\n  for (const source of messages) {\n    …\n  }\n  return turns;\n}', metadata: { lines: 64, source: 'packages/ui/src/chat/turns.ts' } },
+  };
+}
 
 function applyTriggers(session: Session, text: string): void {
   const lowered = text.toLowerCase();
@@ -133,7 +194,13 @@ export async function runTurn(session: Session, userEntry: MessageEntry, reply: 
     agent: (entry.info as AssistantMessage).agent,
     model: { id: (entry.info as AssistantMessage).modelID, providerID: (entry.info as AssistantMessage).providerID },
   });
+  // The unfinished assistant INFO record goes out while the turn streams so a
+  // live client can anchor part deltas (doc 02 LF-8: transcription → durable).
+  emitEvent(dir, 'message.updated', { sessionID: session.id, info: entry.info });
   await streamTextDeltas(turn, part, dir, session.id, reply);
+  if (toolDemoVariantOf(userTextOf(userEntry)) !== null) {
+    await runToolDemo(turn, entry, dir, session.id, toolDemoVariantOf(userTextOf(userEntry))!);
+  }
 
   const aborted = turn.aborted;
   activeTurns.delete(session.id);
@@ -263,3 +330,87 @@ export function settleIdle(session: Session): void {
 }
 
 export { userTextOf };
+
+// ── the demo sequence itself ────────────────────────────────────────────────
+
+type ToolPartRecord = {
+  id: string;
+  sessionID: string;
+  messageID: string;
+  type: 'tool';
+  callID: string;
+  tool: string;
+  state: Record<string, unknown>;
+};
+
+async function runToolDemo(turn: { aborted: boolean }, entry: MessageEntry, dir: string, sessionID: string, variant: ToolDemoVariant): Promise<void> {
+  const info = entry.info as AssistantMessage;
+  const spec = specFor(variant);
+  const callID = ascendingId('call');
+  emitEvent(dir, 'session.next.tool.input.started', { sessionID, assistantMessageID: info.id, callID, name: spec.tool });
+  const rawInput = JSON.stringify(spec.input);
+  emitEvent(dir, 'session.next.tool.input.delta', { sessionID, assistantMessageID: info.id, callID, delta: rawInput });
+  emitEvent(dir, 'session.next.tool.input.ended', { sessionID, assistantMessageID: info.id, callID, text: rawInput });
+  const finalPart = await emitToolPartStates(turn, dir, sessionID, info.id, callID, spec, rawInput);
+  if (finalPart) entry.parts.push(finalPart);
+}
+
+/** Streams pending → running → (live output) → terminal states; returns the
+ *  durable final part. An abort lands the terminal error state immediately. */
+async function emitToolPartStates(
+  turn: { aborted: boolean },
+  dir: string,
+  sessionID: string,
+  messageID: string,
+  callID: string,
+  spec: ToolSpec,
+  rawInput: string,
+): Promise<ToolPartRecord | null> {
+  const emitPart = (state: Record<string, unknown>): ToolPartRecord => {
+    const part: ToolPartRecord = { id: ascendingId('prt'), sessionID, messageID, type: 'tool', callID, tool: spec.tool, state };
+    emitEvent(dir, 'message.part.updated', { sessionID, time: Date.now(), part });
+    return part;
+  };
+  emitPart({ status: 'pending', input: spec.input, raw: rawInput });
+  emitEvent(dir, 'session.next.tool.called', { sessionID, assistantMessageID: messageID, callID, tool: spec.tool, input: spec.input, provider: { executed: true } });
+  const start = Date.now();
+  const runningPart = emitPart({ status: 'running', input: spec.input, title: spec.title, time: { start } });
+  let output: string | null = spec.finish.status === 'completed' && spec.tool === 'bash' ? '' : null;
+  if (output !== null) {
+    for (const line of BASH_OUTPUT_LINES) {
+      if (turn.aborted) break;
+      emitEvent(dir, 'message.part.delta', { sessionID, messageID, partID: runningPart.id, field: 'output', delta: `${line}\n` });
+      output += `${line}\n`;
+      await sleep(TOOL_STEP_MS);
+    }
+  } else {
+    await sleep(TOOL_STEP_MS * 2);
+  }
+  const terminal = toolTerminalState(spec, turn.aborted, start, output);
+  const finalPart = emitPart(terminal.state);
+  emitEvent(dir, terminal.event, {
+    sessionID,
+    assistantMessageID: messageID,
+    callID,
+    ...(terminal.event === 'session.next.tool.success'
+      ? { structured: terminal.state.metadata, content: [{ type: 'text', text: terminal.state.output ?? '' }], provider: { executed: true } }
+      : { error: terminal.state.error }),
+  });
+  // The terminal tool part (error on abort, completed/failed otherwise) rides
+  // the durable entry so REST history matches the stream (merge-preserving rule).
+  return finalPart;
+}
+
+function toolTerminalState(spec: ToolSpec, aborted: boolean, start: number, streamingOutput: string | null): { event: string; state: Record<string, unknown> } {
+  const now = Date.now();
+  if (aborted) {
+    return { event: 'session.next.tool.failed', state: { status: 'error', error: 'Interrupted', input: spec.input, metadata: {}, time: { start, end: now } } };
+  }
+  if (spec.finish.status === 'error') {
+    return { event: 'session.next.tool.failed', state: { status: 'error', error: spec.finish.error, input: spec.input, metadata: spec.finish.metadata, time: { start, end: now } } };
+  }
+  return {
+    event: 'session.next.tool.success',
+    state: { status: 'completed', input: spec.input, output: streamingOutput ?? spec.finish.output, title: spec.title, metadata: spec.finish.metadata, time: { start, end: now } },
+  };
+}

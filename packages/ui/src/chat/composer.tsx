@@ -19,11 +19,14 @@ import { readDraft, saveDraft, flushDraftsNow, type DraftAttachment, type Queued
 import { recordSend, recallList, recallDirectionResult, type HistoryEntry } from './input-history.ts';
 import { planSend, sendErrorKind, type PlannedSend } from './send-planner.ts';
 import { useAuthSessionStore, authSessionBlocksSend } from '../lib/runtime-auth-expiry.ts';
-import { ComposerFooter, AttachmentChips, PickerPopup } from './composer-bits.tsx';
+import { ComposerFooter, AttachmentChips, PickerPopup, QueueChipsRow } from './composer-bits.tsx';
+import { handleQueuedTarget } from './composer-queue.ts';
 import { ModelPicker, type ModelSelection } from './model-picker.tsx';
 import { starterInsertText, type Starter } from './starters.ts';
 import type { PartLite } from './turns.ts';
 import { fsSearch } from '../lib/server-api.ts';
+import { useMessageQueueStore } from '../stores/useMessageQueueStore.ts';
+import { settingsValue } from '../lib/settings/store.ts';
 
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw'];
 const MAX_LINES = 8;
@@ -92,6 +95,12 @@ export function Composer(props: ComposerProps): ReactNode {
   }, [directory, sessionKey]);
 
   useEffect(() => () => { flushDraftsNow(); }, []);
+
+  // The server queue owns delivery timing: hydrate the projection once the
+  // composer targets a session (doc 12 §D.6 one request-owner per runtime).
+  useEffect(() => {
+    void useMessageQueueStore.getState().hydrate().catch(() => undefined);
+  }, [sessionID]);
 
   // §B.9/§C.10: one fill channel for revert/undo and the §E.4 suggestion chip
   // (detail without `append` replaces). §10.5 add-to-chat rides the same
@@ -217,13 +226,14 @@ export function Composer(props: ComposerProps): ReactNode {
     restoreSnapshot.current = { text, attachments };
     const tokens = tokenizePrompt(shell ? `!${text}` : text, { commands: commandSet, skills: skillSet, snippets, agents: new Set(agentNames) });
     const skillInstruction = skillMentionFrom(tokens);
+    const followUp = settingsValue('followUpBehavior') === 'steer' ? 'steer' : 'queue'; // §D.7 default queue
     const plan = planSend({
       text: composed,
       queued: [],
       busy: busy || blocked,
       blockedByPermission: permissionCount > 0,
       blockedByQuestion: questionCount > 0,
-      memorySettings: 'queue',
+      memorySettings: followUp,
       targets: { sessionID, directory, model: props.modelSelection ?? { ...SEND_FALLBACK_MODEL }, agent },
       snippets,
       tokens,
@@ -259,13 +269,19 @@ export function Composer(props: ComposerProps): ReactNode {
       }
     }
     if (plan.queueTarget) {
-      const live = readDraft(directory, sessionKey).queue;
-      const queuedMessage = plan.queueTarget;
-      setQueueChips([...live, queuedMessage]);
-      saveDraft(directory, sessionKey, { text: '', attachments: [], autoAccept, queue: [...live, queuedMessage] });
-      setText('');
-      setAttachments([]);
-      toast.message('Message queued behind the running turn');
+      await handleQueuedTarget({
+        directory,
+        sessionID,
+        sessionKey,
+        composed,
+        liveQueue: readDraft(directory, sessionKey).queue,
+        setQueueChips: setQueueChips,
+        saveDraftQueue: (queue) => saveDraft(directory, sessionKey, { text: '', attachments: [], autoAccept, queue }),
+        clearComposer: () => { setText(''); setAttachments([]); persist('', [], autoAccept); },
+        restoreComposer: () => { setText(restoreSnapshot.current.text); setAttachments(restoreSnapshot.current.attachments); },
+        sendConfig: { ...pickedModel(), agent },
+        recordHistory: () => recordSend({ directory, sessionID, text: composed, attachments: [], scope: 'session', attachmentTarget: 'scoped' }),
+      });
       return;
     }
     if (!plan.deliverable) return;
@@ -418,7 +434,8 @@ export function Composer(props: ComposerProps): ReactNode {
     <form className="relative rounded-xl border border-white/10 bg-neutral-900/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
       data-send-blocked={sendBlocked ? 'auth-expired' : undefined}
       onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      {queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
+      {sessionID !== null ? <QueueChipsRow directory={directory} sessionID={sessionID} onPop={(popText) => { setText(popText); persist(popText, attachments, autoAccept); }} /> : null}
+      {sessionKey === 'draft' && queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
       {sessionKey === 'draft' && starterList.length > 0 ? (
         <div className="flex flex-wrap gap-1 px-1 pt-1" data-testid="starter-chips">
           {starterList.map((starter) => (
