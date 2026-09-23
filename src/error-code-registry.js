@@ -152,7 +152,11 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nno_integration_activation_required', 'notification_duplicate', 'notification_invalid',
     'notification_turn_missing', 'onboarding_env_incomplete', 'opencode_messages_unsupported',
     'opencode_prompt_parts_invalid', 'opencode_prompt_parts_unsupported', 'opencode_prompt_queue_overflow',
-    'opencode_session_missing', 'operator_decision_unexpected',
+    // Keep the OpenCode wire and lifecycle command codes in one reviewable cluster.
+    'opencode_bind_exposed_requires_password', 'opencode_bind_port_invalid', 'opencode_config_invalid',
+    'opencode_config_too_large', 'opencode_config_version_unsupported', 'opencode_hostname_invalid', 'opencode_login_wiring_unsupported',
+    'opencode_password_invalid', 'opencode_service_disabled', 'opencode_service_unauthenticated',
+    'opencode_session_missing', 'opencode_username_invalid', 'operator_decision_unexpected',
     'option_value_missing', 'permissions_command_invalid', 'permissions_unavailable',
     'pinned_http_address_invalid', 'pinned_http_signal_required', 'plain_text_boundary_invalid', 'playwright_root_invalid',
     'playwright_version_mismatch', 'presentation_state_invalid', 'primary_route_required',
@@ -214,6 +218,9 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'mission_terminated', 'output_broken_pipe', 'output_line_too_large',
     'output_queue_full', 'output_stream_failed', 'skill_load_invalid',
     'skill_search_invalid',
+    'opencode_identity_unavailable', 'opencode_identity_unverifiable', 'opencode_start_failed',
+    'opencode_login_wiring_probe_failed', 'opencode_startup_folder_empty', 'opencode_startup_folder_unavailable',
+    'opencode_user_environment_failed', 'opencode_user_environment_probe_failed',
   ]),
   mcp: Object.freeze([
     'mcp_cancelled', 'mcp_closed', 'mcp_command_invalid',

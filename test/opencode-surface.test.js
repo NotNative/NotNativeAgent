@@ -97,3 +97,23 @@ test('diagnostics ring records wire traffic for drift investigation', async () =
     assert.ok(diagnostics.sessions !== null);
   });
 });
+
+test('surface stop shuts down every live session engine, not just the listener', async () => {
+  // Why: runtime.stop() must dispose wired sessions through the same engine
+  // shutdown the wire's DELETE route uses; skipping it leaves the per-session
+  // resources (telemetry worker, journal store) running past the surface stop.
+  const storeRoot = join(await fixtureRoot(), 's');
+  const reviewerRoot = join(await fixtureRoot(), 'r');
+  await serveDuring({ config: fixtureConfig(), storeRoot, reviewerRoot }, async ({ runtime, url }) => {
+    const created = await (await request(url, '/session', {
+      method: 'POST', body: JSON.stringify({ title: 'stop-drain' }),
+    })).json();
+    assert.match(created.id, /^ses_[A-Za-z0-9-]+$/u);
+    const engine = runtime.workspace.registry.get(created.id)?.engine ?? null;
+    assert.ok(engine, 'created session must expose its live engine');
+    await runtime.stop();
+    assert.equal(runtime.closed, true);
+    assert.equal(runtime.workspace.registry.count(), 0);
+    assert.equal(engine.state.state, 'shutting_down');
+  });
+});

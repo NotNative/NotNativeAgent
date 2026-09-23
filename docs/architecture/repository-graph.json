@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:ca7796a99e8a402591b93b5e3f57729dffd291d5e6a427392db5fc145beea180",
+  "source_digest": "sha256:6404e50cab89affab8db68c39eaff2dbc1de0c4c9f5022a272a485843173f940",
   "counts": {
-    "modules": 356,
-    "component_edges": 75
+    "modules": 358,
+    "component_edges": 76
   },
   "components": [
     {
@@ -72,7 +72,7 @@
       "id": "opencode-surface",
       "label": "OpenCode surface",
       "ownership": "Serves the OpenCode wire contract over live session engines.",
-      "module_count": 10
+      "module_count": 12
     },
     {
       "id": "foundation",
@@ -166,6 +166,12 @@
       "module_count": 18
     },
     {
+      "from": "opencode-surface",
+      "to": "opencode-surface",
+      "import_count": 17,
+      "module_count": 8
+    },
+    {
       "from": "integrations",
       "to": "foundation",
       "import_count": 16,
@@ -188,12 +194,6 @@
       "to": "providers",
       "import_count": 13,
       "module_count": 9
-    },
-    {
-      "from": "opencode-surface",
-      "to": "opencode-surface",
-      "import_count": 13,
-      "module_count": 7
     },
     {
       "from": "agentic-engine",
@@ -232,6 +232,12 @@
       "module_count": 4
     },
     {
+      "from": "opencode-surface",
+      "to": "foundation",
+      "import_count": 10,
+      "module_count": 6
+    },
+    {
       "from": "guidance",
       "to": "foundation",
       "import_count": 9,
@@ -252,12 +258,6 @@
     {
       "from": "integrations",
       "to": "integrations",
-      "import_count": 8,
-      "module_count": 4
-    },
-    {
-      "from": "opencode-surface",
-      "to": "foundation",
       "import_count": 8,
       "module_count": 4
     },
@@ -382,6 +382,12 @@
       "module_count": 2
     },
     {
+      "from": "opencode-surface",
+      "to": "persistence",
+      "import_count": 3,
+      "module_count": 2
+    },
+    {
       "from": "reliability-engine",
       "to": "providers",
       "import_count": 3,
@@ -545,7 +551,7 @@
     },
     {
       "from": "opencode-surface",
-      "to": "persistence",
+      "to": "reliability-engine",
       "import_count": 1,
       "module_count": 1
     },
@@ -1885,8 +1891,18 @@
       "component": "opencode-surface",
       "entrypoint": false,
       "imports": [
+        "src/opencode/config.js",
         "src/opencode/serve.js",
+        "src/opencode/service.js",
         "src/structured-log.js"
+      ]
+    },
+    {
+      "path": "src/opencode/config.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js"
       ]
     },
     {
@@ -1913,6 +1929,7 @@
         "src/cli-options.js",
         "src/config.js",
         "src/onboarding.js",
+        "src/opencode/config.js",
         "src/opencode/server.js",
         "src/opencode/sessions.js",
         "src/opencode/version.js"
@@ -1925,6 +1942,18 @@
       "imports": [
         "src/opencode/protocol.js",
         "src/opencode/version.js"
+      ]
+    },
+    {
+      "path": "src/opencode/service.js",
+      "component": "opencode-surface",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/opencode/config.js",
+        "src/persistence/atomic-json.js",
+        "src/persistence/session-lock.js",
+        "src/reliability/process-identity.js"
       ]
     },
     {

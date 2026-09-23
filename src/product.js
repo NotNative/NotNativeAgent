@@ -5,12 +5,12 @@ import { isAbsolute, join, resolve } from 'node:path';
 import { ContractError } from './ids.js';
 
 export const PRODUCT_NAME = 'NotNativeAgent';
-export const VERSION = '20260920-4';
+export const VERSION = '20260920-5';
 // scripts/bump-version.js updates this canonical date-iteration version and all distribution mirrors atomically.
 
 const USER_DATA_FILE_KEYS = new Set([
   'modelDialects', 'dreamState', 'nnmGovernanceReceipts', 'webSearchConfig', 'webFetchConfig',
-  'gatewayConfig', 'providerCredentials', 'mcpCredentials', 'secretVault', 'secretKey', 'secretAudit',
+  'gatewayConfig', 'opencodeConfig', 'providerCredentials', 'mcpCredentials', 'secretVault', 'secretKey', 'secretAudit',
   'trustedWorkspaces', 'updateState',
 ]);
 
@@ -36,6 +36,7 @@ export function userDataPaths(options = {}) {
     webSearchConfig: join(root, 'config', 'web-search.json'),
     webFetchConfig: join(root, 'config', 'web-fetch.json'),
     gatewayConfig: join(root, 'config', 'gateway.json'),
+    opencodeConfig: join(root, 'config', 'opencode.json'),
     providerCredentials: join(root, 'config', 'provider-credentials.json'),
     mcpCredentials: join(root, 'config', 'mcp-credentials.json'),
     secrets: join(root, 'secrets'),
@@ -51,6 +52,7 @@ export function userDataPaths(options = {}) {
     managedPlaywright: join(root, 'managed', 'playwright'),
     rootTui: join(root, 'runtime', 'root-tui'),
     gateway: join(root, 'runtime', 'gateway'),
+    opencode: join(root, 'runtime', 'opencode'),
     sessionBrokers: join(root, 'runtime', 'session-brokers'),
     telegramOutbox: join(root, 'runtime', 'telegram-outbox'),
     elevation: join(root, 'runtime', 'elevation'),

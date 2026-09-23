@@ -39,11 +39,14 @@ export function parseCli(argv) {
       options.servePort = parseServePort(requiredValue(argv[++index], value));
     }
     else if (mode === 'opencode' && value === '--advertise-version') options.advertiseVersion = requiredValue(argv[++index], value);
+    else if (mode === 'opencode' && OPENCODE_ACTIONS.has(value)) {
+      if (options.serveAction) throw new ContractError('invalid_option', 'opencode accepts exactly one action');
+      options.serveAction = value;
+    }
     else if (value === '--json' && mode === 'skills') options.prompt.push(value);
     else if (value === '--check' && mode === 'update') options.prompt.push(value);
     else if (mode === 'uninstall' && ['--delete-user-data', '--keep-user-data'].includes(value)) options.prompt.push(value);
     else if (value.startsWith('-')) throw new ContractError('invalid_option', `unknown option ${value}`);
-    else if (mode === 'opencode' && value === 'serve') options.serveAction = 'serve';
     else options.prompt.push(value);
   }
   if (mode === 'headless' && [options.providerEndpoint, options.model, options.providerCredentialEnv].some(Boolean)) {
@@ -57,6 +60,10 @@ const MODES = new Set([
   'webfetch', 'webbrowse', 'provider', 'secrets', 'uninstall', 'help', 'version', '--help', '-h', '--version', '-v',
   'update', 'integration', 'opencode',
 ]);
+
+// Why: `run` is the managed runtime entry point used by the wiring service's
+// detached start and the login startup script; it is not a documented command.
+const OPENCODE_ACTIONS = new Set(['serve', 'status', 'start', 'stop', 'enable', 'disable', 'run']);
 
 function parseServePort(value) {
   const port = Number(value);

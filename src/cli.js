@@ -85,9 +85,16 @@ try {
   }
   else if (options.mode === 'opencode') {
     const paths = await runtimePaths();
-    await runOpencodeCommand(options, paths, {
+    const result = await runOpencodeCommand(options, paths, {
       output: process.stdout, diagnostics: process.stderr,
     });
+    // Why: serve and run block via signals and never return; usage errors exit
+    // 2, and only lifecycle results become command output, in the same JSON
+    // envelope as `gateway`.
+    if (result === 2) process.exitCode = 2;
+    else if (['status', 'start', 'stop', 'enable', 'disable'].includes(options.serveAction)) {
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    }
   }
   else if (options.mode === 'update') {
     process.exitCode = await runUpdateCommand(options.prompt, await runtimePaths(), {
@@ -166,6 +173,10 @@ function help() {
     '  nna integration serve                    Start the ephemeral NNO integration service',
     '  nna opencode serve [--hostname H] [--port P] [--advertise-version V]',
     '                                           OpenCode-compatible wire surface for OpenChamber',
+    '  nna opencode enable [--port P] [--hostname H]',
+    '                                           Install login startup and OpenChamber environment',
+    '  nna opencode disable | start | stop | status',
+    '                                           Remove wiring, or manage the OpenCode service',
     '  nna uninstall [--delete-user-data|--keep-user-data]',
     '  nna update --check                     Check the repository for a newer version',
     '  nna update                             Install the latest repository version with rollback',

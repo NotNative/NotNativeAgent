@@ -4,6 +4,7 @@
 // that OpenChamber's launcher parses.
 import { createOpenCodeSessionWorkspace } from './sessions.js';
 import { OpenCodeCompatServer } from './server.js';
+import { bindUrl } from './config.js';
 import {
   WIRED_OPENCODE_VERSION, HANDSHAKE_LINE_PREFIX, DEFAULT_SERVE_HOSTNAME, DEFAULT_SERVE_PORT, DEFAULT_BASIC_USERNAME,
 } from './version.js';
@@ -36,11 +37,12 @@ export async function startOpencodeServe(options = {}) {
   });
   const bound = await server.start();
   const hostname = options.hostname ?? DEFAULT_SERVE_HOSTNAME;
-  const line = `${HANDSHAKE_LINE_PREFIX}http://${hostname}:${bound.port}`;
+  const url = bindUrl({ hostname, port: bound.port });
+  const line = `${HANDSHAKE_LINE_PREFIX}${url}`;
   (options.stdout ?? process.stdout).write(`${line}\n`);
   if (options.handshakeSink) await options.handshakeSink(line);
   return new OpencodeServeRuntime({
-    server, workspace, config, url: `http://${hostname}:${bound.port}`, port: bound.port, wiredVersion, stdout: options.stdout ?? null,
+    server, workspace, config, url, port: bound.port, wiredVersion, stdout: options.stdout ?? null,
   });
 }
 
@@ -77,7 +79,10 @@ export class OpencodeServeRuntime {
     if (this.closed) return;
     this.closed = true;
     for (const record of [...this.workspace.registry.list()]) {
-      try { await this.workspace.operations.remove(record.id); } catch { /* stop is best-effort */ }
+      // Invariant: stored sessions are keyed by ocId; the wire Session shape's id
+      // never reaches removal, and a failed removal would leak the engine's
+      // telemetry worker forever, so the surface stop must shut each one down.
+      try { await this.workspace.operations.remove(record.ocId ?? record.id); } catch { /* stop is best-effort */ }
     }
     await this.server.stop();
     this.workspace.bus.close();
