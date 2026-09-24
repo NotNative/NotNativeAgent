@@ -104,13 +104,15 @@ function compareWithinScope(a: OrderingSessionRecord, b: OrderingSessionRecord, 
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-/** The user-visible order for every session list. */
-export function orderSessionsByLifecycle(sessions: OrderingSessionRecord[]): OrderingSessionRecord[] {
+/** The user-visible order for every session list. GENERIC so the ORIGINAL
+ * records flow back out untouched — callers rely on the full shape
+ * (title/directory), which the earlier {id,parentID,time} projection strip
+ * destroyed ("Untitled Session" regression). */
+export function orderSessionsByLifecycle<T extends OrderingSessionRecord>(sessions: T[]): T[] {
   const rankById = useSessionOrderingStore.getState().rankById;
   for (const session of sessions) freezeBaseline(session.id, session);
   const roots = sessions.filter((s) => !s.parentID);
-  const childrenByParent = new Map<string, OrderingSessionRecord[]>();
-  const orphans: OrderingSessionRecord[] = [];
+  const childrenByParent = new Map<string, T[]>();
   const known = new Set(sessions.map((s) => s.id));
   for (const session of sessions) {
     if (!session.parentID) continue;
@@ -118,26 +120,24 @@ export function orderSessionsByLifecycle(sessions: OrderingSessionRecord[]): Ord
       const list = childrenByParent.get(session.parentID) ?? [];
       list.push(session);
       childrenByParent.set(session.parentID, list);
-    } else {
-      orphans.push(session);
     }
   }
   roots.sort((a, b) => compareWithinScope(a, b, rankById));
-  const ordered: OrderingSessionRecord[] = [];
+  const ordered: T[] = [];
   const visited = new Set<string>();
+  const appendBranch = (session: T): void => {
+    if (visited.has(session.id)) return; // cycle guard
+    visited.add(session.id);
+    ordered.push(session);
+    const children = (childrenByParent.get(session.id) ?? []).sort((a, b) => compareWithinScope(a, b, rankById));
+    for (const child of children) appendBranch(child);
+  };
   for (const root of roots) {
-    if (visited.has(root.id)) continue;
-    visited.add(root.id);
-    ordered.push(root);
-    const children = (childrenByParent.get(root.id) ?? []).sort((a, b) => compareWithinScope(a, b, rankById));
-    for (const child of children) {
-      if (visited.has(child.id)) continue; // cycle guard
-      visited.add(child.id);
-      ordered.push(child);
-    }
+    appendBranch(root);
   }
-  // unindexed remainders append after, same comparator
+  // Orphans and malformed cycles have no root. They remain visible, but never
+  // masquerade as descendants of an unseen parent.
   const remaining = sessions.filter((s) => !visited.has(s.id)).sort((a, b) => compareWithinScope(a, b, rankById));
-  ordered.push(...remaining);
+  for (const session of remaining) appendBranch(session);
   return ordered;
 }

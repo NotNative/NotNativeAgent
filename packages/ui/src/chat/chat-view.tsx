@@ -20,6 +20,7 @@ import { startersFor, type Starter } from './starters.ts';
 import type { ModelSelection } from './model-picker.tsx';
 import { toast } from 'sonner';
 import { recapFor } from './work-status.ts';
+import { useGlobalSessionsStore } from '../sync/global-stores.ts';
 
 /** §E.3/§E.4 band: recap note + suggestion chip (chip FILLS, never sends). */
 function RecapNote({ pair }: { pair: { recap: string; suggestion: string } }): ReactNode {
@@ -63,6 +64,7 @@ interface ChatColumnSession {
 
 export function ChatView(props: ChatViewProps): ReactNode {
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
+  const globalSessions = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
   const [shown, setShown] = useState<ChatColumnSession | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   useEffect(() => {
@@ -113,6 +115,15 @@ export function ChatView(props: ChatViewProps): ReactNode {
   if (!shownRef || !shownRef.store) {
     return <div className="flex h-full min-w-0 flex-1 items-center justify-center text-sm text-neutral-600" data-testid="chat-view">Preparing…</div>;
   }
+  const selected = shownRef.sessionID
+    ? shownRef.store.getState().session.find((session) => session.id === shownRef.sessionID)
+      ?? globalSessions.active.find((session) => session.id === shownRef.sessionID)
+      ?? globalSessions.archived.find((session) => session.id === shownRef.sessionID)
+    : null;
+  // A selected id can arrive before its session projection. Do not briefly
+  // expose a composer and let an unclassified child receive a prompt.
+  const sessionMetadataLoading = shownRef.sessionID !== null && selected === null;
+  const isChildSession = selected?.parentID !== undefined;
 
   return (
     <section className={`relative flex h-full min-w-0 flex-1 flex-row ${expanded ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
@@ -126,7 +137,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
           {!expanded && shownRef.sessionID && recapFor(shownRef.store.getState(), shownRef.sessionID) ? (
             <RecapNote pair={recapFor(shownRef.store.getState(), shownRef.sessionID)!} />
           ) : null}
-          <Composer
+          {sessionMetadataLoading ? <div className="text-xs text-neutral-500" data-testid="session-metadata-loading">Session access metadata is loading.</div> : isChildSession ? <div className="text-xs text-neutral-500" data-testid="subagent-read-only">Subagent transcript is read-only. Steering is unavailable until NNA explicitly authorizes this session.</div> : <Composer
             services={props.services}
             sessionID={shownRef.sessionID}
             directory={shownRef.directory}
@@ -139,7 +150,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
             modelSelection={modelSelection}
             onModelSelection={setModelSelection}
             onAddProvider={() => toast('Provider management opens with the settings pages (P5)')}
-          />
+          />}
         </div>
       </div>
       {expanded ? null : <OperatorRail store={shownRef.store} engine={props.services.engine} directory={shownRef.directory} />}

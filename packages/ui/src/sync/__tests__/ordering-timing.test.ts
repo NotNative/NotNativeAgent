@@ -53,6 +53,16 @@ describe('session ordering (§F.10)', () => {
     // the child sits under ITS parent (root-a), never entering the roots bucket
   });
 
+  it('keeps every descendant adjacent to its ancestor, including nested subagents', () => {
+    const ordered = orderSessionsByLifecycle([
+      record('other-root', 20),
+      record('parent', 10),
+      record('child', 9, 'parent'),
+      record('grandchild', 8, 'child'),
+    ]);
+    expect(ordered.map((session) => session.id)).toEqual(['other-root', 'parent', 'child', 'grandchild']);
+  });
+
   it('remove clears phase memory so a later status sets a fresh baseline', () => {
     const ordering = useSessionOrderingStore.getState();
     ordering.observeStatus('s9', { type: 'busy' });

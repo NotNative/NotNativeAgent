@@ -121,7 +121,13 @@ function Zone({ directory, sessions, statusById, ranks, actions, currentSessionI
   // Lifecycle ordering per doc 04 §F.10: baseline desc → created desc → id asc.
   const ordered = orderSessionsByLifecycleWrap(sessions).slice(0, AVATAR_LIMIT);
   const byId = new Map(ordered.map((session) => [session.id, session]));
+  const depthById = sessionDepths(ordered);
   const unsorted = unsortedSessionIds(directory, ordered);
+  const orphaned = unsorted.filter((id) => {
+    const session = byId.get(id);
+    return Boolean(session?.parentID && !byId.has(session.parentID));
+  });
+  const visibleUnsorted = unsorted.filter((id) => !orphaned.includes(id));
   const foldersState = useSessionFoldersStore.getState();
   const createFolder = (name: string): void => { void useSessionFoldersStore.getState().createFolder(directory, name); };
 
@@ -158,7 +164,7 @@ function Zone({ directory, sessions, statusById, ranks, actions, currentSessionI
               {!isCollapsed ? (
                 <ul className="ml-3 border-l border-white/5">
                   {inside.map((session) => (
-                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} folderId={folder.id} />
+                    <SidebarRow key={session.id} session={session} status={statusById[session.id]} currentSessionId={currentSessionId} actions={actions} folderId={folder.id} depth={depthById.get(session.id) ?? 0} />
                   ))}
                   {inside.length === 0 ? <li className="px-2 py-1 text-[10px] text-neutral-600">Empty folder — sessions land via the row menu.</li> : null}
                 </ul>
@@ -166,12 +172,16 @@ function Zone({ directory, sessions, statusById, ranks, actions, currentSessionI
             </li>
           );
         })}
-        {(folders.length > 0 && unsorted.length > 0) || folders.length > 0
+        {(folders.length > 0 && (visibleUnsorted.length > 0 || orphaned.length > 0)) || folders.length > 0
           ? <li className="px-2 pt-1 text-[10px] uppercase tracking-wide text-neutral-700">Sessions</li>
           : null}
         {ordered.length === 0 && folders.length === 0 ? <li className="px-2 py-1 text-[11px] text-neutral-600" data-testid="zone-empty">No sessions in this workspace yet.</li> : null}
-        {unsorted.map((sessionID) => (
-          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} />
+        {visibleUnsorted.map((sessionID) => (
+          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} depth={depthById.get(sessionID) ?? 0} />
+        ))}
+        {orphaned.length > 0 ? <li className="px-2 pt-2 text-[10px] uppercase tracking-wide text-neutral-700">Orphaned subagents</li> : null}
+        {orphaned.map((sessionID) => (
+          <SidebarRow key={sessionID} session={byId.get(sessionID)!} status={statusById[sessionID]} currentSessionId={currentSessionId} actions={actions} depth={0} />
         ))}
       </ul>
       {folders.length > 0 ? <div className="px-2 pt-1 text-[10px] text-neutral-700">{foldersState.status === 'error' ? 'folder store error' : `${folders.length} folder(s)`}</div> : null}
@@ -194,14 +204,15 @@ function FolderActions({ directory, folderId, folderName, hasSessions }: { direc
   );
 }
 
-function SidebarRow({ session, status, currentSessionId, actions, folderId }: { session: Session; status: SessionStatus | undefined; currentSessionId: string | null; actions: ChatSidebarProps['actions']; folderId?: string }): ReactNode {
+function SidebarRow({ session, status, currentSessionId, actions, folderId, depth = 0 }: { session: Session; status: SessionStatus | undefined; currentSessionId: string | null; actions: ChatSidebarProps['actions']; folderId?: string; depth?: number }): ReactNode {
   const active = status && status.type !== 'idle';
   const blocked = sessionBlockedNote(engineRef, session.id);
   return (
-    <li className="group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5">
+    <li className={`group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5 ${depth > 0 ? 'border-l border-white/10' : ''}`} style={depth > 0 ? { marginLeft: `${depth * 16}px` } : undefined} data-child-session={session.parentID ? 'true' : undefined} data-child-depth={depth > 0 ? depth : undefined}>
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => actions.openSession(session.id, session.directory ?? '')} data-testid="session-row">
         <div className="flex items-center gap-1.5">
           <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${active ? 'bg-amber-400' : 'bg-neutral-700'}`} />
+          {session.parentID ? <span className="text-[10px] text-neutral-600" aria-label="Child session">↳</span> : null}
           <span className={`min-w-0 flex-1 truncate text-[13px] ${currentSessionId === session.id ? 'text-neutral-100' : 'text-neutral-300'}`}>{session.title || 'Untitled Session'}</span>
         </div>
         <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{blocked ? ` · ${blocked}` : ''}</div>
@@ -255,7 +266,29 @@ function foldersOfSession(session: Session): import('../lib/session-folders.ts')
 }
 
 function orderSessionsByLifecycleWrap(sessions: Session[]): Session[] {
-  return orderSessionsByLifecycle(sessions.map((session) => ({ id: session.id, parentID: session.parentID, time: { created: session.time.created ?? 0, updated: session.time.updated ?? 0 } } as never))) as unknown as Session[];
+  // §F.10 orders by rank/created only — the ORIGINAL session objects must ride
+  // through untouched: the fallback projection dropped `title`/`directory`,
+  // so rows rendered as "Untitled Session" and openSession lost its directory.
+  return orderSessionsByLifecycle(sessions);
+}
+
+/** Depth is presentation-only. Missing/cyclic parents render as roots so an
+ * orphan cannot imply that its unavailable parent can be navigated to. */
+function sessionDepths(sessions: Session[]): Map<string, number> {
+  const byId = new Map(sessions.map((session) => [session.id, session]));
+  const depths = new Map<string, number>();
+  for (const session of sessions) {
+    let depth = 0;
+    let parentID = session.parentID;
+    const seen = new Set<string>([session.id]);
+    while (parentID && byId.has(parentID) && !seen.has(parentID)) {
+      seen.add(parentID);
+      depth += 1;
+      parentID = byId.get(parentID)?.parentID;
+    }
+    depths.set(session.id, parentID && (!byId.has(parentID) || seen.has(parentID)) ? 0 : depth);
+  }
+  return depths;
 }
 
 let engineRef: { current: (sessionID: string) => string | null } | null = null;
