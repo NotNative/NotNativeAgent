@@ -18,7 +18,7 @@ import { publishReviewRefresh, useReviewRefreshHints } from '../../lib/git/refre
 import { GIT_STATUS_POLL_INTERVAL_MS } from '../../lib/files/edit-support.ts';
 import { GitDialogHost, type GitDialogKind } from './git-dialogs.tsx';
 
-export function GitView({ directory, visible = true }: { directory: string; visible?: boolean }): ReactNode {
+export function GitView({ directory, visible = true, compact = false }: { directory: string; visible?: boolean; compact?: boolean }): ReactNode {
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [branch, setBranch] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -158,7 +158,7 @@ export function GitView({ directory, visible = true }: { directory: string; visi
           <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" data-testid="git-open-branches" onClick={() => setDialog('branches')}>Branches</button>
         </span>
       </header>
-      <div className="flex min-h-0 flex-1 gap-3">
+      <div className={`flex min-h-0 flex-1 gap-3 ${compact ? 'flex-col' : ''}`}>
         <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto">
           <Section
             title="Staged"
@@ -194,7 +194,7 @@ export function GitView({ directory, visible = true }: { directory: string; visi
             {working.length === 0 ? <EmptyLine label="No changes" /> : null}
           </Section>
         </div>
-        <aside className="flex w-72 shrink-0 flex-col gap-3">
+        <aside className={`flex shrink-0 flex-col gap-3 ${compact ? 'w-full' : 'w-72'}`}>
           <div className="rounded-lg border border-border/60 bg-card/40 p-3">
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Commit</div>
             <textarea

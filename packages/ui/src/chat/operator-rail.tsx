@@ -6,6 +6,7 @@ import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { WorkStatusPanel } from './work-status-panel.tsx';
+import { GitView } from '../components/git/GitView.tsx';
 
 type Surface = 'context' | 'activity' | 'changes' | 'notes' | 'browser' | 'terminal';
 const SURFACES: readonly { id: Surface; label: string }[] = [
@@ -17,7 +18,7 @@ const SURFACES: readonly { id: Surface; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
 ];
 
-export function OperatorRail({ store, engine }: { store: StoreApi<DirectoryStore>; engine: SyncEngine }): ReactNode {
+export function OperatorRail({ store, engine, directory }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; directory: string }): ReactNode {
   const [surface, setSurface] = useState<Surface>('context');
   return (
     <aside className="hidden w-[300px] shrink-0 border-l border-white/10 bg-neutral-950/40 xl:flex" data-testid="operator-rail">
@@ -31,7 +32,8 @@ export function OperatorRail({ store, engine }: { store: StoreApi<DirectoryStore
       <div className="min-w-0 flex-1 overflow-y-auto">
         {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded /> : null}
         {surface === 'activity' ? <ActivitySurface store={store} /> : null}
-        {surface === 'changes' || surface === 'notes' || surface === 'browser' || surface === 'terminal' ? <DeferredSurface label={SURFACES.find((item) => item.id === surface)!.label} /> : null}
+        {surface === 'changes' ? <GitView directory={directory} visible compact /> : null}
+        {surface === 'notes' || surface === 'browser' || surface === 'terminal' ? <DeferredSurface label={SURFACES.find((item) => item.id === surface)!.label} /> : null}
       </div>
     </aside>
   );

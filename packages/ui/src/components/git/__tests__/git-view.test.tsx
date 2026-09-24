@@ -87,14 +87,14 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-async function render(): Promise<void> {
+async function render(compact = false): Promise<void> {
   container = document.createElement('div');
   document.body.appendChild(container);
   rootHandle = createRoot(container);
   await act(async () => {
     rootHandle!.render(
       <I18nProvider>
-        <GitView directory={DIR} visible />
+        <GitView directory={DIR} visible compact={compact} />
       </I18nProvider>,
     );
     await Promise.resolve();
@@ -115,6 +115,13 @@ function rowOf(path: string, scope: string): HTMLElement {
 }
 
 describe('GitView (doc 06 §6 v1)', () => {
+  it('stacks the commit form below changes in a narrow host', async () => {
+    await render(true);
+    await settle();
+    expect(document.querySelector('[data-testid="git-view"] > div')?.className).toContain('flex-col');
+    expect(document.querySelector('[data-testid="git-view"] aside')?.className).toContain('w-full');
+  });
+
   it('renders grouped sections and stages/unstages through the optimistic queue with hints', async () => {
     const hints: ReviewRefreshHint[] = [];
     const unsubscribe = subscribeReviewRefresh((hint) => hints.push(hint));

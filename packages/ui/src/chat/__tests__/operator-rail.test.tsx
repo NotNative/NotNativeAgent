@@ -32,7 +32,7 @@ describe('OperatorRail', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} />));
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
     expect(document.querySelector('[data-testid="operator-rail"]')).not.toBeNull();
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).toContain('Applied patch');

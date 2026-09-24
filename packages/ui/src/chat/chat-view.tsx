@@ -142,7 +142,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
           />
         </div>
       </div>
-      {expanded ? null : <OperatorRail store={shownRef.store} engine={props.services.engine} />}
+      {expanded ? null : <OperatorRail store={shownRef.store} engine={props.services.engine} directory={shownRef.directory} />}
       {timelineOpen && shownRef.sessionID ? (
         <TimelineDialog store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} onClose={() => setTimelineOpen(false)} />
       ) : null}
