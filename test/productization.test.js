@@ -260,6 +260,29 @@ test('installer sources declare per-user locations and preserve data by default'
     < windowsInstall.indexOf('Remove-Item -LiteralPath $Target -Recurse -Force'));
   assert.match(windowsInstall, /existing runtime files were preserved/u);
   assert.match(windowsInstall, /Telegram gateway restarted on the updated runtime/u);
+  assert.match(windowsInstall, /function Stop-OpencodeServiceBeforePayloadReplacement/u);
+  assert.match(windowsInstall, /Stop-OpencodeServiceBeforePayloadReplacement \$NodePath/u);
+  assert.ok(windowsInstall.lastIndexOf('Stop-OpencodeServiceBeforePayloadReplacement')
+    < windowsInstall.indexOf('Remove-Item -LiteralPath $Target -Recurse -Force'));
+  assert.match(windowsInstall, /OpenCode service did not stop within 30 seconds/u);
+  assert.match(windowsInstall, /function Invoke-OpencodeInstallerAction/u);
+  assert.match(windowsInstall, /OpenCode service action[^\r\n]+failed/u);
+  for (const action of ['status', 'enable', 'stop', 'start']) {
+    assert.match(windowsInstall, new RegExp(`Invoke-OpencodeInstallerAction[^\\r\\n]+['"]${action}['"]`, 'u'));
+  }
+  assert.match(windowsInstall, /OpenCode service login wiring refreshed for the updated runtime/u);
+  assert.match(windowsInstall, /OpenCode service restarted on the updated runtime/u);
+  assert.match(windowsInstall, /not enabled; run nna opencode enable to install its login wiring/u);
+  assert.match(windowsInstall, /could not be inspected while waiting for its runtime to stop/u);
+  assert.match(windowsInstall, /\$OpencodeWasRunning = \$OpencodeStoppedForUpgrade -or \[bool\]\$OpencodeStatus\.runtime\.running/u);
+  assert.match(windowsInstall, /A running OpenCode runtime was stopped for the replacement/u);
+  assert.match(windowsUninstall, /opencode stop/u);
+  assert.match(windowsUninstall, /NotNativeAgent-OpenCode\.vbs/u);
+  assert.match(windowsUninstall, /The OpenCode startup entry belongs to another NNA installation/u);
+  assert.match(windowsUninstall, /OPENCODE_SKIP_START/u);
+  assert.match(windowsUninstall, /OPENCODE_SERVER_PASSWORD/u);
+  assert.match(windowsUninstall, /OpencodeOwnedByThisInstall/u);
+  assert.match(windowsUninstall, /config\\opencode\.json/u);
   assert.match(windowsInstall, /--disable-warning=ExperimentalWarning/u);
   assert.match(windowsUninstall, /DeleteUserData/u);
   assert.match(windowsUninstall, /KeepUserData/u);

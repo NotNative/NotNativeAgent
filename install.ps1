@@ -72,6 +72,29 @@ function Stop-GatewayBeforePayloadReplacement([string]$SelectedNode, [string]$In
     } finally { $env:NNA_HOME = $PriorNnaHome }
 }
 
+function Stop-OpencodeServiceBeforePayloadReplacement([string]$SelectedNode, [string]$IncomingCli, [string]$SelectedDataRoot) {
+    if (-not (Test-Path -LiteralPath $IncomingCli -PathType Leaf)) { return $false }
+    $PriorNnaHome = $env:NNA_HOME
+    $env:NNA_HOME = $SelectedDataRoot
+    try {
+        $StatusText = & $SelectedNode --disable-warning=ExperimentalWarning $IncomingCli opencode status
+        if ($LASTEXITCODE -ne 0) { throw 'Incoming runtime could not inspect the existing OpenCode service.' }
+        $Runtime = ($StatusText | ConvertFrom-Json).runtime
+        if (-not $Runtime.running) { return $false }
+        Write-InstallerStep 'Stopping the running OpenCode service before replacing its runtime files' | Out-Host
+        & $SelectedNode --disable-warning=ExperimentalWarning $IncomingCli opencode stop | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'OpenCode service identity could not be verified before payload replacement.' }
+        for ($Attempt = 0; $Attempt -lt 300; $Attempt++) {
+            Start-Sleep -Milliseconds 100
+            $PollOutput = & $SelectedNode --disable-warning=ExperimentalWarning $IncomingCli opencode status
+            if ($LASTEXITCODE -ne 0) { throw 'OpenCode service could not be inspected while waiting for its runtime to stop.' }
+            $Current = ($PollOutput | ConvertFrom-Json).runtime
+            if (-not $Current.running) { return $true }
+        }
+        throw 'OpenCode service did not stop within 30 seconds; existing runtime files were preserved.'
+    } finally { $env:NNA_HOME = $PriorNnaHome }
+}
+
 function Find-Ripgrep {
     $Command = Get-Command rg -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($Command) { return $Command.Source }
@@ -409,6 +432,7 @@ Write-InstallerOk "Node.js v$NodeVersion ($NodeSource)"
 Write-InstallerLine "      $NodePath" DarkGray
 Initialize-Ripgrep
 $GatewayStoppedForUpgrade = $false
+$OpencodeStoppedForUpgrade = $false
 
 Write-InstallerSection 'Application payload'
 Write-InstallerStep "Staging version $Version"
@@ -436,6 +460,7 @@ try {
         $ExistingPackage = Get-Content -LiteralPath $ExistingPackagePath -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($ExistingPackage.name -ne 'not-native-agent') { throw 'Refusing to replace a foreign version directory.' }
         $GatewayStoppedForUpgrade = Stop-GatewayBeforePayloadReplacement $NodePath (Join-Path $SourceRoot 'src\cli.js') $DataRoot
+        $OpencodeStoppedForUpgrade = Stop-OpencodeServiceBeforePayloadReplacement $NodePath (Join-Path $SourceRoot 'src\cli.js') $DataRoot
         Remove-Item -LiteralPath $Target -Recurse -Force
     }
     Move-Item -LiteralPath $Stage -Destination $Target
@@ -577,6 +602,15 @@ function Invoke-GatewayInstallerAction {
     return $Output
 }
 
+function Invoke-OpencodeInstallerAction([string[]]$Arguments) {
+    $CliPath = Join-Path $Target 'src\cli.js'
+    $Output = & $NodePath --disable-warning=ExperimentalWarning $CliPath opencode @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "OpenCode service action '$($Arguments[0])' failed."
+    }
+    return $Output
+}
+
 Write-InstallerSection 'WebSearch integration'
 $PriorNnaHome = $env:NNA_HOME
 $env:NNA_HOME = $DataRoot
@@ -689,6 +723,60 @@ try {
 } finally {
     $env:NNA_HOME = $PriorNnaHome
     $TelegramBotToken = $null
+}
+
+Write-InstallerSection 'OpenCode service'
+$PriorNnaHome = $env:NNA_HOME
+$env:NNA_HOME = $DataRoot
+try {
+    $OpencodeStatus = Invoke-OpencodeInstallerAction @('status') | ConvertFrom-Json
+    # Why: the upstream stop is unconditional once a runtime is seen running,
+    # and the fresh snapshot can disagree with it, so the restart decision
+    # follows either origin of a stopped runtime as the gateway section does.
+    $OpencodeWasRunning = $OpencodeStoppedForUpgrade -or [bool]$OpencodeStatus.runtime.running
+    if (-not $OpencodeStatus.service.enabled) {
+        Write-InstallerSkip 'OpenCode service is not enabled; run nna opencode enable to install its login wiring.'
+        if ($OpencodeStoppedForUpgrade) {
+            # Why: the stop ran while the exact prior state (disabled surface
+            # still serving) existed; no supported command restores that state,
+            # so the loss must be named instead of waiting for the stale
+            # OpenChamber attach to fail against a dead port.
+            Write-InstallerWarning 'A running OpenCode runtime was stopped for the replacement and the disabled service will not restart it; run nna opencode enable to restore wiring and start.'
+        }
+    } else {
+        # Why: the login script embeds absolute node/CLI paths that replacement
+        # invalidates, so an enabled service re-registers its wiring for this
+        # install before any restart decision; enable rewrites the environment
+        # keys from the persisted service values, so the OpenChamber-facing
+        # variables stay stable across the upgrade.
+        try {
+            Invoke-OpencodeInstallerAction @('enable') | Out-Null
+            Write-InstallerOk 'OpenCode service login wiring refreshed for the updated runtime'
+        } catch {
+            Write-InstallerWarning 'OpenCode service login wiring refresh failed; run nna opencode enable after the installation.'
+        }
+        if ($OpencodeStatus.runtime.running) {
+            # Defensive: a runtime that survived the upgrade stop must not hide a
+            # duplicate start behind stale identity records.
+            Write-InstallerStep 'Stopping the leftover OpenCode service runtime'
+            try { Invoke-OpencodeInstallerAction @('stop') | Out-Null } catch { }
+            $OpencodeStopped = $false
+            for ($Attempt = 0; $Attempt -lt 300; $Attempt++) {
+                Start-Sleep -Milliseconds 100
+                $Runtime = (Invoke-OpencodeInstallerAction @('status') | ConvertFrom-Json).runtime
+                if (-not $Runtime.running) { $OpencodeStopped = $true; break }
+            }
+            if (-not $OpencodeStopped) { throw 'OpenCode service runtime did not stop within 30 seconds; refusing to start a duplicate runtime.' }
+        }
+        if ($OpencodeWasRunning) {
+            Invoke-OpencodeInstallerAction @('start') | Out-Null
+            Write-InstallerOk 'OpenCode service restarted on the updated runtime'
+        } else {
+            Write-InstallerSkip 'OpenCode service stays stopped; nna opencode start launches it on demand.'
+        }
+    }
+} finally {
+    $env:NNA_HOME = $PriorNnaHome
 }
 
 if (-not $SkipPathUpdate) {

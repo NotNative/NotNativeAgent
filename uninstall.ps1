@@ -70,7 +70,8 @@ if (Test-Path -LiteralPath $InstalledCli) {
     try {
         $env:NNA_HOME = [string]$Marker.data_root
         & ([string]$Marker.node) $InstalledCli gateway stop 2>$null | Out-Null
-    } catch { Write-Warning 'The Telegram gateway could not be stopped cleanly; continuing uninstall.' }
+        & ([string]$Marker.node) $InstalledCli opencode stop 2>$null | Out-Null
+    } catch { Write-Warning 'A running Telegram gateway or OpenCode service could not be stopped cleanly; continuing uninstall.' }
     finally { $env:NNA_HOME = $PriorNnaHome }
 }
 $GatewayStartup = Join-Path ([Environment]::GetFolderPath('Startup')) 'NotNativeAgent-Telegram.vbs'
@@ -80,6 +81,36 @@ if (Test-Path -LiteralPath $GatewayStartup) {
         Remove-Item -LiteralPath $GatewayStartup -Force
     } else {
         Write-Warning 'The Telegram startup entry belongs to another NNA installation and was preserved.'
+    }
+}
+$OpencodeStartup = Join-Path ([Environment]::GetFolderPath('Startup')) 'NotNativeAgent-OpenCode.vbs'
+if (Test-Path -LiteralPath $OpencodeStartup) {
+    $OpencodeStartupSource = Get-Content -LiteralPath $OpencodeStartup -Raw
+    if ($OpencodeStartupSource.IndexOf($InstalledCli, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+        Remove-Item -LiteralPath $OpencodeStartup -Force
+    } else {
+        Write-Warning 'The OpenCode startup entry belongs to another NNA installation and was preserved.'
+    }
+}
+# Why: OpenCode login wiring lives in user-scope environment variables, so an
+# uninstall that leaves them dangling would make the next NNA install inherit
+# credentials and a host URL for a service that no longer exists here. The
+# four names carry no owner marker, hold a single owner per Windows user, and
+# the startup entry above is already preserved for another installation; the
+# clear therefore runs only when this install's data-root record proves
+# enablement, because an absent, disabled, or unreadable record is proof of
+# nothing and every stale value is rewritten by the next local
+# `nna opencode enable` read-and-transmit anyway.
+$OpencodeOwnedByThisInstall = $false
+$OpencodeConfigPath = Join-Path $DataRoot 'config\opencode.json'
+if (Test-Path -LiteralPath $OpencodeConfigPath) {
+    try { $OpencodeOwnedByThisInstall = (Get-Content -LiteralPath $OpencodeConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json).enabled -eq $true } catch { }
+}
+if ($OpencodeOwnedByThisInstall) {
+    foreach ($Name in @('OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_USERNAME', 'OPENCODE_SERVER_PASSWORD')) {
+        if ($null -ne [Environment]::GetEnvironmentVariable($Name, 'User')) {
+            [Environment]::SetEnvironmentVariable($Name, $null, 'User')
+        }
     }
 }
 if (-not $SkipPathUpdate) {
