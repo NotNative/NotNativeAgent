@@ -246,6 +246,7 @@ test('enable installs the login script, provisions credentials, and writes the O
   const result = await enableOpencodeService({}, paths, windowsScope({
     startupFolder: () => startupFolder,
     userEnvironmentWrite: environment.write,
+    userEnvironmentRead: environment.read,
   }));
   assert.equal(result.config.enabled, true);
   assert.equal(result.config.configured, true);
@@ -255,6 +256,8 @@ test('enable installs the login script, provisions credentials, and writes the O
   assert.match(stored.password, /^[A-Za-z0-9_-]{43}$/u);
   assert.equal(JSON.stringify(result).includes(stored.password), false);
   assert.deepEqual(result.environment.written, ['OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD']);
+  assert.deepEqual(result.environment.removed, []);
+  assert.deepEqual(result.environment.unchanged, ['OPENCODE_SERVER_USERNAME']);
   assert.equal(result.login.installed, true);
   const script = await readStartupScript(startupFolder);
   assert.match(script, /NNA_HOME/u);
@@ -265,9 +268,9 @@ test('enable installs the login script, provisions credentials, and writes the O
   assert.equal(firstWrite.OPENCODE_SKIP_START, 'true');
   assert.equal(firstWrite.OPENCODE_HOST, 'http://127.0.0.1:4095');
   assert.equal(firstWrite.OPENCODE_SERVER_PASSWORD, stored.password);
-  assert.equal(firstWrite.OPENCODE_SERVER_USERNAME, null);
-  assert.equal(result.environment.written.includes('OPENCODE_SERVER_USERNAME'), false);
-  assert.deepEqual(result.environment.removed, ['OPENCODE_SERVER_USERNAME']);
+  // Why: the default username leaves no value behind, and a name the user
+  // environment never carried needs no null broadcast to keep it absent.
+  assert.equal(firstWrite.OPENCODE_SERVER_USERNAME, undefined);
 });
 
 function escapeRegExp(value) {
@@ -281,23 +284,29 @@ test('enable is idempotent, honors port and hostname overrides, and keeps an exi
   const scope = windowsScope({
     startupFolder: () => startupFolder,
     userEnvironmentWrite: environment.write,
+    userEnvironmentRead: environment.read,
   });
   const first = await enableOpencodeService({}, paths, scope);
   const firstStored = await loadOpenCodeConfig(paths.opencodeConfig);
+  assert.deepEqual(first.environment.written, ['OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD']);
   const second = await enableOpencodeService({ servePort: 4939, serveHostname: '127.0.0.2' }, paths, scope);
   const secondStored = await loadOpenCodeConfig(paths.opencodeConfig);
   assert.equal(secondStored.password, firstStored.password);
   assert.equal(second.config.port, 4939);
   assert.equal(second.config.hostname, '127.0.0.2');
   assert.equal(second.environment.written.includes('OPENCODE_HOST'), true);
-  assert.equal(Object.keys(environment.writes.at(-1)).includes('OPENCODE_SERVER_PASSWORD'), true);
+  // Why: retaining the existing password means no rewrite; enable proves the
+  // retention through the record plus the unchanged envelope instead of an
+  // environment write that would re-broadcast the same credential.
+  assert.equal(Object.keys(environment.writes.at(-1)).includes('OPENCODE_SERVER_PASSWORD'), false);
+  assert.equal(second.environment.unchanged.includes('OPENCODE_SERVER_PASSWORD'), true);
   const third = await enableOpencodeService({ serveHostname: '0.0.0.0' }, paths, scope);
   assert.equal(third.environment.written.includes('OPENCODE_SERVER_USERNAME'), false);
   const thirdStored = await loadOpenCodeConfig(paths.opencodeConfig);
   const customUsername = await saveOpenCodeConfig(paths.opencodeConfig, { ...thirdStored, username: 'nna-operator' });
   const fourth = await enableOpencodeService({}, paths, scope);
   assert.equal(customUsername.username, 'nna-operator');
-  assert.deepEqual(fourth.environment.written, ['OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME']);
+  assert.deepEqual(fourth.environment.written, ['OPENCODE_SERVER_USERNAME']);
   // Why: reverting to the default username must clear the written name, not
   // leave a stale OpenChamber credential source behind.
   await saveOpenCodeConfig(paths.opencodeConfig, { ...customUsername, username: 'opencode', updated_at: new Date().toISOString() });
@@ -313,40 +322,230 @@ test('disable removes the login script and clears the owned user environment nam
   const scope = windowsScope({
     startupFolder: () => startupFolder,
     userEnvironmentWrite: environment.write,
+    userEnvironmentRead: environment.read,
   });
   await enableOpencodeService({}, paths, scope);
   const result = await disableOpencodeService({}, paths, scope);
   assert.equal(result.config.enabled, false);
   assert.equal(result.login.installed, false);
+  // Why: the removed envelope stays the ownership end-state claim; after
+  // disable none of the owned names remain, whether or not they ever carried
+  // a value worth a clear broadcast.
   assert.equal(result.environment.removed.length, 4);
   await assert.rejects(readFile(join(startupFolder, STARTUP_SCRIPT_NAME)), { code: 'ENOENT' });
   const cleared = environment.writes.at(-1);
-  assert.deepEqual(Object.keys(cleared).sort(), [...EXPECTED_ENVIRONMENT_NAMES].sort());
-  assert.deepEqual([...Object.values(cleared)], [null, null, null, null]);
+  assert.deepEqual(Object.keys(cleared).sort(), ['OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SKIP_START'].sort());
+  assert.deepEqual([...Object.values(cleared)], [null, null, null]);
+  assert.deepEqual(await readFile(paths.opencodeConfig, 'utf8').then(JSON.parse).then((config) => config.enabled), false);
+});
+
+test('disable on a machine that never carried the wiring transmits nothing', async () => {
+  const paths = await servicePaths();
+  const environment = memoryEnvironment();
+  const startupFolder = await mkdtemp(join(tmpdir(), 'nna-opencode-startupd7-'));
+  const result = await disableOpencodeService({}, paths, windowsScope({
+    startupFolder: () => startupFolder,
+    userEnvironmentWrite: environment.write,
+    userEnvironmentRead: environment.read,
+  }));
+  // Why: a default-username disable of an unwired installation deletes no
+  // values, so it costs one non-broadcast read instead of four broadcasts.
+  assert.equal(environment.writes.length, 0);
+  assert.deepEqual(result.environment.removed, [...EXPECTED_ENVIRONMENT_NAMES]);
 });
 
 test('enable rolls the login script back and clears the user environment when it cannot be written', async () => {
   const paths = await servicePaths();
+  const environment = memoryEnvironment();
   const startupFolder = await mkdtemp(join(tmpdir(), 'nna-opencode-startup4-'));
   const attempts = [];
   await assert.rejects(enableOpencodeService({}, paths, windowsScope({
     startupFolder: () => startupFolder,
     userEnvironmentWrite: async (removals) => {
       attempts.push(removals);
+      // Why: a timed-out write invocation can only die during its broadcast,
+      // which follows each registry write, so a killed set leaves exactly the
+      // names it transmitted landed; model that partial landing realistically.
+      Object.assign(environment.state, removals);
       if (attempts.length === 1) throw new Error('powershell denied');
     },
+    userEnvironmentRead: environment.read,
   })), { code: 'opencode_user_environment_failed' });
   await assert.rejects(readFile(join(startupFolder, STARTUP_SCRIPT_NAME)), { code: 'ENOENT' });
   // Why: a partially applied user-scope wiring set must not linger behind a
-  // failed enable; the rollback clears the owned names best-effort.
+  // failed enable; the rollback clears the owned names best-effort, and only
+  // the names the killed write actually landed are worth a clear broadcast.
   assert.deepEqual(attempts[1], {
-    OPENCODE_SKIP_START: null, OPENCODE_HOST: null, OPENCODE_SERVER_PASSWORD: null, OPENCODE_SERVER_USERNAME: null,
+    OPENCODE_SKIP_START: null, OPENCODE_HOST: null, OPENCODE_SERVER_PASSWORD: null,
   });
-  // Why: the configuration keeps the operator's enabled intent so a re-run of
-  // enable after fixing the environment completes the wiring idempotently.
-  const config = await loadOpenCodeConfig(paths.opencodeConfig);
-  assert.equal(config.enabled, true);
-  assert.match(config.password, /^[A-Za-z0-9_-]{43}$/u);
+  // Why: a wiring set must land completely; no configuration record may claim
+  // enablement behind wiring that never landed, so the revert removes the
+  // saved record entirely and a re-run of enable converges from zero state.
+  await assert.rejects(readFile(paths.opencodeConfig), { code: 'ENOENT' });
+});
+
+test('enable transmits only the user environment names whose value changes', async () => {
+  const paths = await servicePaths();
+  const password = generateOpencodePassword();
+  await saveOpenCodeConfig(paths.opencodeConfig, { enabled: false, password });
+  const environment = memoryEnvironment({
+    OPENCODE_SKIP_START: 'true',
+    OPENCODE_HOST: 'http://127.0.0.1:4095',
+    OPENCODE_SERVER_PASSWORD: password,
+  });
+  const startupFolder = await mkdtemp(join(tmpdir(), 'nna-opencode-startupd1-'));
+  const result = await enableOpencodeService({}, paths, windowsScope({
+    startupFolder: () => startupFolder,
+    userEnvironmentWrite: environment.write,
+    userEnvironmentRead: environment.read,
+  }));
+  // Why: a user-scope write costs one WM_SETTINGCHANGE broadcast each, so a
+  // steady-state re-enable must transmit nothing instead of rewriting all
+  // four names.
+  assert.equal(environment.writes.length, 0);
+  assert.deepEqual(result.environment.written, []);
+  assert.deepEqual(result.environment.removed, []);
+  assert.deepEqual([...result.environment.unchanged].sort(), [...EXPECTED_ENVIRONMENT_NAMES].sort());
+  assert.equal((await loadOpenCodeConfig(paths.opencodeConfig)).enabled, true);
+});
+
+test('enable rewrites changed values and clears only a present stale username', async () => {
+  const paths = await servicePaths();
+  const password = generateOpencodePassword();
+  await saveOpenCodeConfig(paths.opencodeConfig, { enabled: false, password });
+  const environment = memoryEnvironment({
+    OPENCODE_SKIP_START: 'true',
+    OPENCODE_HOST: 'http://127.0.0.1:4765',
+    OPENCODE_SERVER_PASSWORD: 'stale-password-material-of-maximum-43-len',
+    OPENCODE_SERVER_USERNAME: 'nna-operator',
+  });
+  const startupFolder = await mkdtemp(join(tmpdir(), 'nna-opencode-startupd2-'));
+  const result = await enableOpencodeService({}, paths, windowsScope({
+    startupFolder: () => startupFolder,
+    userEnvironmentWrite: environment.write,
+    userEnvironmentRead: environment.read,
+  }));
+  const payload = environment.writes[0];
+  assert.equal(payload.OPENCODE_HOST, 'http://127.0.0.1:4095');
+  assert.equal(payload.OPENCODE_SERVER_PASSWORD, password);
+  assert.equal(payload.OPENCODE_SERVER_USERNAME, null);
+  assert.deepEqual([...Object.keys(payload)].sort(), ['OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME'].sort());
+  assert.deepEqual(result.environment.written, ['OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD']);
+  assert.deepEqual(result.environment.removed, ['OPENCODE_SERVER_USERNAME']);
+  assert.deepEqual(result.environment.unchanged, ['OPENCODE_SKIP_START']);
+  assert.equal(environment.state.OPENCODE_SERVER_USERNAME, null);
+});
+
+test('enable keeps a custom username that the user environment already carries', async () => {
+  const paths = await servicePaths();
+  const password = generateOpencodePassword();
+  const stored = await saveOpenCodeConfig(paths.opencodeConfig, {
+    enabled: false, password, username: 'nna-operator',
+  });
+  const environment = memoryEnvironment({
+    OPENCODE_SKIP_START: 'true',
+    OPENCODE_HOST: 'http://127.0.0.1:4095',
+    OPENCODE_SERVER_PASSWORD: stored.password,
+    OPENCODE_SERVER_USERNAME: 'nna-operator',
+  });
+  const startupFolder = await mkdtemp(join(tmpdir(), 'nna-opencode-startupd3-'));
+  const result = await enableOpencodeService({}, paths, windowsScope({
+    startupFolder: () => startupFolder,
+    userEnvironmentWrite: environment.write,
+    userEnvironmentRead: environment.read,
+  }));
+  assert.equal(environment.writes.length, 0);
+  assert.equal(result.environment.written.includes('OPENCODE_SERVER_USERNAME'), false);
+  assert.equal(result.environment.removed.includes('OPENCODE_SERVER_USERNAME'), false);
+});
+
+test('enable reads the user environment in UTF-8 so a non-ASCII username stops flapping', async () => {
+  const paths = await servicePaths();
+  const password = generateOpencodePassword();
+  await saveOpenCodeConfig(paths.opencodeConfig, { enabled: false, password, username: '张三' });
+  const startupFolder = await mkdtemp(join(tmpdir(), 'nna-opencode-startupd8-'));
+  const invocations = [];
+  const result = await enableOpencodeService({}, paths, windowsScope({
+    startupFolder: () => startupFolder,
+    powershell: async (script, timeoutMs) => {
+      invocations.push({ script, timeoutMs });
+      // The read path is the only powershell invocation an enable makes
+      // before its wiring set, and redirected PowerShell may prefix a byte
+      // order mark plus emit the observed credentials in UTF-8.
+      return '\uFEFFOPENCODE_SKIP_START=true\nOPENCODE_HOST=http://127.0.0.1:4095\n'
+        + `OPENCODE_SERVER_PASSWORD=${password}\nOPENCODE_SERVER_USERNAME=张三`;
+    },
+    userEnvironmentWrite: () => assert.fail('a matching observed value must not transmit'),
+  }));
+  assert.equal(invocations.length, 1);
+  assert.match(invocations[0].script, /\[Console\]::OutputEncoding = \[System\.Text\.Encoding\]::UTF8/u);
+  assert.equal(invocations[0].timeoutMs, 20_000);
+  // Why: the observed codepage-mangled credential previously diverged from
+  // the desired value on every enable; a stable observed value must keep the
+  // whole wiring set unchanged, including the byte-order-marked first line.
+  assert.deepEqual(result.environment.written, []);
+  assert.deepEqual(result.environment.removed, []);
+  assert.deepEqual([...result.environment.unchanged].sort(), [...EXPECTED_ENVIRONMENT_NAMES].sort());
+  assert.equal((await loadOpenCodeConfig(paths.opencodeConfig)).username, '张三');
+});
+
+test('a failed environment read degrades enable to a full wiring set', async () => {
+  const paths = await servicePaths();
+  const environment = memoryEnvironment();
+  const startupFolder = await mkdtemp(join(tmpdir(), 'nna-opencode-startupd4-'));
+  const result = await enableOpencodeService({}, paths, windowsScope({
+    startupFolder: () => startupFolder,
+    userEnvironmentWrite: environment.write,
+    userEnvironmentRead: async () => { throw new Error('probe down'); },
+  }));
+  assert.deepEqual([...Object.keys(environment.writes[0])].sort(), ['OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD', 'OPENCODE_SERVER_USERNAME', 'OPENCODE_SKIP_START'].sort());
+  assert.deepEqual(result.environment.written, ['OPENCODE_SKIP_START', 'OPENCODE_HOST', 'OPENCODE_SERVER_PASSWORD']);
+  assert.deepEqual(result.environment.removed, ['OPENCODE_SERVER_USERNAME']);
+  assert.deepEqual(result.environment.unchanged, []);
+});
+
+test('a failed enable restores the prior configuration record', async () => {
+  const paths = await servicePaths();
+  const prior = await saveOpenCodeConfig(paths.opencodeConfig, {
+    enabled: false, password: generateOpencodePassword(), port: 4793, hostname: 'localhost',
+    username: 'nna-operator', updated_at: '2026-09-01T00:00:00.000Z',
+  });
+  const environment = memoryEnvironment();
+  const startupFolder = await mkdtemp(join(tmpdir(), 'nna-opencode-startupd5-'));
+  await assert.rejects(enableOpencodeService({}, paths, windowsScope({
+    startupFolder: () => startupFolder,
+    userEnvironmentWrite: async () => { throw new Error('powershell denied'); },
+    userEnvironmentRead: environment.read,
+  })), { code: 'opencode_user_environment_failed' });
+  // Why: the revert rebuilds the exact prior record so status cannot advertise
+  // a repaired or regenerated wire identity behind a failed enable.
+  assert.deepEqual(await loadOpenCodeConfig(paths.opencodeConfig), prior);
+});
+
+test('a failed login install rolls back the saved enablement record', async () => {
+  const paths = await servicePaths();
+  const environment = memoryEnvironment({
+    OPENCODE_SKIP_START: 'true',
+    OPENCODE_HOST: 'http://127.0.0.1:4095',
+    OPENCODE_SERVER_PASSWORD: 'prior-wiring-password-material-43-characters',
+  });
+  const startupFolder = await mkdtemp(join(tmpdir(), 'nna-opencode-startupd6-'));
+  await assert.rejects(enableOpencodeService({}, paths, windowsScope({
+    startupFolder: () => { throw new Error('folder unavailable'); },
+    userEnvironmentWrite: environment.write,
+    userEnvironmentRead: environment.read,
+  })), { code: 'opencode_startup_folder_unavailable' });
+  await assert.rejects(readFile(paths.opencodeConfig), { code: 'ENOENT' });
+  // Why: the rollback reaches the environment even though the login script
+  // failed before the environment step, so the names of an earlier wiring do
+  // not linger; only the names with an observed value are cleared, which on a
+  // fresh machine spares every broadcast the wiring never needed.
+  assert.deepEqual(environment.writes[0], {
+    OPENCODE_SKIP_START: null, OPENCODE_HOST: null, OPENCODE_SERVER_PASSWORD: null,
+  });
+  assert.deepEqual(environment.state, {
+    OPENCODE_SKIP_START: null, OPENCODE_HOST: null, OPENCODE_SERVER_PASSWORD: null,
+  });
 });
 
 test('status reports the wiring truthfully and never leaks the managed password', async () => {

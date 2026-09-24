@@ -36,6 +36,16 @@ export async function loadOpenCodeConfig(path) {
   }
 }
 
+export async function openCodeConfigExists(path) {
+  try {
+    await readFile(path);
+    return true;
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
 export async function saveOpenCodeConfig(path, value) {
   const config = normalizeOpenCodeConfig(value);
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
