@@ -5,7 +5,7 @@ import { appendFile, mkdir, mkdtemp, open, readFile, readdir, rm, writeFile } fr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { JournalStore, readJournalPage, readJournalPrefix, recoverJournal } from '../src/store.js';
+import { JournalStore, readJournalPage, readJournalPrefix, recoverControlRecords, recoverJournal } from '../src/store.js';
 import { TuiProjection } from '../src/experience/projection.js';
 import { TuiRenderer } from '../src/tui/renderer.js';
 import { loadEarlierTranscriptPage } from '../src/experience/history.js';
@@ -102,6 +102,95 @@ test('AC-PERF-04 large journals resume from a bounded tail and page older record
     assert.deepEqual(older.records.map((record) => record.sequence), [99_987, 99_988, 99_989, 99_990, 99_991]);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('authority control records resume intact from outside the bounded tail', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-journal-control-'));
+  const store = new JournalStore(root, 'control-scan', { resumeRecordLimit: 8 });
+  try {
+    await store.open();
+    await store.append('authority_intent', intentRecord('earlier grant', 1));
+    for (let index = 1; index <= 40; index += 1) {
+      await store.append('tool_result', {
+        type: 'tool_result', turnId: 'turn-old', providerCallId: `call-${index}`,
+        toolName: 'fs_read_text', status: 'succeeded', content: `result ${index}`,
+      });
+    }
+    await store.append('authority_intent', intentRecord('newer grant', 2));
+    await store.close();
+
+    const resumed = new JournalStore(root, 'control-scan', { resumeRecordLimit: 8 });
+    const recovered = await resumed.open();
+    assert.equal(recovered.truncated, true);
+    assert.equal(recovered.controlComplete, true);
+    assert.equal(recovered.records.length, 8);
+    assert.deepEqual(recovered.controlRecords.map((item) => item.payload.content), ['earlier grant', 'newer grant']);
+    await resumed.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('the control scan fails closed above its byte bound and at an unverifiable lineage', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-journal-control-fail-'));
+  try {
+    const store = new JournalStore(root, 'control-fail');
+    await store.open();
+    await store.append('authority_intent', intentRecord('original grant', 1));
+    for (let index = 1; index <= 40; index += 1) {
+      await store.append('tool_result', {
+        type: 'tool_result', turnId: 'turn-old', providerCallId: `call-${index}`,
+        toolName: 'fs_read_text', status: 'succeeded', content: 'x'.repeat(2_000),
+      });
+    }
+    await store.close();
+    const oversized = await recoverControlRecords(store.path, { maxBytes: 256 });
+    assert.equal(oversized.controlComplete, false);
+
+    const lines = (await readFile(store.path, 'utf8')).split('\n');
+    const target = JSON.parse(lines[1]);
+    target.payload.content = 'x'.repeat(2_001);
+    lines[1] = JSON.stringify(target);
+    await writeFile(store.path, `${lines.join('\n')}\n`, 'utf8');
+
+    const scan = await recoverControlRecords(store.path);
+    assert.equal(scan.controlComplete, false);
+    assert.deepEqual(scan.controlRecords.map((item) => item.payload.content), ['original grant']);
+
+    const resumed = new JournalStore(root, 'control-fail', { resumeRecordLimit: 8 });
+    const recovered = await resumed.open();
+    assert.equal(recovered.truncated, true);
+    assert.equal(recovered.controlComplete, false);
+    await resumed.close();
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('the control scan refuses to attest a genesis prefix as the whole journal', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-journal-control-tip-'));
+  try {
+    const store = new JournalStore(root, 'control-tip');
+    await store.open();
+    await store.append('authority_intent', intentRecord('first grant', 1));
+    await store.append('conversation_cleared', {});
+    await store.append('authority_intent', intentRecord('restated grant', 2));
+    await store.close();
+    const full = await recoverControlRecords(store.path);
+    assert.equal(full.controlComplete, true);
+    const tip = (await readFile(store.path, 'utf8')).split('\n').at(-2);
+    const expectedTip = JSON.parse(tip).hash;
+
+    // A sync or backup restore swaps in the pre-clear prefix; its chain verifies from
+    // genesis, so only the tail-verified tip keeps the scan from attesting completeness.
+    const lines = (await readFile(store.path, 'utf8')).split('\n');
+    await writeFile(store.path, `${lines[0]}\n`, 'utf8');
+    const rolledBack = await recoverControlRecords(store.path, { expectedTip });
+    assert.equal(rolledBack.controlComplete, false);
+    const missing = await recoverControlRecords(join(root, 'removed.journal.ndjson'), { expectedTip });
+    assert.equal(missing.controlComplete, false);
+    assert.equal((await recoverControlRecords(join(root, 'removed.journal.ndjson'))).controlComplete, true);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+function intentRecord(content, sequence) {
+  return { content, origin: 'operator', sequence, kind: 'statement', lineageId: 'auth-control', restrictionVersion: 0 };
+}
 
 test('journal prefix verification consumes short file reads without zero-filled corruption', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-journal-short-read-'));

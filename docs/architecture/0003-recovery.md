@@ -130,9 +130,13 @@ prefix is written to a separate recovery artifact.
 
 Resume reads and verifies only a bounded recent journal window, using the final
 record's durable sequence and hash to continue the chain exactly. Older records
-are available through bounded reverse pages. Corruption in a truncated window
-falls back to a full verification pass solely to preserve the longest valid
-prefix as recovery evidence; ordinary large-session startup remains bounded.
+are available through bounded reverse pages. When that window is truncated, a
+streaming genesis-anchored control scan re-verifies the chain from record one and
+extracts only the small authority and mission-budget control records, so authority
+lineage completeness does not depend on transcript volume. The scan is byte-bounded
+and fails closed to the incomplete-authority posture above its bound. Corruption in a
+truncated window falls back to a full verification pass solely to preserve the longest
+valid prefix as recovery evidence; ordinary large-session startup remains bounded.
 
 Journal records use format 1. Legacy format-0 journals are fully validated, copied to a
 stable `.format-0.bak`, rewritten as a fresh verified format-1 chain, and then reopened;

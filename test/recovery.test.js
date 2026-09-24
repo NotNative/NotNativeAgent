@@ -1636,6 +1636,55 @@ test('AC-SESS-01/AC-SESS-05/AC-SESS-10 resume preserves identity, marks interrup
   await engine.shutdown({ request_id: 'shutdown-resume' });
 });
 
+test('resume recovers authority that lives outside the bounded transcript tail', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-resume-authority-'));
+  const stores = join(root, 'sessions');
+  const seed = new JournalStore(stores, 'resume-authority');
+  await seed.open();
+  await seed.append('session_created', { sessionId: 'resume-authority' });
+  await seed.append('authority_intent', {
+    content: 'Browse the local dashboard', origin: 'operator', sequence: 1,
+    kind: 'statement', lineageId: 'auth-resume', restrictionVersion: 0,
+  });
+  await seed.append('conversation_cleared', {});
+  await seed.append('authority_intent', {
+    content: 'Restated: browse the local dashboard', origin: 'operator', sequence: 2,
+    kind: 'statement', lineageId: 'auth-resume-2', restrictionVersion: 0,
+  });
+  for (let index = 1; index <= 60; index += 1) {
+    await seed.append('tool_result', {
+      type: 'tool_result', turnId: 'turn-old', providerCallId: `old-call-${index}`,
+      toolName: 'fs_read_text', status: 'succeeded', content: `older result ${index}`,
+    });
+  }
+  await seed.close();
+  const boundedEngine = () => new SessionEngine({
+    config: config(root, 'durable'), sessionId: 'resume-authority',
+    storeRoot: stores, reviewerRoot: join(root, 'reviewers'),
+    storeFactory: (storeRoot, id, storeOptions) => new JournalStore(storeRoot, id, {
+      ...storeOptions, resumeRecordLimit: 8,
+    }),
+  });
+  const engine = boundedEngine();
+  await engine.initialize();
+  assert.equal(engine.resumeBoundary.hasMore, true);
+  const snapshot = engine.authority.snapshot(engine.config);
+  assert.equal(snapshot.complete, true);
+  assert.deepEqual(snapshot.intent.map((item) => item.content), ['Restated: browse the local dashboard']);
+  await engine.shutdown({ request_id: 'shutdown-authority-resume' });
+
+  const failClosed = new SessionEngine({
+    config: config(root, 'durable'), sessionId: 'resume-authority',
+    storeRoot: stores, reviewerRoot: join(root, 'reviewers'),
+    storeFactory: (storeRoot, id, storeOptions) => new JournalStore(storeRoot, id, {
+      ...storeOptions, resumeRecordLimit: 8, controlScanMaxBytes: 64,
+    }),
+  });
+  await failClosed.initialize();
+  assert.equal(failClosed.authority.snapshot(failClosed.config).complete, false);
+  await failClosed.shutdown({ request_id: 'shutdown-authority-fail-closed' });
+});
+
 test('resume durably balances interrupted tool calls without guessing side effects', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-resume-tools-'));
   const stores = join(root, 'sessions');

@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash, randomUUID } from 'node:crypto';
-import { constants } from 'node:fs';
+import { constants, createReadStream } from 'node:fs';
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { createInterface } from 'node:readline/promises';
 import { ContractError } from './ids.js';
 
 const MAX_FULL_JOURNAL_SCAN_BYTES = 104_857_600;
+const MAX_CONTROL_RECORDS = 100_000;
+const AUTHORITY_CONTROL_TYPES = new Set([
+  'authority_intent', 'conversation_cleared', 'mission_turn_authorized', 'mission_tool_calls_reserved',
+]);
 
 export class JournalStore {
   #handle = null;
@@ -18,6 +23,7 @@ export class JournalStore {
     this.sessionId = sessionId;
     this.path = join(root, `${sessionId}.journal.ndjson`);
     this.resumeRecordLimit = options.resumeRecordLimit ?? 10_000;
+    this.controlScanMaxBytes = options.controlScanMaxBytes ?? MAX_FULL_JOURNAL_SCAN_BYTES;
     this.persistenceDeadlineMs = options.persistenceDeadlineMs ?? 10_000;
     this.openFile = options.openFile ?? open;
     this.persistenceFailed = false;
@@ -38,11 +44,19 @@ export class JournalStore {
       await writeFile(recoveryPath, prefix.length > 0 ? `${prefix}\n` : '', { encoding: 'utf8', flag: 'wx', mode: 0o600 });
       return { ...recovered, recoveryPath };
     }
+    // Why: authority and mission budgets are small control facts whose completeness
+    // must not depend on how much of the large transcript tail the resume window kept.
+    const control = recovered.truncated
+      ? await recoverControlRecords(this.path, { maxBytes: this.controlScanMaxBytes, expectedTip: recovered.lastHash })
+      : null;
     this.#sequence = recovered.lastSequence;
     this.#previousHash = recovered.lastHash;
     this.#handle = await this.openFile(this.path, 'a', 0o600);
     const headerRecords = recovered.truncated ? await readJournalPrefix(this.path, 1) : recovered.records.slice(0, 1);
-    return { ...recovered, headerRecords };
+    return {
+      ...recovered, headerRecords,
+      ...(control ? { controlRecords: control.controlRecords, controlComplete: control.controlComplete } : {}),
+    };
   }
 
   async append(type, payload) {
@@ -276,6 +290,60 @@ async function recoverJournalTail(path, tailLimit) {
     const truncated = bytes < size || lines.length > limit;
     return verifyTail(lines.slice(-limit), truncated);
   } finally { await handle.close(); }
+}
+
+// Security: the control scan verifies the whole hash chain from genesis because a
+// resumed authority claim is only as trustworthy as the lineage it was read through.
+// Anything unverifiable fails closed: the caller keeps the authority-incomplete posture.
+export async function recoverControlRecords(path, options = {}) {
+  const maxBytes = options.maxBytes ?? MAX_FULL_JOURNAL_SCAN_BYTES;
+  const maxRecords = options.maxControlRecords ?? MAX_CONTROL_RECORDS;
+  let size;
+  try { size = (await stat(path)).size; } catch (error) {
+    if (error.code === 'ENOENT') {
+      // Security: a vanished journal can only attest completeness when the caller has
+      // nothing to anchor it against; a missing file under an expected tip is a loss.
+      return Object.freeze({ controlRecords: Object.freeze([]), controlComplete: options.expectedTip === undefined });
+    }
+    throw error;
+  }
+  if (size > maxBytes) return Object.freeze({ controlRecords: Object.freeze([]), controlComplete: false });
+  const records = [];
+  const stream = createReadStream(path, { encoding: 'utf8' });
+  const lines = createInterface({ input: stream, crlfDelay: 0 });
+  let previous = '0'.repeat(64);
+  let sequence = 0;
+  let complete = true;
+  try {
+    for await (const line of lines) {
+      if (line.length === 0) continue;
+      const record = parseRecord(line);
+      let format;
+      try { format = journalFormat(record); } catch { complete = false; break; }
+      if (!record || format !== 1 || record.sequence !== sequence + 1
+        || record.previous !== previous || record.hash !== digestWithoutHash(record)) {
+        complete = false;
+        break;
+      }
+      sequence += 1;
+      if (AUTHORITY_CONTROL_TYPES.has(record.type)) {
+        if (records.length >= maxRecords) { complete = false; break; }
+        records.push(record);
+      }
+      previous = record.hash;
+    }
+  } catch {
+    complete = false;
+  } finally {
+    lines.close();
+    stream.destroy();
+  }
+  // Security: a scan that stops short of the tail-verified end of file (a prefix
+  // swapped in by sync or backup restore, or a silent short read) would otherwise
+  // attest completeness for a prefix and roll authority back across a clear. The
+  // expected tip pins the scan to the same bytes the resumed tail already verified.
+  if (complete && options.expectedTip !== undefined && previous !== options.expectedTip) complete = false;
+  return Object.freeze({ controlRecords: Object.freeze(records), controlComplete: complete });
 }
 
 async function readTailLines(handle, size, bytes) {

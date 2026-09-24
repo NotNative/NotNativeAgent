@@ -92,6 +92,34 @@ test('bounded-tail recovery identifies an authoritative conversation reset', () 
   assert.deepEqual(reset.authority.map((item) => item.content), ['new lineage']);
 });
 
+test('a genesis-anchored control stream owns authority when the transcript tail is truncated', () => {
+  const tail = [
+    record('authority_intent', { content: 'tail duplicate', origin: 'operator' }),
+    record('conversation_cleared', {}),
+    record('message', { type: 'message', role: 'user', content: 'post-clear message', turnId: 'turn-2' }),
+    record('mission_turn_authorized', { missionId: 'm', turns: 2, toolCalls: 2, authorizedAt: '2026-09-24T00:00:02.000Z' }),
+  ];
+  const control = [
+    record('authority_intent', { content: 'first grant', origin: 'operator' }),
+    record('mission_tool_calls_reserved', { missionId: 'm', turns: 1, toolCalls: 2, reservedAt: '2026-09-24T00:00:01.000Z' }),
+    record('conversation_cleared', {}),
+    record('authority_intent', { content: 'restated grant', origin: 'operator' }),
+    record('mission_turn_authorized', { missionId: 'm', turns: 2, toolCalls: 2, authorizedAt: '2026-09-24T00:00:02.000Z' }),
+  ];
+  const restored = restoreSessionRecords(tail, { controlRecords: control });
+  assert.deepEqual(restored.authority.map((item) => item.content), ['restated grant']);
+  assert.equal(restored.authorityReset, true);
+  assert.equal(restored.missionTurns.length, 2);
+  assert.deepEqual(restored.transcript.map((item) => item.content), ['post-clear message']);
+});
+
+test('control replay rejects a record that carries no authority meaning', () => {
+  assert.throws(
+    () => restoreSessionRecords([], { controlRecords: [record('message', { type: 'message', role: 'user', content: 'x' })] }),
+    { code: 'session_history_invalid' },
+  );
+});
+
 test('session history restores the newest durable working directory transition', () => {
   const restored = restoreSessionRecords([
     record('workspace_changed', { workspaceRoot: 'D:/first' }),

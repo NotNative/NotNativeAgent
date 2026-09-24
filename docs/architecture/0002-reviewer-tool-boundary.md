@@ -36,12 +36,15 @@ it cannot replace a citation.
 Mission turn consumption is a separate durable authority fact. It is restored across process
 restart and deliberately survives conversation clear; persistence must succeed before the
 turn proceeds, so restart, clear, or a failed journal write cannot replenish mission bounds.
-Bounded-tail resume never assumes omitted authority is harmless. If no confirmed clear
-boundary appears in the retained tail, the restored conversational authority is marked
-incomplete: deterministic reads remain available, but consequential work is denied until
-the operator clears or replaces the conversation and restates authority. An active mission
-cannot resume from a truncated tail unless at least one cumulative mission-budget fact is
-present; otherwise initialization fails closed rather than minting resource budget.
+Bounded-tail resume never assumes omitted authority is harmless. Authority intents, clear
+boundaries, and mission budgets are small control records recovered by a genesis-anchored,
+chain-verified control scan whenever the transcript tail is truncated, so long tool-heavy
+sessions resume with complete authority lineage. The incomplete posture remains for the
+fail-closed cases: a journal above the scan bound, an unverifiable lineage, or an
+over-running control count. Incomplete authority keeps deterministic reads available but
+denies consequential work until the operator clears or replaces the conversation and
+restates authority. An active mission whose budget lineage is unverifiable fails
+initialization closed rather than minting resource budget.
 Mission failure envelopes carry the declared disposition as `terminate_turn` or
 `suspend_mission`, in addition to the triggering condition and cause. Consumers therefore do not
 have to infer control flow from a generic failure code.

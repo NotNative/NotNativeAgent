@@ -4,11 +4,15 @@ import { ContractError } from '../ids.js';
 const MAX_RESTORED_RECORDS = 1_000_000;
 const TRANSCRIPT_RECORD_TYPES = new Set(['message', 'tool_request', 'tool_result', 'compaction', 'attachment_fact']);
 const MISSION_RECORD_TYPES = new Set(['mission_turn_authorized', 'mission_tool_calls_reserved']);
+const AUTHORITY_CONTROL_TYPES = new Set(['authority_intent', 'conversation_cleared', ...MISSION_RECORD_TYPES]);
 
-export function restoreSessionRecords(records, maxRecords = MAX_RESTORED_RECORDS) {
-  if (!Array.isArray(records) || !Number.isSafeInteger(maxRecords) || maxRecords < 1 || maxRecords > MAX_RESTORED_RECORDS) {
-    throw new ContractError('session_history_invalid', 'session history requires a bounded record array');
-  }
+// Security: when the caller supplies a genesis-anchored control stream, authority and
+// mission budgets replay exclusively from it. Tail records then certify transcript
+// fidelity only, so a truncated transcript window can neither drop nor invent authority.
+export function restoreSessionRecords(records, options = {}) {
+  const maxRecords = options.maxRecords ?? MAX_RESTORED_RECORDS;
+  const control = assertControlStream(options.controlRecords === undefined ? null : options.controlRecords);
+  assertRecordBounds(records, maxRecords);
   const transcript = [];
   const steering = new Map();
   const activeTurns = new Set();
@@ -25,12 +29,14 @@ export function restoreSessionRecords(records, maxRecords = MAX_RESTORED_RECORDS
       transcript.splice(0, transcript.length, ...record.payload.records, record.payload.fact);
     } else if (record.type === 'conversation_cleared') {
       transcript.length = 0;
-      authority.length = 0;
-      authorityReset = true;
+      if (control === null) {
+        authority.length = 0;
+        authorityReset = true;
+      }
     } else if (record.type === 'authority_intent') {
-      authority.push(record.payload);
+      if (control === null) authority.push(record.payload);
     } else if (MISSION_RECORD_TYPES.has(record.type)) {
-      missionTurns.push(record.payload);
+      if (control === null) missionTurns.push(record.payload);
     } else if (record.type === 'turn_accepted') {
       activeTurns.add(recordTurnId(record.payload));
     } else if (record.type === 'turn_outcome') {
@@ -46,22 +52,64 @@ export function restoreSessionRecords(records, maxRecords = MAX_RESTORED_RECORDS
       steering.delete(record.payload.id);
       transcript.push(record.payload.message);
     } else if (record.type === 'workspace_changed') {
-      if (typeof record.payload.workspaceRoot !== 'string' || record.payload.workspaceRoot.length === 0
-        || record.payload.workspaceRoot.length > 4096) {
-        throw new ContractError('session_history_invalid', 'working directory recovery record is invalid');
-      }
-      workspaceRoot = record.payload.workspaceRoot;
+      workspaceRoot = validatedWorkspaceRoot(record.payload);
     }
   }
+  let authorityOutcome = { authorityReset };
+  if (control !== null) authorityOutcome = replayAuthorityControl(control, authority, missionTurns);
   return Object.freeze({
     transcript: Object.freeze(transcript),
     steering: Object.freeze([...steering.values()]),
     authority: Object.freeze(authority),
-    authorityReset,
+    authorityReset: authorityOutcome.authorityReset,
     missionTurns: Object.freeze(missionTurns),
     interrupted: Object.freeze([...activeTurns].filter((id) => !interruptedTurns.has(id))),
     workspaceRoot,
   });
+}
+
+// Security: mission budget facts deliberately survive a clear boundary; only
+// conversational authority is cut at the reset.
+function replayAuthorityControl(control, authority, missionTurns) {
+  authority.length = 0;
+  missionTurns.length = 0;
+  let authorityReset = false;
+  for (const record of control) {
+    validateRecord(record);
+    if (!AUTHORITY_CONTROL_TYPES.has(record.type)) {
+      throw new ContractError('session_history_invalid', 'authority control record type is invalid');
+    }
+    if (record.type === 'conversation_cleared') {
+      authority.length = 0;
+      authorityReset = true;
+    } else if (record.type === 'authority_intent') {
+      authority.push(record.payload);
+    } else {
+      missionTurns.push(record.payload);
+    }
+  }
+  return { authorityReset };
+}
+
+function validatedWorkspaceRoot(payload) {
+  if (typeof payload.workspaceRoot !== 'string' || payload.workspaceRoot.length === 0
+    || payload.workspaceRoot.length > 4096) {
+    throw new ContractError('session_history_invalid', 'working directory recovery record is invalid');
+  }
+  return payload.workspaceRoot;
+}
+
+function assertRecordBounds(records, maxRecords) {
+  if (!Array.isArray(records) || !Number.isSafeInteger(maxRecords) || maxRecords < 1 || maxRecords > MAX_RESTORED_RECORDS) {
+    throw new ContractError('session_history_invalid', 'session history requires a bounded record array');
+  }
+}
+
+function assertControlStream(control) {
+  if (control !== null && (!Array.isArray(control) || control.length > MAX_RESTORED_RECORDS)) {
+    throw new ContractError('session_history_invalid', 'authority control recovery requires a bounded record array');
+  }
+  return control;
 }
 
 function validateRecord(record) {

@@ -50,7 +50,7 @@ async function restoreDurableEngine(engine, operations) {
   assertResumeProvenance(recovered.headerRecords, engine.config.executionManifest, engine.config.mission);
   engine.restoredJournalRecords = recovered.records;
   engine.resumeBoundary = { beforeSequence: recovered.records[0]?.sequence ?? null, hasMore: recovered.truncated };
-  const interrupted = await operations.restore(recovered.records, recovered.truncated);
+  const interrupted = await operations.restore(recovered.records, recovered.truncated, recovered);
   engine.attachments.restore(recovered.records);
   if (recovered.records.length === 0) await operations.createSessionRecord();
   const interruptedToolRepairs = engine.reliability.interruptedToolRepairs(recovered.records, interrupted);

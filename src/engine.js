@@ -102,7 +102,7 @@ export class SessionEngine {
     });
   } async initialize(options = {}) {
     return initializeEngine(this, {
-      restore: (records, truncated) => this.#restore(records, truncated),
+      restore: (records, truncated, recovery) => this.#restore(records, truncated, recovery),
       repairInterruptedTools: (repairs) => this.#repairInterruptedTools(repairs),
       createSessionRecord: () => this.#createSessionRecord(),
       markInterrupted: (turnId) => this.#markInterrupted(turnId),
@@ -480,11 +480,17 @@ export class SessionEngine {
     await this.output({ type: 'accepted', request_id: command.request_id, accepted: false, reason: 'busy' });
     return { accepted: false, reason: 'busy' };
   }
-  async #restore(records, truncated = false) {
-    const restored = restoreSessionRecords(records); await restoreEngineWorkspace(this, restored.workspaceRoot);
+  async #restore(records, truncated = false, recovery = {}) {
+    const restored = restoreSessionRecords(records, { controlRecords: recovery?.controlRecords });
+    await restoreEngineWorkspace(this, restored.workspaceRoot);
     this.work.restore(records);
     this.transcript.push(...restored.transcript);
-    this.authority.restore(restored.authority, restored.missionTurns, { conversationComplete: !truncated || restored.authorityReset, requireMissionUsage: Boolean(this.config.mission), missionUsageComplete: !truncated || restored.missionTurns.length > 0 });
+    const lineageComplete = typeof recovery?.controlComplete === 'boolean' ? recovery.controlComplete : null;
+    this.authority.restore(restored.authority, restored.missionTurns, {
+      conversationComplete: lineageComplete ?? (!truncated || restored.authorityReset),
+      requireMissionUsage: Boolean(this.config.mission),
+      missionUsageComplete: lineageComplete ?? (!truncated || restored.missionTurns.length > 0),
+    });
     this.toolLoop.restore(restored.transcript, records);
     await this.toolLoop.reconcilePendingSettlements();
     this.steering.push(...restored.steering);
