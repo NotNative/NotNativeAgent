@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Persisted configuration for the OpenCode wiring service surface. Records the
-// fixed wire identity (hostname, port, Basic auth credentials) that the login
-// startup script and the OpenChamber user environment mirror. Cf. gateway config:
+// fixed wire identity (hostname, port, Basic auth credentials) and login
+// auto-start preference. The runtime alone owns the OpenChamber environment.
 // absent-safe, size-bounded, atomic 0600 writes, redacted public status.
 import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
@@ -106,7 +106,7 @@ export function generateOpencodePassword() {
 export function opencodePublicStatus(config, environment = process.env) {
   const password = environment.OPENCODE_SERVER_PASSWORD?.trim();
   return Object.freeze({
-    enabled: config.enabled,
+    autostart_enabled: config.enabled,
     configured: Boolean(config.password ?? password),
     password_source: config.password ? 'restricted local config' : password ? 'environment' : null,
     username: config.username,

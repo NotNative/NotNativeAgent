@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-// OpenCode wiring service: `nna opencode start|stop|status|enable|disable`
-// mirrors the Telegram gateway's detached lifecycle (SessionLock start guard,
-// pid file with verified process identity, structurally identical stop) and
-// adds Windows-only login wiring: a hidden Startup-folder script that runs
-// `nna opencode start` at login plus user-scope OpenChamber environment
-// variables so a freshly launched OpenChamber attaches to NNA's surface.
+// OpenCode lifecycle service: verified detached runtime plus optional
+// Windows login auto-start. Runtime start and stop own OpenChamber variables.
 // Why: this module deliberately parallels gateway-cli.js with version-2 pid
 // records only; the gateway's legacy adoption path predates process identity
 // and has no equivalent here.
@@ -47,30 +43,19 @@ export async function enableOpencodeService(options, paths, scope = {}) {
     updated_at: new Date().toISOString(),
   });
   let login;
-  let environment;
   try {
     login = await installLoginStartup(saved, paths, scope);
-    environment = await applyUserEnvironment(saved, scope);
   } catch (error) {
-    // Why: a wiring set must land completely; a saved record that claims
-    // enablement behind a failed login script or environment set would let
-    // status advertise a surface that never comes up, so roll back the login
-    // entry, clear the owned user-scope names, and restore the prior
-    // configuration best-effort before re-raising the original failure.
+    // Why: enable owns only the login wiring. A failed install must not leave
+    // an auto-start record behind, but it must not alter a running surface's
+    // environment; start and stop own that independent lifecycle.
     await removeLoginStartup(scope).catch(() => undefined);
-    await clearUserEnvironment(scope).catch(() => undefined);
     await restoreOpenCodeConfig(paths.opencodeConfig, prior, priorExisted).catch(() => undefined);
     throw error;
   }
   const runtime = await opencodeRuntimeStatus(paths, scope);
-  return {
-    // Why: the enable envelope is command output, so the saved configuration
-    // passes through the shared redaction exactly like `status`; the generated
-    // credential stays in the restricted config file and the user environment
-    // and never re-enters command output.
-    config: opencodePublicStatus(saved, scope.environment ?? process.env),
-    login, environment, runtime,
-  };
+  // Why: the generated credential stays in restricted configuration and never enters command output.
+  return { config: opencodePublicStatus(saved, scope.environment ?? process.env), login, runtime };
 }
 
 async function restoreOpenCodeConfig(path, prior, priorExisted) {
@@ -90,14 +75,8 @@ export async function disableOpencodeService(options, paths, scope = {}) {
   const config = await loadOpenCodeConfig(paths.opencodeConfig);
   const saved = await saveOpenCodeConfig(paths.opencodeConfig, { ...config, enabled: false, updated_at: new Date().toISOString() });
   const login = await removeLoginStartup(scope);
-  const environment = await clearUserEnvironment(scope);
   const runtime = await opencodeRuntimeStatus(paths, scope);
-  return {
-    // Why: the same command-output redaction rule as `enable` applies to the
-    // disable envelope; the record keeps its credential, the output does not.
-    config: opencodePublicStatus(saved, scope.environment ?? process.env),
-    login, environment, runtime,
-  };
+  return { config: opencodePublicStatus(saved, scope.environment ?? process.env), login, runtime };
 }
 
 export async function opencodeServiceStatus(options, paths, scope = {}) {
@@ -112,25 +91,20 @@ export async function opencodeServiceStatus(options, paths, scope = {}) {
     runtime,
     login: await loginWiringStatus(scope),
     environment,
-    // Why: disable deliberately leaves a serving surface in place, and an
-    // enable that changes the wire identity cannot rebind a live runtime, so
-    // the status marks a running surface whose binding no longer matches the
-    // persisted wiring; without this line the divergence is only discoverable
-    // by cross-reading service.bind_url against runtime.url and a stale
-    // OpenChamber environment, and the repair is a stop plus a start.
+    // Why: auto-start changes cannot rebind an active surface; expose the
+    // divergence so the operator can stop and start it deliberately.
     stale_binding: staleOpencodeBinding(config, runtime, environment),
   };
 }
 
 function staleOpencodeBinding(config, runtime, environment) {
   if (!runtime.running) return false;
-  if (!config.enabled) return true;
   if (typeof runtime.url === 'string' && runtime.url !== bindUrl(config)) return true;
-  return environment.host !== null && environment.host !== bindUrl(config);
+  return environment.supported === true && environment.host !== bindUrl(config);
 }
 
 export async function startOpencodeService(options, paths, scope = {}) {
-  const config = await loadOpenCodeConfig(paths.opencodeConfig);
+  const config = await ensureServiceConfiguration(options, paths);
   requireServiceRuntime(config);
   const startLock = new SessionLock(paths.opencode, 'opencode-start');
   try {
@@ -141,15 +115,29 @@ export async function startOpencodeService(options, paths, scope = {}) {
   }
   try {
     const status = await opencodeRuntimeStatus(paths, scope);
-    if (status.running) return { started: false, reason: 'already_running', runtime: status };
+    if (status.running) return {
+      started: false, reason: 'already_running', runtime: status,
+      ...(await applyRuntimeEnvironment(config, scope)),
+    };
     if (status.stale) await preserveStaleRuntimePid(paths);
-    return await spawnDetachedOpencodeServe(config, paths, scope);
+    const started = await spawnDetachedOpencodeServe(config, paths, scope);
+    try {
+      return { ...started, ...(await applyRuntimeEnvironment(config, scope)) };
+    } catch (error) {
+      await stopManagedRuntime(paths, scope).catch(() => undefined);
+      throw error;
+    }
   } finally {
     await startLock.release();
   }
 }
 
 export async function stopOpencodeService(options, paths, scope = {}) {
+  const stopped = await stopManagedRuntime(paths, scope);
+  return { ...stopped, ...(await clearRuntimeEnvironment(scope)) };
+}
+
+async function stopManagedRuntime(paths, scope = {}) {
   const status = await opencodeRuntimeStatus(paths, scope);
   if (!status.running) return { stopped: false, reason: 'not_running' };
   if (!status.verified) throw new ContractError('opencode_identity_unverifiable', 'opencode serve process identity could not be verified');
@@ -165,6 +153,18 @@ export async function stopOpencodeService(options, paths, scope = {}) {
   // record it verified rather than leaving a stale pid file behind.
   await removeRuntimePid(paths);
   return { stopped: true, pid: status.pid };
+}
+
+async function ensureServiceConfiguration(options, paths) {
+  const config = await loadOpenCodeConfig(paths.opencodeConfig);
+  const updated = {
+    ...config,
+    hostname: options.serveHostname ?? config.hostname,
+    port: options.servePort ?? config.port,
+    password: config.password ?? generateOpencodePassword(),
+  };
+  if (updated.hostname === config.hostname && updated.port === config.port && updated.password === config.password) return config;
+  return saveOpenCodeConfig(paths.opencodeConfig, { ...updated, updated_at: new Date().toISOString() });
 }
 
 export async function opencodeRuntimeStatus(paths, scope = {}) {
@@ -264,11 +264,10 @@ function childStarted(child) {
 }
 
 export function requireServiceRuntime(config) {
-  if (!config.enabled) throw new ContractError('opencode_service_disabled', 'the opencode wiring service is disabled; run nna opencode enable');
   // Why: the managed runtime runs unattended on a fixed loopback port, so an
-  // unauthenticated bind would present an open operator surface. enable always
-  // provisions credentials; the managed surface never exposes an unauthenticated worker.
-  if (!config.password) throw new ContractError('opencode_service_unauthenticated', 'the opencode wiring service requires Basic auth credentials; run nna opencode enable');
+  // unauthenticated bind would present an open operator surface. Start and
+  // enable both provision credentials; the worker never runs without one.
+  if (!config.password) throw new ContractError('opencode_service_unauthenticated', 'the opencode wiring service requires Basic auth credentials');
 }
 
 // --- Windows login and environment wiring -----------------------------------
@@ -358,6 +357,11 @@ async function applyUserEnvironment(config, scope = {}) {
   }
 }
 
+async function applyRuntimeEnvironment(config, scope = {}) {
+  if ((scope.platform ?? process.platform) !== 'win32') return { environment: { supported: false } };
+  return { environment: await applyUserEnvironment(config, scope) };
+}
+
 // Why: every user-scope write broadcasts WM_SETTINGCHANGE to top-level
 // windows before returning, and a desktop with stalled handlers delays each
 // call by seconds (measured near-linear at ~7.4s per name); reading first and
@@ -383,11 +387,8 @@ function pendingUserScopeWrite(observed, pair) {
 
 async function clearUserEnvironment(scope = {}) {
   try {
-    // Why: while the NNA OpenCode wiring is enabled NNA owns these four
-    // user-scope names; uninstalling the wiring removes exactly those names.
-    // Clearing reads first and transmits only names with an observed value,
-    // because deleting an absent name costs a broadcast it cannot save; a
-    // failed read degrades to the full set exactly like the wiring delta.
+    // Why: stop owns all four names. Read first to avoid needless broadcasts;
+    // an unavailable read safely degrades to clearing the full set.
     const observed = await observedUserScopeValues(scope);
     const pairs = USER_ENVIRONMENT_NAMES.map((name) => [name, null]);
     const pending = observed === null ? pairs : pairs.filter((pair) => pendingUserScopeWrite(observed, pair));
@@ -399,6 +400,11 @@ async function clearUserEnvironment(scope = {}) {
   } catch (error) {
     throw asWiringFailure(error, 'opencode_user_environment_failed', 'the OpenChamber user environment could not be cleared');
   }
+}
+
+async function clearRuntimeEnvironment(scope = {}) {
+  if ((scope.platform ?? process.platform) !== 'win32') return { environment: { supported: false } };
+  return { environment: await clearUserEnvironment(scope) };
 }
 
 async function loginWiringStatus(scope = {}) {

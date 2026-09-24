@@ -156,7 +156,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     // Keep the OpenCode wire and lifecycle command codes in one reviewable cluster.
     'opencode_bind_exposed_requires_password', 'opencode_bind_port_invalid', 'opencode_config_invalid',
     'opencode_config_too_large', 'opencode_config_version_unsupported', 'opencode_hostname_invalid', 'opencode_login_wiring_unsupported',
-    'opencode_password_invalid', 'opencode_service_disabled', 'opencode_service_unauthenticated',
+    'opencode_password_invalid', 'opencode_service_unauthenticated',
     'opencode_session_missing', 'opencode_username_invalid', 'operator_decision_unexpected',
     'option_value_missing', 'permissions_command_invalid', 'permissions_unavailable',
     'pinned_http_address_invalid', 'pinned_http_signal_required', 'plain_text_boundary_invalid', 'playwright_root_invalid',
