@@ -22,6 +22,38 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-24 · **Architecture and upstream-alignment audit.** User direction
+  confirmed that NND is an NNA-installed GUI web-service integration package;
+  Electron renders that web surface, while NNA remains the engine, governance,
+  lifecycle, and listener-policy authority. ADR 0020, PLAN, DECISIONS, and the
+  planning index now make the loopback-default/explicit-LAN rule and local-contract
+  ownership explicit. A product-level v2.0.1 OpenChamber delta audit is recorded in
+  NOTES/16 without copying source, assets, or dependencies; it creates an
+  NNA-first evaluation backlog rather than a parity commitment.
+
+- 2026-09-24 · **Targeted GUI scan.** A no-copy, feature-level inspection of the
+  local OpenChamber GUI layout and maintained component documentation produced
+  NOTES/17: NND's seven-surface GUI north star (workspace shell, navigator,
+  conversation, NNA context rail, review band, capability center, and desktop
+  doors), mapped to the NNA projections each surface needs. GUI-PLAN now links
+  this product-shape companion; W-ids and implementation sequencing remain in
+  the existing inventory and slice plan.
+
+- 2026-09-24 · **Right-side workspace decision.** User direction expanded the
+  GUI north star with a persistent docked workspace rail: Context, an NNA
+  projection/evidence Activity log, Changes, project Notes (general notes/todos/plans),
+  Browser, and Terminal. NOTES/17 defines the safety boundary (NNA-authoritative
+  events, no default private reasoning or secrets) and pane behavior. GUI-PLAN adds
+  W-116 and a future `operator-rail` slice before autonomy/capability expansion.
+
+- 2026-09-24 · **Delegated-session transcript decision.** Subagents are now
+  explicitly first-class child sessions in the GUI plan: nested live rows in the
+  session navigator, demand-loaded replayable transcripts, parent-return navigation,
+  and read-only-by-default action policy. W-117 and the `operator-rail` slice record
+  the NNA contract requirements for correlation, replay, redaction, and authority.
+  The child transcript additionally has an opt-in, hidden-until-authorized **Steer
+  subagent** toggle that reveals its steering composer without granting authority.
+
 - 2026-07-21 · Read 00-INDEX + 01 in full. Scoping decisions recorded (harness=NNA
   later + mock now; web spine → Electron; defer 10/11; stack per DECISIONS.md).
   Writing P0 scaffold.

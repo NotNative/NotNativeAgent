@@ -9,11 +9,12 @@ harness-facing names may be re-coordinated — they are centralized in
 
 **Ecosystem roles (ADR 0020, 2026-09-16)**: NNA is the root, headless-first harness
 product (harness + TUI + daemon lifecycle in core; no built-in GUI; add-on activation
-contract — NNO today, NND as second consumer). NND is the GUI integration package
-(web service + desktop shell + client engine) plus a standalone remote client; NND
-client can only connect to NNA instances with the NND web-service package installed.
-NNO is the business layer installed on top of NNA. Delegated contexts spawn per
-consumer (run-as entitlement). Full framing: `docs/architecture/0020-nna-ecosystem-topology.md`.
+contract — NNO today, NND as second consumer). NND is the GUI integration package:
+an NNA-activated web service plus a desktop shell that renders it. NND can offer a
+remote door only to NNA instances that have activated the NND web-service package;
+it is never a standalone engine server. NNO is the business layer installed on top
+of NNA. Delegated contexts spawn per consumer (run-as entitlement). Full framing:
+`docs/architecture/0020-nna-ecosystem-topology.md`.
 
 | Reference (OpenChamber) | NotNativeDesktop |
 |---|---|
@@ -59,7 +60,7 @@ consumer (run-as entitlement). Full framing: `docs/architecture/0020-nna-ecosyst
 |---|---|---|
 | 3902 | dev API server (HMR mode) | `NOTNATIVE_HMR_API_PORT` |
 | 5180 | dev Vite UI | `NOTNATIVE_HMR_UI_PORT` |
-| 3000 | standalone server default (`notnative serve` era, P4) | `NOTNATIVE_PORT` |
+| 3000 | development NND web-service default | `NOTNATIVE_PORT` |
 
 ## Architecture commitments (from doc 01, adopted)
 

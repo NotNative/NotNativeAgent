@@ -1,6 +1,6 @@
 {
   "name": "notnative-desktop",
-  "version": "20260922.0.4",
+  "version": "20260924.0.1",
   "private": true,
   "type": "module",
   "description": "NotNativeDesktop — a cleanroom workspace for running and reviewing agent work.",
@@ -26,7 +26,7 @@
     "smoke:test": "node scripts/smoke-test.js",
     "release:check": "node scripts/release-gates.js"
   },
-  "nnd_version": "20260922-4",
+  "nnd_version": "20260924-1",
   "pnpm": {
     "onlyBuiltDependencies": [
       "node-pty"

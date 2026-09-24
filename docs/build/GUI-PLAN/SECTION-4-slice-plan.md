@@ -153,6 +153,63 @@ W-coverage: W-17, W-18 (core), W-20, W-23, W-16, W-87's UI half.
 
 ---
 
+## SLICE-C2 · `operator-rail` — observe work without leaving the session
+
+**Guarantee:** "I can keep the active conversation on screen while opening a
+right-side Context, Activity, Changes, Notes, Browser, or Terminal pane. The
+Activity pane follows the live session as a readable event log; each entry opens its
+real supporting evidence. Closing and reopening a supported pane preserves my useful
+working state without background polling when it is hidden."
+
+Tasks:
+
+1. Replace the header-toggle replacement model in `MainLayout` with a dockable
+   surface host and narrow rail. Persist local order, visibility, per-engine-context
+   identity plus directory widths, panel open state, and selected tab; make the host a UI-state owner, not a
+   second source of session state.
+2. Promote the existing work-status content into the Context surface. Add the Activity
+   surface over explicit normalized mock evidence events first; message parts and
+   blocking records remain linked evidence, not synthetic log rows. Its event model
+   must retain order, event identity, correlation, severity, evidence link,
+   explicit unavailable/compacted gaps, and NNA-authored redaction/revocation/correction
+   frames. The mock must emit explicit normalized evidence events; NND must not infer a
+   purported engine log from message parts or blocking records. No private reasoning or
+   secret-bearing raw payload can enter the surface by default.
+3. Host the existing Diff/Files/Git material as Changes, and host Terminal as a
+   keep-alive pane. Adopt visibility-gated refresh/reconnect behavior rather than
+   replacing a hidden pane with a new instance.
+4. Add the Notes surface as project-owned general notes, todos, and plans. Keep agent
+   memory source-labelled and behind the later NNA knowledge contract. A plan opens in
+   the panel with an explicit project owner.
+5. Reserve Browser as a rail surface now but ship it only with the preview/inspection
+   contract. It is an untrusted guest surface with explicit capture/take-over gates.
+6. In SLICE-E, replace mock activity inputs with NNA projection/evidence replay and
+   verify resume cursors, redaction, permission/question links, tool receipts, and
+   state authority against the real harness.
+7. Add delegated-session rows to the navigator and read-only child transcript tabs.
+   Use child summaries for sidebar activity and demand-load each transcript only when
+   opened. The real NNA adapter must supply parent/child correlation, replay cursors,
+   redaction, and per-action authority. Add the child transcript's **Steer subagent**
+   toggle only when NNA grants steering capability; it reveals a labelled steering
+   composer and preserves an unsent draft when toggled off. NND must not let a parent
+   session imply control over its child. Render a discoverable child whose parent is
+   unavailable in a labelled orphan group; its parent reference and return action must
+   be disabled rather than guessed.
+
+8. Define compact-viewport behavior before mounting the rail: below the usable
+   side-by-side threshold, foreground exactly one surface with an explicit return to
+   chat. A resize must not silently hide the chat or move composer focus.
+
+**Seams:** initial Context/Changes/Terminal use existing NND stores; initial Activity
+uses the mock's explicit normalized evidence events. Browser and NNA agent-memory data remain unavailable until
+their governing contracts land. **Precedes:** richer autonomy and capability UI, which
+should appear in the rail instead of creating disconnected status pages.
+
+W-coverage: W-05, W-06, W-13, W-17, W-19, W-46–W-55, W-56–W-63, W-106–W-113,
+W-116, W-117.
+
+---
+
 ## SLICE-D · `autonomy` — goals, scheduled tasks, multi-run/fusion
 
 **Guarantee (works fully once NNA real; testable on mock):** "I can arm a

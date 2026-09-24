@@ -20,7 +20,10 @@ below for what each author flagged as approximated.
 OpenChamber web server (`packages/web`) + thin native shells (Electron / VS Code / Capacitor).
 Its server talks to OpenCode over a narrow REST+SSE surface, and the UI talks to the server.
 When replacing OpenCode, the work concentrates on the seam catalog in
-`02-opencode-harness-contract.md`; most UI, sync, and shell behavior carries over as-is.
+`02-opencode-harness-contract.md`; most UI, sync, and shell behavior is inspiration to
+re-express against NNA, never code to copy. NNA remains the architectural authority:
+NND is its installable GUI web-service integration package, and Electron is a shell
+that renders the same web GUI. See ADR 0020 and `docs/build/NOTES/16-architecture-and-upstream-alignment.md`.
 
 ---
 
@@ -129,7 +132,8 @@ stated behavior, and as polish targets for your own implementation (several are 
 
 ## 6 · Drift Note
 
-These docs describe the repo as of **v1.23.0 / 2026-09-14**. If your reference checkout moves,
+These docs describe the baseline repo as of **v1.23.0 / 2026-09-14**. The separately
+recorded v2.0.1 product-delta audit is not a replacement for that baseline. If your reference checkout moves,
 re-run the affected deep-dive rather than patching prose. Docs intentionally avoid restating
 how features *should* work — they state how this codebase *does* work, except where a doc
 explicitly names a "hardening candidate" (§5) as a deviation you may take.

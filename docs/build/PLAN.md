@@ -1,10 +1,12 @@
 # NotNativeDesktop — Build Plan
 
-Cleanroom re-implementation of OpenChamber per `docs/planning/`. Harness strategy: the
-agentic backend will be **NotNativeAgent (NNA)**, integrated later; until then the app
-runs against a **mock harness** implementing the doc-02 wire contract. Seam isolation is
-mandatory: all harness traffic flows through the server's `harness/` adapter so an NNA
-adapter drops in without touching UI/sync code.
+Cleanroom-inspired re-implementation of the OpenChamber product surface per
+`docs/planning/`, with NNA as the architectural authority. NND is an NNA-installed
+web-service integration package; its Electron application is a shell that renders the
+web GUI. Harness strategy: until the NNA activation and harness contracts are ready,
+the app runs against a **mock harness** implementing the doc-02 wire contract. Seam
+isolation is mandatory: all harness traffic flows through the server's `harness/`
+adapter so an NNA adapter drops in without touching UI/sync code.
 
 Ordering (user-approved): suggested reading order, shells limited to Electron.
 VS Code (10) and Mobile (11) are **long-term deferred** — their contracts stay noted in
@@ -28,8 +30,8 @@ doc summaries but no code is written for them.
 | P11 Preview/inspection | 13 | Dev-server discovery, preview embedding, element inspection, walkthrough pipeline |
 | P12 Desktop shell (delivery vehicle) | 09 | NND-as-product shell: connection manager (multi-NNA instances), in-process server optional, IPC bridge + security gating, tray, boot outcome, updates, packaging |
 | P13 Integration verify | all | End-to-end run of core journeys; deferred-items register reviewed; NNA integration notes written |
-| PA Ecosystem seam | ADR 0020 | NNA harness surface lands (projection frames, 13-state authority, mode get/set, entitlement slot); NND adapter replaces mock; acceptance = NND harness contract suite green against real NNA |
-| PB Shell and doors | ADR 0020 | NND web-service package emits/installs into NNA (local-integration mode); desktop shell; tray/facelifting on NNA lifecycle; browser + shell doors |
+| PA Ecosystem seam | ADR 0020 | NNA activation and harness surfaces land (projection frames, 13-state authority, mode get/set, entitlement slot, lifecycle ownership); NND adapter replaces mock; acceptance = NND harness contract suite green against real NNA |
+| PB Shell and doors | ADR 0020 | NND web-service package installs into and is activated by NNA; NNA-owned loopback default and explicit LAN gate; desktop shell; tray/facelifting on NNA lifecycle; browser + shell doors |
 | PC Delegated contexts | ADR 0020 | NNO user contexts with entitlement; gateway conversation contexts; entitlement-neutral local token retires the mock assumptions |
 
 Deferred (no phase yet): 10 VS Code, 11 Mobile/Capacitor. Mini Chat window + embedded

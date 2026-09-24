@@ -4,7 +4,7 @@ Status: accepted (design freeze with NNA-side stub 0020-ecosystem-integration.md
 
 ## Decision
 
-NotNativeDesktop is an add-on package and a client product for NNA. NNA is the root,
+NotNativeDesktop is an add-on package and GUI product for NNA. NNA is the root,
 headless-first agent harness: agentic engine, governance engine, projection, and
 daemon lifecycle live in NNA core. The TUI is NNA's native interface. NNA core ships
 without a web or desktop interface. NND provides the GUI as an integration package
@@ -13,7 +13,9 @@ client. NNO is the business layer that installs on top of NNA and drives it.
 
 The three products keep separate repositories, identities, and responsibilities. The
 seam between them is NNA's harness surface (doc 02 owns the wire contract; the
-P-01…P-24 port catalog is the implementation checklist).
+P-01…P-24 port catalog is the implementation checklist). OpenChamber is inspiration
+for NND's product surface only; it is not an integration target or architectural
+authority.
 
 ## Product roles
 
@@ -21,12 +23,31 @@ P-01…P-24 port catalog is the implementation checklist).
 |---|---|---|---|
 | NNA core | Harness, TUI, headless/IPC, daemon lifecycle, governance, projection, providers | Add-on activation contract, service registration, loopback bindings | Own no web/desktop GUI; no surface configuration; no client policy |
 | NND (local integration) | NND web-service package (GUI bundle + static serving + GUI-companion routes) mounted into NNA; desktop shell; tray | The GUI surface on a local NNA; tray + shell as the face of NNA's lifecycle API | Decide engine state; own lifecycle commands; ship services outside its package |
-| NND (client-only) | Desktop shell + client sync engine + connection manager | Connections to NNA endpoints that have the NND web-service package installed | Spawn or host harness processes; substitute for the NNA TUI |
+| NND (remote door) | Desktop shell + client sync engine + connection manager | Connections to NNA endpoints that have the NND web-service package installed | Spawn or host harness processes; substitute for the NNA TUI |
 | NNO | Business layer: RBAC, user management, org integrations | Managed NNA contexts per user/conversation; entitlement pass-through | Grant NNA more visibility than the acting principal holds |
 
 Installation rule (the keystone): an NND client can only connect to an NNA instance
 with the NND web-service package installed. GUI access is installed, like NNO — it is
 not a congenital feature of the harness.
+
+## Local integration boundary
+
+NND is installed as an NNA integration package. NNA activates it, supplies the
+authenticated engine-facing capability, and owns service lifecycle and listener
+policy. NND supplies GUI assets, GUI-companion routes, and presentation state. The
+Electron shell renders the activated web GUI; it does not become an engine host.
+
+The package-to-engine transport is an NNA-owned, versioned local integration
+contract. NNA may use an in-process adapter, a loopback service channel, or a
+supervised subprocess. When a subprocess is used, standard input and standard output
+carry framed protocol messages and standard error carries diagnostics only. No browser
+or Electron renderer consumes that process stream directly. The final transport choice
+must preserve the harness contract, authenticated authority, replayable projection
+frames, cancellation, and bounded recovery.
+
+This decision intentionally does not define a new wire format. The NNA package
+activation contract and doc 02 own that work; the current mock adapter remains a
+development seam until their contract test suite can replace it.
 
 ## Engine contexts and lifecycle
 
@@ -82,8 +103,9 @@ to one served bundle, so cross-door mirroring is inherent, not synchronized.
 - Network exposure (0.0.0.0) is an explicit opt-in that activates NNA's auth surface
   (password/passkey/token) and recommends relay/TLS. The settings and first-run UX
   present exposure as a consent moment.
-- NND remote clients always authenticate against the target instance's configured
-  surface; the shell stores instances and entitlements per connection.
+- A remote NND door exists only after a target NNA instance has activated the NND
+  web-service package. It authenticates against that configured surface; the shell
+  stores instances and entitlements per connection.
 
 ## Harness surface deltas (doc 02 amendment owner: NNA, via its harness package)
 
@@ -103,7 +125,7 @@ to one served bundle, so cross-door mirroring is inherent, not synchronized.
 2. NND client attaches (adapter replaces the mock harness; 84 sync tests as the
    acceptance suite).
 3. NND web-service package (GUI hosting fuses toward NNA packaging; NND's server
-   role becomes the package, not a product).
+   role becomes the package, not a standalone product).
 4. NND desktop shell (Electron; remote attach rides the same client path).
 5. TUI becomes a spine client (attach-or-ephemeral; direct in-process path retires).
 6. Delegated contexts (NNO user contexts with entitlement; gateway conversation

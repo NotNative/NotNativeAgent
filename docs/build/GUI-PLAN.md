@@ -20,6 +20,10 @@ from the verified reference source layout.
 | 3 | [GUI-PLAN/SECTION-3-reference-map.md](GUI-PLAN/SECTION-3-reference-map.md) | **Reference map** — per capability, the OpenChamber package + file path that implements it and what to port (UI component or server lib); bonus capabilities; deliberate deltas |
 | 4 | [GUI-PLAN/SECTION-4-slice-plan.md](GUI-PLAN/SECTION-4-slice-plan.md) | **Slice plan** — ordered slices, per-slice user-facing acceptance guarantee, file targets, harness seams real vs mock, ordering constraints; SLICE-A labeled |
 
+The product-shape companion, [NOTES/17-nnd-gui-north-star.md](NOTES/17-nnd-gui-north-star.md),
+records the NNA-first visual experience that these implementation slices should converge on.
+It is a feature-level, no-copy upstream scan rather than a second W-id inventory.
+
 ## Conventions
 
 - Wanted capabilities carry stable ids `W-xx` (Section 1) so slices reference
@@ -48,6 +52,10 @@ from the verified reference source layout.
   mock (part renderer catalog incl. tool cards, permission/question flows,
   fixed sidebar, folders/archive, AI rename, timeline dialog), plus the
   session-mutations the server already lacks (PATCH rename channel).
+- SLICE-C2 (`operator-rail`): a dockable right-side workspace host that keeps
+  chat visible beside Context, Activity, Changes, Notes, Browser, and Terminal.
+  The initial Activity surface reads the mock's durable event/part evidence;
+  the real NNA adapter replaces it with replayable projection and evidence frames.
 - SLICE-D (`autonomy`): message-queue UI on the existing server runtime,
   goal routes + runtime + UI, scheduled tasks (server + UI), multi-run/fusion;
   wire the `openchamber:*`→`notnative:*` control events these need.
@@ -62,7 +70,8 @@ from the verified reference source layout.
   i18n completeness (12 locales), shortcut parity (38 bindings).
 
 Ordering hard rules: SLICE-A first (it is the acceptance hinge for everything
-UI-visible). SLICE-B/C both depend on A's streaming loop only. SLICE-D needs
+UI-visible). SLICE-B/C both depend on A's streaming loop only. SLICE-C2 depends
+on A and can follow B/C; it must not invent a second engine-state model. SLICE-D needs
 A + (for scheduled task runs) a real NNA. SLICE-E is required before D's
 goals/scheduled runs produce real work and before F's notifications carry
 real identity. Details and per-slice acceptance guarantees: SECTION-4.

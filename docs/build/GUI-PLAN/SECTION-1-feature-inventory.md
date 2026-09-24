@@ -383,6 +383,29 @@ docs' own acceptance lists and are the authority for "done".
 - W-115 Notifications surfaces: attention required-activity chips + status
   routes + web-push (03 §5.37, §6.3; 09 §10.2; 11 §C.6 for mobile delivery).
 
+### 1.15 NNA workspace observability rail (NNA-first addition)
+
+- W-116 Dockable right-side workspace rail: device-local rail order/hide and
+  per-engine-context width; Context, Activity, Changes, Notes, Browser, and
+  Terminal surfaces; keep-alive and visibility-gating rules; expand/close and
+  surface-tab behavior. Activity is a replayable, filterable, evidence-linked NNA
+  session log—not an inferred client timeline—and must apply NNA-authored
+  redaction/revocation/correction to already cached rows as well as redact private
+  reasoning, credentials, and unsafe diagnostic payloads. Compact view has an explicit
+  return-to-chat affordance. Notes groups explicit general notes,
+  todos, plans, and separately sourced agent memory. See NOTES/17 §"Right-side
+  workspace rail". This adds NNA-native acceptance criteria beyond the v1.23.0
+  cleanroom baseline.
+- W-117 Delegated-session visibility and transcript: child rows nested under the
+  initiating session with NNA-projected title/agent/live state/blocked or unread
+  precedence; demand-loaded replayable child transcripts with tool evidence and a
+  parent return affordance; read-only by default, with a hidden-until-authorized
+  **Steer subagent** transcript-header toggle that deliberately reveals its composer;
+  prompt/steer/cancel/blocker actions remain NNA-projected authorization decisions.
+  Parent/child correlation, cursor gaps, redaction, deletion, entitlement loss, and a
+  still-visible child with an unavailable parent must render honestly (including no
+  guessed parent navigation). See NOTES/17 §"Delegated-session transcripts".
+
 ### 1.14 Deliberately NOT the GUI acceptance list (tracked separately)
 
 - VS Code extension surface (doc 10) and mobile/Capacitor surface (doc 11) are
