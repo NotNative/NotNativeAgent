@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Docked operator surfaces. Activity consumes explicit harness evidence only. */
-import { useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
@@ -21,11 +21,26 @@ const SURFACES: readonly { id: Surface; label: string }[] = [
 ];
 
 export function OperatorRail({ store, engine, directory }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; directory: string }): ReactNode {
-  const [surface, setSurface] = useState<Surface>('context');
+  const storageKey = surfaceStorageKey(directory);
+  const [selection, setSelection] = useState(() => ({ key: storageKey, surface: readSurface(storageKey) }));
+  // A single chat view can move between directories without remounting.  Do
+  // not write its old selection into the newly selected directory before its
+  // stored selection has been read.
+  const surface = selection.key === storageKey ? selection.surface : readSurface(storageKey);
+  useEffect(() => {
+    if (selection.key !== storageKey) setSelection({ key: storageKey, surface: readSurface(storageKey) });
+  }, [selection.key, storageKey]);
+  useEffect(() => {
+    if (selection.key !== storageKey) return;
+    try { localStorage.setItem(storageKey, selection.surface); } catch { /* optional device preference */ }
+  }, [selection.key, selection.surface, storageKey]);
   // TerminalView owns the observer and the ten-minute keepalive.  Once the
   // user has opened it, keep that controller mounted while another rail
   // surface is selected so a live background terminal is not silently reaped.
-  const [terminalEverOpened, setTerminalEverOpened] = useState(false);
+  const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);
+  useEffect(() => {
+    if (selection.key === storageKey && surface === 'terminal') setTerminalOpenedKey(storageKey);
+  }, [selection.key, storageKey, surface]);
   return (
     <aside className="hidden w-[300px] shrink-0 border-l border-white/10 bg-neutral-950/40 xl:flex" data-testid="operator-rail">
       <nav className="flex w-10 shrink-0 flex-col border-r border-white/10 py-2" aria-label="Operator surfaces">
@@ -33,8 +48,8 @@ export function OperatorRail({ store, engine, directory }: { store: StoreApi<Dir
           <button key={item.id} type="button" title={item.label} aria-label={item.label} aria-pressed={surface === item.id}
             className={`px-1 py-2 text-[9px] ${surface === item.id ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
             onClick={() => {
-              if (item.id === 'terminal') setTerminalEverOpened(true);
-              setSurface(item.id);
+              if (item.id === 'terminal') setTerminalOpenedKey(storageKey);
+              setSelection({ key: storageKey, surface: item.id });
             }}>{item.label.slice(0, 1)}</button>
         ))}
       </nav>
@@ -43,7 +58,7 @@ export function OperatorRail({ store, engine, directory }: { store: StoreApi<Dir
         {surface === 'activity' ? <ActivitySurface store={store} /> : null}
         {surface === 'changes' ? <GitView directory={directory} visible compact /> : null}
         {surface === 'notes' ? <ProjectNotes directory={directory} /> : null}
-        {terminalEverOpened ? (
+        {terminalOpenedKey === storageKey || surface === 'terminal' ? (
           <div className={surface === 'terminal' ? 'flex h-full min-h-0' : 'hidden'}>
             <TerminalView directory={directory} visible={surface === 'terminal'} compact />
           </div>
@@ -52,6 +67,19 @@ export function OperatorRail({ store, engine, directory }: { store: StoreApi<Dir
       </div>
     </aside>
   );
+}
+
+function readSurface(key: string): Surface {
+  try { const value = localStorage.getItem(key); return SURFACES.some((surface) => surface.id === value) ? value as Surface : 'context'; } catch { return 'context'; }
+}
+
+/** Match the harness directory identity: slash spelling and drive-case must
+ * not turn one Windows project into two independent rail preferences. */
+function surfaceStorageKey(directory: string): string {
+  let normalized = directory.trim().replaceAll('\\', '/');
+  normalized = normalized.replace(/^([a-z]):/u, (_match, drive: string) => `${drive.toUpperCase()}:`);
+  normalized = normalized.length > 1 ? normalized.replace(/\/+$/u, '') : normalized;
+  return `nnd.operator-rail.surface:${normalized}`;
 }
 
 function ActivitySurface({ store }: { store: StoreApi<DirectoryStore> }): ReactNode {

@@ -19,6 +19,7 @@ afterEach(() => {
   container = null;
   rootHandle = null;
   document.body.innerHTML = '';
+  window.localStorage.clear();
   useSessionViewStore.setState({ currentSessionId: null, activeDirectory: '' });
 });
 
@@ -39,5 +40,31 @@ describe('OperatorRail', () => {
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).not.toContain('Other session');
     act(() => (document.querySelector('button[aria-label="Browser"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="operator-browser"]')!.textContent).toContain('reserved for the next integration slice');
+  });
+
+  it('loads the new directory preference without overwriting it during a live directory switch', () => {
+    window.localStorage.setItem('nnd.operator-rail.surface:D:/alpha', 'activity');
+    window.localStorage.setItem('nnd.operator-rail.surface:D:/beta', 'context');
+    const store = createDirectoryStore();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/alpha" />));
+    expect((document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
+
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/beta" />));
+    expect((document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
+    expect(window.localStorage.getItem('nnd.operator-rail.surface:D:/beta')).toBe('context');
+    expect(window.localStorage.getItem('nnd.operator-rail.surface:D:/alpha')).toBe('activity');
+  });
+
+  it('uses one preference for equivalent Windows directory spellings', () => {
+    window.localStorage.setItem('nnd.operator-rail.surface:D:/same-project', 'activity');
+    const store = createDirectoryStore();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory={'d:\\same-project'} />));
+    expect((document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
   });
 });
