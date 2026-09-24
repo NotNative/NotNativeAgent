@@ -122,7 +122,7 @@ test('reviewer approval proceeds directly to native elevation', async () => {
   };
   const reviewer = new MandatoryReviewer({
     ledger: new ReviewerLedger({ durable: false, sessionId: 'elevation-review' }),
-    semanticReviewer: { async review() { return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' }; } },
+    semanticReviewer: { async review() { return { outcome: 'approve', confidence: 1, reason_code: 'intent_match', authority_anchors: [1] }; } },
   });
   const decision = await reviewer.review(request, {
     authority: { id: 'authority-1', intent: [{ content: 'Mount /dev/nvme1n1p2 at /mnt/windows', sequence: 1 }], mission: null },

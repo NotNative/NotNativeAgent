@@ -22,10 +22,17 @@ selection and semantic review receive this projection so a terse continuation or
 instruction does not obscure older causal evidence or the broader objective. This projection
 supplies context, not authority: restrictions and replacements remain governed by the complete
 authenticated authority record, and model text, tool output, or a plan cannot expand it.
-When authenticated input is a conservative referential approval, the engine may also present the
-immediately preceding completed assistant proposal as separately attributed, user-adopted objective
-context. Semantic review may use it only where it remains compatible with the authenticated intent
-ledger; it cannot override a restriction, invent scope, or become standalone authority.
+The engine also presents a deterministic conversation text lane: NNA extracts every completed
+operator and model utterance from the session transcript in order, under byte bounds that omit
+older utterances and report the omission count. NNA owns every transcript write, so a `user` item
+can only originate from authenticated ingress; the lane certifies utterance fidelity and order and
+never itself grants approval. Reviewer causal evidence retains tool observations only, so relevance
+selection can no longer omit one utterance while retaining another. A semantic approval must cite
+at least one authenticated intent sequence that authorizes the exact request; a citation naming an
+unknown sequence is a reviewer output failure that fails the request closed without latching a
+substantive denial. An active mission envelope remains the structured citation basis, so its approval
+may cite an empty list. Model conversation text may explain what an operator assent refers to, but
+it cannot replace a citation.
 Mission turn consumption is a separate durable authority fact. It is restored across process
 restart and deliberately survives conversation clear; persistence must succeed before the
 turn proceeds, so restart, clear, or a failed journal write cannot replenish mission bounds.

@@ -805,7 +805,7 @@ test('AC-HEAD-02/AC-HEAD-11/AC-TURN-06 headless auto-review stays correlated wit
   const release = new Promise((resolve) => { releaseReview = resolve; });
   const semanticReviewer = { async review() {
     reviewStarted(); await release;
-    return { outcome: 'approve', confidence: 1, reason_code: 'exact_user_intent' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'exact_user_intent', authority_anchors: [1] };
   } };
   const provider = { async *stream() {
     step += 1;

@@ -40,12 +40,80 @@ test('reviewer outage fails closed without poisoning a later review of the same 
   let available = false;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     if (!available) throw new Error('offline');
-    return { outcome: 'approve', confidence: 1, reason_code: 'authorized' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'authorized', authority_anchors: [1] };
   } } });
   assert.equal((await reviewer.review(mutationRequest('outage-1'), context)).reasonCode, 'semantic_review_unavailable');
   assert.equal(ledger.summary(mutationRequest('outage-2'))[0].reasonCode, 'semantic_review_unavailable');
   available = true;
   assert.equal((await reviewer.review(mutationRequest('outage-2'), context)).outcome, 'approve');
+});
+
+test('semantic approval must cite an authenticated intent sequence', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'anchor-missing' });
+  let semanticCalls = 0;
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    semanticCalls += 1;
+    return { outcome: 'approve', confidence: 1, reason_code: 'lane_assent_read', authority_anchors: [] };
+  } } });
+  const first = await reviewer.review(mutationRequest('anchor-missing-1'), {
+    ...context,
+    conversationTextLane: {
+      assembled_by: 'nna', source: 'session_transcript', item_count: 1, omitted_items: 0, content_bytes: 30,
+      items: [{ index: 0, role: 'assistant', turn_id: 'turn-1', trust: 'untrusted_model', content: 'I will write the file.', content_sha256: 'a'.repeat(64) }],
+    },
+  });
+  assert.equal(first.reasonCode, 'authority_anchor_missing');
+  assert.equal(first.outcome, 'deny_with_guidance');
+  const second = await reviewer.review(mutationRequest('anchor-missing-2'), context);
+  assert.equal(second.reasonCode, 'authority_anchor_missing');
+  assert.equal(semanticCalls, 2);
+});
+
+test('a lane utterance never substitutes for an authenticated citation', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'lane-no-authority' });
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
+    assert.equal(input.conversationTextLane.assembled_by, 'nna');
+    assert.equal(Object.hasOwn(input, 'approvedProposal'), false);
+    assert.match(input.conversationTextLane.items[1].content, /go ahead/u);
+    return { outcome: 'approve', confidence: 1, reason_code: 'misread_lane' };
+  } } });
+  const result = await reviewer.review(mutationRequest('lane-no-authority'), {
+    ...context,
+    authority: { id: 'authority-1', intent: [], mission: null },
+    conversationTextLane: {
+      assembled_by: 'nna', source: 'session_transcript', item_count: 2, omitted_items: 0, content_bytes: 40,
+      items: [
+        { index: 0, role: 'assistant', turn_id: 'turn-1', trust: 'untrusted_model', content: 'I will delete the logs. Approve?', content_sha256: 'b'.repeat(64) },
+        { index: 1, role: 'user', turn_id: 'turn-1', trust: 'authenticated_utterance', content: 'yes, go ahead', content_sha256: 'c'.repeat(64) },
+      ],
+    },
+  });
+  assert.equal(result.reasonCode, 'authority_anchor_missing');
+});
+
+test('a fabricated citation is rejected instead of trusted', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'anchor-fabricated' });
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    return { outcome: 'approve', confidence: 1, reason_code: 'fabricated_history', authority_anchors: [99] };
+  } } });
+  const result = await reviewer.review(mutationRequest('anchor-fabricated'), context);
+  assert.equal(result.reasonCode, 'authority_anchor_invalid');
+});
+
+test('a cited approval carries the sequences into the decision record', async () => {
+  const ledger = new ReviewerLedger({ durable: false, sessionId: 'anchor-carried' });
+  const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
+    return { outcome: 'approve', confidence: 1, reason_code: 'cited_intent', authority_anchors: [1, 1, 2] };
+  } } });
+  const result = await reviewer.review(mutationRequest('anchor-carried'), {
+    ...context,
+    authority: { ...context.authority, intent: [
+      { content: 'Change target.txt', sequence: 1 },
+      { content: 'Keep the comment terse', sequence: 2 },
+    ] },
+  });
+  assert.equal(result.outcome, 'approve');
+  assert.deepEqual(result.authorityAnchors, [1, 2]);
 });
 
 test('unclassified authenticated prose routes risky action through semantic review', async () => {
@@ -56,7 +124,7 @@ test('unclassified authenticated prose routes risky action through semantic revi
     semanticReviewer: { async review(input) {
       calls += 1;
       assert.equal(input.authenticatedIntent[0].kind, 'statement');
-      return { outcome: 'approve', confidence: 1, reason_code: 'semantic_operator_intent' };
+      return { outcome: 'approve', confidence: 1, reason_code: 'semantic_operator_intent', authority_anchors: [1] };
     } },
   });
   const result = await reviewer.review(mutationRequest('unclassified-authority'), {
@@ -93,7 +161,7 @@ test('reversible filesystem mutations use semantic authorization without determi
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1;
     return semanticCalls === 1
-      ? { outcome: 'approve', confidence: 1, reason_code: 'tracked_edit_authorized' }
+      ? { outcome: 'approve', confidence: 1, reason_code: 'tracked_edit_authorized', authority_anchors: [1] }
       : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'read_only_intent_conflict' };
   } } });
   const request = {
@@ -144,7 +212,7 @@ test('audit artifacts and source mutations both receive semantic authorization',
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1;
-    if (semanticCalls === 1) return { outcome: 'approve', confidence: 1, reason_code: 'report_artifact_authorized' };
+    if (semanticCalls === 1) return { outcome: 'approve', confidence: 1, reason_code: 'report_artifact_authorized', authority_anchors: [1] };
     return { outcome: 'deny_with_guidance', confidence: 1, reason_code: semanticCalls === 2
       ? 'source_mutation_not_requested' : 'newer_write_restriction' };
   } } });
@@ -195,7 +263,7 @@ test('an explicit build and a later restriction are interpreted by semantic revi
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1;
     return semanticCalls === 1
-      ? { outcome: 'approve', confidence: 1, reason_code: 'derived_build_file' }
+      ? { outcome: 'approve', confidence: 1, reason_code: 'derived_build_file', authority_anchors: [1] }
       : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'newer_build_restriction' };
   } } });
   const buildContext = {
@@ -230,7 +298,7 @@ test('semantic review can preserve a scoped target grant within a restriction', 
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     semanticCalls += 1;
     assert.equal(input.intentRelation, 'uncertain');
-    return { outcome: 'approve', confidence: 1, reason_code: 'scoped_target_grant' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'scoped_target_grant', authority_anchors: [1] };
   } } });
   const request = {
     ...mutationRequest('scoped-target'),
@@ -255,7 +323,7 @@ test('additive steering remains available to semantic review with the active bui
     ledger, semanticReviewer: { async review(input) {
       semanticCalls += 1;
       assert.equal(input.conversationIntent.length, 2);
-      return { outcome: 'approve', confidence: 1, reason_code: 'active_build_continues' };
+      return { outcome: 'approve', confidence: 1, reason_code: 'active_build_continues', authority_anchors: [1] };
     } },
   });
   const request = {
@@ -286,7 +354,7 @@ test('approval execution window begins when a slow review finishes', async () =>
   const reviewer = new MandatoryReviewer({
     ledger, decisionTtlMs: 5_000,
     semanticReviewer: { async review() {
-      return { outcome: 'approve', confidence: 1, reason_code: 'explicit_intent' };
+      return { outcome: 'approve', confidence: 1, reason_code: 'explicit_intent', authority_anchors: [1] };
     } },
   });
   const request = Object.freeze({ ...mutationRequest('slow-review'), expiresAt: Date.now() - 1 });
@@ -301,7 +369,7 @@ test('an explicitly requested external mutation remains semantic-review required
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'explicit_external_intent' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'explicit_external_intent', authority_anchors: [2] };
   } } });
   const request = {
     ...mutationRequest('external-write'),
@@ -321,7 +389,7 @@ test('semantic review receives content-free transactional mutation evidence', as
   let captured;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     captured = input;
-    return { outcome: 'approve', confidence: 1, reason_code: 'transaction_evidence_matches' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'transaction_evidence_matches', authority_anchors: [1] };
   } } });
   const secretOld = 'private old value';
   const secretNew = 'private new value';
@@ -488,7 +556,7 @@ test('uncertain process effects reach semantic review even when the request soun
   let captured;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     captured = input;
-    return { outcome: 'approve', confidence: 1, reason_code: 'health_check_matches_intent' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'health_check_matches_intent', authority_anchors: [1] };
   } } });
   const result = await reviewer.review({
     ...readRequest('uncertain-health-process'), toolName: 'shell_run',
@@ -499,7 +567,7 @@ test('uncertain process effects reach semantic review even when the request soun
     },
   }, {
     ...context,
-    authority: { id: 'authority-1', intent: [{ content: 'Perform a health check on this computer.', kind: 'statement' }], mission: null },
+    authority: { id: 'authority-1', intent: [{ content: 'Perform a health check on this computer.', kind: 'statement', sequence: 1 }], mission: null },
     definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
   });
   assert.equal(result.outcome, 'approve');
@@ -517,7 +585,7 @@ test('consequential process requests leave exact action authorization to semanti
     const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
       captured = input;
       return semanticOutcome === 'approve'
-        ? { outcome: 'approve', confidence: 1, reason_code: 'disk_format_authorized' }
+        ? { outcome: 'approve', confidence: 1, reason_code: 'disk_format_authorized', authority_anchors: [1] }
         : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'disk_format_not_authorized', guidance: 'Do not format the disk.' };
     } } });
     const result = await reviewer.review({
@@ -529,7 +597,7 @@ test('consequential process requests leave exact action authorization to semanti
       },
     }, {
       ...context,
-      authority: { id: 'authority-1', intent: [{ content: operatorIntent, kind: 'statement' }], mission: null },
+      authority: { id: 'authority-1', intent: [{ content: operatorIntent, kind: 'statement', sequence: 1 }], mission: null },
       definition: { name: 'shell_run', sideEffect: 'unknown', scope: 'workspace' },
     });
     assert.equal(result.outcome, expectedOutcome);
@@ -582,7 +650,7 @@ test('an MCP memory lookup carries user intent and remote tool purpose into sema
   let captured;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     captured = input;
-    return { outcome: 'approve', confidence: 1, reason_code: 'memory_lookup_matches_intent' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'memory_lookup_matches_intent', authority_anchors: [1] };
   } } });
   const result = await reviewer.review({
     ...readRequest('memory-fact-query'), toolName: 'mcp_memory_memory_fact_query',
@@ -608,7 +676,7 @@ test('semantic review receives causal evidence as explicitly untrusted context',
   let captured;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     captured = input;
-    return { outcome: 'approve', confidence: 1, reason_code: 'derived_target_matches' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'derived_target_matches', authority_anchors: [1] };
   } } });
   const request = {
     ...readRequest('ping-derived'), toolName: 'process_run',
@@ -669,7 +737,7 @@ test('incomplete recovered authority permits reads but cannot authorize conseque
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'incomplete-authority' });
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
-    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'model_allowed' };
+    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'model_allowed', authority_anchors: [] };
   } } });
   const authority = { ...context.authority, complete: false };
   const denied = await reviewer.review(mutationRequest('incomplete-mutation'), { ...context, authority });
@@ -688,7 +756,7 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
   const receipts = [];
   const provider = { async *stream(request) {
     captured = request;
-    yield { type: 'text', text: '{"outcome":"approve","confidence":0.9,"reason_code":"intent_match"}' };
+    yield { type: 'text', text: '{"outcome":"approve","confidence":0.9,"reason_code":"intent_match","authority_anchors":[]}' };
     yield { type: 'usage', usage: { prompt_tokens: 40, completion_tokens: 8, total_tokens: 48 } };
     yield { type: 'terminal' };
   } };
@@ -716,11 +784,13 @@ test('AC-ROUTE-03 shared primary preserves a tool-less structured reviewer role'
   assert.equal(captured.enableThinking, undefined);
   assert.equal(captured.responseFormat.type, 'json_schema');
   assert.equal(captured.responseFormat.json_schema.strict, true);
-  assert.deepEqual(captured.responseFormat.json_schema.schema.required, ['outcome', 'confidence', 'reason_code']);
+  assert.deepEqual(captured.responseFormat.json_schema.schema.required,
+    ['outcome', 'confidence', 'reason_code', 'authority_anchors']);
   assert.deepEqual(captured.responseFormat.json_schema.schema.properties, {
     outcome: { type: 'string', enum: ['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator'] },
     confidence: { type: 'number' },
     reason_code: { type: 'string' }, guidance: { type: 'string' },
+    authority_anchors: { type: 'array', minItems: 0, maxItems: 4, items: { type: 'integer', minimum: 1 } },
   });
   assert.deepEqual(scheduled, [
     { resource: 'shared-primary', owner: 'session-reviewer' }, { released: true },
@@ -753,7 +823,7 @@ test('reviewer omits reasoning controls when its route has no verified setting',
   let captured;
   const provider = { async *stream(request) {
     captured = request;
-    yield { type: 'text', text: '{"outcome":"approve","confidence":1,"reason_code":"intent_match"}' };
+    yield { type: 'text', text: '{"outcome":"approve","confidence":1,"reason_code":"intent_match","authority_anchors":[]}' };
     yield { type: 'terminal' };
   } };
   const route = { model: 'reviewer-model', profile: { id: 'reviewer-profile' } };
@@ -769,8 +839,8 @@ test('semantic reviewer makes one bounded schema-repair attempt with separate ev
   const telemetry = [];
   const receipts = [];
   const outputs = [
-    '{"outcome":"allow","confidence":1,"reason_code":"wrong_enum"}',
-    '{"outcome":"approve","confidence":1,"reason_code":"intent_match"}',
+    '{"outcome":"allow","confidence":1,"reason_code":"wrong_enum","authority_anchors":[]}',
+    '{"outcome":"approve","confidence":1,"reason_code":"intent_match","authority_anchors":[]}',
   ];
   const provider = { async *stream(request) {
     requests.push(request);
@@ -816,7 +886,7 @@ test('semantic reviewer fails closed after the one schema-repair attempt', async
 
 test('AC-REV-05 semantic reviewer output is locally schema-validated even when a provider claims structured output', async () => {
   for (const candidate of [
-    { outcome: 'approve', confidence: 2, reason_code: 'invalid_confidence' },
+    { outcome: 'approve', confidence: 2, reason_code: 'invalid_confidence', authority_anchors: [1] },
     { outcome: 'approve', confidence: 1, reason_code: 'INVALID REASON' },
     { outcome: 'approve', confidence: 1, reason_code: 'extra_field', authority: true },
     { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'bad_guidance', guidance: { text: 'no' } },
@@ -854,7 +924,7 @@ test('AC-REV-08/AC-TOOL-02 opaque process requests require authenticated user in
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     semanticCalls += 1;
     return /npm build/iu.test(input.authenticatedIntent.at(-1)?.content ?? '')
-      ? { outcome: 'approve', confidence: 1, reason_code: 'model_allowed' }
+      ? { outcome: 'approve', confidence: 1, reason_code: 'model_allowed', authority_anchors: [2] }
       : { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'intent_mismatch' };
   } } });
   const request = {
@@ -889,7 +959,7 @@ test('detached-process lifecycle intent is interpreted only by semantic review',
     captured = input;
     return semanticCalls === 1
       ? { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'persistent_server_not_requested', guidance: 'Use a bounded foreground command.' }
-      : { outcome: 'approve', confidence: 1, reason_code: 'persistent_server_authorized' };
+      : { outcome: 'approve', confidence: 1, reason_code: 'persistent_server_authorized', authority_anchors: [2] };
   } } });
   const request = {
     ...readRequest('detached-process'), toolName: 'shell_run',
@@ -930,7 +1000,7 @@ test('external browser processes are denied before semantic review in favor of m
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'browser_allowed' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'browser_allowed', authority_anchors: [1] };
   } } });
   const request = {
     ...readRequest('external-browser'), toolName: 'shell_run',
@@ -981,7 +1051,7 @@ test('foreground Python static servers receive ordinary semantic review instead 
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'bounded_server_workflow' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'bounded_server_workflow', authority_anchors: [1] };
   } } });
   const request = {
     ...readRequest('foreground-server'), toolName: 'process_run',
@@ -1008,7 +1078,7 @@ test('a successful state mutation reopens semantic review of an otherwise equiva
     semanticCalls += 1;
     return semanticCalls === 1
       ? { outcome: 'deny_with_guidance', confidence: 1, reason_code: 'prerequisite_missing', guidance: 'Install the verified prerequisite.' }
-      : { outcome: 'approve', confidence: 1, reason_code: 'prerequisite_now_present' };
+      : { outcome: 'approve', confidence: 1, reason_code: 'prerequisite_now_present', authority_anchors: [1] };
   } } });
   const definition = { name: 'process_run', sideEffect: 'unknown', scope: 'workspace' };
   const reviewContext = {
@@ -1035,7 +1105,7 @@ test('explicit SSH intent and target reach semantic review with the tool definit
   let captured;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     captured = input;
-    return { outcome: 'approve', confidence: 1, reason_code: 'explicit_remote_access' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'explicit_remote_access', authority_anchors: [1] };
   } } });
   const request = {
     ...readRequest('ssh-fixture-host'), toolName: 'process_run',
@@ -1065,7 +1135,7 @@ test('network discovery intent covers a diagnostic continuation from hostname to
   let captured;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review(input) {
     captured = input;
-    return { outcome: 'approve', confidence: 1, reason_code: 'network_diagnostic_matches_intent' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'network_diagnostic_matches_intent', authority_anchors: [1] };
   } } });
   const request = {
     ...readRequest('ping-fixture-host'), toolName: 'process_run',
@@ -1090,7 +1160,7 @@ test('AC-REV-01 mandatory review applies deterministic safe, prohibited, and sem
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
     semanticCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match', authority_anchors: [1] };
   } } });
   const safe = await reviewer.review(readRequest('safe'), {
     ...context, authority: { id: 'authority-1', intent: [{ content: 'Read README.md' }], mission: null },
@@ -1108,7 +1178,7 @@ test('AC-AUTH-02 mission resource, target, effect, and credential ceilings prece
   const ledger = new ReviewerLedger({ durable: false, sessionId: 'mission-ceiling' });
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
-    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'model_allowed' };
+    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'model_allowed', authority_anchors: [] };
   } } });
   const missionAuthority = (overrides = {}) => ({
     id: 'authority-1', intent: [], mission: {
@@ -1134,6 +1204,7 @@ test('AC-AUTH-02 mission resource, target, effect, and credential ceilings prece
     'mission_target_denied', 'mission_side_effect_denied', 'mission_credential_denied',
   ]);
   assert.equal(allowed.outcome, 'approve');
+  assert.deepEqual(allowed.authorityAnchors, []);
   assert.equal(semanticCalls, 1);
 });
 

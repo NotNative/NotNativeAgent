@@ -2,11 +2,13 @@
 import { ContractError, newId } from './ids.js';
 import { requestDigest } from './persistence/reviewer-ledger.js';
 import { safeReviewDefinition, safeReviewRequest } from './reviewer-packet.js';
+import { EMPTY_CONVERSATION_TEXT_LANE } from './conversation-text-lane.js';
 import { EXTERNAL_BROWSER_GUIDANCE } from './reliability/external-browser.js';
 import { workspaceTransitionClassification } from './reliability/workspace-scope.js';
 const OUTCOMES = new Set(['approve', 'deny_with_guidance', 'hard_deny', 'escalate_to_operator']);
 const REVIEWER_SERVICE_FAILURES = new Set([
   'mandatory_review_failed', 'provider_reasoning_control_rejected', 'semantic_review_unavailable',
+  'authority_anchor_missing', 'authority_anchor_invalid',
 ]);
 export class MandatoryReviewer {
   constructor(options) {
@@ -100,16 +102,16 @@ export class MandatoryReviewer {
       toolDefinition: safeReviewDefinition(context.definition),
       authenticatedIntent: context.authority.intent,
       conversationIntent: context.conversationIntent ?? [],
-      approvedProposal: context.approvedProposal ?? '',
       mission: context.authority.mission, justification: context.justification ?? '',
       justificationTrust: 'untrusted_model', causalEvidence: context.causalEvidence ?? [],
+      conversationTextLane: context.conversationTextLane ?? EMPTY_CONVERSATION_TEXT_LANE,
       intentRelation, ledgerSummary: this.ledger.summary(request),
     });
     const candidate = await boundedReview(this.semantic, input, this.semanticTimeoutMs, context.signal, {
       turnId: context.turnId, stepId: context.stepId, toolRequestId: request.id,
       parentSpanId: context.stepId,
     });
-    return normalizeCandidate(candidate, request, context.surface);
+    return normalizeCandidate(candidate, request, context);
   }
 }
 function refreshApprovalWindow(decision, ttlMs) {
@@ -292,7 +294,7 @@ async function boundedReview(component, input, timeoutMs, externalSignal, correl
   }
 }
 
-function normalizeCandidate(value, request, surface) {
+function normalizeCandidate(value, request, context) {
   if (value?.failureCode === 'provider_reasoning_control_rejected') {
     return deny(
       value.failureCode,
@@ -311,15 +313,47 @@ function normalizeCandidate(value, request, surface) {
   if (value.confidence < 0.7) {
     return deny('semantic_confidence_low', 'Reviewer confidence was insufficient.', request);
   }
-  if (value.outcome === 'approve') return approve('semantic_intent_match', request);
+  if (value.outcome === 'approve') return semanticApproval(value, request, context);
   if (value.outcome === 'hard_deny') return hardDeny(value.reason_code ?? 'semantic_hard_deny', request);
-  if (value.outcome === 'escalate_to_operator' && surface !== 'interactive_tui') {
+  if (value.outcome === 'escalate_to_operator' && context.surface !== 'interactive_tui') {
     return deny('headless_escalation_forbidden', 'Noninteractive review cannot escalate for permission.', request);
   }
   if (value.outcome === 'escalate_to_operator') {
     return decision('escalate_to_operator', value.reason_code ?? 'operator_decision_required', request, value.guidance ?? null);
   }
   return deny(value.reason_code ?? 'semantic_denial', value.guidance ?? 'Operation was not authorized.', request);
+}
+
+// Security: model-authored conversation text may explain what an operator assent refers
+// to, but it can never itself grant approval. Every semantic approval cites authenticated
+// intent records; an active mission envelope is the structured alternative basis. Citation
+// defects are reviewer output faults, so they fail closed for the request without latching
+// a substantive denial against the operation.
+function semanticApproval(candidate, request, context) {
+  const cited = candidate.authority_anchors;
+  if (cited === undefined || cited.length === 0) {
+    if (context.authority?.mission) {
+      return approve('semantic_intent_match', request, { authorityAnchors: Object.freeze([]) });
+    }
+    return deny(
+      'authority_anchor_missing',
+      'The reviewer approved without citing an authenticated operator record. Conversation text '
+        + 'explains the request, but only authenticated intent authorizes it. Restate the '
+        + 'authorization as an operator message, then retry once.',
+      request,
+    );
+  }
+  const known = new Set((context.authority?.intent ?? []).map((item) => item?.sequence));
+  const unique = [...new Set(cited)];
+  if (!unique.every((anchor) => known.has(anchor))) {
+    return deny(
+      'authority_anchor_invalid',
+      'The reviewer cited an authenticated intent sequence that does not exist. The reviewer '
+        + 'must cite sequences present in the authenticated intent record. Retry once.',
+      request,
+    );
+  }
+  return approve('semantic_intent_match', request, { authorityAnchors: Object.freeze(unique) });
 }
 
 function semanticFailureCandidate(error) {
@@ -329,16 +363,19 @@ function semanticFailureCandidate(error) {
 
 function validSemanticDecision(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)
-    || Object.keys(value).some((key) => !['outcome', 'confidence', 'reason_code', 'guidance'].includes(key))) return false;
+    || Object.keys(value).some((key) => !['outcome', 'confidence', 'reason_code', 'guidance', 'authority_anchors'].includes(key))) return false;
   if (!OUTCOMES.has(value.outcome) || !Number.isFinite(value.confidence)
     || value.confidence < 0 || value.confidence > 1) return false;
   if (typeof value.reason_code !== 'string' || !/^[a-z0-9_.-]{1,128}$/u.test(value.reason_code)) return false;
+  if (value.authority_anchors !== undefined && (!Array.isArray(value.authority_anchors)
+    || value.authority_anchors.length > 4
+    || !value.authority_anchors.every((anchor) => Number.isSafeInteger(anchor) && anchor >= 1))) return false;
   return value.guidance === undefined
     || (typeof value.guidance === 'string' && Buffer.byteLength(value.guidance, 'utf8') <= 4096);
 }
 
-function approve(reasonCode, request) {
-  return decision('approve', reasonCode, request, null);
+function approve(reasonCode, request, facts = null) {
+  return decision('approve', reasonCode, request, null, facts);
 }
 
 function hardDeny(reasonCode, request) {
@@ -353,13 +390,15 @@ function escalate(reasonCode, request, guidance) {
   return decision('escalate_to_operator', reasonCode, request, guidance);
 }
 
-function decision(outcome, reasonCode, request, guidance) {
+function decision(outcome, reasonCode, request, guidance, facts = null) {
+  const anchors = facts?.authorityAnchors;
   return Object.freeze({
     id: newId('decision'), outcome, reasonCode, guidance,
     requestId: request.id, requestDigest: requestDigest(request),
     authorityId: request.authorityId, authorityVersion: request.authorityVersion,
     authorityRestrictionVersion: request.authorityRestrictionVersion ?? 0, policyVersion: request.policyVersion,
     committedAt: Date.now(), expiresAt: Math.min(request.expiresAt, Date.now() + 60_000),
+    ...(Array.isArray(anchors) ? { authorityAnchors: anchors } : {}),
   });
 }
 

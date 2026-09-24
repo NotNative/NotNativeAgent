@@ -204,10 +204,10 @@ test('browser observation is deterministic-safe while interaction requires seman
   };
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
-    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
+    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'intent_match', authority_anchors: [1] };
   } } });
   const base = { id: 'tool_1', toolName: 'web_browse', args: { action: 'inspect' }, authorityId: 'a', authorityVersion: 1, policyVersion: 1, expiresAt: Date.now() + 1000 };
-  const context = { definition, authority: { intent: [{ content: 'Browse example and click Continue' }] }, surface: 'interactive_tui', signal: new AbortController().signal };
+  const context = { definition, authority: { intent: [{ content: 'Browse example and click Continue', sequence: 1 }] }, surface: 'interactive_tui', signal: new AbortController().signal };
   const observed = await reviewer.review({ ...base, resolved: { action: 'inspect', readOnly: true, destination: null } }, context);
   assert.equal(observed.reasonCode, 'deterministic_safe');
   const workspace = await reviewer.review({
@@ -228,7 +228,7 @@ test('loopback browser navigation requires semantic review', async () => {
   };
   let semanticCalls = 0;
   const reviewer = new MandatoryReviewer({ ledger, semanticReviewer: { async review() {
-    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
+    semanticCalls += 1; return { outcome: 'approve', confidence: 1, reason_code: 'intent_match', authority_anchors: [1] };
   } } });
   const request = {
     id: 'tool_loopback', toolName: 'web_browse', args: { action: 'navigate', url: 'http://localhost:8123/' },
@@ -236,7 +236,7 @@ test('loopback browser navigation requires semantic review', async () => {
     authorityId: 'a', authorityVersion: 1, policyVersion: 1, expiresAt: Date.now() + 1000,
   };
   const context = {
-    definition, authority: { intent: [{ content: 'Build and visually verify the local Three.js scene in a browser' }] },
+    definition, authority: { intent: [{ content: 'Build and visually verify the local Three.js scene in a browser', sequence: 1 }] },
     surface: 'interactive_tui', signal: new AbortController().signal,
   };
   const decision = await reviewer.review(request, context);

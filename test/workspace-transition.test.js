@@ -34,7 +34,7 @@ class ApprovingReviewer {
   constructor(inspect = () => undefined) { this.inspect = inspect; }
   async review(input) {
     this.inspect(input);
-    return { outcome: 'approve', confidence: 1, reason_code: 'authenticated_workspace_change' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'authenticated_workspace_change', authority_anchors: [1] };
   }
 }
 

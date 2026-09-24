@@ -9,6 +9,7 @@ import { assertMissionBudget, missionConditionFailure, reserveAndPersistMissionT
 import { ToolResultCache } from './result-cache.js';
 import { assertTurnActive } from '../turn-cancellation.js';
 import { ContractError } from '../ids.js';
+import { buildConversationTextLane } from '../conversation-text-lane.js';
 import { buildReviewEvidence } from '../review-evidence.js';
 import { WebUrlProvenance } from '../web-url-provenance.js';
 import { missingFilesystemPrerequisite } from '../reliability/filesystem-recovery.js';
@@ -187,8 +188,15 @@ export class ToolLoop {
       request: item.request,
       authenticatedIntent: active.authority?.intent,
       conversationIntent: active.conversationIntent,
-      approvedProposal: active.approvedProposal,
       justification: '',
+    });
+    const textLane = buildConversationTextLane(this.engine.transcript);
+    this.telemetry?.record('review.text_lane', 'succeeded', {
+      items: textLane.item_count, omitted_items: textLane.omitted_items,
+      content_bytes: textLane.content_bytes,
+    }, {
+      spanId: `review-lane:${item.request.id}`, parentSpanId: active.stepId,
+      turnId: active.turnId, stepId: active.stepId, toolRequestId: item.request.id,
     });
     this.telemetry?.record('review.context_retrieval', 'succeeded', {
       records_scanned: reviewEvidence.metadata.recordsScanned,
@@ -208,7 +216,7 @@ export class ToolLoop {
       authority: active.authority, definition: this.tools.definition(item.request.toolName),
       surface: this.surface, justification: '', signal: active.controller.signal,
       causalEvidence: reviewEvidence.evidence, conversationIntent: active.conversationIntent,
-      approvedProposal: active.approvedProposal,
+      conversationTextLane: textLane,
     };
     const event = this.eventFactory.create(
       'permission.pre', 'permission', 'pre', active, { request_id: item.request.id },

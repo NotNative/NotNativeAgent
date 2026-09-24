@@ -24,7 +24,7 @@ export function buildReviewEvidence(transcript, options = {}) {
   const currentRequestId = options.currentRequestId ?? null;
   const currentTurnId = options.currentTurnId ?? findCurrentTurn(records, currentRequestId);
   const terms = queryTerms(options.request, options.authenticatedIntent, options.justification,
-    options.conversationIntent, options.approvedProposal);
+    options.conversationIntent);
   const recentTurnIds = newestTurnIds(records, currentTurnId);
   const candidates = [];
   let scanned = 0;
@@ -86,13 +86,9 @@ export function recentReviewEvidence(transcript, currentRequestId) {
 
 function evidenceItem(record, currentRequestId, recordIndex) {
   if (!record || (currentRequestId != null && record.requestId === currentRequestId)) return null;
-  if (record.type === 'message' && record.role === 'assistant' && !record.partial) {
-    if (record.content === null || record.content === undefined) return null;
-    return {
-      type: 'assistant_message', trust: 'untrusted_model', turnId: record.turnId ?? null,
-      recordIndex, content: redactText(record.content),
-    };
-  }
+  // Security: operator and model utterances reach the reviewer full-fidelity through the
+  // conversation text lane. This stream carries tool observations only, so relevance
+  // selection can no longer omit one utterance while keeping another.
   if (record.type === 'tool_result') {
     if (record.content === null || record.content === undefined) return null;
     const reviewOutcome = toolReviewOutcome(record);
@@ -122,10 +118,9 @@ function newestTurnIds(records, currentTurnId) {
   return result;
 }
 
-function queryTerms(request, authenticatedIntent, justification, conversationIntent, approvedProposal) {
+function queryTerms(request, authenticatedIntent, justification, conversationIntent) {
   const values = [];
   for (const item of (conversationIntent ?? []).slice(-8)) collectSearchValues(item, values);
-  collectSearchValues(approvedProposal, values);
   for (const item of (authenticatedIntent ?? []).slice(-3)) collectSearchValues(item?.content, values);
   collectSearchValues(request?.resolved, values);
   collectSearchValues(request?.args, values);

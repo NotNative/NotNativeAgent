@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:0ed59a2bf8c070d32d67a6ef65e9d6b1561d459284aef25b27174b39a0df0f64",
+  "source_digest": "sha256:242f91a1c704acb364e942049ac281ff39c44c3e41549a6261aee8af11c9765b",
   "counts": {
-    "modules": 358,
+    "modules": 359,
     "component_edges": 76
   },
   "components": [
@@ -18,7 +18,7 @@
       "id": "governance-engine",
       "label": "Governance Engine",
       "ownership": "Owns authority, review, permission, and execution policy.",
-      "module_count": 10
+      "module_count": 11
     },
     {
       "id": "experience-engine",
@@ -196,16 +196,16 @@
       "module_count": 9
     },
     {
+      "from": "governance-engine",
+      "to": "foundation",
+      "import_count": 13,
+      "module_count": 11
+    },
+    {
       "from": "agentic-engine",
       "to": "tools",
       "import_count": 12,
       "module_count": 7
-    },
-    {
-      "from": "governance-engine",
-      "to": "foundation",
-      "import_count": 12,
-      "module_count": 10
     },
     {
       "from": "foundation",
@@ -346,6 +346,12 @@
       "module_count": 2
     },
     {
+      "from": "governance-engine",
+      "to": "governance-engine",
+      "import_count": 4,
+      "module_count": 4
+    },
+    {
       "from": "integrations",
       "to": "providers",
       "import_count": 4,
@@ -370,12 +376,6 @@
       "module_count": 1
     },
     {
-      "from": "governance-engine",
-      "to": "governance-engine",
-      "import_count": 3,
-      "module_count": 3
-    },
-    {
       "from": "guidance",
       "to": "guidance",
       "import_count": 3,
@@ -392,6 +392,12 @@
       "to": "providers",
       "import_count": 3,
       "module_count": 2
+    },
+    {
+      "from": "tools",
+      "to": "governance-engine",
+      "import_count": 3,
+      "module_count": 1
     },
     {
       "from": "tools",
@@ -452,12 +458,6 @@
       "to": "persistence",
       "import_count": 2,
       "module_count": 2
-    },
-    {
-      "from": "tools",
-      "to": "governance-engine",
-      "import_count": 2,
-      "module_count": 1
     },
     {
       "from": "agentic-engine",
@@ -709,6 +709,14 @@
       "imports": [
         "src/failure-envelope.js",
         "src/ids.js"
+      ]
+    },
+    {
+      "path": "src/conversation-text-lane.js",
+      "component": "governance-engine",
+      "entrypoint": false,
+      "imports": [
+        "src/redaction.js"
       ]
     },
     {
@@ -2691,6 +2699,7 @@
       "component": "governance-engine",
       "entrypoint": false,
       "imports": [
+        "src/conversation-text-lane.js",
         "src/ids.js",
         "src/persistence/reviewer-ledger.js",
         "src/reliability/external-browser.js",
@@ -3101,6 +3110,7 @@
       "entrypoint": false,
       "imports": [
         "src/authority.js",
+        "src/conversation-text-lane.js",
         "src/engine/records.js",
         "src/ids.js",
         "src/lifecycle.js",

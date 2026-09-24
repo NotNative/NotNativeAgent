@@ -409,7 +409,7 @@ test('AC-MCP-01/03 discovered MCP tool uses namespace, reviewer, and ledger', as
     yield { type: 'text', text: 'handled' }; yield { type: 'terminal' };
   } };
   const semanticReviewer = { async review() {
-    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match', authority_anchors: [1] };
   } };
   const engine = new SessionEngine({
     config: base(root, { mcp_servers: [{

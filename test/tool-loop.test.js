@@ -796,7 +796,7 @@ test('AC-AUTH-03 semantic approval permits a receipt-bound write', async () => {
     args: { path: 'target.txt', content: 'after' },
   });
   const semanticReviewer = { async review() {
-    return { outcome: 'approve', confidence: 0.99, reason_code: 'intent_match' };
+    return { outcome: 'approve', confidence: 0.99, reason_code: 'intent_match', authority_anchors: [1] };
   } };
   const engine = new SessionEngine({
     config: manifest(root), providerFactory: () => provider, semanticReviewer,
@@ -810,6 +810,35 @@ test('AC-AUTH-03 semantic approval permits a receipt-bound write', async () => {
   assert.equal(await readFile(path, 'utf8'), 'after');
   assert.equal(engine.reviewerAudit()[0].decision, 'approve');
   assert.equal(engine.reviewerAudit()[0].result, 'succeeded');
+});
+
+test('the loop packet carries the deterministic text lane and never the legacy approved proposal', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-lane-packet-'));
+  const path = join(root, 'target.txt');
+  await writeFile(path, 'before', 'utf8');
+  const provider = new TwoStepProvider({
+    name: 'fs_write_text', args: { path: 'target.txt', content: 'after' },
+  });
+  let captured;
+  const semanticReviewer = { async review(input) {
+    captured = input;
+    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match', authority_anchors: [1] };
+  } };
+  const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider, semanticReviewer });
+  await engine.initialize();
+  await seedReadReceipt(engine, 'target.txt');
+  const result = await engine.submit({
+    request_id: 'lane-turn', content: 'Replace target.txt content with after',
+  }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  assert.equal(captured.conversationTextLane.assembled_by, 'nna');
+  assert.equal(captured.conversationTextLane.source, 'session_transcript');
+  const granting = captured.conversationTextLane.items.at(-1);
+  assert.equal(granting.role, 'user');
+  assert.equal(granting.trust, 'authenticated_utterance');
+  assert.match(granting.content, /Replace target\.txt content with after/u);
+  assert.equal(Object.hasOwn(captured, 'approvedProposal'), false);
+  assert.equal(captured.causalEvidence.every((item) => item.type === 'tool_result'), true);
 });
 
 test('AC-REV-05/AC-TOOL-04 semantic timeout denies write and leaves file unchanged', async () => {
@@ -874,7 +903,7 @@ test('AC-TOOL-03 execution-boundary drift blocks an approved write', async () =>
     name: 'fs_write_text', args: { path: 'target.txt', content: 'after' },
   });
   const semanticReviewer = { async review() {
-    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match', authority_anchors: [1] };
   } };
   const engine = new SessionEngine({
     config: manifest(root), providerFactory: () => provider, semanticReviewer, events,
@@ -898,7 +927,7 @@ test('root NNA can read an explicitly requested host path outside its working di
   let reviewerCalls = 0;
   const semanticReviewer = { async review() {
     reviewerCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'allow' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'allow', authority_anchors: [1] };
   } };
   const engine = new SessionEngine({
     config: manifest(root), providerFactory: () => provider, semanticReviewer,
@@ -1202,7 +1231,7 @@ test('exact text edit changes only the uniquely matched text', async () => {
     },
   });
   const semanticReviewer = { async review() {
-    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match', authority_anchors: [1] };
   } };
   const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider, semanticReviewer });
   await engine.initialize();
@@ -1245,7 +1274,7 @@ test('permanent file deletion requires semantic approval and a bound read receip
   let reviewerCalls = 0;
   const semanticReviewer = { async review() {
     reviewerCalls += 1;
-    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match', authority_anchors: [1] };
   } };
   const engine = new SessionEngine({ config: manifest(root), providerFactory: () => provider, semanticReviewer });
   await engine.initialize();
@@ -1347,7 +1376,7 @@ test('same-batch writes to one file execute in request order across runtime-auth
     yield { type: 'terminal' };
   } };
   const semanticReviewer = { async review() {
-    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match' };
+    return { outcome: 'approve', confidence: 1, reason_code: 'intent_match', authority_anchors: [1] };
   } };
   const engine = new SessionEngine({
     config: manifest(root), providerFactory: () => provider, semanticReviewer,

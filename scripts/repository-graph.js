@@ -12,7 +12,8 @@ const MAX_SOURCE_FILES = 2_000;
 const COMPONENTS = Object.freeze([
   component('agentic-engine', 'Agentic Engine', 'Owns turns, steps, lifecycle, and orchestration.', matches('engine.js', 'engine/')),
   component('governance-engine', 'Governance Engine', 'Owns authority, review, permission, and execution policy.', matches(
-    'governance-engine.js', 'governance/', 'authority.js', 'execution-policy.js', 'permission-broker.js',
+    'governance-engine.js', 'governance/', 'authority.js', 'conversation-text-lane.js',
+    'execution-policy.js', 'permission-broker.js',
     'preauthorization.js', 'review-evidence.js', 'review-posture.js', 'reviewer.js',
   )),
   component('experience-engine', 'Experience Engine', 'Owns operator interaction and presentation.', matches(

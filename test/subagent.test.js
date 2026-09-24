@@ -146,7 +146,7 @@ test('subagent concurrency follows the loaded worker model parallel capacity', a
   const engine = new SessionEngine({
     config, providerFactory: (profile) => profile.id === 'worker' ? worker : parent,
     output: async (record) => output.push(record),
-    semanticReviewer: { async review() { return { outcome: 'approve', confidence: 0.99, reason_code: 'delegation_matches_intent' }; } },
+    semanticReviewer: { async review() { return { outcome: 'approve', confidence: 0.99, reason_code: 'delegation_matches_intent', authority_anchors: [1] }; } },
   });
   await engine.initialize();
   const result = await engine.submit({ request_id: 'parallel-exploration', content: 'Delegate two independent exploration agents.' }, 'operator');
@@ -181,7 +181,7 @@ test('parallel sub-agent cancellation drains children and commits terminal tool 
   const engine = new SessionEngine({
     config, providerFactory: () => parent, output: async (record) => output.push(record),
     storeRoot: join(root, 'sessions'), reviewerRoot,
-    semanticReviewer: { async review() { return { outcome: 'approve', confidence: 0.99, reason_code: 'delegation_matches_intent' }; } },
+    semanticReviewer: { async review() { return { outcome: 'approve', confidence: 0.99, reason_code: 'delegation_matches_intent', authority_anchors: [1] }; } },
   });
   await engine.initialize();
   engine.subagentParallelLimit = async () => 2;
