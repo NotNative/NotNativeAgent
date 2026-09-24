@@ -15,7 +15,7 @@ import { Composer, type ComposerServices } from './composer.tsx';
 import { Transcript, StatusChip } from './transcript.tsx';
 import { TimelineDialog } from './timeline-dialog.tsx';
 import { PromptNavigatorRail } from './prompt-rail.tsx';
-import { WorkStatusPanel } from './work-status-panel.tsx';
+import { OperatorRail } from './operator-rail.tsx';
 import { startersFor, type Starter } from './starters.ts';
 import type { ModelSelection } from './model-picker.tsx';
 import { toast } from 'sonner';
@@ -142,7 +142,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
           />
         </div>
       </div>
-      {expanded ? null : <WorkStatusPanel store={shownRef.store} engine={props.services.engine} />}
+      {expanded ? null : <OperatorRail store={shownRef.store} engine={props.services.engine} />}
       {timelineOpen && shownRef.sessionID ? (
         <TimelineDialog store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} onClose={() => setTimelineOpen(false)} />
       ) : null}

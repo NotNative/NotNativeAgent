@@ -185,6 +185,7 @@ export async function runTurn(session: Session, userEntry: MessageEntry, reply: 
 
   sessionStatus.set(session.id, { type: 'busy' });
   emitEvent(dir, 'session.status', { sessionID: session.id, status: { type: 'busy' } });
+  emitActivity(dir, session.id, `turn-${entry.info.id}`, 'turn', 'started', 'Assistant turn started');
   const turn = { aborted: false };
   activeTurns.set(session.id, turn);
   emitEvent(dir, 'session.next.step.started', {
@@ -283,6 +284,7 @@ function finishTurnAborted(session: Session, entry: MessageEntry, part: TextPart
     sessionID: session.id,
     error: { name: 'MessageAbortedError', data: { message: 'The running turn was aborted.' } },
   });
+  emitActivity(dir, session.id, `turn-${info.id}`, 'turn', 'failed', 'Assistant turn interrupted');
   settleIdle(session);
   return entry;
 }
@@ -315,6 +317,7 @@ function finishTurnOk(session: Session, entry: MessageEntry, part: TextPart, lis
   info.finish = 'stop';
   info.cost = 0;
   emitEvent(dir, 'message.updated', { sessionID: session.id, info });
+  emitActivity(dir, session.id, `turn-${info.id}`, 'turn', 'completed', 'Assistant turn completed');
 
   session.time.updated = Date.now();
   const parent = sessions.get(session.id);
@@ -327,6 +330,10 @@ export function settleIdle(session: Session): void {
   sessionStatus.set(session.id, { type: 'idle' });
   emitEvent(session.directory, 'session.status', { sessionID: session.id, status: { type: 'idle' } });
   emitEvent(session.directory, 'session.idle', { sessionID: session.id });
+}
+
+function emitActivity(directory: string, sessionID: string, id: string, kind: 'turn' | 'tool', status: 'started' | 'completed' | 'failed', summary: string): void {
+  emitEvent(directory, 'nnd.activity', { id, sessionID, kind, status, summary, time: Date.now() });
 }
 
 export { userTextOf };
@@ -347,11 +354,16 @@ async function runToolDemo(turn: { aborted: boolean }, entry: MessageEntry, dir:
   const info = entry.info as AssistantMessage;
   const spec = specFor(variant);
   const callID = ascendingId('call');
+  emitActivity(dir, sessionID, `tool-${callID}`, 'tool', 'started', `Running ${spec.title}`);
   emitEvent(dir, 'session.next.tool.input.started', { sessionID, assistantMessageID: info.id, callID, name: spec.tool });
   const rawInput = JSON.stringify(spec.input);
   emitEvent(dir, 'session.next.tool.input.delta', { sessionID, assistantMessageID: info.id, callID, delta: rawInput });
   emitEvent(dir, 'session.next.tool.input.ended', { sessionID, assistantMessageID: info.id, callID, text: rawInput });
   const finalPart = await emitToolPartStates(turn, dir, sessionID, info.id, callID, spec, rawInput);
+  if (finalPart) {
+    const status = (finalPart.state.status === 'completed' ? 'completed' : 'failed') as 'completed' | 'failed';
+    emitActivity(dir, sessionID, `tool-${callID}`, 'tool', status, status === 'completed' ? `${spec.title} completed` : `${spec.title} failed`);
+  }
   if (finalPart) entry.parts.push(finalPart);
 }
 

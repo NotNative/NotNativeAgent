@@ -20,6 +20,7 @@ import { applyBlockingEvent } from './blocking-reducer.ts';
 import { loose } from './reducer-core.ts';
 import { emptyOutcome, type ReducerApi, type BatchOutcome } from './reducer-core.ts';
 import { stripSessionDiffSnapshots } from './sanitize.ts';
+import { activityRecordFromEvent, mergeActivityRecord } from './activity-log.ts';
 import type { DirectoryStore, SyncState } from './types.ts';
 
 export type { BatchOutcome } from './reducer-core.ts';
@@ -68,10 +69,22 @@ export class DirectoryEventBatch {
 
 /** Reducer entry — pure with respect to the draft (doc 04 §B.2 catalog). */
 export function applyDirectoryEvent(draft: SyncState, event: HarnessEvent, api: ReducerApi): void {
+  if (applyActivityEvent(draft, event, api)) return;
   if (applyTranscriptEvent(draft, event, api)) return;
   if (applyBlockingEvent(draft, event, api)) return;
   if (applySessionEvent(draft, event, api)) return;
   applyEnrichmentEvent(draft, event, api);
+}
+
+function applyActivityEvent(draft: SyncState, event: HarnessEvent, api: ReducerApi): boolean {
+  const record = activityRecordFromEvent(event);
+  if (!record) return false;
+  const next = mergeActivityRecord(draft.activity, record);
+  if (next === draft.activity) return true;
+  api.ensure('activity');
+  draft.activity = next;
+  api.changed();
+  return true;
 }
 
 function applySessionEvent(draft: SyncState, event: HarnessEvent, api: ReducerApi): boolean {

@@ -16,7 +16,7 @@ import { useSessionViewStore } from '../sync/view-store.ts';
 
 const PANEL_WIDTH = 300;
 
-export function WorkStatusPanel({ store, engine }: { store: StoreApi<DirectoryStore>; engine: SyncEngine }): ReactNode {
+export function WorkStatusPanel({ store, engine, embedded = false }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const sessionID = useSessionViewStore.getState().currentSessionId;
   const [hidden, setHidden] = useState<string[]>([]);
@@ -76,7 +76,7 @@ export function WorkStatusPanel({ store, engine }: { store: StoreApi<DirectorySt
 
   const visibleSections = sections.filter((section) => !hidden.includes(section.id));
   return (
-    <aside className="hidden w-[300px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-white/10 bg-neutral-950/40 p-3 xl:flex" style={{ maxWidth: PANEL_WIDTH }} data-testid="work-status-panel">
+    <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} shrink-0 flex-col gap-3 overflow-y-auto p-3`} style={{ maxWidth: embedded ? undefined : PANEL_WIDTH }} data-testid="work-status-panel">
       {visibleSections.length === 0 ? <div className="text-[11px] text-neutral-600">All sections hidden</div> : null}
       {visibleSections.map((section) => (
         <section key={section.id} className="rounded-lg border border-white/10 bg-neutral-900/40 p-2" data-testid={`ws-${section.id}`}>

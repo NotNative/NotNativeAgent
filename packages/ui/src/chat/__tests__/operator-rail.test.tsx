@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: Apache-2.0
+/** @vitest-environment jsdom */
+import { afterEach, describe, expect, it } from 'vitest';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { createDirectoryStore } from '../../sync/child-store.ts';
+import { OperatorRail } from '../operator-rail.tsx';
+import { useSessionViewStore } from '../../sync/view-store.ts';
+
+declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+let container: HTMLDivElement | null = null;
+let rootHandle: Root | null = null;
+
+afterEach(() => {
+  act(() => rootHandle?.unmount());
+  container?.remove();
+  container = null;
+  rootHandle = null;
+  document.body.innerHTML = '';
+  useSessionViewStore.setState({ currentSessionId: null, activeDirectory: '' });
+});
+
+describe('OperatorRail', () => {
+  it('renders only explicit activity evidence and keeps deferred surfaces honest', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ activity: [
+      { id: 'a1', sessionID: 's1', time: 1, kind: 'tool', status: 'completed', summary: 'Applied patch' },
+      { id: 'a2', sessionID: 's2', time: 2, kind: 'turn', status: 'completed', summary: 'Other session' },
+    ] });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} />));
+    expect(document.querySelector('[data-testid="operator-rail"]')).not.toBeNull();
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).toContain('Applied patch');
+    expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).not.toContain('Other session');
+    act(() => (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="operator-notes"]')!.textContent).toContain('reserved for the next integration slice');
+  });
+});

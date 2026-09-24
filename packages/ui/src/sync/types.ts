@@ -18,6 +18,7 @@ import type {
   SessionStatus,
   Todo,
 } from '../lib/nnd/types.ts';
+import type { ActivityRecord } from './activity-log.ts';
 
 export type SessionListSource = 'empty' | 'persisted' | 'live' | 'authoritative';
 
@@ -59,6 +60,7 @@ export interface SyncState {
   limit: number;
   message: Record<string, Message[]>;
   part: Record<string, Part[]>;
+  activity: ActivityRecord[];
 }
 
 export interface DirectoryStore extends SyncState {
@@ -94,6 +96,7 @@ export const INITIAL_STATE: SyncState = {
   limit: 5,
   message: {},
   part: {},
+  activity: [],
 };
 
 // ── constants (exact values, doc 04 §A.4 / §D.1) ────────────────────────────
