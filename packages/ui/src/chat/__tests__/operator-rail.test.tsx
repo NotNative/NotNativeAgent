@@ -37,7 +37,7 @@ describe('OperatorRail', () => {
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).toContain('Applied patch');
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).not.toContain('Other session');
-    act(() => (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click());
-    expect(document.querySelector('[data-testid="operator-notes"]')!.textContent).toContain('reserved for the next integration slice');
+    act(() => (document.querySelector('button[aria-label="Browser"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="operator-browser"]')!.textContent).toContain('reserved for the next integration slice');
   });
 });

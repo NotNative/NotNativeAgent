@@ -150,13 +150,13 @@ function usePlanDocumentLoad(refs: PlanRefs, ui: PlanUi, settle: (error: string 
 function PlanHeader(props: { title: string; fileLabel: string; dirty: boolean; saveError: string | null; statusSaveFailed: string; statusUnsaved: string; statusSaved: string; saveNow: string; onSaveNow: () => void }): ReactNode {
   const { title, fileLabel, dirty, saveError, statusSaveFailed, statusUnsaved, statusSaved, saveNow, onSaveNow } = props;
   return (
-    <header className="flex items-center gap-2">
-      <span className="text-sm font-medium text-foreground">{title}</span>
-      <span className="text-[10px] text-muted-foreground">{fileLabel}</span>
-      <span className="ml-auto text-[10px] text-muted-foreground" data-testid="plan-save-status" title={saveError ?? undefined}>
+    <header className="flex min-w-0 items-center gap-2">
+      <span className="min-w-0 truncate text-sm font-medium text-foreground" title={title}>{title}</span>
+      <span className="min-w-0 truncate text-[10px] text-muted-foreground" title={fileLabel}>{fileLabel}</span>
+      <span className="ml-auto shrink-0 text-[10px] text-muted-foreground" data-testid="plan-save-status" title={saveError ?? undefined}>
         {saveError !== null ? statusSaveFailed : dirty ? statusUnsaved : statusSaved}
       </span>
-      <button type="button" className="rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={onSaveNow}>
+      <button type="button" className="shrink-0 rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={onSaveNow}>
         {saveNow}
       </button>
     </header>
