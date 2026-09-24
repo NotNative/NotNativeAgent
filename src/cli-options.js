@@ -12,7 +12,7 @@ export function parseCli(argv) {
   const options = {
     mode, manifestPath: null, sessionId: null, prompt: [], providerProfile: null,
     providerEndpoint: null, model: null, providerCredentialEnv: null,
-    serveAction: null, serveHostname: null, servePort: null, advertiseVersion: null,
+    serveAction: null, serveHostname: null, servePort: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
@@ -38,7 +38,6 @@ export function parseCli(argv) {
     else if (mode === 'opencode' && value === '--port') {
       options.servePort = parseServePort(requiredValue(argv[++index], value));
     }
-    else if (mode === 'opencode' && value === '--advertise-version') options.advertiseVersion = requiredValue(argv[++index], value);
     else if (mode === 'opencode' && OPENCODE_ACTIONS.has(value)) {
       if (options.serveAction) throw new ContractError('invalid_option', 'opencode accepts exactly one action');
       options.serveAction = value;
@@ -63,12 +62,12 @@ const MODES = new Set([
 
 // Why: `run` is the managed runtime entry point used by the wiring service's
 // detached start and the login startup script; it is not a documented command.
-const OPENCODE_ACTIONS = new Set(['serve', 'status', 'start', 'stop', 'enable', 'disable', 'run']);
+const OPENCODE_ACTIONS = new Set(['status', 'start', 'stop', 'enable', 'disable', 'run']);
 
 function parseServePort(value) {
   const port = Number(value);
-  if (!Number.isSafeInteger(port) || port < 0 || port > 65_535) {
-    throw new ContractError('invalid_option', '--port requires a TCP port between 0 and 65535');
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
+    throw new ContractError('invalid_option', '--port requires a TCP port between 1 and 65535');
   }
   return port;
 }

@@ -40,7 +40,7 @@ test('launch options support prompt, host, and config aliases without breaking l
   const baseFields = {
     manifestPath: null, sessionId: null, providerProfile: null,
     providerEndpoint: null, model: null, providerCredentialEnv: null,
-    serveAction: null, serveHostname: null, servePort: null, advertiseVersion: null,
+    serveAction: null, serveHostname: null, servePort: null,
   };
   assert.deepEqual(parseCli(['-p', 'hello']), {
     ...baseFields, mode: 'text', prompt: ['hello'],

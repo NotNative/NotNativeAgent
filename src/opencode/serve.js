@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// `nna opencode serve`: composes the OpenCode-compatible server over a live
-// session workspace, binds it, and emits the exact OpenCode stdout handshake
-// that OpenChamber's launcher parses.
+// The managed OpenCode worker composes the OpenCode-compatible server over a
+// live session workspace, binds it, and emits the exact OpenCode stdout
+// handshake that OpenChamber's launcher parses.
 import { createOpenCodeSessionWorkspace } from './sessions.js';
 import { OpenCodeCompatServer } from './server.js';
 import { bindUrl } from './config.js';
@@ -88,4 +88,3 @@ export class OpencodeServeRuntime {
     this.workspace.bus.close();
   }
 }
-

@@ -88,7 +88,7 @@ try {
     const result = await runOpencodeCommand(options, paths, {
       output: process.stdout, diagnostics: process.stderr,
     });
-    // Why: serve and run block via signals and never return; usage errors exit
+    // Why: the managed run worker blocks via signals and never returns; usage errors exit
     // 2, and only lifecycle results become command output, in the same JSON
     // envelope as `gateway`.
     if (result === 2) process.exitCode = 2;
@@ -171,12 +171,9 @@ function help() {
     '  nna webbrowse status|verify               Inspect optional Playwright Chromium runtime',
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
     '  nna integration serve                    Start the ephemeral NNO integration service',
-    '  nna opencode serve [--hostname H] [--port P] [--advertise-version V]',
-    '                                           OpenCode-compatible wire surface for OpenChamber',
     '  nna opencode enable [--port P] [--hostname H]',
-    '                                           Install login startup and OpenChamber environment',
-    '  nna opencode disable | start | stop | status',
-    '                                           Remove wiring, or manage the OpenCode service',
+    '  nna opencode status|start|stop|enable|disable',
+    '                                           Manage the OpenCode-compatible OpenChamber surface',
     '  nna uninstall [--delete-user-data|--keep-user-data]',
     '  nna update --check                     Check the repository for a newer version',
     '  nna update                             Install the latest repository version with rollback',

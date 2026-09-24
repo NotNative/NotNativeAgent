@@ -267,7 +267,7 @@ export function requireServiceRuntime(config) {
   if (!config.enabled) throw new ContractError('opencode_service_disabled', 'the opencode wiring service is disabled; run nna opencode enable');
   // Why: the managed runtime runs unattended on a fixed loopback port, so an
   // unauthenticated bind would present an open operator surface. enable always
-  // provisions credentials; manual `opencode serve` keeps them optional.
+  // provisions credentials; the managed surface never exposes an unauthenticated worker.
   if (!config.password) throw new ContractError('opencode_service_unauthenticated', 'the opencode wiring service requires Basic auth credentials; run nna opencode enable');
 }
 

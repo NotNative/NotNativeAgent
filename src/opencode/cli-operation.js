@@ -17,7 +17,6 @@ const RUNTIME_LOG_FILE = 'runtime.ndjson';
 export async function runOpencodeCommand(options, paths, scope = {}) {
   const diagnostics = scope.diagnostics ?? { write: () => undefined };
   switch (options.serveAction) {
-    case 'serve': return serveForeground(options, paths, scope, diagnostics);
     case 'run': return runManagedService(options, paths, scope, diagnostics);
     case 'start': return startOpencodeService(options, paths, scope);
     case 'stop': return stopOpencodeService(options, paths, scope);
@@ -25,26 +24,9 @@ export async function runOpencodeCommand(options, paths, scope = {}) {
     case 'enable': return enableOpencodeService(options, paths, scope);
     case 'disable': return disableOpencodeService(options, paths, scope);
     default:
-      diagnostics.write('nna opencode: valid actions are: serve, status, start, stop, enable, disable\n');
+      diagnostics.write('nna opencode: valid actions are: status, start, stop, enable, disable\n');
       return 2;
   }
-}
-
-async function serveForeground(options, paths, scope, diagnostics) {
-  const logger = await new StructuredLog({ path: join(paths.logs, RUNTIME_LOG_FILE) }).initialize();
-  const credentials = serveCredentials();
-  const runtime = await startOpencodeServe({
-    paths, manifestPath: options.manifestPath,
-    hostname: options.serveHostname ?? undefined,
-    port: options.servePort ?? undefined,
-    wiredVersion: options.advertiseVersion ?? undefined,
-    password: credentials.password,
-    username: credentials.username,
-    logger,
-  });
-  scope?.output?.write(`nna: opencode surface ready at ${runtime.url}\n`);
-  await waitForShutdown(runtime, diagnostics);
-  return 0;
 }
 
 // Why: the wiring service and the login startup script invoke this action;
@@ -60,25 +42,11 @@ async function runManagedService(options, paths, scope, diagnostics) {
     port: config.port,
     username: config.username,
     password: config.password,
-    wiredVersion: options.advertiseVersion ?? undefined,
     logger,
   });
   await writeRuntimePid(paths, process.pid, { port: runtime.port, url: runtime.url }, scope);
   diagnostics.write(`nna opencode: managed surface ready at ${runtime.url}\n`);
   await waitForShutdown(runtime, diagnostics, () => removeRuntimePid(paths));
-}
-
-// Why: OpenChamber derives its Basic header from OPENCODE_SERVER_PASSWORD and
-// OPENCODE_SERVER_USERNAME?.trim() with the default username as the fallback,
-// so the foreground surface must bind the same environment-derived identity or
-// a customized OPENCODE_SERVER_USERNAME authenticates against a name the
-// server never expects and every proxied call is rejected with 401. The
-// managed runtime instead binds the persisted configuration identity.
-export function serveCredentials(environment = process.env) {
-  return {
-    password: environment.OPENCODE_SERVER_PASSWORD?.trim() || null,
-    username: environment.OPENCODE_SERVER_USERNAME?.trim() || null,
-  };
 }
 
 async function waitForShutdown(runtime, diagnostics, finish = async () => undefined) {
