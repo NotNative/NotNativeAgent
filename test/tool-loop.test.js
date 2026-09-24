@@ -837,6 +837,10 @@ test('the loop packet carries the deterministic text lane and never the legacy a
   assert.equal(granting.role, 'user');
   assert.equal(granting.trust, 'authenticated_utterance');
   assert.match(granting.content, /Replace target\.txt content with after/u);
+  const intent = captured.authenticatedIntent.find((item) => item.turnId === granting.turn_id
+    && item.content === 'Replace target.txt content with after');
+  assert.ok(intent);
+  assert.equal(granting.authority_sequence, intent.sequence);
   assert.equal(Object.hasOwn(captured, 'approvedProposal'), false);
   assert.equal(captured.causalEvidence.every((item) => item.type === 'tool_result'), true);
 });

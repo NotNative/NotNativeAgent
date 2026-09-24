@@ -21,12 +21,22 @@ export class AuthorityRecord {
       this.#version -= 1;
       throw new ContractError('authority_statement_kind_invalid', 'authenticated authority statement kind is invalid');
     }
+    const turnId = options.turnId === undefined ? undefined : this.#assertTurnId(options.turnId);
     if (kind === 'restriction') this.#restrictionVersion += 1;
     const item = Object.freeze({
       content, origin, sequence: this.#version, kind,
+      ...(turnId === undefined ? {} : { turnId }),
     });
     this.#intent.push(item);
     return Object.freeze({ ...item, lineageId: this.#id, restrictionVersion: this.#restrictionVersion });
+  }
+
+  #assertTurnId(value) {
+    if (typeof value !== 'string' || value.length === 0 || value.length > 256) {
+      this.#version -= 1;
+      throw new ContractError('authority_turn_id_invalid', 'authenticated authority turn identity is invalid');
+    }
+    return value;
   }
 
   rollbackAuthenticatedIntent(sequence) {
@@ -51,7 +61,9 @@ export class AuthorityRecord {
         throw new ContractError('authority_journal_invalid', 'authority recovery record is invalid');
       }
       lineage ??= record.lineageId;
-      this.addAuthenticatedIntent(record.content, record.origin, { kind: record.kind ?? 'statement' });
+      this.addAuthenticatedIntent(record.content, record.origin, {
+        kind: record.kind ?? 'statement', turnId: record.turnId,
+      });
     }
     if (lineage) this.#id = lineage;
     this.#missionTurns.clear();
@@ -213,8 +225,8 @@ export function missionFailureForError(active, error) {
   return cause;
 }
 
-export async function persistAuthenticatedIntent(authority, content, origin, persist) {
-  const intent = authority.addAuthenticatedIntent(content, origin);
+export async function persistAuthenticatedIntent(authority, content, origin, persist, options = {}) {
+  const intent = authority.addAuthenticatedIntent(content, origin, options);
   try { await persist(intent); }
   catch (error) { authority.rollbackAuthenticatedIntent(intent.sequence); throw error; }
   return intent;

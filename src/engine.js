@@ -118,7 +118,7 @@ export class SessionEngine {
     try {
       this.state.transition('preparing_turn', { trigger: 'submission_accepted', turnId: turn.id });
       active.prompt = command.content; setInitialCapabilityPhase(active, command.content);
-      await persistAuthenticatedIntent(this.authority, command.content, principal, (intent) => this.#persist('authority_intent', intent));
+      await persistAuthenticatedIntent(this.authority, command.content, principal, (intent) => this.#persist('authority_intent', intent), { turnId: turn.id });
       active.authority = this.authority.snapshot(this.config);
       active.authority = await authorizeAndPersistTurn(this.authority, this.config, (record) => this.#persist('mission_turn_authorized', record));
       active.conversationIntent = projectConversationIntent(active.authority, { anchor: active.prompt });
@@ -397,7 +397,7 @@ export class SessionEngine {
       const steering = this.steering.shift();
       const lifecycle = this.lifecycles.start('steering', active.stepId ?? active.turnId);
       await this.#publish('steering.started', 'steering', 'active', active);
-      await persistAuthenticatedIntent(this.authority, steering.content, steering.principal, (intent) => this.#persist('authority_intent', intent));
+      await persistAuthenticatedIntent(this.authority, steering.content, steering.principal, (intent) => this.#persist('authority_intent', intent), { turnId: active.turnId });
       active.authority = this.authority.snapshot(this.config);
       // Why: a terminal declaration was made against the pre-steering intent. Authenticated
       // steering changes that intent, so the model must explicitly declare the new outcome.

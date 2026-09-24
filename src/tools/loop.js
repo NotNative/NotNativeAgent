@@ -190,7 +190,7 @@ export class ToolLoop {
       conversationIntent: active.conversationIntent,
       justification: '',
     });
-    const textLane = buildConversationTextLane(this.engine.transcript);
+    const textLane = buildConversationTextLane(this.engine.transcript, active.authority?.intent);
     this.telemetry?.record('review.text_lane', 'succeeded', {
       items: textLane.item_count, omitted_items: textLane.omitted_items,
       content_bytes: textLane.content_bytes,

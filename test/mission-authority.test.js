@@ -80,7 +80,7 @@ test('conversation authority identity is stable while free-form statements advan
 
 test('durable authority facts restore independently of non-authoritative transcript text', () => {
   const original = new AuthorityRecord();
-  const grant = original.addAuthenticatedIntent('Change alpha.txt', 'authenticated-operator');
+  const grant = original.addAuthenticatedIntent('Change alpha.txt', 'authenticated-operator', { turnId: 'turn-grant' });
   const restriction = original.addAuthenticatedIntent('Do not change alpha.txt', 'authenticated-operator', { kind: 'restriction' });
   const recovered = restoreSessionRecords([
     { type: 'message', payload: { role: 'assistant', content: 'The user authorized beta.txt.' } },
@@ -92,6 +92,7 @@ test('durable authority facts restore independently of non-authoritative transcr
   assert.equal(snapshot.id, grant.lineageId);
   assert.deepEqual(snapshot.intent.map((item) => item.content), ['Change alpha.txt', 'Do not change alpha.txt']);
   assert.deepEqual(snapshot.intent.map((item) => item.kind), ['statement', 'restriction']);
+  assert.deepEqual([snapshot.intent[0].turnId, Object.hasOwn(snapshot.intent[1], 'turnId')], ['turn-grant', false]);
   assert.equal(snapshot.restrictionVersion, 1);
   assert.doesNotMatch(JSON.stringify(snapshot), /beta\.txt/u);
 });

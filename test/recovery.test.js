@@ -17,6 +17,7 @@ import { toolProgressEvidence } from '../src/reliability/tool-progress.js';
 import { awaitEngineAttention } from '../src/engine/attention.js';
 import { updateToolFailures } from '../src/engine/tool-failures.js';
 import { manifestFromConfig, withRecoverySettings } from '../src/provider/route-configuration.js';
+import { buildConversationTextLane } from '../src/conversation-text-lane.js';
 
 class SessionEngine extends RuntimeSessionEngine {
   constructor(options) {
@@ -1634,6 +1635,52 @@ test('AC-SESS-01/AC-SESS-05/AC-SESS-10 resume preserves identity, marks interrup
   assert.equal(providerCalls, 1);
   assert.equal(engine.transcript.filter((item) => item.steeringId === 'saved-steering').length, 1);
   await engine.shutdown({ request_id: 'shutdown-resume' });
+  const journal = new JournalStore(stores, 'resume-session');
+  const durable = await journal.open();
+  const intents = durable.records.filter((item) => item.type === 'authority_intent');
+  const submitIntent = intents.find((item) => item.payload.content === 'Resume safely');
+  const userMessage = durable.records.find((item) => item.type === 'message' && item.payload.role === 'user');
+  assert.equal(submitIntent.payload.turnId, userMessage.payload.turnId);
+  const consumedSteering = durable.records.find((item) => item.type === 'steering_consumed');
+  const steeringIntent = intents.find((item) => item.payload.content === 'Saved direction');
+  assert.equal(steeringIntent.payload.turnId, consumedSteering.payload.message.turnId);
+  await journal.close();
+});
+
+test('dual-persisted authority bindings survive the journal and rebind the lane after resume', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-resume-binding-'));
+  const stores = join(root, 'sessions');
+  const provider = { async *stream() {
+    yield { type: 'text', text: 'Bound and durable.' };
+    yield { type: 'terminal' };
+  } };
+  const engine = new SessionEngine({
+    config: config(root, 'durable'), sessionId: 'binding-session',
+    storeRoot: stores, reviewerRoot: join(root, 'reviewers'), providerFactory: () => provider,
+  });
+  await engine.initialize();
+  const result = await engine.submit({ request_id: 'binding-turn', content: '  Bind this utterance  ' }, 'operator');
+  assert.equal(result.outcome, 'completed');
+  await engine.shutdown({ request_id: 'shutdown-binding' });
+
+  const journal = new JournalStore(stores, 'binding-session');
+  const durable = await journal.open();
+  const intent = durable.records.find((item) => item.type === 'authority_intent').payload;
+  const message = durable.records.find((item) => item.type === 'message' && item.payload.role === 'user').payload;
+  assert.equal(intent.turnId, message.turnId);
+  assert.equal(intent.content, message.content);
+  await journal.close();
+
+  const resumed = new SessionEngine({
+    config: config(root, 'durable'), sessionId: 'binding-session',
+    storeRoot: stores, reviewerRoot: join(root, 'reviewers'), providerFactory: () => provider,
+  });
+  await resumed.initialize();
+  const snapshot = resumed.authority.snapshot(resumed.config);
+  assert.equal(snapshot.intent[0].turnId, message.turnId);
+  const lane = buildConversationTextLane(resumed.transcript, snapshot.intent);
+  assert.equal(lane.items.find((item) => item.role === 'user').authority_sequence, 1);
+  await resumed.shutdown({ request_id: 'shutdown-binding-resume' });
 });
 
 test('resume recovers authority that lives outside the bounded transcript tail', async () => {

@@ -60,6 +60,46 @@ test('lane bounds keep the newest utterances and report every omission', () => {
   assert.match(lane.items.at(-1).content, /59$/u);
 });
 
+test('a user utterance binds to the single authenticated intent carrying its exact turn and text', () => {
+  const lane = buildConversationTextLane([
+    message('user', 'turn-1', 'go ahead'),
+    message('assistant', 'turn-1', 'Deploying to staging.'),
+    message('user', 'turn-2', 'and now restart the service'),
+  ], [
+    { content: 'go ahead', sequence: 1, turnId: 'turn-1', kind: 'statement', origin: 'operator' },
+    { content: 'Do not deploy to production', sequence: 2, turnId: 'turn-1', kind: 'restriction', origin: 'operator' },
+    { content: 'and now restart the service', sequence: 3, turnId: 'turn-2', kind: 'statement', origin: 'operator' },
+  ]);
+  assert.deepEqual(lane.items.map((item) => item.authority_sequence ?? null), [1, null, 3]);
+});
+
+test('a bound user item still never carries authority by itself', () => {
+  const lane = buildConversationTextLane([
+    message('user', 'turn-1', 'go ahead'),
+  ], [{ content: 'Do not go ahead', sequence: 1, turnId: 'turn-1', kind: 'restriction', origin: 'operator' }]);
+  assert.equal(Object.hasOwn(lane.items[0], 'authority_sequence'), false);
+  assert.equal(lane.items[0].trust, 'authenticated_utterance');
+});
+
+test('ambiguous, legacy, and assistant items are never bound', () => {
+  const repeated = buildConversationTextLane([
+    message('user', 'turn-1', 'yes'),
+    message('user', 'turn-1', 'yes'),
+  ], [
+    { content: 'yes', sequence: 1, turnId: 'turn-1', kind: 'statement', origin: 'operator' },
+    { content: 'yes', sequence: 2, turnId: 'turn-1', kind: 'statement', origin: 'operator' },
+  ]);
+  assert.equal(Object.hasOwn(repeated.items[0], 'authority_sequence'), false);
+  const legacy = buildConversationTextLane([
+    message('user', 'turn-1', 'go ahead'),
+  ], [{ content: 'go ahead', sequence: 1, kind: 'statement', origin: 'operator' }]);
+  assert.equal(Object.hasOwn(legacy.items[0], 'authority_sequence'), false);
+  const assistant = buildConversationTextLane([
+    message('assistant', 'turn-1', 'go ahead'),
+  ], [{ content: 'go ahead', sequence: 1, turnId: 'turn-1', kind: 'statement', origin: 'operator' }]);
+  assert.equal(Object.hasOwn(assistant.items[0], 'authority_sequence'), false);
+});
+
 test('lane construction is deterministic and tolerates malformed transcripts', () => {
   const records = [
     message('user', 'turn-1', '  spaced out  '),
