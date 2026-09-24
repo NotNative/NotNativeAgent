@@ -25,7 +25,7 @@ vi.mock('../../../lib/server-api.ts', () => ({
   forceKillTerminals: vi.fn(async () => ({ ok: true, killedCount: 1 })),
 }));
 
-import { createTerminalSession, forceKillTerminals } from '../../../lib/server-api.ts';
+import { closeTerminalSession, createTerminalSession, forceKillTerminals } from '../../../lib/server-api.ts';
 import { TerminalView } from '../TerminalView.tsx';
 import { I18nProvider } from '../../I18nProvider.tsx';
 import { __resetTerminalsForTests, getTerminalBuffer, normalizeTerminalDirectory, useTerminalStore } from '../../../lib/terminal/store.ts';
@@ -110,6 +110,7 @@ beforeEach(() => {
   setTerminalTransportFactory(transportFactory());
   document.body.innerHTML = '';
   (createTerminalSession as unknown as ReturnType<typeof vi.fn>).mockClear();
+  (closeTerminalSession as unknown as ReturnType<typeof vi.fn>).mockClear();
 });
 
 afterEach(() => {
@@ -174,6 +175,8 @@ describe('TerminalView flow (doc 07 Flow 1 v1)', () => {
     await pushInbound({ v: 3, t: 'exit', s: request.sessionId, q: 2, exitCode: 3 });
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(getTerminalBuffer(key, tab.id).text.includes('[process exited (code 3)]')).toBe(true);
+    expect((document.querySelector('[data-testid="terminal-input"]') as HTMLInputElement).disabled).toBe(true);
+    expect((document.querySelector('[data-testid="terminal-quick-key-Ctrl+C"]') as HTMLButtonElement).disabled).toBe(true);
     await act(async () => {
       (document.querySelector('[data-testid="terminal-kill-session"]') as HTMLElement).click();
       await Promise.resolve();
@@ -197,5 +200,33 @@ describe('TerminalView flow (doc 07 Flow 1 v1)', () => {
       await new Promise((done) => setTimeout(done, 20));
     });
     expect(createTerminalSession).toHaveBeenCalledTimes(1); // still one: exited is never re-created
+  });
+
+  it('releases a server terminal created after its tab was closed', async () => {
+    let resolveCreate: ((value: { ok: true; sessionId: string; cols: number; rows: number; status: 'running'; mode: 'interactive'; purpose: { type: 'terminal' } }) => void) | null = null;
+    (createTerminalSession as ReturnType<typeof vi.fn>).mockImplementationOnce(() => new Promise((resolve) => { resolveCreate = resolve; }));
+    await renderView();
+    const key = normalizeTerminalDirectory(DIR);
+    const tab = useTerminalStore.getState().dirs[key]!.tabs[0]!;
+    await act(async () => { await useTerminalStore.getState().closeTab(DIR, tab.id); });
+    await act(async () => {
+      resolveCreate?.({ ok: true, sessionId: 'orphan-session', cols: 80, rows: 24, status: 'running', mode: 'interactive', purpose: { type: 'terminal' } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(closeTerminalSession).toHaveBeenCalledWith('orphan-session');
+    expect(useTerminalStore.getState().dirs[key]!.tabs.some((candidate) => candidate.id === tab.id)).toBe(false);
+  });
+
+  it('uses a wrapping input layout in the compact operator rail', async () => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    await act(async () => {
+      rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible compact /></I18nProvider>);
+      await new Promise((done) => setTimeout(done, 10));
+    });
+    expect((document.querySelector('[data-testid="terminal-input"]') as HTMLInputElement).className).toContain('basis-full');
+    expect(document.querySelector('[data-testid="terminal-quick-keys"]')?.className).toContain('flex-wrap');
   });
 });

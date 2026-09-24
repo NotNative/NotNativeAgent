@@ -8,6 +8,7 @@ import { useSessionViewStore } from '../sync/view-store.ts';
 import { WorkStatusPanel } from './work-status-panel.tsx';
 import { GitView } from '../components/git/GitView.tsx';
 import { ProjectNotes } from './project-notes.tsx';
+import { TerminalView } from '../components/terminal/TerminalView.tsx';
 
 type Surface = 'context' | 'activity' | 'changes' | 'notes' | 'browser' | 'terminal';
 const SURFACES: readonly { id: Surface; label: string }[] = [
@@ -21,13 +22,20 @@ const SURFACES: readonly { id: Surface; label: string }[] = [
 
 export function OperatorRail({ store, engine, directory }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; directory: string }): ReactNode {
   const [surface, setSurface] = useState<Surface>('context');
+  // TerminalView owns the observer and the ten-minute keepalive.  Once the
+  // user has opened it, keep that controller mounted while another rail
+  // surface is selected so a live background terminal is not silently reaped.
+  const [terminalEverOpened, setTerminalEverOpened] = useState(false);
   return (
     <aside className="hidden w-[300px] shrink-0 border-l border-white/10 bg-neutral-950/40 xl:flex" data-testid="operator-rail">
       <nav className="flex w-10 shrink-0 flex-col border-r border-white/10 py-2" aria-label="Operator surfaces">
         {SURFACES.map((item) => (
           <button key={item.id} type="button" title={item.label} aria-label={item.label} aria-pressed={surface === item.id}
             className={`px-1 py-2 text-[9px] ${surface === item.id ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
-            onClick={() => setSurface(item.id)}>{item.label.slice(0, 1)}</button>
+            onClick={() => {
+              if (item.id === 'terminal') setTerminalEverOpened(true);
+              setSurface(item.id);
+            }}>{item.label.slice(0, 1)}</button>
         ))}
       </nav>
       <div className="min-w-0 flex-1 overflow-y-auto">
@@ -35,7 +43,12 @@ export function OperatorRail({ store, engine, directory }: { store: StoreApi<Dir
         {surface === 'activity' ? <ActivitySurface store={store} /> : null}
         {surface === 'changes' ? <GitView directory={directory} visible compact /> : null}
         {surface === 'notes' ? <ProjectNotes directory={directory} /> : null}
-        {surface === 'browser' || surface === 'terminal' ? <DeferredSurface label={SURFACES.find((item) => item.id === surface)!.label} /> : null}
+        {terminalEverOpened ? (
+          <div className={surface === 'terminal' ? 'flex h-full min-h-0' : 'hidden'}>
+            <TerminalView directory={directory} visible={surface === 'terminal'} compact />
+          </div>
+        ) : null}
+        {surface === 'browser' ? <DeferredSurface label="Browser" /> : null}
       </div>
     </aside>
   );

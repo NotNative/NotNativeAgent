@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import {
-  createTerminalSession, forceKillTerminals, restartTerminalSession, resizeTerminalSession,
+  closeTerminalSession, createTerminalSession, forceKillTerminals, restartTerminalSession, resizeTerminalSession,
 } from '../../lib/server-api.ts';
 import { observeTerminalSessions, startKeepaliveTouch } from '../../lib/terminal/observer.ts';
 import {
@@ -35,9 +35,9 @@ import { FOCUS_EVENT_NAME } from '../comments/focus-chat.ts';
 const PROVISIONAL_SIZE = { cols: 80, rows: 24 };
 const EMPTY_TABS: TerminalTab[] = [];
 
-export interface TerminalViewProps { directory: string; visible: boolean }
+export interface TerminalViewProps { directory: string; visible: boolean; compact?: boolean }
 
-export function TerminalView({ directory, visible }: TerminalViewProps): ReactNode {
+export function TerminalView({ directory, visible, compact = false }: TerminalViewProps): ReactNode {
   const key = normalizeTerminalDirectory(directory);
   const tabs = useTerminalStore((state) => state.dirs[key]?.tabs ?? EMPTY_TABS);
   const activeTabId = useTerminalStore((state) => state.dirs[key]?.activeTabId ?? '');
@@ -45,7 +45,7 @@ export function TerminalView({ directory, visible }: TerminalViewProps): ReactNo
   useTerminalBootstrap(directory);
   useTerminalObserver(directory, key);
   useTerminalCreate(directory, visible, active);
-  useTerminalStream(directory, key, active);
+  useTerminalStream(directory, key, active, visible);
   useTerminalKeepalive(tabs);
   if (active === null) return null;
   return (
@@ -54,7 +54,7 @@ export function TerminalView({ directory, visible }: TerminalViewProps): ReactNo
       <div className="min-h-0 flex-1 overflow-auto rounded border border-border/40 bg-background/80 p-2 font-mono text-xs text-foreground" data-testid="terminal-buffer">
         <pre data-testid="terminal-text" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{viewText(key, active)}</pre>
       </div>
-      <QuickKeys directory={directory} tab={active} />
+      <QuickKeys directory={directory} tab={active} compact={compact} />
     </div>
   );
 }
@@ -86,25 +86,37 @@ function useTerminalCreate(directory: string, visible: boolean, active: Terminal
     flights.current.add(active.id);
     patchTabLifecycle(directory, active.id, 'starting');
     void createTerminalSession({ cwd: directory, sessionId: active.id, ...PROVISIONAL_SIZE, themeMode: 'dark' })
-      .then((created) => {
-        if (!created.ok) patchTabLifecycle(directory, active.id, 'exited');
-        else useTerminalStore.getState().setTabSession(directory, active.id, created.sessionId, 'running');
+    .then(async (created) => {
+      if (!created.ok) patchTabLifecycle(directory, active.id, 'exited');
+      else if (terminalTabStillExists(directory, active.id)) {
+        useTerminalStore.getState().setTabSession(directory, active.id, created.sessionId, 'running');
+      } else {
+        // Closing a tab while its create request is in flight otherwise leaves
+        // an unlisted server PTY.  The local tab is gone, so release the just
+        // created session instead of letting it survive until the reaper.
+        await closeTerminalSession(created.sessionId).catch(() => undefined);
+      }
       })
       .finally(() => { flights.current.delete(active.id); });
     return undefined;
   }, [active, directory, visible]);
 }
 
+function terminalTabStillExists(directory: string, tabId: string): boolean {
+  const key = normalizeTerminalDirectory(directory);
+  return useTerminalStore.getState().dirs[key]?.tabs.some((tab) => tab.id === tabId) === true;
+}
+
 /** One stream subscription at a time: the ACTIVE tab's session only
  * (hidden tabs keep buffers, section 6.5). */
-function useTerminalStream(directory: string, key: string, active: TerminalTab | null): void {
+function useTerminalStream(directory: string, key: string, active: TerminalTab | null, visible: boolean): void {
   const tabId = active?.id ?? '';
   const sessionId = active?.terminalSessionId ?? '';
   useTerminalStore((state) => state.bufferVersions[`${key}\u0000${tabId}`] ?? 0); // view redraw tick (E-07-13)
   useEffect(() => {
-    if (tabId.length === 0 || sessionId.length === 0) return undefined;
+    if (!visible || tabId.length === 0 || sessionId.length === 0) return undefined;
     return subscribeTabStream(directory, key, tabId, sessionId);
-  }, [directory, key, tabId, sessionId]);
+  }, [directory, key, tabId, sessionId, visible]);
 }
 
 /** 10-min keepalive touch for non-exited tabs; the interval reads a ref so
@@ -209,14 +221,15 @@ async function restartActiveTab(directory: string, tab: TerminalTab): Promise<vo
   }
 }
 
-interface QuickKeysProps { directory: string; tab: TerminalTab }
+interface QuickKeysProps { directory: string; tab: TerminalTab; compact: boolean }
 
-function QuickKeys({ directory, tab }: QuickKeysProps): ReactNode {
+function QuickKeys({ directory, tab, compact }: QuickKeysProps): ReactNode {
   const { t } = useI18n();
   const [line, setLine] = useState('');
   const sessionId = tab.terminalSessionId;
+  const writable = sessionId !== null && tab.lifecycle === 'running';
   const send = useCallback((data: string, clearsLine?: boolean): void => {
-    if (sessionId === null) return;
+    if (!writable || sessionId === null) return;
     try {
       getTerminalTransport().write(sessionId, data);
     } catch {
@@ -224,7 +237,7 @@ function QuickKeys({ directory, tab }: QuickKeysProps): ReactNode {
       return;
     }
     if (clearsLine === true) setLine('');
-  }, [sessionId]);
+  }, [sessionId, writable]);
   const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
@@ -234,17 +247,18 @@ function QuickKeys({ directory, tab }: QuickKeysProps): ReactNode {
     send(`${text}\r`); // section 6.4: Enter sends CR; the shell echo path is the only truth
   };
   return (
-    <div className="flex items-center gap-1" data-testid="terminal-quick-keys">
+    <div className={`flex items-center gap-1 ${compact ? 'flex-wrap' : ''}`} data-testid="terminal-quick-keys">
       <input
-        className="min-w-0 flex-1 rounded border border-border/40 bg-transparent px-2 py-1 font-mono text-xs text-foreground outline-none"
+        className={`min-w-0 flex-1 rounded border border-border/40 bg-transparent px-2 py-1 font-mono text-xs text-foreground outline-none ${compact ? 'basis-full' : ''}`}
         value={line}
         data-testid="terminal-input"
         onChange={(event) => setLine(event.target.value)}
         onKeyDown={onKeyDown}
         placeholder={t('terminal.inputPlaceholder')}
+        disabled={!writable}
       />
       {QUICK_KEYS.map((quickKey) => (
-        <QuickKey key={quickKey.key} label={t(quickKey.key)} sequence={quickKey.sequence} clearsLine={quickKey.clearsLine} send={send} />
+        <QuickKey key={quickKey.key} label={t(quickKey.key)} sequence={quickKey.sequence} clearsLine={quickKey.clearsLine} send={send} disabled={!writable} />
       ))}
       <AttachSelectionButton directory={directory} tab={tab} />
       {sessionId !== null ? (
@@ -274,9 +288,9 @@ async function killSession(sessionId: string): Promise<void> {
   }
 }
 
-function QuickKey({ label, sequence, clearsLine, send }: { label: string; sequence: string; clearsLine?: boolean; send: (data: string, clearsLine?: boolean) => void }): ReactNode {
+function QuickKey({ label, sequence, clearsLine, send, disabled }: { label: string; sequence: string; clearsLine?: boolean; send: (data: string, clearsLine?: boolean) => void; disabled: boolean }): ReactNode {
   return (
-    <button type="button" className="rounded border border-border/50 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground" data-testid={`terminal-quick-key-${label}`} onClick={() => send(sequence, clearsLine)}>{label}</button>
+    <button type="button" disabled={disabled} className="rounded border border-border/50 px-1.5 py-0.5 text-[10px] text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50" data-testid={`terminal-quick-key-${label}`} onClick={() => send(sequence, clearsLine)}>{label}</button>
   );
 }
 
