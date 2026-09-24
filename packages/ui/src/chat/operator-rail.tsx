@@ -7,7 +7,7 @@ import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { WorkStatusPanel } from './work-status-panel.tsx';
 import { GitView } from '../components/git/GitView.tsx';
-import { PlanView } from '../components/plan/PlanView.tsx';
+import { ProjectNotes } from './project-notes.tsx';
 
 type Surface = 'context' | 'activity' | 'changes' | 'notes' | 'browser' | 'terminal';
 const SURFACES: readonly { id: Surface; label: string }[] = [
@@ -34,7 +34,7 @@ export function OperatorRail({ store, engine, directory }: { store: StoreApi<Dir
         {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded /> : null}
         {surface === 'activity' ? <ActivitySurface store={store} /> : null}
         {surface === 'changes' ? <GitView directory={directory} visible compact /> : null}
-        {surface === 'notes' ? <PlanView directory={directory} visible /> : null}
+        {surface === 'notes' ? <ProjectNotes directory={directory} /> : null}
         {surface === 'browser' || surface === 'terminal' ? <DeferredSurface label={SURFACES.find((item) => item.id === surface)!.label} /> : null}
       </div>
     </aside>

@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 describe('OperatorRail Notes surface', () => {
-  it('opens the plan editor inside the docked rail', async () => {
+  it('keeps project notes distinct and opens the plan editor on demand', async () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
@@ -48,6 +48,11 @@ describe('OperatorRail Notes surface', () => {
       await Promise.resolve();
     });
 
+    expect(document.querySelector('[data-testid="project-notes"]')!.textContent).toContain('General notes');
+    await act(async () => {
+      ([...document.querySelectorAll('[data-testid="project-notes"] button')].find((button) => button.textContent === 'Plans') as HTMLButtonElement).click();
+      await Promise.resolve();
+    });
     expect(document.querySelector('[data-testid="plan-view"]')).not.toBeNull();
     expect(document.querySelector('[data-plan-host] textarea')).not.toBeNull();
   });
