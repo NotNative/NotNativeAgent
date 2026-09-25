@@ -10,7 +10,7 @@ import { ENV } from './env.ts';
 import { registerHarnessAdapter } from './harness/adapter.ts';
 import { mockHarness } from './harness/mock/index.ts';
 import { createNnaHarnessAdapter } from './harness/nna.ts';
-import { guardLocalNnaHarness, startLocalNnaHarness, type LocalNnaHarness } from './harness/nna-local.ts';
+import { guardLocalNnaHarness, resolveNnaCommand, startLocalNnaHarness, type LocalNnaHarness } from './harness/nna-local.ts';
 import { upgradeAllowedForRequest, getUiAuthController } from './lib/auth/ui-auth.ts';
 import { getPairingSessionStore } from './lib/auth/pairing-sessions.ts';
 import { getRelayHostService } from './lib/relay/host-service.ts';
@@ -22,10 +22,24 @@ import type { Server as HttpServer } from 'node:http';
 
 export async function startServer(): Promise<{ port: number; dispose(): void }> {
   const localNna = await configureHarness();
+  try {
+    return await startConfiguredServer(localNna);
+  } catch (error) {
+    // If a later server subsystem (for example a port bind) rejects boot, the
+    // child already authenticated to this process must not survive orphaned.
+    localNna?.dispose();
+    throw error;
+  }
+}
+
+async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Promise<{ port: number; dispose(): void }> {
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
   const app = createApp({ terminal });
   const server = serve({ fetch: app.fetch, hostname: ENV.host, port: ENV.port });
+  // Node reports EADDRINUSE and similar bind failures through an asynchronous
+  // error event. Wait here so the caller can stop its already-owned NNA child.
+  await awaitServerListening(server as HttpServer);
   // E-07-3 slot: the ui/tunnel composed predicate backs the terminal
   // upgrade gate (loopback stays enforced in the wire layer).
   const wiring = attachTerminalWebsocket(
@@ -78,6 +92,16 @@ export async function startServer(): Promise<{ port: number; dispose(): void }> 
   return { port: ENV.port, dispose }; // P12a (NOTES/09 A.2): the in-process shell disposes through this same body
 }
 
+function awaitServerListening(server: HttpServer): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (server.listening) { resolve(); return; }
+    const onListening = (): void => { server.off('error', onError); resolve(); };
+    const onError = (error: Error): void => { server.off('listening', onListening); reject(error); };
+    server.once('listening', onListening);
+    server.once('error', onError);
+  });
+}
+
 async function configureHarness(): Promise<LocalNnaHarness | undefined> {
   if (ENV.harness !== 'nna') {
     registerHarnessAdapter(mockHarness);
@@ -89,7 +113,10 @@ async function configureHarness(): Promise<LocalNnaHarness | undefined> {
     }));
     return undefined;
   }
-  const local = await startLocalNnaHarness({ command: ENV.nnaCommand, workspaceId: ENV.nnaWorkspaceId });
+  const launch = await resolveNnaCommand({ command: ENV.nnaCommand });
+  const local = await startLocalNnaHarness({
+    command: launch.command, commandArguments: launch.arguments, dataRoot: launch.dataRoot, workspaceId: ENV.nnaWorkspaceId,
+  });
   registerHarnessAdapter(guardLocalNnaHarness(createNnaHarnessAdapter({
     endpoint: local.endpoint, token: local.token, principal: local.principal,
   }), local));

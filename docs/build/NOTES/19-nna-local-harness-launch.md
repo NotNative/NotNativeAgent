@@ -7,7 +7,7 @@ NNA integration service.  NNA now owns the live session engine, canonical
 ingress, governance, durable transcript projection, and authenticated SSE
 stream.  NND remains a presentation and local-operator client.
 
-The NNA child is started with `nna integration serve`.  Its single stdout
+The NNA child is started with `nna nnd serve`. Its single stdout
 readiness line is JSON with `type: "ready"`, `protocol`, `endpoint`,
 `instance_id`, and a short-lived integration `token`.  Diagnostics belong on
 stderr; stdout must remain protocol-only.
@@ -16,7 +16,7 @@ stderr; stdout must remain protocol-only.
 
 NND's managed local launcher now:
 
-1. Spawn the configured NNA executable with `integration serve`, with stdout
+1. Spawn the configured NNA executable with `nnd serve`, with stdout
    and stderr kept separate.
 2. Accept exactly one bounded readiness line before a startup deadline, reject
    malformed data, non-loopback endpoints, and a protocol mismatch.
@@ -35,8 +35,16 @@ parent or operator through server-only `NNA_HARNESS_URL`,
 `NNA_INTEGRATION_TOKEN`, and `NNA_PRINCIPAL` configuration. This remains
 useful for development and externally owned NNA processes.
 
-When `NOTNATIVE_HARNESS=nna` and the mode is not `attach`, NND runs managed
-mode by default. `NNA_COMMAND` selects the executable (default `nna`) and
-`NNA_WORKSPACE_ID` supplies the explicit local workspace authority (default
+NND product boot defaults to the managed NNA child. On Windows it first reads
+the local NNA installation descriptor and invokes its recorded Node runtime
+and immutable installed CLI directly, avoiding an assumption that `nna.cmd` is
+on PATH. That direct launch passes the descriptor's `data_root` as `NNA_HOME`,
+matching the installed launcher so NNA uses the operator's configured state.
+`NNA_COMMAND` overrides that discovery; portable/non-Windows installs
+fall back to `nna` on PATH. `NNA_WORKSPACE_ID` supplies the explicit local workspace authority (default
 `local`). NND mints a fresh, bounded principal envelope per forwarded request;
 the readiness credential itself never reaches the browser or logs.
+
+The source development launcher explicitly selects `NOTNATIVE_HARNESS=mock`
+unless the developer provides another value. That keeps a first-run source
+checkout usable without weakening the packaged product's NNA-first contract.

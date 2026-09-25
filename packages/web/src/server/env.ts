@@ -27,8 +27,8 @@ export const ENV = {
   planModeExperimentalEnabled: truthy(
     process.env.NOTNATIVE_EXPERIMENTAL_PLAN_MODE ?? process.env.NOTNATIVE_EXPERIMENTAL,
   ),
-  /** Harness selection: 'mock' until the NNA adapter is wired. */
-  harness: (process.env.NOTNATIVE_HARNESS ?? 'mock') as 'mock' | 'nna',
+  /** NNA is the product default; the mock is an explicit development/test seam. */
+  harness: (process.env.NOTNATIVE_HARNESS ?? 'nna') as 'mock' | 'nna',
   /** Server-only NNA integration credentials; never enter a browser response. */
   nnaHarnessUrl: process.env.NNA_HARNESS_URL ?? '',
   nnaIntegrationToken: process.env.NNA_INTEGRATION_TOKEN ?? '',
@@ -36,7 +36,8 @@ export const ENV = {
   /** `managed` owns a loopback NNA child; `attach` consumes explicit credentials. */
   nnaMode: (process.env.NOTNATIVE_NNA_MODE ?? 'managed') as 'managed' | 'attach',
   /** Command resolved by the local launcher.  Its readiness data is never logged. */
-  nnaCommand: process.env.NNA_COMMAND ?? 'nna',
+  /** Optional explicit executable. Absent means resolve the installed NNA product. */
+  nnaCommand: process.env.NNA_COMMAND ?? '',
   nnaWorkspaceId: process.env.NNA_WORKSPACE_ID ?? 'local',
 } as const;
 

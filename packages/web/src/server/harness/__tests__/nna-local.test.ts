@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
-import { guardLocalNnaHarness, startLocalNnaHarness } from '../nna-local.ts';
+import { guardLocalNnaHarness, resolveNnaCommand, startLocalNnaHarness } from '../nna-local.ts';
 
 const token = 't'.repeat(32);
 
@@ -17,9 +17,39 @@ function ready(endpoint = 'http://127.0.0.1:4812') {
 }
 
 describe('managed local NNA launcher', () => {
+  it('discovers the installed Windows NNA runtime without relying on PATH', async () => {
+    const accessed: string[] = [];
+    const resolved = await resolveNnaCommand({
+      platform: 'win32', environment: { LOCALAPPDATA: 'C:\\Users\\operator\\AppData\\Local' },
+      readFile: async () => JSON.stringify({ product: 'NotNativeAgent', node: 'C:\\Program Files\\nodejs\\node.exe', install_root: 'C:\\Users\\operator\\AppData\\Local\\NotNativeAgent', data_root: 'D:\\NNA Data' }),
+      access: async (value) => { accessed.push(String(value)); },
+    });
+    expect(resolved).toEqual({ command: 'C:\\Program Files\\nodejs\\node.exe', arguments: ['C:\\Users\\operator\\AppData\\Local\\NotNativeAgent\\installed\\src\\cli.js'], dataRoot: 'D:\\NNA Data' });
+    expect(accessed).toHaveLength(2);
+  });
+
+  it('uses explicit or portable commands when an installed descriptor is unavailable', async () => {
+    await expect(resolveNnaCommand({ command: 'D:\\tooling\\nna.exe', platform: 'win32' })).resolves.toEqual({ command: 'D:\\tooling\\nna.exe', arguments: [] });
+    await expect(resolveNnaCommand({ platform: 'win32', readFile: async () => { throw new Error('missing'); } })).resolves.toEqual({ command: 'nna', arguments: [] });
+  });
+
+  it('rejects a descriptor that is not an NNA installation', async () => {
+    await expect(resolveNnaCommand({
+      platform: 'win32', readFile: async () => JSON.stringify({ product: 'SomethingElse', node: 'C:\\node.exe', install_root: 'C:\\tooling' }),
+    })).resolves.toEqual({ command: 'nna', arguments: [] });
+  });
+
+  it('does not use an installed descriptor without an absolute data root', async () => {
+    await expect(resolveNnaCommand({
+      platform: 'win32', readFile: async () => JSON.stringify({ product: 'NotNativeAgent', node: 'C:\\node.exe', install_root: 'C:\\tooling', data_root: 'relative' }),
+    })).resolves.toEqual({ command: 'nna', arguments: [] });
+  });
+
   it('accepts one valid loopback readiness record and mints fresh server principals', async () => {
     const process = child();
-    const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild: () => process });
+    const spawnChild = vi.fn((_command: string, _args: string[]) => process);
+    const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild });
+    expect(spawnChild.mock.calls[0]?.[1]).toEqual(['nnd', 'serve']);
     process.stdout.write(ready());
     const harness = await promise;
     expect(harness.endpoint).toBe('http://127.0.0.1:4812');
@@ -33,7 +63,19 @@ describe('managed local NNA launcher', () => {
     expect(harness.isRunning()).toBe(false);
   });
 
-  it.each(['http://evil.example:4812', 'https://127.0.0.1:4812', 'http://127.0.0.1:4812/path'])('rejects unsafe readiness endpoint %s', async (endpoint) => {
+  it('passes installed NNA data_root to the direct Node child as NNA_HOME', async () => {
+    const process = child();
+    const spawnChild = vi.fn((_command: string, _args: string[], _options: unknown) => process);
+    const promise = startLocalNnaHarness({ command: 'C:\\node.exe', commandArguments: ['C:\\nna\\installed\\src\\cli.js'], dataRoot: 'D:\\NNA Data', workspaceId: 'local', spawnChild });
+    expect(spawnChild.mock.calls[0]?.[1]).toEqual(['C:\\nna\\installed\\src\\cli.js', 'nnd', 'serve']);
+    expect(spawnChild.mock.calls[0]?.[2]).toMatchObject({ env: { NNA_HOME: 'D:\\NNA Data' } });
+    process.stdout.write(ready());
+    const harness = await promise;
+    harness.dispose();
+    expect(process.kill).toHaveBeenCalledOnce();
+  });
+
+  it.each(['http://evil.example:4812', 'http://localhost:4812', 'http://[::1]:4812', 'https://127.0.0.1:4812', 'http://127.0.0.1:0', 'http://127.0.0.1:4812/path'])('rejects unsafe readiness endpoint %s', async (endpoint: string) => {
     const process = child();
     const promise = startLocalNnaHarness({ command: 'nna', workspaceId: 'local', spawnChild: () => process });
     process.stdout.write(ready(endpoint));

@@ -7,4 +7,11 @@
  */
 import { startServer } from '../packages/electron/dist-server/server.mjs';
 
-startServer();
+// `startServer` awaits managed-NNA readiness.  Handle that rejection here so
+// the web-only entrypoint reports the same bounded startup failure as the
+// source server entrypoint instead of relying on Node's unhandled-rejection
+// policy.
+startServer().catch((error) => {
+  console.error(`NotNativeDesktop server failed to start: ${error instanceof Error ? error.message : 'unknown error'}`);
+  process.exitCode = 1;
+});

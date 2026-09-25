@@ -2,6 +2,9 @@
 /** Owns the local NNA integration child used by the packaged desktop default. */
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { access, readFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { harnessError, type HarnessAdapter } from './adapter.ts';
 
 const READY_LIMIT = 16 * 1024;
@@ -12,9 +15,54 @@ const TOKEN = /^[A-Za-z0-9_-]{32,512}$/u;
 
 export interface LocalNnaLaunchOptions {
   command: string;
+  commandArguments?: string[];
+  dataRoot?: string;
   workspaceId: string;
   startupTimeoutMs?: number;
   spawnChild?: (command: string, args: string[], options: Parameters<typeof spawn>[2]) => ChildProcessWithoutNullStreams;
+}
+
+export interface NnaCommandResolutionOptions {
+  command?: string;
+  platform?: NodeJS.Platform;
+  environment?: NodeJS.ProcessEnv;
+  homeDirectory?: string;
+  readFile?: (path: string, encoding: 'utf8') => Promise<string>;
+  access?: (path: string) => Promise<unknown>;
+}
+
+export interface ResolvedNnaCommand {
+  command: string;
+  arguments: string[];
+  dataRoot?: string;
+}
+
+/** Resolves a co-installed Windows NNA without relying on the user's PATH. */
+export async function resolveNnaCommand(options: NnaCommandResolutionOptions = {}): Promise<ResolvedNnaCommand> {
+  const explicit = options.command?.trim();
+  if (explicit) return { command: explicit, arguments: [] };
+  const platform = options.platform ?? process.platform;
+  if (platform !== 'win32') return { command: 'nna', arguments: [] };
+  // Use the requested platform's path rules even in cross-platform tests. More
+  // importantly, do not let a POSIX host misclassify a recorded Windows path.
+  const platformPath = path.win32;
+  const environment = options.environment ?? process.env;
+  const localAppData = environment.LOCALAPPDATA ?? platformPath.join(options.homeDirectory ?? os.homedir(), 'AppData', 'Local');
+  const descriptorPath = platformPath.join(localAppData, 'NotNativeAgent', 'install.json');
+  try {
+    const source = await (options.readFile ?? readFile)(descriptorPath, 'utf8');
+    const descriptor = JSON.parse(source) as { product?: unknown; node?: unknown; install_root?: unknown; data_root?: unknown };
+    if (descriptor.product !== 'NotNativeAgent' || typeof descriptor.node !== 'string' || !platformPath.isAbsolute(descriptor.node)
+      || typeof descriptor.install_root !== 'string' || !platformPath.isAbsolute(descriptor.install_root)
+      || typeof descriptor.data_root !== 'string' || !platformPath.isAbsolute(descriptor.data_root)) throw new Error('invalid');
+    const cli = platformPath.join(descriptor.install_root, 'installed', 'src', 'cli.js');
+    await (options.access ?? access)(descriptor.node);
+    await (options.access ?? access)(cli);
+    return { command: descriptor.node, arguments: [cli], dataRoot: descriptor.data_root };
+  } catch {
+    // A PATH binary remains a valid deployment path for portable/nonstandard installs.
+    return { command: 'nna', arguments: [] };
+  }
 }
 
 export interface LocalNnaHarness {
@@ -29,9 +77,15 @@ export interface LocalNnaHarness {
 export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<LocalNnaHarness> {
   if (!options.command.trim()) return Promise.reject(new Error('NNA command is required'));
   if (!/^[A-Za-z0-9_.-]{1,128}$/u.test(options.workspaceId)) return Promise.reject(new Error('NNA workspace id is invalid'));
-  const child = (options.spawnChild ?? spawn)(options.command, ['integration', 'serve'], {
-    stdio: ['ignore', 'pipe', 'pipe'], shell: false, windowsHide: true,
-  }) as ChildProcessWithoutNullStreams;
+  let child: ChildProcessWithoutNullStreams;
+  try {
+    child = (options.spawnChild ?? spawn)(options.command, [...(options.commandArguments ?? []), 'nnd', 'serve'], {
+      stdio: ['ignore', 'pipe', 'pipe'], shell: false, windowsHide: true,
+      ...(options.dataRoot ? { env: { ...process.env, NNA_HOME: options.dataRoot } } : {}),
+    }) as ChildProcessWithoutNullStreams;
+  } catch {
+    return Promise.reject(new Error('NNA local harness could not start'));
+  }
   let running = true;
   let settled = false;
   child.once('exit', () => { running = false; });
@@ -56,6 +110,9 @@ export function startLocalNnaHarness(options: LocalNnaLaunchOptions): Promise<Lo
       if (ready.type !== 'ready' || ready.protocol !== '1.0' || typeof ready.instance_id !== 'string') return fail('NNA local harness readiness is incompatible');
       if (typeof ready.endpoint !== 'string' || !isLoopbackOrigin(ready.endpoint) || typeof ready.token !== 'string' || !TOKEN.test(ready.token)) return fail('NNA local harness readiness is unsafe');
       settled = true; clean();
+      // NNA's stdout is protocol-only, but continue draining it after the
+      // readiness frame so an accidental diagnostic cannot stall its child.
+      child.stdout.resume();
       resolve({ endpoint: ready.endpoint, token: ready.token, isRunning: () => running, dispose: stop,
         principal: () => mintLocalPrincipal(options.workspaceId) });
     };
@@ -86,7 +143,10 @@ function isLoopbackOrigin(value: string): boolean {
   try { endpoint = new URL(value); } catch { return false; }
   return endpoint.protocol === 'http:' && !endpoint.username && !endpoint.password
     && endpoint.pathname === '/' && !endpoint.search && !endpoint.hash
-    && ['127.0.0.1', '::1', '[::1]', 'localhost'].includes(endpoint.hostname);
+    // `localhost` is not a safe authority boundary: hosts/DNS configuration
+    // can map it to a remote address. The NNA readiness protocol mandates
+    // this exact numeric loopback host.
+    && endpoint.hostname === '127.0.0.1' && endpoint.port !== '' && Number(endpoint.port) > 0;
 }
 
 function mintLocalPrincipal(workspaceId: string): string {

@@ -22,8 +22,20 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA-first product default and installed-runtime discovery.**
+  NND now defaults to NNA in product boot; its source dev launcher still
+  explicitly selects the deterministic mock unless overridden. On Windows,
+  managed mode reads a validated NotNativeAgent installation descriptor and
+  invokes its recorded Node runtime plus installed CLI with `nnd serve`, avoiding PATH and
+  `.cmd` shell ambiguity. Portable installs retain an explicit-command/PATH
+  route. Readiness accepts only NNA's exact `http://127.0.0.1:<nonzero-port>`
+  protocol origin. Audits also fixed async web-entry handling, post-readiness
+  stdout draining, spawn-error sanitization, and child cleanup if later NND
+  boot fails. Focused launch/adapter tests: 19/19; server typecheck and entry
+  syntax checks green.
+
 - 2026-09-25 · **Managed NNA local-child MVP.** With
-  `NOTNATIVE_HARNESS=nna`, NND now defaults to spawning `nna integration
+  `NOTNATIVE_HARNESS=nna`, NND now defaults to spawning `nna nnd
   serve`, accepts only one bounded `protocol: "1.0"` loopback readiness record,
   keeps its endpoint/token server-only, and mints a fresh NNA principal per
   request. Attach mode remains explicit (`NOTNATIVE_NNA_MODE=attach`). An

@@ -83,16 +83,12 @@ installed app looks nearly empty.
    exists but is unwired (2.2). The user sees a mostly blank chat column +
    starters. The seeded "Welcome to NotNativeDesktop" mock session sits in the
    sidebar, unopened (mock/index.ts:43–78).
-2. **The "real" harness is the mock, and its only content is one in-memory
-   seed session bound to the server's CWD.** `DEFAULT_DIRECTORY =
-   process.cwd()` (harness/mock/fixtures.ts:18). In the installed Electron
-   app the shell chdir's to `os.homedir()` before importing the server bundle
-   (packages/electron/main.mjs:47), so the welcome session lives in
-   `C:/Users/Mongrel` and demos evaporate on restart (in-memory
-   store/sim). There is no NNA adapter yet — `registerHarnessAdapter(mockHarness)` is
-   the only registration (server/index.ts:21–25) — so chat answers are echoes
-   and user-visible feature probes end at "Real answers arrive with NNA
-   integration." (harness/mock/sim.ts:351–352 echo text; applyTriggers:61–112).
+2. **This historical mock-only observation is superseded.** Product boot now
+   starts the NNA adapter by default and owns a managed loopback NNA child;
+   attach and mock modes are explicit operator/development choices
+   (`server/index.ts`, `harness/nna-local.ts`, NOTES/19). The old in-memory
+   welcome-session behavior remains relevant only when the mock seam is
+   deliberately selected.
 3. **The window is a toolbar v1** and the doc-01 shell surfaces it replaced
    (context rail, command palette host, keep-alive…) are absent, so even the
    implemented real-data views (files/diff/git/plan/terminal/worktrees are
@@ -123,7 +119,7 @@ Secondary facts that shape "empty" perception (for completeness):
 
 | Area | Server side (packages/web/src/server) | UI side (packages/ui/src) | Verdict |
 |---|---|---|---|
-| Harness seam + chat loop | `harness/adapter.ts` (seam; :15–35), `harness/mock/*` full minimal+ surface: sessions, prompt_async, command/shell, fork/abort/revert/unrevert/summarize, permissions v1+v2, questions, todos, share, cursor paging (mock/index.ts) | Full SDK facade wraps all of it through `/api` (lib/nnd/client.ts:169–325), sync engine + streaming (§2.1) | **Real seam, mock adapter** — the chat loop WORKS against the mock (sim.ts streams 16-char deltas every 60 ms) |
+| Harness seam + chat loop | `harness/adapter.ts` facade plus `harness/nna.ts` authenticated adapter and `harness/nna-local.ts` managed-child lifecycle; `harness/mock/*` remains the full test/dev seam | Full SDK facade wraps all of it through `/api` (lib/nnd/client.ts:169–325), sync engine + streaming (§2.1) | **NNA-first product adapter; mock by explicit selection.** The real adapter's covered surface is the NNA integration contract, while mock still supplies deterministic local fixtures. |
 | Sessions UX (list, ordering, archive, tabs) | session list sanitation (app.ts:32–67) | sidebar v1 + tabs + engine actions (archive/delete real; rename patched) | Implemented v1; spec depth (W-18 etc.) partial (folders/archive/pins/store-side missing) |
 | Composer (queue/steer, mentions, attachments) | n/a (harness-bound) | composer.tsx with mode/policy/history/drafts; BTW fork via `engine.actions.fork` | v1; W-15/16 depth (attachments pipeline, mentions serialization, queue integration) not built |
 | Message rendering (parts) | mock emits only text parts (+todo) | transcript.tsx + turns.ts render text/tool/todo/question/permission basics, streaming tail, markdown | Partial: text+todo+permission/question cards; tool-card rich diff, gallery, selection menu etc. missing |
@@ -165,4 +161,3 @@ Secondary facts that shape "empty" perception (for completeness):
 - Mock `/api` surfaces the UI probes explicitly say "arrives with the
   server-side PTY/NNA" (e.g. shell echoes) — candidates to swap when the NNA
   adapter lands.
-

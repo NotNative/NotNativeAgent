@@ -56,7 +56,9 @@ process.on('SIGTERM', () => shutdown(143));
 console.log(`NotNativeDesktop dev — API :${API_PORT} · UI :${UI_PORT}`);
 
 launch('api', 'node', ['--watch', 'packages/web/src/server/index.ts'], {
-  env: { NOTNATIVE_PORT: API_PORT, NODE_ENV: 'development' },
+  // Development remains self-contained unless an operator explicitly chooses
+  // an NNA integration. Packaged/product boot defaults to the managed NNA child.
+  env: { NOTNATIVE_PORT: API_PORT, NODE_ENV: 'development', NOTNATIVE_HARNESS: process.env.NOTNATIVE_HARNESS ?? 'mock' },
 });
 
 launch('ui', 'pnpm', ['--filter', '@notnative/web', 'exec', 'vite', '--host', HOST, '--port', UI_PORT, '--strictPort'], {

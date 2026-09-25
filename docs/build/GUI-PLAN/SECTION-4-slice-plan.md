@@ -278,8 +278,9 @@ Tasks (doc 02 is the authority):
    LF-1 restart/upgrade semantics + external attach LF-2).
 2. Server-side wrappers for injected server-owned payload pieces (sanitized
    session list already at app.ts:32–67; enriched routes per 02 §4.1).
-3. Flip `NOTNATIVE_HARNESS=nna` default when stable; keep `mock` as the
-   CI/fallback adapter. Keep the seed welcome out of the real adapter.
+3. **Done (2026-09-25):** `NOTNATIVE_HARNESS` defaults to `nna`; product boot
+   owns a managed loopback NNA child, while `mock` remains an explicit
+   CI/development adapter. Keep the seed welcome out of the real adapter.
 4. Real-tool-run plumb: tool parts in transcript (exists from C); fs/git
    routes are already server-owned and harness-independent.
 

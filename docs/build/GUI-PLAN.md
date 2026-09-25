@@ -31,8 +31,9 @@ It is a feature-level, no-copy upstream scan rather than a second W-id inventory
 - "Harness" = our agentic backend behind `packages/web/src/server/harness/*`.
   Objective adapter name: NotNativeAgent "NNA" (`NOTNATIVE_HARNESS=nna`).
   Contract owner: `docs/planning/02-opencode-harness-contract.md` (port
-  catalog P-01…P-24). Today only `harness/mock` is registered
-  (`packages/web/src/server/index.ts:21–25`).
+  catalog P-01…P-24). Product boot now registers the managed NNA adapter by
+  default; `harness/mock` remains an explicit development and test seam
+  (`packages/web/src/server/index.ts`).
 - Reference citations in Section 3 use `OC:` as a shorthand for the
   read-only root `D:\ProjectRepo\External\openchamber`.
 - All line numbers are from the current checkouts (2026-09-22).
