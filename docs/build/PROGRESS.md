@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Real source bridge smoke.** `npm run integration:smoke --
+  <path-to-NNA-source>` starts a source NNA child with an isolated temporary
+  data root, sends NND API requests through the real adapter, and checks
+  authenticated health (including a 401 negative control), root-list filtering,
+  the empty child endpoint, session create/rename/delete,
+  transcript read, and the browser-origin write gate. It uses a non-serving
+  provider fixture and does not submit a model turn or populate a child
+  transcript. This validates the two
+  current source trees without changing the older installed NNA in the user
+  profile; packaged installation and UI interaction remain separate gates.
+
 - 2026-09-25 · **Unsafe browser-write guard.** The NND server now rejects
   unsafe HTTP requests from opaque and foreign browser origins before auth,
   NND routes, and the NNA proxy. Same-origin and reverse-proxy requests remain
