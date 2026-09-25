@@ -16,12 +16,14 @@ describe('NNA goal safety production ports', () => {
       return Response.json({ ok: true });
     } });
     const ports = createNnaGoalSafetyPorts({ read: async () => null } as unknown as ObjectiveStore);
+    await ports.listSessions();
     await ports.readSession('ses_1', '/project');
     await ports.readStatus('/project');
     await ports.readChildren('ses_1', '/project');
     await ports.readMessages('ses_1', '/project', 500);
     await ports.readEvidence('ses_1', '/project');
     expect(seen).toEqual([
+      'GET /api/session null',
       'GET /api/session/ses_1 /project', 'GET /api/session/status /project',
       'GET /api/session/ses_1/children /project', 'GET /api/session/ses_1/message?limit=40 /project',
       'GET /api/v1/nnd/sessions/ses_1/goal-evidence /project',

@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 live goal safety runner.** A safety-only event runner now
+  shares NND's existing NNA event feed and starts with the server when the
+  NNA harness is selected. The profile setting gates all work, including
+  existing in-flight ticks before they can start a CAS write. Startup/feed
+  reconnect reconciles active goals; idle/update events arm quiet ticks;
+  pause/delete/busy clears them. Adversarial review fixed Resume timer
+  preemption and stale in-flight event races. It does not audit completion or
+  send prompts; the UI's auto-continuation-disabled label remains accurate.
+  Verification: 724 web tests, full typecheck/quality gates and 394-module
+  graph pass.
+
 - 2026-09-25 · **P9 NNA goal safety ports.** The tested production adapter now
   maps the pre-audit tick to authenticated NNA session/status/children/messages,
   owner-scoped evidence, revision-guarded goal writes and generation-keyed

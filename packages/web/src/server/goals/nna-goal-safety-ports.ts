@@ -18,6 +18,7 @@ function get(route: string, directory: string): Promise<unknown> {
 
 export function createNnaGoalSafetyPorts(store = new ObjectiveStore()): GoalSafetyPorts {
   return {
+    listSessions: () => get('/session', ''),
     readSession: (id, directory) => get(`/session/${path(id)}`, directory),
     readStatus: (directory) => get('/session/status', directory),
     readChildren: (id, directory) => get(`/session/${path(id)}/children`, directory),

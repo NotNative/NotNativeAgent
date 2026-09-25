@@ -19,6 +19,7 @@ function setup(): { ports: GoalSafetyPorts; writes: Array<ReturnType<typeof sess
     messages: messages() as unknown, evidence: evidence(20) as unknown };
   const writes: Array<ReturnType<typeof session>['metadata']['nnd']> = [];
   const ports: GoalSafetyPorts = {
+    listSessions: async () => [state.current],
     readSession: async () => state.current,
     readObjective: async (value) => value.objective,
     readStatus: async () => state.status,

@@ -16,6 +16,9 @@ import { getPairingSessionStore } from './lib/auth/pairing-sessions.ts';
 import { getRelayHostService } from './lib/relay/host-service.ts';
 import { wireTunnelPlane } from './lib/tunnels/tunnel-startup.ts';
 import { getMessageQueueRuntime } from './queue/queue-runtime.ts';
+import { NnaGoalSafetyRuntime } from './goals/nna-goal-runtime.ts';
+import { createNnaGoalSafetyPorts } from './goals/nna-goal-safety-ports.ts';
+import { readMergedSettings } from './lib/settings-store.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
@@ -73,7 +76,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Pro
   // Message queue (doc 12 §D): the feed pump + reconcile beat run for the
   // process lifetime; routes resolve the same singleton lazily — a
   // smoky/test app router never holds the event loop open on its own.
-  bootMessageQueue();
+  const goalSafety = bootAutomation();
   console.log(`NotNativeDesktop server ready -> http://${ENV.host}:${ENV.port} (harness: ${ENV.harness})`);
   let disposed = false;
   const dispose = (): void => {
@@ -83,6 +86,7 @@ async function startConfiguredServer(localNna: LocalNnaHarness | undefined): Pro
     wiring.dispose();
     relayService.dispose();
     void tunnelPlane.dispose(); // §4.7: revoke artifacts, stop the provider controller
+    goalSafety?.dispose();
     getMessageQueueRuntime().dispose(); // doc 12 §D runtime owns timers/feed
     localNna?.dispose();
     server.close();
@@ -135,5 +139,24 @@ function bootMessageQueue(): void {
     getMessageQueueRuntime();
   } catch (error) {
     console.warn(`message queue boot failed: ${String(error)}`);
+  }
+}
+
+function bootAutomation(): NnaGoalSafetyRuntime | null {
+  bootMessageQueue();
+  return bootGoalSafety();
+}
+
+/** Shared feed, safety-only: no evaluator or automatic prompt dispatch yet. */
+function bootGoalSafety(): NnaGoalSafetyRuntime | null {
+  if (ENV.harness !== 'nna') return null;
+  try {
+    const runtime = new NnaGoalSafetyRuntime(getMessageQueueRuntime().feed,
+      createNnaGoalSafetyPorts(), () => readMergedSettings('web').sessionGoalEnabled === true);
+    runtime.start();
+    return runtime;
+  } catch (error) {
+    console.warn(`goal safety boot failed: ${String(error)}`);
+    return null;
   }
 }

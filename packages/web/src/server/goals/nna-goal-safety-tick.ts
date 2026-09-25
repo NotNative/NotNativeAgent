@@ -6,6 +6,7 @@ import { getSessionGoal, type GoalPayload } from './goal-payload.ts';
 import { decideNnaGoalEvidence } from './nna-goal-evidence.ts';
 
 export interface GoalSafetyPorts {
+  listSessions(): Promise<unknown>;
   readSession(sessionId: string, directory: string): Promise<unknown>;
   readObjective(goal: GoalPayload, sessionId: string): Promise<string | null>;
   readStatus(directory: string): Promise<unknown>;

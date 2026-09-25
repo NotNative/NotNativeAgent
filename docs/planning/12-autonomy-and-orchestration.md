@@ -437,8 +437,14 @@ route, the existing session/status/children/messages routes, and the
 generation-keyed local objective store. Per-call fetches are bounded by the
 goal timeout. NNA's message route honors the bounded `?limit=40` tail request;
 without this, old sessions would transfer their full message projection on
-every tick. It is still not started automatically; the event runner and
-auditor/continuation path remain required before enabling autonomy.
+every tick. The safety-only event runner now shares the queue's harness feed,
+reconciles active goals after startup/reconnect, and arms quiet ticks from
+session status/update events when `sessionGoalEnabled` is true. It may settle
+hard stops through CAS but does not evaluate completion or send unattended
+prompts. Resume preempts an older idle timer, paused/deleted goals cancel
+pending timers, and in-flight event/setting changes invalidate stale results
+before they can start a CAS write. The evaluator and continuation path remain
+required before autonomy is enabled.
 
 #### B.5.5 The evaluator exchange `[HARNESS PORT]` (port P-02 §7.4 small-model)
 
