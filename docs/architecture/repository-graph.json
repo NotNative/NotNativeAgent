@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:27d7be90409412ad5fde2fe169a8d4172fb5dd54aaa07ec55ebfba4a1a7223d6",
+  "source_digest": "sha256:26228eedcab36bff1931da390cbab4a9726a8c74ea68ea0572abab7c59149910",
   "counts": {
     "modules": 367,
     "component_edges": 76
@@ -310,6 +310,12 @@
       "module_count": 3
     },
     {
+      "from": "foundation",
+      "to": "governance-engine",
+      "import_count": 5,
+      "module_count": 5
+    },
+    {
       "from": "governance-engine",
       "to": "persistence",
       "import_count": 5,
@@ -326,12 +332,6 @@
       "to": "reliability-engine",
       "import_count": 5,
       "module_count": 5
-    },
-    {
-      "from": "foundation",
-      "to": "governance-engine",
-      "import_count": 4,
-      "module_count": 4
     },
     {
       "from": "foundation",
@@ -1907,7 +1907,9 @@
       "path": "src/nnd-session-description.js",
       "component": "foundation",
       "entrypoint": false,
-      "imports": []
+      "imports": [
+        "src/review-posture.js"
+      ]
     },
     {
       "path": "src/nnd-session-registry.js",

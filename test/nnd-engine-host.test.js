@@ -7,6 +7,27 @@ import { NndEngineHost } from '../src/nnd-engine-host.js';
 
 const owner = { subjectId: 'user_a', workspaceIds: ['workspace_a'] };
 
+test('NND session description exposes only classified governance state', async () => {
+  const engine = fakeEngine();
+  engine.reviewPosture = 'prompt';
+  let health = { status: 'attention', durable: true, attention_evidence: 2,
+    unsettled_decisions: 1, uncertain_effects: 0, secret: 'never publish' };
+  engine.governance = { health: () => health };
+  const host = new NndEngineHost({ createEngine: async () => engine });
+  await host.create('session_a', owner);
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.governance, {
+    reviewPosture: 'prompt', recordHealth: 'attention', durable: true,
+    attentionEvidence: 2, unsettledDecisions: 1, uncertainEffects: 0,
+  });
+  assert.equal(JSON.stringify(host.list(owner)).includes('never publish'), false);
+  health = { ...health, status: 'ready', attention_evidence: 0, unsettled_decisions: 0 };
+  assert.equal(host.get('session_a', owner).metadata.nnd.governance.recordHealth, 'ready');
+  engine.governance.health = () => { throw new Error('private governance failure'); };
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.governance,
+    { reviewPosture: 'prompt', recordHealth: 'unavailable' });
+  await host.shutdown();
+});
+
 test('NND durable catalog restores owned sessions and removes closed sessions', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-catalog-'));
   const catalogPath = join(root, 'nnd-contexts.json');

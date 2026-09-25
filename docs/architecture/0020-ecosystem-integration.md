@@ -121,6 +121,13 @@ projected into session metadata as explicitly estimated token use and a known
 limit, when available. The context text itself is never part of that projection.
 The measurement is in memory only: after an NNA service restart, a restored
 session reports no context estimate until its next governed turn.
+Session metadata also projects the current NNA review posture and a classified
+governance-record health summary when the engine supplies them. The summary is
+limited to ready/attention/unavailable, journal durability, and bounded counts
+of attention evidence, unsettled decisions, and uncertain effects. It does not
+carry decision records, evidence bodies, authority references, tool arguments,
+or credentials. A missing or failed health observation is not interpreted as
+approval or as a healthy governance ledger.
 These activity events are not yet a durable replay feed; reconnects recover the
 canonical transcript, while durable activity replay remains separate work.
 Display delivery failures cannot change the governed engine outcome.
