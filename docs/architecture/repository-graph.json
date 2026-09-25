@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a33c50eb3d809138fd4c0a0fdc2a34d621cfe610686d2d4f7f2a9100104bd940",
+  "source_digest": "sha256:017cf76a06bd827f32a4c9fbb49d28d84bbed6dfad04824a55dc53e2af60744b",
   "counts": {
-    "modules": 370,
+    "modules": 371,
     "component_edges": 12
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 84
+      "module_count": 85
     },
     {
       "id": "web-server",
@@ -115,8 +115,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 23,
-      "module_count": 20
+      "import_count": 24,
+      "module_count": 21
     },
     {
       "from": "web-entry",
@@ -250,6 +250,14 @@
       ]
     },
     {
+      "path": "packages/ui/src/chat/composer-model-config.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/types.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/chat/composer-queue.ts",
       "component": "ui-shell",
       "entrypoint": false,
@@ -264,6 +272,7 @@
       "entrypoint": false,
       "imports": [
         "packages/ui/src/chat/composer-bits.tsx",
+        "packages/ui/src/chat/composer-model-config.ts",
         "packages/ui/src/chat/composer-queue.ts",
         "packages/ui/src/chat/drafts.ts",
         "packages/ui/src/chat/input-history.ts",

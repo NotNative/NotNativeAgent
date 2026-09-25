@@ -29,6 +29,7 @@ const EMPTY_SNAPSHOT = {
   command: [],
   agent: [],
   provider: [],
+  config: {},
   message: {},
   part: {},
   permission: {},

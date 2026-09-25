@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA configured-model composer boundary.** The authenticated
+  NNA bridge projects its configured primary provider/model identifiers without
+  connection or credential metadata. NND shows that route, hides unsupported
+  agent and auto-accept controls, and disables per-prompt model selection for
+  NNA sessions; NNA rejects mismatched model or agent submissions. If config
+  bootstrap fails, the composer blocks instead of falling back to mock.
+  Cross-repo source smoke and focused composer/route tests cover the path;
+  governed per-turn overrides remain planned NNA engine work.
+
 - 2026-09-25 · **Production GUI layout restored.** A live 1280×800 browser
   inspection found that Vite shipped the design tokens but no Tailwind
   utilities from `packages/ui/src`: the session UI collapsed into a text

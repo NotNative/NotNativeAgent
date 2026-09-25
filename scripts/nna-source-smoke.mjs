@@ -121,6 +121,11 @@ async function probe(app, workspace, provider) {
     ...init, signal: AbortSignal.timeout(STEP_TIMEOUT_MS),
   }));
   assert.equal((await json(call, '/api/global/health', 200)).healthy, true);
+  const config = await json(call, '/api/config', 200);
+  assert.deepEqual(config.nnd, {
+    engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'test' },
+  });
+  assert.equal(JSON.stringify(config).includes('endpoint'), false, 'browser config must omit provider connection and secret metadata');
   assert.deepEqual(await json(call, '/api/session?roots=true', 200), []);
   const eventAbort = new AbortController();
   const eventResponse = await app.fetch(new Request('http://nnd.local/api/global/event', {
@@ -158,7 +163,7 @@ async function probeSession(call, workspace, nextEvent, provider) {
   assert.deepEqual(await json(call, `/api/session/${id}/message`, 200), []);
   const submitted = await call(`/api/session/${id}/prompt_async`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ messageID: 'smoke_prompt', parts: [{ type: 'text', text: 'Reply with the smoke marker.' }] }),
+    body: JSON.stringify({ messageID: 'smoke_prompt', model: { providerID: 'primary', modelID: 'test' }, agent: 'nna', parts: [{ type: 'text', text: 'Reply with the smoke marker.' }] }),
   });
   assert.equal(submitted.status, 204);
   await withTimeout(waitForCompletedTurn(nextEvent, id, 'smoke_prompt'), 15_000, 'governed NNA turn did not reach a terminal activity');

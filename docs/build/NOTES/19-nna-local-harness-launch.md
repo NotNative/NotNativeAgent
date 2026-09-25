@@ -49,6 +49,17 @@ abort, and catalog removal separately. NNA checks each grant at its own
 route and retains session journals after catalog removal for recoverable
 inspection; the GUI delete action is not a secure erase.
 
+The authenticated `/api/config` projection reports NNA's configured primary
+provider and model identifiers without its endpoint or credentials. The NND
+composer labels that primary route and disables model and agent selection for
+NNA-backed sessions; it hides the mock-only auto-accept toggle. Prompt requests
+carry the configured primary model and NNA agent marker. NNA rejects different
+model or agent selections instead of silently running another route. Per-turn
+selection remains a future NNA-owned engine contract, and an actual turn may
+still use a manifest-configured fallback. The composer also blocks sends while
+the bootstrap config is pending or unavailable, including when path/status
+bootstrap succeeds independently; it never assumes a missing config means mock.
+
 The source development launcher explicitly selects `NOTNATIVE_HARNESS=mock`
 unless the developer provides another value. That keeps a first-run source
 checkout usable without weakening the packaged product's NNA-first contract.

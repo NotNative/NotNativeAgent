@@ -49,6 +49,8 @@ export interface ComposerFooterProps {
   agent: string;
   agents: string[];
   onAgent: (agent: string) => void;
+  modelLabel: string;
+  configuredByNna: boolean;
   onFiles: (files: FileList) => void;
 }
 
@@ -56,10 +58,12 @@ export function ComposerFooter(props: ComposerFooterProps): ReactNode {
   return (
     <div className="flex items-center justify-between px-1 pb-1">
       <div className="flex items-center gap-2 text-[11px] text-neutral-500">
-        <span>mock · mock-smart</span>
-        <select aria-label="Agent persona" value={props.agent} onChange={(event) => props.onAgent(event.target.value)} className="rounded bg-neutral-800 px-1.5 py-0.5 text-[11px] text-indigo-300">
-          {props.agents.map((name) => <option key={name} value={name}>{name}</option>)}
-        </select>
+        <span>{props.modelLabel}</span>
+        {props.configuredByNna ? <span title="Agent routing is governed by NNA">NNA governed</span> : (
+          <select aria-label="Agent persona" value={props.agent} onChange={(event) => props.onAgent(event.target.value)} className="rounded bg-neutral-800 px-1.5 py-0.5 text-[11px] text-indigo-300">
+            {props.agents.map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <label className="cursor-pointer rounded px-2 py-1 text-[11px] text-neutral-400 hover:text-neutral-200" title="Add attachment">
@@ -69,11 +73,11 @@ export function ComposerFooter(props: ComposerFooterProps): ReactNode {
             event.target.value = '';
           }} />
         </label>
-        <button type="button" aria-pressed={props.autoAccept} aria-label={props.autoAccept ? 'Disable permission auto-accept' : 'Enable permission auto-accept'}
+        {!props.configuredByNna ? <button type="button" aria-pressed={props.autoAccept} aria-label={props.autoAccept ? 'Disable permission auto-accept' : 'Enable permission auto-accept'}
           className={`rounded px-2 py-1 text-[11px] ${props.autoAccept ? 'bg-sky-600/25 text-sky-300' : 'text-neutral-500 hover:text-neutral-200'}`}
           onClick={props.onAutoAccept}>
           auto-accept: {props.autoAccept ? 'on' : 'off'}
-        </button>
+        </button> : null}
         {props.busy ? (
           <button type="button" aria-label="Stop generating" className="rounded px-2 py-1 text-[11px] text-red-400 hover:bg-red-500/10" onClick={props.onStop}>
             stop

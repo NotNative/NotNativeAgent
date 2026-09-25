@@ -27,10 +27,10 @@ import type { PartLite } from './turns.ts';
 import { fsSearch } from '../lib/server-api.ts';
 import { useMessageQueueStore } from '../stores/useMessageQueueStore.ts';
 import { settingsValue } from '../lib/settings/store.ts';
+import { resolveComposerModel } from './composer-model-config.ts';
 
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw'];
 const MAX_LINES = 8;
-const SEND_FALLBACK_MODEL = { providerID: 'mock', modelID: 'mock' } as const;
 
 export interface ComposerServices {
   engine: SyncEngine;
@@ -78,6 +78,7 @@ export function Composer(props: ComposerProps): ReactNode {
   const store = services.store(directory);
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const providerCatalog = useSyncExternalStore(store.subscribe, () => store.getState().provider);
+  const { configUnavailable, nnaConfigured, nnaModel, sendAgent, modelLabel, model } = resolveComposerModel(snapshot.config, props.modelSelection, agent);
   const commandSet = useMemo(() => commandRegistry(snapshot.command, BUILTIN_COMMANDS), [snapshot.command]);
   const agentNames = useMemo(() => snapshot.agent.map((entry) => entry.name), [snapshot.agent]);
   const snippets = useMemo(() => new Map<string, string>(), []);
@@ -234,7 +235,7 @@ export function Composer(props: ComposerProps): ReactNode {
       blockedByPermission: permissionCount > 0,
       blockedByQuestion: questionCount > 0,
       memorySettings: followUp,
-      targets: { sessionID, directory, model: props.modelSelection ?? { ...SEND_FALLBACK_MODEL }, agent },
+      targets: { sessionID, directory, model, agent: sendAgent },
       snippets,
       tokens,
       attachmentNames: attachments.map((a) => a.name),
@@ -279,7 +280,7 @@ export function Composer(props: ComposerProps): ReactNode {
         saveDraftQueue: (queue) => saveDraft(directory, sessionKey, { text: '', attachments: [], autoAccept, queue }),
         clearComposer: () => { setText(''); setAttachments([]); persist('', [], autoAccept); },
         restoreComposer: () => { setText(restoreSnapshot.current.text); setAttachments(restoreSnapshot.current.attachments); },
-        sendConfig: { ...pickedModel(), agent },
+        sendConfig: { ...model, agent: sendAgent },
         recordHistory: () => recordSend({ directory, sessionID, text: composed, attachments: [], scope: 'session', attachmentTarget: 'scoped' }),
       });
       return;
@@ -311,11 +312,6 @@ export function Composer(props: ComposerProps): ReactNode {
     }
   }
 
-  const pickedModel = (): { providerID: string; modelID: string } => {
-    const selection = props.modelSelection;
-    return selection ? { providerID: selection.providerID, modelID: selection.modelID } : SEND_FALLBACK_MODEL;
-  };
-
   async function deliver(outgoing: OutgoingPart[], delivery: 'steer' | null): Promise<void> {
     const target = sessionID;
     const payloadParts = outgoing.map((part) => part.type === 'file'
@@ -333,11 +329,11 @@ export function Composer(props: ComposerProps): ReactNode {
       return;
     }
     if (target) {
-      await services.engine.actions.send({ directory, sessionID: target, parts: payloadParts, model: pickedModel(), agent, ...(delivery ? { delivery } : {}) });
+      await services.engine.actions.send({ directory, sessionID: target, parts: payloadParts, model, agent: sendAgent, ...(delivery ? { delivery } : {}) });
       return;
     }
     const created = await services.engine.actions.createSession({ directory });
-    await services.engine.actions.send({ directory, sessionID: created.id, parts: payloadParts, model: pickedModel(), agent });
+    await services.engine.actions.send({ directory, sessionID: created.id, parts: payloadParts, model, agent: sendAgent });
     useSessionViewStore.getState().setCurrentSession(created.id);
     useSessionViewStore.getState().setActiveDirectory(directory);
   }
@@ -425,14 +421,15 @@ export function Composer(props: ComposerProps): ReactNode {
   }
 
   const authStatus = useAuthSessionStore((state) => state.status);
-  const sendBlocked = authSessionBlocksSend(authStatus);
+  // Invariant: a failed or pending config request cannot silently select the mock route for NNA.
+  const sendBlocked = authSessionBlocksSend(authStatus) || configUnavailable || (nnaConfigured && !nnaModel);
   // §6.7 step 3: the send guard blocks while the session expiry is confirmed.
   const canSend = text.trim().length > 0 && !sendBlocked;
   const starterList = props.starters ?? [];
 
   return (
     <form className="relative rounded-xl border border-white/10 bg-neutral-900/90 p-2 focus-within:border-white/25" data-testid="composer" data-shell={shell ? 'true' : undefined}
-      data-send-blocked={sendBlocked ? 'auth-expired' : undefined}
+      data-send-blocked={authSessionBlocksSend(authStatus) ? 'auth-expired' : (configUnavailable ? 'model-config-unavailable' : nnaConfigured && !nnaModel ? 'nna-model-unavailable' : undefined)}
       onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       {sessionID !== null ? <QueueChipsRow directory={directory} sessionID={sessionID} onPop={(popText) => { setText(popText); persist(popText, attachments, autoAccept); }} /> : null}
       {sessionKey === 'draft' && queueChips.length > 0 ? <div className="px-1 pt-1 text-[11px] text-amber-300" data-testid="queue-chips">Queued messages {queueChips.length}</div> : null}
@@ -450,7 +447,7 @@ export function Composer(props: ComposerProps): ReactNode {
       ) : null}
       <AttachmentChips attachments={attachments} onRemove={(next) => { setAttachments(next); persist(text, next, autoAccept); }} />
       <PickerPopup picker={picker} />
-      {modelPickerOpen ? (
+      {modelPickerOpen && !nnaConfigured && !configUnavailable ? (
         <ModelPicker
           providers={providerCatalog as import('../lib/nnd/types.ts').Provider[]}
           selection={props.modelSelection ?? null}
@@ -462,9 +459,9 @@ export function Composer(props: ComposerProps): ReactNode {
         rows={rows} placeholder={shell ? 'bash command…' : 'Message the agent…'}
         data-testid="composer-editor"
         className={`w-full resize-none rounded-lg bg-transparent p-2 text-sm outline-none placeholder:text-neutral-600 ${shell ? 'font-mono text-amber-200' : 'text-neutral-100'} focus:outline-none`} />
-      <div className="flex items-center rounded-lg bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-300 hover:bg-neutral-800" title={'Model and agent settings'}>
-        <button type="button" aria-label="Model selector" data-testid="model-trigger" onClick={() => setModelPickerOpen(!modelPickerOpen)}>
-          {props.modelSelection ? `${props.modelSelection.modelID}${props.modelSelection.variant ? ` · ${props.modelSelection.variant}` : ''}` : 'mock · mock-smart'}
+      <div className="flex items-center rounded-lg bg-neutral-900 px-2 py-1.5 text-[12px] text-neutral-300 hover:bg-neutral-800" title={nnaConfigured ? 'Configured primary model in NNA' : 'Model and agent settings'}>
+        <button type="button" aria-label="Model selector" data-testid="model-trigger" disabled={nnaConfigured || configUnavailable} onClick={() => setModelPickerOpen(!modelPickerOpen)}>
+          {modelLabel}
         </button>
         {props.onToggleExpanded ? <button type="button" aria-label={props.expanded ? 'Collapse expanded editor' : 'Focus mode'} className="ml-auto text-[11px] text-neutral-500" onClick={props.onToggleExpanded}>⛶</button> : null}
       </div>
@@ -477,6 +474,8 @@ export function Composer(props: ComposerProps): ReactNode {
         agent={agent}
         agents={agentNames}
         onAgent={setAgent}
+        modelLabel={modelLabel}
+        configuredByNna={nnaConfigured}
         onFiles={(files) => attachFiles({ target: { files, value: '' } } as never)}
       />
     </form>
