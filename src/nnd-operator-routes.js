@@ -6,17 +6,24 @@ import { requireIntegrationPermission } from './integration-principal.js';
 const SESSION_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/capabilities$/u;
 const STEER_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/steer$/u;
 const GOAL_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal$/u;
+const GOAL_EVIDENCE_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal-evidence$/u;
 
 export async function dispatchNndOperatorRequest(request, response, context) {
   const capability = SESSION_ROUTE.exec(context.url.pathname);
   const steer = STEER_ROUTE.exec(context.url.pathname);
   const goal = GOAL_ROUTE.exec(context.url.pathname);
-  if (!capability && !steer && !goal) return false;
-  const encoded = (capability ?? steer ?? goal)[1];
+  const goalEvidence = GOAL_EVIDENCE_ROUTE.exec(context.url.pathname);
+  if (!capability && !steer && !goal && !goalEvidence) return false;
+  const encoded = (capability ?? steer ?? goal ?? goalEvidence)[1];
   let sessionId;
   try { sessionId = decodeURIComponent(encoded); requireExternalId(sessionId, 'session_id'); }
   catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
   if (goal) return dispatchGoalRequest(request, response, context, sessionId);
+  if (goalEvidence) {
+    if (request.method !== 'GET') return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+    requireIntegrationPermission(context.principal, 'nnd.read');
+    return send(response, 200, context.nndEngineHost.goalEvidence(sessionId, context.principal));
+  }
   if (request.method === 'GET' && capability) requireIntegrationPermission(context.principal, 'nnd.read');
   else if (request.method === 'POST' && steer) requireIntegrationPermission(context.principal, 'nnd.steer');
   else return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });

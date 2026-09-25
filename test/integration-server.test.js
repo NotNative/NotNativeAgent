@@ -399,9 +399,15 @@ test('NND goals persist with id-guarded writes and never grant arbitrary metadat
   try {
     sessionId = (await request(base, '/session', owner, { method: 'POST', body: { title: 'Goal session' } })).value.id;
     const path = `/v1/nnd/sessions/${sessionId}/goal`;
+    const evidencePath = `/v1/nnd/sessions/${sessionId}/goal-evidence`;
+    assert.deepEqual((await request(base, evidencePath, owner)).value, {
+      session_id: sessionId, turns: [], latest_request_id: null, window_truncated: false,
+    });
+    assert.equal((await request(base, evidencePath, principal(['nnd.goal.manage']))).status, 403);
     assert.deepEqual((await request(base, path, owner)).value, { goal: null, revision: 0 });
     const outsider = principal(['nnd.read', 'nnd.goal.manage'], { subject_id: 'other_user' });
     assert.equal((await request(base, path, outsider)).status, 404);
+    assert.equal((await request(base, evidencePath, outsider)).status, 404);
     assert.equal((await request(base, path, outsider, {
       method: 'PUT', body: { goal, expected_id: null, expected_revision: 0 },
     })).status, 404);

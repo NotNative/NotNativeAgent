@@ -12,7 +12,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { persistAtomicJson } from './persistence/atomic-json.js';
 import { appendActivity, drainActivityWrites, loadActivity, removeActivity, reportActivityFailure, scheduleActivityWrite } from './nnd-activity-snapshot.js';
 import { loadChildSnapshots, NndChildSnapshotStore } from './nnd-child-snapshot.js';
-import { validatedNndGoal, goalCatalogMutation } from './nnd-goal.js';
+import { validatedNndGoal, commitNndGoal } from './nnd-goal.js';
+import { nndGoalEvidence, recordNndGoalTurn } from './nnd-goal-evidence.js';
 import { requirePrincipal, samePrincipal, validCatalogRecord, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
 
 const CATALOG_LIMIT_BYTES = 1_048_576;
@@ -75,11 +76,9 @@ export class NndEngineHost {
       throw error;
     }
   }
-
   async create(sessionId, principal, options = {}) {
     return this.#createContext(sessionId, principal, options, false);
   }
-
   async #createContext(sessionId, principal, options, restoring) {
     requireExternalId(sessionId, 'session_id');
     requirePrincipal(principal);
@@ -104,9 +103,9 @@ export class NndEngineHost {
         title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt,
         updatedAt: restoring ? options.updatedAt : createdAt, contextUsage: null,
         goal: restoring && options.goal ? validatedNndGoal(options.goal) : null,
-        goalRevision: restoring ? options.goalRevision : 0,
+        goalRevision: restoring ? options.goalRevision : 0, goalTurnReceipts: [], goalTurnReceiptsTruncated: false,
         archivedAt: restoring ? options.archivedAt : 0, activity, activityRevision: 0, activityWrite: null,
-        ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false };
+        ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false, goalArming: 0 };
       if (restoring) this.#contexts.set(sessionId, context);
       else await this.#commitCatalogChange(
         (contexts) => contexts.set(sessionId, context),
@@ -174,30 +173,31 @@ export class NndEngineHost {
     return describe(context);
   }
 
-  goal(sessionId, principal) {
+  goal(sessionId, principal) { const context = this.#owned(sessionId, principal); return { goal: context.goal, revision: context.goalRevision }; }
+  goalEvidence(sessionId, principal) {
     const context = this.#owned(sessionId, principal);
-    return { goal: context.goal, revision: context.goalRevision };
+    return nndGoalEvidence(sessionId, context.engine.transcript, context.goalTurnReceipts,
+      context.goalTurnReceiptsTruncated || context.engine.resumeBoundary?.hasMore === true);
   }
-
   async setGoal(sessionId, principal, value, expectedId, expectedRevision) {
     const goal = validatedNndGoal(value);
     return this.#writeGoal(sessionId, principal, goal, expectedId, expectedRevision);
   }
-
   async clearGoal(sessionId, principal, expectedId, expectedRevision) {
     return this.#writeGoal(sessionId, principal, null, expectedId, expectedRevision);
   }
 
   async #writeGoal(sessionId, principal, goal, expectedId, expectedRevision) {
     const context = this.#owned(sessionId, principal);
-    const mutation = goalCatalogMutation(context, sessionId, goal, expectedId, expectedRevision);
-    await this.#commitCatalogChange(mutation.change, mutation.commit);
-    this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
-    return { goal, revision: context.goalRevision };
+    return commitNndGoal(context, sessionId, goal, expectedId, expectedRevision,
+      (change, commit) => this.#commitCatalogChange(change, commit), (...args) => this.#publish(...args));
   }
 
   submitAsync(sessionId, command, principal) {
     const context = this.#owned(sessionId, principal);
+    // Keep a pre-goal prompt from starting between the arming CAS snapshot and
+    // its durable catalog commit; otherwise that turn could be charged to the goal.
+    if (context.goalArming > 0) return { accepted: false, reason: 'busy' };
     const previousTurn = context.liveTurn;
     // Why: ingress can be pending before Engine.submit() exposes its active
     // turn. A second prompt must not replace that turn's output recipient.
@@ -290,6 +290,7 @@ export class NndEngineHost {
         }
       } else if (record.type === 'turn_result') {
         turn.outcome = record.outcome;
+        recordNndGoalTurn(context, record);
       }
     } catch { /* Display output is observational, never a reason to fail an engine turn. */ }
   }

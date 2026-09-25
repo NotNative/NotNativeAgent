@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError } from './ids.js';
-import { nextUpdatedAt } from './nnd-session-description.js';
+import { describe, nextUpdatedAt } from './nnd-session-description.js';
 
 const STATUSES = new Set(['active', 'paused', 'blocked', 'budgetLimited', 'complete']);
 const ID = /^[A-Za-z0-9_-]{4,128}$/u;
@@ -52,9 +52,23 @@ export function goalCatalogMutation(context, sessionId, goal, expectedId, expect
       if ((context.goal?.id ?? null) !== expectedId || context.goalRevision !== expectedRevision) {
         throw new ContractError('nnd_goal_conflict', 'NND goal changed; refresh before writing');
       }
+      if (goal && !context.goal && (context.liveTurn || context.engine.active && !context.engine.active.finalized)) {
+        throw new ContractError('nnd_goal_conflict', 'Finish or stop the current turn before arming a new goal');
+      }
       updatedAt = nextUpdatedAt(context);
       contexts.set(sessionId, { ...context, goal, goalRevision: context.goalRevision + 1, updatedAt });
     },
     commit() { context.goal = goal; context.goalRevision += 1; context.updatedAt = updatedAt; },
   };
+}
+
+/** Serialize creation with ingress so no pre-goal turn starts during the durable CAS. */
+export async function commitNndGoal(context, sessionId, goal, expectedId, expectedRevision, commitCatalogChange, publish) {
+  const mutation = goalCatalogMutation(context, sessionId, goal, expectedId, expectedRevision);
+  const arming = goal !== null && expectedId === null;
+  if (arming) context.goalArming += 1;
+  try { await commitCatalogChange(mutation.change, mutation.commit); }
+  finally { if (arming) context.goalArming -= 1; }
+  publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
+  return { goal, revision: context.goalRevision };
 }
