@@ -276,10 +276,10 @@ function readWidth(key: string | null, surface: Surface): number {
   } catch { return fallback; }
 }
 
-type ActivityFilter = 'all' | 'turn' | 'tool' | 'notice' | 'failed';
+type ActivityFilter = 'all' | 'turn' | 'tool' | 'notice' | 'attention' | 'failed';
 const ACTIVITY_FILTERS: readonly { id: ActivityFilter; label: string }[] = [
   { id: 'all', label: 'All' }, { id: 'turn', label: 'Turns' }, { id: 'tool', label: 'Tools' },
-  { id: 'notice', label: 'Notices' }, { id: 'failed', label: 'Failures' },
+  { id: 'notice', label: 'Notices' }, { id: 'attention', label: 'Needs input' }, { id: 'failed', label: 'Failures' },
 ];
 
 function ActivitySurface({ store, directory }: { store: StoreApi<DirectoryStore>; directory: string }): ReactNode {
@@ -304,7 +304,7 @@ function ActivitySurface({ store, directory }: { store: StoreApi<DirectoryStore>
   // Preserve the harness's arrival order. The source merges corrections in
   // place, so a redaction does not masquerade as a newly emitted row.
   const records = useMemo(() => snapshot.activity.filter((record) => record.sessionID === view.currentSessionId
-    && (filter === 'all' || (filter === 'failed' ? record.status === 'failed' : record.kind === filter))),
+    && (filter === 'all' || (filter === 'failed' || filter === 'attention' ? record.status === filter : record.kind === filter))),
   [snapshot.activity, view.currentSessionId, filter]);
   const key = `${view.currentSessionId ?? ''}\u0000${filter}`;
   useEffect(() => {
@@ -341,8 +341,8 @@ function ActivitySurface({ store, directory }: { store: StoreApi<DirectoryStore>
         following.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
         if (following.current) setUnseen(0);
       }}>
-      {records.length === 0 ? <li className="text-[11px] text-neutral-500">{filter === 'all' ? 'No activity evidence has been received for this session.' : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
-        : records.map((record) => <li key={record.id} className="rounded border border-white/10 bg-neutral-900/40 p-2 text-[11px]"><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
+      {records.length === 0 ? <li className="text-[11px] text-neutral-500">{filter === 'all' ? 'No activity evidence has been received for this session.' : filter === 'attention' ? 'No activity requiring input has been received for this session.' : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
+        : records.map((record) => <li key={record.id} className={`rounded border p-2 text-[11px] ${record.status === 'failed' ? 'border-red-500/40 bg-red-950/20' : record.status === 'attention' ? 'border-amber-500/40 bg-amber-950/20' : 'border-white/10 bg-neutral-900/40'}`}><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'attention' || record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
           {record.evidenceMessageID && snapshot.message[record.sessionID]?.some((message) => message.id === record.evidenceMessageID)
             ? <button type="button" className="mt-1 text-sky-300 hover:underline" onClick={() => {
               const anchor = `message-${record.evidenceMessageID}`;

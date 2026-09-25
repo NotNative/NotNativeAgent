@@ -53,7 +53,8 @@ export function mergeActivitySnapshot(current: readonly ActivityRecord[], sessio
 
 function preferLive(live: ActivityRecord, saved: ActivityRecord): boolean {
   if (live.time !== saved.time) return live.time > saved.time;
-  const rank = (status: ActivityRecord['status']): number => status === 'redacted' ? 3 : status === 'started' ? 1 : 2;
+  const rank = (status: ActivityRecord['status']): number => status === 'redacted' ? 4
+    : status === 'attention' || status === 'failed' ? 3 : status === 'started' ? 1 : 2;
   return rank(live.status) >= rank(saved.status);
 }
 

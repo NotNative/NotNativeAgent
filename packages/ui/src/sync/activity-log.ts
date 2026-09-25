@@ -12,7 +12,7 @@ export interface ActivityRecord {
   time: number;
   kind: 'turn' | 'tool' | 'notice';
   summary: string;
-  status: 'started' | 'completed' | 'failed' | 'redacted';
+  status: 'started' | 'completed' | 'attention' | 'failed' | 'redacted';
   evidenceMessageID?: string;
 }
 
@@ -83,5 +83,5 @@ function isKind(value: string | null): value is ActivityRecord['kind'] {
 }
 
 function isStatus(value: string | null): value is ActivityRecord['status'] {
-  return value === 'started' || value === 'completed' || value === 'failed' || value === 'redacted';
+  return value === 'started' || value === 'completed' || value === 'attention' || value === 'failed' || value === 'redacted';
 }

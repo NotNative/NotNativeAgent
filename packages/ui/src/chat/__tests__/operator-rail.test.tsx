@@ -474,6 +474,27 @@ describe('OperatorRail', () => {
     expect(activity.textContent).not.toContain('No activity evidence has been received for this session.');
   });
 
+  it('highlights and filters only harness-authored needs-input activity', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ activity: [
+      { id: 'waiting', sessionID: 's1', time: 1, kind: 'turn', status: 'attention', summary: 'Turn needs input' },
+      { id: 'failed', sessionID: 's1', time: 2, kind: 'tool', status: 'failed', summary: 'Command failed' },
+      { id: 'normal', sessionID: 's1', time: 3, kind: 'turn', status: 'completed', summary: 'Turn completed' },
+    ] });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    const rows = document.querySelector('[data-testid="activity-rows"]')!;
+    expect(rows.querySelectorAll('li')[0]!.className).toContain('border-amber');
+    expect(rows.querySelectorAll('li')[1]!.className).toContain('border-red');
+    expect(rows.querySelectorAll('li')[2]!.className).not.toContain('border-red');
+    act(() => ([...document.querySelectorAll('[data-testid="operator-activity"] button')].find((button) => button.textContent === 'Needs input') as HTMLButtonElement).click());
+    expect(rows.textContent).toContain('Turn needs input');
+    expect(rows.textContent).not.toContain('Command failed');
+    act(() => store.getState().patch({ activity: store.getState().activity.filter((record) => record.id !== 'waiting') }));
+    expect(rows.textContent).toContain('No activity requiring input has been received for this session.');
+  });
+
   it('filters authored categories and follows the live tail only while the reader is at the bottom', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ activity: [

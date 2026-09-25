@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Activity attention hierarchy.** A governed `needs_input`
+  turn now emits a distinct `attention` Activity state instead of looking
+  completed. The rail gives authored attention and failures stronger visual
+  weight and a dedicated "Needs input" filter, while completed progress
+  stays quiet. The state survives NNA's bounded saved snapshot and NND's
+  live/snapshot merge.
+
 - 2026-09-25 · **Activity turn evidence navigation.** NNA now attaches the
   submitted prompt's durable message ID to parent-turn Activity frames and
   retains that bounded reference in authenticated snapshots. NND validates

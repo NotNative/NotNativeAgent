@@ -32,6 +32,13 @@ describe('operator activity evidence', () => {
     expect(mergeActivityRecord([linked!], { ...linked!, evidenceMessageID: undefined })).not.toBe(linked);
   });
 
+  it('retains authored needs-input status without classifying it as a failure', () => {
+    const record = activityRecordFromEvent({ type: 'nnd.activity', properties: {
+      id: 'turn-a', sessionID: 's1', kind: 'turn', status: 'attention', summary: 'Turn needs input', time: 10,
+    } });
+    expect(record?.status).toBe('attention');
+  });
+
   it('replaces a record when NNA corrects or redacts the same evidence id', () => {
     const started = activityRecordFromEvent({ type: 'nnd.activity', properties: { id: 'a1', sessionID: 's1', kind: 'turn', status: 'started', summary: 'Turn started', time: 10 } })!;
     const redacted = { ...started, status: 'redacted' as const, summary: 'Redacted by NNA', time: 12 };
