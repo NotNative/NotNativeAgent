@@ -22,6 +22,10 @@ const SURFACES: readonly { id: Surface; label: string }[] = [
   { id: 'browser', label: 'Browser' },
   { id: 'terminal', label: 'Terminal' },
 ];
+type PanelPreferences = { order: Surface[]; visible: Surface[] };
+const DEFAULT_PANEL_PREFERENCES: PanelPreferences = {
+  order: SURFACES.map((item) => item.id), visible: SURFACES.map((item) => item.id),
+};
 
 export function OperatorRail({ store, engine, directory, compactOpen = false, suppressed = false, onCloseCompact }: {
   store: StoreApi<DirectoryStore>; engine: SyncEngine; directory: string; compactOpen?: boolean; suppressed?: boolean; onCloseCompact?: () => void;
@@ -37,11 +41,25 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   }, []);
   const paneVisible = !suppressed && (compactOpen || wide);
   const storageKey = surfaceStorageKey(directory);
-  const [selection, setSelection] = useState(() => ({ key: storageKey, surface: readSurface(storageKey) }));
+  const selectionKey = surfaceSelectionKey(storageKey);
+  const preferencesKey = panelPreferencesKey(storageKey);
+  const [panelState, setPanelState] = useState(() => ({ key: preferencesKey, value: readPanelPreferences(preferencesKey) }));
+  const panels = panelState.key === preferencesKey ? panelState.value : readPanelPreferences(preferencesKey);
+  const [customizing, setCustomizing] = useState(false);
+  useEffect(() => {
+    if (panelState.key !== preferencesKey) setPanelState({ key: preferencesKey, value: readPanelPreferences(preferencesKey) });
+  }, [panelState.key, preferencesKey]);
+  useEffect(() => {
+    if (panelState.key !== preferencesKey || preferencesKey === null) return;
+    try { localStorage.setItem(preferencesKey, JSON.stringify(panelState.value)); } catch { /* optional device preference */ }
+  }, [panelState.key, panelState.value, preferencesKey]);
+  const changePanels = (next: PanelPreferences): void => setPanelState({ key: preferencesKey, value: next });
+  const [selection, setSelection] = useState(() => ({ key: selectionKey, surface: readSurface(selectionKey) }));
   // A single chat view can move between directories without remounting.  Do
   // not write its old selection into the newly selected directory before its
   // stored selection has been read.
-  const surface = selection.key === storageKey ? selection.surface : readSurface(storageKey);
+  const selectedSurface = selection.key === selectionKey ? selection.surface : readSurface(selectionKey);
+  const surface = panels.visible.includes(selectedSurface) ? selectedSurface : panels.order.find((id) => panels.visible.includes(id))!;
   const widthKey = surfaceWidthStorageKey(storageKey, surface);
   const [savedWidth, setSavedWidth] = useState(() => ({ key: widthKey, value: readWidth(widthKey, surface) }));
   const [viewportWidth, setViewportWidth] = useState(() => typeof window === 'undefined' ? 1280 : window.innerWidth);
@@ -62,12 +80,15 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   }, [savedWidth.key, savedWidth.value, widthKey]);
   const resize = (next: number): void => setSavedWidth({ key: widthKey, value: clampRailWidth(next, viewportWidth) });
   useEffect(() => {
-    if (selection.key !== storageKey) setSelection({ key: storageKey, surface: readSurface(storageKey) });
-  }, [selection.key, storageKey]);
+    if (selection.key !== selectionKey) setSelection({ key: selectionKey, surface: readSurface(selectionKey) });
+  }, [selection.key, selectionKey]);
   useEffect(() => {
-    if (selection.key !== storageKey) return;
-    try { localStorage.setItem(storageKey, selection.surface); } catch { /* optional device preference */ }
-  }, [selection.key, selection.surface, storageKey]);
+    if (selection.key === selectionKey && selection.surface !== surface) setSelection({ key: selectionKey, surface });
+  }, [selection.key, selection.surface, selectionKey, surface]);
+  useEffect(() => {
+    if (selection.key !== selectionKey) return;
+    try { localStorage.setItem(selectionKey, selection.surface); } catch { /* optional device preference */ }
+  }, [selection.key, selection.surface, selectionKey]);
   // Keep opened views mounted across rail surfaces. A project switch remounts
   // Notes, while the single dirty-draft lease above survives that remount.
   const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);
@@ -77,14 +98,14 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   // Notes pane locks other projects until this lease is saved or discarded.
   const [notesDraft, setNotesDraft] = useState<NotesDraftLease | null>(null);
   useEffect(() => {
-    if (selection.key === storageKey && surface === 'terminal') setTerminalOpenedKey(storageKey);
-  }, [selection.key, storageKey, surface]);
+    if (selection.key === selectionKey && surface === 'terminal') setTerminalOpenedKey(storageKey);
+  }, [selection.key, selectionKey, storageKey, surface]);
   useEffect(() => {
-    if (selection.key === storageKey && surface === 'browser') setBrowserOpenedKey(storageKey);
-  }, [selection.key, storageKey, surface]);
+    if (selection.key === selectionKey && surface === 'browser') setBrowserOpenedKey(storageKey);
+  }, [selection.key, selectionKey, storageKey, surface]);
   useEffect(() => {
-    if (selection.key === storageKey && surface === 'notes') setNotesOpenedKey(storageKey);
-  }, [selection.key, storageKey, surface]);
+    if (selection.key === selectionKey && surface === 'notes') setNotesOpenedKey(storageKey);
+  }, [selection.key, selectionKey, storageKey, surface]);
   return (
     <aside className={`${suppressed ? 'hidden' : compactOpen ? 'flex' : 'hidden xl:flex'} relative min-w-0 shrink-0 flex-col border-l border-white/10 bg-neutral-950/40 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} style={wide && !compactOpen ? { width } : undefined} data-testid="operator-rail">
       <div role="separator" aria-label="Resize operator panel" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maxRailWidth(viewportWidth)} aria-valuenow={width} tabIndex={0}
@@ -118,18 +139,45 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
       <div className="border-b border-white/10 px-3 py-1.5 text-[11px] text-neutral-300" data-testid="operator-surface-title">{SURFACES.find((item) => item.id === surface)?.label}</div>
       <div className="flex min-h-0 flex-1">
       <nav className="flex w-10 shrink-0 flex-col border-r border-white/10 py-2" aria-label="Operator surfaces">
-        {SURFACES.map((item) => (
+        {panels.order.filter((id) => panels.visible.includes(id)).map((id) => {
+          const item = SURFACES.find((candidate) => candidate.id === id)!;
+          return (
           <button key={item.id} type="button" title={item.label} aria-label={item.label} aria-pressed={surface === item.id}
             className={`px-1 py-2 text-[9px] ${surface === item.id ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
             onClick={() => {
               if (item.id === 'terminal') setTerminalOpenedKey(storageKey);
               if (item.id === 'browser') setBrowserOpenedKey(storageKey);
               if (item.id === 'notes') setNotesOpenedKey(storageKey);
-              setSelection({ key: storageKey, surface: item.id });
+              setSelection({ key: selectionKey, surface: item.id });
             }}>{item.label.slice(0, 1)}</button>
-        ))}
+          );
+        })}
+        <button type="button" aria-label="Customize operator panels" aria-expanded={customizing}
+          className="mt-auto px-1 py-2 text-[9px] text-neutral-500 hover:text-neutral-200"
+          onClick={() => setCustomizing((value) => !value)}>⋯</button>
       </nav>
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        {customizing ? <section aria-label="Customize operator panels" className="border-b border-white/10 p-2 text-xs">
+          <div className="mb-2 text-neutral-300">Panels</div>
+          {panels.order.map((id, index) => {
+            const item = SURFACES.find((candidate) => candidate.id === id)!;
+            const checked = panels.visible.includes(id);
+            return <div key={id} className="flex items-center gap-1 py-1">
+              <label className="flex min-w-0 flex-1 items-center gap-1 text-neutral-300">
+                <input type="checkbox" aria-label={`Show ${item.label}`} checked={checked}
+                  disabled={checked && panels.visible.length === 1}
+                  onChange={() => {
+                    const visible = checked ? panels.visible.filter((entry) => entry !== id) : [...panels.visible, id];
+                    changePanels({ ...panels, visible });
+                  }} />{item.label}
+              </label>
+              <button type="button" aria-label={`Move ${item.label} up`} disabled={index === 0}
+                className="px-1 disabled:opacity-30" onClick={() => changePanels({ ...panels, order: movedPanel(panels.order, index, -1) })}>↑</button>
+              <button type="button" aria-label={`Move ${item.label} down`} disabled={index === panels.order.length - 1}
+                className="px-1 disabled:opacity-30" onClick={() => changePanels({ ...panels, order: movedPanel(panels.order, index, 1) })}>↓</button>
+            </div>;
+          })}
+        </section> : null}
         {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded /> : null}
         {surface === 'activity' ? <ActivitySurface store={store} directory={directory} /> : null}
         {surface === 'changes' ? <GitView directory={directory} visible compact /> : null}
@@ -157,6 +205,43 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
 
 function readSurface(key: string): Surface {
   try { const value = localStorage.getItem(key); return SURFACES.some((surface) => surface.id === value) ? value as Surface : 'context'; } catch { return 'context'; }
+}
+
+function surfaceSelectionKey(directoryKey: string): string {
+  const runtime = getRuntimeKey();
+  // Preserve the existing local preference while isolating selections for
+  // remote runtimes whose panel visibility can differ from the local harness.
+  return isTransientRuntimeKey(runtime) || runtime === 'local' ? directoryKey : `${directoryKey}:runtime:${runtime}`;
+}
+
+function panelPreferencesKey(directoryKey: string): string | null {
+  const runtime = getRuntimeKey();
+  return isTransientRuntimeKey(runtime) ? null : `nnd.operator-rail.panels:${runtime}:${directoryKey}`;
+}
+
+function readPanelPreferences(key: string | null): PanelPreferences {
+  if (key === null) return DEFAULT_PANEL_PREFERENCES;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return DEFAULT_PANEL_PREFERENCES;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return DEFAULT_PANEL_PREFERENCES;
+    const value = parsed as Partial<PanelPreferences>;
+    const known = new Set<Surface>(DEFAULT_PANEL_PREFERENCES.order);
+    const order = Array.isArray(value.order) ? value.order.filter((id): id is Surface => known.has(id)) : [];
+    const uniqueOrder = [...new Set(order), ...DEFAULT_PANEL_PREFERENCES.order.filter((id) => !order.includes(id))];
+    const visible = Array.isArray(value.visible) ? value.visible.filter((id): id is Surface => known.has(id)) : [];
+    const uniqueVisible = [...new Set(visible)];
+    return { order: uniqueOrder, visible: uniqueVisible.length > 0 ? uniqueVisible : DEFAULT_PANEL_PREFERENCES.visible };
+  } catch { return DEFAULT_PANEL_PREFERENCES; }
+}
+
+function movedPanel(order: Surface[], index: number, distance: -1 | 1): Surface[] {
+  const next = [...order];
+  const target = index + distance;
+  if (target < 0 || target >= next.length) return next;
+  [next[index], next[target]] = [next[target]!, next[index]!];
+  return next;
 }
 
 /** Match the harness directory identity: slash spelling and drive-case must

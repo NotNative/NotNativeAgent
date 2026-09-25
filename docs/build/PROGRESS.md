@@ -22,6 +22,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Operator rail panel configuration.** The docked rail now
+  exposes local panel order and visibility controls. Preferences are isolated
+  by runtime and directory, malformed saved values are repaired, and the last
+  visible panel cannot be hidden. Hiding the selected panel moves to another
+  visible surface without discarding the mounted Notes/Browser/Terminal pane.
+
 - 2026-09-25 · **Bounded harness event replay.** NNA's authenticated event
   stream now includes SSE cursor IDs and retains a count- and byte-bounded
   in-memory replay suffix. NND ignores the non-replayable connection receipt

@@ -181,6 +181,9 @@ Tasks:
    surface host and narrow rail. Persist local order, visibility, per-engine-context
    identity plus directory widths, panel open state, and selected tab; make the host a UI-state owner, not a
    second source of session state.
+   **Order/visibility implemented (2026-09-25):** an in-rail customization
+   control saves the pane order and visible set by runtime/directory, repairs
+   malformed saved values, and prevents hiding the final pane.
 2. Promote the existing work-status content into the Context surface. Add the Activity
    surface over explicit normalized mock evidence events first; message parts and
    blocking records remain linked evidence, not synthetic log rows. Its event model

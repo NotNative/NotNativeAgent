@@ -32,6 +32,86 @@ afterEach(() => {
 });
 
 describe('OperatorRail', () => {
+  it('reorders and hides panels per runtime and directory while keeping one available', () => {
+    let runtime = 'local';
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockImplementation(() => runtime);
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const store = createDirectoryStore();
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
+    act(() => (document.querySelector('button[aria-label="Move Activity up"]') as HTMLButtonElement).click());
+    expect([...document.querySelectorAll('nav[aria-label="Operator surfaces"] button[aria-pressed]')].map((button) => button.getAttribute('aria-label')).slice(0, 2)).toEqual(['Activity', 'Context']);
+    act(() => (document.querySelector('input[aria-label="Show Context"]') as HTMLInputElement).click());
+    expect(document.querySelector('nav button[aria-label="Context"]')).toBeNull();
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Activity');
+    expect(window.localStorage.getItem('nnd.operator-rail.surface:D:/work')).toBe('activity');
+    for (const label of ['Changes', 'Notes', 'Browser', 'Terminal']) {
+      act(() => (document.querySelector(`input[aria-label="Show ${label}"]`) as HTMLInputElement).click());
+    }
+    expect((document.querySelector('input[aria-label="Show Activity"]') as HTMLInputElement).disabled).toBe(true);
+    const key = 'nnd.operator-rail.panels:local:nnd.operator-rail.surface:D:/work';
+    expect(JSON.parse(window.localStorage.getItem(key)!).visible).toEqual(['activity']);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/other" />));
+    expect(document.querySelector('nav button[aria-label="Context"]')).not.toBeNull();
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('nav button[aria-label="Context"]')).toBeNull();
+    runtime = 'host:other';
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('nav button[aria-label="Context"]')).not.toBeNull();
+  });
+
+  it('repairs malformed saved panel preferences without losing any supported pane', () => {
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+    window.localStorage.setItem('nnd.operator-rail.panels:local:nnd.operator-rail.surface:D:/work', JSON.stringify({
+      order: ['activity', 'activity', 'alien'], visible: ['activity', 'alien', 'activity'],
+    }));
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
+    expect([...document.querySelectorAll('section[aria-label="Customize operator panels"] input[type="checkbox"]')]).toHaveLength(6);
+    expect([...document.querySelectorAll('nav[aria-label="Operator surfaces"] button[aria-pressed]')].map((button) => button.getAttribute('aria-label'))).toEqual(['Activity']);
+  });
+
+  it('does not let a hidden pane on a remote runtime overwrite the local selection', () => {
+    let runtime = 'local';
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockImplementation(() => runtime);
+    const projectKey = 'nnd.operator-rail.surface:D:/work';
+    window.localStorage.setItem(projectKey, 'context');
+    window.localStorage.setItem(`nnd.operator-rail.panels:host:other:${projectKey}`, JSON.stringify({
+      order: ['context', 'activity'], visible: ['activity'],
+    }));
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const store = createDirectoryStore();
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Context');
+    runtime = 'host:other';
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Activity');
+    expect(window.localStorage.getItem(projectKey)).toBe('context');
+    runtime = 'local';
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Context');
+  });
+
+  it('hides an active terminal without disposing its mounted session', () => {
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockReturnValue('local');
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Terminal"]') as HTMLButtonElement).click());
+    const terminal = document.querySelector('[data-testid="terminal-keepalive-controller"]');
+    expect(terminal?.getAttribute('data-visible')).toBe('true');
+    act(() => (document.querySelector('button[aria-label="Customize operator panels"]') as HTMLButtonElement).click());
+    act(() => (document.querySelector('input[aria-label="Show Terminal"]') as HTMLInputElement).click());
+    expect(document.querySelector('button[aria-label="Terminal"]')).toBeNull();
+    expect(document.querySelector('[data-testid="terminal-keepalive-controller"]')).toBe(terminal);
+    expect(terminal?.getAttribute('data-visible')).toBe('false');
+    act(() => (document.querySelector('input[aria-label="Show Terminal"]') as HTMLInputElement).click());
+    act(() => (document.querySelector('button[aria-label="Terminal"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="terminal-keepalive-controller"]')).toBe(terminal);
+    expect(terminal?.getAttribute('data-visible')).toBe('true');
+  });
+
   it('loads authenticated NNA Activity history when the surface opens', async () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const history = vi.spyOn(harnessClient, 'listActivity').mockResolvedValue({ data: [
