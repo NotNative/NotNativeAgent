@@ -19,6 +19,14 @@ retains its NNA journal for recoverable operator inspection; it is not a
 secure erase. Browser-supplied directory fields cannot select the engine's
 workspace.
 
+Session listing accepts `roots=true` for parent sessions or `roots=false` for
+child sessions; omitting it returns both. `limit` bounds the returned list in
+parent-then-child order, with each group sorted by session ID. NND has no list
+cursor yet, so a limit smaller than the available list cannot discover the
+remaining sessions. `GET /session/:id/children` lists an owned parent's
+accessible child sessions in session-ID order. These read paths require `nnd.read`
+and the full original workspace grant. They do not grant child steering.
+
 With durable persistence, NNA keeps a bounded session catalog beside its
 session journals. A new NND child reopens those sessions under their original
 subject and workspace grants before it emits readiness. An invalid catalog

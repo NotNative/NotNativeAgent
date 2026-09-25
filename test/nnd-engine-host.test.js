@@ -199,6 +199,14 @@ test('NND engine host lists child sessions and projects their retained transcrip
   ] };
   const stop = host.childSessions.register('agent_coder_1', 'session_a', owner, child, { type: 'coder' });
   assert.equal(host.list(owner).length, 2);
+  assert.deepEqual(host.list(owner, { roots: true }).map((session) => session.id), ['session_a']);
+  assert.deepEqual(host.list(owner, { roots: false }).map((session) => session.id), ['agent_coder_1']);
+  assert.deepEqual(host.list(owner, { limit: 1 }).map((session) => session.id), ['session_a']);
+  assert.throws(() => host.list(owner, { limit: 0 }), { code: 'request_invalid' });
+  assert.deepEqual(host.listChildren('session_a', owner).map((session) => session.id), ['agent_coder_1']);
+  assert.deepEqual(host.listChildren('agent_coder_1', owner), []);
+  assert.throws(() => host.listChildren('session_a', { subjectId: 'other', workspaceIds: owner.workspaceIds }),
+    { code: 'nnd_session_unavailable' });
   assert.equal(host.get('agent_coder_1', owner).parentID, 'session_a');
   assert.equal(host.statuses(owner).agent_coder_1.type, 'busy');
   assert.deepEqual(host.messages('agent_coder_1', owner).map(({ info, parts }) => [info.id, parts[0].text]), [
@@ -209,7 +217,21 @@ test('NND engine host lists child sessions and projects their retained transcrip
   assert.equal(host.messages('agent_coder_1', owner)[1].parts[0].text, 'Done');
   await host.close('session_a', owner);
   assert.equal(host.list(owner).length, 0);
+  assert.throws(() => host.listChildren('session_a', owner), { code: 'nnd_session_unavailable' });
   assert.throws(() => host.messages('agent_coder_1', owner), { code: 'nnd_session_unavailable' });
+});
+
+test('NND session lists apply the limit after stable filtering and ordering', async () => {
+  const host = new NndEngineHost({ createEngine: async () => fakeEngine() });
+  await host.create('session_z', owner);
+  await host.create('session_a', owner);
+  const child = { config: { workspaceRoot: 'D:\\work' }, active: null, transcript: [] };
+  host.childSessions.register('agent_z', 'session_a', owner, child);
+  host.childSessions.register('agent_a', 'session_a', owner, child);
+  assert.deepEqual(host.list(owner, { roots: true, limit: 1 }).map((session) => session.id), ['session_a']);
+  assert.deepEqual(host.list(owner, { roots: false, limit: 1 }).map((session) => session.id), ['agent_a']);
+  assert.deepEqual(host.listChildren('session_a', owner).map((session) => session.id), ['agent_a', 'agent_z']);
+  assert.deepEqual(host.list(owner, { limit: 3 }).map((session) => session.id), ['session_a', 'session_z', 'agent_a']);
 });
 
 test('NND child sessions stream text and reconcile to the retained transcript', async () => {

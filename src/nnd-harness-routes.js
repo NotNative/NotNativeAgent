@@ -3,7 +3,7 @@ import { ContractError, newId, requireExternalId } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { sseOpen } from './opencode/protocol.js';
-const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|prompt_async|abort))?$/u;
+const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|prompt_async|abort))?$/u;
 export async function dispatchNndHarnessRequest(request, response, context) {
   if (openEventStream(request, response, context)) return true;
   if (await dispatchBootstrapRequest(request, response, context)) return true;
@@ -14,11 +14,8 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     try { id = decodeURIComponent(match[1]); requireExternalId(id, 'session_id'); }
     catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
   }
-  if (request.method === 'GET' && (!match[2] || match[2] === 'message')) {
-    requireIntegrationPermission(context.principal, 'nnd.read');
-    return send(response, 200, match[2] === 'message' ? host.messages(id, context.principal) : id ? host.get(id, context.principal) : host.list(context.principal, {
-      includeArchived: context.url.searchParams.get('archived') === 'true',
-    }));
+  if (request.method === 'GET' && (!match[2] || match[2] === 'message' || match[2] === 'children')) {
+    return readSession(response, context, host, id, match[2]);
   }
   if (request.method === 'POST' && !id) {
     requireIntegrationPermission(context.principal, 'nnd.session.create');
@@ -61,6 +58,19 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     return send(response, 200, true);
   }
   return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+}
+
+function readSession(response, context, host, id, detail) {
+  requireIntegrationPermission(context.principal, 'nnd.read');
+  if (detail === 'message') return send(response, 200, host.messages(id, context.principal));
+  if (detail === 'children') return send(response, 200, host.listChildren(id, context.principal));
+  if (id) return send(response, 200, host.get(id, context.principal));
+  const roots = context.url.searchParams.get('roots');
+  return send(response, 200, host.list(context.principal, {
+    includeArchived: context.url.searchParams.get('archived') === 'true',
+    roots: roots === 'true' ? true : roots === 'false' ? false : undefined,
+    limit: context.url.searchParams.has('limit') ? Number(context.url.searchParams.get('limit')) : undefined,
+  }));
 }
 
 function openEventStream(request, response, context) {

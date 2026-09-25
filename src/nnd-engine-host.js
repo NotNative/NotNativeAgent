@@ -243,10 +243,20 @@ export class NndEngineHost {
 
   list(principal, options = {}) {
     requirePrincipal(principal);
+    if (options.limit !== undefined && (!Number.isSafeInteger(options.limit) || options.limit < 1)) {
+      throw new ContractError('request_invalid', 'NND session list limit must be a positive integer');
+    }
     const parents = [...this.#contexts.values()].filter((context) => !context.closing && samePrincipal(context, principal)
-      && (options.includeArchived === true || !context.archivedAt)).map(describe);
+      && (options.includeArchived === true || !context.archivedAt)).map(describe).sort(sessionIdOrder);
     const visible = new Set(parents.map((session) => session.id));
-    return [...parents, ...(this.childSessions.list?.(principal) ?? []).filter((child) => visible.has(child.parentID))];
+    const children = (this.childSessions.list?.(principal) ?? []).filter((child) => visible.has(child.parentID)).sort(sessionIdOrder);
+    const listed = options.roots === true ? parents : options.roots === false ? children : [...parents, ...children];
+    return options.limit === undefined ? listed : listed.slice(0, options.limit);
+  }
+  listChildren(sessionId, principal) {
+    requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
+    this.get(sessionId, principal);
+    return (this.childSessions.list?.(principal) ?? []).filter((child) => child.parentID === sessionId).sort(sessionIdOrder);
   }
   get(sessionId, principal) {
     requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
@@ -452,6 +462,7 @@ function samePrincipal(context, principal) {
 }
 function describe(context) { return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value, directory: directoryFor(context), title: context.title, version: '1.0', tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: context.createdAt, updated: context.updatedAt, ...(context.archivedAt ? { archived: context.archivedAt } : {}) } }; }
 function nextUpdatedAt(context) { return Math.max(Date.now(), context.updatedAt + 1); }
+function sessionIdOrder(left, right) { return left.id < right.id ? -1 : left.id > right.id ? 1 : 0; }
 function titleOf(value) { return typeof value === 'string' && value.trim() && value.length <= 256 ? value.trim() : 'New session'; }
 function directoryOf(value) { return typeof value === 'string' && value.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : ''; }
 function directoryFor(context) { return directoryOf(context.engine.config?.workspaceRoot) || context.directory; }

@@ -184,6 +184,12 @@ test('NND harness session routes bind creation to the complete principal workspa
     const stopChild = nndEngineHost.childSessions.register('agent_coder_http', created.value.id,
       { subjectId: 'u_test', workspaceIds: ['w_one', 'w_two'] }, childEngine, { type: 'coder' });
     assert.deepEqual((await request(base, '/session', owner)).value.map((session) => session.id), [created.value.id, 'agent_coder_http']);
+    assert.deepEqual((await request(base, '/session?roots=true', owner)).value.map((session) => session.id), [created.value.id]);
+    assert.deepEqual((await request(base, '/session?roots=false', owner)).value.map((session) => session.id), ['agent_coder_http']);
+    assert.deepEqual((await request(base, '/session?limit=1', owner)).value.map((session) => session.id), [created.value.id]);
+    assert.equal((await request(base, '/session?limit=0', owner)).status, 400);
+    assert.equal((await request(base, '/session?limit=not-a-number', owner)).status, 400);
+    assert.deepEqual((await request(base, `/session/${created.value.id}/children`, owner)).value.map((session) => session.id), ['agent_coder_http']);
     const child = await request(base, '/session/agent_coder_http', owner);
     assert.equal(child.value.parentID, created.value.id);
     const childMessages = await request(base, '/session/agent_coder_http/message', owner);
@@ -194,6 +200,7 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.deepEqual((await request(base, '/session', partialReader)).value, []);
     assert.equal((await request(base, '/session/agent_coder_http', partialReader)).status, 404);
     assert.equal((await request(base, '/session/agent_coder_http/message', partialReader)).status, 404);
+    assert.equal((await request(base, `/session/${created.value.id}/children`, partialReader)).status, 404);
     stopChild();
     assert.equal((await request(base, '/session/agent_coder_http/message', owner)).value[1].parts[0].text, 'Private finding');
     const prompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
