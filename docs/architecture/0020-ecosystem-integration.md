@@ -105,6 +105,14 @@ These activity events are not yet a durable replay feed; reconnects recover the
 canonical transcript, while durable activity replay remains separate work.
 Display delivery failures cannot change the governed engine outcome.
 
+Child sessions appear under their NND parent in the session list. Their message
+view is available during delegation and remains as a bounded in-memory excerpt
+after the child finishes. A completed child has no steering grant. Closing the
+parent revokes child access. This child index does not yet survive an NNA service
+restart; durable child discovery and activity replay remain separate work.
+Session reads and event delivery both require the full original workspace grant,
+not merely a shared first workspace.
+
 ## Related surface ADRs
 
 ADR 0018 (web operator surface) and ADR 0019 (native desktop surface) describe the

@@ -72,7 +72,7 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
       }, { turnId: parent.turnId, stepId: parent.stepId, outcome: record?.outcome });
     },
   });
-  const unregisterNnd = registerNndChild(engine, sessionId, parent, child);
+  const unregisterNnd = registerNndChild(engine, sessionId, parent, child, input.type);
   let cancellation = null;
   const reportCleanupFailure = (operation, error) => {
     engine.telemetry?.record('subagent.cleanup', 'failed', {
@@ -108,8 +108,8 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
   }
 }
 
-function registerNndChild(engine, sessionId, parent, child) {
-  try { return engine.nndSessionRegistry?.register(sessionId, engine.sessionId, engine.active?.principal, child) ?? null; }
+function registerNndChild(engine, sessionId, parent, child, type) {
+  try { return engine.nndSessionRegistry?.register(sessionId, engine.sessionId, engine.active?.principal, child, { type }) ?? null; }
   catch (error) {
     // NND observation is optional; a saturated or unavailable GUI registry must not prevent core delegated work.
     engine.telemetry?.record('nnd.session_registration', 'failed', { agent_id: sessionId,

@@ -28,8 +28,8 @@ export function createWireEventBus() {
     // session-scoped event carries {directory, project, payload}. Durable
     // session events additionally emit a `sync` mirror with the SAME event id,
     // a `.1` type suffix, the per-session monotonic seq, and data = properties.
-    publishSession({ directory, sessionID, project, subjectId = null, type, properties, mirror = false, seq = null }) {
-      const scope = { project, subjectId };
+    publishSession({ directory, sessionID, project, subjectId = null, workspaceIds = null, type, properties, mirror = false, seq = null }) {
+      const scope = { project, subjectId, workspaceIds };
       if (!mirror) return publish(subscribers, scopedEnvelope(directory, project, eventId(), type, properties), scope);
       const eventIdValue = eventId();
       publish(subscribers, scopedEnvelope(directory, project, eventIdValue, type, properties), scope);
@@ -73,6 +73,10 @@ function publish(subscribers, envelope, scope = {}) {
     // of this internal routing metadata.
     if (subscriber.subjectId !== null && scope.subjectId !== subscriber.subjectId) continue;
     if (subscriber.workspaceIds !== null && scope.project !== undefined && !subscriber.workspaceIds.has(scope.project)) continue;
+    // NND contexts may require a multi-workspace grant. A subscriber with only
+    // the first project must not receive data that GET /session denies it.
+    if (scope.workspaceIds != null && (!subscriber.workspaceIds
+      || scope.workspaceIds.some((id) => !subscriber.workspaceIds.has(id)))) continue;
     if (!sseFrame(subscriber.res, { data: JSON.stringify(envelope) })) {
       dropSubscriber(subscribers, subscriber);
       continue;

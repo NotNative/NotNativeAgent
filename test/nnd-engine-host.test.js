@@ -179,12 +179,37 @@ test('NND engine host binds each context to its authenticated owner', async () =
 });
 
 test('NND engine host requires the entire original workspace grant', async () => {
-  const host = new NndEngineHost({ createEngine: async () => fakeEngine() });
+  const events = [];
+  const host = new NndEngineHost({ createEngine: async () => fakeEngine(),
+    eventBus: { publishSession: (event) => events.push(event) } });
   await host.create('session_a', { subjectId: 'user_a', workspaceIds: ['workspace_a', 'workspace_b'] });
+  assert.deepEqual(events[0].workspaceIds, ['workspace_a', 'workspace_b']);
   assert.throws(
     () => host.get('session_a', { subjectId: 'user_a', workspaceIds: ['workspace_b'] }),
     { code: 'nnd_session_unavailable' },
   );
+});
+
+test('NND engine host lists child sessions and projects their retained transcripts', async () => {
+  const host = new NndEngineHost({ createEngine: async () => fakeEngine() });
+  await host.create('session_a', owner);
+  const child = { config: { workspaceRoot: 'D:\\work' }, active: { finalized: false }, transcript: [
+    { type: 'message', role: 'user', content: 'Inspect this' },
+    { type: 'message', role: 'assistant', content: 'Done' },
+  ] };
+  const stop = host.childSessions.register('agent_coder_1', 'session_a', owner, child, { type: 'coder' });
+  assert.equal(host.list(owner).length, 2);
+  assert.equal(host.get('agent_coder_1', owner).parentID, 'session_a');
+  assert.equal(host.statuses(owner).agent_coder_1.type, 'busy');
+  assert.deepEqual(host.messages('agent_coder_1', owner).map(({ info, parts }) => [info.id, parts[0].text]), [
+    ['agent_coder_1:message:0', 'Inspect this'], ['agent_coder_1:message:1', 'Done'],
+  ]);
+  stop();
+  assert.deepEqual(host.statuses(owner), {});
+  assert.equal(host.messages('agent_coder_1', owner)[1].parts[0].text, 'Done');
+  await host.close('session_a', owner);
+  assert.equal(host.list(owner).length, 0);
+  assert.throws(() => host.messages('agent_coder_1', owner), { code: 'nnd_session_unavailable' });
 });
 
 test('NND engine host reserves capacity during creation and cleans up a failed initialization', async () => {

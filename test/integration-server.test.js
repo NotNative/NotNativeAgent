@@ -177,6 +177,25 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.equal(factoryOptions[0].dataPaths, undefined);
     assert.equal(factoryOptions[0].directory, root);
     assert.equal((await request(base, `/session/${created.value.id}`, principal(['nnd.read'], { workspace_ids: ['w_two'] }))).status, 404);
+    const childEngine = { config: { workspaceRoot: root }, active: { finalized: false }, transcript: [
+      { type: 'message', role: 'user', content: 'Inspect this' },
+      { type: 'message', role: 'assistant', content: 'Private finding' },
+    ], steer: async () => ({ accepted: true }) };
+    const stopChild = nndEngineHost.childSessions.register('agent_coder_http', created.value.id,
+      { subjectId: 'u_test', workspaceIds: ['w_one', 'w_two'] }, childEngine, { type: 'coder' });
+    assert.deepEqual((await request(base, '/session', owner)).value.map((session) => session.id), [created.value.id, 'agent_coder_http']);
+    const child = await request(base, '/session/agent_coder_http', owner);
+    assert.equal(child.value.parentID, created.value.id);
+    const childMessages = await request(base, '/session/agent_coder_http/message', owner);
+    assert.deepEqual(childMessages.value.map((message) => [message.info.id, message.parts[0].text]), [
+      ['agent_coder_http:message:0', 'Inspect this'], ['agent_coder_http:message:1', 'Private finding'],
+    ]);
+    const partialReader = principal(['nnd.read'], { workspace_ids: ['w_one'] });
+    assert.deepEqual((await request(base, '/session', partialReader)).value, []);
+    assert.equal((await request(base, '/session/agent_coder_http', partialReader)).status, 404);
+    assert.equal((await request(base, '/session/agent_coder_http/message', partialReader)).status, 404);
+    stopChild();
+    assert.equal((await request(base, '/session/agent_coder_http/message', owner)).value[1].parts[0].text, 'Private finding');
     const prompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { messageID: 'msg_prompt', parts: [{ type: 'text', text: 'hello NNA' }] },
     });

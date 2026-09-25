@@ -84,3 +84,16 @@ test('bus can scope a shared workspace to its authenticated principal', () => {
   assert.equal(other.length, 1);
   bus.close();
 });
+
+test('bus requires the complete workspace grant for a multi-workspace NND event', () => {
+  const bus = createWireEventBus();
+  const full = [];
+  const partial = [];
+  bus.subscribe(fakeRes(full), { subjectId: 'user_a', workspaceIds: ['workspace_a', 'workspace_b'] });
+  bus.subscribe(fakeRes(partial), { subjectId: 'user_a', workspaceIds: ['workspace_a'] });
+  bus.publishSession({ directory: 'C:\\workspace', project: 'workspace_a', workspaceIds: ['workspace_a', 'workspace_b'],
+    subjectId: 'user_a', sessionID: 'ses_1', type: 'message.updated', properties: { secret: 'private' }, mirror: true });
+  assert.equal(full.length, 3);
+  assert.equal(partial.length, 1);
+  bus.close();
+});

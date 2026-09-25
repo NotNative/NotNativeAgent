@@ -124,6 +124,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'elevation_secret_argument_forbidden', 'elevation_timeout_invalid', 'engine_output_required',
     'engine_settlement_invalid', 'environment_boolean_invalid', 'execution_capabilities_invalid',
     'nnd_engine_unavailable', 'nnd_manifest_unavailable', 'nnd_session_capacity', 'nnd_context_capacity', 'nnd_session_unavailable',
+    'steering_unavailable',
     'execution_manifest_forbidden', 'execution_manifest_mismatch', 'execution_manifest_required',
     'execution_tool_forbidden', 'execution_tools_invalid', 'export_too_large',
     'gateway_config_invalid', 'gateway_config_too_large', 'gateway_polling_timeout_invalid',

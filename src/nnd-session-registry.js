@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
-import { ContractError } from './ids.js';
+import { ContractError, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
+
+const TRANSCRIPT_LIMIT = 200;
+const TRANSCRIPT_CHARS = 262_144;
 
 export class NndSessionRegistry {
   #sessions = new Map();
@@ -10,16 +13,40 @@ export class NndSessionRegistry {
     }
     this.limit = limit;
   }
-  register(sessionId, parentId, principal, engine) {
+  register(sessionId, parentId, principal, engine, options = {}) {
     if (!principal || typeof principal !== 'object' || typeof principal.subjectId !== 'string') return null;
+    requireExternalId(sessionId, 'session_id');
+    requireExternalId(parentId, 'session_id');
+    if (!Array.isArray(principal.workspaceIds) || principal.workspaceIds.length === 0
+      || principal.workspaceIds.some((id) => typeof id !== 'string' || !id.trim())) {
+      throw new ContractError('nnd_principal_invalid', 'NND child session requires an authenticated principal');
+    }
     if (!engine || typeof engine !== 'object') throw new ContractError('nnd_engine_invalid', 'NND child engine is required');
+    if (this.#sessions.has(sessionId)) throw new ContractError('nnd_session_exists', 'NND child session already exists');
+    // Why: completed views are bounded cache entries; evict one before refusing
+    // a new live child so transcript inspection cannot block delegated work.
+    if (this.#sessions.size >= this.limit) {
+      const completed = [...this.#sessions].find(([, item]) => item.engine === null);
+      if (completed) this.#sessions.delete(completed[0]);
+    }
     if (this.#sessions.size >= this.limit) throw new ContractError('nnd_session_capacity', 'NND session registry is full');
+    const createdAt = Date.now();
     const record = {
       sessionId, parentId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds ?? []),
-      ingress: new CanonicalIngress(engine), revision: 1,
+      engine, ingress: new CanonicalIngress(engine), revision: 1,
+      directory: engine.config?.workspaceRoot ?? '', createdAt, updatedAt: createdAt,
+      title: `Subagent${typeof options.type === 'string' ? ` · ${options.type}` : ''}`,
+      transcript: [],
     };
     this.#sessions.set(sessionId, record);
-    return () => this.#sessions.delete(sessionId);
+    return () => {
+      if (this.#sessions.get(sessionId) !== record) return;
+      record.transcript = boundedTranscript(engine.transcript);
+      record.engine = null;
+      record.ingress = null;
+      record.updatedAt = Date.now();
+      record.revision += 1;
+    };
   }
   unregisterParent(parentId) {
     let removed = 0;
@@ -34,16 +61,72 @@ export class NndSessionRegistry {
   resolve = async (sessionId, principal) => {
     const record = this.#sessions.get(sessionId);
     if (!record || !samePrincipal(record, principal)) return null;
-    const steerGranted = Boolean(record.ingress.engine?.active && !record.ingress.engine.active.finalized);
+    const steerGranted = Boolean(record.engine?.active && !record.engine.active.finalized);
     return {
       sessionId, revision: record.revision, availability: steerGranted ? 'granted' : 'unavailable',
       steerSubagent: steerGranted,
-      steer: steerGranted ? async (command, actor) => record.ingress.submit({
-        version: '1.0', type: 'steer', request_id: command?.request_id, content: command?.content,
-      }, actor) : undefined,
+      steer: steerGranted ? async (command, actor) => {
+        if (this.#sessions.get(sessionId) !== record || !samePrincipal(record, actor)
+          || !record.engine?.active || record.engine.active.finalized || !record.ingress) {
+          throw new ContractError('steering_unavailable', 'NND child steering grant is no longer active');
+        }
+        return record.ingress.submit({ version: '1.0', type: 'steer',
+          request_id: command?.request_id, content: command?.content }, actor);
+      } : undefined,
     };
   };
+
+  list(principal) {
+    return [...this.#sessions.values()].filter((record) => samePrincipal(record, principal)).map(describeChild);
+  }
+
+  get(sessionId, principal) {
+    const record = this.#sessions.get(sessionId);
+    return record && samePrincipal(record, principal) ? describeChild(record) : null;
+  }
+
+  messages(sessionId, principal) {
+    const record = this.#sessions.get(sessionId);
+    if (!record || !samePrincipal(record, principal)) return null;
+    return record.engine ? boundedTranscript(record.engine.transcript) : record.transcript;
+  }
+
+  statuses(principal) {
+    const statuses = {};
+    for (const record of this.#sessions.values()) {
+      if (samePrincipal(record, principal) && record.engine?.active && !record.engine.active.finalized) {
+        statuses[record.sessionId] = { type: 'busy' };
+      }
+    }
+    return statuses;
+  }
 }
 function samePrincipal(record, principal) {
-  return principal?.subjectId === record.subjectId && (principal.workspaceIds ?? []).some((id) => record.workspaceIds.has(id));
+  return principal?.subjectId === record.subjectId && Array.isArray(principal.workspaceIds)
+    && [...record.workspaceIds].every((id) => principal.workspaceIds.includes(id));
+}
+
+function describeChild(record) {
+  return { id: record.sessionId, slug: record.sessionId, parentID: record.parentId,
+    projectID: record.workspaceIds.values().next().value, directory: record.directory,
+    title: record.title, version: '1.0',
+    tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+    time: { created: record.createdAt, updated: record.updatedAt },
+  };
+}
+
+function boundedTranscript(transcript) {
+  if (!Array.isArray(transcript)) return [];
+  const entries = [];
+  let remaining = TRANSCRIPT_CHARS;
+  for (let index = transcript.length - 1; index >= 0 && entries.length < TRANSCRIPT_LIMIT && remaining >= 64; index -= 1) {
+    const item = transcript[index];
+    if (item?.type !== 'message' || !['user', 'assistant'].includes(item.role) || typeof item.content !== 'string') continue;
+    const marker = '[Earlier text omitted from this bounded view]\n';
+    const content = item.content.length > remaining
+      ? `${marker}${item.content.slice(-(remaining - marker.length))}` : item.content;
+    entries.push({ item: { type: 'message', role: item.role, content }, index });
+    remaining -= content.length;
+  }
+  return entries.reverse();
 }

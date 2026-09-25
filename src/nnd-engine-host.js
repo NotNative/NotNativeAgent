@@ -238,11 +238,23 @@ export class NndEngineHost {
     return this.childSessions.resolve(sessionId, principal);
   }
 
-  list(principal, options = {}) { requirePrincipal(principal); return [...this.#contexts.values()].filter((context) => !context.closing && samePrincipal(context, principal) && (options.includeArchived === true || !context.archivedAt)).map(describe); }
-  get(sessionId, principal) { return describe(this.#owned(sessionId, principal)); }
+  list(principal, options = {}) {
+    requirePrincipal(principal);
+    const parents = [...this.#contexts.values()].filter((context) => !context.closing && samePrincipal(context, principal)
+      && (options.includeArchived === true || !context.archivedAt)).map(describe);
+    const visible = new Set(parents.map((session) => session.id));
+    return [...parents, ...(this.childSessions.list?.(principal) ?? []).filter((child) => visible.has(child.parentID))];
+  }
+  get(sessionId, principal) {
+    requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
+    if (this.#contexts.has(sessionId)) return describe(this.#owned(sessionId, principal));
+    const child = this.childSessions.get?.(sessionId, principal);
+    if (child) return child;
+    throw new ContractError('nnd_session_unavailable', 'NND session context is unavailable');
+  }
   statuses(principal) {
     requirePrincipal(principal);
-    const statuses = {};
+    const statuses = this.childSessions.statuses?.(principal) ?? {};
     for (const context of this.#contexts.values()) {
       if (!context.closing && samePrincipal(context, principal) && context.engine.active && !context.engine.active.finalized) {
         statuses[context.sessionId] = { type: 'busy' };
@@ -251,6 +263,13 @@ export class NndEngineHost {
     return statuses;
   }
   messages(sessionId, principal) {
+    requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
+    if (!this.#contexts.has(sessionId)) {
+      const child = this.childSessions.get?.(sessionId, principal);
+      const entries = this.childSessions.messages?.(sessionId, principal);
+      if (!child || !entries) throw new ContractError('nnd_session_unavailable', 'NND session context is unavailable');
+      return entries.map(({ item, index }) => messageProjection({ sessionId, createdAt: child.time.created }, item, index));
+    }
     const context = this.#owned(sessionId, principal);
     return context.engine.transcript
       .map((item, index) => ({ item, index }))
@@ -339,7 +358,7 @@ export class NndEngineHost {
     // Why: a broken display subscriber cannot turn governed work into a false failure.
     try {
       this.eventBus.publishSession({ directory: directoryFor(context), project: context.workspaceIds.values().next().value,
-        subjectId: context.subjectId, sessionID: context.sessionId, type, properties, mirror });
+        subjectId: context.subjectId, workspaceIds: [...context.workspaceIds], sessionID: context.sessionId, type, properties, mirror });
     } catch (error) {
       try { context.engine.telemetry?.record('nnd.event_delivery', 'failed', {
         event_type: type, code: error?.code ?? 'event_delivery_failed',
