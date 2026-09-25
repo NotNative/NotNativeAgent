@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA governance in Context.** NNA now publishes only its
+  review-posture enum and classified governance-record health/counts in
+  authenticated session metadata. The Context rail shows those NNA-owned
+  values plus pending permission/question counts, while malformed or absent
+  data stays absent. No raw decision, evidence, argument, or credential is
+  projected into the GUI.
+
 - 2026-09-25 · **Resizable operator dock.** Desktop right-side surfaces now
   have a labeled title and a draggable, keyboard-operable resize boundary.
   Width is restored per non-transient runtime, project directory, and surface;

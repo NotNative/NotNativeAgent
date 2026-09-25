@@ -140,6 +140,27 @@ describe('OperatorRail', () => {
     expect(context.textContent).not.toContain('$0.00');
   });
 
+  it('shows NNA governance classifications and pending operator requests without exposing metadata extras', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({
+      session: [{ id: 's1', metadata: { nnd: { governance: { reviewPosture: 'auto-review', recordHealth: 'attention', durable: true,
+        attentionEvidence: 2, unsettledDecisions: 1, uncertainEffects: 0, privateNote: 'never render' } } }, time: { created: 1, updated: 1 } }] as never,
+      permission: { s1: [{ id: 'p1' }] } as never,
+      question: { s1: [{ id: 'q1' }] } as never,
+    });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const context = document.querySelector('[data-testid="work-status-panel"]')!;
+    expect(context.textContent).toContain('auto-review');
+    expect(context.textContent).toContain('Needs attention');
+    expect(context.textContent).toContain('Unsettled decisions');
+    expect(context.textContent).toContain('Approvals');
+    expect(context.textContent).toContain('Questions');
+    expect(context.textContent).not.toContain('never render');
+  });
+
   it('follows a selected session change even without a directory-store update', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ session: [

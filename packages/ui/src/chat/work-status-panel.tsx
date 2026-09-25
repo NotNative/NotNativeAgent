@@ -11,7 +11,7 @@ import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import type { SessionStatus } from '../lib/nnd/types.ts';
-import { contextUsage, nnaContextUsage, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
+import { contextUsage, nnaContextUsage, nnaGovernanceSummary, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 
@@ -31,6 +31,7 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const contextLimit = resolveContextLimit(snapshot.provider as never, (lastAssistant as { modelID?: string } | undefined)?.modelID);
   const context = contextUsage(snapshot, sessionID, contextLimit);
   const nnaContext = nnaContextUsage(snapshot, sessionID);
+  const governance = nnaGovernanceSummary(snapshot, sessionID);
   const todos = todoRows(snapshot, sessionID);
   const subagents = subagentRows(snapshot, sessionID, statusPhraseOf(snapshot, statusById));
   const stats = panelStatsIfNeeded(snapshot, sessionID, committed);
@@ -44,6 +45,20 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   // the doc-15 knowledge slice.
 
   const sections: { id: string; label: string; rows: (ReactNode | null)[] }[] = [];
+  const pendingPermissions = snapshot.permission[sessionID]?.length ?? 0;
+  const pendingQuestions = snapshot.question[sessionID]?.length ?? 0;
+  if (pendingPermissions || pendingQuestions) sections.push({ id: 'attention', label: 'Needs operator', rows: [
+    pendingPermissions ? row('Approvals', String(pendingPermissions)) : null,
+    pendingQuestions ? row('Questions', String(pendingQuestions)) : null,
+  ] });
+  if (governance) sections.push({ id: 'governance', label: 'Governance', rows: [
+    governance.reviewPosture ? row('Review posture', governance.reviewPosture) : null,
+    governance.recordHealth ? row('Record health', governance.recordHealth === 'attention' ? 'Needs attention' : governance.recordHealth === 'ready' ? 'Ready' : 'Unavailable') : null,
+    governance.durable !== undefined ? row('Evidence journal', governance.durable ? 'Durable' : 'Ephemeral') : null,
+    governance.attentionEvidence ? row('Attention evidence', String(governance.attentionEvidence)) : null,
+    governance.unsettledDecisions ? row('Unsettled decisions', String(governance.unsettledDecisions)) : null,
+    governance.uncertainEffects ? row('Uncertain effects', String(governance.uncertainEffects)) : null,
+  ] });
   if (nnaContext) {
     sections.push({ id: 'session', label: 'Session', rows: [
       row('Context', nnaContext.percent === null ? 'Limit unknown' : `${nnaContext.percent.toFixed(1)}% estimated`),

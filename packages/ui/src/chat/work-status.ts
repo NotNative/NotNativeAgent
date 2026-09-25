@@ -43,6 +43,35 @@ export function nnaContextUsage(state: DirectoryStore, sessionID: string): { est
     percent: limitTokens === null ? null : (used as number) / limitTokens * 100 };
 }
 
+export interface NnaGovernanceSummary {
+  reviewPosture?: 'prompt' | 'auto-review' | 'unattended';
+  recordHealth?: 'ready' | 'attention' | 'unavailable';
+  durable?: boolean;
+  attentionEvidence?: number;
+  unsettledDecisions?: number;
+  uncertainEffects?: number;
+}
+
+/** NNA-authored classifications only; malformed or unknown fields never
+ * become an invented governance claim in the Context rail. */
+export function nnaGovernanceSummary(state: DirectoryStore, sessionID: string): NnaGovernanceSummary | null {
+  const session = state.session.find((item) => item.id === sessionID);
+  const nnd = session?.metadata?.nnd;
+  if (!nnd || typeof nnd !== 'object' || Array.isArray(nnd)) return null;
+  const raw = (nnd as Record<string, unknown>).governance;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const data = raw as Record<string, unknown>;
+  const summary: NnaGovernanceSummary = {};
+  if (data.reviewPosture === 'prompt' || data.reviewPosture === 'auto-review' || data.reviewPosture === 'unattended') summary.reviewPosture = data.reviewPosture;
+  if (data.recordHealth === 'ready' || data.recordHealth === 'attention' || data.recordHealth === 'unavailable') summary.recordHealth = data.recordHealth;
+  if (typeof data.durable === 'boolean') summary.durable = data.durable;
+  for (const key of ['attentionEvidence', 'unsettledDecisions', 'uncertainEffects'] as const) {
+    const value = data[key];
+    if (Number.isSafeInteger(value) && (value as number) >= 0) summary[key] = value as number;
+  }
+  return Object.keys(summary).length ? summary : null;
+}
+
 /** Model context limit from the provider catalog (limit.context); unknown
  * model ⇒ undefined (row suppressed rather than guessed). */
 export function resolveContextLimit(providers: { id: string; models: Record<string, { limit?: { context?: number } }> }[] | undefined | null, modelID: string | undefined): number | undefined {
