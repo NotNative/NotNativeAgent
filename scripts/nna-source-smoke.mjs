@@ -172,6 +172,9 @@ async function probeSession(call, workspace, nextEvent, provider) {
   assert.equal(submitted.status, 204);
   await withTimeout(waitForCompletedTurn(nextEvent, id, 'smoke_prompt'), 15_000, 'governed NNA turn did not reach a terminal activity');
   await waitForReply(call, id, EXPECTED_REPLY);
+  const firstActivity = await json(call, `/api/session/${id}/activity`, 200);
+  assert.ok(firstActivity.some((row) => row.id === `${id}:turn:smoke_prompt` && row.status === 'completed'),
+    'authenticated Activity snapshot did not retain the completed root turn');
   const settledMessages = await json(call, `/api/session/${id}/message`, 200);
   assert.deepEqual(settledMessages.map((message) => message.info.id), ['smoke_prompt', `${id}:message:1`],
     'NNA must project the submitted user ID for optimistic transcript reconciliation');
@@ -213,6 +216,9 @@ async function probeSession(call, workspace, nextEvent, provider) {
     && event.payload.properties.id === `${child.id}:turn`
     && event.payload.properties.status === 'completed'
     && event.payload.properties.summary === 'Turn completed'), 'child completion was not delivered on the live event stream');
+  const childActivity = await json(call, `/api/session/${child.id}/activity`, 200);
+  assert.ok(childActivity.some((row) => row.id === `${child.id}:turn` && row.status === 'completed'),
+    'authenticated Activity snapshot did not retain the completed child turn');
   assert.deepEqual((await json(call, '/api/session?roots=true', 200)).map((item) => item.id), [id]);
   assert.deepEqual((await json(call, '/api/session?roots=false', 200)).map((item) => item.id), [child.id]);
   const childMessages = await json(call, `/api/session/${child.id}/message`, 200);

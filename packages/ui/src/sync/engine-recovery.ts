@@ -20,6 +20,7 @@ import { useGlobalSessionStatusStore } from './global-stores.ts';
 import { useSessionOrderingStore } from './session-ordering.ts';
 import { useSessionViewStore } from './view-store.ts';
 import { resyncBlockingKind } from './bootstrap-enrichment.ts';
+import { isNnaActivitySource, refreshActivitySnapshot } from './activity-snapshot.ts';
 
 export interface RecoveryDeps {
   disposed: () => boolean;
@@ -117,6 +118,9 @@ async function recoveryCandidates(ctx: RecoveryCtx, directory: string, store: St
     upsertFetchedSession(store, fetched.data);
     registerSessionDirectory(ctx.deps.routing, sessionID, directory);
     await ctx.deps.loader.refreshTail({ directory, sessionID, store } as LoaderTarget, RECONNECT_MESSAGE_LIMIT);
+    if (isNnaActivitySource(store)) {
+      await refreshActivitySnapshot(store, directory, sessionID, isStable(ctx, directory, store));
+    }
     ctx.deps.afterMessageLoad(store, sessionID);
   }));
 }

@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Authenticated Activity snapshots.** NNA now retains a bounded
+  sanitized per-session Activity view and serves it through an owner-scoped
+  read route; root snapshots survive an NNA restart when its session catalog is
+  durable. NND merges saved rows when Activity opens and during reconnect,
+  retaining a newer live correction if an older read finishes late. A failed
+  read does not clear visible evidence. The source smoke checks completed root
+  and child Activity through the NND proxy. This is recent operational history,
+  not a full audit ledger or SSE cursor replay; child discovery still does not
+  survive an NNA restart.
+
 - 2026-09-25 · **Single-project General Notes draft lease.** An unsaved
   General Notes draft now survives in-app project switches in memory. A second
   project's General Notes remains read-only until the first draft is saved or

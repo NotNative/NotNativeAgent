@@ -211,6 +211,9 @@ export const harnessClient = {
   async getSession(sessionId: string, opts?: DirOption): Promise<HarnessResult<HarnessSession>> {
     return request('getSession', `/session/${sid(sessionId)}`, undefined, undefined, opts?.directory);
   },
+  async listActivity(sessionId: string, opts?: DirOption): Promise<HarnessResult<unknown[]>> {
+    return request('listActivity', `/session/${sid(sessionId)}/activity`, undefined, undefined, opts?.directory);
+  },
   async childSteeringCapability(sessionId: string, opts?: DirOption): Promise<HarnessResult<{
     session_id: string; revision: number; capabilities: { steer_subagent: boolean }; availability: string;
   }>> {

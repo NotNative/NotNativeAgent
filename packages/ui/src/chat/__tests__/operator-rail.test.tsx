@@ -8,6 +8,7 @@ import { OperatorRail } from '../operator-rail.tsx';
 import { useSessionViewStore } from '../../sync/view-store.ts';
 import { useGlobalSessionStatusStore } from '../../sync/global-stores.ts';
 import * as runtimeSwitch from '../../lib/runtime-switch.ts';
+import { harnessClient } from '../../lib/nnd/client.ts';
 
 vi.mock('../../components/terminal/TerminalView.tsx', () => ({ TerminalView: ({ visible }: { visible: boolean }) => <div data-testid="terminal-keepalive-controller" data-visible={visible} /> }));
 
@@ -31,6 +32,19 @@ afterEach(() => {
 });
 
 describe('OperatorRail', () => {
+  it('loads authenticated NNA Activity history when the surface opens', async () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const history = vi.spyOn(harnessClient, 'listActivity').mockResolvedValue({ data: [
+      { id: 'saved-turn', sessionID: 's1', time: 12, kind: 'turn', status: 'completed', summary: 'Saved turn completed' },
+    ] } as never);
+    const store = createDirectoryStore({ config: { nnd: { engine: 'nna' } } as never });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => { rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />); });
+    await act(async () => { (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    expect(history).toHaveBeenCalledWith('s1', { directory: 'D:/work' });
+    expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).toContain('Saved turn completed');
+  });
+
   it('resizes the desktop pane by keyboard and restores width per runtime and surface', () => {
     vi.stubGlobal('innerWidth', 1280);
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));

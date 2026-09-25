@@ -11,6 +11,7 @@ import { ProjectNotes, type NotesDraftLease } from './project-notes.tsx';
 import { TerminalView } from '../components/terminal/TerminalView.tsx';
 import { BrowserSurface } from './browser-surface.tsx';
 import { getRuntimeKey, isTransientRuntimeKey } from '../lib/runtime-switch.ts';
+import { isNnaActivitySource, refreshActivitySnapshot } from '../sync/activity-snapshot.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'notes' | 'browser' | 'terminal';
 const SURFACES: readonly { id: Surface; label: string }[] = [
@@ -130,7 +131,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
       </nav>
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded /> : null}
-        {surface === 'activity' ? <ActivitySurface store={store} /> : null}
+        {surface === 'activity' ? <ActivitySurface store={store} directory={directory} /> : null}
         {surface === 'changes' ? <GitView directory={directory} visible compact /> : null}
         {notesOpenedKey === storageKey || surface === 'notes' ? (
           <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
@@ -196,9 +197,20 @@ const ACTIVITY_FILTERS: readonly { id: ActivityFilter; label: string }[] = [
   { id: 'notice', label: 'Notices' }, { id: 'failed', label: 'Failures' },
 ];
 
-function ActivitySurface({ store }: { store: StoreApi<DirectoryStore> }): ReactNode {
+function ActivitySurface({ store, directory }: { store: StoreApi<DirectoryStore>; directory: string }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
+  const nnaSource = isNnaActivitySource(store);
+  const [historyAvailable, setHistoryAvailable] = useState<boolean | null>(null);
+  useEffect(() => {
+    const sessionID = view.currentSessionId;
+    if (!nnaSource || !sessionID) { setHistoryAvailable(null); return; }
+    let current = true;
+    setHistoryAvailable(null);
+    void refreshActivitySnapshot(store, directory, sessionID, () => current)
+      .then((available) => { if (current) setHistoryAvailable(available); });
+    return () => { current = false; };
+  }, [directory, nnaSource, store, view.currentSessionId]);
   const [filter, setFilter] = useState<ActivityFilter>('all');
   const [unseen, setUnseen] = useState(0);
   const viewport = useRef<HTMLOListElement>(null);
@@ -231,6 +243,7 @@ function ActivitySurface({ store }: { store: StoreApi<DirectoryStore> }): ReactN
   return <section className="flex h-full min-h-0 flex-col" data-testid="operator-activity">
     <header className="shrink-0 border-b border-white/10 p-3 pb-2">
       <div className="mb-2 flex items-center justify-between"><h2 className="text-xs font-medium text-neutral-200">Activity log</h2><span className="text-[10px] text-neutral-500">{records.length} events</span></div>
+      {nnaSource && historyAvailable === false ? <p role="status" className="mb-2 text-[10px] text-amber-300">Saved activity unavailable; live evidence may be incomplete.</p> : null}
       <div className="flex flex-wrap gap-1" role="group" aria-label="Filter activity">
         {ACTIVITY_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={filter === option.id}
           className={`rounded px-1.5 py-1 text-[10px] ${filter === option.id ? 'bg-white/15 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
