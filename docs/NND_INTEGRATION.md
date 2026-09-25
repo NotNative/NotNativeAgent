@@ -12,8 +12,8 @@ Requests need both the bearer token and a fresh `X-NNA-Principal` envelope;
 the route layer checks the permissions and workspace grants.
 
 The local session API supports creating/listing sessions, reading transcript
-messages, submitting a turn, renaming a title, cancelling an active turn, and
-removing a session from the desktop catalog. Each mutation has its own
+messages, submitting a turn, renaming a title, archiving/restoring, cancelling
+an active turn, and removing a session from the desktop catalog. Each mutation has its own
 `nnd.session.*` permission. Catalog removal closes the governed engine but
 retains its NNA journal for recoverable operator inspection; it is not a
 secure erase. Browser-supplied directory fields cannot select the engine's

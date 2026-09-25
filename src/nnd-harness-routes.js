@@ -16,7 +16,9 @@ export async function dispatchNndHarnessRequest(request, response, context) {
   }
   if (request.method === 'GET' && (!match[2] || match[2] === 'message')) {
     requireIntegrationPermission(context.principal, 'nnd.read');
-    return send(response, 200, match[2] === 'message' ? host.messages(id, context.principal) : id ? host.get(id, context.principal) : host.list(context.principal));
+    return send(response, 200, match[2] === 'message' ? host.messages(id, context.principal) : id ? host.get(id, context.principal) : host.list(context.principal, {
+      includeArchived: context.url.searchParams.get('archived') === 'true',
+    }));
   }
   if (request.method === 'POST' && !id) {
     requireIntegrationPermission(context.principal, 'nnd.session.create');
@@ -38,11 +40,15 @@ export async function dispatchNndHarnessRequest(request, response, context) {
   if (request.method === 'PATCH' && id && !match[2]) {
     requireIntegrationPermission(context.principal, 'nnd.session.update');
     const body = await readJsonBody(request);
-    if (!body || typeof body !== 'object' || Array.isArray(body)
-      || Object.keys(body).length !== 1 || !Object.hasOwn(body, 'title')) {
-      throw new ContractError('request_invalid', 'NND session update supports title only');
+    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length !== 1) {
+      throw new ContractError('request_invalid', 'NND session update supports title or archived time');
     }
-    return send(response, 200, await host.rename(id, context.principal, body.title));
+    if (Object.hasOwn(body, 'title')) return send(response, 200, await host.rename(id, context.principal, body.title));
+    if (Object.hasOwn(body, 'time') && body.time && typeof body.time === 'object'
+      && !Array.isArray(body.time) && Object.keys(body.time).length === 1 && Object.hasOwn(body.time, 'archived')) {
+      return send(response, 200, await host.setArchived(id, context.principal, body.time.archived));
+    }
+    throw new ContractError('request_invalid', 'NND session update supports title or archived time');
   }
   if (request.method === 'POST' && id && match[2] === 'abort') {
     requireIntegrationPermission(context.principal, 'nnd.session.abort');

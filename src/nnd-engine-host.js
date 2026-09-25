@@ -48,6 +48,7 @@ export class NndEngineHost {
         if (!validCatalogRecord(record)) throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid');
         await this.#createContext(record.sessionId, { subjectId: record.subjectId, workspaceIds: record.workspaceIds }, {
           title: record.title, directory: record.directory, createdAt: record.createdAt,
+          updatedAt: record.updatedAt ?? record.createdAt, archivedAt: record.archivedAt ?? 0,
         }, true);
       }
     } catch (error) {
@@ -77,8 +78,11 @@ export class NndEngineHost {
         throw new ContractError('nnd_engine_invalid', 'NND engine factory returned an invalid engine');
       }
       await engine.initialize();
+      const createdAt = restoring ? options.createdAt : Date.now();
       const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
-        title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt: restoring ? options.createdAt : Date.now(),
+        title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt,
+        updatedAt: restoring ? options.updatedAt : createdAt,
+        archivedAt: restoring ? options.archivedAt : 0,
         ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false };
       if (restoring) this.#contexts.set(sessionId, context);
       else await this.#commitCatalogChange(
@@ -112,14 +116,36 @@ export class NndEngineHost {
       throw new ContractError('session_name_invalid', 'NND session title must be bounded printable text');
     }
     const title = value.trim();
+    let updatedAt;
     await this.#commitCatalogChange(
       (contexts) => {
         if (context.closing || contexts.get(sessionId) !== context) {
           throw new ContractError('nnd_session_unavailable', 'NND session context is unavailable');
         }
-        contexts.set(sessionId, { ...context, title });
+        updatedAt = nextUpdatedAt(context);
+        contexts.set(sessionId, { ...context, title, updatedAt });
       },
-      () => { context.title = title; },
+      () => { context.title = title; context.updatedAt = updatedAt; },
+    );
+    this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
+    return describe(context);
+  }
+
+  async setArchived(sessionId, principal, value) {
+    const context = this.#owned(sessionId, principal);
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new ContractError('request_invalid', 'NND archived time must be a nonnegative timestamp');
+    }
+    let updatedAt;
+    await this.#commitCatalogChange(
+      (contexts) => {
+        if (context.closing || contexts.get(sessionId) !== context) {
+          throw new ContractError('nnd_session_unavailable', 'NND session context is unavailable');
+        }
+        updatedAt = nextUpdatedAt(context);
+        contexts.set(sessionId, { ...context, archivedAt: value, updatedAt });
+      },
+      () => { context.archivedAt = value; context.updatedAt = updatedAt; },
     );
     this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
     return describe(context);
@@ -150,7 +176,7 @@ export class NndEngineHost {
     return this.childSessions.resolve(sessionId, principal);
   }
 
-  list(principal) { requirePrincipal(principal); return [...this.#contexts.values()].filter((context) => !context.closing && samePrincipal(context, principal)).map(describe); }
+  list(principal, options = {}) { requirePrincipal(principal); return [...this.#contexts.values()].filter((context) => !context.closing && samePrincipal(context, principal) && (options.includeArchived === true || !context.archivedAt)).map(describe); }
   get(sessionId, principal) { return describe(this.#owned(sessionId, principal)); }
   statuses(principal) {
     requirePrincipal(principal);
@@ -195,7 +221,7 @@ export class NndEngineHost {
   }
 
   async #commitCatalogChange(change, commit) {
-    if (!this.catalogPath) { commit(); return; }
+    if (!this.catalogPath) { change(new Map(this.#contexts)); commit(); return; }
     // Keep the durable write and its in-memory commit in one serialized unit.
     // A failed create must not be included in another creator's snapshot.
     const transaction = this.catalogWrites.catch(() => undefined).then(async () => {
@@ -204,6 +230,7 @@ export class NndEngineHost {
       const records = [...candidate.values()].map((context) => ({
         sessionId: context.sessionId, subjectId: context.subjectId, workspaceIds: [...context.workspaceIds],
         title: context.title, directory: directoryFor(context), createdAt: context.createdAt,
+        updatedAt: context.updatedAt, archivedAt: context.archivedAt,
       }));
       if (Buffer.byteLength(`${JSON.stringify(records, null, 2)}\n`, 'utf8') > CATALOG_LIMIT_BYTES) {
         throw new ContractError('nnd_catalog_capacity', 'NND session catalog capacity is full');
@@ -263,7 +290,8 @@ function samePrincipal(context, principal) {
   // context that was created under a broader workspace grant.
   return context.subjectId === principal.subjectId && [...context.workspaceIds].every((id) => principal.workspaceIds.includes(id));
 }
-function describe(context) { return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value, directory: directoryFor(context), title: context.title, version: '1.0', tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: context.createdAt, updated: context.createdAt } }; }
+function describe(context) { return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value, directory: directoryFor(context), title: context.title, version: '1.0', tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: context.createdAt, updated: context.updatedAt, ...(context.archivedAt ? { archived: context.archivedAt } : {}) } }; }
+function nextUpdatedAt(context) { return Math.max(Date.now(), context.updatedAt + 1); }
 function titleOf(value) { return typeof value === 'string' && value.trim() && value.length <= 256 ? value.trim() : 'New session'; }
 function directoryOf(value) { return typeof value === 'string' && value.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : ''; }
 function directoryFor(context) { return directoryOf(context.engine.config?.workspaceRoot) || context.directory; }
@@ -272,7 +300,9 @@ function validCatalogRecord(record) {
   try { requireExternalId(record.sessionId, 'session_id'); requirePrincipal(record); }
   catch { return false; }
   return typeof record.title === 'string' && record.title.length <= 256 && typeof record.directory === 'string'
-    && record.directory.length <= 4096 && Number.isSafeInteger(record.createdAt) && record.createdAt > 0;
+    && record.directory.length <= 4096 && Number.isSafeInteger(record.createdAt) && record.createdAt > 0
+    && (record.updatedAt === undefined || Number.isSafeInteger(record.updatedAt) && record.updatedAt >= record.createdAt)
+    && (record.archivedAt === undefined || Number.isSafeInteger(record.archivedAt) && record.archivedAt >= 0);
 }
 
 async function shutdownAfterFailedCreate(engine) {

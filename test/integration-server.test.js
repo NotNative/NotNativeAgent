@@ -192,9 +192,21 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.equal((await request(base, `/session/${created.value.id}`, owner, {
       method: 'PATCH', body: { title: 'Denied rename' },
     })).status, 403);
-    assert.equal((await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
+    const archived = await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'PATCH', body: { time: { archived: Date.now() } },
+    });
+    assert.equal(archived.status, 200);
+    assert.ok(archived.value.time.archived > 0);
+    assert.deepEqual((await request(base, '/session', owner)).value, []);
+    assert.equal((await request(base, '/session?archived=true', owner)).value[0].id, created.value.id);
+    assert.equal((await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'PATCH', body: { time: { archived: -1 } },
     })).status, 400);
+    const restored = await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'PATCH', body: { time: { archived: 0 } },
+    });
+    assert.equal(restored.status, 200);
+    assert.equal(restored.value.time.archived, undefined);
     const renamed = await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'PATCH', body: { title: 'Renamed session' },
     });

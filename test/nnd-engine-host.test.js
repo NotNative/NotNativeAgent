@@ -40,12 +40,15 @@ test('NND rename persists only after a successful catalog write', async () => {
   const first = makeHost();
   await first.initialize();
   await first.create('session_a', owner, { title: 'Original' });
+  const createdUpdatedAt = first.get('session_a', owner).time.updated;
   await assert.rejects(first.rename('session_a', owner, ''), { code: 'session_name_invalid' });
   assert.equal((await first.rename('session_a', owner, '  Renamed  ')).title, 'Renamed');
+  assert.ok(first.get('session_a', owner).time.updated > createdUpdatedAt);
   await first.shutdown();
   const reopened = makeHost();
   await reopened.initialize();
   assert.equal(reopened.get('session_a', owner).title, 'Renamed');
+  assert.equal(reopened.get('session_a', owner).time.updated, first.get('session_a', owner).time.updated);
 
   const failed = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
     persistCatalog: async (_path, records) => {
@@ -53,8 +56,35 @@ test('NND rename persists only after a successful catalog write', async () => {
     },
   });
   await failed.create('session_b', owner, { title: 'Stable' });
+  const stableUpdatedAt = failed.get('session_b', owner).time.updated;
   await assert.rejects(failed.rename('session_b', owner, 'Uncommitted'), /write failed/u);
   assert.equal(failed.get('session_b', owner).title, 'Stable');
+  assert.equal(failed.get('session_b', owner).time.updated, stableUpdatedAt);
+});
+
+test('NND archive and restore retain durable list semantics', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-archive-'));
+  const catalogPath = join(root, 'nnd-contexts.json');
+  const makeHost = () => new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  const first = makeHost();
+  await first.initialize();
+  await first.create('session_a', owner);
+  const createdUpdatedAt = first.get('session_a', owner).time.updated;
+  await assert.rejects(first.setArchived('session_a', owner, -1), { code: 'request_invalid' });
+  await first.setArchived('session_a', owner, 12345);
+  assert.deepEqual(first.list(owner), []);
+  assert.equal(first.list(owner, { includeArchived: true })[0].time.archived, 12345);
+  const archivedUpdatedAt = first.get('session_a', owner).time.updated;
+  assert.ok(archivedUpdatedAt > createdUpdatedAt);
+  await first.shutdown();
+  const reopened = makeHost();
+  await reopened.initialize();
+  assert.deepEqual(reopened.list(owner), []);
+  assert.equal(reopened.list(owner, { includeArchived: true })[0].time.archived, 12345);
+  assert.equal(reopened.get('session_a', owner).time.updated, archivedUpdatedAt);
+  await reopened.setArchived('session_a', owner, 0);
+  assert.equal(reopened.list(owner)[0].time.archived, undefined);
+  assert.ok(reopened.get('session_a', owner).time.updated > archivedUpdatedAt);
 });
 
 test('NND session directory follows the initialized engine and later workspace transitions', async () => {
@@ -73,6 +103,7 @@ test('NND session directory follows the initialized engine and later workspace t
   } });
   await host.initialize();
   assert.equal(host.get('session_a', owner).directory, root);
+  assert.equal(host.get('session_a', owner).time.updated, host.get('session_a', owner).time.created);
   const nextRoot = join(root, 'next');
   engine.config = { workspaceRoot: nextRoot };
   assert.equal(host.list(owner)[0].directory, nextRoot);
