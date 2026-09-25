@@ -57,6 +57,9 @@ async function dispatch(request, response, context) {
 }
 
 export async function dispatchProviderRequest(request, response, context) {
+  if (context.url.pathname === '/v1/provider-route/activate') {
+    return dispatchProviderActivation(request, response, context);
+  }
   if (context.url.pathname === '/v1/provider-route') {
     if (request.method !== 'PATCH') return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
     requireIntegrationPermission(context.principal, 'provider.route.manage');
@@ -77,7 +80,8 @@ export async function dispatchProviderRequest(request, response, context) {
   assertProviderStore(providerStore);
   if (request.method === 'GET' && !id) {
     requireIntegrationPermission(principal, 'provider.read');
-    return send(response, 200, { ...await providerStore.inventory(), runtime_route: context.nndEngineHost?.nndModel ?? null });
+    return send(response, 200, { ...await providerStore.inventory(context.nndEngineHost?.providerRoutingPending),
+      runtime_route: context.nndEngineHost?.nndModel ?? null });
   }
   if (request.method === 'GET' && id && !action) {
     requireIntegrationPermission(principal, 'provider.read');
@@ -110,6 +114,16 @@ export async function dispatchProviderRequest(request, response, context) {
     });
   }
   return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
+}
+
+async function dispatchProviderActivation(request, response, context) {
+  if (request.method !== 'POST') return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
+  requireIntegrationPermission(context.principal, 'provider.route.activate');
+  if (typeof context.nndEngineHost?.activateProviderRoute !== 'function') {
+    throw new ContractError('nnd_engine_unavailable', 'NND provider activation is unavailable');
+  }
+  const route = await context.nndEngineHost.activateProviderRoute();
+  return send(response, 200, { runtime_route: route, existing_sessions_unchanged: true });
 }
 
 async function requiredProfile(store, id) {

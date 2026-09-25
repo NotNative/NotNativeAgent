@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomBytes, randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
@@ -77,10 +78,12 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
 
 export async function createIntegrationNndEngineHost(paths, options = {}) {
   const manifest = await readIntegrationManifest(join(paths.config, 'manifest.json'));
-  const config = resolveManifest(manifest, {
+  const configOptions = {
     missionPrincipal: 'authenticated-nnd-operator', principal: 'authenticated-nnd-operator',
     hostOrigin: 'nnd-integration', hostIdentity: 'nnd-integration',
-  });
+  };
+  const config = resolveManifest(manifest, configOptions);
+  let activeConfig = config;
   const trusted = typeof paths.trustedWorkspaces === 'string'
     ? await workspaceIsTrusted(paths.trustedWorkspaces, config.workspaceRoot) : false;
   const skillRoots = options.skillRoots ?? runtimeSkillRoots(paths, {
@@ -89,7 +92,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
   const host = new NndEngineHost({
     catalogPath: config.persistence === 'durable' ? join(paths.sessions, 'nnd-contexts.json') : null,
     createEngine: async (input) => new SessionEngine({
-      config, sessionId: input.sessionId, surface: 'nnd', nndSessionRegistry: input.nndSessionRegistry,
+      config: activeConfig, sessionId: input.sessionId, surface: 'nnd', nndSessionRegistry: input.nndSessionRegistry,
       storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger,
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
       mcpTransportFactory: options.mcpTransportFactory, memoryAdapter: options.memoryAdapter,
@@ -104,6 +107,19 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
   host.nndModel = Object.freeze({ providerID: config.routes.primary.providerId, modelID: config.routes.primary.model });
   host.nndMcpInventory = nndMcpInventory(config);
   host.nndAgentInventory = nndAgentInventory(config);
+  host.providerRoutingPending = (latest) => !isDeepStrictEqual(activeConfig.providerProfiles, latest.providerProfiles)
+    || !isDeepStrictEqual(activeConfig.routes, latest.routes);
+  host.activateProviderRoute = async () => {
+    const latest = resolveManifest(await readIntegrationManifest(join(paths.config, 'manifest.json')), configOptions);
+    if (latest.workspaceRoot !== config.workspaceRoot || latest.persistence !== config.persistence) {
+      throw new ContractError('nnd_manifest_invalid', 'NND provider activation cannot change workspace or persistence scope');
+    }
+    activeConfig = Object.freeze({ ...activeConfig, providerProfiles: latest.providerProfiles, routes: latest.routes });
+    const route = activeConfig.routes.primary;
+    host.nndModel = Object.freeze({ providerID: route.providerId, modelID: route.model });
+    host.nndAgentInventory = nndAgentInventory(activeConfig);
+    return host.nndModel;
+  };
   // A newly created session discovers these same roots at initialization.
   // Read again per request so the UI does not freeze a startup-only catalog.
   host.readNndSkillsInventory = async () => {

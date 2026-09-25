@@ -130,6 +130,37 @@ test('provider reads remain available through a store without route mutation sup
   } finally { await service.close(); }
 });
 
+test('route activation is separately authorized and old sessions keep their model selection', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-provider-activate-'));
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
+  const submitted = [];
+  const host = {
+    nndModel: { providerID: 'one', modelID: 'one' },
+    async activateProviderRoute() { this.nndModel = { providerID: 'two', modelID: 'two' }; return this.nndModel; },
+    get() { return { metadata: { nnd: { configuredModel: { providerID: 'one', modelID: 'one' } } } }; },
+    submitAsync(_id, command) { submitted.push(command); return { accepted: true }; },
+  };
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_activate', nndEngineHost: host,
+    providerStore: new ProviderProfileStore({ configRoot }), port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    assert.equal((await request(base, '/v1/provider-route/activate', principal(['provider.route.manage']), { method: 'POST' })).status, 403);
+    const activated = await request(base, '/v1/provider-route/activate', principal(['provider.route.activate']), { method: 'POST' });
+    assert.deepEqual(activated.value, { runtime_route: { providerID: 'two', modelID: 'two' }, existing_sessions_unchanged: true });
+    assert.equal((await request(base, '/session/old/prompt_async', principal(['nnd.session.submit']), {
+      method: 'POST', body: { messageID: 'prompt_old', model: { providerID: 'one', modelID: 'one' }, parts: [{ type: 'text', text: 'hello' }] },
+    })).status, 204);
+    assert.equal(submitted.length, 1);
+    assert.equal((await request(base, '/session/old/prompt_async', principal(['nnd.session.submit']), {
+      method: 'POST', body: { messageID: 'prompt_wrong', model: { providerID: 'two', modelID: 'two' }, parts: [{ type: 'text', text: 'hello' }] },
+    })).status, 400);
+  } finally { await service.close(); }
+});
+
 test('integration principal rejects stale and role-only authority', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-integration-'));
   const configRoot = join(root, 'config');

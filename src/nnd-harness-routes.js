@@ -27,7 +27,7 @@ export async function dispatchNndHarnessRequest(request, response, context) {
   if (request.method === 'POST' && id && match[2] === 'prompt_async') {
     requireIntegrationPermission(context.principal, 'nnd.session.submit');
     const body = await readJsonBody(request);
-    assertConfiguredSelection(body, host.nndModel);
+    assertConfiguredSelection(body, host.get(id, context.principal)?.metadata?.nnd?.configuredModel ?? host.nndModel);
     const content = textContent(body?.parts);
     const accepted = host.submitAsync(id, { version: '1.0', type: 'submit', request_id: body?.messageID ?? newId('nnd_prompt'), content }, context.principal);
     if (accepted.reason === 'busy') {

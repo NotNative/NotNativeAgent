@@ -33,12 +33,13 @@ export class ProviderProfileStore {
     return Object.values(config.providerProfiles).map((profile) => publicProfile(profile, profile.id === active));
   }
 
-  async inventory() {
+  async inventory(isPending) {
     const config = await this.#read();
     const route = config.routes.primary;
     return {
       profiles: Object.values(config.providerProfiles).map((profile) => publicProfile(profile, profile.id === route.providerId)),
       configured_primary_route: { providerID: route.providerId, modelID: route.model },
+      provider_routing_pending: typeof isPending === 'function' ? isPending(config) : null,
     };
   }
 

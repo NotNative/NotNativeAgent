@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { createIntegrationNndEngineHost, runIntegrationCommand, runNndIntegrationCommand } from '../src/integration-cli.js';
 import { assertNnoIntegrationActivation, createNndLocalIntegrationActivation } from '../src/nno-integration-activation.js';
 import { trustWorkspace } from '../src/experience/trust.js';
+import { ProviderProfileStore } from '../src/provider/profile-store.js';
 
 test('NND local service starts without NNO activation and keeps its authenticated wire contract', async () => {
   assert.throws(() => assertNnoIntegrationActivation(createNndLocalIntegrationActivation()), {
@@ -148,6 +149,58 @@ test('integration NND host builds governed engines from the trusted manifest', a
   release({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
   await host.close('session_a', principal);
+});
+
+test('provider route activation changes future NND sessions without mutating existing engines', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-route-activation-'));
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  const document = { format_version: 1, persistence: 'ephemeral', workspace_root: root,
+    providers: [
+      { id: 'old', endpoint: 'http://127.0.0.1:1234/v1', model: 'old-model', trust_zone: 'loopback' },
+      { id: 'new', endpoint: 'http://127.0.0.1:2234/v1', model: 'new-model', trust_zone: 'loopback' },
+    ], routes: { primary: { provider_id: 'old', model: 'old-model' } } };
+  const manifestPath = join(configRoot, 'manifest.json');
+  await writeFile(manifestPath, JSON.stringify(document));
+  const host = await createIntegrationNndEngineHost({ config: configRoot, sessions: join(root, 'sessions'),
+    reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') });
+  const profiles = new ProviderProfileStore({ configRoot });
+  const principal = { subjectId: 'operator', workspaceIds: ['workspace_a'] };
+  try {
+    assert.equal((await profiles.inventory(host.providerRoutingPending)).provider_routing_pending, false);
+    const before = await host.create('session_before', principal);
+    document.routes.primary = { provider_id: 'new', model: 'new-model' };
+    document.routes.subagent = { provider_id: 'new', model: 'new-model' };
+    document.providers = [document.providers[1]];
+    await writeFile(manifestPath, JSON.stringify(document));
+    assert.equal((await profiles.inventory(host.providerRoutingPending)).provider_routing_pending, true);
+    assert.deepEqual(await host.activateProviderRoute(), { providerID: 'new', modelID: 'new-model' });
+    assert.equal((await profiles.inventory(host.providerRoutingPending)).provider_routing_pending, false);
+    const after = await host.create('session_after', principal);
+    assert.equal(before.engine.config.routes.primary.providerId, 'old');
+    assert.equal(after.engine.config.routes.primary.providerId, 'new');
+    assert.equal(after.engine.config.routes.subagent.providerId, 'new');
+    assert.equal(after.engine.config.providerProfiles.old, undefined);
+    assert.ok(before.engine.config.providerProfiles.old);
+    assert.deepEqual(host.nndAgentInventory.route, { providerID: 'new', modelID: 'new-model' });
+    document.providers.push({ id: 'third', endpoint: 'http://127.0.0.1:3234/v1', model: 'third-model', trust_zone: 'loopback' });
+    document.routes.subagent = { provider_id: 'third', model: 'third-model' };
+    await writeFile(manifestPath, JSON.stringify(document));
+    assert.equal((await profiles.inventory(host.providerRoutingPending)).provider_routing_pending, true);
+    assert.deepEqual((await profiles.inventory(host.providerRoutingPending)).configured_primary_route,
+      { providerID: 'new', modelID: 'new-model' });
+    await host.activateProviderRoute();
+    assert.deepEqual(host.nndAgentInventory.route, { providerID: 'third', modelID: 'third-model' });
+    assert.equal((await profiles.inventory(host.providerRoutingPending)).provider_routing_pending, false);
+    assert.deepEqual(host.get('session_before', principal).metadata.nnd.configuredModel,
+      { providerID: 'old', modelID: 'old-model' });
+    assert.deepEqual(host.get('session_after', principal).metadata.nnd.configuredModel,
+      { providerID: 'new', modelID: 'new-model' });
+    document.workspace_root = join(root, 'other');
+    await writeFile(manifestPath, JSON.stringify(document));
+    await assert.rejects(host.activateProviderRoute(), { code: 'nnd_manifest_invalid' });
+    assert.deepEqual(host.nndModel, { providerID: 'new', modelID: 'new-model' });
+  } finally { await host.shutdown(); }
 });
 
 test('NND skills include project roots only after workspace trust', async () => {
