@@ -297,3 +297,15 @@ waits — the server row ships first so a closed tab can never strand a queue.
   failure degrades to a warning plus an empty-queue answer) and
   dispose joins shutdown. Routes pin: the provider resolves only on
   the first request.
+
+- **E-09-15 (objective generations, orphan posture)**: adversarial review of
+  the P9 objective-file API confirmed that a session-keyed mutable file would
+  let a stale editor overwrite a winning goal after NNA rejects its metadata
+  CAS, and a stale clear could delete a replacement containing identical text.
+  Each PUT therefore creates a random immutable generation, and NNA goal
+  metadata carries only the successful generation key; keyed reads/deletes
+  cannot affect a different generation. Legacy unkeyed files remain supported.
+  Authenticated clients can still stage bounded (5 KiB) orphan files at
+  arbitrary syntactically valid session IDs. Before broad remote goal arming,
+  add session-aware quota/garbage collection that preserves the currently
+  referenced key; do not delete by session prefix during an active goal.

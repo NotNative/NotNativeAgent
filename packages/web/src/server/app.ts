@@ -22,6 +22,7 @@ import { registerSettingsRoutes, registerProjectsRoutes, registerGitReadRoutes }
 import { registerFsWriteRoutes } from './routes/fs-write.ts';
 import { registerSessionFoldersRoutes } from './routes/session-folders.ts';
 import { registerMessageQueueRoutes } from './queue/queue-routes.ts';
+import { registerObjectiveRoutes } from './goals/objective-routes.ts';
 import { registerTerminalRoutes } from './terminal/routes.ts';
 import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import type { TerminalRuntime } from './terminal/session-core.ts';
@@ -224,6 +225,7 @@ export function errorHygiene(error: unknown, c: Context): Response {
 function registerApiSurfaces(app: Hono, terminal: TerminalRuntime): void {
   app.route('/', createNotNativeRoutes());
   registerMessageQueueRoutes(app); // §D.3 wiring: BEFORE the harness proxy
+  registerObjectiveRoutes(app); // §B.1 objective files: auth-gated NND surface
   registerRelayRoutes(app);
   registerClientAuthRoutes(app);
   registerTunnelRoutes(app);

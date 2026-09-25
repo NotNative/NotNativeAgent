@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 objective-file API.** NND now has authenticated
+  `PUT/GET/DELETE /api/goals/objective/:sessionId`, backed by atomic writes in its data
+  directory. Session IDs and immutable generation keys are validated before filesystem
+  access; content is trimmed and bounded to 5,000 characters, missing deletes are harmless,
+  and a symlinked objective is refused on read. The key is stored in NNA goal metadata,
+  preventing stale file-first edits from changing the winning objective. This enables live
+  objective edits for the forthcoming autonomous tick;
+  goal arming and the tick runtime are still pending.
+
 - 2026-09-25 · **P9 goal persistence seam, NNA-native.** NNA now validates and
   durably stores one bounded goal per owned NND session, projects it as
   `metadata.nnd.goal`, and exposes a narrowly authorized, identity-and-revision-guarded goal

@@ -31,6 +31,8 @@ export interface GoalPayload {
   id: string;
   objective: string;
   objectiveFile: boolean;
+  /** Immutable random objective generation; absent for legacy files. */
+  objectiveFileKey?: string;
   status: GoalStatus;
   tokenBudget: number | null;
   tokensUsed: number;
@@ -109,6 +111,8 @@ export function parseGoalPayload(raw: unknown): GoalPayload | null {
     id: value.id.trim(),
     objective,
     objectiveFile,
+    ...(typeof value.objectiveFileKey === 'string' && /^[a-f0-9]{64}$/.test(value.objectiveFileKey)
+      ? { objectiveFileKey: value.objectiveFileKey } : {}),
     status,
     tokenBudget: parseTokenBudget(value.tokenBudget),
     tokensUsed: nonNegativeInt(value.tokensUsed),
@@ -161,6 +165,7 @@ export function freshGoalCounters(): Pick<
 export function buildGoalPayload(input: {
   objective: string;
   objectiveFile: boolean;
+  objectiveFileKey?: string;
   tokenBudget?: number | null;
   now?: number;
   id?: string;
@@ -170,6 +175,7 @@ export function buildGoalPayload(input: {
     id: input.id ?? newGoalId(now),
     objective: input.objective.slice(0, GOAL_OBJECTIVE_CHAR_LIMIT),
     objectiveFile: input.objectiveFile === true,
+    ...(input.objectiveFileKey ? { objectiveFileKey: input.objectiveFileKey } : {}),
     status: 'active',
     tokenBudget: parseTokenBudget(input.tokenBudget ?? null),
     note: '',

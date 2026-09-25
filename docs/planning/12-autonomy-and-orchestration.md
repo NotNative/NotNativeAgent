@@ -139,7 +139,8 @@ or nulls when arming an empty session, and treats a conflict as a fresh-read req
 interface GoalPayload {
   id: string;              // opaque per-logical-goal id, e.g. `${ts.toString(36)}${rand(6)}`; stale-write guard
   objective: string;       // inline objective text (<= 5000 chars); empty when objectiveFile is true
-  objectiveFile: boolean;  // true: objective text lives in <data-dir>/goals/<sessionId>.md
+  objectiveFile: boolean;  // true: objective text lives in the selected NND objective file
+  objectiveFileKey?: string; // 64-hex generation key for immutable objective file; '' = legacy file
   status: 'active' | 'paused' | 'blocked' | 'budgetLimited' | 'complete';
   tokenBudget: number | null;           // optional positive int (1 .. 100,000,000 when server-created)
   tokensUsed: number;      // tokensCommitted + current segment (monotonic)
@@ -162,20 +163,26 @@ Parsing rules (both server and UI): require non-empty `id`, a valid `status`, an
 280 chars, `statusReason` to 200, `objective` to 5000. (src: `runtime.js:183-217`,
 `sessionGoalMetadata.ts`)
 
-**Objective file** (`<data-dir>/goals/<sessionId>.md`, data dir = `OPENCHAMBER_DATA_DIR` or
-`~/.config/openchamber`):
+**Objective file** (`<data-dir>/goals/<sessionId>.<objectiveFileKey>.md`, data dir = `NOTNATIVE_DATA_DIR` or
+`~/.notnative-desktop`):
 
-- Keyed by SESSION id (sessions are globally unique; one goal per session) — so the metadata
-  carries only `objectiveFile: true`, never a path. This means user-writable metadata cannot
-  become a file-read vector; the id shape is validated before any filesystem touch
-  (`/^[A-Za-z0-9_-]{4,128}$/`).
-- Routes: `PUT/GET/DELETE /api/goals/objective/:sessionId` (doc 03 §5.14). `PUT { content }` →
-  `{ok:true}` (content clamped to 5000 after trim; empty → 400). `GET` → `{content}` or
-  `404 { error:'objective not found' }`. `DELETE` is best-effort (missing file is fine).
-- UI writes the file BEFORE patching goal metadata; if the write fails the objective falls
-  back to inline metadata. `clearSessionGoal` deletes the file best-effort.
+- Keyed by validated SESSION id plus an opaque per-write 64-hex generation key. The metadata
+  carries the key, never a path; the id shape is validated before any filesystem touch
+  (`/^[A-Za-z0-9_-]{4,128}$/`). Legacy goals with no key still use `<sessionId>.md`.
+- Routes: `PUT/GET/DELETE /api/goals/objective/:sessionId` (doc 03 §5.14). These NND-owned
+  routes are registered behind the global `/api` authentication gate and ahead of the harness
+  proxy. `PUT { content }` → `{ok:true,key}` with a fresh immutable generation (content
+  clamped to 5000 after trim; empty → 400). `GET ?key=<key>` → `{content}` or
+  `404 { error:'objective not found' }`; `DELETE ?key=<key>` is best-effort. Omit `key`
+  only for a legacy no-key goal.
+- UI writes the file BEFORE patching goal metadata, then puts the returned key in the
+  revision-guarded NNA goal write. A losing metadata write cannot change the winning
+  objective file because each generation is distinct. On file-write failure, keep the text
+  inline. `clearSessionGoal` deletes only the exact key it cleared, best-effort. Staged
+  files from failed metadata writes require bounded garbage collection before broad remote
+  goal arming; they must never be reused as a live goal.
 - The tick resolves the effective objective fresh EVERY cycle (file is live-editable
-  mid-goal); a missing/unreadable file falls back to the inline `objective` — a goal never
+  mid-goal, using the current metadata key); a missing/unreadable file falls back to the inline `objective` — a goal never
   dies because a file went away. If the file is gone AND no inline objective: skip the tick
   with a warning.
 - VS Code has no OpenChamber route; the strip degrades to the audit note (display-only).

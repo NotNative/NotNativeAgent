@@ -112,6 +112,13 @@ describe('parseGoalPayload (§B.1)', () => {
     expect(parseGoalPayload(raw({ objective: '', objectiveFile: true }))?.objectiveFile).toBe(true);
   });
 
+  it('preserves a valid objective generation key and ignores unsafe legacy values', () => {
+    const key = 'a'.repeat(64);
+    expect(parseGoalPayload(raw({ objectiveFile: true, objectiveFileKey: key }))?.objectiveFileKey).toBe(key);
+    expect(parseGoalPayload(raw({ objectiveFile: true, objectiveFileKey: '../escape' }))?.objectiveFileKey).toBeUndefined();
+    expect(buildGoalPayload({ objective: 'Ship', objectiveFile: true, objectiveFileKey: key }).objectiveFileKey).toBe(key);
+  });
+
   it('clamps note, statusReason and objective', () => {
     const parsed = parseGoalPayload(
       raw({
