@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Packaged terminal native acceptance.** The unpacked Windows
+  x64 executable now passes a bounded real `node-pty` command spawn/output/
+  exit probe under Electron-run-as-Node; the NSIS build runs this gate after
+  artifact verification. This closes the missing-native-
+  runtime/ABI check for that packaged artifact. The full packaged HTTP/UI
+  terminal route and non-Windows artifacts remain unverified.
+
 - 2026-09-25 · **Installable shell artifact integrity.** The packaging
   pipeline now stages the external `node-pty` runtime and native binaries
   beside the server bundle for both script-install and NSIS paths. An

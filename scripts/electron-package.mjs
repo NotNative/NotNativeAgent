@@ -77,6 +77,7 @@ async function main() {
   const previousInstaller = existsSync(installer) ? statSync(installer) : null;
   runElectronBuilder(version);
   reportArtifacts(installer, previousInstaller);
+  runPackagedTerminalSmoke();
 }
 
 // ── step 0: root version + electron binary preflight ────────────────────────
@@ -303,6 +304,18 @@ function reportArtifacts(setup, previousInstaller) {
   const sha256 = createHash('sha256').update(readFileSync(setup)).digest('hex');
   log(`installer: ${path.basename(setup)} (${(currentInstaller.size / 1024 / 1024).toFixed(1)} MiB)`);
   log(`sha256:  ${sha256}`);
+}
+
+function runPackagedTerminalSmoke() {
+  const smoke = path.join(ROOT, 'scripts', 'electron-terminal-smoke.mjs');
+  const result = spawnSync(process.execPath, [smoke], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    timeout: 15_000,
+  });
+  if (result.status !== 0 || result.error) {
+    throw new Error(`packaged terminal smoke failed: ${result.error?.message ?? result.status}`);
+  }
 }
 
 // ── artifacts-only integrity oracle (--no-nsis) ─────────────────────────────
