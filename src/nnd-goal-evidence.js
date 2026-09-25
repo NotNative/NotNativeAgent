@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const MAX_TURNS = 200;
+const PROVIDER_PROFILE_ID = /^[A-Za-z0-9_-]{1,64}$/u;
+const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/u;
 // Match requireExternalId: a valid submitted prompt must never disappear from
 // accounting merely because it contains a dot or colon.
 const REQUEST_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
@@ -18,7 +20,11 @@ export function nndGoalTurnReceipt(record) {
   const measurement = hasAccounted ? accountingMeasurement : count(measured) !== null ? 'provider' : 'unavailable';
   return Object.freeze({ request_id: record.request_id,
     outcome: typeof record.outcome === 'string' ? record.outcome.slice(0, 40) : 'unknown',
-    tokens, measurement });
+    tokens, measurement,
+    ...(typeof record.provider_profile === 'string' && PROVIDER_PROFILE_ID.test(record.provider_profile)
+      && typeof record.model === 'string' && record.model.length > 0 && record.model.length <= 256
+      && record.model.trim() && !CONTROL_CHARACTER.test(record.model)
+      ? { provider_profile: record.provider_profile, model: record.model } : {}) });
 }
 
 /** Live receipts are observational; the journal remains the restart authority. */

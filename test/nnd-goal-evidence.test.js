@@ -11,6 +11,22 @@ test('goal receipts project only bounded accounting and durable outcome fields',
   assert.deepEqual(receipt, { request_id: 'msg_0001', outcome: 'completed', tokens: 42, measurement: 'mixed' });
   assert.equal(nndGoalTurnReceipt({ type: 'turn_result', request_id: '../escape' }), null);
   assert.equal(nndGoalTurnReceipt({ type: 'turn_result', request_id: 'goal.turn:1' })?.request_id, 'goal.turn:1');
+  assert.deepEqual(nndGoalTurnReceipt({ type: 'turn_outcome', request_id: 'routed_1', outcome: 'completed',
+    provider_profile: 'local-primary', model: 'model-v2', text: 'private' }), {
+    request_id: 'routed_1', outcome: 'completed', tokens: null, measurement: 'unavailable',
+    provider_profile: 'local-primary', model: 'model-v2',
+  });
+  assert.equal(nndGoalTurnReceipt({ type: 'turn_outcome', request_id: 'routed_2', outcome: 'completed',
+    provider_profile: 'x'.repeat(129), model: 'model-v2' })?.provider_profile, undefined);
+  for (const [provider_profile, model] of [
+    ['bad\nprofile', 'model-v2'], ['local-primary', 'bad\nmodel'],
+    ['local-primary', ' '], ['local-primary', 'x'.repeat(257)],
+  ]) {
+    const projected = nndGoalTurnReceipt({ type: 'turn_outcome', request_id: 'routed_3', outcome: 'completed',
+      provider_profile, model });
+    assert.equal(projected.provider_profile, undefined);
+    assert.equal(projected.model, undefined);
+  }
   assert.deepEqual(nndGoalTurnReceipt({ type: 'turn_outcome', request_id: 'msg_0002', outcome: 'failed' }), {
     request_id: 'msg_0002', outcome: 'failed', tokens: null, measurement: 'unavailable',
   });

@@ -70,6 +70,8 @@ export function terminalRecord(engine, active, outcome, text, detail, secondaryF
     token_accounting: engine.reliability?.combineTokenAccounting?.([
       active.tokenAccounting, active.delegatedTokenAccounting,
     ]) ?? active.tokenAccounting,
+    ...(typeof active.providerResource === 'string' && typeof active.modelName === 'string'
+      ? { provider_profile: active.providerResource, model: active.modelName } : {}),
     retryable: detail?.retryable ?? false, failure: detail,
     secondary_failures: Object.freeze([...secondaryFailures]),
     recovery: active.recovery?.actions ?? [],
