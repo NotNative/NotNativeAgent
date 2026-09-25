@@ -942,6 +942,26 @@ test('NND activity does not label an intentional cancellation as a failure', asy
   assert.equal(terminal.summary, 'Turn cancelled');
 });
 
+test('NND activity marks a governed needs-input outcome for operator attention', async () => {
+  let output;
+  let release;
+  const events = [];
+  const engine = fakeEngine();
+  engine.transcript = [];
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  const host = new NndEngineHost({ eventBus: { publishSession: (event) => events.push(event) },
+    createEngine: async (options) => { output = options.output; return engine; } });
+  await host.create('session_a', owner);
+  host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
+  output({ type: 'turn_result', session_id: 'session_a', turn_id: 'turn_a', outcome: 'needs_input' });
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  const terminal = events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'turn').at(-1).properties;
+  assert.equal(terminal.status, 'attention');
+  assert.equal(terminal.summary, 'Turn needs input');
+  assert.equal(host.activity('session_a', owner).find((record) => record.kind === 'turn').status, 'attention');
+});
+
 test('NND activity reports a governed denial as a failed turn', async () => {
   let output;
   const events = [];

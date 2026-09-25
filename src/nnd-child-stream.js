@@ -88,7 +88,7 @@ export function activityStatus(value) {
 export function turnActivity(outcome, rejected) {
   if (rejected) return { status: 'failed', summary: 'Turn failed' };
   if (outcome === 'cancelled') return { status: 'completed', summary: 'Turn cancelled' };
-  if (outcome === 'needs_input') return { status: 'completed', summary: 'Turn needs input' };
+  if (outcome === 'needs_input') return { status: 'attention', summary: 'Turn needs input' };
   if (outcome && outcome !== 'completed') return { status: 'failed', summary: 'Turn failed' };
   return { status: 'completed', summary: 'Turn completed' };
 }

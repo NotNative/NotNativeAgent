@@ -9,7 +9,7 @@ const ACTIVITY_ID_LIMIT = 264; // 128-char session + ':turn:' + 128-char request
 // 500 records can contain multibyte printable identifiers and summaries.
 const FILE_LIMIT_BYTES = 2_097_152;
 const KINDS = new Set(['turn', 'tool', 'notice']);
-const STATUSES = new Set(['started', 'completed', 'failed', 'redacted']);
+const STATUSES = new Set(['started', 'completed', 'attention', 'failed', 'redacted']);
 
 export function activityPath(catalogPath, sessionId) {
   return join(`${catalogPath}.activity`, `${Buffer.from(sessionId, 'utf8').toString('hex')}.json`);
