@@ -22,6 +22,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Resizable operator dock.** Desktop right-side surfaces now
+  have a labeled title and a draggable, keyboard-operable resize boundary.
+  Width is restored per non-transient runtime, project directory, and surface;
+  compact mode remains full-width and does not inherit a desktop pixel width.
+  The dock preserves a usable chat column by clamping its maximum width.
+
 - 2026-09-25 · **Activity live-tail rail.** The session Activity surface now
   keeps authored evidence in arrival order, offers All/Turns/Tools/Notices/
   Failures filters, and follows the latest row only while the reader remains

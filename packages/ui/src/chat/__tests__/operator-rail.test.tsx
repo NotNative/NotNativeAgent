@@ -7,6 +7,7 @@ import { createDirectoryStore } from '../../sync/child-store.ts';
 import { OperatorRail } from '../operator-rail.tsx';
 import { useSessionViewStore } from '../../sync/view-store.ts';
 import { useGlobalSessionStatusStore } from '../../sync/global-stores.ts';
+import * as runtimeSwitch from '../../lib/runtime-switch.ts';
 
 vi.mock('../../components/terminal/TerminalView.tsx', () => ({ TerminalView: ({ visible }: { visible: boolean }) => <div data-testid="terminal-keepalive-controller" data-visible={visible} /> }));
 
@@ -26,9 +27,52 @@ afterEach(() => {
   useSessionViewStore.setState({ currentSessionId: null, activeDirectory: '' });
   useGlobalSessionStatusStore.getState().reset();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('OperatorRail', () => {
+  it('resizes the desktop pane by keyboard and restores width per runtime and surface', () => {
+    vi.stubGlobal('innerWidth', 1280);
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    let activeRuntime = 'local';
+    vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockImplementation(() => activeRuntime);
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    const rail = document.querySelector('[data-testid="operator-rail"]') as HTMLElement;
+    const separator = document.querySelector('[aria-label="Resize operator panel"]') as HTMLElement;
+    expect(rail.style.width).toBe('300px');
+    act(() => separator.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true })));
+    expect(rail.style.width).toBe('324px');
+    expect(separator.getAttribute('aria-valuenow')).toBe('324');
+    act(() => separator.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 500, bubbles: true })));
+    act(() => window.dispatchEvent(new MouseEvent('pointermove', { clientX: 460 })));
+    act(() => window.dispatchEvent(new MouseEvent('pointerup')));
+    expect(rail.style.width).toBe('364px');
+    act(() => (document.querySelector('button[aria-label="Browser"]') as HTMLButtonElement).click());
+    expect(rail.style.width).toBe('600px');
+    vi.stubGlobal('innerWidth', 1100);
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(rail.style.width).toBe('550px');
+    vi.stubGlobal('innerWidth', 400);
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(rail.style.width).toBe('280px');
+    vi.stubGlobal('innerWidth', 1280);
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(rail.style.width).toBe('600px');
+    act(() => (document.querySelector('button[aria-label="Context"]') as HTMLButtonElement).click());
+    expect(rail.style.width).toBe('364px');
+    activeRuntime = 'host:other';
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    expect(rail.style.width).toBe('300px');
+    activeRuntime = 'local';
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" />));
+    expect(rail.style.width).toBe('364px');
+    expect([...Array(window.localStorage.length)].map((_, index) => window.localStorage.key(index)).some((key) => key?.includes('nnd.operator-rail.width:local:'))).toBe(true);
+    act(() => rootHandle!.render(<OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" compactOpen />));
+    expect(rail.style.width).toBe('');
+  });
   it('stops terminal foreground work when the desktop rail becomes compact-hidden', () => {
     let change: ((event: MediaQueryListEvent) => void) | undefined;
     vi.stubGlobal('matchMedia', () => ({

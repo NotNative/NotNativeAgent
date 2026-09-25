@@ -10,6 +10,7 @@ import { GitView } from '../components/git/GitView.tsx';
 import { ProjectNotes } from './project-notes.tsx';
 import { TerminalView } from '../components/terminal/TerminalView.tsx';
 import { BrowserSurface } from './browser-surface.tsx';
+import { getRuntimeKey, isTransientRuntimeKey } from '../lib/runtime-switch.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'notes' | 'browser' | 'terminal';
 const SURFACES: readonly { id: Surface; label: string }[] = [
@@ -40,6 +41,25 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   // not write its old selection into the newly selected directory before its
   // stored selection has been read.
   const surface = selection.key === storageKey ? selection.surface : readSurface(storageKey);
+  const widthKey = surfaceWidthStorageKey(storageKey, surface);
+  const [savedWidth, setSavedWidth] = useState(() => ({ key: widthKey, value: readWidth(widthKey, surface) }));
+  const [viewportWidth, setViewportWidth] = useState(() => typeof window === 'undefined' ? 1280 : window.innerWidth);
+  const width = clampRailWidth(savedWidth.key === widthKey ? savedWidth.value : readWidth(widthKey, surface), viewportWidth);
+  const dragCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => dragCleanup.current?.(), []);
+  useEffect(() => {
+    const updateViewport = (): void => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
+  useEffect(() => {
+    if (savedWidth.key !== widthKey) setSavedWidth({ key: widthKey, value: readWidth(widthKey, surface) });
+  }, [savedWidth.key, surface, widthKey]);
+  useEffect(() => {
+    if (savedWidth.key !== widthKey || widthKey === null) return;
+    try { localStorage.setItem(widthKey, String(savedWidth.value)); } catch { /* optional device preference */ }
+  }, [savedWidth.key, savedWidth.value, widthKey]);
+  const resize = (next: number): void => setSavedWidth({ key: widthKey, value: clampRailWidth(next, viewportWidth) });
   useEffect(() => {
     if (selection.key !== storageKey) setSelection({ key: storageKey, surface: readSurface(storageKey) });
   }, [selection.key, storageKey]);
@@ -58,10 +78,36 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     if (selection.key === storageKey && surface === 'browser') setBrowserOpenedKey(storageKey);
   }, [selection.key, storageKey, surface]);
   return (
-    <aside className={`${suppressed ? 'hidden' : compactOpen ? 'flex' : 'hidden xl:flex'} min-w-0 shrink-0 flex-col border-l border-white/10 bg-neutral-950/40 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} data-testid="operator-rail">
+    <aside className={`${suppressed ? 'hidden' : compactOpen ? 'flex' : 'hidden xl:flex'} relative min-w-0 shrink-0 flex-col border-l border-white/10 bg-neutral-950/40 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} style={wide && !compactOpen ? { width } : undefined} data-testid="operator-rail">
+      <div role="separator" aria-label="Resize operator panel" aria-orientation="vertical" aria-valuemin={280} aria-valuemax={maxRailWidth(viewportWidth)} aria-valuenow={width} tabIndex={0}
+        className={`absolute bottom-0 left-0 top-0 z-20 w-1 cursor-col-resize hover:bg-white/20 focus:bg-white/20 ${compactOpen || suppressed ? 'hidden' : 'hidden xl:block'}`}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          dragCleanup.current?.();
+          const startX = event.clientX;
+          const startWidth = width;
+          const move = (next: PointerEvent): void => resize(startWidth + startX - next.clientX);
+          const stop = (): void => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', stop);
+            window.removeEventListener('pointercancel', stop);
+            dragCleanup.current = null;
+          };
+          window.addEventListener('pointermove', move);
+          window.addEventListener('pointerup', stop);
+          window.addEventListener('pointercancel', stop);
+          dragCleanup.current = stop;
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') { event.preventDefault(); resize(width + 24); }
+          else if (event.key === 'ArrowRight') { event.preventDefault(); resize(width - 24); }
+          else if (event.key === 'Home') { event.preventDefault(); resize(280); }
+          else if (event.key === 'End') { event.preventDefault(); resize(maxRailWidth(viewportWidth)); }
+        }} />
       {compactOpen ? <div className="border-b border-white/10 px-3 py-2">
         <button type="button" data-testid="operator-return-chat" className="rounded px-2 py-1 text-xs text-neutral-200 hover:bg-white/10" onClick={onCloseCompact}>← Return to chat</button>
       </div> : null}
+      <div className="border-b border-white/10 px-3 py-1.5 text-[11px] text-neutral-300" data-testid="operator-surface-title">{SURFACES.find((item) => item.id === surface)?.label}</div>
       <div className="flex min-h-0 flex-1">
       <nav className="flex w-10 shrink-0 flex-col border-r border-white/10 py-2" aria-label="Operator surfaces">
         {SURFACES.map((item) => (
@@ -106,6 +152,29 @@ function surfaceStorageKey(directory: string): string {
   normalized = normalized.replace(/^([a-z]):/u, (_match, drive: string) => `${drive.toUpperCase()}:`);
   normalized = normalized.length > 1 ? normalized.replace(/\/+$/u, '') : normalized;
   return `nnd.operator-rail.surface:${normalized}`;
+}
+
+function surfaceWidthStorageKey(directoryKey: string, surface: Surface): string | null {
+  const runtime = getRuntimeKey();
+  return isTransientRuntimeKey(runtime) ? null : `nnd.operator-rail.width:${runtime}:${directoryKey}:${surface}`;
+}
+
+function maxRailWidth(viewportWidth: number): number {
+  return Math.max(280, Math.min(900, viewportWidth - 550));
+}
+
+function clampRailWidth(width: number, viewportWidth: number): number {
+  return Math.min(maxRailWidth(viewportWidth), Math.max(280, Math.round(width)));
+}
+
+function readWidth(key: string | null, surface: Surface): number {
+  const fallback = surface === 'browser' ? 600 : 300;
+  if (key === null) return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    const saved = raw === null ? NaN : Number(raw);
+    return Number.isFinite(saved) ? Math.min(900, Math.max(280, Math.round(saved))) : fallback;
+  } catch { return fallback; }
 }
 
 type ActivityFilter = 'all' | 'turn' | 'tool' | 'notice' | 'failed';

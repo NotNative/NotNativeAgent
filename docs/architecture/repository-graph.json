@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:b31fe68ce779970896487448e9ec94266c1c5148709e2acca4d81dfb78a21c09",
+  "source_digest": "sha256:e07ac8ccdcda4996f772e30978c05c09f3fec00ab4ac5783da79d627239425b6",
   "counts": {
     "modules": 372,
     "component_edges": 12
@@ -97,8 +97,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 117,
-      "module_count": 48
+      "import_count": 118,
+      "module_count": 49
     },
     {
       "from": "sync-engine",
@@ -359,6 +359,7 @@
         "packages/ui/src/chat/work-status-panel.tsx",
         "packages/ui/src/components/git/GitView.tsx",
         "packages/ui/src/components/terminal/TerminalView.tsx",
+        "packages/ui/src/lib/runtime-switch.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
         "packages/ui/src/sync/view-store.ts"
