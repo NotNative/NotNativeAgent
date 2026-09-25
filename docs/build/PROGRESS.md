@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Completed child transcript recovery.** NNA now keeps a
+  bounded, display-only snapshot of each completed delegated session when
+  the NND session catalog is durable. After NNA restarts, NND's existing
+  child-session list and transcript view can reopen that history under the
+  original parent and complete owner grant. A restored child is not busy and
+  has no steering capability. Child Activity remains live/in-memory only;
+  this is transcript recovery, not a complete audit replay.
+
 - 2026-09-25 · **Authenticated Activity snapshots.** NNA now retains a bounded
   sanitized per-session Activity view and serves it through an owner-scoped
   read route; root snapshots survive an NNA restart when its session catalog is
@@ -29,7 +37,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   retaining a newer live correction if an older read finishes late. A failed
   read does not clear visible evidence. The source smoke checks completed root
   and child Activity through the NND proxy. This is recent operational history,
-  not a full audit ledger or SSE cursor replay; child discovery still does not
+  not a full audit ledger or SSE cursor replay; child Activity still does not
   survive an NNA restart.
 
 - 2026-09-25 · **Single-project General Notes draft lease.** An unsaved
@@ -175,7 +183,8 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   creates a child session, NND lists it under the parent, and the completed
   child's assistant transcript remains readable through NND while its
   steering grant is absent. This covers one completed child; restart
-  recovery and multiple concurrent children need separate gates.
+  recovery has a focused NNA host gate, while multiple concurrent children
+  still need a cross-repository gate.
 
 - 2026-09-25 · **Governed source prompt loop.** The cross-repository smoke
   now starts a tiny loopback OpenAI-compatible fixture, submits a prompt via
