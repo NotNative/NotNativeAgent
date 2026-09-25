@@ -2,6 +2,7 @@
 import { ContractError, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { configuredModelProjection } from './nnd-session-description.js';
+import { nndPhaseFromOutput } from './nnd-turn-state.js';
 
 const TRANSCRIPT_LIMIT = 200;
 const TRANSCRIPT_CHARS = 262_144;
@@ -51,8 +52,9 @@ export class NndSessionRegistry {
       record.transcript = boundedTranscript(engine.transcript);
       record.engine = null;
       record.ingress = null;
+      record.turnState = 'idle';
       // Invariant: a wall-clock correction cannot make a retained child invalid on recovery.
-      record.updatedAt = Math.max(Date.now(), record.createdAt);
+      record.updatedAt = Math.max(Date.now(), record.updatedAt + 1, record.createdAt);
       record.revision += 1;
       this.#notify('completed', record, { outcome });
     };
@@ -74,6 +76,7 @@ export class NndSessionRegistry {
       workspaceIds: new Set(snapshot.workspaceIds), engine: null, ingress: null, revision: 1,
       directory: snapshot.directory, title: snapshot.title, configuredModel: snapshot.configuredModel,
       createdAt: snapshot.createdAt, updatedAt: snapshot.updatedAt, transcript: snapshot.transcript,
+      turnState: 'idle',
     });
   }
   observeStarted(sessionId) {
@@ -82,7 +85,15 @@ export class NndSessionRegistry {
   }
   observeOutput(sessionId, output) {
     const record = this.#sessions.get(sessionId);
-    if (record?.engine && output?.session_id === sessionId) this.#notify('output', record, output);
+    if (record?.engine && output?.session_id === sessionId) {
+      const phase = nndPhaseFromOutput(output);
+      if (phase && phase !== record.turnState) {
+        record.turnState = phase;
+        record.updatedAt = Math.max(Date.now(), record.updatedAt + 1);
+        this.#notify('phase', record);
+      }
+      this.#notify('output', record, output);
+    }
   }
   unregisterParent(parentId) {
     let removed = 0;
@@ -154,7 +165,10 @@ function describeChild(record) {
     projectID: record.workspaceIds.values().next().value, directory: record.directory,
     title: record.title, version: '1.0',
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-    ...(record.configuredModel ? { metadata: { nnd: { configuredModel: record.configuredModel } } } : {}),
+    ...(record.configuredModel || record.turnState ? { metadata: { nnd: {
+      ...(record.configuredModel ? { configuredModel: record.configuredModel } : {}),
+      ...(record.turnState ? { turnState: { phase: record.turnState } } : {}),
+    } } } : {}),
     time: { created: record.createdAt, updated: record.updatedAt },
   };
 }

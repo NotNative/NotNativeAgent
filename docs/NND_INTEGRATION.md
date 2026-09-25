@@ -55,3 +55,8 @@ provider payload, tool arguments, or decision details. NNA's completion path
 settles it to idle. NND's generic busy/idle status remains transport and
 reconciliation bookkeeping, not the source of a semantic phase. This phase
 display does not yet satisfy the broader replayable 13-state wire contract.
+For NND-owned delegations, the child engine uses an `nnd_subagent` output
+surface and the child registry projects the same validated phase on the
+child session. Live phase changes update that child description without
+borrowing the parent's turn state. A completed child settles to idle; its
+restored display-only snapshot retains that idle fact without a live-work claim.

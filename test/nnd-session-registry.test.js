@@ -66,6 +66,6 @@ test('NND completed child time remains recoverable after a wall-clock correction
     stop();
     const snapshot = registry.completedSnapshot('child_1', 2_000);
     assert.equal(snapshot.createdAt, 2_000);
-    assert.equal(snapshot.updatedAt, 2_000);
+    assert.equal(snapshot.updatedAt, 2_001, 'settled child must outrank its earlier live description');
   } finally { Date.now = originalNow; }
 });

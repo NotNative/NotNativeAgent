@@ -492,6 +492,10 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   const stop = host.childSessions.register('agent_coder_1', 'session_a', principal, child, { type: 'coder' });
   host.childSessions.observeStarted('agent_coder_1');
   assert.deepEqual(host.activity('agent_coder_1', principal).map((record) => record.status), ['started']);
+  host.childSessions.observeOutput('agent_coder_1', { type: 'state_status', session_id: 'agent_coder_1',
+    turn_id: 'turn_a', semantic_state: 'waiting_provider' });
+  assert.deepEqual(host.get('agent_coder_1', principal).metadata.nnd.turnState, { phase: 'waiting_provider' });
+  const waitingStamp = host.get('agent_coder_1', principal).time.updated;
   host.childSessions.observeOutput('agent_coder_1', { type: 'stream_delta', session_id: 'agent_coder_1', turn_id: 'turn_a', text: 'Hello' });
   assert.equal(host.messages('agent_coder_1', principal).at(-1).parts[0].text, 'Hello');
   host.childSessions.observeOutput('agent_coder_1', { type: 'stream_delta', session_id: 'other', turn_id: 'turn_a', text: 'secret' });
@@ -506,6 +510,10 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   child.transcript.push({ type: 'message', role: 'assistant', content: 'Hello world' });
   host.childSessions.observeOutput('agent_coder_1', { type: 'turn_result', session_id: 'agent_coder_1', turn_id: 'turn_a', outcome: 'completed' });
   stop('completed');
+  assert.deepEqual(host.get('agent_coder_1', principal).metadata.nnd.turnState, { phase: 'idle' });
+  assert.ok(host.get('agent_coder_1', principal).time.updated > waitingStamp);
+  assert.ok(events.some((event) => event.type === 'session.updated' && event.properties.info.id === 'agent_coder_1'
+    && event.properties.info.metadata?.nnd?.turnState?.phase === 'waiting_provider'));
   const removed = events.findIndex((event) => event.type === 'message.removed');
   const canonical = events.findIndex((event, index) => index > removed && event.type === 'message.updated' && event.properties.info.id === 'agent_coder_1:message:1');
   assert.ok(removed > 0 && canonical > removed);
@@ -546,6 +554,7 @@ test('NND completed child transcript survives restart as read-only owned history
   await second.initialize();
   assert.deepEqual(second.listChildren('session_a', principal).map((session) => session.id), ['agent_a']);
   assert.equal(second.get('agent_a', principal).metadata.nnd.configuredModel.modelID, 'child-model');
+  assert.deepEqual(second.get('agent_a', principal).metadata.nnd.turnState, { phase: 'idle' });
   assert.deepEqual(second.messages('agent_a', principal).map((message) => message.parts[0].text), ['Inspect this', 'Done']);
   assert.deepEqual(second.messages('agent_a', principal).map((message) => message.info.id),
     ['agent_a:message:0', 'agent_a:message:1']);

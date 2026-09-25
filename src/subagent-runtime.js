@@ -60,7 +60,7 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
   const observeNnd = (operation, action) => observeNndChild(engine, sessionId, parent, operation, action);
   const child = createEngine({
     ...engine.subagentOptions, config: subagentConfig(engine.config, input.type), sessionId,
-    surface: 'subagent', reviewPosture: 'auto-review', dataPaths: engine.dataPaths,
+    surface: engine.surface === 'nnd' ? 'nnd_subagent' : 'subagent', reviewPosture: 'auto-review', dataPaths: engine.dataPaths,
     storeRoot: engine.storeRoot, scheduler: engine.scheduler, subagentDepth: engine.subagentDepth + 1,
     output: async (record) => {
       observeNnd('output', () => engine.nndSessionRegistry?.observeOutput?.(sessionId, record));

@@ -44,6 +44,8 @@ export function observeChildLifecycle({ type, child, payload, streams, activity,
     publish('session.status', { sessionID: child.id, status: { type: 'busy' } });
     publish('nnd.activity', { id: `${child.id}:turn`, sessionID: child.id,
       kind: 'turn', status: 'started', summary: 'Subagent turn started', time: Date.now() });
+  } else if (type === 'phase') {
+    publish('session.updated', { sessionID: child.id, info: child }, true);
   } else if (type === 'output' && state && payload) {
     if (payload.turn_id) {
       if (state.turnId && state.turnId !== payload.turn_id) return;

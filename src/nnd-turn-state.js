@@ -10,9 +10,16 @@ export function observeNndSessionState(context, record) {
     context.updatedAt = Math.max(Date.now(), context.updatedAt + 1);
     return true;
   }
-  // Compatibility: the engine emits structured stream/tool events between
-  // explicit state_status records. These transitions match its TUI fold.
-  const phase = record.type === 'state_status' && PHASES.has(record.semantic_state)
+  const phase = nndPhaseFromOutput(record);
+  if (!phase || context.turnState === phase) return false;
+  context.turnState = phase;
+  context.updatedAt = Math.max(Date.now(), context.updatedAt + 1);
+  return true;
+}
+
+/** Structured stream/tool events fill the intervals between explicit states. */
+export function nndPhaseFromOutput(record) {
+  return record?.type === 'state_status' && PHASES.has(record.semantic_state)
     ? record.semantic_state
     : record.type === 'stream_delta' && record.delta_type === 'text' && typeof record.text === 'string' && record.text.length
       ? 'streaming'
@@ -20,10 +27,6 @@ export function observeNndSessionState(context, record) {
         ? 'running_tool'
         : record.type === 'tool_status' && record.status === 'review_pending' && typeof record.tool === 'string'
           ? 'awaiting_approval' : null;
-  if (!phase || context.turnState === phase) return false;
-  context.turnState = phase;
-  context.updatedAt = Math.max(Date.now(), context.updatedAt + 1);
-  return true;
 }
 
 export function nndTurnStateProjection(context) {
