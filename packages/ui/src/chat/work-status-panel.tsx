@@ -11,7 +11,7 @@ import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import type { SessionStatus } from '../lib/nnd/types.ts';
-import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
+import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaWorkSummary, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { resolveComposerModel } from './composer-model-config.ts';
@@ -33,10 +33,11 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const context = contextUsage(snapshot, sessionID, contextLimit);
   const nnaContext = nnaContextUsage(snapshot, sessionID);
   const governance = nnaGovernanceSummary(snapshot, sessionID);
+  const work = nnaWorkSummary(snapshot, sessionID);
   const sessionModel = nnaSessionConfiguredModel(snapshot, sessionID);
   const configuredModel = resolveComposerModel(snapshot.config, null, 'nna');
   const selectedSession = snapshot.session.find((session) => session.id === sessionID);
-  const todos = todoRows(snapshot, sessionID);
+  const todos = configuredModel.nnaConfigured || work ? [] : todoRows(snapshot, sessionID);
   const subagents = subagentRows(snapshot, sessionID, statusPhraseOf(snapshot, statusById));
   const stats = panelStatsIfNeeded(snapshot, sessionID, committed);
   if (stats && stats !== committed) {
@@ -69,6 +70,10 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
     governance.attentionEvidence ? row('Attention evidence', String(governance.attentionEvidence)) : null,
     governance.unsettledDecisions ? row('Unsettled decisions', String(governance.unsettledDecisions)) : null,
     governance.uncertainEffects ? row('Uncertain effects', String(governance.uncertainEffects)) : null,
+  ] });
+  if (work?.goal) sections.push({ id: 'goal', label: 'Goal', rows: [
+    row('Objective', work.goal.objective),
+    row('Status', work.goal.status),
   ] });
   if (nnaContext) {
     sections.push({ id: 'session', label: 'Session', rows: [
@@ -105,7 +110,11 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   if (subagents.length > 0) {
     sections.push({ id: 'subagents', label: 'Subagents', rows: subagents.map((agent) => row(agent.title, `${agent.statusPhrase}${agent.cost ? ` · $${agent.cost.toFixed(2)}` : ''}`)) });
   }
-  if (todos.length > 0) {
+  if (work?.tasks.length) {
+    sections.push({ id: 'tasks', label: 'Tasks', rows: work.tasks.map((task) => row(task.title,
+      task.status === 'in_progress' ? 'in progress' : task.status,
+      task.status === 'completed' ? 'line-through' : '')) });
+  } else if (todos.length > 0) {
     sections.push({ id: 'tasks', label: 'Tasks', rows: todos.map((todo) => row(todo.content, todo.status, todo.status === 'completed' ? 'line-through' : '')) });
   }
 

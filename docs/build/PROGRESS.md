@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Canonical NNA goal/tasks in Context.** NNA now projects its
+  durable conversation-work revision, goal, and ordered task statuses into
+  authenticated session metadata and emits a live session update after a
+  committed work change. NND reads that projection in the Work rail rather
+  than the OpenCode-compatible todo cache; an absent or malformed snapshot
+  never invents a goal, and a temporarily missing config cannot revive stale
+  todos when a canonical snapshot is present. Evidence and staged completion
+  stay inside NNA. Adversarial review fixed the config-arrival race; NNA,
+  NND UI/web, typecheck, quality gates, and cross-repo source smoke pass.
+
 - 2026-09-25 · **Completed child Activity recovery.** NNA now saves recent,
   sanitized child Activity with each completed child transcript snapshot when
   its NND catalog is durable. NND reopens the log after NNA restarts; the

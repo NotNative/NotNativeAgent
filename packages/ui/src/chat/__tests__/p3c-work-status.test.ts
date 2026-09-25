@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, sessionCostRollup, subagentRows, todoRows, turnStats, usageRows, recapFor } from '../work-status.ts';
+import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaWorkSummary, sessionCostRollup, subagentRows, todoRows, turnStats, usageRows, recapFor } from '../work-status.ts';
 import { panelEligible, panelStatsIfNeeded } from '../panel-gate.ts';
 import { INITIAL_STATE, type DirectoryStore } from '../../sync/types.ts';
 import type { Message, Todo } from '../../lib/nnd/types.ts';
@@ -98,6 +98,27 @@ describe('NNA session configured route', () => {
       providerID: 'local', modelID: '\u0000bad',
     } } }, time: { created: 1, updated: 1 } }] } as unknown as Partial<DirectoryStore>);
     expect(nnaSessionConfiguredModel(store.getState(), 'child')).toBeNull();
+  });
+});
+
+describe('NNA canonical conversation work', () => {
+  it('projects only goal and task status, ignoring evidence and unrelated fields', () => {
+    const store = emptyStore();
+    expect(nnaWorkSummary(store.getState(), 's1')).toBeNull();
+    patch(store, { session: [{ id: 's1', metadata: { nnd: { work: {
+      revision: 3,
+      goal: { id: 'goal_1', objective: 'Build NND', status: 'active', evidence: 'private' },
+      tasks: [{ id: 'T1', title: 'Connect rail', status: 'in_progress', evidence: 'private' }],
+      pendingCompletion: { secret: 'private' },
+    } } }, time: { created: 1, updated: 1 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaWorkSummary(store.getState(), 's1')).toEqual({
+      revision: 3, goal: { id: 'goal_1', objective: 'Build NND', status: 'active' },
+      tasks: [{ id: 'T1', title: 'Connect rail', status: 'in_progress' }],
+    });
+    patch(store, { session: [{ id: 's1', metadata: { nnd: { work: {
+      revision: 4, goal: null, tasks: [{ id: 'bad', title: 'Wrong ID', status: 'pending' }],
+    } } }, time: { created: 1, updated: 2 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaWorkSummary(store.getState(), 's1')).toBeNull();
   });
 });
 

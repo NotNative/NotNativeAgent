@@ -3,6 +3,17 @@
 NND has implemented the safe host surfaces. Two capabilities must be projected
 by NNA before NND can expose their interactive controls.
 
+## Canonical conversation work projection
+
+The Context/Work rail reads NNA's session-owned `metadata.nnd.work`, not the
+OpenCode-compatible todo cache. NNA projects a revision, optional goal
+identity/objective/status, and bounded task identity/title/status from its
+durable `workStatus()` state. NND treats malformed or absent projection as
+unknown, never invents a goal, and suppresses compatibility todos when the
+configured engine is NNA. Evidence, blocked reasons, and staged completion
+remain NNA-internal. The `work_status` output triggers an authenticated live
+`session.updated`; ordinary session reads restore the projection after restart.
+
 ## Child-session steering
 
 NNA must emit a versioned, replayable session projection containing

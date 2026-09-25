@@ -175,6 +175,47 @@ describe('OperatorRail', () => {
     expect(context.textContent).not.toContain('never render');
   });
 
+  it('shows live NNA goal and tasks while ignoring compatibility todos and private work evidence', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({
+      config: { nnd: { engine: 'nna' } } as never,
+      session: [{ id: 's1', metadata: { nnd: { work: {
+        revision: 2,
+        goal: { id: 'goal_1', objective: 'Build the desktop', status: 'active', evidence: 'private proof' },
+        tasks: [{ id: 'T1', title: 'Connect work rail', status: 'in_progress', evidence: 'private task proof' }],
+      } } }, time: { created: 1, updated: 2 } }] as never,
+      todo: { s1: [{ content: 'stale compatibility todo', status: 'pending', priority: 'low' }] } as never,
+    });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const panel = document.querySelector('[data-testid="work-status-panel"]')!;
+    expect(panel.textContent).toContain('Build the desktop');
+    expect(panel.textContent).toContain('Connect work rail');
+    expect(panel.textContent).toContain('in progress');
+    expect(panel.textContent).not.toContain('stale compatibility todo');
+    expect(panel.textContent).not.toContain('private proof');
+    expect(panel.textContent).not.toContain('private task proof');
+    act(() => store.getState().patch({ session: [{ id: 's1', metadata: { nnd: { work: {
+      revision: 3, goal: null, tasks: [],
+    } } }, time: { created: 1, updated: 3 } }] as never }));
+    expect(panel.textContent).not.toContain('Build the desktop');
+    expect(panel.textContent).not.toContain('Connect work rail');
+    expect(panel.textContent).not.toContain('stale compatibility todo');
+  });
+
+  it('does not revive stale compatibility todos when NNA work is cleared before config arrives', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({
+      session: [{ id: 's1', metadata: { nnd: { work: {
+        revision: 3, goal: null, tasks: [],
+      } } }, time: { created: 1, updated: 3 } }] as never,
+      todo: { s1: [{ content: 'stale compatibility todo', status: 'pending', priority: 'low' }] } as never,
+    });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('[data-testid="work-status-panel"]')!.textContent).not.toContain('stale compatibility todo');
+  });
+
   it('shows the same NNA-configured model identity as the composer', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({

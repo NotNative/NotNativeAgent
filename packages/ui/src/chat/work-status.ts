@@ -86,6 +86,52 @@ export function nnaGovernanceSummary(state: DirectoryStore, sessionID: string): 
   return Object.keys(summary).length ? summary : null;
 }
 
+export interface NnaWorkSummary {
+  revision: number;
+  goal: { id: string; objective: string; status: 'active' | 'completed' | 'blocked' } | null;
+  tasks: { id: string; title: string; status: 'pending' | 'in_progress' | 'completed' | 'blocked' }[];
+}
+
+/** Canonical NNA conversation work, not the compatibility todo cache. Ignore
+ * evidence and any extra engine fields even when they arrive on the wire. */
+export function nnaWorkSummary(state: DirectoryStore, sessionID: string): NnaWorkSummary | null {
+  const session = state.session.find((item) => item.id === sessionID);
+  const nnd = session?.metadata?.nnd;
+  if (!nnd || typeof nnd !== 'object' || Array.isArray(nnd)) return null;
+  const raw = (nnd as Record<string, unknown>).work;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const work = raw as Record<string, unknown>;
+  if (!Number.isSafeInteger(work.revision) || (work.revision as number) < 0
+    || !Array.isArray(work.tasks) || work.tasks.length > 64) return null;
+  const goal = work.goal === null ? null : workGoal(work.goal);
+  if (work.goal !== null && !goal) return null;
+  const tasks = work.tasks.map(workTask);
+  if (tasks.some((task) => task === null)) return null;
+  return { revision: work.revision as number, goal, tasks: tasks as NnaWorkSummary['tasks'] };
+}
+
+function workGoal(raw: unknown): NnaWorkSummary['goal'] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const value = raw as Record<string, unknown>;
+  if (!workText(value.id, 128) || !workText(value.objective, 2048)
+    || (value.status !== 'active' && value.status !== 'completed' && value.status !== 'blocked')) return null;
+  return { id: value.id, objective: value.objective, status: value.status };
+}
+
+function workTask(raw: unknown): NnaWorkSummary['tasks'][number] | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const value = raw as Record<string, unknown>;
+  if (typeof value.id !== 'string' || !/^T[1-9][0-9]{0,5}$/u.test(value.id)
+    || !workText(value.title, 512)
+    || (value.status !== 'pending' && value.status !== 'in_progress'
+      && value.status !== 'completed' && value.status !== 'blocked')) return null;
+  return { id: value.id, title: value.title, status: value.status };
+}
+
+function workText(value: unknown, max: number): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= max;
+}
+
 /** Model context limit from the provider catalog (limit.context); unknown
  * model ⇒ undefined (row suppressed rather than guessed). */
 export function resolveContextLimit(providers: { id: string; models: Record<string, { limit?: { context?: number } }> }[] | undefined | null, modelID: string | undefined): number | undefined {
