@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Completed child Activity recovery.** NNA now saves recent,
+  sanitized child Activity with each completed child transcript snapshot when
+  its NND catalog is durable. NND reopens the log after NNA restarts; the
+  source smoke proves the authenticated wire read. Older child snapshots
+  without Activity reopen with an empty log. This remains bounded operational
+  history, not a governance audit or SSE replay cursor.
+
 - 2026-09-25 · **Completed child transcript recovery.** NNA now keeps a
   bounded, display-only snapshot of each completed delegated session when
   the NND session catalog is durable. After NNA restarts, NND's existing
@@ -29,8 +36,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   original parent and complete owner grant. A restored child is not busy and
   has no steering capability. The source smoke now restarts a durable NNA
   process and verifies these wire behaviors; NNA also restores authenticated
-  authority origins for the parent. Child Activity remains live/in-memory
-  only; this is transcript recovery, not a complete audit replay.
+  authority origins for the parent.
 
 - 2026-09-25 · **Authenticated Activity snapshots.** NNA now retains a bounded
   sanitized per-session Activity view and serves it through an owner-scoped
@@ -39,8 +45,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   retaining a newer live correction if an older read finishes late. A failed
   read does not clear visible evidence. The source smoke checks completed root
   and child Activity through the NND proxy. This is recent operational history,
-  not a full audit ledger or SSE cursor replay; child Activity still does not
-  survive an NNA restart.
+  not a full audit ledger or SSE cursor replay.
 
 - 2026-09-25 · **Single-project General Notes draft lease.** An unsaved
   General Notes draft now survives in-app project switches in memory. A second

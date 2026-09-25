@@ -255,8 +255,9 @@ async function probeRestoredSession(app, { parentId, childId }) {
   assert.ok(messages.some((message) => message.info?.role === 'assistant'
     && message.parts?.some((part) => part.text?.includes(CHILD_STEER_ACK))),
   'restarted NNA did not restore the completed child transcript through NND');
-  assert.deepEqual(await json(call, `/api/session/${childId}/activity`, 200), [],
-    'completed child Activity unexpectedly claimed durable replay');
+  const activity = await json(call, `/api/session/${childId}/activity`, 200);
+  assert.ok(activity.some((row) => row.id === `${childId}:turn` && row.status === 'completed'),
+    'restarted NNA did not restore completed child Activity through NND');
   const capability = await json(call, `/api/v1/nnd/sessions/${childId}/capabilities`, 200);
   assert.equal(capability.capabilities.steer_subagent, false, 'restored child was incorrectly steerable');
   assert.equal((await call(`/api/v1/nnd/sessions/${childId}/steer`, {
