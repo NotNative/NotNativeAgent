@@ -145,7 +145,7 @@ test('NND harness session routes bind creation to the complete principal workspa
   const factoryOptions = [];
   const nndEngineHost = new NndEngineHost({ createEngine: async (options) => {
     factoryOptions.push(options);
-    return { config: { executionManifest: null }, active: null, transcript: [], async initialize() {}, async submit() {}, async shutdown() {} };
+    return { config: { executionManifest: null }, active: null, transcript: [], async initialize() {}, async submit() {}, async cancel() { return { accepted: true }; }, async shutdown() {} };
   } });
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost, nndWorkspaceRoot: root,
@@ -189,6 +189,24 @@ test('NND harness session routes bind creation to the complete principal workspa
     })).status, 400);
     assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.read'], { workspace_ids: ['w_one', 'w_two'] }))).status, 405);
     assert.equal((await request(base, '/session/%', owner)).status, 400);
+    assert.equal((await request(base, `/session/${created.value.id}`, owner, {
+      method: 'PATCH', body: { title: 'Denied rename' },
+    })).status, 403);
+    assert.equal((await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'PATCH', body: { time: { archived: Date.now() } },
+    })).status, 400);
+    const renamed = await request(base, `/session/${created.value.id}`, principal(['nnd.session.update'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'PATCH', body: { title: 'Renamed session' },
+    });
+    assert.equal(renamed.status, 200);
+    assert.equal(renamed.value.title, 'Renamed session');
+    assert.equal((await request(base, `/session/${created.value.id}/abort`, owner, { method: 'POST' })).status, 403);
+    assert.equal((await request(base, `/session/${created.value.id}/abort`, principal(['nnd.session.abort'], { workspace_ids: ['w_one', 'w_two'] }), { method: 'POST' })).status, 200);
+    assert.equal((await request(base, `/session/${created.value.id}`, owner, { method: 'DELETE' })).status, 403);
+    const removed = await request(base, `/session/${created.value.id}`, principal(['nnd.session.delete'], { workspace_ids: ['w_one', 'w_two'] }), { method: 'DELETE' });
+    assert.equal(removed.status, 200);
+    assert.equal(removed.value, true);
+    assert.equal((await request(base, `/session/${created.value.id}`, owner)).status, 404);
   } finally { await service.close(); }
 });
 

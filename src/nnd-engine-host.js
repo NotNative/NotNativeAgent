@@ -101,6 +101,30 @@ export class NndEngineHost {
     return context.ingress.submit(command, principal);
   }
 
+  async abort(sessionId, principal) {
+    const context = this.#owned(sessionId, principal);
+    return context.ingress.submit({ version: '1.0', type: 'cancel', request_id: newId('nnd_abort') }, principal);
+  }
+
+  async rename(sessionId, principal, value) {
+    const context = this.#owned(sessionId, principal);
+    if (typeof value !== 'string' || !value.trim() || value.length > 256 || /[\u0000-\u001f\u007f]/u.test(value)) {
+      throw new ContractError('session_name_invalid', 'NND session title must be bounded printable text');
+    }
+    const title = value.trim();
+    await this.#commitCatalogChange(
+      (contexts) => {
+        if (context.closing || contexts.get(sessionId) !== context) {
+          throw new ContractError('nnd_session_unavailable', 'NND session context is unavailable');
+        }
+        contexts.set(sessionId, { ...context, title });
+      },
+      () => { context.title = title; },
+    );
+    this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
+    return describe(context);
+  }
+
   submitAsync(sessionId, command, principal) {
     const context = this.#owned(sessionId, principal);
     // `Engine.submit()` reports a busy turn asynchronously.  A compatibility

@@ -33,6 +33,30 @@ test('NND durable catalog refuses malformed records without discarding them', as
   assert.match(await readFile(catalogPath, 'utf8'), /escape/u);
 });
 
+test('NND rename persists only after a successful catalog write', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-rename-'));
+  const catalogPath = join(root, 'nnd-contexts.json');
+  const makeHost = () => new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  const first = makeHost();
+  await first.initialize();
+  await first.create('session_a', owner, { title: 'Original' });
+  await assert.rejects(first.rename('session_a', owner, ''), { code: 'session_name_invalid' });
+  assert.equal((await first.rename('session_a', owner, '  Renamed  ')).title, 'Renamed');
+  await first.shutdown();
+  const reopened = makeHost();
+  await reopened.initialize();
+  assert.equal(reopened.get('session_a', owner).title, 'Renamed');
+
+  const failed = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
+    persistCatalog: async (_path, records) => {
+      if (records[0]?.title === 'Uncommitted') throw new Error('write failed');
+    },
+  });
+  await failed.create('session_b', owner, { title: 'Stable' });
+  await assert.rejects(failed.rename('session_b', owner, 'Uncommitted'), /write failed/u);
+  assert.equal(failed.get('session_b', owner).title, 'Stable');
+});
+
 test('NND session directory follows the initialized engine and later workspace transitions', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-directory-'));
   const catalogPath = join(root, 'nnd-contexts.json');

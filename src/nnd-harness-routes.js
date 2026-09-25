@@ -3,7 +3,7 @@ import { ContractError, newId, requireExternalId } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { sseOpen } from './opencode/protocol.js';
-const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|prompt_async))?$/u;
+const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|prompt_async|abort))?$/u;
 export async function dispatchNndHarnessRequest(request, response, context) {
   if (openEventStream(request, response, context)) return true;
   if (await dispatchBootstrapRequest(request, response, context)) return true;
@@ -14,7 +14,7 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     try { id = decodeURIComponent(match[1]); requireExternalId(id, 'session_id'); }
     catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
   }
-  if (request.method === 'GET' && match[2] !== 'prompt_async') {
+  if (request.method === 'GET' && (!match[2] || match[2] === 'message')) {
     requireIntegrationPermission(context.principal, 'nnd.read');
     return send(response, 200, match[2] === 'message' ? host.messages(id, context.principal) : id ? host.get(id, context.principal) : host.list(context.principal));
   }
@@ -34,6 +34,25 @@ export async function dispatchNndHarnessRequest(request, response, context) {
       return send(response, 409, { error: { code: 'session_busy', message: 'NND session already has an active turn' } });
     }
     response.writeHead(204); response.end(); return true;
+  }
+  if (request.method === 'PATCH' && id && !match[2]) {
+    requireIntegrationPermission(context.principal, 'nnd.session.update');
+    const body = await readJsonBody(request);
+    if (!body || typeof body !== 'object' || Array.isArray(body)
+      || Object.keys(body).length !== 1 || !Object.hasOwn(body, 'title')) {
+      throw new ContractError('request_invalid', 'NND session update supports title only');
+    }
+    return send(response, 200, await host.rename(id, context.principal, body.title));
+  }
+  if (request.method === 'POST' && id && match[2] === 'abort') {
+    requireIntegrationPermission(context.principal, 'nnd.session.abort');
+    await host.abort(id, context.principal);
+    return send(response, 200, true);
+  }
+  if (request.method === 'DELETE' && id && !match[2]) {
+    requireIntegrationPermission(context.principal, 'nnd.session.delete');
+    await host.close(id, context.principal);
+    return send(response, 200, true);
   }
   return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
 }

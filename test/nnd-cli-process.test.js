@@ -50,6 +50,31 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
     const messages = await fetch(`${frame.endpoint}/session/${session.id}/message`, { headers, signal: AbortSignal.timeout(5_000) });
     assert.equal(messages.status, 200);
     assert.deepEqual(await messages.json(), []);
+    const controls = { ...headers, 'x-nna-principal': principal(['nnd.read', 'nnd.session.create', 'nnd.session.update', 'nnd.session.abort', 'nnd.session.delete']) };
+    const disposable = await fetch(`${frame.endpoint}/session`, {
+      method: 'POST', headers: { ...controls, 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'Disposable' }), signal: AbortSignal.timeout(5_000),
+    });
+    assert.equal(disposable.status, 201);
+    const disposableId = (await disposable.json()).id;
+    const renamed = await fetch(`${frame.endpoint}/session/${disposableId}`, {
+      method: 'PATCH', headers: { ...controls, 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'Renamed disposable' }), signal: AbortSignal.timeout(5_000),
+    });
+    assert.equal(renamed.status, 200);
+    assert.equal((await renamed.json()).title, 'Renamed disposable');
+    const aborted = await fetch(`${frame.endpoint}/session/${disposableId}/abort`, {
+      method: 'POST', headers: controls, signal: AbortSignal.timeout(5_000),
+    });
+    assert.equal(aborted.status, 200);
+    assert.equal(await aborted.json(), true);
+    const deleted = await fetch(`${frame.endpoint}/session/${disposableId}`, {
+      method: 'DELETE', headers: controls, signal: AbortSignal.timeout(5_000),
+    });
+    assert.equal(deleted.status, 200);
+    assert.equal(await deleted.json(), true);
+    const remaining = await fetch(`${frame.endpoint}/session`, { headers, signal: AbortSignal.timeout(5_000) });
+    assert.deepEqual((await remaining.json()).map((entry) => entry.id), [createdId]);
   } catch (error) {
     throw new Error(`NND child contract failed: ${error.message}; stderr: ${diagnostics}`);
   } finally {
@@ -71,9 +96,9 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
   }
 });
 
-function principal() {
+function principal(permissions = ['nnd.read', 'nnd.session.create']) {
   return Buffer.from(JSON.stringify({
-    subject_id: 'local-operator', platform_role: 'operator', permissions: ['nnd.read', 'nnd.session.create'],
+    subject_id: 'local-operator', platform_role: 'operator', permissions,
     workspace_ids: ['local'], group_ids: [], trace_id: 'trace', request_id: 'request',
     issued_at: new Date().toISOString(),
   })).toString('base64url');

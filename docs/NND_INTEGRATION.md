@@ -11,6 +11,14 @@ before it emits readiness. Missing or invalid configuration fails startup.
 Requests need both the bearer token and a fresh `X-NNA-Principal` envelope;
 the route layer checks the permissions and workspace grants.
 
+The local session API supports creating/listing sessions, reading transcript
+messages, submitting a turn, renaming a title, cancelling an active turn, and
+removing a session from the desktop catalog. Each mutation has its own
+`nnd.session.*` permission. Catalog removal closes the governed engine but
+retains its NNA journal for recoverable operator inspection; it is not a
+secure erase. Browser-supplied directory fields cannot select the engine's
+workspace.
+
 With durable persistence, NNA keeps a bounded session catalog beside its
 session journals. A new NND child reopens those sessions under their original
 subject and workspace grants before it emits readiness. An invalid catalog
