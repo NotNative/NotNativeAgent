@@ -57,6 +57,18 @@ async function dispatch(request, response, context) {
 }
 
 export async function dispatchProviderRequest(request, response, context) {
+  if (context.url.pathname === '/v1/provider-route') {
+    if (request.method !== 'PATCH') return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
+    requireIntegrationPermission(context.principal, 'provider.route.manage');
+    assertProviderStore(context.providerStore, true);
+    const body = await readJsonBody(request);
+    if (!body || typeof body !== 'object' || Array.isArray(body)
+      || Object.keys(body).some((key) => !['provider_id', 'model'].includes(key))) {
+      throw new ContractError('provider_request_invalid', 'route request contains invalid fields');
+    }
+    const configured = await context.providerStore.setPrimaryRoute(body.provider_id, body.model);
+    return send(response, 200, { configured_primary_route: configured, runtime_route: context.nndEngineHost?.nndModel ?? null });
+  }
   const match = PROVIDER_ROUTE.exec(context.url.pathname);
   if (!match) return false;
   const id = match[1] ? providerId(match[1]) : null;
@@ -133,8 +145,10 @@ function providerId(encoded) {
   return id;
 }
 
-function assertProviderStore(store) {
-  if (!store || ['inventory', 'get', 'create', 'update', 'remove', 'withCredential'].some((method) => typeof store[method] !== 'function')) {
+function assertProviderStore(store, requiresRouteMutation = false) {
+  const methods = ['inventory', 'get', 'create', 'update', 'remove', 'withCredential'];
+  if (requiresRouteMutation) methods.push('setPrimaryRoute');
+  if (!store || methods.some((method) => typeof store[method] !== 'function')) {
     throw new ContractError('provider_store_unavailable', 'provider profile store is unavailable');
   }
 }

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
-import { persistManifest, withProvider, withUpdatedProvider, withoutProvider } from './route-configuration.js';
+import { persistManifest, withPrimaryRoute, withProvider, withUpdatedProvider, withoutProvider } from './route-configuration.js';
 import { CredentialResolver, credentialManifest, normalizeCredentialBinding } from '../credential-bindings.js';
 
 const FILE_LIMIT = 1_048_576;
@@ -61,6 +61,14 @@ export class ProviderProfileStore {
     return this.#mutate((config) => withoutProvider(config, id), { removedId: id });
   }
 
+  setPrimaryRoute(providerId, model) {
+    if (typeof providerId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/u.test(providerId)
+      || typeof model !== 'string' || !model.trim() || model.length > 4096) {
+      throw new ContractError('provider_request_invalid', 'provider_id and model must be bounded non-empty strings');
+    }
+    return this.#mutate((config) => withPrimaryRoute(config, providerId, model), { route: true });
+  }
+
   async credential(id) {
     const config = await this.#read();
     const profile = requireProfile(config, id);
@@ -108,6 +116,9 @@ export class ProviderProfileStore {
       await persistManifest(this.path, result.manifest);
       this.lastMutationFailure = null;
       if (options.removedId) return { removed: options.removedId };
+      if (options.route) return {
+        providerID: result.config.routes.primary.providerId, modelID: result.config.routes.primary.model,
+      };
       const profile = result.config.providerProfiles[options.profileId] ?? null;
       return profile ? publicProfile(profile, result.config.routes.primary.providerId === profile.id) : null;
     });

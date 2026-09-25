@@ -46,6 +46,27 @@ test('integration service authenticates exact principals and manages provider pr
     assert.equal((await request(base, '/v1/provider-profiles', readOnly, {
       method: 'POST', body: { profile_id: 'blocked', endpoint: 'http://127.0.0.1:4/v1', model: 'x' },
     })).status, 403);
+    assert.equal((await request(base, '/v1/provider-route', readOnly, {
+      method: 'PATCH', body: { provider_id: 'two', model: 'two' },
+    })).status, 403);
+
+    const routeManager = principal(['provider.read', 'provider.route.manage']);
+    assert.equal((await request(base, '/v1/provider-profiles', routeManager, {
+      method: 'POST', body: { profile_id: 'blocked', endpoint: 'http://127.0.0.1:4/v1', model: 'x' },
+    })).status, 403);
+    assert.equal((await request(base, '/v1/provider-route', routeManager, {
+      method: 'PATCH', body: { provider_id: 'missing', model: 'x' },
+    })).status, 404);
+    assert.equal((await request(base, '/v1/provider-route', routeManager, {
+      method: 'PATCH', body: { provider_id: 'two', model: 'two', credential: 'secret' },
+    })).status, 400);
+    const selected = await request(base, '/v1/provider-route', routeManager, {
+      method: 'PATCH', body: { provider_id: 'two', model: 'two' },
+    });
+    assert.deepEqual(selected.value.configured_primary_route, { providerID: 'two', modelID: 'two' });
+    assert.equal(selected.value.runtime_route, null);
+    assert.deepEqual((await request(base, '/v1/provider-profiles', readOnly)).value.configured_primary_route,
+      { providerID: 'two', modelID: 'two' });
 
     const manager = principal(['provider.read', 'provider.manage', 'provider.discover', 'provider.test']);
     const created = await request(base, '/v1/provider-profiles', manager, {
@@ -84,6 +105,27 @@ test('integration service authenticates exact principals and manages provider pr
     assert.equal(edited.value.profile.display_name, 'Renamed Lab');
     assert.equal(edited.value.profile.profile_id, 'lab');
     assert.equal((await request(base, '/v1/provider-profiles/lab', manager, { method: 'DELETE' })).value.removed, 'lab');
+  } finally { await service.close(); }
+});
+
+test('provider reads remain available through a store without route mutation support', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-provider-legacy-store-'));
+  const providerStore = {
+    inventory: async () => ({ profiles: [], configured_primary_route: { providerID: 'one', modelID: 'one' } }),
+    get: async () => null, create: async () => null, update: async () => null,
+    remove: async () => null, withCredential: async () => '',
+  };
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_legacy', providerStore, port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    assert.equal((await request(base, '/v1/provider-profiles', principal(['provider.read']))).status, 200);
+    const mutation = await request(base, '/v1/provider-route', principal(['provider.route.manage']), {
+      method: 'PATCH', body: { provider_id: 'one', model: 'one' },
+    });
+    assert.equal(mutation.status, 400);
+    assert.equal(mutation.value.error.code, 'provider_store_unavailable');
   } finally { await service.close(); }
 });
 
