@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 NNA-native goal receipt decisions.** The web server now
+  has a pure receipt-ordered decision core for token accounting, cancellation,
+  failed/unknown outcomes, budget exhaustion and the 20-continuation cap.
+  It refuses malformed or incomplete evidence rather than guessing token
+  usage or skipping a lost cursor. The adversarial review fixed masked
+  interruptions within receipt batches, a stalled explicit Resume and a
+  missed committed-token floor. Verification: 698 web tests, server typecheck,
+  390-module graph and full quality gates green. The event/tick runner, CAS persistence,
+  evaluator and continuation dispatch remain pending; the UI still correctly
+  says auto-continuation is not yet enabled.
+
 - 2026-09-25 · **P9 NNA-native goal evidence.** NNA now projects a bounded,
   owner-scoped ordered window of safe turn receipts for goal accounting, with
   request ID, outcome, accounted token count and measurement class. NND seeds

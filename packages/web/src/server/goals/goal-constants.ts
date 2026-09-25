@@ -45,6 +45,9 @@ export const GOAL_REASONS = {
   budgetReached: 'token budget reached',
   turnLimit: 'auto-continuation limit reached',
   repeatedTruncation: 'repeated output truncation',
+  evidenceUnavailable: 'goal turn evidence unavailable',
+  evidenceGap: 'goal turn evidence cursor missing',
+  usageUnavailable: 'goal token usage unavailable',
   pausedAfterAbort: 'paused after abort',
   resumed: 'resumed',
 } as const;

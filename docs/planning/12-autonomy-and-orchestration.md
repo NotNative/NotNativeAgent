@@ -402,6 +402,22 @@ unknown usage or a missing cursor must be handled explicitly rather than
 silently guessed. Compaction and the OpenCode snapshot baseline/segment math
 above apply only to an OpenCode-compatible harness, not the NNA default.
 
+The NNA receipt decision core treats the evidence array as ordered, not the
+request IDs as sortable. It requires a session-matched, duplicate-free bounded
+feed and an exact cursor match; a truncated feed is usable only when the
+cursor is still present. Each new receipt must have a safe non-negative token
+count with provider/estimated/mixed measurement. It sums those counts over a
+monotonic `max(tokensUsed, tokensCommitted)` floor, then stores the result in
+both fields (`tokensBaseline=0` for NNA). Missing evidence, a lost cursor,
+unknown usage, or numeric overflow blocks the goal with an explicit reason
+and no continuation. A measured cancelled turn pauses; failed, needs-input,
+or unknown outcomes block, including interruptions hidden earlier in a batch
+of newly observed receipts. An explicit Resume can continue over an already
+accounted completed or cancelled tail once, but not over a failed tail. The
+budget and 20-turn limits are checked before audit or continuation.
+The event/tick wiring must CAS-write this candidate before using it; that
+remains a separate implementation slice.
+
 #### B.5.5 The evaluator exchange `[HARNESS PORT]` (port P-02 §7.4 small-model)
 
 The audit is a direct small-model call — an independent auditor that sees ONLY the objective
