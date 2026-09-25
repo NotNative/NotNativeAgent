@@ -79,9 +79,9 @@ Counts represent static local imports. Same-component imports are included becau
 | Reliability Engine | Product foundation | 11 | 10 |
 | Tools | Reliability Engine | 11 | 4 |
 | OpenCode surface | Product foundation | 10 | 6 |
+| Product foundation | Persistence | 9 | 7 |
 | Guidance and extensions | Product foundation | 9 | 8 |
 | Product foundation | Experience Engine | 8 | 5 |
-| Product foundation | Persistence | 8 | 6 |
 
 ## Process entry points
 
@@ -91,4 +91,4 @@ Counts represent static local imports. Same-component imports are included becau
 - `src/index.js`
 - `src/update-check-worker.js`
 
-Source fingerprint: `sha256:4a595c057961f5bfd18056ee2458de1d4c578f69b951a8b4c2e446ce4989317f`.
+Source fingerprint: `sha256:0f0564c343f01804d908838e39c02932af66f5096b189246d8a8ba13efa38858`.

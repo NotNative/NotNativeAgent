@@ -10,7 +10,7 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-process-'));
   await mkdir(join(root, 'config'), { recursive: true });
   await writeFile(join(root, 'config', 'manifest.json'), JSON.stringify({
-    format_version: 1, persistence: 'ephemeral', workspace_root: root,
+    format_version: 1, persistence: 'durable', workspace_root: root,
     providers: [{ id: 'primary', display_name: 'Primary', endpoint: 'http://127.0.0.1:1234/v1', model: 'test', trust_zone: 'loopback' }],
     routes: { primary: { provider_id: 'primary', model: 'test' } },
   }));
@@ -19,6 +19,7 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
     stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
   });
   let diagnostics = '';
+  let createdId;
   child.stderr.on('data', (chunk) => { diagnostics = `${diagnostics}${chunk}`.slice(-2048); });
   try {
     const frame = await readiness(child);
@@ -40,6 +41,7 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
     });
     assert.equal(created.status, 201);
     const session = await created.json();
+    createdId = session.id;
     assert.equal(session.title, 'CLI contract');
     assert.match(session.id, /^ses_[A-Za-z0-9_-]+$/u);
     const listed = await fetch(`${frame.endpoint}/session`, { headers, signal: AbortSignal.timeout(5_000) });
@@ -51,6 +53,20 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
     throw new Error(`NND child contract failed: ${error.message}; stderr: ${diagnostics}`);
   } finally {
     await stopChild(child);
+  }
+  const reopened = spawn(process.execPath, ['src/cli.js', 'nnd', 'serve'], {
+    cwd: new URL('..', import.meta.url), env: { ...process.env, NNA_HOME: root },
+    stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+  });
+  reopened.stderr.resume();
+  try {
+    const frame = await readiness(reopened);
+    const headers = { authorization: `Bearer ${frame.token}`, 'x-nna-principal': principal() };
+    const listed = await fetch(`${frame.endpoint}/session`, { headers, signal: AbortSignal.timeout(5_000) });
+    assert.equal(listed.status, 200);
+    assert.deepEqual((await listed.json()).map((entry) => entry.id), [createdId]);
+  } finally {
+    await stopChild(reopened);
   }
 });
 

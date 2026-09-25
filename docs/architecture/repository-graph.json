@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:4a595c057961f5bfd18056ee2458de1d4c578f69b951a8b4c2e446ce4989317f",
+  "source_digest": "sha256:0f0564c343f01804d908838e39c02932af66f5096b189246d8a8ba13efa38858",
   "counts": {
     "modules": 363,
     "component_edges": 76
@@ -238,6 +238,12 @@
       "module_count": 6
     },
     {
+      "from": "foundation",
+      "to": "persistence",
+      "import_count": 9,
+      "module_count": 7
+    },
+    {
       "from": "guidance",
       "to": "foundation",
       "import_count": 9,
@@ -248,12 +254,6 @@
       "to": "experience-engine",
       "import_count": 8,
       "module_count": 5
-    },
-    {
-      "from": "foundation",
-      "to": "persistence",
-      "import_count": 8,
-      "module_count": 6
     },
     {
       "from": "integrations",
@@ -1862,7 +1862,8 @@
         "src/ids.js",
         "src/ingress.js",
         "src/nnd-session-registry.js",
-        "src/opencode/wire-events.js"
+        "src/opencode/wire-events.js",
+        "src/persistence/atomic-json.js"
       ]
     },
     {

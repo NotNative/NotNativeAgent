@@ -1,8 +1,89 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { NndEngineHost } from '../src/nnd-engine-host.js';
 
 const owner = { subjectId: 'user_a', workspaceIds: ['workspace_a'] };
+
+test('NND durable catalog restores owned sessions and removes closed sessions', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-catalog-'));
+  const catalogPath = join(root, 'nnd-contexts.json');
+  const makeHost = () => new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  const first = makeHost();
+  await first.initialize();
+  await first.create('session_a', owner, { title: 'Continued work' });
+  await first.shutdown();
+  const second = makeHost();
+  await second.initialize();
+  assert.deepEqual(second.list(owner).map((session) => session.title), ['Continued work']);
+  assert.equal(second.get('session_a', owner).id, 'session_a');
+  assert.deepEqual(second.list({ subjectId: 'other', workspaceIds: owner.workspaceIds }), []);
+  await second.close('session_a', owner);
+  assert.deepEqual(JSON.parse(await readFile(catalogPath, 'utf8')), []);
+});
+
+test('NND durable catalog refuses malformed records without discarding them', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-catalog-invalid-'));
+  const catalogPath = join(root, 'nnd-contexts.json');
+  await writeFile(catalogPath, '[{"sessionId":"../escape"}]');
+  const host = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await assert.rejects(host.initialize(), { code: 'nnd_catalog_invalid' });
+  assert.match(await readFile(catalogPath, 'utf8'), /escape/u);
+});
+
+test('NND catalog excludes a failed concurrent create from the next durable write', async () => {
+  let firstWrite;
+  const firstStarted = new Promise((resolve) => { firstWrite = resolve; });
+  let rejectFirst;
+  const firstPending = new Promise((resolve, reject) => { rejectFirst = reject; });
+  const durable = [];
+  let writes = 0;
+  const host = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
+    persistCatalog: async (_path, records) => {
+      writes += 1;
+      if (writes === 1) { firstWrite(); await firstPending; }
+      durable.push(records.map((record) => record.sessionId));
+    },
+  });
+  const failed = host.create('session_a', owner);
+  await firstStarted;
+  const accepted = host.create('session_b', owner);
+  rejectFirst(new Error('catalog write failed'));
+  await assert.rejects(failed, /catalog write failed/u);
+  await accepted;
+  assert.deepEqual(durable, [['session_b']]);
+  assert.deepEqual(host.list(owner).map((session) => session.id), ['session_b']);
+});
+
+test('NND catalog retains a closing session while another session is created', async () => {
+  const durable = [];
+  let failClose = false;
+  const host = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
+    persistCatalog: async (_path, records) => {
+      if (failClose && records.every((record) => record.sessionId !== 'session_a')) throw new Error('catalog write failed');
+      durable.push(records.map((record) => record.sessionId));
+    },
+  });
+  await host.create('session_a', owner);
+  failClose = true;
+  await assert.rejects(host.close('session_a', owner), /catalog write failed/u);
+  await host.create('session_b', owner);
+  assert.deepEqual(durable.at(-1), ['session_a', 'session_b']);
+});
+
+test('NND catalog refuses a write that cannot be reopened within its size bound', async () => {
+  let writes = 0;
+  const host = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
+    persistCatalog: async () => { writes += 1; },
+  });
+  const largePrincipal = { subjectId: 'user_a', workspaceIds: Array.from({ length: 400 }, (_, index) => `${index}_${'x'.repeat(250)}`) };
+  for (let index = 0; index < 9; index += 1) await host.create(`session_${index}`, largePrincipal);
+  await assert.rejects(host.create('session_9', largePrincipal), { code: 'nnd_catalog_capacity' });
+  assert.equal(writes, 9);
+  assert.equal(host.list(largePrincipal).length, 9);
+});
 
 test('NND engine host binds each context to its authenticated owner', async () => {
   const created = [];

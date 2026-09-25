@@ -54,7 +54,7 @@ test('integration child emits one atomic protocol-only readiness frame', async (
   const writes = [];
   const output = { write(value) { writes.push(value); queueMicrotask(() => controller.abort()); return true; } };
   await runIntegrationCommand(['serve'], {
-    config: configRoot,
+    config: configRoot, sessions: join(root, 'sessions'),
     secretVault: join(root, 'secrets', 'vault.json'),
     secretKey: join(root, 'secrets', 'key.json'),
     secretAudit: join(root, 'secrets', 'audit.ndjson'),

@@ -37,9 +37,18 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
   });
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker });
   const nndEngineHost = await createIntegrationNndEngineHost(paths, options);
-  const service = await startIntegrationServer({
-    activation, token, instanceId, broker, providerStore, nndEngineHost, nndWorkspaceRoot: nndEngineHost.workspaceRoot, host: '127.0.0.1', port: 0,
-  });
+  let service;
+  try {
+    service = await startIntegrationServer({
+      activation, token, instanceId, broker, providerStore, nndEngineHost, nndWorkspaceRoot: nndEngineHost.workspaceRoot, host: '127.0.0.1', port: 0,
+    });
+  } catch (error) {
+    try { await nndEngineHost.shutdown(); }
+    catch (shutdownError) {
+      if (Object.isExtensible(error)) error.secondaryFailures = [...(error.secondaryFailures ?? []), shutdownError];
+    }
+    throw error;
+  }
   const endpoint = `http://127.0.0.1:${service.address.port}`;
   const output = options.output ?? process.stdout;
   let failure = null;
@@ -49,6 +58,10 @@ async function runActivatedIntegrationCommand(paths, options, activation, owner)
     await waitForShutdown(options.signal, service.server);
   } catch (error) { failure = error; }
   try { await service.close(); } catch (error) {
+    if (!failure) failure = error;
+    else if (Object.isExtensible(failure)) failure.secondaryFailures = [...(failure.secondaryFailures ?? []), error];
+  }
+  try { await nndEngineHost.shutdown(); } catch (error) {
     if (!failure) failure = error;
     else if (Object.isExtensible(failure)) failure.secondaryFailures = [...(failure.secondaryFailures ?? []), error];
   }
@@ -63,6 +76,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
     hostOrigin: 'nnd-integration', hostIdentity: 'nnd-integration',
   });
   const host = new NndEngineHost({
+    catalogPath: config.persistence === 'durable' ? join(paths.sessions, 'nnd-contexts.json') : null,
     createEngine: async (input) => new SessionEngine({
       config, sessionId: input.sessionId, nndSessionRegistry: input.nndSessionRegistry,
       storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger,
@@ -73,6 +87,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
     }),
   });
   host.workspaceRoot = config.workspaceRoot;
+  await host.initialize();
   return host;
 }
 

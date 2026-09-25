@@ -3,6 +3,10 @@ import { ContractError, newId, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { NndSessionRegistry } from './nnd-session-registry.js';
 import { createWireEventBus } from './opencode/wire-events.js';
+import { readFile, stat } from 'node:fs/promises';
+import { persistAtomicJson } from './persistence/atomic-json.js';
+
+const CATALOG_LIMIT_BYTES = 1_048_576;
 
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
 export class NndEngineHost {
@@ -20,9 +24,43 @@ export class NndEngineHost {
     this.limit = limit;
     this.childSessions = options.childSessions ?? new NndSessionRegistry(options.childSessionLimit ?? 256);
     this.eventBus = options.eventBus ?? createWireEventBus();
+    this.catalogPath = options.catalogPath ?? null;
+    this.persistCatalog = options.persistCatalog ?? persistAtomicJson;
+    this.catalogWrites = Promise.resolve();
+  }
+
+  async initialize() {
+    if (!this.catalogPath) return;
+    let source;
+    try {
+      const metadata = await stat(this.catalogPath);
+      if (!metadata.isFile() || metadata.size > CATALOG_LIMIT_BYTES) throw new Error('catalog bound');
+      source = await readFile(this.catalogPath, 'utf8');
+    } catch (error) {
+      if (error.code === 'ENOENT') return;
+      throw new ContractError('nnd_catalog_unavailable', 'NND session catalog is unavailable', { cause: error });
+    }
+    let records;
+    try { records = JSON.parse(source); } catch { throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid'); }
+    if (!Array.isArray(records) || records.length > this.limit) throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid');
+    try {
+      for (const record of records) {
+        if (!validCatalogRecord(record)) throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid');
+        await this.#createContext(record.sessionId, { subjectId: record.subjectId, workspaceIds: record.workspaceIds }, {
+          title: record.title, directory: record.directory, createdAt: record.createdAt,
+        }, true);
+      }
+    } catch (error) {
+      await this.shutdown().catch(() => undefined);
+      throw error;
+    }
   }
 
   async create(sessionId, principal, options = {}) {
+    return this.#createContext(sessionId, principal, options, false);
+  }
+
+  async #createContext(sessionId, principal, options, restoring) {
     requireExternalId(sessionId, 'session_id');
     requirePrincipal(principal);
     if (this.#contexts.has(sessionId) || this.#creating.has(sessionId)) {
@@ -40,10 +78,14 @@ export class NndEngineHost {
       }
       await engine.initialize();
       const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
-        title: titleOf(options.title), directory: directoryOf(options.directory), createdAt: Date.now(),
+        title: titleOf(options.title), directory: directoryOf(options.directory), createdAt: restoring ? options.createdAt : Date.now(),
         ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false };
-      this.#contexts.set(sessionId, context);
-      this.#publish(context, 'session.created', { info: describe(context) }, true);
+      if (restoring) this.#contexts.set(sessionId, context);
+      else await this.#commitCatalogChange(
+        (contexts) => contexts.set(sessionId, context),
+        () => this.#contexts.set(sessionId, context),
+      );
+      if (!restoring) this.#publish(context, 'session.created', { info: describe(context) }, true);
       return context;
     } catch (error) {
       // Why: an engine can acquire resources before initialization reports its failure.
@@ -111,9 +153,42 @@ export class NndEngineHost {
     // Security: closing a parent revokes its child steering grants before shutdown can fail.
     this.childSessions.unregisterParent?.(sessionId);
     await context.engine.shutdown({ version: '1.0', type: 'shutdown', request_id: newId('nnd_close') });
-    this.#contexts.delete(sessionId);
+    await this.#commitCatalogChange(
+      (contexts) => contexts.delete(sessionId),
+      () => this.#contexts.delete(sessionId),
+    );
     this.#publish(context, 'session.deleted', { sessionID: sessionId }, true);
     return { closed: true };
+  }
+
+  async shutdown() {
+    const contexts = [...this.#contexts.values()];
+    const settled = await Promise.allSettled(contexts.map((context) => context.engine.shutdown({
+      version: '1.0', type: 'shutdown', request_id: newId('nnd_shutdown'),
+    })));
+    const failed = settled.find((result) => result.status === 'rejected');
+    if (failed) throw failed.reason;
+  }
+
+  async #commitCatalogChange(change, commit) {
+    if (!this.catalogPath) { commit(); return; }
+    // Keep the durable write and its in-memory commit in one serialized unit.
+    // A failed create must not be included in another creator's snapshot.
+    const transaction = this.catalogWrites.catch(() => undefined).then(async () => {
+      const candidate = new Map(this.#contexts);
+      change(candidate);
+      const records = [...candidate.values()].map((context) => ({
+        sessionId: context.sessionId, subjectId: context.subjectId, workspaceIds: [...context.workspaceIds],
+        title: context.title, directory: context.directory, createdAt: context.createdAt,
+      }));
+      if (Buffer.byteLength(`${JSON.stringify(records, null, 2)}\n`, 'utf8') > CATALOG_LIMIT_BYTES) {
+        throw new ContractError('nnd_catalog_capacity', 'NND session catalog capacity is full');
+      }
+      await this.persistCatalog(this.catalogPath, records);
+      commit();
+    });
+    this.catalogWrites = transaction;
+    await transaction;
   }
 
   #owned(sessionId, principal, allowClosing = false) {
@@ -167,6 +242,13 @@ function samePrincipal(context, principal) {
 function describe(context) { return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value, directory: context.directory, title: context.title, version: '1.0', tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: context.createdAt, updated: context.createdAt } }; }
 function titleOf(value) { return typeof value === 'string' && value.trim() && value.length <= 256 ? value.trim() : 'New session'; }
 function directoryOf(value) { return typeof value === 'string' && value.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : ''; }
+function validCatalogRecord(record) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
+  try { requireExternalId(record.sessionId, 'session_id'); requirePrincipal(record); }
+  catch { return false; }
+  return typeof record.title === 'string' && record.title.length <= 256 && typeof record.directory === 'string'
+    && record.directory.length <= 4096 && Number.isSafeInteger(record.createdAt) && record.createdAt > 0;
+}
 
 async function shutdownAfterFailedCreate(engine) {
   if (!engine || typeof engine.shutdown !== 'function') return;
