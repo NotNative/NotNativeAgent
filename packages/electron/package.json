@@ -17,6 +17,10 @@
     "files": [
       "main.mjs",
       "preload.mjs",
+      "ipc-face.mjs",
+      "shell-prefs.mjs",
+      "tray.mjs",
+      "window-state.mjs",
       "resources/**",
       "package.json"
     ],

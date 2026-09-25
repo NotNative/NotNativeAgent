@@ -8,13 +8,15 @@
  * The NOTNATIVE_* environment is fully set BEFORE the server bundle is
  * dynamically imported (the module reads env at import time).
  */
-import { app, BrowserWindow, powerMonitor, shell } from 'electron';
+import { app, BrowserWindow, powerMonitor, screen, shell } from 'electron';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { createInvokeFace } from './ipc-face.mjs';
+import { readShellPrefs, writeShellPrefs } from './shell-prefs.mjs';
 import { createTrayController } from './tray.mjs';
+import { captureWindowState, restoreWindowState } from './window-state.mjs';
 
 const APP_NAME = 'NotNativeDesktop';
 const APP_ID = 'dev.notnative.desktop';
@@ -34,6 +36,7 @@ let chosenPort = 0;
 let trayController = null;
 let quitting = false;
 let bootFailure = null; // boot-abort message; trayed installs linger and must say why
+let windowStateTimer = null;
 
 // ── §1.2/1.3 module-load identity (before app.whenReady) ────────────────────
 
@@ -121,25 +124,47 @@ ensureLogDir();
 pruneOldLogs();
 installConsoleBridge();
 
-// ── shell prefs (userData holds ONLY port seed + logs — D-09-6) ────────────
+// ── shell prefs (port seed + window geometry; logs are separate — D-09-6) ──
 
 function prefsFile() {
   return path.join(app.getPath('userData'), 'nnd-shell-prefs.json');
 }
 
-function readStoredPort() {
+function persistShellPrefs(patch) {
   try {
-    const parsed = JSON.parse(fs.readFileSync(prefsFile(), 'utf8'));
-    const value = Number(parsed?.port);
-    return Number.isSafeInteger(value) && value > 0 && value < 65_536 ? value : 0;
-  } catch { return 0; }
+    writeShellPrefs(prefsFile(), patch);
+  } catch (error) { console.error('[shell] failed to store preferences:', error); }
+}
+
+function readStoredPort() {
+  const value = Number(readShellPrefs(prefsFile()).port);
+  return Number.isSafeInteger(value) && value > 0 && value < 65_536 ? value : 0;
 }
 
 function writeStoredPort(port) {
-  try {
-    fs.mkdirSync(path.dirname(prefsFile()), { recursive: true });
-    fs.writeFileSync(prefsFile(), `${JSON.stringify({ port }, null, 2)}\n`);
-  } catch (error) { console.error('[shell] failed to store port:', error); }
+  persistShellPrefs({ port });
+}
+
+function restoredWindowState() {
+  const displays = screen.getAllDisplays();
+  const primary = screen.getPrimaryDisplay();
+  const areas = [primary, ...displays.filter((display) => display.id !== primary.id)].map((display) => display.workArea);
+  return restoreWindowState(readShellPrefs(prefsFile()).windowState, areas);
+}
+
+function persistWindowState(win) {
+  if (windowStateTimer !== null) { clearTimeout(windowStateTimer); windowStateTimer = null; }
+  if (!win || win.isDestroyed()) return;
+  const state = captureWindowState(win.getNormalBounds(), win.isMaximized(), win.isFullScreen());
+  if (state) persistShellPrefs({ windowState: state });
+}
+
+function scheduleWindowStatePersist(win) {
+  if (windowStateTimer !== null) clearTimeout(windowStateTimer);
+  windowStateTimer = setTimeout(() => {
+    windowStateTimer = null;
+    if (mainWindow === win) persistWindowState(win);
+  }, 300);
 }
 
 // ── §2.1.3 port selection: stored → 57123 → ephemeral (test-bind BEFORE import) ─
@@ -351,10 +376,10 @@ function attachWindowGuards(win) {
 }
 
 function createMainWindow() {
+  const restored = restoredWindowState();
   const win = new BrowserWindow({
     title: APP_NAME,
-    width: 1_280,
-    height: 800,
+    ...(restored?.bounds ?? { width: 1_280, height: 800 }),
     minWidth: 800,
     minHeight: 520,
     backgroundColor: '#0c0a09',
@@ -366,17 +391,26 @@ function createMainWindow() {
       sandbox: false, // §1.1: preload needs the Node contextBridge (§11.2)
     },
   });
+  if (restored?.fullscreen) win.setFullScreen(true);
+  else if (restored?.maximized) win.maximize();
+  for (const eventName of ['move', 'resize', 'maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) {
+    win.on(eventName, () => scheduleWindowStatePersist(win));
+  }
   attachWindowGuards(win);
   win.once('ready-to-show', () => { if (!HIDDEN_START || bootFailure) win.show(); });
   // Tray mode: the close button hides the window and the service keeps
   // running (reference launcher semantics); Quit belongs to the tray menu.
   win.on('close', (event) => {
+    persistWindowState(win);
     if (trayController?.active && !quitting && !win.webContents.isCrashed()) {
       event.preventDefault();
       win.hide();
     }
   });
-  win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
+  win.on('closed', () => {
+    if (windowStateTimer !== null) { clearTimeout(windowStateTimer); windowStateTimer = null; }
+    if (mainWindow === win) mainWindow = null;
+  });
   win.loadURL(bootFailure ? bootFailurePageUrl(bootFailure) : SPLASH_URL).catch(() => { /* splash/error is cosmetic */ });
   return win;
 }
@@ -407,6 +441,7 @@ function ensureMainWindow() {
 function quitFromTray() {
   if (quitting) return;
   quitting = true;
+  persistWindowState(mainWindow);
   console.log('[shell] quit requested from tray');
   try { trayController?.destroy(); } catch (error) { console.error('[shell] tray teardown failed:', error); }
   try { serverHandle?.dispose(); } catch (error) { console.error('[shell] server dispose failed:', error); }
@@ -485,6 +520,7 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 app.on('before-quit', () => {
+  persistWindowState(mainWindow);
   if (!serverHandle) return;
   try { serverHandle.dispose(); } catch (error) { console.error('[shell] server dispose failed:', error); }
 });

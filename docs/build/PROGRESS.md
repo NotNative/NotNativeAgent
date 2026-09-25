@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Desktop window-state restoration.** Electron's main window
+  now saves normal geometry and display mode on a short debounce, flushes it
+  before hide/quit, and restores within a visible display work area after a
+  monitor change. Port and geometry share the existing shell-local prefs
+  without clobbering each other; writes replace the file atomically. The shell
+  package explicitly includes its local runtime modules. Pure tests cover
+  removed monitors, invalid state, size limits, mode precedence, and an
+  interrupted preferences replace. The unsigned NSIS build passed; app.asar
+  contains each imported shell module, and the packaged terminal smokes pass.
+  Installed-GUI geometry remains unverified visually.
+
 - 2026-09-25 · **Operator rail panel configuration.** The docked rail now
   exposes local panel order and visibility controls. Preferences are isolated
   by runtime and directory, malformed saved values are repaired, and the last

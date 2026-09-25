@@ -49,8 +49,8 @@ remaining P12 slices ride after it.
      launch installed exe → verify `/health` + `/` + asset serve from the
      installed root; results recorded in docs/build/EVALUATION.md.
 
-- **P12b (queued):** privileged `notnative-ui://app` protocol (§6.3) +
-  geometry persistence (§1.6) + tray (§10.1) + close-to-tray + menus (§10.3) +
+- **P12b (in progress):** privileged `notnative-ui://app` protocol (§6.3) +
+  tray (§10.1) + close-to-tray + menus (§10.3) +
   autostart/login-item (§10.6) + deep-link `openchamber://connect` handler
   (§5 — link head stays openchamber:// per the sealed pairing payload) +
   IPC catalog growth (§3.1: file read/write guards §12.2-12.5, notifications
@@ -192,6 +192,20 @@ remaining P12 slices ride after it.
   a freedesktop Icon). Honest deployment note: these fixes live in the REPO;
   the running script-installed instance keeps the pre-fix code until the
   next scripted install run (install dir was NOT patched in the audit).
+
+- **D-09-19** Main-window geometry is now persisted alongside the stored
+  loopback port in `nnd-shell-prefs.json`. Move/resize/mode changes debounce
+  for 300 ms; close-to-tray and quit persist immediately. Restore uses the
+  normal (unmaximized) bounds, chooses the overlapping display or primary
+  work area if that display disappeared, clamps position and size, then
+  restores maximized/fullscreen mode (fullscreen takes precedence if both
+  flags are present). The prefs writer uses a same-directory temporary file
+  and replace, so an interrupted write leaves the prior port and geometry
+  intact. Malformed settings fall back to the 1280×800 first-run window. This
+  is shell-local state, not NNA session state. The 20260925.0.44 unsigned NSIS
+  build passed; its app.asar contains the new state modules plus tray and IPC
+  modules, and packaged terminal spawn and HTTP/WebSocket smokes passed.
+  Actual installed-GUI geometry behavior still needs a visible shell probe.
 
 ## B2. First-install residuals (P12a audit, 2026-09-22 — registered not fixed)
 
