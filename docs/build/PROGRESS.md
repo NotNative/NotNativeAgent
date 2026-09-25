@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Expandable tool Activity evidence.** NNA now projects a
+  bounded, redacted allowlist from authored tool-status events into live
+  Activity and saved parent/child snapshots: file-path targets for an explicit
+  path-only tool allowlist, plus effect, reason code, elapsed time, and exit
+  code when present. Shell commands, process arguments, search queries,
+  delegated task text, raw tool arguments, and output remain excluded.
+  NND validates the structured detail and lets the operator
+  expand a tool row without losing the live log position. The tool row is
+  still not a link to a separate durable tool receipt; that stronger
+  correlation/navigation remains future work.
+
 - 2026-09-25 · **Activity attention hierarchy.** A governed `needs_input`
   turn now emits a distinct `attention` Activity state instead of looking
   completed. The rail gives authored attention and failures stronger visual

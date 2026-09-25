@@ -453,6 +453,24 @@ describe('OperatorRail', () => {
     expect(scroll).toHaveBeenCalledWith({ block: 'start' });
   });
 
+  it('expands authored tool metadata without exposing raw tool arguments or output', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ activity: [{ id: 'tool-a', sessionID: 's1', time: 1, kind: 'tool',
+      status: 'completed', summary: 'shell_run: succeeded', toolEvidence: {
+        target: 'D:/work/check.js', effect: 'read_only', elapsedMs: 25, exitCode: 0,
+      } }] });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    const detail = document.querySelector('[data-testid="activity-tool-evidence"]') as HTMLDetailsElement;
+    expect(detail.open).toBe(false);
+    expect(detail.textContent).toContain('D:/work/check.js');
+    expect(detail.textContent).toContain('25 ms');
+    expect(detail.textContent).not.toContain('secret');
+    act(() => (detail.querySelector('summary') as HTMLElement).click());
+    expect(detail.open).toBe(true);
+  });
+
   it('filters activity to failures without claiming that all session evidence is absent', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ activity: [

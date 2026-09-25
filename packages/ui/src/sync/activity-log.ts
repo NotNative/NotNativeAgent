@@ -14,6 +14,15 @@ export interface ActivityRecord {
   summary: string;
   status: 'started' | 'completed' | 'attention' | 'failed' | 'redacted';
   evidenceMessageID?: string;
+  toolEvidence?: ToolEvidence;
+}
+
+export interface ToolEvidence {
+  target?: string;
+  effect?: string;
+  reasonCode?: string;
+  elapsedMs?: number;
+  exitCode?: number;
 }
 
 export const MAX_ACTIVITY_RECORDS = 500;
@@ -36,8 +45,11 @@ export function activityRecordFromEvent(event: HarnessEvent): ActivityRecord | n
   const rawEvidence = props.evidenceMessageID;
   if (rawEvidence !== undefined && (typeof rawEvidence !== 'string' || rawEvidence.length < 1 || rawEvidence.length > 256
     || /[\u0000-\u001f\u007f]/u.test(rawEvidence) || kind !== 'turn')) return null;
+  const toolEvidence = parseToolEvidence(props.toolEvidence);
+  if (props.toolEvidence !== undefined && (kind !== 'tool' || !toolEvidence)) return null;
   return { id, sessionID, time, kind, summary, status,
-    ...(typeof rawEvidence === 'string' ? { evidenceMessageID: rawEvidence } : {}) };
+    ...(typeof rawEvidence === 'string' ? { evidenceMessageID: rawEvidence } : {}),
+    ...(toolEvidence ? { toolEvidence } : {}) };
 }
 
 /** Upserts corrections/redactions by stable evidence id and remains bounded. */
@@ -58,7 +70,29 @@ function sameActivityRecord(left: ActivityRecord, right: ActivityRecord): boolea
     && left.kind === right.kind
     && left.summary === right.summary
     && left.status === right.status
-    && left.evidenceMessageID === right.evidenceMessageID;
+    && left.evidenceMessageID === right.evidenceMessageID
+    && sameToolEvidence(left.toolEvidence, right.toolEvidence);
+}
+
+export function sameToolEvidence(left?: ToolEvidence, right?: ToolEvidence): boolean {
+  if (!left || !right) return left === right;
+  return left.target === right.target && left.effect === right.effect
+    && left.reasonCode === right.reasonCode && left.elapsedMs === right.elapsedMs && left.exitCode === right.exitCode;
+}
+
+function parseToolEvidence(value: unknown): ToolEvidence | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const source = value as Record<string, unknown>;
+  if (Object.keys(source).some((key) => !['target', 'effect', 'reasonCode', 'elapsedMs', 'exitCode'].includes(key))) return null;
+  const validText = (item: unknown, max: number): boolean => item === undefined
+    || typeof item === 'string' && item.length > 0 && item.length <= max && !/[\u0000-\u001f\u007f]/u.test(item);
+  if (!validText(source.target, 180) || !validText(source.effect, 48) || !validText(source.reasonCode, 80)
+    || source.elapsedMs !== undefined && (typeof source.elapsedMs !== 'number' || !Number.isSafeInteger(source.elapsedMs)
+      || source.elapsedMs < 0 || source.elapsedMs > 604_800_000)
+    || source.exitCode !== undefined && (typeof source.exitCode !== 'number' || !Number.isSafeInteger(source.exitCode)
+      || Math.abs(source.exitCode) > 2_147_483_647)) return null;
+  if (Object.keys(source).length === 0) return null;
+  return source as ToolEvidence;
 }
 
 function stringProp(props: Record<string, unknown>, key: string): string | null {

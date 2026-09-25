@@ -23,6 +23,15 @@ describe('NNA Activity snapshot merge', () => {
       .toEqual([row('turn', 10, 'completed')]);
   });
 
+  it('preserves a newer classified tool-evidence correction and reuses an exact replay', () => {
+    const live: ActivityRecord = { id: 'tool-a', sessionID: 's1', time: 12, kind: 'tool', status: 'completed',
+      summary: 'shell_run: succeeded', toolEvidence: { target: 'D:/work/check.js', elapsedMs: 25 } };
+    const saved: ActivityRecord = { ...live, time: 10, toolEvidence: { target: 'D:/work/check.js', elapsedMs: 12 } };
+    const merged = mergeActivitySnapshot([live], 's1', [saved]);
+    expect(merged).toEqual([live]);
+    expect(mergeActivitySnapshot(merged, 's1', [saved])).toBe(merged);
+  });
+
   it('keeps current evidence on failure, malformed data, or a stale request', async () => {
     const store = createDirectoryStore({ activity: [row('live', 10)] });
     const request = vi.spyOn(harnessClient, 'listActivity');

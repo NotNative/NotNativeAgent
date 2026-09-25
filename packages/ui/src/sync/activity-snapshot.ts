@@ -2,7 +2,7 @@
 /** Authenticated NNA Activity snapshots complement, never replace, live evidence. */
 import type { StoreApi } from 'zustand/vanilla';
 import { harnessClient } from '../lib/nnd/client.ts';
-import { activityRecordFromEvent, MAX_ACTIVITY_RECORDS, type ActivityRecord } from './activity-log.ts';
+import { activityRecordFromEvent, MAX_ACTIVITY_RECORDS, sameToolEvidence, type ActivityRecord } from './activity-log.ts';
 import type { DirectoryStore } from './types.ts';
 
 export function isNnaActivitySource(store: StoreApi<DirectoryStore>): boolean {
@@ -63,6 +63,6 @@ function sameRows(left: readonly ActivityRecord[], right: readonly ActivityRecor
     const other = right[index];
     return !!other && item.id === other.id && item.sessionID === other.sessionID && item.time === other.time
       && item.kind === other.kind && item.status === other.status && item.summary === other.summary
-      && item.evidenceMessageID === other.evidenceMessageID;
+      && item.evidenceMessageID === other.evidenceMessageID && sameToolEvidence(item.toolEvidence, other.toolEvidence);
   });
 }

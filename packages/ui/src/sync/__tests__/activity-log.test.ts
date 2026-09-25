@@ -39,6 +39,19 @@ describe('operator activity evidence', () => {
     expect(record?.status).toBe('attention');
   });
 
+  it('accepts only bounded, classified tool evidence', () => {
+    const properties = { id: 'tool-a', sessionID: 's1', kind: 'tool', status: 'completed', summary: 'shell_run: succeeded', time: 10,
+      toolEvidence: { target: 'D:/work/check.js', effect: 'read_only', elapsedMs: 25, exitCode: 0 } };
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties })?.toolEvidence).toEqual(properties.toolEvidence);
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties, kind: 'turn' } })).toBeNull();
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties,
+      toolEvidence: { ...properties.toolEvidence, arguments: { secret: 'never render' } } } })).toBeNull();
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties,
+      toolEvidence: { target: 'x'.repeat(181) } } })).toBeNull();
+    const record = activityRecordFromEvent({ type: 'nnd.activity', properties })!;
+    expect(mergeActivityRecord([record], { ...record, toolEvidence: { ...record.toolEvidence!, elapsedMs: 26 } })).not.toBe(record);
+  });
+
   it('replaces a record when NNA corrects or redacts the same evidence id', () => {
     const started = activityRecordFromEvent({ type: 'nnd.activity', properties: { id: 'a1', sessionID: 's1', kind: 'turn', status: 'started', summary: 'Turn started', time: 10 } })!;
     const redacted = { ...started, status: 'redacted' as const, summary: 'Redacted by NNA', time: 12 };

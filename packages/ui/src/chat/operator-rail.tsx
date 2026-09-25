@@ -12,6 +12,7 @@ import { TerminalView } from '../components/terminal/TerminalView.tsx';
 import { BrowserSurface } from './browser-surface.tsx';
 import { getRuntimeKey, isTransientRuntimeKey } from '../lib/runtime-switch.ts';
 import { isNnaActivitySource, refreshActivitySnapshot } from '../sync/activity-snapshot.ts';
+import type { ToolEvidence } from '../sync/activity-log.ts';
 
 type Surface = 'context' | 'activity' | 'changes' | 'notes' | 'browser' | 'terminal';
 const SURFACES: readonly { id: Surface; label: string }[] = [
@@ -343,6 +344,7 @@ function ActivitySurface({ store, directory }: { store: StoreApi<DirectoryStore>
       }}>
       {records.length === 0 ? <li className="text-[11px] text-neutral-500">{filter === 'all' ? 'No activity evidence has been received for this session.' : filter === 'attention' ? 'No activity requiring input has been received for this session.' : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
         : records.map((record) => <li key={record.id} className={`rounded border p-2 text-[11px] ${record.status === 'failed' ? 'border-red-500/40 bg-red-950/20' : record.status === 'attention' ? 'border-amber-500/40 bg-amber-950/20' : 'border-white/10 bg-neutral-900/40'}`}><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'attention' || record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
+          {record.toolEvidence ? <ToolEvidenceDetail evidence={record.toolEvidence} /> : null}
           {record.evidenceMessageID && snapshot.message[record.sessionID]?.some((message) => message.id === record.evidenceMessageID)
             ? <button type="button" className="mt-1 text-sky-300 hover:underline" onClick={() => {
               const anchor = `message-${record.evidenceMessageID}`;
@@ -354,4 +356,18 @@ function ActivitySurface({ store, directory }: { store: StoreApi<DirectoryStore>
     {unseen > 0 ? <button type="button" className="m-2 shrink-0 rounded border border-white/15 bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200" data-testid="activity-jump-live"
       onClick={() => { following.current = true; if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight; setUnseen(0); }}>↓ {unseen} new {unseen === 1 ? 'event' : 'events'} · Jump to live</button> : null}
   </section>;
+}
+
+function ToolEvidenceDetail({ evidence }: { evidence: ToolEvidence }): ReactNode {
+  const rows = [
+    ['Target', evidence.target], ['Effect', evidence.effect], ['Reason', evidence.reasonCode],
+    ['Elapsed', evidence.elapsedMs === undefined ? undefined : `${evidence.elapsedMs} ms`],
+    ['Exit code', evidence.exitCode === undefined ? undefined : String(evidence.exitCode)],
+  ].filter((row): row is [string, string] => row[1] !== undefined);
+  return <details className="mt-1 rounded border border-white/10 px-2 py-1" data-testid="activity-tool-evidence">
+    <summary className="cursor-pointer text-sky-300">Tool evidence</summary>
+    <dl className="mt-1 space-y-1">{rows.map(([label, value]) => <div key={label} className="flex flex-wrap justify-between gap-x-2">
+      <dt className="text-neutral-500">{label}</dt><dd className="max-w-full break-all text-neutral-300">{value}</dd>
+    </div>)}</dl>
+  </details>;
 }
