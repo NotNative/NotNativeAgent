@@ -62,8 +62,13 @@ function decodeURIComponentSafe(value: string): string {
 async function serveFile(abs: string): Promise<Response> {
   const body = await readFile(abs);
   const type = MIME[path.extname(abs).toLowerCase()] ?? 'application/octet-stream';
+  const headers = new Headers({ 'content-type': type, 'cache-control': 'no-cache' });
+  // The preview URL check applies only to its first navigation. A guest may
+  // redirect or link back to this app; never render the privileged UI inside
+  // any frame, regardless of the hostname alias used to reach it.
+  if (type.startsWith('text/html')) headers.set('content-security-policy', "frame-ancestors 'none'");
   return new Response(body, {
-    headers: { 'content-type': type, 'cache-control': 'no-cache' },
+    headers,
   });
 }
 

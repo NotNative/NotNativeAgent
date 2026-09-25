@@ -14,6 +14,9 @@ export default defineConfig({
     },
   },
   server: {
+    // Production HTML carries the same directive in the static handler.
+    // Dev previews can redirect to this Vite origin, so keep parity here.
+    headers: { 'Content-Security-Policy': "frame-ancestors 'none'" },
     proxy: {
       '/auth': { target: apiTarget, changeOrigin: true },
       '/health': { target: apiTarget, changeOrigin: true },

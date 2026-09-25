@@ -22,6 +22,19 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Manual Browser preview (P11 subset).** The operator rail now
+  accepts user-entered HTTP(S) addresses, defaults loopback dev servers to
+  HTTP, and offers back/forward/reload/external-open controls. The embedded
+  page is an opaque-origin sandboxed iframe without a privileged bridge;
+  NND's own listener and credential-bearing URLs are rejected, and NND's
+  HTML refuses framing even after a guest redirect. The wider pane retains
+  its history while another rail surface is
+  selected. Browser inspection, annotation, capture, dev-server discovery,
+  Electron guest partition, and NNA-granted agent control remain P11 work;
+  some sites cannot render in an iframe. Security follow-up: in open-auth
+  mode, unsafe loopback API requests need a server-side browser-origin gate;
+  the preview sandbox is not a CSRF boundary.
+
 - 2026-09-25 · **Broad-suite validation repair.** The auth route test now
   establishes its temporary data home before server modules capture `ENV`,
   avoiding writes into the operator's profile during tests. The mock-tool SSE

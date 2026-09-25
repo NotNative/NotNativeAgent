@@ -9,6 +9,7 @@ import { WorkStatusPanel } from './work-status-panel.tsx';
 import { GitView } from '../components/git/GitView.tsx';
 import { ProjectNotes } from './project-notes.tsx';
 import { TerminalView } from '../components/terminal/TerminalView.tsx';
+import { BrowserSurface } from './browser-surface.tsx';
 
 type Surface = 'context' | 'activity' | 'changes' | 'notes' | 'browser' | 'terminal';
 const SURFACES: readonly { id: Surface; label: string }[] = [
@@ -38,17 +39,22 @@ export function OperatorRail({ store, engine, directory }: { store: StoreApi<Dir
   // user has opened it, keep that controller mounted while another rail
   // surface is selected so a live background terminal is not silently reaped.
   const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);
+  const [browserOpenedKey, setBrowserOpenedKey] = useState<string | null>(() => selection.surface === 'browser' ? storageKey : null);
   useEffect(() => {
     if (selection.key === storageKey && surface === 'terminal') setTerminalOpenedKey(storageKey);
   }, [selection.key, storageKey, surface]);
+  useEffect(() => {
+    if (selection.key === storageKey && surface === 'browser') setBrowserOpenedKey(storageKey);
+  }, [selection.key, storageKey, surface]);
   return (
-    <aside className="hidden w-[300px] shrink-0 border-l border-white/10 bg-neutral-950/40 xl:flex" data-testid="operator-rail">
+    <aside className={`hidden shrink-0 border-l border-white/10 bg-neutral-950/40 xl:flex ${surface === 'browser' ? 'w-[min(60vw,900px)]' : 'w-[300px]'}`} data-testid="operator-rail">
       <nav className="flex w-10 shrink-0 flex-col border-r border-white/10 py-2" aria-label="Operator surfaces">
         {SURFACES.map((item) => (
           <button key={item.id} type="button" title={item.label} aria-label={item.label} aria-pressed={surface === item.id}
             className={`px-1 py-2 text-[9px] ${surface === item.id ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
             onClick={() => {
               if (item.id === 'terminal') setTerminalOpenedKey(storageKey);
+              if (item.id === 'browser') setBrowserOpenedKey(storageKey);
               setSelection({ key: storageKey, surface: item.id });
             }}>{item.label.slice(0, 1)}</button>
         ))}
@@ -63,7 +69,11 @@ export function OperatorRail({ store, engine, directory }: { store: StoreApi<Dir
             <TerminalView directory={directory} visible={surface === 'terminal'} compact />
           </div>
         ) : null}
-        {surface === 'browser' ? <DeferredSurface label="Browser" /> : null}
+        {browserOpenedKey === storageKey || surface === 'browser' ? (
+          <div className={surface === 'browser' ? 'h-full min-h-0' : 'hidden'}>
+            <BrowserSurface key={storageKey} />
+          </div>
+        ) : null}
       </div>
     </aside>
   );
@@ -93,8 +103,4 @@ function ActivitySurface({ store }: { store: StoreApi<DirectoryStore> }): ReactN
   return <section className="p-3" data-testid="operator-activity"><header className="mb-3 flex items-center gap-2"><h2 className="text-xs font-medium text-neutral-200">Activity</h2><button type="button" className="ml-auto text-[10px] text-neutral-500" aria-pressed={showFailuresOnly} onClick={() => setShowFailuresOnly(!showFailuresOnly)}>{showFailuresOnly ? 'All events' : 'Failures only'}</button></header>
     {records.length === 0 ? <p className="text-[11px] text-neutral-500">{showFailuresOnly ? 'No failed activity evidence has been received for this session.' : 'No activity evidence has been received for this session.'}</p> : <ol className="flex flex-col gap-2">{records.map((record) => <li key={record.id} className="rounded border border-white/10 bg-neutral-900/40 p-2 text-[11px]"><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span>{record.status}</span></div><p className="mt-1 text-neutral-300">{record.summary}</p></li>)}</ol>}
   </section>;
-}
-
-function DeferredSurface({ label }: { label: string }): ReactNode {
-  return <section className="p-3" data-testid={`operator-${label.toLowerCase()}`}><h2 className="text-xs font-medium text-neutral-200">{label}</h2><p className="mt-2 text-[11px] text-neutral-500">This operator surface is reserved for the next integration slice.</p></section>;
 }

@@ -195,8 +195,10 @@ Tasks:
 4. Add the Notes surface as project-owned general notes, todos, and plans. Keep agent
    memory source-labelled and behind the later NNA knowledge contract. A plan opens in
    the panel with an explicit project owner.
-5. Reserve Browser as a rail surface now but ship it only with the preview/inspection
-   contract. It is an untrusted guest surface with explicit capture/take-over gates.
+5. A user-driven, sandboxed iframe preview may occupy Browser before the full
+   preview/inspection contract. Keep it clearly labelled as a limited manual
+   preview; agent navigation, capture, annotation, and take-over wait for
+   NNA-scoped authority and the P11 guest-browser contract.
 6. In SLICE-E, replace mock activity inputs with NNA projection/evidence replay and
    verify resume cursors, redaction, permission/question links, tool receipts, and
    state authority against the real harness.
@@ -215,8 +217,9 @@ Tasks:
    chat. A resize must not silently hide the chat or move composer focus.
 
 **Seams:** initial Context/Changes/Terminal use existing NND stores; initial Activity
-uses the mock's explicit normalized evidence events. Browser and NNA agent-memory data remain unavailable until
-their governing contracts land. **Precedes:** richer autonomy and capability UI, which
+uses the mock's explicit normalized evidence events. Agent-driven browser inspection
+and NNA agent-memory data remain unavailable until their governing contracts land.
+**Precedes:** richer autonomy and capability UI, which
 should appear in the rail instead of creating disconnected status pages.
 
 W-coverage: W-05, W-06, W-13, W-17, W-19, W-46–W-55, W-56–W-63, W-106–W-113,

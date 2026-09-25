@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:129e345f53049d29dae28af4408cedfe3e5f97033260c3a62cadd64a6e7d0b10",
+  "source_digest": "sha256:d6c00c298678ad0700e1ca649a500af35b8c4365e4afac14497a2bd014174ccc",
   "counts": {
-    "modules": 364,
+    "modules": 366,
     "component_edges": 12
   },
   "components": [
@@ -24,13 +24,13 @@
       "id": "runtime-io",
       "label": "Runtime adaptation",
       "ownership": "Owns fetch bridge, auth, url tokens, endpoint switching, boot pipeline (doc 01).",
-      "module_count": 119
+      "module_count": 120
     },
     {
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 83
+      "module_count": 84
     },
     {
       "id": "web-server",
@@ -97,8 +97,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 114,
-      "module_count": 46
+      "import_count": 115,
+      "module_count": 47
     },
     {
       "from": "sync-engine",
@@ -200,6 +200,14 @@
         "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/browser-surface.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/browser/preview-url.ts"
       ]
     },
     {
@@ -337,6 +345,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/browser-surface.tsx",
         "packages/ui/src/chat/project-notes.tsx",
         "packages/ui/src/chat/work-status-panel.tsx",
         "packages/ui/src/components/git/GitView.tsx",
@@ -1041,6 +1050,12 @@
     },
     {
       "path": "packages/ui/src/lib/api/types.ts",
+      "component": "runtime-io",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "packages/ui/src/lib/browser/preview-url.ts",
       "component": "runtime-io",
       "entrypoint": false,
       "imports": []

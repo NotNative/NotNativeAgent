@@ -58,7 +58,7 @@ describe('OperatorRail', () => {
     expect(context.textContent).not.toContain('25.0% estimated');
   });
 
-  it('renders only explicit activity evidence and keeps deferred surfaces honest', () => {
+  it('renders only explicit activity evidence and offers a bounded browser preview', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ activity: [
       { id: 'a1', sessionID: 's1', time: 1, kind: 'tool', status: 'completed', summary: 'Applied patch' },
@@ -73,7 +73,8 @@ describe('OperatorRail', () => {
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).toContain('Applied patch');
     expect(document.querySelector('[data-testid="operator-activity"]')!.textContent).not.toContain('Other session');
     act(() => (document.querySelector('button[aria-label="Browser"]') as HTMLButtonElement).click());
-    expect(document.querySelector('[data-testid="operator-browser"]')!.textContent).toContain('reserved for the next integration slice');
+    expect(document.querySelector('[data-testid="operator-browser"]')!.textContent).toContain('isolated web preview');
+    expect(document.querySelector('[data-testid="operator-browser"] iframe')).toBeNull();
   });
 
   it('filters activity to failures without claiming that all session evidence is absent', () => {
