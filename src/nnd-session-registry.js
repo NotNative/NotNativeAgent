@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
-import { configuredModelProjection } from './nnd-session-description.js';
+import { configuredModelProjection, latestTurnNeedsInput } from './nnd-session-description.js';
 import { nndPhaseFromOutput } from './nnd-turn-state.js';
 
 const TRANSCRIPT_LIMIT = 200;
@@ -53,6 +53,7 @@ export class NndSessionRegistry {
       record.engine = null;
       record.ingress = null;
       record.turnState = 'idle';
+      record.attention = outcome === 'needs_input';
       // Invariant: a wall-clock correction cannot make a retained child invalid on recovery.
       record.updatedAt = Math.max(Date.now(), record.updatedAt + 1, record.createdAt);
       record.revision += 1;
@@ -77,6 +78,7 @@ export class NndSessionRegistry {
       directory: snapshot.directory, title: snapshot.title, configuredModel: snapshot.configuredModel,
       createdAt: snapshot.createdAt, updatedAt: snapshot.updatedAt, transcript: snapshot.transcript,
       turnState: 'idle',
+      attention: latestTurnNeedsInput(snapshot.activity),
     });
   }
   observeStarted(sessionId) {
@@ -165,9 +167,10 @@ function describeChild(record) {
     projectID: record.workspaceIds.values().next().value, directory: record.directory,
     title: record.title, version: '1.0',
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-    ...(record.configuredModel || record.turnState ? { metadata: { nnd: {
+    ...(record.configuredModel || record.turnState || record.attention ? { metadata: { nnd: {
       ...(record.configuredModel ? { configuredModel: record.configuredModel } : {}),
       ...(record.turnState ? { turnState: { phase: record.turnState } } : {}),
+      ...(record.attention ? { attention: { kind: 'needs_input' } } : {}),
     } } } : {}),
     time: { created: record.createdAt, updated: record.updatedAt },
   };

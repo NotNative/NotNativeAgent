@@ -8,12 +8,14 @@ export function describe(context) {
   const configuredModel = configuredModelProjection(context.engine);
   const work = nndWorkProjection(context.engine);
   const turnState = nndTurnStateProjection(context);
+  const attention = latestTurnNeedsInput(context.activity) ? { kind: 'needs_input' } : null;
   const nnd = {
     ...(context.contextUsage ? { context: context.contextUsage } : {}),
     ...(governance ? { governance } : {}),
     ...(configuredModel ? { configuredModel } : {}),
     ...(work ? { work } : {}),
     ...(turnState ? { turnState } : {}),
+    ...(attention ? { attention } : {}),
   };
   return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value,
     directory: directoryFor(context), title: context.title, version: '1.0',
@@ -21,6 +23,15 @@ export function describe(context) {
     ...(Object.keys(nnd).length ? { metadata: { nnd } } : {}),
     time: { created: context.createdAt, updated: context.updatedAt,
       ...(context.archivedAt ? { archived: context.archivedAt } : {}) } };
+}
+
+/** A completed needs-input turn remains actionable after the transport
+ * settles to idle. The latest authored turn record, including the durable
+ * Activity snapshot after restart, is the source of this display state. */
+export function latestTurnNeedsInput(activity) {
+  if (!Array.isArray(activity)) return false;
+  const last = [...activity].reverse().find((record) => record?.kind === 'turn');
+  return last?.status === 'attention';
 }
 
 /** Security: route identity is safe to display; provider profile, endpoint,

@@ -640,6 +640,24 @@ test('NND completed child transcript survives restart as read-only owned history
   await assert.rejects(readFile(path, 'utf8'), { code: 'ENOENT' });
 });
 
+test('NND retained child needs-input attention survives restart without claiming steering authority', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-child-attention-'));
+  const catalogPath = join(root, 'catalog.json');
+  const first = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await first.create('session_a', owner);
+  const child = { config: { workspaceRoot: root }, active: { finalized: false }, transcript: [] };
+  const finish = first.childSessions.register('agent_a', 'session_a', owner, child);
+  first.childSessions.observeStarted('agent_a');
+  first.childSessions.observeOutput('agent_a', { type: 'turn_result', session_id: 'agent_a', outcome: 'needs_input' });
+  finish('needs_input');
+  assert.deepEqual(first.get('agent_a', owner).metadata.nnd.attention, { kind: 'needs_input' });
+  await first.shutdown();
+  const second = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await second.initialize();
+  assert.deepEqual(second.get('agent_a', owner).metadata.nnd.attention, { kind: 'needs_input' });
+  assert.equal((await second.resolveChildSession('agent_a', owner)).availability, 'unavailable');
+});
+
 test('NND child snapshots cannot attach to a recreated parent and reject corrupt retained history', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-child-bind-'));
   const catalogPath = join(root, 'catalog.json');
@@ -882,10 +900,11 @@ test('NND engine host publishes a busy-to-idle reconciliation sequence', async (
   release({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(events.map((event) => event.type), [
-    'session.created', 'session.status', 'nnd.activity', 'message.updated', 'message.part.updated',
+    'session.created', 'session.status', 'nnd.activity', 'session.updated', 'message.updated', 'message.part.updated',
     'nnd.activity', 'session.status', 'session.idle', 'session.updated',
   ]);
   assert.equal(events[1].properties.status.type, 'busy');
+  assert.equal(events[3].properties.info.metadata?.nnd?.attention, undefined);
   assert.equal(events.at(-3).properties.status.type, 'idle');
 });
 
@@ -1005,13 +1024,15 @@ test('NND activity does not label an intentional cancellation as a failure', asy
 });
 
 test('NND activity marks a governed needs-input outcome for operator attention', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-attention-'));
+  const catalogPath = join(root, 'catalog.json');
   let output;
   let release;
   const events = [];
   const engine = fakeEngine();
   engine.transcript = [];
   engine.submit = async () => new Promise((resolve) => { release = resolve; });
-  const host = new NndEngineHost({ eventBus: { publishSession: (event) => events.push(event) },
+  const host = new NndEngineHost({ catalogPath, eventBus: { publishSession: (event) => events.push(event) },
     createEngine: async (options) => { output = options.output; return engine; } });
   await host.create('session_a', owner);
   host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
@@ -1022,6 +1043,25 @@ test('NND activity marks a governed needs-input outcome for operator attention',
   assert.equal(terminal.status, 'attention');
   assert.equal(terminal.summary, 'Turn needs input');
   assert.equal(host.activity('session_a', owner).find((record) => record.kind === 'turn').status, 'attention');
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.attention, { kind: 'needs_input' });
+  await host.shutdown();
+  let releaseNext;
+  const resumedEvents = [];
+  const restoredEngine = { ...fakeEngine(), transcript: [],
+    submit: async () => new Promise((resolve) => { releaseNext = resolve; }) };
+  const restored = new NndEngineHost({ catalogPath,
+    eventBus: { publishSession: (event) => resumedEvents.push(event) },
+    createEngine: async () => restoredEngine });
+  await restored.initialize();
+  assert.deepEqual(restored.get('session_a', owner).metadata.nnd.attention, { kind: 'needs_input' });
+  assert.equal(restored.submitAsync('session_a', { version: '1.0', type: 'submit',
+    request_id: 'prompt_b', content: 'continue' }, owner).accepted, true);
+  assert.equal(restored.get('session_a', owner).metadata?.nnd?.attention, undefined);
+  assert.equal(restored.list(owner)[0].metadata?.nnd?.attention, undefined);
+  assert.equal(resumedEvents.find((event) => event.type === 'session.updated')?.properties.info.metadata?.nnd?.attention, undefined);
+  releaseNext({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  await restored.shutdown();
 });
 
 test('NND activity reports a governed denial as a failed turn', async () => {

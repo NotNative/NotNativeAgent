@@ -15,7 +15,6 @@ import { loadChildSnapshots, NndChildSnapshotStore } from './nnd-child-snapshot.
 
 const CATALOG_LIMIT_BYTES = 1_048_576;
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
-
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
 export class NndEngineHost {
   #contexts = new Map();
@@ -208,6 +207,7 @@ export class NndEngineHost {
     // the single owner of turn completion and transcript publication.
     this.#publish(context, 'session.status', { sessionID: sessionId, status: { type: 'busy' } });
     this.#activity(context, turn.activityId, 'turn', 'started', 'Turn started', command.request_id);
+    this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
     void started.operation.then(
       (result) => this.#publishCompletion(context, turn, result?.accepted === false),
       () => this.#publishCompletion(context, turn, true),
