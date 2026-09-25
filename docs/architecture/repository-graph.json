@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:323a2cfad50940cf642858b2de4b1e5aec6dff0053c755f5251d0add5a383800",
+  "source_digest": "sha256:61a026e5862d7497658d929fa8c48fe6c8537505196001cf356f1922a81fc419",
   "counts": {
     "modules": 363,
     "component_edges": 76
@@ -168,7 +168,7 @@
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 18,
+      "import_count": 20,
       "module_count": 10
     },
     {
@@ -454,6 +454,12 @@
       "module_count": 2
     },
     {
+      "from": "integrations",
+      "to": "agentic-engine",
+      "import_count": 2,
+      "module_count": 2
+    },
+    {
       "from": "persistence",
       "to": "reliability-engine",
       "import_count": 2,
@@ -528,12 +534,6 @@
     {
       "from": "guidance",
       "to": "governance-engine",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "integrations",
-      "to": "agentic-engine",
       "import_count": 1,
       "module_count": 1
     },
@@ -1749,8 +1749,11 @@
       "component": "integrations",
       "entrypoint": false,
       "imports": [
+        "src/config.js",
+        "src/engine.js",
         "src/ids.js",
         "src/integration-server.js",
+        "src/nnd-engine-host.js",
         "src/nno-integration-activation.js",
         "src/provider/profile-store.js",
         "src/secret-broker.js"

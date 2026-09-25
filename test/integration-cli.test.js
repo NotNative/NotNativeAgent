@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { runIntegrationCommand } from '../src/integration-cli.js';
+import { createIntegrationNndEngineHost, runIntegrationCommand } from '../src/integration-cli.js';
 
 test('integration child emits one atomic protocol-only readiness frame', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-integration-cli-'));
@@ -58,6 +58,23 @@ test('legacy broker-only activation cannot start the unified authority', async (
   }, { environment: { NNA_NNO_INSTALL_ROOT: installRoot }, output: { write() { return true; } } }), {
     code: 'nno_integration_activation_incompatible',
   });
+});
+
+test('integration NND host builds governed engines from the trusted manifest', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-integration-nnd-host-'));
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify({
+    format_version: 1, persistence: 'ephemeral', workspace_root: root,
+    providers: [{ id: 'primary', display_name: 'Primary', endpoint: 'http://127.0.0.1:1234/v1', model: 'test', trust_zone: 'loopback' }],
+    routes: { primary: { provider_id: 'primary', model: 'test' } },
+  }));
+  const host = await createIntegrationNndEngineHost({ config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') });
+  assert.equal(host.workspaceRoot, root);
+  const principal = { subjectId: 'operator', workspaceIds: ['workspace_a'] };
+  const context = await host.create('session_a', principal);
+  assert.equal(context.engine.sessionId, 'session_a');
+  await host.close('session_a', principal);
 });
 
 test('integration activation rejects an invalid deployment identifier', async () => {

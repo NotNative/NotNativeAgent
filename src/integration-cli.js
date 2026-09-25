@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomBytes, randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { startIntegrationServer } from './integration-server.js';
 import { validateNnoIntegrationActivation } from './nno-integration-activation.js';
 import { ProviderProfileStore } from './provider/profile-store.js';
 import { SecretBroker } from './secret-broker.js';
+import { resolveManifest } from './config.js';
+import { SessionEngine } from './engine.js';
+import { NndEngineHost } from './nnd-engine-host.js';
 
 export async function runIntegrationCommand(args, paths, options = {}) {
   if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
@@ -19,8 +24,9 @@ export async function runIntegrationCommand(args, paths, options = {}) {
     vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
   });
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker });
+  const nndEngineHost = await createIntegrationNndEngineHost(paths, options);
   const service = await startIntegrationServer({
-    activation, token, instanceId, broker, providerStore, host: '127.0.0.1', port: 0,
+    activation, token, instanceId, broker, providerStore, nndEngineHost, nndWorkspaceRoot: nndEngineHost.workspaceRoot, host: '127.0.0.1', port: 0,
   });
   const endpoint = `http://127.0.0.1:${service.address.port}`;
   const output = options.output ?? process.stdout;
@@ -36,6 +42,34 @@ export async function runIntegrationCommand(args, paths, options = {}) {
   }
   if (failure) throw failure;
   return { stopped: true };
+}
+
+export async function createIntegrationNndEngineHost(paths, options = {}) {
+  const manifest = await readIntegrationManifest(join(paths.config, 'manifest.json'));
+  const config = resolveManifest(manifest, {
+    missionPrincipal: 'authenticated-nnd-operator', principal: 'authenticated-nnd-operator',
+    hostOrigin: 'nnd-integration', hostIdentity: 'nnd-integration',
+  });
+  const host = new NndEngineHost({
+    createEngine: async (input) => new SessionEngine({
+      config, sessionId: input.sessionId, nndSessionRegistry: input.nndSessionRegistry,
+      storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger,
+      providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
+      mcpTransportFactory: options.mcpTransportFactory, memoryAdapter: options.memoryAdapter,
+      hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
+      skillRoots: options.skillRoots ?? [],
+    }),
+  });
+  host.workspaceRoot = config.workspaceRoot;
+  return host;
+}
+
+async function readIntegrationManifest(path) {
+  let source;
+  try { source = await readFile(path, 'utf8'); }
+  catch (error) { throw new ContractError('nnd_manifest_unavailable', 'NND integration requires the NNA manifest', { cause: error }); }
+  try { return JSON.parse(source); }
+  catch (error) { throw new ContractError('nnd_manifest_invalid', 'NND integration manifest is invalid', { cause: error }); }
 }
 
 function waitForShutdown(signal, server) {
