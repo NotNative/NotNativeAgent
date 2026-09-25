@@ -32,4 +32,16 @@ export async function probeProviderRoute(call, json) {
   const reapplied = await json(call, '/api/v1/provider-route/activate', { method: 'POST' }, 200);
   assert.deepEqual(reapplied.runtime_route, { providerID: 'primary', modelID: 'test' });
   assert.equal((await json(call, '/api/v1/provider-profiles', 200)).provider_routing_pending, false);
+  const subagent = await json(call, '/api/v1/provider-route/subagent', 200);
+  assert.deepEqual(subagent.configured_route, { providerID: 'delegated', modelID: 'test' });
+  assert.deepEqual(subagent.runtime_route, { providerID: 'delegated', modelID: 'test' });
+  const switchedSubagent = await json(call, '/api/v1/provider-route/subagent', routeBody('smoke'), 200);
+  assert.deepEqual(switchedSubagent.configured_route, { providerID: 'smoke', modelID: 'test' });
+  assert.deepEqual(switchedSubagent.runtime_route, { providerID: 'delegated', modelID: 'test' });
+  assert.equal((await json(call, '/api/v1/provider-profiles', 200)).provider_routing_pending, true);
+  await json(call, '/api/v1/provider-route/activate', { method: 'POST' }, 200);
+  assert.deepEqual((await json(call, '/api/v1/nnd/agents', 200)).route, { providerID: 'smoke', modelID: 'test' });
+  await json(call, '/api/v1/provider-route/subagent', routeBody('delegated'), 200);
+  await json(call, '/api/v1/provider-route/activate', { method: 'POST' }, 200);
+  assert.deepEqual((await json(call, '/api/v1/nnd/agents', 200)).route, { providerID: 'delegated', modelID: 'test' });
 }

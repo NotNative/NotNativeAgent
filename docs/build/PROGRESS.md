@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Subagent route configuration from Agents Settings.** NNA
+  exposes a separately authorized, validated saved subagent provider/model
+  route. Agents Settings distinguishes saved from running routing, lets the
+  operator select a provider profile and model, and requires explicit
+  activation before new sessions adopt the change. Existing sessions retain
+  their engines. This is configuration only: NNA still governs whether each
+  session may delegate. The cross-repo smoke saves, activates, and restores
+  the subagent route before exercising delegated work.
+
 - 2026-09-25 · **NNA-native provider profile create/edit in Settings.** NND
   receives only `provider.profile.write` for profile creation and edits;
   existing `provider.manage` clients remain compatible, while the narrower

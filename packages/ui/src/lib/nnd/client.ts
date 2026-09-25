@@ -179,6 +179,12 @@ export const harnessClient = {
   async setPrimaryProviderRoute(providerId: string, model: string): Promise<HarnessResult<{ configured_primary_route: unknown; runtime_route: unknown }>> {
     return request('setPrimaryProviderRoute', '/v1/provider-route', PATCH({ provider_id: providerId, model }));
   },
+  async getSubagentProviderRoute(): Promise<HarnessResult<{ configured_route: unknown; runtime_route: unknown }>> {
+    return request('getSubagentProviderRoute', '/v1/provider-route/subagent');
+  },
+  async setSubagentProviderRoute(providerId: string, model: string): Promise<HarnessResult<{ configured_route: unknown; runtime_route: unknown }>> {
+    return request('setSubagentProviderRoute', '/v1/provider-route/subagent', PATCH({ provider_id: providerId, model }));
+  },
   async activatePrimaryProviderRoute(): Promise<HarnessResult<{ runtime_route: unknown; existing_sessions_unchanged: boolean }>> {
     return request('activatePrimaryProviderRoute', '/v1/provider-route/activate', post({}));
   },

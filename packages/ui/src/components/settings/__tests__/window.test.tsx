@@ -483,6 +483,48 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     expect(document.body.textContent).not.toContain('no built-in subagent roles');
   });
 
+  it('saves a subagent route separately from running delegation and applies it only on command', async () => {
+    let configured = 'delegated';
+    let running = 'delegated';
+    const writes: string[] = [];
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith('/v1/provider-route/subagent')) {
+        if (init?.method === 'PATCH') {
+          const body = JSON.parse(String(init.body));
+          writes.push('save'); configured = body.provider_id;
+          return Promise.resolve(new Response(JSON.stringify({ configured_route: { providerID: configured, modelID: body.model },
+            runtime_route: { providerID: running, modelID: 'test' } }), { status: 200 }));
+        }
+        return Promise.resolve(new Response(JSON.stringify({ configured_route: { providerID: configured, modelID: 'test' },
+          runtime_route: { providerID: running, modelID: 'test' } }), { status: 200 }));
+      }
+      if (url.endsWith('/v1/provider-route/activate')) {
+        writes.push('apply'); running = configured;
+        return Promise.resolve(new Response(JSON.stringify({ runtime_route: { providerID: 'primary', modelID: 'test' },
+          existing_sessions_unchanged: true }), { status: 200 }));
+      }
+      if (url.endsWith('/v1/provider-profiles')) return Promise.resolve(new Response(JSON.stringify({
+        profiles: [{ profile_id: 'delegated', model: 'test' }, { profile_id: 'primary', model: 'test' }],
+        provider_routing_pending: configured !== running,
+      }), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ version: 1, state: 'configured',
+        route: { providerID: running, modelID: 'test' }, roles: [{ id: 'general', kind: 'built_in_subagent' }],
+      }), { status: 200 }));
+    });
+    await renderWindow('agents');
+    expect(writes).toEqual([]);
+    const selector = [...document.querySelectorAll('label')].find((item) => item.textContent?.includes('Provider profile'))?.querySelector('select');
+    await act(async () => { selector!.value = 'primary'; selector!.dispatchEvent(new Event('change', { bubbles: true })); });
+    await act(async () => { [...document.querySelectorAll('button')].find((button) => button.textContent === 'Save subagent route')?.click(); await Promise.resolve(); });
+    expect(writes).toEqual(['save']);
+    expect(document.body.textContent).toContain('Saved: primary/test');
+    expect(document.body.textContent).toContain('Running: delegated/test');
+    expect(document.body.textContent).toContain('does not grant any agent permission');
+    await act(async () => { [...document.querySelectorAll('button')].find((button) => button.textContent === 'Apply saved provider routing to new sessions')?.click(); await Promise.resolve(); });
+    expect(writes).toEqual(['save', 'apply']);
+    expect(document.body.textContent).toContain('Running: primary/test');
+  });
+
   it('landing pages render the phase note, never a silent gap', async () => {
     await renderWindow('plugins');
     expect(document.body.textContent).toContain('Plugins');

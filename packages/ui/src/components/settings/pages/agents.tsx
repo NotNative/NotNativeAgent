@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { harnessClient } from '../../../lib/nnd/client.ts';
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
+import { SubagentRouteEditor } from './subagent-route-editor.tsx';
 
 interface Role { id: string; kind: 'built_in_subagent' }
 interface Route { providerID: string; modelID: string }
@@ -46,7 +47,7 @@ export function AgentsPage(): ReactNode {
     <p className="text-xs text-muted-foreground">Built-in roles supported by this running NNA process. A role appearing here does not grant delegation in a particular session; NNA applies session and governance checks when invoked.</p>
     {loading ? <p role="status" className="text-xs text-muted-foreground">Loading agent catalog…</p> : null}
     {!loading && error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
-    {!loading && inventory ? <p className="text-xs text-muted-foreground">Configured subagent route: {inventory.route.providerID}/{inventory.route.modelID}</p> : null}
+    {!loading && inventory ? <SubagentRouteEditor runningRoute={inventory.route} onApplied={refresh} /> : null}
     {!loading && inventory?.roles.length === 0 ? <p className="text-xs text-muted-foreground">NNA reports no built-in subagent roles.</p> : null}
     {!loading && inventory?.roles.map((role) => <div key={role.id} data-testid="nna-agent-role"
       className="rounded-md border border-border/40 p-3 text-xs text-foreground">{role.id}</div>)}
