@@ -164,13 +164,22 @@ try {
     Write-Heading "Building shell artifacts (web dist + server bundle + tray icons)"
     $bundle = Join-Path $InstallDir "packages\electron\dist-server\server.mjs"
     # -SkipBuild integrity check: a torn earlier build (crash between esbuild,
-    # sibling JSON staging and icon generation) used to be reused silently and
-    # the shell booted into a half-built state. All four outputs are required.
+    # sibling JSON/native staging and icon generation) used to be reused
+    # silently. The server and terminal runtime must both be complete.
     $reusable = $false
     if ($SkipBuild -and (Test-Path $bundle)) {
         $reusable = $true
         foreach ($artifact in @(
             (Join-Path $InstallDir "packages\electron\dist-server\settings-registry.json"),
+            (Join-Path $InstallDir "packages\electron\dist-server\node_modules\node-pty\package.json"),
+            (Join-Path $InstallDir "packages\electron\dist-server\node_modules\node-pty\lib\index.js"),
+            (Join-Path $InstallDir "packages\electron\dist-server\node_modules\node-pty\prebuilds\win32-x64\conpty.node"),
+            (Join-Path $InstallDir "packages\electron\dist-server\node_modules\node-pty\prebuilds\win32-x64\conpty_console_list.node"),
+            (Join-Path $InstallDir "packages\electron\dist-server\node_modules\node-pty\prebuilds\win32-x64\pty.node"),
+            (Join-Path $InstallDir "packages\electron\dist-server\node_modules\node-pty\prebuilds\win32-x64\winpty-agent.exe"),
+            (Join-Path $InstallDir "packages\electron\dist-server\node_modules\node-pty\prebuilds\win32-x64\winpty.dll"),
+            (Join-Path $InstallDir "packages\electron\dist-server\node_modules\node-pty\prebuilds\win32-x64\conpty\conpty.dll"),
+            (Join-Path $InstallDir "packages\electron\dist-server\node_modules\node-pty\prebuilds\win32-x64\conpty\OpenConsole.exe"),
             (Join-Path $InstallDir "packages\electron\assets\tray-running.png"),
             (Join-Path $InstallDir "packages\electron\assets\tray-stopped.png")
         )) { if (!(Test-Path -LiteralPath $artifact)) { $reusable = $false } }

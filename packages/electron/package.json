@@ -28,6 +28,11 @@
       {
         "from": "dist-server",
         "to": "dist-server"
+      },
+      {
+        "from": "dist-server/node_modules/node-pty",
+        "to": "dist-server/node_modules/node-pty",
+        "filter": ["**/*"]
       }
     ],
     "win": {

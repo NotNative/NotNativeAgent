@@ -74,11 +74,18 @@ remaining P12 slices ride after it.
 - **D-09-4** Tray/menus/notifications/deep-links/SSH/updater/Mini Chat/
   window-restore/close-to-tray/keep-awake all deferred to P12b rows above.
   Close = quit (window-all-closed quits the app after server dispose).
-- **D-09-5** node-pty is EXTERNAL in the server bundle and NOT rebuilt against
-  Electron's ABI in v1. Consequence: the in-process server boots and answers
-  everything EXCEPT terminal creation, which fails at PtyFactory require with a
-  module-load error surfaced to the client (doc-07 creation-failure path).
-  Electron ABI rebuild is a P12b packaging item.
+- **D-09-5** node-pty stays EXTERNAL in the server bundle. The packaging
+  pipeline now stages its runtime JS, license, and platform native binaries
+  beside `dist-server/server.mjs` under `dist-server/node_modules/node-pty`.
+  NSIS lists this native package as a separate explicit extra resource;
+  electron-builder's generic `dist-server` copy skips nested `node_modules`.
+  It verifies package resolution and Windows native-addon loading in both
+  Node and Electron-run-as-Node before
+  building either shell artifact. The historical v1 installer omitted this
+  dependency, so terminal creation failed with a module-load error. A live
+  packaged Electron terminal test remains necessary before claiming Electron
+  ABI compatibility across platforms; only the Windows x64 artifact is
+  built on this host.
 - **D-09-6** Data dir stays the server default `~/.notnative-desktop`
   (NOT userData) so the packaged app and `pnpm start` share state. Electron
   userData holds only shell prefs (port seed) + logs. Delta vs §1.6.
@@ -158,7 +165,8 @@ remaining P12 slices ride after it.
   -InstallDir); upstream-deleted files linger until a full reinstall; every
   runtime artifact is regenerated wholesale by --no-nsis so lingering orphans
   are inert. -SkipBuild requires bundle + settings-registry.json + both tray
-  PNGs (a torn prior build rebuilds instead of booting half-built) and WARNS
+  PNGs and the staged node-pty runtime (a torn prior build rebuilds instead
+  of booting half-built) and WARNS
   when watched sources are newer than the stored bundle (freshness oracle,
   warning-only). Electron shell: boot failure with a tray swaps the splash
   spinner for a local failure page (data: URL, error text + main.log path +
@@ -186,9 +194,10 @@ remaining P12 slices ride after it.
 
 ## B2. First-install residuals (P12a audit, 2026-09-22 — registered not fixed)
 
-- node-pty is external AND unshipped: packaged terminal-create returns the
-  module-load error as a JSON error (probed live: server stays healthy).
-  Shipping + asarUnpack + Electron-ABI rebuild = P12b.
+- node-pty was external AND unshipped in the original v1 installer. The
+  current build stages it outside asar next to the server, and checks native
+  addon loading in Node and Electron-run-as-Node. A live packaged Electron terminal-create probe is
+  still required to close the platform ABI and UI interaction gate.
 - Dual-instance sharing of ~/.notnative-desktop (packaged + dev `pnpm start`):
   queue dispatch and settings writes assume one server; occurrence-claim
   machinery exists only for scheduled tasks (lands P9-3). Cross-process

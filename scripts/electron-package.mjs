@@ -8,8 +8,8 @@
  * 2. stage packages/web/dist -> packages/electron/resources/web-dist.
  * 3. esbuild-bundle the server: packages/web/src/server/index.ts ->
  *    packages/electron/dist-server/server.mjs. ALL deps bundle except the
- *    native boundary (node-pty stays external; D-09-5). A leak of
- *    @notnative/ui into the bundle is treated as a hard failure.
+ *    native boundary (node-pty stays external; D-09-5). Stage and verify
+ *    node-pty beside the bundle. A leak of @notnative/ui fails the build.
  * 4. electron-builder win nsis oneClick (unsigned; version rides in via
  *    -c.extraMetadata.version from the root package.json — D-09-12).
  *
@@ -18,7 +18,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { build as esbuild } from 'esbuild';
@@ -28,8 +28,15 @@ const WEB_DIR = path.join(ROOT, 'packages', 'web');
 const SHELL_DIR = path.join(ROOT, 'packages', 'electron');
 const STAGED_DIST = path.join(SHELL_DIR, 'resources', 'web-dist');
 const BUNDLE_OUT = path.join(SHELL_DIR, 'dist-server', 'server.mjs');
+const NATIVE_RUNTIME_DIR = path.join(SHELL_DIR, 'dist-server', 'node_modules', 'node-pty');
 const OUTPUT_DIR = path.join(ROOT, 'dist-electron');
 const NATIVE_EXTERNALS = ['node-pty'];
+const WINDOWS_PTY_FILES = ['pty.node', 'conpty.node', 'conpty_console_list.node', 'winpty-agent.exe',
+  'winpty.dll', path.join('conpty', 'conpty.dll'), path.join('conpty', 'OpenConsole.exe')];
+// electron-builder may Authenticode-sign these executable helpers while
+// copying extraResources; their bytes need not match the unsigned staged files.
+const SIGNED_PTY_HELPERS = new Set(['winpty-agent.exe', 'conpty/OpenConsole.exe']
+  .map((file) => `node_modules/node-pty/prebuilds/win32-x64/${file}`));
 // Data files the server bundle reads relative to import.meta.url — esbuild
 // copies no JSON siblings, so the pipeline must stage them next to the bundle.
 const SIBLING_DATA = [path.join('packages', 'web', 'src', 'server', 'lib', 'settings-registry.json')];
@@ -59,13 +66,17 @@ async function main() {
   }
   await bundleServer();
   copySiblingData();
+  stageNativeRuntime();
+  verifyNativeRuntime();
   if (NO_NSIS) {
     reportArtifactIntegrity();
     log('artifacts ready (electron/, no installer pass)');
     return;
   }
+  const installer = installerPath(version);
+  const previousInstaller = existsSync(installer) ? statSync(installer) : null;
   runElectronBuilder(version);
-  reportArtifacts();
+  reportArtifacts(installer, previousInstaller);
 }
 
 // ── step 0: root version + electron binary preflight ────────────────────────
@@ -188,6 +199,54 @@ function copySiblingData() {
   }
 }
 
+function stageNativeRuntime() {
+  const source = path.join(WEB_DIR, 'node_modules', 'node-pty');
+  const variant = `${process.platform}-${NO_NSIS ? process.arch : 'x64'}`;
+  const prebuilt = path.join(source, 'prebuilds', variant);
+  const compiled = path.join(source, 'build', 'Release');
+  const nativeSource = existsSync(path.join(prebuilt, 'pty.node')) ? prebuilt : compiled;
+  const required = process.platform === 'win32' ? WINDOWS_PTY_FILES : ['pty.node', 'spawn-helper'];
+  const missing = [path.join(source, 'lib', 'index.js'), path.join(source, 'package.json'), path.join(source, 'LICENSE'),
+    ...required.map((file) => path.join(nativeSource, file))].filter((file) => !existsSync(file));
+  if (missing.length > 0) throw new Error(`node-pty runtime is incomplete for ${variant}: ${missing.join(', ')}`);
+  // Invariant: only replace the fixed, generated native package beneath dist-server.
+  if (path.dirname(NATIVE_RUNTIME_DIR) !== path.join(SHELL_DIR, 'dist-server', 'node_modules')) {
+    throw new Error('native staging target escaped dist-server');
+  }
+  rmSync(NATIVE_RUNTIME_DIR, { recursive: true, force: true, maxRetries: 4 });
+  mkdirSync(NATIVE_RUNTIME_DIR, { recursive: true });
+  cpSync(path.join(source, 'package.json'), path.join(NATIVE_RUNTIME_DIR, 'package.json'));
+  cpSync(path.join(source, 'LICENSE'), path.join(NATIVE_RUNTIME_DIR, 'LICENSE'));
+  cpSync(path.join(source, 'lib'), path.join(NATIVE_RUNTIME_DIR, 'lib'), { recursive: true });
+  const nativeTarget = nativeSource === prebuilt
+    ? path.join(NATIVE_RUNTIME_DIR, 'prebuilds', variant) : path.join(NATIVE_RUNTIME_DIR, 'build', 'Release');
+  cpSync(nativeSource, nativeTarget, { recursive: true,
+    filter: (name) => !name.toLowerCase().endsWith('.pdb') });
+  log(`staged node-pty runtime: ${variant} (${countFiles(NATIVE_RUNTIME_DIR)} files)`);
+}
+
+function verifyNativeRuntime() {
+  const variant = `${process.platform}-${NO_NSIS ? process.arch : 'x64'}`;
+  const prebuilt = path.join(NATIVE_RUNTIME_DIR, 'prebuilds', variant);
+  const nativeDir = existsSync(path.join(prebuilt, 'pty.node'))
+    ? prebuilt : path.join(NATIVE_RUNTIME_DIR, 'build', 'Release');
+  const addonNames = process.platform === 'win32' ? ['pty', 'conpty', 'conpty_console_list'] : ['pty'];
+  const probe = [
+    "const { createRequire } = require('node:module');",
+    `const pty = createRequire(${JSON.stringify(BUNDLE_OUT)})('node-pty');`,
+    `for (const name of ${JSON.stringify(addonNames)}) require(${JSON.stringify(nativeDir)} + '/' + name + '.node');`,
+    "if (typeof pty.spawn !== 'function') process.exitCode = 1;",
+  ].join('\n');
+  for (const [runtime, env] of [[process.execPath, process.env], [electronBinaryPath(), { ...process.env, ELECTRON_RUN_AS_NODE: '1' }]]) {
+    const result = spawnSync(runtime, ['-e', probe], { cwd: ROOT, env, encoding: 'utf8', timeout: 5_000,
+      maxBuffer: 262_144 });
+    if (result.status !== 0 || result.error) {
+      throw new Error(`staged node-pty failed in ${runtime}: ${result.error?.code ?? result.status}; stdout=${result.stdout?.slice(-400) ?? ''}; stderr=${result.stderr?.slice(-400) ?? ''}`);
+    }
+  }
+  log('staged node-pty and native addons loaded in Node and Electron runtimes');
+}
+
 function auditBundle(text) {
   if (text.includes('@notnative/ui/')) {
     throw new Error('bundle leak: the server bundle pulls @notnative/ui code (React would ride along) — treat as failure');
@@ -222,11 +281,27 @@ function runElectronBuilder(version) {
 
 // ── report ────────────────────────────────────────────────────────────────
 
-function reportArtifacts() {
-  const setup = findInstallers().at(0);
-  if (!setup) throw new Error(`no installer under ${OUTPUT_DIR}`);
+function installerPath(version) {
+  return path.join(OUTPUT_DIR, `NotNativeDesktop-Setup-${version}-win-x64.exe`);
+}
+
+function reportArtifacts(setup, previousInstaller) {
+  if (!existsSync(setup)) throw new Error(`current-version installer missing: ${setup}`);
+  const stagedServer = path.join(SHELL_DIR, 'dist-server');
+  const packagedServer = path.join(OUTPUT_DIR, 'win-unpacked', 'resources', 'dist-server');
+  if (!existsSync(packagedServer)) throw new Error(`installer omitted server runtime: ${packagedServer}`);
+  const stagedDigest = directoryDigest(stagedServer, SIGNED_PTY_HELPERS);
+  const packagedDigest = directoryDigest(packagedServer, SIGNED_PTY_HELPERS);
+  if (stagedDigest.files !== packagedDigest.files || stagedDigest.digest !== packagedDigest.digest) {
+    throw new Error(`packaged server runtime differs from staged artifacts: ${packagedServer}`);
+  }
+  const currentInstaller = statSync(setup);
+  if (previousInstaller && currentInstaller.mtimeMs === previousInstaller.mtimeMs
+    && currentInstaller.size === previousInstaller.size) {
+    throw new Error(`installer was not refreshed by electron-builder: ${setup}`);
+  }
   const sha256 = createHash('sha256').update(readFileSync(setup)).digest('hex');
-  log(`installer: ${path.basename(setup)} (${(statSync(setup).size / 1024 / 1024).toFixed(1)} MiB)`);
+  log(`installer: ${path.basename(setup)} (${(currentInstaller.size / 1024 / 1024).toFixed(1)} MiB)`);
   log(`sha256:  ${sha256}`);
 }
 
@@ -241,7 +316,7 @@ function sha256Hex(file) {
 }
 
 /** Deterministic tree digest: pre-sorted relative paths, rolling sha chain. */
-function directoryDigest(dir) {
+function directoryDigest(dir, signedExecutables = new Set()) {
   const rows = [];
   const walk = (current) => {
     const entries = readdirSync(current, { withFileTypes: true })
@@ -249,7 +324,13 @@ function directoryDigest(dir) {
     for (const entry of entries) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) walk(full);
-      else rows.push(`${path.relative(dir, full).replaceAll('\\', '/')} ${sha256Hex(full)}`);
+      else {
+        const relative = path.relative(dir, full).replaceAll('\\', '/');
+        if (signedExecutables.has(relative)) {
+          if (statSync(full).size === 0) throw new Error(`empty packaged executable: ${full}`);
+          rows.push(`${relative} signed-executable`);
+        } else rows.push(`${relative} ${sha256Hex(full)}`);
+      }
     }
   };
   walk(dir);
@@ -262,19 +343,15 @@ function reportArtifactIntegrity() {
   const webDist = path.join(WEB_DIR, 'dist');
   const trayDir = path.join(SHELL_DIR, 'assets');
   const trayIcons = [path.join(trayDir, 'tray-running.png'), path.join(trayDir, 'tray-stopped.png')];
-  const missing = [bundle, registry, webDist, ...trayIcons].filter((artifact) => !existsSync(artifact));
+  const missing = [bundle, registry, webDist, NATIVE_RUNTIME_DIR, ...trayIcons].filter((artifact) => !existsSync(artifact));
   if (missing.length > 0) throw new Error(`artifact integrity check incomplete, missing: ${missing.join(', ')}`);
   for (const artifact of [bundle, registry, ...trayIcons]) {
     log(`sha256 ${path.relative(ROOT, artifact).replaceAll('\\', '/')}: ${sha256Hex(artifact)}`);
   }
   const web = directoryDigest(webDist);
   log(`sha256 web-dist tree (packages/web/dist, ${web.files} files, sorted rel-path digest): ${web.digest}`);
-}
-
-function findInstallers() {
-  return readdirSync(OUTPUT_DIR)
-    .filter((name) => /^NotNativeDesktop-Setup-.*-win-x64\.exe$/u.test(name))
-    .map((name) => path.join(OUTPUT_DIR, name));
+  const native = directoryDigest(NATIVE_RUNTIME_DIR);
+  log(`sha256 native-runtime tree (node-pty, ${native.files} files, sorted rel-path digest): ${native.digest}`);
 }
 
 function log(line) {

@@ -22,6 +22,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Installable shell artifact integrity.** The packaging
+  pipeline now stages the external `node-pty` runtime and native binaries
+  beside the server bundle for both script-install and NSIS paths. An
+  isolated Node and Electron-run-as-Node probes check that the staged package
+  and all Windows native addons load; the NSIS gate checks their presence
+  again in `win-unpacked` because electron-builder's generic extra-resource
+  copy otherwise excludes nested `node_modules`;
+  the artifact digest includes the native tree. NSIS reporting now selects
+  the exact version just built, so an older installer cannot be reported as
+  the new release. A live packaged Electron terminal-create test is still
+  outstanding.
+
 - 2026-09-25 · **Live child-steering source loop.** The isolated provider
   holds a real delegated child turn open while the smoke reads NNA's
   child-specific capability through NND, submits an explicit steer, and
