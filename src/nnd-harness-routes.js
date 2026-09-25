@@ -11,7 +11,10 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     try { id = decodeURIComponent(match[1]); requireExternalId(id, 'session_id'); }
     catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
   }
-  if (request.method === 'GET') { requireIntegrationPermission(context.principal, 'nnd.read'); return send(response, 200, match[2] ? host.messages(id, context.principal) : id ? host.get(id, context.principal) : host.list(context.principal)); }
+  if (request.method === 'GET' && match[2] !== 'prompt_async') {
+    requireIntegrationPermission(context.principal, 'nnd.read');
+    return send(response, 200, match[2] === 'message' ? host.messages(id, context.principal) : id ? host.get(id, context.principal) : host.list(context.principal));
+  }
   if (request.method === 'POST' && !id) {
     requireIntegrationPermission(context.principal, 'nnd.session.create');
     const body = await readJsonBody(request);
@@ -23,7 +26,8 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     requireIntegrationPermission(context.principal, 'nnd.session.submit');
     const body = await readJsonBody(request);
     const content = textContent(body?.parts);
-    return send(response, 202, await host.submit(id, { version: '1.0', type: 'submit', request_id: body?.messageID ?? newId('nnd_prompt'), content }, context.principal));
+    host.submitAsync(id, { version: '1.0', type: 'submit', request_id: body?.messageID ?? newId('nnd_prompt'), content }, context.principal);
+    response.writeHead(204); response.end(); return true;
   }
   return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
 }

@@ -60,6 +60,23 @@ test('NND engine host revokes child grants and retains a failed close for retry'
   assert.deepEqual(await host.close('session_a', owner), { closed: true });
 });
 
+test('NND engine host acknowledges prompt_async work and keeps transcript IDs stable', async () => {
+  let release;
+  const pending = new Promise((resolve) => { release = resolve; });
+  const engine = fakeEngine();
+  engine.transcript = [{ type: 'message', role: 'user', content: 'first' }];
+  engine.submit = async () => pending;
+  const host = new NndEngineHost({ createEngine: async () => engine });
+  await host.create('session_a', owner);
+  assert.deepEqual(host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner), { accepted: true, request_id: 'prompt_a' });
+  assert.deepEqual(host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner), { accepted: false, duplicate: true, pending: true });
+  engine.transcript.push(...Array.from({ length: 201 }, (_, index) => ({ type: 'message', role: index % 2 ? 'assistant' : 'user', content: `message ${index}` })));
+  const messages = host.messages('session_a', owner);
+  assert.equal(messages.length, 200);
+  assert.equal(messages[0].info.id, 'session_a:message:2');
+  release();
+});
+
 function steer(request_id) { return { version: '1.0', type: 'steer', request_id, content: 'continue' }; }
 
 function fakeEngine() {

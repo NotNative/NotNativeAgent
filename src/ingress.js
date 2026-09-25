@@ -15,9 +15,23 @@ export class CanonicalIngress {
   }
 
   async submit(rawCommand, principal = 'stdio-host') {
+    const started = this.start(rawCommand, principal);
+    if (started.duplicate) return started.result;
+    return started.operation;
+  }
+
+  // Starts a canonical command without making a transport wait for the whole
+  // agent turn.  The NND compatibility API is deliberately asynchronous, but
+  // it must still share this ingress's validation and idempotency window.
+  start(rawCommand, principal = 'stdio-host') {
     const command = validateCommand(rawCommand, { interactive: this.interactive });
     const prior = this.#seen.get(command.request_id);
-    if (prior) return { accepted: false, duplicate: true, pending: !prior.settled };
+    if (prior) {
+      return {
+        duplicate: true,
+        result: { accepted: false, duplicate: true, pending: !prior.settled },
+      };
+    }
     if (this.#seen.size >= this.maxIdentities) {
       throw new ContractError('ingress_capacity', 'idempotency window is full');
     }
@@ -25,7 +39,7 @@ export class CanonicalIngress {
     const entry = { operation, type: command.type, settled: false };
     this.#seen.set(command.request_id, entry);
     operation.then(() => { entry.settled = true; }, () => { entry.settled = true; });
-    return operation;
+    return { duplicate: false, operation };
   }
 
   async #route(command, principal) {

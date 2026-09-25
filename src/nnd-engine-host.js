@@ -56,6 +56,16 @@ export class NndEngineHost {
     return context.ingress.submit(command, principal);
   }
 
+  submitAsync(sessionId, command, principal) {
+    const context = this.#owned(sessionId, principal);
+    const started = context.ingress.start(command, principal);
+    if (started.duplicate) return started.result;
+    // Why: callers receive the acknowledgement promptly; the engine remains
+    // the single owner of turn completion and transcript publication.
+    void started.operation.catch(() => undefined);
+    return { accepted: true, request_id: command.request_id };
+  }
+
   async resolveChildSession(sessionId, principal) {
     requirePrincipal(principal);
     return this.childSessions.resolve(sessionId, principal);
@@ -65,8 +75,11 @@ export class NndEngineHost {
   get(sessionId, principal) { return describe(this.#owned(sessionId, principal)); }
   messages(sessionId, principal) {
     const context = this.#owned(sessionId, principal);
-    return context.engine.transcript.filter((item) => item?.type === 'message' && typeof item.content === 'string').slice(-200)
-      .map((item, index) => ({ info: { id: `${context.sessionId}:message:${index}`, sessionID: context.sessionId, role: item.role, time: { created: context.createdAt + index }, agent: 'nna', model: { providerID: 'nna', modelID: 'nna' } }, parts: [{ id: `${context.sessionId}:part:${index}`, sessionID: context.sessionId, messageID: `${context.sessionId}:message:${index}`, type: 'text', text: item.content }] }));
+    return context.engine.transcript
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => item?.type === 'message' && (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string')
+      .slice(-200)
+      .map(({ item, index }) => messageProjection(context, item, index));
   }
 
   async close(sessionId, principal) {
@@ -88,6 +101,14 @@ export class NndEngineHost {
     }
     return context;
   }
+}
+
+function messageProjection(context, item, index) {
+  // Transcript positions are monotonic for an engine lifetime.  Keeping that
+  // position in the public ID prevents old pages from changing identity as the
+  // bounded NND projection rolls forward.
+  const messageId = `${context.sessionId}:message:${index}`;
+  return { info: { id: messageId, sessionID: context.sessionId, role: item.role, time: { created: context.createdAt + index }, agent: 'nna', model: { providerID: 'nna', modelID: 'nna' } }, parts: [{ id: `${context.sessionId}:part:${index}`, sessionID: context.sessionId, messageID: messageId, type: 'text', text: item.content }] };
 }
 
 function requirePrincipal(principal) {

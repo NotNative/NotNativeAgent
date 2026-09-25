@@ -145,7 +145,7 @@ test('NND harness session routes bind creation to the complete principal workspa
   const factoryOptions = [];
   const nndEngineHost = new NndEngineHost({ createEngine: async (options) => {
     factoryOptions.push(options);
-    return { config: { executionManifest: null }, active: { finalized: false }, async initialize() {}, async shutdown() {} };
+    return { config: { executionManifest: null }, active: { finalized: false }, transcript: [], async initialize() {}, async submit() {}, async shutdown() {} };
   } });
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost,
@@ -163,6 +163,17 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.equal(factoryOptions[0].dataPaths, undefined);
     assert.equal(factoryOptions[0].directory, undefined);
     assert.equal((await request(base, `/session/${created.value.id}`, principal(['nnd.read'], { workspace_ids: ['w_two'] }))).status, 404);
+    const prompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'POST', body: { messageID: 'msg_prompt', parts: [{ type: 'text', text: 'hello NNA' }] },
+    });
+    assert.equal(prompt.status, 204);
+    assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal([], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'POST', body: { parts: [{ type: 'text', text: 'denied' }] },
+    })).status, 403);
+    assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'POST', body: { parts: [] },
+    })).status, 400);
+    assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.read'], { workspace_ids: ['w_one', 'w_two'] }))).status, 405);
     assert.equal((await request(base, '/session/%', owner)).status, 400);
   } finally { await service.close(); }
 });
@@ -178,7 +189,8 @@ async function request(base, path, actor, options = {}) {
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
-  return { status: response.status, value: await response.json() };
+  const text = await response.text();
+  return { status: response.status, value: text ? JSON.parse(text) : undefined };
 }
 
 function principal(permissions, overrides = {}) {
