@@ -100,6 +100,42 @@ test('integration principal rejects stale and role-only authority', async () => 
   } finally { await service.close(); }
 });
 
+test('NND capability projection fails closed without a steering grant', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-integration-'));
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
+    providerStore: new ProviderProfileStore({ configRoot }),
+    broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }),
+    nndSessionResolver: async (sessionId) => {
+      if (sessionId === 'ses_live') return { sessionId, revision: 1, availability: 'ungranted', steerSubagent: false };
+      if (sessionId === 'ses_granted') return {
+        sessionId, revision: 2, availability: 'granted', steerSubagent: true,
+        steer: async (command, actor) => ({ accepted: true, request_id: command.request_id, subject_id: actor.subjectId }),
+      };
+      return null;
+    }, port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    const reader = principal(['nnd.read']);
+    const projection = await request(base, '/v1/nnd/sessions/ses_live/capabilities', reader);
+    assert.equal(projection.status, 200);
+    assert.equal(projection.value.capabilities.steer_subagent, false);
+    assert.equal((await request(base, '/v1/nnd/sessions/ses_live/steer', principal(['nnd.steer']), {
+      method: 'POST', body: { request_id: 'steer_test', content: 'stop' },
+    })).status, 409);
+    const accepted = await request(base, '/v1/nnd/sessions/ses_granted/steer', principal(['nnd.steer']), {
+      method: 'POST', body: { request_id: 'steer_granted', content: 'pause' },
+    });
+    assert.equal(accepted.status, 202);
+    assert.deepEqual(accepted.value, { accepted: true, request_id: 'steer_granted', subject_id: 'u_test' });
+    assert.equal((await request(base, '/v1/nnd/sessions/ses_granted/capabilities', principal([]))).status, 403);
+  } finally { await service.close(); }
+});
+
 async function request(base, path, actor, options = {}) {
   const response = await fetch(`${base}${path}`, {
     method: options.method ?? 'GET',

@@ -53,7 +53,7 @@ export class SessionEngine {
     this.reviewPosture = options.reviewPosture ?? 'auto-review';
     this.runtimeId = options.runtimeId ?? newId('runtime');
     this.sessionId = options.sessionId ?? newId('session');
-    this.dataPaths = options.dataPaths ?? userDataPaths(); this.subagentDepth = options.subagentDepth ?? 0;
+    this.nndSessionRegistry = options.nndSessionRegistry ?? null; this.dataPaths = options.dataPaths ?? userDataPaths(); this.subagentDepth = options.subagentDepth ?? 0;
     this.subagentOptions = {
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
       memoryAdapter: options.memoryAdapter, mcpTransportFactory: options.mcpTransportFactory,
@@ -112,7 +112,7 @@ export class SessionEngine {
     if (this.state.state !== 'idle') return this.#rejectBusy(command);
     const turn = this.lifecycles.start('turn');
     this.active = createActiveTurn(turn.id, command.request_id, this.config.recovery, this.reliability);
-    const active = this.active; active.carriedReviewerRequestIds = carriedReviewerRequestIds(this.transcript);
+    const active = this.active; active.carriedReviewerRequestIds = carriedReviewerRequestIds(this.transcript); active.principal = principal;
     active.enrichment.skills = this.skills.beginTurn();
     let operation;
     try {

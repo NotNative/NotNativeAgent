@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:cbbb013109daf6fa730f5dac816dd490de996d95031821170fe1b9238755ed88",
+  "source_digest": "sha256:8fc3f8309654b0abd6779a90c719da86fff5de87a8f0fcafda39b12e0dbee04d",
   "counts": {
-    "modules": 359,
+    "modules": 361,
     "component_edges": 76
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 85
+      "module_count": 87
     }
   ],
   "entrypoints": [
@@ -120,8 +120,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 152,
-      "module_count": 73
+      "import_count": 155,
+      "module_count": 75
     },
     {
       "from": "experience-engine",
@@ -166,16 +166,16 @@
       "module_count": 18
     },
     {
+      "from": "integrations",
+      "to": "foundation",
+      "import_count": 17,
+      "module_count": 10
+    },
+    {
       "from": "opencode-surface",
       "to": "opencode-surface",
       "import_count": 17,
       "module_count": 8
-    },
-    {
-      "from": "integrations",
-      "to": "foundation",
-      "import_count": 16,
-      "module_count": 10
     },
     {
       "from": "providers",
@@ -304,6 +304,12 @@
       "module_count": 3
     },
     {
+      "from": "foundation",
+      "to": "integrations",
+      "import_count": 5,
+      "module_count": 2
+    },
+    {
       "from": "governance-engine",
       "to": "persistence",
       "import_count": 5,
@@ -362,12 +368,6 @@
       "to": "agentic-engine",
       "import_count": 3,
       "module_count": 3
-    },
-    {
-      "from": "foundation",
-      "to": "integrations",
-      "import_count": 3,
-      "module_count": 1
     },
     {
       "from": "gateway",
@@ -1771,6 +1771,7 @@
       "imports": [
         "src/ids.js",
         "src/integration-principal.js",
+        "src/nnd-operator-routes.js",
         "src/nno-integration-activation.js",
         "src/provider/bootstrap.js",
         "src/secret-broker-server.js"
@@ -1847,6 +1848,25 @@
         "src/credential-bindings.js",
         "src/web-fetch-config.js",
         "src/web-search-config.js"
+      ]
+    },
+    {
+      "path": "src/nnd-operator-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
+      ]
+    },
+    {
+      "path": "src/nnd-session-registry.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/ingress.js"
       ]
     },
     {

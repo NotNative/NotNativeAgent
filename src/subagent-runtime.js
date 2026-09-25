@@ -56,9 +56,7 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
   if (signal.aborted) throw new ContractError('tool_cancelled', 'sub-agent execution was cancelled');
   const sessionId = newId(`agent_${input.type}`);
   const parent = { turnId: engine.active?.turnId ?? null, stepId: engine.active?.stepId ?? null };
-  const relay = createSubagentProgressRelay(engine, {
-    ...parent, agentId: sessionId, agentType: input.type,
-  });
+  const relay = createSubagentProgressRelay(engine, { ...parent, agentId: sessionId, agentType: input.type });
   const child = createEngine({
     ...engine.subagentOptions, config: subagentConfig(engine.config, input.type), sessionId,
     surface: 'subagent', reviewPosture: 'auto-review', dataPaths: engine.dataPaths,
@@ -74,6 +72,7 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
       }, { turnId: parent.turnId, stepId: parent.stepId, outcome: record?.outcome });
     },
   });
+  const unregisterNnd = registerNndChild(engine, sessionId, parent, child);
   let cancellation = null;
   const reportCleanupFailure = (operation, error) => {
     engine.telemetry?.record('subagent.cleanup', 'failed', {
@@ -98,6 +97,7 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
     await relay.failed(error);
     throw error;
   } finally {
+    unregisterNnd?.();
     signal.removeEventListener('abort', cancel);
     if (cancellation) await cancellation.catch(() => undefined);
     try {
@@ -105,6 +105,17 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
     } catch (error) {
       reportCleanupFailure('shutdown', error);
     }
+  }
+}
+
+function registerNndChild(engine, sessionId, parent, child) {
+  try { return engine.nndSessionRegistry?.register(sessionId, engine.sessionId, engine.active?.principal, child) ?? null; }
+  catch (error) {
+    // NND observation is optional; a saturated or unavailable GUI registry must not prevent core delegated work.
+    engine.telemetry?.record('nnd.session_registration', 'failed', { agent_id: sessionId,
+      error_code: typeof error?.code === 'string' ? error.code : 'nnd_session_registration_failed' },
+    { turnId: parent.turnId, stepId: parent.stepId, outcome: 'failed' });
+    return null;
   }
 }
 
