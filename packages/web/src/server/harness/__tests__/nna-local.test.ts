@@ -62,6 +62,7 @@ describe('managed local NNA launcher', () => {
     expect(first.permissions).toContain('provider.discover');
     expect(first.permissions).toContain('provider.test');
     expect(first.permissions).toContain('provider.route.manage');
+    expect(first.permissions).toContain('provider.route.activate');
     expect(first.permissions).not.toContain('provider.manage');
     expect(first.request_id).not.toBe(second.request_id);
     process.emit('exit', 1);

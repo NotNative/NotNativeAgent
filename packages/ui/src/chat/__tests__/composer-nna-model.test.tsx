@@ -8,6 +8,7 @@ import { Composer } from '../composer.tsx';
 import { __resetDraftStoreForTests } from '../drafts.ts';
 import { __resetAuthExpiryForTests } from '../../lib/runtime-auth-expiry.ts';
 import type { DirectoryStore } from '../../sync/types.ts';
+import { useGlobalSyncStore } from '../../sync/global-stores.ts';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -19,16 +20,18 @@ const store = { subscribe: () => () => undefined, getState: () => snapshot } as 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 const send = vi.fn(async () => undefined);
-const createSession = vi.fn(async () => ({ id: 'session_1' }));
+const createSession = vi.fn(async (): Promise<{ id: string; metadata?: unknown }> => ({ id: 'session_1', metadata: { nnd: {
+  configuredModel: { providerID: 'primary', modelID: 'test' },
+} } }));
 const nativeSet = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!;
 
-async function render(): Promise<void> {
+async function render(sessionID: string | null = null): Promise<void> {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
   await act(async () => {
     root!.render(<Composer services={{ engine: { actions: { send, createSession } } as never, store: () => store, dispatch: () => undefined }}
-      sessionID={null} directory="/proj" sessionKey="draft" />);
+      sessionID={sessionID} directory="/proj" sessionKey={sessionID ?? 'draft'} />);
     await Promise.resolve();
   });
 }
@@ -50,10 +53,14 @@ async function submit(text: string): Promise<void> {
 beforeEach(() => {
   __resetDraftStoreForTests();
   __resetAuthExpiryForTests();
+  useGlobalSyncStore.getState().reset();
   window.localStorage.clear();
   document.body.innerHTML = '';
   send.mockClear();
   createSession.mockClear();
+  createSession.mockImplementation(async () => ({ id: 'session_1', metadata: { nnd: {
+    configuredModel: { providerID: 'primary', modelID: 'test' },
+  } } }));
   snapshot = base as unknown as DirectoryStore;
 });
 
@@ -80,6 +87,64 @@ describe('NNA configured composer model', () => {
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
       model: { providerID: 'primary', modelID: 'test' }, agent: 'nna',
     }));
+  });
+
+  it('uses the model owned by an existing session after the primary route changes', async () => {
+    snapshot = { ...base, session: [{ id: 'session_old', metadata: { nnd: {
+      configuredModel: { providerID: 'old', modelID: 'old-model' },
+    } } }], config: { nnd: { engine: 'nna', primaryModel: { providerID: 'new', modelID: 'new-model' } } } } as unknown as DirectoryStore;
+    await render('session_old');
+    expect(document.querySelector('[data-testid="model-trigger"]')?.textContent).toBe('old · old-model');
+    await submit('continue old session');
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      sessionID: 'session_old', model: { providerID: 'old', modelID: 'old-model' },
+    }));
+  });
+
+  it('uses the route reported by a newly created session despite an activation race', async () => {
+    snapshot = { ...base, config: { nnd: {
+      engine: 'nna', primaryModel: { providerID: 'old', modelID: 'old-model' },
+    } } } as unknown as DirectoryStore;
+    createSession.mockImplementation(async () => ({ id: 'session_1', metadata: { nnd: {
+      configuredModel: { providerID: 'new', modelID: 'new-model' },
+    } } }));
+    await render();
+    await submit('new session');
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      sessionID: 'session_1', model: { providerID: 'new', modelID: 'new-model' },
+    }));
+  });
+
+  it('shows the activated global route when a warm directory still has its old config', async () => {
+    snapshot = { ...base, config: { nnd: {
+      engine: 'nna', primaryModel: { providerID: 'old', modelID: 'old-model' },
+    } } } as unknown as DirectoryStore;
+    useGlobalSyncStore.getState().set({ config: { nnd: {
+      engine: 'nna', primaryModel: { providerID: 'new', modelID: 'new-model' },
+    } } });
+    await render();
+    expect(document.querySelector('[data-testid="model-trigger"]')?.textContent).toBe('new · new-model');
+  });
+
+  it('blocks an existing-session send until its own NNA route metadata is loaded', async () => {
+    snapshot = { ...base, config: { nnd: {
+      engine: 'nna', primaryModel: { providerID: 'new', modelID: 'new-model' },
+    } }, session: [{ id: 'session_old', metadata: {} }] } as unknown as DirectoryStore;
+    await render('session_old');
+    await submit('do not guess old session model');
+    expect(document.querySelector('[data-send-blocked]')?.getAttribute('data-send-blocked')).toBe('nna-model-unavailable');
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('does not send a draft when NNA omits its created session route', async () => {
+    snapshot = { ...base, config: { nnd: {
+      engine: 'nna', primaryModel: { providerID: 'old', modelID: 'old-model' },
+    } } } as unknown as DirectoryStore;
+    createSession.mockImplementation(async () => ({ id: 'session_1', metadata: { nnd: {} } }));
+    await render();
+    await submit('must not guess route');
+    expect(createSession).toHaveBeenCalledOnce();
+    expect(send).not.toHaveBeenCalled();
   });
 
   it('blocks send when the authenticated NNA model projection is missing', async () => {

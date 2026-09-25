@@ -72,7 +72,12 @@ export interface NnaGovernanceSummary {
  * about a fallback provider or the model that actually answered a turn. */
 export function nnaSessionConfiguredModel(state: DirectoryStore, sessionID: string): { providerID: string; modelID: string } | null {
   const session = state.session.find((item) => item.id === sessionID);
-  const nnd = session?.metadata?.nnd;
+  return nnaConfiguredModelFromMetadata(session?.metadata);
+}
+
+export function nnaConfiguredModelFromMetadata(metadata: unknown): { providerID: string; modelID: string } | null {
+  const nnd = metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+    ? (metadata as Record<string, unknown>).nnd : null;
   if (!nnd || typeof nnd !== 'object' || Array.isArray(nnd)) return null;
   const model = (nnd as Record<string, unknown>).configuredModel;
   if (!model || typeof model !== 'object' || Array.isArray(model)) return null;

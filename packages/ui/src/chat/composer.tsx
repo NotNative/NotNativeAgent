@@ -27,7 +27,7 @@ import type { PartLite } from './turns.ts';
 import { fsSearch } from '../lib/server-api.ts';
 import { useMessageQueueStore } from '../stores/useMessageQueueStore.ts';
 import { settingsValue } from '../lib/settings/store.ts';
-import { resolveComposerModel } from './composer-model-config.ts';
+import { modelForCreatedSession, useComposerModel } from './composer-model-config.ts';
 
 const BUILTIN_COMMANDS = ['undo', 'redo', 'timeline', 'compact', 'btw'];
 const MAX_LINES = 8;
@@ -78,7 +78,7 @@ export function Composer(props: ComposerProps): ReactNode {
   const store = services.store(directory);
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const providerCatalog = useSyncExternalStore(store.subscribe, () => store.getState().provider);
-  const { configUnavailable, nnaConfigured, nnaModel, sendAgent, modelLabel, model } = resolveComposerModel(snapshot.config, props.modelSelection, agent);
+  const { configUnavailable, nnaConfigured, nnaModel, sendAgent, modelLabel, model } = useComposerModel(snapshot, props.modelSelection, agent, sessionID);
   const commandSet = useMemo(() => commandRegistry(snapshot.command, BUILTIN_COMMANDS), [snapshot.command]);
   const agentNames = useMemo(() => snapshot.agent.map((entry) => entry.name), [snapshot.agent]);
   const snippets = useMemo(() => new Map<string, string>(), []);
@@ -333,7 +333,8 @@ export function Composer(props: ComposerProps): ReactNode {
       return;
     }
     const created = await services.engine.actions.createSession({ directory });
-    await services.engine.actions.send({ directory, sessionID: created.id, parts: payloadParts, model, agent: sendAgent });
+    await services.engine.actions.send({ directory, sessionID: created.id, parts: payloadParts,
+      model: modelForCreatedSession(created.metadata, nnaConfigured, model), agent: sendAgent });
     useSessionViewStore.getState().setCurrentSession(created.id);
     useSessionViewStore.getState().setActiveDirectory(directory);
   }

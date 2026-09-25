@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-/** A deliberate manifest route change. Running NNA is never silently restarted. */
+/** A deliberate manifest route change. Running NNA is never silently updated. */
 import { useEffect, useState, type ReactNode } from 'react';
 import { harnessClient } from '../../../lib/nnd/client.ts';
 
@@ -30,7 +30,7 @@ export function ProviderRouteAction({ profileId, defaultModel, configuredModel, 
     </label>
     <button type="button" disabled={busy || !target || target === configuredModel} onClick={() => { void apply(); }}
       className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50">
-      {busy ? 'Saving route…' : 'Save primary route for next NNA restart'}
+      {busy ? 'Saving route…' : 'Save primary route'}
     </button>
     {error ? <p role="alert" className="mt-1 text-xs text-destructive">{error}</p> : null}
   </div>;

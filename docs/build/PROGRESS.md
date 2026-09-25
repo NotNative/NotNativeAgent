@@ -22,6 +22,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **In-process provider-route activation for future sessions.**
+  NNA can explicitly adopt saved provider profiles and role routes for
+  sessions created afterward without restarting the managed child or
+  interrupting current turns. Existing sessions retain their original engine
+  config and NNA checks prompts against each session's own route. Settings
+  exposes a separate apply action when any saved provider routing differs;
+  activation never silently follows a save. Cross-repository smoke exercises
+  save, apply, and restoration. The adversarial review identified a cached
+  composer-default regression and a stale-specialist-profile risk. The fixes
+  refresh the default, preserve each existing session route, and adopt all
+  provider routing atomically for future sessions.
+
 - 2026-09-25 · **NNA-native Agents catalog.** The Agents Settings page now
   reads built-in delegation role IDs and the configured running subagent route
   from NNA through an authenticated, read-only projection. It does not expose

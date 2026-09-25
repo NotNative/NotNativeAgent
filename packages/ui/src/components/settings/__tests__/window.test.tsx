@@ -21,6 +21,7 @@ import { __resetEngineForTests } from '../../../lib/settings/persistence.ts';
 import { __resetSettingsStoreForTests } from '../../../lib/settings/store.ts';
 import { __resetShortcutRegistryForTests } from '../../../lib/shortcuts/registry.ts';
 import { searchIndex, BUILT_PAGE_SLUGS, SETTINGS_PAGE_ORDER, type SettingsPageSlug } from '../search.ts';
+import { useGlobalSyncStore } from '../../../sync/global-stores.ts';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -73,6 +74,7 @@ beforeEach(() => {
   __resetEngineForTests();
   __resetSettingsStoreForTests();
   __resetShortcutRegistryForTests();
+  useGlobalSyncStore.getState().reset();
   document.body.innerHTML = '';
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -195,7 +197,7 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     }), { status: 200 })));
     await renderWindow('providers');
     expect(document.body.textContent).toContain('Configuration differs from the running NNA route');
-    expect(document.body.textContent).toContain('Restart NNA');
+    expect(document.body.textContent).toContain('Apply saved provider routing to new sessions');
     expect(document.querySelectorAll('[data-testid="provider-profile"]')[0]?.textContent).toContain('Configured primary');
     expect(document.querySelectorAll('[data-testid="provider-profile"]')[1]?.textContent).toContain('Running NNA route');
   });
@@ -234,12 +236,12 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     await renderWindow('providers');
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/v1/provider-route'))).toBe(false);
     const newProfile = document.querySelectorAll('[data-testid="provider-profile"]')[1]!;
-    const action = [...newProfile.querySelectorAll('button')].find((button) => button.textContent === 'Save primary route for next NNA restart');
+    const action = [...newProfile.querySelectorAll('button')].find((button) => button.textContent === 'Save primary route');
     await act(async () => { action?.click(); await Promise.resolve(); });
     expect(document.body.textContent).toContain('Configuration differs from the running NNA route');
     expect(document.body.textContent).toContain('Configured primary');
     denied = true;
-    const otherAction = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Save primary route for next NNA restart' && !button.hasAttribute('disabled'));
+    const otherAction = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Save primary route' && !button.hasAttribute('disabled'));
     await act(async () => { otherAction?.click(); await Promise.resolve(); });
     expect(document.body.textContent).toContain('route denied');
     expect(selected).toBe('new');
@@ -261,7 +263,7 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     });
     await renderWindow('providers');
     const input = document.querySelector('[data-testid="provider-profile"] input') as HTMLInputElement;
-    const save = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Save primary route for next NNA restart')!;
+    const save = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Save primary route')!;
     expect(input.value).toBe('custom-model');
     expect(save.hasAttribute('disabled')).toBe(true);
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
@@ -271,6 +273,58 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     expect(model).toBe('another-model');
     expect(document.body.textContent).toContain('Configured primary model: another-model');
     expect(document.body.textContent).toContain('Configuration differs from the running NNA route');
+  });
+
+  it('applies a saved route to new sessions only after an explicit action', async () => {
+    useGlobalSyncStore.getState().set({ config: { nnd: { engine: 'nna',
+      primaryModel: { providerID: 'old', modelID: 'old-model' } } } });
+    let running = 'old';
+    let denied = false;
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith('/v1/provider-route/activate')) {
+        expect(init?.method).toBe('POST');
+        if (denied) return Promise.resolve(new Response(JSON.stringify({ error: { message: 'activation denied' } }), { status: 403 }));
+        running = 'new';
+        return Promise.resolve(new Response(JSON.stringify({ runtime_route: { providerID: 'new', modelID: 'new-model' }, existing_sessions_unchanged: true }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        profiles: [{ profile_id: 'new', endpoint: 'http://127.0.0.1:11434/v1', model: 'new-model', active: true }],
+        configured_primary_route: { providerID: 'new', modelID: 'new-model' },
+        runtime_route: { providerID: running, modelID: `${running}-model` },
+      }), { status: 200 }));
+    });
+    await renderWindow('providers');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/v1/provider-route/activate'))).toBe(false);
+    expect(document.body.textContent).toContain('Existing sessions retain their own routing');
+    const activate = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Apply saved provider routing to new sessions');
+    await act(async () => { activate?.click(); await Promise.resolve(); });
+    expect(running).toBe('new');
+    expect((useGlobalSyncStore.getState().config?.nnd as { primaryModel?: unknown }).primaryModel)
+      .toEqual({ providerID: 'new', modelID: 'new-model' });
+    expect(document.body.textContent).not.toContain('Configuration differs from the running NNA route');
+    running = 'old'; denied = true;
+    const refresh = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Refresh');
+    await act(async () => { refresh?.click(); await Promise.resolve(); });
+    const retry = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Apply saved provider routing to new sessions');
+    await act(async () => { retry?.click(); await Promise.resolve(); });
+    expect(document.body.textContent).toContain('activation denied');
+    expect(running).toBe('old');
+    expect((useGlobalSyncStore.getState().config?.nnd as { primaryModel?: unknown }).primaryModel)
+      .toEqual({ providerID: 'new', modelID: 'new-model' });
+  });
+
+  it('offers activation for changed provider profiles even when the primary route matches', async () => {
+    fetchMock.mockImplementation((url: string) => Promise.resolve(new Response(JSON.stringify(
+      url.endsWith('/v1/provider-profiles') ? {
+        profiles: [{ profile_id: 'primary', endpoint: 'http://127.0.0.1:11434/v1', model: 'test', active: true }],
+        configured_primary_route: { providerID: 'primary', modelID: 'test' },
+        runtime_route: { providerID: 'primary', modelID: 'test' },
+        provider_routing_pending: true,
+      } : { surface: 'web', chatRenderMode: 'live', fontSize: 100 },
+    ), { status: 200 })));
+    await renderWindow('providers');
+    expect(document.body.textContent).toContain('Saved provider routing or profiles differ');
+    expect([...document.querySelectorAll('button')].some((button) => button.textContent === 'Apply saved provider routing to new sessions')).toBe(true);
   });
 
   it('provider diagnostic failure is not reported as a successful model check', async () => {
