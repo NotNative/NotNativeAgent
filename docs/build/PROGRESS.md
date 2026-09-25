@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA-owned primary provider selection.** Settings can now
+  explicitly choose a configured profile's default model as the saved primary
+  route. A narrow `provider.route.manage` grant permits this one action without
+  granting profile creation, edit, or deletion. NNA validates and persists the
+  route, returns both saved and running identities, and NND says that restart
+  is required before new sessions use it; existing sessions are not switched.
+  Cross-repository smoke exercises route change and restore. Adversarial review
+  fixed a compatibility regression so legacy read-only provider stores retain
+  inventory access without the new mutation method.
+
 - 2026-09-25 · **Configured versus running provider route.** NNA's provider
   inventory now includes the running NND engine route and configured primary
   route alongside manifest-backed profiles, read from one configuration

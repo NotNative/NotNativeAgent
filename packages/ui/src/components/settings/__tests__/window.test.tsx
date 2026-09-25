@@ -213,6 +213,37 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     expect(document.querySelector('[data-testid="provider-profile"]')?.textContent).toContain('Running NNA route');
   });
 
+  it('changes only the saved primary route on explicit click and reports NNA denial', async () => {
+    let selected = 'old';
+    let denied = false;
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith('/v1/provider-route')) {
+        if (denied) return Promise.resolve(new Response(JSON.stringify({ error: { message: 'route denied' } }), { status: 403 }));
+        expect(init?.method).toBe('PATCH');
+        expect(JSON.parse(String(init?.body))).toEqual({ provider_id: 'new', model: 'new-model' });
+        selected = 'new';
+        return Promise.resolve(new Response(JSON.stringify({ configured_primary_route: { providerID: 'new', modelID: 'new-model' }, runtime_route: { providerID: 'old', modelID: 'old-model' } }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        profiles: [{ profile_id: 'old', endpoint: 'http://127.0.0.1:11434/v1', model: 'old-model', active: selected === 'old' },
+          { profile_id: 'new', endpoint: 'http://127.0.0.1:2244/v1', model: 'new-model', active: selected === 'new' }],
+        configured_primary_route: { providerID: selected, modelID: `${selected}-model` },
+        runtime_route: { providerID: 'old', modelID: 'old-model' },
+      }), { status: 200 }));
+    });
+    await renderWindow('providers');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/v1/provider-route'))).toBe(false);
+    const action = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Use this model after NNA restart');
+    await act(async () => { action?.click(); await Promise.resolve(); });
+    expect(document.body.textContent).toContain('Configuration differs from the running NNA route');
+    expect(document.body.textContent).toContain('Configured primary');
+    denied = true;
+    const otherAction = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Use this model after NNA restart');
+    await act(async () => { otherAction?.click(); await Promise.resolve(); });
+    expect(document.body.textContent).toContain('route denied');
+    expect(selected).toBe('new');
+  });
+
   it('provider diagnostic failure is not reported as a successful model check', async () => {
     fetchMock.mockImplementation((url: string) => Promise.resolve(new Response(
       url.includes('/primary/test')

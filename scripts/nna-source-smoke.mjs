@@ -158,8 +158,10 @@ async function probe(app, workspace, provider) {
   assert.deepEqual(profiles.runtime_route, { providerID: 'primary', modelID: 'test' });
   const discovered = await json(call, '/api/v1/provider-profiles/primary/discover', { method: 'POST' }, 200);
   assert.deepEqual(discovered, { profile_id: 'primary', models: ['test'] });
-  const tested = await json(call, '/api/v1/provider-profiles/primary/test', { method: 'POST' }, 200);
-  assert.equal(tested.status, 'ready');
+  const tested = await json(call, '/api/v1/provider-profiles/primary/test', { method: 'POST' }, 200); assert.equal(tested.status, 'ready');
+  const routeBody = (providerId) => ({ method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ provider_id: providerId, model: 'test' }) });
+  const changedRoute = await json(call, '/api/v1/provider-route', routeBody('delegated'), 200); assert.deepEqual(changedRoute.configured_primary_route, { providerID: 'delegated', modelID: 'test' }); assert.deepEqual(changedRoute.runtime_route, { providerID: 'primary', modelID: 'test' });
+  assert.deepEqual((await json(call, '/api/v1/provider-profiles', 200)).configured_primary_route, { providerID: 'delegated', modelID: 'test' }); const restoredRoute = await json(call, '/api/v1/provider-route', routeBody('primary'), 200); assert.deepEqual(restoredRoute.configured_primary_route, { providerID: 'primary', modelID: 'test' });
   const skills = await json(call, '/api/v1/nnd/skills', 200);
   assert.ok(skills.skills.some((skill) => skill.id === 'smoke-review'));
   assert.equal(JSON.stringify(skills).includes('SECRET_SKILL_BODY'), false, 'skill inventory must omit instruction bodies');

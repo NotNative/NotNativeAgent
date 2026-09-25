@@ -170,6 +170,9 @@ export const harnessClient = {
   async listProviderProfiles(): Promise<HarnessResult<{ profiles: unknown[]; configured_primary_route?: unknown; runtime_route?: unknown }>> {
     return request('listProviderProfiles', '/v1/provider-profiles');
   },
+  async setPrimaryProviderRoute(providerId: string, model: string): Promise<HarnessResult<{ configured_primary_route: unknown; runtime_route: unknown }>> {
+    return request('setPrimaryProviderRoute', '/v1/provider-route', PATCH({ provider_id: providerId, model }));
+  },
   async discoverProviderModels(profileId: string): Promise<HarnessResult<{ profile_id: string; models: unknown[] }>> {
     return request('discoverProviderModels', `/v1/provider-profiles/${sid(profileId)}/discover`, post({}));
   },
