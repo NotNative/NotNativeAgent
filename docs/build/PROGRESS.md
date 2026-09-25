@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Governed source prompt loop.** The cross-repository smoke
+  now starts a tiny loopback OpenAI-compatible fixture, submits a prompt via
+  NND `/api/session/:id/prompt_async`, verifies NNA actually called the
+  fixture, verifies the provider received the intended user text, waits for
+  a normally completed NNA turn, and finds the marker in an assistant
+  transcript part returned through NND. No external provider, credential, or
+  model cost is involved.
+  This proves the basic source harness turn and projection, not a complete
+  interactive browser session or subagent transcript.
+
 - 2026-09-25 · **Live bridge events and cancellation.** The source smoke now
   subscribes through NND to NNA's real `/global/event` stream, observes the
   connection opener and the matching `session.created` frame, and closes the
@@ -35,9 +45,9 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   data root, sends NND API requests through the real adapter, and checks
   authenticated health (including a 401 negative control), root-list filtering,
   the empty child endpoint, session create/rename/delete,
-  transcript read, and the browser-origin write gate. It uses a non-serving
-  provider fixture and does not submit a model turn or populate a child
-  transcript. This validates the two
+  transcript read, and the browser-origin write gate. It uses an isolated
+  local provider fixture for the basic prompt loop but does not populate a
+  child transcript. This validates the two
   current source trees without changing the older installed NNA in the user
   profile; packaged installation and UI interaction remain separate gates.
 
