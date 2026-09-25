@@ -21,7 +21,7 @@ export async function dispatchNndHarnessRequest(request, response, context) {
   if (request.method === 'POST' && !id) {
     requireIntegrationPermission(context.principal, 'nnd.session.create');
     const body = await readJsonBody(request);
-    const options = createOptions(body);
+    const options = { ...createOptions(body), directory: trustedWorkspace(context.nndWorkspaceRoot) };
     const made = await host.create(newId('ses'), context.principal, options);
     return send(response, 201, host.get(made.sessionId, context.principal));
   }

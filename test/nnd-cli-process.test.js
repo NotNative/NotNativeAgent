@@ -43,9 +43,10 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
     const session = await created.json();
     createdId = session.id;
     assert.equal(session.title, 'CLI contract');
+    assert.equal(session.directory, root);
     assert.match(session.id, /^ses_[A-Za-z0-9_-]+$/u);
     const listed = await fetch(`${frame.endpoint}/session`, { headers, signal: AbortSignal.timeout(5_000) });
-    assert.deepEqual((await listed.json()).map((entry) => entry.id), [session.id]);
+    assert.deepEqual((await listed.json()).map((entry) => [entry.id, entry.directory]), [[session.id, root]]);
     const messages = await fetch(`${frame.endpoint}/session/${session.id}/message`, { headers, signal: AbortSignal.timeout(5_000) });
     assert.equal(messages.status, 200);
     assert.deepEqual(await messages.json(), []);
@@ -64,7 +65,7 @@ test('nnd CLI child serves authenticated bootstrap and session projections', asy
     const headers = { authorization: `Bearer ${frame.token}`, 'x-nna-principal': principal() };
     const listed = await fetch(`${frame.endpoint}/session`, { headers, signal: AbortSignal.timeout(5_000) });
     assert.equal(listed.status, 200);
-    assert.deepEqual((await listed.json()).map((entry) => entry.id), [createdId]);
+    assert.deepEqual((await listed.json()).map((entry) => [entry.id, entry.directory]), [[createdId, root]]);
   } finally {
     await stopChild(reopened);
   }

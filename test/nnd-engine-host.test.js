@@ -33,6 +33,30 @@ test('NND durable catalog refuses malformed records without discarding them', as
   assert.match(await readFile(catalogPath, 'utf8'), /escape/u);
 });
 
+test('NND session directory follows the initialized engine and later workspace transitions', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-directory-'));
+  const catalogPath = join(root, 'nnd-contexts.json');
+  await writeFile(catalogPath, JSON.stringify([{
+    sessionId: 'session_a', subjectId: owner.subjectId, workspaceIds: owner.workspaceIds,
+    title: 'Older session', directory: '', createdAt: Date.now(),
+  }]));
+  let engine;
+  const host = new NndEngineHost({ catalogPath, createEngine: async () => {
+    const next = fakeEngine();
+    next.config = { workspaceRoot: root };
+    engine ??= next;
+    return next;
+  } });
+  await host.initialize();
+  assert.equal(host.get('session_a', owner).directory, root);
+  const nextRoot = join(root, 'next');
+  engine.config = { workspaceRoot: nextRoot };
+  assert.equal(host.list(owner)[0].directory, nextRoot);
+  await host.create('session_b', owner);
+  const records = JSON.parse(await readFile(catalogPath, 'utf8'));
+  assert.equal(records.find((record) => record.sessionId === 'session_a').directory, nextRoot);
+});
+
 test('NND catalog excludes a failed concurrent create from the next durable write', async () => {
   let firstWrite;
   const firstStarted = new Promise((resolve) => { firstWrite = resolve; });

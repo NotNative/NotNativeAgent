@@ -173,8 +173,9 @@ test('NND harness session routes bind creation to the complete principal workspa
     });
     assert.equal(created.status, 201);
     assert.equal(created.value.title, 'Safe session');
+    assert.equal(created.value.directory, root);
     assert.equal(factoryOptions[0].dataPaths, undefined);
-    assert.equal(factoryOptions[0].directory, undefined);
+    assert.equal(factoryOptions[0].directory, root);
     assert.equal((await request(base, `/session/${created.value.id}`, principal(['nnd.read'], { workspace_ids: ['w_two'] }))).status, 404);
     const prompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { messageID: 'msg_prompt', parts: [{ type: 'text', text: 'hello NNA' }] },

@@ -78,7 +78,7 @@ export class NndEngineHost {
       }
       await engine.initialize();
       const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
-        title: titleOf(options.title), directory: directoryOf(options.directory), createdAt: restoring ? options.createdAt : Date.now(),
+        title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt: restoring ? options.createdAt : Date.now(),
         ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false };
       if (restoring) this.#contexts.set(sessionId, context);
       else await this.#commitCatalogChange(
@@ -179,7 +179,7 @@ export class NndEngineHost {
       change(candidate);
       const records = [...candidate.values()].map((context) => ({
         sessionId: context.sessionId, subjectId: context.subjectId, workspaceIds: [...context.workspaceIds],
-        title: context.title, directory: context.directory, createdAt: context.createdAt,
+        title: context.title, directory: directoryFor(context), createdAt: context.createdAt,
       }));
       if (Buffer.byteLength(`${JSON.stringify(records, null, 2)}\n`, 'utf8') > CATALOG_LIMIT_BYTES) {
         throw new ContractError('nnd_catalog_capacity', 'NND session catalog capacity is full');
@@ -213,7 +213,7 @@ export class NndEngineHost {
   }
 
   #publish(context, type, properties, mirror = false) {
-    this.eventBus.publishSession({ directory: context.directory, project: context.workspaceIds.values().next().value,
+    this.eventBus.publishSession({ directory: directoryFor(context), project: context.workspaceIds.values().next().value,
       subjectId: context.subjectId, sessionID: context.sessionId, type, properties, mirror });
   }
 }
@@ -239,9 +239,10 @@ function samePrincipal(context, principal) {
   // context that was created under a broader workspace grant.
   return context.subjectId === principal.subjectId && [...context.workspaceIds].every((id) => principal.workspaceIds.includes(id));
 }
-function describe(context) { return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value, directory: context.directory, title: context.title, version: '1.0', tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: context.createdAt, updated: context.createdAt } }; }
+function describe(context) { return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value, directory: directoryFor(context), title: context.title, version: '1.0', tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: context.createdAt, updated: context.createdAt } }; }
 function titleOf(value) { return typeof value === 'string' && value.trim() && value.length <= 256 ? value.trim() : 'New session'; }
 function directoryOf(value) { return typeof value === 'string' && value.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : ''; }
+function directoryFor(context) { return directoryOf(context.engine.config?.workspaceRoot) || context.directory; }
 function validCatalogRecord(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
   try { requireExternalId(record.sessionId, 'session_id'); requirePrincipal(record); }
