@@ -4,6 +4,7 @@ import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|prompt_async))?$/u;
 export async function dispatchNndHarnessRequest(request, response, context) {
+  if (await dispatchBootstrapRequest(request, response, context)) return true;
   const match = ROUTE.exec(context.url.pathname); if (!match) return false;
   const host = context.nndEngineHost; if (!host) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
   let id = null;
@@ -26,10 +27,36 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     requireIntegrationPermission(context.principal, 'nnd.session.submit');
     const body = await readJsonBody(request);
     const content = textContent(body?.parts);
-    host.submitAsync(id, { version: '1.0', type: 'submit', request_id: body?.messageID ?? newId('nnd_prompt'), content }, context.principal);
+    const accepted = host.submitAsync(id, { version: '1.0', type: 'submit', request_id: body?.messageID ?? newId('nnd_prompt'), content }, context.principal);
+    if (accepted.reason === 'busy') {
+      return send(response, 409, { error: { code: 'session_busy', message: 'NND session already has an active turn' } });
+    }
     response.writeHead(204); response.end(); return true;
   }
   return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+}
+
+async function dispatchBootstrapRequest(request, response, context) {
+  const path = context.url.pathname;
+  if (!['/global/health', '/path', '/config', '/project', '/project/current', '/session/status'].includes(path)) return false;
+  if (request.method !== 'GET') return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+  requireIntegrationPermission(context.principal, 'nnd.read');
+  const workspace = trustedWorkspace(context.nndWorkspaceRoot);
+  if (path === '/global/health') return send(response, 200, { healthy: true, version: '1.18.31' });
+  if (path === '/path') return send(response, 200, { home: '', state: '', config: '', worktree: workspace, directory: workspace });
+  if (path === '/config') return send(response, 200, {});
+  if (path === '/project' || path === '/project/current') {
+    const project = { id: 'nna_workspace', worktree: workspace, name: 'NNA workspace', time: { created: 0, updated: 0 } };
+    return send(response, 200, path === '/project' ? [project] : project);
+  }
+  const host = context.nndEngineHost;
+  if (!host) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
+  return send(response, 200, host.statuses(context.principal));
+}
+
+function trustedWorkspace(value) {
+  // The browser's directory header is never an authority to select a host path.
+  return typeof value === 'string' && value.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : '';
 }
 
 function textContent(parts) {

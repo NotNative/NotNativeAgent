@@ -145,16 +145,21 @@ test('NND harness session routes bind creation to the complete principal workspa
   const factoryOptions = [];
   const nndEngineHost = new NndEngineHost({ createEngine: async (options) => {
     factoryOptions.push(options);
-    return { config: { executionManifest: null }, active: { finalized: false }, transcript: [], async initialize() {}, async submit() {}, async shutdown() {} };
+    return { config: { executionManifest: null }, active: null, transcript: [], async initialize() {}, async submit() {}, async shutdown() {} };
   } });
   const service = await startIntegrationServer({
-    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost,
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost, nndWorkspaceRoot: root,
     providerStore: new ProviderProfileStore({ configRoot }),
     broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {
     const owner = principal(['nnd.read', 'nnd.session.create'], { workspace_ids: ['w_one', 'w_two'] });
+    const health = await request(base, '/global/health', owner);
+    assert.deepEqual(health.value, { healthy: true, version: '1.18.31' });
+    assert.equal((await request(base, '/path', owner)).value.directory, root);
+    assert.deepEqual((await request(base, '/session/status', owner)).value, {});
+    assert.equal((await request(base, '/global/health', principal([]))).status, 403);
     const created = await request(base, '/session', owner, {
       method: 'POST', body: { title: 'Safe session', dataPaths: 'untrusted', directory: 'C:\\untrusted' },
     });

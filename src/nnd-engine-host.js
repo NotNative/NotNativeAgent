@@ -58,6 +58,12 @@ export class NndEngineHost {
 
   submitAsync(sessionId, command, principal) {
     const context = this.#owned(sessionId, principal);
+    // `Engine.submit()` reports a busy turn asynchronously.  A compatibility
+    // caller must not receive 204 and confirm its optimistic message when the
+    // engine has already rejected that message before the operation settles.
+    if (context.engine.active && !context.engine.active.finalized) {
+      return { accepted: false, reason: 'busy' };
+    }
     const started = context.ingress.start(command, principal);
     if (started.duplicate) return started.result;
     // Why: callers receive the acknowledgement promptly; the engine remains
@@ -73,6 +79,16 @@ export class NndEngineHost {
 
   list(principal) { requirePrincipal(principal); return [...this.#contexts.values()].filter((context) => !context.closing && samePrincipal(context, principal)).map(describe); }
   get(sessionId, principal) { return describe(this.#owned(sessionId, principal)); }
+  statuses(principal) {
+    requirePrincipal(principal);
+    const statuses = {};
+    for (const context of this.#contexts.values()) {
+      if (!context.closing && samePrincipal(context, principal) && context.engine.active && !context.engine.active.finalized) {
+        statuses[context.sessionId] = { type: 'busy' };
+      }
+    }
+    return statuses;
+  }
   messages(sessionId, principal) {
     const context = this.#owned(sessionId, principal);
     return context.engine.transcript

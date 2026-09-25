@@ -77,11 +77,22 @@ test('NND engine host acknowledges prompt_async work and keeps transcript IDs st
   release();
 });
 
+test('NND engine host rejects a prompt while its engine has an active turn', async () => {
+  const engine = fakeEngine();
+  engine.active = { finalized: false };
+  let submissions = 0;
+  engine.submit = async () => { submissions += 1; };
+  const host = new NndEngineHost({ createEngine: async () => engine });
+  await host.create('session_a', owner);
+  assert.deepEqual(host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner), { accepted: false, reason: 'busy' });
+  assert.equal(submissions, 0);
+});
+
 function steer(request_id) { return { version: '1.0', type: 'steer', request_id, content: 'continue' }; }
 
 function fakeEngine() {
   return {
-    config: { executionManifest: null }, active: { finalized: false },
+    config: { executionManifest: null }, active: null,
     async initialize() {}, async steer(command) { return { accepted: true, request_id: command.request_id }; },
     async shutdown() {},
   };
