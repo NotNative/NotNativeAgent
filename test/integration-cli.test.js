@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createIntegrationNndEngineHost, runIntegrationCommand, runNndIntegrationCommand } from '../src/integration-cli.js';
 import { assertNnoIntegrationActivation, createNndLocalIntegrationActivation } from '../src/nno-integration-activation.js';
+import { trustWorkspace } from '../src/experience/trust.js';
 
 test('NND local service starts without NNO activation and keeps its authenticated wire contract', async () => {
   assert.throws(() => assertNnoIntegrationActivation(createNndLocalIntegrationActivation()), {
@@ -97,14 +98,46 @@ test('integration NND host builds governed engines from the trusted manifest', a
     providers: [{ id: 'primary', display_name: 'Primary', endpoint: 'http://127.0.0.1:1234/v1', model: 'test', trust_zone: 'loopback' }],
     routes: { primary: { provider_id: 'primary', model: 'test' } },
   }));
-  const host = await createIntegrationNndEngineHost({ config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') });
+  const skillRoot = join(root, 'skills');
+  await mkdir(join(skillRoot, 'review'), { recursive: true });
+  await writeFile(join(skillRoot, 'review', 'SKILL.md'), [
+    '---', 'id: nnd-review', 'version: 1', 'description: Review a change',
+    'invocation: both', '---', 'Review the requested change.',
+  ].join('\n'));
+  const host = await createIntegrationNndEngineHost({ config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks'), skills: skillRoot });
   assert.equal(host.workspaceRoot, root);
   assert.deepEqual(host.nndModel, { providerID: 'primary', modelID: 'test' });
+  const initialSkills = await host.readNndSkillsInventory();
+  assert.ok(initialSkills.skills.some((skill) => skill.id === 'nnd-review'));
+  assert.equal(JSON.stringify(initialSkills).includes('SKILL.md'), false);
+  assert.equal(JSON.stringify(initialSkills).includes('Review the requested change.'), false);
   const principal = { subjectId: 'operator', workspaceIds: ['workspace_a'] };
   const context = await host.create('session_a', principal);
   assert.equal(context.engine.sessionId, 'session_a');
   assert.equal(context.engine.emitContextStatus, true);
   assert.equal(context.engine.surface, 'nnd');
+  assert.ok(context.engine.skills.catalog().some((skill) => skill.id === 'nnd-review'));
+  await writeFile(join(skillRoot, 'review', 'SKILL.md'), [
+    '---', 'id: nnd-review', 'version: 2', 'description: Review a newer change',
+    'invocation: both', '---', 'Review the newer requested change.',
+  ].join('\n'));
+  const refreshedSkills = await host.readNndSkillsInventory();
+  assert.equal(refreshedSkills.skills.find((skill) => skill.id === 'nnd-review').version, '2');
+  assert.equal(context.engine.skills.catalog().find((skill) => skill.id === 'nnd-review').version, '1');
+  const failedSkillRoot = join(root, 'bad-bundled');
+  await mkdir(join(failedSkillRoot, 'invalid'), { recursive: true });
+  await writeFile(join(failedSkillRoot, 'invalid', 'SKILL.md'), 'invalid skill file');
+  const failedHost = await createIntegrationNndEngineHost({
+    config: configRoot, sessions: join(root, 'failed-sessions'), reviewerLedger: join(root, 'failed-reviewer'),
+    hooks: join(root, 'hooks'), skills: skillRoot,
+  }, { skillRoots: [{ scope: 'bundled', path: failedSkillRoot }] });
+  await assert.rejects(failedHost.readNndSkillsInventory(), (error) => {
+    assert.equal(error.code, 'nnd_skills_unavailable');
+    assert.equal(error.message.includes('SKILL.md'), false);
+    assert.equal(error.message.includes(root), false);
+    return true;
+  });
+  await failedHost.shutdown();
   const events = [];
   host.eventBus = { publishSession: (event) => events.push(event) };
   let release;
@@ -115,6 +148,33 @@ test('integration NND host builds governed engines from the trusted manifest', a
   release({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
   await host.close('session_a', principal);
+});
+
+test('NND skills include project roots only after workspace trust', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-project-skills-'));
+  const configRoot = join(root, 'config');
+  const projectSkills = join(root, '.nna', 'skills', 'project-review');
+  const trustPath = join(root, 'trust.json');
+  await mkdir(configRoot, { recursive: true });
+  await mkdir(projectSkills, { recursive: true });
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify({
+    format_version: 1, persistence: 'ephemeral', workspace_root: root,
+    providers: [{ id: 'primary', endpoint: 'http://127.0.0.1:1234/v1', model: 'test', trust_zone: 'loopback' }],
+    routes: { primary: { provider_id: 'primary', model: 'test' } },
+  }));
+  await writeFile(join(projectSkills, 'SKILL.md'), [
+    '---', 'id: project-review', 'version: 1', 'description: Review project code',
+    'invocation: both', '---', 'Project instructions.',
+  ].join('\n'));
+  const paths = { config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'),
+    hooks: join(root, 'hooks'), trustedWorkspaces: trustPath };
+  const before = await createIntegrationNndEngineHost(paths);
+  assert.equal((await before.readNndSkillsInventory()).skills.some((skill) => skill.id === 'project-review'), false);
+  await before.shutdown();
+  await trustWorkspace(trustPath, root);
+  const after = await createIntegrationNndEngineHost(paths);
+  assert.equal((await after.readNndSkillsInventory()).skills.some((skill) => skill.id === 'project-review'), true);
+  await after.shutdown();
 });
 
 test('integration activation rejects an invalid deployment identifier', async () => {

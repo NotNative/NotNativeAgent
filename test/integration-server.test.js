@@ -168,6 +168,28 @@ test('NND MCP inventory projects configured state without destinations or creden
   } finally { await service.close(); }
 });
 
+test('NND skills inventory is read-only and omits source paths and bodies', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-skills-'));
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
+    nndEngineHost: { readNndSkillsInventory: async () => ({ version: 1, state: 'discovered', skills: [
+      { id: 'review', version: '1', description: 'Review code', invocation: 'both' },
+    ] }) },
+    providerStore: new ProviderProfileStore({ configRoot }),
+    broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    const result = await request(base, '/v1/nnd/skills', principal(['nnd.read']));
+    assert.deepEqual(result.value.skills, [{ id: 'review', version: '1', description: 'Review code', invocation: 'both' }]);
+    assert.equal((await request(base, '/v1/nnd/skills', principal([]))).status, 403);
+    assert.equal((await request(base, '/v1/nnd/skills', principal(['nnd.read']), { method: 'POST' })).status, 405);
+  } finally { await service.close(); }
+});
+
 test('NND harness session routes bind creation to the complete principal workspace grant', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-harness-'));
   const configRoot = join(root, 'config');

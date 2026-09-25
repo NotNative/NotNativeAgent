@@ -11,6 +11,10 @@ import { resolveManifest } from './config.js';
 import { SessionEngine } from './engine.js';
 import { NndEngineHost } from './nnd-engine-host.js';
 import { nndMcpInventory } from './nnd-mcp-inventory.js';
+import { nndSkillsInventory } from './nnd-skills-inventory.js';
+import { SkillRegistry } from './skill-registry.js';
+import { runtimeSkillRoots } from './startup-configuration.js';
+import { workspaceIsTrusted } from './experience/trust.js';
 
 export async function runIntegrationCommand(args, paths, options = {}) {
   if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
@@ -76,6 +80,11 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
     missionPrincipal: 'authenticated-nnd-operator', principal: 'authenticated-nnd-operator',
     hostOrigin: 'nnd-integration', hostIdentity: 'nnd-integration',
   });
+  const trusted = typeof paths.trustedWorkspaces === 'string'
+    ? await workspaceIsTrusted(paths.trustedWorkspaces, config.workspaceRoot) : false;
+  const skillRoots = options.skillRoots ?? runtimeSkillRoots(paths, {
+    trusted, skillRoot: join(config.workspaceRoot, '.nna', 'skills'),
+  });
   const host = new NndEngineHost({
     catalogPath: config.persistence === 'durable' ? join(paths.sessions, 'nnd-contexts.json') : null,
     createEngine: async (input) => new SessionEngine({
@@ -84,7 +93,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
       mcpTransportFactory: options.mcpTransportFactory, memoryAdapter: options.memoryAdapter,
       hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
-      skillRoots: options.skillRoots ?? [],
+      skillRoots,
       emitContextStatus: true,
       output: input.output,
     }),
@@ -93,6 +102,14 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
   // Security: expose only the configured route identity to the NND browser, never provider credentials or endpoints.
   host.nndModel = Object.freeze({ providerID: config.routes.primary.providerId, modelID: config.routes.primary.model });
   host.nndMcpInventory = nndMcpInventory(config);
+  // A newly created session discovers these same roots at initialization.
+  // Read again per request so the UI does not freeze a startup-only catalog.
+  host.readNndSkillsInventory = async () => {
+    const skills = new SkillRegistry({ roots: skillRoots });
+    try { await skills.initialize(); }
+    catch { throw new ContractError('nnd_skills_unavailable', 'NNA skill discovery is unavailable'); }
+    return nndSkillsInventory(skills.catalog());
+  };
   await host.initialize();
   return host;
 }

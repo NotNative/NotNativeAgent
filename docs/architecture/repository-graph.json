@@ -2,10 +2,10 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:631f7e147ce44a66eea8e4ef0badde1ddf02515986e0769aa30829b55cfa8efe",
+  "source_digest": "sha256:5a21670e828e3b8e9ae749e546a463153c0bb0bb0152d895b80fb8c00b90bb96",
   "counts": {
-    "modules": 372,
-    "component_edges": 76
+    "modules": 373,
+    "component_edges": 78
   },
   "components": [
     {
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 98
+      "module_count": 99
     }
   ],
   "entrypoints": [
@@ -168,7 +168,7 @@
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 21,
+      "import_count": 23,
       "module_count": 10
     },
     {
@@ -534,6 +534,18 @@
     {
       "from": "guidance",
       "to": "governance-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "integrations",
+      "to": "experience-engine",
+      "import_count": 1,
+      "module_count": 1
+    },
+    {
+      "from": "integrations",
+      "to": "guidance",
       "import_count": 1,
       "module_count": 1
     },
@@ -1751,13 +1763,17 @@
       "imports": [
         "src/config.js",
         "src/engine.js",
+        "src/experience/trust.js",
         "src/ids.js",
         "src/integration-server.js",
         "src/nnd-engine-host.js",
         "src/nnd-mcp-inventory.js",
+        "src/nnd-skills-inventory.js",
         "src/nno-integration-activation.js",
         "src/provider/profile-store.js",
-        "src/secret-broker.js"
+        "src/secret-broker.js",
+        "src/skill-registry.js",
+        "src/startup-configuration.js"
       ]
     },
     {
@@ -1953,6 +1969,12 @@
         "src/nnd-session-description.js",
         "src/nnd-turn-state.js"
       ]
+    },
+    {
+      "path": "src/nnd-skills-inventory.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/nnd-transcript-identity.js",
