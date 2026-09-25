@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Live delegated turn phases.** NNA-owned child sessions now
+  project validated semantic phases through their own session metadata and
+  live update events. The Subagents row uses the child's phase only while its
+  own transport status is active; permission/question evidence retains
+  precedence. Adversarial review ensured completed snapshots report idle
+  after restart instead of regressing to unknown live status.
+  The source smoke holds a real delegated provider call and verifies the
+  child-specific `waiting_provider` projection through NND, including idle
+  restoration. NNA full suite, NND UI/web suites, typechecks, and quality
+  gates pass.
+
 - 2026-09-25 · **NNA-authored turn phase in Context.** NND-created engines now
   emit their semantic phase from NNA, and the authenticated session projection
   carries the validated phase into the Work rail. The source smoke observes a

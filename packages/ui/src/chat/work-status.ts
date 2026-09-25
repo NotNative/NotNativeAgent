@@ -217,7 +217,7 @@ function busyRound(value: number | null): number | null {
 /** Subagent rows (§E.9 section 5): per-child status phrase + subtree cost. */
 export type SubagentRow = { sessionID: string; title: string; statusPhrase: string; cost: number | null };
 
-export function subagentRows(state: DirectoryStore, parentID: string, statusOf: (sessionID: string) => 'working' | 'needs permission' | 'asked a question' | 'Idle' | 'No live status'): SubagentRow[] {
+export function subagentRows(state: DirectoryStore, parentID: string, statusOf: (sessionID: string) => string): SubagentRow[] {
   return state.session
     .filter((session) => session.parentID === parentID)
     .map((session) => {

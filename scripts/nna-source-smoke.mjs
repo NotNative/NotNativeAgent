@@ -196,6 +196,7 @@ async function probeSession(call, workspace, nextEvent, provider) {
   assert.equal(delegated.status, 204);
   await withTimeout(provider.childRequested, 10_000, 'NNA did not open a delegated provider request');
   const liveChild = await waitForChild(call, id);
+  await waitForChildPhase(call, liveChild.id, 'waiting_provider');
   const activeCapability = await json(call, `/api/v1/nnd/sessions/${liveChild.id}/capabilities`, 200);
   assert.equal(activeCapability.capabilities.steer_subagent, true, 'active child was not granted steering');
   const steered = await json(call, `/api/v1/nnd/sessions/${liveChild.id}/steer`, {
@@ -258,6 +259,8 @@ async function probeRestoredSession(app, { parentId, childId }) {
   assert.deepEqual((await json(call, '/api/session?roots=true', 200)).map((item) => item.id), [parentId]);
   assert.deepEqual((await json(call, '/api/session?roots=false', 200)).map((item) => item.id), [childId]);
   assert.deepEqual((await json(call, `/api/session/${parentId}/children`, 200)).map((item) => item.id), [childId]);
+  assert.deepEqual((await json(call, `/api/session/${childId}`, 200)).metadata?.nnd?.turnState,
+    { phase: 'idle' }, 'restored child must retain its completed idle fact');
   const messages = await json(call, `/api/session/${childId}/message`, 200);
   assert.ok(messages.some((message) => message.info?.role === 'assistant'
     && message.parts?.some((part) => part.text?.includes(CHILD_STEER_ACK))),
@@ -283,6 +286,16 @@ async function waitForChild(call, parentId) {
     const children = await json(call, `/api/session/${parentId}/children`, 200);
     if (children.length === 1) return children[0];
     if (Date.now() >= deadline) throw new Error('active delegated child did not appear in NND');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+async function waitForChildPhase(call, childId, expected) {
+  const deadline = Date.now() + 5_000;
+  for (;;) {
+    const child = await json(call, `/api/session/${childId}`, 200);
+    if (child.metadata?.nnd?.turnState?.phase === expected) return;
+    if (Date.now() >= deadline) throw new Error(`NNA child did not project ${expected} through NND`);
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }

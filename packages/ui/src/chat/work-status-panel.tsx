@@ -33,8 +33,7 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const context = contextUsage(snapshot, sessionID, contextLimit);
   const nnaContext = nnaContextUsage(snapshot, sessionID);
   const turnPhase = nnaTurnPhase(snapshot, sessionID);
-  const turnLabel = turnPhase === 'awaiting_approval' ? 'Reviewing tool use'
-    : turnPhase ? turnPhase.replaceAll('_', ' ').replace(/^./u, (letter) => letter.toUpperCase()) : null;
+  const turnLabel = turnPhase ? turnPhaseLabel(turnPhase) : null;
   const governance = nnaGovernanceSummary(snapshot, sessionID);
   const work = nnaWorkSummary(snapshot, sessionID);
   const sessionModel = nnaSessionConfiguredModel(snapshot, sessionID);
@@ -158,12 +157,21 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   }
 }
 
-function statusPhraseOf(snapshot: DirectoryStore, statusById: Record<string, SessionStatus>): (sessionID: string) => 'working' | 'needs permission' | 'asked a question' | 'Idle' | 'No live status' {
+function turnPhaseLabel(phase: string): string {
+  return phase === 'awaiting_approval' ? 'Reviewing tool use'
+    : phase.replaceAll('_', ' ').replace(/^./u, (letter) => letter.toUpperCase());
+}
+
+function statusPhraseOf(snapshot: DirectoryStore, statusById: Record<string, SessionStatus>): (sessionID: string) => string {
   return (sessionID) => {
     if ((snapshot.permission[sessionID]?.length ?? 0) > 0) return 'needs permission';
     if ((snapshot.question[sessionID]?.length ?? 0) > 0) return 'asked a question';
+    const phase = nnaTurnPhase(snapshot, sessionID);
+    if (phase === 'idle') return 'Idle';
     const status = statusById[sessionID];
-    if (status && status.type !== 'idle') return 'working';
+    if (status && status.type !== 'idle') {
+      return phase && phase !== 'idle' ? turnPhaseLabel(phase) : 'working';
+    }
     // The global index removes idle entries. An explicit directory idle
     // record is evidence, but an absent record is not: this child may have
     // appeared after the last successful directory status snapshot. Neither

@@ -24,6 +24,10 @@ NND does not infer it from the compatibility `busy|idle|retry` transport
 status. NNA settles the projection to idle after a completed turn; unknown
 phase names remain absent. The full replayable turn-state contract, including
 cursor and correction semantics, remains separate PA work.
+The same phase is projected per live delegated child session. The Subagents
+row displays it only when the child's own transport status is active; pending
+permissions and questions still take precedence. A restored read-only child
+reports idle, never a live-work phase.
 
 ## Child-session steering
 

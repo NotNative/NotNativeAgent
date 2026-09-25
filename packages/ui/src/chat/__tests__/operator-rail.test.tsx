@@ -303,9 +303,15 @@ describe('OperatorRail', () => {
 
     act(() => useGlobalSessionStatusStore.getState().applyEvent('child', { type: 'busy' }));
     expect(subagents.textContent).toContain('working');
+    act(() => store.getState().patch({ session: [
+      { id: 'parent', time: { created: 1, updated: 1 } },
+      { id: 'child', parentID: 'parent', title: 'Explorer', metadata: { nnd: { turnState: { phase: 'running_tool' } } },
+        time: { created: 2, updated: 3 } },
+    ] as never }));
+    expect(subagents.textContent).toContain('Running tool');
     act(() => store.getState().patch({ permission: { child: [{ id: 'p1' }] } as never }));
     expect(subagents.textContent).toContain('needs permission');
-    expect(subagents.textContent).not.toContain('working');
+    expect(subagents.textContent).not.toContain('Running tool');
     act(() => store.getState().patch({ permission: {}, question: { child: [{ id: 'q1' }] } as never }));
     expect(subagents.textContent).toContain('asked a question');
     act(() => store.getState().patch({ question: {} }));
@@ -316,6 +322,13 @@ describe('OperatorRail', () => {
     expect(subagents.textContent).not.toContain('Done');
     act(() => store.getState().patch({ session_status: {}, sessionStatusReady: true }));
     expect(subagents.textContent).toContain('No live status');
+    act(() => store.getState().patch({ session: [
+      { id: 'parent', time: { created: 1, updated: 1 } },
+      { id: 'child', parentID: 'parent', title: 'Explorer', metadata: { nnd: { turnState: { phase: 'idle' } } },
+        time: { created: 2, updated: 4 } },
+    ] as never }));
+    expect(subagents.textContent).toContain('Idle');
+    expect(subagents.textContent).not.toContain('No live status');
   });
 
   it('renders only explicit activity evidence and offers a bounded browser preview', () => {
