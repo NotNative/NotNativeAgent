@@ -2,7 +2,7 @@
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
-const ROUTE = /^\/session(?:\/([^/]+))?$/u;
+const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message))?$/u;
 export async function dispatchNndHarnessRequest(request, response, context) {
   const match = ROUTE.exec(context.url.pathname); if (!match) return false;
   const host = context.nndEngineHost; if (!host) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
@@ -11,7 +11,7 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     try { id = decodeURIComponent(match[1]); requireExternalId(id, 'session_id'); }
     catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
   }
-  if (request.method === 'GET') { requireIntegrationPermission(context.principal, 'nnd.read'); return send(response, 200, id ? host.get(id, context.principal) : host.list(context.principal)); }
+  if (request.method === 'GET') { requireIntegrationPermission(context.principal, 'nnd.read'); return send(response, 200, match[2] ? host.messages(id, context.principal) : id ? host.get(id, context.principal) : host.list(context.principal)); }
   if (request.method === 'POST' && !id) {
     requireIntegrationPermission(context.principal, 'nnd.session.create');
     const body = await readJsonBody(request);

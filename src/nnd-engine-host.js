@@ -63,6 +63,11 @@ export class NndEngineHost {
 
   list(principal) { requirePrincipal(principal); return [...this.#contexts.values()].filter((context) => !context.closing && samePrincipal(context, principal)).map(describe); }
   get(sessionId, principal) { return describe(this.#owned(sessionId, principal)); }
+  messages(sessionId, principal) {
+    const context = this.#owned(sessionId, principal);
+    return context.engine.transcript.filter((item) => item?.type === 'message' && typeof item.content === 'string').slice(-200)
+      .map((item, index) => ({ info: { id: `${context.sessionId}:message:${index}`, sessionID: context.sessionId, role: item.role, time: { created: context.createdAt + index }, agent: 'nna', model: { providerID: 'nna', modelID: 'nna' } }, parts: [{ id: `${context.sessionId}:part:${index}`, sessionID: context.sessionId, messageID: `${context.sessionId}:message:${index}`, type: 'text', text: item.content }] }));
+  }
 
   async close(sessionId, principal) {
     const context = this.#owned(sessionId, principal, true);
