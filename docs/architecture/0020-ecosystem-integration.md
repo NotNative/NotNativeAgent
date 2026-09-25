@@ -122,6 +122,9 @@ another turn. Journal-backed assistant messages carry completed time; the live
 preview alone remains unfinished. Synthetic transcript-position IDs are reserved
 so submitted IDs cannot collide with them. This keeps optimistic chat rows and
 reloaded transcripts convergent without comparing message text.
+Durable authority recovery accepts the bounded authenticated integration
+principal shape persisted with NND submissions. It rejects arbitrary object
+origins rather than treating a failed replay as an empty conversation.
 For NND-created engines, numeric context-status measurements are emitted and
 projected into session metadata as explicitly estimated token use and a known
 limit, when available. The context text itself is never part of that projection.

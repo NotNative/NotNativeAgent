@@ -1683,6 +1683,31 @@ test('dual-persisted authority bindings survive the journal and rebind the lane 
   await resumed.shutdown({ request_id: 'shutdown-binding-resume' });
 });
 
+test('durable recovery retains an authenticated integration principal origin', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-resume-integrated-origin-'));
+  const stores = join(root, 'sessions');
+  const provider = { async *stream() {
+    yield { type: 'text', text: 'Completed.' };
+    yield { type: 'terminal' };
+  } };
+  const createEngine = () => new SessionEngine({
+    config: config(root, 'durable'), sessionId: 'integrated-origin',
+    storeRoot: stores, reviewerRoot: join(root, 'reviewers'), providerFactory: () => provider,
+  });
+  const principal = Object.freeze({ subjectId: 'nnd-local-operator', platformRole: 'operator',
+    permissions: ['nnd.read', 'nnd.session.submit'], workspaceIds: ['local'], groupIds: [],
+    traceId: 'trace_a', issuedAt: new Date('2026-09-25T00:00:00.000Z'), requestId: 'request_a' });
+  const first = createEngine();
+  await first.initialize();
+  assert.equal((await first.submit({ request_id: 'turn_a', content: 'Reply.' }, principal)).outcome, 'completed');
+  await first.shutdown({ request_id: 'shutdown_a' });
+  const reopened = createEngine();
+  await reopened.initialize();
+  assert.equal(reopened.authority.snapshot(reopened.config).intent[0].origin.subjectId, principal.subjectId);
+  assert.deepEqual(reopened.authority.snapshot(reopened.config).intent[0].origin.workspaceIds, ['local']);
+  await reopened.shutdown({ request_id: 'shutdown_b' });
+});
+
 test('resume recovers authority that lives outside the bounded transcript tail', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-resume-authority-'));
   const stores = join(root, 'sessions');

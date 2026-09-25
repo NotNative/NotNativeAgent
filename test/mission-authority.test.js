@@ -97,6 +97,19 @@ test('durable authority facts restore independently of non-authoritative transcr
   assert.doesNotMatch(JSON.stringify(snapshot), /beta\.txt/u);
 });
 
+test('recovered integration principal timestamps remain bounded like authenticated claims', () => {
+  const origin = { subjectId: 'operator', platformRole: 'operator', permissions: [],
+    workspaceIds: ['local'], groupIds: [], traceId: 'trace',
+    issuedAt: '2026-09-25T00:00:00.000Z', requestId: 'request' };
+  const record = { content: 'Proceed.', origin, lineageId: 'auth_test' };
+  const restored = new AuthorityRecord();
+  restored.restore([record]);
+  assert.equal(restored.snapshot(resolveManifest({ provider })).intent[0].origin.subjectId, 'operator');
+  assert.throws(() => new AuthorityRecord().restore([{
+    ...record, origin: { ...origin, issuedAt: `${' '.repeat(257)}2026-09-25T00:00:00.000Z` },
+  }]), { code: 'authority_journal_invalid' });
+});
+
 test('AC-AUTH-02 mission authority is accepted only from the authenticated headless host', () => {
   assert.throws(() => resolveManifest({ provider, mission: mission() }), { code: 'mission_authority_forbidden' });
   const config = resolveManifest({ provider, mission: mission() }, { missionPrincipal: 'authenticated-stdio-host' });

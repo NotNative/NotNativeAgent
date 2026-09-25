@@ -56,7 +56,7 @@ export class AuthorityRecord {
     this.#version = 0; this.#restrictionVersion = 0; this.#intent = [];
     let lineage = null;
     for (const record of records) {
-      if (!record || typeof record.content !== 'string' || typeof record.origin !== 'string'
+      if (!record || typeof record.content !== 'string' || !validRestoredOrigin(record.origin)
         || typeof record.lineageId !== 'string' || (lineage && record.lineageId !== lineage)) {
         throw new ContractError('authority_journal_invalid', 'authority recovery record is invalid');
       }
@@ -167,6 +167,21 @@ export class AuthorityRecord {
       this.#missionStartedAt.delete(id);
     } else this.#missionTurns.set(id, turns - 1);
   }
+}
+
+function validRestoredOrigin(value) {
+  if (typeof value === 'string') return true;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  // Security: integration principals are journaled after authentication. Recovery
+  // accepts that exact bounded shape, not arbitrary objects as authority origins.
+  const keys = ['subjectId', 'platformRole', 'permissions', 'workspaceIds', 'groupIds', 'traceId', 'issuedAt', 'requestId'];
+  const bounded = (text) => typeof text === 'string' && text.trim().length > 0 && text.length <= 256
+    && !/[\u0000-\u001f\u007f]/u.test(text);
+  const list = (items) => Array.isArray(items) && items.length <= 512 && items.every(bounded);
+  return Object.keys(value).length === keys.length && Object.keys(value).every((key) => keys.includes(key))
+    && bounded(value.subjectId) && bounded(value.platformRole) && bounded(value.traceId) && bounded(value.requestId)
+    && list(value.permissions) && list(value.workspaceIds) && list(value.groupIds)
+    && bounded(value.issuedAt) && Number.isFinite(Date.parse(value.issuedAt));
 }
 
 export function assertMissionBudget(active, additionalToolCalls = 0) {
