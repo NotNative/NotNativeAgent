@@ -145,7 +145,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'learning_timestamp_invalid', 'lifecycle_already_terminal', 'lifecycle_id_invalid',
     'lifecycle_outcome_invalid', 'lifecycle_context_invalid', 'line_too_large', 'long_horizon_options_invalid', 'retention_limit_invalid',
     'long_horizon_records_invalid', 'maintenance_evidence_context_invalid', 'maintenance_evidence_settlement_failed',
-    'malformed_json', 'missing_credential', 'missing_parent',
+    'integration_activation_required', 'malformed_json', 'missing_credential', 'missing_parent',
     'mission_authority_forbidden', 'mission_budget_history_incomplete', 'mission_credential_denied',
     'mission_duration_limit', 'mission_expired', 'mission_manifest_mismatch',
     'mission_not_started', 'mission_rollback_invalid', 'mission_time_invalid',

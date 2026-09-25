@@ -12,6 +12,19 @@ const INTEGRATION_SCOPE = 'nno-child-only';
 const INTEGRATION_PROTOCOL = '1.0';
 const DEFAULT_DEPLOYMENT_ID = 'hosted';
 const validated = new WeakSet();
+const localValidated = new WeakSet();
+
+// Security: this local activation is constructed only inside NNA, never from caller data.
+export function createNndLocalIntegrationActivation() {
+  const activation = Object.freeze({ installRoot: null, manifestPath: null, protocol: INTEGRATION_PROTOCOL, deploymentId: 'nnd-local' });
+  localValidated.add(activation);
+  return activation;
+}
+
+export function assertIntegrationActivation(activation) {
+  if (activation && (validated.has(activation) || localValidated.has(activation))) return activation;
+  throw new ContractError('integration_activation_required', 'integration service requires a validated local activation');
+}
 
 export async function validateNnoIntegrationActivation(installRoot) {
   if (typeof installRoot !== 'string' || !installRoot.trim() || !isAbsolute(installRoot.trim())) {

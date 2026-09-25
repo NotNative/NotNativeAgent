@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError } from './ids.js';
 import { startIntegrationServer } from './integration-server.js';
-import { validateNnoIntegrationActivation } from './nno-integration-activation.js';
+import { createNndLocalIntegrationActivation, validateNnoIntegrationActivation } from './nno-integration-activation.js';
 import { ProviderProfileStore } from './provider/profile-store.js';
 import { SecretBroker } from './secret-broker.js';
 import { resolveManifest } from './config.js';
@@ -17,10 +17,22 @@ export async function runIntegrationCommand(args, paths, options = {}) {
   }
   const environment = options.environment ?? process.env;
   const activation = await validateNnoIntegrationActivation(environment.NNA_NNO_INSTALL_ROOT);
+  return runActivatedIntegrationCommand(paths, options, activation, 'nno');
+}
+
+export async function runNndIntegrationCommand(args, paths, options = {}) {
+  if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
+    throw new ContractError('nnd_command_invalid', 'nnd command supports serve');
+  }
+  return runActivatedIntegrationCommand(paths, options, createNndLocalIntegrationActivation(), 'nnd');
+}
+
+async function runActivatedIntegrationCommand(paths, options, activation, owner) {
+  const environment = options.environment ?? process.env;
   const token = randomBytes(32).toString('base64url');
   const instanceId = `nna_${randomUUID()}`;
   const broker = new SecretBroker({
-    realm: `nno:${activation.deploymentId}`,
+    realm: `${owner}:${activation.deploymentId}`,
     vaultPath: paths.secretVault, keyPath: paths.secretKey, auditPath: paths.secretAudit,
   });
   const providerStore = new ProviderProfileStore({ configRoot: paths.config, environment, secretBroker: broker });
@@ -32,7 +44,7 @@ export async function runIntegrationCommand(args, paths, options = {}) {
   const output = options.output ?? process.stdout;
   let failure = null;
   try {
-    // This single protocol frame is consumed directly by the authenticated NNO parent; the token is required for IPC.
+    // Security: stdout is one readiness frame for the owning local process; the token is not logged.
     output.write(`${JSON.stringify({ type: 'ready', protocol: '1.0', endpoint, instance_id: instanceId, token })}\n`);
     await waitForShutdown(options.signal, service.server);
   } catch (error) { failure = error; }

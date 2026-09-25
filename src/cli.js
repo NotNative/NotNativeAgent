@@ -22,7 +22,7 @@ import { runUninstallCommand } from './uninstall-cli.js';
 import { runSecretBrokerCommand } from './secret-broker-cli.js';
 import { runWebBrowseCommand } from './web-browse-cli.js';
 import { runUpdateCommand } from './update-cli.js';
-import { runIntegrationCommand } from './integration-cli.js';
+import { runIntegrationCommand, runNndIntegrationCommand } from './integration-cli.js';
 import { runOpencodeCommand } from './opencode/cli-operation.js';
 import { installProcessFatalBoundary } from './process-fatal-boundary.js';
 
@@ -82,6 +82,9 @@ try {
     await runIntegrationCommand(options.prompt, await runtimePaths(), {
       output: process.stdout, diagnostics: process.stderr,
     });
+  }
+  else if (options.mode === 'nnd') {
+    await runNndIntegrationCommand(options.prompt, await runtimePaths(), { output: process.stdout, diagnostics: process.stderr });
   }
   else if (options.mode === 'opencode') {
     const paths = await runtimePaths();
@@ -171,6 +174,7 @@ function help() {
     '  nna webbrowse status|verify               Inspect optional Playwright Chromium runtime',
     '  nna provider status|discover ENDPOINT|configure ENDPOINT MODEL',
     '  nna integration serve                    Start the ephemeral NNO integration service',
+    '  nna nnd serve                            Start the local NND integration service',
     '  nna opencode start|stop|status',
     '                                           Run or inspect the OpenCode-compatible OpenChamber surface',
     '  nna opencode enable [--port P] [--hostname H] | disable',

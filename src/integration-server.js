@@ -4,7 +4,7 @@ import { ContractError } from './ids.js';
 import {
   authenticateIntegrationRequest, readIntegrationPrincipal, requireIntegrationPermission, requireToken,
 } from './integration-principal.js';
-import { assertNnoIntegrationActivation } from './nno-integration-activation.js';
+import { assertIntegrationActivation } from './nno-integration-activation.js';
 import { discoverProviderModels } from './provider/bootstrap.js';
 import { dispatchSecretBrokerRequest, readJsonBody, send, sendFailure } from './secret-broker-server.js';
 import { dispatchNndOperatorRequest } from './nnd-operator-routes.js';
@@ -19,7 +19,7 @@ const DEFAULT_KEEP_ALIVE_TIMEOUT_MS = 5_000;
 const MAX_SERVER_TIMEOUT_MS = 300_000;
 
 export async function startIntegrationServer(options) {
-  assertNnoIntegrationActivation(options.activation);
+  assertIntegrationActivation(options.activation);
   const host = options.host ?? '127.0.0.1';
   if (!LOOPBACK_HOSTS.has(host)) throw new ContractError('integration_bind_invalid', 'integration service must bind to loopback');
   const token = requireToken(options.token);

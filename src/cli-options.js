@@ -57,7 +57,7 @@ export function parseCli(argv) {
 const MODES = new Set([
   'tui', 'text', 'headless', 'host', 'session', 'sessions', 'websearch', 'skills', 'gateway',
   'webfetch', 'webbrowse', 'provider', 'secrets', 'uninstall', 'help', 'version', '--help', '-h', '--version', '-v',
-  'update', 'integration', 'opencode',
+  'update', 'integration', 'nnd', 'opencode',
 ]);
 
 // Why: `run` is the managed runtime entry point used by the wiring service's
