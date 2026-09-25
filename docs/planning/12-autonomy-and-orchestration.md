@@ -418,6 +418,19 @@ budget and 20-turn limits are checked before audit or continuation.
 The event/tick wiring must CAS-write this candidate before using it; that
 remains a separate implementation slice.
 
+The pre-audit NNA safety tick now checks root-session identity, active goal,
+fresh objective, authoritative root/child idleness and the receipt feed. It
+can persist a hard-stop decision only after re-reading the session and
+confirming the same goal ID and revision; NNA performs the final atomic CAS.
+No unattended prompt is sent by this safety tick. A successful/Resume
+candidate still requires a complete assistant tail before entering the later
+auditor and dispatch path. The one exception is an explicit Resume over an
+accounted cancelled turn with no assistant output: the final journaled user
+message must exactly match that receipt's request ID, and the candidate is
+marked skip-audit. Evidence hard stops run before objective-file fetch, so a
+missing objective cannot suppress a budget or failed-turn stop. Event timers
+and the production port adapter are not yet wired.
+
 #### B.5.5 The evaluator exchange `[HARNESS PORT]` (port P-02 §7.4 small-model)
 
 The audit is a direct small-model call — an independent auditor that sees ONLY the objective

@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 pre-audit NNA safety tick.** A testable server tick now
+  waits for authoritative root/child idleness, an available objective and
+  safe receipt evidence; it can CAS-settle hard stops after re-reading goal
+  identity and revision. Adversarial review fixed a stalled Resume after a
+  cancelled turn with no assistant output and objective unavailability
+  suppressing hard stops. It does not yet send unattended prompts. Event
+  timers, production adapter, NNA auditor and dispatch remain pending.
+  Verification: 710 web tests, full typecheck/quality gates and 392-module
+  graph pass.
+
 - 2026-09-25 · **P9 goal audit contract.** NND now bounds and escapes the
   objective/latest-assistant prompt sent to a future independent evaluator,
   and parses a bounded JSON verdict with note/script safeguards. Adversarial

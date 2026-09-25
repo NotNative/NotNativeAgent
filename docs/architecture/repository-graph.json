@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:d33d881a86f6efde643cf8e616ac88b44e92bb402564f32fdf735732172b10b0",
+  "source_digest": "sha256:7c43ba8f4adcc6c001ce6f5b689231db1729da073232139c1f3b8fec5bb31d7a",
   "counts": {
-    "modules": 391,
+    "modules": 392,
     "component_edges": 12
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 104
+      "module_count": 105
     },
     {
       "id": "web-entry",
@@ -2878,6 +2878,17 @@
         "packages/web/src/server/goals/goal-constants.ts",
         "packages/web/src/server/goals/goal-payload.ts",
         "packages/web/src/server/goals/goal-state.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/goals/nna-goal-safety-tick.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-constants.ts",
+        "packages/web/src/server/goals/goal-metadata.ts",
+        "packages/web/src/server/goals/goal-payload.ts",
+        "packages/web/src/server/goals/nna-goal-evidence.ts"
       ]
     },
     {
