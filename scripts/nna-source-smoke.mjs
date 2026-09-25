@@ -10,6 +10,8 @@ const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
 const CHILD_TASK = 'Reply with NND_CHILD_REPLY.';
 const CHILD_REPLY = 'NND_CHILD_REPLY';
+const CHILD_STEER = 'Include NND_STEER_ACK in your final answer.';
+const CHILD_STEER_ACK = 'NND_STEER_ACK';
 const PARENT_REPLY = 'NND_PARENT_REPLY';
 // The stream spans the origin-gate request and session creation, each with
 // its own step deadline. Give the live subscription their combined budget.
@@ -28,6 +30,11 @@ if (!source) {
 async function startProvider() {
   let completions = 0;
   const requests = [];
+  let notifyChildRequest;
+  let releaseChild;
+  const childRequested = new Promise((resolve) => { notifyChildRequest = resolve; });
+  const childGate = new Promise((resolve) => { releaseChild = resolve; });
+  let heldChild = false;
   const server = createServer((request, response) => {
     void (async () => {
       if (request.url === '/v1/models' && request.method === 'GET') {
@@ -46,6 +53,12 @@ async function startProvider() {
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
       requests.push(body);
       completions += 1;
+      const childRequest = body.messages?.some((message) => message.role === 'user' && message.content === CHILD_TASK);
+      if (!heldChild && childRequest) {
+        heldChild = true;
+        notifyChildRequest();
+        await childGate;
+      }
       response.writeHead(200, { 'content-type': 'text/event-stream' });
       response.end(providerReply(body));
     })().catch(() => { if (!response.headersSent) response.writeHead(400); response.end(); });
@@ -53,7 +66,8 @@ async function startProvider() {
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('provider listener has no port');
-  return { server, port: address.port, completions: () => completions, requests: () => requests };
+  return { server, port: address.port, completions: () => completions, requests: () => requests,
+    childRequested, releaseChild };
 }
 
 function providerReply(body) {
@@ -69,7 +83,8 @@ function providerReply(body) {
       confidence: 1, reason_code: approved ? 'explicit_delegate_smoke' : 'no_matching_smoke_intent',
       authority_anchors: approved ? [intent.sequence] : [],
       ...(!approved ? { guidance: 'The smoke fixture grants only its exact delegated task.' } : {}) }) };
-  } else if (userText.includes(CHILD_TASK)) delta = { role: 'assistant', content: CHILD_REPLY };
+  } else if (userText.includes(CHILD_TASK)) delta = { role: 'assistant',
+    content: userText.includes(CHILD_STEER) ? `${CHILD_REPLY} ${CHILD_STEER_ACK}` : CHILD_REPLY };
   else if (userText.includes('Delegate the smoke task')) {
     const delegationResult = messages.find((message) => message.role === 'tool' && message.tool_call_id === 'smoke_delegate_call');
     if (delegationResult) {
@@ -77,6 +92,7 @@ function providerReply(body) {
       const child = JSON.parse(result.content ?? '{}');
       delta = { role: 'assistant', content: result.tool_lifecycle_status === 'succeeded'
         && child.outcome === 'completed' && child.text?.includes(CHILD_REPLY)
+        && child.text?.includes(CHILD_STEER_ACK)
         && /^agent_general_[A-Za-z0-9_-]+$/u.test(child.agent_id) ? PARENT_REPLY : 'NND_DELEGATION_FAILED' };
     } else {
       const searched = messages.some((message) => message.role === 'tool' && message.tool_call_id === 'smoke_search_call');
@@ -100,7 +116,7 @@ async function writeManifest(root, providerPort) {
   }));
 }
 
-async function probe(app, workspace) {
+async function probe(app, workspace, provider) {
   const call = (path, init = {}) => app.fetch(new Request(`http://nnd.local${path}`, {
     ...init, signal: AbortSignal.timeout(STEP_TIMEOUT_MS),
   }));
@@ -116,14 +132,14 @@ async function probe(app, workspace) {
   const nextEvent = eventReader(reader);
   try {
     assert.equal((await nextEvent()).payload.type, 'server.connected');
-    await probeSession(call, workspace, nextEvent);
+    await probeSession(call, workspace, nextEvent, provider);
   } finally {
     eventAbort.abort();
     await reader.cancel().catch(() => {});
   }
 }
 
-async function probeSession(call, workspace, nextEvent) {
+async function probeSession(call, workspace, nextEvent, provider) {
   const blocked = await call('/api/session', { method: 'POST', headers: { origin: 'null', 'content-type': 'text/plain' }, body: '{}' });
   assert.equal(blocked.status, 403);
   const created = await json(call, '/api/session', {
@@ -152,6 +168,16 @@ async function probeSession(call, workspace, nextEvent) {
     body: JSON.stringify({ messageID: 'smoke_delegate', parts: [{ type: 'text', text: 'Delegate the smoke task to a general sub-agent.' }] }),
   });
   assert.equal(delegated.status, 204);
+  await withTimeout(provider.childRequested, 10_000, 'NNA did not open a delegated provider request');
+  const liveChild = await waitForChild(call, id);
+  const activeCapability = await json(call, `/api/v1/nnd/sessions/${liveChild.id}/capabilities`, 200);
+  assert.equal(activeCapability.capabilities.steer_subagent, true, 'active child was not granted steering');
+  const steered = await json(call, `/api/v1/nnd/sessions/${liveChild.id}/steer`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ request_id: 'smoke_steer', content: CHILD_STEER }),
+  }, 202);
+  assert.equal(steered.accepted, true, 'NNA did not accept child steering');
+  provider.releaseChild();
   const childEvents = [];
   await withTimeout(waitForCompletedTurn(nextEvent, id, 'smoke_delegate', (event) => {
     if (event.payload?.type === 'session.created' && event.payload.properties?.info?.parentID === id) childEvents.push(event);
@@ -162,6 +188,7 @@ async function probeSession(call, workspace, nextEvent) {
   const children = await json(call, `/api/session/${id}/children`, 200);
   assert.equal(children.length, 1, 'delegation did not create one child session');
   const child = children[0];
+  assert.equal(child.id, liveChild.id);
   assert.equal(child.parentID, id);
   assert.equal(child.directory, workspace);
   assert.match(child.id, /^agent_general_[A-Za-z0-9_-]+$/u);
@@ -175,10 +202,18 @@ async function probeSession(call, workspace, nextEvent) {
   assert.deepEqual((await json(call, '/api/session?roots=false', 200)).map((item) => item.id), [child.id]);
   const childMessages = await json(call, `/api/session/${child.id}/message`, 200);
   assert.ok(childMessages.some((message) => message.info?.role === 'assistant'
-    && message.parts?.some((part) => part.type === 'text' && part.text?.includes(CHILD_REPLY))),
+    && message.parts?.some((part) => part.type === 'text' && part.text?.includes(CHILD_STEER_ACK))),
   'completed child transcript was not projected through NND');
+  assert.ok(childMessages.some((message) => message.info?.role === 'user'
+    && message.parts?.some((part) => part.type === 'text' && part.text?.includes(CHILD_STEER))),
+  'accepted child steering did not reach the child transcript');
   const capability = await json(call, `/api/v1/nnd/sessions/${child.id}/capabilities`, 200);
   assert.equal(capability.capabilities.steer_subagent, false, 'completed child retained steering authority');
+  const lateSteer = await call(`/api/v1/nnd/sessions/${child.id}/steer`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ request_id: 'late_steer', content: 'This must not be accepted.' }),
+  });
+  assert.equal(lateSteer.status, 409, 'NNA accepted steering after the child completed');
   const renamed = await json(call, `/api/session/${id}`, {
     method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Renamed smoke' }),
   }, 200);
@@ -186,6 +221,16 @@ async function probeSession(call, workspace, nextEvent) {
   assert.equal(await json(call, `/api/session/${id}`, { method: 'DELETE' }, 200), true);
   assert.deepEqual(await json(call, '/api/session?roots=true', 200), []);
   assert.equal((await call(`/api/session/${child.id}/message`)).status, 404, 'deleting parent did not revoke child transcript');
+}
+
+async function waitForChild(call, parentId) {
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    const children = await json(call, `/api/session/${parentId}/children`, 200);
+    if (children.length === 1) return children[0];
+    if (Date.now() >= deadline) throw new Error('active delegated child did not appear in NND');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
 }
 
 async function waitForCompletedTurn(nextEvent, id, promptId, observe = () => {}) {
@@ -289,7 +334,7 @@ async function main(nnaSource) {
       endpoint: harness.endpoint, token: harness.token, principal: harness.principal,
     }));
     const app = createApp();
-    await probe(app, root);
+    await probe(app, root, provider);
     assert.ok(provider.completions() > 0, 'NNA did not call the isolated provider');
     assert.ok(provider.requests().some((request) => request.messages?.some((message) =>
       message.role === 'user' && typeof message.content === 'string'
@@ -306,6 +351,7 @@ async function main(nnaSource) {
     operationFailed = true;
     throw error;
   } finally {
+    provider?.releaseChild();
     harness?.dispose();
     if (provider) {
       const closed = new Promise((resolve) => provider.server.close(resolve));

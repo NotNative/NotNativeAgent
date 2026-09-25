@@ -22,14 +22,22 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Live child-steering source loop.** The isolated provider
+  holds a real delegated child turn open while the smoke reads NNA's
+  child-specific capability through NND, submits an explicit steer, and
+  observes both the steered user text and provider acknowledgment in the
+  child's retained transcript. After the turn completes, the capability
+  disappears and a late steer is rejected. This proves the NNA/NND wire
+  authority transition; it is not yet a human GUI interaction test.
+
 - 2026-09-25 · **Real delegated-session source loop.** The cross-repository
   smoke now makes the local provider fixture request NNA's `tool_search`,
   then `agent_run`. A constrained fixture reviewer approves only the exact
   task named in authenticated operator intent. The smoke checks that NNA
   creates a child session, NND lists it under the parent, and the completed
   child's assistant transcript remains readable through NND while its
-  steering grant is absent. This covers one completed child; live steering,
-  restart recovery, and multiple concurrent children need separate gates.
+  steering grant is absent. This covers one completed child; restart
+  recovery and multiple concurrent children need separate gates.
 
 - 2026-09-25 · **Governed source prompt loop.** The cross-repository smoke
   now starts a tiny loopback OpenAI-compatible fixture, submits a prompt via
