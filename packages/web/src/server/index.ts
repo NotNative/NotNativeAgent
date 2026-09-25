@@ -9,6 +9,7 @@ import { createApp } from './app.ts';
 import { ENV } from './env.ts';
 import { registerHarnessAdapter } from './harness/adapter.ts';
 import { mockHarness } from './harness/mock/index.ts';
+import { createNnaHarnessAdapter } from './harness/nna.ts';
 import { upgradeAllowedForRequest, getUiAuthController } from './lib/auth/ui-auth.ts';
 import { getPairingSessionStore } from './lib/auth/pairing-sessions.ts';
 import { getRelayHostService } from './lib/relay/host-service.ts';
@@ -19,10 +20,10 @@ import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
 
 export function startServer(): { port: number; dispose(): void } {
-  if (ENV.harness !== 'nna') {
-    // NOTNATIVE_HARNESS=nna wires the NotNativeAgent adapter here (seam is ready)
-    registerHarnessAdapter(mockHarness);
-  }
+  if (ENV.harness === 'nna') registerHarnessAdapter(createNnaHarnessAdapter({
+    endpoint: ENV.nnaHarnessUrl, token: ENV.nnaIntegrationToken, principal: ENV.nnaPrincipal,
+  }));
+  else registerHarnessAdapter(mockHarness);
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
   const app = createApp({ terminal });

@@ -29,6 +29,10 @@ export const ENV = {
   ),
   /** Harness selection: 'mock' until the NNA adapter is wired. */
   harness: (process.env.NOTNATIVE_HARNESS ?? 'mock') as 'mock' | 'nna',
+  /** Server-only NNA integration credentials; never enter a browser response. */
+  nnaHarnessUrl: process.env.NNA_HARNESS_URL ?? '',
+  nnaIntegrationToken: process.env.NNA_INTEGRATION_TOKEN ?? '',
+  nnaPrincipal: process.env.NNA_PRINCIPAL ?? '',
 } as const;
 
 /** Call-time env read for the doc 08 password source (module-level ENV is a
