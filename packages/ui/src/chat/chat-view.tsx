@@ -22,6 +22,8 @@ import { toast } from 'sonner';
 import { recapFor } from './work-status.ts';
 import { useGlobalSessionsStore } from '../sync/global-stores.ts';
 import { ChildSessionControls } from './child-session-controls.tsx';
+import { SessionGoalControls } from './session-goal-controls.tsx';
+import { useSettingsStore } from '../lib/settings/store.ts';
 
 /** §E.3/§E.4 band: recap note + suggestion chip (chip FILLS, never sends). */
 function RecapNote({ pair }: { pair: { recap: string; suggestion: string } }): ReactNode {
@@ -66,6 +68,7 @@ interface ChatColumnSession {
 export function ChatView(props: ChatViewProps): ReactNode {
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const globalSessions = useSyncExternalStore(useGlobalSessionsStore.subscribe, useGlobalSessionsStore.getState);
+  const goalEnabled = useSettingsStore((state) => state.doc.sessionGoalEnabled === true);
   const [shown, setShown] = useState<ChatColumnSession | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   useEffect(() => {
@@ -156,6 +159,13 @@ export function ChatView(props: ChatViewProps): ReactNode {
   // expose a composer and let an unclassified child receive a prompt.
   const sessionMetadataLoading = shownRef.sessionID !== null && selected === null;
   const isChildSession = selected?.parentID !== undefined;
+  const globalGoalSession = shownRef.sessionID
+    ? globalSessions.active.find((session) => session.id === shownRef.sessionID)
+      ?? globalSessions.archived.find((session) => session.id === shownRef.sessionID)
+    : null;
+  const globalNnd = globalGoalSession?.metadata?.['nnd'];
+  const globalGoalRevision = globalNnd && typeof globalNnd === 'object'
+    ? (globalNnd as Record<string, unknown>)['goalRevision'] : undefined;
 
   return (
     <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${expanded ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
@@ -169,6 +179,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
         <PromptNavigatorRail store={shownRef.store} sessionID={shownRef.sessionID} />
         <div className="relative z-10 border-t border-white/10 bg-neutral-950/60 px-4 py-3" data-composer-bound>
           <StatusChip store={shownRef.store} sessionID={shownRef.sessionID} />
+          {goalEnabled && shownRef.sessionID && !isChildSession && !sessionMetadataLoading ? <SessionGoalControls key={shownRef.sessionID} sessionID={shownRef.sessionID} store={shownRef.store} externalRevision={typeof globalGoalRevision === 'number' && Number.isSafeInteger(globalGoalRevision) && globalGoalRevision >= 0 ? globalGoalRevision : 0} /> : null}
           {!expanded && shownRef.sessionID && recapFor(shownRef.store.getState(), shownRef.sessionID) ? (
             <RecapNote pair={recapFor(shownRef.store.getState(), shownRef.sessionID)!} />
           ) : null}

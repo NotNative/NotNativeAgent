@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:a7d33b2b1c1fada9204a1a8803488c8edb3033786cf967b15e12c07558a3550c",
+  "source_digest": "sha256:7e294bfda0044604080fef082ce1a3e1e5d55bd5928b3d8b64284d2aec1115bc",
   "counts": {
-    "modules": 387,
+    "modules": 389,
     "component_edges": 12
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 96
+      "module_count": 98
     },
     {
       "id": "web-server",
@@ -98,8 +98,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 120,
-      "module_count": 50
+      "import_count": 122,
+      "module_count": 52
     },
     {
       "from": "sync-engine",
@@ -110,14 +110,14 @@
     {
       "from": "ui-shell",
       "to": "sync-engine",
-      "import_count": 45,
-      "module_count": 17
+      "import_count": 46,
+      "module_count": 18
     },
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 34,
-      "module_count": 31
+      "import_count": 35,
+      "module_count": 32
     },
     {
       "from": "web-entry",
@@ -221,10 +221,12 @@
         "packages/ui/src/chat/model-picker.tsx",
         "packages/ui/src/chat/operator-rail.tsx",
         "packages/ui/src/chat/prompt-rail.tsx",
+        "packages/ui/src/chat/session-goal-controls.tsx",
         "packages/ui/src/chat/starters.ts",
         "packages/ui/src/chat/timeline-dialog.tsx",
         "packages/ui/src/chat/transcript.tsx",
         "packages/ui/src/chat/work-status.ts",
+        "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",
@@ -413,6 +415,24 @@
       "imports": [
         "packages/ui/src/chat/drafts.ts",
         "packages/ui/src/chat/prompt-language.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/session-goal-actions.ts",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts",
+        "packages/ui/src/lib/runtime-fetch.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/chat/session-goal-controls.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/chat/session-goal-actions.ts",
+        "packages/ui/src/sync/types.ts"
       ]
     },
     {

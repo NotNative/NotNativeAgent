@@ -8,9 +8,10 @@ goal route instead of accepting generic metadata replacement. Writes are
 owner-scoped and require the goal-manage permission plus expected goal identity
 and server-owned revision atomically; NND's web-service loop will use the NNA route.
 The revision prevents a stale autonomous settle from overwriting a user's Pause
-on the same goal id. The objective-file
-store, event-driven tick, independent audit, UI controls, and scheduled-task
-integration remain P9 work. This section supersedes upstream `openchamber`
+on the same goal id. The generation-bound objective-file store and root-session
+goal management strip are delivered as pre-loop slices. Event-driven ticks,
+independent audits, send arming, and scheduled-task integration remain P9 work.
+This section supersedes upstream `openchamber`
 namespace and `PATCH /session/{id}` references elsewhere in the audit notes.
 
 Doc read in full (1651 lines). P9 opens with P9-1 — the server message-queue
@@ -309,3 +310,10 @@ waits — the server row ships first so a closed tab can never strand a queue.
   arbitrary syntactically valid session IDs. Before broad remote goal arming,
   add session-aware quota/garbage collection that preserves the currently
   referenced key; do not delete by session prefix during an active goal.
+- **E-09-16 (goal control result authority)**: browser goal controls use the
+  NNA mutation response as the authoritative success result; a subsequent GET
+  failure cannot recast a committed CAS as a failed edit. The strip tracks
+  `metadata.nnd.goalRevision` from the directory and global session caches,
+  while an editor generation guard prevents a late objective-file read from
+  replacing typed text. Pause/Complete/Clear report explicit partial success
+  if NNA committed the goal change but aborting the live turn failed.

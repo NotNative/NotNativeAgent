@@ -22,6 +22,19 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 session-goal controls (pre-loop).** Root-session chat now has a
+  goal strip and explicit manage panel behind `sessionGoalEnabled`: view the
+  objective, status, progress note and token usage; set/edit a bounded objective
+  and optional budget; pause, resume, mark complete, or clear. File-first
+  objective staging uses the immutable key returned by NND, followed by NNA's
+  id-and-revision CAS. A failed file stage falls back to inline objective text;
+  stale metadata conflicts remove only the losing staged generation. The panel
+  follows live NNA goal revisions. Adversarial review fixed stale status,
+  delayed file reads overwriting edits, false post-CAS reload failures, and
+  silent turn-stop failures. The panel explicitly labels auto-continuation as
+  not yet enabled. Runtime ticks, send
+  arming, schedules, and broad remote orphan-file quota remain pending.
+
 - 2026-09-25 · **P9 objective-file API.** NND now has authenticated
   `PUT/GET/DELETE /api/goals/objective/:sessionId`, backed by atomic writes in its data
   directory. Session IDs and immutable generation keys are validated before filesystem
