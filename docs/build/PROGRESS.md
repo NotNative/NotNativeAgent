@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Notes pane continuity.** Once opened, General Notes and
+  Todos retain in-memory drafts across their tabs and other operator surfaces;
+  no save is issued just for navigation. A hidden plan editor deactivates and
+  reloads when reopened. Project switching still remounts Notes and can lose
+  an unsaved General Notes draft; preserving that safely requires a bounded
+  draft owner or a navigation guard, not unbounded mounted project panes.
+
 - 2026-09-25 · **Notes read-safety.** General Notes, project Todos, and the
   plan editor now treat only an explicit file-service `not-found` response as
   a new blank document. Access failures, missing API routes, and malformed

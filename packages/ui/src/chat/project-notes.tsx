@@ -9,9 +9,15 @@ interface Todo { id: string; text: string; done: boolean }
 const NOTES_PATH = '.opencode/nnd/general-notes.md';
 const TODOS_PATH = '.opencode/nnd/todos.json';
 
-export function ProjectNotes({ directory }: { directory: string }): ReactNode {
+export function ProjectNotes({ directory, visible }: { directory: string; visible: boolean }): ReactNode {
   const [tab, setTab] = useState<Tab>('notes');
-  return <section className="flex h-full min-h-0 flex-col" data-testid="project-notes"><nav className="flex gap-1 border-b border-white/10 p-2">{(['notes', 'todos', 'plans'] as const).map((item) => <button key={item} type="button" className={`rounded px-2 py-1 text-[10px] ${tab === item ? 'bg-white/10 text-white' : 'text-neutral-500'}`} onClick={() => setTab(item)}>{item === 'notes' ? 'General' : item[0]!.toUpperCase() + item.slice(1)}</button>)}</nav>{tab === 'notes' ? <GeneralNotes key={directory} directory={directory} /> : null}{tab === 'todos' ? <ProjectTodos key={directory} directory={directory} /> : null}{tab === 'plans' ? <PlanView directory={directory} visible /> : null}</section>;
+  const [opened, setOpened] = useState<Set<Tab>>(() => new Set(['notes']));
+  return <section className="flex h-full min-h-0 flex-col" data-testid="project-notes">
+    <nav className="flex gap-1 border-b border-white/10 p-2">{(['notes', 'todos', 'plans'] as const).map((item) => <button key={item} type="button" className={`rounded px-2 py-1 text-[10px] ${tab === item ? 'bg-white/10 text-white' : 'text-neutral-500'}`} onClick={() => { setOpened((current) => new Set([...current, item])); setTab(item); }}>{item === 'notes' ? 'General' : item[0]!.toUpperCase() + item.slice(1)}</button>)}</nav>
+    <div className={tab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directory} directory={directory} /></div>
+    {opened.has('todos') ? <div className={tab === 'todos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><ProjectTodos key={directory} directory={directory} /></div> : null}
+    {opened.has('plans') ? <div className={tab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && tab === 'plans'} /></div> : null}
+  </section>;
 }
 
 function GeneralNotes({ directory }: { directory: string }): ReactNode {

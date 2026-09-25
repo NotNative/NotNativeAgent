@@ -67,15 +67,20 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     if (selection.key !== storageKey) return;
     try { localStorage.setItem(storageKey, selection.surface); } catch { /* optional device preference */ }
   }, [selection.key, selection.surface, storageKey]);
-  // Keep the opened view mounted across rail surfaces to preserve local tab
-  // state; the app shell owns keepalive across all project directories.
+  // Keep an opened view mounted across rail surfaces. Notes are retained only
+  // for the current project; a project switch remounts them, so an unsaved
+  // note draft still needs an explicit bounded draft store or switch guard.
   const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);
   const [browserOpenedKey, setBrowserOpenedKey] = useState<string | null>(() => selection.surface === 'browser' ? storageKey : null);
+  const [notesOpenedKey, setNotesOpenedKey] = useState<string | null>(() => selection.surface === 'notes' ? storageKey : null);
   useEffect(() => {
     if (selection.key === storageKey && surface === 'terminal') setTerminalOpenedKey(storageKey);
   }, [selection.key, storageKey, surface]);
   useEffect(() => {
     if (selection.key === storageKey && surface === 'browser') setBrowserOpenedKey(storageKey);
+  }, [selection.key, storageKey, surface]);
+  useEffect(() => {
+    if (selection.key === storageKey && surface === 'notes') setNotesOpenedKey(storageKey);
   }, [selection.key, storageKey, surface]);
   return (
     <aside className={`${suppressed ? 'hidden' : compactOpen ? 'flex' : 'hidden xl:flex'} relative min-w-0 shrink-0 flex-col border-l border-white/10 bg-neutral-950/40 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} style={wide && !compactOpen ? { width } : undefined} data-testid="operator-rail">
@@ -116,6 +121,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
             onClick={() => {
               if (item.id === 'terminal') setTerminalOpenedKey(storageKey);
               if (item.id === 'browser') setBrowserOpenedKey(storageKey);
+              if (item.id === 'notes') setNotesOpenedKey(storageKey);
               setSelection({ key: storageKey, surface: item.id });
             }}>{item.label.slice(0, 1)}</button>
         ))}
@@ -124,7 +130,11 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
         {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded /> : null}
         {surface === 'activity' ? <ActivitySurface store={store} /> : null}
         {surface === 'changes' ? <GitView directory={directory} visible compact /> : null}
-        {surface === 'notes' ? <ProjectNotes directory={directory} /> : null}
+        {notesOpenedKey === storageKey || surface === 'notes' ? (
+          <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
+            <ProjectNotes key={storageKey} directory={directory} visible={surface === 'notes' && paneVisible} />
+          </div>
+        ) : null}
         {terminalOpenedKey === storageKey || surface === 'terminal' ? (
           <div className={surface === 'terminal' ? 'flex h-full min-h-0' : 'hidden'}>
             <TerminalView directory={directory} visible={surface === 'terminal' && paneVisible} compact />

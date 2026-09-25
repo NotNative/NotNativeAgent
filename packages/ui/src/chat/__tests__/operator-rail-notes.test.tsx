@@ -97,4 +97,34 @@ describe('OperatorRail Notes surface', () => {
     expect((notes.querySelector('textarea') as HTMLTextAreaElement).disabled).toBe(true);
     expect(([...notes.querySelectorAll('button')].find((button) => button.textContent === 'Save notes') as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it('keeps an unsaved note draft while visiting other tabs and rail surfaces', async () => {
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/work" /></I18nProvider>); });
+    await act(async () => { (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click(); });
+    const note = document.querySelector('[data-testid="project-notes"] textarea') as HTMLTextAreaElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(note, 'Draft to keep');
+      note.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => { ([...document.querySelectorAll('[data-testid="project-notes"] button')].find((button) => button.textContent === 'Todos') as HTMLButtonElement).click(); });
+    await act(async () => { (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click(); });
+    await act(async () => { (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click(); });
+    await act(async () => { ([...document.querySelectorAll('[data-testid="project-notes"] button')].find((button) => button.textContent === 'General') as HTMLButtonElement).click(); });
+    expect((document.querySelector('[data-testid="project-notes"] textarea') as HTMLTextAreaElement).value).toBe('Draft to keep');
+    expect(document.querySelector('[data-testid="project-notes"]')!.textContent).toContain('Unsaved');
+    expect(vi.mocked(runtimeFetch).mock.calls.every(([, init]) => init?.method !== 'POST')).toBe(true);
+  });
+
+  it('deactivates the plan editor when Notes is hidden and reloads it on return', async () => {
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/plan-visibility" compactOpen /></I18nProvider>); });
+    await act(async () => { (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click(); });
+    await act(async () => { ([...document.querySelectorAll('[data-testid="project-notes"] button')].find((button) => button.textContent === 'Plans') as HTMLButtonElement).click(); });
+    const planReads = (): number => vi.mocked(runtimeFetch).mock.calls.filter(([url]) => typeof url === 'string' && url.includes('/api/fs/read?') && url.includes('plans')).length;
+    expect(planReads()).toBe(1);
+    await act(async () => { (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click(); });
+    await act(async () => { (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click(); });
+    expect(planReads()).toBe(2);
+  });
 });
