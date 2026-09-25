@@ -48,7 +48,8 @@ async function dispatch(request, response, context) {
     return send(response, 200, { status: 'ready', protocol: '1.0', instance_id: context.instanceId });
   }
   if (await dispatchProviderRequest(request, response, { ...context, principal, url })) return;
-  if (await dispatchNndOperatorRequest(request, response, { ...context, principal, url })) return;
+  if (await dispatchNndOperatorRequest(request, response, { ...context, principal, url,
+    nndSessionResolver: context.nndSessionResolver ?? context.nndEngineHost?.resolveChildSession?.bind(context.nndEngineHost) })) return;
   if (await dispatchSecretBrokerRequest(request, response, { ...context, principal, url })) return;
   return send(response, 404, failure('not_found', 'integration endpoint not found'));
 }

@@ -1,0 +1,62 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { NndEngineHost } from '../src/nnd-engine-host.js';
+
+const owner = { subjectId: 'user_a', workspaceIds: ['workspace_a'] };
+
+test('NND engine host binds each context to its authenticated owner', async () => {
+  const created = [];
+  const host = new NndEngineHost({ createEngine: async (options) => {
+    created.push(options);
+    return fakeEngine();
+  } });
+  await host.create('session_a', owner);
+  assert.equal(created[0].nndSessionRegistry, host.childSessions);
+  await assert.rejects(() => host.submit('session_a', steer('request_a'), { subjectId: 'user_b', workspaceIds: ['workspace_a'] }), { code: 'nnd_session_unavailable' });
+  assert.deepEqual(await host.submit('session_a', steer('request_a'), owner), { accepted: true, request_id: 'request_a' });
+  assert.deepEqual(await host.close('session_a', owner), { closed: true });
+  await assert.rejects(() => host.submit('session_a', steer('request_b'), owner), { code: 'nnd_session_unavailable' });
+});
+
+test('NND engine host reserves capacity during creation and cleans up a failed initialization', async () => {
+  let release;
+  const ready = new Promise((resolve) => { release = resolve; });
+  let shutdowns = 0;
+  const host = new NndEngineHost({ limit: 1, createEngine: async () => {
+    await ready;
+    return { ...fakeEngine(), async initialize() { throw new Error('initialization failed'); }, async shutdown() { shutdowns += 1; } };
+  } });
+  const creating = host.create('session_a', owner);
+  await assert.rejects(() => host.create('session_b', owner), { code: 'nnd_context_capacity' });
+  await assert.rejects(() => host.create('session_a', owner), { code: 'nnd_session_exists' });
+  release();
+  await assert.rejects(creating, /initialization failed/u);
+  assert.equal(shutdowns, 1);
+});
+
+test('NND engine host revokes child grants and retains a failed close for retry', async () => {
+  let shutdownAttempts = 0;
+  let revoked = 0;
+  const childSessions = { unregisterParent: (sessionId) => { assert.equal(sessionId, 'session_a'); revoked += 1; } };
+  const host = new NndEngineHost({ childSessions, createEngine: async () => ({
+    ...fakeEngine(), async shutdown() {
+      shutdownAttempts += 1;
+      if (shutdownAttempts === 1) throw new Error('shutdown failed');
+    },
+  }) });
+  await host.create('session_a', owner);
+  await assert.rejects(() => host.close('session_a', owner), /shutdown failed/u);
+  assert.equal(revoked, 1);
+  await assert.rejects(() => host.submit('session_a', steer('request_a'), owner), { code: 'nnd_session_unavailable' });
+  assert.deepEqual(await host.close('session_a', owner), { closed: true });
+});
+
+function steer(request_id) { return { version: '1.0', type: 'steer', request_id, content: 'continue' }; }
+
+function fakeEngine() {
+  return {
+    config: { executionManifest: null }, active: { finalized: false },
+    async initialize() {}, async steer(command) { return { accepted: true, request_id: command.request_id }; },
+    async shutdown() {},
+  };
+}

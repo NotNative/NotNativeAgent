@@ -73,7 +73,8 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'invalid_web_search_command', 'manifest_invalid', 'manifest_required',
     'manifest_shape_invalid', 'manifest_too_large', 'manifest_version_future',
     'manifest_version_invalid', 'session_id_invalid',
-    'nnd_session_capacity_invalid', 'nnd_engine_invalid',
+    'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
+    'nnd_context_capacity_invalid', 'nnd_session_exists', 'nnd_principal_invalid',
   ]),
   extension: Object.freeze([
     'event_contract_invalid', 'event_hub_closed', 'extension_async_factory_unsupported',
@@ -121,7 +122,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'elevation_request_invalid', 'elevation_result_invalid', 'elevation_result_unavailable',
     'elevation_secret_argument_forbidden', 'elevation_timeout_invalid', 'engine_output_required',
     'engine_settlement_invalid', 'environment_boolean_invalid', 'execution_capabilities_invalid',
-    'nnd_engine_unavailable', 'nnd_session_capacity',
+    'nnd_engine_unavailable', 'nnd_session_capacity', 'nnd_context_capacity', 'nnd_session_unavailable',
     'execution_manifest_forbidden', 'execution_manifest_mismatch', 'execution_manifest_required',
     'execution_tool_forbidden', 'execution_tools_invalid', 'export_too_large',
     'gateway_config_invalid', 'gateway_config_too_large', 'gateway_polling_timeout_invalid',

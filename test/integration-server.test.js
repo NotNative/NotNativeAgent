@@ -109,14 +109,14 @@ test('NND capability projection fails closed without a steering grant', async ()
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
     providerStore: new ProviderProfileStore({ configRoot }),
     broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }),
-    nndSessionResolver: async (sessionId) => {
+    nndEngineHost: { resolveChildSession: async (sessionId) => {
       if (sessionId === 'ses_live') return { sessionId, revision: 1, availability: 'ungranted', steerSubagent: false };
       if (sessionId === 'ses_granted') return {
         sessionId, revision: 2, availability: 'granted', steerSubagent: true,
         steer: async (command, actor) => ({ accepted: true, request_id: command.request_id, subject_id: actor.subjectId }),
       };
       return null;
-    }, port: 0,
+    } }, port: 0,
   });
   const base = `http://127.0.0.1:${service.address.port}`;
   try {

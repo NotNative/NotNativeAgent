@@ -21,6 +21,16 @@ export class NndSessionRegistry {
     this.#sessions.set(sessionId, record);
     return () => this.#sessions.delete(sessionId);
   }
+  unregisterParent(parentId) {
+    let removed = 0;
+    for (const [sessionId, record] of this.#sessions) {
+      if (record.parentId === parentId) {
+        this.#sessions.delete(sessionId);
+        removed += 1;
+      }
+    }
+    return removed;
+  }
   resolve = async (sessionId, principal) => {
     const record = this.#sessions.get(sessionId);
     if (!record || !samePrincipal(record, principal)) return null;
