@@ -12,7 +12,7 @@ import type { Server as HttpServer } from 'node:http';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as joinPath, sep } from 'node:path';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 import { RemoteClientStore } from '../lib/auth/remote-clients.ts';
 import type { TerminalRuntime } from '../terminal/session-core.ts';
@@ -28,8 +28,15 @@ import { normalizedPassword, createPasswordHashCache } from '../lib/auth/passwor
 import { registerHarnessAdapter } from '../harness/adapter.ts';
 import { mockHarness } from '../harness/mock/index.ts';
 
-const isolatedDataDir = mkdtempSync(`${tmpdir()}${sep}nnd-p8-auth-`);
-process.env.NOTNATIVE_DATA_DIR = isolatedDataDir;
+// ENV.dataDir is captured during static module evaluation, so isolate it before imports.
+const isolatedDataDir = await vi.hoisted(async () => {
+  const [{ mkdtempSync: makeTempDir }, { tmpdir: systemTempDir }, { join: joinPath }] = await Promise.all([
+    import('node:fs'), import('node:os'), import('node:path'),
+  ]);
+  const path = makeTempDir(joinPath(systemTempDir(), 'nnd-p8-auth-'));
+  process.env.NOTNATIVE_DATA_DIR = path;
+  return path;
+});
 delete process.env.NOTNATIVE_UI_PASSWORD;
 delete process.env.NOTNATIVE_JWT_SECRET;
 const origin = 'http://test.local';

@@ -7,7 +7,7 @@
  * final tool part. Variants: plain=read JSON, "bash"=live output deltas,
  * "fail"=error state. Everything stays inside doc-02 shapes.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockHarness } from '../harness/mock/index.ts';
 
 interface Envelope { directory: string; payload: { id: string; type: string; properties: Record<string, unknown> } }
@@ -96,7 +96,7 @@ describe('mock "tool" trigger (doc 02 §5.2.3 worked sequence)', () => {
     const result = await sendMessage(sessionId, 'run the bash tool now');
     const deltas = stream!.frames.filter((frame) => frame.payload.type === 'message.part.delta' && frame.payload.properties['field'] === 'output');
     expect(deltas.length).toBeGreaterThanOrEqual(3);
-    expect(String((stream!.frames.at(-1) as Envelope).payload.type)).toBe('session.idle');
+    await vi.waitFor(() => expect(String((stream!.frames.at(-1) as Envelope).payload.type)).toBe('session.idle'));
     const toolPart = result.parts.find((part) => part.type === 'tool') as { tool: string; state: { status: string; output: string } } | undefined;
     expect(toolPart?.tool).toBe('bash');
     expect(toolPart!.state.output).toContain('Test Files');

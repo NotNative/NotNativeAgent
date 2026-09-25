@@ -22,6 +22,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Broad-suite validation repair.** The auth route test now
+  establishes its temporary data home before server modules capture `ENV`,
+  avoiding writes into the operator's profile during tests. The mock-tool SSE
+  assertion waits for the terminal frame instead of racing the REST response.
+  Neither change alters production route or event ordering.
+
 - 2026-09-25 · **NNA-estimated Context rail.** NNA emits numeric context
   measurements for desktop-owned engines and projects the latest estimate into
   authorized session metadata. The rail shows estimated use, known limit, and
