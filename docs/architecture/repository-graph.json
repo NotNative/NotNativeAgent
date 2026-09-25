@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:7567f0b3abf08019a20739dc7c1bf0db9a1f66c2e9ab99acc0b3df2ec43031cc",
+  "source_digest": "sha256:4154e80fd8ad9188f38a098b326c2e05638cab9aca05f9443619b6c7c35c97f6",
   "counts": {
     "modules": 373,
     "component_edges": 12
@@ -2320,6 +2320,7 @@
         "packages/ui/src/sync/activity-snapshot.ts",
         "packages/ui/src/sync/bootstrap-enrichment.ts",
         "packages/ui/src/sync/child-store.ts",
+        "packages/ui/src/sync/event-equality.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/routing-index.ts",
         "packages/ui/src/sync/session-actions.ts",

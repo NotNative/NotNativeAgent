@@ -18,6 +18,8 @@ vi.mock('../../lib/runtime-switch.ts', () => ({
 import { configureHarness, callsFor, type MockCall } from './harness-client-mock.ts';
 import { optimisticSend, isAmbiguousSendFailure, replyToPermission, computeSubtreeIds, getReconnectCandidateIds, mergeBootstrapLists } from '../session-actions.ts';
 import { createSyncEngine } from '../sync-engine.ts';
+import { reconcileFetchedSession } from '../engine-recovery.ts';
+import { bootstrapDirectory } from '../bootstrap-directory.ts';
 import { useGlobalSessionStatusStore } from '../global-stores.ts';
 import { useConfigStore } from '../../stores/useConfigStore.ts';
 import type { EngineServices as LegacyServices } from '../session-lifecycle.ts';
@@ -191,6 +193,34 @@ function request(): PermissionRequest {
 }
 
 describe('reconnect candidates + closed merge (§D.5/§C.2)', () => {
+  it('does not let a late older GET undo a live child phase, and removes corrected metadata', () => {
+    const live = { id: 'child', parentID: 'root', time: { created: 1, updated: 9 },
+      metadata: { nnd: { turnState: { phase: 'running_tool' } } } } as unknown as Session;
+    const stale = { id: 'child', parentID: 'root', time: { created: 1, updated: 8 },
+      metadata: { nnd: { turnState: { phase: 'waiting_provider' } } } } as unknown as Session;
+    const current = [live];
+    const state = { session: current, sessionEventRevision: {}, sessionDeletedRevision: {} };
+    expect(reconcileFetchedSession(state, stale, 0)).toBe(current);
+    const corrected = { id: 'child', parentID: 'root', time: { created: 1, updated: 10 } } as Session;
+    expect(reconcileFetchedSession(state, corrected, 0)).toEqual([corrected]);
+    expect(reconcileFetchedSession(state, corrected, 0)[0]!.metadata).toBeUndefined();
+  });
+
+  it('does not revive a deleted child or overwrite a same-timestamp live update after GET began', () => {
+    const fetched = { id: 'child', parentID: 'root', time: { created: 1, updated: 9 },
+      metadata: { nnd: { turnState: { phase: 'waiting_provider' } } } } as unknown as Session;
+    const live = { ...fetched, metadata: { nnd: { turnState: { phase: 'running_tool' } } } } as Session;
+    const afterLive = { session: [live], sessionEventRevision: { child: 7 }, sessionDeletedRevision: {} };
+    expect(reconcileFetchedSession(afterLive, fetched, 6)).toBe(afterLive.session);
+    const afterDelete = { session: [] as Session[], sessionEventRevision: { child: 8 }, sessionDeletedRevision: { child: 8 } };
+    expect(reconcileFetchedSession(afterDelete, fetched, 6)).toBe(afterDelete.session);
+    // A later reconnect can still correct an extant child, but an earlier
+    // tombstone cannot be bypassed by a late response for a removed candidate.
+    expect(reconcileFetchedSession(afterDelete, fetched, 8)).toBe(afterDelete.session);
+    const recreated = { session: [live], sessionEventRevision: { child: 9 }, sessionDeletedRevision: { child: 8 } };
+    expect(reconcileFetchedSession(recreated, { ...live, time: { created: 1, updated: 10 } }, 9)).toHaveLength(1);
+  });
+
   it('enumerates active, unrenderable, and trailing-unfinished candidates', () => {
     const store = freshStore({
       session: [
@@ -215,6 +245,39 @@ describe('reconnect candidates + closed merge (§D.5/§C.2)', () => {
     const merged = mergeBootstrapLists([], roots, [...children], new Set(['c1']));
     expect(merged.map((s) => s.id)).toEqual(['c1', 's1']); // closed hierarchy, id-sorted index
     void mergeBootstrapLists;
+  });
+
+  it('bootstrap captures the live-event baseline before list GETs, preserving an update and deletion', async () => {
+    let releaseRoots!: (value: Session[]) => void;
+    const roots = new Promise<Session[]>((resolve) => { releaseRoots = resolve; });
+    const staleRoot = { id: 'root', time: { created: 1, updated: 1 } } as Session;
+    const staleChild = { id: 'child', parentID: 'root', time: { created: 2, updated: 2 } } as Session;
+    configureHarness({
+      getConfig: () => ({}), getPath: () => ({}), sessionStatus: () => ({}),
+      listSessions: (call) => call.opts?.roots ? roots : [staleChild],
+    });
+    const store = freshStore({ sessionRevision: 5, session: [staleRoot, staleChild] });
+    let observedBaseline = -1;
+    const pending = bootstrapDirectory('D:/work', store, () => true, {
+      activeProjectFor: () => null,
+      mergeBootstrap: (_dir, target, fetchedRoots, fetchedChildren, baseline) => {
+        observedBaseline = baseline;
+        const state = target.getState();
+        const liveIds = new Set(Object.entries(state.sessionEventRevision)
+          .filter(([, revision]) => revision > baseline).map(([id]) => id));
+        const deletedIds = new Set(Object.entries(state.sessionDeletedRevision)
+          .filter(([, revision]) => revision > baseline).map(([id]) => id));
+        target.setState({ session: mergeBootstrapLists(state.session, fetchedRoots, fetchedChildren, liveIds, deletedIds) });
+      },
+    });
+    await vi.waitFor(() => expect(callsFor('listSessions')).toHaveLength(1));
+    const liveRoot = { ...staleRoot, time: { created: 1, updated: 9 } } as Session;
+    store.setState({ session: [liveRoot], sessionRevision: 7,
+      sessionEventRevision: { root: 6, child: 7 }, sessionDeletedRevision: { child: 7 } });
+    releaseRoots([staleRoot]);
+    await expect(pending).resolves.toBe('complete');
+    expect(observedBaseline).toBe(5);
+    expect(store.getState().session).toEqual([liveRoot]);
   });
 });
 

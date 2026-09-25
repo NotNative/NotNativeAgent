@@ -380,17 +380,19 @@ function findStaleRunningToolStore(childStores: Map<string, StoreApi<DirectorySt
 
 /** Closed-hierarchy merge (doc 04 §C.2): incoming records win; cached parents
  * of incoming children are retained; children of tombstoned (absent) ancestors
- * are excluded; post-baseline live events overlay back over the snapshot. */
+ * are excluded; post-baseline live upserts overlay the snapshot and deletions
+ * remove records from even a stale incoming list. */
 export function mergeBootstrapLists(
   current: Session[],
   rootSessions: Session[],
   childSessions: Session[] | null,
   liveEventIdsAfterBaseline: Set<string>,
+  deletedIdsAfterBaseline: Set<string> = new Set(),
 ): Session[] {
   const cachedById = new Map<string, Session>();
   for (const session of current) cachedById.set(session.id, session);
 
-  const incoming = [...rootSessions, ...(childSessions ?? [])];
+  const incoming = [...rootSessions, ...(childSessions ?? [])].filter((session) => !deletedIdsAfterBaseline.has(session.id));
   const incomingIds = new Set(incoming.map((session) => session.id));
   const merged = new Map<string, Session>();
   for (const session of incoming) {
@@ -406,7 +408,7 @@ export function mergeBootstrapLists(
   }
   // post-baseline LIVE events overlay back (their id sets survive; deletions stay deleted)
   for (const [sessionID, cached] of cachedById) {
-    if (liveEventIdsAfterBaseline.has(sessionID)) merged.set(sessionID, cached);
+    if (liveEventIdsAfterBaseline.has(sessionID) && !deletedIdsAfterBaseline.has(sessionID)) merged.set(sessionID, cached);
   }
   return [...merged.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }

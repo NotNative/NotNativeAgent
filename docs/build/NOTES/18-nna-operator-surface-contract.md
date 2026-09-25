@@ -29,6 +29,15 @@ row displays it only when the child's own transport status is active; pending
 permissions and questions still take precedence. A restored read-only child
 reports idle, never a live-work phase.
 
+Reconnect session reads use live-event revision/tombstone guards and the
+`time.updated` recency guard. An older in-flight GET cannot replace a newer
+phase or revive a deleted session, even when timestamps tie. Bootstrap takes
+its revision baseline before fetching session lists and overlays live updates
+and deletions over stale results. An accepted authoritative description
+replaces the entire session record so removed metadata does not linger. This
+is snapshot reconciliation, not a substitute for NNA's future bounded
+event-cursor replay contract.
+
 ## Child-session steering
 
 NNA must emit a versioned, replayable session projection containing

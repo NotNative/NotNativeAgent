@@ -141,7 +141,7 @@ function wireEngineModules(ctx: EngineCtx): void {
 function bootstrapperFor(ctx: EngineCtx): Bootstrapper {
   return (dir, store, isCurrent) => bootstrapDirectory(dir, store, isCurrent, {
     activeProjectFor: () => null, // layout demand-driver arrives with doc 05
-    mergeBootstrap: (mergeDir, mergeStore, rootSessions, allSessions) => mergeAuthoritative(ctx.routing, mergeDir, mergeStore, rootSessions, allSessions),
+    mergeBootstrap: (mergeDir, mergeStore, rootSessions, allSessions, baselineRevision) => mergeAuthoritative(ctx.routing, mergeDir, mergeStore, rootSessions, allSessions, baselineRevision),
   });
 }
 
@@ -413,14 +413,18 @@ function mergeAuthoritative(
   store: StoreApi<DirectoryStore>,
   rootSessions: Session[],
   allSessions: Session[] | null,
+  baselineRevision: number,
 ): void {
   const before = store.getState();
-  const baseline = before.sessionRevision;
   const liveEventIds = new Set<string>();
   for (const [sessionID, revision] of Object.entries(before.sessionEventRevision ?? {})) {
-    if ((revision ?? 0) > baseline) liveEventIds.add(sessionID);
+    if ((revision ?? 0) > baselineRevision) liveEventIds.add(sessionID);
   }
-  const merged = mergeBootstrapLists(before.session, rootSessions, allSessions, liveEventIds);
+  const deletedIds = new Set<string>();
+  for (const [sessionID, revision] of Object.entries(before.sessionDeletedRevision ?? {})) {
+    if ((revision ?? 0) > baselineRevision) deletedIds.add(sessionID);
+  }
+  const merged = mergeBootstrapLists(before.session, rootSessions, allSessions, liveEventIds, deletedIds);
   store.setState({
     session: merged,
     sessionTotal: merged.filter((session) => !session.parentID).length,

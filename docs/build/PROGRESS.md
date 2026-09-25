@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Reconnect phase reconciliation.** NND now compares a
+  candidate session GET against live-event revisions, tombstones, and the
+  latest description before applying it, so a delayed read cannot roll a
+  phase backward or revive a deleted child. Bootstrap now captures its
+  revision baseline before the list requests and preserves live updates and
+  deletions over stale results. Accepted descriptions replace the full record,
+  allowing NNA corrections to remove metadata. This remains snapshot recovery,
+  not full SSE cursor replay.
+
 - 2026-09-25 · **Live delegated turn phases.** NNA-owned child sessions now
   project validated semantic phases through their own session metadata and
   live update events. The Subagents row uses the child's phase only while its

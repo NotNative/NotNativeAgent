@@ -84,6 +84,7 @@ async function loadAuthoritativeSessions(
   isCurrent: () => boolean,
   ctx: DirectoryBootstrapContext,
 ): Promise<boolean> {
+  const baselineRevision = store.getState().sessionRevision;
   let rootSessions: Session[] = [];
   let allSessions: Session[] | null = null;
   try {
@@ -100,7 +101,7 @@ async function loadAuthoritativeSessions(
     allSessions = null; // best-effort second pass; roots-only fallback
   }
   if (!isCurrent()) return false;
-  ctx.mergeBootstrap(directory, store, rootSessions, allSessions);
+  ctx.mergeBootstrap(directory, store, rootSessions, allSessions, baselineRevision);
   // web/desktop: an EMPTY authoritative list is authoritative — no retry loop
   return true;
 }

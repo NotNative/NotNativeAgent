@@ -6,7 +6,7 @@ import type { DirectoryStore } from './types.ts';
 
 export interface DirectoryBootstrapContext {
   activeProjectFor: (directory: string) => string | null;
-  mergeBootstrap: (dir: string, store: StoreApi<DirectoryStore>, rootSessions: Session[], allSessions: Session[] | null) => void;
+  mergeBootstrap: (dir: string, store: StoreApi<DirectoryStore>, rootSessions: Session[], allSessions: Session[] | null, baselineRevision: number) => void;
 }
 
 export type DirectoryBootstrapOutcome = 'complete' | 'failed';
