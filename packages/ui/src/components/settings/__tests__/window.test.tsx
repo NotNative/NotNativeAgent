@@ -166,6 +166,53 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     expect(document.body.textContent).not.toContain('SECRET_NAME');
   });
 
+  it('creates and edits NNA profiles on explicit clicks without sending credential values or deleting', async () => {
+    const writes: Array<{ url: string; method: string; body: Record<string, string> }> = [];
+    let profiles = [{ profile_id: 'local', display_name: 'Local', endpoint: 'http://127.0.0.1:11434/v1?token=SECRET', model: 'old', active: true }];
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith('/v1/provider-profiles') && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body));
+        writes.push({ url, method: 'POST', body });
+        profiles = [...profiles, { ...body, active: false }];
+        return Promise.resolve(new Response(JSON.stringify({ profile: body }), { status: 201 }));
+      }
+      if (url.endsWith('/v1/provider-profiles/local') && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body));
+        writes.push({ url, method: 'PATCH', body });
+        profiles = profiles.map((profile) => profile.profile_id === 'local' ? { ...profile, ...body } : profile);
+        return Promise.resolve(new Response(JSON.stringify({ profile: profiles[0] }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ profiles }), { status: 200 }));
+    });
+    const enter = async (label: string, value: string): Promise<void> => {
+      const input = [...document.querySelectorAll('label')].find((item) => item.textContent?.includes(label))?.querySelector('input');
+      expect(input, label).toBeTruthy();
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+      await act(async () => { setter.call(input, value); input!.dispatchEvent(new Event('input', { bubbles: true })); });
+    };
+    await renderWindow('providers');
+    expect(document.body.textContent).not.toContain('SECRET');
+    await act(async () => { [...document.querySelectorAll('button')].find((button) => button.textContent === 'Add provider profile')?.click(); });
+    await enter('Profile ID', 'second');
+    await enter('Endpoint URL', 'http://127.0.0.1:2244/v1');
+    await enter('Default model', 'new-model');
+    await enter('Credential environment variable', 'PROVIDER_KEY');
+    await act(async () => { [...document.querySelectorAll('button')].find((button) => button.textContent === 'Create profile')?.click(); await Promise.resolve(); });
+    expect(writes[0]).toMatchObject({ method: 'POST', body: { profile_id: 'second', model: 'new-model', credential_env: 'PROVIDER_KEY' } });
+    expect(document.querySelectorAll('[data-testid="provider-profile"]')).toHaveLength(2);
+    await act(async () => { [...document.querySelectorAll('button')].find((button) => button.textContent === 'Add provider profile')?.click(); });
+    const freshId = [...document.querySelectorAll('label')].find((item) => item.textContent?.includes('Profile ID'))?.querySelector('input');
+    expect(freshId?.value).toBe('');
+    await act(async () => { [...document.querySelectorAll('button')].find((button) => button.textContent === 'Cancel profile edit')?.click(); });
+    const first = document.querySelector('[data-testid="provider-profile"]')!;
+    await act(async () => { [...first.querySelectorAll('button')].find((button) => button.textContent === 'Edit profile')?.click(); });
+    expect(first.textContent).not.toContain('SECRET');
+    await enter('New endpoint (blank keeps current)', 'http://127.0.0.1:3322/v1');
+    await act(async () => { [...first.querySelectorAll('button')].find((button) => button.textContent === 'Save profile changes')?.click(); await Promise.resolve(); });
+    expect(writes[1]).toMatchObject({ method: 'PATCH', body: { endpoint: 'http://127.0.0.1:3322/v1', model: 'old' } });
+    expect(writes.every((entry) => entry.method !== 'DELETE' && !JSON.stringify(entry).includes('SECRET'))).toBe(true);
+  });
+
   it('provider diagnostics run only on click and keep discovery credentials in NNA', async () => {
     fetchMock.mockImplementation((url: string) => {
       if (url.includes('/primary/test')) return Promise.resolve(new Response(JSON.stringify({

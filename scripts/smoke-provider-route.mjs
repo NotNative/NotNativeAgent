@@ -3,6 +3,17 @@
 import assert from 'node:assert/strict';
 
 export async function probeProviderRoute(call, json) {
+  const created = await json(call, '/api/v1/provider-profiles', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ profile_id: 'smoke', endpoint: 'http://127.0.0.1:9999/v1', model: 'test' }),
+  }, 201);
+  assert.equal(created.profile.profile_id, 'smoke');
+  const edited = await json(call, '/api/v1/provider-profiles/smoke', {
+    method: 'PATCH', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ display_name: 'Smoke profile' }),
+  }, 200);
+  assert.equal(edited.profile.display_name, 'Smoke profile');
+  assert.equal((await json(call, '/api/v1/provider-profiles', 200)).profiles.some((profile) => profile.profile_id === 'smoke'), true);
   const routeBody = (providerId) => ({ method: 'PATCH', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ provider_id: providerId, model: 'test' }) });
   const changed = await json(call, '/api/v1/provider-route', routeBody('delegated'), 200);

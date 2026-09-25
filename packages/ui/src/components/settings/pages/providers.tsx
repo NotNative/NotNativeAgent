@@ -6,6 +6,7 @@ import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
 import { ProviderDiagnostics } from './provider-diagnostics.tsx';
 import { ProviderRouteAction } from './provider-route-action.tsx';
 import { ProviderRouteActivation } from './provider-route-activation.tsx';
+import { ProviderProfileEditor } from './provider-profile-editor.tsx';
 
 interface ProviderProfile {
   profile_id: string;
@@ -97,6 +98,7 @@ export function ProvidersPage(): ReactNode {
         <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" onClick={refresh} disabled={loading}>Refresh</button>
       </div>
       <p className="text-xs text-muted-foreground">Routes configured in NotNativeAgent. Save a primary route, then explicitly apply saved provider routing to new sessions; existing sessions keep their current engine route. Diagnostics contact the provider only when clicked. Credentials and endpoint paths are not shown here.</p>
+      <ProviderProfileEditor onSaved={refresh} />
       {loading ? <p role="status" className="text-xs text-muted-foreground">Loading provider profiles…</p> : null}
       {!loading && error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
       {!loading && profiles?.length === 0 ? <p className="text-xs text-muted-foreground">No provider profiles are configured in NNA.</p> : null}
@@ -112,6 +114,7 @@ export function ProvidersPage(): ReactNode {
           {configuredRoute?.providerID === profile.profile_id && configuredRoute.modelID !== profile.model ? <div className="mt-1 text-muted-foreground">Configured primary model: {configuredRoute.modelID}</div> : null}
           {route?.providerID === profile.profile_id && route.modelID !== profile.model ? <div className="mt-1 text-muted-foreground">Running NNA model: {route.modelID}</div> : null}
           <div className="break-all text-muted-foreground">{endpointOrigin(profile.endpoint)}</div>
+          <ProviderProfileEditor profile={profile} onSaved={refresh} />
           <ProviderRouteAction profileId={profile.profile_id} defaultModel={profile.model}
             configuredModel={configuredRoute?.providerID === profile.profile_id ? configuredRoute.modelID : null}
             onApplied={refresh} />

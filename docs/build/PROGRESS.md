@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA-native provider profile create/edit in Settings.** NND
+  receives only `provider.profile.write` for profile creation and edits;
+  existing `provider.manage` clients remain compatible, while the narrower
+  principal cannot delete profiles. The form submits endpoint, model, display
+  name, and an optional credential environment-variable name, never credential
+  values. It does not display saved endpoint paths or credential bindings, and
+  leaving the optional edit fields blank preserves their NNA-managed values.
+  Saving changes does not silently activate them for new sessions. The
+  adversarial review fixed stale Add-form values after a successful create;
+  regressions cover duplicate avoidance and Secret Broker binding preservation.
+
 - 2026-09-25 · **In-process provider-route activation for future sessions.**
   NNA can explicitly adopt saved provider profiles and role routes for
   sessions created afterward without restarting the managed child or
