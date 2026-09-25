@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Primary-model override in provider Settings.** The route
+  control now displays the actual configured model (which may differ from the
+  profile default), accepts an explicit model ID override, and disables blank
+  or no-op saves. It continues to report saved-versus-running drift and never
+  restarts or switches an active NNA session. Adversarial review found no
+  confirmed defect; focused and full UI tests pass.
+
 - 2026-09-25 · **NNA-owned primary provider selection.** Settings can now
   explicitly choose a configured profile's default model as the saved primary
   route. A narrow `provider.route.manage` grant permits this one action without

@@ -233,15 +233,44 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     });
     await renderWindow('providers');
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/v1/provider-route'))).toBe(false);
-    const action = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Use this model after NNA restart');
+    const newProfile = document.querySelectorAll('[data-testid="provider-profile"]')[1]!;
+    const action = [...newProfile.querySelectorAll('button')].find((button) => button.textContent === 'Save primary route for next NNA restart');
     await act(async () => { action?.click(); await Promise.resolve(); });
     expect(document.body.textContent).toContain('Configuration differs from the running NNA route');
     expect(document.body.textContent).toContain('Configured primary');
     denied = true;
-    const otherAction = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Use this model after NNA restart');
+    const otherAction = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Save primary route for next NNA restart' && !button.hasAttribute('disabled'));
     await act(async () => { otherAction?.click(); await Promise.resolve(); });
     expect(document.body.textContent).toContain('route denied');
     expect(selected).toBe('new');
+  });
+
+  it('preserves and can change a configured model override without switching profiles', async () => {
+    let model = 'custom-model';
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      if (url.endsWith('/v1/provider-route')) {
+        expect(JSON.parse(String(init?.body))).toEqual({ provider_id: 'primary', model: 'another-model' });
+        model = 'another-model';
+        return Promise.resolve(new Response(JSON.stringify({ configured_primary_route: { providerID: 'primary', modelID: model } }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        profiles: [{ profile_id: 'primary', endpoint: 'http://127.0.0.1:11434/v1', model: 'default-model', active: true }],
+        configured_primary_route: { providerID: 'primary', modelID: model },
+        runtime_route: { providerID: 'primary', modelID: 'custom-model' },
+      }), { status: 200 }));
+    });
+    await renderWindow('providers');
+    const input = document.querySelector('[data-testid="provider-profile"] input') as HTMLInputElement;
+    const save = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Save primary route for next NNA restart')!;
+    expect(input.value).toBe('custom-model');
+    expect(save.hasAttribute('disabled')).toBe(true);
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => { setter.call(input, 'another-model'); input.dispatchEvent(new Event('input', { bubbles: true })); });
+    expect(save.hasAttribute('disabled')).toBe(false);
+    await act(async () => { save.click(); await Promise.resolve(); });
+    expect(model).toBe('another-model');
+    expect(document.body.textContent).toContain('Configured primary model: another-model');
+    expect(document.body.textContent).toContain('Configuration differs from the running NNA route');
   });
 
   it('provider diagnostic failure is not reported as a successful model check', async () => {

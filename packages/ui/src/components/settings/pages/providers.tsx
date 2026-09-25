@@ -100,8 +100,9 @@ export function ProvidersPage(): ReactNode {
           {configuredRoute?.providerID === profile.profile_id && configuredRoute.modelID !== profile.model ? <div className="mt-1 text-muted-foreground">Configured primary model: {configuredRoute.modelID}</div> : null}
           {route?.providerID === profile.profile_id && route.modelID !== profile.model ? <div className="mt-1 text-muted-foreground">Running NNA model: {route.modelID}</div> : null}
           <div className="break-all text-muted-foreground">{endpointOrigin(profile.endpoint)}</div>
-          {configuredRoute?.providerID !== profile.profile_id || configuredRoute.modelID !== profile.model
-            ? <ProviderRouteAction profileId={profile.profile_id} model={profile.model} onApplied={refresh} /> : null}
+          <ProviderRouteAction profileId={profile.profile_id} defaultModel={profile.model}
+            configuredModel={configuredRoute?.providerID === profile.profile_id ? configuredRoute.modelID : null}
+            onApplied={refresh} />
           <ProviderDiagnostics profileId={profile.profile_id} />
         </div>
       ))}
