@@ -17,6 +17,8 @@ const GIT_TIMEOUT_MS = 10_000;
 export interface GitStatusEntry { path: string; index: string; working_dir: string; staged?: boolean }
 export interface GitStatusPayload {
   isGitRepository: boolean;
+  /** Repository-root-relative prefix of the requested workspace directory. */
+  workspacePrefix: string;
   branch: string | null;
   trackingAhead: number;
   trackingBehind: number;
@@ -49,16 +51,20 @@ export function isGitRepository(directory: string): boolean {
 
 function gitStatus(directory: string, light: boolean): GitStatusPayload | string {
   if (!isGitRepository(directory)) {
-    return { isGitRepository: false, branch: null, trackingAhead: 0, trackingBehind: 0, mergeInProgress: false, rebaseInProgress: false, files: [] };
+    return { isGitRepository: false, workspacePrefix: '', branch: null, trackingAhead: 0, trackingBehind: 0, mergeInProgress: false, rebaseInProgress: false, files: [] };
   }
-  const porcelain = git(['status', '--porcelain=v1', '-z', '-b'], directory);
+  const porcelain = git(['status', '--porcelain=v1', '-z', '-b', '--untracked-files=all'], directory);
   if (porcelain.status !== 0) {
     return `${porcelain.stderr || 'git status failed'}`.trim();
   }
-  return parsePorcelain(porcelain.stdout, light);
+  const prefix = git(['rev-parse', '--show-prefix'], directory);
+  if (prefix.status !== 0) return `${prefix.stderr || 'git prefix failed'}`.trim();
+  const workspacePrefix = prefix.stdout.replace(/\r?\n$/u, '');
+  const parsed = parsePorcelain(porcelain.stdout, light, workspacePrefix);
+  return workspacePrefix ? { ...parsed, files: parsed.files.filter((file) => file.path.startsWith(workspacePrefix)) } : parsed;
 }
 
-export function parsePorcelain(stdout: string, light: boolean): GitStatusPayload {
+export function parsePorcelain(stdout: string, light: boolean, workspacePrefix = ''): GitStatusPayload {
   // -z keeps NUL-terminated entries: `XY <path>\0[path\0]` (renames doubled)
   const records = stdout.split('\0').filter((record) => record.length > 0);
   let branch: string | null = null;
@@ -91,7 +97,7 @@ export function parsePorcelain(stdout: string, light: boolean): GitStatusPayload
     const path = renameParts[renameParts.length - 1] ?? pathPart;
     emit(xy, path);
   }
-  return { isGitRepository: true, branch, trackingAhead, trackingBehind, mergeInProgress: false, rebaseInProgress: false, files };
+  return { isGitRepository: true, workspacePrefix, branch, trackingAhead, trackingBehind, mergeInProgress: false, rebaseInProgress: false, files };
 }
 
 function git(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {

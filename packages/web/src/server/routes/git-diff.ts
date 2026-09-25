@@ -9,7 +9,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, lstatSync, statSync } from 'node:fs';
-import { relative, resolve, sep } from 'node:path';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import type { Hono } from 'hono';
 import { realpath, resolveWithin } from './fs.ts';
 
@@ -69,15 +69,18 @@ function repoRoot(directory: string): string | null {
   return result.text.trim().length > 0 ? result.text.trim() : null;
 }
 
-/** Resolve the requested FILE within the repo root (paths are relative to
- * it); the containment double-hop matches fs routes (§5.14 rules). */
-function resolveFileAgainstRepo(directory: string, path: string): string | Response {
-  const root = repoRoot(directory);
-  if (root === null) return notRepo();
-  const target = resolve(root, path);
-  const within = realpath(target);
-  if (root.length > 0 && !within.startsWith(root)) return denied();
-  return within;
+/** API Git paths are repository-root-relative, while a nested `directory`
+ * remains the caller's authorized workspace. Return a literal cwd-relative
+ * path only after both lexical and realpath containment checks. */
+function workspacePath(root: string, directory: string, path: string): string | null {
+  if (!path || isAbsolute(path)) return null;
+  const rootReal = realpath(root);
+  const workspaceReal = realpath(directory);
+  const candidate = resolve(rootReal, path);
+  if (resolveWithin(rootReal, workspaceReal) === null
+    || resolveWithin(workspaceReal, candidate) === null
+    || resolveWithin(workspaceReal, realpath(candidate)) === null) return null;
+  return relative(workspaceReal, candidate).split(sep).join('/');
 }
 
 /** git diff for one path; `staged` → --cached (index vs HEAD); the
@@ -88,8 +91,10 @@ function diffRoute(query: GitQuery): Response {
   if (!directory || !path) return Response.json({ error: 'directory and path are required' }, { status: 400 });
   const root = repoRoot(directory);
   if (root === null) return notRepo();
+  const scopedPath = workspacePath(root, directory, path);
+  if (scopedPath === null) return denied();
   const context = contextNumber(contextLines);
-  const args = ['diff', '--no-color', '--full-index', `--unified=${context}`, '--no-renames', '--', path];
+  const args = ['diff', '--no-color', '--full-index', `--unified=${context}`, '--no-renames', '--', `:(literal)${scopedPath}`];
   if (staged === 'true') args.splice(1, 0, '--cached');
   const result = runGit(directory, args);
   if (!result.ok && result.code !== 0) return Response.json({ error: result.error }, { status: 500 });
@@ -138,6 +143,7 @@ function fileDiffRoute(query: GitQuery): Response {
   if (!directory || !path) return Response.json({ error: 'directory and path are required' }, { status: 400 });
   const root = repoRoot(directory);
   if (root === null) return notRepo();
+  if (workspacePath(root, directory, path) === null) return denied();
   const stagedFlag = staged === 'true';
   const originalRef = 'HEAD';
 
@@ -197,9 +203,11 @@ async function stageRoute(context: { req: { json: () => Promise<unknown>; query:
   }
   const root = repoRoot(directory);
   if (root === null) return notRepo();
+  const scopedPaths = (paths as string[]).map((path) => workspacePath(root, directory, path));
+  if (scopedPaths.some((path) => path === null)) return denied();
   const args = mode === 'add'
-    ? ['add', '--', ...paths as string[]]
-    : ['restore', '--staged', '--', ...paths as string[]];
+    ? ['add', '--', ...scopedPaths.map((path) => `:(literal)${path}`)]
+    : ['restore', '--staged', '--', ...scopedPaths.map((path) => `:(literal)${path}`)];
   const result = runGit(directory, args);
   if (!result.ok) return Response.json({ error: result.error }, { status: 500 });
   return Response.json({ staged: mode === 'add', paths });
@@ -215,7 +223,9 @@ async function discardRoute(context: { req: { json: () => Promise<unknown>; quer
   }
   const root = repoRoot(directory);
   if (root === null) return notRepo();
-  const result = runGit(directory, ['checkout', '--', ...paths as string[]]);
+  const scopedPaths = (paths as string[]).map((path) => workspacePath(root, directory, path));
+  if (scopedPaths.some((path) => path === null)) return denied();
+  const result = runGit(directory, ['checkout', '--', ...scopedPaths.map((path) => `:(literal)${path}`)]);
   if (!result.ok) return Response.json({ error: result.error }, { status: 500 });
   return Response.json({ discarded: paths });
 }

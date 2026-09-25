@@ -70,6 +70,45 @@ describe('git diff + mutations (doc 06 §5.6/§6.4)', () => {
     }
   });
 
+  it('keeps nested workspace status, diff, and staging in repository-root path space', async () => {
+    const nested = joinPath(repoRootPath, 'nested-workspace');
+    mkdirSync(nested);
+    writeFileSync(joinPath(nested, 'authored.txt'), 'nested content\n');
+    const sibling = joinPath(repoRootPath, 'outside-workspace.txt');
+    writeFileSync(sibling, 'outside\n');
+    const query = `?directory=${encodeURIComponent(nested)}`;
+    const path = 'nested-workspace/authored.txt';
+    try {
+      const status = await (await call(`/api/git/status${query}`)).json() as {
+        workspacePrefix: string; files: Array<{ path: string }>;
+      };
+      expect(status.workspacePrefix).toBe('nested-workspace/');
+      expect(status.files.some((entry) => entry.path === path)).toBe(true);
+      expect(status.files.some((entry) => entry.path === 'outside-workspace.txt')).toBe(false);
+      expect((await call(`/api/git/diff${query}&path=hello.ts&staged=false`)).status).toBe(403);
+      const mixedStage = await call(`/api/git/stage${query}`, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ paths: [path, 'hello.ts'] }) });
+      expect(mixedStage.status).toBe(403);
+      expect((await (await call(`/api/git/diff${query}&path=${encodeURIComponent(path)}&staged=true`)).json() as { diff: string }).diff).toBe('');
+      const siblingDiscard = await call(`/api/git/discard${query}`, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ paths: ['hello.ts'] }) });
+      expect(siblingDiscard.status).toBe(403);
+      const working = await (await call(`/api/git/diff${query}&path=${encodeURIComponent(path)}&staged=false`)).json() as { diff: string };
+      expect(working.diff).toContain('+nested content');
+      const staged = await call(`/api/git/stage${query}`, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ paths: [path] }) });
+      expect(staged.status).toBe(200);
+      const index = await (await call(`/api/git/diff${query}&path=${encodeURIComponent(path)}&staged=true`)).json() as { diff: string };
+      expect(index.diff).toContain('+nested content');
+      const unstaged = await call(`/api/git/unstage${query}`, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ paths: [path] }) });
+      expect(unstaged.status).toBe(200);
+    } finally {
+      rmSync(nested, { recursive: true, force: true });
+      rmSync(sibling, { force: true });
+    }
+  });
+
   it('diff answers the patch (worktree edit visible; --cached side empty)', async () => {
     writeFileSync(`${repoRootPath}${sep}hello.ts`, 'one\ntwo modified\nthree\n');
     const work = await (await call(`/api/git/diff${DIRQ}&path=hello.ts&staged=false&contextLines=3`)).json() as { diff: string };

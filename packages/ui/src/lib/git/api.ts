@@ -9,6 +9,7 @@ import { runtimeFetch } from '../runtime-fetch.ts';
 export interface GitStatusFile { path: string; index: string; working_dir: string; staged?: boolean }
 export interface GitStatus {
   isGitRepository: boolean;
+  workspacePrefix?: string;
   branch: string | null;
   trackingBehind: number;
   trackingAhead: number;

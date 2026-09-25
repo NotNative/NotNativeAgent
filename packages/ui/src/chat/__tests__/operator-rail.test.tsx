@@ -9,6 +9,7 @@ import { useSessionViewStore } from '../../sync/view-store.ts';
 import { useGlobalSessionStatusStore } from '../../sync/global-stores.ts';
 import * as runtimeSwitch from '../../lib/runtime-switch.ts';
 import { harnessClient } from '../../lib/nnd/client.ts';
+import * as runtimeFetch from '../../lib/runtime-fetch.ts';
 
 vi.mock('../../components/terminal/TerminalView.tsx', () => ({ TerminalView: ({ visible }: { visible: boolean }) => <div data-testid="terminal-keepalive-controller" data-visible={visible} /> }));
 
@@ -469,6 +470,41 @@ describe('OperatorRail', () => {
     expect(detail.textContent).not.toContain('secret');
     act(() => (detail.querySelector('summary') as HTMLElement).click());
     expect(detail.open).toBe(true);
+  });
+
+  it('offers a Changes jump only for a completed tool with an authored review path', async () => {
+    vi.spyOn(runtimeFetch, 'runtimeFetch').mockImplementation(async () => new Response(JSON.stringify({
+      isGitRepository: false, branch: null, files: [], current: null,
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ activity: [
+      { id: 'write', sessionID: 's1', time: 1, kind: 'tool', status: 'completed', summary: 'file written',
+        toolEvidence: { reviewPath: 'src/check.js', reviewDirectory: 'D:/work' } },
+      { id: 'read', sessionID: 's1', time: 2, kind: 'tool', status: 'completed', summary: 'file read',
+        toolEvidence: { target: 'src/other.js' } },
+    ] });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    const jumps = [...document.querySelectorAll<HTMLButtonElement>('[data-testid="activity-rows"] button')]
+      .filter((button) => button.textContent === 'Review file in Changes');
+    expect(jumps).toHaveLength(1);
+    await act(async () => { jumps[0]!.click(); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="operator-surface-title"]')?.textContent).toBe('Changes');
+  });
+
+  it('does not offer an old workspace review path after the session changes workspace', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ activity: [
+      { id: 'old-write', sessionID: 's1', time: 1, kind: 'tool', status: 'completed', summary: 'old file written',
+        toolEvidence: { reviewPath: 'src/check.js', reviewDirectory: 'D:/old-work' } },
+    ] });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/new-work" />));
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="activity-rows"]')?.textContent).toContain('old file written');
+    expect([...document.querySelectorAll<HTMLButtonElement>('[data-testid="activity-rows"] button')]
+      .some((button) => button.textContent === 'Review file in Changes')).toBe(false);
   });
 
   it('filters activity to failures without claiming that all session evidence is absent', () => {

@@ -52,6 +52,21 @@ describe('operator activity evidence', () => {
     expect(mergeActivityRecord([record], { ...record, toolEvidence: { ...record.toolEvidence!, elapsedMs: 26 } })).not.toBe(record);
   });
 
+  it('validates the authored review path and removes it on correction', () => {
+    const properties = { id: 'tool-review', sessionID: 's1', kind: 'tool', status: 'completed', summary: 'file edited', time: 10,
+      toolEvidence: { reviewPath: 'src/check.js', reviewDirectory: 'D:/work' } };
+    const linked = activityRecordFromEvent({ type: 'nnd.activity', properties })!;
+    expect(linked.toolEvidence?.reviewPath).toBe('src/check.js');
+    for (const reviewPath of ['../outside.js', '/absolute.js', 'D:/absolute.js', 'src\\file.js', 'src//file.js']) {
+      expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties,
+        toolEvidence: { reviewPath, reviewDirectory: 'D:/work' } } })).toBeNull();
+    }
+    expect(activityRecordFromEvent({ type: 'nnd.activity', properties: { ...properties,
+      toolEvidence: { reviewPath: 'src/check.js' } } })).toBeNull();
+    const corrected = { ...linked, toolEvidence: { effect: 'read_only' } };
+    expect(mergeActivityRecord([linked], corrected)[0]?.toolEvidence?.reviewPath).toBeUndefined();
+  });
+
   it('replaces a record when NNA corrects or redacts the same evidence id', () => {
     const started = activityRecordFromEvent({ type: 'nnd.activity', properties: { id: 'a1', sessionID: 's1', kind: 'turn', status: 'started', summary: 'Turn started', time: 10 } })!;
     const redacted = { ...started, status: 'redacted' as const, summary: 'Redacted by NNA', time: 12 };

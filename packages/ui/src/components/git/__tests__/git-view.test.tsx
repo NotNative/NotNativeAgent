@@ -29,6 +29,7 @@ const DIR = '/repo';
 
 const STATUS = {
   isGitRepository: true,
+  workspacePrefix: '',
   branch: 'main',
   trackingAhead: 0,
   trackingBehind: 0,
@@ -177,6 +178,59 @@ describe('GitView (doc 06 §6 v1)', () => {
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/git/diff') && String(url).includes('staged=true'))).toBe(true);
     act(() => (document.querySelector('button[aria-label="Close diff preview"]') as HTMLButtonElement).click());
     expect(document.querySelector('[data-testid="git-file-preview"]')).toBeNull();
+  });
+
+  it('opens an authored Activity review path only when it is still in current Changes', async () => {
+    await render(true);
+    await settle();
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView directory={DIR} visible compact
+      reviewRequest={{ directory: DIR, path: 'work.ts', id: 1 }} /></I18nProvider>); await Promise.resolve(); });
+    await settle();
+    expect((document.querySelector('[data-testid="git-file-preview"]') as HTMLElement).dataset.path).toBe('work.ts');
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView directory={DIR} visible compact
+      reviewRequest={{ directory: DIR, path: 'gone.ts', id: 2 }} /></I18nProvider>); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="git-file-preview"]')).toBeNull();
+    expect(document.querySelector('[role="status"]')?.textContent).toContain('no longer in current Changes');
+  });
+
+  it('checks fresh Git status for an Activity jump instead of trusting a recent cached snapshot', async () => {
+    await render(true);
+    await settle();
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/git/status')
+      ? jsonResponse({ ...STATUS, files: [...STATUS.files, { path: 'new.ts', index: ' ', working_dir: 'M' }] })
+      : route(String(input)));
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView directory={DIR} visible compact
+      reviewRequest={{ directory: DIR, path: 'new.ts', id: 3 }} /></I18nProvider>); await Promise.resolve(); });
+    await settle();
+    expect((document.querySelector('[data-testid="git-file-preview"]') as HTMLElement).dataset.path).toBe('new.ts');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/git/status')
+      && String(url).includes('mode=light'))).toBe(true);
+  });
+
+  it('maps a nested workspace review path into porcelain repository-root paths', async () => {
+    await render(true);
+    await settle();
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/git/status')
+      ? jsonResponse({ ...STATUS, workspacePrefix: 'packages/ui/', files: [
+        { path: 'packages/ui/src/check.js', index: ' ', working_dir: 'M' },
+      ] }) : route(String(input)));
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView directory={DIR} visible compact
+      reviewRequest={{ directory: DIR, path: 'src/check.js', id: 5 }} /></I18nProvider>); await Promise.resolve(); });
+    await settle();
+    expect((document.querySelector('[data-testid="git-file-preview"]') as HTMLElement).dataset.path)
+      .toBe('packages/ui/src/check.js');
+  });
+
+  it('does not claim a review file disappeared when the fresh status request fails', async () => {
+    await render(true);
+    await settle();
+    fetchMock.mockImplementation(async (input: string) => String(input).includes('/api/git/status')
+      ? jsonResponse({ error: 'temporary failure' }, false) : route(String(input)));
+    await act(async () => { rootHandle!.render(<I18nProvider><GitView directory={DIR} visible compact
+      reviewRequest={{ directory: DIR, path: 'work.ts', id: 4 }} /></I18nProvider>); await Promise.resolve(); });
+    await settle();
+    expect(document.querySelector('[role="status"]')?.textContent).toContain('Could not check current Changes');
+    expect(document.querySelector('[role="status"]')?.textContent).not.toContain('no longer');
   });
 
   it('stacks the commit form below changes in a narrow host', async () => {

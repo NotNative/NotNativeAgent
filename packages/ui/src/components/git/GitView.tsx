@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner';
 import { useGitStore, groupedStatusFiles, scheduleGitReconcile } from '../../lib/git/store';
 import {
-  commitChanges, discardGitFiles, fetchGitBranches, stageGitFiles, unstageGitFiles,
+  commitChanges, discardGitFiles, fetchGitBranches, fetchGitStatus, stageGitFiles, unstageGitFiles,
   statusSymbol, type GitStatus, type GitStatusFile,
 } from '../../lib/git/api';
 import { publishReviewRefresh, useReviewRefreshHints } from '../../lib/git/refresh-hints';
@@ -20,8 +20,11 @@ import { GitDialogHost, type GitDialogKind } from './git-dialogs.tsx';
 import { GitFilePreview } from './git-file-preview.tsx';
 
 type SelectedFile = { directory: string; path: string; staged: boolean };
+type ReviewRequest = { directory: string; path: string; id: number } | null;
 
-export function GitView({ directory, visible = true, compact = false }: { directory: string; visible?: boolean; compact?: boolean }): ReactNode {
+export function GitView({ directory, visible = true, compact = false, reviewRequest = null }: {
+  directory: string; visible?: boolean; compact?: boolean; reviewRequest?: ReviewRequest;
+}): ReactNode {
   const [statusSnapshot, setStatusSnapshot] = useState<{ directory: string; value: GitStatus } | null>(null);
   const currentDirectory = useRef(directory);
   currentDirectory.current = directory;
@@ -38,6 +41,9 @@ export function GitView({ directory, visible = true, compact = false }: { direct
   const [dialog, setDialog] = useState<GitDialogKind>(null);
   const [confirmRevert, setConfirmRevert] = useState<GitStatusFile | null>(null);
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
+  const [missingReviewPath, setMissingReviewPath] = useState<string | null>(null);
+  const [reviewErrorPath, setReviewErrorPath] = useState<string | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
   const ensureStatus = useGitStore((state) => state.ensureStatus);
   const ensureAll = useGitStore((state) => state.ensureAll);
   const bumpIndexRevision = useGitStore((state) => state.bumpIndexRevision);
@@ -99,6 +105,41 @@ export function GitView({ directory, visible = true, compact = false }: { direct
   const working = grouped.working;
   const shownFile = selectedFile?.directory === directory &&
     (selectedFile.staged ? staged : working).some((entry) => entry.path === selectedFile.path) ? selectedFile : null;
+  useEffect(() => {
+    if (!reviewRequest || reviewRequest.directory !== directory) return;
+    // A recent tool completion can precede the Git cache's five-second expiry.
+    // Resolve each jump against a fresh status, not the cached initial render.
+    let current = true;
+    setSelectedFile(null);
+    setMissingReviewPath(null);
+    setReviewErrorPath(null);
+    setReviewLoading(true);
+    void fetchGitStatus(directory, 'light').then((fresh) => {
+      if (!current) return;
+      setReviewLoading(false);
+      if (fresh === null) { setReviewErrorPath(reviewRequest.path); return; }
+      // Porcelain v1 paths are repository-root-relative, even when the
+      // session workspace is a nested directory within that repository.
+      const prefix = fresh.workspacePrefix;
+      if (typeof prefix !== 'string' || prefix.startsWith('/') || prefix !== '' && !prefix.endsWith('/')
+        || /\\|[\u0000-\u001f\u007f]/u.test(prefix)
+        || prefix.split('/').some((segment, index, parts) => segment === '..' || segment === '.'
+          || segment === '' && index !== parts.length - 1)) {
+        setReviewErrorPath(reviewRequest.path);
+        return;
+      }
+      const repoPath = `${prefix}${reviewRequest.path}`;
+      useGitStore.getState().applyStatus(directory, fresh, 'light');
+      setStatus(directory, fresh);
+      const files = groupedStatusFiles(fresh);
+      if (files.working.some((entry) => entry.path === repoPath)) {
+        setSelectedFile({ directory, path: repoPath, staged: false });
+      } else if (files.staged.some((entry) => entry.path === repoPath)) {
+        setSelectedFile({ directory, path: repoPath, staged: true });
+      } else setMissingReviewPath(reviewRequest.path);
+    }).catch(() => { if (current) { setReviewLoading(false); setReviewErrorPath(reviewRequest.path); } });
+    return () => { current = false; };
+  }, [directory, reviewRequest, setStatus]);
 
   const withBusy = useCallback(async (kind: 'commit' | 'stage' | 'revert', run: () => Promise<void>): Promise<void> => {
     setBusy(kind);
@@ -186,7 +227,7 @@ export function GitView({ directory, visible = true, compact = false }: { direct
                 entry={entry}
                 staged
                 selected={shownFile?.path === entry.path && shownFile.staged}
-                onOpen={() => setSelectedFile({ directory, path: entry.path, staged: true })}
+                onOpen={() => { setMissingReviewPath(null); setReviewErrorPath(null); setSelectedFile({ directory, path: entry.path, staged: true }); }}
                 onStageToggle={() => stageWithHint([entry.path], 'unstage')}
                 onRevert={() => setConfirmRevert(entry)}
               />
@@ -204,7 +245,7 @@ export function GitView({ directory, visible = true, compact = false }: { direct
                 entry={entry}
                 staged={false}
                 selected={shownFile?.path === entry.path && !shownFile.staged}
-                onOpen={() => setSelectedFile({ directory, path: entry.path, staged: false })}
+                onOpen={() => { setMissingReviewPath(null); setReviewErrorPath(null); setSelectedFile({ directory, path: entry.path, staged: false }); }}
                 onStageToggle={() => stageWithHint([entry.path], 'stage')}
                 onRevert={() => setConfirmRevert(entry)}
               />
@@ -213,6 +254,13 @@ export function GitView({ directory, visible = true, compact = false }: { direct
           </Section>
         </div>
         <aside className={`flex min-h-0 shrink-0 flex-col gap-3 overflow-y-auto ${compact ? 'w-full' : shownFile ? 'w-[min(45vw,520px)]' : 'w-72'}`}>
+          {reviewLoading && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-neutral-400">Checking current Changes…</p> : null}
+          {reviewErrorPath && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-amber-300">
+            Could not check current Changes for {reviewErrorPath}.
+          </p> : null}
+          {missingReviewPath && reviewRequest?.directory === directory ? <p role="status" className="text-xs text-amber-300">
+            {missingReviewPath} is no longer in current Changes.
+          </p> : null}
           {shownFile ? <GitFilePreview key={`${directory}\u0000${shownFile.path}\u0000${shownFile.staged}`} directory={directory}
             path={shownFile.path} staged={shownFile.staged} revision={status} onClose={() => setSelectedFile(null)} /> : null}
           <div className="rounded-lg border border-border/60 bg-card/40 p-3">

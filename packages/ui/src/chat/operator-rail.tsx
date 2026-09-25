@@ -24,6 +24,7 @@ const SURFACES: readonly { id: Surface; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
 ];
 type PanelPreferences = { order: Surface[]; visible: Surface[] };
+type ReviewRequest = { directory: string; path: string; id: number };
 const DEFAULT_PANEL_PREFERENCES: PanelPreferences = {
   order: SURFACES.map((item) => item.id), visible: SURFACES.map((item) => item.id),
 };
@@ -47,6 +48,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
   const [panelState, setPanelState] = useState(() => ({ key: preferencesKey, value: readPanelPreferences(preferencesKey) }));
   const panels = panelState.key === preferencesKey ? panelState.value : readPanelPreferences(preferencesKey);
   const [customizing, setCustomizing] = useState(false);
+  const [reviewRequest, setReviewRequest] = useState<ReviewRequest | null>(null);
   useEffect(() => {
     if (panelState.key !== preferencesKey) setPanelState({ key: preferencesKey, value: readPanelPreferences(preferencesKey) });
   }, [panelState.key, preferencesKey]);
@@ -180,8 +182,11 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
           })}
         </section> : null}
         {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded /> : null}
-        {surface === 'activity' ? <ActivitySurface store={store} directory={directory} /> : null}
-        {surface === 'changes' ? <GitView directory={directory} visible compact /> : null}
+        {surface === 'activity' ? <ActivitySurface store={store} directory={directory} onReviewPath={(path) => {
+          setReviewRequest({ directory, path, id: Date.now() });
+          setSelection({ key: selectionKey, surface: 'changes' });
+        }} /> : null}
+        {surface === 'changes' ? <GitView directory={directory} visible compact reviewRequest={reviewRequest} /> : null}
         {notesOpenedKey === storageKey || surface === 'notes' ? (
           <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
             <ProjectNotes key={storageKey} directory={directory} directoryKey={storageKey} visible={surface === 'notes' && paneVisible}
@@ -283,7 +288,9 @@ const ACTIVITY_FILTERS: readonly { id: ActivityFilter; label: string }[] = [
   { id: 'notice', label: 'Notices' }, { id: 'attention', label: 'Needs input' }, { id: 'failed', label: 'Failures' },
 ];
 
-function ActivitySurface({ store, directory }: { store: StoreApi<DirectoryStore>; directory: string }): ReactNode {
+function ActivitySurface({ store, directory, onReviewPath }: {
+  store: StoreApi<DirectoryStore>; directory: string; onReviewPath: (path: string) => void;
+}): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
   const nnaSource = isNnaActivitySource(store);
@@ -345,6 +352,10 @@ function ActivitySurface({ store, directory }: { store: StoreApi<DirectoryStore>
       {records.length === 0 ? <li className="text-[11px] text-neutral-500">{filter === 'all' ? 'No activity evidence has been received for this session.' : filter === 'attention' ? 'No activity requiring input has been received for this session.' : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
         : records.map((record) => <li key={record.id} className={`rounded border p-2 text-[11px] ${record.status === 'failed' ? 'border-red-500/40 bg-red-950/20' : record.status === 'attention' ? 'border-amber-500/40 bg-amber-950/20' : 'border-white/10 bg-neutral-900/40'}`}><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'attention' || record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status === 'attention' ? 'needs input' : record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
           {record.toolEvidence ? <ToolEvidenceDetail evidence={record.toolEvidence} /> : null}
+          {record.status === 'completed' && record.toolEvidence?.reviewPath
+            && record.toolEvidence.reviewDirectory === directory ? <button type="button"
+            className="mt-1 text-sky-300 hover:underline" onClick={() => onReviewPath(record.toolEvidence!.reviewPath!)}>
+            Review file in Changes</button> : null}
           {record.evidenceMessageID && snapshot.message[record.sessionID]?.some((message) => message.id === record.evidenceMessageID)
             ? <button type="button" className="mt-1 text-sky-300 hover:underline" onClick={() => {
               const anchor = `message-${record.evidenceMessageID}`;

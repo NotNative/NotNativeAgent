@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Activity-to-Changes file evidence.** Successful NNA
+  filesystem mutations now project a bounded workspace-bound review path
+  into live and durable parent/child Activity. The rail offers a Changes jump
+  only while that original workspace is selected. NND refreshes Git status
+  for the jump and opens a read-only preview only if the path remains changed;
+  an unavailable check and an absent change are distinguished. Nested
+  workspaces translate paths against the Git root without granting Git file
+  routes access to sibling paths. Shell edits and other unclassified changes
+  still have no inferred file link.
+
 - 2026-09-25 · **Changes file preview.** A filename in Git/Changes now opens
   a read-only, scoped diff preview in the current pane. Stage/Unstage stays
   on its explicit button, so inspection cannot mutate the index. The preview

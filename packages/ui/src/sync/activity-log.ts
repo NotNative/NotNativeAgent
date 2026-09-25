@@ -19,6 +19,8 @@ export interface ActivityRecord {
 
 export interface ToolEvidence {
   target?: string;
+  reviewPath?: string;
+  reviewDirectory?: string;
   effect?: string;
   reasonCode?: string;
   elapsedMs?: number;
@@ -77,22 +79,33 @@ function sameActivityRecord(left: ActivityRecord, right: ActivityRecord): boolea
 export function sameToolEvidence(left?: ToolEvidence, right?: ToolEvidence): boolean {
   if (!left || !right) return left === right;
   return left.target === right.target && left.effect === right.effect
+    && left.reviewPath === right.reviewPath && left.reviewDirectory === right.reviewDirectory
     && left.reasonCode === right.reasonCode && left.elapsedMs === right.elapsedMs && left.exitCode === right.exitCode;
 }
 
 function parseToolEvidence(value: unknown): ToolEvidence | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const source = value as Record<string, unknown>;
-  if (Object.keys(source).some((key) => !['target', 'effect', 'reasonCode', 'elapsedMs', 'exitCode'].includes(key))) return null;
+  if (Object.keys(source).some((key) => !['target', 'reviewPath', 'reviewDirectory', 'effect', 'reasonCode', 'elapsedMs', 'exitCode'].includes(key))) return null;
   const validText = (item: unknown, max: number): boolean => item === undefined
     || typeof item === 'string' && item.length > 0 && item.length <= max && !/[\u0000-\u001f\u007f]/u.test(item);
-  if (!validText(source.target, 180) || !validText(source.effect, 48) || !validText(source.reasonCode, 80)
+  if (!validText(source.target, 180) || !validReviewPath(source.reviewPath, source.reviewDirectory)
+    || !validText(source.effect, 48) || !validText(source.reasonCode, 80)
     || source.elapsedMs !== undefined && (typeof source.elapsedMs !== 'number' || !Number.isSafeInteger(source.elapsedMs)
       || source.elapsedMs < 0 || source.elapsedMs > 604_800_000)
     || source.exitCode !== undefined && (typeof source.exitCode !== 'number' || !Number.isSafeInteger(source.exitCode)
       || Math.abs(source.exitCode) > 2_147_483_647)) return null;
   if (Object.keys(source).length === 0) return null;
   return source as ToolEvidence;
+}
+
+function validReviewPath(value: unknown, directory: unknown): boolean {
+  if (value === undefined && directory === undefined) return true;
+  return typeof value === 'string' && value.length > 0 && value.length <= 300
+    && !/^[a-z]:|^\/|\\|[\u0000-\u001f\u007f]/iu.test(value)
+    && value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..')
+    && typeof directory === 'string' && directory.length > 0 && directory.length <= 1000
+    && !/[\u0000-\u001f\u007f]/u.test(directory);
 }
 
 function stringProp(props: Record<string, unknown>, key: string): string | null {
