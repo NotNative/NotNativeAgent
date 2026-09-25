@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:271f42406681ab379e817aebd76977cf98e2e1fbba4ac50089a22ce103507cd2",
+  "source_digest": "sha256:4c2e173c7550d881bfb6c22bbe4b9af06fc013a4886fd16eb9c914d2842a6adf",
   "counts": {
     "modules": 372,
     "component_edges": 12
@@ -115,8 +115,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 24,
-      "module_count": 21
+      "import_count": 25,
+      "module_count": 22
     },
     {
       "from": "web-entry",
@@ -503,6 +503,7 @@
       "imports": [
         "packages/ui/src/chat/panel-gate.ts",
         "packages/ui/src/chat/work-status.ts",
+        "packages/ui/src/lib/nnd/types.ts",
         "packages/ui/src/sync/global-stores.ts",
         "packages/ui/src/sync/sync-engine.ts",
         "packages/ui/src/sync/types.ts",

@@ -10,6 +10,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
+import type { SessionStatus } from '../lib/nnd/types.ts';
 import { contextUsage, nnaContextUsage, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
@@ -18,6 +19,7 @@ const PANEL_WIDTH = 300;
 
 export function WorkStatusPanel({ store, engine, embedded = false }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
+  const statusById = useGlobalSessionStatusStore((state) => state.statusById);
   const sessionID = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState).currentSessionId;
   const [hidden, setHidden] = useState<string[]>([]);
   const [committed, setCommitted] = useState<PanelStats | null>(null);
@@ -30,7 +32,7 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const context = contextUsage(snapshot, sessionID, contextLimit);
   const nnaContext = nnaContextUsage(snapshot, sessionID);
   const todos = todoRows(snapshot, sessionID);
-  const subagents = subagentRows(snapshot, sessionID, statusPhraseOf(store));
+  const subagents = subagentRows(snapshot, sessionID, statusPhraseOf(snapshot, statusById));
   const stats = panelStatsIfNeeded(snapshot, sessionID, committed);
   if (stats && stats !== committed) {
     queueMicrotask(() => setCommitted(stats)); // commit-once render exit
@@ -111,12 +113,17 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   }
 }
 
-function statusPhraseOf(store: StoreApi<DirectoryStore>): (sessionID: string) => 'working' | 'needs permission' | 'asked a question' | 'Done' {
+function statusPhraseOf(snapshot: DirectoryStore, statusById: Record<string, SessionStatus>): (sessionID: string) => 'working' | 'needs permission' | 'asked a question' | 'Idle' | 'No live status' {
   return (sessionID) => {
-    const status = useGlobalSessionStatusStore.getState().statusById[sessionID];
+    if ((snapshot.permission[sessionID]?.length ?? 0) > 0) return 'needs permission';
+    if ((snapshot.question[sessionID]?.length ?? 0) > 0) return 'asked a question';
+    const status = statusById[sessionID];
     if (status && status.type !== 'idle') return 'working';
-    if ((store.getState().permission[sessionID]?.length ?? 0) > 0) return 'needs permission';
-    if ((store.getState().question[sessionID]?.length ?? 0) > 0) return 'asked a question';
-    return 'Done';
+    // The global index removes idle entries. An explicit directory idle
+    // record is evidence, but an absent record is not: this child may have
+    // appeared after the last successful directory status snapshot. Neither
+    // idle nor absence means the delegated task is "Done".
+    if (snapshot.session_status[sessionID]?.type === 'idle') return 'Idle';
+    return 'No live status';
   };
 }

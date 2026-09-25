@@ -17,6 +17,9 @@ vi.mock('../../lib/runtime-switch.ts', () => ({
 
 import { configureHarness, callsFor, type MockCall } from './harness-client-mock.ts';
 import { optimisticSend, isAmbiguousSendFailure, replyToPermission, computeSubtreeIds, getReconnectCandidateIds, mergeBootstrapLists } from '../session-actions.ts';
+import { createSyncEngine } from '../sync-engine.ts';
+import { useGlobalSessionStatusStore } from '../global-stores.ts';
+import { useConfigStore } from '../../stores/useConfigStore.ts';
 import type { EngineServices as LegacyServices } from '../session-lifecycle.ts';
 import type { DirectoryStore } from '../types.ts';
 import { INITIAL_STATE } from '../types.ts';
@@ -67,6 +70,25 @@ function services(overrides: Partial<LegacyServices> = {}): LegacyServices {
 beforeEach(() => configureHarness({}));
 
 describe('optimistic send (§E.2)', () => {
+  it('publishes local busy and rollback to the global child-status index', async () => {
+    let rejectSend: ((reason: Error) => void) | undefined;
+    configureHarness({ promptAsync: () => new Promise((_resolve, reject) => { rejectSend = reject; }) });
+    useConfigStore.setState({ isConnected: true });
+    useGlobalSessionStatusStore.getState().reset();
+    const engine = createSyncEngine();
+    const store = engine.manager.ensureChild('D:/work');
+    const send = engine.actions.send({ directory: 'D:/work', sessionID: 'child', parts: [{ type: 'text', text: 'continue' }], model: { providerID: 'p', modelID: 'm' } });
+    await vi.waitFor(() => expect(rejectSend).toBeTypeOf('function'));
+    expect(store.getState().session_status.child).toEqual({ type: 'busy' });
+    expect(useGlobalSessionStatusStore.getState().statusById.child).toEqual({ type: 'busy' });
+    rejectSend!(Object.assign(new Error('rejected'), { status: 500 }));
+    await expect(send).rejects.toThrow('rejected');
+    expect(store.getState().session_status.child).toEqual({ type: 'idle' });
+    expect(useGlobalSessionStatusStore.getState().statusById.child).toBeUndefined();
+    engine.dispose();
+    useConfigStore.setState({ isConnected: false });
+  });
+
   it('rolls back a DEFINITE failure, restores status, and records evidence', async () => {
     configureHarness({
       promptAsync: () => ({ error: 'rejected', response: { status: 500 } }),

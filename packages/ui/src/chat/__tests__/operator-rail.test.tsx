@@ -6,6 +6,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { createDirectoryStore } from '../../sync/child-store.ts';
 import { OperatorRail } from '../operator-rail.tsx';
 import { useSessionViewStore } from '../../sync/view-store.ts';
+import { useGlobalSessionStatusStore } from '../../sync/global-stores.ts';
 
 vi.mock('../../components/terminal/TerminalView.tsx', () => ({ TerminalView: ({ visible }: { visible: boolean }) => <div data-testid="terminal-keepalive-controller" data-visible={visible} /> }));
 
@@ -23,6 +24,7 @@ afterEach(() => {
   document.body.innerHTML = '';
   window.localStorage.clear();
   useSessionViewStore.setState({ currentSessionId: null, activeDirectory: '' });
+  useGlobalSessionStatusStore.getState().reset();
   vi.unstubAllGlobals();
 });
 
@@ -110,6 +112,37 @@ describe('OperatorRail', () => {
     const context = document.querySelector('[data-testid="work-status-panel"]')!;
     expect(context.textContent).toContain('50.0% estimated');
     expect(context.textContent).not.toContain('25.0% estimated');
+  });
+
+  it('does not call an unreported subagent done and refreshes blocker precedence live', () => {
+    useSessionViewStore.setState({ currentSessionId: 'parent' });
+    const store = createDirectoryStore({ session: [
+      { id: 'parent', time: { created: 1, updated: 1 } },
+      { id: 'child', parentID: 'parent', title: 'Explorer', time: { created: 2, updated: 2 } },
+    ] as never });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const subagents = document.querySelector('[data-testid="ws-subagents"]')!;
+    expect(subagents.textContent).toContain('No live status');
+    expect(subagents.textContent).not.toContain('Done');
+
+    act(() => useGlobalSessionStatusStore.getState().applyEvent('child', { type: 'busy' }));
+    expect(subagents.textContent).toContain('working');
+    act(() => store.getState().patch({ permission: { child: [{ id: 'p1' }] } as never }));
+    expect(subagents.textContent).toContain('needs permission');
+    expect(subagents.textContent).not.toContain('working');
+    act(() => store.getState().patch({ permission: {}, question: { child: [{ id: 'q1' }] } as never }));
+    expect(subagents.textContent).toContain('asked a question');
+    act(() => store.getState().patch({ question: {} }));
+    act(() => useGlobalSessionStatusStore.getState().applyEvent('child', { type: 'idle' }));
+    expect(subagents.textContent).toContain('No live status');
+    act(() => store.getState().patch({ session_status: { child: { type: 'idle' } } }));
+    expect(subagents.textContent).toContain('Idle');
+    expect(subagents.textContent).not.toContain('Done');
+    act(() => store.getState().patch({ session_status: {}, sessionStatusReady: true }));
+    expect(subagents.textContent).toContain('No live status');
   });
 
   it('renders only explicit activity evidence and offers a bounded browser preview', () => {

@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Live delegated status in Context.** Subagent rows now
+  subscribe to the global live-status projection. Pending permission and
+  question evidence outrank a concurrent busy status. An explicit idle record
+  is labelled “Idle”; a child without any live-status evidence is
+  labelled “No live status,” never “Done” by inference. Locally optimistic
+  prompt status now reaches the global index immediately. UI regressions cover
+  status arrival and blocker transitions.
+
 - 2026-09-25 · **Cross-project terminal lease.** The app shell now owns one
   10-minute terminal keepalive across all visited project directories. Terminal
   panels retain only their visible observer/stream; navigating from project A

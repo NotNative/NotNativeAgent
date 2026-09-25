@@ -368,6 +368,9 @@ function buildEngineServices(
     onStatusEvent: (sessionID, status, directory) => {
       const store = ctx.manager.children.get(normalizeDirectory(directory));
       if (store) store.setState({ session_status: { ...store.getState().session_status, [sessionID]: status } });
+      // Optimistic sends may precede the harness event/snapshot. Keep the
+      // global live index in step so child rows see that status.
+      useGlobalSessionStatusStore.getState().applyEvent(sessionID, status);
     },
     loaderInitializeCreated: (directory, sessionID, store) => ctx.loader.initializeCreatedSession({ directory, sessionID, store }),
     loaderOptimisticAdd: (directory, sessionID, store, item) => ctx.loader.optimisticAdd({ directory, sessionID, store }, item),

@@ -1786,7 +1786,8 @@ with a localized empty state + section controls). Separator via CSS
    `chat.workStatus.telemetry.*Description`).
 5. **Subagents** (`...section.subagents`): one row per child session: title
    ("Subagent" fallback), status phrase ("is working" / "needs permission" /
-   "asked a question" / "Done"), per-row cost = that child's whole subtree
+   "asked a question" / "Idle" on an explicit idle record / "No live status" when
+   unknown; idle alone is not evidence of completed work), per-row cost = that child's whole subtree
    rollup; blocked rows aggregate its permission/question state; click →
    opens that child session's chat (embedded panel/mobile/VS Code navigate
    instead of nesting). The section self-opens when subagents appear where
