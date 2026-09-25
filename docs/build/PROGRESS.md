@@ -22,6 +22,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Context rail evidence clarity.** Context now distinguishes
+  no selected session, no NNA projection yet, and sections the operator hid.
+  It summarizes the latest NNA-authored tool Activity for the selected
+  session as an event, without calling a completed tool active or guessing
+  from transcript text.
+
 - 2026-09-25 · **Activity-to-Changes file evidence.** Successful NNA
   filesystem mutations now project a bounded workspace-bound review path
   into live and durable parent/child Activity. The rail offers a Changes jump

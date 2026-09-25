@@ -33,6 +33,27 @@ afterEach(() => {
 });
 
 describe('OperatorRail', () => {
+  it('explains absent Context projections and summarizes the latest authored tool event', () => {
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const store = createDirectoryStore();
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Select a session');
+    act(() => useSessionViewStore.setState({ currentSessionId: 's1' }));
+    expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('not available for this session');
+    act(() => store.getState().patch({ vcs: { branch: 'main' } }));
+    expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('Branchmain');
+    expect(document.querySelector('[data-testid="work-status-panel"]')?.textContent).toContain('not available for this session');
+    act(() => store.getState().patch({ activity: [
+      { id: 'other', sessionID: 's2', time: 2, kind: 'tool', status: 'failed', summary: 'Other tool' },
+      { id: 'first', sessionID: 's1', time: 3, kind: 'tool', status: 'started', summary: 'fs_read_text: running' },
+      { id: 'latest', sessionID: 's1', time: 4, kind: 'tool', status: 'completed', summary: 'fs_edit_text: succeeded' },
+    ] }));
+    const panel = document.querySelector('[data-testid="work-status-panel"]')!;
+    expect(panel.textContent).toContain('Latest tool event');
+    expect(panel.textContent).toContain('fs_edit_text: succeeded');
+    expect(panel.textContent).not.toContain('Other tool');
+  });
+
   it('reorders and hides panels per runtime and directory while keeping one available', () => {
     let runtime = 'local';
     vi.spyOn(runtimeSwitch, 'getRuntimeKey').mockImplementation(() => runtime);

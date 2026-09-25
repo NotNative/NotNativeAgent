@@ -24,7 +24,8 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const sessionID = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState).currentSessionId;
   const [hidden, setHidden] = useState<string[]>([]);
   const [committed, setCommitted] = useState<PanelStats | null>(null);
-  if (!sessionID) return null;
+  if (!sessionID) return <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} p-3 text-xs text-neutral-500`}
+    data-testid="work-status-panel">Select a session to inspect its NNA context.</aside>;
 
   // model limit resolves from the provider catalog; unknown model hides Context
   const messages = snapshot.message[sessionID] ?? [];
@@ -47,6 +48,7 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   }
   const cost = sessionCostRollup(snapshot, sessionID);
   const branch = snapshot.vcs?.branch ?? '';
+  const latestTool = [...snapshot.activity].reverse().find((record) => record.sessionID === sessionID && record.kind === 'tool');
   // §E.3 recap renders inline in the composer band (chat-view), not a panel
   // section; §E.9 context-sources rows (skills/MCP/memory counts) land with
   // the doc-15 knowledge slice.
@@ -103,6 +105,9 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
     sections.push({ id: 'session', label: 'Session', rows: [row('Turn', turnLabel)] });
   }
   if (branch) sections.push({ id: 'project', label: 'Project', rows: [row('Branch', branch)] });
+  if (latestTool) sections.push({ id: 'latest-tool', label: 'Latest tool event', rows: [
+    row('Event', latestTool.summary), row('State', latestTool.status === 'attention' ? 'Needs input' : latestTool.status),
+  ] });
   // Usage section stays presence-collapsed until a quota provider registry
   // exists (doc 05 §G HARNESS PORT 9); it never shows the token label.
   if (stats && (stats.wholeTurnMS !== null || stats.outputTokens !== null)) {
@@ -128,9 +133,13 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   }
 
   const visibleSections = sections.filter((section) => !hidden.includes(section.id));
+  // The project branch is useful ambient workspace information, but it is
+  // not evidence that the selected session has a context projection.
+  const hasSessionDetails = sections.some((section) => section.id !== 'project');
   return (
     <aside className={`${embedded ? 'flex w-full' : 'hidden w-[300px] xl:flex'} shrink-0 flex-col gap-3 overflow-y-auto p-3`} style={{ maxWidth: embedded ? undefined : PANEL_WIDTH }} data-testid="work-status-panel">
-      {visibleSections.length === 0 ? <div className="text-[11px] text-neutral-600">All sections hidden</div> : null}
+      {!hasSessionDetails ? <div className="text-[11px] text-neutral-500">NNA context details are not available for this session yet.</div> : null}
+      {visibleSections.length === 0 && hasSessionDetails ? <div className="text-[11px] text-neutral-500">All sections hidden</div> : null}
       {visibleSections.map((section) => (
         <section key={section.id} className="rounded-lg border border-white/10 bg-neutral-900/40 p-2" data-testid={`ws-${section.id}`}>
           <header className="mb-1 flex items-center justify-between">
