@@ -10,7 +10,11 @@ export function createWireEventBus() {
   const subscribers = new Set();
   return {
     subscribe(res, scope = {}) {
-      const subscriber = { res, directory: scope.directory ?? null };
+      const subscriber = {
+        res, directory: scope.directory ?? null,
+        subjectId: scope.subjectId ?? null,
+        workspaceIds: Array.isArray(scope.workspaceIds) ? new Set(scope.workspaceIds) : null,
+      };
       subscribers.add(subscriber);
       // Why: the opener is a per-connection receipt, not a fan-out broadcast;
       // every existing subscriber must NOT see the new connection's opener.
@@ -24,11 +28,12 @@ export function createWireEventBus() {
     // session-scoped event carries {directory, project, payload}. Durable
     // session events additionally emit a `sync` mirror with the SAME event id,
     // a `.1` type suffix, the per-session monotonic seq, and data = properties.
-    publishSession({ directory, sessionID, project, type, properties, mirror = false, seq = null }) {
-      if (!mirror) return publish(subscribers, scopedEnvelope(directory, project, eventId(), type, properties));
+    publishSession({ directory, sessionID, project, subjectId = null, type, properties, mirror = false, seq = null }) {
+      const scope = { project, subjectId };
+      if (!mirror) return publish(subscribers, scopedEnvelope(directory, project, eventId(), type, properties), scope);
       const eventIdValue = eventId();
-      publish(subscribers, scopedEnvelope(directory, project, eventIdValue, type, properties));
-      return publish(subscribers, scopedEnvelope(directory, project, eventId(), 'sync', syncMirror(eventIdValue, type, seq, sessionID, properties)));
+      publish(subscribers, scopedEnvelope(directory, project, eventIdValue, type, properties), scope);
+      return publish(subscribers, scopedEnvelope(directory, project, eventId(), 'sync', syncMirror(eventIdValue, type, seq, sessionID, properties)), scope);
     },
     close() {
       for (const subscriber of [...subscribers]) {
@@ -58,11 +63,16 @@ function syncMirror(eventIdValue, type, seq, sessionID, data) {
 
 function eventId() { return newId('evt'); }
 
-function publish(subscribers, envelope) {
+function publish(subscribers, envelope, scope = {}) {
   let delivered = 0;
   for (const subscriber of [...subscribers]) {
     const directoryScope = subscriber.directory;
     if (directoryScope !== null && envelope.directory !== undefined && envelope.directory !== directoryScope) continue;
+    // A shared workspace is not permission to observe another principal's
+    // transcript. The OpenCode-compatible wire body deliberately stays free
+    // of this internal routing metadata.
+    if (subscriber.subjectId !== null && scope.subjectId !== subscriber.subjectId) continue;
+    if (subscriber.workspaceIds !== null && scope.project !== undefined && !subscriber.workspaceIds.has(scope.project)) continue;
     if (!sseFrame(subscriber.res, { data: JSON.stringify(envelope) })) {
       dropSubscriber(subscribers, subscriber);
       continue;

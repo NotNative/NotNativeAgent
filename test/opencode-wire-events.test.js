@@ -72,3 +72,15 @@ test('bus filters scoped events away from mismatched directory subscribers', () 
   assert.equal(world.length, 4);
   bus.close();
 });
+
+test('bus can scope a shared workspace to its authenticated principal', () => {
+  const bus = createWireEventBus();
+  const mine = [];
+  const other = [];
+  bus.subscribe(fakeRes(mine), { subjectId: 'user_a', workspaceIds: ['workspace_a'] });
+  bus.subscribe(fakeRes(other), { subjectId: 'user_b', workspaceIds: ['workspace_a'] });
+  bus.publishSession({ directory: 'C:\\workspace', project: 'workspace_a', subjectId: 'user_a', sessionID: 'ses_1', type: 'message.updated', properties: {} });
+  assert.equal(mine.length, 2);
+  assert.equal(other.length, 1);
+  bus.close();
+});

@@ -2,6 +2,7 @@
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { NndSessionRegistry } from './nnd-session-registry.js';
+import { createWireEventBus } from './opencode/wire-events.js';
 
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
 export class NndEngineHost {
@@ -18,6 +19,7 @@ export class NndEngineHost {
     this.createEngine = options.createEngine;
     this.limit = limit;
     this.childSessions = options.childSessions ?? new NndSessionRegistry(options.childSessionLimit ?? 256);
+    this.eventBus = options.eventBus ?? createWireEventBus();
   }
 
   async create(sessionId, principal, options = {}) {
@@ -41,6 +43,7 @@ export class NndEngineHost {
         title: titleOf(options.title), directory: directoryOf(options.directory), createdAt: Date.now(),
         ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false };
       this.#contexts.set(sessionId, context);
+      this.#publish(context, 'session.created', { info: describe(context) }, true);
       return context;
     } catch (error) {
       // Why: an engine can acquire resources before initialization reports its failure.
@@ -68,7 +71,11 @@ export class NndEngineHost {
     if (started.duplicate) return started.result;
     // Why: callers receive the acknowledgement promptly; the engine remains
     // the single owner of turn completion and transcript publication.
-    void started.operation.catch(() => undefined);
+    this.#publish(context, 'session.status', { sessionID: sessionId, status: { type: 'busy' } });
+    void started.operation.then(
+      () => this.#publishCompletion(context),
+      () => this.#publishCompletion(context),
+    );
     return { accepted: true, request_id: command.request_id };
   }
 
@@ -105,6 +112,7 @@ export class NndEngineHost {
     this.childSessions.unregisterParent?.(sessionId);
     await context.engine.shutdown({ version: '1.0', type: 'shutdown', request_id: newId('nnd_close') });
     this.#contexts.delete(sessionId);
+    this.#publish(context, 'session.deleted', { sessionID: sessionId }, true);
     return { closed: true };
   }
 
@@ -116,6 +124,22 @@ export class NndEngineHost {
       throw new ContractError('nnd_session_unavailable', 'NND session context is unavailable');
     }
     return context;
+  }
+
+  #publishCompletion(context) {
+    if (context.closing) return;
+    for (const entry of this.messages(context.sessionId, { subjectId: context.subjectId, workspaceIds: [...context.workspaceIds] })) {
+      this.#publish(context, 'message.updated', { sessionID: context.sessionId, info: entry.info }, true);
+      for (const part of entry.parts) this.#publish(context, 'message.part.updated', { sessionID: context.sessionId, part }, true);
+    }
+    this.#publish(context, 'session.status', { sessionID: context.sessionId, status: { type: 'idle' } });
+    this.#publish(context, 'session.idle', { sessionID: context.sessionId });
+    this.#publish(context, 'session.updated', { sessionID: context.sessionId, info: describe(context) }, true);
+  }
+
+  #publish(context, type, properties, mirror = false) {
+    this.eventBus.publishSession({ directory: context.directory, project: context.workspaceIds.values().next().value,
+      subjectId: context.subjectId, sessionID: context.sessionId, type, properties, mirror });
   }
 }
 

@@ -88,6 +88,27 @@ test('NND engine host rejects a prompt while its engine has an active turn', asy
   assert.equal(submissions, 0);
 });
 
+test('NND engine host publishes a busy-to-idle reconciliation sequence', async () => {
+  let release;
+  const events = [];
+  const engine = fakeEngine();
+  engine.transcript = [{ type: 'message', role: 'user', content: 'hello' }];
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  const host = new NndEngineHost({
+    eventBus: { publishSession: (event) => events.push(event) },
+    createEngine: async () => engine,
+  });
+  await host.create('session_a', owner);
+  host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(events.map((event) => event.type), [
+    'session.created', 'session.status', 'message.updated', 'message.part.updated', 'session.status', 'session.idle', 'session.updated',
+  ]);
+  assert.equal(events[1].properties.status.type, 'busy');
+  assert.equal(events.at(-3).properties.status.type, 'idle');
+});
+
 function steer(request_id) { return { version: '1.0', type: 'steer', request_id, content: 'continue' }; }
 
 function fakeEngine() {

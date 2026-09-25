@@ -160,6 +160,14 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.equal((await request(base, '/path', owner)).value.directory, root);
     assert.deepEqual((await request(base, '/session/status', owner)).value, {});
     assert.equal((await request(base, '/global/health', principal([]))).status, 403);
+    const streamAbort = new AbortController();
+    const stream = await fetch(`${base}/global/event`, {
+      signal: streamAbort.signal,
+      headers: { authorization: `Bearer ${TOKEN}`, 'x-nna-principal': Buffer.from(JSON.stringify(owner)).toString('base64url'), accept: 'text/event-stream' },
+    });
+    assert.equal(stream.status, 200);
+    assert.match(stream.headers.get('content-type') ?? '', /text\/event-stream/u);
+    streamAbort.abort();
     const created = await request(base, '/session', owner, {
       method: 'POST', body: { title: 'Safe session', dataPaths: 'untrusted', directory: 'C:\\untrusted' },
     });

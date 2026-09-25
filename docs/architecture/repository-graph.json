@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:67c1f6653f7e41533dbcedf95fdb24e6c3738be8029aac6c4ac419d01d100488",
+  "source_digest": "sha256:323a2cfad50940cf642858b2de4b1e5aec6dff0053c755f5251d0add5a383800",
   "counts": {
     "modules": 363,
     "component_edges": 76
@@ -370,6 +370,12 @@
       "module_count": 3
     },
     {
+      "from": "foundation",
+      "to": "opencode-surface",
+      "import_count": 3,
+      "module_count": 3
+    },
+    {
       "from": "gateway",
       "to": "gateway",
       "import_count": 3,
@@ -486,12 +492,6 @@
     {
       "from": "foundation",
       "to": "gateway",
-      "import_count": 1,
-      "module_count": 1
-    },
-    {
-      "from": "foundation",
-      "to": "opencode-surface",
       "import_count": 1,
       "module_count": 1
     },
@@ -1858,7 +1858,8 @@
       "imports": [
         "src/ids.js",
         "src/ingress.js",
-        "src/nnd-session-registry.js"
+        "src/nnd-session-registry.js",
+        "src/opencode/wire-events.js"
       ]
     },
     {
@@ -1868,6 +1869,7 @@
       "imports": [
         "src/ids.js",
         "src/integration-principal.js",
+        "src/opencode/protocol.js",
         "src/secret-broker-server.js"
       ]
     },

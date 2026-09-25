@@ -2,8 +2,10 @@
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
+import { sseOpen } from './opencode/protocol.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|prompt_async))?$/u;
 export async function dispatchNndHarnessRequest(request, response, context) {
+  if (openEventStream(request, response, context)) return true;
   if (await dispatchBootstrapRequest(request, response, context)) return true;
   const match = ROUTE.exec(context.url.pathname); if (!match) return false;
   const host = context.nndEngineHost; if (!host) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
@@ -34,6 +36,21 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     response.writeHead(204); response.end(); return true;
   }
   return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+}
+
+function openEventStream(request, response, context) {
+  if (request.method !== 'GET' || !['/global/event', '/event'].includes(context.url.pathname)) return false;
+  requireIntegrationPermission(context.principal, 'nnd.read');
+  const host = context.nndEngineHost;
+  if (!host?.eventBus?.subscribe) throw new ContractError('nnd_engine_unavailable', 'NND engine host is unavailable');
+  sseOpen(response);
+  const unsubscribe = host.eventBus.subscribe(response, {
+    subjectId: context.principal.subjectId,
+    workspaceIds: context.principal.workspaceIds,
+  });
+  request.once('close', unsubscribe);
+  response.once('close', unsubscribe);
+  return true;
 }
 
 async function dispatchBootstrapRequest(request, response, context) {
