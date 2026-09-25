@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA-native Agents catalog.** The Agents Settings page now
+  reads built-in delegation role IDs and the configured running subagent route
+  from NNA through an authenticated, read-only projection. It does not expose
+  role instructions, endpoints, credentials, or imply that a role is granted
+  in every session; NNA still decides invocation authority per session.
+  Cross-repository smoke confirms the live projection.
+
 - 2026-09-25 · **Primary-model override in provider Settings.** The route
   control now displays the actual configured model (which may differ from the
   profile default), accepts an explicit model ID override, and disables blank

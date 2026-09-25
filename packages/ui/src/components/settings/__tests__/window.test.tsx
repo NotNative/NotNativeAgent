@@ -362,9 +362,29 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     expect(document.body.textContent).toContain('v2');
   });
 
-  it('landing pages render the phase note, never a silent gap', async () => {
+  it('agents shows NNA built-in roles without treating configuration as a grant', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      version: 1, state: 'configured', route: { providerID: 'delegated', modelID: 'model-a' },
+      roles: [{ id: 'general', kind: 'built_in_subagent', instructions: 'PRIVATE' },
+        { id: 'reviewer', kind: 'built_in_subagent' }],
+    }), { status: 200 })));
     await renderWindow('agents');
-    expect(document.body.textContent).toContain('Agents');
+    expect(document.querySelectorAll('[data-testid="nna-agent-role"]')).toHaveLength(2);
+    expect(document.body.textContent).toContain('delegated/model-a');
+    expect(document.body.textContent).toContain('does not grant delegation');
+    expect(document.body.textContent).not.toContain('PRIVATE');
+  });
+
+  it('agents denial is not presented as an empty catalog', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ error: { message: 'agent read denied' } }), { status: 403 })));
+    await renderWindow('agents');
+    expect(document.body.textContent).toContain('agent read denied');
+    expect(document.body.textContent).not.toContain('no built-in subagent roles');
+  });
+
+  it('landing pages render the phase note, never a silent gap', async () => {
+    await renderWindow('plugins');
+    expect(document.body.textContent).toContain('Plugins');
     expect(document.body.textContent).toContain('registered in the settings tree');
   });
 

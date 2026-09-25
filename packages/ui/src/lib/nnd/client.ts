@@ -187,6 +187,9 @@ export const harnessClient = {
   async getNnaSkillsInventory(): Promise<HarnessResult<{ version: number; state: string; skills: unknown[] }>> {
     return request('getNnaSkillsInventory', '/v1/nnd/skills');
   },
+  async getNnaAgentInventory(): Promise<HarnessResult<{ version: number; state: string; route: unknown; roles: unknown[] }>> {
+    return request('getNnaAgentInventory', '/v1/nnd/agents');
+  },
   // lifecycle/health
   async globalHealth(): Promise<HarnessResult<{ healthy: boolean; version: string }>> {
     return request('globalHealth', '/global/health', undefined, HARNESS_HEALTH_TIMEOUT_MS);
