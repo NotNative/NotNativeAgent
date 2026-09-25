@@ -170,6 +170,8 @@ test('NND activity snapshot reopens after restart and requires the complete owne
   const before = first.activity('session_a', fullOwner);
   assert.equal(before.length, 2);
   assert.equal(before.find((record) => record.kind === 'tool').status, 'completed');
+  assert.equal(before.find((record) => record.kind === 'turn').evidenceMessageID, 'prompt_a');
+  assert.equal(before.find((record) => record.kind === 'tool').evidenceMessageID, undefined);
   assert.throws(() => first.activity('session_a', owner), { code: 'nnd_session_unavailable' });
   await first.shutdown();
   const stored = await readFile(activityPath(catalogPath, 'session_a'), 'utf8');
@@ -233,6 +235,13 @@ test('NND activity bounds and sanitizes retained records with monotonic update t
   assert.equal(records.length, 500);
   assert.equal(records.some((record) => record.id === 'turn_a'), false);
   assert.equal(records[0].summary.length, 256);
+  const longestTurnId = `${'s'.repeat(128)}:turn:${'r'.repeat(128)}`;
+  assert.equal(appendActivity(records, { id: longestTurnId, sessionID: 's'.repeat(128), kind: 'turn',
+    status: 'started', summary: 'Turn started', evidenceMessageID: 'r'.repeat(128) })?.id, longestTurnId);
+  assert.equal(appendActivity(records, { id: 'x'.repeat(265), sessionID: 'session_a', kind: 'turn',
+    status: 'started', summary: 'Too long' }), null);
+  assert.equal(appendActivity(records, { id: 'tool-evidence', sessionID: 'session_a', kind: 'tool',
+    status: 'completed', summary: 'Tool complete', evidenceMessageID: 'prompt_a' })?.evidenceMessageID, undefined);
 });
 
 test('NND live Activity matches sanitized snapshots and drops invalid frames', async () => {

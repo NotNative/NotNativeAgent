@@ -5,6 +5,7 @@ import { ContractError } from './ids.js';
 import { persistAtomicJson } from './persistence/atomic-json.js';
 
 const ACTIVITY_LIMIT = 500;
+const ACTIVITY_ID_LIMIT = 264; // 128-char session + ':turn:' + 128-char request.
 // 500 records can contain multibyte printable identifiers and summaries.
 const FILE_LIMIT_BYTES = 2_097_152;
 const KINDS = new Set(['turn', 'tool', 'notice']);
@@ -38,6 +39,7 @@ export async function loadActivity(catalogPath, sessionId, createdAt) {
   return snapshot.createdAt === createdAt ? snapshot.records.map((record) => ({
     id: record.id, sessionID: record.sessionID, time: record.time, kind: record.kind,
     status: record.status, summary: record.summary,
+    ...(record.evidenceMessageID ? { evidenceMessageID: record.evidenceMessageID } : {}),
   })) : [];
 }
 
@@ -97,18 +99,26 @@ export function reportActivityFailure(context, error) {
 
 function sanitizeRecord(value) {
   if (!value || typeof value !== 'object' || !KINDS.has(value.kind) || !STATUSES.has(value.status)
-    || typeof value.id !== 'string' || value.id.length < 1 || value.id.length > 256
+    || typeof value.id !== 'string' || value.id.length < 1 || value.id.length > ACTIVITY_ID_LIMIT
     || /[\u0000-\u001f\u007f]/u.test(value.id)
     || typeof value.sessionID !== 'string' || value.sessionID.length < 1 || value.sessionID.length > 128) return null;
   const summary = typeof value.summary === 'string' ? value.summary.replace(/[\u0000-\u001f\u007f]/gu, ' ').slice(0, 256) : '';
+  const evidenceMessageID = value.kind === 'turn' && validEvidenceMessageID(value.evidenceMessageID)
+    ? value.evidenceMessageID : undefined;
   return { id: value.id, sessionID: value.sessionID, time: Date.now(), kind: value.kind,
-    status: value.status, summary };
+    status: value.status, summary, ...(evidenceMessageID ? { evidenceMessageID } : {}) };
+}
+
+function validEvidenceMessageID(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 256
+    && !/[\u0000-\u001f\u007f]/u.test(value);
 }
 
 export function validActivityRecord(value, sessionId) {
-  return value && typeof value === 'object' && typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 256
+  return value && typeof value === 'object' && typeof value.id === 'string' && value.id.length > 0 && value.id.length <= ACTIVITY_ID_LIMIT
     && !/[\u0000-\u001f\u007f]/u.test(value.id) && value.sessionID === sessionId
     && Number.isSafeInteger(value.time) && value.time > 0 && KINDS.has(value.kind) && STATUSES.has(value.status)
     && typeof value.summary === 'string' && value.summary.length <= 256
-    && !/[\u0000-\u001f\u007f]/u.test(value.summary);
+    && !/[\u0000-\u001f\u007f]/u.test(value.summary)
+    && (value.evidenceMessageID === undefined || value.kind === 'turn' && validEvidenceMessageID(value.evidenceMessageID));
 }

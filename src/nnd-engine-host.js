@@ -207,7 +207,7 @@ export class NndEngineHost {
     // Why: callers receive the acknowledgement promptly; the engine remains
     // the single owner of turn completion and transcript publication.
     this.#publish(context, 'session.status', { sessionID: sessionId, status: { type: 'busy' } });
-    this.#activity(context, turn.activityId, 'turn', 'started', 'Turn started');
+    this.#activity(context, turn.activityId, 'turn', 'started', 'Turn started', command.request_id);
     void started.operation.then(
       (result) => this.#publishCompletion(context, turn, result?.accepted === false),
       () => this.#publishCompletion(context, turn, true),
@@ -403,7 +403,7 @@ export class NndEngineHost {
       for (const part of entry.parts) this.#publish(context, 'message.part.updated', { sessionID: context.sessionId, part }, true);
     }
     const result = turnActivity(turn.outcome, rejected);
-    this.#activity(context, turn.activityId, 'turn', result.status, result.summary);
+    this.#activity(context, turn.activityId, 'turn', result.status, result.summary, turn.requestId);
     if (context.liveTurn === turn) {
       context.liveTurn = null;
       context.turnState = 'idle';
@@ -414,10 +414,10 @@ export class NndEngineHost {
     this.#publish(context, 'session.updated', { sessionID: context.sessionId, info: describe(context) }, true);
   }
 
-  #activity(context, id, kind, status, summary) {
-    this.#publish(context, 'nnd.activity', { id, sessionID: context.sessionId, kind, status, summary, time: Date.now() });
+  #activity(context, id, kind, status, summary, evidenceMessageID) {
+    this.#publish(context, 'nnd.activity', { id, sessionID: context.sessionId, kind, status, summary, time: Date.now(),
+      ...(evidenceMessageID ? { evidenceMessageID } : {}) });
   }
-
   #observeChildEvent(type, child, payload) {
     const parent = this.#contexts.get(child.parentID);
     if (!parent) return;
