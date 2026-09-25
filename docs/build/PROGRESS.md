@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 goal audit contract.** NND now bounds and escapes the
+  objective/latest-assistant prompt sent to a future independent evaluator,
+  and parses a bounded JSON verdict with note/script safeguards. Adversarial
+  review caught a mismatched-language note allowed by script present only
+  beyond the prompt-visible text; fixed with regression coverage. NNA's
+  session-scoped small-model port and the server tick remain pending; the
+  contract alone does not turn on autonomous continuation. Verification:
+  703 web tests, full typecheck/quality gates and 391-module graph pass.
+
 - 2026-09-25 · **P9 NNA-native goal receipt decisions.** The web server now
   has a pure receipt-ordered decision core for token accounting, cancellation,
   failed/unknown outcomes, budget exhaustion and the 20-continuation cap.

@@ -483,6 +483,12 @@ Response handling:
 - Unavailability (no small model configured, 404, transient error) → audit failed. Never a
   crash: the loop terminates via budget + turn cap if the auditor stays dead (T5 bounds it).
 
+NNA-native implementation note: the prompt and bounded verdict parser now live
+in NND as a pure contract. The objective and assistant text are XML-escaped
+before interpolation so a literal `</objective>` in user data cannot break
+the delimiter. NNA does not yet expose the independent small-model port, so
+this parser alone does not enable autonomous continuation or completion.
+
 #### B.5.6 Length-recovery summary
 
 First truncation → one continuation (no audit). Second consecutive truncation → settled
