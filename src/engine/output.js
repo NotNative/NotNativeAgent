@@ -21,7 +21,7 @@ export async function emitEngineText(engine, text, active, deltaType = 'text') {
 
 export async function emitEngineStatus(engine, semanticState, active) {
   assertEngine(engine);
-  if (engine.surface !== 'interactive_tui') return;
+  if (engine.surface !== 'interactive_tui' && engine.surface !== 'nnd') return;
   await engine.output({
     version: '1.0', type: 'state_status', session_id: engine.sessionId,
     turn_id: active?.turnId ?? null, semantic_state: semanticState,

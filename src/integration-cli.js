@@ -78,7 +78,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
   const host = new NndEngineHost({
     catalogPath: config.persistence === 'durable' ? join(paths.sessions, 'nnd-contexts.json') : null,
     createEngine: async (input) => new SessionEngine({
-      config, sessionId: input.sessionId, nndSessionRegistry: input.nndSessionRegistry,
+      config, sessionId: input.sessionId, surface: 'nnd', nndSessionRegistry: input.nndSessionRegistry,
       storeRoot: paths.sessions, reviewerRoot: paths.reviewerLedger,
       providerFactory: options.providerFactory, semanticReviewer: options.semanticReviewer,
       mcpTransportFactory: options.mcpTransportFactory, memoryAdapter: options.memoryAdapter,

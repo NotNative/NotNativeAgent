@@ -104,6 +104,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
   const context = await host.create('session_a', principal);
   assert.equal(context.engine.sessionId, 'session_a');
   assert.equal(context.engine.emitContextStatus, true);
+  assert.equal(context.engine.surface, 'nnd');
   const events = [];
   host.eventBus = { publishSession: (event) => events.push(event) };
   let release;

@@ -45,3 +45,13 @@ reasons, staged completion, and journal details remain inside NNA. A committed
 `work_status` output causes a live `session.updated` projection, and normal
 session reads reconstruct the same summary after restart. If work state cannot
 be validated, the field is absent rather than fabricated.
+
+NND-created engines use a distinct `nnd` output surface. NNA emits semantic
+`state_status` records for that surface; its NND host also folds NNA-authored
+text/tool lifecycle records into streaming/tool phases. The owned session
+description projects the latest validated phase as `metadata.nnd.turnState`.
+The projection includes only the phase name; it carries no reasoning text,
+provider payload, tool arguments, or decision details. NNA's completion path
+settles it to idle. NND's generic busy/idle status remains transport and
+reconciliation bookkeeping, not the source of a semantic phase. This phase
+display does not yet satisfy the broader replayable 13-state wire contract.

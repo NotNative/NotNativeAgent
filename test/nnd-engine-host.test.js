@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { NndEngineHost } from '../src/nnd-engine-host.js';
 import { activityPath, appendActivity } from '../src/nnd-activity-snapshot.js';
 import { childSnapshotPath } from '../src/nnd-child-snapshot.js';
+import { emitEngineStatus } from '../src/engine/output.js';
 
 const owner = { subjectId: 'user_a', workspaceIds: ['workspace_a'] };
 
@@ -67,6 +68,56 @@ test('NND projects canonical work status live without publishing private work ev
   output({ type: 'work_status', session_id: 'session_a', work });
   assert.equal(host.get('session_a', owner).metadata?.nnd?.work, undefined);
   await host.shutdown();
+});
+
+test('NND projects only authored semantic turn phases and settles them to idle', async () => {
+  const events = [];
+  let output;
+  let resolveTurn;
+  const engine = { ...fakeEngine(), transcript: [], submit: async () => new Promise((resolve) => { resolveTurn = resolve; }) };
+  const host = new NndEngineHost({ eventBus: { publishSession: (event) => events.push(event) },
+    createEngine: async (options) => { output = options.output; return engine; } });
+  await host.create('session_a', owner);
+  assert.equal(host.get('session_a', owner).metadata?.nnd?.turnState, undefined);
+  assert.equal(host.submitAsync('session_a', { version: '1.0', type: 'submit',
+    request_id: 'prompt_a', content: 'Do work' }, owner).accepted, true);
+  output({ type: 'state_status', session_id: 'session_a', turn_id: 'turn_a', semantic_state: 'waiting_provider' });
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.turnState, { phase: 'waiting_provider' });
+  const prior = events.length;
+  output({ type: 'state_status', session_id: 'session_a', turn_id: 'turn_a', semantic_state: 'waiting_provider' });
+  output({ type: 'state_status', session_id: 'session_a', turn_id: 'turn_a', semantic_state: 'invented_state' });
+  output({ type: 'state_status', session_id: 'other', turn_id: 'turn_a', semantic_state: 'running_tool' });
+  output({ type: 'state_status', session_id: 'session_a', turn_id: 'other_turn', semantic_state: 'running_tool' });
+  assert.equal(events.length, prior);
+  output({ type: 'state_status', session_id: 'session_a', turn_id: 'turn_a', semantic_state: 'running_tool' });
+  assert.deepEqual(events.filter((event) => event.type === 'session.updated').at(-1).properties.info.metadata.nnd.turnState,
+    { phase: 'running_tool' });
+  output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_a', delta_type: 'text', text: 'hello' });
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.turnState, { phase: 'streaming' });
+  assert.ok(events.some((event) => event.type === 'message.part.updated' && event.properties.part.text === 'hello'),
+    'phase updates must not swallow the live text preview');
+  output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', status: 'review_pending',
+    tool: 'fs.write', tool_request_id: 'tool_a' });
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.turnState, { phase: 'awaiting_approval' });
+  output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', status: 'running',
+    tool: 'fs.write', tool_request_id: 'tool_a' });
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.turnState, { phase: 'running_tool' });
+  assert.ok(events.some((event) => event.type === 'nnd.activity' && event.properties.id === 'session_a:tool:tool_a'),
+    'phase updates must not swallow tool activity');
+  const runningStamp = host.get('session_a', owner).time.updated;
+  resolveTurn({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.turnState, { phase: 'idle' });
+  assert.ok(host.get('session_a', owner).time.updated > runningStamp,
+    'settled phase must outrank an in-flight prior session snapshot');
+  await host.shutdown();
+});
+
+test('NND engine surface emits the engine semantic state without exposing it on headless', async () => {
+  const records = [];
+  await emitEngineStatus({ surface: 'nnd', sessionId: 's1', output: (record) => records.push(record) }, 'preparing', { turnId: 't1' });
+  await emitEngineStatus({ surface: 'headless', sessionId: 's1', output: (record) => records.push(record) }, 'preparing', { turnId: 't1' });
+  assert.deepEqual(records, [{ version: '1.0', type: 'state_status', session_id: 's1', turn_id: 't1', semantic_state: 'preparing' }]);
 });
 
 test('NND durable catalog restores owned sessions and removes closed sessions', async () => {

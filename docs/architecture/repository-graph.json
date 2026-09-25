@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:0e26e2c4414ec9370fdd43c1881b107f7f072a1b0feeacab87461705d3c61df1",
+  "source_digest": "sha256:b03a215d2a44c1d130769bc0ba198b87884da104bf653476aa65f4cd83a41dae",
   "counts": {
-    "modules": 370,
+    "modules": 371,
     "component_edges": 76
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 96
+      "module_count": 97
     }
   ],
   "entrypoints": [
@@ -114,7 +114,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 170,
+      "import_count": 172,
       "module_count": 80
     },
     {
@@ -1899,6 +1899,7 @@
         "src/nnd-session-description.js",
         "src/nnd-session-registry.js",
         "src/nnd-transcript-identity.js",
+        "src/nnd-turn-state.js",
         "src/opencode/wire-events.js",
         "src/persistence/atomic-json.js"
       ]
@@ -1929,6 +1930,7 @@
       "component": "foundation",
       "entrypoint": false,
       "imports": [
+        "src/nnd-turn-state.js",
         "src/nnd-work-projection.js",
         "src/review-posture.js"
       ]
@@ -1945,6 +1947,12 @@
     },
     {
       "path": "src/nnd-transcript-identity.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
+    },
+    {
+      "path": "src/nnd-turn-state.js",
       "component": "foundation",
       "entrypoint": false,
       "imports": []

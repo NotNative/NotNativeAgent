@@ -5,6 +5,7 @@ import { NndSessionRegistry } from './nnd-session-registry.js';
 import { activityStatus, childLiveMessage, observeChildLifecycle, turnActivity } from './nnd-child-stream.js';
 import { hasPersistedSubmission, messageProjection, reservedProjectedMessageId } from './nnd-transcript-identity.js';
 import { nndContextObservation } from './nnd-context-observation.js';
+import { observeNndSessionState } from './nnd-turn-state.js';
 import { describe, nextUpdatedAt, sessionIdOrder, titleOf, directoryOf, directoryFor } from './nnd-session-description.js';
 import { createWireEventBus } from './opencode/wire-events.js';
 import { readFile, stat } from 'node:fs/promises';
@@ -225,12 +226,11 @@ export class NndEngineHost {
         turn.turnId ??= record.turn_id;
       }
       const observation = nndContextObservation(record);
+      if (observeNndSessionState(context, record)) {
+        this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
+      }
       if (observation) {
         context.contextUsage = observation;
-        this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
-      } else if (record.type === 'work_status') {
-        // Invariant: the engine work snapshot is authoritative; output only triggers a fresh projection.
-        context.updatedAt = nextUpdatedAt(context);
         this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
       } else if (record.type === 'stream_delta' && typeof record.text === 'string' && record.text.length > 0) {
         const remaining = LIVE_PREVIEW_LIMIT_CHARS - turn.streamedChars;
@@ -406,6 +406,8 @@ export class NndEngineHost {
     this.#activity(context, turn.activityId, 'turn', result.status, result.summary);
     if (context.liveTurn === turn) {
       context.liveTurn = null;
+      context.turnState = 'idle';
+      context.updatedAt = nextUpdatedAt(context);
       this.#publish(context, 'session.status', { sessionID: context.sessionId, status: { type: 'idle' } });
       this.#publish(context, 'session.idle', { sessionID: context.sessionId });
     }
