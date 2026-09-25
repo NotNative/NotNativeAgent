@@ -39,7 +39,10 @@ test('integration service authenticates exact principals and manages provider pr
     const readOnly = principal(['integration.health', 'provider.read']);
     const health = await request(base, '/v1/health', readOnly);
     assert.deepEqual(health.value, { status: 'ready', protocol: '1.0', instance_id: 'nna_test' });
-    assert.equal((await request(base, '/v1/provider-profiles', readOnly)).value.profiles.length, 2);
+    const listed = await request(base, '/v1/provider-profiles', readOnly);
+    assert.equal(listed.value.profiles.length, 2);
+    assert.deepEqual(listed.value.configured_primary_route, { providerID: 'one', modelID: 'one' });
+    assert.equal(listed.value.runtime_route, null);
     assert.equal((await request(base, '/v1/provider-profiles', readOnly, {
       method: 'POST', body: { profile_id: 'blocked', endpoint: 'http://127.0.0.1:4/v1', model: 'x' },
     })).status, 403);
@@ -100,6 +103,36 @@ test('integration principal rejects stale and role-only authority', async () => 
     assert.equal((await request(base, '/v1/provider-profiles', roleOnly)).status, 403);
     const stale = principal(['provider.read'], { issued_at: new Date(Date.now() - 600_000).toISOString() });
     assert.equal((await request(base, '/v1/provider-profiles', stale)).status, 401);
+  } finally { await service.close(); }
+});
+
+test('provider inventory separates configured primary from the running NND route', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-provider-route-drift-'));
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  const document = manifest(root);
+  document.routes.primary.model = 'route-override';
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(document));
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
+    nndEngineHost: { nndModel: { providerID: 'one', modelID: 'one' } },
+    providerStore: new ProviderProfileStore({ configRoot }),
+    broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    const actor = principal(['provider.read']);
+    const first = (await request(base, '/v1/provider-profiles', actor)).value;
+    assert.deepEqual(first.runtime_route, { providerID: 'one', modelID: 'one' });
+    assert.deepEqual(first.configured_primary_route, { providerID: 'one', modelID: 'route-override' });
+    assert.equal(first.profiles.find((profile) => profile.active).model, 'one');
+    assert.equal(first.profiles.find((profile) => profile.active).profile_id, 'one');
+    document.routes.primary = { provider_id: 'two', model: 'two' };
+    await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(document));
+    const changed = (await request(base, '/v1/provider-profiles', actor)).value;
+    assert.equal(changed.profiles.find((profile) => profile.active).profile_id, 'two');
+    assert.deepEqual(changed.configured_primary_route, { providerID: 'two', modelID: 'two' });
+    assert.deepEqual(changed.runtime_route, { providerID: 'one', modelID: 'one' });
   } finally { await service.close(); }
 });
 

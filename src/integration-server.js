@@ -65,7 +65,7 @@ export async function dispatchProviderRequest(request, response, context) {
   assertProviderStore(providerStore);
   if (request.method === 'GET' && !id) {
     requireIntegrationPermission(principal, 'provider.read');
-    return send(response, 200, { profiles: await providerStore.list() });
+    return send(response, 200, { ...await providerStore.inventory(), runtime_route: context.nndEngineHost?.nndModel ?? null });
   }
   if (request.method === 'GET' && id && !action) {
     requireIntegrationPermission(principal, 'provider.read');
@@ -134,7 +134,7 @@ function providerId(encoded) {
 }
 
 function assertProviderStore(store) {
-  if (!store || ['list', 'get', 'create', 'update', 'remove', 'withCredential'].some((method) => typeof store[method] !== 'function')) {
+  if (!store || ['inventory', 'get', 'create', 'update', 'remove', 'withCredential'].some((method) => typeof store[method] !== 'function')) {
     throw new ContractError('provider_store_unavailable', 'provider profile store is unavailable');
   }
 }

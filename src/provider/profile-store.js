@@ -33,6 +33,15 @@ export class ProviderProfileStore {
     return Object.values(config.providerProfiles).map((profile) => publicProfile(profile, profile.id === active));
   }
 
+  async inventory() {
+    const config = await this.#read();
+    const route = config.routes.primary;
+    return {
+      profiles: Object.values(config.providerProfiles).map((profile) => publicProfile(profile, profile.id === route.providerId)),
+      configured_primary_route: { providerID: route.providerId, modelID: route.model },
+    };
+  }
+
   async get(id) {
     const config = await this.#read();
     const profile = config.providerProfiles[id];
