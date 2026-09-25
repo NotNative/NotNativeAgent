@@ -84,6 +84,7 @@ function openEventStream(request, response, context) {
   const unsubscribe = host.eventBus.subscribe(response, {
     subjectId: context.principal.subjectId,
     workspaceIds: context.principal.workspaceIds,
+    lastEventId: request.headers['last-event-id'],
   });
   request.once('close', unsubscribe);
   response.once('close', unsubscribe);

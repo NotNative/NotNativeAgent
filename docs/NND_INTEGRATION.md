@@ -19,6 +19,14 @@ retains its NNA journal for recoverable operator inspection; it is not a
 secure erase. Browser-supplied directory fields cannot select the engine's
 workspace.
 
+The authenticated event stream emits SSE `id` fields and retains an in-memory
+suffix bounded by 2,048 published events and 16 MiB of serialized frames. A reconnecting client may send
+`Last-Event-ID`; NNA replays events after a known cursor in order, applying
+the same principal and complete-workspace-grant filter as live delivery. A
+missing or expired cursor does not trigger a partial replay; NND reconciles
+from session/status/transcript snapshots on every SSE reconnect. The replay window is not durable
+across an NNA process restart.
+
 Session listing accepts `roots=true` for parent sessions or `roots=false` for
 child sessions; omitting it returns both. `limit` bounds the returned list in
 parent-then-child order, with each group sorted by session ID. NND has no list

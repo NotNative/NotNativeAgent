@@ -211,7 +211,10 @@ async function promptSessionAsync(ctx) {
 
 async function globalEventStream(ctx) {
   sseOpen(ctx.res);
-  const unsubscribe = ctx.options.bus.subscribe(ctx.res, { directory: ctx.target.directory ?? null });
+  const unsubscribe = ctx.options.bus.subscribe(ctx.res, {
+    directory: ctx.target.directory ?? null,
+    lastEventId: ctx.req.headers['last-event-id'],
+  });
   ctx.res.on('close', unsubscribe);
 }
 

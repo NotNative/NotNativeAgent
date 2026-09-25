@@ -87,7 +87,8 @@ async function collectFrames(session) {
       if (index < 0) break;
       const block = session.pending.slice(0, index);
       session.pending = session.pending.slice(index + 2);
-      if (block.startsWith('data: ')) session.frames.push(block.slice('data: '.length));
+      const data = block.split('\n').find((line) => line.startsWith('data: '));
+      if (data) session.frames.push(data.slice('data: '.length));
     }
     if (session.frames.some((frame) => isIdleFrame(frameOf(frame))) && session.settled !== true) {
       session.settled = true;

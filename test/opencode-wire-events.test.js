@@ -9,8 +9,12 @@ function fakeRes(written) {
 
 function payload(written, index) {
   const chunk = written[index];
-  assert.match(chunk, /^data: .+\n\n$/u);
-  return JSON.parse(chunk.slice('data: '.length));
+  assert.match(chunk, /(?:^|\n)data: .+\n\n$/u);
+  return JSON.parse(chunk.match(/(?:^|\n)data: (.+)\n\n$/u)[1]);
+}
+
+function frameId(written, index) {
+  return written[index].match(/^id: ([^\n]+)\n/u)?.[1] ?? null;
 }
 
 test('bus frames server events under the global payload envelope and fans out', () => {
@@ -96,4 +100,75 @@ test('bus requires the complete workspace grant for a multi-workspace NND event'
   assert.equal(full.length, 3);
   assert.equal(partial.length, 1);
   bus.close();
+});
+
+test('bus replays an ordered bounded suffix after the SSE cursor without re-emitting the cursor', () => {
+  const bus = createWireEventBus();
+  const first = [];
+  bus.subscribe(fakeRes(first));
+  bus.publishSession({ directory: 'C:\\mine', project: 'w', sessionID: 's', type: 'session.updated', properties: { n: 1 }, mirror: true });
+  const cursor = frameId(first, 1);
+  assert.equal(cursor, payload(first, 1).payload.id);
+  bus.publishSession({ directory: 'C:\\mine', project: 'w', sessionID: 's', type: 'session.updated', properties: { n: 2 } });
+  const resumed = [];
+  bus.subscribe(fakeRes(resumed), { lastEventId: cursor });
+  assert.equal(payload(resumed, 0).payload.type, 'server.connected');
+  assert.equal(frameId(resumed, 0), null, 'connection opener does not advance the transport cursor');
+  assert.deepEqual(resumed.slice(1).map((_, index) => payload(resumed, index + 1).payload.type), ['sync', 'session.updated']);
+  assert.deepEqual(resumed.slice(1).map((_, index) => frameId(resumed, index + 1)), [frameId(first, 2), frameId(first, 3)]);
+  bus.close();
+});
+
+test('replay enforces principal and complete workspace grants and rejects unknown cursors', () => {
+  const bus = createWireEventBus();
+  const first = [];
+  bus.subscribe(fakeRes(first), { subjectId: 'one', workspaceIds: ['a'] });
+  bus.publishSession({ directory: 'C:\\mine', project: 'a', subjectId: 'one', workspaceIds: ['a'],
+    sessionID: 's', type: 'session.updated', properties: { n: 1 } });
+  const cursor = frameId(first, 1);
+  bus.publishSession({ directory: 'C:\\mine', project: 'a', subjectId: 'one', workspaceIds: ['a', 'b'],
+    sessionID: 's', type: 'session.updated', properties: { secret: true } });
+  bus.publishSession({ directory: 'C:\\mine', project: 'a', subjectId: 'two', workspaceIds: ['a'],
+    sessionID: 's', type: 'session.updated', properties: { other: true } });
+  bus.publishSession({ directory: 'C:\\mine', project: 'a', subjectId: 'one', workspaceIds: ['a'],
+    sessionID: 's', type: 'session.updated', properties: { n: 2 } });
+  const partial = [];
+  bus.subscribe(fakeRes(partial), { lastEventId: cursor, subjectId: 'one', workspaceIds: ['a'] });
+  assert.deepEqual(partial.slice(1).map((_, index) => payload(partial, index + 1).payload.properties), [{ n: 2 }]);
+  const unknown = [];
+  bus.subscribe(fakeRes(unknown), { lastEventId: 'missing', subjectId: 'one', workspaceIds: ['a', 'b'] });
+  assert.equal(unknown.length, 1);
+  bus.close();
+});
+
+test('replay retention has a byte bound and never bridges an omitted oversized event', () => {
+  const bus = createWireEventBus();
+  const first = [];
+  const stop = bus.subscribe(fakeRes(first));
+  bus.publishSession({ directory: 'C:\\mine', project: 'w', sessionID: 's', type: 'session.updated', properties: { n: 1 } });
+  const cursor = frameId(first, 1);
+  stop();
+  // One event larger than the 16 MiB retention budget invalidates the prior
+  // suffix, even when later events can themselves fit in the ring.
+  bus.publishSession({ directory: 'C:\\mine', project: 'w', sessionID: 's', type: 'message.part.updated',
+    properties: { text: 'x'.repeat(16 * 1024 * 1024) } });
+  bus.publishSession({ directory: 'C:\\mine', project: 'w', sessionID: 's', type: 'session.updated', properties: { n: 2 } });
+  const resumed = [];
+  bus.subscribe(fakeRes(resumed), { lastEventId: cursor });
+  assert.equal(resumed.length, 1, 'an old cursor cannot skip across an omitted frame');
+  bus.close();
+
+  const bounded = createWireEventBus();
+  const initial = [];
+  const stopInitial = bounded.subscribe(fakeRes(initial));
+  bounded.publishGlobal('first', {});
+  const oldCursor = frameId(initial, 1);
+  stopInitial();
+  const largeProperties = { text: 'x'.repeat(9 * 1024 * 1024) };
+  bounded.publishGlobal('large', largeProperties);
+  bounded.publishGlobal('large', largeProperties);
+  const afterEviction = [];
+  bounded.subscribe(fakeRes(afterEviction), { lastEventId: oldCursor });
+  assert.equal(afterEviction.length, 1, 'aggregate byte pressure evicts the old cursor');
+  bounded.close();
 });
