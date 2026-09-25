@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:26228eedcab36bff1931da390cbab4a9726a8c74ea68ea0572abab7c59149910",
+  "source_digest": "sha256:f59ed13b9332ba0170c05c376abfa583090e9348ba597f3e5f6cd374c2b06e16",
   "counts": {
     "modules": 367,
     "component_edges": 76
@@ -120,7 +120,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 163,
+      "import_count": 164,
       "module_count": 77
     },
     {
@@ -1917,7 +1917,8 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
-        "src/ingress.js"
+        "src/ingress.js",
+        "src/nnd-session-description.js"
       ]
     },
     {

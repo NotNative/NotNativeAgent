@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContractError, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
+import { configuredModelProjection } from './nnd-session-description.js';
 
 const TRANSCRIPT_LIMIT = 200;
 const TRANSCRIPT_CHARS = 262_144;
@@ -40,6 +41,7 @@ export class NndSessionRegistry {
       engine, ingress: new CanonicalIngress(engine), revision: 1,
       directory: engine.config?.workspaceRoot ?? '', createdAt, updatedAt: createdAt,
       title: `Subagent${typeof options.type === 'string' ? ` · ${options.type}` : ''}`,
+      configuredModel: configuredModelProjection(engine),
       transcript: [],
     };
     this.#sessions.set(sessionId, record);
@@ -132,6 +134,7 @@ function describeChild(record) {
     projectID: record.workspaceIds.values().next().value, directory: record.directory,
     title: record.title, version: '1.0',
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+    ...(record.configuredModel ? { metadata: { nnd: { configuredModel: record.configuredModel } } } : {}),
     time: { created: record.createdAt, updated: record.updatedAt },
   };
 }

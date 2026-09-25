@@ -3,9 +3,11 @@ import { isReviewPosture } from './review-posture.js';
 
 export function describe(context) {
   const governance = governanceProjection(context.engine);
+  const configuredModel = configuredModelProjection(context.engine);
   const nnd = {
     ...(context.contextUsage ? { context: context.contextUsage } : {}),
     ...(governance ? { governance } : {}),
+    ...(configuredModel ? { configuredModel } : {}),
   };
   return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value,
     directory: directoryFor(context), title: context.title, version: '1.0',
@@ -13,6 +15,16 @@ export function describe(context) {
     ...(Object.keys(nnd).length ? { metadata: { nnd } } : {}),
     time: { created: context.createdAt, updated: context.updatedAt,
       ...(context.archivedAt ? { archived: context.archivedAt } : {}) } };
+}
+
+/** Security: route identity is safe to display; provider profile, endpoint,
+ * fallback credentials, and connection settings remain engine-private. */
+export function configuredModelProjection(engine) {
+  const route = engine?.config?.routes?.primary;
+  const validId = (value) => typeof value === 'string' && value.trim().length > 0
+    && value.length <= 256 && !/[\u0000-\u001f\u007f]/u.test(value);
+  return validId(route?.providerId) && validId(route?.model)
+    ? { providerID: route.providerId, modelID: route.model } : null;
 }
 
 /** Security: project only classified governance health, never decision or

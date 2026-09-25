@@ -104,6 +104,12 @@ matching primary-model requests and the `nna` agent marker are accepted, while
 different selections fail before submission. NNA still owns routing, including
 its configured fallbacks. NND presents this as a configured model, not a live
 provider picker; a future override contract must be governed by the engine.
+Each authenticated session description also reports only the configured route's
+provider and model IDs. A delegated child reports its own subagent route, which
+may differ from the root's primary route; this is not a claim about which
+fallback actually answered a turn. Provider endpoints, profiles, and credentials
+remain private. The child route ID remains available in its bounded in-memory
+description after completion.
 
 The NND integration host connects `SessionEngine.output` to its authenticated
 session event stream. Text deltas form a bounded, temporary assistant preview;

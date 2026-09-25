@@ -9,6 +9,7 @@ const owner = { subjectId: 'user_a', workspaceIds: ['workspace_a'] };
 
 test('NND session description exposes only classified governance state', async () => {
   const engine = fakeEngine();
+  engine.config.routes = { primary: { providerId: 'local', model: 'root-model', endpoint: 'private endpoint', credential: 'private credential' } };
   engine.reviewPosture = 'prompt';
   let health = { status: 'attention', durable: true, attention_evidence: 2,
     unsettled_decisions: 1, uncertain_effects: 0, secret: 'never publish' };
@@ -20,6 +21,10 @@ test('NND session description exposes only classified governance state', async (
     attentionEvidence: 2, unsettledDecisions: 1, uncertainEffects: 0,
   });
   assert.equal(JSON.stringify(host.list(owner)).includes('never publish'), false);
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.configuredModel,
+    { providerID: 'local', modelID: 'root-model' });
+  assert.equal(JSON.stringify(host.list(owner)).includes('private endpoint'), false);
+  assert.equal(JSON.stringify(host.list(owner)).includes('private credential'), false);
   health = { ...health, status: 'ready', attention_evidence: 0, unsettled_decisions: 0 };
   assert.equal(host.get('session_a', owner).metadata.nnd.governance.recordHealth, 'ready');
   engine.governance.health = () => { throw new Error('private governance failure'); };
@@ -218,6 +223,7 @@ test('NND engine host lists child sessions and projects their retained transcrip
     { type: 'message', role: 'user', content: 'Inspect this' },
     { type: 'message', role: 'assistant', content: 'Done' },
   ] };
+  child.config.routes = { primary: { providerId: 'child-provider', model: 'child-model', credential: 'private child credential' } };
   const stop = host.childSessions.register('agent_coder_1', 'session_a', owner, child, { type: 'coder' });
   assert.equal(host.list(owner).length, 2);
   assert.deepEqual(host.list(owner, { roots: true }).map((session) => session.id), ['session_a']);
@@ -229,11 +235,16 @@ test('NND engine host lists child sessions and projects their retained transcrip
   assert.throws(() => host.listChildren('session_a', { subjectId: 'other', workspaceIds: owner.workspaceIds }),
     { code: 'nnd_session_unavailable' });
   assert.equal(host.get('agent_coder_1', owner).parentID, 'session_a');
+  assert.deepEqual(host.get('agent_coder_1', owner).metadata.nnd.configuredModel,
+    { providerID: 'child-provider', modelID: 'child-model' });
+  assert.equal(JSON.stringify(host.list(owner)).includes('private child credential'), false);
   assert.equal(host.statuses(owner).agent_coder_1.type, 'busy');
   assert.deepEqual(host.messages('agent_coder_1', owner).map(({ info, parts }) => [info.id, parts[0].text]), [
     ['agent_coder_1:message:0', 'Inspect this'], ['agent_coder_1:message:1', 'Done'],
   ]);
   stop();
+  assert.deepEqual(host.get('agent_coder_1', owner).metadata.nnd.configuredModel,
+    { providerID: 'child-provider', modelID: 'child-model' });
   assert.deepEqual(host.statuses(owner), {});
   assert.equal(host.messages('agent_coder_1', owner)[1].parts[0].text, 'Done');
   await host.close('session_a', owner);
