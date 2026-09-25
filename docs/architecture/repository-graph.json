@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:5c46aeea5689bf3146792ddb785c56b891bf62d8f9542df2f281013d3c957116",
+  "source_digest": "sha256:3c6791292975cff9ec7908029f0d06978ad8821ba5b34cfe4926a622e2a7cb33",
   "counts": {
-    "modules": 362,
+    "modules": 363,
     "component_edges": 12
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 99
+      "module_count": 100
     },
     {
       "id": "web-entry",
@@ -2737,6 +2737,14 @@
       ]
     },
     {
+      "path": "packages/web/src/server/harness/nna-local.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/harness/adapter.ts"
+      ]
+    },
+    {
       "path": "packages/web/src/server/harness/nna.ts",
       "component": "web-server",
       "entrypoint": false,
@@ -2753,6 +2761,7 @@
         "packages/web/src/server/env.ts",
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/harness/mock/index.ts",
+        "packages/web/src/server/harness/nna-local.ts",
         "packages/web/src/server/harness/nna.ts",
         "packages/web/src/server/lib/auth/pairing-sessions.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",

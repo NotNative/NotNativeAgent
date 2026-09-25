@@ -80,7 +80,10 @@ function parseEndpoint(value: string): URL {
 }
 
 function requireToken(value: string): string {
-  if (value.length < 32 || value.length > 512 || /\s|[\u0000-\u001f\u007f]/u.test(value)) {
+  // The integration service issues base64url tokens. Enforcing that wire
+  // format here also prevents a malformed attach token from making header
+  // construction throw after the browser has already reached this adapter.
+  if (!/^[A-Za-z0-9_-]{32,512}$/u.test(value)) {
     throw new Error('NNA_INTEGRATION_TOKEN must be a bounded integration credential');
   }
   return value;

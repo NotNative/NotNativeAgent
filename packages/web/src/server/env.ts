@@ -33,6 +33,11 @@ export const ENV = {
   nnaHarnessUrl: process.env.NNA_HARNESS_URL ?? '',
   nnaIntegrationToken: process.env.NNA_INTEGRATION_TOKEN ?? '',
   nnaPrincipal: process.env.NNA_PRINCIPAL ?? '',
+  /** `managed` owns a loopback NNA child; `attach` consumes explicit credentials. */
+  nnaMode: (process.env.NOTNATIVE_NNA_MODE ?? 'managed') as 'managed' | 'attach',
+  /** Command resolved by the local launcher.  Its readiness data is never logged. */
+  nnaCommand: process.env.NNA_COMMAND ?? 'nna',
+  nnaWorkspaceId: process.env.NNA_WORKSPACE_ID ?? 'local',
 } as const;
 
 /** Call-time env read for the doc 08 password source (module-level ENV is a

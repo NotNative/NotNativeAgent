@@ -22,6 +22,18 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Managed NNA local-child MVP.** With
+  `NOTNATIVE_HARNESS=nna`, NND now defaults to spawning `nna integration
+  serve`, accepts only one bounded `protocol: "1.0"` loopback readiness record,
+  keeps its endpoint/token server-only, and mints a fresh NNA principal per
+  request. Attach mode remains explicit (`NOTNATIVE_NNA_MODE=attach`). An
+  unexpected child exit becomes a visible 502 harness-down response rather
+  than an empty session list; NND disposal owns child termination. Electron
+  awaits asynchronous NND startup before its health probe. Adversarial audit
+  fixed that Electron Promise/handle fault and rejected non-base64url tokens
+  that would fail during HTTP header construction. Focused adapter/launcher
+  tests: 13/13; server typecheck and Electron syntax check green.
+
 - 2026-09-24 · **Architecture and upstream-alignment audit.** User direction
   confirmed that NND is an NNA-installed GUI web-service integration package;
   Electron renders that web surface, while NNA remains the engine, governance,

@@ -10,6 +10,7 @@ import { ENV } from './env.ts';
 import { registerHarnessAdapter } from './harness/adapter.ts';
 import { mockHarness } from './harness/mock/index.ts';
 import { createNnaHarnessAdapter } from './harness/nna.ts';
+import { guardLocalNnaHarness, startLocalNnaHarness, type LocalNnaHarness } from './harness/nna-local.ts';
 import { upgradeAllowedForRequest, getUiAuthController } from './lib/auth/ui-auth.ts';
 import { getPairingSessionStore } from './lib/auth/pairing-sessions.ts';
 import { getRelayHostService } from './lib/relay/host-service.ts';
@@ -19,11 +20,8 @@ import { createTerminalRuntime } from './terminal/bootstrap.ts';
 import { attachTerminalWebsocket } from './terminal/wire.ts';
 import type { Server as HttpServer } from 'node:http';
 
-export function startServer(): { port: number; dispose(): void } {
-  if (ENV.harness === 'nna') registerHarnessAdapter(createNnaHarnessAdapter({
-    endpoint: ENV.nnaHarnessUrl, token: ENV.nnaIntegrationToken, principal: ENV.nnaPrincipal,
-  }));
-  else registerHarnessAdapter(mockHarness);
+export async function startServer(): Promise<{ port: number; dispose(): void }> {
+  const localNna = await configureHarness();
   // Terminal subsystem (doc 07): routes on the app + WS on the HTTP server.
   const terminal = createTerminalRuntime();
   const app = createApp({ terminal });
@@ -72,6 +70,7 @@ export function startServer(): { port: number; dispose(): void } {
     relayService.dispose();
     void tunnelPlane.dispose(); // §4.7: revoke artifacts, stop the provider controller
     getMessageQueueRuntime().dispose(); // doc 12 §D runtime owns timers/feed
+    localNna?.dispose();
     server.close();
   };
   process.once('SIGINT', dispose);
@@ -79,8 +78,30 @@ export function startServer(): { port: number; dispose(): void } {
   return { port: ENV.port, dispose }; // P12a (NOTES/09 A.2): the in-process shell disposes through this same body
 }
 
+async function configureHarness(): Promise<LocalNnaHarness | undefined> {
+  if (ENV.harness !== 'nna') {
+    registerHarnessAdapter(mockHarness);
+    return undefined;
+  }
+  if (ENV.nnaMode === 'attach') {
+    registerHarnessAdapter(createNnaHarnessAdapter({
+      endpoint: ENV.nnaHarnessUrl, token: ENV.nnaIntegrationToken, principal: ENV.nnaPrincipal,
+    }));
+    return undefined;
+  }
+  const local = await startLocalNnaHarness({ command: ENV.nnaCommand, workspaceId: ENV.nnaWorkspaceId });
+  registerHarnessAdapter(guardLocalNnaHarness(createNnaHarnessAdapter({
+    endpoint: local.endpoint, token: local.token, principal: local.principal,
+  }), local));
+  return local;
+}
+
 const isDirectRun = process.argv[1] && process.argv[1].replaceAll('\\', '/').endsWith('server/index.ts');
-if (isDirectRun) startServer();
+if (isDirectRun) void startServer().catch((error) => {
+  // Startup diagnostics remain local; secrets from an NNA readiness line are never included.
+  console.error(`NotNativeDesktop server failed to start: ${error instanceof Error ? error.message : 'unknown error'}`);
+  process.exitCode = 1;
+});
 
 function bootMessageQueue(): void {
   try {

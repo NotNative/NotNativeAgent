@@ -435,7 +435,10 @@ async function startServerAndProbe() {
   }
   console.log(`[shell] importing server bundle ${bundle}`);
   const module = await import(fileUrlFor(bundle));
-  serverHandle = module.startServer();
+  // The managed NNA mode waits for its child readiness line before it can
+  // publish a server handle.  Await both the legacy synchronous shape and the
+  // current Promise-returning server boot contract before probing /health.
+  serverHandle = await module.startServer();
   console.log(`[shell] server handle bound to port ${serverHandle.port}`);
   return waitForHealth(localOrigin());
 }

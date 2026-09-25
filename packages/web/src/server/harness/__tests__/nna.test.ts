@@ -28,6 +28,7 @@ describe('NNA harness adapter', () => {
   it('fails closed for malformed configuration and unavailable harnesses', async () => {
     expect(() => createNnaHarnessAdapterFromEnvironment({ NNA_HARNESS_URL: 'http://127.0.0.1:4100/path', NNA_INTEGRATION_TOKEN: token, NNA_PRINCIPAL: principal })).toThrow(/origin/u);
     expect(() => createNnaHarnessAdapterFromEnvironment({ NNA_HARNESS_URL: 'http://127.0.0.1:4100/?target=elsewhere', NNA_INTEGRATION_TOKEN: token, NNA_PRINCIPAL: principal })).toThrow(/origin/u);
+    expect(() => createNnaHarnessAdapterFromEnvironment({ NNA_HARNESS_URL: 'http://127.0.0.1:4100', NNA_INTEGRATION_TOKEN: 'é'.repeat(32), NNA_PRINCIPAL: principal })).toThrow(/credential/u);
     const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch: async () => { throw new Error('offline'); } });
     expect((await adapter.handle(new Request('http://nnd.local/api/session'))).status).toBe(502);
   });

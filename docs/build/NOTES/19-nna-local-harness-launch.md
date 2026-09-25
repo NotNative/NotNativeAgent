@@ -14,7 +14,7 @@ stderr; stdout must remain protocol-only.
 
 ## Launch ownership contract
 
-The forthcoming NND local launcher must:
+NND's managed local launcher now:
 
 1. Spawn the configured NNA executable with `integration serve`, with stdout
    and stderr kept separate.
@@ -28,10 +28,15 @@ The forthcoming NND local launcher must:
 5. Terminate the child on NND shutdown and treat an unexpected exit as a
    harness-down transition, never as an empty session list.
 
-## Deliberate interim configuration
+## Attach-mode configuration
 
-Until that launcher lands, NND can attach to an NNA child managed by its parent
-or operator through server-only `NNA_HARNESS_URL`, `NNA_INTEGRATION_TOKEN`,
-and `NNA_PRINCIPAL` configuration.  This is an attach mode, not the intended
-desktop default.  It keeps the existing adapter testable while preserving the
-same authentication boundary the launcher will use.
+`NOTNATIVE_NNA_MODE=attach` lets NND attach to an NNA child managed by its
+parent or operator through server-only `NNA_HARNESS_URL`,
+`NNA_INTEGRATION_TOKEN`, and `NNA_PRINCIPAL` configuration. This remains
+useful for development and externally owned NNA processes.
+
+When `NOTNATIVE_HARNESS=nna` and the mode is not `attach`, NND runs managed
+mode by default. `NNA_COMMAND` selects the executable (default `nna`) and
+`NNA_WORKSPACE_ID` supplies the explicit local workspace authority (default
+`local`). NND mints a fresh, bounded principal envelope per forwarded request;
+the readiness credential itself never reaches the browser or logs.
