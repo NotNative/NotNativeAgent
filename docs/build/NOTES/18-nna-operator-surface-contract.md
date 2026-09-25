@@ -36,7 +36,11 @@ its revision baseline before fetching session lists and overlays live updates
 and deletions over stale results. An accepted authoritative description
 replaces the entire session record so removed metadata does not linger. This
 is snapshot reconciliation, not a substitute for NNA's future bounded
-event-cursor replay contract.
+event-cursor replay contract. NNA now retains a count- and byte-bounded in-memory SSE suffix
+and accepts `Last-Event-ID` on the NND harness stream, with authorization
+filtering on replay. A missing cursor or process restart still relies on
+NND's snapshot recovery on every SSE reconnect; durable replay and explicit gap signaling remain
+future contract work.
 
 ## Child-session steering
 

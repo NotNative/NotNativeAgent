@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Bounded harness event replay.** NNA's authenticated event
+  stream now includes SSE cursor IDs and retains a count- and byte-bounded
+  in-memory replay suffix. NND ignores the non-replayable connection receipt
+  as a cursor and always reconciles snapshots on SSE reconnect.
+  Reconnects replay only post-cursor events visible to the same principal and
+  full workspace grant. NND's existing proxy forwards `Last-Event-ID` and its
+  snapshot reconciliation remains the fallback for expired or restarted
+  cursors. Durable cursor storage and explicit gap signaling are still open.
+
 - 2026-09-25 · **Reconnect phase reconciliation.** NND now compares a
   candidate session GET against live-event revisions, tombstones, and the
   latest description before applying it, so a delayed read cannot roll a

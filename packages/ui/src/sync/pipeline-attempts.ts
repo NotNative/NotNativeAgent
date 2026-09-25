@@ -32,7 +32,9 @@ export function createDeliver(ctx: AttemptContext): (raw: unknown, directoryHint
     ctx.noteActivity();
     const event: HarnessEvent = { ...unwrapped, type: foldEventType(unwrapped.type) };
     if (directoryHint && event.directory === undefined) event.directory = String(directoryHint);
-    if (event.id) ctx.setLastEventId(event.id);
+    // A server.connected receipt is per-connection, not retained in the
+    // replay ring. Its payload ID must not replace the last resumable cursor.
+    if (event.id && event.type !== 'server.connected') ctx.setLastEventId(event.id);
     if (isHeartbeatType(event.type)) return;
     ctx.queues.push(event);
   };

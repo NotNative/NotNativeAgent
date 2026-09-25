@@ -50,7 +50,7 @@ interface PipelineState {
 
 export function createEventPipeline(options: PipelineOptions): EventPipeline {
   const queues = new PipelineQueues((directory, events) => {
-    for (const event of [...events]) if (typeof event.id === 'string') state.lastEventId = event.id;
+    state.lastEventId = replayCursorAfterFlush(state.lastEventId, events);
     options.onEvents(directory, events);
   });
   const state: PipelineState = {
@@ -80,6 +80,14 @@ export function createEventPipeline(options: PipelineOptions): EventPipeline {
   return pipeCreateApi(state, heartbeatTimer, listeners);
 }
 
+export function replayCursorAfterFlush(current: string | null, events: readonly HarnessEvent[]): string | null {
+  let cursor = current;
+  for (const event of events) {
+    if (event.type !== 'server.connected' && typeof event.id === 'string') cursor = event.id;
+  }
+  return cursor;
+}
+
 function pipeGlobalUrl(state: PipelineState): string {
   return state.options.globalEventUrl ?? `${getRealtimeBaseUrl()}/api/global/event`;
 }
@@ -100,11 +108,20 @@ function pipeResolveTransport(state: PipelineState): 'ws' | 'sse' {
   return Date.now() < state.wsFallbackUntil ? 'sse' : 'ws';
 }
 
-function pipeOnEstablished(state: PipelineState, info: EstablishedInfo): void {
+export function shouldSkipConnectedResync(firstConnect: boolean, disconnectedBeforeFirstConnect: boolean,
+  replayReset: boolean, transport: 'sse' | 'ws', recentBoot: boolean): boolean {
+  if (replayReset) return false;
+  if (firstConnect && !disconnectedBeforeFirstConnect) return true;
+  // An SSE server may have lost or evicted the cursor without signalling it.
+  // A recent boot is not enough to trust a reconnect's replay suffix.
+  return transport === 'ws' && recentBoot;
+}
+
+function pipeOnEstablished(state: PipelineState, info: EstablishedInfo, transport: 'sse' | 'ws'): void {
   state.failures = 0;
   state.context.noteActivity();
-  const bootCovered = state.firstConnect && !state.disconnectedBeforeFirstConnect;
-  const skipResync = !info.replayReset && (bootCovered || state.options.isRecentBoot());
+  const skipResync = shouldSkipConnectedResync(state.firstConnect, state.disconnectedBeforeFirstConnect,
+    info.replayReset, transport, state.options.isRecentBoot());
   state.firstConnect = false;
   state.everConnected = true;
   state.options.onConnected({ replayReset: info.replayReset, skipResync });
@@ -118,7 +135,7 @@ async function pipeTryWsRound(state: PipelineState, abort: AbortController): Pro
   const query = state.lastEventId ? `?lastEventId=${cursor}` : '';
   const url = await appendAuthTokenToUrl(`${ws}/api/global/event/ws${query}`); // mint BEFORE connect
   try {
-    await attemptWs(state.context, url, abort.signal, DEFAULT_WS_READY_TIMEOUT_MS, (info) => pipeOnEstablished(state, info));
+    await attemptWs(state.context, url, abort.signal, DEFAULT_WS_READY_TIMEOUT_MS, (info) => pipeOnEstablished(state, info, 'ws'));
     return false;
   } catch (error) {
     clearCachedUrlAuthToken(); // token may have been replayed against a rejecting server
@@ -132,7 +149,7 @@ async function pipeTryWsRound(state: PipelineState, abort: AbortController): Pro
 }
 
 async function pipeTrySseRound(state: PipelineState, abort: AbortController, transport: string): Promise<void> {
-  const result = await attemptSse(state.context, pipeGlobalUrl(state), abort.signal, (info) => pipeOnEstablished(state, info));
+  const result = await attemptSse(state.context, pipeGlobalUrl(state), abort.signal, (info) => pipeOnEstablished(state, info, 'sse'));
   if (result.status !== undefined && !abort.signal.aborted) {
     throw Object.assign(new Error(`${transport}_http_${result.status}`), {
       status: result.status,
