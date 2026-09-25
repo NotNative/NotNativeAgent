@@ -7,6 +7,7 @@ import { getUiAuthController, CLEAR_SESSION_COOKIE_HEADER, type AuthOutcome } fr
 import { getTunnelAuthController, TUNNEL_COOKIE_NAME } from './lib/auth/tunnel-auth.ts';
 import { peekRelayServerId } from './lib/relay/identity.ts';
 import { createStaticHandler, DIST_DIR } from './lib/static.ts';
+import { browserMutationAllowed } from './lib/http/request-security.ts';
 import { createAuthRoutes } from './routes/auth.ts';
 import { createClientAuthPublicRoutes, registerClientAuthRoutes } from './routes/client-auth.ts';
 import { createNotNativeRoutes } from './routes/notnative.ts';
@@ -145,6 +146,8 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
 
   registerPublicHygiene(app);
 
+  app.use('*', browserWriteGate);
+
   app.get('/health', async (c) =>
     c.json({
       ok: true,
@@ -193,6 +196,18 @@ export function createApp(options?: { terminal?: TerminalRuntime }) {
   app.onError(errorHygiene);
 
   return app;
+}
+
+/** A sandboxed preview has an opaque Origin but can still issue simple
+ * cross-origin POSTs. Apply this before auth and all API/proxy routes. */
+async function browserWriteGate(c: Context, next: Next): Promise<Response | void> {
+  const request = c.req.raw;
+  const url = new URL(request.url);
+  const validBearer = url.pathname.startsWith('/api/')
+    && request.headers.has('authorization')
+    && getUiAuthController().credentialGrant(request.headers, url, request.method, false);
+  if (!browserMutationAllowed(request, validBearer)) return c.json({ error: 'Cross-origin browser write denied' }, 403);
+  return next();
 }
 
 /** The §9 belt answer, exported so the error path is tested through real

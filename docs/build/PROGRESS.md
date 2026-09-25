@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Unsafe browser-write guard.** The NND server now rejects
+  unsafe HTTP requests from opaque and foreign browser origins before auth,
+  NND routes, and the NNA proxy. Same-origin and reverse-proxy requests remain
+  admitted, as do non-browser calls without Origin. A valid device bearer may
+  cross origins for `/api/*`; an arbitrary Authorization header does not grant
+  an exception. Vite's dev proxy preserves HTTP Origin and stamps the
+  browser-visible Host for same-origin dev writes; only WS upgrades rewrite
+  Origin for the existing WS gate. This closes the open-auth simple-request path from an
+  untrusted preview guest; it does not make the guest page trusted.
+
 - 2026-09-25 · **Manual Browser preview (P11 subset).** The operator rail now
   accepts user-entered HTTP(S) addresses, defaults loopback dev servers to
   HTTP, and offers back/forward/reload/external-open controls. The embedded
@@ -31,9 +41,8 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   its history while another rail surface is
   selected. Browser inspection, annotation, capture, dev-server discovery,
   Electron guest partition, and NNA-granted agent control remain P11 work;
-  some sites cannot render in an iframe. Security follow-up: in open-auth
-  mode, unsafe loopback API requests need a server-side browser-origin gate;
-  the preview sandbox is not a CSRF boundary.
+  some sites cannot render in an iframe. The preview sandbox itself is not
+  a CSRF boundary; the separate server-side unsafe-write gate is required.
 
 - 2026-09-25 · **Broad-suite validation repair.** The auth route test now
   establishes its temporary data home before server modules capture `ENV`,

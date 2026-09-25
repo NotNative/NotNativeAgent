@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:d6c00c298678ad0700e1ca649a500af35b8c4365e4afac14497a2bd014174ccc",
+  "source_digest": "sha256:9d3641d458e15c09019bd30d286b24494754f5a1a298b248e880fd982fb5739b",
   "counts": {
     "modules": 366,
     "component_edges": 12
@@ -2644,6 +2644,7 @@
         "packages/web/src/server/harness/adapter.ts",
         "packages/web/src/server/lib/auth/tunnel-auth.ts",
         "packages/web/src/server/lib/auth/ui-auth.ts",
+        "packages/web/src/server/lib/http/request-security.ts",
         "packages/web/src/server/lib/relay/identity.ts",
         "packages/web/src/server/lib/static.ts",
         "packages/web/src/server/queue/queue-routes.ts",

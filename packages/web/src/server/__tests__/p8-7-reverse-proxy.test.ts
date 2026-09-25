@@ -17,8 +17,6 @@ import './helpers/env-boot.ts'; // must stay FIRST: data dir fixed before the en
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import net from 'node:net';
 import http from 'node:http';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { WebSocket } from 'ws';
 
 import { Hono } from 'hono';
@@ -291,13 +289,5 @@ describe('seeded SSE posture stays un-buffered (section 9 pin)', () => {
     expect(response.headers.get('content-type')).toBe('text/event-stream');
     expect(response.headers.get('cache-control')).toBe('no-cache, no-transform');
     expect(response.headers.get('x-accel-buffering')).toBe('no');
-  });
-});
-
-describe('dev proxy origin overwrite (section 9 gate + section 3.9 dialer parity)', () => {
-  it('the vite /api proxy rewrites Origin to the target for both web and ws passes (http-proxy merges setupOutgoing headers)', () => {
-    const configPath = fileURLToPath(new URL('../../../vite.config.ts', import.meta.url));
-    const config = readFileSync(configPath, 'utf8');
-    expect(config).toContain("'/api': { target: apiTarget, changeOrigin: true, ws: true, headers: { origin: apiTarget } }");
   });
 });

@@ -56,18 +56,40 @@ function hostOf(value: string | null | undefined): string | null {
 
 /** host equality only (never the protocol); x-forwarded-host applies when
  *  Host was rewritten by the hop (§9: the browser origin survives there). */
-export function originHostPasses(input: OriginCheckRequest, publicOrigin?: string | null): boolean {
+export function originHostPasses(input: OriginCheckRequest, publicOrigin?: string | null, allowPackagedClientOrigins = true): boolean {
   const origin = typeof input.origin === 'string' ? input.origin.trim() : '';
   if (origin === '') return true;
   const originHost = hostOf(origin);
   if (originHost === null) return false;
-  if ((PACKAGED_CLIENT_ORIGINS as readonly string[]).includes(origin.toLowerCase())) return true;
+  if (allowPackagedClientOrigins && (PACKAGED_CLIENT_ORIGINS as readonly string[]).includes(origin.toLowerCase())) return true;
   const candidates = [
     hostOf(input.forwardedHost),
     hostOf(input.host),
     hostOf(publicOrigin ?? null),
   ];
   return candidates.some((candidate) => candidate !== null && candidate === originHost);
+}
+
+/** Unsafe browser writes may use cookies (or open-auth) but never trust a
+ * guest page's ambient access to the local listener. Explicit bearer clients
+ * are authenticated by the normal API gate; browsers cannot send that header
+ * cross-origin without a CORS preflight. */
+export function browserMutationAllowed(request: Request, validatedBearer = false): boolean {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(request.method.toUpperCase())) return true;
+  if (validatedBearer) return true;
+  const site = request.headers.get('sec-fetch-site');
+  if (site === 'cross-site' || site === 'same-site') return false;
+  const origin = request.headers.get('origin');
+  if (origin === null || origin === '') return true; // non-browser clients
+  // Opaque sandboxed pages serialize their Origin as `null`; treating that
+  // token as a bare hostname could otherwise match a Host/forwarded host.
+  if (origin.trim().toLowerCase() === 'null') return false;
+  const url = new URL(request.url);
+  return originHostPasses({
+    origin,
+    host: request.headers.get('host') ?? url.host,
+    forwardedHost: request.headers.get('x-forwarded-host')?.split(',')[0]?.trim(),
+  }, null, false);
 }
 
 /** Headers-shaped variant for the upgrade gate (Headers owns the names). */
