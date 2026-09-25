@@ -102,6 +102,15 @@ test('integration NND host builds governed engines from the trusted manifest', a
   const principal = { subjectId: 'operator', workspaceIds: ['workspace_a'] };
   const context = await host.create('session_a', principal);
   assert.equal(context.engine.sessionId, 'session_a');
+  const events = [];
+  host.eventBus = { publishSession: (event) => events.push(event) };
+  let release;
+  context.engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  assert.equal(host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, principal).accepted, true);
+  await context.engine.output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_a', text: 'Live answer' });
+  assert.equal(events.find((event) => event.type === 'message.part.updated').properties.part.text, 'Live answer');
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
   await host.close('session_a', principal);
 });
 

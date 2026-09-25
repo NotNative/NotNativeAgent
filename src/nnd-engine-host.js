@@ -7,6 +7,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { persistAtomicJson } from './persistence/atomic-json.js';
 
 const CATALOG_LIMIT_BYTES = 1_048_576;
+const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
 
 /** Owns NND-created engine contexts; HTTP routing supplies the authenticated principal. */
 export class NndEngineHost {
@@ -73,7 +74,8 @@ export class NndEngineHost {
     this.#creating.add(sessionId);
     let engine;
     try {
-      engine = await this.createEngine({ ...options, sessionId, nndSessionRegistry: this.childSessions });
+      engine = await this.createEngine({ ...options, sessionId, nndSessionRegistry: this.childSessions,
+        output: (record) => this.observeOutput(sessionId, record) });
       if (!engine || typeof engine.initialize !== 'function') {
         throw new ContractError('nnd_engine_invalid', 'NND engine factory returned an invalid engine');
       }
@@ -153,22 +155,82 @@ export class NndEngineHost {
 
   submitAsync(sessionId, command, principal) {
     const context = this.#owned(sessionId, principal);
+    const previousTurn = context.liveTurn;
+    // Why: ingress can be pending before Engine.submit() exposes its active
+    // turn. A second prompt must not replace that turn's output recipient.
+    if (previousTurn) {
+      if (previousTurn.requestId !== command.request_id) return { accepted: false, reason: 'busy' };
+      const repeated = context.ingress.start(command, principal);
+      return repeated.duplicate ? repeated.result : { accepted: false, reason: 'busy' };
+    }
     // `Engine.submit()` reports a busy turn asynchronously.  A compatibility
     // caller must not receive 204 and confirm its optimistic message when the
     // engine has already rejected that message before the operation settles.
     if (context.engine.active && !context.engine.active.finalized) {
       return { accepted: false, reason: 'busy' };
     }
-    const started = context.ingress.start(command, principal);
-    if (started.duplicate) return started.result;
+    const turn = { requestId: command.request_id, activityId: `${sessionId}:turn:${command.request_id}`,
+      messageId: `${sessionId}:live:${command.request_id}`, streamedChars: 0, previewLimited: false,
+      opened: false, turnId: null, outcome: null };
+    context.liveTurn = turn;
+    let started;
+    try { started = context.ingress.start(command, principal); }
+    catch (error) { context.liveTurn = previousTurn; throw error; }
+    if (started.duplicate) { context.liveTurn = previousTurn; return started.result; }
     // Why: callers receive the acknowledgement promptly; the engine remains
     // the single owner of turn completion and transcript publication.
     this.#publish(context, 'session.status', { sessionID: sessionId, status: { type: 'busy' } });
+    this.#activity(context, turn.activityId, 'turn', 'started', 'Turn started');
     void started.operation.then(
-      () => this.#publishCompletion(context),
-      () => this.#publishCompletion(context),
+      (result) => this.#publishCompletion(context, turn, result?.accepted === false),
+      () => this.#publishCompletion(context, turn, true),
     );
     return { accepted: true, request_id: command.request_id };
+  }
+
+  /** Observational engine-output boundary; a display subscriber cannot fail a governed turn. */
+  observeOutput(sessionId, record) {
+    try {
+      const context = this.#contexts.get(sessionId);
+      const turn = context?.liveTurn;
+      if (!context || context.closing || !turn || record?.session_id !== sessionId) return;
+      if (record.turn_id) {
+        if (turn.turnId && turn.turnId !== record.turn_id) return;
+        turn.turnId ??= record.turn_id;
+      }
+      if (record.type === 'stream_delta' && typeof record.text === 'string' && record.text.length > 0) {
+        const remaining = LIVE_PREVIEW_LIMIT_CHARS - turn.streamedChars;
+        const preview = remaining > 0 ? record.text.slice(0, remaining) : '';
+        if (preview) {
+          const partId = `${turn.messageId}:text`;
+          if (!turn.opened) {
+            turn.opened = true;
+            this.#publish(context, 'message.updated', { sessionID: sessionId, info: {
+              id: turn.messageId, sessionID: sessionId, role: 'assistant', time: { created: Date.now() },
+              agent: 'nna', model: { providerID: 'nna', modelID: 'nna' },
+            } });
+            this.#publish(context, 'message.part.updated', { sessionID: sessionId, part: {
+              id: partId, sessionID: sessionId, messageID: turn.messageId, type: 'text', text: preview,
+            } });
+          } else this.#publish(context, 'message.part.delta', { sessionID: sessionId, messageID: turn.messageId,
+            partID: partId, field: 'text', delta: preview });
+          turn.streamedChars += preview.length;
+        }
+        if (preview.length < record.text.length && !turn.previewLimited) {
+          turn.previewLimited = true;
+          this.#activity(context, `${turn.activityId}:preview`, 'notice', 'redacted',
+            'Live preview limit reached; the full transcript will appear when the turn completes');
+        }
+      } else if (record.type === 'tool_status' && typeof record.tool === 'string' && typeof record.status === 'string') {
+        const toolId = record.tool_request_id ?? record.provider_call_id;
+        if (typeof toolId === 'string' && toolId) {
+          const status = activityStatus(record.status);
+          this.#activity(context, `${sessionId}:tool:${toolId}`, 'tool', status, `${record.tool}: ${record.status}`);
+        }
+      } else if (record.type === 'turn_result') {
+        turn.outcome = record.outcome;
+      }
+    } catch { /* Display output is observational, never a reason to fail an engine turn. */ }
   }
 
   async resolveChildSession(sessionId, principal) {
@@ -252,20 +314,37 @@ export class NndEngineHost {
     return context;
   }
 
-  #publishCompletion(context) {
+  #publishCompletion(context, turn, rejected) {
     if (context.closing) return;
+    if (turn.opened) this.#publish(context, 'message.removed', { sessionID: context.sessionId, messageID: turn.messageId }, true);
     for (const entry of this.messages(context.sessionId, { subjectId: context.subjectId, workspaceIds: [...context.workspaceIds] })) {
       this.#publish(context, 'message.updated', { sessionID: context.sessionId, info: entry.info }, true);
       for (const part of entry.parts) this.#publish(context, 'message.part.updated', { sessionID: context.sessionId, part }, true);
     }
-    this.#publish(context, 'session.status', { sessionID: context.sessionId, status: { type: 'idle' } });
-    this.#publish(context, 'session.idle', { sessionID: context.sessionId });
+    const result = turnActivity(turn.outcome, rejected);
+    this.#activity(context, turn.activityId, 'turn', result.status, result.summary);
+    if (context.liveTurn === turn) {
+      context.liveTurn = null;
+      this.#publish(context, 'session.status', { sessionID: context.sessionId, status: { type: 'idle' } });
+      this.#publish(context, 'session.idle', { sessionID: context.sessionId });
+    }
     this.#publish(context, 'session.updated', { sessionID: context.sessionId, info: describe(context) }, true);
   }
 
+  #activity(context, id, kind, status, summary) {
+    this.#publish(context, 'nnd.activity', { id, sessionID: context.sessionId, kind, status, summary, time: Date.now() });
+  }
+
   #publish(context, type, properties, mirror = false) {
-    this.eventBus.publishSession({ directory: directoryFor(context), project: context.workspaceIds.values().next().value,
-      subjectId: context.subjectId, sessionID: context.sessionId, type, properties, mirror });
+    // Why: a broken display subscriber cannot turn governed work into a false failure.
+    try {
+      this.eventBus.publishSession({ directory: directoryFor(context), project: context.workspaceIds.values().next().value,
+        subjectId: context.subjectId, sessionID: context.sessionId, type, properties, mirror });
+    } catch (error) {
+      try { context.engine.telemetry?.record('nnd.event_delivery', 'failed', {
+        event_type: type, code: error?.code ?? 'event_delivery_failed',
+      }); } catch { /* Observational diagnostics cannot replace the engine outcome. */ }
+    }
   }
 }
 
@@ -295,6 +374,18 @@ function nextUpdatedAt(context) { return Math.max(Date.now(), context.updatedAt 
 function titleOf(value) { return typeof value === 'string' && value.trim() && value.length <= 256 ? value.trim() : 'New session'; }
 function directoryOf(value) { return typeof value === 'string' && value.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : ''; }
 function directoryFor(context) { return directoryOf(context.engine.config?.workspaceRoot) || context.directory; }
+function activityStatus(value) {
+  if (value === 'succeeded' || value === 'duplicate_ignored') return 'completed';
+  if (value === 'review_pending' || value === 'approved' || value === 'running') return 'started';
+  return 'failed';
+}
+function turnActivity(outcome, rejected) {
+  if (rejected) return { status: 'failed', summary: 'Turn failed' };
+  if (outcome === 'cancelled') return { status: 'completed', summary: 'Turn cancelled' };
+  if (outcome === 'needs_input') return { status: 'completed', summary: 'Turn needs input' };
+  if (outcome && outcome !== 'completed') return { status: 'failed', summary: 'Turn failed' };
+  return { status: 'completed', summary: 'Turn completed' };
+}
 function validCatalogRecord(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
   try { requireExternalId(record.sessionId, 'session_id'); requirePrincipal(record); }

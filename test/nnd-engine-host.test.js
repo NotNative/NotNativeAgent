@@ -263,10 +263,134 @@ test('NND engine host publishes a busy-to-idle reconciliation sequence', async (
   release({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(events.map((event) => event.type), [
-    'session.created', 'session.status', 'message.updated', 'message.part.updated', 'session.status', 'session.idle', 'session.updated',
+    'session.created', 'session.status', 'nnd.activity', 'message.updated', 'message.part.updated',
+    'nnd.activity', 'session.status', 'session.idle', 'session.updated',
   ]);
   assert.equal(events[1].properties.status.type, 'busy');
   assert.equal(events.at(-3).properties.status.type, 'idle');
+});
+
+test('NND engine host streams text and tool activity before authoritative completion', async () => {
+  let output;
+  let release;
+  const events = [];
+  const engine = fakeEngine();
+  engine.transcript = [{ type: 'message', role: 'user', content: 'hello' }];
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  const host = new NndEngineHost({
+    eventBus: { publishSession: (event) => events.push(event) },
+    createEngine: async (options) => { output = options.output; return engine; },
+  });
+  await host.create('session_a', owner);
+  host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
+  output({ type: 'stream_delta', session_id: 'different', turn_id: 'turn_a', text: 'private' });
+  output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_a', text: 'Hello' });
+  output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_b', text: 'wrong turn' });
+  output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_a', text: ' world' });
+  output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', tool_request_id: 'tool_a', tool: 'shell_run', status: 'running', arguments: { secret: 'do-not-expose' } });
+  output({ type: 'tool_status', session_id: 'session_a', turn_id: 'turn_a', tool_request_id: 'tool_a', tool: 'shell_run', status: 'succeeded' });
+  assert.deepEqual(events.filter((event) => event.type === 'message.part.updated').map((event) => event.properties.part.text), ['Hello']);
+  assert.deepEqual(events.filter((event) => event.type === 'message.part.delta').map((event) => event.properties.delta), [' world']);
+  assert.equal(events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'tool').at(-1).properties.status, 'completed');
+  assert.equal(JSON.stringify(events).includes('do-not-expose'), false);
+  assert.equal(events.some((event) => event.type === 'message.removed'), false);
+  engine.transcript.push({ type: 'message', role: 'assistant', content: 'Hello world' });
+  output({ type: 'turn_result', session_id: 'session_a', turn_id: 'turn_a', outcome: 'completed' });
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  const removed = events.findIndex((event) => event.type === 'message.removed');
+  const canonical = events.findIndex((event, index) => index > removed && event.type === 'message.updated' && event.properties.info.id === 'session_a:message:1');
+  assert.ok(removed > 0 && canonical > removed);
+  assert.equal(events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'turn').at(-1).properties.status, 'completed');
+});
+
+test('NND live turn cannot be replaced before the engine marks itself active', async () => {
+  let release;
+  const events = [];
+  const engine = fakeEngine();
+  engine.transcript = [];
+  let submissions = 0;
+  engine.submit = async () => { submissions += 1; return new Promise((resolve) => { release = resolve; }); };
+  const host = new NndEngineHost({
+    eventBus: { publishSession: (event) => events.push(event) },
+    createEngine: async () => engine,
+  });
+  await host.create('session_a', owner);
+  const first = { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' };
+  assert.equal(host.submitAsync('session_a', first, owner).accepted, true);
+  assert.deepEqual(host.submitAsync('session_a', { ...first, request_id: 'prompt_b' }, owner), { accepted: false, reason: 'busy' });
+  assert.deepEqual(host.submitAsync('session_a', first, owner), { accepted: false, duplicate: true, pending: true });
+  assert.equal(submissions, 1);
+  assert.equal(events.filter((event) => event.type === 'session.idle').length, 0);
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events.filter((event) => event.type === 'session.idle').length, 1);
+});
+
+test('NND preview is bounded and a failing subscriber cannot fail the governed turn', async () => {
+  let output;
+  let release;
+  const events = [];
+  const engine = fakeEngine();
+  engine.transcript = [];
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  const host = new NndEngineHost({
+    eventBus: { publishSession: (event) => {
+      events.push(event);
+      if (event.type === 'message.part.updated') throw new Error('subscriber broke');
+    } },
+    createEngine: async (options) => { output = options.output; return engine; },
+  });
+  await host.create('session_a', owner);
+  const first = { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' };
+  assert.equal(host.submitAsync('session_a', first, owner).accepted, true);
+  assert.doesNotThrow(() => output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_a', text: 'x'.repeat(300_000) }));
+  assert.equal(events.find((event) => event.type === 'message.part.updated').properties.part.text.length, 262_144);
+  assert.equal(events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'notice').length, 1);
+  output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_a', text: 'additional' });
+  assert.equal(events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'notice').length, 1);
+  release({ accepted: false, reason: 'provider_failed' });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'turn').at(-1).properties.status, 'failed');
+  assert.equal(events.filter((event) => event.type === 'session.idle').length, 1);
+});
+
+test('NND activity does not label an intentional cancellation as a failure', async () => {
+  let output;
+  let release;
+  const events = [];
+  const engine = fakeEngine();
+  engine.transcript = [];
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  const host = new NndEngineHost({
+    eventBus: { publishSession: (event) => events.push(event) },
+    createEngine: async (options) => { output = options.output; return engine; },
+  });
+  await host.create('session_a', owner);
+  host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
+  output({ type: 'turn_result', session_id: 'session_a', turn_id: 'turn_a', outcome: 'cancelled' });
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  const terminal = events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'turn').at(-1).properties;
+  assert.equal(terminal.status, 'completed');
+  assert.equal(terminal.summary, 'Turn cancelled');
+});
+
+test('NND activity reports a governed denial as a failed turn', async () => {
+  let output;
+  const events = [];
+  const engine = fakeEngine();
+  engine.transcript = [];
+  engine.submit = async () => ({ accepted: true });
+  const host = new NndEngineHost({
+    eventBus: { publishSession: (event) => events.push(event) },
+    createEngine: async (options) => { output = options.output; return engine; },
+  });
+  await host.create('session_a', owner);
+  host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
+  output({ type: 'turn_result', session_id: 'session_a', turn_id: 'turn_a', outcome: 'denied' });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'turn').at(-1).properties.status, 'failed');
 });
 
 function steer(request_id) { return { version: '1.0', type: 'steer', request_id, content: 'continue' }; }

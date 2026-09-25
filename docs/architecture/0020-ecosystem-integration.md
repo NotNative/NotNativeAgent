@@ -94,6 +94,17 @@ reached the engine. Operator-stopped turns settle as `cancelled`; the wire
 voice labels their assistant finish `abort` so OpenChamber can render the
 distinction. Pending questions release with `operator_cancelled` (clause 1).
 
+## NND native live projection
+
+The NND integration host connects `SessionEngine.output` to its authenticated
+session event stream. Text deltas form a bounded, temporary assistant preview;
+completion removes that preview and publishes the canonical journal-backed
+transcript. Tool lifecycle rows carry tool name and state, not arguments or raw
+tool output. The Activity rail receives turn and tool events as live evidence.
+These activity events are not yet a durable replay feed; reconnects recover the
+canonical transcript, while durable activity replay remains separate work.
+Display delivery failures cannot change the governed engine outcome.
+
 ## Related surface ADRs
 
 ADR 0018 (web operator surface) and ADR 0019 (native desktop surface) describe the

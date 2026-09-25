@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:8c331a38cef50e5a7d34ffe049ebec5c9d6d4f241a4e08c44c8add50791d87f5",
+  "source_digest": "sha256:1385ca7528254de560281a8dda1788edc04096f695576f7373d948cb1486a883",
   "counts": {
     "modules": 363,
     "component_edges": 76

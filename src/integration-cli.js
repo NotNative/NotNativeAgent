@@ -84,6 +84,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
       mcpTransportFactory: options.mcpTransportFactory, memoryAdapter: options.memoryAdapter,
       hookRoot: options.hookRoot ?? paths.hooks, hookRoots: options.hookRoots ?? [],
       skillRoots: options.skillRoots ?? [],
+      output: input.output,
     }),
   });
   host.workspaceRoot = config.workspaceRoot;
