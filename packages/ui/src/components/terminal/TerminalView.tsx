@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import {
   closeTerminalSession, createTerminalSession, forceKillTerminals, restartTerminalSession, resizeTerminalSession,
 } from '../../lib/server-api.ts';
-import { observeTerminalSessions, startKeepaliveTouch } from '../../lib/terminal/observer.ts';
+import { observeTerminalSessions } from '../../lib/terminal/observer.ts';
 import {
   appendTerminalBuffer, dropTerminalBuffer, getTerminalBuffer, normalizeTerminalDirectory,
   replaceTerminalBuffer, useTerminalStore, type TerminalTab,
@@ -46,7 +46,6 @@ export function TerminalView({ directory, visible, compact = false }: TerminalVi
   useTerminalObserver(directory, key, visible);
   useTerminalCreate(directory, visible, active);
   useTerminalStream(directory, key, active, visible);
-  useTerminalKeepalive(tabs);
   if (active === null) return null;
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col gap-1 rounded-lg border border-border/60 bg-card/40 px-2 pb-2 pt-1" data-testid="terminal-view">
@@ -120,16 +119,6 @@ function useTerminalStream(directory: string, key: string, active: TerminalTab |
     if (!visible || tabId.length === 0 || sessionId.length === 0) return undefined;
     return subscribeTabStream(directory, key, tabId, sessionId);
   }, [directory, key, tabId, sessionId, visible]);
-}
-
-/** 10-min keepalive touch for non-exited tabs; the interval reads a ref so
- * store churn never resets the 10-min cadence (section 3.6). */
-function useTerminalKeepalive(tabs: TerminalTab[]): void {
-  const latest = useRef(tabs);
-  useEffect(() => { latest.current = tabs; }, [tabs]);
-  useEffect(() => startKeepaliveTouch(() => latest.current
-    .filter((tab) => tab.lifecycle !== 'exited' && tab.terminalSessionId !== null)
-    .map((tab) => tab.terminalSessionId!)), []);
 }
 
 function patchTabLifecycle(directory: string, tabId: string, lifecycle: TerminalTab['lifecycle']): void {

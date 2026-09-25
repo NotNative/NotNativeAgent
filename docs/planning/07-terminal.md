@@ -234,7 +234,7 @@ live. This yields exactly-once delivery across the barrier. (src: runtime.js:197
 | Idle socket hold | **15 s** | client | zero subscribers: keep a healthy socket briefly (tab switches reuse it) |
 | Idle session sweep | **5 min** interval | server | see §C.7 |
 | Session idle age | **30 min** | server | lastActivity threshold for reaping (unattached only) |
-| Keepalive touch | **10 min** interval | client loop | `POST /api/terminal/touch` for listed session ids (src: useTerminalSessionKeepalive.ts:6) |
+| Keepalive touch | **10 min** interval | app-lifetime client loop | `POST /api/terminal/touch` for unique non-exited tab session ids across every visited directory; panel switching must not stop the lease. Server refreshes only still-running records, so stale tabs cannot preserve exited records indefinitely. |
 | Kill grace | **1 s** | server | SIGTERM before SIGKILL |
 | Resize settle | **150 ms** debounce | client | surface → PTY resize notification |
 
@@ -902,7 +902,7 @@ Two distinct exits (this is a common regression; keep them apart):
 | Action | What happens |
 |---|---|
 | Close a TAB (`closeTab`) | UI-only removal of the tab row + its buffer. If the tab's session id resolves, it ALSO `DELETE /api/terminal/:id` (session closed, process killed, fatal `CLOSED` broadcast on all viewers). Closing the last tab seeds a fresh empty tab. |
-| Panel closed / tab switched without closing | PTY keeps running server-side; attachment drops (socket-`detach` on unsubscribe for the removed active tab or on panel unmount); the 10-min keepalive keeps the session off the idle reaper while any client still lists it in a tab. |
+| Panel closed / tab switched / project switched without closing | PTY keeps running server-side; attachment drops (socket-`detach` on unsubscribe for the removed active tab or on panel unmount); the app-level 10-min keepalive keeps the session off the idle reaper while any client still lists it in a tab, even when that project's panel is unmounted. |
 | Force-kill (session or whole-directory) | server-side immediate; all clients get fatal `KILLED` and reset their tabs to exited. |
 | Close terminal via runtime switch | not a close at all — transport disposed, store cleared, sessions orphaned until the (previous) server reaps or the same server is switched back to and re-adopted. |
 

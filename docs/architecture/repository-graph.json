@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:58b0f82cdeac977115b654eecaeb31e3e488e66781fedc00d5a18ea47d9e89f5",
+  "source_digest": "sha256:271f42406681ab379e817aebd76977cf98e2e1fbba4ac50089a22ce103507cd2",
   "counts": {
-    "modules": 371,
+    "modules": 372,
     "component_edges": 12
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 85
+      "module_count": 86
     },
     {
       "id": "web-server",
@@ -97,8 +97,8 @@
     {
       "from": "ui-shell",
       "to": "runtime-io",
-      "import_count": 115,
-      "module_count": 47
+      "import_count": 117,
+      "module_count": 48
     },
     {
       "from": "sync-engine",
@@ -737,6 +737,7 @@
         "packages/ui/src/components/plan/PlanView.tsx",
         "packages/ui/src/components/settings/search.ts",
         "packages/ui/src/components/settings/window.tsx",
+        "packages/ui/src/components/terminal/TerminalKeepaliveOwner.tsx",
         "packages/ui/src/components/terminal/TerminalView.tsx",
         "packages/ui/src/components/worktrees/WorktreesView.tsx",
         "packages/ui/src/lib/i18n/context.tsx",
@@ -990,6 +991,15 @@
         "packages/ui/src/lib/settings/store.ts",
         "packages/ui/src/lib/shortcuts/hooks.ts",
         "packages/ui/src/lib/theme/themes.ts"
+      ]
+    },
+    {
+      "path": "packages/ui/src/components/terminal/TerminalKeepaliveOwner.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/terminal/observer.ts",
+        "packages/ui/src/lib/terminal/store.ts"
       ]
     },
     {

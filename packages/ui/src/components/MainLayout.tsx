@@ -21,6 +21,7 @@ import { GitView } from './git/GitView.tsx';
 import { PlanView } from './plan/PlanView.tsx';
 import { WorktreesView } from './worktrees/WorktreesView.tsx';
 import { TerminalView } from './terminal/TerminalView.tsx';
+import { TerminalKeepaliveOwner } from './terminal/TerminalKeepaliveOwner.tsx';
 import { BUILT_PAGE_SLUGS, type SettingsPageSlug } from './settings/search.ts';
 import { bindSettingsBridge } from '../lib/settings/store.ts';
 import { bindAppearanceAppliers } from '../lib/settings/apply.ts';
@@ -177,6 +178,7 @@ export function MainLayout(): ReactNode {
 
   return (
     <div className="flex h-screen flex-col flex-1 bg-neutral-900 text-neutral-100">
+      <TerminalKeepaliveOwner />
       <ShellShortcuts />
       <header className="flex items-center gap-2 border-b border-white/10 bg-neutral-950/70 px-3 py-1.5" data-testid="app-header">
         <div className="text-[11px] uppercase tracking-widest text-amber-400/80">NotNative</div>

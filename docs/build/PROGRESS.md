@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Cross-project terminal lease.** The app shell now owns one
+  10-minute terminal keepalive across all visited project directories. Terminal
+  panels retain only their visible observer/stream; navigating from project A
+  to B no longer drops A's reaper protection. Hidden panels still make no
+  5-second listing requests. A focused regression test covers the switch and
+  removal of exited sessions from subsequent touches.
+
 - 2026-09-25 · **Compact operator surfaces.** Below the desktop-width
   side-by-side threshold, chat now offers an explicit Surfaces door to
   foreground Context, Activity, Changes, Notes, Browser, or Terminal. The
@@ -30,8 +37,8 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   the `xl` layout rule instead of leaving it concealed by compact state. An
   audit fixed both resize focus directions and keeps the terminal controller
   mounted in composer focus mode. Hidden terminal panes pause their active
-  stream and 5-second observer but retain the 10-minute keepalive. Switching
-  directories still needs an app-level terminal keepalive owner.
+  stream and 5-second observer. The app-level keepalive owner followed in the
+  next slice.
 
 - 2026-09-25 · **NNA configured-model composer boundary.** The authenticated
   NNA bridge projects its configured primary provider/model identifiers without

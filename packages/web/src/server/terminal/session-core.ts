@@ -354,7 +354,10 @@ export class TerminalRuntime {
     let touched = 0;
     for (const id of sessionIds) {
       const record = this.sessions.get(id);
-      if (record === undefined) continue;
+      // A project can be unmounted when its PTY exits, leaving the client's
+      // tab marked running until it is observed again. Do not let that stale
+      // keepalive preserve an exited, cap-counting record forever.
+      if (record === undefined || record.status !== 'running') continue;
       record.lastActivity = this.now(); // background tabs fight the idle reaper with keepalives
       touched += 1;
     }

@@ -316,6 +316,22 @@ describe('write + exit + restart + close taxonomy (sections 3.3/4.7)', () => {
     expect(second[0]!.killed).toBe(true); // unattached + beyond 30 min -> reaped
     expect(runtimeB.listSessions()).toHaveLength(0);
   });
+
+  it('does not keep an exited record alive when a hidden project tab is stale', async () => {
+    let clock = 0;
+    const instances: FakePty[] = [];
+    const runtime = new TerminalRuntime(fakeFactory(instances), () => clock);
+    await createSession(runtime, { sessionId: 'hidden-exited' });
+    await createSession(runtime, { sessionId: 'still-running' });
+    clock = 60_000;
+    instances[0]!.exit(0);
+    clock = 20 * 60_000;
+    expect(runtime.touch(['hidden-exited', 'still-running'])).toEqual({ touched: 1 });
+    clock = 35 * 60_000;
+    (runtime as unknown as { sweepOnce(): void }).sweepOnce();
+    expect(runtime.listSessions().map((session) => session.sessionId)).toEqual(['still-running']);
+    expect(instances[1]!.killed).toBe(false);
+  });
 });
 
 describe('socket error taxonomy (section 3.3)', () => {

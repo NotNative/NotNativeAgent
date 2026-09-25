@@ -29,6 +29,7 @@ vi.mock('../../../lib/server-api.ts', () => ({
 
 import { closeTerminalSession, createTerminalSession, forceKillTerminals, listTerminalSessions, touchTerminalSessions } from '../../../lib/server-api.ts';
 import { TerminalView } from '../TerminalView.tsx';
+import { TerminalKeepaliveOwner } from '../TerminalKeepaliveOwner.tsx';
 import { I18nProvider } from '../../I18nProvider.tsx';
 import { __resetTerminalsForTests, getTerminalBuffer, normalizeTerminalDirectory, useTerminalStore } from '../../../lib/terminal/store.ts';
 import { setTerminalTransportFactory, __resetTerminalTransportForTests } from '../../../lib/terminal/transport-singleton.ts';
@@ -146,18 +147,26 @@ describe('TerminalView flow (doc 07 Flow 1 v1)', () => {
     expect(listTerminalSessions).toHaveBeenCalledTimes(1);
   });
 
-  it('continues touching a background terminal while its pane is hidden', async () => {
+  it('keeps live sessions from every visited directory alive after switching projects', async () => {
     useTerminalStore.getState().hydrate();
     const tabId = useTerminalStore.getState().ensureDirectory(DIR);
     useTerminalStore.getState().setTabSession(DIR, tabId, 'background-session', 'running');
+    const otherDirectory = '/other-project';
+    const otherTabId = useTerminalStore.getState().ensureDirectory(otherDirectory);
+    useTerminalStore.getState().setTabSession(otherDirectory, otherTabId, 'other-session', 'running');
     vi.useFakeTimers();
     container = document.createElement('div');
     document.body.appendChild(container);
     rootHandle = createRoot(container);
-    await act(async () => rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible={false} /></I18nProvider>));
+    await act(async () => rootHandle!.render(<I18nProvider><TerminalKeepaliveOwner /><TerminalView directory={DIR} visible={false} /></I18nProvider>));
+    await act(async () => rootHandle!.render(<I18nProvider><TerminalKeepaliveOwner /><TerminalView directory={otherDirectory} visible={false} /></I18nProvider>));
     await act(async () => vi.advanceTimersByTime(10 * 60_000));
-    expect(touchTerminalSessions).toHaveBeenCalledWith(['background-session']);
+    expect(touchTerminalSessions).toHaveBeenCalledExactlyOnceWith(['background-session', 'other-session']);
     expect(listTerminalSessions).not.toHaveBeenCalled();
+    await act(async () => useTerminalStore.getState().patchTab(DIR, tabId, { lifecycle: 'exited' }));
+    await act(async () => vi.advanceTimersByTime(10 * 60_000));
+    expect(touchTerminalSessions).toHaveBeenLastCalledWith(['other-session']);
+    expect(touchTerminalSessions).toHaveBeenCalledTimes(2);
   });
   it('creates with sessionId=tabId at 80x24, subscribes, replays the snapshot, writes input + quick keys', async () => {
     await renderView();

@@ -47,9 +47,8 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     if (selection.key !== storageKey) return;
     try { localStorage.setItem(storageKey, selection.surface); } catch { /* optional device preference */ }
   }, [selection.key, selection.surface, storageKey]);
-  // TerminalView owns the observer and the ten-minute keepalive.  Once the
-  // user has opened it, keep that controller mounted while another rail
-  // surface is selected so a live background terminal is not silently reaped.
+  // Keep the opened view mounted across rail surfaces to preserve local tab
+  // state; the app shell owns keepalive across all project directories.
   const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);
   const [browserOpenedKey, setBrowserOpenedKey] = useState<string | null>(() => selection.surface === 'browser' ? storageKey : null);
   useEffect(() => {
