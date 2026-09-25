@@ -138,6 +138,10 @@ function buildWebUi() {
     attempt = runViteBuild(2);
   }
   if (attempt.status !== 0) throw new Error(`vite build failed twice (last exit ${attempt.status})`);
+  const cssGate = spawnSync(process.execPath, [path.join(ROOT, 'scripts', 'web-css-gate.mjs')], {
+    cwd: ROOT, stdio: 'inherit',
+  });
+  if (cssGate.status !== 0) throw new Error(`web CSS gate failed (exit ${cssGate.status})`);
   log('vite build green');
 }
 

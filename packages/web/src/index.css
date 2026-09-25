@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
+@source ".";
+@source "../../ui/src";
 @import "../../ui/src/styles/design-system.css";
 
 /* P0-era bridge variables kept until the doc-14 settings registry lands */

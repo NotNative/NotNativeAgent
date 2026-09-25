@@ -91,7 +91,10 @@ function buildGate() {
   const viteCli = join(webDir, 'node_modules', 'vite', 'bin', 'vite.js');
   const result = spawnSync(process.execPath, [viteCli, 'build'], { cwd: webDir, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   if (result.status !== 0) errors.push(`production build failed: ${failureText(result)}`);
-  else process.stdout.write('production build succeeded (packages/web/dist)\n');
+  else {
+    process.stdout.write('production build succeeded (packages/web/dist)\n');
+    spawnGate('scripts/web-css-gate.mjs', 'web CSS gate');
+  }
 }
 
 async function sealVersionLedger(version, recordMissing) {

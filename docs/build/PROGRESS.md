@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Production GUI layout restored.** A live 1280×800 browser
+  inspection found that Vite shipped the design tokens but no Tailwind
+  utilities from `packages/ui/src`: the session UI collapsed into a text
+  column. The web stylesheet now explicitly registers web and shared-UI
+  sources. Rebuilt CSS grew from 12.27 KiB to 50.85 KiB; the desktop-width
+  session/sidebar/operator-rail layout renders correctly. The browser probe
+  opened Activity, sent a mock prompt, and observed turn-start, assistant
+  output, and turn-complete evidence. A CSS utility gate now runs after web,
+  Electron, and release builds, and rejects the previous broken artifact.
+  This validates the mock browser door, not the native app window or real NNA.
+
 - 2026-09-25 · **Packaged terminal command plane acceptance.** The unpacked
   Windows x64 Electron executable now boots its packaged server bundle with
   isolated mock-harness data, answers `/health`, creates a real terminal via

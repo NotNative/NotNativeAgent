@@ -3,6 +3,22 @@
 Running ledger of what has been VERIFIED on the build host (as opposed to what
 unit tests assert in-process). Entries are dated; re-verification supersedes.
 
+## 2026-09-25 · production GUI browser acceptance (source server, mock harness)
+
+The production web build initially loaded without shared-UI Tailwind utilities:
+at a 1280×800 viewport, the sidebar, transcript, and rail collapsed into a
+text column despite HTTP 200 and a green Vite build. After explicitly
+registering `packages/web/src` and `packages/ui/src` as Tailwind sources,
+the rebuilt CSS grew from 12.27 KiB to 50.85 KiB and the three-column
+desktop layout rendered. In the local browser, Activity opened beside chat;
+a mock prompt produced visible turn-start, assistant output, and turn-complete
+evidence. The production CSS gate passes the corrected artifact and rejects
+the previous packaged `web-dist` with all five required utilities missing.
+
+This is a browser-door and mock-harness check, not a native Electron window
+or real NNA acceptance. Native computer-use approval timed out before the
+unpacked desktop app launched; no NND process was started by that attempt.
+
 ## 2026-09-21 · baseline at seal 20260921-2 (+ build fix → 20260921-3)
 
 **Verified working**
