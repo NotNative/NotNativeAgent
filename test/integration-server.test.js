@@ -412,6 +412,9 @@ test('NND goals persist with id-guarded writes and never grant arbitrary metadat
       method: 'PUT', body: { goal: { ...goal, objective: 'x'.repeat(5001) }, expected_id: null, expected_revision: 0 },
     })).status, 400);
     assert.equal((await request(base, path, owner, {
+      method: 'PUT', body: { goal: { ...goal, objectiveFileKey: '../escape' }, expected_id: null, expected_revision: 0 },
+    })).status, 400);
+    assert.equal((await request(base, path, owner, {
       method: 'PUT', body: { goal, expected_id: null, expected_revision: 0, metadata: { admin: true } },
     })).status, 400);
     assert.deepEqual((await request(base, path, owner, {
@@ -427,14 +430,19 @@ test('NND goals persist with id-guarded writes and never grant arbitrary metadat
     assert.deepEqual((await request(base, path, owner, {
       method: 'PUT', body: { goal: { ...goal, status: 'complete' }, expected_id: goal.id, expected_revision: 1 },
     })).value, { goal: { ...goal, status: 'complete' }, revision: 2 });
+    const keyed = { ...goal, status: 'complete', objectiveFile: true, objectiveFileKey: 'a'.repeat(64) };
+    assert.deepEqual((await request(base, path, owner, {
+      method: 'PUT', body: { goal: keyed, expected_id: goal.id, expected_revision: 2 },
+    })).value, { goal: keyed, revision: 3 });
     assert.equal((await request(base, path, owner, { method: 'DELETE', body: { expected_id: 'wrong_id', expected_revision: 2 } })).status, 409);
   } finally { await service.close(); await host.shutdown(); }
   const restored = makeHost();
   await restored.initialize();
   try {
     assert.equal(restored.get(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).metadata.nnd.goal.status, 'complete');
-    assert.equal(restored.goal(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).revision, 2);
-    await restored.clearGoal(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }, goal.id, 2);
+    assert.equal(restored.goal(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).revision, 3);
+    assert.equal(restored.goal(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).goal.objectiveFileKey, 'a'.repeat(64));
+    await restored.clearGoal(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }, goal.id, 3);
     assert.equal(restored.get(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).metadata.nnd.goal, undefined);
   } finally { await restored.shutdown(); }
 });

@@ -4,19 +4,23 @@ import { nextUpdatedAt } from './nnd-session-description.js';
 
 const STATUSES = new Set(['active', 'paused', 'blocked', 'budgetLimited', 'complete']);
 const ID = /^[A-Za-z0-9_-]{4,128}$/u;
+const FILE_KEY = /^(?:|[a-f0-9]{64})$/u;
 const TEXT_LIMITS = Object.freeze({ objective: 5000, note: 280, statusReason: 200,
   evaluationProviderID: 200, evaluationModelID: 200, lastAccountedMessageID: 200 });
 const COUNTERS = Object.freeze(['tokensUsed', 'tokensBaseline', 'tokensCommitted', 'turnsUsed',
   'blockedStreak', 'auditFailStreak', 'createdAt', 'updatedAt']);
-const FIELDS = new Set(['id', 'status', 'objectiveFile', 'tokenBudget', ...Object.keys(TEXT_LIMITS), ...COUNTERS]);
+const FIELDS = new Set(['id', 'status', 'objectiveFile', 'objectiveFileKey', 'tokenBudget', ...Object.keys(TEXT_LIMITS), ...COUNTERS]);
 
 /** Validate a persisted NND goal without granting arbitrary session metadata writes. */
 export function validatedNndGoal(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)
     || Object.keys(value).some((key) => !FIELDS.has(key))
     || typeof value.id !== 'string' || !ID.test(value.id)
-    || !STATUSES.has(value.status) || typeof value.objectiveFile !== 'boolean') invalid();
-  const result = { id: value.id, status: value.status, objectiveFile: value.objectiveFile };
+    || !STATUSES.has(value.status) || typeof value.objectiveFile !== 'boolean'
+    || (value.objectiveFileKey !== undefined && (typeof value.objectiveFileKey !== 'string'
+      || !FILE_KEY.test(value.objectiveFileKey)))) invalid();
+  const result = { id: value.id, status: value.status, objectiveFile: value.objectiveFile,
+    ...(value.objectiveFileKey === undefined ? {} : { objectiveFileKey: value.objectiveFileKey }) };
   for (const [key, limit] of Object.entries(TEXT_LIMITS)) {
     if (typeof value[key] !== 'string' || value[key].length > limit) invalid();
     result[key] = value[key];
