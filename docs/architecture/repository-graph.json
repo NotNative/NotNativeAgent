@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:7c43ba8f4adcc6c001ce6f5b689231db1729da073232139c1f3b8fec5bb31d7a",
+  "source_digest": "sha256:bca0f2c5952f6ec10349d365248ad8bdf9b03fc4305728c1f5f91baa150a4da0",
   "counts": {
-    "modules": 392,
+    "modules": 393,
     "component_edges": 12
   },
   "components": [
@@ -36,7 +36,7 @@
       "id": "web-server",
       "label": "Web server",
       "ownership": "Owns Hono routes, harness adapters, SSE control stream, static serving (docs 03/02).",
-      "module_count": 105
+      "module_count": 106
     },
     {
       "id": "web-entry",
@@ -2878,6 +2878,18 @@
         "packages/web/src/server/goals/goal-constants.ts",
         "packages/web/src/server/goals/goal-payload.ts",
         "packages/web/src/server/goals/goal-state.ts"
+      ]
+    },
+    {
+      "path": "packages/web/src/server/goals/nna-goal-safety-ports.ts",
+      "component": "web-server",
+      "entrypoint": false,
+      "imports": [
+        "packages/web/src/server/goals/goal-constants.ts",
+        "packages/web/src/server/goals/goal-payload.ts",
+        "packages/web/src/server/goals/nna-goal-safety-tick.ts",
+        "packages/web/src/server/goals/objective-store.ts",
+        "packages/web/src/server/queue/queue-adapter-calls.ts"
       ]
     },
     {

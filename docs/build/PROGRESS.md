@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 NNA goal safety ports.** The tested production adapter now
+  maps the pre-audit tick to authenticated NNA session/status/children/messages,
+  owner-scoped evidence, revision-guarded goal writes and generation-keyed
+  local objective reads. Review found NNA ignored the requested message-tail
+  limit, so its harness route now validates and honors `?limit=1..200` without
+  changing omitted-limit behavior. It is not booted yet; unattended dispatch
+  remains off. Verification: 713 web tests, full typecheck/quality gates and
+  393-module graph pass; NNA full suite 1,565 pass / 3 skip / 0 fail.
+
 - 2026-09-25 · **P9 pre-audit NNA safety tick.** A testable server tick now
   waits for authoritative root/child idleness, an available objective and
   safe receipt evidence; it can CAS-settle hard stops after re-reading goal

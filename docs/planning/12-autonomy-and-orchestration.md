@@ -431,6 +431,15 @@ marked skip-audit. Evidence hard stops run before objective-file fetch, so a
 missing objective cannot suppress a budget or failed-turn stop. Event timers
 and the production port adapter are not yet wired.
 
+The production safety-port adapter now maps those reads and CAS writes to
+NNA's authenticated harness transport, including the owner-scoped evidence
+route, the existing session/status/children/messages routes, and the
+generation-keyed local objective store. Per-call fetches are bounded by the
+goal timeout. NNA's message route honors the bounded `?limit=40` tail request;
+without this, old sessions would transfer their full message projection on
+every tick. It is still not started automatically; the event runner and
+auditor/continuation path remain required before enabling autonomy.
+
 #### B.5.5 The evaluator exchange `[HARNESS PORT]` (port P-02 §7.4 small-model)
 
 The audit is a direct small-model call — an independent auditor that sees ONLY the objective
