@@ -8,12 +8,12 @@
  * Exec goes through execFileSync with a 10 s cap; responses are JSON.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync, existsSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, existsSync, lstatSync, statSync } from 'node:fs';
+import { relative, resolve, sep } from 'node:path';
 import type { Hono } from 'hono';
 import { realpath, resolveWithin } from './fs.ts';
 
-function runGit(directory: string, args: string[], input?: string): { ok: true; text: string; buffer?: Buffer } | { ok: false; error: string; code: number | null } {
+function runGit(directory: string, args: string[], input?: string): { ok: true; text: string; buffer?: Buffer } | { ok: false; error: string; code: number | null; stdout?: string } {
   try {
     const text = execFileSync('git', ['-C', directory, ...args], {
       encoding: 'utf8', timeout: EXEC_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
@@ -21,8 +21,8 @@ function runGit(directory: string, args: string[], input?: string): { ok: true; 
     });
     return { ok: true, text };
   } catch (error) {
-    const failure = error as { status?: number; stderr?: string; message?: string };
-    return { ok: false, error: failure.stderr?.trim() || failure.message || 'git failed', code: failure.status ?? null };
+    const failure = error as { status?: number; stderr?: string; stdout?: string; message?: string };
+    return { ok: false, error: failure.stderr?.trim() || failure.message || 'git failed', code: failure.status ?? null, stdout: failure.stdout };
   }
 }
 
@@ -93,7 +93,34 @@ function diffRoute(query: GitQuery): Response {
   if (staged === 'true') args.splice(1, 0, '--cached');
   const result = runGit(directory, args);
   if (!result.ok && result.code !== 0) return Response.json({ error: result.error }, { status: 500 });
-  return Response.json({ diff: result.ok ? result.text : '', path, staged: staged === 'true', contextLines: context });
+  let diff = result.ok ? result.text : '';
+  if (!diff && staged !== 'true') {
+    const untracked = untrackedDiff(root, path, context);
+    if (untracked instanceof Response) return untracked;
+    if (untracked !== null) diff = untracked;
+  }
+  return Response.json({ diff, path, staged: staged === 'true', contextLines: context });
+}
+
+/** Ordinary `git diff` omits untracked files. Produce their read-only
+ * /dev/null patch without staging, but never follow links or read a file
+ * beyond the preview budget. */
+function untrackedDiff(root: string, path: string, context: number): string | Response | null {
+  const candidate = resolve(root, path);
+  const relativePath = relative(root, candidate).split(sep).join('/');
+  const untracked = runGit(root, ['ls-files', '--others', '--exclude-standard', '--', `:(literal)${relativePath}`]);
+  if (!untracked.ok || !untracked.text) return null;
+  const safe = resolveWithin(realpath(root), realpath(candidate));
+  if (safe === null) return denied();
+  try {
+    const info = lstatSync(candidate);
+    if (!info.isFile()) return null;
+    if (info.size > DIFF_MAX_BYTES) return Response.json({ error: 'Diff exceeds preview limit' }, { status: 413 });
+  } catch { return null; }
+  const patch = runGit(root, ['diff', '--no-index', '--no-color', '--full-index', `--unified=${context}`, '--', '/dev/null', relativePath]);
+  if (patch.ok) return patch.text;
+  if (patch.code === 1 && typeof patch.stdout === 'string') return patch.stdout;
+  return Response.json({ error: patch.error }, { status: 500 });
 }
 
 function contextNumber(value: string | undefined): number {

@@ -62,6 +62,10 @@ function route(url: string): Response {
   if (url.includes('/api/git/status')) return jsonResponse(STATUS);
   if (url.includes('/api/git/branches')) return jsonResponse(BRANCHES);
   if (url.includes('/api/git/log')) return jsonResponse(LOG);
+  if (url.includes('/api/git/diff')) {
+    const path = new URL(url, 'http://localhost').searchParams.get('path') ?? 'work.ts';
+    return jsonResponse({ diff: `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n-old\n+new\n` });
+  }
   return jsonResponse({});
 }
 
@@ -115,6 +119,66 @@ function rowOf(path: string, scope: string): HTMLElement {
 }
 
 describe('GitView (doc 06 §6 v1)', () => {
+  it('hides the previous repository rows and preview while a new directory loads', async () => {
+    await render();
+    await settle();
+    await act(async () => {
+      (rowOf('work.ts', 'working').querySelector('[data-testid="git-file-name"]') as HTMLButtonElement).click();
+      await Promise.resolve();
+    });
+    await settle();
+    expect(document.querySelector('[data-testid="git-file-preview"]')).not.toBeNull();
+    const releaseNewStatuses: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(async (input: string) => {
+      const url = String(input);
+      if (url.includes('/api/git/status') && url.includes('directory=%2Fother')) {
+        return new Promise<Response>((resolve) => { releaseNewStatuses.push(resolve); });
+      }
+      return route(url);
+    });
+    act(() => {
+      rootHandle!.render(<I18nProvider><GitView directory="/other" visible /></I18nProvider>);
+    });
+    expect(document.querySelector('[data-testid="git-view-loading"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="git-file-row"]')).toBeNull();
+    expect(document.querySelector('[data-testid="git-file-preview"]')).toBeNull();
+    expect(releaseNewStatuses.length).toBeGreaterThan(0);
+    await act(async () => { for (const release of releaseNewStatuses) release(jsonResponse({ ...STATUS, files: [
+      { path: 'other.ts', index: ' ', working_dir: 'M' },
+    ] })); });
+    await settle();
+    expect(rowOf('other.ts', 'working')).toBeDefined();
+    expect(document.querySelector('[data-path="work.ts"]')).toBeNull();
+    expect(document.querySelector('[data-testid="git-file-preview"]')).toBeNull();
+  });
+
+  it('opens a read-only per-file diff from the filename; staging remains an explicit separate action', async () => {
+    await render(true);
+    await settle();
+    fetchMock.mockClear();
+    await act(async () => {
+      (rowOf('work.ts', 'working').querySelector('[data-testid="git-file-name"]') as HTMLButtonElement).click();
+      await Promise.resolve();
+    });
+    await settle();
+    const preview = document.querySelector('[data-testid="git-file-preview"]') as HTMLElement;
+    expect(preview.dataset.path).toBe('work.ts');
+    expect(preview.dataset.scope).toBe('working');
+    expect(preview.textContent).toContain('old');
+    expect(preview.textContent).toContain('new');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/git/stage')
+      || String(url).includes('/api/git/unstage'))).toBe(false);
+    await act(async () => {
+      (rowOf('staged.ts', 'staged').querySelector('[data-testid="git-file-name"]') as HTMLButtonElement).click();
+      await Promise.resolve();
+    });
+    await settle();
+    expect((document.querySelector('[data-testid="git-file-preview"]') as HTMLElement).dataset.scope).toBe('staged');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/git/diff') && String(url).includes('staged=true'))).toBe(true);
+    act(() => (document.querySelector('button[aria-label="Close diff preview"]') as HTMLButtonElement).click());
+    expect(document.querySelector('[data-testid="git-file-preview"]')).toBeNull();
+  });
+
   it('stacks the commit form below changes in a narrow host', async () => {
     await render(true);
     await settle();

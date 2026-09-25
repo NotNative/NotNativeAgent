@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Changes file preview.** A filename in Git/Changes now opens
+  a read-only, scoped diff preview in the current pane. Stage/Unstage stays
+  on its explicit button, so inspection cannot mutate the index. The preview
+  uses the existing diff parser, bounds large patches, and ignores a stale
+  response after file or project selection changes. Adversarial review fixed
+  stale project rows and added a bounded, read-only patch for untracked files.
+  This is a local review
+  surface, not yet a direct Activity-to-changed-file navigation link.
+
 - 2026-09-25 · **Expandable tool Activity evidence.** NNA now projects a
   bounded, redacted allowlist from authored tool-status events into live
   Activity and saved parent/child snapshots: file-path targets for an explicit

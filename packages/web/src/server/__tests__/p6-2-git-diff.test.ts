@@ -3,7 +3,7 @@
 // §5.6.d): per-file diff w/ --cached, apply-hunk with the exactly-one-hunk
 // rule, stage/unstage/discard, commit; against a REAL temp repo.
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join as joinPath, sep } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -48,6 +48,28 @@ async function applyHunkBootTest(patch: string): Promise<Response> {
 }
 
 describe('git diff + mutations (doc 06 §5.6/§6.4)', () => {
+  it('returns a bounded read-only patch for an untracked file without staging it', async () => {
+    const previewDirectory = joinPath(repoRootPath, 'preview-nested');
+    mkdirSync(previewDirectory);
+    const previewPath = joinPath(previewDirectory, 'preview-untracked.txt');
+    writeFileSync(previewPath, 'new content\n');
+    try {
+      const working = await call(`/api/git/diff${DIRQ}&path=preview-nested%2Fpreview-untracked.txt&staged=false&contextLines=3`);
+      expect(working.status).toBe(200);
+      const patch = await working.json() as { diff: string };
+      expect(patch.diff).toContain('--- /dev/null');
+      expect(patch.diff).toContain('+new content');
+      expect(patch.diff).toContain('b/preview-nested/preview-untracked.txt');
+      execFileSync('git', ['apply', '--cached', '--check', '-'], { cwd: repoRootPath, input: patch.diff });
+      const staged = await (await call(`/api/git/diff${DIRQ}&path=preview-nested%2Fpreview-untracked.txt&staged=true&contextLines=3`)).json() as { diff: string };
+      expect(staged.diff).toBe('');
+      writeFileSync(previewPath, 'x'.repeat(2_000_001));
+      expect((await call(`/api/git/diff${DIRQ}&path=preview-nested%2Fpreview-untracked.txt&staged=false&contextLines=3`)).status).toBe(413);
+    } finally {
+      rmSync(previewDirectory, { recursive: true, force: true });
+    }
+  });
+
   it('diff answers the patch (worktree edit visible; --cached side empty)', async () => {
     writeFileSync(`${repoRootPath}${sep}hello.ts`, 'one\ntwo modified\nthree\n');
     const work = await (await call(`/api/git/diff${DIRQ}&path=hello.ts&staged=false&contextLines=3`)).json() as { diff: string };

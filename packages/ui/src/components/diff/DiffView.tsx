@@ -194,7 +194,7 @@ function EntryRow({ model, entry, containerRef, anchorPendingRef }: EntryRowProp
             : diff.error !== null ? <div className="text-xs text-status-error">{diff.error}</div>
               : diff.binary ? <div className="text-xs text-muted-foreground">Binary file — no diff available</div>
                 : diff.metadata !== null && diff.metadata.hunks.length === 0 ? (
-                  <div className="text-xs text-muted-foreground" data-testid="diff-no-hunks">No textual diff available yet (untracked files carry none until their first staging).</div>
+                  <div className="text-xs text-muted-foreground" data-testid="diff-no-hunks">No textual diff is available for this file.</div>
                 ) : (
                   <DiffViewer
                     fileName={entry.entry.path}

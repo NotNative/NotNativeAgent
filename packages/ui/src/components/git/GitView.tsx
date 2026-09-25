@@ -17,15 +17,27 @@ import {
 import { publishReviewRefresh, useReviewRefreshHints } from '../../lib/git/refresh-hints';
 import { GIT_STATUS_POLL_INTERVAL_MS } from '../../lib/files/edit-support.ts';
 import { GitDialogHost, type GitDialogKind } from './git-dialogs.tsx';
+import { GitFilePreview } from './git-file-preview.tsx';
+
+type SelectedFile = { directory: string; path: string; staged: boolean };
 
 export function GitView({ directory, visible = true, compact = false }: { directory: string; visible?: boolean; compact?: boolean }): ReactNode {
-  const [status, setStatus] = useState<GitStatus | null>(null);
+  const [statusSnapshot, setStatusSnapshot] = useState<{ directory: string; value: GitStatus } | null>(null);
+  const currentDirectory = useRef(directory);
+  currentDirectory.current = directory;
+  const status = statusSnapshot?.directory === directory ? statusSnapshot.value : null;
+  const setStatus = useCallback((targetDirectory: string, next: GitStatus | null): void => {
+    if (next !== null && currentDirectory.current === targetDirectory) {
+      setStatusSnapshot({ directory: targetDirectory, value: next });
+    }
+  }, []);
   const [branch, setBranch] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState<'' | 'commit' | 'stage' | 'revert'>('');
   const [dialog, setDialog] = useState<GitDialogKind>(null);
   const [confirmRevert, setConfirmRevert] = useState<GitStatusFile | null>(null);
+  const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
   const ensureStatus = useGitStore((state) => state.ensureStatus);
   const ensureAll = useGitStore((state) => state.ensureAll);
   const bumpIndexRevision = useGitStore((state) => state.bumpIndexRevision);
@@ -36,10 +48,10 @@ export function GitView({ directory, visible = true, compact = false }: { direct
 
   const refresh = useCallback(async (): Promise<void> => {
     const next = await ensureStatus(directory, 'full');
-    setStatus(next);
+    setStatus(directory, next);
     bumpIndexRevision(directory);
     scheduleGitReconcile(directory);
-  }, [directory, ensureStatus, bumpIndexRevision]);
+  }, [directory, ensureStatus, bumpIndexRevision, setStatus]);
 
   // Reveal + §6.4 cadence: full sweep on mount/reveal, then light reconcile.
   useEffect(() => {
@@ -48,7 +60,7 @@ export function GitView({ directory, visible = true, compact = false }: { direct
     void (async () => {
       const light = await ensureStatus(directory, 'light');
       if (!live) return;
-      setStatus(light);
+      setStatus(directory, light);
       const branches = await fetchGitBranches(directory);
       if (!live) return;
       setBranch(branches?.current ?? null);
@@ -57,14 +69,14 @@ export function GitView({ directory, visible = true, compact = false }: { direct
     const poll = window.setInterval(() => {
       if (document.hidden) return;
       void ensureStatus(directory, 'light').then((next) => {
-        if (live && next !== null) setStatus(next);
+        if (live && next !== null) setStatus(directory, next);
       });
     }, GIT_STATUS_POLL_INTERVAL_MS);
     return () => {
       live = false;
       window.clearInterval(poll);
     };
-  }, [visible, directory, ensureStatus]);
+  }, [visible, directory, ensureStatus, setStatus]);
 
   // Hidden→visible full sweep (§13#1 companion: store caches stay warm).
   useEffect(() => {
@@ -77,7 +89,7 @@ export function GitView({ directory, visible = true, compact = false }: { direct
   useReviewRefreshHints(directory, visible, () => {
     useGitStore.getState().invalidateStatus(directory);
     void ensureStatus(directory, 'light').then((next) => {
-      if (next !== null) setStatus(next);
+      if (next !== null) setStatus(directory, next);
     });
     void fetchGitBranches(directory).then((next) => setBranch(next?.current ?? null));
   });
@@ -85,6 +97,8 @@ export function GitView({ directory, visible = true, compact = false }: { direct
   const grouped = status !== null ? groupedStatusFiles(status) : { staged: [], working: [] };
   const staged = grouped.staged;
   const working = grouped.working;
+  const shownFile = selectedFile?.directory === directory &&
+    (selectedFile.staged ? staged : working).some((entry) => entry.path === selectedFile.path) ? selectedFile : null;
 
   const withBusy = useCallback(async (kind: 'commit' | 'stage' | 'revert', run: () => Promise<void>): Promise<void> => {
     setBusy(kind);
@@ -104,14 +118,14 @@ export function GitView({ directory, visible = true, compact = false }: { direct
         else await unstageGitFiles(directory, paths);
         bumpIndexRevision(directory);
         scheduleGitReconcile(directory);
-        setStatus(await ensureStatus(directory, 'full'));
+        setStatus(directory, await ensureStatus(directory, 'full'));
         publishReviewRefresh(directory, paths, 'git-mutation');
       } catch {
         if (before !== null) restore(directory, before);
         toast.error(direction === 'stage' ? 'Failed to stage file' : 'Failed to unstage file');
       }
     });
-  }, [directory, moveOptimistic, restore, bumpIndexRevision, ensureStatus, withBusy]);
+  }, [directory, moveOptimistic, restore, bumpIndexRevision, ensureStatus, withBusy, setStatus]);
 
   const discardWithHint = useCallback((paths: string[]): void => {
     void withBusy('revert', async () => {
@@ -141,7 +155,7 @@ export function GitView({ directory, visible = true, compact = false }: { direct
     });
   }, [directory, message, refresh, withBusy, bumpIndexRevision]);
 
-  if (loading) {
+  if (loading || statusSnapshot?.directory !== directory) {
     return <Centered label="Checking repository..." testid="git-view-loading" />;
   }
   if (status === null || status.isGitRepository === false) {
@@ -171,6 +185,8 @@ export function GitView({ directory, visible = true, compact = false }: { direct
                 key={`staged:${entry.path}`}
                 entry={entry}
                 staged
+                selected={shownFile?.path === entry.path && shownFile.staged}
+                onOpen={() => setSelectedFile({ directory, path: entry.path, staged: true })}
                 onStageToggle={() => stageWithHint([entry.path], 'unstage')}
                 onRevert={() => setConfirmRevert(entry)}
               />
@@ -187,6 +203,8 @@ export function GitView({ directory, visible = true, compact = false }: { direct
                 key={`working:${entry.path}`}
                 entry={entry}
                 staged={false}
+                selected={shownFile?.path === entry.path && !shownFile.staged}
+                onOpen={() => setSelectedFile({ directory, path: entry.path, staged: false })}
                 onStageToggle={() => stageWithHint([entry.path], 'stage')}
                 onRevert={() => setConfirmRevert(entry)}
               />
@@ -194,7 +212,9 @@ export function GitView({ directory, visible = true, compact = false }: { direct
             {working.length === 0 ? <EmptyLine label="No changes" /> : null}
           </Section>
         </div>
-        <aside className={`flex shrink-0 flex-col gap-3 ${compact ? 'w-full' : 'w-72'}`}>
+        <aside className={`flex min-h-0 shrink-0 flex-col gap-3 overflow-y-auto ${compact ? 'w-full' : shownFile ? 'w-[min(45vw,520px)]' : 'w-72'}`}>
+          {shownFile ? <GitFilePreview key={`${directory}\u0000${shownFile.path}\u0000${shownFile.staged}`} directory={directory}
+            path={shownFile.path} staged={shownFile.staged} revision={status} onClose={() => setSelectedFile(null)} /> : null}
           <div className="rounded-lg border border-border/60 bg-card/40 p-3">
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Commit</div>
             <textarea
@@ -283,9 +303,11 @@ function Section({
   );
 }
 
-function FileRow({ entry, staged, onStageToggle, onRevert }: {
+function FileRow({ entry, staged, selected, onOpen, onStageToggle, onRevert }: {
   entry: GitStatusFile;
   staged: boolean;
+  selected: boolean;
+  onOpen: () => void;
   onStageToggle: () => void;
   onRevert: () => void;
 }): ReactNode {
@@ -298,7 +320,9 @@ function FileRow({ entry, staged, onStageToggle, onRevert }: {
         className="min-w-0 flex-1 truncate text-left text-xs text-foreground hover:text-primary"
         title={entry.path}
         data-testid="git-file-name"
-        onClick={onStageToggle}
+        aria-label={`View diff for ${entry.path} (${staged ? 'staged' : 'working'})`}
+        aria-pressed={selected}
+        onClick={onOpen}
       >
         {entry.path}
       </button>
