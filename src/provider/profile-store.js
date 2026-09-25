@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { resolveManifest } from '../config.js';
 import { ContractError } from '../ids.js';
-import { persistManifest, withPrimaryRoute, withProvider, withUpdatedProvider, withoutProvider } from './route-configuration.js';
+import { persistManifest, withPrimaryRoute, withRoleRoute, withProvider, withUpdatedProvider, withoutProvider } from './route-configuration.js';
 import { CredentialResolver, credentialManifest, normalizeCredentialBinding } from '../credential-bindings.js';
 
 const FILE_LIMIT = 1_048_576;
@@ -63,11 +63,18 @@ export class ProviderProfileStore {
   }
 
   setPrimaryRoute(providerId, model) {
-    if (typeof providerId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/u.test(providerId)
-      || typeof model !== 'string' || !model.trim() || model.length > 4096) {
-      throw new ContractError('provider_request_invalid', 'provider_id and model must be bounded non-empty strings');
-    }
+    validateRoute(providerId, model);
     return this.#mutate((config) => withPrimaryRoute(config, providerId, model), { route: true });
+  }
+
+  async subagentRoute() {
+    const route = (await this.#read()).routes.subagent;
+    return { providerID: route.providerId, modelID: route.model };
+  }
+
+  setSubagentRoute(providerId, model) {
+    validateRoute(providerId, model);
+    return this.#mutate((config) => withRoleRoute(config, 'subagent', providerId, model), { routeRole: 'subagent' });
   }
 
   async credential(id) {
@@ -120,6 +127,10 @@ export class ProviderProfileStore {
       if (options.route) return {
         providerID: result.config.routes.primary.providerId, modelID: result.config.routes.primary.model,
       };
+      if (options.routeRole) {
+        const route = result.config.routes[options.routeRole];
+        return { providerID: route.providerId, modelID: route.model };
+      }
       const profile = result.config.providerProfiles[options.profileId] ?? null;
       return profile ? publicProfile(profile, result.config.routes.primary.providerId === profile.id) : null;
     });
@@ -186,6 +197,12 @@ function validateInputValues(input, creating) {
 }
 
 function assign(target, key, value) { if (value !== undefined) target[key] = value; }
+function validateRoute(providerId, model) {
+  if (typeof providerId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/u.test(providerId)
+    || typeof model !== 'string' || !model.trim() || model.length > 4096) {
+    throw new ContractError('provider_request_invalid', 'provider_id and model must be bounded non-empty strings');
+  }
+}
 function digest(value) { return createHash('sha256').update(value).digest('hex'); }
 
 function requireProfile(config, id) {

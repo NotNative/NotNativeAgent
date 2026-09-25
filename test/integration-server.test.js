@@ -336,6 +336,46 @@ test('NND agent inventory exposes built-in roles and the running delegation rout
   } finally { await service.close(); }
 });
 
+test('subagent route edits are authorized, durable, and separate from running delegation', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-subagent-route-'));
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
+  const store = new ProviderProfileStore({ configRoot });
+  const host = { nndAgentInventory: { route: { providerID: 'one', modelID: 'one' } } };
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
+    nndEngineHost: host, providerStore: store, port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    const reader = principal(['provider.read']);
+    const manager = principal(['provider.read', 'provider.route.manage']);
+    assert.deepEqual((await request(base, '/v1/provider-route/subagent', reader)).value, {
+      configured_route: { providerID: 'one', modelID: 'one' }, runtime_route: { providerID: 'one', modelID: 'one' },
+    });
+    assert.equal((await request(base, '/v1/provider-route/subagent', reader, {
+      method: 'PATCH', body: { provider_id: 'two', model: 'other' },
+    })).status, 403);
+    assert.equal((await request(base, '/v1/provider-route/subagent', manager, {
+      method: 'PATCH', body: { provider_id: 'missing', model: 'other' },
+    })).status, 404);
+    assert.equal((await request(base, '/v1/provider-route/subagent', manager, {
+      method: 'PATCH', body: { provider_id: 'two', model: 'other', credential: 'bad' },
+    })).status, 400);
+    const saved = await request(base, '/v1/provider-route/subagent', manager, {
+      method: 'PATCH', body: { provider_id: 'two', model: 'other' },
+    });
+    assert.deepEqual(saved.value, {
+      configured_route: { providerID: 'two', modelID: 'other' }, runtime_route: { providerID: 'one', modelID: 'one' },
+    });
+    assert.deepEqual((await request(base, '/v1/provider-route/subagent', reader)).value.configured_route,
+      { providerID: 'two', modelID: 'other' });
+    assert.deepEqual((await store.config()).routes.subagent.model, 'other');
+    assert.deepEqual((await store.config()).routes.primary.model, 'one');
+  } finally { await service.close(); }
+});
+
 test('NND harness session routes bind creation to the complete principal workspace grant', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-harness-'));
   const configRoot = join(root, 'config');

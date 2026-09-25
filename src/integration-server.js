@@ -57,9 +57,8 @@ async function dispatch(request, response, context) {
 }
 
 export async function dispatchProviderRequest(request, response, context) {
-  if (context.url.pathname === '/v1/provider-route/activate') {
-    return dispatchProviderActivation(request, response, context);
-  }
+  if (context.url.pathname === '/v1/provider-route/subagent') return dispatchSubagentRoute(request, response, context);
+  if (context.url.pathname === '/v1/provider-route/activate') return dispatchProviderActivation(request, response, context);
   if (context.url.pathname === '/v1/provider-route') {
     if (request.method !== 'PATCH') return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
     requireIntegrationPermission(context.principal, 'provider.route.manage');
@@ -114,6 +113,27 @@ export async function dispatchProviderRequest(request, response, context) {
     });
   }
   return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
+}
+
+async function dispatchSubagentRoute(request, response, context) {
+  const { principal, providerStore } = context;
+  if (request.method !== 'GET' && request.method !== 'PATCH') {
+    return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
+  }
+  requireIntegrationPermission(principal, request.method === 'GET' ? 'provider.read' : 'provider.route.manage');
+  if (typeof providerStore?.subagentRoute !== 'function' || typeof providerStore?.setSubagentRoute !== 'function') {
+    throw new ContractError('provider_store_unavailable', 'provider route management is unavailable');
+  }
+  if (request.method === 'GET') return send(response, 200, {
+    configured_route: await providerStore.subagentRoute(), runtime_route: context.nndEngineHost?.nndAgentInventory?.route ?? null,
+  });
+  const body = await readJsonBody(request);
+  if (!body || typeof body !== 'object' || Array.isArray(body)
+    || Object.keys(body).some((key) => !['provider_id', 'model'].includes(key))) {
+    throw new ContractError('provider_request_invalid', 'route request contains invalid fields');
+  }
+  const configured = await providerStore.setSubagentRoute(body.provider_id, body.model);
+  return send(response, 200, { configured_route: configured, runtime_route: context.nndEngineHost?.nndAgentInventory?.route ?? null });
 }
 
 function requireProviderProfileWrite(principal) {
