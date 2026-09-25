@@ -175,7 +175,7 @@ describe('OperatorRail', () => {
     rootHandle = createRoot(container);
     act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
     act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
-    act(() => (document.querySelector('[data-testid="operator-activity"] button') as HTMLButtonElement).click());
+    act(() => ([...document.querySelectorAll('[data-testid="operator-activity"] button')].find((button) => button.textContent === 'Failures') as HTMLButtonElement).click());
     const activity = document.querySelector('[data-testid="operator-activity"]')!;
     expect(activity.textContent).toContain('Command failed');
     expect(activity.textContent).not.toContain('Applied patch');
@@ -183,6 +183,54 @@ describe('OperatorRail', () => {
     act(() => store.getState().patch({ activity: [{ id: 'completed', sessionID: 's1', time: 1, kind: 'tool', status: 'completed', summary: 'Applied patch' }] }));
     expect(activity.textContent).toContain('No failed activity evidence has been received for this session.');
     expect(activity.textContent).not.toContain('No activity evidence has been received for this session.');
+  });
+
+  it('filters authored categories and follows the live tail only while the reader is at the bottom', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ activity: [
+      { id: 'turn-1', sessionID: 's1', time: 1, kind: 'turn', status: 'started', summary: 'Started work' },
+      { id: 'tool-1', sessionID: 's1', time: 2, kind: 'tool', status: 'completed', summary: 'Read file' },
+    ] });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    const activity = document.querySelector('[data-testid="operator-activity"]')!;
+    const rows = document.querySelector('[data-testid="activity-rows"]') as HTMLOListElement;
+    Object.defineProperty(rows, 'scrollHeight', { configurable: true, value: 300 });
+    Object.defineProperty(rows, 'clientHeight', { configurable: true, value: 100 });
+    expect(rows.textContent).toContain('Started work');
+    expect(rows.textContent).toContain('Read file');
+    expect(rows.textContent!.indexOf('Started work')).toBeLessThan(rows.textContent!.indexOf('Read file'));
+    act(() => ([...activity.querySelectorAll('button')].find((button) => button.textContent === 'Tools') as HTMLButtonElement).click());
+    expect(rows.textContent).not.toContain('Started work');
+    expect(rows.textContent).toContain('Read file');
+    act(() => ([...activity.querySelectorAll('button')].find((button) => button.textContent === 'All') as HTMLButtonElement).click());
+
+    // Browsing old entries must not jump when a new frame arrives.
+    act(() => { rows.scrollTop = 0; rows.dispatchEvent(new Event('scroll', { bubbles: true })); });
+    act(() => store.getState().patch({ activity: [
+      ...store.getState().activity,
+      { id: 'tool-2', sessionID: 's1', time: 3, kind: 'tool', status: 'started', summary: 'Run tests' },
+    ] }));
+    expect(rows.scrollTop).toBe(0);
+    expect((document.querySelector('[data-testid="activity-jump-live"]') as HTMLButtonElement).textContent).toContain('1 new event');
+    act(() => (document.querySelector('[data-testid="activity-jump-live"]') as HTMLButtonElement).click());
+    expect(rows.scrollTop).toBe(300);
+    expect(document.querySelector('[data-testid="activity-jump-live"]')).toBeNull();
+
+    // The bounded activity store can replace an old row with a new row while
+    // keeping the total count constant. That arrival still needs a badge.
+    act(() => { rows.scrollTop = 0; rows.dispatchEvent(new Event('scroll', { bubbles: true })); });
+    act(() => store.getState().patch({ activity: [
+      ...store.getState().activity.slice(1),
+      { id: 'tool-3', sessionID: 's1', time: 4, kind: 'tool', status: 'started', summary: 'Review tests' },
+    ] }));
+    expect((document.querySelector('[data-testid="activity-jump-live"]') as HTMLButtonElement).textContent).toContain('1 new event');
+    act(() => store.getState().patch({ activity: store.getState().activity.map((record) => record.id === 'tool-3'
+      ? { ...record, status: 'completed', summary: 'Reviewed tests' } : record) }));
+    expect((document.querySelector('[data-testid="activity-jump-live"]') as HTMLButtonElement).textContent).toContain('1 new event');
   });
 
   it('loads the new directory preference without overwriting it during a live directory switch', () => {

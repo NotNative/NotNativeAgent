@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Activity live-tail rail.** The session Activity surface now
+  keeps authored evidence in arrival order, offers All/Turns/Tools/Notices/
+  Failures filters, and follows the latest row only while the reader remains
+  at the bottom. Scrolling into history holds position and reveals a counted
+  Jump to live action when new rows arrive. Harness-authored redactions and
+  corrections still replace evidence by stable id; no transcript text is
+  inferred into the log.
+
 - 2026-09-25 · **Live delegated status in Context.** Subagent rows now
   subscribe to the global live-status projection. Pending permission and
   question evidence outrank a concurrent busy status. An explicit idle record

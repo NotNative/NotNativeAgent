@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Docked operator surfaces. Activity consumes explicit harness evidence only. */
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
@@ -74,7 +74,7 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
             }}>{item.label.slice(0, 1)}</button>
         ))}
       </nav>
-      <div className="min-w-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         {surface === 'context' ? <WorkStatusPanel store={store} engine={engine} embedded /> : null}
         {surface === 'activity' ? <ActivitySurface store={store} /> : null}
         {surface === 'changes' ? <GitView directory={directory} visible compact /> : null}
@@ -108,15 +108,63 @@ function surfaceStorageKey(directory: string): string {
   return `nnd.operator-rail.surface:${normalized}`;
 }
 
+type ActivityFilter = 'all' | 'turn' | 'tool' | 'notice' | 'failed';
+const ACTIVITY_FILTERS: readonly { id: ActivityFilter; label: string }[] = [
+  { id: 'all', label: 'All' }, { id: 'turn', label: 'Turns' }, { id: 'tool', label: 'Tools' },
+  { id: 'notice', label: 'Notices' }, { id: 'failed', label: 'Failures' },
+];
+
 function ActivitySurface({ store }: { store: StoreApi<DirectoryStore> }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
-  const [showFailuresOnly, setShowFailuresOnly] = useState(false);
-  // The activity rail follows the selected transcript.  Reversing ingestion
-  // order keeps the newest received evidence first without relying on clocks
-  // that may differ during a replay.
-  const records = snapshot.activity.filter((record) => record.sessionID === view.currentSessionId && (!showFailuresOnly || record.status === 'failed')).reverse();
-  return <section className="p-3" data-testid="operator-activity"><header className="mb-3 flex items-center gap-2"><h2 className="text-xs font-medium text-neutral-200">Activity</h2><button type="button" className="ml-auto text-[10px] text-neutral-500" aria-pressed={showFailuresOnly} onClick={() => setShowFailuresOnly(!showFailuresOnly)}>{showFailuresOnly ? 'All events' : 'Failures only'}</button></header>
-    {records.length === 0 ? <p className="text-[11px] text-neutral-500">{showFailuresOnly ? 'No failed activity evidence has been received for this session.' : 'No activity evidence has been received for this session.'}</p> : <ol className="flex flex-col gap-2">{records.map((record) => <li key={record.id} className="rounded border border-white/10 bg-neutral-900/40 p-2 text-[11px]"><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span>{record.status}</span></div><p className="mt-1 text-neutral-300">{record.summary}</p></li>)}</ol>}
+  const [filter, setFilter] = useState<ActivityFilter>('all');
+  const [unseen, setUnseen] = useState(0);
+  const viewport = useRef<HTMLOListElement>(null);
+  const following = useRef(true);
+  const previous = useRef({ key: '', ids: new Set<string>() });
+  // Preserve the harness's arrival order. The source merges corrections in
+  // place, so a redaction does not masquerade as a newly emitted row.
+  const records = useMemo(() => snapshot.activity.filter((record) => record.sessionID === view.currentSessionId
+    && (filter === 'all' || (filter === 'failed' ? record.status === 'failed' : record.kind === filter))),
+  [snapshot.activity, view.currentSessionId, filter]);
+  const key = `${view.currentSessionId ?? ''}\u0000${filter}`;
+  useEffect(() => {
+    const viewportNode = viewport.current;
+    if (previous.current.key !== key) {
+      previous.current = { key, ids: new Set(records.map((record) => record.id)) };
+      following.current = true;
+      setUnseen(0);
+      if (viewportNode) viewportNode.scrollTop = viewportNode.scrollHeight;
+      return;
+    }
+    // The harness bounds activity to 500 rows. A fresh row can evict the
+    // oldest one, leaving the length unchanged while the reader is away.
+    const added = records.filter((record) => !previous.current.ids.has(record.id)).length;
+    previous.current.ids = new Set(records.map((record) => record.id));
+    if (following.current) {
+      if (viewportNode) viewportNode.scrollTop = viewportNode.scrollHeight;
+      setUnseen(0);
+    } else if (added > 0) setUnseen((count) => count + added);
+  }, [key, records]);
+  return <section className="flex h-full min-h-0 flex-col" data-testid="operator-activity">
+    <header className="shrink-0 border-b border-white/10 p-3 pb-2">
+      <div className="mb-2 flex items-center justify-between"><h2 className="text-xs font-medium text-neutral-200">Activity log</h2><span className="text-[10px] text-neutral-500">{records.length} events</span></div>
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Filter activity">
+        {ACTIVITY_FILTERS.map((option) => <button key={option.id} type="button" aria-pressed={filter === option.id}
+          className={`rounded px-1.5 py-1 text-[10px] ${filter === option.id ? 'bg-white/15 text-white' : 'text-neutral-500 hover:text-neutral-200'}`}
+          onClick={() => setFilter(option.id)}>{option.label}</button>)}
+      </div>
+    </header>
+    <ol ref={viewport} className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3" data-testid="activity-rows"
+      onScroll={(event) => {
+        const node = event.currentTarget;
+        following.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 24;
+        if (following.current) setUnseen(0);
+      }}>
+      {records.length === 0 ? <li className="text-[11px] text-neutral-500">{filter === 'all' ? 'No activity evidence has been received for this session.' : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
+        : records.map((record) => <li key={record.id} className="rounded border border-white/10 bg-neutral-900/40 p-2 text-[11px]"><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p></li>)}
+    </ol>
+    {unseen > 0 ? <button type="button" className="m-2 shrink-0 rounded border border-white/15 bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200" data-testid="activity-jump-live"
+      onClick={() => { following.current = true; if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight; setUnseen(0); }}>↓ {unseen} new {unseen === 1 ? 'event' : 'events'} · Jump to live</button> : null}
   </section>;
 }
