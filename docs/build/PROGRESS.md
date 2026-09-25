@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Notes read-safety.** General Notes, project Todos, and the
+  plan editor now treat only an explicit file-service `not-found` response as
+  a new blank document. Access failures, missing API routes, and malformed
+  todo data remain read-only instead of exposing a blank editor that could
+  overwrite an existing project file. Focused UI regressions cover denied and
+  ambiguous reads; the plan editor disables edits/saves until a valid load.
+
 - 2026-09-25 · **NNA governance in Context.** NNA now publishes only its
   review-posture enum and classified governance-record health/counts in
   authenticated session metadata. The Context rail shows those NNA-owned

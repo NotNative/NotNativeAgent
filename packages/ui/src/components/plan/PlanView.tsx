@@ -12,7 +12,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPlanSaveQueue, PLAN_AUTOSAVE_DEBOUNCE_MS, planEpochFor, sessionPlanPath } from '../../lib/plan/save-queue.ts';
-import { readFileText, writeFileText } from '../../lib/files/api.ts';
+import { FileReadError, readFileText, writeFileText } from '../../lib/files/api.ts';
 import { getRuntimeKey } from '../../lib/runtime-switch.ts';
 import { useI18n } from '../I18nProvider.tsx';
 import { beginCommentFromSelection, InlineComments } from '../comments/InlineComments.tsx';
@@ -44,6 +44,7 @@ interface PlanUi {
   setContent: (text: string) => void;
   setDirty: (dirty: boolean) => void;
   setSaveError: (error: string | null) => void;
+  setLoadError: (error: string | null) => void;
 }
 
 function documentKey(path: string, runtimeKey: string): string {
@@ -111,7 +112,7 @@ function planApplyLoaded(refs: PlanRefs, ui: PlanUi, directory: string, runtimeK
   refs.scheduled.current = text; // unchanged content skips the redundant first write
   refs.revision.current = 0;
   refs.buffer.current = { directory, docPath: path, runtimeKey, content: text };
-  ui.setDocPath(path); ui.setContent(text); ui.setDirty(false); ui.setSaveError(null);
+  ui.setDocPath(path); ui.setContent(text); ui.setDirty(false); ui.setSaveError(null); ui.setLoadError(null);
 }
 
 function planOnEdit(refs: PlanRefs, ui: PlanUi, settle: (error: string | null) => void, next: string): void {
@@ -132,13 +133,25 @@ function usePlanDocumentLoad(refs: PlanRefs, ui: PlanUi, settle: (error: string 
     if (!visible) return undefined;
     const seq = refs.loadSeq.current + 1;
     refs.loadSeq.current = seq;
+    refs.buffer.current = null;
+    ui.setDocPath(null); ui.setContent(''); ui.setDirty(false); ui.setLoadError(null);
     void (async (): Promise<void> => {
       const { path, key } = sessionPlanFile(directory, runtimeKey);
-      await planQueue.pendingFor(key); // §8.1: a re-open reads post-write state
-      planQueue.reset(key); // fresh revision series after the fresh load
-      const text = await readFileText(directory, path).catch(() => ''); // missing plan: blank, authored on save
-      if (seq !== refs.loadSeq.current) return; // stale load lost the switch race
-      planApplyLoaded(refs, ui, directory, runtimeKey, path, text);
+      try {
+        await planQueue.pendingFor(key); // §8.1: a re-open reads post-write state
+        planQueue.reset(key); // fresh revision series after the fresh load
+        let text: string;
+        try {
+          text = await readFileText(directory, path);
+        } catch (error) {
+          if (!(error instanceof FileReadError && error.status === 404 && error.reason === 'not-found')) throw error;
+          text = ''; // confirmed missing plan: blank, authored on save
+        }
+        if (seq !== refs.loadSeq.current) return; // stale load lost the switch race
+        planApplyLoaded(refs, ui, directory, runtimeKey, path, text);
+      } catch (error) {
+        if (seq === refs.loadSeq.current) ui.setLoadError(error instanceof Error ? error.message : String(error));
+      }
     })();
     return () => {
       planStopTimer(refs); // §8.3: switch/unmount clears the stale debounce…
@@ -147,16 +160,16 @@ function usePlanDocumentLoad(refs: PlanRefs, ui: PlanUi, settle: (error: string 
   }, [directory, visible, runtimeKey, refs, ui, settle]);
 }
 
-function PlanHeader(props: { title: string; fileLabel: string; dirty: boolean; saveError: string | null; statusSaveFailed: string; statusUnsaved: string; statusSaved: string; saveNow: string; onSaveNow: () => void }): ReactNode {
-  const { title, fileLabel, dirty, saveError, statusSaveFailed, statusUnsaved, statusSaved, saveNow, onSaveNow } = props;
+function PlanHeader(props: { title: string; fileLabel: string; dirty: boolean; saveError: string | null; loadError: string | null; statusSaveFailed: string; statusUnsaved: string; statusSaved: string; saveNow: string; disabled: boolean; onSaveNow: () => void }): ReactNode {
+  const { title, fileLabel, dirty, saveError, loadError, statusSaveFailed, statusUnsaved, statusSaved, saveNow, disabled, onSaveNow } = props;
   return (
     <header className="flex min-w-0 items-center gap-2">
       <span className="min-w-0 truncate text-sm font-medium text-foreground" title={title}>{title}</span>
       <span className="min-w-0 truncate text-[10px] text-muted-foreground" title={fileLabel}>{fileLabel}</span>
-      <span className="ml-auto shrink-0 text-[10px] text-muted-foreground" data-testid="plan-save-status" title={saveError ?? undefined}>
-        {saveError !== null ? statusSaveFailed : dirty ? statusUnsaved : statusSaved}
+      <span className="ml-auto shrink-0 text-[10px] text-muted-foreground" data-testid="plan-save-status" title={loadError ?? saveError ?? undefined}>
+        {loadError !== null ? 'Load failed' : disabled ? 'Loading…' : saveError !== null ? statusSaveFailed : dirty ? statusUnsaved : statusSaved}
       </span>
-      <button type="button" className="shrink-0 rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" onClick={onSaveNow}>
+      <button type="button" disabled={disabled} className="shrink-0 rounded border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50" onClick={onSaveNow}>
         {saveNow}
       </button>
     </header>
@@ -173,12 +186,13 @@ export function PlanView(props: PlanViewProps): ReactNode {
   const [content, setContent] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const planTextRef = useRef<HTMLTextAreaElement | null>(null);
   const refs: PlanRefs = useRef({
     buffer: { current: null }, baseline: { current: '' }, scheduled: { current: '' },
     revision: { current: 0 }, timer: { current: null }, loadSeq: { current: 0 },
   } satisfies PlanRefs).current;
-  const ui = useMemo<PlanUi>(() => ({ setDocPath, setContent, setDirty, setSaveError }), []); // setState identities are stable
+  const ui = useMemo<PlanUi>(() => ({ setDocPath, setContent, setDirty, setSaveError, setLoadError }), []); // setState identities are stable
   const settle = useCallback((error: string | null): void => {
     setSaveError(error);
     if (error === null) setDirty(refs.buffer.current !== null && refs.buffer.current.content !== refs.baseline.current);
@@ -193,7 +207,7 @@ export function PlanView(props: PlanViewProps): ReactNode {
   return (
     <div className="flex h-full min-h-0 flex-col gap-2 px-3 pb-3 pt-2" data-testid="plan-view" data-plan-host="">
       <PlanHeader
-        title={title} fileLabel={label} dirty={dirty} saveError={saveError}
+        title={title} fileLabel={label} dirty={dirty} saveError={saveError} loadError={loadError} disabled={docPath === null}
         statusSaveFailed={t('plan.saveFailed')} statusUnsaved={t('plan.unsaved')}
         statusSaved={t('plan.saved')} saveNow={t('plan.save')}
         onSaveNow={() => planFlush(refs, settle)}
@@ -203,6 +217,7 @@ export function PlanView(props: PlanViewProps): ReactNode {
         className="min-h-0 flex-1 resize-none rounded-lg border border-border/60 bg-card/40 p-3 font-mono text-xs text-foreground outline-none"
         style={{ whiteSpace: 'pre-wrap' }}
         value={content}
+        disabled={docPath === null}
         spellCheck={false}
         data-language="markdown"
         onChange={(event) => planOnEdit(refs, ui, settle, event.target.value)}

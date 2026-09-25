@@ -50,7 +50,9 @@ function routeFetch(input: string, init?: RequestInit): Response | Promise<Respo
     if (directoryOf(url) === '/proj-a') {
       return { ok: true, status: 200, text: async () => CONTENT_A } as unknown as Response;
     }
-    return { ok: false, status: 404, text: async () => '' } as unknown as Response; // missing plan: blank
+    if (directoryOf(url) === '/proj-e') return errorResponse(403, { error: 'Access denied' });
+    if (directoryOf(url) === '/proj-f') return errorResponse(404, { error: 'Not Found' });
+    return errorResponse(404, { error: 'File not found', reason: 'not-found' }); // missing plan: blank
   }
   if (url.includes('/api/fs/write')) {
     orderLog.push(`write:${directoryOf(url)}:${pathOf(url)}`);
@@ -68,7 +70,11 @@ function routeFetch(input: string, init?: RequestInit): Response | Promise<Respo
 }
 
 function failResponse(body: unknown): Response {
-  const response = { ok: false, status: 500, json: async () => body } as Response & { clone?: () => unknown };
+  return errorResponse(500, body);
+}
+
+function errorResponse(status: number, body: unknown): Response {
+  const response = { ok: false, status, json: async () => body } as Response & { clone?: () => unknown };
   response.clone = () => response; // runtimeFetch's readError() clones before parsing
   return response as unknown as Response;
 }
@@ -163,6 +169,22 @@ describe('PlanView flow (doc 06 §8 subset)', () => {
     await flushTimers(500);
     expect(writeBodyLog).toEqual([{ directory: '/proj-b', path: planPath('/proj-b'), content: 'first draft\n' }]);
     expect(document.querySelector('[data-testid="plan-save-status"]')?.textContent).toBe('Saved');
+  });
+
+  it('does not treat denied or unknown-endpoint reads as blank plans to overwrite', async () => {
+    for (const directory of ['/proj-e', '/proj-f']) {
+      await render(directory);
+      const status = document.querySelector('[data-testid="plan-save-status"]') as HTMLElement;
+      expect(status.textContent).toBe('Load failed');
+      expect((document.querySelector('[data-plan-host] textarea') as HTMLTextAreaElement).disabled).toBe(true);
+      expect(([...document.querySelectorAll('button')].find((button) => button.textContent === 'Save now') as HTMLButtonElement).disabled).toBe(true);
+      await flushTimers(500);
+      expect(writeBodyLog).toHaveLength(0);
+      await act(async () => rootHandle?.unmount());
+      rootHandle = null;
+      container?.remove();
+      container = null;
+    }
   });
 
   it('flushes the OLD buffer on switch and never lets a stale debounce cross documents', async () => {

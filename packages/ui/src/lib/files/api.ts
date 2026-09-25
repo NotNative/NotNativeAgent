@@ -27,6 +27,10 @@ export async function searchWorkspaceFiles(directory: string, query: string, lim
 
 export interface FileStat { path: string; isFile: boolean; exists?: boolean; size: number; mtimeMs: number }
 
+export class FileReadError extends Error {
+  constructor(message: string, readonly status: number, readonly reason?: string) { super(message); this.name = 'FileReadError'; }
+}
+
 export async function readFileStat(directory: string, path: string, optional = false): Promise<FileStat | null> {
   const optionalFlag = optional ? '&optional=true' : '';
   const response = await runtimeFetch(`/api/fs/stat?directory=${encodeURIComponent(directory)}&path=${encodeURIComponent(path)}${optionalFlag}`);
@@ -38,7 +42,10 @@ export async function readFileStat(directory: string, path: string, optional = f
 export async function readFileText(directory: string, path: string, fresh = false): Promise<string> {
   const headers = fresh ? { 'cache-control': 'no-store' } : undefined;
   const response = await runtimeFetch(`/api/fs/read?directory=${encodeURIComponent(directory)}&path=${encodeURIComponent(path)}`, { headers });
-  if (!response.ok) throw new Error(await readError(response) ?? 'Failed to read file');
+  if (!response.ok) {
+    const detail = await readErrorDetails(response);
+    throw new FileReadError(detail.error ?? 'Failed to read file', response.status, detail.reason);
+  }
   return await response.text();
 }
 
@@ -85,10 +92,14 @@ export async function renameEntry(directory: string, oldPath: string, newPath: s
 }
 
 async function readError(response: Response): Promise<string | null> {
+  return (await readErrorDetails(response)).error;
+}
+
+async function readErrorDetails(response: Response): Promise<{ error: string | null; reason?: string }> {
   try {
-    const body = await response.clone().json() as { error?: string };
-    return typeof body.error === 'string' ? body.error : null;
+    const body = await response.clone().json() as { error?: string; reason?: string };
+    return { error: typeof body.error === 'string' ? body.error : null, reason: typeof body.reason === 'string' ? body.reason : undefined };
   } catch {
-    return null;
+    return { error: null };
   }
 }
