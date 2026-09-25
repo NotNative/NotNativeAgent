@@ -21,6 +21,7 @@ import type { ModelSelection } from './model-picker.tsx';
 import { toast } from 'sonner';
 import { recapFor } from './work-status.ts';
 import { useGlobalSessionsStore } from '../sync/global-stores.ts';
+import { ChildSessionControls } from './child-session-controls.tsx';
 
 /** §E.3/§E.4 band: recap note + suggestion chip (chip FILLS, never sends). */
 function RecapNote({ pair }: { pair: { recap: string; suggestion: string } }): ReactNode {
@@ -137,7 +138,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
           {!expanded && shownRef.sessionID && recapFor(shownRef.store.getState(), shownRef.sessionID) ? (
             <RecapNote pair={recapFor(shownRef.store.getState(), shownRef.sessionID)!} />
           ) : null}
-          {sessionMetadataLoading ? <div className="text-xs text-neutral-500" data-testid="session-metadata-loading">Session access metadata is loading.</div> : isChildSession ? <div className="text-xs text-neutral-500" data-testid="subagent-read-only">Subagent transcript is read-only. Steering is unavailable until NNA explicitly authorizes this session.</div> : <Composer
+          {sessionMetadataLoading ? <div className="text-xs text-neutral-500" data-testid="session-metadata-loading">Session access metadata is loading.</div> : isChildSession && shownRef.sessionID ? <ChildSessionControls key={`${shownRef.directory}\n${shownRef.sessionID}`} sessionID={shownRef.sessionID} directory={shownRef.directory} /> : <Composer
             services={props.services}
             sessionID={shownRef.sessionID}
             directory={shownRef.directory}

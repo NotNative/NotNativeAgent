@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA-governed subagent transcript steering.** NNA now lists
+  active and recently completed child sessions under their parent and serves a
+  bounded child transcript view. The NND transcript remains read-only by
+  default. A child-specific capability probe reveals an explicit steering
+  toggle only while NNA grants it; submission rechecks the grant and confirms
+  the engine accepted the steer. An unaccepted or uncertain response leaves
+  the draft in place. Child discovery and activity replay across NNA service
+  restart remain open work, as does live child-token projection.
+
 - 2026-09-25 · **NNA-backed session controls.** The managed local principal
   now carries separate NNA grants for title update, turn abort, and session
   removal. NNA owns the matching authenticated routes and durable title

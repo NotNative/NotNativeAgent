@@ -211,6 +211,14 @@ export const harnessClient = {
   async getSession(sessionId: string, opts?: DirOption): Promise<HarnessResult<HarnessSession>> {
     return request('getSession', `/session/${sid(sessionId)}`, undefined, undefined, opts?.directory);
   },
+  async childSteeringCapability(sessionId: string, opts?: DirOption): Promise<HarnessResult<{
+    session_id: string; revision: number; capabilities: { steer_subagent: boolean }; availability: string;
+  }>> {
+    return request('childSteeringCapability', `/v1/nnd/sessions/${sid(sessionId)}/capabilities`, undefined, undefined, opts?.directory);
+  },
+  async steerChildSession(sessionId: string, body: { request_id: string; content: string }, opts?: DirOption): Promise<HarnessResult<{ accepted: boolean; reason?: string; steering_id?: string }>> {
+    return request('steerChildSession', `/v1/nnd/sessions/${sid(sessionId)}/steer`, post(body), undefined, opts?.directory);
+  },
   async updateSession(sessionId: string, patchBody: Record<string, unknown>, opts?: DirOption): Promise<HarnessResult<HarnessSession>> {
     return request('updateSession', `/session/${sid(sessionId)}`, PATCH(patchBody), undefined, opts?.directory);
   },
