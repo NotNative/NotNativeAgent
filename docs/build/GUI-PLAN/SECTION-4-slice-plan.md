@@ -215,6 +215,13 @@ Tasks:
 8. Define compact-viewport behavior before mounting the rail: below the usable
    side-by-side threshold, foreground exactly one surface with an explicit return to
    chat. A resize must not silently hide the chat or move composer focus.
+   **Implemented (2026-09-25):** the compact Surfaces door foregrounds the
+   selected pane below `xl`; Return to chat restores focus to that door. The
+   chat column remains visible at `xl` even if the compact door was open
+   during a resize. Focus-mode suppression retains the rail's terminal
+   keepalive without its active stream; a CSS-hidden compact rail also pauses
+   terminal stream and observer work. Per-directory terminal keepalive across
+   directory switches remains separate lifecycle work.
 
 **Seams:** initial Context/Changes/Terminal use existing NND stores; initial Activity
 uses the mock's explicit normalized evidence events. Agent-driven browser inspection

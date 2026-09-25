@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 /** @vitest-environment jsdom */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { createDirectoryStore } from '../../sync/child-store.ts';
 import { OperatorRail } from '../operator-rail.tsx';
 import { useSessionViewStore } from '../../sync/view-store.ts';
+
+vi.mock('../../components/terminal/TerminalView.tsx', () => ({ TerminalView: ({ visible }: { visible: boolean }) => <div data-testid="terminal-keepalive-controller" data-visible={visible} /> }));
 
 declare global { var IS_REACT_ACT_ENVIRONMENT: boolean | undefined; }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -21,9 +23,61 @@ afterEach(() => {
   document.body.innerHTML = '';
   window.localStorage.clear();
   useSessionViewStore.setState({ currentSessionId: null, activeDirectory: '' });
+  vi.unstubAllGlobals();
 });
 
 describe('OperatorRail', () => {
+  it('stops terminal foreground work when the desktop rail becomes compact-hidden', () => {
+    let change: ((event: MediaQueryListEvent) => void) | undefined;
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => { change = listener; },
+      removeEventListener: () => undefined,
+    }));
+    window.localStorage.setItem('nnd.operator-rail.surface:D:/work', 'terminal');
+    const store = createDirectoryStore();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const terminal = document.querySelector('[data-testid="terminal-keepalive-controller"]');
+    expect(terminal?.getAttribute('data-visible')).toBe('true');
+    act(() => change?.({ matches: false } as MediaQueryListEvent));
+    expect(document.querySelector('[data-testid="terminal-keepalive-controller"]')).toBe(terminal);
+    expect(terminal?.getAttribute('data-visible')).toBe('false');
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen />));
+    expect(terminal?.getAttribute('data-visible')).toBe('true');
+  });
+  it('keeps an opened terminal mounted but not visible while focus mode suppresses the rail', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    window.localStorage.setItem('nnd.operator-rail.surface:D:/work', 'terminal');
+    const store = createDirectoryStore();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const terminal = document.querySelector('[data-testid="terminal-keepalive-controller"]');
+    expect(terminal?.getAttribute('data-visible')).toBe('true');
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" suppressed />));
+    const rail = document.querySelector('[data-testid="operator-rail"]')!;
+    expect(rail.className).toContain('hidden');
+    expect(rail.className).not.toContain('xl:flex');
+    expect(document.querySelector('[data-testid="terminal-keepalive-controller"]')).toBe(terminal);
+    expect(terminal?.getAttribute('data-visible')).toBe('false');
+  });
+  it('exposes one full-width compact surface with a return-to-chat control', () => {
+    const store = createDirectoryStore();
+    const close = vi.fn();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" compactOpen onCloseCompact={close} />));
+    const rail = document.querySelector('[data-testid="operator-rail"]')!;
+    expect(rail.className).toContain('w-full xl:w-[300px]');
+    expect(rail.className).not.toContain('hidden xl:flex');
+    act(() => (document.querySelector('[data-testid="operator-return-chat"]') as HTMLButtonElement).click());
+    expect(close).toHaveBeenCalledOnce();
+  });
   it('shows NNA estimated context without inventing provider-billed usage', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ session: [{ id: 's1', metadata: { nnd: { context: {

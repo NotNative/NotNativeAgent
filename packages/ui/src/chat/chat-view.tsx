@@ -74,6 +74,37 @@ export function ChatView(props: ChatViewProps): ReactNode {
     return () => window.removeEventListener('nnd:timeline-open', open);
   }, []);
   const [expanded, setExpanded] = useState(false);
+  const [compactSurfaceOpen, setCompactSurfaceOpen] = useState(false);
+  const chatRoot = useRef<HTMLElement>(null);
+  const compactOpenButton = useRef<HTMLButtonElement>(null);
+  const focusReturnOnOpen = useRef(false);
+  const returnToChatFocus = useRef(false);
+  useEffect(() => {
+    if (compactSurfaceOpen) {
+      if (focusReturnOnOpen.current) {
+        focusReturnOnOpen.current = false;
+        chatRoot.current?.querySelector<HTMLButtonElement>('[data-testid="operator-return-chat"]')?.focus();
+      }
+    } else if (returnToChatFocus.current) {
+      returnToChatFocus.current = false;
+      if (window.matchMedia?.('(min-width: 1280px)').matches) {
+        (chatRoot.current?.querySelector<HTMLElement>('[data-testid="composer-editor"]') ?? chatRoot.current)?.focus();
+      } else {
+        compactOpenButton.current?.focus();
+      }
+    }
+  }, [compactSurfaceOpen]);
+  useEffect(() => {
+    const wide = window.matchMedia?.('(min-width: 1280px)');
+    if (!wide) return;
+    const revealFocusedRail = (event: MediaQueryListEvent): void => {
+      if (event.matches) return;
+      const rail = chatRoot.current?.querySelector('[data-testid="operator-rail"]');
+      if (rail?.contains(document.activeElement)) setCompactSurfaceOpen(true);
+    };
+    wide.addEventListener('change', revealFocusedRail);
+    return () => wide.removeEventListener('change', revealFocusedRail);
+  }, []);
   const [modelSelection, setModelSelection] = useState<ModelSelection | null>(null);
   const holdRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const starters: Starter[] = useMemo(() => startersFor(view.activeDirectory || '/'), [view.activeDirectory]);
@@ -127,8 +158,11 @@ export function ChatView(props: ChatViewProps): ReactNode {
   const isChildSession = selected?.parentID !== undefined;
 
   return (
-    <section className={`relative flex h-full min-w-0 flex-1 flex-row ${expanded ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
-      <div className="relative flex min-w-0 flex-1 flex-col">
+    <section ref={chatRoot} tabIndex={-1} className={`relative flex h-full min-w-0 flex-1 flex-row ${expanded ? 'bg-neutral-950' : ''}`} data-testid="chat-view">
+      <div className={`relative min-w-0 flex-1 flex-col ${compactSurfaceOpen && !expanded ? 'hidden xl:flex' : 'flex'}`}>
+        {!expanded ? <div className="flex justify-end border-b border-white/10 px-3 py-1 xl:hidden">
+          <button ref={compactOpenButton} type="button" data-testid="open-operator-surfaces" className="rounded px-2 py-1 text-xs text-neutral-300 hover:bg-white/10" onClick={() => { focusReturnOnOpen.current = true; setCompactSurfaceOpen(true); }}>Surfaces</button>
+        </div> : null}
         <div className={`min-h-0 flex-1 overflow-y-auto pb-40 ${expanded ? 'hidden' : ''}`} data-chat-column>
           <Transcript store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} directory={shownRef.directory} />
         </div>
@@ -144,7 +178,7 @@ export function ChatView(props: ChatViewProps): ReactNode {
             directory={shownRef.directory}
             sessionKey={shownRef.sessionID ?? 'draft'}
             expanded={expanded}
-            onToggleExpanded={() => setExpanded((value) => !value)}
+            onToggleExpanded={() => { setCompactSurfaceOpen(false); setExpanded((value) => !value); }}
             onRunBtw={runBtw}
             onOpenTimeline={() => setTimelineOpen(true)}
             starters={shownRef.sessionID === null ? starters : []}
@@ -154,7 +188,9 @@ export function ChatView(props: ChatViewProps): ReactNode {
           />}
         </div>
       </div>
-      {expanded ? null : <OperatorRail store={shownRef.store} engine={props.services.engine} directory={shownRef.directory} />}
+      <OperatorRail store={shownRef.store} engine={props.services.engine} directory={shownRef.directory}
+        compactOpen={compactSurfaceOpen} suppressed={expanded}
+        onCloseCompact={() => { returnToChatFocus.current = true; setCompactSurfaceOpen(false); }} />
       {timelineOpen && shownRef.sessionID ? (
         <TimelineDialog store={shownRef.store} engine={props.services.engine} sessionID={shownRef.sessionID} onClose={() => setTimelineOpen(false)} />
       ) : null}

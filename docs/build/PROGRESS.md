@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Compact operator surfaces.** Below the desktop-width
+  side-by-side threshold, chat now offers an explicit Surfaces door to
+  foreground Context, Activity, Changes, Notes, Browser, or Terminal. The
+  selected pane remains the rail's single surface; Return to chat restores
+  keyboard focus to the opener. A width increase keeps chat visible through
+  the `xl` layout rule instead of leaving it concealed by compact state. An
+  audit fixed both resize focus directions and keeps the terminal controller
+  mounted in composer focus mode. Hidden terminal panes pause their active
+  stream and 5-second observer but retain the 10-minute keepalive. Switching
+  directories still needs an app-level terminal keepalive owner.
+
 - 2026-09-25 · **NNA configured-model composer boundary.** The authenticated
   NNA bridge projects its configured primary provider/model identifiers without
   connection or credential metadata. NND shows that route, hides unsupported

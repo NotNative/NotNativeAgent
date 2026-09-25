@@ -15,17 +15,19 @@ import { createRoot, type Root } from 'react-dom/client';
 import type { ReactNode } from 'react';
 import { Buffer } from 'node:buffer';
 
+
 vi.mock('../../../lib/server-api.ts', () => ({
   closeTerminalSession: vi.fn(async () => true),
   createTerminalSession: vi.fn(async (request: { sessionId?: string }) => ({ ok: true, sessionId: request.sessionId ?? 'made', cols: 80, rows: 24, status: 'running', mode: 'interactive' as const, purpose: { type: 'terminal' as const } })),
   listTerminalShells: vi.fn(async () => []),
   listTerminalSessions: vi.fn(async () => []),
+  touchTerminalSessions: vi.fn(async () => true),
   restartTerminalSession: vi.fn(async () => true),
   resizeTerminalSession: vi.fn(async () => true),
   forceKillTerminals: vi.fn(async () => ({ ok: true, killedCount: 1 })),
 }));
 
-import { closeTerminalSession, createTerminalSession, forceKillTerminals } from '../../../lib/server-api.ts';
+import { closeTerminalSession, createTerminalSession, forceKillTerminals, listTerminalSessions, touchTerminalSessions } from '../../../lib/server-api.ts';
 import { TerminalView } from '../TerminalView.tsx';
 import { I18nProvider } from '../../I18nProvider.tsx';
 import { __resetTerminalsForTests, getTerminalBuffer, normalizeTerminalDirectory, useTerminalStore } from '../../../lib/terminal/store.ts';
@@ -111,9 +113,12 @@ beforeEach(() => {
   document.body.innerHTML = '';
   (createTerminalSession as unknown as ReturnType<typeof vi.fn>).mockClear();
   (closeTerminalSession as unknown as ReturnType<typeof vi.fn>).mockClear();
+  (listTerminalSessions as unknown as ReturnType<typeof vi.fn>).mockClear();
+  (touchTerminalSessions as unknown as ReturnType<typeof vi.fn>).mockClear();
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   __resetTerminalTransportForTests();
   try {
     act(() => rootHandle?.unmount());
@@ -126,6 +131,34 @@ afterEach(() => {
 });
 
 describe('TerminalView flow (doc 07 Flow 1 v1)', () => {
+  it('pauses its session observer and create path while hidden, then resumes when visible', async () => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    await act(async () => rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible={false} /></I18nProvider>));
+    expect(listTerminalSessions).not.toHaveBeenCalled();
+    expect(createTerminalSession).not.toHaveBeenCalled();
+    await act(async () => rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible /></I18nProvider>));
+    expect(listTerminalSessions).toHaveBeenCalledTimes(1);
+    expect(createTerminalSession).toHaveBeenCalledTimes(1);
+    await act(async () => rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible={false} /></I18nProvider>));
+    window.dispatchEvent(new Event('focus'));
+    expect(listTerminalSessions).toHaveBeenCalledTimes(1);
+  });
+
+  it('continues touching a background terminal while its pane is hidden', async () => {
+    useTerminalStore.getState().hydrate();
+    const tabId = useTerminalStore.getState().ensureDirectory(DIR);
+    useTerminalStore.getState().setTabSession(DIR, tabId, 'background-session', 'running');
+    vi.useFakeTimers();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    await act(async () => rootHandle!.render(<I18nProvider><TerminalView directory={DIR} visible={false} /></I18nProvider>));
+    await act(async () => vi.advanceTimersByTime(10 * 60_000));
+    expect(touchTerminalSessions).toHaveBeenCalledWith(['background-session']);
+    expect(listTerminalSessions).not.toHaveBeenCalled();
+  });
   it('creates with sessionId=tabId at 80x24, subscribes, replays the snapshot, writes input + quick keys', async () => {
     await renderView();
     await act(async () => {

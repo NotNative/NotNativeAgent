@@ -21,7 +21,19 @@ const SURFACES: readonly { id: Surface; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
 ];
 
-export function OperatorRail({ store, engine, directory }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; directory: string }): ReactNode {
+export function OperatorRail({ store, engine, directory, compactOpen = false, suppressed = false, onCloseCompact }: {
+  store: StoreApi<DirectoryStore>; engine: SyncEngine; directory: string; compactOpen?: boolean; suppressed?: boolean; onCloseCompact?: () => void;
+}): ReactNode {
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(min-width: 1280px)').matches ?? false));
+  useEffect(() => {
+    const query = window.matchMedia?.('(min-width: 1280px)');
+    if (!query) return;
+    setWide(query.matches);
+    const update = (event: MediaQueryListEvent): void => setWide(event.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  const paneVisible = !suppressed && (compactOpen || wide);
   const storageKey = surfaceStorageKey(directory);
   const [selection, setSelection] = useState(() => ({ key: storageKey, surface: readSurface(storageKey) }));
   // A single chat view can move between directories without remounting.  Do
@@ -47,7 +59,11 @@ export function OperatorRail({ store, engine, directory }: { store: StoreApi<Dir
     if (selection.key === storageKey && surface === 'browser') setBrowserOpenedKey(storageKey);
   }, [selection.key, storageKey, surface]);
   return (
-    <aside className={`hidden shrink-0 border-l border-white/10 bg-neutral-950/40 xl:flex ${surface === 'browser' ? 'w-[min(60vw,900px)]' : 'w-[300px]'}`} data-testid="operator-rail">
+    <aside className={`${suppressed ? 'hidden' : compactOpen ? 'flex' : 'hidden xl:flex'} min-w-0 shrink-0 flex-col border-l border-white/10 bg-neutral-950/40 ${surface === 'browser' ? 'w-full xl:w-[min(60vw,900px)]' : 'w-full xl:w-[300px]'}`} data-testid="operator-rail">
+      {compactOpen ? <div className="border-b border-white/10 px-3 py-2">
+        <button type="button" data-testid="operator-return-chat" className="rounded px-2 py-1 text-xs text-neutral-200 hover:bg-white/10" onClick={onCloseCompact}>← Return to chat</button>
+      </div> : null}
+      <div className="flex min-h-0 flex-1">
       <nav className="flex w-10 shrink-0 flex-col border-r border-white/10 py-2" aria-label="Operator surfaces">
         {SURFACES.map((item) => (
           <button key={item.id} type="button" title={item.label} aria-label={item.label} aria-pressed={surface === item.id}
@@ -66,7 +82,7 @@ export function OperatorRail({ store, engine, directory }: { store: StoreApi<Dir
         {surface === 'notes' ? <ProjectNotes directory={directory} /> : null}
         {terminalOpenedKey === storageKey || surface === 'terminal' ? (
           <div className={surface === 'terminal' ? 'flex h-full min-h-0' : 'hidden'}>
-            <TerminalView directory={directory} visible={surface === 'terminal'} compact />
+            <TerminalView directory={directory} visible={surface === 'terminal' && paneVisible} compact />
           </div>
         ) : null}
         {browserOpenedKey === storageKey || surface === 'browser' ? (
@@ -74,6 +90,7 @@ export function OperatorRail({ store, engine, directory }: { store: StoreApi<Dir
             <BrowserSurface key={storageKey} />
           </div>
         ) : null}
+      </div>
       </div>
     </aside>
   );

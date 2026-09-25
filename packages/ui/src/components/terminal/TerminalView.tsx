@@ -43,7 +43,7 @@ export function TerminalView({ directory, visible, compact = false }: TerminalVi
   const activeTabId = useTerminalStore((state) => state.dirs[key]?.activeTabId ?? '');
   const active = tabs.find((tab) => tab.id === activeTabId) ?? null;
   useTerminalBootstrap(directory);
-  useTerminalObserver(directory, key);
+  useTerminalObserver(directory, key, visible);
   useTerminalCreate(directory, visible, active);
   useTerminalStream(directory, key, active, visible);
   useTerminalKeepalive(tabs);
@@ -67,10 +67,13 @@ function useTerminalBootstrap(directory: string): void {
   }, [directory]);
 }
 
-function useTerminalObserver(directory: string, key: string): void {
-  useEffect(() => observeTerminalSessions(directory, (sessions) => {
-    useTerminalStore.getState().reconcileServerSessions(key, sessions.filter((session) => sameDir(session.cwd, directory)));
-  }), [directory, key]);
+function useTerminalObserver(directory: string, key: string, visible: boolean): void {
+  useEffect(() => {
+    if (!visible) return undefined;
+    return observeTerminalSessions(directory, (sessions) => {
+      useTerminalStore.getState().reconcileServerSessions(key, sessions.filter((session) => sameDir(session.cwd, directory)));
+    });
+  }, [directory, key, visible]);
 }
 
 /** section F1 step 5: spawn for a seeded idle tab; the flight is per tab
