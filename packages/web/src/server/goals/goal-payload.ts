@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
  * Goal payload schema (doc 12 §B.1). The payload lives INSIDE the harness
- * session record at `metadata.openchamber.goal`, written by read-modify-merge
- * through `PATCH /session/{id}`. The `openchamber` namespace may carry other
+ * session record at `metadata.nnd.goal`, written through NNA's id-guarded
+ * goal route. The `nnd` namespace may carry other
  * keys, so every writer merges — never replaces — the namespace.
  *
  * Parsing is deliberately tolerant-but-bounded: an unreadable payload is
@@ -21,7 +21,7 @@ import {
 
 export type GoalStatus = (typeof GOAL_STATUSES)[number];
 
-export const GOAL_NAMESPACE = 'openchamber';
+export const GOAL_NAMESPACE = 'nnd';
 export const GOAL_METADATA_KEY = 'goal';
 
 /** Objective-file id shape (§B.1): validated BEFORE any filesystem touch. */

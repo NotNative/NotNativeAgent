@@ -21,6 +21,18 @@ and are NOT readable by the target team.
   that invents different values produces different user-visible behavior, e.g. "over how many
   blocked audits a goal stops").
 
+### NNA-native implementation override
+
+The upstream behavior below is an audit reference, not authority to copy its storage or
+protocol. NND's goal loop runs in the NND web service and uses NNA's governed session
+engine. Goal state is projected as `session.metadata.nnd.goal` and written only through
+`GET/PUT/DELETE /v1/nnd/sessions/:id/goal`, never a generic session-metadata PATCH.
+NNA validates and durably persists the bounded payload, requires the session owner and
+the dedicated goal-manage permission for writes, and checks the caller's expected goal
+identity and revision atomically. The objective-file route remains NND-owned and is not
+yet implemented; the loop, small-model audit, and controls are later P9 slices. Where
+upstream paths or `openchamber` namespace appear below, this override governs NND code.
+
 ## A. Overview of the autonomy stack
 
 ```
@@ -43,7 +55,7 @@ The four systems and how they compose:
 
 | System | Lives where | State | Trigger | Output |
 |---|---|---|---|---|
-| Session goal (B) | web server loop + session metadata | `metadata.openchamber.goal` patched into the harness session (P-04) + one objective file in the OpenChamber data dir | harness `session.status: idle` / `session.updated` events (P-06/P-07) | `prompt_async` continuation (P-05) or a status settle + notification (doc 08) |
+| Session goal (B) | NND web service loop + NNA session metadata | `metadata.nnd.goal` in the NNA-owned session catalog + one objective file in the NND data dir | NNA `session.status: idle` / `session.updated` events | governed `prompt_async` continuation or a status settle + notification (doc 08) |
 | Scheduled task (C) | web server runtime + per-project config JSON | tasks + runtime `state` in `<data-dir>/projects/<stem>.json` | timers computed from a schedule | new harness session (P-04) + dispatched prompt or command (P-05); optionally a planted goal (B) |
 | Message queue (D) | web server runtime + `message-queue.json` | queue items keyed by session id | harness `session.status: idle` on a queued session | `prompt_async` / `command` delivery of the head item (P-05) |
 | Multi-run (E) | UI-side orchestrator (no server lib) | transient; identity lives in session titles | user submits the launcher form | N sessions (P-04) each dispatched (UI send path), each optionally in its own git worktree (doc 06) |
@@ -51,7 +63,7 @@ The four systems and how they compose:
 Composition points (exact seams, all detailed later):
 
 1. **Scheduled task → session goal.** A task with `execution.goalEnabled` makes the runtime
-   first stamp `metadata.openchamber.goal` onto the fresh session (`createSessionGoal`),
+   first stamp `metadata.nnd.goal` onto the fresh session (`createSessionGoal`),
    attach the goal intro part to its prompt, and only then dispatch. The goal loop in B picks
    the session up from ordinary harness events afterwards (src:
    `packages/web/server/lib/scheduled-tasks/runtime.js:602-617`, `create.js`).
@@ -106,8 +118,8 @@ Composition points (exact seams, all detailed later):
 ## B. Session Goals — full specification
 
 Server-side control loop that keeps ONE session working toward a user-defined objective,
-stored as `metadata.openchamber.goal` **inside the harness session record** (patched via
-P-04 `PATCH /session/{id}`), with a small helper model as an independent progress auditor.
+stored as `metadata.nnd.goal` **inside the NNA session record** (written via the dedicated
+NNA goal route), with a small helper model as an independent progress auditor.
 The loop lives in the web server and survives UI disconnects. Structural twin: session-assist
 (same event-subscription pattern).
 
@@ -118,9 +130,10 @@ carry goals. (src: `session-goal/runtime.js`, `DOCUMENTATION.md`)
 
 ### B.1 Goal payload (the exact storage schema)
 
-Stored at `session.metadata.openchamber.goal`. The UI (and server-side creators) write it via
-`PATCH /session/{id}` with the full merged metadata object (read-modify-merge). The namespace
-`openchamber` may carry other keys — writers MUST merge, never replace, the namespace.
+Stored at `session.metadata.nnd.goal`. The UI and server-side creators write only the goal
+payload via NNA's dedicated goal route. The `nnd` namespace also carries NNA projections;
+writers MUST NOT replace it. Each write supplies the expected current goal id and revision,
+or nulls when arming an empty session, and treats a conflict as a fresh-read requirement.
 
 ```ts
 interface GoalPayload {
@@ -284,13 +297,20 @@ On fire for `(sessionId, directory)`, all under a per-session in-flight guard:
 
 (src: `runtime.js:494-801`)
 
-#### B.5.1 Stale-write guard (id guard)
+#### B.5.1 Stale-write guard (identity + revision)
 
 Every runtime write re-reads the session fresh, parses the current goal, and aborts the write
 (returning null) when `currentGoal.id !== expectedGoalId` — the user may have replaced or
-cleared the goal while the tick worked. Concurrent writers (UI edits, session-assist
-payloads) survive because the write is a read-modify-merge of the WHOLE `metadata` object, not
-a blind overwrite. (src: `runtime.js:362-382`)
+cleared the goal while the tick worked. The upstream implementation used a
+read-modify-merge of metadata to preserve sibling keys. NND does not send a generic
+metadata replacement. (src: `runtime.js:362-382`)
+
+NNA-native override: the dedicated goal write also requires the server-owned
+`metadata.nnd.goalRevision` observed in that same read. NNA atomically compares both
+`expected_id` and `expected_revision` under the serialized catalog write, increments the
+revision only after successful persistence, and returns a conflict for stale same-id writers.
+The web loop must re-read and recompute after a conflict; a local id check alone cannot
+protect a user Pause from a concurrent audit settle.
 
 #### B.5.2 Error classification on the last assistant message
 

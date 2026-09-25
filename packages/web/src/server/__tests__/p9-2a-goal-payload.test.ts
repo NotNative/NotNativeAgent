@@ -195,8 +195,8 @@ describe('buildGoalPayload (§B.7 step 3)', () => {
 });
 
 describe('getSessionGoal (§B.1 storage path)', () => {
-  it('reads metadata.openchamber.goal', () => {
-    const record = session({ openchamber: { goal: raw() }, other: { keep: true } });
+  it('reads metadata.nnd.goal', () => {
+    const record = session({ nnd: { goal: raw() }, other: { keep: true } });
     expect(getSessionGoal(record)?.id).toBe('goal-1');
   });
 
@@ -205,57 +205,60 @@ describe('getSessionGoal (§B.1 storage path)', () => {
     expect(getSessionGoal({})).toBeNull();
     expect(getSessionGoal({ metadata: null })).toBeNull();
     expect(getSessionGoal({ metadata: [] })).toBeNull();
-    expect(getSessionGoal({ metadata: { openchamber: null } })).toBeNull();
-    expect(getSessionGoal({ metadata: { openchamber: {} } })).toBeNull();
+    expect(getSessionGoal({ metadata: { nnd: null } })).toBeNull();
+    expect(getSessionGoal({ metadata: { nnd: {} } })).toBeNull();
   });
 });
 
 describe('metadata merge (§B.1 / §B.5.1)', () => {
-  it('preserves sibling keys in the openchamber namespace', () => {
-    const base = readMetadata(session({ openchamber: { goal: raw(), assist: { mode: 'x' } } }));
+  it('preserves sibling keys in the nnd namespace', () => {
+    const base = readMetadata(session({ nnd: { goal: raw(), assist: { mode: 'x' } } }));
     const merged = mergeGoalIntoMetadata(base, goal({ id: 'goal-2' }));
-    const namespaced = merged.openchamber as Record<string, unknown>;
+    const namespaced = merged.nnd as Record<string, unknown>;
     expect((namespaced.assist as Record<string, unknown>).mode).toBe('x');
     expect((namespaced.goal as Record<string, unknown>).id).toBe('goal-2');
   });
 
   it('preserves unrelated namespaces', () => {
-    const base = readMetadata(session({ openchamber: { goal: raw() }, 'other-tool': { a: 1 } }));
+    const base = readMetadata(session({ nnd: { goal: raw() }, 'other-tool': { a: 1 } }));
     const merged = mergeGoalIntoMetadata(base, goal());
     expect((merged['other-tool'] as Record<string, unknown>).a).toBe(1);
   });
 
   it('does not mutate the source metadata', () => {
-    const base = readMetadata(session({ openchamber: { goal: raw() } }));
-    const before = (base.openchamber as Record<string, unknown>).goal;
+    const base = readMetadata(session({ nnd: { goal: raw() } }));
+    const before = (base.nnd as Record<string, unknown>).goal;
     mergeGoalIntoMetadata(base, goal({ id: 'goal-9' }));
-    expect((base.openchamber as Record<string, unknown>).goal).toBe(before);
-    expect(((base.openchamber as Record<string, unknown>).goal as GoalPayload).id).toBe('goal-1');
+    expect((base.nnd as Record<string, unknown>).goal).toBe(before);
+    expect(((base.nnd as Record<string, unknown>).goal as GoalPayload).id).toBe('goal-1');
   });
 
   it('creates the namespace when absent', () => {
     const merged = mergeGoalIntoMetadata({}, goal());
-    expect(((merged.openchamber as Record<string, unknown>).goal as GoalPayload).id).toBe('goal-1');
+    expect(((merged.nnd as Record<string, unknown>).goal as GoalPayload).id).toBe('goal-1');
   });
 
   it('removes only the goal key, dropping an emptied namespace', () => {
-    const withSibling = removeGoalFromMetadata(readMetadata(session({ openchamber: { goal: raw(), keep: 1 }, z: 2 })));
-    expect((withSibling.openchamber as Record<string, unknown>).goal).toBeUndefined();
-    expect((withSibling.openchamber as Record<string, unknown>).keep).toBe(1);
-    const emptied = removeGoalFromMetadata(readMetadata(session({ openchamber: { goal: raw() }, z: 2 })));
-    expect(emptied.openchamber).toBeUndefined();
+    const withSibling = removeGoalFromMetadata(readMetadata(session({ nnd: { goal: raw(), keep: 1 }, z: 2 })));
+    expect((withSibling.nnd as Record<string, unknown>).goal).toBeUndefined();
+    expect((withSibling.nnd as Record<string, unknown>).keep).toBe(1);
+    const emptied = removeGoalFromMetadata(readMetadata(session({ nnd: { goal: raw() }, z: 2 })));
+    expect(emptied.nnd).toBeUndefined();
     expect(emptied.z).toBe(2);
   });
 });
 
 describe('id guard (§B.5.1, hinge c)', () => {
   it('drops a write whose expected goal id is stale', () => {
-    const record = session({ openchamber: { goal: raw({ id: 'goal-new' }) } });
+    const record = session({ nnd: { goal: raw({ id: 'goal-new' }), goalRevision: 7 } });
     expect(idGuardMatches(record, 'goal-old')).toBe(false);
     expect(idGuardMatches(record, 'goal-new')).toBe(true);
-    expect(idGuardMatches(session({ openchamber: {} }), 'goal-old')).toBe(false);
+    expect(idGuardMatches(session({ nnd: {} }), 'goal-old')).toBe(false);
     const write = buildGoalWrite(record, goal({ id: 'goal-old' }));
     expect(write.current?.id).toBe('goal-new');
+    expect(write.body.expected_id).toBe('goal-new');
+    expect(write.body.expected_revision).toBe(7);
+    expect(() => buildGoalWrite(session({ nnd: { goal: raw() } }), goal())).toThrow('revision is unavailable');
   });
 });
 

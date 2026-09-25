@@ -205,6 +205,19 @@ export const harnessClient = {
   async getNnaAgentInventory(): Promise<HarnessResult<{ version: number; state: string; route: unknown; roles: unknown[] }>> {
     return request('getNnaAgentInventory', '/v1/nnd/agents');
   },
+  async getSessionGoal(sessionId: string): Promise<HarnessResult<{ goal: unknown | null; revision: number }>> {
+    return request('getSessionGoal', `/v1/nnd/sessions/${sid(sessionId)}/goal`);
+  },
+  async putSessionGoal(sessionId: string, goal: unknown, expectedId: string | null, expectedRevision: number): Promise<HarnessResult<{ goal: unknown; revision: number }>> {
+    return request('putSessionGoal', `/v1/nnd/sessions/${sid(sessionId)}/goal`, {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ goal, expected_id: expectedId, expected_revision: expectedRevision }),
+    });
+  },
+  async clearSessionGoal(sessionId: string, expectedId: string, expectedRevision: number): Promise<HarnessResult<{ goal: null; revision: number }>> {
+    return request('clearSessionGoal', `/v1/nnd/sessions/${sid(sessionId)}/goal`, {
+      method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expected_id: expectedId, expected_revision: expectedRevision }),
+    });
+  },
   // lifecycle/health
   async globalHealth(): Promise<HarnessResult<{ healthy: boolean; version: string }>> {
     return request('globalHealth', '/global/health', undefined, HARNESS_HEALTH_TIMEOUT_MS);

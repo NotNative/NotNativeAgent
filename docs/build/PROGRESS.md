@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 goal persistence seam, NNA-native.** NNA now validates and
+  durably stores one bounded goal per owned NND session, projects it as
+  `metadata.nnd.goal`, and exposes a narrowly authorized, identity-and-revision-guarded goal
+  route through NND's managed bridge. The NND goal core and write helper use
+  this namespace and route shape rather than upstream generic metadata
+  replacement. Integration and source smoke cover write/read/clear and
+  restart recovery, same-id write conflicts, and failed-persistence rollback.
+  An adversarial review caught the same-goal lost-update race and added the
+  server-owned durable revision. This is the storage prerequisite, not the autonomous
+  goal loop: objective files, audit ticks, controls, and schedules remain.
+
 - 2026-09-25 · **Subagent route configuration from Agents Settings.** NNA
   exposes a separately authorized, validated saved subagent provider/model
   route. Agents Settings distinguishes saved from running routing, lets the

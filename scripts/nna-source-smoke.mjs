@@ -7,7 +7,7 @@ import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { probeProviderRoute } from './smoke-provider-route.mjs';
+import { probeProviderRoute } from './smoke-provider-route.mjs'; import { probeGoal } from './smoke-goal.mjs';
 
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
@@ -160,7 +160,7 @@ async function probe(app, workspace, provider) {
   const discovered = await json(call, '/api/v1/provider-profiles/primary/discover', { method: 'POST' }, 200);
   assert.deepEqual(discovered, { profile_id: 'primary', models: ['test'] });
   const tested = await json(call, '/api/v1/provider-profiles/primary/test', { method: 'POST' }, 200); assert.equal(tested.status, 'ready');
-  await probeProviderRoute(call, json);
+  await probeProviderRoute(call, json); await probeGoal(call, json);
   const skills = await json(call, '/api/v1/nnd/skills', 200);
   assert.ok(skills.skills.some((skill) => skill.id === 'smoke-review'));
   assert.equal(JSON.stringify(skills).includes('SECRET_SKILL_BODY'), false, 'skill inventory must omit instruction bodies');

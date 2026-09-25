@@ -45,7 +45,7 @@ function armedGoal() {
 function sessionWith(goal: unknown, extraNamespaceKeys?: Record<string, unknown>) {
   return {
     metadata: {
-      openchamber: { ...(extraNamespaceKeys ?? {}), ...(goal === undefined ? {} : { goal }) },
+      nnd: { ...(extraNamespaceKeys ?? {}), ...(goal === undefined ? {} : { goal }) },
       'other-app': { keeps: 'this' },
     },
   };
@@ -139,29 +139,30 @@ describe('§B.1 payload parsing', () => {
 describe('§B.1/§B.5.1 metadata merge + id guard', () => {
   it('merges into the namespace and preserves every unrelated key', () => {
     const merged = mergeGoalIntoMetadata(sessionWith(undefined).metadata, armedGoal());
-    const chamber = merged.openchamber as Record<string, unknown>;
+    const chamber = merged.nnd as Record<string, unknown>;
     expect(chamber.goal).toBeDefined();
     expect(merged['other-app']).toEqual({ keeps: 'this' });
   });
 
-  it('keeps sibling openchamber keys when writing and when removing only the goal', () => {
+  it('keeps sibling nnd keys when writing and when removing only the goal', () => {
     const merged = mergeGoalIntoMetadata(sessionWith(undefined, { panel: 'left' }).metadata, armedGoal());
-    expect((merged.openchamber as Record<string, unknown>).panel).toBe('left');
+    expect((merged.nnd as Record<string, unknown>).panel).toBe('left');
     const removed = removeGoalFromMetadata(merged);
-    expect((removed.openchamber as Record<string, unknown>).panel).toBe('left');
-    expect((removed.openchamber as Record<string, unknown>).goal).toBeUndefined();
+    expect((removed.nnd as Record<string, unknown>).panel).toBe('left');
+    expect((removed.nnd as Record<string, unknown>).goal).toBeUndefined();
   });
 
   it('removes the namespace entirely once it is empty', () => {
     const removed = removeGoalFromMetadata(sessionWith(armedGoal()).metadata);
-    expect(removed.openchamber).toBeUndefined();
+    expect(removed.nnd).toBeUndefined();
     expect(removed['other-app']).toEqual({ keeps: 'this' });
   });
 
-  it('buildGoalWrite returns the patch body plus the currently stored goal', () => {
+  it('buildGoalWrite returns NNA goal body with the current id guard', () => {
     const next = { ...armedGoal(), id: 'next-id' };
-    const write = buildGoalWrite(sessionWith(armedGoal()), next);
-    expect(write.body.metadata.openchamber).toBeDefined();
+    const existing = armedGoal();
+    const write = buildGoalWrite(sessionWith(existing, { goalRevision: 3 }), next);
+    expect(write.body).toEqual({ goal: next, expected_id: existing.id, expected_revision: 3 });
     expect(write.current?.id).not.toBe('next-id');
   });
 

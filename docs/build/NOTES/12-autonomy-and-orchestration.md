@@ -1,5 +1,18 @@
 # NOTES 12 - Autonomy & orchestration
 
+## NNA-native goal seam (2026-09-25)
+
+The original P9-2a pure goal core is now aligned to `metadata.nnd.goal`.
+NNA owns bounded persistence in its session catalog and exposes a dedicated
+goal route instead of accepting generic metadata replacement. Writes are
+owner-scoped and require the goal-manage permission plus expected goal identity
+and server-owned revision atomically; NND's web-service loop will use the NNA route.
+The revision prevents a stale autonomous settle from overwriting a user's Pause
+on the same goal id. The objective-file
+store, event-driven tick, independent audit, UI controls, and scheduled-task
+integration remain P9 work. This section supersedes upstream `openchamber`
+namespace and `PATCH /session/{id}` references elsewhere in the audit notes.
+
 Doc read in full (1651 lines). P9 opens with P9-1 — the server message-queue
 runtime (build checklist step 7: sections D.1–D.5 + the G.3 recovery matrix +
 the I.4/I.6/I.9/I.10 invariants). The goal runtime (B.4–B.5), scheduled tasks

@@ -2,10 +2,9 @@
 /**
  * Metadata merge helpers for the goal payload (doc 12 §B.1/§B.5.1).
  *
- * `PATCH /session/{id}` replaces the WHOLE `metadata` object it is handed, so
- * every goal write is a read-modify-merge of the full metadata tree: the
- * `openchamber` namespace may carry unrelated keys, and unrelated namespaces
- * (session-assist payloads, tooling markers) must survive untouched.
+ * Pure metadata merge helpers. The NNA-backed route accepts only goal writes,
+ * with an atomic expected-id guard; generic metadata replacement is forbidden.
+ * The `nnd` namespace may carry unrelated NNA projections.
  */
 import {
   GOAL_METADATA_KEY,
@@ -29,7 +28,7 @@ function readNamespace(metadata: MetadataRecord): MetadataRecord {
   return { ...(namespaced as MetadataRecord) };
 }
 
-/** Merge `goal` into `metadata.openchamber.goal`, preserving every other key. */
+/** Merge `goal` into `metadata.nnd.goal`, preserving every other key. */
 export function mergeGoalIntoMetadata(metadata: MetadataRecord, goal: GoalPayload): MetadataRecord {
   const namespaced = readNamespace(metadata);
   return {
@@ -49,24 +48,23 @@ export function removeGoalFromMetadata(metadata: MetadataRecord): MetadataRecord
   return next;
 }
 
-/** The patch body a goal write sends (P-04 `PATCH /session/{id}`). */
-export function goalPatchBody(metadata: MetadataRecord): { metadata: MetadataRecord } {
-  return { metadata };
-}
-
 /**
- * Build the merge-write body for a fresh goal, given the session record the
- * caller just re-read. Returns the patch body and the goal currently stored
- * (the caller's id-guard input).
+ * Build NNA's dedicated goal write. The server checks expected_id atomically
+ * against its durable session catalog, so a stale client cannot overwrite a
+ * replaced or cleared goal between its read and write.
  */
 export function buildGoalWrite(sessionRecord: unknown, next: GoalPayload): {
-  body: { metadata: MetadataRecord };
+  body: { goal: GoalPayload; expected_id: string | null; expected_revision: number };
   current: GoalPayload | null;
 } {
-  const metadata = readMetadata(sessionRecord);
+  const current = getSessionGoal(sessionRecord);
+  const revision = (readMetadata(sessionRecord)[GOAL_NAMESPACE] as Record<string, unknown> | undefined)?.goalRevision;
+  if (!Number.isSafeInteger(revision) || (revision as number) < 0) {
+    throw new Error('NNA session goal revision is unavailable; refresh before writing');
+  }
   return {
-    body: goalPatchBody(mergeGoalIntoMetadata(metadata, next)),
-    current: getSessionGoal(sessionRecord),
+    body: { goal: next, expected_id: current?.id ?? null, expected_revision: revision as number },
+    current,
   };
 }
 
