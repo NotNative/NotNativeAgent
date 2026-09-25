@@ -185,6 +185,41 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     expect(document.body.textContent).not.toContain('No MCP servers');
   });
 
+  it('skills lists NNA-discovered metadata without instruction bodies or paths', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      version: 1, state: 'discovered', skills: [{ id: 'review', version: '1',
+        description: 'Review code', invocation: 'both', body: 'SECRET_INSTRUCTION', source: 'C:/secret/SKILL.md' }],
+    }), { status: 200 })));
+    await renderWindow('skills.installed');
+    expect(document.querySelectorAll('[data-testid="nna-skill"]')).toHaveLength(1);
+    expect(document.body.textContent).toContain('Review code');
+    expect(document.body.textContent).toContain('User + agent');
+    expect(document.body.textContent).not.toContain('SECRET_INSTRUCTION');
+    expect(document.body.textContent).not.toContain('C:/secret');
+  });
+
+  it('skills denial is not presented as no installed skills', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ error: { message: 'skill read denied' } }), { status: 403 })));
+    await renderWindow('skills.installed');
+    expect(document.body.textContent).toContain('skill read denied');
+    expect(document.body.textContent).not.toContain('No skills are available');
+  });
+
+  it('refreshes the skills catalog for newly created sessions', async () => {
+    let version = '1';
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      version: 1, state: 'discovered', skills: [{ id: 'review', version,
+        description: 'Review code', invocation: 'both' }],
+    }), { status: 200 })));
+    await renderWindow('skills.installed');
+    expect(document.body.textContent).toContain('v1');
+    expect(document.body.textContent).toContain('Existing sessions may use an earlier catalog');
+    version = '2';
+    const refresh = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Refresh');
+    await act(async () => { refresh?.click(); await Promise.resolve(); });
+    expect(document.body.textContent).toContain('v2');
+  });
+
   it('landing pages render the phase note, never a silent gap', async () => {
     await renderWindow('agents');
     expect(document.body.textContent).toContain('Agents');

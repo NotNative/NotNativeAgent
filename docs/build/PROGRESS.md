@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA-native Skills visibility and runtime roots.** NND-owned
+  NNA sessions now discover NNA's bundled/user skills and trusted-project
+  skills from the same roots as the integrated operator. Settings shows a
+  read-only, on-demand discovery catalog for newly created sessions; existing
+  sessions may retain their earlier catalog. The projection excludes skill
+  bodies and source paths, and discovery errors are path-free. Cross-repository
+  smoke verifies the catalog while the adversarial review pinned catalog
+  changes between sessions and the disclosure failure case.
+
 - 2026-09-25 · **NNA-backed MCP inventory.** NNA now projects an authenticated,
   read-only configured-server inventory (`id`, transport, enabled, trusted) from
   its resolved process configuration. NND's MCP Settings page names this as

@@ -20,6 +20,7 @@ import { ShortcutsPage } from './pages/shortcuts.tsx';
 import { GeneralPage } from './pages/general.tsx';
 import { ProvidersPage } from './pages/providers.tsx';
 import { McpPage } from './pages/mcp.tsx';
+import { SkillsPage } from './pages/skills.tsx';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
 
 export { PAGE_TITLE_KEYS };
@@ -33,6 +34,7 @@ const PAGE_COMPONENTS: Partial<Record<SettingsPageSlug, () => ReactNode>> = {
   general: () => <GeneralPage />,
   providers: () => <ProvidersPage />,
   mcp: () => <McpPage />,
+  'skills.installed': () => <SkillsPage />,
 };
 
 const PAGE_TITLE_KEYS: Record<SettingsPageSlug, I18nKey> = {

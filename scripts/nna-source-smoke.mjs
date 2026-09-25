@@ -110,16 +110,25 @@ function providerReply(body) {
 
 async function writeManifest(root, providerPort) {
   const config = join(root, 'config');
+  const providerEndpoint = `http://127.0.0.1:${providerPort}/v1`;
   await mkdir(config, { recursive: true });
   await writeFile(join(config, 'manifest.json'), JSON.stringify({
     format_version: 1, persistence: 'durable', workspace_root: root,
     providers: [
-      { id: 'primary', display_name: 'Primary', endpoint: `http://127.0.0.1:${providerPort}/v1`, model: 'test', trust_zone: 'loopback' },
-      { id: 'delegated', display_name: 'Delegated', endpoint: `http://127.0.0.1:${providerPort}/v1`, model: 'test', trust_zone: 'loopback' },
+      { id: 'primary', display_name: 'Primary', endpoint: providerEndpoint, model: 'test', trust_zone: 'loopback' },
+      { id: 'delegated', display_name: 'Delegated', endpoint: providerEndpoint, model: 'test', trust_zone: 'loopback' },
     ],
     routes: { primary: { provider_id: 'primary', model: 'test' }, subagent: { provider_id: 'delegated', model: 'test' } },
     mcp_servers: smokeMcpServers(),
   }));
+}
+
+async function writeSmokeSkill(root) {
+  await mkdir(join(root, 'skills', 'review'), { recursive: true });
+  await writeFile(join(root, 'skills', 'review', 'SKILL.md'), [
+    '---', 'id: smoke-review', 'version: 1', 'description: Review smoke work',
+    'invocation: both', '---', 'SECRET_SKILL_BODY',
+  ].join('\n'));
 }
 
 function smokeMcpServers() {
@@ -145,6 +154,10 @@ async function probe(app, workspace, provider) {
   assert.equal(JSON.stringify(mcp).includes('SMOKE_SECRET'), false, 'MCP inventory must omit secret references and destinations');
   const profiles = await json(call, '/api/v1/provider-profiles', 200);
   assert.equal(profiles.profiles.length, 2);
+  const skills = await json(call, '/api/v1/nnd/skills', 200);
+  assert.ok(skills.skills.some((skill) => skill.id === 'smoke-review'));
+  assert.equal(JSON.stringify(skills).includes('SECRET_SKILL_BODY'), false, 'skill inventory must omit instruction bodies');
+  assert.equal(JSON.stringify(skills).includes('SKILL.md'), false, 'skill inventory must omit source paths');
   assert.deepEqual(await json(call, '/api/session?roots=true', 200), []);
   const eventAbort = new AbortController();
   const eventResponse = await app.fetch(new Request('http://nnd.local/api/global/event', {
@@ -404,6 +417,7 @@ async function main(nnaSource) {
   try {
     provider = await startProvider();
     await writeManifest(root, provider.port);
+    await writeSmokeSkill(root);
     // Import after the isolated data root is selected: server auth/settings
     // modules capture environment at import time.
     process.env.NOTNATIVE_DATA_DIR = join(root, 'nnd-data');
