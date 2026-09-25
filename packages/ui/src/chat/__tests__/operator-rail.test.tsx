@@ -161,6 +161,43 @@ describe('OperatorRail', () => {
     expect(context.textContent).not.toContain('never render');
   });
 
+  it('shows the same NNA-configured model identity as the composer', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({
+      session: [{ id: 's1', time: { created: 1, updated: 1 } }] as never,
+      config: { nnd: { engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'local', modelID: 'code-main' } } } as never,
+    });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const context = document.querySelector('[data-testid="work-status-panel"]')!;
+    expect(context.textContent).toContain('Configured model');
+    expect(context.textContent).toContain('local · code-main');
+    act(() => store.getState().patch({ config: { nnd: { engine: 'nna', modelSelection: 'configured' } } as never }));
+    expect(context.textContent).toContain('NNA model unavailable');
+  });
+
+  it('does not present the root model as a delegated child session model', () => {
+    useSessionViewStore.setState({ currentSessionId: 'child' });
+    const store = createDirectoryStore({
+      session: [
+        { id: 'root', time: { created: 1, updated: 1 } },
+        { id: 'child', parentID: 'root', time: { created: 2, updated: 2 } },
+      ] as never,
+      config: { nnd: { engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'root-only' } } } as never,
+    });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const context = document.querySelector('[data-testid="work-status-panel"]')!;
+    expect(context.textContent).not.toContain('root-only');
+    expect(context.textContent).not.toContain('Configured model');
+    act(() => useSessionViewStore.getState().setCurrentSession('root'));
+    expect(context.textContent).toContain('primary · root-only');
+  });
+
   it('follows a selected session change even without a directory-store update', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ session: [

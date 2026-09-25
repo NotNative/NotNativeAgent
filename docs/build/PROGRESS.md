@@ -22,6 +22,12 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Configured model in Context.** Root NNA sessions now show
+  the same configured primary model identity as the composer, or an explicit
+  unavailable label when NNA configuration omits it. Delegated child Context
+  does not borrow that root model label because NNA may route subagents to a
+  different model; the selected session must exist before the row appears.
+
 - 2026-09-25 · **Notes pane continuity.** Once opened, General Notes and
   Todos retain in-memory drafts across their tabs and other operator surfaces;
   no save is issued just for navigation. A hidden plan editor deactivates and

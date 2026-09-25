@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:9f766175e3d4e69ca09721ebbf5d90f512c34fd0ca935cec68be0eaeb676aa45",
+  "source_digest": "sha256:cf5587c30e469dbfdb95900031f22a16481191502311d17c03c26a91538ce5ca",
   "counts": {
     "modules": 372,
     "component_edges": 12
@@ -502,6 +502,7 @@
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/chat/composer-model-config.ts",
         "packages/ui/src/chat/panel-gate.ts",
         "packages/ui/src/chat/work-status.ts",
         "packages/ui/src/lib/nnd/types.ts",

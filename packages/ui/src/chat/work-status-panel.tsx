@@ -14,6 +14,7 @@ import type { SessionStatus } from '../lib/nnd/types.ts';
 import { contextUsage, nnaContextUsage, nnaGovernanceSummary, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
+import { resolveComposerModel } from './composer-model-config.ts';
 
 const PANEL_WIDTH = 300;
 
@@ -32,6 +33,8 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const context = contextUsage(snapshot, sessionID, contextLimit);
   const nnaContext = nnaContextUsage(snapshot, sessionID);
   const governance = nnaGovernanceSummary(snapshot, sessionID);
+  const configuredModel = resolveComposerModel(snapshot.config, null, 'nna');
+  const selectedSession = snapshot.session.find((session) => session.id === sessionID);
   const todos = todoRows(snapshot, sessionID);
   const subagents = subagentRows(snapshot, sessionID, statusPhraseOf(snapshot, statusById));
   const stats = panelStatsIfNeeded(snapshot, sessionID, committed);
@@ -45,6 +48,11 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   // the doc-15 knowledge slice.
 
   const sections: { id: string; label: string; rows: (ReactNode | null)[] }[] = [];
+  // The configured primary model describes root prompts, not delegated child
+  // turns, which can use NNA's distinct subagent route.
+  if (configuredModel.nnaConfigured && selectedSession && selectedSession.parentID === undefined) sections.push({ id: 'engine', label: 'NNA engine', rows: [
+    row('Configured model', configuredModel.modelLabel),
+  ] });
   const pendingPermissions = snapshot.permission[sessionID]?.length ?? 0;
   const pendingQuestions = snapshot.question[sessionID]?.length ?? 0;
   if (pendingPermissions || pendingQuestions) sections.push({ id: 'attention', label: 'Needs operator', rows: [
