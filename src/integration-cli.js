@@ -12,6 +12,7 @@ import { SessionEngine } from './engine.js';
 import { NndEngineHost } from './nnd-engine-host.js';
 import { nndMcpInventory } from './nnd-mcp-inventory.js';
 import { nndSkillsInventory } from './nnd-skills-inventory.js';
+import { nndAgentInventory } from './nnd-agent-inventory.js';
 import { SkillRegistry } from './skill-registry.js';
 import { runtimeSkillRoots } from './startup-configuration.js';
 import { workspaceIsTrusted } from './experience/trust.js';
@@ -102,6 +103,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
   // Security: expose only the configured route identity to the NND browser, never provider credentials or endpoints.
   host.nndModel = Object.freeze({ providerID: config.routes.primary.providerId, modelID: config.routes.primary.model });
   host.nndMcpInventory = nndMcpInventory(config);
+  host.nndAgentInventory = nndAgentInventory(config);
   // A newly created session discovers these same roots at initialization.
   // Read again per request so the UI does not freeze a startup-only catalog.
   host.readNndSkillsInventory = async () => {

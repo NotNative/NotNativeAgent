@@ -11,6 +11,7 @@ import { ProviderProfileStore } from '../src/provider/profile-store.js';
 import { NndEngineHost } from '../src/nnd-engine-host.js';
 import { resolveManifest } from '../src/config.js';
 import { nndMcpInventory } from '../src/nnd-mcp-inventory.js';
+import { nndAgentInventory } from '../src/nnd-agent-inventory.js';
 
 const TOKEN = 'ephemeral-integration-token-with-at-least-32-characters';
 
@@ -262,6 +263,30 @@ test('NND skills inventory is read-only and omits source paths and bodies', asyn
     assert.deepEqual(result.value.skills, [{ id: 'review', version: '1', description: 'Review code', invocation: 'both' }]);
     assert.equal((await request(base, '/v1/nnd/skills', principal([]))).status, 403);
     assert.equal((await request(base, '/v1/nnd/skills', principal(['nnd.read']), { method: 'POST' })).status, 405);
+  } finally { await service.close(); }
+});
+
+test('NND agent inventory exposes built-in roles and the running delegation route without grants', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-agents-'));
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
+  const inventory = nndAgentInventory(resolveManifest(manifest(root)));
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
+    nndEngineHost: { nndAgentInventory: inventory },
+    providerStore: new ProviderProfileStore({ configRoot }), port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    const result = await request(base, '/v1/nnd/agents', principal(['nnd.read']));
+    assert.equal(result.value.state, 'configured');
+    assert.deepEqual(result.value.route, { providerID: 'one', modelID: 'one' });
+    assert.deepEqual(result.value.roles.map((item) => item.id), ['general', 'planner', 'coder', 'tester', 'reviewer']);
+    assert.equal(JSON.stringify(result.value).includes('endpoint'), false);
+    assert.equal(JSON.stringify(result.value).includes('permissions'), false);
+    assert.equal((await request(base, '/v1/nnd/agents', principal([]))).status, 403);
+    assert.equal((await request(base, '/v1/nnd/agents', principal(['nnd.read']), { method: 'POST' })).status, 405);
   } finally { await service.close(); }
 });
 

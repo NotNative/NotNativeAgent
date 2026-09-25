@@ -93,7 +93,7 @@ function openEventStream(request, response, context) {
 
 async function dispatchBootstrapRequest(request, response, context) {
   const path = context.url.pathname;
-  if (!['/global/health', '/path', '/config', '/project', '/project/current', '/session/status', '/v1/nnd/mcp', '/v1/nnd/skills'].includes(path)) return false;
+  if (!['/global/health', '/path', '/config', '/project', '/project/current', '/session/status', '/v1/nnd/mcp', '/v1/nnd/skills', '/v1/nnd/agents'].includes(path)) return false;
   if (request.method !== 'GET') return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
   requireIntegrationPermission(context.principal, 'nnd.read');
   const workspace = trustedWorkspace(context.nndWorkspaceRoot);
@@ -102,6 +102,11 @@ async function dispatchBootstrapRequest(request, response, context) {
   if (path === '/v1/nnd/mcp') {
     const inventory = context.nndEngineHost?.nndMcpInventory;
     if (!inventory) throw new ContractError('nnd_engine_unavailable', 'NND MCP inventory is unavailable');
+    return send(response, 200, inventory);
+  }
+  if (path === '/v1/nnd/agents') {
+    const inventory = context.nndEngineHost?.nndAgentInventory;
+    if (!inventory) throw new ContractError('nnd_engine_unavailable', 'NND agent inventory is unavailable');
     return send(response, 200, inventory);
   }
   if (path === '/v1/nnd/skills') {
