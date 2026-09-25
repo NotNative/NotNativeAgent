@@ -117,4 +117,17 @@ describe('NNA-native goal evidence decision', () => {
     expect(decideNnaGoalEvidence(base(), sessionId, { ...feed([]), session_id: 'other' }).goal.status)
       .toBe('blocked');
   });
+
+  it('accepts bounded affinity but fails closed on malformed provider identity', () => {
+    const valid = { ...receipt('new', 5), provider_profile: 'fallback-local', model: 'model-v2' };
+    expect(decideNnaGoalEvidence(base(), sessionId, feed([valid])).kind).toBe('audit');
+    for (const invalid of [
+      { ...valid, model: undefined }, { ...valid, provider_profile: 'bad\nprofile' },
+      { ...valid, model: 'bad\nmodel' }, { ...valid, model: 'x'.repeat(257) },
+    ]) {
+      const result = decideNnaGoalEvidence(base(), sessionId, feed([invalid]));
+      expect(result.goal.statusReason).toBe('goal turn evidence unavailable');
+      expect(result.goal.lastAccountedMessageID).toBe('');
+    }
+  });
 });

@@ -9,6 +9,8 @@ export interface NnaGoalTurnReceipt {
   outcome: string;
   tokens: number | null;
   measurement: string;
+  provider_profile?: string;
+  model?: string;
 }
 
 export interface NnaGoalEvidence {
@@ -24,6 +26,16 @@ export type GoalEvidenceDecision =
   | { kind: 'continue'; goal: GoalPayload }
   | { kind: 'settle'; goal: GoalPayload };
 
+const PROVIDER_PROFILE_ID = /^[A-Za-z0-9_-]{1,64}$/u;
+const CONTROL_CHARACTER = /[\u0000-\u001f\u007f-\u009f]/u;
+
+function validAffinity(turn: NnaGoalTurnReceipt): boolean {
+  if (turn.provider_profile === undefined && turn.model === undefined) return true;
+  return typeof turn.provider_profile === 'string' && PROVIDER_PROFILE_ID.test(turn.provider_profile)
+    && typeof turn.model === 'string' && turn.model.length > 0 && turn.model.length <= 256
+    && turn.model.trim().length > 0 && !CONTROL_CHARACTER.test(turn.model);
+}
+
 function blocked(goal: GoalPayload, reason: string, now: number): GoalEvidenceDecision {
   return { kind: 'settle', goal: settleGoal(goal, 'blocked', reason, { now })! };
 }
@@ -38,7 +50,8 @@ function validEvidence(raw: unknown, sessionId: string): raw is NnaGoalEvidence 
   for (const turn of value.turns) {
     if (!turn || typeof turn.request_id !== 'string' || turn.request_id.length === 0
       || turn.request_id.length > 128 || seen.has(turn.request_id)
-      || typeof turn.outcome !== 'string' || typeof turn.measurement !== 'string') return false;
+      || typeof turn.outcome !== 'string' || typeof turn.measurement !== 'string'
+      || !validAffinity(turn)) return false;
     seen.add(turn.request_id);
   }
   return value.latest_request_id === (value.turns.at(-1)?.request_id ?? null);

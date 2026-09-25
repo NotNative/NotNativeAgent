@@ -428,8 +428,7 @@ auditor and dispatch path. The one exception is an explicit Resume over an
 accounted cancelled turn with no assistant output: the final journaled user
 message must exactly match that receipt's request ID, and the candidate is
 marked skip-audit. Evidence hard stops run before objective-file fetch, so a
-missing objective cannot suppress a budget or failed-turn stop. Event timers
-and the production port adapter are not yet wired.
+missing objective cannot suppress a budget or failed-turn stop.
 
 The production safety-port adapter now maps those reads and CAS writes to
 NNA's authenticated harness transport, including the owner-scoped evidence
@@ -445,6 +444,15 @@ prompts. Resume preempts an older idle timer, paused/deleted goals cancel
 pending timers, and in-flight event/setting changes invalidate stale results
 before they can start a CAS write. The evaluator and continuation path remain
 required before autonomy is enabled.
+
+NNA's durable terminal receipt now retains the actual final provider profile
+and model used by the turn, including a fallback route. The bounded goal
+evidence projection carries that non-secret affinity when valid. An
+independent NNA-native audit must use this profile/model (or fail closed if
+attribution is missing), not silently send the objective and transcript to a
+different configured default provider. Earlier model steps in a multi-step
+turn may have used other routes; the final deliverable's route is the one
+relevant to the latest-turn audit.
 
 #### B.5.5 The evaluator exchange `[HARNESS PORT]` (port P-02 §7.4 small-model)
 

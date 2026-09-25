@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 goal evaluator affinity.** NNA terminal records and
+  owner-scoped goal evidence now retain bounded, non-secret provider profile
+  and model IDs for the final route actually used by a turn, including
+  fallbacks. This gives the forthcoming independent evaluator a same-provider
+  target; missing legacy attribution must fail closed rather than pick a
+  different default route. Adversarial review tightened both sides of the
+  optional affinity contract to reject malformed IDs; NNA full check
+  1566 pass/3 skip, NND web 725/725 and check passed. Versions:
+  NNA 20260925-50, NND 20260925-72.
+
 - 2026-09-25 · **P9 live goal safety runner.** A safety-only event runner now
   shares NND's existing NNA event feed and starts with the server when the
   NNA harness is selected. The profile setting gates all work, including
