@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 vi.mock('../../lib/runtime-fetch.ts', () => ({ runtimeFetch: vi.fn() }));
 
 import { runtimeFetch } from '../../lib/runtime-fetch.ts';
-import { archiveSessionAction, renameSessionAction, restoreSessionAction } from '../session-lifecycle.ts';
+import { abortSessionAction, archiveSessionAction, renameSessionAction, restoreSessionAction } from '../session-lifecycle.ts';
 
 const fetchMock = runtimeFetch as unknown as Mock;
 
@@ -45,5 +45,10 @@ describe('session lifecycle PATCH channel (§5.22 sidebar product)', () => {
   it('a failed PATCH surfaces the harness error text', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ error: 'session not found' }, false));
     await expect(renameSessionAction('ses_x', 'y', 'D:/work')).rejects.toThrow('failed');
+  });
+
+  it('a failed abort surfaces the harness error instead of appearing successful', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ error: { code: 'nnd_session_unavailable', message: 'Session unavailable' } }, false));
+    await expect(abortSessionAction('ses_x', 'D:/work')).rejects.toThrow('failed');
   });
 });

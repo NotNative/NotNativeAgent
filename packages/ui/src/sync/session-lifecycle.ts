@@ -100,7 +100,8 @@ export async function unrevertSessionAction(sessionID: string, directory: string
 }
 /** Abort the session's running turn (§B.11); idempotent harness-side. */
 export async function abortSessionAction(sessionID: string, directory: string): Promise<void> {
-  await harnessClient.abortSession(sessionID, { directory });
+  const result = await harnessClient.abortSession(sessionID, { directory });
+  if (result.error) throw new Error(result.error);
 }
 
 /** Delete: a 404 on a CHILD is expected (cascade) and commits locally. */

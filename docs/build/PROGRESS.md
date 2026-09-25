@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA-backed session controls.** The managed local principal
+  now carries separate NNA grants for title update, turn abort, and session
+  removal. NNA owns the matching authenticated routes and durable title
+  update. Removing a desktop session closes its engine and removes the
+  catalog entry while retaining the NNA journal for recoverable inspection;
+  it is not secure erase. Archive/fork/revert still need NNA contracts.
+
 - 2026-09-25 · **NNA workspace-aware boot restoration.** NND now uses the
   authoritative session directory when reopening a saved session whose
   governed NNA workspace changed. It creates that directory's child store

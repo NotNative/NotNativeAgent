@@ -44,6 +44,10 @@ matching the installed launcher so NNA uses the operator's configured state.
 fall back to `nna` on PATH. `NNA_WORKSPACE_ID` supplies the explicit local workspace authority (default
 `local`). NND mints a fresh, bounded principal envelope per forwarded request;
 the readiness credential itself never reaches the browser or logs.
+The local operator envelope grants session create, submit, title update,
+abort, and catalog removal separately. NNA checks each grant at its own
+route and retains session journals after catalog removal for recoverable
+inspection; the GUI delete action is not a secure erase.
 
 The source development launcher explicitly selects `NOTNATIVE_HARNESS=mock`
 unless the developer provides another value. That keeps a first-run source
