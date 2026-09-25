@@ -8,6 +8,9 @@ import { join, resolve } from 'node:path';
 
 const STEP_TIMEOUT_MS = 5_000;
 const EXPECTED_REPLY = 'NND_SOURCE_REPLY';
+const CHILD_TASK = 'Reply with NND_CHILD_REPLY.';
+const CHILD_REPLY = 'NND_CHILD_REPLY';
+const PARENT_REPLY = 'NND_PARENT_REPLY';
 // The stream spans the origin-gate request and session creation, each with
 // its own step deadline. Give the live subscription their combined budget.
 const EVENT_TIMEOUT_MS = 30_000;
@@ -20,16 +23,6 @@ if (!source) {
     process.stderr.write(`NNA source smoke failed: ${error instanceof Error ? error.message : 'unknown error'}\n`);
     process.exitCode = 1;
   });
-}
-
-async function writeManifest(root, providerPort) {
-  const config = join(root, 'config');
-  await mkdir(config, { recursive: true });
-  await writeFile(join(config, 'manifest.json'), JSON.stringify({
-    format_version: 1, persistence: 'ephemeral', workspace_root: root,
-    providers: [{ id: 'primary', display_name: 'Primary', endpoint: `http://127.0.0.1:${providerPort}/v1`, model: 'test', trust_zone: 'loopback' }],
-    routes: { primary: { provider_id: 'primary', model: 'test' } },
-  }));
 }
 
 async function startProvider() {
@@ -54,13 +47,57 @@ async function startProvider() {
       requests.push(body);
       completions += 1;
       response.writeHead(200, { 'content-type': 'text/event-stream' });
-      response.end(`data: ${JSON.stringify({ choices: [{ delta: { role: 'assistant', content: EXPECTED_REPLY }, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`);
+      response.end(providerReply(body));
     })().catch(() => { if (!response.headersSent) response.writeHead(400); response.end(); });
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('provider listener has no port');
   return { server, port: address.port, completions: () => completions, requests: () => requests };
+}
+
+function providerReply(body) {
+  const messages = body.messages ?? [];
+  const userText = messages.filter((message) => message.role === 'user').map((message) => message.content).join('\n');
+  let delta = { role: 'assistant', content: EXPECTED_REPLY };
+  let finishReason = 'stop';
+  if (messages[0]?.content?.includes('isolated tool-permission decision')) {
+    const review = JSON.parse(messages.find((message) => message.role === 'user')?.content ?? '{}');
+    const intent = review.authenticatedIntent?.find((item) => item.content === 'Delegate the smoke task to a general sub-agent.');
+    const approved = review.request?.toolName === 'agent_run' && review.request.args?.task === CHILD_TASK && intent;
+    delta = { role: 'assistant', content: JSON.stringify({ outcome: approved ? 'approve' : 'deny_with_guidance',
+      confidence: 1, reason_code: approved ? 'explicit_delegate_smoke' : 'no_matching_smoke_intent',
+      authority_anchors: approved ? [intent.sequence] : [],
+      ...(!approved ? { guidance: 'The smoke fixture grants only its exact delegated task.' } : {}) }) };
+  } else if (userText.includes(CHILD_TASK)) delta = { role: 'assistant', content: CHILD_REPLY };
+  else if (userText.includes('Delegate the smoke task')) {
+    const delegationResult = messages.find((message) => message.role === 'tool' && message.tool_call_id === 'smoke_delegate_call');
+    if (delegationResult) {
+      const result = JSON.parse(delegationResult.content);
+      const child = JSON.parse(result.content ?? '{}');
+      delta = { role: 'assistant', content: result.tool_lifecycle_status === 'succeeded'
+        && child.outcome === 'completed' && child.text?.includes(CHILD_REPLY)
+        && /^agent_general_[A-Za-z0-9_-]+$/u.test(child.agent_id) ? PARENT_REPLY : 'NND_DELEGATION_FAILED' };
+    } else {
+      const searched = messages.some((message) => message.role === 'tool' && message.tool_call_id === 'smoke_search_call');
+      delta = { role: 'assistant', tool_calls: [{ index: 0, id: 'smoke_delegate_call', type: 'function',
+        function: { name: searched ? 'agent_run' : 'tool_search',
+          arguments: JSON.stringify(searched ? { type: 'general', task: CHILD_TASK } : { query: 'agent_run' }) } }] };
+      if (!searched) delta.tool_calls[0].id = 'smoke_search_call';
+      finishReason = 'tool_calls';
+    }
+  }
+  return `data: ${JSON.stringify({ choices: [{ delta, finish_reason: finishReason }] })}\n\ndata: [DONE]\n\n`;
+}
+
+async function writeManifest(root, providerPort) {
+  const config = join(root, 'config');
+  await mkdir(config, { recursive: true });
+  await writeFile(join(config, 'manifest.json'), JSON.stringify({
+    format_version: 1, persistence: 'ephemeral', workspace_root: root,
+    providers: [{ id: 'primary', display_name: 'Primary', endpoint: `http://127.0.0.1:${providerPort}/v1`, model: 'test', trust_zone: 'loopback' }],
+    routes: { primary: { provider_id: 'primary', model: 'test' }, subagent: { provider_id: 'primary', model: 'test' } },
+  }));
 }
 
 async function probe(app, workspace) {
@@ -108,22 +145,56 @@ async function probeSession(call, workspace, nextEvent) {
     body: JSON.stringify({ messageID: 'smoke_prompt', parts: [{ type: 'text', text: 'Reply with the smoke marker.' }] }),
   });
   assert.equal(submitted.status, 204);
-  await withTimeout(waitForCompletedTurn(nextEvent, id), 15_000, 'governed NNA turn did not reach a terminal activity');
-  await waitForReply(call, id);
+  await withTimeout(waitForCompletedTurn(nextEvent, id, 'smoke_prompt'), 15_000, 'governed NNA turn did not reach a terminal activity');
+  await waitForReply(call, id, EXPECTED_REPLY);
+  const delegated = await call(`/api/session/${id}/prompt_async`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ messageID: 'smoke_delegate', parts: [{ type: 'text', text: 'Delegate the smoke task to a general sub-agent.' }] }),
+  });
+  assert.equal(delegated.status, 204);
+  const childEvents = [];
+  await withTimeout(waitForCompletedTurn(nextEvent, id, 'smoke_delegate', (event) => {
+    if (event.payload?.type === 'session.created' && event.payload.properties?.info?.parentID === id) childEvents.push(event);
+    if (event.payload?.type === 'nnd.activity' && event.payload.properties?.id?.endsWith(':turn')
+      && event.payload.properties?.sessionID !== id) childEvents.push(event);
+  }), 20_000, 'delegated NNA turn did not settle');
+  await waitForReply(call, id, PARENT_REPLY);
+  const children = await json(call, `/api/session/${id}/children`, 200);
+  assert.equal(children.length, 1, 'delegation did not create one child session');
+  const child = children[0];
+  assert.equal(child.parentID, id);
+  assert.equal(child.directory, workspace);
+  assert.match(child.id, /^agent_general_[A-Za-z0-9_-]+$/u);
+  assert.ok(childEvents.some((event) => event.payload.type === 'session.created'
+    && event.payload.properties.info.id === child.id), 'child creation was not delivered on the live event stream');
+  assert.ok(childEvents.some((event) => event.payload.type === 'nnd.activity'
+    && event.payload.properties.id === `${child.id}:turn`
+    && event.payload.properties.status === 'completed'
+    && event.payload.properties.summary === 'Turn completed'), 'child completion was not delivered on the live event stream');
+  assert.deepEqual((await json(call, '/api/session?roots=true', 200)).map((item) => item.id), [id]);
+  assert.deepEqual((await json(call, '/api/session?roots=false', 200)).map((item) => item.id), [child.id]);
+  const childMessages = await json(call, `/api/session/${child.id}/message`, 200);
+  assert.ok(childMessages.some((message) => message.info?.role === 'assistant'
+    && message.parts?.some((part) => part.type === 'text' && part.text?.includes(CHILD_REPLY))),
+  'completed child transcript was not projected through NND');
+  const capability = await json(call, `/api/v1/nnd/sessions/${child.id}/capabilities`, 200);
+  assert.equal(capability.capabilities.steer_subagent, false, 'completed child retained steering authority');
   const renamed = await json(call, `/api/session/${id}`, {
     method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Renamed smoke' }),
   }, 200);
   assert.equal(renamed.title, 'Renamed smoke');
   assert.equal(await json(call, `/api/session/${id}`, { method: 'DELETE' }, 200), true);
   assert.deepEqual(await json(call, '/api/session?roots=true', 200), []);
+  assert.equal((await call(`/api/session/${child.id}/message`)).status, 404, 'deleting parent did not revoke child transcript');
 }
 
-async function waitForCompletedTurn(nextEvent, id) {
+async function waitForCompletedTurn(nextEvent, id, promptId, observe = () => {}) {
   for (;;) {
     const event = await nextEvent();
+    observe(event);
     if (event.payload?.type !== 'nnd.activity') continue;
     const activity = event.payload.properties;
-    if (activity?.sessionID !== id || activity.id !== `${id}:turn:smoke_prompt`) continue;
+    if (activity?.sessionID !== id || activity.id !== `${id}:turn:${promptId}`) continue;
     // NNA also labels cancelled/needs-input turns "completed" at the activity
     // transport layer; neither proves the provider reply finished normally.
     if (activity.status === 'completed') {
@@ -143,12 +214,12 @@ async function withTimeout(operation, timeoutMs, message) {
   } finally { clearTimeout(timer); }
 }
 
-async function waitForReply(call, id) {
+async function waitForReply(call, id, marker) {
   const deadline = Date.now() + 15_000;
   for (;;) {
     const messages = await json(call, `/api/session/${id}/message`, 200);
     if (Array.isArray(messages) && messages.some((message) => message.info?.role === 'assistant'
-      && message.parts?.some((part) => part.type === 'text' && part.text?.includes(EXPECTED_REPLY)))) return;
+      && message.parts?.some((part) => part.type === 'text' && part.text?.includes(marker)))) return;
     if (Date.now() >= deadline) throw new Error('governed NNA turn did not project the fake provider reply');
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
@@ -224,6 +295,13 @@ async function main(nnaSource) {
       message.role === 'user' && typeof message.content === 'string'
       && message.content.includes('Reply with the smoke marker.'))),
     'NNA did not submit the user prompt to the isolated provider');
+    assert.ok(provider.requests().some((request) => {
+      if (!request.messages?.[0]?.content?.includes('isolated tool-permission decision')) return false;
+      const message = request.messages.find((item) => item.role === 'user');
+      if (!message) return false;
+      const review = JSON.parse(message.content);
+      return review.request?.toolName === 'agent_run' && review.request.args?.task === CHILD_TASK;
+    }), 'NNA did not review the delegated agent_run request');
   } catch (error) {
     operationFailed = true;
     throw error;
@@ -243,5 +321,5 @@ async function main(nnaSource) {
       process.stderr.write(`NNA source smoke cleanup also failed: ${error instanceof Error ? error.message : 'unknown error'}\n`);
     }
   }
-  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, live session event, governed prompt and transcript, root list, empty child projections, session lifecycle, and origin gate.\n');
+  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, live events, governed prompt and delegation, parent and child transcripts, session lists and lifecycle, and origin gate.\n');
 }

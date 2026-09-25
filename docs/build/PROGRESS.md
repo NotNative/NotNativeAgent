@@ -22,15 +22,23 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Real delegated-session source loop.** The cross-repository
+  smoke now makes the local provider fixture request NNA's `tool_search`,
+  then `agent_run`. A constrained fixture reviewer approves only the exact
+  task named in authenticated operator intent. The smoke checks that NNA
+  creates a child session, NND lists it under the parent, and the completed
+  child's assistant transcript remains readable through NND while its
+  steering grant is absent. This covers one completed child; live steering,
+  restart recovery, and multiple concurrent children need separate gates.
+
 - 2026-09-25 · **Governed source prompt loop.** The cross-repository smoke
   now starts a tiny loopback OpenAI-compatible fixture, submits a prompt via
   NND `/api/session/:id/prompt_async`, verifies NNA actually called the
   fixture, verifies the provider received the intended user text, waits for
   a normally completed NNA turn, and finds the marker in an assistant
   transcript part returned through NND. No external provider, credential, or
-  model cost is involved.
-  This proves the basic source harness turn and projection, not a complete
-  interactive browser session or subagent transcript.
+  model cost is involved. This proves the basic source harness turn and
+  projection, not a complete interactive browser session.
 
 - 2026-09-25 · **Live bridge events and cancellation.** The source smoke now
   subscribes through NND to NNA's real `/global/event` stream, observes the
@@ -46,7 +54,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   authenticated health (including a 401 negative control), root-list filtering,
   the empty child endpoint, session create/rename/delete,
   transcript read, and the browser-origin write gate. It uses an isolated
-  local provider fixture for the basic prompt loop but does not populate a
+  local provider fixture for both the basic prompt loop and one delegated
   child transcript. This validates the two
   current source trees without changing the older installed NNA in the user
   profile; packaged installation and UI interaction remain separate gates.
