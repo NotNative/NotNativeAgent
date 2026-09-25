@@ -47,6 +47,7 @@ export const BUILT_PAGE_SLUGS: readonly SettingsPageSlug[] = [
   'sessions',
   'shortcuts',
   'providers',
+  'mcp',
 ];
 
 export function isBuiltPage(slug: SettingsPageSlug): boolean {

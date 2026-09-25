@@ -19,6 +19,7 @@ import { NotificationsPage } from './pages/notifications.tsx';
 import { ShortcutsPage } from './pages/shortcuts.tsx';
 import { GeneralPage } from './pages/general.tsx';
 import { ProvidersPage } from './pages/providers.tsx';
+import { McpPage } from './pages/mcp.tsx';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';
 
 export { PAGE_TITLE_KEYS };
@@ -31,6 +32,7 @@ const PAGE_COMPONENTS: Partial<Record<SettingsPageSlug, () => ReactNode>> = {
   shortcuts: () => <ShortcutsPage />,
   general: () => <GeneralPage />,
   providers: () => <ProvidersPage />,
+  mcp: () => <McpPage />,
 };
 
 const PAGE_TITLE_KEYS: Record<SettingsPageSlug, I18nKey> = {

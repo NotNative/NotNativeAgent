@@ -170,6 +170,9 @@ export const harnessClient = {
   async listProviderProfiles(): Promise<HarnessResult<{ profiles: unknown[] }>> {
     return request('listProviderProfiles', '/v1/provider-profiles');
   },
+  async getNnaMcpInventory(): Promise<HarnessResult<{ version: number; state: string; servers: unknown[] }>> {
+    return request('getNnaMcpInventory', '/v1/nnd/mcp');
+  },
   // lifecycle/health
   async globalHealth(): Promise<HarnessResult<{ healthy: boolean; version: string }>> {
     return request('globalHealth', '/global/health', undefined, HARNESS_HEALTH_TIMEOUT_MS);

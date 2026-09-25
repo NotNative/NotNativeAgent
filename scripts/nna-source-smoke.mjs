@@ -118,7 +118,14 @@ async function writeManifest(root, providerPort) {
       { id: 'delegated', display_name: 'Delegated', endpoint: `http://127.0.0.1:${providerPort}/v1`, model: 'test', trust_zone: 'loopback' },
     ],
     routes: { primary: { provider_id: 'primary', model: 'test' }, subagent: { provider_id: 'delegated', model: 'test' } },
+    mcp_servers: smokeMcpServers(),
   }));
+}
+
+function smokeMcpServers() {
+  const endpoint = 'http://127.0.0.1:9/mcp';
+  return [{ id: 'smoke_memory', transport: 'streamable_http', enabled: false,
+    endpoint, credential_env: 'SMOKE_SECRET_ENV' }];
 }
 
 async function probe(app, workspace, provider) {
@@ -131,6 +138,13 @@ async function probe(app, workspace, provider) {
     engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'test' },
   });
   assert.equal(JSON.stringify(config).includes('endpoint'), false, 'browser config must omit provider connection and secret metadata');
+  const mcp = await json(call, '/api/v1/nnd/mcp', 200);
+  assert.deepEqual(mcp, { version: 1, state: 'configured', servers: [{
+    id: 'smoke_memory', transport: 'streamable_http', enabled: false, trusted: false,
+  }] });
+  assert.equal(JSON.stringify(mcp).includes('SMOKE_SECRET'), false, 'MCP inventory must omit secret references and destinations');
+  const profiles = await json(call, '/api/v1/provider-profiles', 200);
+  assert.equal(profiles.profiles.length, 2);
   assert.deepEqual(await json(call, '/api/session?roots=true', 200), []);
   const eventAbort = new AbortController();
   const eventResponse = await app.fetch(new Request('http://nnd.local/api/global/event', {

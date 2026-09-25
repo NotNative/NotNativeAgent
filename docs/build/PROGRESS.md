@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA-backed MCP inventory.** NNA now projects an authenticated,
+  read-only configured-server inventory (`id`, transport, enabled, trusted) from
+  its resolved process configuration. NND's MCP Settings page names this as
+  configuration, not live connection health, and distinguishes denial from an
+  empty inventory. Destinations, commands, headers, and credentials stay inside
+  NNA. Cross-repository source smoke asserts the allowlist through the managed
+  adapter; live health, testing, and management remain future capability work.
+
 - 2026-09-25 · **Provider capability center, read-only first slice.** Settings
   now reads NNA's public provider-profile inventory through the authenticated
   harness seam and identifies the active route, model, and endpoint origin. It shows

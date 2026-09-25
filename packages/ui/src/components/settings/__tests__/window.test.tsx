@@ -164,6 +164,27 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     expect(document.body.textContent).not.toContain('SECRET_NAME');
   });
 
+  it('MCP distinguishes configuration from connection health and hides destinations', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      version: 1, state: 'configured', servers: [{ id: 'memory', transport: 'streamable_http', enabled: true,
+        trusted: false, endpoint: 'https://mcp.example/private?api_key=SECRET_QUERY', command: 'secret-command' }],
+    }), { status: 200 })));
+    await renderWindow('mcp');
+    expect(document.querySelectorAll('[data-testid="mcp-server"]')).toHaveLength(1);
+    expect(document.body.textContent).toContain('Connection unverified');
+    expect(document.body.textContent).toContain('Enabled');
+    expect(document.body.textContent).not.toContain('mcp.example');
+    expect(document.body.textContent).not.toContain('SECRET_QUERY');
+    expect(document.body.textContent).not.toContain('secret-command');
+  });
+
+  it('MCP denial is not shown as an empty inventory', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ error: { message: 'MCP read denied' } }), { status: 403 })));
+    await renderWindow('mcp');
+    expect(document.body.textContent).toContain('MCP read denied');
+    expect(document.body.textContent).not.toContain('No MCP servers');
+  });
+
   it('landing pages render the phase note, never a silent gap', async () => {
     await renderWindow('agents');
     expect(document.body.textContent).toContain('Agents');
