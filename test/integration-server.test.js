@@ -548,6 +548,11 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.deepEqual(childMessages.value.map((message) => [message.info.id, message.parts[0].text]), [
       ['agent_coder_http:message:0', 'Inspect this'], ['agent_coder_http:message:1', 'Private finding'],
     ]);
+    assert.deepEqual((await request(base, '/session/agent_coder_http/message?limit=1', owner)).value
+      .map((message) => message.parts[0].text), ['Private finding']);
+    for (const limit of ['0', '201', 'NaN', '1.5', '1&limit=2']) {
+      assert.equal((await request(base, `/session/agent_coder_http/message?limit=${limit}`, owner)).status, 400);
+    }
     const partialReader = principal(['nnd.read'], { workspace_ids: ['w_one'] });
     assert.deepEqual((await request(base, '/session', partialReader)).value, []);
     assert.equal((await request(base, '/session/agent_coder_http', partialReader)).status, 404);

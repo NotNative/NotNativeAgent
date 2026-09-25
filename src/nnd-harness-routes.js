@@ -4,6 +4,7 @@ import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { sseOpen } from './opencode/protocol.js';
 const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort))?$/u;
+const MESSAGE_LIMIT_MAX = 200;
 export async function dispatchNndHarnessRequest(request, response, context) {
   if (openEventStream(request, response, context)) return true;
   if (await dispatchBootstrapRequest(request, response, context)) return true;
@@ -63,7 +64,15 @@ export async function dispatchNndHarnessRequest(request, response, context) {
 
 function readSession(response, context, host, id, detail) {
   requireIntegrationPermission(context.principal, 'nnd.read');
-  if (detail === 'message') return send(response, 200, host.messages(id, context.principal));
+  if (detail === 'message') {
+    const values = context.url.searchParams.getAll('limit');
+    if (values.length > 1 || values.length === 1 && (!/^[0-9]{1,3}$/u.test(values[0])
+      || Number(values[0]) < 1 || Number(values[0]) > MESSAGE_LIMIT_MAX)) {
+      throw new ContractError('request_invalid', 'message limit must be an integer from 1 to 200');
+    }
+    const messages = host.messages(id, context.principal);
+    return send(response, 200, values.length === 1 ? messages.slice(-Number(values[0])) : messages);
+  }
   if (detail === 'children') return send(response, 200, host.listChildren(id, context.principal));
   if (detail === 'activity') return send(response, 200, host.activity(id, context.principal));
   if (id) return send(response, 200, host.get(id, context.principal));
