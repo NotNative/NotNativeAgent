@@ -99,6 +99,7 @@ test('integration NND host builds governed engines from the trusted manifest', a
   }));
   const host = await createIntegrationNndEngineHost({ config: configRoot, sessions: join(root, 'sessions'), reviewerLedger: join(root, 'reviewer'), hooks: join(root, 'hooks') });
   assert.equal(host.workspaceRoot, root);
+  assert.deepEqual(host.nndModel, { providerID: 'primary', modelID: 'test' });
   const principal = { subjectId: 'operator', workspaceIds: ['workspace_a'] };
   const context = await host.create('session_a', principal);
   assert.equal(context.engine.sessionId, 'session_a');

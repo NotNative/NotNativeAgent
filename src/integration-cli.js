@@ -89,6 +89,8 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
     }),
   });
   host.workspaceRoot = config.workspaceRoot;
+  // Security: expose only the configured route identity to the NND browser, never provider credentials or endpoints.
+  host.nndModel = Object.freeze({ providerID: config.routes.primary.providerId, modelID: config.routes.primary.model });
   await host.initialize();
   return host;
 }

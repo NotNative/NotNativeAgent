@@ -147,6 +147,7 @@ test('NND harness session routes bind creation to the complete principal workspa
     factoryOptions.push(options);
     return { config: { executionManifest: null }, active: null, transcript: [], async initialize() {}, async submit() {}, async cancel() { return { accepted: true }; }, async shutdown() {} };
   } });
+  nndEngineHost.nndModel = { providerID: 'primary', modelID: 'test' };
   const service = await startIntegrationServer({
     activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost, nndWorkspaceRoot: root,
     providerStore: new ProviderProfileStore({ configRoot }),
@@ -158,6 +159,13 @@ test('NND harness session routes bind creation to the complete principal workspa
     const health = await request(base, '/global/health', owner);
     assert.deepEqual(health.value, { healthy: true, version: '1.18.31' });
     assert.equal((await request(base, '/path', owner)).value.directory, root);
+    const config = await request(base, '/config', owner);
+    assert.deepEqual(config.value, {
+      model: 'primary/test', default_agent: 'nna',
+      nnd: { engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'test' } },
+    });
+    assert.equal(JSON.stringify(config.value).includes('endpoint'), false);
+    assert.equal((await request(base, '/config', principal([]))).status, 403);
     assert.deepEqual((await request(base, '/session/status', owner)).value, {});
     assert.equal((await request(base, '/global/health', principal([]))).status, 403);
     const streamAbort = new AbortController();
@@ -204,9 +212,19 @@ test('NND harness session routes bind creation to the complete principal workspa
     stopChild();
     assert.equal((await request(base, '/session/agent_coder_http/message', owner)).value[1].parts[0].text, 'Private finding');
     const prompt = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
-      method: 'POST', body: { messageID: 'msg_prompt', parts: [{ type: 'text', text: 'hello NNA' }] },
+      method: 'POST', body: { messageID: 'msg_prompt', model: { providerID: 'primary', modelID: 'test' }, agent: 'nna', parts: [{ type: 'text', text: 'hello NNA' }] },
     });
     assert.equal(prompt.status, 204);
+    const wrongModel = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'POST', body: { model: { providerID: 'mock', modelID: 'mock-smart' }, parts: [{ type: 'text', text: 'wrong route' }] },
+    });
+    assert.equal(wrongModel.status, 400);
+    assert.equal(wrongModel.value.error.code, 'nnd_model_override_unsupported');
+    const wrongAgent = await request(base, `/session/${created.value.id}/prompt_async`, principal(['nnd.session.submit'], { workspace_ids: ['w_one', 'w_two'] }), {
+      method: 'POST', body: { agent: 'build', parts: [{ type: 'text', text: 'wrong agent' }] },
+    });
+    assert.equal(wrongAgent.status, 400);
+    assert.equal(wrongAgent.value.error.code, 'nnd_agent_override_unsupported');
     assert.equal((await request(base, `/session/${created.value.id}/prompt_async`, principal([], { workspace_ids: ['w_one', 'w_two'] }), {
       method: 'POST', body: { parts: [{ type: 'text', text: 'denied' }] },
     })).status, 403);

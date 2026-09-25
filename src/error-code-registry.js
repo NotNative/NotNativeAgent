@@ -76,6 +76,7 @@ const ERROR_CODES_BY_OWNER = Object.freeze({
     'nnd_command_invalid', 'nnd_manifest_invalid',
     'nnd_session_capacity_invalid', 'nnd_engine_invalid', 'nnd_engine_factory_missing',
     'nnd_context_capacity_invalid', 'nnd_session_exists', 'nnd_principal_invalid', 'nnd_message_id_reserved',
+    'nnd_model_override_unsupported', 'nnd_agent_override_unsupported',
   ]),
   extension: Object.freeze([
     'event_contract_invalid', 'event_hub_closed', 'extension_async_factory_unsupported',

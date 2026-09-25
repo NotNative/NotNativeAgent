@@ -27,6 +27,7 @@ export async function dispatchNndHarnessRequest(request, response, context) {
   if (request.method === 'POST' && id && match[2] === 'prompt_async') {
     requireIntegrationPermission(context.principal, 'nnd.session.submit');
     const body = await readJsonBody(request);
+    assertConfiguredSelection(body, host.nndModel);
     const content = textContent(body?.parts);
     const accepted = host.submitAsync(id, { version: '1.0', type: 'submit', request_id: body?.messageID ?? newId('nnd_prompt'), content }, context.principal);
     if (accepted.reason === 'busy') {
@@ -96,7 +97,14 @@ async function dispatchBootstrapRequest(request, response, context) {
   const workspace = trustedWorkspace(context.nndWorkspaceRoot);
   if (path === '/global/health') return send(response, 200, { healthy: true, version: '1.18.31' });
   if (path === '/path') return send(response, 200, { home: '', state: '', config: '', worktree: workspace, directory: workspace });
-  if (path === '/config') return send(response, 200, {});
+  if (path === '/config') {
+    const model = context.nndEngineHost?.nndModel;
+    if (!model) throw new ContractError('nnd_engine_unavailable', 'NND engine model configuration is unavailable');
+    return send(response, 200, {
+      model: `${model.providerID}/${model.modelID}`, default_agent: 'nna',
+      nnd: { engine: 'nna', modelSelection: 'configured', primaryModel: model },
+    });
+  }
   if (path === '/project' || path === '/project/current') {
     const project = { id: 'nna_workspace', worktree: workspace, name: 'NNA workspace', time: { created: 0, updated: 0 } };
     return send(response, 200, path === '/project' ? [project] : project);
@@ -116,6 +124,15 @@ function textContent(parts) {
   const text = parts.filter((part) => part?.type === 'text' && typeof part.text === 'string').map((part) => part.text).join('\n');
   if (!text) throw new ContractError('invalid_content', 'NND prompt requires text content');
   return text;
+}
+
+function assertConfiguredSelection(body, model) {
+  if (body?.model !== undefined && (!model || body.model?.providerID !== model.providerID || body.model?.modelID !== model.modelID)) {
+    throw new ContractError('nnd_model_override_unsupported', 'NNA uses its configured primary model; per-prompt model override is unavailable');
+  }
+  if (body?.agent !== undefined && body.agent !== 'nna') {
+    throw new ContractError('nnd_agent_override_unsupported', 'NNA owns agent routing; per-prompt agent override is unavailable');
+  }
 }
 
 function createOptions(body) {

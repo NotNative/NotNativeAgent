@@ -96,6 +96,15 @@ distinction. Pending questions release with `operator_cancelled` (clause 1).
 
 ## NND native live projection
 
+The authenticated NND `/config` bootstrap projection reports only the
+resolved primary provider ID and model ID from NNA's trusted manifest. It does
+not expose provider endpoints, credentials, or the broader provider profile.
+The current local bridge does not support per-prompt model or agent overrides:
+matching primary-model requests and the `nna` agent marker are accepted, while
+different selections fail before submission. NNA still owns routing, including
+its configured fallbacks. NND presents this as a configured model, not a live
+provider picker; a future override contract must be governed by the engine.
+
 The NND integration host connects `SessionEngine.output` to its authenticated
 session event stream. Text deltas form a bounded, temporary assistant preview;
 completion removes that preview and publishes the canonical journal-backed
