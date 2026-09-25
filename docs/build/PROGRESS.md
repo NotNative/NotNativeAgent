@@ -22,6 +22,13 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Packaged terminal command plane acceptance.** The unpacked
+  Windows x64 Electron executable now boots its packaged server bundle with
+  isolated mock-harness data, answers `/health`, creates a real terminal via
+  HTTP, and delivers the expected snapshot, output, and clean exit over the
+  terminal WebSocket. NSIS packaging runs this bounded probe after the native
+  PTY probe. GUI rendering and actual installed-app behavior remain to test.
+
 - 2026-09-25 · **Packaged terminal native acceptance.** The unpacked Windows
   x64 executable now passes a bounded real `node-pty` command spawn/output/
   exit probe under Electron-run-as-Node; the NSIS build runs this gate after

@@ -84,7 +84,9 @@ remaining P12 slices ride after it.
   historical v1 installer omitted this dependency, so terminal creation
   failed with a module-load error. The unpacked Windows x64 artifact now
   passes a real PTY command spawn/output/exit smoke in Electron-run-as-Node.
-  The packaged HTTP/UI terminal flow and other platforms remain unverified.
+  The packaged server's HTTP create plus WebSocket snapshot/output/exit path
+  also passes a real Windows x64 Electron-run-as-Node probe. GUI rendering,
+  actual NSIS installation, and other platforms remain unverified.
 - **D-09-6** Data dir stays the server default `~/.notnative-desktop`
   (NOT userData) so the packaged app and `pnpm start` share state. Electron
   userData holds only shell prefs (port seed) + logs. Delta vs §1.6.
@@ -196,8 +198,9 @@ remaining P12 slices ride after it.
 - node-pty was external AND unshipped in the original v1 installer. The
   current build stages it outside asar next to the server, checks native
   addon loading, and passes a real packaged Electron-run-as-Node PTY spawn.
-  The packaged HTTP/UI terminal flow and non-Windows platforms still need
-  acceptance coverage.
+  The packaged HTTP/WebSocket terminal flow passes under Electron-run-as-Node;
+  GUI rendering, actual NSIS installation, and non-Windows platforms still
+  need acceptance coverage.
 - Dual-instance sharing of ~/.notnative-desktop (packaged + dev `pnpm start`):
   queue dispatch and settings writes assume one server; occurrence-claim
   machinery exists only for scheduled tasks (lands P9-3). Cross-process
