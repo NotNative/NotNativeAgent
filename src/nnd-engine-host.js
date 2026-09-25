@@ -3,6 +3,7 @@ import { ContractError, newId, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { NndSessionRegistry } from './nnd-session-registry.js';
 import { childLiveMessage, streamChildDelta } from './nnd-child-stream.js';
+import { hasPersistedSubmission, messageProjection, reservedProjectedMessageId } from './nnd-transcript-identity.js';
 import { nndContextObservation } from './nnd-context-observation.js';
 import { describe, nextUpdatedAt, sessionIdOrder, titleOf, directoryOf, directoryFor } from './nnd-session-description.js';
 import { createWireEventBus } from './opencode/wire-events.js';
@@ -167,6 +168,16 @@ export class NndEngineHost {
       if (previousTurn.requestId !== command.request_id) return { accepted: false, reason: 'busy' };
       const repeated = context.ingress.start(command, principal);
       return repeated.duplicate ? repeated.result : { accepted: false, reason: 'busy' };
+    }
+    // An ingress instance forgets its idempotency window on restart, whereas
+    // the journal-backed transcript retains submitted request IDs.  A retry
+    // must not execute the same prompt again or create two UI rows with one ID.
+    requireExternalId(command.request_id, 'request_id');
+    if (reservedProjectedMessageId(sessionId, command.request_id)) {
+      throw new ContractError('nnd_message_id_reserved', 'NND prompt ID collides with a projected transcript ID');
+    }
+    if (hasPersistedSubmission(context.engine.transcript, command.request_id)) {
+      return { accepted: false, duplicate: true, pending: false };
     }
     // `Engine.submit()` reports a busy turn asynchronously.  A compatibility
     // caller must not receive 204 and confirm its optimistic message when the
@@ -443,14 +454,6 @@ export class NndEngineHost {
       }); } catch { /* Observational diagnostics cannot replace the engine outcome. */ }
     }
   }
-}
-
-function messageProjection(context, item, index) {
-  // Transcript positions are monotonic for an engine lifetime.  Keeping that
-  // position in the public ID prevents old pages from changing identity as the
-  // bounded NND projection rolls forward.
-  const messageId = `${context.sessionId}:message:${index}`;
-  return { info: { id: messageId, sessionID: context.sessionId, role: item.role, time: { created: context.createdAt + index }, agent: 'nna', model: { providerID: 'nna', modelID: 'nna' } }, parts: [{ id: `${context.sessionId}:part:${index}`, sessionID: context.sessionId, messageID: messageId, type: 'text', text: item.content }] };
 }
 
 function requirePrincipal(principal) {

@@ -101,6 +101,12 @@ session event stream. Text deltas form a bounded, temporary assistant preview;
 completion removes that preview and publishes the canonical journal-backed
 transcript. Tool lifecycle rows carry tool name and state, not arguments or raw
 tool output. The Activity rail receives turn and tool events as live evidence.
+An authenticated submit request ID is journaled with its user message and becomes
+that message's NND ID. A repeated request ID after service restart cannot start
+another turn. Journal-backed assistant messages carry completed time; the live
+preview alone remains unfinished. Synthetic transcript-position IDs are reserved
+so submitted IDs cannot collide with them. This keeps optimistic chat rows and
+reloaded transcripts convergent without comparing message text.
 For NND-created engines, numeric context-status measurements are emitted and
 projected into session metadata as explicitly estimated token use and a known
 limit, when available. The context text itself is never part of that projection.

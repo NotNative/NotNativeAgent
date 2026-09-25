@@ -317,6 +317,46 @@ test('NND engine host acknowledges prompt_async work and keeps transcript IDs st
   release();
 });
 
+test('NND projection reconciles submitted user IDs and settles persisted assistant messages', async () => {
+  const engine = fakeEngine();
+  engine.transcript = [
+    { type: 'message', role: 'user', content: 'same text', requestId: 'msg_first' },
+    { type: 'message', role: 'assistant', content: 'first reply' },
+    { type: 'message', role: 'user', content: 'same text', requestId: 'msg_second' },
+    { type: 'message', role: 'assistant', content: 'second reply' },
+  ];
+  const host = new NndEngineHost({ createEngine: async () => engine });
+  await host.create('session_a', owner);
+  const projected = host.messages('session_a', owner);
+  assert.deepEqual(projected.map((entry) => entry.info.id), [
+    'msg_first', 'session_a:message:1', 'msg_second', 'session_a:message:3',
+  ]);
+  assert.ok(projected[1].info.time.completed >= projected[1].info.time.created);
+  assert.ok(projected[3].info.time.completed >= projected[3].info.time.created);
+  assert.equal(projected[0].info.time.completed, undefined);
+});
+
+test('NND restored transcript suppresses a retried prompt and rejects projected-ID collisions', async () => {
+  const engine = fakeEngine();
+  engine.transcript = [
+    { type: 'message', role: 'user', content: 'first', requestId: 'msg_replayed' },
+    { type: 'message', role: 'assistant', content: 'reply' },
+  ];
+  let submissions = 0;
+  engine.submit = async () => { submissions += 1; return { accepted: true }; };
+  const events = [];
+  const host = new NndEngineHost({ createEngine: async () => engine,
+    eventBus: { publishSession: (event) => events.push(event) } });
+  await host.create('session_a', owner);
+  assert.deepEqual(host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'msg_replayed', content: 'first' }, owner),
+    { accepted: false, duplicate: true, pending: false });
+  assert.throws(() => host.submitAsync('session_a', { version: '1.0', type: 'submit',
+    request_id: 'session_a:message:9', content: 'second' }, owner), { code: 'nnd_message_id_reserved' });
+  assert.equal(submissions, 0);
+  assert.deepEqual(events.map((event) => event.type), ['session.created']);
+  assert.equal(host.messages('session_a', owner).filter((entry) => entry.info.id === 'msg_replayed').length, 1);
+});
+
 test('NND engine host rejects a prompt while its engine has an active turn', async () => {
   const engine = fakeEngine();
   engine.active = { finalized: false };

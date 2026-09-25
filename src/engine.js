@@ -124,7 +124,7 @@ export class SessionEngine {
       active.conversationIntent = projectConversationIntent(active.authority, { anchor: active.prompt });
       active.approvedProposal = resolveApprovedAssistantProposal(this.transcript, command.content);
       armMissionDeadline(active);
-      await this.#persist('message', userMessage(turn.id, command.content));
+      await this.#persist('message', userMessage(turn.id, command.content, { requestId: command.request_id }));
       await this.#persist('turn_accepted', { turnId: turn.id, requestId: command.request_id });
       await this.output(acceptedRecord(command.request_id, this, turn.id));
       await emitEngineStatus(this, 'preparing', active);
