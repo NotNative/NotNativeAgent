@@ -88,7 +88,11 @@ development seam until their contract test suite can replace it.
    Engine validation decides which levels a principal may use.
 5. **Edge behavior**: optimistic sends, launcher state, and in-flight views are
    client-held intent awaiting engine echo. Reconciliation anchors on projection
-   frames and replay; the client never asserts engine truth.
+   frames and replay; the client never asserts engine truth. NNA preserves an
+   accepted user prompt's client message ID in the journal-backed transcript,
+   suppresses a repeated ID after restart, and marks persisted assistant replies
+   complete. NND replaces optimistic parts with authoritative parts even when
+   their part IDs differ; it never deduplicates distinct turns by prompt text.
 
 ## Web and desktop mirror
 

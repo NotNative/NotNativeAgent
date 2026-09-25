@@ -163,6 +163,11 @@ async function probeSession(call, workspace, nextEvent, provider) {
   assert.equal(submitted.status, 204);
   await withTimeout(waitForCompletedTurn(nextEvent, id, 'smoke_prompt'), 15_000, 'governed NNA turn did not reach a terminal activity');
   await waitForReply(call, id, EXPECTED_REPLY);
+  const settledMessages = await json(call, `/api/session/${id}/message`, 200);
+  assert.deepEqual(settledMessages.map((message) => message.info.id), ['smoke_prompt', `${id}:message:1`],
+    'NNA must project the submitted user ID for optimistic transcript reconciliation');
+  assert.ok(settledMessages[1].info.time.completed >= settledMessages[1].info.time.created,
+    'journal-backed assistant reply must be complete, not a perpetual live tail');
   const delegated = await call(`/api/session/${id}/prompt_async`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ messageID: 'smoke_delegate', parts: [{ type: 'text', text: 'Delegate the smoke task to a general sub-agent.' }] }),

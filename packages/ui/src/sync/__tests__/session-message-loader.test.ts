@@ -24,7 +24,7 @@ vi.mock('../../lib/runtime-switch.ts', () => ({
 }));
 
 import { configureHarness, callsFor } from './harness-client-mock.ts';
-import { SessionMessageLoader, type LoaderTarget } from '../session-message-loader.ts';
+import { SessionMessageLoader, mergePartsPreservingTerminal, type LoaderTarget } from '../session-message-loader.ts';
 import { INITIAL_STATE, type DirectoryStore } from '../types.ts';
 
 function target(directory = 'D:/work', sessionID = 's1'): { store: StoreApi<DirectoryStore>; target: LoaderTarget } {
@@ -48,6 +48,14 @@ beforeEach(() => {
 });
 
 describe('loader behavior', () => {
+  it('replaces optimistic text when a server part uses a different ID', () => {
+    const draft = { id: 'draft', messageID: 'm1', sessionID: '', type: 'text', text: 'same text' } as never;
+    const tool = { id: 'tool', messageID: 'm1', sessionID: 's1', type: 'tool', state: { status: 'completed' } } as never;
+    const settled = { id: 'server', messageID: 'm1', sessionID: 's1', type: 'text', text: 'same text' } as never;
+    expect(mergePartsPreservingTerminal([draft, tool], [settled])).toEqual([tool, settled]);
+    expect(mergePartsPreservingTerminal([draft, tool], [])).toEqual([draft, tool]);
+  });
+
   it('shares ONE in-flight request across callers', async () => {
     configureHarness({
       listMessagesPage: () => ({ data: entries(2), response: { status: 200 } }),

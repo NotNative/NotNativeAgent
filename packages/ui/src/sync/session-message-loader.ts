@@ -366,7 +366,10 @@ function keepReferenceIfEqual(current: Message, incoming: Message): boolean {
 /** Terminal tool parts and live streaming parts survive page merges. */
 export function mergePartsPreservingTerminal(existing: Part[] | undefined, incoming: Part[]): Part[] {
   if (!existing || existing.length === 0) return incoming;
-  const merged = [...existing];
+  // A server part can have a new ID while replacing an optimistic draft part.
+  // Keep unrelated live/tool parts, but never render both text copies.
+  const authoritativeTypes = new Set(incoming.filter((part) => !isOptimisticPart(part)).map((part) => part.type));
+  const merged = existing.filter((part) => !isOptimisticPart(part) || !authoritativeTypes.has(part.type));
   for (const incomingPart of incoming) {
     const index = merged.findIndex((p) => p.id === incomingPart.id);
     if (index < 0) {
