@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "packages/ui/src, packages/web/src, scripts",
-  "source_digest": "sha256:582b676313199e09e527b80cb568a29ef88f02d99124e17206d97254d1472a74",
+  "source_digest": "sha256:cac4107921a649e3789d3c750f665ddb72bbc3fdf63fa4faa04eccf4ed768af1",
   "counts": {
-    "modules": 377,
+    "modules": 378,
     "component_edges": 12
   },
   "components": [
@@ -30,7 +30,7 @@
       "id": "ui-shell",
       "label": "UI shell",
       "ownership": "Owns app regions, chat placeholders, stores first paint, boot state.",
-      "module_count": 90
+      "module_count": 91
     },
     {
       "id": "web-server",
@@ -116,8 +116,8 @@
     {
       "from": "ui-shell",
       "to": "harness-facade",
-      "import_count": 28,
-      "module_count": 25
+      "import_count": 29,
+      "module_count": 26
     },
     {
       "from": "web-entry",
@@ -928,10 +928,19 @@
       ]
     },
     {
+      "path": "packages/ui/src/components/settings/pages/provider-diagnostics.tsx",
+      "component": "ui-shell",
+      "entrypoint": false,
+      "imports": [
+        "packages/ui/src/lib/nnd/client.ts"
+      ]
+    },
+    {
       "path": "packages/ui/src/components/settings/pages/providers.tsx",
       "component": "ui-shell",
       "entrypoint": false,
       "imports": [
+        "packages/ui/src/components/settings/pages/provider-diagnostics.tsx",
         "packages/ui/src/components/settings/primitives.tsx",
         "packages/ui/src/lib/nnd/client.ts"
       ]

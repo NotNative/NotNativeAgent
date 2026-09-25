@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { harnessClient } from '../../../lib/nnd/client.ts';
 import { SettingsGroupTitle, SettingsSection } from '../primitives.tsx';
+import { ProviderDiagnostics } from './provider-diagnostics.tsx';
 
 interface ProviderProfile {
   profile_id: string;
@@ -61,18 +62,19 @@ export function ProvidersPage(): ReactNode {
         <SettingsGroupTitle>NNA provider profiles</SettingsGroupTitle>
         <button type="button" className="rounded border border-border/60 px-2 py-1 text-xs text-foreground disabled:opacity-50" onClick={refresh} disabled={loading}>Refresh</button>
       </div>
-      <p className="text-xs text-muted-foreground">Read-only routes configured in NotNativeAgent. Credential bindings and endpoint paths are not shown.</p>
+      <p className="text-xs text-muted-foreground">Routes configured in NotNativeAgent. Diagnostics contact the provider only when clicked. Credentials and endpoint paths are not shown here.</p>
       {loading ? <p role="status" className="text-xs text-muted-foreground">Loading provider profiles…</p> : null}
       {!loading && error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
       {!loading && profiles?.length === 0 ? <p className="text-xs text-muted-foreground">No provider profiles are configured in NNA.</p> : null}
       {!loading && profiles?.map((profile) => (
-        <div key={profile.profile_id} className="rounded-md border border-border/40 p-3 text-xs" data-testid="provider-profile">
+        <div key={`${profile.profile_id}:${revision}`} className="rounded-md border border-border/40 p-3 text-xs" data-testid="provider-profile">
           <div className="flex items-center gap-2 font-medium text-foreground">
             <span>{profile.display_name || profile.profile_id}</span>
             {profile.active ? <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">Active</span> : null}
           </div>
           <div className="mt-1 text-muted-foreground">{profile.model}</div>
           <div className="break-all text-muted-foreground">{endpointOrigin(profile.endpoint)}</div>
+          <ProviderDiagnostics profileId={profile.profile_id} />
         </div>
       ))}
     </SettingsSection>

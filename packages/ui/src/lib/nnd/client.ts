@@ -170,6 +170,14 @@ export const harnessClient = {
   async listProviderProfiles(): Promise<HarnessResult<{ profiles: unknown[] }>> {
     return request('listProviderProfiles', '/v1/provider-profiles');
   },
+  async discoverProviderModels(profileId: string): Promise<HarnessResult<{ profile_id: string; models: unknown[] }>> {
+    return request('discoverProviderModels', `/v1/provider-profiles/${sid(profileId)}/discover`, post({}));
+  },
+  async testProviderProfile(profileId: string): Promise<HarnessResult<{
+    profile_id: string; status: string; selected_model: string; discovered_models: number;
+  }>> {
+    return request('testProviderProfile', `/v1/provider-profiles/${sid(profileId)}/test`, post({}));
+  },
   async getNnaMcpInventory(): Promise<HarnessResult<{ version: number; state: string; servers: unknown[] }>> {
     return request('getNnaMcpInventory', '/v1/nnd/mcp');
   },

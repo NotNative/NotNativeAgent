@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Provider diagnostics in Settings.** NND now offers explicit
+  per-profile model discovery and configured-model catalog checks through NNA's
+  authenticated provider endpoints. The managed principal gains only
+  `provider.discover` and `provider.test`, not mutation authority; credentials
+  and network I/O stay in NNA. Results say catalog membership, not inference
+  health, and are cleared on profile refresh so a stale success cannot follow
+  changed configuration. Source smoke covers both actions through the managed
+  NND↔NNA adapter.
+
 - 2026-09-25 · **NNA-native Skills visibility and runtime roots.** NND-owned
   NNA sessions now discover NNA's bundled/user skills and trusted-project
   skills from the same roots as the integrated operator. Settings shows a

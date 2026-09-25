@@ -164,6 +164,61 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     expect(document.body.textContent).not.toContain('SECRET_NAME');
   });
 
+  it('provider diagnostics run only on click and keep discovery credentials in NNA', async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes('/primary/test')) return Promise.resolve(new Response(JSON.stringify({
+        profile_id: 'primary', status: 'ready', selected_model: 'test-model', discovered_models: 2,
+      }), { status: 200 }));
+      if (url.includes('/primary/discover')) return Promise.resolve(new Response(JSON.stringify({
+        profile_id: 'primary', models: ['test-model', 'other-model'],
+      }), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({ profiles: [{ profile_id: 'primary',
+        endpoint: 'http://127.0.0.1:11434/v1', model: 'test-model', active: true }] }), { status: 200 }));
+    });
+    await renderWindow('providers');
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/primary/test'))).toBe(false);
+    const test = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Test configured model');
+    await act(async () => { test?.click(); await Promise.resolve(); });
+    expect(document.body.textContent).toContain('Configured model found in provider catalog');
+    expect(document.body.textContent).toContain('This does not test inference.');
+    const discover = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Discover models');
+    await act(async () => { discover?.click(); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="provider-models"]')?.textContent).toContain('other-model');
+  });
+
+  it('provider diagnostic failure is not reported as a successful model check', async () => {
+    fetchMock.mockImplementation((url: string) => Promise.resolve(new Response(
+      url.includes('/primary/test')
+        ? JSON.stringify({ error: { message: 'provider catalog unreachable' } })
+        : JSON.stringify({ profiles: [{ profile_id: 'primary', endpoint: 'http://127.0.0.1:11434/v1',
+          model: 'test-model', active: true }] }),
+      { status: url.includes('/primary/test') ? 502 : 200 },
+    )));
+    await renderWindow('providers');
+    const test = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Test configured model');
+    await act(async () => { test?.click(); await Promise.resolve(); });
+    expect(document.body.textContent).toContain('provider catalog unreachable');
+    expect(document.body.textContent).not.toContain('Configured model found in provider catalog');
+  });
+
+  it('refresh clears a diagnostic even if the provider keeps the same id and model', async () => {
+    let endpoint = 'http://127.0.0.1:11434/v1';
+    fetchMock.mockImplementation((url: string) => Promise.resolve(new Response(JSON.stringify(
+      url.includes('/primary/test')
+        ? { profile_id: 'primary', status: 'ready', selected_model: 'test-model', discovered_models: 1 }
+        : { profiles: [{ profile_id: 'primary', endpoint, model: 'test-model', active: true }] },
+    ), { status: 200 })));
+    await renderWindow('providers');
+    const test = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Test configured model');
+    await act(async () => { test?.click(); await Promise.resolve(); });
+    expect(document.body.textContent).toContain('Configured model found in provider catalog');
+    endpoint = 'http://127.0.0.1:2244/v1';
+    const refresh = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Refresh');
+    await act(async () => { refresh?.click(); await Promise.resolve(); });
+    expect(document.body.textContent).toContain('http://127.0.0.1:2244');
+    expect(document.body.textContent).not.toContain('Configured model found in provider catalog');
+  });
+
   it('MCP distinguishes configuration from connection health and hides destinations', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
       version: 1, state: 'configured', servers: [{ id: 'memory', transport: 'streamable_http', enabled: true,

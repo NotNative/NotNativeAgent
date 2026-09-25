@@ -154,6 +154,10 @@ async function probe(app, workspace, provider) {
   assert.equal(JSON.stringify(mcp).includes('SMOKE_SECRET'), false, 'MCP inventory must omit secret references and destinations');
   const profiles = await json(call, '/api/v1/provider-profiles', 200);
   assert.equal(profiles.profiles.length, 2);
+  const discovered = await json(call, '/api/v1/provider-profiles/primary/discover', { method: 'POST' }, 200);
+  assert.deepEqual(discovered, { profile_id: 'primary', models: ['test'] });
+  const tested = await json(call, '/api/v1/provider-profiles/primary/test', { method: 'POST' }, 200);
+  assert.equal(tested.status, 'ready');
   const skills = await json(call, '/api/v1/nnd/skills', 200);
   assert.ok(skills.skills.some((skill) => skill.id === 'smoke-review'));
   assert.equal(JSON.stringify(skills).includes('SECRET_SKILL_BODY'), false, 'skill inventory must omit instruction bodies');
@@ -488,5 +492,5 @@ async function main(nnaSource) {
       process.stderr.write(`NNA source smoke cleanup also failed: ${error instanceof Error ? error.message : 'unknown error'}\n`);
     }
   }
-  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, live events, governed prompt and delegation, restart-recovered child transcript, read-only steering, session lifecycle, and origin gate.\n');
+  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, capability inventories, provider diagnostics, live events, governed prompt and delegation, restart-recovered child transcript, read-only steering, session lifecycle, and origin gate.\n');
 }
