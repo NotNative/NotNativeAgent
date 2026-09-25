@@ -153,11 +153,11 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ profiles: [{
       profile_id: 'local', display_name: 'Local', endpoint: 'http://127.0.0.1:11434/v1?api_key=SECRET_QUERY', model: 'test-model',
       active: true, credential_env: 'SECRET_NAME',
-    }] }), { status: 200 })));
+    }], configured_primary_route: { providerID: 'local', modelID: 'test-model' } }), { status: 200 })));
     await renderWindow('providers');
     expect(document.querySelectorAll('[data-testid="provider-profile"]')).toHaveLength(1);
     expect(document.body.textContent).toContain('test-model');
-    expect(document.body.textContent).toContain('Active');
+    expect(document.body.textContent).toContain('Configured primary');
     expect(document.body.textContent).toContain('http://127.0.0.1:11434');
     expect(document.body.textContent).not.toContain('SECRET_QUERY');
     expect(document.body.textContent).not.toContain('/v1?');
@@ -184,6 +184,33 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     const discover = [...document.querySelectorAll('button')].find((button) => button.textContent === 'Discover models');
     await act(async () => { discover?.click(); await Promise.resolve(); });
     expect(document.querySelector('[data-testid="provider-models"]')?.textContent).toContain('other-model');
+  });
+
+  it('provider route drift distinguishes disk configuration from running NNA', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      profiles: [{ profile_id: 'new', endpoint: 'http://127.0.0.1:11434/v1', model: 'new-model', active: true },
+        { profile_id: 'old', endpoint: 'http://127.0.0.1:2244/v1', model: 'old-model', active: false }],
+      configured_primary_route: { providerID: 'new', modelID: 'new-model' },
+      runtime_route: { providerID: 'old', modelID: 'old-model' },
+    }), { status: 200 })));
+    await renderWindow('providers');
+    expect(document.body.textContent).toContain('Configuration differs from the running NNA route');
+    expect(document.body.textContent).toContain('Restart NNA');
+    expect(document.querySelectorAll('[data-testid="provider-profile"]')[0]?.textContent).toContain('Configured primary');
+    expect(document.querySelectorAll('[data-testid="provider-profile"]')[1]?.textContent).toContain('Running NNA route');
+  });
+
+  it('compares primary route overrides rather than a provider profile default model', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      profiles: [{ profile_id: 'primary', endpoint: 'http://127.0.0.1:11434/v1', model: 'default-model', active: true }],
+      configured_primary_route: { providerID: 'primary', modelID: 'selected-model' },
+      runtime_route: { providerID: 'primary', modelID: 'selected-model' },
+    }), { status: 200 })));
+    await renderWindow('providers');
+    expect(document.body.textContent).not.toContain('Configuration differs from the running NNA route');
+    expect(document.body.textContent).toContain('Configured primary model: selected-model');
+    expect(document.body.textContent).toContain('Running NNA model: selected-model');
+    expect(document.querySelector('[data-testid="provider-profile"]')?.textContent).toContain('Running NNA route');
   });
 
   it('provider diagnostic failure is not reported as a successful model check', async () => {

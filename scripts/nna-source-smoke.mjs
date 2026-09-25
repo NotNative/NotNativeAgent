@@ -154,6 +154,8 @@ async function probe(app, workspace, provider) {
   assert.equal(JSON.stringify(mcp).includes('SMOKE_SECRET'), false, 'MCP inventory must omit secret references and destinations');
   const profiles = await json(call, '/api/v1/provider-profiles', 200);
   assert.equal(profiles.profiles.length, 2);
+  assert.deepEqual(profiles.configured_primary_route, { providerID: 'primary', modelID: 'test' });
+  assert.deepEqual(profiles.runtime_route, { providerID: 'primary', modelID: 'test' });
   const discovered = await json(call, '/api/v1/provider-profiles/primary/discover', { method: 'POST' }, 200);
   assert.deepEqual(discovered, { profile_id: 'primary', models: ['test'] });
   const tested = await json(call, '/api/v1/provider-profiles/primary/test', { method: 'POST' }, 200);

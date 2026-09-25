@@ -167,7 +167,7 @@ const sid = (id: string) => encodeURIComponent(id);
 
 // ── operations (catalog: doc 02 §3.4) ────────────────────────────────────────
 export const harnessClient = {
-  async listProviderProfiles(): Promise<HarnessResult<{ profiles: unknown[] }>> {
+  async listProviderProfiles(): Promise<HarnessResult<{ profiles: unknown[]; configured_primary_route?: unknown; runtime_route?: unknown }>> {
     return request('listProviderProfiles', '/v1/provider-profiles');
   },
   async discoverProviderModels(profileId: string): Promise<HarnessResult<{ profile_id: string; models: unknown[] }>> {

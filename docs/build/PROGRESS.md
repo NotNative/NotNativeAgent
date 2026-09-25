@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Configured versus running provider route.** NNA's provider
+  inventory now includes the running NND engine route and configured primary
+  route alongside manifest-backed profiles, read from one configuration
+  snapshot. Settings labels them separately, honors primary-route model
+  overrides, and warns only when the actual route identities diverge; a
+  restart is required for the running process to adopt manifest changes.
+  Cross-repository source smoke verifies the running-route projection.
+
 - 2026-09-25 · **Provider diagnostics in Settings.** NND now offers explicit
   per-profile model discovery and configured-model catalog checks through NNA's
   authenticated provider endpoints. The managed principal gains only
