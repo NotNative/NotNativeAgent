@@ -12,14 +12,28 @@ settings-registry.json adjacency).
 
 ## SLICE-A · `chat-alive` — the app looks ALIVE (SMALLEST FIRST)
 
-> **Status (2026-09-22, wiring landed behind seal):** task 1 implemented —
-> `openInitialSession` priority chain (existing selection > validated
-> last-active pointer > non-archived welcome seed > nothing) runs after the
-> initial resync resolves (`engine-instance.ts`), boot-open enqueues the
-> message tail (`reason: 'boot-open'` added to `MaterializationReason`), the
-> persist pair is wired in `onSelectSession` + MainLayout open/openDraft;
-> 7 unit tests (`sync/__tests__/parts-boot-open.test.ts`). Tasks 2–3 are
-> verification of existing machinery rather than new wiring.
+> **Status (2026-09-22, ACCEPTANCE CLOSED — P12b-5):** task 1 landed earlier
+> behind seal; P12b-5 fixed the two defects that kept the decision inert and
+> closed the acceptance on observation (fresh headless profile, prod server,
+> CDP drive): (a) the sidebar lifecycle ordering stripped session records to
+> `{id,parentID,time}` ("Untitled Session" in every row, row-open lost its
+> directory) — `orderSessionsByLifecycle` is now generic
+> identity-preserving (sync/session-ordering.ts + the wrapper in
+> chat/session-sidebar.tsx); (b) boot-open raced: `resyncDirectory('initial')`
+> short-circuits on a fresh boot (zero reconnect candidates), so the open
+> decision ran against an EMPTY list — `sync/boot-open-readiness.ts`
+> `awaitAuthoritativeList()` now gates the decision on
+> `sessionListSource === 'authoritative'` (bootstrap sets status 'complete'
+> BEFORE the phase-3 list merge), failure, or the 6 s cap. Verified live on
+> the mock harness: boot auto-opens the seeded welcome session; unthrottled
+> window streams the typed turn with the busy chip and settles <1 s; the
+> mid-flight `stop` button settles with the doc-05 aborted face; reload
+> restores the same session with history (persisted pointer). Tasks 2–4 are
+> verified rather than re-wired (streaming sidecar + settle timing + stop
+> chips behave per spec in the unthrottled drive); task 3 (copy) already
+> honest; task 6 tests landed (readiness ×5 + ordering identity ×1). User's
+> installed copy additionally ran a stale 09:54 web-dist (installer skip)
+> — refresh the installed artifacts after any bundle change.
 
 **Guarantee (hand-acceptable):** "I open the installed app, log in if asked,
 and within seconds I am INSIDE a session. I type a message, press enter, and

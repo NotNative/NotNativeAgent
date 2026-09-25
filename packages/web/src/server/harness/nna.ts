@@ -11,16 +11,26 @@ const BASE64URL = /^[A-Za-z0-9_-]+$/u;
 export interface NnaHarnessOptions {
   endpoint: string;
   token: string;
-  principal: string;
+  principal: string | (() => string);
   fetch?: typeof globalThis.fetch;
 }
 
 export function createNnaHarnessAdapter(options: NnaHarnessOptions): HarnessAdapter {
   const endpoint = parseEndpoint(options.endpoint);
   const token = requireToken(options.token);
-  const principal = requirePrincipal(options.principal);
+  const principal = principalSupplier(options.principal);
   const requestFetch = options.fetch ?? globalThis.fetch;
-  return { handle: async (request) => forward(request, endpoint, token, principal, requestFetch) };
+  return { handle: async (request) => {
+    let currentPrincipal: string;
+    try {
+      currentPrincipal = principal();
+    } catch {
+      // A launcher can fail while minting fresh authority. Do not turn that
+      // internal failure into an unhandled route error or forward credentials.
+      return harnessError('NNA harness principal is unavailable', 502);
+    }
+    return forward(request, endpoint, token, currentPrincipal, requestFetch);
+  } };
 }
 
 export function createNnaHarnessAdapterFromEnvironment(environment: NodeJS.ProcessEnv = process.env): HarnessAdapter {
@@ -83,6 +93,15 @@ function requirePrincipal(value: string): string {
   return value;
 }
 
+function principalSupplier(value: NnaHarnessOptions['principal']): () => string {
+  if (typeof value === 'string') {
+    const principal = requirePrincipal(value);
+    return () => principal;
+  }
+  if (typeof value !== 'function') throw new Error('NNA principal supplier is required');
+  return () => requirePrincipal(value());
+}
+
 function forwardedHeaders(source: Headers, token: string, principal: string): Headers {
   const headers = new Headers();
   for (const name of ['accept', 'content-type', 'last-event-id', 'x-nnd-directory', 'x-nnd-directory-encoding']) {
@@ -97,6 +116,10 @@ function forwardedHeaders(source: Headers, token: string, principal: string): He
 function safeResponse(source: Response): Response {
   const headers = new Headers(source.headers);
   headers.delete('set-cookie');
+  // The harness may echo request headers. Neither authority value belongs in
+  // the browser response even when the upstream endpoint is otherwise trusted.
+  headers.delete('authorization');
+  headers.delete('x-nna-principal');
   headers.delete('connection');
   headers.delete('keep-alive');
   headers.delete('transfer-encoding');

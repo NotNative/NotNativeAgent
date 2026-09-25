@@ -32,6 +32,7 @@ import { installPersistLifecycleFlush, writeCachedSessions, readLastActiveSessio
 import { useConfigStore } from '../stores/useConfigStore.ts';
 import { useSessionViewStore } from './view-store.ts';
 import { defaultHarnessDirectory, recoverInterruptedTurnAfterMessageLoad, reconcileStreaming } from './engine-support.ts';
+import { awaitAuthoritativeList } from './boot-open-readiness.ts';
 import { createSessionActions } from './engine-actions.ts';
 
 const evictionTimerStop: { timer: ReturnType<typeof setInterval> | null } = { timer: null };
@@ -187,18 +188,21 @@ async function partsStart(ctx: EngineCtx): Promise<void> {
   const directory = normalizeDirectory(await defaultHarnessDirectory());
   useSessionViewStore.getState().setActiveDirectory(directory);
   ctx.manager.ensureChild(directory);
-  // SLICE-A chat-alive: once the authoritative session list lands, open the
-  // last active session (or the seeded welcome demo on first run). The user
-  // had that session open before, so restoring it needs no confirmation;
-  // when nothing restores, the empty draft (doc 05) stays the honest state.
-  const initialResync = ctx.recovery.resyncDirectory(directory, 'initial');
-  void initialResync.then(() => openInitialSession({
-    currentSessionId: useSessionViewStore.getState().currentSessionId,
-    directory: normalizeDirectory(directory),
-    storeSessions: ctx.manager.peekChild(normalizeDirectory(directory))?.getState().session ?? [],
-    pointer: readLastActiveSession(),
-    select: (sessionID, sessionDirectory) => selectBootSession(ctx, sessionID, sessionDirectory),
-  })).catch(() => { /* boot-open is best-effort: the empty draft remains valid */ });
+  // SLICE-A chat-alive: once the authoritative session list lands (real wait —
+  // the initial resync short-circuits on a fresh boot), open the last active
+  // session (or the seeded welcome demo on first run). The user had that
+  // session open before, so restoring it needs no confirmation; when nothing
+  // restores, the empty draft (doc 05) stays the honest state.
+  void awaitAuthoritativeList(ctx.manager, directory, 6000).then(() => {
+    if (ctx.disposed) return;
+    return openInitialSession({
+      currentSessionId: useSessionViewStore.getState().currentSessionId,
+      directory: normalizeDirectory(directory),
+      storeSessions: ctx.manager.peekChild(normalizeDirectory(directory))?.getState().session ?? [],
+      pointer: readLastActiveSession(),
+      select: (sessionID, sessionDirectory) => selectBootSession(ctx, sessionID, sessionDirectory),
+    });
+  }).catch(() => { /* boot-open is best-effort: the empty draft remains valid */ });
   ctx.watchdogStop?.();
   ctx.watchdogStop = startWatchdog({
     disposed: () => ctx.disposed,

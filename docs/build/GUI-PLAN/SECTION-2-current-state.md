@@ -43,13 +43,18 @@ installed app looks nearly empty.
   (context rail, keep-alive panes, has-content surfaces) is NOT built.
 - `ChatView` starts at `currentSessionId === null` → renders an **empty
   draft**: blank transcript, starter chips, composer (chat/chat-view.tsx:64–149;
-  chat/starters.ts). The sync engine never opens a session on boot:
-  `partsStart` calls `void readLastActiveSession()` and **discards** the value
-  ("confirm-before-open lands with doc 05 layout" — engine-instance.ts:159),
-  and `persistLastActiveSession` has **zero call sites** in the repo (grep:
-  persist-cache.ts:154 is exported, no caller) — so the restore pair is built
-  but unwired. The view store's `activeDirectory` is set; `currentSessionId`
-  stays null until a user clicks a session row (view-store.ts:16–21;
+  chat/starters.ts). **UPDATE (2026-09-22, P12b-5):** this snapshot predates
+  the SLICE-A boot-open wiring + its two acceptance fixes; the boot now
+  opens the persisted session (or the seeded welcome demo) once the
+  AUTHORITATIVE list lands — `sync/boot-open-readiness.ts` waits for
+  `sessionListSource === 'authoritative'` because the 'initial' recovery
+  resync short-circuits on a fresh boot, and the §F.10 ordering keeps the
+  ORIGINAL session records (earlier the wrapper stripped them to
+  `{id,parentID,time}`, rendering every row "Untitled Session"). The
+  restore pair is wired both ways (`persistLastActiveSession` callers in
+  engine-instance onSession + MainLayout open/openDraft + timeline fork).
+  The view store's `activeDirectory` is set at boot;
+  `currentSessionId` lands via boot-open (or a user click: view-store.ts:16–21;
   MainLayout actions.openSession:131–135).
 - `ChatSidebar` lists zones from `useGlobalSessionsStore.active`, hydrated
   only by directory bootstraps/merges; an empty zone renders the literal,

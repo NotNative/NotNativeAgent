@@ -955,6 +955,37 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   timeline-dialog dedicated test file. Install channel: build-step stdout
   now captured (build-out.log) so artifact integrity digests surface during
   installs; failure diagnosis is tail-first.
+- 2026-09-22 · **P12b-5 SLICE-A acceptance closed — the installed app now
+  boots ALIVE (user report: "all I see is … No session selected").** User's
+  installed copy ran a 09:54 UI bundle (installer robocopy had skipped fresh
+  web dist) — but TWO real defects were hiding underneath and are now fixed
+  with observation-verified acceptance (fresh headless profile, prod server,
+  CDP drive): (1) sidebar lifecycle ordering STRIPPED session records down to
+  {id,parentID,time} before sorting, so every row rendered "Untitled
+  Session" and row-open lost its directory — orderSessionsByLifecycle is now
+  generic/identity-preserving and the wrapper returns the ORIGINAL
+  objects (session-ordering.ts, chat/session-sidebar.tsx:257); (2) boot-open
+  raced its decision: `recovery.resyncDirectory('initial')` short-circuits
+  on a fresh boot (zero reconnect candidates), so the .then fired against an
+  EMPTY list and the Welcome fallback never matched — new
+  sync/boot-open-readiness.ts `awaitAuthoritativeList()` waits for
+  `sessionListSource === 'authoritative'` (bootstrapDirectory sets status
+  'complete' BEFORE phase 3), failure, or a 6 s cap before
+  openInitialSession runs (engine-instance parts rewired). Verified live
+  end-to-end on the mock harness: boot auto-opens the seeded welcome session
+  (real title, real directory), full transcript renders, and the session
+  tab strip shows the open tab; unthrottled window streams the typed turn with the busy chip
+  ("mock-smart is preparing"/"weighing options…") and deltas settle in <1 s;
+  mid-flight `stop` button exists and clicking it settles the turn with the
+  doc-05 aborted error face ("The running turn was aborted"); reload restores
+  the same session with history via the persisted pointer. Truth: ui
+  689/689 (80 files, +6: readiness ×5 + ordering identity ×1), web 648/648,
+  tsc ui+web targets green, gates 358 files, graph rebuilt current,
+  smoke:test passed (ses_kx05yrgx). Mock welcomeSeed copy already honest
+  (mock status + NNA next + demo triggers) — left unchanged. Registered
+  defect observation (non-blocking): mock harness answers 400 to the §9.4
+  `/api/global/event/ws` upgrade, pipeline falls back to SSE per design
+  (WS_FALLBACK_WINDOW_MS) — NNA adapter owns the real WS bridge (D16).
 
 ## Delta/Delayed register
 
