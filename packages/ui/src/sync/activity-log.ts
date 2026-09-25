@@ -13,10 +13,12 @@ export interface ActivityRecord {
   kind: 'turn' | 'tool' | 'notice';
   summary: string;
   status: 'started' | 'completed' | 'failed' | 'redacted';
+  evidenceMessageID?: string;
 }
 
 export const MAX_ACTIVITY_RECORDS = 500;
 export const MAX_ACTIVITY_SUMMARY_LENGTH = 4_000;
+const MAX_ACTIVITY_ID_LENGTH = 264;
 
 export function activityRecordFromEvent(event: HarnessEvent): ActivityRecord | null {
   if (event.type !== 'nnd.activity') return null;
@@ -30,8 +32,12 @@ export function activityRecordFromEvent(event: HarnessEvent): ActivityRecord | n
   // must therefore carry its authored timestamp rather than borrowing the
   // browser clock (which would reorder an otherwise identical replay).
   const time = numberProp(props, 'time');
-  if (!id || !sessionID || !summary || summary.length > MAX_ACTIVITY_SUMMARY_LENGTH || !isKind(kind) || !isStatus(status) || time === null || !isRenderableTime(time)) return null;
-  return { id, sessionID, time, kind, summary, status };
+  if (!id || id.length > MAX_ACTIVITY_ID_LENGTH || !sessionID || !summary || summary.length > MAX_ACTIVITY_SUMMARY_LENGTH || !isKind(kind) || !isStatus(status) || time === null || !isRenderableTime(time)) return null;
+  const rawEvidence = props.evidenceMessageID;
+  if (rawEvidence !== undefined && (typeof rawEvidence !== 'string' || rawEvidence.length < 1 || rawEvidence.length > 256
+    || /[\u0000-\u001f\u007f]/u.test(rawEvidence) || kind !== 'turn')) return null;
+  return { id, sessionID, time, kind, summary, status,
+    ...(typeof rawEvidence === 'string' ? { evidenceMessageID: rawEvidence } : {}) };
 }
 
 /** Upserts corrections/redactions by stable evidence id and remains bounded. */
@@ -51,7 +57,8 @@ function sameActivityRecord(left: ActivityRecord, right: ActivityRecord): boolea
     && left.time === right.time
     && left.kind === right.kind
     && left.summary === right.summary
-    && left.status === right.status;
+    && left.status === right.status
+    && left.evidenceMessageID === right.evidenceMessageID;
 }
 
 function stringProp(props: Record<string, unknown>, key: string): string | null {

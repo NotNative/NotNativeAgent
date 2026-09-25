@@ -430,6 +430,29 @@ describe('OperatorRail', () => {
     expect(document.querySelector('[data-testid="operator-browser"] iframe')).toBeNull();
   });
 
+  it('jumps from an authored turn to its loaded prompt without inventing links for tools or missing messages', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({
+      message: { s1: [{ id: 'prompt_a', sessionID: 's1', role: 'user', time: { created: 1 } }] } as never,
+      activity: [
+        { id: 'turn-a', sessionID: 's1', time: 1, kind: 'turn', status: 'completed', summary: 'Done', evidenceMessageID: 'prompt_a' },
+        { id: 'turn-b', sessionID: 's1', time: 2, kind: 'turn', status: 'completed', summary: 'Older', evidenceMessageID: 'missing' },
+        { id: 'tool', sessionID: 's1', time: 3, kind: 'tool', status: 'completed', summary: 'Shell command' },
+      ],
+    });
+    const anchor = document.createElement('div'); anchor.id = 'message-prompt_a';
+    const scroll = vi.fn(); anchor.scrollIntoView = scroll; document.body.appendChild(anchor);
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    const links = [...document.querySelectorAll('[data-testid="activity-rows"] button')];
+    expect(links).toHaveLength(1);
+    expect(links[0]!.textContent).toBe('View prompt');
+    act(() => (links[0] as HTMLButtonElement).click());
+    expect(window.location.hash).toBe('#message-prompt_a');
+    expect(scroll).toHaveBeenCalledWith({ block: 'start' });
+  });
+
   it('filters activity to failures without claiming that all session evidence is absent', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ activity: [

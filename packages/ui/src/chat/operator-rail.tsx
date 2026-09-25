@@ -342,7 +342,14 @@ function ActivitySurface({ store, directory }: { store: StoreApi<DirectoryStore>
         if (following.current) setUnseen(0);
       }}>
       {records.length === 0 ? <li className="text-[11px] text-neutral-500">{filter === 'all' ? 'No activity evidence has been received for this session.' : `No ${filter === 'failed' ? 'failed' : filter} activity evidence has been received for this session.`}</li>
-        : records.map((record) => <li key={record.id} className="rounded border border-white/10 bg-neutral-900/40 p-2 text-[11px]"><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p></li>)}
+        : records.map((record) => <li key={record.id} className="rounded border border-white/10 bg-neutral-900/40 p-2 text-[11px]"><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span className={record.status === 'failed' ? 'text-red-300' : record.status === 'redacted' ? 'text-amber-300' : ''}>{record.status}</span></div><p className="mt-1 break-words text-neutral-300">{record.summary}</p>
+          {record.evidenceMessageID && snapshot.message[record.sessionID]?.some((message) => message.id === record.evidenceMessageID)
+            ? <button type="button" className="mt-1 text-sky-300 hover:underline" onClick={() => {
+              const anchor = `message-${record.evidenceMessageID}`;
+              window.history.replaceState(null, '', window.location.pathname + window.location.search);
+              window.location.hash = `#${anchor}`;
+              document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
+            }}>View prompt</button> : null}</li>)}
     </ol>
     {unseen > 0 ? <button type="button" className="m-2 shrink-0 rounded border border-white/15 bg-neutral-800 px-2 py-1 text-[10px] text-neutral-200" data-testid="activity-jump-live"
       onClick={() => { following.current = true; if (viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight; setUnseen(0); }}>↓ {unseen} new {unseen === 1 ? 'event' : 'events'} · Jump to live</button> : null}

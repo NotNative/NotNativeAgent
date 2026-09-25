@@ -22,6 +22,17 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Activity turn evidence navigation.** NNA now attaches the
+  submitted prompt's durable message ID to parent-turn Activity frames and
+  retains that bounded reference in authenticated snapshots. NND validates
+  the optional reference through live and restored records and offers
+  "View prompt" only when the exact message is loaded in the active session.
+  Adversarial review found and fixed the prior Activity-ID bound that silently
+  dropped valid turns with long session and request IDs.
+  Tool, notice, and child-turn rows still need typed links to their own
+  authoritative evidence; this slice does not infer those targets from log
+  text or temporary streaming IDs.
+
 - 2026-09-25 · **Desktop window-state restoration.** Electron's main window
   now saves normal geometry and display mode on a short debounce, flushes it
   before hide/quit, and restores within a visible display work area after a
