@@ -65,6 +65,7 @@ export class NndEngineHost {
       }
       for (const snapshot of await loadChildSnapshots(this.catalogPath, this.#contexts, this.childSessions.limit ?? 256)) {
         this.childSessions.restoreCompleted?.(snapshot);
+        this.#childActivity.set(snapshot.sessionId, snapshot.activity);
       }
     } catch (error) {
       await this.shutdown().catch(() => undefined);
@@ -414,10 +415,11 @@ export class NndEngineHost {
   #observeChildEvent(type, child, payload) {
     const parent = this.#contexts.get(child.parentID);
     if (!parent) return;
-    this.childSnapshotStore.observe(type, child, parent, this.childSessions);
-    observeChildLifecycle({ type, child, payload, streams: this.#childStreams, activity: this.#childActivity,
-      publish: (eventType, properties, mirror) => this.#publishChild(parent, child, eventType, properties, mirror),
-      messages: () => this.messages(child.id, { subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds] }) });
+    try {
+      observeChildLifecycle({ type, child, payload, streams: this.#childStreams, activity: this.#childActivity,
+        publish: (eventType, properties, mirror) => this.#publishChild(parent, child, eventType, properties, mirror),
+        messages: () => this.messages(child.id, { subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds] }) });
+    } finally { this.childSnapshotStore.observe(type, child, parent, this.childSessions, this.#childActivity.get(child.id) ?? []); }
   }
 
   #publishChild(parent, child, type, properties, mirror = false) {

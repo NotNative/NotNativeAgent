@@ -30,7 +30,7 @@ export async function loadActivity(catalogPath, sessionId, createdAt) {
   try { snapshot = JSON.parse(content); } catch { throw new ContractError('nnd_activity_invalid', 'NND activity snapshot is invalid'); }
   if (!snapshot || snapshot.version !== 1 || snapshot.sessionId !== sessionId
     || !Number.isSafeInteger(snapshot.createdAt) || !Array.isArray(snapshot.records)
-    || snapshot.records.length > ACTIVITY_LIMIT || snapshot.records.some((record) => !validRecord(record, sessionId))) {
+    || snapshot.records.length > ACTIVITY_LIMIT || snapshot.records.some((record) => !validActivityRecord(record, sessionId))) {
     throw new ContractError('nnd_activity_invalid', 'NND activity snapshot is invalid');
   }
   // A deleted session can be recreated with its old ID. Its prior activity is not part of the new session.
@@ -105,7 +105,7 @@ function sanitizeRecord(value) {
     status: value.status, summary };
 }
 
-function validRecord(value, sessionId) {
+export function validActivityRecord(value, sessionId) {
   return value && typeof value === 'object' && typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 256
     && !/[\u0000-\u001f\u007f]/u.test(value.id) && value.sessionID === sessionId
     && Number.isSafeInteger(value.time) && value.time > 0 && KINDS.has(value.kind) && STATUSES.has(value.status)

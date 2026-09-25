@@ -146,18 +146,19 @@ session restoration clearly and is not silently replaced. Snapshot writes are
 coalesced and observational: a write failure cannot change a governed turn.
 The canonical transcript remains the authoritative conversation record; Activity
 is a bounded recent operational view, not a complete audit ledger or cursor feed.
-  Completed child Activity remains in memory while the child session is retained;
-  child Activity does not survive an NNA service restart.
+Completed child Activity is retained with its bounded display-only child
+snapshot when the NND catalog is durable. Older child snapshots without
+Activity reopen with an empty log. Neither root nor child Activity is a full
+audit replay or SSE cursor feed.
 Display delivery failures cannot change the governed engine outcome.
 
 Child sessions appear under their NND parent in the session list. Their message
-  view is available during delegation and remains as a bounded excerpt after the
-  child finishes. When the NND catalog is durable, completed child descriptions
-  and transcript excerpts persist as display-only snapshots. Restoration requires
-  the original parent creation time and complete owner/workspace grant. Restored
-  children have no live engine, busy state, or steering grant. Closing the parent
-  revokes child access and removes its snapshots. Child Activity replay remains
-  separate work; the transcript excerpt is not a complete governance audit log.
+view is available during delegation and remains as a bounded excerpt after the
+child finishes. When the NND catalog is durable, completed child descriptions,
+transcript excerpts, and sanitized recent Activity persist as display-only
+snapshots. Restoration requires the original parent creation time and complete
+owner/workspace grant. Restored children have no live engine, busy state, or
+steering grant. Closing the parent revokes child access and removes its snapshots.
 Session reads and event delivery both require the full original workspace grant,
 not merely a shared first workspace.
 While a child runs, its own text deltas and tool lifecycle events stream under

@@ -447,7 +447,12 @@ test('NND completed child transcript survives restart as read-only owned history
     { type: 'message', role: 'assistant', content: 'Done', toolArguments: 'do-not-save' },
   ] };
   const finish = first.childSessions.register('agent_a', 'session_a', principal, child, { type: 'coder' });
+  first.childSessions.observeStarted('agent_a');
+  first.childSessions.observeOutput('agent_a', { type: 'tool_status', session_id: 'agent_a',
+    tool_request_id: 'tool_a', tool: 'shell_run', status: 'succeeded', arguments: 'do-not-save' });
   finish('completed');
+  const beforeActivity = first.activity('agent_a', principal);
+  assert.deepEqual(beforeActivity.map((row) => row.status), ['completed', 'completed']);
   await first.shutdown();
   const path = childSnapshotPath(catalogPath, 'agent_a');
   const saved = await readFile(path, 'utf8');
@@ -459,6 +464,8 @@ test('NND completed child transcript survives restart as read-only owned history
   assert.deepEqual(second.messages('agent_a', principal).map((message) => message.parts[0].text), ['Inspect this', 'Done']);
   assert.deepEqual(second.messages('agent_a', principal).map((message) => message.info.id),
     ['agent_a:message:0', 'agent_a:message:1']);
+  assert.deepEqual(second.activity('agent_a', principal), beforeActivity);
+  assert.throws(() => second.activity('agent_a', owner), { code: 'nnd_session_unavailable' });
   assert.deepEqual(second.statuses(principal), {});
   assert.equal((await second.resolveChildSession('agent_a', principal)).availability, 'unavailable');
   assert.throws(() => second.get('agent_a', owner), { code: 'nnd_session_unavailable' });
@@ -480,10 +487,21 @@ test('NND child snapshots cannot attach to a recreated parent and reject corrupt
   await first.shutdown();
   const path = childSnapshotPath(catalogPath, 'agent_a');
   const saved = JSON.parse(await readFile(path, 'utf8'));
+  const legacy = { ...saved };
+  delete legacy.activity;
+  await writeFile(path, JSON.stringify(legacy));
+  const compatible = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await compatible.initialize();
+  assert.deepEqual(compatible.activity('agent_a', owner), []);
+  await compatible.shutdown();
   await writeFile(path, '{invalid json');
   const corrupt = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
   await assert.rejects(corrupt.initialize(), { code: 'nnd_child_snapshot_invalid' });
   assert.equal(await readFile(path, 'utf8'), '{invalid json');
+  await writeFile(path, JSON.stringify({ ...saved, activity: [{ id: 'bad', sessionID: 'other',
+    kind: 'tool', status: 'completed', summary: 'forged', time: Date.now() }] }));
+  const forged = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await assert.rejects(forged.initialize(), { code: 'nnd_child_snapshot_invalid' });
   await writeFile(path, JSON.stringify({ ...saved, parentCreatedAt: saved.parentCreatedAt - 1 }));
   const stale = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
   await stale.initialize();

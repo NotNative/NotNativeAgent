@@ -2,9 +2,10 @@
 import { readdir, readFile, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ContractError, requireExternalId } from './ids.js';
+import { validActivityRecord } from './nnd-activity-snapshot.js';
 import { persistAtomicJson } from './persistence/atomic-json.js';
 
-const FILE_LIMIT_BYTES = 1_048_576;
+const FILE_LIMIT_BYTES = 2_097_152;
 const DIRECTORY_LIMIT = 1024;
 const TRANSCRIPT_LIMIT = 200;
 const TRANSCRIPT_CHARS = 262_144;
@@ -69,7 +70,10 @@ export async function loadChildSnapshots(catalogPath, parents, limit) {
     if (snapshot.subjectId !== parent.subjectId || !sameWorkspaceIds(snapshot.workspaceIds, [...parent.workspaceIds])) {
       throw new ContractError('nnd_child_snapshot_invalid', 'NND child snapshot owner does not match its parent');
     }
-    restored.push({ snapshot, path });
+    restored.push({ snapshot: { ...snapshot, activity: (snapshot.activity ?? []).map((record) => ({
+      id: record.id, sessionID: record.sessionID, time: record.time, kind: record.kind,
+      status: record.status, summary: record.summary,
+    })) }, path });
     if (restored.length > limit) {
       // Why: a crash can leave the file for a child evicted from the bounded display cache.
       restored.sort(snapshotOrder);
@@ -106,7 +110,9 @@ function validSnapshot(value) {
     && typeof value.directory === 'string' && value.directory.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value.directory)
     && typeof value.title === 'string' && value.title.length <= 256 && !/[\u0000-\u001f\u007f]/u.test(value.title)
     && (value.configuredModel === null || validModel(value.configuredModel))
-    && validTranscript(value.transcript);
+    && validTranscript(value.transcript)
+    && (value.activity === undefined || Array.isArray(value.activity) && value.activity.length <= 500
+      && value.activity.every((record) => validActivityRecord(record, value.sessionId)));
 }
 
 function validModel(value) {
@@ -144,7 +150,7 @@ export class NndChildSnapshotStore {
     this.catalogPath = catalogPath;
     this.writer = writer;
   }
-  observe(type, child, parent, registry) {
+  observe(type, child, parent, registry, activity = []) {
     if (!this.catalogPath || !parent || !['completed', 'deleted'].includes(type)) return;
     if (type === 'deleted' && parent.closing) {
       // Invariant: a failed parent close retains recoverable child history.
@@ -154,6 +160,8 @@ export class NndChildSnapshotStore {
       return;
     }
     const snapshot = type === 'completed' ? registry.completedSnapshot?.(child.id, parent.createdAt) : null;
+    if (snapshot) snapshot.activity = activity.map((record) => ({ id: record.id, sessionID: record.sessionID,
+      time: record.time, kind: record.kind, status: record.status, summary: record.summary }));
     this.#schedule(parent, () => snapshot
       ? persistChildSnapshot(this.catalogPath, snapshot, this.writer)
       : removeChildSnapshot(this.catalogPath, child.id));
