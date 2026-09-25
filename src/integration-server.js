@@ -89,11 +89,11 @@ export async function dispatchProviderRequest(request, response, context) {
     return profile ? send(response, 200, { profile }) : send(response, 404, failure('provider_missing', 'provider profile not found'));
   }
   if (request.method === 'POST' && !id) {
-    requireIntegrationPermission(principal, 'provider.manage');
+    requireProviderProfileWrite(principal);
     return send(response, 201, { profile: await providerStore.create(await readJsonBody(request)) });
   }
   if (request.method === 'PATCH' && id && !action) {
-    requireIntegrationPermission(principal, 'provider.manage');
+    requireProviderProfileWrite(principal);
     return send(response, 200, { profile: await providerStore.update(id, await readJsonBody(request)) });
   }
   if (request.method === 'DELETE' && id && !action) {
@@ -114,6 +114,11 @@ export async function dispatchProviderRequest(request, response, context) {
     });
   }
   return send(response, 405, failure('method_not_allowed', 'method is not supported for this endpoint'));
+}
+
+function requireProviderProfileWrite(principal) {
+  if (principal.permissions.includes('provider.manage')) return;
+  requireIntegrationPermission(principal, 'provider.profile.write');
 }
 
 async function dispatchProviderActivation(request, response, context) {

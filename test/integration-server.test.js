@@ -55,6 +55,15 @@ test('integration service authenticates exact principals and manages provider pr
     assert.equal((await request(base, '/v1/provider-profiles', routeManager, {
       method: 'POST', body: { profile_id: 'blocked', endpoint: 'http://127.0.0.1:4/v1', model: 'x' },
     })).status, 403);
+    const profileWriter = principal(['provider.read', 'provider.profile.write']);
+    const narrowCreate = await request(base, '/v1/provider-profiles', profileWriter, {
+      method: 'POST', body: { profile_id: 'narrow', endpoint: 'http://127.0.0.1:4/v1', model: 'narrow-model' },
+    });
+    assert.equal(narrowCreate.status, 201);
+    assert.equal((await request(base, '/v1/provider-profiles/narrow', profileWriter, {
+      method: 'PATCH', body: { display_name: 'Narrow writer' },
+    })).value.profile.display_name, 'Narrow writer');
+    assert.equal((await request(base, '/v1/provider-profiles/narrow', profileWriter, { method: 'DELETE' })).status, 403);
     assert.equal((await request(base, '/v1/provider-route', routeManager, {
       method: 'PATCH', body: { provider_id: 'missing', model: 'x' },
     })).status, 404);
@@ -97,6 +106,12 @@ test('integration service authenticates exact principals and manages provider pr
     });
     assert.equal(secretProfile.status, 201);
     assert.deepEqual(secretProfile.value.profile.credential, { source: 'secret', secret_id: secret.id, field: 'api_key' });
+    await request(base, '/v1/provider-profiles/lab-secret/discover', manager, { method: 'POST' });
+    assert.equal(seen.at(-1).authorization, 'Bearer broker-secret-value');
+    const renamedSecret = await request(base, '/v1/provider-profiles/lab-secret', profileWriter, {
+      method: 'PATCH', body: { display_name: 'Broker backed' },
+    });
+    assert.deepEqual(renamedSecret.value.profile.credential, { source: 'secret', secret_id: secret.id, field: 'api_key' });
     await request(base, '/v1/provider-profiles/lab-secret/discover', manager, { method: 'POST' });
     assert.equal(seen.at(-1).authorization, 'Bearer broker-secret-value');
 
