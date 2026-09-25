@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { contextUsage, sessionCostRollup, subagentRows, todoRows, turnStats, usageRows, recapFor } from '../work-status.ts';
+import { contextUsage, nnaContextUsage, sessionCostRollup, subagentRows, todoRows, turnStats, usageRows, recapFor } from '../work-status.ts';
 import { panelEligible, panelStatsIfNeeded } from '../panel-gate.ts';
 import { INITIAL_STATE, type DirectoryStore } from '../../sync/types.ts';
 import type { Message, Todo } from '../../lib/nnd/types.ts';
@@ -45,6 +45,25 @@ describe('context usage (unrounded; never a fabricated 100%)', () => {
     expect(usage.lastMessageID).toBe('a2');
     const bounded = contextUsage(store.getState(), 's1', 100);
     expect(bounded.percent).toBeCloseTo(42, 5); // unrounded, not bucketed
+  });
+});
+
+describe('NNA context measurement', () => {
+  it('uses an explicit estimated projection and rejects malformed or absent data', () => {
+    const store = emptyStore();
+    expect(nnaContextUsage(store.getState(), 's1')).toBeNull();
+    patch(store, { session: [{ id: 's1', metadata: { nnd: { context: {
+      estimatedTokens: 4_000, limitTokens: 16_000, measurement: 'estimated', observedAt: 1,
+    } } }, time: { created: 1, updated: 1 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaContextUsage(store.getState(), 's1')).toEqual({ estimatedTokens: 4_000, limitTokens: 16_000, percent: 25 });
+    patch(store, { session: [{ id: 's1', metadata: { nnd: { context: {
+      estimatedTokens: 4_000, limitTokens: null, measurement: 'estimated', observedAt: 2,
+    } } }, time: { created: 1, updated: 1 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaContextUsage(store.getState(), 's1')).toEqual({ estimatedTokens: 4_000, limitTokens: null, percent: null });
+    patch(store, { session: [{ id: 's1', metadata: { nnd: { context: {
+      estimatedTokens: -1, limitTokens: 16_000, measurement: 'estimated', observedAt: 3,
+    } } }, time: { created: 1, updated: 1 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaContextUsage(store.getState(), 's1')).toBeNull();
   });
 });
 

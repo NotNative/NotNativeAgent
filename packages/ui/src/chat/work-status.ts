@@ -27,6 +27,22 @@ export function contextUsage(state: DirectoryStore, sessionID: string, contextLi
   return { percent: null, tokens: null, lastMessageID: null };
 }
 
+/** NNA's numeric context projection is an estimate, not provider-billed usage. */
+export function nnaContextUsage(state: DirectoryStore, sessionID: string): { estimatedTokens: number; limitTokens: number | null; percent: number | null } | null {
+  const session = state.session.find((item) => item.id === sessionID);
+  const nnd = session?.metadata?.nnd;
+  if (!nnd || typeof nnd !== 'object' || Array.isArray(nnd)) return null;
+  const context = (nnd as Record<string, unknown>).context;
+  if (!context || typeof context !== 'object' || Array.isArray(context)) return null;
+  const record = context as Record<string, unknown>;
+  const used = record.estimatedTokens;
+  if (!Number.isSafeInteger(used) || (used as number) < 0 || record.measurement !== 'estimated') return null;
+  const limit = record.limitTokens;
+  const limitTokens = Number.isSafeInteger(limit) && (limit as number) > 0 ? limit as number : null;
+  return { estimatedTokens: used as number, limitTokens,
+    percent: limitTokens === null ? null : (used as number) / limitTokens * 100 };
+}
+
 /** Model context limit from the provider catalog (limit.context); unknown
  * model ⇒ undefined (row suppressed rather than guessed). */
 export function resolveContextLimit(providers: { id: string; models: Record<string, { limit?: { context?: number } }> }[] | undefined | null, modelID: string | undefined): number | undefined {

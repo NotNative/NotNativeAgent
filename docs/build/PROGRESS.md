@@ -22,6 +22,19 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA-estimated Context rail.** NNA emits numeric context
+  measurements for desktop-owned engines and projects the latest estimate into
+  authorized session metadata. The rail shows estimated use, known limit, and
+  percentage without treating them as billed usage or inventing a zero when
+  evidence is absent. Source context text is never projected. Durable replay
+  across NNA restart remains separate work.
+
+- 2026-09-25 · **Live subagent transcripts and list contracts.** NNA streams
+  bounded child text and tool lifecycle evidence under the child session ID,
+  reconciles the preview to the completed transcript, and supports late-open
+  reads. Root/child list filters and parent-scoped child reads match NND's
+  client. The list is bounded but has no cursor yet.
+
 - 2026-09-25 · **NNA-governed subagent transcript steering.** NNA now lists
   active and recently completed child sessions under their parent and serves a
   bounded child transcript view. The NND transcript remains read-only by
@@ -29,7 +42,7 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   toggle only while NNA grants it; submission rechecks the grant and confirms
   the engine accepted the steer. An unaccepted or uncertain response leaves
   the draft in place. Child discovery and activity replay across NNA service
-  restart remain open work, as does live child-token projection.
+  restart remain open work.
 
 - 2026-09-25 · **NNA-backed session controls.** The managed local principal
   now carries separate NNA grants for title update, turn abort, and session

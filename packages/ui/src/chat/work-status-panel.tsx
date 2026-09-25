@@ -10,7 +10,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
-import { contextUsage, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
+import { contextUsage, nnaContextUsage, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 
@@ -18,7 +18,7 @@ const PANEL_WIDTH = 300;
 
 export function WorkStatusPanel({ store, engine, embedded = false }: { store: StoreApi<DirectoryStore>; engine: SyncEngine; embedded?: boolean }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
-  const sessionID = useSessionViewStore.getState().currentSessionId;
+  const sessionID = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState).currentSessionId;
   const [hidden, setHidden] = useState<string[]>([]);
   const [committed, setCommitted] = useState<PanelStats | null>(null);
   if (!sessionID) return null;
@@ -28,6 +28,7 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const lastAssistant = [...messages].reverse().find((source) => (source as { role?: string }).role === 'assistant');
   const contextLimit = resolveContextLimit(snapshot.provider as never, (lastAssistant as { modelID?: string } | undefined)?.modelID);
   const context = contextUsage(snapshot, sessionID, contextLimit);
+  const nnaContext = nnaContextUsage(snapshot, sessionID);
   const todos = todoRows(snapshot, sessionID);
   const subagents = subagentRows(snapshot, sessionID, statusPhraseOf(store));
   const stats = panelStatsIfNeeded(snapshot, sessionID, committed);
@@ -41,7 +42,13 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   // the doc-15 knowledge slice.
 
   const sections: { id: string; label: string; rows: (ReactNode | null)[] }[] = [];
-  if (context.tokens !== null) {
+  if (nnaContext) {
+    sections.push({ id: 'session', label: 'Session', rows: [
+      row('Context', nnaContext.percent === null ? 'Limit unknown' : `${nnaContext.percent.toFixed(1)}% estimated`),
+      row('Estimated use', `${nnaContext.estimatedTokens.toLocaleString()} tokens`),
+      nnaContext.limitTokens === null ? null : row('Limit', `${nnaContext.limitTokens.toLocaleString()} tokens`),
+      cost > 0 ? row('Cost', `$${cost.toFixed(2)}`) : null] });
+  } else if (context.tokens !== null) {
     sections.push({
       id: 'session',
       label: 'Session',

@@ -24,6 +24,40 @@ afterEach(() => {
 });
 
 describe('OperatorRail', () => {
+  it('shows NNA estimated context without inventing provider-billed usage', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ session: [{ id: 's1', metadata: { nnd: { context: {
+      estimatedTokens: 4_000, limitTokens: 16_000, measurement: 'estimated', observedAt: 1,
+    } } }, time: { created: 1, updated: 1 } }] as never });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const context = document.querySelector('[data-testid="work-status-panel"]')!;
+    expect(context.textContent).toContain('25.0% estimated');
+    expect(context.textContent).toContain('4,000 tokens');
+    expect(context.textContent).toContain('16,000 tokens');
+    expect(context.textContent).not.toContain('$0.00');
+  });
+
+  it('follows a selected session change even without a directory-store update', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ session: [
+      { id: 's1', metadata: { nnd: { context: { estimatedTokens: 4_000, limitTokens: 16_000, measurement: 'estimated' } } }, time: { created: 1, updated: 1 } },
+      { id: 's2', metadata: { nnd: { context: { estimatedTokens: 8_000, limitTokens: 16_000, measurement: 'estimated' } } }, time: { created: 1, updated: 1 } },
+    ] as never });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    expect(document.querySelector('[data-testid="work-status-panel"]')!.textContent).toContain('25.0% estimated');
+
+    act(() => useSessionViewStore.getState().setCurrentSession('s2'));
+    const context = document.querySelector('[data-testid="work-status-panel"]')!;
+    expect(context.textContent).toContain('50.0% estimated');
+    expect(context.textContent).not.toContain('25.0% estimated');
+  });
+
   it('renders only explicit activity evidence and keeps deferred surfaces honest', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({ activity: [
