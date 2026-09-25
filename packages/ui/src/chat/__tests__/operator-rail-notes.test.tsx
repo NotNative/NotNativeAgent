@@ -116,6 +116,70 @@ describe('OperatorRail Notes surface', () => {
     expect(vi.mocked(runtimeFetch).mock.calls.every(([, init]) => init?.method !== 'POST')).toBe(true);
   });
 
+  it('retains one unsaved draft across project switches and locks a second project until it is saved', async () => {
+    const fetch = vi.mocked(runtimeFetch);
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const render = async (directory: string): Promise<void> => {
+      await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory={directory} /></I18nProvider>); });
+      await act(async () => { (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click(); await Promise.resolve(); });
+    };
+    await render('D:/work-a');
+    const note = document.querySelector('[data-testid="project-notes"] textarea') as HTMLTextAreaElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(note, 'Draft A');
+      note.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await render('D:/work-b');
+    expect((document.querySelector('[data-testid="project-notes"] textarea') as HTMLTextAreaElement).disabled).toBe(true);
+    expect(document.querySelector('[data-testid="project-notes"]')!.textContent).toContain('Unsaved notes in another project');
+    expect(fetch.mock.calls.every(([, init]) => init?.method !== 'POST')).toBe(true);
+    await render('D:/work-a');
+    expect((document.querySelector('[data-testid="project-notes"] textarea') as HTMLTextAreaElement).value).toBe('Draft A');
+    fetch.mockImplementation(async (_url, init) => init?.method === 'POST'
+      ? ({ ok: false, status: 500, clone: () => ({ json: async () => ({ error: 'Write failed' }) }) }) as Response
+      : ({ ok: false, status: 404, clone: () => ({ json: async () => ({ error: 'File not found', reason: 'not-found' }) }) }) as Response);
+    await act(async () => { ([...document.querySelectorAll('[data-testid="project-notes"] button')].find((button) => button.textContent === 'Save notes') as HTMLButtonElement).click(); await Promise.resolve(); await Promise.resolve(); });
+    expect(document.querySelector('[data-testid="project-notes"]')!.textContent).toContain('Save failed');
+    await render('D:/work-b');
+    expect((document.querySelector('[data-testid="project-notes"] textarea') as HTMLTextAreaElement).disabled).toBe(true);
+    await render('D:/work-a');
+    fetch.mockImplementation(async (_url, init) => init?.method === 'POST'
+      ? ({ ok: true, status: 200 }) as Response
+      : ({ ok: false, status: 404, clone: () => ({ json: async () => ({ error: 'File not found', reason: 'not-found' }) }) }) as Response);
+    await act(async () => { ([...document.querySelectorAll('[data-testid="project-notes"] button')].find((button) => button.textContent === 'Save notes') as HTMLButtonElement).click(); await Promise.resolve(); await Promise.resolve(); });
+    await render('D:/work-b');
+    expect((document.querySelector('[data-testid="project-notes"] textarea') as HTMLTextAreaElement).disabled).toBe(false);
+  });
+
+  it('retries an ambiguous read without losing a retained draft or writing before recovery', async () => {
+    const fetch = vi.mocked(runtimeFetch);
+    fetch.mockClear();
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    const render = async (directory: string): Promise<void> => {
+      await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory={directory} /></I18nProvider>); });
+      await act(async () => { (document.querySelector('button[aria-label="Notes"]') as HTMLButtonElement).click(); });
+    };
+    await render('D:/work-a');
+    const note = document.querySelector('[data-testid="project-notes"] textarea') as HTMLTextAreaElement;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(note, 'Draft A');
+      note.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await render('D:/work-b');
+    fetch.mockImplementation(async () => ({ ok: false, status: 500, clone: () => ({ json: async () => ({ error: 'Read failed' }) }) }) as Response);
+    await render('D:/work-a');
+    const notes = document.querySelector('[data-testid="project-notes"]')!;
+    expect((notes.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Draft A');
+    expect((notes.querySelector('textarea') as HTMLTextAreaElement).disabled).toBe(true);
+    expect(([...notes.querySelectorAll('button')].find((button) => button.textContent === 'Save notes') as HTMLButtonElement).disabled).toBe(true);
+    expect(fetch.mock.calls.every(([, init]) => init?.method !== 'POST')).toBe(true);
+    fetch.mockImplementation(async () => ({ ok: false, status: 404, clone: () => ({ json: async () => ({ error: 'File not found', reason: 'not-found' }) }) }) as Response);
+    await act(async () => { ([...notes.querySelectorAll('button')].find((button) => button.textContent === 'Retry load') as HTMLButtonElement).click(); });
+    expect((notes.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Draft A');
+    expect((notes.querySelector('textarea') as HTMLTextAreaElement).disabled).toBe(false);
+    expect(([...notes.querySelectorAll('button')].find((button) => button.textContent === 'Save notes') as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('deactivates the plan editor when Notes is hidden and reloads it on return', async () => {
     container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
     await act(async () => { rootHandle!.render(<I18nProvider><OperatorRail store={createDirectoryStore()} engine={{} as never} directory="D:/plan-visibility" compactOpen /></I18nProvider>); });

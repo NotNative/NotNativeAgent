@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Single-project General Notes draft lease.** An unsaved
+  General Notes draft now survives in-app project switches in memory. A second
+  project's General Notes remains read-only until the first draft is saved or
+  explicitly discarded; no navigation-triggered write occurs. Save failures
+  retain the draft. If the original project's read fails on return, Save
+  remains disabled and Retry load can recover without overwriting ambiguous
+  file state. This protects in-app switches, not process crashes or reloads.
+
 - 2026-09-25 · **Per-session NNA configured routes.** NNA now projects only
   provider/model IDs from each engine's configured route into authenticated
   session metadata. Child sessions carry their distinct delegated route even
@@ -39,9 +47,8 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 - 2026-09-25 · **Notes pane continuity.** Once opened, General Notes and
   Todos retain in-memory drafts across their tabs and other operator surfaces;
   no save is issued just for navigation. A hidden plan editor deactivates and
-  reloads when reopened. Project switching still remounts Notes and can lose
-  an unsaved General Notes draft; preserving that safely requires a bounded
-  draft owner or a navigation guard, not unbounded mounted project panes.
+  reloads when reopened. The subsequent single-project draft lease protects
+  General Notes across project switches without retaining mounted project panes.
 
 - 2026-09-25 · **Notes read-safety.** General Notes, project Todos, and the
   plan editor now treat only an explicit file-service `not-found` response as

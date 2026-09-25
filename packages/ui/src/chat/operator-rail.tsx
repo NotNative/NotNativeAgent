@@ -7,7 +7,7 @@ import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { WorkStatusPanel } from './work-status-panel.tsx';
 import { GitView } from '../components/git/GitView.tsx';
-import { ProjectNotes } from './project-notes.tsx';
+import { ProjectNotes, type NotesDraftLease } from './project-notes.tsx';
 import { TerminalView } from '../components/terminal/TerminalView.tsx';
 import { BrowserSurface } from './browser-surface.tsx';
 import { getRuntimeKey, isTransientRuntimeKey } from '../lib/runtime-switch.ts';
@@ -67,12 +67,14 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
     if (selection.key !== storageKey) return;
     try { localStorage.setItem(storageKey, selection.surface); } catch { /* optional device preference */ }
   }, [selection.key, selection.surface, storageKey]);
-  // Keep an opened view mounted across rail surfaces. Notes are retained only
-  // for the current project; a project switch remounts them, so an unsaved
-  // note draft still needs an explicit bounded draft store or switch guard.
+  // Keep opened views mounted across rail surfaces. A project switch remounts
+  // Notes, while the single dirty-draft lease above survives that remount.
   const [terminalOpenedKey, setTerminalOpenedKey] = useState<string | null>(() => selection.surface === 'terminal' ? storageKey : null);
   const [browserOpenedKey, setBrowserOpenedKey] = useState<string | null>(() => selection.surface === 'browser' ? storageKey : null);
   const [notesOpenedKey, setNotesOpenedKey] = useState<string | null>(() => selection.surface === 'notes' ? storageKey : null);
+  // Exactly one unsaved General Notes draft may cross project mounts. The
+  // Notes pane locks other projects until this lease is saved or discarded.
+  const [notesDraft, setNotesDraft] = useState<NotesDraftLease | null>(null);
   useEffect(() => {
     if (selection.key === storageKey && surface === 'terminal') setTerminalOpenedKey(storageKey);
   }, [selection.key, storageKey, surface]);
@@ -132,7 +134,8 @@ export function OperatorRail({ store, engine, directory, compactOpen = false, su
         {surface === 'changes' ? <GitView directory={directory} visible compact /> : null}
         {notesOpenedKey === storageKey || surface === 'notes' ? (
           <div className={surface === 'notes' ? 'h-full min-h-0' : 'hidden'}>
-            <ProjectNotes key={storageKey} directory={directory} visible={surface === 'notes' && paneVisible} />
+            <ProjectNotes key={storageKey} directory={directory} directoryKey={storageKey} visible={surface === 'notes' && paneVisible}
+              draftLease={notesDraft} setDraftLease={setNotesDraft} />
           </div>
         ) : null}
         {terminalOpenedKey === storageKey || surface === 'terminal' ? (

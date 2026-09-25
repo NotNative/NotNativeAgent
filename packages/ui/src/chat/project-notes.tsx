@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Project-owned operator notes and todos; never an implicit NNA prompt input. */
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { FileReadError, readFileText, writeFileText } from '../lib/files/api.ts';
 import { PlanView } from '../components/plan/PlanView.tsx';
 
@@ -9,24 +9,87 @@ interface Todo { id: string; text: string; done: boolean }
 const NOTES_PATH = '.opencode/nnd/general-notes.md';
 const TODOS_PATH = '.opencode/nnd/todos.json';
 
-export function ProjectNotes({ directory, visible }: { directory: string; visible: boolean }): ReactNode {
+export interface NotesDraftLease { directoryKey: string; text: string; revision: number }
+type SetDraftLease = Dispatch<SetStateAction<NotesDraftLease | null>>;
+
+export function ProjectNotes({ directory, directoryKey, visible, draftLease, setDraftLease }: {
+  directory: string; directoryKey: string; visible: boolean;
+  draftLease: NotesDraftLease | null; setDraftLease: SetDraftLease;
+}): ReactNode {
   const [tab, setTab] = useState<Tab>('notes');
   const [opened, setOpened] = useState<Set<Tab>>(() => new Set(['notes']));
   return <section className="flex h-full min-h-0 flex-col" data-testid="project-notes">
     <nav className="flex gap-1 border-b border-white/10 p-2">{(['notes', 'todos', 'plans'] as const).map((item) => <button key={item} type="button" className={`rounded px-2 py-1 text-[10px] ${tab === item ? 'bg-white/10 text-white' : 'text-neutral-500'}`} onClick={() => { setOpened((current) => new Set([...current, item])); setTab(item); }}>{item === 'notes' ? 'General' : item[0]!.toUpperCase() + item.slice(1)}</button>)}</nav>
-    <div className={tab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directory} directory={directory} /></div>
+    <div className={tab === 'notes' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><GeneralNotes key={directoryKey} directory={directory} directoryKey={directoryKey} draftLease={draftLease} setDraftLease={setDraftLease} /></div>
     {opened.has('todos') ? <div className={tab === 'todos' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}><ProjectTodos key={directory} directory={directory} /></div> : null}
     {opened.has('plans') ? <div className={tab === 'plans' ? 'min-h-0 flex-1' : 'hidden'}><PlanView directory={directory} visible={visible && tab === 'plans'} /></div> : null}
   </section>;
 }
 
-function GeneralNotes({ directory }: { directory: string }): ReactNode {
+function GeneralNotes({ directory, directoryKey, draftLease, setDraftLease }: {
+  directory: string; directoryKey: string; draftLease: NotesDraftLease | null; setDraftLease: SetDraftLease;
+}): ReactNode {
   const [text, setText] = useState(''); const [saved, setSaved] = useState('Loading…'); const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const revision = useRef(0); const live = useRef(true); const writes = useRef(Promise.resolve());
-  useEffect(() => { live.current = true; void readFileText(directory, NOTES_PATH).then((value) => { if (live.current) { setText(value); setSaved('Saved'); setLoading(false); } }).catch((error: unknown) => { if (live.current) { const missing = error instanceof FileReadError && error.status === 404 && error.reason === 'not-found'; setSaved(missing ? 'New note' : 'Load failed — existing note left untouched'); setLoadFailed(!missing); setLoading(false); } }); return () => { live.current = false; }; }, [directory]);
-  const save = (): void => { const saveRevision = revision.current; const content = text; setSaved('Saving…'); const task = writes.current.then(() => writeFileText(directory, NOTES_PATH, content)); writes.current = task.catch(() => undefined); void task.then(() => { if (live.current && revision.current === saveRevision) setSaved('Saved'); }, () => { if (live.current && revision.current === saveRevision) setSaved('Save failed'); }); };
-  return <div className="flex min-h-0 flex-1 flex-col gap-2 p-3"><header className="flex text-[10px] text-neutral-500"><span>General notes</span><span className="ml-auto">{saved}</span></header><textarea className="min-h-0 flex-1 resize-none rounded border border-white/10 bg-neutral-900/40 p-2 text-xs" value={text} disabled={loading || loadFailed} onChange={(e) => { revision.current += 1; setText(e.target.value); setSaved('Unsaved'); }} /><button type="button" disabled={loading || loadFailed} className="self-end rounded border border-white/10 px-2 py-1 text-[10px] disabled:opacity-50" onClick={save}>Save notes</button></div>;
+  const latestLease = useRef(draftLease);
+  latestLease.current = draftLease;
+  const ownLease = draftLease?.directoryKey === directoryKey ? draftLease : null;
+  const locked = draftLease !== null && ownLease === null;
+  useEffect(() => {
+    let active = true;
+    live.current = true;
+    void readFileText(directory, NOTES_PATH).then((value) => {
+      if (!active) return;
+      const lease = latestLease.current;
+      setText(lease?.directoryKey === directoryKey ? lease.text : value);
+      setSaved(lease?.directoryKey === directoryKey ? 'Unsaved' : 'Saved');
+      setLoadFailed(false); setLoading(false);
+    }).catch((error: unknown) => {
+      if (!active) return;
+      const missing = error instanceof FileReadError && error.status === 404 && error.reason === 'not-found';
+      const lease = latestLease.current;
+      if (missing && lease?.directoryKey === directoryKey) setText(lease.text);
+      setSaved(missing ? lease?.directoryKey === directoryKey ? 'Unsaved' : 'New note' : 'Load failed — existing note left untouched');
+      setLoadFailed(!missing); setLoading(false);
+    });
+    return () => { active = false; live.current = false; };
+  }, [directory, directoryKey, loadAttempt]);
+  const save = (): void => {
+    if (loading || loadFailed || locked) return;
+    const saveRevision = revision.current;
+    const content = text;
+    const leaseRevision = latestLease.current?.directoryKey === directoryKey ? latestLease.current.revision : null;
+    setSaved('Saving…');
+    const task = writes.current.then(() => writeFileText(directory, NOTES_PATH, content));
+    writes.current = task.catch(() => undefined);
+    void task.then(() => {
+      if (leaseRevision !== null) setDraftLease((current) => current?.directoryKey === directoryKey && current.revision === leaseRevision ? null : current);
+      if (live.current && revision.current === saveRevision) setSaved('Saved');
+    }, () => { if (live.current && revision.current === saveRevision) setSaved('Save failed'); });
+  };
+  return <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
+    <header className="flex text-[10px] text-neutral-500"><span>General notes</span><span className="ml-auto">{saved}</span></header>
+    {loadFailed ? <button type="button" className="self-start text-xs text-amber-300 underline" onClick={() => {
+      setLoading(true); setSaved('Loading…'); setLoadAttempt((current) => current + 1);
+    }}>Retry load</button> : null}
+    {locked ? <OtherDraftWarning directoryKey={directoryKey} setDraftLease={setDraftLease} /> : null}
+    <textarea className="min-h-0 flex-1 resize-none rounded border border-white/10 bg-neutral-900/40 p-2 text-xs" value={ownLease?.text ?? text} disabled={loading || loadFailed || locked} onChange={(e) => {
+      const next = e.target.value;
+      revision.current += 1; setText(next); setSaved('Unsaved');
+      setDraftLease((current) => current && current.directoryKey !== directoryKey ? current : { directoryKey, text: next, revision: (current?.revision ?? 0) + 1 });
+    }} />
+    <button type="button" disabled={loading || loadFailed || locked} className="self-end rounded border border-white/10 px-2 py-1 text-[10px] disabled:opacity-50" onClick={save}>Save notes</button>
+  </div>;
+}
+
+function OtherDraftWarning({ directoryKey, setDraftLease }: { directoryKey: string; setDraftLease: SetDraftLease }): ReactNode {
+  return <div role="status" className="text-xs text-amber-300">Unsaved notes in another project. Return there to save, or discard that draft before editing here.
+    <button type="button" className="ml-2 underline" onClick={() => {
+      if (window.confirm('Discard the unsaved General Notes draft in the other project?')) setDraftLease((current) => current?.directoryKey === directoryKey ? current : null);
+    }}>Discard other draft</button>
+  </div>;
 }
 
 function ProjectTodos({ directory }: { directory: string }): ReactNode {
