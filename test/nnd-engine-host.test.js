@@ -164,18 +164,22 @@ test('NND activity snapshot reopens after restart and requires the complete owne
   output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a',
     tool: 'shell_run', status: 'running', arguments: { secret: 'do-not-persist' } });
   output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a',
-    tool: 'shell_run', status: 'succeeded' });
+    tool: 'shell_run', status: 'succeeded', target: 'powershell: Invoke-Task private-command-123', effect: 'read_only',
+    elapsed_ms: 25, exit_code: 0, arguments: { secret: 'do-not-persist' } });
   release({ accepted: true });
   await new Promise((resolve) => setImmediate(resolve));
   const before = first.activity('session_a', fullOwner);
   assert.equal(before.length, 2);
   assert.equal(before.find((record) => record.kind === 'tool').status, 'completed');
+  assert.deepEqual(before.find((record) => record.kind === 'tool').toolEvidence,
+    { effect: 'read_only', elapsedMs: 25, exitCode: 0 });
   assert.equal(before.find((record) => record.kind === 'turn').evidenceMessageID, 'prompt_a');
   assert.equal(before.find((record) => record.kind === 'tool').evidenceMessageID, undefined);
   assert.throws(() => first.activity('session_a', owner), { code: 'nnd_session_unavailable' });
   await first.shutdown();
   const stored = await readFile(activityPath(catalogPath, 'session_a'), 'utf8');
   assert.equal(stored.includes('do-not-persist'), false);
+  assert.equal(stored.includes('private-command-123'), false);
   const altered = JSON.parse(stored);
   altered.records[0].extraSecret = 'must-not-project';
   await writeFile(activityPath(catalogPath, 'session_a'), JSON.stringify(altered));
@@ -184,6 +188,22 @@ test('NND activity snapshot reopens after restart and requires the complete owne
   assert.deepEqual(reopened.activity('session_a', fullOwner), before);
   await reopened.close('session_a', fullOwner);
   await assert.rejects(readFile(activityPath(catalogPath, 'session_a'), 'utf8'), { code: 'ENOENT' });
+});
+
+test('NND Activity stores file path targets but never arbitrary command, query, or task text', () => {
+  const records = [];
+  const base = { id: 'activity', sessionID: 'session_a', time: 1, kind: 'tool', status: 'completed', summary: 'tool complete' };
+  const file = appendActivity(records, { ...base, toolEvidence: { tool: 'fs_read_text', target: 'D:/work/check.js' } });
+  assert.deepEqual(file.toolEvidence, { target: 'D:/work/check.js' });
+  for (const tool of ['shell_run', 'process_run', 'agent_run', 'project_verify', 'fs_search_text', 'unknown_extension']) {
+    const result = appendActivity(records, { ...base, id: tool, toolEvidence: {
+      tool, target: 'private-command-123', arguments: { token: 'do-not-persist' },
+      effect: 'read_only', elapsed_ms: 4,
+    } });
+    assert.deepEqual(result.toolEvidence, { effect: 'read_only', elapsedMs: 4 });
+  }
+  assert.equal(JSON.stringify(records).includes('private-command-123'), false);
+  assert.equal(JSON.stringify(records).includes('do-not-persist'), false);
 });
 
 test('NND activity rejects corrupt durable snapshots instead of silently clearing evidence', async () => {
@@ -551,10 +571,13 @@ test('NND completed child transcript survives restart as read-only owned history
   const finish = first.childSessions.register('agent_a', 'session_a', principal, child, { type: 'coder' });
   first.childSessions.observeStarted('agent_a');
   first.childSessions.observeOutput('agent_a', { type: 'tool_status', session_id: 'agent_a',
-    tool_request_id: 'tool_a', tool: 'shell_run', status: 'succeeded', arguments: 'do-not-save' });
+    tool_request_id: 'tool_a', tool: 'fs_read_text', status: 'succeeded', arguments: 'do-not-save',
+    target: 'D:/work/readme.md', elapsed_ms: 4 });
   finish('completed');
   const beforeActivity = first.activity('agent_a', principal);
   assert.deepEqual(beforeActivity.map((row) => row.status), ['completed', 'completed']);
+  assert.deepEqual(beforeActivity.find((record) => record.kind === 'tool').toolEvidence,
+    { target: 'D:/work/readme.md', elapsedMs: 4 });
   await first.shutdown();
   const path = childSnapshotPath(catalogPath, 'agent_a');
   const saved = await readFile(path, 'utf8');

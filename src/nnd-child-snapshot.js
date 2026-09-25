@@ -73,6 +73,7 @@ export async function loadChildSnapshots(catalogPath, parents, limit) {
     restored.push({ snapshot: { ...snapshot, activity: (snapshot.activity ?? []).map((record) => ({
       id: record.id, sessionID: record.sessionID, time: record.time, kind: record.kind,
       status: record.status, summary: record.summary,
+      ...(record.toolEvidence ? { toolEvidence: record.toolEvidence } : {}),
     })) }, path });
     if (restored.length > limit) {
       // Why: a crash can leave the file for a child evicted from the bounded display cache.
@@ -161,7 +162,8 @@ export class NndChildSnapshotStore {
     }
     const snapshot = type === 'completed' ? registry.completedSnapshot?.(child.id, parent.createdAt) : null;
     if (snapshot) snapshot.activity = activity.map((record) => ({ id: record.id, sessionID: record.sessionID,
-      time: record.time, kind: record.kind, status: record.status, summary: record.summary }));
+      time: record.time, kind: record.kind, status: record.status, summary: record.summary,
+      ...(record.toolEvidence ? { toolEvidence: record.toolEvidence } : {}) }));
     this.#schedule(parent, () => snapshot
       ? persistChildSnapshot(this.catalogPath, snapshot, this.writer)
       : removeChildSnapshot(this.catalogPath, child.id));

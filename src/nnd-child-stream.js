@@ -57,7 +57,7 @@ export function observeChildLifecycle({ type, child, payload, streams, activity,
       const toolId = payload.tool_request_id ?? payload.provider_call_id;
       if (typeof toolId === 'string' && toolId) publish('nnd.activity', {
         id: `${child.id}:tool:${toolId}`, sessionID: child.id, kind: 'tool', status: activityStatus(payload.status),
-        summary: `${payload.tool}: ${payload.status}`, time: Date.now(),
+        summary: `${payload.tool}: ${payload.status}`, time: Date.now(), toolEvidence: payload,
       });
     } else if (payload.type === 'turn_result') state.outcome = payload.outcome;
   } else if (type === 'completed') {

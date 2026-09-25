@@ -2,7 +2,7 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:c3f1cd9331e8b40cc78dcd62a99cf6ffb25d1d1747dfb511e0f8087419fd3969",
+  "source_digest": "sha256:13986769d6bf40304f5c422c125808a298a06857bf9c64c8f7c0c417e14628d2",
   "counts": {
     "modules": 371,
     "component_edges": 76
@@ -114,7 +114,7 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 173,
+      "import_count": 174,
       "module_count": 80
     },
     {
@@ -1860,7 +1860,8 @@
       "entrypoint": false,
       "imports": [
         "src/ids.js",
-        "src/persistence/atomic-json.js"
+        "src/persistence/atomic-json.js",
+        "src/redaction.js"
       ]
     },
     {

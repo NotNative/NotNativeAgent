@@ -259,7 +259,7 @@ export class NndEngineHost {
         const toolId = record.tool_request_id ?? record.provider_call_id;
         if (typeof toolId === 'string' && toolId) {
           const status = activityStatus(record.status);
-          this.#activity(context, `${sessionId}:tool:${toolId}`, 'tool', status, `${record.tool}: ${record.status}`);
+          this.#activity(context, `${sessionId}:tool:${toolId}`, 'tool', status, `${record.tool}: ${record.status}`, undefined, record);
         }
       } else if (record.type === 'turn_result') {
         turn.outcome = record.outcome;
@@ -414,9 +414,9 @@ export class NndEngineHost {
     this.#publish(context, 'session.updated', { sessionID: context.sessionId, info: describe(context) }, true);
   }
 
-  #activity(context, id, kind, status, summary, evidenceMessageID) {
+  #activity(context, id, kind, status, summary, evidenceMessageID, toolEvidence) {
     this.#publish(context, 'nnd.activity', { id, sessionID: context.sessionId, kind, status, summary, time: Date.now(),
-      ...(evidenceMessageID ? { evidenceMessageID } : {}) });
+      ...(evidenceMessageID ? { evidenceMessageID } : {}), ...(toolEvidence ? { toolEvidence } : {}) });
   }
   #observeChildEvent(type, child, payload) {
     const parent = this.#contexts.get(child.parentID);
