@@ -167,6 +167,9 @@ const sid = (id: string) => encodeURIComponent(id);
 
 // ── operations (catalog: doc 02 §3.4) ────────────────────────────────────────
 export const harnessClient = {
+  async listProviderProfiles(): Promise<HarnessResult<{ profiles: unknown[] }>> {
+    return request('listProviderProfiles', '/v1/provider-profiles');
+  },
   // lifecycle/health
   async globalHealth(): Promise<HarnessResult<{ healthy: boolean; version: string }>> {
     return request('globalHealth', '/global/health', undefined, HARNESS_HEALTH_TIMEOUT_MS);

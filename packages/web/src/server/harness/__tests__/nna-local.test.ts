@@ -58,6 +58,8 @@ describe('managed local NNA launcher', () => {
     const second = JSON.parse(Buffer.from(harness.principal(), 'base64url').toString('utf8'));
     expect(first.workspace_ids).toEqual(['local']);
     expect(first.permissions).toContain('nnd.steer');
+    expect(first.permissions).toContain('provider.read');
+    expect(first.permissions).not.toContain('provider.manage');
     expect(first.request_id).not.toBe(second.request_id);
     process.emit('exit', 1);
     expect(harness.isRunning()).toBe(false);

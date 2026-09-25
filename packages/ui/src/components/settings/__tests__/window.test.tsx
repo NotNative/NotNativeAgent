@@ -142,9 +142,31 @@ describe('SettingsWindow (§G.1/§G.2/§G.6)', () => {
     rootHandle = null;
   });
 
-  it('landing pages render the phase note, never a silent gap', async () => {
+  it('providers shows NNA inventory failure rather than an invented empty list', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ error: { message: 'provider read denied' } }), { status: 403 })));
     await renderWindow('providers');
-    expect(document.body.textContent).toContain('Providers');
+    expect(document.body.textContent).toContain('provider read denied');
+    expect(document.body.textContent).not.toContain('No provider profiles');
+  });
+
+  it('providers shows only NNA public profile fields and marks the active route', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ profiles: [{
+      profile_id: 'local', display_name: 'Local', endpoint: 'http://127.0.0.1:11434/v1?api_key=SECRET_QUERY', model: 'test-model',
+      active: true, credential_env: 'SECRET_NAME',
+    }] }), { status: 200 })));
+    await renderWindow('providers');
+    expect(document.querySelectorAll('[data-testid="provider-profile"]')).toHaveLength(1);
+    expect(document.body.textContent).toContain('test-model');
+    expect(document.body.textContent).toContain('Active');
+    expect(document.body.textContent).toContain('http://127.0.0.1:11434');
+    expect(document.body.textContent).not.toContain('SECRET_QUERY');
+    expect(document.body.textContent).not.toContain('/v1?');
+    expect(document.body.textContent).not.toContain('SECRET_NAME');
+  });
+
+  it('landing pages render the phase note, never a silent gap', async () => {
+    await renderWindow('agents');
+    expect(document.body.textContent).toContain('Agents');
     expect(document.body.textContent).toContain('registered in the settings tree');
   });
 
