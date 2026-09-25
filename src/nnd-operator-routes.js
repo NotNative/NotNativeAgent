@@ -5,15 +5,18 @@ import { requireIntegrationPermission } from './integration-principal.js';
 
 const SESSION_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/capabilities$/u;
 const STEER_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/steer$/u;
+const GOAL_ROUTE = /^\/v1\/nnd\/sessions\/([^/]+)\/goal$/u;
 
 export async function dispatchNndOperatorRequest(request, response, context) {
   const capability = SESSION_ROUTE.exec(context.url.pathname);
   const steer = STEER_ROUTE.exec(context.url.pathname);
-  if (!capability && !steer) return false;
-  const encoded = (capability ?? steer)[1];
+  const goal = GOAL_ROUTE.exec(context.url.pathname);
+  if (!capability && !steer && !goal) return false;
+  const encoded = (capability ?? steer ?? goal)[1];
   let sessionId;
   try { sessionId = decodeURIComponent(encoded); requireExternalId(sessionId, 'session_id'); }
   catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
+  if (goal) return dispatchGoalRequest(request, response, context, sessionId);
   if (request.method === 'GET' && capability) requireIntegrationPermission(context.principal, 'nnd.read');
   else if (request.method === 'POST' && steer) requireIntegrationPermission(context.principal, 'nnd.steer');
   else return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
@@ -31,4 +34,29 @@ export async function dispatchNndOperatorRequest(request, response, context) {
     const body = await readJsonBody(request);
     return send(response, 202, await session.steer(body, context.principal));
   }
+}
+
+async function dispatchGoalRequest(request, response, context, sessionId) {
+  const host = context.nndEngineHost;
+  if (!host || typeof host.goal !== 'function') {
+    throw new ContractError('nnd_engine_unavailable', 'NND goal storage is unavailable');
+  }
+  if (request.method === 'GET') {
+    requireIntegrationPermission(context.principal, 'nnd.read');
+    return send(response, 200, host.goal(sessionId, context.principal));
+  }
+  if (request.method !== 'PUT' && request.method !== 'DELETE') {
+    return send(response, 405, { error: { code: 'method_not_allowed', message: 'method is not supported for this endpoint' } });
+  }
+  requireIntegrationPermission(context.principal, 'nnd.goal.manage');
+  const body = await readJsonBody(request);
+  const fields = request.method === 'PUT' ? ['goal', 'expected_id', 'expected_revision'] : ['expected_id', 'expected_revision'];
+  if (!body || typeof body !== 'object' || Array.isArray(body)
+    || Object.keys(body).length !== fields.length || fields.some((field) => !Object.hasOwn(body, field))) {
+    throw new ContractError('nnd_goal_invalid', 'NND goal request has invalid fields');
+  }
+  const result = request.method === 'PUT'
+    ? await host.setGoal(sessionId, context.principal, body.goal, body.expected_id, body.expected_revision)
+    : await host.clearGoal(sessionId, context.principal, body.expected_id, body.expected_revision);
+  return send(response, 200, result);
 }

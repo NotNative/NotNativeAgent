@@ -376,6 +376,93 @@ test('subagent route edits are authorized, durable, and separate from running de
   } finally { await service.close(); }
 });
 
+test('NND goals persist with id-guarded writes and never grant arbitrary metadata updates', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-goal-'));
+  const catalogPath = join(root, 'catalog.json');
+  const makeHost = () => new NndEngineHost({ catalogPath, createEngine: async () => ({
+    config: { workspaceRoot: root, routes: { primary: { providerId: 'one', model: 'one' } } },
+    transcript: [], async initialize() {}, async shutdown() {},
+  }) });
+  const host = makeHost();
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost: host,
+    nndWorkspaceRoot: root, port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  const owner = principal(['nnd.read', 'nnd.session.create', 'nnd.goal.manage']);
+  const now = Date.now();
+  const goal = { id: 'goal_test', objective: 'Ship MVP', objectiveFile: false, status: 'active',
+    tokenBudget: null, tokensUsed: 0, tokensBaseline: 0, tokensCommitted: 0, turnsUsed: 0,
+    blockedStreak: 0, auditFailStreak: 0, note: '', statusReason: '', evaluationProviderID: '',
+    evaluationModelID: '', lastAccountedMessageID: '', createdAt: now, updatedAt: now };
+  let sessionId;
+  try {
+    sessionId = (await request(base, '/session', owner, { method: 'POST', body: { title: 'Goal session' } })).value.id;
+    const path = `/v1/nnd/sessions/${sessionId}/goal`;
+    assert.deepEqual((await request(base, path, owner)).value, { goal: null, revision: 0 });
+    const outsider = principal(['nnd.read', 'nnd.goal.manage'], { subject_id: 'other_user' });
+    assert.equal((await request(base, path, outsider)).status, 404);
+    assert.equal((await request(base, path, outsider, {
+      method: 'PUT', body: { goal, expected_id: null, expected_revision: 0 },
+    })).status, 404);
+    assert.equal((await request(base, path, principal(['nnd.read']), {
+      method: 'PUT', body: { goal, expected_id: null, expected_revision: 0 },
+    })).status, 403);
+    assert.equal((await request(base, path, owner, {
+      method: 'PUT', body: { goal: { ...goal, objective: 'x'.repeat(5001) }, expected_id: null, expected_revision: 0 },
+    })).status, 400);
+    assert.equal((await request(base, path, owner, {
+      method: 'PUT', body: { goal, expected_id: null, expected_revision: 0, metadata: { admin: true } },
+    })).status, 400);
+    assert.deepEqual((await request(base, path, owner, {
+      method: 'PUT', body: { goal, expected_id: null, expected_revision: 0 },
+    })).value, { goal, revision: 1 });
+    assert.deepEqual((await request(base, `/session/${sessionId}`, owner)).value.metadata.nnd.goal, goal);
+    assert.equal((await request(base, path, owner, {
+      method: 'PUT', body: { goal: { ...goal, status: 'complete' }, expected_id: null, expected_revision: 1 },
+    })).status, 409);
+    assert.equal((await request(base, path, owner, {
+      method: 'PUT', body: { goal: { ...goal, status: 'paused' }, expected_id: goal.id, expected_revision: 0 },
+    })).status, 409, 'same-id concurrent writer must not overwrite a newer transition');
+    assert.deepEqual((await request(base, path, owner, {
+      method: 'PUT', body: { goal: { ...goal, status: 'complete' }, expected_id: goal.id, expected_revision: 1 },
+    })).value, { goal: { ...goal, status: 'complete' }, revision: 2 });
+    assert.equal((await request(base, path, owner, { method: 'DELETE', body: { expected_id: 'wrong_id', expected_revision: 2 } })).status, 409);
+  } finally { await service.close(); await host.shutdown(); }
+  const restored = makeHost();
+  await restored.initialize();
+  try {
+    assert.equal(restored.get(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).metadata.nnd.goal.status, 'complete');
+    assert.equal(restored.goal(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).revision, 2);
+    await restored.clearGoal(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }, goal.id, 2);
+    assert.equal(restored.get(sessionId, { subjectId: 'u_test', workspaceIds: ['w_test'] }).metadata.nnd.goal, undefined);
+  } finally { await restored.shutdown(); }
+});
+
+test('NND goal revision remains unchanged when catalog persistence fails', async () => {
+  let rejectWrites = false;
+  const host = new NndEngineHost({ catalogPath: 'test-goal-catalog', createEngine: async () => ({
+    config: { routes: { primary: { providerId: 'one', model: 'one' } } }, transcript: [],
+    async initialize() {}, async shutdown() {},
+  }), persistCatalog: async () => { if (rejectWrites) throw new Error('catalog write failed'); } });
+  const owner = { subjectId: 'u_test', workspaceIds: ['w_test'] };
+  const now = Date.now();
+  const goal = { id: 'goal_test', objective: 'Keep the previous state', objectiveFile: false, status: 'active',
+    tokenBudget: null, tokensUsed: 0, tokensBaseline: 0, tokensCommitted: 0, turnsUsed: 0,
+    blockedStreak: 0, auditFailStreak: 0, note: '', statusReason: '', evaluationProviderID: '',
+    evaluationModelID: '', lastAccountedMessageID: '', createdAt: now, updatedAt: now };
+  await host.create('session_a', owner);
+  rejectWrites = true;
+  await assert.rejects(host.setGoal('session_a', owner, goal, null, 0), /catalog write failed/u);
+  assert.deepEqual(host.goal('session_a', owner), { goal: null, revision: 0 });
+  rejectWrites = false;
+  assert.deepEqual(await host.setGoal('session_a', owner, goal, null, 0), { goal, revision: 1 });
+  rejectWrites = true;
+  await assert.rejects(host.clearGoal('session_a', owner, goal.id, 1), /catalog write failed/u);
+  assert.deepEqual(host.goal('session_a', owner), { goal, revision: 1 });
+  await host.shutdown();
+});
+
 test('NND harness session routes bind creation to the complete principal workspace grant', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-harness-'));
   const configRoot = join(root, 'config');

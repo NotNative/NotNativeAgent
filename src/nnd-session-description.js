@@ -16,6 +16,8 @@ export function describe(context) {
     ...(work ? { work } : {}),
     ...(turnState ? { turnState } : {}),
     ...(attention ? { attention } : {}),
+    ...(context.goal ? { goal: context.goal } : {}),
+    goalRevision: context.goalRevision,
   };
   return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value,
     directory: directoryFor(context), title: context.title, version: '1.0',

@@ -129,6 +129,7 @@ function failureStatus(code) {
   if (['principal_required', 'principal_invalid', 'principal_stale'].includes(code)) return 401;
   if (code.includes('permission') || code.includes('forbidden')) return 403;
   if (code.includes('not_found') || code === 'provider_missing' || code === 'nnd_session_unavailable') return 404;
+  if (code === 'nnd_goal_conflict') return 409;
   return code === 'internal_failure' ? 500 : 400;
 }
 function securityHeaders(response) {

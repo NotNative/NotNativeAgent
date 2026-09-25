@@ -12,6 +12,8 @@ import { readFile, stat } from 'node:fs/promises';
 import { persistAtomicJson } from './persistence/atomic-json.js';
 import { appendActivity, drainActivityWrites, loadActivity, removeActivity, reportActivityFailure, scheduleActivityWrite } from './nnd-activity-snapshot.js';
 import { loadChildSnapshots, NndChildSnapshotStore } from './nnd-child-snapshot.js';
+import { validatedNndGoal, goalCatalogMutation } from './nnd-goal.js';
+import { requirePrincipal, samePrincipal, validCatalogRecord, shutdownAfterFailedCreate } from './nnd-session-helpers.js';
 
 const CATALOG_LIMIT_BYTES = 1_048_576;
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
@@ -59,8 +61,9 @@ export class NndEngineHost {
       for (const record of records) {
         if (!validCatalogRecord(record)) throw new ContractError('nnd_catalog_invalid', 'NND session catalog is invalid');
         await this.#createContext(record.sessionId, { subjectId: record.subjectId, workspaceIds: record.workspaceIds }, {
-          title: record.title, directory: record.directory, createdAt: record.createdAt,
+        title: record.title, directory: record.directory, createdAt: record.createdAt,
           updatedAt: record.updatedAt ?? record.createdAt, archivedAt: record.archivedAt ?? 0,
+          goal: record.goal ?? null, goalRevision: record.goalRevision ?? 0,
         }, true);
       }
       for (const snapshot of await loadChildSnapshots(this.catalogPath, this.#contexts, this.childSessions.limit ?? 256)) {
@@ -100,6 +103,8 @@ export class NndEngineHost {
       const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
         title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt,
         updatedAt: restoring ? options.updatedAt : createdAt, contextUsage: null,
+        goal: restoring && options.goal ? validatedNndGoal(options.goal) : null,
+        goalRevision: restoring ? options.goalRevision : 0,
         archivedAt: restoring ? options.archivedAt : 0, activity, activityRevision: 0, activityWrite: null,
         ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false };
       if (restoring) this.#contexts.set(sessionId, context);
@@ -167,6 +172,28 @@ export class NndEngineHost {
     );
     this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
     return describe(context);
+  }
+
+  goal(sessionId, principal) {
+    const context = this.#owned(sessionId, principal);
+    return { goal: context.goal, revision: context.goalRevision };
+  }
+
+  async setGoal(sessionId, principal, value, expectedId, expectedRevision) {
+    const goal = validatedNndGoal(value);
+    return this.#writeGoal(sessionId, principal, goal, expectedId, expectedRevision);
+  }
+
+  async clearGoal(sessionId, principal, expectedId, expectedRevision) {
+    return this.#writeGoal(sessionId, principal, null, expectedId, expectedRevision);
+  }
+
+  async #writeGoal(sessionId, principal, goal, expectedId, expectedRevision) {
+    const context = this.#owned(sessionId, principal);
+    const mutation = goalCatalogMutation(context, sessionId, goal, expectedId, expectedRevision);
+    await this.#commitCatalogChange(mutation.change, mutation.commit);
+    this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
+    return { goal, revision: context.goalRevision };
   }
 
   submitAsync(sessionId, command, principal) {
@@ -374,6 +401,8 @@ export class NndEngineHost {
         sessionId: context.sessionId, subjectId: context.subjectId, workspaceIds: [...context.workspaceIds],
         title: context.title, directory: directoryFor(context), createdAt: context.createdAt,
         updatedAt: context.updatedAt, archivedAt: context.archivedAt,
+        goalRevision: context.goalRevision,
+        ...(context.goal ? { goal: context.goal } : {}),
       }));
       if (Buffer.byteLength(`${JSON.stringify(records, null, 2)}\n`, 'utf8') > CATALOG_LIMIT_BYTES) {
         throw new ContractError('nnd_catalog_capacity', 'NND session catalog capacity is full');
@@ -467,34 +496,4 @@ export class NndEngineHost {
     }
   }
 
-}
-
-function requirePrincipal(principal) {
-  if (!principal || typeof principal.subjectId !== 'string' || !principal.subjectId.trim()
-    || !Array.isArray(principal.workspaceIds) || principal.workspaceIds.length === 0
-    || principal.workspaceIds.some((id) => typeof id !== 'string' || !id.trim())) {
-    throw new ContractError('nnd_principal_invalid', 'NND engine context requires an authenticated principal');
-  }
-}
-
-function samePrincipal(context, principal) {
-  // A later principal with only one overlapping workspace must not regain a
-  // context that was created under a broader workspace grant.
-  return context.subjectId === principal.subjectId && [...context.workspaceIds].every((id) => principal.workspaceIds.includes(id));
-}
-function validCatalogRecord(record) {
-  if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
-  try { requireExternalId(record.sessionId, 'session_id'); requirePrincipal(record); }
-  catch { return false; }
-  return typeof record.title === 'string' && record.title.length <= 256 && typeof record.directory === 'string'
-    && record.directory.length <= 4096 && Number.isSafeInteger(record.createdAt) && record.createdAt > 0
-    && (record.updatedAt === undefined || Number.isSafeInteger(record.updatedAt) && record.updatedAt >= record.createdAt)
-    && (record.archivedAt === undefined || Number.isSafeInteger(record.archivedAt) && record.archivedAt >= 0);
-}
-
-async function shutdownAfterFailedCreate(engine) {
-  if (!engine || typeof engine.shutdown !== 'function') return;
-  try {
-    await engine.shutdown({ version: '1.0', type: 'shutdown', request_id: newId('nnd_initialize_failed') });
-  } catch { /* preserve the initialization failure as the causal error */ }
 }
