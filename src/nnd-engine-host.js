@@ -38,6 +38,7 @@ export class NndEngineHost {
       }
       await engine.initialize();
       const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
+        title: titleOf(options.title), directory: directoryOf(options.directory), createdAt: Date.now(),
         ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false };
       this.#contexts.set(sessionId, context);
       return context;
@@ -59,6 +60,9 @@ export class NndEngineHost {
     requirePrincipal(principal);
     return this.childSessions.resolve(sessionId, principal);
   }
+
+  list(principal) { requirePrincipal(principal); return [...this.#contexts.values()].filter((context) => !context.closing && samePrincipal(context, principal)).map(describe); }
+  get(sessionId, principal) { return describe(this.#owned(sessionId, principal)); }
 
   async close(sessionId, principal) {
     const context = this.#owned(sessionId, principal, true);
@@ -90,8 +94,13 @@ function requirePrincipal(principal) {
 }
 
 function samePrincipal(context, principal) {
-  return context.subjectId === principal.subjectId && principal.workspaceIds.some((id) => context.workspaceIds.has(id));
+  // A later principal with only one overlapping workspace must not regain a
+  // context that was created under a broader workspace grant.
+  return context.subjectId === principal.subjectId && [...context.workspaceIds].every((id) => principal.workspaceIds.includes(id));
 }
+function describe(context) { return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value, directory: context.directory, title: context.title, version: '1.0', tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: context.createdAt, updated: context.createdAt } }; }
+function titleOf(value) { return typeof value === 'string' && value.trim() && value.length <= 256 ? value.trim() : 'New session'; }
+function directoryOf(value) { return typeof value === 'string' && value.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : ''; }
 
 async function shutdownAfterFailedCreate(engine) {
   if (!engine || typeof engine.shutdown !== 'function') return;

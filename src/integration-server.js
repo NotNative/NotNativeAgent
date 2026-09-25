@@ -8,6 +8,7 @@ import { assertNnoIntegrationActivation } from './nno-integration-activation.js'
 import { discoverProviderModels } from './provider/bootstrap.js';
 import { dispatchSecretBrokerRequest, readJsonBody, send, sendFailure } from './secret-broker-server.js';
 import { dispatchNndOperatorRequest } from './nnd-operator-routes.js';
+import { dispatchNndHarnessRequest } from './nnd-harness-routes.js';
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 const PROVIDER_ROUTE = /^\/v1\/provider-profiles(?:\/([^/]+))?(?:\/(discover|test))?$/u;
@@ -48,6 +49,7 @@ async function dispatch(request, response, context) {
     return send(response, 200, { status: 'ready', protocol: '1.0', instance_id: context.instanceId });
   }
   if (await dispatchProviderRequest(request, response, { ...context, principal, url })) return;
+  if (await dispatchNndHarnessRequest(request, response, { ...context, principal, url })) return;
   if (await dispatchNndOperatorRequest(request, response, { ...context, principal, url,
     nndSessionResolver: context.nndSessionResolver ?? context.nndEngineHost?.resolveChildSession?.bind(context.nndEngineHost) })) return;
   if (await dispatchSecretBrokerRequest(request, response, { ...context, principal, url })) return;

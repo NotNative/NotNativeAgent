@@ -8,6 +8,7 @@ import { SecretBroker } from '../src/secret-broker.js';
 import { startIntegrationServer } from '../src/integration-server.js';
 import { validateNnoIntegrationActivation } from '../src/nno-integration-activation.js';
 import { ProviderProfileStore } from '../src/provider/profile-store.js';
+import { NndEngineHost } from '../src/nnd-engine-host.js';
 
 const TOKEN = 'ephemeral-integration-token-with-at-least-32-characters';
 
@@ -133,6 +134,36 @@ test('NND capability projection fails closed without a steering grant', async ()
     assert.equal(accepted.status, 202);
     assert.deepEqual(accepted.value, { accepted: true, request_id: 'steer_granted', subject_id: 'u_test' });
     assert.equal((await request(base, '/v1/nnd/sessions/ses_granted/capabilities', principal([]))).status, 403);
+  } finally { await service.close(); }
+});
+
+test('NND harness session routes bind creation to the complete principal workspace grant', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-harness-'));
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(manifest(root)));
+  const factoryOptions = [];
+  const nndEngineHost = new NndEngineHost({ createEngine: async (options) => {
+    factoryOptions.push(options);
+    return { config: { executionManifest: null }, active: { finalized: false }, async initialize() {}, async shutdown() {} };
+  } });
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test', nndEngineHost,
+    providerStore: new ProviderProfileStore({ configRoot }),
+    broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    const owner = principal(['nnd.read', 'nnd.session.create'], { workspace_ids: ['w_one', 'w_two'] });
+    const created = await request(base, '/session', owner, {
+      method: 'POST', body: { title: 'Safe session', dataPaths: 'untrusted', directory: 'C:\\untrusted' },
+    });
+    assert.equal(created.status, 201);
+    assert.equal(created.value.title, 'Safe session');
+    assert.equal(factoryOptions[0].dataPaths, undefined);
+    assert.equal(factoryOptions[0].directory, undefined);
+    assert.equal((await request(base, `/session/${created.value.id}`, principal(['nnd.read'], { workspace_ids: ['w_two'] }))).status, 404);
+    assert.equal((await request(base, '/session/%', owner)).status, 400);
   } finally { await service.close(); }
 });
 

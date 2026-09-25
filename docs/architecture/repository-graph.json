@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:49b595c897f8acdac4489ac674d916b4cdbd00d0ca9c9a5e529f2befb8854cbe",
+  "source_digest": "sha256:4831cd9b9da5cbd6e821be35e62da08d3fc4832438cbab7951d68fa5c270f959",
   "counts": {
-    "modules": 362,
+    "modules": 363,
     "component_edges": 76
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 88
+      "module_count": 89
     }
   ],
   "entrypoints": [
@@ -120,8 +120,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 158,
-      "module_count": 76
+      "import_count": 159,
+      "module_count": 77
     },
     {
       "from": "experience-engine",
@@ -168,7 +168,7 @@
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 17,
+      "import_count": 18,
       "module_count": 10
     },
     {
@@ -280,6 +280,12 @@
       "module_count": 7
     },
     {
+      "from": "foundation",
+      "to": "integrations",
+      "import_count": 7,
+      "module_count": 3
+    },
+    {
       "from": "gateway",
       "to": "foundation",
       "import_count": 7,
@@ -302,12 +308,6 @@
       "to": "persistence",
       "import_count": 5,
       "module_count": 3
-    },
-    {
-      "from": "foundation",
-      "to": "integrations",
-      "import_count": 5,
-      "module_count": 2
     },
     {
       "from": "governance-engine",
@@ -1771,6 +1771,7 @@
       "imports": [
         "src/ids.js",
         "src/integration-principal.js",
+        "src/nnd-harness-routes.js",
         "src/nnd-operator-routes.js",
         "src/nno-integration-activation.js",
         "src/provider/bootstrap.js",
@@ -1858,6 +1859,16 @@
         "src/ids.js",
         "src/ingress.js",
         "src/nnd-session-registry.js"
+      ]
+    },
+    {
+      "path": "src/nnd-harness-routes.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/integration-principal.js",
+        "src/secret-broker-server.js"
       ]
     },
     {

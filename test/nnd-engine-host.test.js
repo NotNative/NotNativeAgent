@@ -18,6 +18,15 @@ test('NND engine host binds each context to its authenticated owner', async () =
   await assert.rejects(() => host.submit('session_a', steer('request_b'), owner), { code: 'nnd_session_unavailable' });
 });
 
+test('NND engine host requires the entire original workspace grant', async () => {
+  const host = new NndEngineHost({ createEngine: async () => fakeEngine() });
+  await host.create('session_a', { subjectId: 'user_a', workspaceIds: ['workspace_a', 'workspace_b'] });
+  assert.throws(
+    () => host.get('session_a', { subjectId: 'user_a', workspaceIds: ['workspace_b'] }),
+    { code: 'nnd_session_unavailable' },
+  );
+});
+
 test('NND engine host reserves capacity during creation and cleans up a failed initialization', async () => {
   let release;
   const ready = new Promise((resolve) => { release = resolve; });
