@@ -42,6 +42,27 @@ describe('OperatorRail', () => {
     expect(document.querySelector('[data-testid="operator-browser"]')!.textContent).toContain('reserved for the next integration slice');
   });
 
+  it('filters activity to failures without claiming that all session evidence is absent', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ activity: [
+      { id: 'completed', sessionID: 's1', time: 1, kind: 'tool', status: 'completed', summary: 'Applied patch' },
+      { id: 'failed', sessionID: 's1', time: 2, kind: 'tool', status: 'failed', summary: 'Command failed' },
+    ] });
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    act(() => (document.querySelector('button[aria-label="Activity"]') as HTMLButtonElement).click());
+    act(() => (document.querySelector('[data-testid="operator-activity"] button') as HTMLButtonElement).click());
+    const activity = document.querySelector('[data-testid="operator-activity"]')!;
+    expect(activity.textContent).toContain('Command failed');
+    expect(activity.textContent).not.toContain('Applied patch');
+
+    act(() => store.getState().patch({ activity: [{ id: 'completed', sessionID: 's1', time: 1, kind: 'tool', status: 'completed', summary: 'Applied patch' }] }));
+    expect(activity.textContent).toContain('No failed activity evidence has been received for this session.');
+    expect(activity.textContent).not.toContain('No activity evidence has been received for this session.');
+  });
+
   it('loads the new directory preference without overwriting it during a live directory switch', () => {
     window.localStorage.setItem('nnd.operator-rail.surface:D:/alpha', 'activity');
     window.localStorage.setItem('nnd.operator-rail.surface:D:/beta', 'context');

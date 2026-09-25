@@ -85,12 +85,13 @@ function surfaceStorageKey(directory: string): string {
 function ActivitySurface({ store }: { store: StoreApi<DirectoryStore> }): ReactNode {
   const snapshot = useSyncExternalStore(store.subscribe, store.getState);
   const view = useSyncExternalStore(useSessionViewStore.subscribe, useSessionViewStore.getState);
+  const [showFailuresOnly, setShowFailuresOnly] = useState(false);
   // The activity rail follows the selected transcript.  Reversing ingestion
   // order keeps the newest received evidence first without relying on clocks
   // that may differ during a replay.
-  const records = snapshot.activity.filter((record) => record.sessionID === view.currentSessionId).reverse();
-  return <section className="p-3" data-testid="operator-activity"><h2 className="mb-3 text-xs font-medium text-neutral-200">Activity</h2>
-    {records.length === 0 ? <p className="text-[11px] text-neutral-500">No activity evidence has been received for this session.</p> : <ol className="flex flex-col gap-2">{records.map((record) => <li key={record.id} className="rounded border border-white/10 bg-neutral-900/40 p-2 text-[11px]"><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span>{record.status}</span></div><p className="mt-1 text-neutral-300">{record.summary}</p></li>)}</ol>}
+  const records = snapshot.activity.filter((record) => record.sessionID === view.currentSessionId && (!showFailuresOnly || record.status === 'failed')).reverse();
+  return <section className="p-3" data-testid="operator-activity"><header className="mb-3 flex items-center gap-2"><h2 className="text-xs font-medium text-neutral-200">Activity</h2><button type="button" className="ml-auto text-[10px] text-neutral-500" aria-pressed={showFailuresOnly} onClick={() => setShowFailuresOnly(!showFailuresOnly)}>{showFailuresOnly ? 'All events' : 'Failures only'}</button></header>
+    {records.length === 0 ? <p className="text-[11px] text-neutral-500">{showFailuresOnly ? 'No failed activity evidence has been received for this session.' : 'No activity evidence has been received for this session.'}</p> : <ol className="flex flex-col gap-2">{records.map((record) => <li key={record.id} className="rounded border border-white/10 bg-neutral-900/40 p-2 text-[11px]"><div className="flex justify-between gap-2 text-neutral-500"><span>{record.kind}</span><time dateTime={new Date(record.time).toISOString()}>{new Date(record.time).toLocaleTimeString()}</time><span>{record.status}</span></div><p className="mt-1 text-neutral-300">{record.summary}</p></li>)}</ol>}
   </section>;
 }
 
