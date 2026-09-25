@@ -111,8 +111,11 @@ async function writeManifest(root, providerPort) {
   await mkdir(config, { recursive: true });
   await writeFile(join(config, 'manifest.json'), JSON.stringify({
     format_version: 1, persistence: 'ephemeral', workspace_root: root,
-    providers: [{ id: 'primary', display_name: 'Primary', endpoint: `http://127.0.0.1:${providerPort}/v1`, model: 'test', trust_zone: 'loopback' }],
-    routes: { primary: { provider_id: 'primary', model: 'test' }, subagent: { provider_id: 'primary', model: 'test' } },
+    providers: [
+      { id: 'primary', display_name: 'Primary', endpoint: `http://127.0.0.1:${providerPort}/v1`, model: 'test', trust_zone: 'loopback' },
+      { id: 'delegated', display_name: 'Delegated', endpoint: `http://127.0.0.1:${providerPort}/v1`, model: 'test', trust_zone: 'loopback' },
+    ],
+    routes: { primary: { provider_id: 'primary', model: 'test' }, subagent: { provider_id: 'delegated', model: 'test' } },
   }));
 }
 
@@ -151,6 +154,7 @@ async function probeSession(call, workspace, nextEvent, provider) {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Source bridge smoke' }),
   }, 201);
   assert.equal(created.directory, workspace);
+  assert.deepEqual(created.metadata.nnd.configuredModel, { providerID: 'primary', modelID: 'test' });
   const id = created.id;
   assert.match(id, /^ses_[A-Za-z0-9_-]+$/u);
   const createdEvent = await nextEvent();
@@ -201,6 +205,7 @@ async function probeSession(call, workspace, nextEvent, provider) {
   assert.equal(child.id, liveChild.id);
   assert.equal(child.parentID, id);
   assert.equal(child.directory, workspace);
+  assert.deepEqual(child.metadata.nnd.configuredModel, { providerID: 'delegated', modelID: 'test' });
   assert.match(child.id, /^agent_general_[A-Za-z0-9_-]+$/u);
   assert.ok(childEvents.some((event) => event.payload.type === 'session.created'
     && event.payload.properties.info.id === child.id), 'child creation was not delivered on the live event stream');

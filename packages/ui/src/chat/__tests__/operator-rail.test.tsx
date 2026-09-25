@@ -172,7 +172,7 @@ describe('OperatorRail', () => {
     rootHandle = createRoot(container);
     act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
     const context = document.querySelector('[data-testid="work-status-panel"]')!;
-    expect(context.textContent).toContain('Configured model');
+    expect(context.textContent).toContain('Configured route');
     expect(context.textContent).toContain('local · code-main');
     act(() => store.getState().patch({ config: { nnd: { engine: 'nna', modelSelection: 'configured' } } as never }));
     expect(context.textContent).toContain('NNA model unavailable');
@@ -183,7 +183,7 @@ describe('OperatorRail', () => {
     const store = createDirectoryStore({
       session: [
         { id: 'root', time: { created: 1, updated: 1 } },
-        { id: 'child', parentID: 'root', time: { created: 2, updated: 2 } },
+        { id: 'child', parentID: 'root', metadata: { nnd: { configuredModel: { providerID: 'delegated', modelID: 'child-only', endpoint: 'private endpoint' } } }, time: { created: 2, updated: 2 } },
       ] as never,
       config: { nnd: { engine: 'nna', modelSelection: 'configured', primaryModel: { providerID: 'primary', modelID: 'root-only' } } } as never,
     });
@@ -193,7 +193,8 @@ describe('OperatorRail', () => {
     act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
     const context = document.querySelector('[data-testid="work-status-panel"]')!;
     expect(context.textContent).not.toContain('root-only');
-    expect(context.textContent).not.toContain('Configured model');
+    expect(context.textContent).toContain('delegated · child-only');
+    expect(context.textContent).not.toContain('private endpoint');
     act(() => useSessionViewStore.getState().setCurrentSession('root'));
     expect(context.textContent).toContain('primary · root-only');
   });

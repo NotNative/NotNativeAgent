@@ -52,6 +52,20 @@ export interface NnaGovernanceSummary {
   uncertainEffects?: number;
 }
 
+/** Configured route identity is authored per NNA session. It is not a claim
+ * about a fallback provider or the model that actually answered a turn. */
+export function nnaSessionConfiguredModel(state: DirectoryStore, sessionID: string): { providerID: string; modelID: string } | null {
+  const session = state.session.find((item) => item.id === sessionID);
+  const nnd = session?.metadata?.nnd;
+  if (!nnd || typeof nnd !== 'object' || Array.isArray(nnd)) return null;
+  const model = (nnd as Record<string, unknown>).configuredModel;
+  if (!model || typeof model !== 'object' || Array.isArray(model)) return null;
+  const { providerID, modelID } = model as Record<string, unknown>;
+  const validId = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0
+    && value.length <= 256 && !/[\u0000-\u001f\u007f]/u.test(value);
+  return validId(providerID) && validId(modelID) ? { providerID, modelID } : null;
+}
+
 /** NNA-authored classifications only; malformed or unknown fields never
  * become an invented governance claim in the Context rail. */
 export function nnaGovernanceSummary(state: DirectoryStore, sessionID: string): NnaGovernanceSummary | null {

@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Per-session NNA configured routes.** NNA now projects only
+  provider/model IDs from each engine's configured route into authenticated
+  session metadata. Child sessions carry their distinct delegated route even
+  after completion. The Context rail prefers this per-session identity over
+  the root-only `/config` fallback; it never treats a configured route as
+  proof of the provider/model that answered a particular turn. The cross-repo
+  smoke uses separate primary and delegated provider IDs and checks both.
+
 - 2026-09-25 · **Configured model in Context.** Root NNA sessions now show
   the same configured primary model identity as the composer, or an explicit
   unavailable label when NNA configuration omits it. Delegated child Context

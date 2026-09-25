@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { contextUsage, nnaContextUsage, nnaGovernanceSummary, sessionCostRollup, subagentRows, todoRows, turnStats, usageRows, recapFor } from '../work-status.ts';
+import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, sessionCostRollup, subagentRows, todoRows, turnStats, usageRows, recapFor } from '../work-status.ts';
 import { panelEligible, panelStatsIfNeeded } from '../panel-gate.ts';
 import { INITIAL_STATE, type DirectoryStore } from '../../sync/types.ts';
 import type { Message, Todo } from '../../lib/nnd/types.ts';
@@ -84,6 +84,20 @@ describe('NNA governance projection', () => {
       reviewPosture: 'bypass', recordHealth: 'approved', attentionEvidence: -1,
     } } }, time: { created: 1, updated: 1 } }] } as unknown as Partial<DirectoryStore>);
     expect(nnaGovernanceSummary(store.getState(), 's1')).toBeNull();
+  });
+});
+
+describe('NNA session configured route', () => {
+  it('accepts only the two bounded route IDs from session metadata', () => {
+    const store = emptyStore();
+    patch(store, { session: [{ id: 'child', metadata: { nnd: { configuredModel: {
+      providerID: 'local', modelID: 'subagent', secret: 'never render',
+    } } }, time: { created: 1, updated: 1 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaSessionConfiguredModel(store.getState(), 'child')).toEqual({ providerID: 'local', modelID: 'subagent' });
+    patch(store, { session: [{ id: 'child', metadata: { nnd: { configuredModel: {
+      providerID: 'local', modelID: '\u0000bad',
+    } } }, time: { created: 1, updated: 1 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaSessionConfiguredModel(store.getState(), 'child')).toBeNull();
   });
 });
 

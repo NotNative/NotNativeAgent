@@ -11,7 +11,7 @@ import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import type { SessionStatus } from '../lib/nnd/types.ts';
-import { contextUsage, nnaContextUsage, nnaGovernanceSummary, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
+import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { resolveComposerModel } from './composer-model-config.ts';
@@ -33,6 +33,7 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const context = contextUsage(snapshot, sessionID, contextLimit);
   const nnaContext = nnaContextUsage(snapshot, sessionID);
   const governance = nnaGovernanceSummary(snapshot, sessionID);
+  const sessionModel = nnaSessionConfiguredModel(snapshot, sessionID);
   const configuredModel = resolveComposerModel(snapshot.config, null, 'nna');
   const selectedSession = snapshot.session.find((session) => session.id === sessionID);
   const todos = todoRows(snapshot, sessionID);
@@ -48,10 +49,12 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   // the doc-15 knowledge slice.
 
   const sections: { id: string; label: string; rows: (ReactNode | null)[] }[] = [];
-  // The configured primary model describes root prompts, not delegated child
-  // turns, which can use NNA's distinct subagent route.
-  if (configuredModel.nnaConfigured && selectedSession && selectedSession.parentID === undefined) sections.push({ id: 'engine', label: 'NNA engine', rows: [
-    row('Configured model', configuredModel.modelLabel),
+  // Prefer the session-owned route, including for children. The legacy global
+  // /config identity is only a root fallback and must never label a child.
+  const routeLabel = sessionModel ? `${sessionModel.providerID} · ${sessionModel.modelID}`
+    : configuredModel.nnaConfigured && selectedSession && selectedSession.parentID === undefined ? configuredModel.modelLabel : null;
+  if (routeLabel) sections.push({ id: 'engine', label: 'NNA engine', rows: [
+    row('Configured route', routeLabel),
   ] });
   const pendingPermissions = snapshot.permission[sessionID]?.length ?? 0;
   const pendingQuestions = snapshot.question[sessionID]?.length ?? 0;
