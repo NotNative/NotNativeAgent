@@ -2,13 +2,14 @@
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { NndSessionRegistry } from './nnd-session-registry.js';
-import { childLiveMessage, streamChildDelta } from './nnd-child-stream.js';
+import { childLiveMessage, observeChildLifecycle } from './nnd-child-stream.js';
 import { hasPersistedSubmission, messageProjection, reservedProjectedMessageId } from './nnd-transcript-identity.js';
 import { nndContextObservation } from './nnd-context-observation.js';
 import { describe, nextUpdatedAt, sessionIdOrder, titleOf, directoryOf, directoryFor } from './nnd-session-description.js';
 import { createWireEventBus } from './opencode/wire-events.js';
 import { readFile, stat } from 'node:fs/promises';
 import { persistAtomicJson } from './persistence/atomic-json.js';
+import { appendActivity, drainActivityWrites, loadActivity, removeActivity, reportActivityFailure, scheduleActivityWrite } from './nnd-activity-snapshot.js';
 
 const CATALOG_LIMIT_BYTES = 1_048_576;
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
@@ -18,6 +19,7 @@ export class NndEngineHost {
   #contexts = new Map();
   #creating = new Set();
   #childStreams = new Map();
+  #childActivity = new Map();
   constructor(options = {}) {
     if (typeof options.createEngine !== 'function') {
       throw new ContractError('nnd_engine_factory_missing', 'NND engine host requires an engine factory');
@@ -33,6 +35,7 @@ export class NndEngineHost {
       (type, child, payload) => this.#observeChildEvent(type, child, payload));
     this.catalogPath = options.catalogPath ?? null;
     this.persistCatalog = options.persistCatalog ?? persistAtomicJson;
+    this.persistActivity = options.persistActivity ?? persistAtomicJson;
     this.catalogWrites = Promise.resolve();
   }
 
@@ -87,10 +90,11 @@ export class NndEngineHost {
       }
       await engine.initialize();
       const createdAt = restoring ? options.createdAt : Date.now();
+      const activity = restoring ? await loadActivity(this.catalogPath, sessionId, createdAt) : [];
       const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
         title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt,
         updatedAt: restoring ? options.updatedAt : createdAt, contextUsage: null,
-        archivedAt: restoring ? options.archivedAt : 0,
+        archivedAt: restoring ? options.archivedAt : 0, activity, activityRevision: 0, activityWrite: null,
         ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false };
       if (restoring) this.#contexts.set(sessionId, context);
       else await this.#commitCatalogChange(
@@ -311,6 +315,15 @@ export class NndEngineHost {
       .map(({ item, index }) => messageProjection(context, item, index));
   }
 
+  activity(sessionId, principal) {
+    requireExternalId(sessionId, 'session_id'); requirePrincipal(principal);
+    if (this.#contexts.has(sessionId)) return [...this.#owned(sessionId, principal).activity];
+    if (!this.childSessions.get?.(sessionId, principal)) {
+      throw new ContractError('nnd_session_unavailable', 'NND session context is unavailable');
+    }
+    return [...(this.#childActivity.get(sessionId) ?? [])];
+  }
+
   async close(sessionId, principal) {
     const context = this.#owned(sessionId, principal, true);
     context.closing = true;
@@ -321,6 +334,8 @@ export class NndEngineHost {
       (contexts) => contexts.delete(sessionId),
       () => this.#contexts.delete(sessionId),
     );
+    await drainActivityWrites(context);
+    await removeActivity(this.catalogPath, sessionId).catch((error) => reportActivityFailure(context, error));
     this.#publish(context, 'session.deleted', { sessionID: sessionId }, true);
     return { closed: true };
   }
@@ -330,6 +345,7 @@ export class NndEngineHost {
     const settled = await Promise.allSettled(contexts.map((context) => context.engine.shutdown({
       version: '1.0', type: 'shutdown', request_id: newId('nnd_shutdown'),
     })));
+    await Promise.all(contexts.map((context) => drainActivityWrites(context)));
     const failed = settled.find((result) => result.status === 'rejected');
     if (failed) throw failed.reason;
   }
@@ -390,51 +406,21 @@ export class NndEngineHost {
   #observeChildEvent(type, child, payload) {
     const parent = this.#contexts.get(child.parentID);
     if (!parent) return;
-    const state = this.#childStreams.get(child.id);
-    if (type === 'registered') {
-      this.#childStreams.set(child.id, { messageId: `${child.id}:live`, opened: false, preview: '', streamedChars: 0,
-        previewLimited: false, turnId: null, outcome: null });
-      this.#publishChild(parent, child, 'session.created', { info: child }, true);
-    } else if (type === 'started') {
-      this.#publishChild(parent, child, 'session.status', { sessionID: child.id, status: { type: 'busy' } });
-      this.#publishChild(parent, child, 'nnd.activity', { id: `${child.id}:turn`, sessionID: child.id,
-        kind: 'turn', status: 'started', summary: 'Subagent turn started', time: Date.now() });
-    } else if (type === 'output' && state && payload) {
-      if (payload.turn_id) {
-        if (state.turnId && state.turnId !== payload.turn_id) return;
-        state.turnId ??= payload.turn_id;
-      }
-      if (payload.type === 'stream_delta' && typeof payload.text === 'string' && payload.text) {
-        streamChildDelta(child, state, payload.text,
-          (eventType, properties) => this.#publishChild(parent, child, eventType, properties));
-      } else if (payload.type === 'tool_status' && typeof payload.tool === 'string' && typeof payload.status === 'string') {
-        const toolId = payload.tool_request_id ?? payload.provider_call_id;
-        if (typeof toolId === 'string' && toolId) this.#publishChild(parent, child, 'nnd.activity', {
-          id: `${child.id}:tool:${toolId}`, sessionID: child.id, kind: 'tool', status: activityStatus(payload.status),
-          summary: `${payload.tool}: ${payload.status}`, time: Date.now(),
-        });
-      } else if (payload.type === 'turn_result') state.outcome = payload.outcome;
-    } else if (type === 'completed') {
-      this.#childStreams.delete(child.id);
-      if (state?.opened) this.#publishChild(parent, child, 'message.removed', { sessionID: child.id, messageID: state.messageId }, true);
-      const principal = { subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds] };
-      for (const entry of this.messages(child.id, principal)) {
-        this.#publishChild(parent, child, 'message.updated', { sessionID: child.id, info: entry.info }, true);
-        for (const part of entry.parts) this.#publishChild(parent, child, 'message.part.updated', { sessionID: child.id, part }, true);
-      }
-      const result = turnActivity(state?.outcome ?? payload?.outcome, false);
-      this.#publishChild(parent, child, 'nnd.activity', { id: `${child.id}:turn`, sessionID: child.id,
-        kind: 'turn', status: result.status, summary: result.summary, time: Date.now() });
-      this.#publishChild(parent, child, 'session.status', { sessionID: child.id, status: { type: 'idle' } });
-      this.#publishChild(parent, child, 'session.idle', { sessionID: child.id });
-      this.#publishChild(parent, child, 'session.updated', { sessionID: child.id, info: child }, true);
-    } else if (type === 'deleted') {
-      this.#childStreams.delete(child.id);
-      this.#publishChild(parent, child, 'session.deleted', { sessionID: child.id }, true);
-    }
+    observeChildLifecycle({ type, child, payload, streams: this.#childStreams, activity: this.#childActivity,
+      publish: (eventType, properties, mirror) => this.#publishChild(parent, child, eventType, properties, mirror),
+      messages: () => this.messages(child.id, { subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds] }),
+      activityStatus, turnActivity });
   }
 
   #publishChild(parent, child, type, properties, mirror = false) {
+    if (type === 'nnd.activity') {
+      if (properties?.sessionID !== child.id) return;
+      const records = this.#childActivity.get(child.id);
+      if (!records) return;
+      const record = appendActivity(records, properties);
+      if (!record) return;
+      properties = record;
+    }
     try { this.eventBus.publishSession({ directory: child.directory, project: parent.workspaceIds.values().next().value,
       subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds], sessionID: child.id, type, properties, mirror }); }
     catch (error) {
@@ -444,6 +430,16 @@ export class NndEngineHost {
   }
 
   #publish(context, type, properties, mirror = false) {
+    if (type === 'nnd.activity') {
+      if (properties?.sessionID !== context.sessionId) return;
+      const record = appendActivity(context.activity, properties);
+      if (!record) return;
+      properties = record;
+      if (record && this.catalogPath) {
+        context.activityRevision += 1;
+        scheduleActivityWrite(context, this.catalogPath, this.persistActivity);
+      }
+    }
     // Why: a broken display subscriber cannot turn governed work into a false failure.
     try {
       this.eventBus.publishSession({ directory: directoryFor(context), project: context.workspaceIds.values().next().value,
@@ -454,6 +450,7 @@ export class NndEngineHost {
       }); } catch { /* Observational diagnostics cannot replace the engine outcome. */ }
     }
   }
+
 }
 
 function requirePrincipal(principal) {

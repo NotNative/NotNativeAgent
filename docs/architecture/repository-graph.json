@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:f59ed13b9332ba0170c05c376abfa583090e9348ba597f3e5f6cd374c2b06e16",
+  "source_digest": "sha256:47167b970c60e60ddcf5f980cef587dd5613ca960b7bb28800dec06b2912deee",
   "counts": {
-    "modules": 367,
+    "modules": 368,
     "component_edges": 76
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 93
+      "module_count": 94
     }
   ],
   "entrypoints": [
@@ -120,8 +120,8 @@
     {
       "from": "foundation",
       "to": "foundation",
-      "import_count": 164,
-      "module_count": 77
+      "import_count": 166,
+      "module_count": 78
     },
     {
       "from": "experience-engine",
@@ -232,16 +232,16 @@
       "module_count": 4
     },
     {
+      "from": "foundation",
+      "to": "persistence",
+      "import_count": 10,
+      "module_count": 8
+    },
+    {
       "from": "opencode-surface",
       "to": "foundation",
       "import_count": 10,
       "module_count": 6
-    },
-    {
-      "from": "foundation",
-      "to": "persistence",
-      "import_count": 9,
-      "module_count": 7
     },
     {
       "from": "guidance",
@@ -1855,6 +1855,15 @@
       ]
     },
     {
+      "path": "src/nnd-activity-snapshot.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/atomic-json.js"
+      ]
+    },
+    {
       "path": "src/nnd-child-stream.js",
       "component": "foundation",
       "entrypoint": false,
@@ -1873,6 +1882,7 @@
       "imports": [
         "src/ids.js",
         "src/ingress.js",
+        "src/nnd-activity-snapshot.js",
         "src/nnd-child-stream.js",
         "src/nnd-context-observation.js",
         "src/nnd-session-description.js",

@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { NndEngineHost } from '../src/nnd-engine-host.js';
+import { activityPath, appendActivity } from '../src/nnd-activity-snapshot.js';
 
 const owner = { subjectId: 'user_a', workspaceIds: ['workspace_a'] };
 
@@ -57,6 +58,133 @@ test('NND durable catalog refuses malformed records without discarding them', as
   const host = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
   await assert.rejects(host.initialize(), { code: 'nnd_catalog_invalid' });
   assert.match(await readFile(catalogPath, 'utf8'), /escape/u);
+});
+
+test('NND activity snapshot reopens after restart and requires the complete owner grant', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-activity-'));
+  const catalogPath = join(root, 'catalog.json');
+  let output;
+  let release;
+  const first = new NndEngineHost({ catalogPath, createEngine: async (options) => {
+    output = options.output;
+    const engine = fakeEngine();
+    engine.transcript = [];
+    engine.submit = async () => new Promise((resolve) => { release = resolve; });
+    return engine;
+  } });
+  const fullOwner = { subjectId: owner.subjectId, workspaceIds: ['workspace_a', 'workspace_b'] };
+  await first.create('session_a', fullOwner);
+  first.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, fullOwner);
+  output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a',
+    tool: 'shell_run', status: 'running', arguments: { secret: 'do-not-persist' } });
+  output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a',
+    tool: 'shell_run', status: 'succeeded' });
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  const before = first.activity('session_a', fullOwner);
+  assert.equal(before.length, 2);
+  assert.equal(before.find((record) => record.kind === 'tool').status, 'completed');
+  assert.throws(() => first.activity('session_a', owner), { code: 'nnd_session_unavailable' });
+  await first.shutdown();
+  const stored = await readFile(activityPath(catalogPath, 'session_a'), 'utf8');
+  assert.equal(stored.includes('do-not-persist'), false);
+  const altered = JSON.parse(stored);
+  altered.records[0].extraSecret = 'must-not-project';
+  await writeFile(activityPath(catalogPath, 'session_a'), JSON.stringify(altered));
+  const reopened = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await reopened.initialize();
+  assert.deepEqual(reopened.activity('session_a', fullOwner), before);
+  await reopened.close('session_a', fullOwner);
+  await assert.rejects(readFile(activityPath(catalogPath, 'session_a'), 'utf8'), { code: 'ENOENT' });
+});
+
+test('NND activity rejects corrupt durable snapshots instead of silently clearing evidence', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-activity-invalid-'));
+  const catalogPath = join(root, 'catalog.json');
+  const first = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await first.create('session_a', owner);
+  await first.shutdown();
+  const path = activityPath(catalogPath, 'session_a');
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, '{"version":1,"records":[{"summary":"private"}]}');
+  const reopened = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await assert.rejects(reopened.initialize(), { code: 'nnd_activity_invalid' });
+  assert.match(await readFile(path, 'utf8'), /private/u);
+});
+
+test('NND activity write failure cannot fail a governed turn and a later event retries', async () => {
+  let release;
+  let writes = 0;
+  const engine = fakeEngine();
+  engine.transcript = [];
+  engine.submit = async () => new Promise((resolve) => { release = resolve; });
+  const host = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => engine,
+    persistCatalog: async () => {}, persistActivity: async () => {
+      writes += 1;
+      if (writes === 1) throw new Error('disk full');
+    } });
+  await host.create('session_a', owner);
+  assert.equal(host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner).accepted, true);
+  release({ accepted: true });
+  await new Promise((resolve) => setImmediate(resolve));
+  await host.shutdown();
+  assert.equal(host.activity('session_a', owner).at(-1).status, 'completed');
+  assert.ok(writes >= 2);
+});
+
+test('NND activity bounds and sanitizes retained records with monotonic update time', () => {
+  const records = [];
+  const first = appendActivity(records, { id: 'turn_a', sessionID: 'session_a', kind: 'turn',
+    status: 'started', summary: 'first\nsecret' });
+  const updated = appendActivity(records, { id: 'turn_a', sessionID: 'session_a', kind: 'turn',
+    status: 'completed', summary: 'done' });
+  assert.ok(updated.time > first.time);
+  assert.equal(records[0].summary, 'done');
+  assert.equal(appendActivity(records, { id: 'bad', sessionID: 'session_a', kind: 'tool', status: 'unknown', summary: 'bad' }), null);
+  for (let index = 0; index < 520; index += 1) appendActivity(records, {
+    id: `tool_${index}`, sessionID: 'session_a', kind: 'tool', status: 'completed', summary: 'x'.repeat(500),
+  });
+  assert.equal(records.length, 500);
+  assert.equal(records.some((record) => record.id === 'turn_a'), false);
+  assert.equal(records[0].summary.length, 256);
+});
+
+test('NND live Activity matches sanitized snapshots and drops invalid frames', async () => {
+  const events = [];
+  let output;
+  const host = new NndEngineHost({ eventBus: { publishSession: (event) => events.push(event) },
+    createEngine: async (options) => { output = options.output; return { ...fakeEngine(), transcript: [],
+      submit: async () => new Promise(() => {}) }; } });
+  await host.create('session_a', owner);
+  // Hold a turn open so two tool corrections are accepted by the output boundary.
+  const context = host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
+  assert.equal(context.accepted, true);
+  const originalNow = Date.now;
+  Date.now = () => 1_000;
+  try {
+    output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a', tool: 'shell_run', status: 'running' });
+    output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'tool_a', tool: 'shell_run', status: 'succeeded' });
+    const rootSaved = host.activity('session_a', owner).find((record) => record.kind === 'tool');
+    const rootLive = events.filter((event) => event.type === 'nnd.activity' && event.properties.kind === 'tool').at(-1).properties;
+    assert.deepEqual(rootLive, rootSaved);
+    const rootEvents = events.length;
+    output({ type: 'tool_status', session_id: 'session_a', tool_request_id: 'x'.repeat(300),
+      tool: 'shell_run', status: 'succeeded' });
+    assert.equal(events.length, rootEvents);
+    assert.equal(host.activity('session_a', owner).some((record) => record.id.includes('x'.repeat(300))), false);
+    const child = { config: { workspaceRoot: 'D:\\work' }, active: { finalized: false }, transcript: [] };
+    const finish = host.childSessions.register('agent_a', 'session_a', owner, child);
+    host.childSessions.observeStarted('agent_a');
+    const childEvents = events.length;
+    host.childSessions.observeOutput('agent_a', { type: 'tool_status', session_id: 'agent_a',
+      tool_request_id: 'x'.repeat(300), tool: 'shell_run', status: 'succeeded' });
+    assert.equal(events.length, childEvents);
+    finish('completed');
+    const childSaved = host.activity('agent_a', owner).at(-1);
+    const childLive = events.filter((event) => event.type === 'nnd.activity' && event.sessionID === 'agent_a').at(-1).properties;
+    assert.deepEqual(childLive, childSaved);
+  } finally { Date.now = originalNow; }
+  await host.shutdown();
 });
 
 test('NND rename persists only after a successful catalog write', async () => {
@@ -277,9 +405,12 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   ] };
   const stop = host.childSessions.register('agent_coder_1', 'session_a', principal, child, { type: 'coder' });
   host.childSessions.observeStarted('agent_coder_1');
+  assert.deepEqual(host.activity('agent_coder_1', principal).map((record) => record.status), ['started']);
   host.childSessions.observeOutput('agent_coder_1', { type: 'stream_delta', session_id: 'agent_coder_1', turn_id: 'turn_a', text: 'Hello' });
   assert.equal(host.messages('agent_coder_1', principal).at(-1).parts[0].text, 'Hello');
   host.childSessions.observeOutput('agent_coder_1', { type: 'stream_delta', session_id: 'other', turn_id: 'turn_a', text: 'secret' });
+  assert.throws(() => host.activity('agent_coder_1', { subjectId: principal.subjectId, workspaceIds: ['workspace_a'] }),
+    { code: 'nnd_session_unavailable' });
   host.childSessions.observeOutput('agent_coder_1', { type: 'stream_delta', session_id: 'agent_coder_1', turn_id: 'turn_a', text: ' world' });
   assert.equal(host.messages('agent_coder_1', principal).at(-1).parts[0].text, 'Hello world');
   assert.equal(events.find((event) => event.type === 'session.created' && event.properties.info.id === 'agent_coder_1').workspaceIds.length, 2);
@@ -295,7 +426,9 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   assert.equal(events.at(-1).type, 'session.updated');
   assert.equal(host.messages('agent_coder_1', principal)[1].parts[0].text, 'Hello world');
   assert.equal(host.messages('agent_coder_1', principal).some((entry) => entry.info.id === 'agent_coder_1:live'), false);
+  assert.deepEqual(host.activity('agent_coder_1', principal).map((record) => record.status), ['completed']);
   await host.close('session_a', principal);
+  assert.throws(() => host.activity('agent_coder_1', principal), { code: 'nnd_session_unavailable' });
   assert.deepEqual(events.slice(-2).map((event) => event.type), ['session.deleted', 'session.deleted']);
 });
 

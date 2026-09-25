@@ -134,8 +134,17 @@ of attention evidence, unsettled decisions, and uncertain effects. It does not
 carry decision records, evidence bodies, authority references, tool arguments,
 or credentials. A missing or failed health observation is not interpreted as
 approval or as a healthy governance ledger.
-These activity events are not yet a durable replay feed; reconnects recover the
-canonical transcript, while durable activity replay remains separate work.
+The authenticated `GET /session/:id/activity` endpoint returns up to 500 recent
+sanitized Activity records (`id`, `sessionID`, `time`, `kind`, `status`, `summary`).
+It requires `nnd.read` and the session's complete original workspace grant.
+Root-session snapshots persist beside the NND session catalog when that catalog
+is durable; otherwise they remain in memory. A corrupt durable snapshot fails
+session restoration clearly and is not silently replaced. Snapshot writes are
+coalesced and observational: a write failure cannot change a governed turn.
+The canonical transcript remains the authoritative conversation record; Activity
+is a bounded recent operational view, not a complete audit ledger or cursor feed.
+Completed child Activity remains in memory while the child session is retained;
+child discovery and its Activity do not survive an NNA service restart.
 Display delivery failures cannot change the governed engine outcome.
 
 Child sessions appear under their NND parent in the session list. Their message

@@ -3,7 +3,7 @@ import { ContractError, newId, requireExternalId } from './ids.js';
 import { readJsonBody, send } from './secret-broker-server.js';
 import { requireIntegrationPermission } from './integration-principal.js';
 import { sseOpen } from './opencode/protocol.js';
-const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|prompt_async|abort))?$/u;
+const ROUTE = /^\/session(?:\/([^/]+))?(?:\/(message|children|activity|prompt_async|abort))?$/u;
 export async function dispatchNndHarnessRequest(request, response, context) {
   if (openEventStream(request, response, context)) return true;
   if (await dispatchBootstrapRequest(request, response, context)) return true;
@@ -14,7 +14,7 @@ export async function dispatchNndHarnessRequest(request, response, context) {
     try { id = decodeURIComponent(match[1]); requireExternalId(id, 'session_id'); }
     catch { throw new ContractError('session_id_invalid', 'session id is invalid'); }
   }
-  if (request.method === 'GET' && (!match[2] || match[2] === 'message' || match[2] === 'children')) {
+  if (request.method === 'GET' && (!match[2] || match[2] === 'message' || match[2] === 'children' || match[2] === 'activity')) {
     return readSession(response, context, host, id, match[2]);
   }
   if (request.method === 'POST' && !id) {
@@ -65,6 +65,7 @@ function readSession(response, context, host, id, detail) {
   requireIntegrationPermission(context.principal, 'nnd.read');
   if (detail === 'message') return send(response, 200, host.messages(id, context.principal));
   if (detail === 'children') return send(response, 200, host.listChildren(id, context.principal));
+  if (detail === 'activity') return send(response, 200, host.activity(id, context.principal));
   if (id) return send(response, 200, host.get(id, context.principal));
   const roots = context.url.searchParams.get('roots');
   return send(response, 200, host.list(context.principal, {

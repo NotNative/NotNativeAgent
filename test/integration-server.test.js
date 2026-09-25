@@ -185,6 +185,9 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.equal(factoryOptions[0].dataPaths, undefined);
     assert.equal(factoryOptions[0].directory, root);
     assert.equal((await request(base, `/session/${created.value.id}`, principal(['nnd.read'], { workspace_ids: ['w_two'] }))).status, 404);
+    assert.deepEqual((await request(base, `/session/${created.value.id}/activity`, owner)).value, []);
+    assert.equal((await request(base, `/session/${created.value.id}/activity`, principal([], { workspace_ids: ['w_one', 'w_two'] }))).status, 403);
+    assert.equal((await request(base, `/session/${created.value.id}/activity`, principal(['nnd.read'], { workspace_ids: ['w_two'] }))).status, 404);
     const childEngine = { config: { workspaceRoot: root }, active: { finalized: false }, transcript: [
       { type: 'message', role: 'user', content: 'Inspect this' },
       { type: 'message', role: 'assistant', content: 'Private finding' },
@@ -201,6 +204,7 @@ test('NND harness session routes bind creation to the complete principal workspa
     const child = await request(base, '/session/agent_coder_http', owner);
     assert.equal(child.value.parentID, created.value.id);
     const childMessages = await request(base, '/session/agent_coder_http/message', owner);
+    assert.deepEqual((await request(base, '/session/agent_coder_http/activity', owner)).value, []);
     assert.deepEqual(childMessages.value.map((message) => [message.info.id, message.parts[0].text]), [
       ['agent_coder_http:message:0', 'Inspect this'], ['agent_coder_http:message:1', 'Private finding'],
     ]);
@@ -208,6 +212,7 @@ test('NND harness session routes bind creation to the complete principal workspa
     assert.deepEqual((await request(base, '/session', partialReader)).value, []);
     assert.equal((await request(base, '/session/agent_coder_http', partialReader)).status, 404);
     assert.equal((await request(base, '/session/agent_coder_http/message', partialReader)).status, 404);
+    assert.equal((await request(base, '/session/agent_coder_http/activity', partialReader)).status, 404);
     assert.equal((await request(base, `/session/${created.value.id}/children`, partialReader)).status, 404);
     stopChild();
     assert.equal((await request(base, '/session/agent_coder_http/message', owner)).value[1].parts[0].text, 'Private finding');
