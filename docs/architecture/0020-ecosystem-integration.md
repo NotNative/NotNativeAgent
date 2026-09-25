@@ -112,6 +112,10 @@ parent revokes child access. This child index does not yet survive an NNA servic
 restart; durable child discovery and activity replay remain separate work.
 Session reads and event delivery both require the full original workspace grant,
 not merely a shared first workspace.
+While a child runs, its own text deltas and tool lifecycle events stream under
+the child session ID. The live text preview is bounded; on completion it is
+replaced by the retained child transcript. Child event delivery is observational
+and cannot change delegated work if a GUI subscriber fails.
 
 ## Related surface ADRs
 

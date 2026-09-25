@@ -212,6 +212,39 @@ test('NND engine host lists child sessions and projects their retained transcrip
   assert.throws(() => host.messages('agent_coder_1', owner), { code: 'nnd_session_unavailable' });
 });
 
+test('NND child sessions stream text and reconcile to the retained transcript', async () => {
+  const events = [];
+  const principal = { subjectId: 'user_a', workspaceIds: ['workspace_a', 'workspace_b'] };
+  const host = new NndEngineHost({ eventBus: { publishSession: (event) => events.push(event) },
+    createEngine: async () => fakeEngine() });
+  await host.create('session_a', principal);
+  const child = { config: { workspaceRoot: 'D:\\work' }, active: { finalized: false }, transcript: [
+    { type: 'message', role: 'user', content: 'Inspect this' },
+  ] };
+  const stop = host.childSessions.register('agent_coder_1', 'session_a', principal, child, { type: 'coder' });
+  host.childSessions.observeStarted('agent_coder_1');
+  host.childSessions.observeOutput('agent_coder_1', { type: 'stream_delta', session_id: 'agent_coder_1', turn_id: 'turn_a', text: 'Hello' });
+  assert.equal(host.messages('agent_coder_1', principal).at(-1).parts[0].text, 'Hello');
+  host.childSessions.observeOutput('agent_coder_1', { type: 'stream_delta', session_id: 'other', turn_id: 'turn_a', text: 'secret' });
+  host.childSessions.observeOutput('agent_coder_1', { type: 'stream_delta', session_id: 'agent_coder_1', turn_id: 'turn_a', text: ' world' });
+  assert.equal(host.messages('agent_coder_1', principal).at(-1).parts[0].text, 'Hello world');
+  assert.equal(events.find((event) => event.type === 'session.created' && event.properties.info.id === 'agent_coder_1').workspaceIds.length, 2);
+  assert.deepEqual(events.filter((event) => event.type === 'message.part.delta').map((event) => event.properties.delta), [' world']);
+  assert.equal(events.some((event) => JSON.stringify(event).includes('secret')), false);
+  assert.equal(events.some((event) => event.type === 'message.removed'), false);
+  child.transcript.push({ type: 'message', role: 'assistant', content: 'Hello world' });
+  host.childSessions.observeOutput('agent_coder_1', { type: 'turn_result', session_id: 'agent_coder_1', turn_id: 'turn_a', outcome: 'completed' });
+  stop('completed');
+  const removed = events.findIndex((event) => event.type === 'message.removed');
+  const canonical = events.findIndex((event, index) => index > removed && event.type === 'message.updated' && event.properties.info.id === 'agent_coder_1:message:1');
+  assert.ok(removed > 0 && canonical > removed);
+  assert.equal(events.at(-1).type, 'session.updated');
+  assert.equal(host.messages('agent_coder_1', principal)[1].parts[0].text, 'Hello world');
+  assert.equal(host.messages('agent_coder_1', principal).some((entry) => entry.info.id === 'agent_coder_1:live'), false);
+  await host.close('session_a', principal);
+  assert.deepEqual(events.slice(-2).map((event) => event.type), ['session.deleted', 'session.deleted']);
+});
+
 test('NND engine host reserves capacity during creation and cleans up a failed initialization', async () => {
   let release;
   const ready = new Promise((resolve) => { release = resolve; });

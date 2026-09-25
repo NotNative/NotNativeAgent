@@ -57,11 +57,13 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
   const sessionId = newId(`agent_${input.type}`);
   const parent = { turnId: engine.active?.turnId ?? null, stepId: engine.active?.stepId ?? null };
   const relay = createSubagentProgressRelay(engine, { ...parent, agentId: sessionId, agentType: input.type });
+  const observeNnd = (operation, action) => observeNndChild(engine, sessionId, parent, operation, action);
   const child = createEngine({
     ...engine.subagentOptions, config: subagentConfig(engine.config, input.type), sessionId,
     surface: 'subagent', reviewPosture: 'auto-review', dataPaths: engine.dataPaths,
     storeRoot: engine.storeRoot, scheduler: engine.scheduler, subagentDepth: engine.subagentDepth + 1,
     output: async (record) => {
+      observeNnd('output', () => engine.nndSessionRegistry?.observeOutput?.(sessionId, record));
       await relay.accept(record);
       // Child streaming deltas are already represented by the child engine's
       // telemetry. Mirroring every token into the parent produces thousands of
@@ -73,15 +75,9 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
     },
   });
   const unregisterNnd = registerNndChild(engine, sessionId, parent, child, input.type);
+  let childOutcome = 'failed';
   let cancellation = null;
-  const reportCleanupFailure = (operation, error) => {
-    engine.telemetry?.record('subagent.cleanup', 'failed', {
-      agent_id: sessionId,
-      agent_type: input.type,
-      operation,
-      error_code: typeof error?.code === 'string' ? error.code : 'subagent_cleanup_failed',
-    }, { turnId: parent.turnId, stepId: parent.stepId, outcome: 'failed' });
-  };
+  const reportCleanupFailure = (operation, error) => reportSubagentCleanup(engine, sessionId, input.type, parent, operation, error);
   const cancel = () => {
     cancellation ??= child.cancel({ request_id: newId('subagent_cancel'), type: 'cancel' });
     void cancellation.catch((error) => reportCleanupFailure('cancel', error));
@@ -90,14 +86,16 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
   try {
     await relay.started(input.task);
     await child.initialize();
+    observeNnd('started', () => engine.nndSessionRegistry?.observeStarted?.(sessionId));
     const result = await child.submit({ request_id: newId('subagent'), content: input.task }, `derived-subagent:${input.type}`);
+    childOutcome = result?.outcome ?? 'completed';
     await relay.returned(result);
     return result;
   } catch (error) {
     await relay.failed(error);
     throw error;
   } finally {
-    unregisterNnd?.();
+    observeNnd('completed', () => unregisterNnd?.(childOutcome));
     signal.removeEventListener('abort', cancel);
     if (cancellation) await cancellation.catch(() => undefined);
     try {
@@ -106,6 +104,23 @@ export async function runEngineSubagent(engine, input, signal, createEngine) {
       reportCleanupFailure('shutdown', error);
     }
   }
+}
+
+function observeNndChild(engine, sessionId, parent, operation, action) {
+  try { action(); }
+  catch (error) {
+    try { engine.telemetry?.record('nnd.session_observation', 'failed', { agent_id: sessionId,
+      operation, error_code: typeof error?.code === 'string' ? error.code : 'nnd_session_observation_failed' },
+    { turnId: parent.turnId, stepId: parent.stepId, outcome: 'failed' }); }
+    catch { /* Optional display diagnostics cannot fail delegated work. */ }
+  }
+}
+
+function reportSubagentCleanup(engine, sessionId, type, parent, operation, error) {
+  engine.telemetry?.record('subagent.cleanup', 'failed', {
+    agent_id: sessionId, agent_type: type, operation,
+    error_code: typeof error?.code === 'string' ? error.code : 'subagent_cleanup_failed',
+  }, { turnId: parent.turnId, stepId: parent.stepId, outcome: 'failed' });
 }
 
 function registerNndChild(engine, sessionId, parent, child, type) {

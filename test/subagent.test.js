@@ -5,7 +5,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { subagentDefinition } from '../src/subagent-tool.js';
-import { subagentConfig, subagentOutputStatus, subagentParallelLimit } from '../src/subagent-runtime.js';
+import { runEngineSubagent, subagentConfig, subagentOutputStatus, subagentParallelLimit } from '../src/subagent-runtime.js';
 import { createSubagentProgressRelay } from '../src/subagent-progress.js';
 import { resolveManifest } from '../src/config.js';
 import { TypedSessionEngine as SessionEngine } from './typed-provider-fixture.js';
@@ -96,6 +96,80 @@ test('sub-agent output status treats malformed output as failed', () => {
   assert.equal(subagentOutputStatus(null), 'failed');
   assert.equal(subagentOutputStatus('unexpected output'), 'failed');
   assert.equal(subagentOutputStatus({ outcome: 'completed' }), 'succeeded');
+});
+
+test('sub-agent runtime forwards child lifecycle and output to the NND registry', async () => {
+  const observed = [];
+  let childOptions;
+  const parent = {
+    config: { executionManifest: null, routes: { subagent: { providerId: 'worker', model: 'small' } } },
+    subagentDepth: 0, sessionId: 'parent', active: { turnId: 'turn_parent', stepId: 'step_parent',
+      principal: { subjectId: 'operator', workspaceIds: ['workspace'] } },
+    output: async () => undefined,
+    nndSessionRegistry: {
+      register(id, parentId, principal, child) {
+        observed.push(['registered', id, parentId, principal.subjectId]);
+        assert.equal(child.config.routes.primary.providerId, 'worker');
+        return (outcome) => observed.push(['completed', id, outcome]);
+      },
+      observeStarted(id) { observed.push(['started', id]); },
+      observeOutput(id, record) { observed.push(['output', id, record.type]); },
+    },
+  };
+  const createEngine = (options) => {
+    childOptions = options;
+    return {
+      config: options.config, transcript: [], initialize: async () => undefined,
+      async submit() {
+        await childOptions.output({ type: 'stream_delta', session_id: childOptions.sessionId,
+          turn_id: 'child_turn', text: 'Live' });
+        await childOptions.output({ type: 'turn_result', session_id: childOptions.sessionId,
+          turn_id: 'child_turn', outcome: 'completed' });
+        return { outcome: 'completed', text: 'Live' };
+      },
+      shutdown: async () => undefined,
+    };
+  };
+  const result = await runEngineSubagent(parent, { type: 'general', task: 'Inspect.' },
+    new AbortController().signal, createEngine);
+  assert.equal(result.outcome, 'completed');
+  const id = childOptions.sessionId;
+  assert.deepEqual(observed, [
+    ['registered', id, 'parent', 'operator'], ['started', id],
+    ['output', id, 'stream_delta'], ['output', id, 'turn_result'],
+    ['completed', id, 'completed'],
+  ]);
+});
+
+test('optional NND observation failures cannot fail or skip cleanup of delegated work', async () => {
+  const diagnostics = [];
+  let shutdown = false;
+  const parent = {
+    config: { executionManifest: null, routes: { subagent: { providerId: 'worker', model: 'small' } } },
+    subagentDepth: 0, sessionId: 'parent', active: { turnId: 'turn_parent', stepId: 'step_parent',
+      principal: { subjectId: 'operator', workspaceIds: ['workspace'] } },
+    output: async () => undefined,
+    telemetry: { record: (kind, status, detail) => diagnostics.push([kind, status, detail.operation]) },
+    nndSessionRegistry: {
+      register() { return () => { throw new Error('display registry unregister failed'); }; },
+      observeStarted() { throw new Error('display registry start failed'); },
+      observeOutput() { throw new Error('display registry output failed'); },
+    },
+  };
+  const result = await runEngineSubagent(parent, { type: 'general', task: 'Inspect.' },
+    new AbortController().signal, (options) => ({
+      config: options.config, initialize: async () => undefined,
+      async submit() {
+        await options.output({ type: 'stream_delta', session_id: options.sessionId,
+          turn_id: 'child_turn', text: 'Done' });
+        return { outcome: 'completed', text: 'Done' };
+      },
+      shutdown: async () => { shutdown = true; },
+    }));
+  assert.equal(result.outcome, 'completed');
+  assert.equal(shutdown, true);
+  assert.deepEqual(diagnostics.filter(([kind]) => kind === 'nnd.session_observation').map(([, , operation]) => operation),
+    ['started', 'output', 'completed']);
 });
 
 test('subagent concurrency follows the loaded worker model parallel capacity', async () => {

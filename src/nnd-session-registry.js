@@ -7,11 +7,12 @@ const TRANSCRIPT_CHARS = 262_144;
 
 export class NndSessionRegistry {
   #sessions = new Map();
-  constructor(limit = 256) {
+  constructor(limit = 256, observer = null) {
     if (!Number.isSafeInteger(limit) || limit < 1) {
       throw new ContractError('nnd_session_capacity_invalid', 'NND session registry capacity must be a positive integer');
     }
     this.limit = limit;
+    this.observer = observer;
   }
   register(sessionId, parentId, principal, engine, options = {}) {
     if (!principal || typeof principal !== 'object' || typeof principal.subjectId !== 'string') return null;
@@ -27,7 +28,10 @@ export class NndSessionRegistry {
     // a new live child so transcript inspection cannot block delegated work.
     if (this.#sessions.size >= this.limit) {
       const completed = [...this.#sessions].find(([, item]) => item.engine === null);
-      if (completed) this.#sessions.delete(completed[0]);
+      if (completed) {
+        this.#sessions.delete(completed[0]);
+        this.#notify('deleted', completed[1]);
+      }
     }
     if (this.#sessions.size >= this.limit) throw new ContractError('nnd_session_capacity', 'NND session registry is full');
     const createdAt = Date.now();
@@ -39,20 +43,31 @@ export class NndSessionRegistry {
       transcript: [],
     };
     this.#sessions.set(sessionId, record);
-    return () => {
+    this.#notify('registered', record);
+    return (outcome = null) => {
       if (this.#sessions.get(sessionId) !== record) return;
       record.transcript = boundedTranscript(engine.transcript);
       record.engine = null;
       record.ingress = null;
       record.updatedAt = Date.now();
       record.revision += 1;
+      this.#notify('completed', record, { outcome });
     };
+  }
+  observeStarted(sessionId) {
+    const record = this.#sessions.get(sessionId);
+    if (record?.engine) this.#notify('started', record);
+  }
+  observeOutput(sessionId, output) {
+    const record = this.#sessions.get(sessionId);
+    if (record?.engine && output?.session_id === sessionId) this.#notify('output', record, output);
   }
   unregisterParent(parentId) {
     let removed = 0;
     for (const [sessionId, record] of this.#sessions) {
       if (record.parentId === parentId) {
         this.#sessions.delete(sessionId);
+        this.#notify('deleted', record);
         removed += 1;
       }
     }
@@ -99,6 +114,12 @@ export class NndSessionRegistry {
       }
     }
     return statuses;
+  }
+
+  #notify(type, record, payload = null) {
+    if (typeof this.observer !== 'function') return;
+    try { this.observer(type, describeChild(record), payload); }
+    catch { /* NND display observation cannot fail delegated engine work. */ }
   }
 }
 function samePrincipal(record, principal) {
