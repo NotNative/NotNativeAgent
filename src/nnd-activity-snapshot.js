@@ -125,12 +125,16 @@ function sanitizeToolEvidence(source) {
   const bounded = (value, limit) => typeof value === 'string'
     ? redactText(value).replace(/[\u0000-\u001f\u007f]/gu, ' ').trim().slice(0, limit) : '';
   const target = PATH_TARGET_TOOLS.has(source.tool) ? bounded(source.target, 180) : '';
+  const reviewPath = source.status === 'succeeded'
+    && ['fs_write_text', 'fs_edit_text', 'fs_edit_lines', 'fs_delete_file'].includes(source.tool)
+    && validReviewPath(source.review_path) && validReviewDirectory(source.review_workspace) ? source.review_path : '';
   const effect = bounded(source.effect, 48);
   const reasonCode = bounded(source.reason_code ?? source.reasonCode, 80);
   const elapsed = source.elapsed_ms ?? source.elapsedMs;
   const exit = source.exit_code ?? source.exitCode;
   const evidence = {
-    ...(target ? { target } : {}), ...(effect ? { effect } : {}),
+    ...(target ? { target } : {}), ...(reviewPath ? { reviewPath, reviewDirectory: source.review_workspace } : {}),
+    ...(effect ? { effect } : {}),
     ...(reasonCode ? { reasonCode } : {}),
     ...(Number.isSafeInteger(elapsed) && elapsed >= 0 && elapsed <= 604_800_000 ? { elapsedMs: elapsed } : {}),
     ...(Number.isSafeInteger(exit) && Math.abs(exit) <= 2_147_483_647 ? { exitCode: exit } : {}),
@@ -141,12 +145,27 @@ function sanitizeToolEvidence(source) {
 function validToolEvidence(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const keys = Object.keys(value);
-  if (!keys.length || keys.some((key) => !['target', 'effect', 'reasonCode', 'elapsedMs', 'exitCode'].includes(key))) return false;
+  if (!keys.length || keys.some((key) => !['target', 'reviewPath', 'reviewDirectory', 'effect', 'reasonCode', 'elapsedMs', 'exitCode'].includes(key))) return false;
   const validText = (text, max) => text === undefined || typeof text === 'string' && text.length > 0
     && text.length <= max && !/[\u0000-\u001f\u007f]/u.test(text);
-  return validText(value.target, 180) && validText(value.effect, 48) && validText(value.reasonCode, 80)
+  return validText(value.target, 180)
+    && (value.reviewPath === undefined && value.reviewDirectory === undefined
+      || validReviewPath(value.reviewPath) && validReviewDirectory(value.reviewDirectory))
+    && validText(value.effect, 48) && validText(value.reasonCode, 80)
     && (value.elapsedMs === undefined || Number.isSafeInteger(value.elapsedMs) && value.elapsedMs >= 0 && value.elapsedMs <= 604_800_000)
     && (value.exitCode === undefined || Number.isSafeInteger(value.exitCode) && Math.abs(value.exitCode) <= 2_147_483_647);
+}
+
+function validReviewPath(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 300
+    && !/^[a-z]:|^\/|\\|[\u0000-\u001f\u007f]/iu.test(value)
+    && value.split('/').every((segment) => segment !== '' && segment !== '.' && segment !== '..')
+    && redactText(value) === value;
+}
+
+function validReviewDirectory(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 1000
+    && !/[\u0000-\u001f\u007f]/u.test(value) && redactText(value) === value;
 }
 
 function validEvidenceMessageID(value) {

@@ -7,6 +7,7 @@ import { NndEngineHost } from '../src/nnd-engine-host.js';
 import { activityPath, appendActivity } from '../src/nnd-activity-snapshot.js';
 import { childSnapshotPath } from '../src/nnd-child-snapshot.js';
 import { emitEngineStatus } from '../src/engine/output.js';
+import { toolStatus } from '../src/engine/records.js';
 
 const owner = { subjectId: 'user_a', workspaceIds: ['workspace_a'] };
 
@@ -204,6 +205,44 @@ test('NND Activity stores file path targets but never arbitrary command, query, 
   }
   assert.equal(JSON.stringify(records).includes('private-command-123'), false);
   assert.equal(JSON.stringify(records).includes('do-not-persist'), false);
+});
+
+test('NND Activity projects only succeeded workspace file mutations as review paths', () => {
+  const records = [];
+  const base = { id: 'review', sessionID: 'session_a', time: 1, kind: 'tool', status: 'completed', summary: 'file edited' };
+  const mutation = appendActivity(records, { ...base, toolEvidence: {
+    tool: 'fs_edit_text', status: 'succeeded', review_path: 'src/check.js',
+    review_workspace: 'D:/work', target: 'src/check.js',
+  } });
+  assert.deepEqual(mutation.toolEvidence, { target: 'src/check.js', reviewPath: 'src/check.js', reviewDirectory: 'D:/work' });
+  for (const [tool, status, path] of [
+    ['fs_read_text', 'succeeded', 'src/check.js'], ['fs_edit_text', 'running', 'src/check.js'],
+    ['fs_edit_text', 'succeeded', '../outside.js'], ['fs_edit_text', 'succeeded', 'D:/outside.js'],
+    ['fs_edit_text', 'succeeded', 'src\\outside.js'],
+  ]) {
+    const result = appendActivity(records, { ...base, id: `${tool}:${status}:${path}`, toolEvidence: {
+      tool, status, review_path: path, review_workspace: 'D:/work',
+    } });
+    assert.equal(result.toolEvidence?.reviewPath, undefined);
+  }
+  const unbound = appendActivity(records, { ...base, id: 'unbound', toolEvidence: {
+    tool: 'fs_edit_text', status: 'succeeded', review_path: 'src/check.js',
+  } });
+  assert.equal(unbound.toolEvidence?.reviewPath, undefined);
+});
+
+test('tool status derives review path from a resolved in-workspace mutation, not caller arguments', () => {
+  const root = join(tmpdir(), 'review-root');
+  const engine = { sessionId: 'session_a', config: { workspaceRoot: root },
+    tools: { definition: () => ({ sideEffect: 'reversible', scope: 'workspace' }) } };
+  const item = { request: { id: 'tool_a', toolName: 'fs_edit_text', args: { path: '../outside.js' },
+    resolved: { path: join(root, 'src', 'check.js'), insideWorkspace: true } },
+  call: { name: 'fs_edit_text' } };
+  assert.equal(toolStatus(engine, { turnId: 'turn_a' }, item, 'succeeded').review_path, 'src/check.js');
+  assert.equal(toolStatus(engine, { turnId: 'turn_a' }, item, 'succeeded').review_workspace, root);
+  assert.equal(toolStatus(engine, { turnId: 'turn_a' }, item, 'running').review_path, null);
+  item.request.resolved.path = join(root, '..', 'outside.js');
+  assert.equal(toolStatus(engine, { turnId: 'turn_a' }, item, 'succeeded').review_path, null);
 });
 
 test('NND activity rejects corrupt durable snapshots instead of silently clearing evidence', async () => {

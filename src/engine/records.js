@@ -3,6 +3,7 @@ import { ContractError } from '../ids.js';
 import { failureEnvelope } from '../failure-envelope.js';
 import { safeToolArguments } from '../tools/presentation.js';
 import { redactText } from '../redaction.js';
+import { isAbsolute, relative, sep } from 'node:path';
 import { durableToolResultState, toolChildState } from '../tools/tool-result-contract.js';
 
 const MAX_TARGET_LENGTH = 512;
@@ -96,11 +97,13 @@ export function toolStatus(engine, active, item, status) {
   const processSignalExit = item.result?.reason_code === 'process_signal_exit';
   const toolName = item.call?.name ?? item.request?.toolName ?? null;
   const agentRoute = toolName === 'agent_run' ? presentedAgentRoute(engine, presentedArgs) : null;
+  const review_path = reviewPath(engine.config?.workspaceRoot, toolName, status, item.request?.resolved);
   return {
     version: '1.0', type: 'tool_status', session_id: engine.sessionId,
     turn_id: active.turnId, tool_request_id: item.request?.id ?? null,
     provider_call_id: item.call?.providerCallId ?? null, tool: toolName, status,
     target: presentedToolTarget(toolName, presentedArgs, item.request?.resolved, agentRoute),
+    review_path, review_workspace: review_path ? engine.config.workspaceRoot : null,
     arguments: presentedArgs,
     agent_route: agentRoute,
     effect: item.request?.resolved?.readOnly === true ? 'read_only' : definition?.sideEffect ?? null,
@@ -115,6 +118,17 @@ export function toolStatus(engine, active, item, status) {
     reason_code: failed ? item.result?.reason_code ?? null : null,
     failure_reason: failed && !completedNonzero && !processSignalExit ? boundedFailureReason(item.result?.content) : null,
   };
+}
+
+const REVIEWABLE_FILE_TOOLS = new Set(['fs_write_text', 'fs_edit_text', 'fs_edit_lines', 'fs_delete_file']);
+
+function reviewPath(workspaceRoot, toolName, status, resolved) {
+  if (status !== 'succeeded' || !REVIEWABLE_FILE_TOOLS.has(toolName)
+    || resolved?.insideWorkspace !== true || typeof workspaceRoot !== 'string'
+    || typeof resolved.path !== 'string') return null;
+  const path = relative(workspaceRoot, resolved.path);
+  if (!path || isAbsolute(path) || path === '..' || path.startsWith(`..${sep}`)) return null;
+  return path.split(sep).join('/');
 }
 
 function observationOutcome(value) {
