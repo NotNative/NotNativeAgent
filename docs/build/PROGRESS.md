@@ -27,8 +27,10 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   the NND session catalog is durable. After NNA restarts, NND's existing
   child-session list and transcript view can reopen that history under the
   original parent and complete owner grant. A restored child is not busy and
-  has no steering capability. Child Activity remains live/in-memory only;
-  this is transcript recovery, not a complete audit replay.
+  has no steering capability. The source smoke now restarts a durable NNA
+  process and verifies these wire behaviors; NNA also restores authenticated
+  authority origins for the parent. Child Activity remains live/in-memory
+  only; this is transcript recovery, not a complete audit replay.
 
 - 2026-09-25 · **Authenticated Activity snapshots.** NNA now retains a bounded
   sanitized per-session Activity view and serves it through an owner-scoped
@@ -183,8 +185,8 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
   creates a child session, NND lists it under the parent, and the completed
   child's assistant transcript remains readable through NND while its
   steering grant is absent. This covers one completed child; restart
-  recovery has a focused NNA host gate, while multiple concurrent children
-  still need a cross-repository gate.
+  recovery now has an NNA host gate and a cross-repository restart gate, while
+  multiple concurrent children still need a cross-repository gate.
 
 - 2026-09-25 · **Governed source prompt loop.** The cross-repository smoke
   now starts a tiny loopback OpenAI-compatible fixture, submits a prompt via

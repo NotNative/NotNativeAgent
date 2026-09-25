@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 /** Explicit cross-repository smoke: NND routes -> adapter -> source NNA child. */
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -110,7 +112,7 @@ async function writeManifest(root, providerPort) {
   const config = join(root, 'config');
   await mkdir(config, { recursive: true });
   await writeFile(join(config, 'manifest.json'), JSON.stringify({
-    format_version: 1, persistence: 'ephemeral', workspace_root: root,
+    format_version: 1, persistence: 'durable', workspace_root: root,
     providers: [
       { id: 'primary', display_name: 'Primary', endpoint: `http://127.0.0.1:${providerPort}/v1`, model: 'test', trust_zone: 'loopback' },
       { id: 'delegated', display_name: 'Delegated', endpoint: `http://127.0.0.1:${providerPort}/v1`, model: 'test', trust_zone: 'loopback' },
@@ -140,7 +142,7 @@ async function probe(app, workspace, provider) {
   const nextEvent = eventReader(reader);
   try {
     assert.equal((await nextEvent()).payload.type, 'server.connected');
-    await probeSession(call, workspace, nextEvent, provider);
+    return await probeSession(call, workspace, nextEvent, provider);
   } finally {
     eventAbort.abort();
     await reader.cancel().catch(() => {});
@@ -239,9 +241,32 @@ async function probeSession(call, workspace, nextEvent, provider) {
     method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: 'Renamed smoke' }),
   }, 200);
   assert.equal(renamed.title, 'Renamed smoke');
-  assert.equal(await json(call, `/api/session/${id}`, { method: 'DELETE' }, 200), true);
+  return { parentId: id, childId: child.id };
+}
+
+async function probeRestoredSession(app, { parentId, childId }) {
+  const call = (path, init = {}) => app.fetch(new Request(`http://nnd.local${path}`, {
+    ...init, signal: AbortSignal.timeout(STEP_TIMEOUT_MS),
+  }));
+  assert.deepEqual((await json(call, '/api/session?roots=true', 200)).map((item) => item.id), [parentId]);
+  assert.deepEqual((await json(call, '/api/session?roots=false', 200)).map((item) => item.id), [childId]);
+  assert.deepEqual((await json(call, `/api/session/${parentId}/children`, 200)).map((item) => item.id), [childId]);
+  const messages = await json(call, `/api/session/${childId}/message`, 200);
+  assert.ok(messages.some((message) => message.info?.role === 'assistant'
+    && message.parts?.some((part) => part.text?.includes(CHILD_STEER_ACK))),
+  'restarted NNA did not restore the completed child transcript through NND');
+  assert.deepEqual(await json(call, `/api/session/${childId}/activity`, 200), [],
+    'completed child Activity unexpectedly claimed durable replay');
+  const capability = await json(call, `/api/v1/nnd/sessions/${childId}/capabilities`, 200);
+  assert.equal(capability.capabilities.steer_subagent, false, 'restored child was incorrectly steerable');
+  assert.equal((await call(`/api/v1/nnd/sessions/${childId}/steer`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ request_id: 'restarted_steer', content: 'Must stay read-only.' }),
+  })).status, 409);
+  assert.equal(await json(call, `/api/session/${parentId}`, { method: 'DELETE' }, 200), true);
   assert.deepEqual(await json(call, '/api/session?roots=true', 200), []);
-  assert.equal((await call(`/api/session/${child.id}/message`)).status, 404, 'deleting parent did not revoke child transcript');
+  assert.equal((await call(`/api/session/${childId}/message`)).status, 404,
+    'deleting restored parent did not revoke child transcript');
 }
 
 async function waitForChild(call, parentId) {
@@ -250,6 +275,18 @@ async function waitForChild(call, parentId) {
     const children = await json(call, `/api/session/${parentId}/children`, 200);
     if (children.length === 1) return children[0];
     if (Date.now() >= deadline) throw new Error('active delegated child did not appear in NND');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+async function waitForChildSnapshot(root, childId) {
+  const path = join(root, 'sessions', 'nnd-contexts.json.children', `${Buffer.from(childId, 'utf8').toString('hex')}.json`);
+  const deadline = Date.now() + 5_000;
+  for (;;) {
+    try { await access(path); return; }
+    catch (error) {
+      if (error.code !== 'ENOENT' || Date.now() >= deadline) throw new Error('completed child snapshot was not saved before restart');
+    }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
@@ -326,6 +363,7 @@ async function main(nnaSource) {
   await access(cli);
   const root = await mkdtemp(join(tmpdir(), 'nnd-nna-source-smoke-'));
   let harness;
+  let spawned;
   let provider;
   let operationFailed = false;
   try {
@@ -343,7 +381,8 @@ async function main(nnaSource) {
     ]);
     harness = await startLocalNnaHarness({
       command: process.execPath, commandArguments: [cli], dataRoot: root, workspaceId: 'local',
-    });
+      spawnChild: (command, args, options) => { spawned = spawn(command, args, options); return spawned; },
+    }).catch((error) => { throw new Error(`initial NNA start: ${error.message}`); });
     // A successful proxy request alone would not detect an accidentally
     // unauthenticated NNA endpoint. Verify the boundary before supplying the
     // launch credential to the adapter.
@@ -355,7 +394,19 @@ async function main(nnaSource) {
       endpoint: harness.endpoint, token: harness.token, principal: harness.principal,
     }));
     const app = createApp();
-    await probe(app, root, provider);
+    const sessions = await probe(app, root, provider);
+    await waitForChildSnapshot(root, sessions.childId);
+    const stopped = once(spawned, 'exit');
+    harness.dispose();
+    await withTimeout(stopped, 5_000, 'NNA did not stop for the restart smoke');
+    harness = await startLocalNnaHarness({
+      command: process.execPath, commandArguments: [cli], dataRoot: root, workspaceId: 'local',
+      spawnChild: (command, args, options) => { spawned = spawn(command, args, options); return spawned; },
+    }).catch((error) => { throw new Error(`NNA restart: ${error.message}`); });
+    registerHarnessAdapter(createNnaHarnessAdapter({
+      endpoint: harness.endpoint, token: harness.token, principal: harness.principal,
+    }));
+    await probeRestoredSession(createApp(), sessions);
     assert.ok(provider.completions() > 0, 'NNA did not call the isolated provider');
     assert.ok(provider.requests().some((request) => request.messages?.some((message) =>
       message.role === 'user' && typeof message.content === 'string'
@@ -388,5 +439,5 @@ async function main(nnaSource) {
       process.stderr.write(`NNA source smoke cleanup also failed: ${error instanceof Error ? error.message : 'unknown error'}\n`);
     }
   }
-  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, live events, governed prompt and delegation, parent and child transcripts, session lists and lifecycle, and origin gate.\n');
+  process.stdout.write('NND↔NNA source smoke passed: authenticated bootstrap, live events, governed prompt and delegation, restart-recovered child transcript, read-only steering, session lifecycle, and origin gate.\n');
 }
