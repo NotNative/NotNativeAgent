@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { isReviewPosture } from './review-posture.js';
+import { nndWorkProjection } from './nnd-work-projection.js';
 
 export function describe(context) {
   const governance = governanceProjection(context.engine);
   const configuredModel = configuredModelProjection(context.engine);
+  const work = nndWorkProjection(context.engine);
   const nnd = {
     ...(context.contextUsage ? { context: context.contextUsage } : {}),
     ...(governance ? { governance } : {}),
     ...(configuredModel ? { configuredModel } : {}),
+    ...(work ? { work } : {}),
   };
   return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value,
     directory: directoryFor(context), title: context.title, version: '1.0',

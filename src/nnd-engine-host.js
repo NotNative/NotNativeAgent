@@ -228,6 +228,10 @@ export class NndEngineHost {
       if (observation) {
         context.contextUsage = observation;
         this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
+      } else if (record.type === 'work_status') {
+        // Invariant: the engine work snapshot is authoritative; output only triggers a fresh projection.
+        context.updatedAt = nextUpdatedAt(context);
+        this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
       } else if (record.type === 'stream_delta' && typeof record.text === 'string' && record.text.length > 0) {
         const remaining = LIVE_PREVIEW_LIMIT_CHARS - turn.streamedChars;
         const preview = remaining > 0 ? record.text.slice(0, remaining) : '';

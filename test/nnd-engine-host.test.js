@@ -35,6 +35,40 @@ test('NND session description exposes only classified governance state', async (
   await host.shutdown();
 });
 
+test('NND projects canonical work status live without publishing private work evidence', async () => {
+  const events = [];
+  let output;
+  let work = { schema: 'nna.conversation_work.v1', revision: 0, goal: null, tasks: [] };
+  const engine = { ...fakeEngine(), workStatus: () => work,
+    submit: async () => new Promise(() => {}) };
+  const host = new NndEngineHost({ eventBus: { publishSession: (event) => events.push(event) },
+    createEngine: async (options) => { output = options.output; return engine; } });
+  await host.create('session_a', owner);
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.work,
+    { revision: 0, goal: null, tasks: [] });
+  assert.equal(host.submitAsync('session_a', { version: '1.0', type: 'submit',
+    request_id: 'prompt_a', content: 'Build it' }, owner).accepted, true);
+  work = { schema: 'nna.conversation_work.v1', revision: 1,
+    goal: { id: 'goal_a', objective: 'Build it', status: 'active', evidence: 'private evidence' },
+    tasks: [{ id: 'T1', title: 'Implement', status: 'in_progress', evidence: 'private task evidence' }] };
+  output({ type: 'work_status', session_id: 'session_a', work: { secret: 'raw output must not publish' } });
+  const projected = events.filter((event) => event.type === 'session.updated').at(-1).properties.info;
+  assert.deepEqual(projected.metadata.nnd.work, { revision: 1,
+    goal: { id: 'goal_a', objective: 'Build it', status: 'active' },
+    tasks: [{ id: 'T1', title: 'Implement', status: 'in_progress' }] });
+  assert.equal(JSON.stringify(events).includes('private evidence'), false);
+  assert.equal(JSON.stringify(events).includes('raw output must not publish'), false);
+  assert.throws(() => host.get('session_a', { subjectId: 'other', workspaceIds: owner.workspaceIds }),
+    { code: 'nnd_session_unavailable' });
+  const previous = events.length;
+  output({ type: 'work_status', session_id: 'other', work });
+  assert.equal(events.length, previous);
+  work = { ...work, tasks: [{ id: 'invalid', title: 'Do not publish', status: 'pending' }] };
+  output({ type: 'work_status', session_id: 'session_a', work });
+  assert.equal(host.get('session_a', owner).metadata?.nnd?.work, undefined);
+  await host.shutdown();
+});
+
 test('NND durable catalog restores owned sessions and removes closed sessions', async () => {
   const root = await mkdtemp(join(tmpdir(), 'nna-nnd-catalog-'));
   const catalogPath = join(root, 'nnd-contexts.json');

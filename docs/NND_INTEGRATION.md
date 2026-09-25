@@ -36,3 +36,12 @@ configurations keep sessions in memory only.
 `nna integration serve` remains the NNO-owned entry point. It still requires
 an installed NNO activation. The NND command has a separate NNA-owned local
 activation and does not change NNO's installation contract.
+
+The session description projects canonical NNA conversation work in
+`metadata.nnd.work`: revision, goal identity/objective/status, and bounded task
+identity/title/status. The projection comes from `SessionEngine.workStatus()`;
+it is not the OpenCode-compatible todo cache. Completion evidence, blocked
+reasons, staged completion, and journal details remain inside NNA. A committed
+`work_status` output causes a live `session.updated` projection, and normal
+session reads reconstruct the same summary after restart. If work state cannot
+be validated, the field is absent rather than fabricated.
