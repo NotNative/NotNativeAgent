@@ -363,6 +363,15 @@ test('NND engine host streams text and tool activity before authoritative comple
   });
   await host.create('session_a', owner);
   host.submitAsync('session_a', { version: '1.0', type: 'submit', request_id: 'prompt_a', content: 'hello' }, owner);
+  output({ type: 'context_status', session_id: 'session_a', turn_id: 'turn_a',
+    estimated_tokens: 4_000, limit_tokens: 16_000, source_text: 'never publish context text' });
+  assert.deepEqual(host.get('session_a', owner).metadata.nnd.context,
+    { estimatedTokens: 4_000, limitTokens: 16_000, measurement: 'estimated',
+      observedAt: host.get('session_a', owner).metadata.nnd.context.observedAt });
+  assert.equal(JSON.stringify(events).includes('never publish context text'), false);
+  output({ type: 'context_usage', session_id: 'session_a', turn_id: 'turn_a',
+    current_estimated_tokens: 5_000, limit_tokens: 16_000 });
+  assert.equal(host.get('session_a', owner).metadata.nnd.context.estimatedTokens, 5_000);
   output({ type: 'stream_delta', session_id: 'different', turn_id: 'turn_a', text: 'private' });
   output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_a', text: 'Hello' });
   output({ type: 'stream_delta', session_id: 'session_a', turn_id: 'turn_b', text: 'wrong turn' });

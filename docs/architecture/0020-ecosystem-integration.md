@@ -101,6 +101,11 @@ session event stream. Text deltas form a bounded, temporary assistant preview;
 completion removes that preview and publishes the canonical journal-backed
 transcript. Tool lifecycle rows carry tool name and state, not arguments or raw
 tool output. The Activity rail receives turn and tool events as live evidence.
+For NND-created engines, numeric context-status measurements are emitted and
+projected into session metadata as explicitly estimated token use and a known
+limit, when available. The context text itself is never part of that projection.
+The measurement is in memory only: after an NNA service restart, a restored
+session reports no context estimate until its next governed turn.
 These activity events are not yet a durable replay feed; reconnects recover the
 canonical transcript, while durable activity replay remains separate work.
 Display delivery failures cannot change the governed engine outcome.

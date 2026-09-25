@@ -3,6 +3,8 @@ import { ContractError, newId, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { NndSessionRegistry } from './nnd-session-registry.js';
 import { childLiveMessage, streamChildDelta } from './nnd-child-stream.js';
+import { nndContextObservation } from './nnd-context-observation.js';
+import { describe, nextUpdatedAt, sessionIdOrder, titleOf, directoryOf, directoryFor } from './nnd-session-description.js';
 import { createWireEventBus } from './opencode/wire-events.js';
 import { readFile, stat } from 'node:fs/promises';
 import { persistAtomicJson } from './persistence/atomic-json.js';
@@ -86,7 +88,7 @@ export class NndEngineHost {
       const createdAt = restoring ? options.createdAt : Date.now();
       const context = { sessionId, subjectId: principal.subjectId, workspaceIds: new Set(principal.workspaceIds), engine,
         title: titleOf(options.title), directory: directoryOf(engine.config?.workspaceRoot) || directoryOf(options.directory), createdAt,
-        updatedAt: restoring ? options.updatedAt : createdAt,
+        updatedAt: restoring ? options.updatedAt : createdAt, contextUsage: null,
         archivedAt: restoring ? options.archivedAt : 0,
         ingress: new CanonicalIngress(engine, { interactive: options.interactive === true }), closing: false };
       if (restoring) this.#contexts.set(sessionId, context);
@@ -201,7 +203,11 @@ export class NndEngineHost {
         if (turn.turnId && turn.turnId !== record.turn_id) return;
         turn.turnId ??= record.turn_id;
       }
-      if (record.type === 'stream_delta' && typeof record.text === 'string' && record.text.length > 0) {
+      const observation = nndContextObservation(record);
+      if (observation) {
+        context.contextUsage = observation;
+        this.#publish(context, 'session.updated', { sessionID: sessionId, info: describe(context) }, true);
+      } else if (record.type === 'stream_delta' && typeof record.text === 'string' && record.text.length > 0) {
         const remaining = LIVE_PREVIEW_LIMIT_CHARS - turn.streamedChars;
         const preview = remaining > 0 ? record.text.slice(0, remaining) : '';
         if (preview) {
@@ -460,12 +466,6 @@ function samePrincipal(context, principal) {
   // context that was created under a broader workspace grant.
   return context.subjectId === principal.subjectId && [...context.workspaceIds].every((id) => principal.workspaceIds.includes(id));
 }
-function describe(context) { return { id: context.sessionId, slug: context.sessionId, projectID: context.workspaceIds.values().next().value, directory: directoryFor(context), title: context.title, version: '1.0', tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: context.createdAt, updated: context.updatedAt, ...(context.archivedAt ? { archived: context.archivedAt } : {}) } }; }
-function nextUpdatedAt(context) { return Math.max(Date.now(), context.updatedAt + 1); }
-function sessionIdOrder(left, right) { return left.id < right.id ? -1 : left.id > right.id ? 1 : 0; }
-function titleOf(value) { return typeof value === 'string' && value.trim() && value.length <= 256 ? value.trim() : 'New session'; }
-function directoryOf(value) { return typeof value === 'string' && value.length <= 4096 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : ''; }
-function directoryFor(context) { return directoryOf(context.engine.config?.workspaceRoot) || context.directory; }
 function activityStatus(value) {
   if (value === 'succeeded' || value === 'duplicate_ignored') return 'completed';
   if (value === 'review_pending' || value === 'approved' || value === 'running') return 'started';

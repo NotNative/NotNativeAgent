@@ -94,6 +94,7 @@ function installOutput(engine, options) {
     return result;
   };
   engine.surface = options.surface ?? 'headless';
+  engine.emitContextStatus = options.emitContextStatus === true;
 }
 
 function installExtensions(engine, options) {

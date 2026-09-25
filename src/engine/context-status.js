@@ -54,7 +54,7 @@ export async function buildReportedContext(
     && active.contextTokens > budget.scaledTokens) {
     throw new ContractError('context_too_large', 'context exceeds conservative token bound');
   }
-  if (engine.surface === INTERACTIVE_SURFACE) {
+  if (engine.surface === INTERACTIVE_SURFACE || engine.emitContextStatus) {
     await engine.output({
       version: '1.0', type: CONTEXT_STATUS_EVENT, session_id: engine.sessionId,
       turn_id: active.turnId, bytes: active.contextBytes,
@@ -80,7 +80,7 @@ export async function buildReportedContext(
 }
 
 export async function emitCurrentContextUsage(engine, active, stepId = active.stepId) {
-  if (engine.surface !== INTERACTIVE_SURFACE) return;
+  if (engine.surface !== INTERACTIVE_SURFACE && !engine.emitContextStatus) return;
   const records = [...engine.transcript];
   if (typeof active.stepText === 'string' && active.stepText.length > 0
     && active.stepText !== active.committedStepText) {
