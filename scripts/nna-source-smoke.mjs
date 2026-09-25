@@ -172,7 +172,14 @@ async function probeSession(call, workspace, nextEvent, provider) {
     body: JSON.stringify({ messageID: 'smoke_prompt', model: { providerID: 'primary', modelID: 'test' }, agent: 'nna', parts: [{ type: 'text', text: 'Reply with the smoke marker.' }] }),
   });
   assert.equal(submitted.status, 204);
-  await withTimeout(waitForCompletedTurn(nextEvent, id, 'smoke_prompt'), 15_000, 'governed NNA turn did not reach a terminal activity');
+  const authoredPhases = [];
+  await withTimeout(waitForCompletedTurn(nextEvent, id, 'smoke_prompt', (event) => {
+    if (event.payload?.type === 'session.updated' && event.payload.properties?.sessionID === id) {
+      const phase = event.payload.properties.info?.metadata?.nnd?.turnState?.phase;
+      if (phase) authoredPhases.push(phase);
+    }
+  }), 15_000, 'governed NNA turn did not reach a terminal activity');
+  assert.ok(authoredPhases.includes('waiting_provider'), 'NNA did not publish its authored provider-wait phase through NND');
   await waitForReply(call, id, EXPECTED_REPLY);
   const firstActivity = await json(call, `/api/session/${id}/activity`, 200);
   assert.ok(firstActivity.some((row) => row.id === `${id}:turn:smoke_prompt` && row.status === 'completed'),

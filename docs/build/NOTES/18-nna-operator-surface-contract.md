@@ -14,6 +14,17 @@ configured engine is NNA. Evidence, blocked reasons, and staged completion
 remain NNA-internal. The `work_status` output triggers an authenticated live
 `session.updated`; ordinary session reads restore the projection after restart.
 
+## Authored turn phase
+
+NNA emits semantic `state_status` records for NND-owned engines, folds its
+text/tool lifecycle records into streaming/tool phases, and projects the
+latest validated phase through `metadata.nnd.turnState.phase`.
+The Context rail displays that phase, even when token measurement is absent.
+NND does not infer it from the compatibility `busy|idle|retry` transport
+status. NNA settles the projection to idle after a completed turn; unknown
+phase names remain absent. The full replayable turn-state contract, including
+cursor and correction semantics, remains separate PA work.
+
 ## Child-session steering
 
 NNA must emit a versioned, replayable session projection containing

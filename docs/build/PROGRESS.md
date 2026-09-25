@@ -22,6 +22,15 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA-authored turn phase in Context.** NND-created engines now
+  emit their semantic phase from NNA, and the authenticated session projection
+  carries the validated phase into the Work rail. The source smoke observes a
+  real `waiting_provider` frame during a governed turn. Generic busy/idle
+  remains replica bookkeeping; this does not claim the complete replayable
+  13-state wire contract. Adversarial review fixed stale idle recency and
+  mid-stream/tool phase lag. NNA full suite, NND UI/web suites, typechecks,
+  quality gates, and cross-repo source smoke pass.
+
 - 2026-09-25 · **Canonical NNA goal/tasks in Context.** NNA now projects its
   durable conversation-work revision, goal, and ordered task statuses into
   authenticated session metadata and emits a live session update after a

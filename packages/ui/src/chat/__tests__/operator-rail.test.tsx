@@ -154,6 +154,21 @@ describe('OperatorRail', () => {
     expect(context.textContent).not.toContain('$0.00');
   });
 
+  it('shows an NNA-authored turn phase even when context measurement is unavailable', () => {
+    useSessionViewStore.setState({ currentSessionId: 's1' });
+    const store = createDirectoryStore({ session: [{ id: 's1', metadata: { nnd: { turnState: {
+      phase: 'awaiting_approval', secret: 'never render',
+    } } }, time: { created: 1, updated: 1 } }] as never });
+    container = document.createElement('div'); document.body.appendChild(container); rootHandle = createRoot(container);
+    act(() => rootHandle!.render(<OperatorRail store={store} engine={{} as never} directory="D:/work" />));
+    const panel = document.querySelector('[data-testid="work-status-panel"]')!;
+    expect(panel.textContent).toContain('Reviewing tool use');
+    expect(panel.textContent).not.toContain('never render');
+    act(() => store.getState().patch({ session: [{ id: 's1', metadata: { nnd: { turnState: { phase: 'idle' } } },
+      time: { created: 1, updated: 2 } }] as never }));
+    expect(panel.textContent).toContain('Idle');
+  });
+
   it('shows NNA governance classifications and pending operator requests without exposing metadata extras', () => {
     useSessionViewStore.setState({ currentSessionId: 's1' });
     const store = createDirectoryStore({

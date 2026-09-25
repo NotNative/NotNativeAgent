@@ -43,6 +43,22 @@ export function nnaContextUsage(state: DirectoryStore, sessionID: string): { est
     percent: limitTokens === null ? null : (used as number) / limitTokens * 100 };
 }
 
+const NNA_TURN_PHASES = new Set([
+  'idle', 'preparing', 'waiting_provider', 'reasoning', 'streaming', 'awaiting_approval',
+  'running_tool', 'recovering', 'attention_required', 'cancelling', 'failed', 'needs_input',
+]);
+
+/** NNA-authored semantic phase. Client busy/idle is only transport bookkeeping. */
+export function nnaTurnPhase(state: DirectoryStore, sessionID: string): string | null {
+  const session = state.session.find((item) => item.id === sessionID);
+  const nnd = session?.metadata?.nnd;
+  if (!nnd || typeof nnd !== 'object' || Array.isArray(nnd)) return null;
+  const turnState = (nnd as Record<string, unknown>).turnState;
+  if (!turnState || typeof turnState !== 'object' || Array.isArray(turnState)) return null;
+  const phase = (turnState as Record<string, unknown>).phase;
+  return typeof phase === 'string' && NNA_TURN_PHASES.has(phase) ? phase : null;
+}
+
 export interface NnaGovernanceSummary {
   reviewPosture?: 'prompt' | 'auto-review' | 'unattended';
   recordHealth?: 'ready' | 'attention' | 'unavailable';

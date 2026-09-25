@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaWorkSummary, sessionCostRollup, subagentRows, todoRows, turnStats, usageRows, recapFor } from '../work-status.ts';
+import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaTurnPhase, nnaWorkSummary, sessionCostRollup, subagentRows, todoRows, turnStats, usageRows, recapFor } from '../work-status.ts';
 import { panelEligible, panelStatsIfNeeded } from '../panel-gate.ts';
 import { INITIAL_STATE, type DirectoryStore } from '../../sync/types.ts';
 import type { Message, Todo } from '../../lib/nnd/types.ts';
@@ -64,6 +64,21 @@ describe('NNA context measurement', () => {
       estimatedTokens: -1, limitTokens: 16_000, measurement: 'estimated', observedAt: 3,
     } } }, time: { created: 1, updated: 1 } }] } as unknown as Partial<DirectoryStore>);
     expect(nnaContextUsage(store.getState(), 's1')).toBeNull();
+  });
+});
+
+describe('NNA-authored turn phase', () => {
+  it('accepts the bounded semantic phase only from session-owned NNA metadata', () => {
+    const store = emptyStore();
+    expect(nnaTurnPhase(store.getState(), 's1')).toBeNull();
+    patch(store, { session: [{ id: 's1', metadata: { nnd: { turnState: {
+      phase: 'waiting_provider', secret: 'not a display field',
+    } } }, time: { created: 1, updated: 2 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaTurnPhase(store.getState(), 's1')).toBe('waiting_provider');
+    patch(store, { session: [{ id: 's1', metadata: { nnd: { turnState: {
+      phase: 'made_up_phase',
+    } } }, time: { created: 1, updated: 3 } }] } as unknown as Partial<DirectoryStore>);
+    expect(nnaTurnPhase(store.getState(), 's1')).toBeNull();
   });
 });
 

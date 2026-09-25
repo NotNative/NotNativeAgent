@@ -11,7 +11,7 @@ import type { DirectoryStore } from '../sync/types.ts';
 import type { SyncEngine } from '../sync/sync-engine.ts';
 import { useGlobalSessionStatusStore } from '../sync/global-stores.ts';
 import type { SessionStatus } from '../lib/nnd/types.ts';
-import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaWorkSummary, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
+import { contextUsage, nnaContextUsage, nnaGovernanceSummary, nnaSessionConfiguredModel, nnaTurnPhase, nnaWorkSummary, resolveContextLimit, todoRows, subagentRows, sessionCostRollup } from './work-status.ts';
 import { panelStatsIfNeeded, type PanelStats } from './panel-gate.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
 import { resolveComposerModel } from './composer-model-config.ts';
@@ -32,6 +32,9 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   const contextLimit = resolveContextLimit(snapshot.provider as never, (lastAssistant as { modelID?: string } | undefined)?.modelID);
   const context = contextUsage(snapshot, sessionID, contextLimit);
   const nnaContext = nnaContextUsage(snapshot, sessionID);
+  const turnPhase = nnaTurnPhase(snapshot, sessionID);
+  const turnLabel = turnPhase === 'awaiting_approval' ? 'Reviewing tool use'
+    : turnPhase ? turnPhase.replaceAll('_', ' ').replace(/^./u, (letter) => letter.toUpperCase()) : null;
   const governance = nnaGovernanceSummary(snapshot, sessionID);
   const work = nnaWorkSummary(snapshot, sessionID);
   const sessionModel = nnaSessionConfiguredModel(snapshot, sessionID);
@@ -77,6 +80,7 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
   ] });
   if (nnaContext) {
     sections.push({ id: 'session', label: 'Session', rows: [
+      turnLabel ? row('Turn', turnLabel) : null,
       row('Context', nnaContext.percent === null ? 'Limit unknown' : `${nnaContext.percent.toFixed(1)}% estimated`),
       row('Estimated use', `${nnaContext.estimatedTokens.toLocaleString()} tokens`),
       nnaContext.limitTokens === null ? null : row('Limit', `${nnaContext.limitTokens.toLocaleString()} tokens`),
@@ -86,12 +90,18 @@ export function WorkStatusPanel({ store, engine, embedded = false }: { store: St
       id: 'session',
       label: 'Session',
       rows: [
+        turnLabel ? row('Turn', turnLabel) : null,
         row('Context', context.percent === null ? 'unknown limit' : `${context.percent.toFixed(1)}%` + (context.tokens?.total ? ` · ${context.tokens?.total} tok` : '')),
         cost > 0 ? row('Cost', `$${cost.toFixed(2)}`) : null,
       ],
     });
   } else if (context.percent !== null) {
-    sections.push({ id: 'session', label: 'Session', rows: [row('Context', `${context.percent.toFixed(1)}%`)] });
+    sections.push({ id: 'session', label: 'Session', rows: [
+      turnLabel ? row('Turn', turnLabel) : null,
+      row('Context', `${context.percent.toFixed(1)}%`),
+    ] });
+  } else if (turnLabel) {
+    sections.push({ id: 'session', label: 'Session', rows: [row('Turn', turnLabel)] });
   }
   if (branch) sections.push({ id: 'project', label: 'Project', rows: [row('Branch', branch)] });
   // Usage section stays presence-collapsed until a quota provider registry
