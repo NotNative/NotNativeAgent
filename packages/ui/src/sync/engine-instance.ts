@@ -152,7 +152,8 @@ function partsIsRecentBoot(ctx: EngineCtx): boolean {
 /** SLICE-A chat-alive (doc 05 §A boot-open, v1): pick the session to open on
  * boot. Priority: an existing selection (user or draft) wins; then the
  * persisted last-active pointer when it still exists in the authoritative
- * list and matches this directory; then the seeded welcome demo. When none
+ * list and its directory is consistent with the saved or boot directory;
+ * then the seeded welcome demo. When none
  * apply nothing opens — the empty draft stays the honest state. */
 export interface InitialOpenInput {
   currentSessionId: string | null;
@@ -165,18 +166,29 @@ export interface InitialOpenInput {
 export async function openInitialSession(input: InitialOpenInput): Promise<void> {
   if (input.currentSessionId) return; // existing selection always wins
   const p = input.pointer;
-  const pointerValid = p !== null
-    && normalizeDirectory(p.directory) === input.directory
-    && input.storeSessions.some((session) => session.id === p.sessionId);
-  if (p && pointerValid) { input.select(p.sessionId, input.directory); return; }
-  const welcome = input.storeSessions.find((session) => !session.time?.archived && session.title?.startsWith('Welcome'));
+  const pointerSession = p && input.storeSessions.find((session) => session.id === p.sessionId && !session.time?.archived);
+  const savedDirectory = p ? normalizeDirectory(p.directory) : '';
+  const sessionDirectory = pointerSession ? normalizeDirectory(pointerSession.directory || input.directory) : '';
+  // A governed workspace transition can move a session after its pointer was
+  // saved. The authoritative session may then name a new directory, while an
+  // unrelated pointer from another workspace must not hijack this boot list.
+  if (pointerSession && (savedDirectory === input.directory || savedDirectory === sessionDirectory)) {
+    input.select(pointerSession.id, sessionDirectory);
+    return;
+  }
+  const welcome = input.storeSessions.find((session) =>
+    !session.time?.archived && !session.parentID &&
+    session.title === 'Welcome to NotNativeDesktop' &&
+    normalizeDirectory(session.directory || input.directory) === input.directory);
   if (welcome) input.select(welcome.id, input.directory);
 }
 
 /** Boot-open select: view pointer + routing + message tail load. */
 function selectBootSession(ctx: EngineCtx, sessionID: string, directory: string): void {
+  ctx.manager.ensureChild(directory);
   useSessionViewStore.setState({ currentSessionId: sessionID, activeDirectory: directory });
   registerSessionDirectory(ctx.routing, sessionID, directory);
+  persistLastActiveSession(sessionID, directory);
   ctx.materializer.enqueue({ reason: 'boot-open', sessionID }, directory);
 }
 
@@ -193,8 +205,8 @@ async function partsStart(ctx: EngineCtx): Promise<void> {
   // session (or the seeded welcome demo on first run). The user had that
   // session open before, so restoring it needs no confirmation; when nothing
   // restores, the empty draft (doc 05) stays the honest state.
-  void awaitAuthoritativeList(ctx.manager, directory, 6000).then(() => {
-    if (ctx.disposed) return;
+  void awaitAuthoritativeList(ctx.manager, directory, 6000).then((authoritative) => {
+    if (ctx.disposed || !authoritative) return;
     return openInitialSession({
       currentSessionId: useSessionViewStore.getState().currentSessionId,
       directory: normalizeDirectory(directory),

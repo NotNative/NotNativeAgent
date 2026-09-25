@@ -5,9 +5,8 @@
  * `status: 'complete'` BEFORE its phase-3 list merge, and the recovery
  * 'initial' resync short-circuits on a fresh boot (zero reconnect
  * candidates) — so neither signal alone proves the list has landed. This
- * waiter resolves when `sessionListSource` becomes 'authoritative', when the
- * bootstrap fails outright, or at the cap. After it resolves, the engine
- * falls through to the plain decision; the empty draft stays an honest state.
+ * waiter returns whether `sessionListSource` became 'authoritative'. Failure
+ * or timeout must not authorize opening a stale cached session.
  */
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import type { StoreApi } from 'zustand/vanilla';
@@ -26,23 +25,23 @@ export async function awaitAuthoritativeList(
   manager: BootListManager,
   directory: string,
   timeoutMs: number,
-): Promise<void> {
+): Promise<boolean> {
   const store = manager.peekChild(normalizeDirectory(directory));
-  if (!store) return;
+  if (!store) return false;
   const ready = (): boolean => {
     const state = store.getState();
     return state.sessionListSource === 'authoritative';
   };
   const failed = (): boolean => store.getState().status === 'failed';
-  if (ready() || failed()) return;
-  await new Promise<void>((resolve) => {
+  if (ready() || failed()) return ready();
+  return new Promise<boolean>((resolve) => {
     let settled = false;
     const finish = (): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       unsubscribe();
-      resolve();
+      resolve(ready());
     };
     const timer = setTimeout(finish, timeoutMs);
     const unsubscribe = store.subscribe(() => {

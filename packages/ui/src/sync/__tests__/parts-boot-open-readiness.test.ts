@@ -49,7 +49,7 @@ function managerOf(store: BootListStore | undefined, expected: string): BootList
 describe('awaitAuthoritativeList', () => {
   it('resolves immediately when the list is already authoritative', async () => {
     const store = fakeStore({ status: 'complete', sessionListSource: 'authoritative' });
-    await awaitAuthoritativeList(managerOf(store, 'D:/work'), 'D:\\work', 500);
+    expect(await awaitAuthoritativeList(managerOf(store, 'D:/work'), 'D:\\work', 500)).toBe(true);
     expect(store.state.sessionListSource).toBe('authoritative');
   });
 
@@ -61,25 +61,25 @@ describe('awaitAuthoritativeList', () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(resolved).toBe(false); // status complete alone must NOT release
     store.publish({ sessionListSource: 'authoritative' });
-    await promise;
+    expect(await promise).toBe(true);
   });
 
   it('resolves when the bootstrap fails outright (no list will come)', async () => {
     const store = fakeStore({ status: 'partial', sessionListSource: 'empty' });
     const promise = awaitAuthoritativeList(managerOf(store, 'D:/work'), 'D:\\work', 500);
     store.publish({ status: 'failed' });
-    await promise;
+    expect(await promise).toBe(false);
   });
 
   it('decays at the cap so boot-open still gets its chance', async () => {
     const store = fakeStore({ status: 'running', sessionListSource: 'empty' });
     const started = Date.now();
-    await awaitAuthoritativeList(managerOf(store, 'D:/work'), 'D:\\work', 20);
+    expect(await awaitAuthoritativeList(managerOf(store, 'D:/work'), 'D:\\work', 20)).toBe(false);
     expect(Date.now() - started).toBeGreaterThanOrEqual(15);
   });
 
   it('returns immediately when the child store is absent', async () => {
-    await awaitAuthoritativeList(managerOf(undefined, 'D:/work'), 'D:\\work', 20);
+    expect(await awaitAuthoritativeList(managerOf(undefined, 'D:/work'), 'D:\\work', 20)).toBe(false);
   });
 });
 

@@ -59,6 +59,26 @@ describe('boot-open', () => {
     expect(calls).toEqual([{ sessionID: 'ses_prev', directory: directoryKey }]);
   });
 
+  it('reopens a governed session in its current workspace after the saved directory becomes stale', async () => {
+    const moved = { ...sessionOf('ses_moved', 'Moved work'), directory: 'D:/next' };
+    const { input, calls } = inputOf({
+      storeSessions: [moved],
+      pointer: { sessionId: 'ses_moved', directory: directoryKey },
+    });
+    await openInitialSession(input);
+    expect(calls).toEqual([{ sessionID: 'ses_moved', directory: 'D:/next' }]);
+  });
+
+  it('reopens a pointer that matches its authoritative session in another workspace', async () => {
+    const other = { ...sessionOf('ses_other', 'Other work'), directory: 'D:/elsewhere' };
+    const { input, calls } = inputOf({
+      storeSessions: [other],
+      pointer: { sessionId: 'ses_other', directory: 'D:/elsewhere' },
+    });
+    await openInitialSession(input);
+    expect(calls).toEqual([{ sessionID: 'ses_other', directory: 'D:/elsewhere' }]);
+  });
+
   it('falls back to the welcome seed when the pointer session vanished (crash/archive)', async () => {
     const { input, calls } = inputOf({ pointer: { sessionId: 'ses_gone', directory: directoryKey } });
     await openInitialSession(input);
@@ -82,6 +102,20 @@ describe('boot-open', () => {
 
   it('never opens an ARCHIVED welcome demo; nothing opens instead', async () => {
     const { input, calls } = inputOf({ storeSessions: [sessionOf('ses_welcome', 'Welcome to NotNativeDesktop', 42)] });
+    await openInitialSession(input);
+    expect(calls).toEqual([]);
+  });
+
+  it('does not route a welcome session from another workspace into this one', async () => {
+    const other = { ...sessionOf('ses_welcome', 'Welcome to NotNativeDesktop'), directory: 'D:/elsewhere' };
+    const { input, calls } = inputOf({ storeSessions: [other] });
+    await openInitialSession(input);
+    expect(calls).toEqual([]);
+  });
+
+  it('does not treat an arbitrary welcome-prefixed child as the seeded demo', async () => {
+    const child = { ...sessionOf('ses_child', 'Welcome to my plan'), parentID: 'ses_parent' };
+    const { input, calls } = inputOf({ storeSessions: [child] });
     await openInitialSession(input);
     expect(calls).toEqual([]);
   });

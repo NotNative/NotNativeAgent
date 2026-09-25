@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **NNA workspace-aware boot restoration.** NND now uses the
+  authoritative session directory when reopening a saved session whose
+  governed NNA workspace changed. It creates that directory's child store
+  and updates the saved pointer. Boot-open waits for an authoritative list;
+  failure or timeout cannot reopen a stale cached session. The seeded welcome
+  fallback is limited to the exact root session in the boot directory.
+  Focused boot tests and UI typecheck pass. The broader Vitest run currently
+  has unrelated web-suite failures in mock tool event ordering, auth settings,
+  and relay cleanup; these also reproduce in isolation.
+
 - 2026-09-25 · **NNA-first product default and installed-runtime discovery.**
   NND now defaults to NNA in product boot; its source dev launcher still
   explicitly selects the deterministic mock unless overridden. On Windows,
