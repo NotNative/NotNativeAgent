@@ -50,14 +50,19 @@ async function forward(request: Request, endpoint: URL, token: string, principal
   target.search = source.search;
   const headers = forwardedHeaders(request.headers, token, principal);
   const controller = new AbortController();
+  // The browser may close an SSE stream after the upstream has sent headers.
+  // Keep its signal attached to fetch for the stream lifetime so NNA can
+  // release the subscriber instead of holding a ghost connection.
+  const signal = AbortSignal.any([controller.signal, request.signal]);
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     const response = await requestFetch(target, {
-      method: request.method, headers, redirect: 'error', signal: controller.signal,
+      method: request.method, headers, redirect: 'error', signal,
       ...(request.method === 'GET' || request.method === 'HEAD' ? {} : { body: request.body, duplex: 'half' }),
     } as RequestInit);
     return safeResponse(response);
   } catch (error) {
+    if (request.signal.aborted) return harnessError('NND request was cancelled', 499);
     return harnessError(
       error instanceof DOMException && error.name === 'AbortError'
         ? 'NNA harness request timed out'

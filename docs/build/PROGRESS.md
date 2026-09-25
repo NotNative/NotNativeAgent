@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Live bridge events and cancellation.** The source smoke now
+  subscribes through NND to NNA's real `/global/event` stream, observes the
+  connection opener and the matching `session.created` frame, and closes the
+  stream. NND's adapter binds the downstream request abort signal to the
+  upstream fetch for the stream lifetime, so a closed browser request need
+  not leave an NNA subscriber behind. Focused cancellation tests cover both
+  a request waiting for headers and one already streaming.
+
 - 2026-09-25 · **Real source bridge smoke.** `npm run integration:smoke --
   <path-to-NNA-source>` starts a source NNA child with an isolated temporary
   data root, sends NND API requests through the real adapter, and checks

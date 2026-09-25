@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createServer } from 'node:http';
 import { createNnaHarnessAdapter, createNnaHarnessAdapterFromEnvironment } from '../nna.ts';
 
 const token = 'a'.repeat(32);
@@ -51,6 +52,67 @@ describe('NNA harness adapter', () => {
     const response = await adapter.handle(new Request('http://nnd.local/api/session'));
     expect(response.status).toBe(504);
     expect(await response.json()).toEqual({ error: { message: 'NNA harness request timed out' } });
+  });
+
+  it('propagates client cancellation while waiting for upstream headers', async () => {
+    const client = new AbortController();
+    let upstreamSignal: AbortSignal | undefined;
+    const fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit): Promise<Response> => {
+      upstreamSignal = init?.signal ?? undefined;
+      return new Promise((_resolve, reject) => {
+        upstreamSignal!.addEventListener('abort', () => reject(new DOMException('cancelled', 'AbortError')), { once: true });
+      });
+    });
+    const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch });
+    const pending = adapter.handle(new Request('http://nnd.local/api/global/event', { signal: client.signal }));
+    client.abort();
+    const response = await pending;
+    expect(upstreamSignal?.aborted).toBe(true);
+    expect(response.status).toBe(499);
+    expect(await response.json()).toEqual({ error: { message: 'NND request was cancelled' } });
+  });
+
+  it('keeps the client abort bound to a live upstream event stream', async () => {
+    const client = new AbortController();
+    let upstreamSignal: AbortSignal | undefined;
+    const fetch = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      upstreamSignal = init?.signal ?? undefined;
+      return new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode('data: connected\\n\\n')); } }), {
+        status: 200, headers: { 'content-type': 'text/event-stream' },
+      });
+    });
+    const adapter = createNnaHarnessAdapter({ endpoint: 'http://127.0.0.1:4100', token, principal, fetch });
+    const response = await adapter.handle(new Request('http://nnd.local/api/global/event', { signal: client.signal }));
+    expect(response.status).toBe(200);
+    expect(await response.body?.getReader().read()).toMatchObject({ done: false });
+    client.abort();
+    expect(upstreamSignal?.aborted).toBe(true);
+  });
+
+  it('closes the upstream SSE subscription when the downstream aborts after headers', async () => {
+    let upstreamClosed = false;
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/event-stream' });
+      response.write('data: connected\n\n');
+      response.on('close', () => { upstreamClosed = true; });
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('unexpected HTTP address');
+      const client = new AbortController();
+      const adapter = createNnaHarnessAdapter({ endpoint: `http://127.0.0.1:${address.port}`, token, principal });
+      const response = await adapter.handle(new Request('http://nnd.local/api/global/event', { signal: client.signal }));
+      expect(response.status).toBe(200);
+      const reader = response.body!.getReader();
+      expect((await reader.read()).done).toBe(false);
+      client.abort();
+      await vi.waitFor(() => expect(upstreamClosed).toBe(true));
+      await reader.cancel().catch(() => {});
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 
   it('obtains a principal envelope for every forwarded request', async () => {
