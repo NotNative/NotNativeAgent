@@ -206,16 +206,16 @@ function FolderActions({ directory, folderId, folderName, hasSessions }: { direc
 
 function SidebarRow({ session, status, currentSessionId, actions, folderId, depth = 0 }: { session: Session; status: SessionStatus | undefined; currentSessionId: string | null; actions: ChatSidebarProps['actions']; folderId?: string; depth?: number }): ReactNode {
   const active = status && status.type !== 'idle';
-  const blocked = sessionBlockedNote(engineRef, session.id);
+  const attention = sessionAttention(session);
   return (
-    <li className={`group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5 ${depth > 0 ? 'border-l border-white/10' : ''}`} style={depth > 0 ? { marginLeft: `${depth * 16}px` } : undefined} data-child-session={session.parentID ? 'true' : undefined} data-child-depth={depth > 0 ? depth : undefined}>
+    <li className={`group flex items-start gap-2 rounded-lg px-2 py-1.5 hover:bg-white/5 ${depth > 0 ? 'border-l border-white/10' : ''}`} style={depth > 0 ? { marginLeft: `${depth * 16}px` } : undefined} data-child-session={session.parentID ? 'true' : undefined} data-child-depth={depth > 0 ? depth : undefined} data-attention={attention ?? undefined}>
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => actions.openSession(session.id, session.directory ?? '')} data-testid="session-row">
         <div className="flex items-center gap-1.5">
-          <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${active ? 'bg-amber-400' : 'bg-neutral-700'}`} />
+          <span aria-hidden className={`inline-block h-1.5 w-1.5 rounded-full ${attention ? 'bg-amber-400' : active ? 'bg-sky-400' : 'bg-neutral-700'}`} />
           {session.parentID ? <span className="text-[10px] text-neutral-600" aria-label="Child session">↳</span> : null}
           <span className={`min-w-0 flex-1 truncate text-[13px] ${currentSessionId === session.id ? 'text-neutral-100' : 'text-neutral-300'}`}>{session.title || 'Untitled Session'}</span>
         </div>
-        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{blocked ? ` · ${blocked}` : ''}</div>
+        <div className="pl-3 text-[10px] text-neutral-600">{formatRelative(session.time.updated)}{attention ? <span className="text-amber-300"> · {attention}</span> : null}</div>
       </button>
       <div className="flex items-center gap-1 text-[10px] text-neutral-600 opacity-0 transition group-hover:opacity-100">
         <button type="button" aria-label={`Rename ${session.title || 'session'}`} className="hover:text-neutral-200" onClick={() => {
@@ -291,15 +291,18 @@ function sessionDepths(sessions: Session[]): Map<string, number> {
   return depths;
 }
 
-let engineRef: { current: (sessionID: string) => string | null } | null = null;
-
-/** The Sidebar host installs a directoryOf probe for blocked-badges. */
-export function bindBlockedProbe(directoryOf: (sessionID: string) => string | null): void {
-  engineRef = { current: directoryOf };
-}
-
-function sessionBlockedNote(_probe: unknown, _sessionID: string): string {
-  return '';
+/** Only NNA-authored session metadata can assert attention here. Transport
+ * busy/idle has no permission or question semantics. */
+export function sessionAttention(session: Session): string | null {
+  const nnd = session.metadata?.nnd;
+  if (!nnd || typeof nnd !== 'object' || Array.isArray(nnd)) return null;
+  const evidence = nnd as Record<string, unknown>;
+  if ((evidence.attention as { kind?: unknown } | undefined)?.kind === 'needs_input') return 'needs input';
+  const phase = (evidence.turnState as { phase?: unknown } | undefined)?.phase;
+  if (phase === 'awaiting_approval') return 'approval pending';
+  if (phase === 'needs_input' || phase === 'attention_required') return 'needs input';
+  if (phase === 'failed') return 'failed';
+  return null;
 }
 
 function shortDirectory(directory: string): string {

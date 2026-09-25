@@ -4,7 +4,7 @@ import { Toaster, toast } from 'sonner';
 import { useI18n } from '../lib/i18n/context.tsx';
 import { mountEngine } from '../chat/app-engine.ts';
 import { ChatView } from '../chat/chat-view.tsx';
-import { ChatSidebar, bindBlockedProbe } from '../chat/session-sidebar.tsx';
+import { ChatSidebar } from '../chat/session-sidebar.tsx';
 import { SessionTabs } from '../chat/session-tabs.tsx';
 import { normalizeDirectory } from '../lib/nnd/client.ts';
 import { useSessionViewStore } from '../sync/view-store.ts';
@@ -116,10 +116,6 @@ export function MainLayout(): ReactNode {
       if (command === 'compact') toast.message('Compaction runs harness-side in P4+');
     },
   }));
-
-  useEffect(() => {
-    bindBlockedProbe((sessionID) => engine.routing.sessionDirectoryById.get(sessionID) ?? null);
-  }, [engine]);
 
   useEffect(() => {
     if (view.activeDirectory) return;

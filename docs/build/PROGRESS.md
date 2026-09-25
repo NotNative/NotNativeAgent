@@ -22,6 +22,14 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **Authored session attention in the navigator.** NNA now
+  projects a completed needs-input turn as session attention, independently
+  from the idle transport state. Root attention is reconstructed from its
+  durable Activity on restart; completed child attention survives the child
+  snapshot. A new root turn clears the projection as soon as it starts.
+  NND shows only validated NNA attention/phase badges in root and child rows,
+  replacing the prior inert blocked-badge stub.
+
 - 2026-09-25 · **Context rail evidence clarity.** Context now distinguishes
   no selected session, no NNA projection yet, and sections the operator hid.
   It summarizes the latest NNA-authored tool Activity for the selected
