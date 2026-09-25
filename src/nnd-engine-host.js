@@ -2,7 +2,7 @@
 import { ContractError, newId, requireExternalId } from './ids.js';
 import { CanonicalIngress } from './ingress.js';
 import { NndSessionRegistry } from './nnd-session-registry.js';
-import { childLiveMessage, observeChildLifecycle } from './nnd-child-stream.js';
+import { activityStatus, childLiveMessage, observeChildLifecycle, turnActivity } from './nnd-child-stream.js';
 import { hasPersistedSubmission, messageProjection, reservedProjectedMessageId } from './nnd-transcript-identity.js';
 import { nndContextObservation } from './nnd-context-observation.js';
 import { describe, nextUpdatedAt, sessionIdOrder, titleOf, directoryOf, directoryFor } from './nnd-session-description.js';
@@ -10,6 +10,7 @@ import { createWireEventBus } from './opencode/wire-events.js';
 import { readFile, stat } from 'node:fs/promises';
 import { persistAtomicJson } from './persistence/atomic-json.js';
 import { appendActivity, drainActivityWrites, loadActivity, removeActivity, reportActivityFailure, scheduleActivityWrite } from './nnd-activity-snapshot.js';
+import { loadChildSnapshots, NndChildSnapshotStore } from './nnd-child-snapshot.js';
 
 const CATALOG_LIMIT_BYTES = 1_048_576;
 const LIVE_PREVIEW_LIMIT_CHARS = 262_144;
@@ -36,6 +37,7 @@ export class NndEngineHost {
     this.catalogPath = options.catalogPath ?? null;
     this.persistCatalog = options.persistCatalog ?? persistAtomicJson;
     this.persistActivity = options.persistActivity ?? persistAtomicJson;
+    this.childSnapshotStore = new NndChildSnapshotStore(this.catalogPath, options.persistChildSnapshot);
     this.catalogWrites = Promise.resolve();
   }
 
@@ -60,6 +62,9 @@ export class NndEngineHost {
           title: record.title, directory: record.directory, createdAt: record.createdAt,
           updatedAt: record.updatedAt ?? record.createdAt, archivedAt: record.archivedAt ?? 0,
         }, true);
+      }
+      for (const snapshot of await loadChildSnapshots(this.catalogPath, this.#contexts, this.childSessions.limit ?? 256)) {
+        this.childSessions.restoreCompleted?.(snapshot);
       }
     } catch (error) {
       await this.shutdown().catch(() => undefined);
@@ -329,11 +334,13 @@ export class NndEngineHost {
     context.closing = true;
     // Security: closing a parent revokes its child steering grants before shutdown can fail.
     this.childSessions.unregisterParent?.(sessionId);
+    await this.childSnapshotStore.drain();
     await context.engine.shutdown({ version: '1.0', type: 'shutdown', request_id: newId('nnd_close') });
     await this.#commitCatalogChange(
       (contexts) => contexts.delete(sessionId),
       () => this.#contexts.delete(sessionId),
     );
+    await this.childSnapshotStore.completeParentClose(context);
     await drainActivityWrites(context);
     await removeActivity(this.catalogPath, sessionId).catch((error) => reportActivityFailure(context, error));
     this.#publish(context, 'session.deleted', { sessionID: sessionId }, true);
@@ -346,6 +353,7 @@ export class NndEngineHost {
       version: '1.0', type: 'shutdown', request_id: newId('nnd_shutdown'),
     })));
     await Promise.all(contexts.map((context) => drainActivityWrites(context)));
+    await this.childSnapshotStore.drain();
     const failed = settled.find((result) => result.status === 'rejected');
     if (failed) throw failed.reason;
   }
@@ -406,10 +414,10 @@ export class NndEngineHost {
   #observeChildEvent(type, child, payload) {
     const parent = this.#contexts.get(child.parentID);
     if (!parent) return;
+    this.childSnapshotStore.observe(type, child, parent, this.childSessions);
     observeChildLifecycle({ type, child, payload, streams: this.#childStreams, activity: this.#childActivity,
       publish: (eventType, properties, mirror) => this.#publishChild(parent, child, eventType, properties, mirror),
-      messages: () => this.messages(child.id, { subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds] }),
-      activityStatus, turnActivity });
+      messages: () => this.messages(child.id, { subjectId: parent.subjectId, workspaceIds: [...parent.workspaceIds] }) });
   }
 
   #publishChild(parent, child, type, properties, mirror = false) {
@@ -465,18 +473,6 @@ function samePrincipal(context, principal) {
   // A later principal with only one overlapping workspace must not regain a
   // context that was created under a broader workspace grant.
   return context.subjectId === principal.subjectId && [...context.workspaceIds].every((id) => principal.workspaceIds.includes(id));
-}
-function activityStatus(value) {
-  if (value === 'succeeded' || value === 'duplicate_ignored') return 'completed';
-  if (value === 'review_pending' || value === 'approved' || value === 'running') return 'started';
-  return 'failed';
-}
-function turnActivity(outcome, rejected) {
-  if (rejected) return { status: 'failed', summary: 'Turn failed' };
-  if (outcome === 'cancelled') return { status: 'completed', summary: 'Turn cancelled' };
-  if (outcome === 'needs_input') return { status: 'completed', summary: 'Turn needs input' };
-  if (outcome && outcome !== 'completed') return { status: 'failed', summary: 'Turn failed' };
-  return { status: 'completed', summary: 'Turn completed' };
 }
 function validCatalogRecord(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return false;

@@ -108,8 +108,8 @@ Each authenticated session description also reports only the configured route's
 provider and model IDs. A delegated child reports its own subagent route, which
 may differ from the root's primary route; this is not a claim about which
 fallback actually answered a turn. Provider endpoints, profiles, and credentials
-remain private. The child route ID remains available in its bounded in-memory
-description after completion.
+  remain private. The child route ID remains available in its bounded
+  description after completion.
 
 The NND integration host connects `SessionEngine.output` to its authenticated
 session event stream. Text deltas form a bounded, temporary assistant preview;
@@ -143,15 +143,18 @@ session restoration clearly and is not silently replaced. Snapshot writes are
 coalesced and observational: a write failure cannot change a governed turn.
 The canonical transcript remains the authoritative conversation record; Activity
 is a bounded recent operational view, not a complete audit ledger or cursor feed.
-Completed child Activity remains in memory while the child session is retained;
-child discovery and its Activity do not survive an NNA service restart.
+  Completed child Activity remains in memory while the child session is retained;
+  child Activity does not survive an NNA service restart.
 Display delivery failures cannot change the governed engine outcome.
 
 Child sessions appear under their NND parent in the session list. Their message
-view is available during delegation and remains as a bounded in-memory excerpt
-after the child finishes. A completed child has no steering grant. Closing the
-parent revokes child access. This child index does not yet survive an NNA service
-restart; durable child discovery and activity replay remain separate work.
+  view is available during delegation and remains as a bounded excerpt after the
+  child finishes. When the NND catalog is durable, completed child descriptions
+  and transcript excerpts persist as display-only snapshots. Restoration requires
+  the original parent creation time and complete owner/workspace grant. Restored
+  children have no live engine, busy state, or steering grant. Closing the parent
+  revokes child access and removes its snapshots. Child Activity replay remains
+  separate work; the transcript excerpt is not a complete governance audit log.
 Session reads and event delivery both require the full original workspace grant,
 not merely a shared first workspace.
 While a child runs, its own text deltas and tool lifecycle events stream under

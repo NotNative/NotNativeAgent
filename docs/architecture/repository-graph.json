@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:47167b970c60e60ddcf5f980cef587dd5613ca960b7bb28800dec06b2912deee",
+  "source_digest": "sha256:c64c7b5fdeaf9a9bf357a6f5af48c972f9f4b67af91e7a3ce01543fc9fa8d253",
   "counts": {
-    "modules": 368,
+    "modules": 369,
     "component_edges": 76
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 94
+      "module_count": 95
     }
   ],
   "entrypoints": [
@@ -112,16 +112,16 @@
   ],
   "component_edges": [
     {
+      "from": "foundation",
+      "to": "foundation",
+      "import_count": 168,
+      "module_count": 79
+    },
+    {
       "from": "experience-engine",
       "to": "experience-engine",
       "import_count": 166,
       "module_count": 55
-    },
-    {
-      "from": "foundation",
-      "to": "foundation",
-      "import_count": 166,
-      "module_count": 78
     },
     {
       "from": "experience-engine",
@@ -209,6 +209,12 @@
     },
     {
       "from": "foundation",
+      "to": "persistence",
+      "import_count": 11,
+      "module_count": 9
+    },
+    {
+      "from": "foundation",
       "to": "providers",
       "import_count": 11,
       "module_count": 8
@@ -230,12 +236,6 @@
       "to": "reliability-engine",
       "import_count": 11,
       "module_count": 4
-    },
-    {
-      "from": "foundation",
-      "to": "persistence",
-      "import_count": 10,
-      "module_count": 8
     },
     {
       "from": "opencode-surface",
@@ -1864,6 +1864,15 @@
       ]
     },
     {
+      "path": "src/nnd-child-snapshot.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": [
+        "src/ids.js",
+        "src/persistence/atomic-json.js"
+      ]
+    },
+    {
       "path": "src/nnd-child-stream.js",
       "component": "foundation",
       "entrypoint": false,
@@ -1883,6 +1892,7 @@
         "src/ids.js",
         "src/ingress.js",
         "src/nnd-activity-snapshot.js",
+        "src/nnd-child-snapshot.js",
         "src/nnd-child-stream.js",
         "src/nnd-context-observation.js",
         "src/nnd-session-description.js",

@@ -54,3 +54,18 @@ test('NND child transcript cache bounds text and evicts completed records before
   assert.equal(registry.get('child_1', owner), null);
   assert.equal(registry.get('child_2', owner).parentID, 'parent_1');
 });
+
+test('NND completed child time remains recoverable after a wall-clock correction', () => {
+  const registry = new NndSessionRegistry();
+  const owner = { subjectId: 'u1', workspaceIds: ['w1'] };
+  const originalNow = Date.now;
+  try {
+    Date.now = () => 2_000;
+    const stop = registry.register('child_1', 'parent_1', owner, { active: null, transcript: [] });
+    Date.now = () => 1_000;
+    stop();
+    const snapshot = registry.completedSnapshot('child_1', 2_000);
+    assert.equal(snapshot.createdAt, 2_000);
+    assert.equal(snapshot.updatedAt, 2_000);
+  } finally { Date.now = originalNow; }
+});

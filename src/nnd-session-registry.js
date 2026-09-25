@@ -51,10 +51,30 @@ export class NndSessionRegistry {
       record.transcript = boundedTranscript(engine.transcript);
       record.engine = null;
       record.ingress = null;
-      record.updatedAt = Date.now();
+      // Invariant: a wall-clock correction cannot make a retained child invalid on recovery.
+      record.updatedAt = Math.max(Date.now(), record.createdAt);
       record.revision += 1;
       this.#notify('completed', record, { outcome });
     };
+  }
+  completedSnapshot(sessionId, parentCreatedAt) {
+    const record = this.#sessions.get(sessionId);
+    if (!record || record.engine || !Number.isSafeInteger(parentCreatedAt)) return null;
+    return { version: 1, sessionId: record.sessionId, parentId: record.parentId, parentCreatedAt,
+      subjectId: record.subjectId, workspaceIds: [...record.workspaceIds], directory: record.directory,
+      title: record.title, configuredModel: record.configuredModel, createdAt: record.createdAt,
+      updatedAt: record.updatedAt, transcript: record.transcript };
+  }
+  restoreCompleted(snapshot) {
+    if (this.#sessions.has(snapshot.sessionId) || this.#sessions.size >= this.limit) {
+      throw new ContractError('nnd_child_snapshot_capacity', 'NND child snapshot count exceeds its bound');
+    }
+    this.#sessions.set(snapshot.sessionId, {
+      sessionId: snapshot.sessionId, parentId: snapshot.parentId, subjectId: snapshot.subjectId,
+      workspaceIds: new Set(snapshot.workspaceIds), engine: null, ingress: null, revision: 1,
+      directory: snapshot.directory, title: snapshot.title, configuredModel: snapshot.configuredModel,
+      createdAt: snapshot.createdAt, updatedAt: snapshot.updatedAt, transcript: snapshot.transcript,
+    });
   }
   observeStarted(sessionId) {
     const record = this.#sessions.get(sessionId);

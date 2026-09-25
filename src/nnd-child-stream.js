@@ -33,8 +33,7 @@ export function streamChildDelta(child, state, text, publish) {
 }
 
 /** Translate one delegated lifecycle record into child-scoped display frames. */
-export function observeChildLifecycle({ type, child, payload, streams, activity, publish, messages,
-  activityStatus, turnActivity }) {
+export function observeChildLifecycle({ type, child, payload, streams, activity, publish, messages }) {
   const state = streams.get(child.id);
   if (type === 'registered') {
     activity.set(child.id, []);
@@ -77,4 +76,17 @@ export function observeChildLifecycle({ type, child, payload, streams, activity,
     streams.delete(child.id);
     publish('session.deleted', { sessionID: child.id }, true);
   }
+}
+
+export function activityStatus(value) {
+  if (value === 'succeeded' || value === 'duplicate_ignored') return 'completed';
+  if (value === 'review_pending' || value === 'approved' || value === 'running') return 'started';
+  return 'failed';
+}
+export function turnActivity(outcome, rejected) {
+  if (rejected) return { status: 'failed', summary: 'Turn failed' };
+  if (outcome === 'cancelled') return { status: 'completed', summary: 'Turn cancelled' };
+  if (outcome === 'needs_input') return { status: 'completed', summary: 'Turn needs input' };
+  if (outcome && outcome !== 'completed') return { status: 'failed', summary: 'Turn failed' };
+  return { status: 'completed', summary: 'Turn completed' };
 }

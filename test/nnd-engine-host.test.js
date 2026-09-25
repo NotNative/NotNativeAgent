@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { NndEngineHost } from '../src/nnd-engine-host.js';
 import { activityPath, appendActivity } from '../src/nnd-activity-snapshot.js';
+import { childSnapshotPath } from '../src/nnd-child-snapshot.js';
 
 const owner = { subjectId: 'user_a', workspaceIds: ['workspace_a'] };
 
@@ -430,6 +431,156 @@ test('NND child sessions stream text and reconcile to the retained transcript', 
   await host.close('session_a', principal);
   assert.throws(() => host.activity('agent_coder_1', principal), { code: 'nnd_session_unavailable' });
   assert.deepEqual(events.slice(-2).map((event) => event.type), ['session.deleted', 'session.deleted']);
+});
+
+test('NND completed child transcript survives restart as read-only owned history', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-child-'));
+  const catalogPath = join(root, 'catalog.json');
+  const principal = { subjectId: owner.subjectId, workspaceIds: ['workspace_a', 'workspace_b'] };
+  const makeHost = () => new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  const first = makeHost();
+  await first.create('session_a', principal);
+  const child = { config: { workspaceRoot: 'D:\\work', routes: { primary: {
+    providerId: 'local', model: 'child-model', credential: 'do-not-save',
+  } } }, active: { finalized: false }, transcript: [
+    { type: 'message', role: 'user', content: 'Inspect this', privateField: 'do-not-save' },
+    { type: 'message', role: 'assistant', content: 'Done', toolArguments: 'do-not-save' },
+  ] };
+  const finish = first.childSessions.register('agent_a', 'session_a', principal, child, { type: 'coder' });
+  finish('completed');
+  await first.shutdown();
+  const path = childSnapshotPath(catalogPath, 'agent_a');
+  const saved = await readFile(path, 'utf8');
+  assert.equal(saved.includes('do-not-save'), false);
+  const second = makeHost();
+  await second.initialize();
+  assert.deepEqual(second.listChildren('session_a', principal).map((session) => session.id), ['agent_a']);
+  assert.equal(second.get('agent_a', principal).metadata.nnd.configuredModel.modelID, 'child-model');
+  assert.deepEqual(second.messages('agent_a', principal).map((message) => message.parts[0].text), ['Inspect this', 'Done']);
+  assert.deepEqual(second.messages('agent_a', principal).map((message) => message.info.id),
+    ['agent_a:message:0', 'agent_a:message:1']);
+  assert.deepEqual(second.statuses(principal), {});
+  assert.equal((await second.resolveChildSession('agent_a', principal)).availability, 'unavailable');
+  assert.throws(() => second.get('agent_a', owner), { code: 'nnd_session_unavailable' });
+  assert.throws(() => second.messages('agent_a', owner), { code: 'nnd_session_unavailable' });
+  assert.deepEqual(second.list({ subjectId: 'other', workspaceIds: principal.workspaceIds }), []);
+  await second.close('session_a', principal);
+  await assert.rejects(readFile(path, 'utf8'), { code: 'ENOENT' });
+});
+
+test('NND child snapshots cannot attach to a recreated parent and reject corrupt retained history', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-child-bind-'));
+  const catalogPath = join(root, 'catalog.json');
+  const first = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await first.create('session_a', owner);
+  const child = { config: { workspaceRoot: root }, active: null, transcript: [
+    { type: 'message', role: 'assistant', content: 'history' },
+  ] };
+  first.childSessions.register('agent_a', 'session_a', owner, child)('completed');
+  await first.shutdown();
+  const path = childSnapshotPath(catalogPath, 'agent_a');
+  const saved = JSON.parse(await readFile(path, 'utf8'));
+  await writeFile(path, '{invalid json');
+  const corrupt = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await assert.rejects(corrupt.initialize(), { code: 'nnd_child_snapshot_invalid' });
+  assert.equal(await readFile(path, 'utf8'), '{invalid json');
+  await writeFile(path, JSON.stringify({ ...saved, parentCreatedAt: saved.parentCreatedAt - 1 }));
+  const stale = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await stale.initialize();
+  assert.deepEqual(stale.listChildren('session_a', owner), []);
+  await stale.shutdown();
+});
+
+test('NND restart reconciles a child snapshot left by interrupted cache eviction', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-child-evict-'));
+  const catalogPath = join(root, 'catalog.json');
+  const makeHost = () => new NndEngineHost({ catalogPath, childSessionLimit: 1,
+    createEngine: async () => fakeEngine() });
+  const first = makeHost();
+  await first.create('session_a', owner);
+  const child = (content) => ({ config: { workspaceRoot: root }, active: null, transcript: [
+    { type: 'message', role: 'assistant', content },
+  ] });
+  first.childSessions.register('agent_a', 'session_a', owner, child('Old result'))('completed');
+  await first.childSnapshotStore.drain();
+  const stalePath = childSnapshotPath(catalogPath, 'agent_a');
+  const staleContent = await readFile(stalePath, 'utf8');
+  first.childSessions.register('agent_b', 'session_a', owner, child('New result'))('completed');
+  await first.shutdown();
+  // Simulate a crash after registry eviction but before its queued file removal.
+  await writeFile(stalePath, staleContent);
+  const reopened = makeHost();
+  await reopened.initialize();
+  assert.deepEqual(reopened.listChildren('session_a', owner).map((session) => session.id), ['agent_b']);
+  assert.equal(reopened.messages('agent_b', owner)[0].parts[0].text, 'New result');
+  await assert.rejects(readFile(stalePath, 'utf8'), { code: 'ENOENT' });
+  await reopened.shutdown();
+});
+
+test('NND child snapshot write failure does not fail delegated work', async () => {
+  let writes = 0;
+  const host = new NndEngineHost({ catalogPath: 'test-catalog', createEngine: async () => fakeEngine(),
+    persistCatalog: async () => {}, persistChildSnapshot: async () => {
+      writes += 1;
+      throw new Error('disk full');
+    } });
+  await host.create('session_a', owner);
+  const child = { config: { workspaceRoot: '' }, active: null, transcript: [
+    { type: 'message', role: 'assistant', content: 'Done' },
+  ] };
+  const finish = host.childSessions.register('agent_a', 'session_a', owner, child);
+  assert.doesNotThrow(() => finish('completed'));
+  await host.shutdown();
+  assert.equal(writes, 1);
+  assert.equal(host.messages('agent_a', owner)[0].parts[0].text, 'Done');
+});
+
+test('NND child recovery accepts the full catalog owner grant without a narrower child-only cap', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-child-grant-'));
+  const catalogPath = join(root, 'catalog.json');
+  const principal = { subjectId: owner.subjectId, workspaceIds: Array.from({ length: 300 }, (_, index) => `workspace_${index}`) };
+  const makeHost = () => new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  const first = makeHost();
+  await first.create('session_a', principal);
+  first.childSessions.register('agent_a', 'session_a', principal, {
+    config: { workspaceRoot: root }, active: null,
+    transcript: [{ type: 'message', role: 'assistant', content: 'Done' }],
+  })('completed');
+  await first.shutdown();
+  const reopened = makeHost();
+  await reopened.initialize();
+  assert.equal(reopened.messages('agent_a', principal)[0].parts[0].text, 'Done');
+  assert.throws(() => reopened.messages('agent_a', { ...principal, workspaceIds: principal.workspaceIds.slice(1) }),
+    { code: 'nnd_session_unavailable' });
+  await reopened.shutdown();
+});
+
+test('NND failed parent close retains completed child history until catalog deletion succeeds', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-child-close-'));
+  const catalogPath = join(root, 'catalog.json');
+  let shutdownAttempts = 0;
+  const host = new NndEngineHost({ catalogPath, createEngine: async () => ({
+    ...fakeEngine(), async shutdown() {
+      shutdownAttempts += 1;
+      if (shutdownAttempts === 1) throw new Error('shutdown failed');
+    },
+  }) });
+  await host.create('session_a', owner);
+  const child = { config: { workspaceRoot: root }, active: null, transcript: [
+    { type: 'message', role: 'assistant', content: 'Retained child result' },
+  ] };
+  host.childSessions.register('agent_a', 'session_a', owner, child)('completed');
+  await host.childSnapshotStore.drain();
+  const path = childSnapshotPath(catalogPath, 'agent_a');
+  await assert.rejects(() => host.close('session_a', owner), /shutdown failed/u);
+  assert.match(await readFile(path, 'utf8'), /Retained child result/u);
+  assert.equal(host.childSessions.get('agent_a', owner), null);
+  const reopened = new NndEngineHost({ catalogPath, createEngine: async () => fakeEngine() });
+  await reopened.initialize();
+  assert.equal(reopened.messages('agent_a', owner)[0].parts[0].text, 'Retained child result');
+  await reopened.shutdown();
+  assert.deepEqual(await host.close('session_a', owner), { closed: true });
+  await assert.rejects(readFile(path, 'utf8'), { code: 'ENOENT' });
 });
 
 test('NND engine host reserves capacity during creation and cleans up a failed initialization', async () => {
