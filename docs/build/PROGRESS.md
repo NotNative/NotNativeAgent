@@ -22,6 +22,16 @@ Goal: full cleanroom build of NotNativeDesktop per docs/planning (see `PLAN.md`)
 
 ## Log
 
+- 2026-09-25 · **P9 NNA-native goal evidence.** NNA now projects a bounded,
+  owner-scoped ordered window of safe turn receipts for goal accounting, with
+  request ID, outcome, accounted token count and measurement class. NND seeds
+  new goals' accounting cursor from the latest receipt, excluding pre-goal
+  turns. The audit added a busy-turn arming guard and CAS ingress fence,
+  complete truncation signals, valid request-ID parity and usage fallback.
+  This replaces the incompatible OpenCode snapshot/lexicographic-ID
+  assumptions for the NNA default. The tick that consumes the receipts is
+  still pending; unknown usage and truncated windows must be handled there.
+
 - 2026-09-25 · **P9 session-goal controls (pre-loop).** Root-session chat now has a
   goal strip and explicit manage panel behind `sessionGoalEnabled`: view the
   objective, status, progress note and token usage; set/edit a bounded objective

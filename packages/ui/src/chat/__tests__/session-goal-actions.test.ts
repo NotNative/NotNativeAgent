@@ -12,6 +12,7 @@ function fixture(): { api: GoalApi; state: { goal: SessionGoal | null; revision:
   let serial = 0;
   const api: GoalApi = {
     get: async () => ({ data: { goal: state.goal ? { ...state.goal } : null, revision: state.revision } }),
+    evidence: async () => ({ data: { session_id: ID, latest_request_id: 'msg_prior', window_truncated: false } }),
     put: async (_id, goal, expectedId, revision) => {
       if (state.conflict || expectedId !== (state.goal?.id ?? null) || revision !== state.revision) return { error: '409 goal changed', response: { status: 409 } };
       state.goal = { ...goal }; state.revision++;
@@ -36,12 +37,21 @@ function fixture(): { api: GoalApi; state: { goal: SessionGoal | null; revision:
 }
 
 describe('NNA-native session goal controls', () => {
+  it('refuses to arm when a compacted receipt window cannot establish the pre-goal cursor', async () => {
+    const { api, state } = fixture();
+    api.evidence = async () => ({ data: { session_id: ID, latest_request_id: null, window_truncated: true } });
+    await expect(saveSessionGoal(ID, 'Do work', 100, api)).rejects.toThrow('history is incomplete');
+    expect(state.goal).toBeNull();
+    expect(state.files.size).toBe(0);
+  });
+
   it('stages a unique file before CAS, preserves inline fallback, and retires only the old generation', async () => {
     const { api, state } = fixture();
     const first = await saveSessionGoal(ID, 'Build NND', 200_000, api);
     expect(first.revision).toBe(1);
     expect(first.goal?.objective).toBe('Build NND');
     expect(first.goal?.objectiveFile).toBe(true);
+    expect(first.goal?.lastAccountedMessageID).toBe('msg_prior');
     const oldKey = first.goal!.objectiveFileKey!;
     expect(state.files.get(oldKey)).toBe('Build NND');
     const second = await saveSessionGoal(ID, 'Finish the GUI', null, api);

@@ -386,6 +386,22 @@ cumulative cost of a run is the LATEST completed assistant message's
 
 (src: `runtime.js:585-647`)
 
+NNA-native override: NNA's projected transcript messages do not carry OpenCode's
+per-message cumulative cache snapshots, and their message IDs are not a sortable
+accounting cursor. Do not run the snapshot algorithm above over NNA messages.
+The dedicated owner-scoped `GET /v1/nnd/sessions/:id/goal-evidence` projects a
+bounded ordered window of completed NNA turn receipts, each with a request ID,
+outcome, accounted token total (or null), and measurement classification; no
+provider response or failure body crosses this seam. When creating a goal,
+NND seeds `lastAccountedMessageID` from the latest receipt request ID, so
+earlier turns are excluded. NNA rejects a fresh goal write while an older root
+turn is busy; otherwise a pre-goal turn could finish after the evidence read
+and be mistaken for goal work. The NNA-native tick will advance by receipt order
+and add per-turn accounted totals after that cursor, with a monotonic floor;
+unknown usage or a missing cursor must be handled explicitly rather than
+silently guessed. Compaction and the OpenCode snapshot baseline/segment math
+above apply only to an OpenCode-compatible harness, not the NNA default.
+
 #### B.5.5 The evaluator exchange `[HARNESS PORT]` (port P-02 §7.4 small-model)
 
 The audit is a direct small-model call — an independent auditor that sees ONLY the objective

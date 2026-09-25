@@ -208,6 +208,12 @@ export const harnessClient = {
   async getSessionGoal(sessionId: string): Promise<HarnessResult<{ goal: unknown | null; revision: number }>> {
     return request('getSessionGoal', `/v1/nnd/sessions/${sid(sessionId)}/goal`);
   },
+  async getSessionGoalEvidence(sessionId: string): Promise<HarnessResult<{
+    session_id: string; latest_request_id: string | null; window_truncated: boolean;
+    turns: { request_id: string; outcome: string; tokens: number | null; measurement: string }[];
+  }>> {
+    return request('getSessionGoalEvidence', `/v1/nnd/sessions/${sid(sessionId)}/goal-evidence`);
+  },
   async putSessionGoal(sessionId: string, goal: unknown, expectedId: string | null, expectedRevision: number): Promise<HarnessResult<{ goal: unknown; revision: number }>> {
     return request('putSessionGoal', `/v1/nnd/sessions/${sid(sessionId)}/goal`, {
       method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ goal, expected_id: expectedId, expected_revision: expectedRevision }),

@@ -8,6 +8,9 @@ export async function probeGoal(call, json) {
     body: JSON.stringify({ title: 'Goal bridge smoke' }),
   }, 201);
   const path = `/api/v1/nnd/sessions/${created.id}/goal`;
+  assert.deepEqual(await json(call, `/api/v1/nnd/sessions/${created.id}/goal-evidence`, 200), {
+    session_id: created.id, turns: [], latest_request_id: null, window_truncated: false,
+  });
   const now = Date.now();
   const goal = { id: 'goal_smoke', objective: 'Verify goal metadata bridge', objectiveFile: false,
     status: 'active', tokenBudget: null, tokensUsed: 0, tokensBaseline: 0, tokensCommitted: 0,

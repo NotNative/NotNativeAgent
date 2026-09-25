@@ -17,6 +17,7 @@ export interface GoalSnapshot { goal: SessionGoal | null; revision: number }
 
 export interface GoalApi {
   get(id: string): Promise<HarnessResult<{ goal: unknown | null; revision: number }>>;
+  evidence(id: string): Promise<HarnessResult<{ session_id: string; latest_request_id: string | null; window_truncated: boolean }>>;
   put(id: string, goal: SessionGoal, expectedId: string | null, revision: number): Promise<HarnessResult<{ goal: unknown | null; revision: number }>>;
   clear(id: string, expectedId: string, revision: number): Promise<HarnessResult<{ goal: unknown | null; revision: number }>>;
   writeFile(id: string, content: string): Promise<string>;
@@ -35,6 +36,7 @@ async function objectiveResponse(response: Response): Promise<{ key?: string; co
 
 export const browserGoalApi: GoalApi = {
   get: (id) => harnessClient.getSessionGoal(id),
+  evidence: (id) => harnessClient.getSessionGoalEvidence(id),
   put: (id, goal, expectedId, revision) => harnessClient.putSessionGoal(id, goal, expectedId, revision),
   clear: (id, expectedId, revision) => harnessClient.clearSessionGoal(id, expectedId, revision),
   async writeFile(id, content) {
@@ -84,12 +86,12 @@ export async function effectiveObjective(id: string, goal: SessionGoal, api: Goa
   catch { return goal.objective; }
 }
 
-function newGoal(objective: string, tokenBudget: number | null, now = Date.now()): SessionGoal {
+function newGoal(objective: string, tokenBudget: number | null, cursor: string, now = Date.now()): SessionGoal {
   return {
     id: crypto.randomUUID(), objective, objectiveFile: false, status: 'active', tokenBudget,
     tokensUsed: 0, tokensBaseline: 0, tokensCommitted: 0, turnsUsed: 0,
     blockedStreak: 0, auditFailStreak: 0, note: '', statusReason: '',
-    evaluationProviderID: '', evaluationModelID: '', lastAccountedMessageID: '',
+    evaluationProviderID: '', evaluationModelID: '', lastAccountedMessageID: cursor,
     createdAt: now, updatedAt: now,
   };
 }
@@ -101,6 +103,12 @@ export async function saveSessionGoal(id: string, text: string, budget: number |
   if (budget !== null && (!Number.isSafeInteger(budget) || budget < 1 || budget > 100_000_000)) throw new Error('Goal budget is invalid');
   const current = await loadSessionGoal(id, api);
   if (current.goal?.status === 'complete') throw new Error('Clear the completed goal before arming another');
+  const evidence = current.goal ? null : requireData(await api.evidence(id));
+  if (evidence && evidence.session_id !== id) throw new Error('Goal turn evidence belongs to another session');
+  if (evidence?.window_truncated && !evidence.latest_request_id) {
+    throw new Error('Goal turn history is incomplete; start a fresh session before arming a token-budgeted goal');
+  }
+  const cursor = evidence?.latest_request_id ?? '';
   let stagedKey = '';
   try { stagedKey = await api.writeFile(id, objective); } catch { /* inline fallback */ }
   const now = Date.now();
@@ -110,7 +118,7 @@ export async function saveSessionGoal(id: string, text: string, budget: number |
     tokenBudget: budget, status: 'active', statusReason: 'resumed', turnsUsed: 0,
     blockedStreak: 0, auditFailStreak: 0, updatedAt: now,
   } : {
-    ...newGoal(objective, budget, now), objectiveFile: Boolean(stagedKey),
+    ...newGoal(objective, budget, cursor, now), objectiveFile: Boolean(stagedKey),
     ...(stagedKey ? { objectiveFileKey: stagedKey } : {}),
   };
   const result = await api.put(id, goal, current.goal?.id ?? null, current.revision);

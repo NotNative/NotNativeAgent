@@ -317,3 +317,15 @@ waits — the server row ships first so a closed tab can never strand a queue.
   while an editor generation guard prevents a late objective-file read from
   replacing typed text. Pause/Complete/Clear report explicit partial success
   if NNA committed the goal change but aborting the live turn failed.
+- **E-09-17 (NNA turn evidence and arming boundary)**: the NNA default cannot
+  apply OpenCode's cumulative message-token math to its projected transcript.
+  Its owner-scoped goal-evidence route projects bounded, ordered turn receipts
+  with request ID, outcome, accounted tokens or null, and measurement class;
+  bodies and failure details stay private. An adversarial review fixed valid
+  dotted/colon IDs being omitted, invisible live/journal/compaction window
+  truncation, and zero/unavailable accounting masking legacy provider usage.
+  NNA rejects fresh goal arming during a pre-goal turn and fences prompt ingress
+  while the durable goal CAS is pending. NND seeds the goal cursor from the
+  latest receipt and rejects truncated evidence with no usable cursor. The
+  future tick must fail closed on lost cursors and unknown usage, not guess a
+  budget from the visible window.
