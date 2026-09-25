@@ -10,6 +10,7 @@ import { SecretBroker } from './secret-broker.js';
 import { resolveManifest } from './config.js';
 import { SessionEngine } from './engine.js';
 import { NndEngineHost } from './nnd-engine-host.js';
+import { nndMcpInventory } from './nnd-mcp-inventory.js';
 
 export async function runIntegrationCommand(args, paths, options = {}) {
   if ((args[0] ?? '') !== 'serve' || args.length !== 1) {
@@ -91,6 +92,7 @@ export async function createIntegrationNndEngineHost(paths, options = {}) {
   host.workspaceRoot = config.workspaceRoot;
   // Security: expose only the configured route identity to the NND browser, never provider credentials or endpoints.
   host.nndModel = Object.freeze({ providerID: config.routes.primary.providerId, modelID: config.routes.primary.model });
+  host.nndMcpInventory = nndMcpInventory(config);
   await host.initialize();
   return host;
 }

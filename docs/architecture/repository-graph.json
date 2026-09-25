@@ -2,9 +2,9 @@
   "schema_version": 1,
   "generated_by": "scripts/repository-graph.js",
   "scope": "src/**/*.js",
-  "source_digest": "sha256:c4674fbaa6a12c26d5e5fb34b36b9fa7fd35b9b03bd81bd58923ff1801ab543e",
+  "source_digest": "sha256:631f7e147ce44a66eea8e4ef0badde1ddf02515986e0769aa30829b55cfa8efe",
   "counts": {
-    "modules": 371,
+    "modules": 372,
     "component_edges": 76
   },
   "components": [
@@ -78,7 +78,7 @@
       "id": "foundation",
       "label": "Product foundation",
       "ownership": "Provides shared configuration, contracts, telemetry, and product utilities.",
-      "module_count": 97
+      "module_count": 98
     }
   ],
   "entrypoints": [
@@ -168,7 +168,7 @@
     {
       "from": "integrations",
       "to": "foundation",
-      "import_count": 20,
+      "import_count": 21,
       "module_count": 10
     },
     {
@@ -1754,6 +1754,7 @@
         "src/ids.js",
         "src/integration-server.js",
         "src/nnd-engine-host.js",
+        "src/nnd-mcp-inventory.js",
         "src/nno-integration-activation.js",
         "src/provider/profile-store.js",
         "src/secret-broker.js"
@@ -1915,6 +1916,12 @@
         "src/opencode/protocol.js",
         "src/secret-broker-server.js"
       ]
+    },
+    {
+      "path": "src/nnd-mcp-inventory.js",
+      "component": "foundation",
+      "entrypoint": false,
+      "imports": []
     },
     {
       "path": "src/nnd-operator-routes.js",

@@ -9,6 +9,8 @@ import { startIntegrationServer } from '../src/integration-server.js';
 import { validateNnoIntegrationActivation } from '../src/nno-integration-activation.js';
 import { ProviderProfileStore } from '../src/provider/profile-store.js';
 import { NndEngineHost } from '../src/nnd-engine-host.js';
+import { resolveManifest } from '../src/config.js';
+import { nndMcpInventory } from '../src/nnd-mcp-inventory.js';
 
 const TOKEN = 'ephemeral-integration-token-with-at-least-32-characters';
 
@@ -134,6 +136,35 @@ test('NND capability projection fails closed without a steering grant', async ()
     assert.equal(accepted.status, 202);
     assert.deepEqual(accepted.value, { accepted: true, request_id: 'steer_granted', subject_id: 'u_test' });
     assert.equal((await request(base, '/v1/nnd/sessions/ses_granted/capabilities', principal([]))).status, 403);
+  } finally { await service.close(); }
+});
+
+test('NND MCP inventory projects configured state without destinations or credentials', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'nna-nnd-mcp-'));
+  const configRoot = join(root, 'config');
+  await mkdir(configRoot, { recursive: true });
+  const input = { ...manifest(root), mcp_servers: [{
+    id: 'memory', transport: 'streamable_http', enabled: true, trusted: false,
+    endpoint: 'https://mcp.example/private?api_key=SECRET_QUERY', credential_env: 'SECRET_ENV',
+  }] };
+  await writeFile(join(configRoot, 'manifest.json'), JSON.stringify(input));
+  const inventory = nndMcpInventory(resolveManifest(input));
+  const service = await startIntegrationServer({
+    activation: await activation(root), token: TOKEN, instanceId: 'nna_test',
+    nndEngineHost: { nndMcpInventory: inventory },
+    providerStore: new ProviderProfileStore({ configRoot }),
+    broker: new SecretBroker({ vaultPath: join(root, 'vault.json'), keyPath: join(root, 'key.json') }), port: 0,
+  });
+  const base = `http://127.0.0.1:${service.address.port}`;
+  try {
+    const result = await request(base, '/v1/nnd/mcp', principal(['nnd.read']));
+    assert.deepEqual(result.value, { version: 1, state: 'configured', servers: [{
+      id: 'memory', transport: 'streamable_http', enabled: true, trusted: false,
+    }] });
+    assert.equal(JSON.stringify(result.value).includes('SECRET_'), false);
+    assert.equal(JSON.stringify(result.value).includes('mcp.example'), false);
+    assert.equal((await request(base, '/v1/nnd/mcp', principal([]))).status, 403);
+    assert.equal((await request(base, '/v1/nnd/mcp', principal(['nnd.read']), { method: 'POST' })).status, 405);
   } finally { await service.close(); }
 });
 
